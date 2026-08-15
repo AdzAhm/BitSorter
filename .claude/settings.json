@@ -8,7 +8,9 @@
       "Bash([ -f \"$f.meta\" ])",
       "Bash(git restore *)",
       "Bash(rm -f Probe.cs)",
-      "Bash(sed -i '/Probe.cs/d' verify.csproj)"
+      "Bash(sed -i '/Probe.cs/d' verify.csproj)",
+      "Bash(D=\"/c/Program Files/Unity/Hub/Editor/6000.3.11f1/Editor/Data/Managed/UnityEngine\"; ls \"$D\"/UnityEngine.CoreModule.dll \"$D\"/UnityEngine.dll 2>&1 | head -4)",
+      "Read(//c/Program Files/Unity/Hub/Editor/6000.3.11f1/Editor/Data/Managed/UnityEngine/**)"
     ]
   }
 }
