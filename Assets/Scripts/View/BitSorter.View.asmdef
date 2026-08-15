@@ -1,0 +1,16 @@
+{
+    "name": "BitSorter.View",
+    "rootNamespace": "BitSorter.View",
+    "references": [
+        "BitSorter.LogicCore"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
