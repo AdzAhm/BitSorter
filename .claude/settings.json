@@ -6,7 +6,9 @@
       "Bash(grep -E \"Assets/.*\\\\.\\(cs|asmdef|prefab|unity|png\\)$\")",
       "Bash(read f *)",
       "Bash([ -f \"$f.meta\" ])",
-      "Bash(git restore *)"
+      "Bash(git restore *)",
+      "Bash(rm -f Probe.cs)",
+      "Bash(sed -i '/Probe.cs/d' verify.csproj)"
     ]
   }
 }
