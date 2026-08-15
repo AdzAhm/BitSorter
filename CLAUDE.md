@@ -41,3 +41,15 @@ Explain things as you go and tell me when I'm about to do something dumb.
 
 - **Collisions never throw.** A bit delivered to an occupied input port
   increments CorruptedCount and is dropped.
+
+## Working agreement
+- Use Plan mode for anything touching more than one file.
+- Every new LogicCore component ships with its Edit Mode tests in the
+  same change. No component without a truth-table test.
+- After editing scripts, remind me to focus the Unity window so it
+  recompiles, then run EditMode tests before we commit.
+- Commit after each green test run, with a short descriptive message.
+
+## Not yet
+Do not build ahead of me. Current scope is the logic core only.
+No MonoBehaviours, no scenes, no sprites, no level JSON until I say so.
