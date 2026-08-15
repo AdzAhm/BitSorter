@@ -33,24 +33,36 @@ namespace BitSorter.LogicCore.Tests
         [TestCase(Bit.Zero, Bit.One, Bit.Zero)]
         [TestCase(Bit.One, Bit.Zero, Bit.Zero)]
         [TestCase(Bit.One, Bit.One, Bit.One)]
-        public void AndGate_TruthTable(Bit a, Bit b, Bit expected)
-        {
-            var sim = new Simulation();
-            var sourceA = sim.Add(new SourceNode(new[] { a }) { Name = "a" });
-            var sourceB = sim.Add(new SourceNode(new[] { b }) { Name = "b" });
-            var gate = sim.Add(new AndGate { Name = "and" });
-            var sink = sim.Add(new SinkNode() { Name = "sink" });
+        public void AndGate_TruthTable(Bit a, Bit b, Bit expected) =>
+            AssertBinaryGate(new AndGate { Name = "and" }, a, b, expected);
 
-            // Equal delays, so both inputs land on tick 1 and the gate fires that same tick.
-            sim.Connect(sourceA.Out(0), gate.In(0), delay: 1);
-            sim.Connect(sourceB.Out(0), gate.In(1), delay: 1);
-            sim.Connect(gate.Out(0), sink.In(0), delay: 1);
+        [TestCase(Bit.Zero, Bit.Zero, Bit.Zero)]
+        [TestCase(Bit.Zero, Bit.One, Bit.One)]
+        [TestCase(Bit.One, Bit.Zero, Bit.One)]
+        [TestCase(Bit.One, Bit.One, Bit.One)]
+        public void OrGate_TruthTable(Bit a, Bit b, Bit expected) =>
+            AssertBinaryGate(new OrGate { Name = "or" }, a, b, expected);
 
-            sim.Run(4);
+        [TestCase(Bit.Zero, Bit.Zero, Bit.Zero)]
+        [TestCase(Bit.Zero, Bit.One, Bit.One)]
+        [TestCase(Bit.One, Bit.Zero, Bit.One)]
+        [TestCase(Bit.One, Bit.One, Bit.Zero)]
+        public void XorGate_TruthTable(Bit a, Bit b, Bit expected) =>
+            AssertBinaryGate(new XorGate { Name = "xor" }, a, b, expected);
 
-            CollectionAssert.AreEqual(new[] { R(expected, 2) }, sink.Received);
-            Assert.AreEqual(0, sim.CorruptedCount);
-        }
+        [TestCase(Bit.Zero, Bit.Zero, Bit.One)]
+        [TestCase(Bit.Zero, Bit.One, Bit.One)]
+        [TestCase(Bit.One, Bit.Zero, Bit.One)]
+        [TestCase(Bit.One, Bit.One, Bit.Zero)]
+        public void NandGate_TruthTable(Bit a, Bit b, Bit expected) =>
+            AssertBinaryGate(new NandGate { Name = "nand" }, a, b, expected);
+
+        [TestCase(Bit.Zero, Bit.Zero, Bit.One)]
+        [TestCase(Bit.Zero, Bit.One, Bit.Zero)]
+        [TestCase(Bit.One, Bit.Zero, Bit.Zero)]
+        [TestCase(Bit.One, Bit.One, Bit.Zero)]
+        public void NorGate_TruthTable(Bit a, Bit b, Bit expected) =>
+            AssertBinaryGate(new NorGate { Name = "nor" }, a, b, expected);
 
         // -----------------------------------------------------------------
         // Gating on input readiness
@@ -105,6 +117,35 @@ namespace BitSorter.LogicCore.Tests
             sim.Tick();
             CollectionAssert.AreEqual(new[] { R(Bit.One, 6) }, sink.Received);
             Assert.AreEqual(0, sim.CorruptedCount);
+        }
+
+        // -----------------------------------------------------------------
+        // Helpers
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// Drives one row of a two-input gate's truth table through real sources, edges and a
+        /// sink, so each row exercises delivery and port ordering rather than calling OnEvaluate
+        /// directly. Both inputs share a delay of 1, so they land together on tick 1, the gate
+        /// fires that same tick, and the result reaches the sink on tick 2.
+        /// </summary>
+        private static void AssertBinaryGate(Node gate, Bit a, Bit b, Bit expected)
+        {
+            var sim = new Simulation();
+            var sourceA = sim.Add(new SourceNode(new[] { a }) { Name = "a" });
+            var sourceB = sim.Add(new SourceNode(new[] { b }) { Name = "b" });
+            sim.Add(gate);
+            var sink = sim.Add(new SinkNode() { Name = "sink" });
+
+            sim.Connect(sourceA.Out(0), gate.In(0), delay: 1);
+            sim.Connect(sourceB.Out(0), gate.In(1), delay: 1);
+            sim.Connect(gate.Out(0), sink.In(0), delay: 1);
+
+            sim.Run(4);
+
+            string row = $"{gate}: {a}, {b}";
+            CollectionAssert.AreEqual(new[] { R(expected, 2) }, sink.Received, row);
+            Assert.AreEqual(0, sim.CorruptedCount, row);
         }
     }
 }
