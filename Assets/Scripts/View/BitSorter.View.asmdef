@@ -2,7 +2,8 @@
     "name": "BitSorter.View",
     "rootNamespace": "BitSorter.View",
     "references": [
-        "BitSorter.LogicCore"
+        "BitSorter.LogicCore",
+        "Unity.InputSystem"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

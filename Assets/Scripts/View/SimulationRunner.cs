@@ -35,6 +35,30 @@ namespace BitSorter.View
 
         public bool IsReady => _simulation != null;
 
+        /// <summary>While paused the clock does not advance, so bits hold their on-screen position.</summary>
+        public bool IsPaused { get; private set; }
+
+        public void TogglePause() => IsPaused = !IsPaused;
+
+        public void SetPaused(bool paused) => IsPaused = paused;
+
+        /// <summary>
+        /// Advances exactly one tick, for stepping while paused. Clearing the accumulator restarts
+        /// interpolation at the new tick, so bits move forward into their new positions rather
+        /// than snapping backwards from wherever the clock was frozen.
+        /// </summary>
+        public void StepOneTick()
+        {
+            if (!IsReady)
+                return;
+
+            _accumulator = 0f;
+            _simulation.Tick();
+
+            if (_restartWhenIdle && IsIdle())
+                Build();
+        }
+
         /// <summary>
         /// How far the clock has run into the tick that has not happened yet, 0 to 1.
         /// </summary>
@@ -57,7 +81,9 @@ namespace BitSorter.View
 
         private void Update()
         {
-            if (_tickInterval <= 0f)
+            // Paused deliberately leaves the accumulator alone, so TickProgress holds its value
+            // and bits freeze mid-wire instead of snapping back to their last whole-tick position.
+            if (!IsReady || IsPaused || _tickInterval <= 0f)
                 return;
 
             _accumulator += Time.deltaTime;

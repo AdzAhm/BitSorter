@@ -44,12 +44,16 @@ namespace BitSorter.View.EditorTools
             NodeRenderer nodes = host.AddComponent<NodeRenderer>();
             EdgeRenderer edges = host.AddComponent<EdgeRenderer>();
             BitRenderer bits = host.AddComponent<BitRenderer>();
+            SimulationHud hud = host.AddComponent<SimulationHud>();
+            SimulationInput input = host.AddComponent<SimulationInput>();
 
             Assign(nodes, "_runner", runner);
             Assign(nodes, "_nodePrefab", nodePrefab);
             Assign(edges, "_runner", runner);
             Assign(bits, "_runner", runner);
             Assign(bits, "_bitPrefab", bitPrefab);
+            Assign(hud, "_runner", runner);
+            Assign(input, "_runner", runner);
 
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene, ScenePath);
