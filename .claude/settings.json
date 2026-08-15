@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(sed -i 's|<Compile Include=\"Program.cs\" />||' verify.csproj)",
+      "Bash(sed -i 's|\\\\\\(<Compile Include=\".*EditMode\\\\\\\\\\\\*\\\\.cs\" />\\\\\\)|\\\\1\\\\n <Compile Include=\"Probe.cs\" />|' verify.csproj)"
+    ]
+  }
+}
