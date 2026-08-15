@@ -74,3 +74,18 @@ Explain things as you go and tell me when I'm about to do something dumb.
 ## Not yet
 Do not build ahead of me. Current scope is the logic core only.
 No MonoBehaviours, no scenes, no sprites, no level JSON until I say so.
+
+## Level ideas
+Design notes only — not implementation work, and not a backlog. Nothing
+here gets built, scaffolded or prepared for until I explicitly ask for it
+by name. Treat this section as a place to park ideas, not as a to-do list.
+
+- **NAND-only puzzle.** NAND and NOR are each functionally complete —
+  every other gate, including NOT, can be built from either one alone.
+  A level that hands the player nothing but NANDs and asks for XOR.
+
+- **Unbalanced path delays.** Feeding a second-stage gate along paths of
+  different total delay causes corruption, not wrong answers. The early
+  bit latches in its port, and the next arrival collides with it. This is
+  the core difficulty of the adder chapters, and the reason CorruptedCount
+  exists as a game mechanic rather than just a diagnostic.
