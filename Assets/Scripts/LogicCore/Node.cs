@@ -13,10 +13,29 @@ namespace BitSorter.LogicCore
         private readonly OutputPort[] _outputs;
         private readonly Bit[] _consumeBuffer;
 
-        /// <summary>Optional label, used only to make diagnostics and test failures readable.</summary>
+        /// <summary>
+        /// Stable identifier, assigned when the node is added to a <see cref="Simulation"/> and
+        /// never reused or changed. A renderer can key its visuals to this across ticks, and an
+        /// input port is addressed stably by (this id, port index). -1 until the node is added.
+        /// </summary>
+        public int Id { get; internal set; } = -1;
+
+        /// <summary>
+        /// Optional label, used only to make diagnostics and test failures readable. Writable
+        /// from anywhere, but it is not simulation state -- setting it cannot change behaviour.
+        /// </summary>
         public string Name { get; set; }
 
+        public int InputCount => _inputs.Length;
+        public int OutputCount => _outputs.Length;
+
+        /// <remarks>
+        /// Convenient, but typed as IReadOnlyList, so iterating one boxes an enumerator. On a
+        /// per-frame path use <see cref="InputCount"/> with <see cref="In"/> instead.
+        /// </remarks>
         public IReadOnlyList<InputPort> Inputs => _inputs;
+
+        /// <inheritdoc cref="Inputs"/>
         public IReadOnlyList<OutputPort> Outputs => _outputs;
 
         protected Node(int inputCount, int outputCount)

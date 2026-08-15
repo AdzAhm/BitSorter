@@ -28,8 +28,30 @@ namespace BitSorter.LogicCore
         /// </summary>
         public int CorruptedCount { get; private set; }
 
+        public int NodeCount => _nodes.Count;
+        public int EdgeCount => _edges.Count;
+
+        /// <remarks>
+        /// Convenient, but typed as IReadOnlyList, so iterating one boxes an enumerator. On a
+        /// per-frame path use <see cref="NodeCount"/> with <see cref="GetNode"/> instead.
+        /// </remarks>
         public IReadOnlyList<Node> Nodes => _nodes;
+
+        /// <inheritdoc cref="Nodes"/>
         public IReadOnlyList<Edge> Edges => _edges;
+
+        /// <summary>The node with the given stable <see cref="Node.Id"/>.</summary>
+        public Node GetNode(int id) => _nodes[id];
+
+        /// <summary>The edge with the given stable <see cref="Edge.Id"/>.</summary>
+        public Edge GetEdge(int id) => _edges[id];
+
+        /// <summary>
+        /// A read-only handle for renderers: exposes the graph and its state but none of the
+        /// control surface, so the holder cannot tick or rewire the simulation. Obtaining one
+        /// allocates nothing.
+        /// </summary>
+        public SimulationView View => new SimulationView(this);
 
         public T Add<T>(T node) where T : Node
         {
@@ -37,6 +59,7 @@ namespace BitSorter.LogicCore
             if (_nodes.Contains(node))
                 throw new InvalidOperationException($"Node {node} has already been added.");
 
+            node.Id = _nodes.Count;
             _nodes.Add(node);
             return node;
         }
@@ -49,6 +72,7 @@ namespace BitSorter.LogicCore
         public Edge Connect(OutputPort from, InputPort to, int delay)
         {
             Edge edge = new Edge(from, to, delay);
+            edge.Id = _edges.Count;
             _edges.Add(edge);
             return edge;
         }

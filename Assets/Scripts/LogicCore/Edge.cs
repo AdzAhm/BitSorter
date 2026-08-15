@@ -31,11 +31,34 @@ namespace BitSorter.LogicCore
 
         private readonly List<Transit> _inTransit = new List<Transit>();
 
+        /// <summary>
+        /// Stable identifier, assigned when the edge is added to a <see cref="Simulation"/> and
+        /// never reused or changed. A renderer can key its visuals to this across ticks. -1 until
+        /// the edge is registered.
+        /// </summary>
+        public int Id { get; internal set; } = -1;
+
         public OutputPort Source { get; }
         public InputPort Target { get; }
         public int Delay { get; }
 
+        /// <summary>How many bits are currently travelling this edge.</summary>
         public int InTransitCount => _inTransit.Count;
+
+        /// <summary>
+        /// The bit at <paramref name="index"/>, ordered nearest-to-target first. Returns a value
+        /// type, so this allocates nothing and is safe to call every frame.
+        /// </summary>
+        /// <remarks>
+        /// Positions shift as bits are delivered, so an index is not a stable handle on a
+        /// particular bit between ticks. See <see cref="BitInTransit"/> for what to key on
+        /// instead.
+        /// </remarks>
+        public BitInTransit GetBitInTransit(int index)
+        {
+            Transit transit = _inTransit[index];
+            return new BitInTransit(transit.Value, transit.TicksRemaining, Delay);
+        }
 
         internal Edge(OutputPort source, InputPort target, int delay)
         {
