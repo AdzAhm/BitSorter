@@ -29,10 +29,17 @@ namespace BitSorter.View
         private Dictionary<long, SpriteRenderer> _next = new Dictionary<long, SpriteRenderer>();
         private readonly Stack<SpriteRenderer> _pool = new Stack<SpriteRenderer>();
 
+        private Transform _container;
+
         private void Awake()
         {
             if (_runner == null)
                 _runner = FindFirstObjectByType<SimulationRunner>();
+
+            // Its own container: NodeRenderer and EdgeRenderer tear their objects down on a
+            // rebuild, and the pooled sprites must not be caught in that.
+            _container = new GameObject("Bits").transform;
+            _container.SetParent(transform, false);
         }
 
         private void LateUpdate()
@@ -48,6 +55,8 @@ namespace BitSorter.View
             for (int edgeId = 0; edgeId < view.EdgeCount; edgeId++)
             {
                 Edge edge = view.GetEdge(edgeId);
+                if (edge == null)
+                    continue;   // removed edge; its sprites are released below by not being seen
 
                 Vector2 from = _runner.PositionOf(edge.Source.Owner.Id);
                 Vector2 to = _runner.PositionOf(edge.Target.Owner.Id);
@@ -110,7 +119,7 @@ namespace BitSorter.View
                 return pooled;
             }
 
-            GameObject instance = ViewSprites.Spawn(_bitPrefab, transform, "Bit");
+            GameObject instance = ViewSprites.Spawn(_bitPrefab, _container, "Bit");
             instance.transform.localScale = Vector3.one * _bitSize;
 
             var renderer = instance.GetComponent<SpriteRenderer>();

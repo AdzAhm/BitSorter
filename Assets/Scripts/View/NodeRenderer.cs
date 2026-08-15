@@ -1,45 +1,80 @@
+using System.Collections.Generic;
 using BitSorter.LogicCore;
 using UnityEngine;
 
 namespace BitSorter.View
 {
     /// <summary>
-    /// Spawns one square per node at its mapped position, coloured by node type. Nodes never
-    /// move, so this runs once and then does nothing.
+    /// Spawns one square per node at its mapped position, coloured by node type, and rebuilds
+    /// whenever the graph's shape changes.
     /// </summary>
+    /// <remarks>
+    /// Tracks the objects it spawned rather than clearing its children. All three renderers hang
+    /// off the same GameObject, so tearing down by child would delete the other two's work.
+    /// </remarks>
     public sealed class NodeRenderer : MonoBehaviour
     {
         [SerializeField] private SimulationRunner _runner;
         [SerializeField] private GameObject _nodePrefab;
         [SerializeField] private float _nodeSize = 1.2f;
 
+        private readonly List<GameObject> _spawned = new List<GameObject>();
+        private Transform _container;
+        private int _builtRevision = -1;
+
         private void Awake()
         {
             if (_runner == null)
                 _runner = FindFirstObjectByType<SimulationRunner>();
+
+            _container = new GameObject("Nodes").transform;
+            _container.SetParent(transform, false);
         }
 
-        private void Start()
+        private void LateUpdate()
         {
             if (_runner == null || !_runner.IsReady)
-            {
-                Debug.LogError($"{nameof(NodeRenderer)} has no {nameof(SimulationRunner)}.", this);
                 return;
+
+            if (_runner.GraphRevision == _builtRevision)
+                return;
+
+            Rebuild();
+            _builtRevision = _runner.GraphRevision;
+        }
+
+        private void Rebuild()
+        {
+            for (int i = 0; i < _spawned.Count; i++)
+            {
+                if (_spawned[i] == null)
+                    continue;
+
+                // Deactivate as well as destroy: Destroy only takes effect at end of frame, and
+                // the replacement is spawned before then.
+                _spawned[i].SetActive(false);
+                Destroy(_spawned[i]);
             }
+
+            _spawned.Clear();
 
             SimulationView view = _runner.View;
 
             for (int id = 0; id < view.NodeCount; id++)
             {
                 Node node = view.GetNode(id);
+                if (node == null)
+                    continue;   // retired id
 
-                GameObject instance = ViewSprites.Spawn(_nodePrefab, transform, $"Node {id} - {node}");
+                GameObject instance = ViewSprites.Spawn(_nodePrefab, _container, $"Node {id} - {node}");
                 instance.transform.position = _runner.PositionOf(id);
                 instance.transform.localScale = Vector3.one * _nodeSize;
 
                 var renderer = instance.GetComponent<SpriteRenderer>();
                 renderer.color = ColourFor(node);
                 renderer.sortingOrder = 0;
+
+                _spawned.Add(instance);
             }
         }
 

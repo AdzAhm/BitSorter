@@ -16,6 +16,8 @@ namespace BitSorter.View
     public sealed class SimulationHud : MonoBehaviour
     {
         [SerializeField] private SimulationRunner _runner;
+        [SerializeField] private PlacementController _placement;
+        [SerializeField] private float _rejectedHintSeconds = 2f;
         [SerializeField] private int _fontSize = 20;
         [SerializeField] private Color _textColour = new Color(0.90f, 0.92f, 0.96f);
         [SerializeField] private Color _corruptedColour = new Color(1.00f, 0.45f, 0.40f);
@@ -26,13 +28,18 @@ namespace BitSorter.View
 
         private int _shownTick = -1;
         private int _shownCorrupted = -1;
+        private int _shownNodes = -1;
         private string _tickText = "Tick  0";
         private string _corruptedText = "Corrupted  0";
+        private string _nodesText = "Nodes  0";
 
         private void Awake()
         {
             if (_runner == null)
                 _runner = FindFirstObjectByType<SimulationRunner>();
+
+            if (_placement == null)
+                _placement = FindFirstObjectByType<PlacementController>();
         }
 
         private void OnGUI()
@@ -57,7 +64,7 @@ namespace BitSorter.View
             }
 
             const float left = 16f;
-            const float width = 460f;
+            const float width = 900f;   // wide enough for the palette line
             const float line = 26f;
             float y = 12f;
 
@@ -69,12 +76,41 @@ namespace BitSorter.View
             GUI.Label(new Rect(left, y, width, line), _corruptedText, _valueStyle);
             y += line;
 
+            if (view.LiveNodeCount != _shownNodes)
+            {
+                _shownNodes = view.LiveNodeCount;
+                _nodesText = "Nodes  " + _shownNodes;
+            }
+
+            _valueStyle.normal.textColor = _textColour;
+            GUI.Label(new Rect(left, y, width, line), _nodesText, _valueStyle);
+            y += line;
+
+            if (_placement != null)
+            {
+                GUI.Label(
+                    new Rect(left, y, width, line),
+                    "Palette  " + GatePalette.Label(_placement.Selected)
+                                + "     1 NOT  2 AND  3 OR  4 XOR  5 NAND  6 NOR",
+                    _hintStyle);
+                y += line;
+            }
+
             GUI.Label(
                 new Rect(left, y, width, line),
                 _runner.IsPaused
-                    ? "PAUSED   space resumes   right arrow steps one tick"
+                    ? "PAUSED   space resumes   right arrow steps   left click places   right click removes"
                     : "space pauses",
                 _hintStyle);
+            y += line;
+
+            // Transient: the player clicked to edit while the simulation was running.
+            if (_placement != null && _placement.WasRecentlyRejected(_rejectedHintSeconds))
+            {
+                _hintStyle.normal.textColor = _corruptedColour;
+                GUI.Label(new Rect(left, y, width, line), "Pause with space before placing or removing", _hintStyle);
+                _hintStyle.normal.textColor = _hintColour;
+            }
         }
 
         private void EnsureStyles()

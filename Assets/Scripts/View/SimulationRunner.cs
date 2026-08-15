@@ -26,9 +26,22 @@ namespace BitSorter.View
                  "watch the gates hold one input and wait for the other.")]
         [SerializeField] private int _sourceBDelay = 3;
 
+        [SerializeField] private PlacementGrid _grid;
+
+        /// <summary>Node id to screen position. The authority for layout, and view-side only.</summary>
         private readonly Dictionary<int, Vector2> _layout = new Dictionary<int, Vector2>();
+
+        /// <summary>Cell to node id: the reverse lookup that makes a click hit-testable.</summary>
+        private readonly Dictionary<Vector2Int, int> _occupied = new Dictionary<Vector2Int, int>();
+
         private Simulation _simulation;
         private float _accumulator;
+
+        /// <summary>
+        /// Bumped whenever the graph's shape changes. Renderers that build visuals once compare
+        /// against this to know when to rebuild.
+        /// </summary>
+        public int GraphRevision { get; private set; }
 
         /// <summary>Read-only handle for the renderers. Fetch it per frame; it is a struct.</summary>
         public SimulationView View => _simulation.View;
@@ -76,6 +89,12 @@ namespace BitSorter.View
 
         private void Awake()
         {
+            // Found before Build, which needs the grid to turn fixture cells into world positions.
+            // Safe in Awake because cell size is a serialized field, not something the grid
+            // computes for itself later.
+            if (_grid == null)
+                _grid = FindFirstObjectByType<PlacementGrid>();
+
             Build();
         }
 
@@ -135,12 +154,81 @@ namespace BitSorter.View
             _simulation.Connect(carry.Out(0), carrySink.In(0), 1);
 
             _layout.Clear();
-            _layout[sourceA.Id] = new Vector2(-6f, 2f);
-            _layout[sourceB.Id] = new Vector2(-6f, -2f);
-            _layout[sum.Id] = new Vector2(0f, 2f);
-            _layout[carry.Id] = new Vector2(0f, -2f);
-            _layout[sumSink.Id] = new Vector2(6f, 2f);
-            _layout[carrySink.Id] = new Vector2(6f, -2f);
+            _occupied.Clear();
+
+            // Cells, not world units. On the default 2-unit grid these are the same six positions
+            // the fixture has always used, but expressed so the cells read as occupied and the
+            // player cannot place on top of them.
+            PlaceFixture(sourceA, new Vector2Int(-3, 1));
+            PlaceFixture(sourceB, new Vector2Int(-3, -1));
+            PlaceFixture(sum, new Vector2Int(0, 1));
+            PlaceFixture(carry, new Vector2Int(0, -1));
+            PlaceFixture(sumSink, new Vector2Int(3, 1));
+            PlaceFixture(carrySink, new Vector2Int(3, -1));
+
+            GraphRevision++;
+        }
+
+        private void PlaceFixture(Node node, Vector2Int cell)
+        {
+            _layout[node.Id] = CellToWorld(cell);
+            _occupied[cell] = node.Id;
+        }
+
+        private Vector2 CellToWorld(Vector2Int cell) =>
+            _grid != null ? _grid.CellToWorld(cell) : new Vector2(cell.x * 2f, cell.y * 2f);
+
+        // -----------------------------------------------------------------
+        // Editing
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// Places a gate on an empty cell. Returns false if the cell is taken.
+        /// </summary>
+        /// <remarks>
+        /// The first successful edit switches off auto-restart for good. Otherwise the graph would
+        /// rebuild itself the next time it drained and silently delete everything the player put
+        /// down.
+        /// </remarks>
+        public bool TryPlaceGate(GateKind kind, Vector2Int cell)
+        {
+            if (!IsReady || _occupied.ContainsKey(cell))
+                return false;
+
+            Node node = _simulation.Add(GatePalette.Create(kind));
+            _layout[node.Id] = CellToWorld(cell);
+            _occupied[cell] = node.Id;
+
+            MarkEdited();
+            return true;
+        }
+
+        /// <summary>
+        /// Removes whatever occupies a cell, along with every edge touching it. Returns false if
+        /// the cell is empty.
+        /// </summary>
+        public bool TryRemoveAt(Vector2Int cell)
+        {
+            if (!IsReady || !_occupied.TryGetValue(cell, out int nodeId))
+                return false;
+
+            Node node = _simulation.GetNode(nodeId);
+            _occupied.Remove(cell);
+            _layout.Remove(nodeId);
+
+            if (node == null)
+                return false;   // stale entry; the cell is now correctly empty
+
+            _simulation.Remove(node);
+            MarkEdited();
+            return true;
+        }
+
+        private void MarkEdited()
+        {
+            // From the first edit on this is a sandbox, not a looping demo.
+            _restartWhenIdle = false;
+            GraphRevision++;
         }
 
         /// <summary>
@@ -161,10 +249,12 @@ namespace BitSorter.View
 
             for (int id = 0; id < view.EdgeCount; id++)
             {
-                if (view.GetEdge(id).InTransitCount > 0)
+                Edge edge = view.GetEdge(id);   // null for a removed id
+                if (edge != null && edge.InTransitCount > 0)
                     return false;
             }
 
+            // The 'is' pattern already yields false for a null, so removed ids fall through safely.
             for (int id = 0; id < view.NodeCount; id++)
             {
                 if (view.GetNode(id) is SourceNode source && !source.IsExhausted)

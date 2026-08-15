@@ -37,23 +37,34 @@ namespace BitSorter.View.EditorTools
 
             Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
-            CreateCamera();
+            Camera camera = CreateCamera();
 
             var host = new GameObject("Simulation");
+
+            // The grid is added first: SimulationRunner reads its cell size during Awake to turn
+            // the fixture's cells into world positions.
+            PlacementGrid grid = host.AddComponent<PlacementGrid>();
             SimulationRunner runner = host.AddComponent<SimulationRunner>();
             NodeRenderer nodes = host.AddComponent<NodeRenderer>();
             EdgeRenderer edges = host.AddComponent<EdgeRenderer>();
             BitRenderer bits = host.AddComponent<BitRenderer>();
             SimulationHud hud = host.AddComponent<SimulationHud>();
             SimulationInput input = host.AddComponent<SimulationInput>();
+            PlacementController placement = host.AddComponent<PlacementController>();
 
+            Assign(grid, "_dotPrefab", bitPrefab);
+            Assign(runner, "_grid", grid);
             Assign(nodes, "_runner", runner);
             Assign(nodes, "_nodePrefab", nodePrefab);
             Assign(edges, "_runner", runner);
             Assign(bits, "_runner", runner);
             Assign(bits, "_bitPrefab", bitPrefab);
             Assign(hud, "_runner", runner);
+            Assign(hud, "_placement", placement);
             Assign(input, "_runner", runner);
+            Assign(placement, "_runner", runner);
+            Assign(placement, "_grid", grid);
+            Assign(placement, "_camera", camera);
 
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene, ScenePath);
@@ -64,7 +75,7 @@ namespace BitSorter.View.EditorTools
             Debug.Log($"Built {ScenePath}. It is open now -- press Play.");
         }
 
-        private static void CreateCamera()
+        private static Camera CreateCamera()
         {
             var cameraObject = new GameObject("Main Camera") { tag = "MainCamera" };
             cameraObject.transform.position = new Vector3(0f, 0f, -10f);
@@ -76,6 +87,8 @@ namespace BitSorter.View.EditorTools
             camera.backgroundColor = new Color(0.09f, 0.10f, 0.13f);
             camera.nearClipPlane = 0.1f;
             camera.farClipPlane = 100f;
+
+            return camera;
         }
 
         /// <summary>
