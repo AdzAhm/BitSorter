@@ -28,23 +28,64 @@ namespace BitSorter.LogicCore
         /// </summary>
         public int CorruptedCount { get; private set; }
 
+        /// <summary>
+        /// One past the highest node id ever issued -- the bound for an id loop, not a population
+        /// count. Removed ids leave null holes behind, so use <see cref="LiveNodeCount"/> to ask
+        /// how many nodes actually exist.
+        /// </summary>
         public int NodeCount => _nodes.Count;
+
+        /// <inheritdoc cref="NodeCount"/>
         public int EdgeCount => _edges.Count;
 
+        /// <summary>How many nodes exist. Maintained as removals happen; never scans.</summary>
+        public int LiveNodeCount { get; private set; }
+
+        /// <inheritdoc cref="LiveNodeCount"/>
+        public int LiveEdgeCount { get; private set; }
+
         /// <remarks>
-        /// Convenient, but typed as IReadOnlyList, so iterating one boxes an enumerator. On a
-        /// per-frame path use <see cref="NodeCount"/> with <see cref="GetNode"/> instead.
+        /// Convenient, but typed as IReadOnlyList, so iterating one boxes an enumerator, and it
+        /// contains a null for every removed id. On a per-frame path loop to
+        /// <see cref="NodeCount"/> with <see cref="GetNode"/> and skip nulls.
         /// </remarks>
         public IReadOnlyList<Node> Nodes => _nodes;
 
         /// <inheritdoc cref="Nodes"/>
         public IReadOnlyList<Edge> Edges => _edges;
 
-        /// <summary>The node with the given stable <see cref="Node.Id"/>.</summary>
-        public Node GetNode(int id) => _nodes[id];
+        /// <summary>
+        /// The node with the given stable <see cref="Node.Id"/>, or null if that id has been
+        /// retired by <see cref="Remove"/>. Ids are never reused, so a caller holding an id from
+        /// an earlier tick gets either the same node or null -- never a different one.
+        /// </summary>
+        public Node GetNode(int id)
+        {
+            if (id < 0 || id >= _nodes.Count)
+                throw new ArgumentOutOfRangeException(nameof(id), id, IdOutOfRange("Node", _nodes.Count));
 
-        /// <summary>The edge with the given stable <see cref="Edge.Id"/>.</summary>
-        public Edge GetEdge(int id) => _edges[id];
+            return _nodes[id];
+        }
+
+        /// <summary>
+        /// The edge with the given stable <see cref="Edge.Id"/>, or null if it has been removed.
+        /// </summary>
+        /// <inheritdoc cref="GetNode"/>
+        public Edge GetEdge(int id)
+        {
+            if (id < 0 || id >= _edges.Count)
+                throw new ArgumentOutOfRangeException(nameof(id), id, IdOutOfRange("Edge", _edges.Count));
+
+            return _edges[id];
+        }
+
+        /// <summary>
+        /// The message only materialises on the failure path, so the happy path stays
+        /// allocation-free for per-frame polling.
+        /// </summary>
+        private static string IdOutOfRange(string what, int count) =>
+            $"{what} id must be between 0 and {count - 1}. A removed node or edge reports Id -1, " +
+            "so capture the id before removing rather than reading it back off the object.";
 
         /// <summary>
         /// A read-only handle for renderers: exposes the graph and its state but none of the
@@ -61,7 +102,69 @@ namespace BitSorter.LogicCore
 
             node.Id = _nodes.Count;
             _nodes.Add(node);
+            LiveNodeCount++;
             return node;
+        }
+
+        /// <summary>
+        /// Removes a node and every edge touching it, whether as source or target.
+        /// </summary>
+        /// <remarks>
+        /// The node's id is retired, not recycled: its slot becomes null and the next node added
+        /// takes a fresh id. That keeps every surviving id meaningful, so anything keyed by id --
+        /// a layout table, a renderer's visuals -- stays correct across an edit.
+        ///
+        /// Bits lost to this are **not** counted as corruption. Bits in transit on a removed edge
+        /// and bits held in the removed node's ports simply cease to exist. CorruptedCount means
+        /// collisions; folding edits into it would destroy the meaning of the game's core signal.
+        ///
+        /// Call between ticks. Removal during a tick is not supported and nothing in the tick loop
+        /// calls out to code that could do it.
+        /// </remarks>
+        public void Remove(Node node)
+        {
+            if (node == null) throw new ArgumentNullException(nameof(node));
+
+            if (node.Id < 0 || node.Id >= _nodes.Count || _nodes[node.Id] != node)
+                throw new InvalidOperationException($"Node {node} is not part of this simulation.");
+
+            for (int id = 0; id < _edges.Count; id++)
+            {
+                Edge edge = _edges[id];
+                if (edge == null)
+                    continue;
+
+                if (edge.Source.Owner == node || edge.Target.Owner == node)
+                    RetireEdge(id);
+            }
+
+            _nodes[node.Id] = null;
+            LiveNodeCount--;
+            node.Id = -1;
+        }
+
+        /// <summary>Removes a single edge, destroying any bits still travelling it.</summary>
+        /// <inheritdoc cref="Remove"/>
+        public void Disconnect(Edge edge)
+        {
+            if (edge == null) throw new ArgumentNullException(nameof(edge));
+
+            if (edge.Id < 0 || edge.Id >= _edges.Count || _edges[edge.Id] != edge)
+                throw new InvalidOperationException("Edge is not part of this simulation.");
+
+            RetireEdge(edge.Id);
+        }
+
+        private void RetireEdge(int id)
+        {
+            Edge edge = _edges[id];
+
+            // Detaching matters: without it the source port keeps emitting onto a dead edge.
+            edge.Source.Detach(edge);
+
+            _edges[id] = null;
+            LiveEdgeCount--;
+            edge.Id = -1;
         }
 
         /// <summary>
@@ -74,6 +177,7 @@ namespace BitSorter.LogicCore
             Edge edge = new Edge(from, to, delay);
             edge.Id = _edges.Count;
             _edges.Add(edge);
+            LiveEdgeCount++;
             return edge;
         }
 
@@ -82,9 +186,14 @@ namespace BitSorter.LogicCore
             int tick = CurrentTick;
 
             // Phase 1: advance every in-transit bit, collecting arrivals in edge insertion order.
+            // Removed edges leave null holes; skipping them preserves the order of the rest.
             _arrivals.Clear();
             for (int i = 0; i < _edges.Count; i++)
-                _edges[i].AdvanceAndCollect(_arrivals);
+            {
+                Edge edge = _edges[i];
+                if (edge != null)
+                    edge.AdvanceAndCollect(_arrivals);
+            }
 
             // Phase 2: deliver. The only place an input port is written, and so the only place a
             // collision can occur. Matching values leave the port holding that value; differing
@@ -100,7 +209,7 @@ namespace BitSorter.LogicCore
             for (int i = 0; i < _nodes.Count; i++)
             {
                 Node node = _nodes[i];
-                if (node.IsReadyToEvaluate)
+                if (node != null && node.IsReadyToEvaluate)
                     node.Evaluate(tick);
             }
 

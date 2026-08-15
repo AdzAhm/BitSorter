@@ -37,6 +37,13 @@ namespace BitSorter.LogicCore.Tests
 
             sim.Run(6);
 
+            // This graph has no removals, so the id range is dense and the loops below can
+            // dereference every slot. Stated rather than assumed: if a removal is ever added to
+            // this test it should fail here, not with a null dereference two lines down.
+            // RemovalTests covers the sparse case.
+            Assert.AreEqual(view.NodeCount, view.LiveNodeCount, "unexpected node tombstone");
+            Assert.AreEqual(view.EdgeCount, view.LiveEdgeCount, "unexpected edge tombstone");
+
             // Ids are what a renderer keys its visuals to, so they must not drift as bits move.
             for (int id = 0; id < view.NodeCount; id++)
                 Assert.AreEqual(id, view.GetNode(id).Id, $"node {id} id drifted");

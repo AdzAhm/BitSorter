@@ -53,6 +53,15 @@ Explain things as you go and tell me when I'm about to do something dumb.
   matching-value collision adds 1. A mixed-value collision adds 2, since
   both bits are destroyed.
 
+- **NodeCount and EdgeCount are id bounds, not populations.** Removing
+  leaves a tombstone: the slot becomes null and the id is retired, never
+  reissued, so every surviving id keeps meaning the same node. Use
+  LiveNodeCount / LiveEdgeCount for the population, and null-check
+  anything GetNode / GetEdge returns — the id range is not dense. A
+  removed node or edge reports Id -1, so capture an id before removing
+  rather than reading it back off the object. Bits lost to a removal are
+  not corruption and must never touch CorruptedCount.
+
 - **Sequential logic uses stateful RegisterNode primitives plus seedable
   edges, not gate-built latches.** Consume semantics destroys a value on
   use, so a cross-coupled NOR latch deadlocks at startup (each gate waits

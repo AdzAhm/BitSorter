@@ -25,6 +25,15 @@ namespace BitSorter.LogicCore
             _edges.Add(edge);
         }
 
+        /// <summary>
+        /// Stops this port emitting onto <paramref name="edge"/>. Called when an edge is removed;
+        /// without it the port would keep pushing bits onto a dead edge forever.
+        /// </summary>
+        internal void Detach(Edge edge)
+        {
+            _edges.Remove(edge);
+        }
+
         internal void Emit(Bit value)
         {
             for (int i = 0; i < _edges.Count; i++)

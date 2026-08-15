@@ -44,13 +44,30 @@ namespace BitSorter.LogicCore
         /// <summary>Bits destroyed by collisions so far.</summary>
         public int CorruptedCount => _simulation.CorruptedCount;
 
+        /// <summary>
+        /// One past the highest id ever issued -- the bound for an id loop, not a population
+        /// count. Removed ids leave nulls behind; see <see cref="LiveNodeCount"/>.
+        /// </summary>
         public int NodeCount => _simulation.NodeCount;
+
+        /// <inheritdoc cref="NodeCount"/>
         public int EdgeCount => _simulation.EdgeCount;
 
-        /// <summary>The node with the given stable id. Ids run from 0 to NodeCount - 1.</summary>
+        /// <summary>How many nodes actually exist, ignoring removed ids.</summary>
+        public int LiveNodeCount => _simulation.LiveNodeCount;
+
+        /// <inheritdoc cref="LiveNodeCount"/>
+        public int LiveEdgeCount => _simulation.LiveEdgeCount;
+
+        /// <summary>
+        /// The node with the given id, from 0 to NodeCount - 1, or **null** if that id has been
+        /// removed. Ids are never reused, so callers must skip nulls rather than assume the range
+        /// is dense.
+        /// </summary>
         public Node GetNode(int id) => _simulation.GetNode(id);
 
-        /// <summary>The edge with the given stable id. Ids run from 0 to EdgeCount - 1.</summary>
+        /// <summary>The edge with the given id, or **null** if it has been removed.</summary>
+        /// <inheritdoc cref="GetNode"/>
         public Edge GetEdge(int id) => _simulation.GetEdge(id);
     }
 }
