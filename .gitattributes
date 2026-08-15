@@ -1,0 +1,112 @@
+# Line endings are pinned here so that a file looks the same on every machine.
+# Without this, Git guesses per-clone from core.autocrlf, and a Windows and a
+# macOS checkout disagree about every line of every scene file.
+#
+# Everything text is stored LF in the repository and checked out LF, except
+# Windows batch files, which genuinely need CRLF.
+
+* text=auto
+
+# ---------------------------------------------------------------------
+# Unity YAML assets
+#
+# merge=unityyamlmerge routes conflicts through UnityYAMLMerge, which merges
+# scenes and prefabs by object rather than by line. It is optional: until the
+# driver is configured Git silently falls back to a normal text merge. To turn
+# it on, once per machine:
+#
+#   git config --global merge.unityyamlmerge.name "Unity SmartMerge"
+#   git config --global merge.unityyamlmerge.driver \
+#     "'C:/Program Files/Unity/Hub/Editor/6000.3.11f1/Editor/Data/Tools/UnityYAMLMerge.exe' merge -p %O %B %A %A"
+# ---------------------------------------------------------------------
+*.unity              text eol=lf merge=unityyamlmerge
+*.prefab             text eol=lf merge=unityyamlmerge
+*.asset              text eol=lf merge=unityyamlmerge
+*.mat                text eol=lf merge=unityyamlmerge
+*.anim               text eol=lf merge=unityyamlmerge
+*.controller         text eol=lf merge=unityyamlmerge
+*.overrideController text eol=lf merge=unityyamlmerge
+*.playable           text eol=lf merge=unityyamlmerge
+*.mask               text eol=lf merge=unityyamlmerge
+*.mixer              text eol=lf merge=unityyamlmerge
+*.preset             text eol=lf merge=unityyamlmerge
+*.renderTexture      text eol=lf merge=unityyamlmerge
+*.spriteatlas        text eol=lf merge=unityyamlmerge
+*.terrainlayer       text eol=lf merge=unityyamlmerge
+*.physicsMaterial2D  text eol=lf merge=unityyamlmerge
+*.guiskin            text eol=lf merge=unityyamlmerge
+*.fontsettings       text eol=lf merge=unityyamlmerge
+*.scenetemplate      text eol=lf merge=unityyamlmerge
+
+# Unity metadata and assembly definitions
+*.meta        text eol=lf
+*.asmdef      text eol=lf
+*.asmref      text eol=lf
+
+# ---------------------------------------------------------------------
+# Source and config
+# ---------------------------------------------------------------------
+*.cs          text eol=lf diff=csharp
+*.shader      text eol=lf
+*.shadergraph text eol=lf
+*.hlsl        text eol=lf
+*.cginc       text eol=lf
+*.compute     text eol=lf
+*.uxml        text eol=lf
+*.uss         text eol=lf
+*.inputactions text eol=lf
+*.json        text eol=lf
+*.md          text eol=lf
+*.txt         text eol=lf
+*.xml         text eol=lf
+*.yml         text eol=lf
+*.yaml        text eol=lf
+*.vsconfig    text eol=lf
+.gitignore    text eol=lf
+.gitattributes text eol=lf
+
+# Windows-only scripts must keep CRLF or cmd.exe misparses them
+*.bat         text eol=crlf
+*.cmd         text eol=crlf
+
+# ---------------------------------------------------------------------
+# Binary -- never line-ending converted, never line-diffed
+# ---------------------------------------------------------------------
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.bmp   binary
+*.tga   binary
+*.tif   binary
+*.tiff  binary
+*.psd   binary
+*.ai    binary
+*.exr   binary
+*.hdr   binary
+*.aseprite binary
+*.ase   binary
+*.fbx   binary
+*.obj   binary
+*.blend binary
+*.dae   binary
+*.3ds   binary
+*.mp3   binary
+*.ogg   binary
+*.wav   binary
+*.aif   binary
+*.aiff  binary
+*.mp4   binary
+*.mov   binary
+*.ttf   binary
+*.otf   binary
+*.dll   binary
+*.so    binary
+*.dylib binary
+*.a     binary
+*.lib   binary
+*.pdb   binary
+*.unitypackage binary
+*.zip   binary
+*.rar   binary
+*.7z    binary
