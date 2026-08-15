@@ -58,8 +58,10 @@ namespace BitSorter.View
                 if (edge == null)
                     continue;   // removed edge; its sprites are released below by not being seen
 
-                Vector2 from = _runner.PositionOf(edge.Source.Owner.Id);
-                Vector2 to = _runner.PositionOf(edge.Target.Owner.Id);
+                // Same stub endpoints the wire is drawn between, or bits would visibly travel
+                // beside their wire instead of along it.
+                Vector2 from = PortGeometry.EndpointOf(edge.Source, _runner.PositionOf(edge.Source.Owner.Id));
+                Vector2 to = PortGeometry.EndpointOf(edge.Target, _runner.PositionOf(edge.Target.Owner.Id));
 
                 for (int i = 0; i < edge.InTransitCount; i++)
                 {

@@ -200,6 +200,39 @@ namespace BitSorter.LogicCore.Tests
         }
 
         [Test]
+        public void DeletingALoadedWire_LeavesAnAlreadyNonZeroCorruptedCountUnchanged()
+        {
+            // The sibling test above starts from zero, so it can only show that a deletion does not
+            // add to zero. This drives the count to a real value first, then deletes a wire with
+            // bits on it, so "unchanged" is actually distinguishable from "still happens to be 0".
+            var sim = new Simulation();
+            var left = sim.Add(new SourceNode(new[] { Bit.One }) { Name = "left" });
+            var right = sim.Add(new SourceNode(new[] { Bit.Zero }) { Name = "right" });
+            var collisionSink = sim.Add(new SinkNode() { Name = "collisionSink" });
+
+            // Differing values into one port on the same tick: both destroyed, count goes to 2.
+            sim.Connect(left.Out(0), collisionSink.In(0), 1);
+            sim.Connect(right.Out(0), collisionSink.In(0), 1);
+
+            var loadedSource = sim.Add(new SourceNode(new[] { Bit.One, Bit.One, Bit.One }) { Name = "loaded" });
+            var loadedSink = sim.Add(new SinkNode() { Name = "loadedSink" });
+            Edge loaded = sim.Connect(loadedSource.Out(0), loadedSink.In(0), 6);
+
+            sim.Run(3);
+
+            int corruptedBefore = sim.CorruptedCount;
+            Assert.AreEqual(2, corruptedBefore, "expected the collision to have registered first");
+            Assert.AreEqual(3, loaded.InTransitCount, "expected bits still travelling the doomed wire");
+
+            sim.Disconnect(loaded);
+            sim.Run(8);
+
+            Assert.AreEqual(corruptedBefore, sim.CorruptedCount,
+                "deleting a wire must not change the corruption tally, in either direction");
+            CollectionAssert.IsEmpty(loadedSink.Received, "bits on a deleted wire should not arrive");
+        }
+
+        [Test]
         public void ABitWaitingInARemovedNodesPort_VanishesWithoutCountingAsCorruption()
         {
             var sim = new Simulation();

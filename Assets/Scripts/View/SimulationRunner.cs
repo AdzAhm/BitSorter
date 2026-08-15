@@ -87,6 +87,45 @@ namespace BitSorter.View
         public Vector2 PositionOf(int nodeId) =>
             _layout.TryGetValue(nodeId, out Vector2 position) ? position : Vector2.zero;
 
+        /// <summary>World position of a port, from the shared geometry both sides agree on.</summary>
+        public Vector2 PositionOf(PortAddress address)
+        {
+            Node node = NodeAt(address.NodeId);
+            if (node == null)
+                return Vector2.zero;
+
+            int count = address.IsInput ? node.InputCount : node.OutputCount;
+            return PortGeometry.PositionOf(PositionOf(address.NodeId), address.IsInput, address.Index, count);
+        }
+
+        /// <summary>The node with this id, or null if it is out of range or has been removed.</summary>
+        public Node NodeAt(int nodeId) =>
+            IsReady && nodeId >= 0 && nodeId < _simulation.NodeCount ? _simulation.GetNode(nodeId) : null;
+
+        // -----------------------------------------------------------------
+        // Rejected edits
+        // -----------------------------------------------------------------
+
+        /// <summary>Why the last attempted edit was refused, for the HUD to surface.</summary>
+        public string LastRejectionReason { get; private set; }
+
+        public float LastRejectionTime { get; private set; } = float.NegativeInfinity;
+
+        public bool WasRecentlyRejected(float seconds) => Time.time - LastRejectionTime < seconds;
+
+        /// <summary>
+        /// Records a refusal. Shared by placement and wiring so the HUD has one channel to read
+        /// rather than polling each controller.
+        /// </summary>
+        public void RejectEdit(string reason)
+        {
+            if (string.IsNullOrEmpty(reason))
+                return;   // some rejections are deliberately silent, such as a click that did not drag
+
+            LastRejectionReason = reason;
+            LastRejectionTime = Time.time;
+        }
+
         private void Awake()
         {
             // Found before Build, which needs the grid to turn fixture cells into world positions.
@@ -229,6 +268,71 @@ namespace BitSorter.View
             // From the first edit on this is a sandbox, not a looping demo.
             _restartWhenIdle = false;
             GraphRevision++;
+        }
+
+        // -----------------------------------------------------------------
+        // Wiring
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// Creates an edge between two ports if the drag is legal, reporting the reason if not.
+        /// Either end may have been grabbed first; the edge is always output to input.
+        /// </summary>
+        public bool TryConnect(PortAddress from, PortAddress to, int delay = 1)
+        {
+            if (!IsReady)
+                return false;
+
+            WiringVerdict verdict = WiringRules.Validate(View, from, to);
+
+            if (!verdict.IsValid)
+            {
+                RejectEdit(verdict.Reason);   // null reason stays silent
+                return false;
+            }
+
+            _simulation.Connect(verdict.Source, verdict.Target, delay);
+            MarkEdited();
+            return true;
+        }
+
+        /// <summary>
+        /// Deletes the wire nearest to a world point, within
+        /// <see cref="PortGeometry.WireHitRadius"/>. Bits travelling it are destroyed and are not
+        /// counted as corruption -- an edit is not a collision.
+        /// </summary>
+        public bool TryDeleteWireAt(Vector2 world)
+        {
+            if (!IsReady)
+                return false;
+
+            SimulationView view = View;
+            Edge nearest = null;
+            float nearestDistance = PortGeometry.WireHitRadius;
+
+            for (int id = 0; id < view.EdgeCount; id++)
+            {
+                Edge edge = view.GetEdge(id);
+                if (edge == null)
+                    continue;   // retired id
+
+                Vector2 a = PortGeometry.EndpointOf(edge.Source, PositionOf(edge.Source.Owner.Id));
+                Vector2 b = PortGeometry.EndpointOf(edge.Target, PositionOf(edge.Target.Owner.Id));
+
+                float distance = PortGeometry.DistanceToSegment(world, a, b);
+                if (distance > nearestDistance)
+                    continue;
+
+                nearestDistance = distance;
+                nearest = edge;
+            }
+
+            if (nearest == null)
+                return false;
+
+            _simulation.Disconnect(nearest);
+            MarkEdited();
+            return true;
         }
 
         /// <summary>

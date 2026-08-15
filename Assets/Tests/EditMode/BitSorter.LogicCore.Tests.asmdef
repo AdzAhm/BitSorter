@@ -3,6 +3,7 @@
     "rootNamespace": "BitSorter.LogicCore.Tests",
     "references": [
         "BitSorter.LogicCore",
+        "BitSorter.View",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],

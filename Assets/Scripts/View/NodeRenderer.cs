@@ -16,7 +16,6 @@ namespace BitSorter.View
     {
         [SerializeField] private SimulationRunner _runner;
         [SerializeField] private GameObject _nodePrefab;
-        [SerializeField] private float _nodeSize = 1.2f;
 
         private readonly List<GameObject> _spawned = new List<GameObject>();
         private Transform _container;
@@ -68,7 +67,8 @@ namespace BitSorter.View
 
                 GameObject instance = ViewSprites.Spawn(_nodePrefab, _container, $"Node {id} - {node}");
                 instance.transform.position = _runner.PositionOf(id);
-                instance.transform.localScale = Vector3.one * _nodeSize;
+                // Shared with PortGeometry, which places the stubs on this square's faces.
+                instance.transform.localScale = Vector3.one * PortGeometry.NodeSize;
 
                 var renderer = instance.GetComponent<SpriteRenderer>();
                 renderer.color = ColourFor(node);

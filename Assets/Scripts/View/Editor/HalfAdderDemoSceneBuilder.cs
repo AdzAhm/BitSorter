@@ -48,10 +48,16 @@ namespace BitSorter.View.EditorTools
             NodeRenderer nodes = host.AddComponent<NodeRenderer>();
             EdgeRenderer edges = host.AddComponent<EdgeRenderer>();
             BitRenderer bits = host.AddComponent<BitRenderer>();
+            PortRenderer ports = host.AddComponent<PortRenderer>();
             SimulationHud hud = host.AddComponent<SimulationHud>();
             SimulationInput input = host.AddComponent<SimulationInput>();
             PlacementController placement = host.AddComponent<PlacementController>();
+            WiringController wiring = host.AddComponent<WiringController>();
 
+            Assign(ports, "_runner", runner);
+            Assign(ports, "_stubPrefab", bitPrefab);
+            Assign(wiring, "_runner", runner);
+            Assign(wiring, "_camera", camera);
             Assign(grid, "_dotPrefab", bitPrefab);
             Assign(runner, "_grid", grid);
             Assign(nodes, "_runner", runner);

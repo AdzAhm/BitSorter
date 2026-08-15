@@ -99,16 +99,16 @@ namespace BitSorter.View
             GUI.Label(
                 new Rect(left, y, width, line),
                 _runner.IsPaused
-                    ? "PAUSED   space resumes   right arrow steps   left click places   right click removes"
+                    ? "PAUSED   space resumes   right arrow steps   click a cell to place   drag port to port to wire   right click to delete"
                     : "space pauses",
                 _hintStyle);
             y += line;
 
-            // Transient: the player clicked to edit while the simulation was running.
-            if (_placement != null && _placement.WasRecentlyRejected(_rejectedHintSeconds))
+            // Transient: whatever the last refused edit was, from placement or wiring alike.
+            if (_runner.WasRecentlyRejected(_rejectedHintSeconds) && !string.IsNullOrEmpty(_runner.LastRejectionReason))
             {
                 _hintStyle.normal.textColor = _corruptedColour;
-                GUI.Label(new Rect(left, y, width, line), "Pause with space before placing or removing", _hintStyle);
+                GUI.Label(new Rect(left, y, width, line), _runner.LastRejectionReason, _hintStyle);
                 _hintStyle.normal.textColor = _hintColour;
             }
         }

@@ -21,11 +21,6 @@ namespace BitSorter.View
         /// <summary>The palette entry a left click will place.</summary>
         public GateKind Selected { get; private set; } = GateKind.Not;
 
-        /// <summary>When the player last tried to edit while running. Negative means never.</summary>
-        public float LastRejectedTime { get; private set; } = float.NegativeInfinity;
-
-        public bool WasRecentlyRejected(float seconds) => Time.time - LastRejectedTime < seconds;
-
         private void Awake()
         {
             if (_runner == null)
@@ -58,18 +53,31 @@ namespace BitSorter.View
             // refused rather than queued. The HUD surfaces this.
             if (!_runner.IsPaused)
             {
-                LastRejectedTime = Time.time;
+                _runner.RejectEdit("pause with space before editing");
                 return;
             }
 
-            Vector2Int cell = _grid.WorldToCell(ScreenToWorld(mouse.position.ReadValue()));
-            if (!_grid.Contains(cell))
-                return;
+            Vector2 world = ScreenToWorld(mouse.position.ReadValue());
+            Vector2Int cell = _grid.WorldToCell(world);
 
             if (place)
-                _runner.TryPlaceGate(Selected, cell);
-            else
-                _runner.TryRemoveAt(cell);
+            {
+                // A press on a port starts a wire drag instead; that cell is already occupied by
+                // the port's own node, so placement refuses it without needing to know about it.
+                if (_grid.Contains(cell))
+                    _runner.TryPlaceGate(Selected, cell);
+
+                return;
+            }
+
+            // The whole right-click chain lives here so its priority is defined in one place.
+            // A cell holding a node removes that node, exactly as before. Only when no node is
+            // there does the click fall through to the nearest wire, which means deleting a wire
+            // is done by clicking a stretch of it that does not lie over a node's cell.
+            if (_grid.Contains(cell) && _runner.TryRemoveAt(cell))
+                return;
+
+            _runner.TryDeleteWireAt(world);
         }
 
         private void ReadPalette(Keyboard keyboard)
