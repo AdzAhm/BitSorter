@@ -27,7 +27,9 @@ Explain things as you go and tell me when I'm about to do something dumb.
   ArgumentOutOfRangeException below that. Zero-delay edges would force
   node evaluation into topological order, which breaks the rule that
   evaluation order within a tick cannot affect the result. Feedback loops
-  (SR latch, ch. 8) also need a real time step to resolve.
+  also need a real time step to resolve — but note that latches come from
+  RegisterNode, not from cross-coupled gates. See the sequential-logic
+  decision below.
 
 - **Order-independence is a hard invariant.** Nodes within a single tick
   must be evaluatable in any order with the same outcome. Do not add
@@ -39,8 +41,27 @@ Explain things as you go and tell me when I'm about to do something dumb.
   If sparse streams are ever needed, make the sequence `Bit?[]` where
   null means emit nothing. Not needed yet — do not add it preemptively.
 
-- **Collisions never throw.** A bit delivered to an occupied input port
-  increments CorruptedCount and is dropped.
+- **Collisions never throw.** A bit delivered to an occupied input port is
+  destroyed, not thrown on. If the two values match, the port keeps its
+  value and only the arrival is destroyed. If they differ the result is
+  ambiguous, so neither bit survives: the port is cleared and stays
+  poisoned for the rest of that tick's delivery phase, so a later arrival
+  in the same tick cannot refill it. A mixed-value collision never leaves
+  a survivor.
+
+- **CorruptedCount counts destroyed bits, not collision events.** A
+  matching-value collision adds 1. A mixed-value collision adds 2, since
+  both bits are destroyed.
+
+- **Sequential logic uses stateful RegisterNode primitives plus seedable
+  edges, not gate-built latches.** Consume semantics destroys a value on
+  use, so a cross-coupled NOR latch deadlocks at startup (each gate waits
+  on the other's first output) and stalls after one firing (its external
+  input port is never refilled). Memory cannot emerge from gate feedback
+  here. A RegisterNode — emits the bit it holds, stores the one it just
+  consumed — plus edges that start with bits already in transit gives full
+  synchronous sequential power with no change to the tick loop.
+  **Not yet implemented.**
 
 ## Working agreement
 - Use Plan mode for anything touching more than one file.
