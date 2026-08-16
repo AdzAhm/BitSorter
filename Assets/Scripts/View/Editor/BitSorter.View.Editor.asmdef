@@ -3,7 +3,9 @@
     "rootNamespace": "BitSorter.View.EditorTools",
     "references": [
         "BitSorter.View",
-        "BitSorter.LogicCore"
+        "BitSorter.LogicCore",
+        "Unity.RenderPipelines.Core.Runtime",
+        "Unity.RenderPipelines.Universal.Runtime"
     ],
     "includePlatforms": [
         "Editor"

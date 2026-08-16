@@ -16,6 +16,8 @@ namespace BitSorter.View
     {
         [SerializeField] private SimulationRunner _runner;
         [SerializeField] private GameObject _nodePrefab;
+        [SerializeField] private float _glowScale = 2.1f;
+        [SerializeField] private float _glowAlpha = 0.42f;
 
         private readonly List<GameObject> _spawned = new List<GameObject>();
         private Transform _container;
@@ -65,30 +67,34 @@ namespace BitSorter.View
                 if (node == null)
                     continue;   // retired id
 
+                Vector2 centre = _runner.PositionOf(id);
+                Color colour = NodeShapes.ColourFor(node);
+
+                // Glow first so it sits behind the body.
+                GameObject halo = ViewSprites.Spawn(_nodePrefab, _container, $"Glow {id}");
+                halo.transform.position = centre;
+                halo.transform.localScale = Vector3.one * PortGeometry.NodeSize * _glowScale;
+
+                var haloRenderer = halo.GetComponent<SpriteRenderer>();
+                haloRenderer.sprite = ProceduralSprites.Glow();
+                haloRenderer.color = new Color(colour.r, colour.g, colour.b, _glowAlpha);
+                haloRenderer.sortingOrder = -3;
+
+                _spawned.Add(halo);
+
                 GameObject instance = ViewSprites.Spawn(_nodePrefab, _container, $"Node {id} - {node}");
-                instance.transform.position = _runner.PositionOf(id);
-                // Shared with PortGeometry, which places the stubs on this square's faces.
+                instance.transform.position = centre;
+                // Shared with PortGeometry, which places the stubs on this shape's faces.
                 instance.transform.localScale = Vector3.one * PortGeometry.NodeSize;
 
                 var renderer = instance.GetComponent<SpriteRenderer>();
-                renderer.color = ColourFor(node);
+                renderer.sprite = NodeShapes.SpriteFor(node);
+                renderer.color = colour;
                 renderer.sortingOrder = 0;
 
                 _spawned.Add(instance);
             }
         }
 
-        private static Color ColourFor(Node node)
-        {
-            if (node is SourceNode) return new Color(0.30f, 0.72f, 0.42f);   // green
-            if (node is SinkNode) return new Color(0.85f, 0.35f, 0.35f);     // red
-            if (node is XorGate) return new Color(0.35f, 0.55f, 0.90f);      // blue
-            if (node is AndGate) return new Color(0.92f, 0.70f, 0.25f);      // amber
-            if (node is OrGate) return new Color(0.65f, 0.45f, 0.85f);       // violet
-            if (node is NandGate) return new Color(0.45f, 0.80f, 0.78f);     // teal
-            if (node is NorGate) return new Color(0.78f, 0.76f, 0.42f);      // olive
-            if (node is NotGate) return new Color(0.85f, 0.50f, 0.70f);      // pink
-            return new Color(0.55f, 0.55f, 0.60f);                           // pass-through, etc
-        }
     }
 }

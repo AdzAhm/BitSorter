@@ -2,6 +2,8 @@ using System.IO;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 using UnityEngine.SceneManagement;
 
 namespace BitSorter.View.EditorTools
@@ -17,6 +19,7 @@ namespace BitSorter.View.EditorTools
         private const string ArtFolder = "Assets/Art/Generated";
 
         private const string ScenePath = ScenesFolder + "/HalfAdderDemo.unity";
+        private const string BloomProfilePath = "Assets/Settings/DemoBloomProfile.asset";
         private const string SquareTexturePath = ArtFolder + "/WhiteSquare.png";
         private const string NodePrefabPath = PrefabsFolder + "/NodeSquare.prefab";
         private const string BitPrefabPath = PrefabsFolder + "/BitSquare.prefab";
@@ -38,6 +41,7 @@ namespace BitSorter.View.EditorTools
             Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
             Camera camera = CreateCamera();
+            CreateBloomVolume();
 
             var host = new GameObject("Simulation");
 
@@ -53,7 +57,11 @@ namespace BitSorter.View.EditorTools
             SimulationInput input = host.AddComponent<SimulationInput>();
             PlacementController placement = host.AddComponent<PlacementController>();
             WiringController wiring = host.AddComponent<WiringController>();
+            SparkEffects sparks = host.AddComponent<SparkEffects>();
+            BoardBackground board = host.AddComponent<BoardBackground>();
 
+            Assign(board, "_camera", camera);
+            Assign(bits, "_sparks", sparks);
             Assign(ports, "_runner", runner);
             Assign(ports, "_stubPrefab", bitPrefab);
             Assign(wiring, "_runner", runner);
@@ -94,7 +102,48 @@ namespace BitSorter.View.EditorTools
             camera.nearClipPlane = 0.1f;
             camera.farClipPlane = 100f;
 
+            // Without this the camera renders no post-processing at all, so the Volume below would
+            // be silently ignored and nothing would bloom. URP adds the component on demand, but
+            // renderPostProcessing defaults to false.
+            UniversalAdditionalCameraData data = camera.GetUniversalAdditionalCameraData();
+            data.renderPostProcessing = true;
+            data.antialiasing = AntialiasingMode.SubpixelMorphologicalAntiAliasing;
+
             return camera;
+        }
+
+        /// <summary>
+        /// A global Volume carrying a Bloom override, which is what makes the glow sprites read as
+        /// light rather than as pale blobs.
+        /// </summary>
+        private static void CreateBloomVolume()
+        {
+            var profile = ScriptableObject.CreateInstance<VolumeProfile>();
+            AssetDatabase.CreateAsset(profile, BloomProfilePath);
+
+            var bloom = profile.Add<Bloom>(true);
+
+            // Colours here are LDR, so the threshold has to sit below 1 or nothing would ever
+            // qualify and the effect would appear to do nothing.
+            bloom.threshold.overrideState = true;
+            bloom.threshold.value = 0.62f;
+            bloom.intensity.overrideState = true;
+            bloom.intensity.value = 1.15f;
+            bloom.scatter.overrideState = true;
+            bloom.scatter.value = 0.72f;
+
+            AssetDatabase.AddObjectToAsset(bloom, profile);
+            EditorUtility.SetDirty(profile);
+
+            var host = new GameObject("Global Volume");
+            Volume volume = host.AddComponent<Volume>();
+            volume.isGlobal = true;
+            volume.priority = 1f;
+
+            // sharedProfile, not profile. Volume.profile returns an instantiated runtime copy for
+            // per-instance tweaking and never writes the serialized field, so assigning it leaves
+            // sharedProfile at null and the saved scene blooms nothing.
+            volume.sharedProfile = profile;
         }
 
         /// <summary>

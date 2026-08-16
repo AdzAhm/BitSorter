@@ -25,9 +25,18 @@ namespace BitSorter.View
         [SerializeField] private Color _zeroColour = new Color(0.42f, 0.48f, 0.58f);
         [SerializeField] private Color _oneColour = new Color(1.00f, 0.88f, 0.32f);
 
+        [SerializeField] private SparkEffects _sparks;
+        [SerializeField] private float _glowScale = 2.4f;
+        [SerializeField] private float _glowAlpha = 0.55f;
+        [SerializeField] private float _trailSeconds = 0.22f;
+
         private Dictionary<long, SpriteRenderer> _live = new Dictionary<long, SpriteRenderer>();
         private Dictionary<long, SpriteRenderer> _next = new Dictionary<long, SpriteRenderer>();
         private readonly Stack<SpriteRenderer> _pool = new Stack<SpriteRenderer>();
+        private readonly Dictionary<SpriteRenderer, SpriteRenderer> _halos =
+            new Dictionary<SpriteRenderer, SpriteRenderer>();
+        private readonly Dictionary<SpriteRenderer, TrailRenderer> _trails =
+            new Dictionary<SpriteRenderer, TrailRenderer>();
 
         private Transform _container;
 
@@ -35,6 +44,9 @@ namespace BitSorter.View
         {
             if (_runner == null)
                 _runner = FindFirstObjectByType<SimulationRunner>();
+
+            if (_sparks == null)
+                _sparks = FindFirstObjectByType<SparkEffects>();
 
             // Its own container: NodeRenderer and EdgeRenderer tear their objects down on a
             // rebuild, and the pooled sprites must not be caught in that.
@@ -76,10 +88,29 @@ namespace BitSorter.View
                     else if (_live.TryGetValue(keyLastTick, out sprite))
                         _live.Remove(keyLastTick);   // same bit, one tick further along
                     else
+                    {
+                        // Neither key matched, so this bit did not exist last frame -- which means
+                        // the node feeding this edge just consumed its inputs and fired.
                         sprite = Rent();
+                        OnNodeFired(edge, from);
+                    }
 
-                    sprite.transform.position = Vector2.Lerp(from, to, Travelled(bit, fraction));
-                    sprite.color = bit.Value == Bit.One ? _oneColour : _zeroColour;
+                    Color colour = bit.Value == Bit.One ? _oneColour : _zeroColour;
+                    float travelled = Travelled(bit, fraction);
+
+                    Transform bitTransform = sprite.transform;
+                    bitTransform.position = Vector2.Lerp(from, to, travelled);
+
+                    // Face along the wire so the arrival squash compresses in the travel direction.
+                    Vector2 direction = to - from;
+                    if (direction.sqrMagnitude > 1e-6f)
+                        bitTransform.right = direction.normalized;
+
+                    Vector2 scale = BitVisuals.ScaleAt(travelled, _bitSize);
+                    bitTransform.localScale = new Vector3(scale.x, scale.y, 1f);
+
+                    sprite.color = colour;
+                    Tint(sprite, colour);
 
                     _next[key] = sprite;
                 }
@@ -88,7 +119,10 @@ namespace BitSorter.View
             // Whatever is still in _live was not seen this frame, so those bits are gone.
             // Dictionary<,> has a struct enumerator, so this foreach does not allocate.
             foreach (KeyValuePair<long, SpriteRenderer> stale in _live)
+            {
+                OnBitGone(view, stale.Key);
                 Release(stale.Value);
+            }
 
             _live.Clear();
 
@@ -112,12 +146,70 @@ namespace BitSorter.View
         private static long Key(int edgeId, int ticksRemaining) =>
             ((long)edgeId << 32) | (uint)ticksRemaining;
 
+        private static int EdgeOf(long key) => (int)(key >> 32);
+
+        private static int TicksOf(long key) => (int)(key & 0xFFFFFFFFL);
+
+        /// <summary>
+        /// A brand-new bit on this edge means its source node consumed its inputs and emitted this
+        /// tick. Sparks at the output it came out of.
+        /// </summary>
+        private void OnNodeFired(Edge edge, Vector2 outputPosition)
+        {
+            if (_sparks == null)
+                return;
+
+            _sparks.Burst(outputPosition, NodeShapes.ColourFor(edge.Source.Owner));
+        }
+
+        /// <summary>
+        /// A bit that vanished with one tick left arrived at its target port. A bit that vanished
+        /// because its edge was deleted did not, so the edge has to still exist.
+        /// </summary>
+        private void OnBitGone(SimulationView view, long key)
+        {
+            if (_sparks == null || TicksOf(key) != 1)
+                return;
+
+            int edgeId = EdgeOf(key);
+            if (edgeId < 0 || edgeId >= view.EdgeCount)
+                return;
+
+            Edge edge = view.GetEdge(edgeId);
+            if (edge == null)
+                return;   // the wire was deleted; nothing arrived
+
+            Vector2 target = PortGeometry.EndpointOf(edge.Target, _runner.PositionOf(edge.Target.Owner.Id));
+            _sparks.Burst(target, NodeShapes.ColourFor(edge.Target.Owner));
+        }
+
+        /// <summary>Keeps a bit's glow halo and trail in step with its value colour.</summary>
+        private void Tint(SpriteRenderer sprite, Color colour)
+        {
+            if (!_halos.TryGetValue(sprite, out SpriteRenderer halo))
+                return;
+
+            halo.color = new Color(colour.r, colour.g, colour.b, _glowAlpha);
+
+            if (_trails.TryGetValue(sprite, out TrailRenderer trail))
+            {
+                trail.startColor = new Color(colour.r, colour.g, colour.b, 0.75f);
+                trail.endColor = new Color(colour.r, colour.g, colour.b, 0f);
+            }
+        }
+
         private SpriteRenderer Rent()
         {
             if (_pool.Count > 0)
             {
                 SpriteRenderer pooled = _pool.Pop();
                 pooled.gameObject.SetActive(true);
+
+                // Mandatory on reuse. A TrailRenderer keeps its points across a reposition, so a
+                // recycled bit would draw a streak from wherever the previous one died.
+                if (_trails.TryGetValue(pooled, out TrailRenderer trail))
+                    trail.Clear();
+
                 return pooled;
             }
 
@@ -125,12 +217,59 @@ namespace BitSorter.View
             instance.transform.localScale = Vector3.one * _bitSize;
 
             var renderer = instance.GetComponent<SpriteRenderer>();
-            renderer.sortingOrder = 2;   // in front of nodes and wires
+            renderer.sprite = ProceduralSprites.Dot();
+            renderer.sortingOrder = 3;   // in front of nodes, wires and port stubs
+
+            // Halo is a child, so it inherits the squash and stays centred on the bit.
+            var halo = new GameObject("Glow");
+            halo.transform.SetParent(instance.transform, false);
+            halo.transform.localScale = Vector3.one * _glowScale;
+
+            var haloRenderer = halo.AddComponent<SpriteRenderer>();
+            haloRenderer.sprite = ProceduralSprites.Glow();
+            haloRenderer.sortingOrder = 2;
+            _halos[renderer] = haloRenderer;
+
+            _trails[renderer] = BuildTrail(instance.transform);
+
             return renderer;
+        }
+
+        /// <summary>
+        /// The trail lives on a child, not on the bit itself: Unity allows only one Renderer per
+        /// GameObject, and the bit already carries a SpriteRenderer.
+        /// </summary>
+        private TrailRenderer BuildTrail(Transform parent)
+        {
+            var host = new GameObject("Trail");
+            host.transform.SetParent(parent, false);
+
+            var trail = host.AddComponent<TrailRenderer>();
+            trail.time = _trailSeconds;
+            trail.material = TrailMaterial();
+            trail.numCapVertices = 4;
+            trail.sortingOrder = 1;
+            trail.minVertexDistance = 0.02f;
+            trail.autodestruct = false;
+
+            // Trail geometry is world-space, so the parent's arrival squash does not distort it.
+            trail.widthMultiplier = _bitSize * 0.85f;
+            trail.widthCurve = new AnimationCurve(new Keyframe(0f, 1f), new Keyframe(1f, 0f));
+
+            return trail;
+        }
+
+        private static Material TrailMaterial()
+        {
+            Shader shader = Shader.Find("Sprites/Default") ?? Shader.Find("Unlit/Transparent");
+            return new Material(shader);
         }
 
         private void Release(SpriteRenderer sprite)
         {
+            if (_trails.TryGetValue(sprite, out TrailRenderer trail))
+                trail.Clear();
+
             sprite.gameObject.SetActive(false);
             _pool.Push(sprite);
         }

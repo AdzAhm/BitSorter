@@ -57,7 +57,10 @@ namespace BitSorter.View
 
                     var renderer = dot.GetComponent<SpriteRenderer>();
                     renderer.color = _dotColour;
-                    renderer.sortingOrder = -2;   // behind wires, nodes and bits
+
+                    // Layer stack, back to front: board -10, grid dots -6, node glow -3,
+                    // wire casing -2, wire core -1, node body 0, ports 1, bits 1..3, sparks 4.
+                    renderer.sortingOrder = -6;
                 }
             }
         }
