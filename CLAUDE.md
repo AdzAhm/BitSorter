@@ -18,6 +18,25 @@ Teaching digital logic: gates, flip-flops, adders, FSMs.
 I'm a 3rd-semester CE student, new to Unity and git.
 Explain things as you go and tell me when I'm about to do something dumb.
 
+## Syllabus scope
+
+What this game teaches, and what it deliberately leaves alone.
+
+**In scope:** boolean algebra, K-map minimization, functional
+completeness, propagation delay, combinational components, adders,
+flip-flops, FSMs, critical path, pipelining.
+
+**Out of scope:** assembly, the RISC-V datapath, memory addressing, and
+number representation. Those are a different game — don't reach for them
+even when a level looks like it could stretch that way.
+
+**Hazards are not expressible.** Static and dynamic hazards need a
+continuous signal model; bits here are discrete tokens, so a glitch has
+nowhere to live. The related lesson this game *can* teach is
+unbalanced-path corruption: two paths of different total delay into one
+gate, where the early bit waits and the next arrival collides with it.
+Reach for that whenever the subject would otherwise be hazards.
+
 ## Core decisions
 
 - **Bit** is `enum Bit { Zero, One }`, never a raw int. Port state is `Bit?`,

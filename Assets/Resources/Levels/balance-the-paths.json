@@ -1,0 +1,19 @@
+{
+  "name": "Balance the paths",
+  "hint": "a gate waits for both inputs. The next bit down the wire does not wait.",
+  "tickLimit": 40,
+  "maxWireDelay": 3,
+  "delayBudget": 2,
+  "fixtures": [
+    { "id": "a",   "kind": "Source", "cell": { "x": -3, "y":  1 }, "stream": "0011" },
+    { "id": "b",   "kind": "Source", "cell": { "x": -3, "y": -1 }, "stream": "0101" },
+    { "id": "out", "kind": "Sink",   "cell": { "x":  3, "y":  0 } }
+  ],
+  "budget": [
+    { "kind": "Xor", "count": 1 },
+    { "kind": "And", "count": 1 }
+  ],
+  "expected": [
+    { "sink": "out", "values": "0100" }
+  ]
+}

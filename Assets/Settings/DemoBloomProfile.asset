@@ -13,8 +13,8 @@ MonoBehaviour:
   m_Name: DemoBloomProfile
   m_EditorClassIdentifier: Unity.RenderPipelines.Core.Runtime::UnityEngine.Rendering.VolumeProfile
   components:
-  - {fileID: 8139228587367318175}
---- !u!114 &8139228587367318175
+  - {fileID: 4741695492066216640}
+--- !u!114 &4741695492066216640
 MonoBehaviour:
   m_ObjectHideFlags: 3
   m_CorrespondingSourceObject: {fileID: 0}

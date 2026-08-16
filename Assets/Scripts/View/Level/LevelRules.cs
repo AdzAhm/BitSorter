@@ -26,6 +26,18 @@ namespace BitSorter.View
 
         /// <summary>Nothing on that cell to remove. Silent: a right click means "delete a wire" next.</summary>
         NothingThere,
+
+        /// <summary>A wire cannot be shorter than one tick.</summary>
+        DelayAtMinimum,
+
+        /// <summary>The level caps how many ticks one wire may carry.</summary>
+        DelayAtMaximum,
+
+        /// <summary>The level caps total added delay, and it is all spent.</summary>
+        DelayBudgetSpent,
+
+        /// <summary>No wire under the cursor. Silent.</summary>
+        NoWire,
     }
 
     /// <summary>The result of asking whether an edit may happen.</summary>
@@ -167,5 +179,67 @@ namespace BitSorter.View
         /// </summary>
         public static int RemainingFor(LevelDefinition level, CircuitBlueprint blueprint, GateKind kind) =>
             level.BudgetFor(kind) - blueprint.CountOf(kind);
+
+        // -----------------------------------------------------------------
+        // Wire delay
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// Whether a wire may be re-timed to <paramref name="targetDelay"/>.
+        /// </summary>
+        /// <remarks>
+        /// The floor gets a message rather than staying silent. That a wire cannot be shorter than one
+        /// tick is a real rule of the simulator -- a zero-delay edge would let one node see another's
+        /// output inside a single tick, which is what makes evaluation order irrelevant -- and not an
+        /// interface limitation. Scrolling into the floor is exactly where a player wonders why.
+        ///
+        /// The cap and the budget are separate refusals because they need different reactions: one
+        /// means "not on this wire", the other "take it off another wire first".
+        /// </remarks>
+        public static LevelVerdict CanSetDelay(
+            LevelDefinition level,
+            CircuitBlueprint blueprint,
+            RunState state,
+            int currentDelay,
+            int targetDelay)
+        {
+            LevelVerdict gate = CanEdit(state);
+            if (!gate.IsValid)
+                return gate;
+
+            if (targetDelay == currentDelay)
+                return LevelVerdict.Reject(LevelOutcome.NoWire, null);   // scrolled, nothing to do
+
+            if (targetDelay < 1)
+                return LevelVerdict.Reject(LevelOutcome.DelayAtMinimum, "1 is the shortest a wire can be");
+
+            if (targetDelay > level.MaxWireDelay)
+            {
+                return level.MaxWireDelay <= 1
+                    ? LevelVerdict.Reject(LevelOutcome.DelayAtMaximum, "this level has fixed wiring")
+                    : LevelVerdict.Reject(LevelOutcome.DelayAtMaximum,
+                        $"this level caps wires at {level.MaxWireDelay}");
+            }
+
+            // Shortening always fits: it can only give budget back.
+            if (targetDelay < currentDelay || !level.HasDelayBudget)
+                return LevelVerdict.Accept();
+
+            int spentAfter = blueprint.ExtraDelay() + (targetDelay - currentDelay);
+
+            if (spentAfter > level.DelayBudget)
+            {
+                return LevelVerdict.Reject(LevelOutcome.DelayBudgetSpent,
+                    $"no delay budget left ({blueprint.ExtraDelay()} of {level.DelayBudget} used)");
+            }
+
+            return LevelVerdict.Accept();
+        }
+
+        /// <summary>
+        /// Ticks of delay the player may still add, or -1 when the level sets no budget.
+        /// </summary>
+        public static int RemainingDelay(LevelDefinition level, CircuitBlueprint blueprint) =>
+            level.HasDelayBudget ? level.DelayBudget - blueprint.ExtraDelay() : -1;
     }
 }

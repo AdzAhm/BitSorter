@@ -20,8 +20,16 @@ namespace BitSorter.View.EditorTools
     /// </remarks>
     public static class HalfAdderDemoSceneBuilder
     {
-        /// <summary>The level the scene opens on. Any file name from Assets/Resources/Levels.</summary>
-        private const string StartingLevel = "route-the-bit";
+        /// <summary>
+        /// The level a scene built from nothing opens on. Any file name from Assets/Resources/Levels.
+        /// </summary>
+        /// <remarks>
+        /// Only used when there is no existing scene to take the choice from. Rebuilding preserves
+        /// whatever the scene was already set to -- see <see cref="StartingLevelFor"/>. Forcing this
+        /// value on every rebuild silently threw away the level you had selected, which is exactly the
+        /// kind of thing that reads as "the inspector is broken".
+        /// </remarks>
+        private const string DefaultStartingLevel = "route-the-bit";
 
         private const string ScenesFolder = "Assets/Scenes";
         private const string PrefabsFolder = "Assets/Prefabs";
@@ -38,6 +46,9 @@ namespace BitSorter.View.EditorTools
         {
             if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
                 return;
+
+            // Read before NewScene throws the current one away.
+            string startingLevel = StartingLevelFor();
 
             EnsureFolder(ScenesFolder);
             EnsureFolder(PrefabsFolder);
@@ -67,6 +78,7 @@ namespace BitSorter.View.EditorTools
             SimulationInput input = host.AddComponent<SimulationInput>();
             PlacementController placement = host.AddComponent<PlacementController>();
             WiringController wiring = host.AddComponent<WiringController>();
+            WireDelayController wireDelay = host.AddComponent<WireDelayController>();
             SparkEffects sparks = host.AddComponent<SparkEffects>();
             BoardBackground board = host.AddComponent<BoardBackground>();
 
@@ -79,6 +91,8 @@ namespace BitSorter.View.EditorTools
             Assign(nodes, "_runner", runner);
             Assign(nodes, "_nodePrefab", nodePrefab);
             Assign(edges, "_runner", runner);
+            Assign(edges, "_delay", wireDelay);
+            Assign(edges, "_sparks", sparks);
             Assign(bits, "_runner", runner);
             Assign(bits, "_bitPrefab", bitPrefab);
 
@@ -86,13 +100,19 @@ namespace BitSorter.View.EditorTools
             // talk to it. WiringController keeps the runner as well, for layout and the read-only view
             // its hit testing and preview need.
             Assign(session, "_runner", runner);
-            AssignString(session, "_levelName", StartingLevel);
+            AssignString(session, "_levelName", startingLevel);
             Assign(wiring, "_session", session);
             Assign(wiring, "_runner", runner);
             Assign(wiring, "_camera", camera);
             Assign(placement, "_session", session);
             Assign(placement, "_grid", grid);
             Assign(placement, "_camera", camera);
+
+            // Holds the wiring controller so re-timing stays suppressed while a new wire is dragged.
+            Assign(wireDelay, "_session", session);
+            Assign(wireDelay, "_runner", runner);
+            Assign(wireDelay, "_wiring", wiring);
+            Assign(wireDelay, "_camera", camera);
             Assign(input, "_session", session);
             Assign(input, "_runner", runner);
             Assign(hud, "_runner", runner);
@@ -105,7 +125,28 @@ namespace BitSorter.View.EditorTools
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
 
-            Debug.Log($"Built {ScenePath}. It is open now -- press Play.");
+            // Says which level, because this used to reset it without a word.
+            Debug.Log($"Built {ScenePath} starting on '{startingLevel}'. It is open now -- press Play. " +
+                      "Page Up and Page Down change level while playing.");
+        }
+
+        /// <summary>
+        /// The level the rebuilt scene should open on: whatever the scene being replaced was set to, or
+        /// <see cref="DefaultStartingLevel"/> when building from nothing.
+        /// </summary>
+        /// <remarks>
+        /// Only reads the scene already open, and does not go opening the file to find out. A rebuild is
+        /// nearly always done with the scene in front of you, and opening scenes behind the user's back
+        /// to salvage one string is a worse trade than falling back to the default.
+        /// </remarks>
+        private static string StartingLevelFor()
+        {
+            LevelSession existing = Object.FindFirstObjectByType<LevelSession>();
+
+            if (existing == null || string.IsNullOrWhiteSpace(existing.LevelName))
+                return DefaultStartingLevel;
+
+            return existing.LevelName;
         }
 
         private static Camera CreateCamera()

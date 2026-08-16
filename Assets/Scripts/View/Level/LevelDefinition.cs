@@ -22,6 +22,16 @@ namespace BitSorter.View
     /// </remarks>
     public sealed class LevelDefinition
     {
+        /// <summary>
+        /// The cap a level gets when it names none. Single digit on purpose: the delay is drawn on the
+        /// wire itself, and two digits need a wider pill than <see cref="EdgeRenderer"/> draws.
+        /// </summary>
+        /// <remarks>
+        /// Lives here rather than on <see cref="LevelLoader"/> so the validated model does not depend
+        /// on the layer that reads files. The loader substitutes it; the model owns it.
+        /// </remarks>
+        public const int DefaultMaxWireDelay = 9;
+
         public LevelDefinition(
             string name,
             string hint,
@@ -29,7 +39,9 @@ namespace BitSorter.View
             int vectorCount,
             IReadOnlyList<LevelFixture> fixtures,
             IReadOnlyList<LevelBudgetEntry> budget,
-            IReadOnlyList<LevelExpectation> expectations)
+            IReadOnlyList<LevelExpectation> expectations,
+            int maxWireDelay = DefaultMaxWireDelay,
+            int delayBudget = 0)
         {
             Name = name;
             Hint = hint;
@@ -38,6 +50,8 @@ namespace BitSorter.View
             Fixtures = fixtures;
             Budget = budget;
             Expectations = expectations;
+            MaxWireDelay = maxWireDelay;
+            DelayBudget = delayBudget;
         }
 
         public string Name { get; }
@@ -64,6 +78,24 @@ namespace BitSorter.View
         public IReadOnlyList<LevelFixture> Fixtures { get; }
 
         public IReadOnlyList<LevelBudgetEntry> Budget { get; }
+
+        /// <summary>
+        /// Most ticks the player may put on any one wire. A level with this at 1 has fixed wiring:
+        /// nothing can be re-timed, which is how the levels written before delay existed behave.
+        /// </summary>
+        public int MaxWireDelay { get; }
+
+        /// <summary>
+        /// Total ticks the player may add across all wires, above the default of 1 each. Zero means
+        /// unlimited -- see <see cref="HasDelayBudget"/>.
+        /// </summary>
+        public int DelayBudget { get; }
+
+        /// <summary>
+        /// Whether the level caps total added delay at all. False leaves lengthening unrestricted,
+        /// which is safe: grading ignores arrival ticks, so a longer route cannot buy a wrong answer.
+        /// </summary>
+        public bool HasDelayBudget => DelayBudget > 0;
 
         /// <summary>
         /// In file order, which is the order the grader checks them and therefore the order failures

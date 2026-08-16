@@ -32,6 +32,19 @@ namespace BitSorter.View
         /// <summary>Zero means "unspecified"; the validator substitutes the default.</summary>
         public int tickLimit;
 
+        /// <summary>
+        /// Most ticks the player may put on one wire. Zero means unspecified. Set it to 1 to forbid
+        /// re-timing altogether -- there is no way to say that with delayBudget, because JsonUtility
+        /// cannot tell a missing key from an explicit 0.
+        /// </summary>
+        public int maxWireDelay;
+
+        /// <summary>
+        /// Total ticks the player may add across all wires, counting only what is above the default
+        /// of 1. Zero or absent means unlimited.
+        /// </summary>
+        public int delayBudget;
+
         public LevelFixtureFile[] fixtures;
         public LevelBudgetFile[] budget;
         public LevelExpectationFile[] expected;

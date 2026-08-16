@@ -199,20 +199,80 @@ namespace BitSorter.View
 
         public bool RemoveWire(BlueprintWire wire) => _wires.Remove(wire);
 
+        public bool RemoveWireAt(int index)
+        {
+            if (index < 0 || index >= _wires.Count)
+                return false;
+
+            _wires.RemoveAt(index);
+            return true;
+        }
+
         /// <summary>
-        /// True if this exact output-to-input pair is already wired. Duplicate detection also happens
-        /// against the simulation in <see cref="WiringRules"/>; this exists for callers that are
-        /// editing the blueprint without a built graph to compare against.
+        /// The wire joining these two ports, or -1. The pair is unique:
+        /// <see cref="WiringRules"/> refuses an exact duplicate, so delay never has to be part of
+        /// the search.
         /// </summary>
-        public bool HasWire(CellPort from, CellPort to)
+        public int IndexOfWire(CellPort from, CellPort to)
         {
             for (int i = 0; i < _wires.Count; i++)
             {
                 if (_wires[i].From == from && _wires[i].To == to)
-                    return true;
+                    return i;
             }
 
-            return false;
+            return -1;
+        }
+
+        /// <inheritdoc cref="IndexOfWire"/>
+        public bool HasWire(CellPort from, CellPort to) => IndexOfWire(from, to) >= 0;
+
+        /// <summary>
+        /// Re-times a wire, keeping it at the same position in the list.
+        /// </summary>
+        /// <remarks>
+        /// In place, and that matters. Node and edge ids come from Add and Connect call order, so
+        /// replacing the entry rather than removing and re-appending it means a rebuild issues the
+        /// same edge ids in the same order. The delay interaction depends on that: the player scrolls
+        /// a wire they are hovering, which rebuilds the graph underneath them, and the hover is
+        /// remembered by edge id. Re-appending would renumber the edges and slide the highlight onto
+        /// a different wire mid-scroll.
+        ///
+        /// BlueprintWire is a readonly struct, so this replaces the element rather than mutating it.
+        /// </remarks>
+        public void SetDelayAt(int index, int delay)
+        {
+            if (index < 0 || index >= _wires.Count)
+                throw new ArgumentOutOfRangeException(nameof(index), index, "No wire at that index.");
+
+            if (delay < 1)
+            {
+                // The same floor Edge enforces, checked here so an illegal blueprint cannot exist even
+                // briefly. Below 1 would let a node observe another's output within one tick, which is
+                // what makes evaluation order irrelevant.
+                throw new ArgumentOutOfRangeException(nameof(delay), delay, "Delay must be at least 1.");
+            }
+
+            BlueprintWire wire = _wires[index];
+            _wires[index] = new BlueprintWire(wire.From, wire.To, delay);
+        }
+
+        /// <summary>
+        /// Ticks spent above the default across every wire -- the sum of delay minus one.
+        /// </summary>
+        /// <remarks>
+        /// What a level's delay budget is measured against. Counting only the excess means drawing a
+        /// wire never quietly costs budget, and lowering a wire refunds immediately, because this is
+        /// computed from the wires rather than tallied as the player spends.
+        /// </remarks>
+        public int ExtraDelay()
+        {
+            int extra = 0;
+
+            for (int i = 0; i < _wires.Count; i++)
+                extra += _wires[i].Delay - 1;
+
+            return extra;
         }
 
         /// <summary>Discards everything the player built. Used when a level is loaded or restarted.</summary>

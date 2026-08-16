@@ -96,6 +96,11 @@ namespace BitSorter.View
 
             int budgetRows = level == null ? 0 : Mathf.Max(1, level.Budget.Count);
 
+            // Only levels that cap added delay get the row. On the others the number would never move.
+            bool showDelay = level != null && level.HasDelayBudget;
+            if (showDelay)
+                budgetRows++;
+
             // A paused run still says RUNNING otherwise, which reads as "nothing is wrong" while the
             // clock is in fact stopped.
             string status = state == RunState.Running && _runner.IsPaused
@@ -121,7 +126,17 @@ namespace BitSorter.View
             _y = Margin + Padding;
 
             if (level != null)
-                StatRow("Level", level.Name, _textColour);
+            {
+                // "2/3" so it is obvious there are others, and which way Page Up and Down will go.
+                int index = _session != null ? _session.LevelIndex : -1;
+                int count = _session != null ? _session.AvailableLevels.Count : 0;
+
+                string label = index >= 0 && count > 1
+                    ? $"{level.Name}  ({index + 1}/{count})"
+                    : level.Name;
+
+                StatRow("Level", label, _textColour);
+            }
 
             StatRow("Tick", _tickText, _textColour);
             StatRow("Corrupted", _corruptedText, _shownCorrupted > 0 ? _corruptedColour : _textColour);
@@ -149,6 +164,16 @@ namespace BitSorter.View
                     StatRow(GatePalette.Label(entry.Kind), $"{remaining} of {entry.Count}",
                         remaining > 0 ? _textColour : _hintColour);
                 }
+            }
+
+            if (showDelay)
+            {
+                // Spent rather than remaining, unlike the gate rows: the interesting question while
+                // balancing paths is how much delay is on the board, not how much is left.
+                int spent = _session.SpentDelay;
+
+                StatRow("Delay", $"{spent} of {level.DelayBudget}",
+                    spent < level.DelayBudget ? _textColour : _hintColour);
             }
 
             _y += BlockGap;
@@ -224,7 +249,9 @@ namespace BitSorter.View
             "enter          run",
             "1-6 / click    select / place",
             "drag port      wire",
+            "scroll wire    delay     [ ]  same",
             "right click    delete",
+            "pg up / dn     change level",
         };
 
         private static readonly string[] RunningControls =
@@ -237,6 +264,7 @@ namespace BitSorter.View
         {
             "r              reset and edit",
             "enter          run again",
+            "pg up / dn     change level",
         };
 
         private static string[] ControlsFor(RunState state)

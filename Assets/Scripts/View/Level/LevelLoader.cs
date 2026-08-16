@@ -232,10 +232,30 @@ namespace BitSorter.View
 
             int tickLimit = file.tickLimit > 0 ? file.tickLimit : DefaultTickLimit;
 
+            // Negative is a mistake worth naming. Zero is not: JsonUtility yields 0 for a missing key,
+            // so zero has to keep meaning "unspecified".
+            if (file.maxWireDelay < 0)
+            {
+                return LevelLoadResult.Reject(
+                    $"maxWireDelay is {file.maxWireDelay}; use 1 to forbid re-timing, or leave it out");
+            }
+
+            if (file.delayBudget < 0)
+            {
+                return LevelLoadResult.Reject(
+                    $"delayBudget is {file.delayBudget}; leave it out for no limit, or set " +
+                    "maxWireDelay to 1 to forbid re-timing");
+            }
+
+            int maxWireDelay = file.maxWireDelay > 0
+                ? file.maxWireDelay
+                : LevelDefinition.DefaultMaxWireDelay;
+
             string hint = string.IsNullOrWhiteSpace(file.hint) ? string.Empty : file.hint.Trim();
 
             return LevelLoadResult.Accept(new LevelDefinition(
-                file.name.Trim(), hint, tickLimit, vectorCount, fixtures, budget, expectations));
+                file.name.Trim(), hint, tickLimit, vectorCount, fixtures, budget, expectations,
+                maxWireDelay, file.delayBudget));
         }
 
         private static bool TryBuildBudget(

@@ -106,6 +106,46 @@ namespace BitSorter.LogicCore.Tests
         }
 
         [Test]
+        public void OmittedDelayFields_MeanNoBudgetAndTheDefaultCap()
+        {
+            // Absent has to mean unlimited, because JsonUtility yields 0 for a missing key. A level
+            // that wants to forbid re-timing says maxWireDelay: 1 instead.
+            LevelLoadResult result = ParseDefault();
+
+            Assert.IsTrue(result.IsValid, result.Error);
+            Assert.IsFalse(result.Level.HasDelayBudget, "no budget means unrestricted");
+            Assert.AreEqual(0, result.Level.DelayBudget);
+            Assert.AreEqual(LevelDefinition.DefaultMaxWireDelay, result.Level.MaxWireDelay);
+        }
+
+        [Test]
+        public void DelayFields_AreCarriedThrough()
+        {
+            string json = Json($"{SourceIn}, {BinOne}, {BinZero}", $"{ExpectOne}, {ExpectZeroEmpty}")
+                .Replace(@"""tickLimit"": 100", @"""tickLimit"": 100, ""maxWireDelay"": 3, ""delayBudget"": 2");
+
+            LevelLoadResult result = Parse(json);
+
+            Assert.IsTrue(result.IsValid, result.Error);
+            Assert.AreEqual(3, result.Level.MaxWireDelay);
+            Assert.AreEqual(2, result.Level.DelayBudget);
+            Assert.IsTrue(result.Level.HasDelayBudget);
+        }
+
+        [Test]
+        public void ANegativeDelayField_IsRefused()
+        {
+            string capped = Json($"{SourceIn}, {BinOne}, {BinZero}", $"{ExpectOne}, {ExpectZeroEmpty}")
+                .Replace(@"""tickLimit"": 100", @"""tickLimit"": 100, ""maxWireDelay"": -1");
+
+            string budgeted = Json($"{SourceIn}, {BinOne}, {BinZero}", $"{ExpectOne}, {ExpectZeroEmpty}")
+                .Replace(@"""tickLimit"": 100", @"""tickLimit"": 100, ""delayBudget"": -4");
+
+            AssertRefused(Parse(capped));
+            AssertRefused(Parse(budgeted));
+        }
+
+        [Test]
         public void DashesMapExpectedBitsBackToTheirVectors()
         {
             // The whole point of carrying a vector index on each expected bit. Positions 0 and 2

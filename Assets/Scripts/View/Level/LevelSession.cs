@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using BitSorter.LogicCore;
 using UnityEngine;
 
@@ -23,12 +24,16 @@ namespace BitSorter.View
     /// </remarks>
     public sealed class LevelSession : MonoBehaviour
     {
-        [Tooltip("File name without extension, from Assets/Resources/Levels/.")]
+        [Tooltip("File name without extension, from Assets/Resources/Levels/. " +
+                 "Page Up and Page Down cycle levels at runtime without touching this.")]
         [SerializeField] private string _levelName = "route-the-bit";
 
         [SerializeField] private SimulationRunner _runner;
 
         private readonly CircuitBlueprint _blueprint = new CircuitBlueprint();
+
+        /// <summary>Every level file found under Resources/Levels, by name, in cycle order.</summary>
+        private string[] _available;
 
         /// <summary>The loaded level, or null if loading failed.</summary>
         public LevelDefinition Level { get; private set; }
@@ -52,6 +57,32 @@ namespace BitSorter.View
 
         /// <summary>What the player built. Read-only to everyone but this component.</summary>
         public CircuitBlueprint Blueprint => _blueprint;
+
+        /// <summary>
+        /// The level file currently loaded. Readable so the scene builder can carry the choice across a
+        /// rebuild instead of resetting it.
+        /// </summary>
+        public string LevelName => _levelName;
+
+        /// <summary>Level files available to cycle through, in name order.</summary>
+        public IReadOnlyList<string> AvailableLevels => _available ?? (_available = DiscoverLevels());
+
+        /// <summary>Position of the current level in <see cref="AvailableLevels"/>, or -1.</summary>
+        public int LevelIndex
+        {
+            get
+            {
+                IReadOnlyList<string> all = AvailableLevels;
+
+                for (int i = 0; i < all.Count; i++)
+                {
+                    if (all[i] == _levelName)
+                        return i;
+                }
+
+                return -1;
+            }
+        }
 
         private void Awake()
         {
@@ -104,9 +135,13 @@ namespace BitSorter.View
                 Level = null;
                 LoadError = result.Error;
 
+                // Listing what does exist turns "no level named that" from a dead end into an answer,
+                // and a misremembered file name is the likeliest way to arrive here.
+                string known = string.Join(", ", AvailableLevels);
+
                 // An error, not a warning: the game cannot start, and this is the only place the
                 // author finds out why.
-                Debug.LogError($"BitSorter: {result.Error}");
+                Debug.LogError($"BitSorter: {result.Error}. Available: {known}");
                 return false;
             }
 
@@ -117,6 +152,71 @@ namespace BitSorter.View
             _blueprint.Clear();
             ResetBoard();
             return true;
+        }
+
+        /// <summary>
+        /// Loads the next level file along, wrapping at the end. Discards whatever was on the board.
+        /// </summary>
+        /// <remarks>
+        /// Deliberately keys off the files present rather than a list written down anywhere, so adding
+        /// a level to Resources/Levels puts it in the rotation with no other change. This is a way to
+        /// reach a level, not a level-select screen -- CLAUDE.md still has that under "Not yet".
+        ///
+        /// Cycling rather than editing the serialized field because the field cannot be relied on:
+        /// rebuilding the scene recreates the component, and a Play-mode edit to it is reverted when
+        /// Play exits. Keys depend on no serialized state and so survive both.
+        /// </remarks>
+        public bool CycleLevel(int step)
+        {
+            IReadOnlyList<string> all = AvailableLevels;
+
+            if (all.Count == 0 || step == 0)
+                return false;
+
+            return LoadLevel(all[NextIndex(LevelIndex, step, all.Count)]);
+        }
+
+        /// <summary>
+        /// Where a step of <paramref name="step"/> lands from <paramref name="current"/>, wrapping in
+        /// both directions. A negative <paramref name="current"/> means the level is not in the list.
+        /// </summary>
+        /// <remarks>
+        /// Pulled out and made static so the wrap can be tested directly. C# gives a negative result
+        /// for a negative left operand of %, so stepping back from the first entry lands on -1 and
+        /// throws unless the remainder is nudged positive -- the whole reason this is not inline.
+        /// </remarks>
+        public static int NextIndex(int current, int step, int count)
+        {
+            if (count <= 0)
+                return -1;
+
+            // An unrecognised current level starts the walk at one end rather than nowhere.
+            if (current < 0)
+                return step > 0 ? 0 : count - 1;
+
+            return ((current + step) % count + count) % count;
+        }
+
+        /// <summary>
+        /// Level file names under Resources/Levels, sorted so the cycle order is the same everywhere.
+        /// </summary>
+        /// <remarks>
+        /// Resources.LoadAll does not promise an order, and an order that varied by machine would make
+        /// "the next level" mean different things for different people.
+        /// </remarks>
+        private static string[] DiscoverLevels()
+        {
+            TextAsset[] assets = Resources.LoadAll<TextAsset>(LevelLoader.ResourcePath);
+            var names = new List<string>(assets.Length);
+
+            for (int i = 0; i < assets.Length; i++)
+            {
+                if (assets[i] != null)
+                    names.Add(assets[i].name);
+            }
+
+            names.Sort(System.StringComparer.Ordinal);
+            return names.ToArray();
         }
 
         // -----------------------------------------------------------------
@@ -187,6 +287,9 @@ namespace BitSorter.View
         /// <summary>How many of a kind the player may still place.</summary>
         public int RemainingFor(GateKind kind) =>
             IsLoaded ? LevelRules.RemainingFor(Level, _blueprint, kind) : 0;
+
+        /// <summary>Ticks of delay already added across every wire.</summary>
+        public int SpentDelay => _blueprint.ExtraDelay();
 
         public bool TryPlaceGate(GateKind kind, Vector2Int cell)
         {
@@ -296,17 +399,68 @@ namespace BitSorter.View
             if (edge == null)
                 return false;   // clicked nothing; stay silent
 
+            if (!TryWireIndex(edge, out int index))
+                return false;
+
+            _blueprint.RemoveWireAt(index);
+            _runner.Rebuild(Level, _blueprint);
+            return true;
+        }
+
+        /// <summary>
+        /// Re-times the wire nearest a world point by <paramref name="delta"/> ticks. Returns whether
+        /// anything changed.
+        /// </summary>
+        /// <remarks>
+        /// Delay is edited in place, so the rebuild reissues the same edge ids in the same order and a
+        /// caller tracking a hovered wire by id keeps pointing at the same wire across the change it
+        /// just caused.
+        /// </remarks>
+        public bool TryChangeWireDelay(Vector2 world, int delta)
+        {
+            if (!IsLoaded || delta == 0)
+                return false;
+
+            Edge edge = _runner.NearestEdge(world);
+
+            if (edge == null)
+                return false;   // nothing under the cursor; stay silent
+
+            if (!TryWireIndex(edge, out int index))
+                return false;
+
+            int current = _blueprint.Wires[index].Delay;
+            int target = current + delta;
+
+            LevelVerdict verdict = LevelRules.CanSetDelay(Level, _blueprint, State, current, target);
+
+            if (!verdict.IsValid)
+            {
+                _runner.RejectEdit(verdict.Reason);   // null stays silent
+                return false;
+            }
+
+            _blueprint.SetDelayAt(index, target);
+            _runner.Rebuild(Level, _blueprint);
+            return true;
+        }
+
+        /// <summary>
+        /// The blueprint wire a built edge came from, found by the cells at its two ends. Delay is
+        /// deliberately not part of the match, so this keeps working once wires can be re-timed.
+        /// </summary>
+        private bool TryWireIndex(Edge edge, out int index)
+        {
+            index = -1;
+
             if (!TryCellPort(edge.Source.Owner.Id, false, edge.Source.Index, out CellPort source) ||
                 !TryCellPort(edge.Target.Owner.Id, true, edge.Target.Index, out CellPort target))
             {
                 return false;
             }
 
-            if (!_blueprint.RemoveWire(new BlueprintWire(source, target, edge.Delay)))
-                return false;
-
-            _runner.Rebuild(Level, _blueprint);
-            return true;
+            index = _blueprint.IndexOfWire(source, target);
+            return index >= 0;
         }
 
         private bool TryCellPort(int nodeId, bool isInput, int index, out CellPort port)
