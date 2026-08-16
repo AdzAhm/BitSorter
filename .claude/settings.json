@@ -27,7 +27,13 @@
       "Bash(python \"C:/Users/55556/AppData/Local/Temp/claude/c--Users-55556-Unity-projects2-BitSorter/e947e6ef-ff79-4a1f-ba74-518195a42785/scratchpad/check_json.py\")",
       "Bash(grep -E \"Assets\\\\\\\\\\\\\\\\\\(Scripts|Tests\\)\")",
       "Bash(grep -E 'Assets\\\\\\\\\\\\\\\\\\(Scripts|Tests\\)')",
-      "Bash(python -)"
+      "Bash(python -)",
+      "WebSearch",
+      "WebFetch(domain:docs.unity3d.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:unity.com)",
+      "WebFetch(domain:coplaydev.github.io)",
+      "WebFetch(domain:gamedevllm.com)"
     ]
   }
 }
