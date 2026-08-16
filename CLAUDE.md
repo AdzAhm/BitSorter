@@ -78,6 +78,10 @@ Explain things as you go and tell me when I'm about to do something dumb.
   same change. No component without a truth-table test.
 - After editing scripts, remind me to focus the Unity window so it
   recompiles, then run EditMode tests before we commit.
+- After any change that builds or modifies the demo scene, verify the
+  saved scene file itself — serialized references can be `{fileID: 0}`
+  even when the setup code looks correct. A scene that opens fine on
+  this machine can still be broken for a fresh clone.
 - Commit after each green test run, with a short descriptive message.
 
 ## Not yet
