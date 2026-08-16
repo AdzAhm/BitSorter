@@ -10,7 +10,13 @@
       "Bash(rm -f Probe.cs)",
       "Bash(sed -i '/Probe.cs/d' verify.csproj)",
       "Bash(D=\"/c/Program Files/Unity/Hub/Editor/6000.3.11f1/Editor/Data/Managed/UnityEngine\"; ls \"$D\"/UnityEngine.CoreModule.dll \"$D\"/UnityEngine.dll 2>&1 | head -4)",
-      "Read(//c/Program Files/Unity/Hub/Editor/6000.3.11f1/Editor/Data/Managed/UnityEngine/**)"
+      "Read(//c/Program Files/Unity/Hub/Editor/6000.3.11f1/Editor/Data/Managed/UnityEngine/**)",
+      "Bash(ls \"/c/Program Files/Unity/Hub/Editor/6000.3.11f1/Editor/Data/Managed/UnityEngine/\" 2>/dev/null | head -40; echo \"=== input system asm ===\"; ls \"c:/Users/55556/Unity projects2/BitSorter/Library/ScriptAssemblies/Unity.InputSystem.dll\" 2>&1 | head -1)",
+      "Read(//c/Program Files/Unity/Hub/Editor/6000.3.11f1/Editor/Data/Managed/UnityEngine//**)",
+      "Bash(grep -E \"^UnityEngine\\\\.\\(CoreModule|IMGUIModule|ParticleSystemModule|TextRenderingModule|UIModule|PhysicsModule|InputLegacyModule\\)\\\\.dll$\")",
+      "Bash(dotnet build *)",
+      "Bash(echo \"--- exit: $? ---\")",
+      "Bash(grep -E \"Assets/.*\\\\.\\(cs|asmdef|prefab|unity|png|asset\\)$\")"
     ]
   }
 }
