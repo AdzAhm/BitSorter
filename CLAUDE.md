@@ -85,8 +85,10 @@ Explain things as you go and tell me when I'm about to do something dumb.
 - Commit after each green test run, with a short descriptive message.
 
 ## Not yet
-Do not build ahead of me. Current scope is the logic core only.
-No MonoBehaviours, no scenes, no sprites, no level JSON until I say so.
+Do not build ahead of me. The logic core, the view layer, the demo scene
+and the level format are all in. Still off limits until I ask by name:
+scoring, a campaign or level-select flow, save files, sound, and real
+canvas UI (the HUD is deliberately still IMGUI).
 
 ## Level ideas
 Design notes only — not implementation work, and not a backlog. Nothing
@@ -102,6 +104,21 @@ by name. Treat this section as a place to park ideas, not as a to-do list.
   bit latches in its port, and the next arrival collides with it. This is
   the core difficulty of the adder chapters, and the reason CorruptedCount
   exists as a game mechanic rather than just a diagnostic.
+
+  **Currently unreachable, and this blocks the timing-hazard chapter.**
+  Every player wire is hardcoded to delay 1 (`TryConnect`), so a
+  player-built circuit is always balanced by construction, and the level
+  format has no fixture-wire array, so a level cannot author an
+  unbalanced path either. The old half-adder demo only corrupted because
+  its hardcoded fixture delays were 1 and 3. As things stand
+  CorruptedCount can only be provoked by a fan-in mistake.
+
+  Two candidate fixes: a locked `wires` array in the level JSON, or
+  player-chosen wire delays. The first keeps the hazard authored and
+  makes it a puzzle to route around; the second makes delay a resource
+  the player manages, which is a much bigger design change and needs UI.
+  Decide before writing the adder chapters — the choice shapes what
+  those levels can ask for.
 
 - **A waiting bit needs a stronger visual.** A bit held in an input port
   currently renders as a small square inside the node. That is readable

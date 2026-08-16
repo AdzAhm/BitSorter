@@ -1,0 +1,19 @@
+{
+  "name": "Half adder",
+  "hint": "sum is A xor B, carry is A and B -- each source feeds both gates",
+  "tickLimit": 40,
+  "fixtures": [
+    { "id": "a",     "kind": "Source", "cell": { "x": -3, "y":  1 }, "stream": "0011" },
+    { "id": "b",     "kind": "Source", "cell": { "x": -3, "y": -1 }, "stream": "0101" },
+    { "id": "sum",   "kind": "Sink",   "cell": { "x":  3, "y":  1 } },
+    { "id": "carry", "kind": "Sink",   "cell": { "x":  3, "y": -1 } }
+  ],
+  "budget": [
+    { "kind": "Xor", "count": 1 },
+    { "kind": "And", "count": 1 }
+  ],
+  "expected": [
+    { "sink": "sum",   "values": "0110" },
+    { "sink": "carry", "values": "0001" }
+  ]
+}

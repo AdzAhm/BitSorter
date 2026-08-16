@@ -1,0 +1,17 @@
+{
+  "name": "Route the bit",
+  "hint": "the bin marked ONE wants a 1 -- make the bit match the bin",
+  "tickLimit": 40,
+  "fixtures": [
+    { "id": "in",      "kind": "Source", "cell": { "x": -3, "y":  0 }, "stream": "0" },
+    { "id": "binOne",  "kind": "Sink",   "cell": { "x":  3, "y":  1 } },
+    { "id": "binZero", "kind": "Sink",   "cell": { "x":  3, "y": -1 } }
+  ],
+  "budget": [
+    { "kind": "Not", "count": 1 }
+  ],
+  "expected": [
+    { "sink": "binOne",  "values": "1" },
+    { "sink": "binZero", "values": "-" }
+  ]
+}

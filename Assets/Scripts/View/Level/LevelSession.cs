@@ -1,0 +1,324 @@
+using BitSorter.LogicCore;
+using UnityEngine;
+
+namespace BitSorter.View
+{
+    /// <summary>
+    /// Owns the level, the player's blueprint and the run state, and is the single entry point for
+    /// every edit. Drives Run and Reset by asking <see cref="SimulationRunner"/> to rebuild.
+    /// </summary>
+    /// <remarks>
+    /// The blueprint is the only mutable authority on the circuit. The Simulation is derived from it
+    /// and thrown away freely -- on Run, on Reset, and after every single edit. So Reset is not a
+    /// restore: nothing was ever snapshotted. It is the same Rebuild call that Run makes, differing
+    /// only in the state it lands in.
+    ///
+    /// Rebuilding on every edit rather than mutating the live graph is deliberate. Edits are legal
+    /// only while Editing, where the graph sits at tick 0 with nothing in flight, so a rebuild costs
+    /// nothing and makes blueprint-versus-simulation divergence unrepresentable.
+    ///
+    /// Note the method is ResetBoard, not Reset. MonoBehaviour.Reset is an editor callback Unity
+    /// invokes when a component is added or reset from the inspector, so a public Reset() here would
+    /// silently be called by the editor at times that have nothing to do with the player.
+    /// </remarks>
+    public sealed class LevelSession : MonoBehaviour
+    {
+        [Tooltip("File name without extension, from Assets/Resources/Levels/.")]
+        [SerializeField] private string _levelName = "route-the-bit";
+
+        [SerializeField] private SimulationRunner _runner;
+
+        private readonly CircuitBlueprint _blueprint = new CircuitBlueprint();
+
+        /// <summary>The loaded level, or null if loading failed.</summary>
+        public LevelDefinition Level { get; private set; }
+
+        /// <summary>Why the level would not load, for the HUD. Null when all is well.</summary>
+        public string LoadError { get; private set; }
+
+        public RunState State { get; private set; } = RunState.Editing;
+
+        /// <summary>Meaningful once <see cref="State"/> is Passed or Failed.</summary>
+        public RunVerdict Verdict { get; private set; }
+
+        /// <summary>
+        /// Requires the runner too. Every edit path below reaches through it, so treating a session
+        /// with no runner as "loaded" would only move the failure to the first click.
+        /// </summary>
+        public bool IsLoaded => Level != null && _runner != null;
+
+        /// <summary>The gate both editing controllers check before acting on a click.</summary>
+        public bool CanEdit => IsLoaded && State == RunState.Editing;
+
+        /// <summary>What the player built. Read-only to everyone but this component.</summary>
+        public CircuitBlueprint Blueprint => _blueprint;
+
+        private void Awake()
+        {
+            if (_runner == null)
+                _runner = FindFirstObjectByType<SimulationRunner>();
+        }
+
+        private void Start()
+        {
+            // Start, not Awake: loading needs the runner to have found its grid, and component Awake
+            // order within one GameObject is not defined. Every renderer already checks
+            // SimulationRunner.IsReady, so a frame with no graph draws nothing rather than throwing.
+            LoadLevel(_levelName);
+        }
+
+        private void Update()
+        {
+            if (State != RunState.Running || !IsLoaded || _runner == null || !_runner.IsReady)
+                return;
+
+            // Idle is checked first. Once nothing is in flight and no source has anything left, extra
+            // ticks cannot change any result, so a run that settles exactly on the tick limit is a
+            // pass and not a timeout.
+            if (_runner.IsIdle())
+            {
+                Settle(true);
+                return;
+            }
+
+            if (LevelGrader.HasTimedOut(_runner.View, Level))
+                Settle(false);
+        }
+
+        // -----------------------------------------------------------------
+        // Loading
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// Loads a level by file name and returns to an empty, editable board. Public so a level-select
+        /// flow can call it later; nothing does yet.
+        /// </summary>
+        public bool LoadLevel(string levelName)
+        {
+            Vector2Int halfExtents = _runner != null ? _runner.HalfExtents : new Vector2Int(4, 2);
+
+            LevelLoadResult result = LevelLoader.Load(levelName, halfExtents);
+
+            if (!result.IsValid)
+            {
+                Level = null;
+                LoadError = result.Error;
+
+                // An error, not a warning: the game cannot start, and this is the only place the
+                // author finds out why.
+                Debug.LogError($"BitSorter: {result.Error}");
+                return false;
+            }
+
+            _levelName = levelName;
+            Level = result.Level;
+            LoadError = null;
+
+            _blueprint.Clear();
+            ResetBoard();
+            return true;
+        }
+
+        // -----------------------------------------------------------------
+        // Run and reset
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// Streams the level's test vectors through whatever the player has built.
+        /// </summary>
+        /// <remarks>
+        /// Rebuilds first, so a run always begins at tick 0. That makes Run idempotent and means it
+        /// works straight after a failed run without needing a Reset in between.
+        /// </remarks>
+        public void Run()
+        {
+            if (!IsLoaded || _runner == null)
+                return;
+
+            _runner.Rebuild(Level, _blueprint);
+            _runner.SetPaused(false);
+            _runner.ClockRunning = true;
+
+            Verdict = default;
+            State = RunState.Running;
+        }
+
+        /// <summary>Returns to the pre-run board so the player can edit and try again.</summary>
+        public void ResetBoard()
+        {
+            if (!IsLoaded || _runner == null)
+                return;
+
+            _runner.Rebuild(Level, _blueprint);
+            _runner.SetPaused(false);
+            _runner.ClockRunning = false;   // Editing holds at tick 0 whatever the pause key says
+
+            Verdict = default;
+            State = RunState.Editing;
+        }
+
+        private void Settle(bool settled)
+        {
+            Verdict = LevelGrader.Grade(_runner.View, Level, _runner.FixtureNodeIds, settled);
+            State = Verdict.IsPass ? RunState.Passed : RunState.Failed;
+            _runner.ClockRunning = false;
+        }
+
+        // -----------------------------------------------------------------
+        // Editing
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// Surfaces the refusal for an edit attempted at the wrong time and reports whether it
+        /// refused, so a caller can gate itself with a single line. Keeps the wording in
+        /// <see cref="LevelRules"/> rather than duplicated across the input components.
+        /// </summary>
+        public bool RefuseIfNotEditing()
+        {
+            LevelVerdict gate = LevelRules.CanEdit(State);
+
+            if (gate.IsValid)
+                return false;
+
+            _runner.RejectEdit(gate.Reason);
+            return true;
+        }
+
+        /// <summary>How many of a kind the player may still place.</summary>
+        public int RemainingFor(GateKind kind) =>
+            IsLoaded ? LevelRules.RemainingFor(Level, _blueprint, kind) : 0;
+
+        public bool TryPlaceGate(GateKind kind, Vector2Int cell)
+        {
+            if (!IsLoaded)
+                return false;
+
+            LevelVerdict verdict = LevelRules.CanPlace(
+                Level, _blueprint, State, kind, cell, _runner.HalfExtents);
+
+            if (!verdict.IsValid)
+            {
+                _runner.RejectEdit(verdict.Reason);
+                return false;
+            }
+
+            _blueprint.Place(cell, kind);
+            _runner.Rebuild(Level, _blueprint);
+            return true;
+        }
+
+        /// <summary>
+        /// Removes the gate on a cell. Returns whether the click was <em>handled</em>, not whether
+        /// anything was removed.
+        /// </summary>
+        /// <remarks>
+        /// The distinction matters to the caller. An empty cell returns false so the right click can
+        /// fall through to deleting the nearest wire, which is how wires are deleted at all. A fixture
+        /// returns true: the click was aimed at something real and got its refusal, so it must not
+        /// also delete a wire that happens to pass nearby.
+        /// </remarks>
+        public bool TryRemoveAt(Vector2Int cell)
+        {
+            if (!IsLoaded)
+                return false;
+
+            LevelVerdict verdict = LevelRules.CanRemove(Level, _blueprint, State, cell);
+
+            if (!verdict.IsValid)
+            {
+                _runner.RejectEdit(verdict.Reason);   // null stays silent
+                return verdict.Outcome != LevelOutcome.NothingThere;
+            }
+
+            _blueprint.RemoveAt(cell);
+            _runner.Rebuild(Level, _blueprint);
+            return true;
+        }
+
+        /// <summary>
+        /// Wires two ports if the drag is legal. Structural legality is
+        /// <see cref="WiringRules"/>'s call; this adds only the run-state gate and the blueprint
+        /// bookkeeping.
+        /// </summary>
+        public bool TryConnect(PortAddress from, PortAddress to, int delay = 1)
+        {
+            if (!IsLoaded)
+                return false;
+
+            LevelVerdict gate = LevelRules.CanEdit(State);
+
+            if (!gate.IsValid)
+            {
+                _runner.RejectEdit(gate.Reason);
+                return false;
+            }
+
+            WiringVerdict wiring = WiringRules.Validate(_runner.View, from, to);
+
+            if (!wiring.IsValid)
+            {
+                _runner.RejectEdit(wiring.Reason);   // null reason stays silent
+                return false;
+            }
+
+            // Store by cell, not by node id. WiringRules has already put the ends the right way round,
+            // so From is always the output regardless of which end the player grabbed first.
+            if (!TryCellPort(wiring.Source.Owner.Id, false, wiring.Source.Index, out CellPort source) ||
+                !TryCellPort(wiring.Target.Owner.Id, true, wiring.Target.Index, out CellPort target))
+            {
+                return false;   // a node vanished between the drag starting and ending
+            }
+
+            _blueprint.AddWire(new BlueprintWire(source, target, delay));
+            _runner.Rebuild(Level, _blueprint);
+            return true;
+        }
+
+        /// <summary>
+        /// Deletes the wire nearest a world point. Bits travelling it are destroyed and are not counted
+        /// as corruption -- an edit is not a collision.
+        /// </summary>
+        public bool TryDeleteWireAt(Vector2 world)
+        {
+            if (!IsLoaded)
+                return false;
+
+            LevelVerdict gate = LevelRules.CanEdit(State);
+
+            if (!gate.IsValid)
+            {
+                _runner.RejectEdit(gate.Reason);
+                return false;
+            }
+
+            Edge edge = _runner.NearestEdge(world);
+
+            if (edge == null)
+                return false;   // clicked nothing; stay silent
+
+            if (!TryCellPort(edge.Source.Owner.Id, false, edge.Source.Index, out CellPort source) ||
+                !TryCellPort(edge.Target.Owner.Id, true, edge.Target.Index, out CellPort target))
+            {
+                return false;
+            }
+
+            if (!_blueprint.RemoveWire(new BlueprintWire(source, target, edge.Delay)))
+                return false;
+
+            _runner.Rebuild(Level, _blueprint);
+            return true;
+        }
+
+        private bool TryCellPort(int nodeId, bool isInput, int index, out CellPort port)
+        {
+            if (!_runner.TryCellOf(nodeId, out Vector2Int cell))
+            {
+                port = default;
+                return false;
+            }
+
+            port = new CellPort(cell, isInput, index);
+            return true;
+        }
+    }
+}

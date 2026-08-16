@@ -7,10 +7,13 @@ namespace BitSorter.View
     /// placement snaps.
     /// </summary>
     /// <remarks>
-    /// The default cell size of 2 is not arbitrary. Every hardcoded half adder position is
-    /// (plus or minus 6, or 0) by (plus or minus 2), so on a 2-unit grid the fixture lands exactly
-    /// on cell centres and occupies whole cells. Change the cell size and the fixture stops
-    /// aligning, which would let the player place a gate on top of it.
+    /// Cells are the coordinate system levels are authored in: a fixture's position in a level JSON
+    /// file is a cell, not a world point, and <see cref="HalfExtents"/> is what the level loader
+    /// checks those positions against. World units only appear when something is drawn.
+    ///
+    /// The cell size is therefore free to change without breaking a level, unlike when the fixture
+    /// positions were hardcoded in world units -- but it does resize the board, so the extents and the
+    /// camera's orthographic size want checking alongside it.
     /// </remarks>
     public sealed class PlacementGrid : MonoBehaviour
     {
@@ -29,6 +32,12 @@ namespace BitSorter.View
 
         /// <summary>Serialized, so it is readable from another component's Awake.</summary>
         public float CellSize => _cellSize <= 0f ? 1f : _cellSize;
+
+        /// <summary>
+        /// Cells either side of the origin. The board edge, for the level loader and the placement
+        /// rules -- both of which need it without holding a reference to a MonoBehaviour.
+        /// </summary>
+        public Vector2Int HalfExtents => new Vector2Int(_halfColumns, _halfRows);
 
         public Vector2Int WorldToCell(Vector2 world) => new Vector2Int(
             Mathf.RoundToInt(world.x / CellSize),

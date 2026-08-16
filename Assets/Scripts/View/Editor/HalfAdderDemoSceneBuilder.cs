@@ -9,11 +9,20 @@ using UnityEngine.SceneManagement;
 namespace BitSorter.View.EditorTools
 {
     /// <summary>
-    /// Builds the half adder demo scene and everything it needs, so none of it has to be wired by
-    /// hand. Safe to re-run: it overwrites the generated assets and rebuilds the scene.
+    /// Builds the play scene and everything it needs, so none of it has to be wired by hand. Safe to
+    /// re-run: it overwrites the generated assets and rebuilds the scene.
     /// </summary>
+    /// <remarks>
+    /// The scene no longer contains a circuit. <see cref="LevelSession"/> loads one from
+    /// Assets/Resources/Levels at Start, and its _levelName field is the only thing that decides
+    /// which. The file name and menu item still say half adder for the sake of the git history; the
+    /// half adder is now level 2, in half-adder.json.
+    /// </remarks>
     public static class HalfAdderDemoSceneBuilder
     {
+        /// <summary>The level the scene opens on. Any file name from Assets/Resources/Levels.</summary>
+        private const string StartingLevel = "route-the-bit";
+
         private const string ScenesFolder = "Assets/Scenes";
         private const string PrefabsFolder = "Assets/Prefabs";
         private const string ArtFolder = "Assets/Art/Generated";
@@ -24,7 +33,7 @@ namespace BitSorter.View.EditorTools
         private const string NodePrefabPath = PrefabsFolder + "/NodeSquare.prefab";
         private const string BitPrefabPath = PrefabsFolder + "/BitSquare.prefab";
 
-        [MenuItem("BitSorter/Build Half Adder Demo Scene")]
+        [MenuItem("BitSorter/Build Play Scene")]
         public static void Build()
         {
             if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
@@ -45,10 +54,11 @@ namespace BitSorter.View.EditorTools
 
             var host = new GameObject("Simulation");
 
-            // The grid is added first: SimulationRunner reads its cell size during Awake to turn
-            // the fixture's cells into world positions.
+            // The grid is added first: SimulationRunner finds it during Awake, and both the level
+            // loader and the placement rules read its extents to know where the board ends.
             PlacementGrid grid = host.AddComponent<PlacementGrid>();
             SimulationRunner runner = host.AddComponent<SimulationRunner>();
+            LevelSession session = host.AddComponent<LevelSession>();
             NodeRenderer nodes = host.AddComponent<NodeRenderer>();
             EdgeRenderer edges = host.AddComponent<EdgeRenderer>();
             BitRenderer bits = host.AddComponent<BitRenderer>();
@@ -64,8 +74,6 @@ namespace BitSorter.View.EditorTools
             Assign(bits, "_sparks", sparks);
             Assign(ports, "_runner", runner);
             Assign(ports, "_stubPrefab", bitPrefab);
-            Assign(wiring, "_runner", runner);
-            Assign(wiring, "_camera", camera);
             Assign(grid, "_dotPrefab", bitPrefab);
             Assign(runner, "_grid", grid);
             Assign(nodes, "_runner", runner);
@@ -73,12 +81,23 @@ namespace BitSorter.View.EditorTools
             Assign(edges, "_runner", runner);
             Assign(bits, "_runner", runner);
             Assign(bits, "_bitPrefab", bitPrefab);
-            Assign(hud, "_runner", runner);
-            Assign(hud, "_placement", placement);
-            Assign(input, "_runner", runner);
-            Assign(placement, "_runner", runner);
+
+            // The session owns every edit, so the two editing controllers and the input component all
+            // talk to it. WiringController keeps the runner as well, for layout and the read-only view
+            // its hit testing and preview need.
+            Assign(session, "_runner", runner);
+            AssignString(session, "_levelName", StartingLevel);
+            Assign(wiring, "_session", session);
+            Assign(wiring, "_runner", runner);
+            Assign(wiring, "_camera", camera);
+            Assign(placement, "_session", session);
             Assign(placement, "_grid", grid);
             Assign(placement, "_camera", camera);
+            Assign(input, "_session", session);
+            Assign(input, "_runner", runner);
+            Assign(hud, "_runner", runner);
+            Assign(hud, "_session", session);
+            Assign(hud, "_placement", placement);
 
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene, ScenePath);
@@ -197,17 +216,42 @@ namespace BitSorter.View.EditorTools
         /// <summary>Sets a [SerializeField] private field, which is not reachable directly.</summary>
         private static void Assign(Object target, string fieldName, Object value)
         {
-            var serialized = new SerializedObject(target);
-            SerializedProperty property = serialized.FindProperty(fieldName);
+            SerializedObject serialized = Find(target, fieldName, out SerializedProperty property);
 
-            if (property == null)
-            {
-                Debug.LogError($"{target.GetType().Name} has no serialized field '{fieldName}'.");
+            if (serialized == null)
                 return;
-            }
 
             property.objectReferenceValue = value;
             serialized.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        /// <summary>
+        /// The same for a string field. objectReferenceValue would silently do nothing here, leaving
+        /// the level name empty and the scene loading no level at all.
+        /// </summary>
+        private static void AssignString(Object target, string fieldName, string value)
+        {
+            SerializedObject serialized = Find(target, fieldName, out SerializedProperty property);
+
+            if (serialized == null)
+                return;
+
+            property.stringValue = value;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private static SerializedObject Find(Object target, string fieldName, out SerializedProperty property)
+        {
+            var serialized = new SerializedObject(target);
+            property = serialized.FindProperty(fieldName);
+
+            if (property != null)
+                return serialized;
+
+            // Loud, because a renamed field otherwise shows up much later as a null reference in a
+            // scene that looked like it built correctly.
+            Debug.LogError($"{target.GetType().Name} has no serialized field '{fieldName}'.");
+            return null;
         }
 
         private static void EnsureFolder(string path)

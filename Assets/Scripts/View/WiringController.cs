@@ -6,9 +6,13 @@ namespace BitSorter.View
 {
     /// <summary>
     /// Drag between two ports to create an edge, with a preview line following the cursor.
-    /// Right-click deletes a wire. Editing is only allowed while paused.
+    /// Right-click deletes a wire. Editing is only allowed while the level session is in its Editing
+    /// state.
     /// </summary>
     /// <remarks>
+    /// Holds both references on purpose: the session owns edits, and the runner owns the layout and
+    /// the read-only view that hit testing and the live preview need.
+    ///
     /// Hit testing is geometric rather than collider based: it walks live nodes and compares
     /// distances against <see cref="PortGeometry.PositionOf"/>, the same function that placed the
     /// stubs on screen. Colliders would have meant dragging the physics system into the
@@ -18,6 +22,7 @@ namespace BitSorter.View
     /// </remarks>
     public sealed class WiringController : MonoBehaviour
     {
+        [SerializeField] private LevelSession _session;
         [SerializeField] private SimulationRunner _runner;
         [SerializeField] private Camera _camera;
         [SerializeField] private float _previewWidth = 0.07f;
@@ -32,6 +37,9 @@ namespace BitSorter.View
 
         private void Awake()
         {
+            if (_session == null)
+                _session = FindFirstObjectByType<LevelSession>();
+
             if (_runner == null)
                 _runner = FindFirstObjectByType<SimulationRunner>();
 
@@ -44,7 +52,7 @@ namespace BitSorter.View
         private void Update()
         {
             Mouse mouse = Mouse.current;
-            if (mouse == null || _runner == null || !_runner.IsReady || _camera == null)
+            if (mouse == null || _session == null || _runner == null || !_runner.IsReady || _camera == null)
                 return;
 
             Vector2 world = ScreenToWorld(mouse.position.ReadValue());
@@ -69,13 +77,10 @@ namespace BitSorter.View
             if (!port.IsValid)
                 return;
 
-            // The paused check lives here rather than earlier so that clicking empty space while
-            // running stays silent -- only an attempt to actually grab a port is worth refusing.
-            if (!_runner.IsPaused)
-            {
-                _runner.RejectEdit("pause with space before wiring");
+            // The run-state check lives here rather than earlier so that clicking empty space while
+            // a run is going stays silent -- only an attempt to actually grab a port is worth refusing.
+            if (_session.RefuseIfNotEditing())
                 return;
-            }
 
             _dragFrom = port;
         }
@@ -112,7 +117,7 @@ namespace BitSorter.View
             PortAddress to = FindPort(world);
 
             // TryConnect validates and reports its own reason, including "no port there".
-            _runner.TryConnect(from, to);
+            _session.TryConnect(from, to);
         }
 
         /// <summary>

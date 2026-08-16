@@ -16,7 +16,18 @@
       "Bash(grep -E \"^UnityEngine\\\\.\\(CoreModule|IMGUIModule|ParticleSystemModule|TextRenderingModule|UIModule|PhysicsModule|InputLegacyModule\\)\\\\.dll$\")",
       "Bash(dotnet build *)",
       "Bash(echo \"--- exit: $? ---\")",
-      "Bash(grep -E \"Assets/.*\\\\.\\(cs|asmdef|prefab|unity|png|asset\\)$\")"
+      "Bash(grep -E \"Assets/.*\\\\.\\(cs|asmdef|prefab|unity|png|asset\\)$\")",
+      "Bash(ls -la \"c:/Users/55556/Unity projects2/BitSorter/\" | grep -Ei \"verify|csproj|slnx\" ; echo \"--- scratch ---\"; ls -la \"C:/Users/55556/AppData/Local/Temp/claude/c--Users-55556-Unity-projects2-BitSorter/\" 2>/dev/null | head -20)",
+      "Read(//c/Users/55556/AppData/Local/Temp/claude/c--Users-55556-Unity-projects2-BitSorter/**)",
+      "Bash(D=\"/c/Program Files/Unity/Hub/Editor/6000.3.11f1/Editor/Data/Managed/UnityEngine\"; ls \"$D\" | head -50; echo \"=== ScriptAssemblies ===\"; ls \"c:/Users/55556/Unity projects2/BitSorter/Library/ScriptAssemblies/\" 2>&1 | head -20; echo \"=== nunit ===\"; find \"/c/Program Files/Unity/Hub/Editor/6000.3.11f1/Editor/Data\" -name \"nunit.framework.dll\" 2>/dev/null | head -3)",
+      "Read(//c/Program Files/Unity/Hub/Editor/6000.3.11f1/Editor/Data/**)",
+      "Bash(python \"C:/Users/55556/AppData/Local/Temp/claude/c--Users-55556-Unity-projects2-BitSorter/e947e6ef-ff79-4a1f-ba74-518195a42785/scratchpad/make_verify.py\")",
+      "Bash(python \"C:/Users/55556/AppData/Local/Temp/claude/c--Users-55556-Unity-projects2-BitSorter/e947e6ef-ff79-4a1f-ba74-518195a42785/scratchpad/make_verify_editor.py\")",
+      "Bash(dotnet run *)",
+      "Bash(python \"C:/Users/55556/AppData/Local/Temp/claude/c--Users-55556-Unity-projects2-BitSorter/e947e6ef-ff79-4a1f-ba74-518195a42785/scratchpad/check_json.py\")",
+      "Bash(grep -E \"Assets\\\\\\\\\\\\\\\\\\(Scripts|Tests\\)\")",
+      "Bash(grep -E 'Assets\\\\\\\\\\\\\\\\\\(Scripts|Tests\\)')",
+      "Bash(python -)"
     ]
   }
 }
