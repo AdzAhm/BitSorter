@@ -281,6 +281,20 @@ namespace BitSorter.View
         public string Values { get; }
 
         /// <summary>
+        /// Whether any vector here is silent, written '-'.
+        /// </summary>
+        /// <remarks>
+        /// What makes a positional comparison against <see cref="Expected"/> unsafe. A silent vector
+        /// is dropped from that list rather than occupying a slot, so a sink that emits one bit too
+        /// many pushes every later reception out of step with the vector it is compared against. The
+        /// grader checks this before it compares values, so it can name the vector that actually
+        /// misbehaved instead of the first one whose value happens not to line up.
+        ///
+        /// Note that a don't-care does not have this effect: 'x' keeps its slot.
+        /// </remarks>
+        public bool HasSilentVectors => Values.IndexOf('-') >= 0;
+
+        /// <summary>
         /// The bits this sink must receive, in order, with the '-' vectors omitted. An empty list
         /// means the sink must receive nothing at all -- which is what makes "the wrong bin must
         /// stay empty" a gradeable rule rather than an unchecked assumption.

@@ -216,6 +216,35 @@ namespace BitSorter.View
             IReadOnlyList<SinkNode.Reception> received = sink.Received;
             IReadOnlyList<ExpectedBit> expected = expectation.Expected;
 
+            // Checked before any value is compared, and only when this sink has silent vectors.
+            //
+            // A '-' vector is dropped from the expected list rather than occupying a slot, so the
+            // loop below runs positionally over a sequence with holes in it. One bit arriving where
+            // the level asked for silence shifts every later reception, and the first mismatch is
+            // then blamed on a vector that is wired perfectly -- or, when the intruder's value
+            // happens to fit the next slot, on no vector at all.
+            //
+            // Sources emit vector v on tick v, so a sink at a steady latency L receives vector v on
+            // tick v + L, and L can be read off the first expected bit. This is used only to word
+            // the failure: pass and fail are still decided by value and count alone, so the rule
+            // that arrival ticks are not graded is untouched.
+            if (expectation.HasSilentVectors && expected.Count > 0 && received.Count > expected.Count)
+            {
+                int latency = received[0].Tick - expected[0].Vector;
+
+                for (int i = 0; i < received.Count; i++)
+                {
+                    int vector = received[i].Tick - latency;
+
+                    if (!ExpectsBitAt(expected, vector))
+                    {
+                        return RunVerdict.Fail(RunOutcome.ExtraOutput,
+                            $"vector {vector}: {sinkId} should have received nothing here, but a " +
+                            "bit arrived", vector, sinkId);
+                    }
+                }
+            }
+
             for (int k = 0; k < expected.Count; k++)
             {
                 ExpectedBit want = expected[k];
@@ -252,6 +281,21 @@ namespace BitSorter.View
                     $"{sinkId} should have stayed empty, but {extra} {bits} arrived", -1, sinkId)
                 : RunVerdict.Fail(RunOutcome.ExtraOutput,
                     $"{sinkId} received {extra} {bits} more than expected", -1, sinkId);
+        }
+
+        /// <summary>
+        /// Whether the expectation names this vector at all. Linear, over a handful of entries, and
+        /// only on a failure path.
+        /// </summary>
+        private static bool ExpectsBitAt(IReadOnlyList<ExpectedBit> expected, int vector)
+        {
+            for (int i = 0; i < expected.Count; i++)
+            {
+                if (expected[i].Vector == vector)
+                    return true;
+            }
+
+            return false;
         }
 
         /// <summary>
