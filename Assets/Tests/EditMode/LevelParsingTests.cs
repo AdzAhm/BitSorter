@@ -192,6 +192,37 @@ namespace BitSorter.LogicCore.Tests
 
             Assert.AreEqual(1, expectation.Expected[1].Vector, "the slot still knows its vector");
             Assert.AreEqual(3, expectation.Expected[3].Vector);
+
+            Assert.IsFalse(expectation.Expected[0].IsAny, "a literal is not a don't-care");
+            Assert.IsTrue(expectation.Expected[1].IsAny);
+            Assert.IsFalse(expectation.Expected[2].IsAny);
+            Assert.IsTrue(expectation.Expected[3].IsAny);
+
+            Assert.AreEqual(Bit.Zero, expectation.Expected[0].Value, "literals still carry a value");
+            Assert.AreEqual(Bit.One, expectation.Expected[2].Value);
+        }
+
+        [Test]
+        public void ADontCareAndASilentVector_CanShareOneExpectation()
+        {
+            // The two are easy to conflate, so pin down that they compose. "0x-1" is four vectors:
+            // a literal, a don't-care that keeps its slot, a silent vector that does not, and another
+            // literal -- leaving three expected bits whose vector indices skip 2.
+            string source =
+                @"{ ""id"": ""in"", ""kind"": ""Source"", ""cell"": { ""x"": -3, ""y"": 0 }, ""stream"": ""0011"" }";
+            string expected = @"{ ""sink"": ""binOne"", ""values"": ""0x-1"" }";
+
+            LevelLoadResult result = Parse(Json($"{source}, {BinOne}", expected));
+
+            Assert.IsTrue(result.IsValid, result.Error);
+
+            LevelExpectation expectation = result.Level.Expectations[0];
+            Assert.AreEqual(3, expectation.Expected.Count, "only the '-' is dropped");
+
+            Assert.AreEqual(0, expectation.Expected[0].Vector);
+            Assert.AreEqual(1, expectation.Expected[1].Vector);
+            Assert.IsTrue(expectation.Expected[1].IsAny);
+            Assert.AreEqual(3, expectation.Expected[2].Vector, "vector 2 is silent, so 3 comes next");
         }
 
         // -----------------------------------------------------------------
@@ -363,8 +394,10 @@ namespace BitSorter.LogicCore.Tests
         [Test]
         public void AStrayCharacterInAnExpectation_IsRefused()
         {
+            // Deliberately not 'x' -- that is a legal don't-care here, though it stays refused in a
+            // source stream. '2' is the nearest plausible typo that is stray in both places.
             AssertRefused(Parse(
-                Json($"{SourceIn}, {BinOne}", @"{ ""sink"": ""binOne"", ""values"": ""x"" }")));
+                Json($"{SourceIn}, {BinOne}", @"{ ""sink"": ""binOne"", ""values"": ""2"" }")));
         }
 
         [Test]

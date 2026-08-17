@@ -383,10 +383,16 @@ namespace BitSorter.View
                     {
                         case '0': expected.Add(new ExpectedBit(Bit.Zero, vector)); break;
                         case '1': expected.Add(new ExpectedBit(Bit.One, vector)); break;
+
+                        // 'x' and '-' are opposites. A don't-care still expects a bit and so keeps
+                        // its slot; a silent vector expects none and is dropped. Only the second
+                        // shortens the list, which is why only the second can shift what follows it.
+                        case 'x': expected.Add(ExpectedBit.Any(vector)); break;
                         case '-': break;   // this vector produces nothing here
+
                         default:
                             error = $"expectation for '{sinkId}' has '{c}' at vector {vector}; " +
-                                    "expected 0, 1 or -";
+                                    "expected 0, 1, x or -";
                             return false;
                     }
                 }

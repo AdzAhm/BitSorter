@@ -228,13 +228,40 @@ namespace BitSorter.View
         public readonly Bit Value;
         public readonly int Vector;
 
+        /// <summary>
+        /// A don't-care: a bit must still arrive in this slot, but either value satisfies it.
+        /// <see cref="Value"/> carries nothing meaningful when this is set.
+        /// </summary>
+        /// <remarks>
+        /// An explicit flag rather than widening <see cref="Value"/> to a nullable. CLAUDE.md has
+        /// already spent nullable Bit on "this port is empty", and giving the same nullable a second
+        /// meaning of "any value" one type away is how that decision stops being readable.
+        ///
+        /// Note what a don't-care does *not* relax: the arrival. It occupies its slot in the expected
+        /// sequence exactly as a literal does, so the count checks in the grader still apply. That is
+        /// the difference between this and the '-' of a silent vector, which is dropped entirely.
+        /// </remarks>
+        public readonly bool IsAny;
+
         public ExpectedBit(Bit value, int vector)
         {
             Value = value;
             Vector = vector;
+            IsAny = false;
         }
 
-        public override string ToString() => $"{(int)Value} (vector {Vector})";
+        private ExpectedBit(int vector, bool isAny)
+        {
+            Value = default;
+            Vector = vector;
+            IsAny = isAny;
+        }
+
+        /// <summary>A slot that must receive a bit, of either value.</summary>
+        public static ExpectedBit Any(int vector) => new ExpectedBit(vector, true);
+
+        public override string ToString() =>
+            IsAny ? $"x (vector {Vector})" : $"{(int)Value} (vector {Vector})";
     }
 
     /// <summary>What one sink must have received once a run settles.</summary>

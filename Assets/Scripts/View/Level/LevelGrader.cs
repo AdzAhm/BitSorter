@@ -96,6 +96,11 @@ namespace BitSorter.View
     /// Every sink is graded, including the ones expected to stay empty. Without that, this level's
     /// routing puzzle is passable by wiring the source into *both* bins -- the right bin gets its bit
     /// and nobody checks the other one. A sink with no expectation is held to the empty sequence.
+    ///
+    /// A third, added later: an expectation may carry don't-cares. A slot marked 'x' requires a bit
+    /// to arrive but accepts either value, which is what lets a level pose a function whose K-map has
+    /// unreachable inputs and therefore more than one minimal answer. It relaxes the value check
+    /// only -- never the arrival, and never the count.
     /// </remarks>
     public static class LevelGrader
     {
@@ -218,13 +223,15 @@ namespace BitSorter.View
                 if (k >= received.Count)
                 {
                     return RunVerdict.Fail(RunOutcome.MissingOutput,
-                        $"vector {want.Vector}: {sinkId} expected {(int)want.Value}, received nothing",
+                        $"vector {want.Vector}: {sinkId} expected {Describe(want)}, received nothing",
                         want.Vector, sinkId);
                 }
 
                 Bit got = received[k].Value;
 
-                if (got != want.Value)
+                // A don't-care constrains the value and nothing else. The arrival is still required:
+                // it was checked just above, and the count checks below still apply.
+                if (!want.IsAny && got != want.Value)
                 {
                     return RunVerdict.Fail(RunOutcome.WrongOutput,
                         $"vector {want.Vector}: {sinkId} expected {(int)want.Value}, got {(int)got}",
@@ -246,6 +253,13 @@ namespace BitSorter.View
                 : RunVerdict.Fail(RunOutcome.ExtraOutput,
                     $"{sinkId} received {extra} {bits} more than expected", -1, sinkId);
         }
+
+        /// <summary>
+        /// What the level asked for at one slot, worded for a failure message. A don't-care has no
+        /// value to print, and printing its default would read as though the level wanted a 0.
+        /// </summary>
+        private static string Describe(ExpectedBit want) =>
+            want.IsAny ? "a bit" : ((int)want.Value).ToString();
 
         /// <summary>Null for a retired id, and for an id outside the issued range.</summary>
         private static Node NodeAt(SimulationView view, int nodeId) =>
