@@ -1,0 +1,22 @@
+{
+  "name": "The slow lane",
+  "order": 60,
+  "hint": "every gate you pass through costs a tick. The bits that skip one arrive early.",
+  "tickLimit": 60,
+  "maxWireDelay": 4,
+  "delayBudget": 6,
+  "fixtures": [
+    { "id": "a",   "kind": "Source", "cell": { "x": -4, "y":  2 }, "stream": "00001111" },
+    { "id": "b",   "kind": "Source", "cell": { "x": -4, "y":  0 }, "stream": "00110011" },
+    { "id": "c",   "kind": "Source", "cell": { "x": -4, "y": -2 }, "stream": "01010101" },
+    { "id": "out", "kind": "Sink",   "cell": { "x":  4, "y":  0 } }
+  ],
+  "budget": [
+    { "kind": "Xor", "count": 2 },
+    { "kind": "And", "count": 1 },
+    { "kind": "Or",  "count": 1 }
+  ],
+  "expected": [
+    { "sink": "out", "values": "00111011" }
+  ]
+}
