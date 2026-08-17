@@ -1,5 +1,6 @@
 {
   "name": "Route the bit",
+  "order": 10,
   "hint": "the bin marked ONE wants a 1 -- make the bit match the bin",
   "tickLimit": 40,
   "fixtures": [

@@ -254,6 +254,15 @@ namespace BitSorter.View
                     "critical path of the intended solution in ticks");
             }
 
+            // Only the shape is checkable here. Whether this value is unique across the level set is
+            // LevelCatalog's call -- one file has no way to see another.
+            if (file.order < 0)
+            {
+                return LevelLoadResult.Reject(
+                    $"order is {file.order}; use a positive place in the run, or leave it out to " +
+                    "sort to the end");
+            }
+
             int maxWireDelay = file.maxWireDelay > 0
                 ? file.maxWireDelay
                 : LevelDefinition.DefaultMaxWireDelay;
@@ -262,7 +271,7 @@ namespace BitSorter.View
 
             return LevelLoadResult.Accept(new LevelDefinition(
                 file.name.Trim(), hint, tickLimit, vectorCount, fixtures, budget, expectations,
-                maxWireDelay, file.delayBudget, file.maxLatency));
+                maxWireDelay, file.delayBudget, file.maxLatency, file.order));
         }
 
         private static bool TryBuildBudget(

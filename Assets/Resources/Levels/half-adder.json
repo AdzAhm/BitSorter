@@ -1,5 +1,6 @@
 {
   "name": "Half adder",
+  "order": 80,
   "hint": "sum is A xor B, carry is A and B -- each source feeds both gates",
   "tickLimit": 40,
   "fixtures": [

@@ -1,5 +1,6 @@
 {
   "name": "The long way round",
+  "order": 20,
   "hint": "there is no NAND here. There are two ways to make one.",
   "tickLimit": 40,
   "maxWireDelay": 1,

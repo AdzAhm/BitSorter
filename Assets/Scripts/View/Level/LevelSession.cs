@@ -217,25 +217,50 @@ namespace BitSorter.View
         }
 
         /// <summary>
-        /// Level file names under Resources/Levels, sorted so the cycle order is the same everywhere.
+        /// Level file names under Resources/Levels, in the order they should be played.
         /// </summary>
         /// <remarks>
         /// Resources.LoadAll does not promise an order, and an order that varied by machine would make
-        /// "the next level" mean different things for different people.
+        /// "the next level" mean different things for different people. This used to be an ordinal
+        /// sort of the file names, which is stable but pedagogically wrong -- it put the NAND puzzle
+        /// ahead of the half adder and the tutorial seventh. Each file now names its own place and
+        /// <see cref="LevelCatalog"/> puts them in it.
+        ///
+        /// Parsing every file to read one integer is affordable: there is a handful of them, and this
+        /// runs once, cached by <see cref="AvailableLevels"/>. A file that will not parse still takes
+        /// part, unplaced, so a broken level shows up in the rotation and can be selected and
+        /// diagnosed rather than silently vanishing.
         /// </remarks>
-        private static string[] DiscoverLevels()
+        private string[] DiscoverLevels()
         {
+            Vector2Int halfExtents = _runner != null ? _runner.HalfExtents : new Vector2Int(4, 2);
+
             TextAsset[] assets = Resources.LoadAll<TextAsset>(LevelLoader.ResourcePath);
-            var names = new List<string>(assets.Length);
+            var entries = new List<LevelEntry>(assets.Length);
 
             for (int i = 0; i < assets.Length; i++)
             {
-                if (assets[i] != null)
-                    names.Add(assets[i].name);
+                if (assets[i] == null)
+                    continue;
+
+                LevelLoadResult parsed = LevelLoader.Parse(assets[i].text, halfExtents);
+                entries.Add(new LevelEntry(assets[i].name, parsed.IsValid ? parsed.Level.Order : 0));
             }
 
-            names.Sort(System.StringComparer.Ordinal);
-            return names.ToArray();
+            IReadOnlyList<LevelEntry> ordered = LevelCatalog.Sort(entries, out string clash);
+
+            if (clash != null)
+            {
+                // An error, not a warning. The run order is now partly arbitrary, and the only place
+                // anyone finds out is here.
+                Debug.LogError($"BitSorter: {clash}");
+            }
+
+            var names = new string[ordered.Count];
+            for (int i = 0; i < ordered.Count; i++)
+                names[i] = ordered[i].FileName;
+
+            return names;
         }
 
         // -----------------------------------------------------------------

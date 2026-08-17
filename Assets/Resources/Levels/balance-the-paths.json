@@ -1,5 +1,6 @@
 {
   "name": "Balance the paths",
+  "order": 50,
   "hint": "a gate waits for both inputs. The next bit down the wire does not wait.",
   "tickLimit": 40,
   "maxWireDelay": 3,
