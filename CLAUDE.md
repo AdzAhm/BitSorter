@@ -124,6 +124,16 @@ failure side.
   even when the setup code looks correct. A scene that opens fine on
   this machine can still be broken for a fresh clone.
 - Commit after each green test run, with a short descriptive message.
+- Bug fixes land as two commits: a failing test that reproduces the bug,
+  then the fix that makes it pass. The red commit must still compile —
+  write the test against the existing API so it fails on an assertion and
+  not on a missing symbol, otherwise the commit is useless to bisect and
+  leaves the editor broken for anyone who lands on it.
+- Unrelated changes go in their own commits, never swept in with a fix.
+  A commit that fixes a bug and also re-saves the demo scene and retunes
+  the HUD cannot be reviewed, reverted or bisected. `5a70be7` is the
+  example not to follow: the level-switch tests, the fix they cover, and
+  a scene re-serialisation all landed as one commit.
 
 ## Not yet
 Do not build ahead of me. The logic core, the view layer, the demo scene
