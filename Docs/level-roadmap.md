@@ -29,7 +29,9 @@ stands, not preferences.
 | Edge delay ≥ 1. Player wires default to 1, adjustable up to `maxWireDelay` | [Edge.cs:67-70](../Assets/Scripts/LogicCore/Edge.cs#L67-L70), [LevelRules.cs:199-237](../Assets/Scripts/View/Level/LevelRules.cs#L199-L237) |
 | Fan-out from one output is unlimited. Fan-in to one input is legal, and is how bits get destroyed | [WiringRules.cs:60-73](../Assets/Scripts/View/WiringRules.cs#L60-L73) |
 | Cycles and self-loops are legal; the tick limit is what stops them | [WiringRules.cs:66-69](../Assets/Scripts/View/WiringRules.cs#L66-L69) |
-| Grading ignores arrival ticks. It checks: settled, `CorruptedCount == 0`, and each sink's value sequence | [LevelGrader.cs:82-98](../Assets/Scripts/View/Level/LevelGrader.cs#L82-L98) |
+| Grading checks: settled, `CorruptedCount == 0`, each sink's value sequence, then latency if the level sets `maxLatency` | [LevelGrader.cs](../Assets/Scripts/View/Level/LevelGrader.cs) |
+| Arrival ticks are ignored unless the level sets `maxLatency`, so a correct-but-scenic route passes by default | [LevelGrader.cs](../Assets/Scripts/View/Level/LevelGrader.cs) |
+| An expectation character is `0`, `1`, `x` (any value, bit still required) or `-` (no bit). A stream is `0`/`1` only | [LevelLoader.cs](../Assets/Scripts/View/Level/LevelLoader.cs) |
 | Every sink must be named by an expectation, even an empty one | [LevelLoader.cs:218-231](../Assets/Scripts/View/Level/LevelLoader.cs#L218-L231) |
 
 ### The two derived facts that shape every level
@@ -55,7 +57,7 @@ author a level that silently fails to teach its own lesson.
 |---|---|---|---|
 | 1 | Boolean algebra, De Morgan | **(a)** | Buildable today |
 | 2 | K-map minimisation, fully specified | **(a)** | Buildable today |
-| 2b | K-map minimisation with don't-cares | **(b)** | Needs an `x` expectation character — see [Q1](#q1-can-a-test-vector-express-a-dont-care-output) |
+| 2b | K-map minimisation with don't-cares | **(a)** | **Shipped.** `x` in an expectation — see [Q1](#q1-can-a-test-vector-express-a-dont-care-output) |
 | 3 | Functional completeness (NAND-only / NOR-only) | **(a)** | Buildable today, no schema change — see [Q3](#q3-can-a-level-require-a-specific-gate-set-only) |
 | 4 | Propagation delay | **(a)** | Shipped: `balance-the-paths` |
 | 5 | Combinational components (mux, decoder, comparator) | **(a)** | Buildable today |
@@ -64,7 +66,7 @@ author a level that silently fails to teach its own lesson.
 | 7 | Latches and flip-flops | **(b)** | `RegisterNode` + initial-state authoring + a palette slot |
 | 7b | Level- vs edge-triggering, setup/hold, clock skew | **(c)** | No clock signal exists — see below |
 | 8 | FSMs (Moore / Mealy), state minimisation | **(b)** | Same three blockers as 7 |
-| 9 | Critical path | **(a)** to *feel*, **(b)** to *grade* | Needs `maxLatency` — see [Q2](#q2-can-a-level-score-on-critical-path-length) |
+| 9 | Critical path | **(a)** | **Shipped.** `maxLatency` — see [Q2](#q2-can-a-level-score-on-critical-path-length) |
 | 10 | Pipelining (latency vs throughput) | **(c)** | Every gate is already a register, and throughput is binary rather than graded — see below |
 | 10b | Pipeline stage balancing | **(a)** | The substitute lesson, and the game's core mechanic |
 
@@ -174,18 +176,14 @@ lesson that survives and the latency/throughput trade-off is not.
 
 ## (b) Blocked on a missing primitive
 
-### 2b. K-map minimisation with don't-cares
+### 2b. K-map minimisation with don't-cares — shipped
 
-**Blocked on:** an `x` character in the expectation string, meaning "a bit
-arrives here and either value passes".
+Was blocked on an `x` expectation character. Landed in `34722dd`, so this is now
+(a) and the K-map level below can use it.
 
 Don't-cares are what make K-map minimisation a *choice*. Without them the minimal
 cover is fixed and the level has one answer, which by your own standard is not
-teaching anything. The `-` character already in the format is a different thing —
-it means no bit arrives at all — and cannot be used for this. Full mechanism and
-the minimal change in [Q1](#q1-can-a-test-vector-express-a-dont-care-output).
-This is the cheapest unblock on the list and the one with the highest ratio of
-lesson to work.
+teaching anything.
 
 ### 6b. Carry-lookahead
 
@@ -337,89 +335,82 @@ clock timing.
 
 ### Q1: Can a test vector express a don't-care output?
 
-**No — and the character that looks like it does means something else.**
+**Yes, since `34722dd`. Write `x`.** The original answer was no, and the reason is
+worth keeping because it explains why `x` had to be a new character rather than a
+reuse of the one that looked right.
 
-`-` is already legal in an expectation and means *"this vector produces no bit at
-all here"*. It is not a wildcard. The loader compacts the values string into a
-dense `List<ExpectedBit>`, **omitting** every `-`
-([LevelLoader.cs:378-391](../Assets/Scripts/View/Level/LevelLoader.cs#L378-L391)),
-and the grader then compares that compacted list positionally against
-`sink.Received`
-([LevelGrader.cs:214-233](../Assets/Scripts/View/Level/LevelGrader.cs#L214-L233)).
-So a `-` consumes no slot. If a bit *does* arrive on a `-` vector, every
-subsequent comparison shifts by one and the run fails as `WrongOutput` or
-`ExtraOutput`.
+`-` was already legal and means *"this vector produces no bit at all here"*. It is
+not a wildcard. The loader compacts the values string into a dense
+`List<ExpectedBit>`, **omitting** every `-`, and the grader compares that compacted
+list positionally against `sink.Received`. So a `-` consumes no slot. A K-map
+don't-care is the opposite shape: a bit **does** arrive and either value is
+acceptable, which needs a slot. The two cannot be the same character.
 
-A K-map don't-care is the opposite shape: a bit **does** arrive, and either value
-is acceptable. That needs a slot in the expected list, so `-` cannot be
-repurposed. The two must coexist.
+What shipped:
 
-**Minimal change — three edits, no change to the JSON shape.** Only a new legal
-character in a string that is already free-form.
+- `ExpectedBit` carries `IsAny` plus a static `ExpectedBit.Any(int vector)`. An
+  explicit flag, not `Bit?` — CLAUDE.md has already spent nullable-`Bit` on "port
+  is empty", and a second meaning one type away would make that unreadable.
+- `LevelLoader` accepts `'x'`; the refusal text is now `expected 0, 1, x or -`.
+- `LevelGrader` guards one comparison with `!want.IsAny`, and `Describe()` stops a
+  missing don't-care reporting "expected 0" for a value nobody asked for.
 
-1. **`ExpectedBit` gains a wildcard flag.** Add `public readonly bool IsAny;` and
-   a static `ExpectedBit.Any(int vector)`. *Not* `Bit?` — CLAUDE.md has already
-   spent nullable-`Bit` on "port is empty", and giving the same nullable a second
-   meaning of "any value" in a neighbouring type is how that decision stops being
-   readable.
-2. **`LevelLoader.TryBuildExpectations`** gains one case in the switch at
-   [LevelLoader.cs:382](../Assets/Scripts/View/Level/LevelLoader.cs#L382):
-   `case 'x': expected.Add(ExpectedBit.Any(vector)); break;` — plus the error text
-   two lines down becomes `expected 0, 1, x or -`.
-3. **`LevelGrader.GradeSink`** guards its one comparison:
-   `if (!want.IsAny && got != want.Value)`.
+**`x` constrains the value and nothing else.** The arrival and the count are
+untouched, so `"xxxx"` against an unwired board still fails as `MissingOutput`.
+That is the boundary a test pins, and it is what keeps an empty-bin level
+enforceable.
 
-Then a test in `LevelGradingTests` proving `x` accepts both values and still
-rejects a *missing* bit, which is the boundary that matters — `x` constrains the
-value, never the arrival.
+`x` remains refused in a *source* stream — a source must emit something definite.
 
-This works only because grading already ignores ticks, which it does deliberately
-and documents at
-[LevelGrader.cs:90-94](../Assets/Scripts/View/Level/LevelGrader.cs#L90-L94).
+**A related defect surfaced and was fixed in `0c494d6`.** Because `-` vectors are
+dropped, the value loop ran positionally over a list with holes, so a sink that
+emitted where the level asked for silence was reported against the *wrong* vector
+(`"0-11"` blamed vector 2 for a vector 1 fault) or against none at all (`"0-01"`
+degraded to a count mismatch with `Vector = -1`). Both now name vector 1. Latency
+is inferred from the first expected bit to map each reception back to its vector,
+and that inference words the failure only — pass and fail are still decided by
+value and count.
 
 ### Q2: Can a level score on critical path length?
 
-**Not today, in two separate senses — but the measurement already exists and
-LogicCore needs no change at all.**
+**Yes, since `1a01f45`. Set `maxLatency`.** LogicCore needed no change at all —
+the measurement was already being recorded and thrown away.
 
-What exists now: `budget` (per-kind gate counts), `delayBudget` (total added wire
-ticks), `maxWireDelay`, and `tickLimit` — which is explicitly a safety net against
-oscillators and documented as *not* a difficulty knob
-([LevelLoader.cs:49-60](../Assets/Scripts/View/Level/LevelLoader.cs#L49-L60)).
-And grading throws arrival ticks away on purpose, so that a correct-but-slow
-circuit passes.
+`SinkNode.Reception` records the tick each bit was consumed. Sources emit vector
+*v* on tick *v*, so a bit's latency is its consumption tick minus its vector.
+Measured, not modelled.
 
-What already exists and is unused: **`SinkNode.Reception` records the tick each
-bit was consumed** ([SinkNode.cs:16-31](../Assets/Scripts/LogicCore/SinkNode.cs#L16-L31)).
-Since sources emit vector 0 at tick 0, `sink.Received[0].Tick` **is** the
-source-to-sink latency in ticks. Measured, not modelled.
-
-**Use the observed latency, not a static graph walk.** The alternative — summing
-edge delays along the longest source→sink path in the blueprint — is undefined on
-a cyclic circuit, and `WiringRules` deliberately permits cycles and self-loops
+**Observed latency, not a static graph walk.** The alternative — summing edge
+delays along the longest source→sink path — is undefined on a cyclic circuit, and
+`WiringRules` permits cycles and self-loops on purpose
 ([WiringRules.cs:66-69](../Assets/Scripts/View/WiringRules.cs#L66-L69)). The
-observed figure needs no cycle detection, no graph analysis, and measures the
-thing the player actually watched happen.
+observed figure needs no cycle detection and measures the circuit the player
+actually watched.
 
-**Minimal change:**
+What shipped:
 
-- `LevelFile`: add `public int maxLatency;` — 0 means unspecified, matching how
-  `tickLimit` and `maxWireDelay` already handle JsonUtility's inability to
-  distinguish a missing key from an explicit zero.
-- `LevelDefinition`: carry it, plus `bool HasLatencyLimit => MaxLatency > 0`.
-- `LevelLoader.Validate`: reject negative, as it already does for the other two.
-- `LevelGrader.Grade`: after the sequence checks pass, take
-  `max over graded sinks of Received[0].Tick` and fail with a new
-  `RunOutcome.TooSlow` if it exceeds `MaxLatency`. **After**, not before — a
-  wrong circuit should hear that it is wrong before it hears that it is slow.
+- `LevelFile.maxLatency` — 0 or absent means no ceiling, matching how `tickLimit`
+  and `maxWireDelay` handle JsonUtility's inability to tell a missing key from an
+  explicit zero. Negative is refused.
+- `LevelDefinition.MaxLatency` + `HasLatencyLimit`.
+- `RunOutcome.TooSlow` — the only outcome that fails a circuit computing every
+  answer correctly.
+- `LevelGrader.GradeLatency`, run **last**, after every value and count check: a
+  circuit that is both wrong and slow hears that it is wrong first, because
+  shortening a path that computes the wrong answer is wasted work.
 
-**Two things to flag before you write levels against this.**
+**The maximum across every graded bit, not vector 0's.** In a circuit that reaches
+this check the two agree — a sink fed at uneven latency reorders or destroys bits
+and has already failed. The maximum costs one comparison per bit and means that if
+that structural assumption ever stops holding, the level fails loudly instead of
+grading the circuit on its best vector. Worth being straight about: no legal
+passing circuit currently has non-uniform latency, so this is a guard rather than
+a behaviour any test can distinguish.
 
-*It should be a constraint, not a score.* CLAUDE.md lists scoring under "Not
-yet". A `maxLatency` pass/fail gate stays entirely inside the existing model — no
-stars, no ranking, no persistence, one more `RunOutcome`. A graded
-bronze/silver/gold on latency **is** the scoring item and should wait until you
-ask for it by name.
+*It is a constraint, not a score.* CLAUDE.md lists scoring under "Not yet". A
+`maxLatency` pass/fail gate stays inside the existing model — no stars, no ranking,
+no persistence, one more `RunOutcome`. A graded bronze/silver/gold on latency
+**is** the scoring item and waits until asked for by name.
 
 *`maxLatency` and `delayBudget` do not fight, and it is worth knowing why.*
 Balancing means padding the *short* paths up to the long one, and padding a short
