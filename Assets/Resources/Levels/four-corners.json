@@ -1,0 +1,22 @@
+{
+  "name": "Four corners",
+  "order": 30,
+  "hint": "six of the eight rows want a 1. Three gates' worth of grouping will do it.",
+  "tickLimit": 60,
+  "maxWireDelay": 3,
+  "delayBudget": 5,
+  "fixtures": [
+    { "id": "a",   "kind": "Source", "cell": { "x": -4, "y":  2 }, "stream": "00001111" },
+    { "id": "b",   "kind": "Source", "cell": { "x": -4, "y":  0 }, "stream": "00110011" },
+    { "id": "c",   "kind": "Source", "cell": { "x": -4, "y": -2 }, "stream": "01010101" },
+    { "id": "out", "kind": "Sink",   "cell": { "x":  4, "y":  0 } }
+  ],
+  "budget": [
+    { "kind": "Not", "count": 3 },
+    { "kind": "And", "count": 3 },
+    { "kind": "Or",  "count": 2 }
+  ],
+  "expected": [
+    { "sink": "out", "values": "11100111" }
+  ]
+}
