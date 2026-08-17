@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using BitSorter.LogicCore;
 using UnityEngine;
@@ -25,7 +26,7 @@ namespace BitSorter.View
     public sealed class LevelSession : MonoBehaviour
     {
         [Tooltip("File name without extension, from Assets/Resources/Levels/. " +
-                 "Page Up and Page Down cycle levels at runtime without touching this.")]
+                 "Q and E cycle levels at runtime without touching this.")]
         [SerializeField] private string _levelName = "route-the-bit";
 
         [SerializeField] private SimulationRunner _runner;
@@ -66,6 +67,20 @@ namespace BitSorter.View
 
         /// <summary>Level files available to cycle through, in name order.</summary>
         public IReadOnlyList<string> AvailableLevels => _available ?? (_available = DiscoverLevels());
+
+        /// <summary>
+        /// Raised once a level is loaded and the board is back to empty, carrying the new level.
+        /// </summary>
+        /// <remarks>
+        /// Exists for state that is derived from the level but not stored here -- the palette
+        /// selection above all. Clearing the blueprint resets everything this component owns, but a
+        /// component holding its own level-specific answer has no way to know it went stale, and
+        /// would happily carry the previous level's answer onto the next one.
+        ///
+        /// Subscribers must attach in OnEnable, not Start: the first load happens in this
+        /// component's Start, and Unity has run every OnEnable by then but not every Start.
+        /// </remarks>
+        public event Action<LevelDefinition> LevelLoaded;
 
         /// <summary>Position of the current level in <see cref="AvailableLevels"/>, or -1.</summary>
         public int LevelIndex
@@ -151,6 +166,10 @@ namespace BitSorter.View
 
             _blueprint.Clear();
             ResetBoard();
+
+            // Last, so a subscriber sees a board that is already empty and a level that is already
+            // the new one. Anything reading the session from in here gets the finished state.
+            LevelLoaded?.Invoke(Level);
             return true;
         }
 
@@ -287,6 +306,16 @@ namespace BitSorter.View
         /// <summary>How many of a kind the player may still place.</summary>
         public int RemainingFor(GateKind kind) =>
             IsLoaded ? LevelRules.RemainingFor(Level, _blueprint, kind) : 0;
+
+        /// <summary>
+        /// How many of a kind are on the board. What the HUD's parts rows show, so they read the
+        /// same way round as the delay row beneath them.
+        /// </summary>
+        /// <remarks>
+        /// Ungated, unlike <see cref="RemainingFor"/>: this asks the blueprint alone, so it needs no
+        /// level and no runner and cannot report a stocked board as an empty one.
+        /// </remarks>
+        public int PlacedCountOf(GateKind kind) => _blueprint.CountOf(kind);
 
         /// <summary>Ticks of delay already added across every wire.</summary>
         public int SpentDelay => _blueprint.ExtraDelay();

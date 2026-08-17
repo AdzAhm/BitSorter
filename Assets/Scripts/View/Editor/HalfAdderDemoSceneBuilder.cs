@@ -127,7 +127,7 @@ namespace BitSorter.View.EditorTools
 
             // Says which level, because this used to reset it without a word.
             Debug.Log($"Built {ScenePath} starting on '{startingLevel}'. It is open now -- press Play. " +
-                      "Page Up and Page Down change level while playing.");
+                      "Q and E change level while playing.");
         }
 
         /// <summary>

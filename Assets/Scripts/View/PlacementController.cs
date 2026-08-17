@@ -4,9 +4,9 @@ using UnityEngine.InputSystem;
 namespace BitSorter.View
 {
     /// <summary>
-    /// Mouse-driven placement: number keys 1-6 pick a gate, left click places on an empty cell,
-    /// right click removes whatever occupies a cell. Editing is only allowed while the level session
-    /// is in its Editing state.
+    /// Mouse-driven placement: number keys 1-6 pick a gate the level stocks, left click places on an
+    /// empty cell, right click removes whatever occupies a cell. Editing is only allowed while the
+    /// level session is in its Editing state.
     /// </summary>
     /// <remarks>
     /// Reads the Input System package directly, as the project has Active Input Handling set to
@@ -24,7 +24,10 @@ namespace BitSorter.View
         [SerializeField] private PlacementGrid _grid;
         [SerializeField] private Camera _camera;
 
-        /// <summary>The palette entry a left click will place.</summary>
+        /// <summary>
+        /// The palette entry a left click will place. Only ever a kind the current level stocks; the
+        /// initial value here holds only until the first level announces itself.
+        /// </summary>
         public GateKind Selected { get; private set; } = GateKind.Not;
 
         private void Awake()
@@ -37,6 +40,36 @@ namespace BitSorter.View
 
             if (_camera == null)
                 _camera = Camera.main;
+        }
+
+        // Awake has already resolved the session, and every OnEnable runs before the Start that
+        // loads the first level, so the opening level is announced to this like any other.
+        private void OnEnable()
+        {
+            if (_session != null)
+                _session.LevelLoaded += SelectFirstOffered;
+        }
+
+        private void OnDisable()
+        {
+            if (_session != null)
+                _session.LevelLoaded -= SelectFirstOffered;
+        }
+
+        /// <summary>
+        /// Puts the selection on the new level's first parts row.
+        /// </summary>
+        /// <remarks>
+        /// Without this the selection survives a level change, which means it can name a gate the
+        /// new level does not stock -- the HUD reading "palette NOT" on a level whose budget is XOR
+        /// and AND, and every click refused until the player guesses that a number key fixes it.
+        /// </remarks>
+        private void SelectFirstOffered(LevelDefinition level)
+        {
+            // A wires-only level stocks nothing, so there is no selection to make. Leaving the old
+            // one in place is harmless: there is no cell it could legally be placed on.
+            if (level != null && level.TryFirstBudgetKind(out GateKind first))
+                Selected = first;
         }
 
         private void Update()
@@ -78,12 +111,33 @@ namespace BitSorter.View
 
         private void ReadPalette(Keyboard keyboard)
         {
-            if (keyboard.digit1Key.wasPressedThisFrame) Selected = GateKind.Not;
-            else if (keyboard.digit2Key.wasPressedThisFrame) Selected = GateKind.And;
-            else if (keyboard.digit3Key.wasPressedThisFrame) Selected = GateKind.Or;
-            else if (keyboard.digit4Key.wasPressedThisFrame) Selected = GateKind.Xor;
-            else if (keyboard.digit5Key.wasPressedThisFrame) Selected = GateKind.Nand;
-            else if (keyboard.digit6Key.wasPressedThisFrame) Selected = GateKind.Nor;
+            if (!TryReadKind(keyboard, out GateKind kind))
+                return;
+
+            // A key for a gate the level does not stock is ignored rather than obeyed. Selecting it
+            // could only lead to a refusal at the next click, and it would leave the HUD advertising
+            // a part the player does not have.
+            if (_session != null && _session.Level != null && !_session.Level.Offers(kind))
+                return;
+
+            Selected = kind;
+        }
+
+        private static bool TryReadKind(Keyboard keyboard, out GateKind kind)
+        {
+            if (keyboard.digit1Key.wasPressedThisFrame) kind = GateKind.Not;
+            else if (keyboard.digit2Key.wasPressedThisFrame) kind = GateKind.And;
+            else if (keyboard.digit3Key.wasPressedThisFrame) kind = GateKind.Or;
+            else if (keyboard.digit4Key.wasPressedThisFrame) kind = GateKind.Xor;
+            else if (keyboard.digit5Key.wasPressedThisFrame) kind = GateKind.Nand;
+            else if (keyboard.digit6Key.wasPressedThisFrame) kind = GateKind.Nor;
+            else
+            {
+                kind = default;
+                return false;
+            }
+
+            return true;
         }
 
         private Vector2 ScreenToWorld(Vector2 screenPosition)

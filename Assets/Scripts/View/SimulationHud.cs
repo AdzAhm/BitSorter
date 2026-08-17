@@ -127,7 +127,7 @@ namespace BitSorter.View
 
             if (level != null)
             {
-                // "2/3" so it is obvious there are others, and which way Page Up and Down will go.
+                // "2/3" so it is obvious there are others, and which way Q and E will go.
                 int index = _session != null ? _session.LevelIndex : -1;
                 int count = _session != null ? _session.AvailableLevels.Count : 0;
 
@@ -142,8 +142,11 @@ namespace BitSorter.View
             StatRow("Corrupted", _corruptedText, _shownCorrupted > 0 ? _corruptedColour : _textColour);
             StatRow("Nodes", _nodesText, _textColour);
 
-            // Parts budget. Remaining is computed from the blueprint every frame, never stored, so it
-            // cannot disagree with what is actually on the board.
+            // Parts budget, counted as spent of total: an empty board reads "0 of 1". Computed from
+            // the blueprint every frame, never stored, so it cannot disagree with what is on the
+            // board. Spent rather than remaining so it agrees with the delay row below -- two rows
+            // in one panel both formatted "x of y" have to mean the same thing, or an untouched
+            // board reads as a fully spent one.
             _y += BlockGap;
 
             if (level == null)
@@ -159,16 +162,16 @@ namespace BitSorter.View
                 for (int i = 0; i < level.Budget.Count; i++)
                 {
                     LevelBudgetEntry entry = level.Budget[i];
-                    int remaining = _session.RemainingFor(entry.Kind);
+                    int placed = _session.PlacedCountOf(entry.Kind);
 
-                    StatRow(GatePalette.Label(entry.Kind), $"{remaining} of {entry.Count}",
-                        remaining > 0 ? _textColour : _hintColour);
+                    StatRow(GatePalette.Label(entry.Kind), $"{placed} of {entry.Count}",
+                        placed < entry.Count ? _textColour : _hintColour);
                 }
             }
 
             if (showDelay)
             {
-                // Spent rather than remaining, unlike the gate rows: the interesting question while
+                // Spent, the same way round as the gate rows above. The interesting question while
                 // balancing paths is how much delay is on the board, not how much is left.
                 int spent = _session.SpentDelay;
 
@@ -251,7 +254,7 @@ namespace BitSorter.View
             "drag port      wire",
             "scroll wire    delay     [ ]  same",
             "right click    delete",
-            "pg up / dn     change level",
+            "q / e          change level",
         };
 
         private static readonly string[] RunningControls =
@@ -264,7 +267,7 @@ namespace BitSorter.View
         {
             "r              reset and edit",
             "enter          run again",
-            "pg up / dn     change level",
+            "q / e          change level",
         };
 
         private static string[] ControlsFor(RunState state)

@@ -144,6 +144,29 @@ namespace BitSorter.View
             return 0;
         }
 
+        /// <summary>
+        /// Whether the level stocks this kind at all, however many are still unplaced. The question
+        /// the palette asks: a kind that is offered but exhausted stays selectable, because the
+        /// player may yet remove one and place it elsewhere.
+        /// </summary>
+        public bool Offers(GateKind kind) => BudgetFor(kind) > 0;
+
+        /// <summary>
+        /// The first kind on the parts list, for a palette that has to start on something. False for
+        /// a level that stocks no gates at all, where there is no selection to make.
+        /// </summary>
+        public bool TryFirstBudgetKind(out GateKind kind)
+        {
+            if (Budget.Count > 0)
+            {
+                kind = Budget[0].Kind;
+                return true;
+            }
+
+            kind = default;
+            return false;
+        }
+
         public override string ToString() => $"{Name} ({VectorCount} vectors)";
     }
 

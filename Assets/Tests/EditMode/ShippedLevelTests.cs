@@ -32,8 +32,8 @@ namespace BitSorter.LogicCore.Tests
         [Test]
         public void EveryShippedLevel_IsDiscoverableForCycling()
         {
-            // Page Up and Page Down walk whatever Resources.LoadAll finds, rather than a list written
-            // down somewhere, so a level that fails to turn up here would be unreachable in game.
+            // Q and E walk whatever Resources.LoadAll finds, rather than a list written down
+            // somewhere, so a level that fails to turn up here would be unreachable in game.
             var found = new List<string>();
 
             foreach (TextAsset asset in Resources.LoadAll<TextAsset>(LevelLoader.ResourcePath))

@@ -4,8 +4,8 @@ using UnityEngine.InputSystem;
 namespace BitSorter.View
 {
     /// <summary>
-    /// Enter runs the level's test vectors, R resets to an editable board, Page Up and Page Down
-    /// change level. Space pauses and resumes a run, and Right Arrow advances one tick while paused.
+    /// Enter runs the level's test vectors, R resets to an editable board, Q and E change level.
+    /// Space pauses and resumes a run, and Right Arrow advances one tick while paused.
     /// </summary>
     /// <remarks>
     /// Uses the Input System package rather than the UnityEngine.Input class. This project has
@@ -51,13 +51,14 @@ namespace BitSorter.View
             if (keyboard.rKey.wasPressedThisFrame)
                 _session.ResetBoard();
 
-            // Page Up and Page Down rather than the serialized level name, which cannot be trusted to
-            // stick: rebuilding the scene recreates the component with its default, and an inspector
-            // edit made during Play is reverted when Play exits.
-            if (keyboard.pageDownKey.wasPressedThisFrame)
+            // Q/E rather than the serialized level name, which cannot be trusted to stick: rebuilding
+            // the scene recreates the component with its default, and an inspector edit made during
+            // Play is reverted when Play exits. Page Up/Down were the original binding but are absent
+            // on compact keyboards; Tab/Shift+Tab and [ / ] were already taken by other controls.
+            if (keyboard.eKey.wasPressedThisFrame)
                 _session.CycleLevel(1);
 
-            if (keyboard.pageUpKey.wasPressedThisFrame)
+            if (keyboard.qKey.wasPressedThisFrame)
                 _session.CycleLevel(-1);
 
             if (keyboard.spaceKey.wasPressedThisFrame)
