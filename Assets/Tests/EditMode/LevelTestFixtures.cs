@@ -49,11 +49,12 @@ namespace BitSorter.LogicCore.Tests
         /// A four-vector level whose sink expects a bit from every vector, for tests about sequences
         /// rather than about routing. The source feeds nothing by default.
         /// </summary>
-        internal static LevelDefinition FourVectors(string expected)
+        internal static LevelDefinition FourVectors(string expected, int maxLatency = 0)
         {
             return Parse($@"{{
                 ""name"": ""Four vectors"",
                 ""tickLimit"": 100,
+                ""maxLatency"": {maxLatency},
                 ""fixtures"": [
                     {{ ""id"": ""in"",  ""kind"": ""Source"", ""cell"": {{ ""x"": -3, ""y"": 0 }}, ""stream"": ""0011"" }},
                     {{ ""id"": ""out"", ""kind"": ""Sink"",   ""cell"": {{ ""x"":  3, ""y"": 0 }} }}

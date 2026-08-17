@@ -392,6 +392,19 @@ namespace BitSorter.LogicCore.Tests
         }
 
         [Test]
+        public void ANegativeLatencyCeiling_IsRefused()
+        {
+            // Same shape as the other numeric fields: negative is a mistake worth naming, zero has
+            // to keep meaning "unspecified" because JsonUtility cannot tell it from a missing key.
+            string json =
+                @"{ ""name"": ""Slow"", ""tickLimit"": 100, ""maxLatency"": -1," +
+                $@" ""fixtures"": [{SourceIn}, {BinOne}]," +
+                $@" ""expected"": [{ExpectOne}] }}";
+
+            AssertRefused(Parse(json));
+        }
+
+        [Test]
         public void AStrayCharacterInAnExpectation_IsRefused()
         {
             // Deliberately not 'x' -- that is a legal don't-care here, though it stays refused in a

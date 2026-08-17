@@ -325,6 +325,77 @@ namespace BitSorter.LogicCore.Tests
         }
 
         // -----------------------------------------------------------------
+        // Latency
+        // -----------------------------------------------------------------
+
+        /// <summary>A bare wire to the sink, at whatever delay the test needs.</summary>
+        private static CircuitBlueprint PassThroughAtDelay(int delay)
+        {
+            var blueprint = new CircuitBlueprint();
+            LevelTestFixtures.Wire(
+                blueprint, LevelTestFixtures.SourceCell, new Vector2Int(3, 0), delay: delay);
+            return blueprint;
+        }
+
+        [Test]
+        public void ACircuitOverTheLatencyCeiling_Fails()
+        {
+            // Vector v leaves on tick v and is consumed on tick v + 5, so the latency is 5 against a
+            // ceiling of 2. Values and order are perfect and only the arrival ticks differ, which
+            // makes this the one failure that is purely about time.
+            LevelDefinition level = LevelTestFixtures.FourVectors("0011", maxLatency: 2);
+
+            RunVerdict verdict = LevelTestFixtures.RunAndGrade(level, PassThroughAtDelay(5));
+
+            Assert.IsFalse(verdict.IsPass, "5 ticks of latency against a ceiling of 2");
+            Assert.AreEqual("out", verdict.SinkId);
+            StringAssert.Contains("5", verdict.Reason, "the measured latency belongs in the message");
+        }
+
+        [Test]
+        public void ACircuitInsideTheLatencyCeiling_Passes()
+        {
+            LevelDefinition level = LevelTestFixtures.FourVectors("0011", maxLatency: 4);
+
+            Assert.IsTrue(LevelTestFixtures.RunAndGrade(level, PassThroughAtDelay(1)).IsPass);
+        }
+
+        [Test]
+        public void TheLatencyCeilingIsInclusive()
+        {
+            // A level author sets this to the critical path of the intended solution, so an
+            // off-by-one here would make the intended solution the one thing that cannot be built.
+            LevelDefinition level = LevelTestFixtures.FourVectors("0011", maxLatency: 3);
+
+            RunVerdict verdict = LevelTestFixtures.RunAndGrade(level, PassThroughAtDelay(3));
+
+            Assert.IsTrue(verdict.IsPass, verdict.ToString());
+        }
+
+        [Test]
+        public void ALevelWithNoLatencyCeiling_DoesNotGradeOnTime()
+        {
+            // The default, and how every level written before this one behaves. Grading on arrival
+            // ticks by accident would fail a correct circuit for taking the scenic route.
+            LevelDefinition level = LevelTestFixtures.FourVectors("0011");
+
+            Assert.IsTrue(LevelTestFixtures.RunAndGrade(level, PassThroughAtDelay(9)).IsPass);
+        }
+
+        [Test]
+        public void AWrongAnswerIsReportedBeforeASlowOne()
+        {
+            // Order of complaint. A circuit that is both wrong and slow should hear that it is wrong
+            // first -- shortening a path that computes the wrong thing is wasted work.
+            LevelDefinition level = LevelTestFixtures.FourVectors("0010", maxLatency: 1);
+
+            RunVerdict verdict = LevelTestFixtures.RunAndGrade(level, PassThroughAtDelay(5));
+
+            Assert.AreEqual(RunOutcome.WrongOutput, verdict.Outcome, verdict.ToString());
+            Assert.AreEqual(3, verdict.Vector, "vector 3 is the value mismatch");
+        }
+
+        // -----------------------------------------------------------------
         // Settling
         // -----------------------------------------------------------------
 
