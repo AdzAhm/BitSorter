@@ -3,6 +3,13 @@
 2D Unity puzzle game. Bits (0/1) fall through logic components into bins.
 Teaching digital logic: gates, flip-flops, adders, FSMs.
 
+## This document
+This file is authoritative, and it drifts silently — nothing recompiles
+when it goes stale, and no test turns red. When you hit a section that no
+longer matches the code, say so and correct it in the same change. Do not
+quietly work around a stale paragraph, and do not treat one as binding
+just because it is written down here.
+
 ## Architecture rule (do not break this)
 - Assets/Scripts/LogicCore/ = pure C#, NO UnityEngine imports.
   Deterministic tick-based simulator. Has its own asmdef.
@@ -36,6 +43,21 @@ nowhere to live. The related lesson this game *can* teach is
 unbalanced-path corruption: two paths of different total delay into one
 gate, where the early bit waits and the next arrival collides with it.
 Reach for that whenever the subject would otherwise be hazards.
+
+**Throughput is not a meaningful score.** A balanced circuit sustains
+exactly one vector per tick whatever its depth. Every gate consumes its
+inputs, emits, and hands the result to an edge of at least one tick, so
+every circuit is already pipelined at gate granularity, and depth buys
+latency rather than throughput. An unbalanced circuit does not run slower
+— it loses bits: sources have no input ports, so they emit every tick
+regardless of what is stalled downstream. There is no backpressure, so
+the next bit arrives into a port that is still occupied and the collision
+destroys it. Throughput therefore has two states, one vector per tick or
+a failed run, with nothing in between to rank. **Score gate count and
+latency only.** This also means the classical latency-versus-throughput
+pipelining trade has nowhere to live here; the lesson that survives is
+stage balancing, which is the same requirement arrived at from the
+failure side.
 
 ## Core decisions
 
@@ -124,20 +146,20 @@ by name. Treat this section as a place to park ideas, not as a to-do list.
   the core difficulty of the adder chapters, and the reason CorruptedCount
   exists as a game mechanic rather than just a diagnostic.
 
-  **Currently unreachable, and this blocks the timing-hazard chapter.**
-  Every player wire is hardcoded to delay 1 (`TryConnect`), so a
-  player-built circuit is always balanced by construction, and the level
-  format has no fixture-wire array, so a level cannot author an
-  unbalanced path either. The old half-adder demo only corrupted because
-  its hardcoded fixture delays were 1 and 3. As things stand
-  CorruptedCount can only be provoked by a fan-in mistake.
+  **Shipped, and the timing-hazard chapter is unblocked.** Of the two
+  candidate fixes once listed here — a locked `wires` array in the level
+  JSON, or player-chosen wire delays — the second is the one that landed
+  (2925472). Delay is a resource the player manages: wires carry a delay
+  scrolled on the wire itself, `LevelRules.CanSetDelay` polices the floor
+  of 1, and a level bounds it with `maxWireDelay` and `delayBudget`.
+  `balance-the-paths.json` is the first level built on it.
 
-  Two candidate fixes: a locked `wires` array in the level JSON, or
-  player-chosen wire delays. The first keeps the hazard authored and
-  makes it a puzzle to route around; the second makes delay a resource
-  the player manages, which is a much bigger design change and needs UI.
-  Decide before writing the adder chapters — the choice shapes what
-  those levels can ask for.
+  The road not taken is still not built: there is no fixture-wire array,
+  so a level cannot author an unbalanced path of its own. Every wire on
+  the board is the player's, which means every timing hazard is one they
+  created and can therefore undo. Worth knowing when writing the adder
+  chapters — a level can constrain the delay budget, but it cannot hand
+  the player a pre-broken circuit to repair.
 
 - **A waiting bit needs a stronger visual.** A bit held in an input port
   currently renders as a small square inside the node. That is readable

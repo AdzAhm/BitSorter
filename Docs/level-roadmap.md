@@ -34,10 +34,12 @@ stands, not preferences.
 
 ### The two derived facts that shape every level
 
-**Throughput is fixed at one vector per tick, and the circuit has to keep up.**
-Sources stream back to back with no gap. A path-balanced circuit sustains that
-indefinitely; an unbalanced one does not. The early bit sits in its port, and the
-*next* vector's bit collides with it.
+**The source rate is one vector per tick, and the circuit has to keep up.**
+Sources stream back to back with no gap, and nothing can slow them down — a source
+has no input ports, so it fires every tick regardless of what is stalled
+downstream. A path-balanced circuit sustains that indefinitely; an unbalanced one
+does not fall behind, it loses bits. The early bit sits in its port, and the *next*
+vector's bit collides with it.
 
 **Therefore any level meant to teach balancing needs at least two vectors, and
 really four or more.** With a single vector an unbalanced circuit merely fires
@@ -58,12 +60,12 @@ author a level that silently fails to teach its own lesson.
 | 4 | Propagation delay | **(a)** | Shipped: `balance-the-paths` |
 | 5 | Combinational components (mux, decoder, comparator) | **(a)** | Buildable today |
 | 6 | Adders: half, full, ripple-carry | **(a)** | Half shipped; full verified by `FullAdderTests`. Ripple-carry is board-space limited |
-| 6b | Carry-lookahead | **(c)**, practically | Gate count does not fit 9 × 5 — see below |
+| 6b | Carry-lookahead | **(b)** | Per-level board size. Reclassified from (c) — the limit is the view layer, not the model |
 | 7 | Latches and flip-flops | **(b)** | `RegisterNode` + initial-state authoring + a palette slot |
 | 7b | Level- vs edge-triggering, setup/hold, clock skew | **(c)** | No clock signal exists — see below |
 | 8 | FSMs (Moore / Mealy), state minimisation | **(b)** | Same three blockers as 7 |
 | 9 | Critical path | **(a)** to *feel*, **(b)** to *grade* | Needs `maxLatency` — see [Q2](#q2-can-a-level-score-on-critical-path-length) |
-| 10 | Pipelining (latency vs throughput) | **(c)** | Every gate is already a register — see below |
+| 10 | Pipelining (latency vs throughput) | **(c)** | Every gate is already a register, and throughput is binary rather than graded — see below |
 | 10b | Pipeline stage balancing | **(a)** | The substitute lesson, and the game's core mechanic |
 
 ---
@@ -187,16 +189,56 @@ lesson to work.
 
 ### 6b. Carry-lookahead
 
-**Blocked on:** board space, not a primitive.
+**Blocked on:** a per-level board size. Reclassified from (c) — see below.
 
 A 2-bit ripple-carry adder is two full adders: 10 gates, 4 sources, 3 sinks — 17
 of 45 cells, which fits but is dense. The lookahead version of the same width
-needs the generate and propagate terms plus a carry tree, and does not. Since the
-lesson only exists in the *comparison* between the two, and the comparison needs
-a width where the depths visibly diverge, this is out of reach at 9 × 5. Options
-are a bigger board for one chapter, or accepting that the ripple-carry side alone
-teaches the carry chain and leaving lookahead to the lecture. Worth deciding
-before writing the adder chapters.
+needs the generate and propagate terms plus a carry tree, and does not fit. Since
+the lesson exists only in the *comparison* between the two, this needs a bigger
+board than 9 × 5.
+
+**This was previously filed under (c), and that was wrong.** It framed a tooling
+gap as a property of the model. LogicCore has no opinion about board size — it has
+no geometry at all. Only the view does. The correction matters because (c) means
+"stop looking", and this is ordinary work with a known shape.
+
+Board size today is neither a level field nor a compile-time constant: it is
+`[SerializeField] private int _halfColumns = 4` / `_halfRows = 2` on
+[PlacementGrid.cs:23-27](../Assets/Scripts/View/PlacementGrid.cs#L23-L27) — scene
+data, set by the scene builder. The **read path is already fully threaded**:
+`PlacementGrid.HalfExtents` → `SimulationRunner.HalfExtents` → `LevelSession` →
+`LevelLoader.Validate` (bounds-checks fixtures) and `LevelRules.CanPlace`
+(bounds-checks placements). Every consumer already takes extents as a *parameter*
+rather than reaching for a global, which is the expensive half of this job and it
+is already done.
+
+What per-level board size would still cost, in rough order of difficulty:
+
+1. **Two ints on `LevelFile` and `LevelDefinition`**, 0 meaning unspecified, the
+   same convention `tickLimit` and `maxWireDelay` already use. Cheap.
+2. **An authority inversion in the validator.** `Validate(file, halfExtents)`
+   currently treats the passed-in grid size as the authority when bounds-checking
+   fixtures. If a level declares its own board, the level must win and the
+   parameter becomes a fallback. Few lines, but it changes the meaning of a pure
+   function that has tests, so it needs its own.
+3. **`PlacementGrid` cannot resize.** `Start()` builds the dot markers once into a
+   `GameObject("Grid dots")` container, and the extents have no setter
+   ([PlacementGrid.cs:52-75](../Assets/Scripts/View/PlacementGrid.cs#L52-L75)). Per
+   level means a `Resize` that tears down and rebuilds that container off the
+   `LevelLoaded` event.
+4. **The camera does not follow.** `orthographicSize = 5.5f` is hardcoded in the
+   scene builder, and `BoardBackground` sizes itself off the camera. A bigger board
+   needs both to react.
+
+Items 1–2 are an hour with tests. Items 3–4 are the real cost — runtime-resizable
+view geometry — and CLAUDE.md's warning about verifying the saved scene file
+applies to both. Call it a focused half-day, entirely in the view layer.
+
+**One honest caveat.** Even with a bigger board, a 4-bit lookahead is ~25–30 gates
+plus 8 sources, and legibility of hand-drawn wires on a 2D grid becomes the binding
+constraint well before the format does. The realistic target is a 2-bit ripple
+versus 2-bit lookahead comparison at something like 13 × 7, not a textbook 4-bit
+CLA.
 
 ### 7. Latches and flip-flops
 
@@ -245,9 +287,28 @@ throughput rises while latency gets slightly worse. That trade needs an
 *un*-pipelined circuit to trade away from, and this model has none. Every gate
 consumes its inputs, emits, and hands the result to an edge that takes at least a
 tick — so every gate is already a register, and every circuit is already pipelined
-at gate granularity. Throughput is one vector per tick regardless of depth, and no
-amount of added delay improves it because the source is what sets it. There is
-nowhere for the trade-off to live.
+at gate granularity.
+
+A **balanced** circuit therefore sustains exactly one vector per tick whatever its
+depth: adding stages buys latency, never throughput. An **unbalanced** one does not
+degrade gracefully to something slower, and this is the part worth being precise
+about — **there is no backpressure**. A `SourceNode` has no input ports, so
+`IsReadyToEvaluate` is vacuously true and phase 3 fires it every tick no matter what
+is stalled downstream
+([Simulation.cs:209-214](../Assets/Scripts/LogicCore/Simulation.cs#L209-L214)). A
+stalled gate cannot throttle its upstream. The next bit arrives into a port that is
+still occupied, and phase 2 destroys it
+([Simulation.cs:202-206](../Assets/Scripts/LogicCore/Simulation.cs#L202-L206)).
+
+Concretely, with paths of delay 1 and 2 converging on one gate and a dense source:
+tick 1 delivers vector 0's fast bit and the gate cannot fire; tick 2 delivers vector
+1's fast bit into that same still-occupied port, and both are lost. Corruption on
+the second vector, every time.
+
+So throughput is not a spectrum that degrades — it is binary. Either exactly one
+vector per tick, or the run fails as `Corrupted`. That is precisely why it cannot be
+a score axis: a score needs a range of outcomes to rank, and across *correct*
+solutions throughput does not vary at all. Gate count and latency both do.
 
 The related lesson this game *can* teach is **stage balancing**: a pipeline only
 works if every path into a stage has equal latency, and here a stage fed by
