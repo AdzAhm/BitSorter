@@ -52,6 +52,17 @@ namespace BitSorter.View
         /// </summary>
         public int maxLatency;
 
+        /// <summary>
+        /// Where this level sits in the run. Zero or absent leaves it unplaced, and unplaced levels
+        /// sort to the end by file name -- which is how every level behaved before this field.
+        /// </summary>
+        /// <remarks>
+        /// Authored in tens, so a level can be inserted between two others without renumbering the
+        /// rest. Uniqueness is not checkable here: one file cannot see another, so
+        /// <see cref="LevelCatalog"/> enforces it across the set.
+        /// </remarks>
+        public int order;
+
         public LevelFixtureFile[] fixtures;
         public LevelBudgetFile[] budget;
         public LevelExpectationFile[] expected;

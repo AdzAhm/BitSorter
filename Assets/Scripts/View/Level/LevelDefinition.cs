@@ -42,8 +42,10 @@ namespace BitSorter.View
             IReadOnlyList<LevelExpectation> expectations,
             int maxWireDelay = DefaultMaxWireDelay,
             int delayBudget = 0,
-            int maxLatency = 0)
+            int maxLatency = 0,
+            int order = 0)
         {
+            Order = order;
             Name = name;
             Hint = hint;
             TickLimit = tickLimit;
@@ -113,6 +115,19 @@ namespace BitSorter.View
 
         /// <summary>Whether the level grades on time at all.</summary>
         public bool HasLatencyLimit => MaxLatency > 0;
+
+        /// <summary>
+        /// Where this level sits in the run, or zero for a level that names no place.
+        /// </summary>
+        /// <remarks>
+        /// Play order used to be the ordinal sort of the file names, which put the NAND puzzle ahead
+        /// of the half adder and the tutorial seventh. This is the fix. Uniqueness across the set is
+        /// <see cref="LevelCatalog"/>'s job -- a single file cannot see another one.
+        /// </remarks>
+        public int Order { get; }
+
+        /// <summary>Whether this level claims a place in the run at all.</summary>
+        public bool HasOrder => Order > 0;
 
         /// <summary>
         /// In file order, which is the order the grader checks them and therefore the order failures
