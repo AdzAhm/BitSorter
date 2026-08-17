@@ -331,6 +331,341 @@ clock timing.
 
 ---
 
+## Level designs — concrete, not yet built
+
+Six levels, fully specified. Nothing here is written to
+`Assets/Resources/Levels/` yet; this is the version to argue with first.
+
+### The arithmetic every design below uses
+
+Define a node's **level** as the tick it evaluates vector *v*, minus *v*.
+
+- A source is level 0: it emits vector *v* on tick *v*.
+- A node fed from a level-*L* node down a wire of delay *d* receives at level
+  *L + d*, and evaluates there.
+- **Every input of a gate must arrive at the same level.** Otherwise the early bit
+  waits in its port and the next vector's bit collides with it.
+- A sink's level is its latency, which is what `maxLatency` grades.
+
+So a plain wire costs 1 level, and "extra delay" below means ticks above the
+default of 1 — exactly what `delayBudget` counts.
+
+### 1. The Long Way Round — De Morgan
+
+```json
+{
+  "name": "The long way round",
+  "hint": "this level has no NAND. Build one.",
+  "tickLimit": 40,
+  "maxWireDelay": 1,
+  "fixtures": [
+    { "id": "a",   "kind": "Source", "cell": { "x": -3, "y":  1 }, "stream": "0011" },
+    { "id": "b",   "kind": "Source", "cell": { "x": -3, "y": -1 }, "stream": "0101" },
+    { "id": "out", "kind": "Sink",   "cell": { "x":  3, "y":  0 } }
+  ],
+  "budget": [
+    { "kind": "Not", "count": 2 },
+    { "kind": "And", "count": 1 },
+    { "kind": "Or",  "count": 1 }
+  ],
+  "expected": [ { "sink": "out", "values": "1110" } ]
+}
+```
+
+**Two intended solutions, both latency 3, both balanced with no padding at all:**
+
+- `NOT (A AND B)` — AND at level 1, NOT at level 2, sink at 3. Two gates.
+- `NOT A OR NOT B` — both NOTs at level 1, OR at level 2, sink at 3. Three gates.
+
+`maxWireDelay: 1` fixes the wiring deliberately. Nothing on this board can be
+re-timed, so a mistake has to be fixed by changing the shape of the circuit rather
+than by padding around it. That is the right lesson this early, and it is why there
+is no `delayBudget`.
+
+**Designed mistake.** The half-applied De Morgan: invert one input, wire the other
+straight into the OR. `A` reaches the OR at level 1 and `NOT B` at level 2, so on
+vector 1 the second `A` bit lands on a port still holding the first. The circuit
+does not produce wrong answers — it destroys bits, which is most players' first
+encounter with the game's central claim.
+
+### 2. Four Corners — K-map minimisation
+
+```json
+{
+  "name": "Four corners",
+  "hint": "six of the eight rows want a 1. Three gates' worth of grouping will do it.",
+  "tickLimit": 60,
+  "maxWireDelay": 3,
+  "delayBudget": 5,
+  "fixtures": [
+    { "id": "a",   "kind": "Source", "cell": { "x": -4, "y":  2 }, "stream": "00001111" },
+    { "id": "b",   "kind": "Source", "cell": { "x": -4, "y":  0 }, "stream": "00110011" },
+    { "id": "c",   "kind": "Source", "cell": { "x": -4, "y": -2 }, "stream": "01010101" },
+    { "id": "out", "kind": "Sink",   "cell": { "x":  4, "y":  0 } }
+  ],
+  "budget": [
+    { "kind": "Not", "count": 3 },
+    { "kind": "And", "count": 3 },
+    { "kind": "Or",  "count": 2 }
+  ],
+  "expected": [ { "sink": "out", "values": "11100111" } ]
+}
+```
+
+`f = Σm(0,1,2,5,6,7)` — the cyclic map, chosen because **it has exactly two minimal
+covers of three terms each and no essential prime implicants**:
+
+- `A'B' + BC' + AC`
+- `A'C' + B'C + AB`
+
+Both need exactly three inverters, three ANDs and two ORs, so the budget admits
+both and nothing sloppier. Both come to eight gates, latency 5, and **+3 extra
+delay** at best:
+
+| Wire | Delay | Why |
+|---|---|---|
+| sources → the three NOTs | 1 | level 1 |
+| NOT → AND, for the two-inverter term | 1 | level 2 |
+| the bare literal into a one-inverter term | 2 | **+1**, to meet its NOT at level 2 |
+| the two-literal term's AND | 1, 1 | sits at level 1 |
+| first OR → second OR | 1 | level 4 |
+| level-1 AND → second OR | 3 | **+2**, to reach level 4 |
+
+`delayBudget: 5` leaves room for the alternative routing that lifts the shallow AND
+to level 2 instead (+4 total). Tighten to 4 if you want that route squeezed out.
+
+**Designed mistake.** Product terms sit at different depths by construction — a
+term like `AC` fires a level before a term like `A'B'`, which waits on an inverter.
+The OR tree collecting them is unbalanced before the player does anything wrong, so
+correct K-map work still eats bits until the shallow terms are padded.
+
+**No `maxLatency` here on purpose.** The lesson is gate count, and the budget
+already enforces it.
+
+### 3. Nothing but NAND — functional completeness
+
+```json
+{
+  "name": "Nothing but NAND",
+  "hint": "NAND is enough for everything. Including NOT.",
+  "tickLimit": 40,
+  "maxWireDelay": 3,
+  "delayBudget": 3,
+  "fixtures": [
+    { "id": "a",   "kind": "Source", "cell": { "x": -3, "y":  1 }, "stream": "0011" },
+    { "id": "b",   "kind": "Source", "cell": { "x": -3, "y": -1 }, "stream": "0101" },
+    { "id": "out", "kind": "Sink",   "cell": { "x":  3, "y":  0 } }
+  ],
+  "budget": [ { "kind": "Nand", "count": 6 } ],
+  "expected": [ { "sink": "out", "values": "0110" } ]
+}
+```
+
+**The first discovery** is that a NAND becomes an inverter when one output fans out
+to *both* of its inputs. The wiring rules already permit this — the duplicate check
+rejects only the same source-and-target pair, and `In(0)` and `In(1)` are different
+targets — and nothing in the game currently teaches it.
+
+**Two intended solutions with a real trade-off**, which is why the budget is 6 and
+not the minimal 4:
+
+- **Canonical, 4 NANDs, +2 delay, latency 4.** `N1 = A NAND B` at level 1;
+  `N2 = A NAND N1` and `N3 = B NAND N1` at level 2, which needs the two *source*
+  wires padded to delay 2; `N4 = N2 NAND N3` at level 3.
+- **Compositional, 6 NANDs, +1 delay, latency 5.** `A OR B` built from two NAND
+  inverters plus a NAND (level 2), `A NAND B` at level 1, then AND them with a NAND
+  pair — the level-1 term needs delay 2 to meet the OR at level 3.
+
+Fewer gates costs more delay budget and less latency. That is a genuine engineering
+choice, and it is the reason not to budget exactly 4.
+
+**Designed mistake.** The canonical 4-NAND XOR is unbalanced *by construction*: its
+second-stage gates take one input straight from a source and the other from `N1`, a
+level behind. Players build a textbook-correct XOR and watch it destroy bits.
+
+No `maxLatency`: the two routes differ (4 versus 5), and grading on time would kill
+one of them.
+
+### 4. The Slow Lane — propagation delay
+
+```json
+{
+  "name": "The slow lane",
+  "hint": "every gate you pass through costs a tick. The bits that skip it do not wait.",
+  "tickLimit": 60,
+  "maxWireDelay": 4,
+  "delayBudget": 6,
+  "fixtures": [
+    { "id": "a",   "kind": "Source", "cell": { "x": -4, "y":  2 }, "stream": "00001111" },
+    { "id": "b",   "kind": "Source", "cell": { "x": -4, "y":  0 }, "stream": "00110011" },
+    { "id": "c",   "kind": "Source", "cell": { "x": -4, "y": -2 }, "stream": "01010101" },
+    { "id": "out", "kind": "Sink",   "cell": { "x":  4, "y":  0 } }
+  ],
+  "budget": [
+    { "kind": "Xor", "count": 2 },
+    { "kind": "And", "count": 1 },
+    { "kind": "Or",  "count": 1 }
+  ],
+  "expected": [ { "sink": "out", "values": "00111011" } ]
+}
+```
+
+`f = (((A XOR B) XOR C) AND A) OR B` — a deliberate staircase. Each stage adds one
+level, and each stage takes a fresh source straight off the left edge, so the
+padding required grows by one every time:
+
+| Gate | Level | Padding needed |
+|---|---|---|
+| `X1 = A XOR B` | 1 | none |
+| `X2 = X1 XOR C` | 2 | C's wire to delay 2 (**+1**) |
+| `G1 = X2 AND A` | 3 | A's wire to delay 3 (**+2**) |
+| `G2 = G1 OR B` | 4 | B's wire to delay 4 (**+3**) |
+
+Latency 5. **`delayBudget: 6` is exactly the required total**, so there is no slack:
+a wrong guess has to be taken back rather than absorbed. That is the point of the
+level.
+
+**Designed mistake.** Padding the *long* path instead of the short one — adding
+delay to `X1 → X2` rather than to `C → X2`. It makes the imbalance worse and burns
+budget, and with zero slack the player must work out that you only ever lengthen the
+side that arrives early.
+
+**Open question for you.** This is the one level of the six with a single solution:
+the topology is given by the expression and the delay assignment is forced. The
+skill being taught is arithmetic rather than synthesis, so I think that is
+defensible — but it does break the rule the rest of the set follows. Worth deciding.
+
+### 5. Pick a Lane — 2:1 multiplexer
+
+```json
+{
+  "name": "Pick a lane",
+  "hint": "s chooses which input reaches the bin. s has to reach two places at once.",
+  "tickLimit": 60,
+  "maxWireDelay": 3,
+  "delayBudget": 4,
+  "maxLatency": 4,
+  "fixtures": [
+    { "id": "a",   "kind": "Source", "cell": { "x": -4, "y":  2 }, "stream": "00001111" },
+    { "id": "b",   "kind": "Source", "cell": { "x": -4, "y":  0 }, "stream": "00110011" },
+    { "id": "s",   "kind": "Source", "cell": { "x": -4, "y": -2 }, "stream": "01010101" },
+    { "id": "out", "kind": "Sink",   "cell": { "x":  4, "y":  0 } }
+  ],
+  "budget": [
+    { "kind": "Not", "count": 1 },
+    { "kind": "And", "count": 2 },
+    { "kind": "Or",  "count": 1 },
+    { "kind": "Xor", "count": 2 }
+  ],
+  "expected": [ { "sink": "out", "values": "00011011" } ]
+}
+```
+
+`out = s ? b : a`. The parts list is the only hint, and it stocks two circuits:
+
+- **Textbook, 4 gates, +2 delay.** `(A AND NOT S) OR (B AND S)`. `NOT S` at level 1;
+  the first AND at level 2 needs `A` padded to delay 2; the second AND sits at level
+  1 and reaches the OR on a delay-2 wire.
+- **XOR trick, 3 gates, +3 delay.** `A XOR (S AND (A XOR B))`. `A XOR B` at level 1,
+  the AND at level 2 with `S` padded to 2, the second XOR at level 3 with `A` padded
+  to 3.
+
+Both land at latency 4, which is why **this is the first level to set
+`maxLatency`** — it is satisfiable by every intended route, so it costs nothing but
+introduces the idea before the adder needs it.
+
+**Designed mistake.** `s` has to feed both the inverter and the second AND, so the
+two ANDs end up a level apart unless the direct path is padded. Players reliably get
+the logic right and then watch it eat bits, which is the correct order to learn
+this in.
+
+### 6. Carry the One — the full adder
+
+```json
+{
+  "name": "Carry the one",
+  "hint": "two half adders and something to join the carries.",
+  "tickLimit": 60,
+  "maxWireDelay": 3,
+  "delayBudget": 5,
+  "maxLatency": 4,
+  "fixtures": [
+    { "id": "a",    "kind": "Source", "cell": { "x": -4, "y":  2 }, "stream": "00001111" },
+    { "id": "b",    "kind": "Source", "cell": { "x": -4, "y":  0 }, "stream": "00110011" },
+    { "id": "cin",  "kind": "Source", "cell": { "x": -4, "y": -2 }, "stream": "01010101" },
+    { "id": "sum",  "kind": "Sink",   "cell": { "x":  4, "y":  1 } },
+    { "id": "cout", "kind": "Sink",   "cell": { "x":  4, "y": -1 } }
+  ],
+  "budget": [
+    { "kind": "Xor", "count": 3 },
+    { "kind": "And", "count": 2 },
+    { "kind": "Or",  "count": 1 }
+  ],
+  "expected": [
+    { "sink": "sum",  "values": "01101001" },
+    { "sink": "cout", "values": "00010111" }
+  ]
+}
+```
+
+Already proven buildable — `FullAdderTests` constructs exactly this circuit. Five
+gates, **+3 extra delay** minimum:
+
+| Gate | Level | Padding |
+|---|---|---|
+| `sum1 = A XOR B`, `carry1 = A AND B` | 1 | none |
+| `sum2 = sum1 XOR Cin` | 2 | Cin's wire to delay 2 (**+1**) |
+| `carry2 = sum1 AND Cin` | 2 | Cin's wire to delay 2 (**+1**) |
+| `cout = carry1 OR carry2` | 3 | carry1's wire to delay 2 (**+1**) |
+
+`sum` lands at latency 3, `cout` at 4, so `maxLatency: 4` is exactly the minimum and
+is satisfiable. `delayBudget: 5` gives two ticks of slack — and there is a subtle
+true lesson in the pair: slack spent *off* the critical path is free, slack spent on
+it fails the level.
+
+**The third XOR is deliberate.** Carry-out can be built with `OR` or with `XOR`,
+because `carry1` and `carry2` are never both 1 — if `A AND B` is 1 then `A XOR B` is
+0. Two valid answers, and "why does XOR work there?" is worth discovering rather
+than being told.
+
+**Designed mistake.** Running `Cin` straight into the second stage on delay 1,
+forgetting it must wait a tick for the first half adder. Documented and proven to
+corrupt rather than mis-compute at
+[FullAdderTests.cs:76-103](../Assets/Tests/EditMode/FullAdderTests.cs#L76-L103).
+
+### On `x`, which none of these use
+
+Worth recording, because it corrects an assumption in [Q1](#q1-can-a-test-vector-express-a-dont-care-output).
+
+A K-map don't-care means "this input combination cannot occur". In this format the
+natural way to say that is **to leave the combination out of the source streams** —
+the vector simply does not exist, and any circuit agreeing on the vectors that do
+exist passes. No `x` required.
+
+`x` earns its place in a narrower case: **vectors are global across every sink**, so
+a level cannot drop a vector for one sink alone. When sink A's output is meaningful
+on a vector and sink B's is not, sink B needs `x` for that vector. None of the six
+above is that shape — the multi-output ones, half and full adder, are fully
+specified on every row.
+
+So `x` is built, tested and correct, but its first real user will be a multi-output
+level with asymmetric don't-cares. Worth knowing before designing one that needs it.
+
+### How these get built
+
+One level per red-then-green pair, per the working agreement:
+
+- **Red** — a test that builds each intended solution and asserts it passes, plus a
+  test that the designed mistake fails *the specific way the design claims* —
+  `Corrupted`, not `WrongOutput`. The level file does not exist yet, so these fail
+  on the fixture load.
+- **Green** — the JSON, tuned until every intended solution passes and the mistake
+  still fails.
+
+The multi-solution levels get one test per solution. That is what stops a level
+shipping that is accidentally single-solution, or whose designed mistake turns out
+not to be reachable.
+
 ## Format answers
 
 ### Q1: Can a test vector express a don't-care output?
