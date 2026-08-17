@@ -530,10 +530,17 @@ delay to `X1 → X2` rather than to `C → X2`. It makes the imbalance worse and
 budget, and with zero slack the player must work out that you only ever lengthen the
 side that arrives early.
 
-**Open question for you.** This is the one level of the six with a single solution:
-the topology is given by the expression and the delay assignment is forced. The
-skill being taught is arithmetic rather than synthesis, so I think that is
-defensible — but it does break the rule the rest of the set follows. Worth deciding.
+**Deliberately the exception: this level has exactly one solution, and that is the
+point.** The topology is given by the expression and the delay assignment is forced
+by the topology. Every other level in the set is built to have two or more valid
+answers, on the principle that a level solvable one way is not teaching anything —
+this one is the standing exception, because the skill it drills is delay
+*arithmetic*, not synthesis. There is one right set of numbers and the player has
+to work them out.
+
+**Do not "fix" this into a multi-solution level.** Widening it would hand the
+player a choice of shapes and let them dodge the arithmetic, which is the entire
+lesson. If a future pass finds this level suspicious, the suspicion is the bug.
 
 ### 5. Pick a Lane — 2:1 multiplexer
 
