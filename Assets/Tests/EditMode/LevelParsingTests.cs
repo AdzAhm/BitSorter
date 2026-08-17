@@ -170,6 +170,30 @@ namespace BitSorter.LogicCore.Tests
             Assert.AreEqual(3, expectation.Expected[1].Vector, "second bit belongs to vector 3");
         }
 
+        [Test]
+        public void AnXInAnExpectation_IsADontCareThatKeepsItsSlot()
+        {
+            // 'x' and '-' are opposites, and the difference is the whole reason both exist. '-' means
+            // no bit arrives, so it is dropped from the expected list. 'x' means a bit arrives and
+            // either value passes, so it must keep its place -- otherwise every bit after it would be
+            // compared against the wrong vector, which is the defect '-' already has.
+            string source =
+                @"{ ""id"": ""in"", ""kind"": ""Source"", ""cell"": { ""x"": -3, ""y"": 0 }, ""stream"": ""0011"" }";
+            string expected = @"{ ""sink"": ""binOne"", ""values"": ""0x1x"" }";
+
+            LevelLoadResult result = Parse(Json($"{source}, {BinOne}", expected));
+
+            Assert.IsTrue(result.IsValid, result.Error);
+
+            LevelExpectation expectation = result.Level.Expectations[0];
+            Assert.AreEqual(4, result.Level.VectorCount, "four characters, four vectors");
+            Assert.AreEqual(4, expectation.Expected.Count,
+                "a don't-care still expects a bit, so all four keep their slots");
+
+            Assert.AreEqual(1, expectation.Expected[1].Vector, "the slot still knows its vector");
+            Assert.AreEqual(3, expectation.Expected[3].Vector);
+        }
+
         // -----------------------------------------------------------------
         // Refused
         // -----------------------------------------------------------------

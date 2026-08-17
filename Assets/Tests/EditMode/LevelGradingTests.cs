@@ -205,6 +205,69 @@ namespace BitSorter.LogicCore.Tests
         }
 
         // -----------------------------------------------------------------
+        // Don't-care outputs
+        // -----------------------------------------------------------------
+
+        /// <summary>The source stream is 0011, so a bare wire delivers 0, 0, 1, 1.</summary>
+        private static CircuitBlueprint PassThroughToSink()
+        {
+            var blueprint = new CircuitBlueprint();
+            LevelTestFixtures.Wire(blueprint, LevelTestFixtures.SourceCell, new Vector2Int(3, 0));
+            return blueprint;
+        }
+
+        [Test]
+        public void ADontCare_AcceptsTheValueALiteralWouldReject()
+        {
+            // The pass-through delivers 0 on vector 1. Spelled as a literal 1 that is a failure;
+            // spelled as 'x' it is fine. Same circuit, same run, only the expectation differs -- which
+            // is the only way to show that 'x' is not just a differently written literal.
+            CircuitBlueprint blueprint = PassThroughToSink();
+
+            RunVerdict asLiteral = LevelTestFixtures.RunAndGrade(
+                LevelTestFixtures.FourVectors("0111"), blueprint);
+
+            Assert.AreEqual(RunOutcome.WrongOutput, asLiteral.Outcome,
+                "sanity: vector 1 really does deliver a 0");
+            Assert.AreEqual(1, asLiteral.Vector);
+
+            RunVerdict asDontCare = LevelTestFixtures.RunAndGrade(
+                LevelTestFixtures.FourVectors("0x11"), blueprint);
+
+            Assert.IsTrue(asDontCare.IsPass, asDontCare.ToString());
+        }
+
+        [Test]
+        public void ADontCare_AlsoAcceptsTheValueALiteralWouldHaveMatched()
+        {
+            // The other half of "either value passes". Vector 1 delivers a 0, and a literal 0 passes
+            // there too -- so 'x' must not have narrowed anything.
+            CircuitBlueprint blueprint = PassThroughToSink();
+
+            Assert.IsTrue(LevelTestFixtures.RunAndGrade(
+                LevelTestFixtures.FourVectors("0011"), blueprint).IsPass, "literal 0 passes");
+
+            Assert.IsTrue(LevelTestFixtures.RunAndGrade(
+                LevelTestFixtures.FourVectors("0x11"), blueprint).IsPass, "so must the don't-care");
+        }
+
+        [Test]
+        public void ADontCare_StillRequiresABitToArrive()
+        {
+            // 'x' constrains the value, never the arrival. Four don't-cares must not turn an unwired
+            // board into a pass -- that is what '-' is for, and conflating the two would make an
+            // empty-bin level unenforceable.
+            LevelDefinition level = LevelTestFixtures.FourVectors("xxxx");
+            var blueprint = new CircuitBlueprint();
+
+            RunVerdict verdict = LevelTestFixtures.RunAndGrade(level, blueprint);
+
+            Assert.IsFalse(verdict.IsPass, "nothing arrived, so there is nothing to excuse");
+            Assert.AreEqual(RunOutcome.MissingOutput, verdict.Outcome, verdict.ToString());
+            Assert.AreEqual(0, verdict.Vector);
+        }
+
+        // -----------------------------------------------------------------
         // Settling
         // -----------------------------------------------------------------
 
