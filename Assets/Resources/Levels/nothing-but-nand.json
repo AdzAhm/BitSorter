@@ -1,0 +1,19 @@
+{
+  "name": "Nothing but NAND",
+  "order": 40,
+  "hint": "NAND alone can build every gate there is. Even the one with a single input.",
+  "tickLimit": 40,
+  "maxWireDelay": 3,
+  "delayBudget": 3,
+  "fixtures": [
+    { "id": "a",   "kind": "Source", "cell": { "x": -3, "y":  1 }, "stream": "0011" },
+    { "id": "b",   "kind": "Source", "cell": { "x": -3, "y": -1 }, "stream": "0101" },
+    { "id": "out", "kind": "Sink",   "cell": { "x":  3, "y":  0 } }
+  ],
+  "budget": [
+    { "kind": "Nand", "count": 6 }
+  ],
+  "expected": [
+    { "sink": "out", "values": "0110" }
+  ]
+}
