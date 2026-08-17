@@ -1,0 +1,19 @@
+{
+  "name": "The long way round",
+  "hint": "there is no NAND here. There are two ways to make one.",
+  "tickLimit": 40,
+  "maxWireDelay": 1,
+  "fixtures": [
+    { "id": "a",   "kind": "Source", "cell": { "x": -3, "y":  1 }, "stream": "0011" },
+    { "id": "b",   "kind": "Source", "cell": { "x": -3, "y": -1 }, "stream": "0101" },
+    { "id": "out", "kind": "Sink",   "cell": { "x":  3, "y":  0 } }
+  ],
+  "budget": [
+    { "kind": "Not", "count": 2 },
+    { "kind": "And", "count": 1 },
+    { "kind": "Or",  "count": 1 }
+  ],
+  "expected": [
+    { "sink": "out", "values": "1110" }
+  ]
+}
