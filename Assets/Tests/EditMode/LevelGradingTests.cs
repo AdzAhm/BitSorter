@@ -268,6 +268,63 @@ namespace BitSorter.LogicCore.Tests
         }
 
         // -----------------------------------------------------------------
+        // Silent vectors
+        // -----------------------------------------------------------------
+
+        [Test]
+        public void ASpuriousBitOnASilentVector_NamesThatVector()
+        {
+            // "0-11" says vector 1 produces nothing at this sink. A bare pass-through emits on every
+            // vector, so it puts a bit exactly where the level asked for silence.
+            //
+            // The defect this guards: '-' vectors are dropped from the expected list, so the value
+            // comparison runs positionally over a list with holes in it. The intruder shifts every
+            // later reception by one and the first mismatch is blamed on vector 2 -- whose wiring is
+            // perfectly correct. That sends the player to the wrong end of the board.
+            LevelDefinition level = LevelTestFixtures.FourVectors("0-11");
+            CircuitBlueprint blueprint = PassThroughToSink();
+
+            RunVerdict verdict = LevelTestFixtures.RunAndGrade(level, blueprint);
+
+            Assert.IsFalse(verdict.IsPass, "a bit arrived where the level asked for silence");
+            Assert.AreEqual(RunOutcome.ExtraOutput, verdict.Outcome, verdict.ToString());
+            Assert.AreEqual(1, verdict.Vector, "vector 1 is the one that should have stayed silent");
+            StringAssert.Contains("vector 1", verdict.Reason);
+        }
+
+        [Test]
+        public void ASpuriousBitThatHappensToMatch_StillNamesItsVector()
+        {
+            // The quieter half of the same defect. With "0-01" the intruder's value coincidentally
+            // matches what the following slot wanted, so every positional comparison passes and the
+            // failure degrades to a bare count mismatch naming no vector at all. Same mistake, same
+            // sink, and the player is given even less to go on.
+            LevelDefinition level = LevelTestFixtures.FourVectors("0-01");
+            CircuitBlueprint blueprint = PassThroughToSink();
+
+            RunVerdict verdict = LevelTestFixtures.RunAndGrade(level, blueprint);
+
+            Assert.IsFalse(verdict.IsPass);
+            Assert.AreEqual(RunOutcome.ExtraOutput, verdict.Outcome, verdict.ToString());
+            Assert.AreEqual(1, verdict.Vector, "the intruder still belongs to vector 1");
+        }
+
+        [Test]
+        public void ASinkExpectedToStayEmpty_KeepsItsOwnWording()
+        {
+            // The all-'-' case must not be swallowed by the fix above. There is no expected bit to
+            // measure latency against, so the vector cannot be named -- but "should have stayed
+            // empty" already says everything the player needs, and it stays.
+            LevelDefinition level = LevelTestFixtures.FourVectors("----");
+            CircuitBlueprint blueprint = PassThroughToSink();
+
+            RunVerdict verdict = LevelTestFixtures.RunAndGrade(level, blueprint);
+
+            Assert.AreEqual(RunOutcome.ExtraOutput, verdict.Outcome, verdict.ToString());
+            StringAssert.Contains("empty", verdict.Reason);
+        }
+
+        // -----------------------------------------------------------------
         // Settling
         // -----------------------------------------------------------------
 
