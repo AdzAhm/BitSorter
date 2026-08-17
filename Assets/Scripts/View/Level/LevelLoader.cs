@@ -247,6 +247,13 @@ namespace BitSorter.View
                     "maxWireDelay to 1 to forbid re-timing");
             }
 
+            if (file.maxLatency < 0)
+            {
+                return LevelLoadResult.Reject(
+                    $"maxLatency is {file.maxLatency}; leave it out for no limit, or give the " +
+                    "critical path of the intended solution in ticks");
+            }
+
             int maxWireDelay = file.maxWireDelay > 0
                 ? file.maxWireDelay
                 : LevelDefinition.DefaultMaxWireDelay;
@@ -255,7 +262,7 @@ namespace BitSorter.View
 
             return LevelLoadResult.Accept(new LevelDefinition(
                 file.name.Trim(), hint, tickLimit, vectorCount, fixtures, budget, expectations,
-                maxWireDelay, file.delayBudget));
+                maxWireDelay, file.delayBudget, file.maxLatency));
         }
 
         private static bool TryBuildBudget(

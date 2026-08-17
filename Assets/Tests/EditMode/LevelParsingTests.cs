@@ -392,6 +392,32 @@ namespace BitSorter.LogicCore.Tests
         }
 
         [Test]
+        public void ALatencyCeiling_IsCarriedThrough()
+        {
+            string json =
+                @"{ ""name"": ""Quick"", ""tickLimit"": 100, ""maxLatency"": 4," +
+                $@" ""fixtures"": [{SourceIn}, {BinOne}]," +
+                $@" ""expected"": [{ExpectOne}] }}";
+
+            LevelLoadResult result = Parse(json);
+
+            Assert.IsTrue(result.IsValid, result.Error);
+            Assert.AreEqual(4, result.Level.MaxLatency);
+            Assert.IsTrue(result.Level.HasLatencyLimit);
+        }
+
+        [Test]
+        public void AnOmittedLatencyCeiling_MeansNoLimit()
+        {
+            LevelLoadResult result = ParseDefault();
+
+            Assert.IsTrue(result.IsValid, result.Error);
+            Assert.AreEqual(0, result.Level.MaxLatency);
+            Assert.IsFalse(result.Level.HasLatencyLimit,
+                "every level written before this field must keep ignoring arrival ticks");
+        }
+
+        [Test]
         public void ANegativeLatencyCeiling_IsRefused()
         {
             // Same shape as the other numeric fields: negative is a mistake worth naming, zero has

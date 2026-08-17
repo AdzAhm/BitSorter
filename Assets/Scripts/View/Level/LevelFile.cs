@@ -45,6 +45,13 @@ namespace BitSorter.View
         /// </summary>
         public int delayBudget;
 
+        /// <summary>
+        /// Most ticks a bit may take from leaving a source to reaching a sink. Zero or absent means
+        /// the level does not grade on time at all, which is how every level written before this
+        /// field behaves.
+        /// </summary>
+        public int maxLatency;
+
         public LevelFixtureFile[] fixtures;
         public LevelBudgetFile[] budget;
         public LevelExpectationFile[] expected;

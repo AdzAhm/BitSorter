@@ -34,6 +34,12 @@ namespace BitSorter.View
 
         /// <summary>A sink received bits it should not have -- including any bit at all in an empty bin.</summary>
         ExtraOutput,
+
+        /// <summary>
+        /// Right answers, but the critical path is longer than the level allows. The only outcome
+        /// that fails a circuit which computes everything correctly.
+        /// </summary>
+        TooSlow,
     }
 
     /// <summary>How a run ended, with one sentence the player can act on.</summary>
@@ -193,6 +199,17 @@ namespace BitSorter.View
                     return verdict;
             }
 
+            // Last of all, and only when the level asks for it. A circuit that is both wrong and slow
+            // should hear that it is wrong first: shortening a path that computes the wrong answer is
+            // wasted work.
+            if (level.HasLatencyLimit)
+            {
+                RunVerdict timing = GradeLatency(view, level, sinkNodeIds);
+
+                if (!timing.IsPass)
+                    return timing;
+            }
+
             return RunVerdict.Pass($"all {level.VectorCount} " +
                                    $"{(level.VectorCount == 1 ? "vector" : "vectors")} correct");
         }
@@ -281,6 +298,68 @@ namespace BitSorter.View
                     $"{sinkId} should have stayed empty, but {extra} {bits} arrived", -1, sinkId)
                 : RunVerdict.Fail(RunOutcome.ExtraOutput,
                     $"{sinkId} received {extra} {bits} more than expected", -1, sinkId);
+        }
+
+        /// <summary>
+        /// Whether the worst source-to-sink latency the run showed fits the level's ceiling.
+        /// </summary>
+        /// <remarks>
+        /// Sources emit vector v on tick v, so a bit's latency is the tick it was consumed minus the
+        /// vector it belongs to. Measured off the run rather than walked over the graph: a longest
+        /// path is undefined on a cyclic blueprint, and <see cref="WiringRules"/> permits cycles on
+        /// purpose. It also measures the circuit the player actually watched.
+        ///
+        /// The maximum across every graded bit, not the first vector's. In a circuit that reached
+        /// this point the two are the same, because a sink fed at uneven latency reorders or destroys
+        /// bits and has already failed above. Taking the maximum costs one comparison per bit and
+        /// means that if that structural assumption ever stops holding, the level fails loudly
+        /// instead of quietly grading the circuit on its best vector.
+        ///
+        /// Only reached when the level sets a ceiling, so the rule that arrival ticks are not graded
+        /// still holds everywhere else.
+        /// </remarks>
+        private static RunVerdict GradeLatency(
+            SimulationView view,
+            LevelDefinition level,
+            IReadOnlyDictionary<string, int> sinkNodeIds)
+        {
+            int worst = -1;
+            string worstSink = null;
+
+            for (int i = 0; i < level.Expectations.Count; i++)
+            {
+                LevelExpectation expectation = level.Expectations[i];
+
+                if (!sinkNodeIds.TryGetValue(expectation.SinkId, out int nodeId) ||
+                    !(NodeAt(view, nodeId) is SinkNode sink))
+                {
+                    continue;   // GradeSink has already reported this
+                }
+
+                IReadOnlyList<SinkNode.Reception> received = sink.Received;
+                IReadOnlyList<ExpectedBit> expected = expectation.Expected;
+
+                // The two sequences have already been proved to match, so index k of one is index k
+                // of the other. The bound is belt and braces.
+                for (int k = 0; k < expected.Count && k < received.Count; k++)
+                {
+                    int latency = received[k].Tick - expected[k].Vector;
+
+                    if (latency > worst)
+                    {
+                        worst = latency;
+                        worstSink = expectation.SinkId;
+                    }
+                }
+            }
+
+            if (worst <= level.MaxLatency)
+                return RunVerdict.Pass(null);
+
+            return RunVerdict.Fail(RunOutcome.TooSlow,
+                $"the answer is right, but {worstSink} took {worst} ticks and this level allows " +
+                $"{level.MaxLatency} -- the critical path is too long",
+                -1, worstSink);
         }
 
         /// <summary>

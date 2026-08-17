@@ -348,7 +348,9 @@ namespace BitSorter.LogicCore.Tests
             RunVerdict verdict = LevelTestFixtures.RunAndGrade(level, PassThroughAtDelay(5));
 
             Assert.IsFalse(verdict.IsPass, "5 ticks of latency against a ceiling of 2");
+            Assert.AreEqual(RunOutcome.TooSlow, verdict.Outcome, verdict.ToString());
             Assert.AreEqual("out", verdict.SinkId);
+            Assert.AreEqual(-1, verdict.Vector, "a long critical path is not one vector's fault");
             StringAssert.Contains("5", verdict.Reason, "the measured latency belongs in the message");
         }
 

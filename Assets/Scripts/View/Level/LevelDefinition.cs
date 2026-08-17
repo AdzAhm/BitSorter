@@ -41,7 +41,8 @@ namespace BitSorter.View
             IReadOnlyList<LevelBudgetEntry> budget,
             IReadOnlyList<LevelExpectation> expectations,
             int maxWireDelay = DefaultMaxWireDelay,
-            int delayBudget = 0)
+            int delayBudget = 0,
+            int maxLatency = 0)
         {
             Name = name;
             Hint = hint;
@@ -52,6 +53,7 @@ namespace BitSorter.View
             Expectations = expectations;
             MaxWireDelay = maxWireDelay;
             DelayBudget = delayBudget;
+            MaxLatency = maxLatency;
         }
 
         public string Name { get; }
@@ -96,6 +98,21 @@ namespace BitSorter.View
         /// which is safe: grading ignores arrival ticks, so a longer route cannot buy a wrong answer.
         /// </summary>
         public bool HasDelayBudget => DelayBudget > 0;
+
+        /// <summary>
+        /// Most ticks a bit may take from source to sink, or zero for a level that does not grade on
+        /// time. This is the critical path expressed as a rule, and the only reason a correct circuit
+        /// may still fail.
+        /// </summary>
+        /// <remarks>
+        /// Set it to the critical path of the intended solution. That is exactly satisfiable rather
+        /// than tight: balancing pads the short paths up to the long one and never past it, so
+        /// getting the timing right costs nothing against this ceiling.
+        /// </remarks>
+        public int MaxLatency { get; }
+
+        /// <summary>Whether the level grades on time at all.</summary>
+        public bool HasLatencyLimit => MaxLatency > 0;
 
         /// <summary>
         /// In file order, which is the order the grader checks them and therefore the order failures
