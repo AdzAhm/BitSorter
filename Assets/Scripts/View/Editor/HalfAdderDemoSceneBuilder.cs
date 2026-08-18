@@ -92,6 +92,7 @@ namespace BitSorter.View.EditorTools
             GatePaletteView palette = host.AddComponent<GatePaletteView>();
             RunControls runControls = host.AddComponent<RunControls>();
             StatusBanner banner = host.AddComponent<StatusBanner>();
+            BitsLostMeter bitsLost = host.AddComponent<BitsLostMeter>();
 
             Assign(board, "_camera", camera);
             Assign(bits, "_sparks", sparks);
@@ -148,6 +149,10 @@ namespace BitSorter.View.EditorTools
             Assign(banner, "_session", session);
             Assign(banner, "_runner", runner);
             Assign(banner, "_canvas", canvas);
+
+            Assign(bitsLost, "_session", session);
+            Assign(bitsLost, "_runner", runner);
+            Assign(bitsLost, "_canvas", canvas);
 
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene, ScenePath);
