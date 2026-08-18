@@ -77,13 +77,13 @@ namespace BitSorter.View
         public static WiringVerdict Validate(SimulationView view, PortAddress from, PortAddress to)
         {
             if (!from.IsValid || !to.IsValid)
-                return WiringVerdict.Reject(WiringOutcome.NoPort, "no port there");
+                return WiringVerdict.Reject(WiringOutcome.NoPort, "No port there.");
 
             if (from == to)
                 return WiringVerdict.Reject(WiringOutcome.SamePort, null);   // a click, stay quiet
 
             if (from.IsInput == to.IsInput)
-                return WiringVerdict.Reject(WiringOutcome.SameKind, "connect an output to an input");
+                return WiringVerdict.Reject(WiringOutcome.SameKind, "Outputs connect to inputs.");
 
             // Either end may have been grabbed first; the edge is always output to input.
             PortAddress outputEnd = from.IsInput ? to : from;
@@ -93,12 +93,12 @@ namespace BitSorter.View
             Node inputNode = NodeAt(view, inputEnd);
 
             if (outputNode == null || inputNode == null)
-                return WiringVerdict.Reject(WiringOutcome.MissingNode, "that node is gone");
+                return WiringVerdict.Reject(WiringOutcome.MissingNode, "That node is gone.");
 
             if (outputEnd.Index < 0 || outputEnd.Index >= outputNode.OutputCount ||
                 inputEnd.Index < 0 || inputEnd.Index >= inputNode.InputCount)
             {
-                return WiringVerdict.Reject(WiringOutcome.NoPort, "no port there");
+                return WiringVerdict.Reject(WiringOutcome.NoPort, "No port there.");
             }
 
             OutputPort source = outputNode.Out(outputEnd.Index);
@@ -109,7 +109,7 @@ namespace BitSorter.View
             for (int i = 0; i < source.Edges.Count; i++)
             {
                 if (source.Edges[i].Target == target)
-                    return WiringVerdict.Reject(WiringOutcome.Duplicate, "already connected");
+                    return WiringVerdict.Reject(WiringOutcome.Duplicate, "Already connected.");
             }
 
             return WiringVerdict.Accept(source, target);

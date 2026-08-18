@@ -148,7 +148,7 @@ namespace BitSorter.View
 
                 case RunState.Running:
                     _verdict.color = UiTheme.TextDim;
-                    _verdict.text = _runner != null && _runner.IsPaused ? "RUNNING (paused)" : "RUNNING";
+                    _verdict.text = _runner != null && _runner.IsPaused ? "PAUSED" : "RUNNING";
                     break;
 
                 default:

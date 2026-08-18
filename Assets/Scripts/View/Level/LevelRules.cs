@@ -95,8 +95,8 @@ namespace BitSorter.View
 
             return LevelVerdict.Reject(LevelOutcome.NotEditing,
                 state == RunState.Running
-                    ? "press R to reset before editing"
-                    : "press R to reset and edit");
+                    ? "Press R to reset before editing."
+                    : "Press R to reset and edit.");
         }
 
         /// <summary>Whether a gate of this kind may go on this cell.</summary>
@@ -113,14 +113,14 @@ namespace BitSorter.View
                 return gate;
 
             if (Mathf.Abs(cell.x) > halfExtents.x || Mathf.Abs(cell.y) > halfExtents.y)
-                return LevelVerdict.Reject(LevelOutcome.OffBoard, "that is off the board");
+                return LevelVerdict.Reject(LevelOutcome.OffBoard, "Off the board.");
 
             LevelFixture fixedNode = level.FixtureAt(cell);
             if (fixedNode != null)
-                return LevelVerdict.Reject(LevelOutcome.CellTaken, $"'{fixedNode.Id}' is there");
+                return LevelVerdict.Reject(LevelOutcome.CellTaken, $"'{fixedNode.Id}' is there.");
 
             if (blueprint.HasPlacementAt(cell))
-                return LevelVerdict.Reject(LevelOutcome.CellTaken, "that cell is taken");
+                return LevelVerdict.Reject(LevelOutcome.CellTaken, "That cell is taken.");
 
             int budgeted = level.BudgetFor(kind);
             string label = GatePalette.Label(kind);
@@ -128,14 +128,14 @@ namespace BitSorter.View
             // Absent from the budget and exhausted are different messages, because they need
             // different reactions: one means "never in this level", the other "remove one first".
             if (budgeted <= 0)
-                return LevelVerdict.Reject(LevelOutcome.NotInBudget, $"this level has no {label} gates");
+                return LevelVerdict.Reject(LevelOutcome.NotInBudget, $"No {label} gates on this level.");
 
             int placed = blueprint.CountOf(kind);
 
             if (placed >= budgeted)
             {
                 return LevelVerdict.Reject(LevelOutcome.BudgetSpent,
-                    $"no {label} left ({budgeted} of {budgeted} used)");
+                    $"No {label} left. All {budgeted} are placed.");
             }
 
             return LevelVerdict.Accept();
@@ -164,7 +164,7 @@ namespace BitSorter.View
             if (fixedNode != null)
             {
                 return LevelVerdict.Reject(LevelOutcome.Fixed,
-                    $"'{fixedNode.Id}' is fixed -- it cannot be moved or removed");
+                    $"'{fixedNode.Id}' is fixed. It cannot be moved or removed.");
             }
 
             if (!blueprint.HasPlacementAt(cell))
@@ -211,14 +211,14 @@ namespace BitSorter.View
                 return LevelVerdict.Reject(LevelOutcome.NoWire, null);   // scrolled, nothing to do
 
             if (targetDelay < 1)
-                return LevelVerdict.Reject(LevelOutcome.DelayAtMinimum, "1 is the shortest a wire can be");
+                return LevelVerdict.Reject(LevelOutcome.DelayAtMinimum, "One tick is the shortest a wire can be.");
 
             if (targetDelay > level.MaxWireDelay)
             {
                 return level.MaxWireDelay <= 1
-                    ? LevelVerdict.Reject(LevelOutcome.DelayAtMaximum, "this level has fixed wiring")
+                    ? LevelVerdict.Reject(LevelOutcome.DelayAtMaximum, "Wiring is fixed on this level.")
                     : LevelVerdict.Reject(LevelOutcome.DelayAtMaximum,
-                        $"this level caps wires at {level.MaxWireDelay}");
+                        $"This level caps wires at {level.MaxWireDelay} ticks.");
             }
 
             // Shortening always fits: it can only give budget back.
@@ -230,7 +230,8 @@ namespace BitSorter.View
             if (spentAfter > level.DelayBudget)
             {
                 return LevelVerdict.Reject(LevelOutcome.DelayBudgetSpent,
-                    $"no delay budget left ({blueprint.ExtraDelay()} of {level.DelayBudget} used)");
+                    $"Not enough delay left. {blueprint.ExtraDelay()} of " +
+                    $"{level.DelayBudget} ticks are spent.");
             }
 
             return LevelVerdict.Accept();

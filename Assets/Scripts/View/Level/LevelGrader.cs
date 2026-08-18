@@ -176,8 +176,7 @@ namespace BitSorter.View
             if (!settled)
             {
                 return RunVerdict.Fail(RunOutcome.NeverSettled,
-                    $"the circuit never settled within {level.TickLimit} ticks -- something is " +
-                    "feeding itself");
+                    $"Still running after {level.TickLimit} ticks. Something feeds itself.");
             }
 
             // Checked before the sequences. A collision usually breaks a sequence too, but "2 bits
@@ -187,8 +186,8 @@ namespace BitSorter.View
                 int destroyed = view.CorruptedCount;
 
                 return RunVerdict.Fail(RunOutcome.Corrupted,
-                    $"{destroyed} {(destroyed == 1 ? "bit was" : "bits were")} destroyed in a " +
-                    "collision -- two bits reached the same input port");
+                    $"{destroyed} {(destroyed == 1 ? "bit" : "bits")} destroyed. " +
+                    "Two arrivals met at one port.");
             }
 
             for (int i = 0; i < level.Expectations.Count; i++)
@@ -210,8 +209,8 @@ namespace BitSorter.View
                     return timing;
             }
 
-            return RunVerdict.Pass($"all {level.VectorCount} " +
-                                   $"{(level.VectorCount == 1 ? "vector" : "vectors")} correct");
+            return RunVerdict.Pass(
+                $"Every vector correct. {level.VectorCount} of {level.VectorCount}.");
         }
 
         private static RunVerdict GradeSink(
@@ -256,8 +255,8 @@ namespace BitSorter.View
                     if (!ExpectsBitAt(expected, vector))
                     {
                         return RunVerdict.Fail(RunOutcome.ExtraOutput,
-                            $"vector {vector}: {sinkId} should have received nothing here, but a " +
-                            "bit arrived", vector, sinkId);
+                            $"vector {vector}: {sinkId} should be silent. A bit arrived.",
+                            vector, sinkId);
                     }
                 }
             }
@@ -269,7 +268,7 @@ namespace BitSorter.View
                 if (k >= received.Count)
                 {
                     return RunVerdict.Fail(RunOutcome.MissingOutput,
-                        $"vector {want.Vector}: {sinkId} expected {Describe(want)}, received nothing",
+                        $"vector {want.Vector}: {sinkId} wanted {Describe(want)}. Nothing arrived.",
                         want.Vector, sinkId);
                 }
 
@@ -280,7 +279,7 @@ namespace BitSorter.View
                 if (!want.IsAny && got != want.Value)
                 {
                     return RunVerdict.Fail(RunOutcome.WrongOutput,
-                        $"vector {want.Vector}: {sinkId} expected {(int)want.Value}, got {(int)got}",
+                        $"vector {want.Vector}: {sinkId} wanted {(int)want.Value}. Got {(int)got}.",
                         want.Vector, sinkId);
                 }
             }
@@ -295,9 +294,9 @@ namespace BitSorter.View
             // into every bin to see which one sticks.
             return expected.Count == 0
                 ? RunVerdict.Fail(RunOutcome.ExtraOutput,
-                    $"{sinkId} should have stayed empty, but {extra} {bits} arrived", -1, sinkId)
+                    $"{sinkId} should be empty. {extra} {bits} arrived.", -1, sinkId)
                 : RunVerdict.Fail(RunOutcome.ExtraOutput,
-                    $"{sinkId} received {extra} {bits} more than expected", -1, sinkId);
+                    $"{sinkId} took {extra} {bits} too many.", -1, sinkId);
         }
 
         /// <summary>
@@ -357,8 +356,8 @@ namespace BitSorter.View
                 return RunVerdict.Pass(null);
 
             return RunVerdict.Fail(RunOutcome.TooSlow,
-                $"the answer is right, but {worstSink} took {worst} ticks and this level allows " +
-                $"{level.MaxLatency} -- the critical path is too long",
+                $"Right answer, too slow. {worstSink} took {worst} ticks and this level allows " +
+                $"{level.MaxLatency}. The critical path is too long.",
                 -1, worstSink);
         }
 

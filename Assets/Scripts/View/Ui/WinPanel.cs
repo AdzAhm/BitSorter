@@ -167,10 +167,10 @@ namespace BitSorter.View
             if (bestGates <= 0 && bestLatency <= 0)
                 return;
 
-            detail.Append($"\n\nyour best   {bestGates} gates   {bestLatency} ticks");
+            detail.Append($"\n\nbest so far   {bestGates} gates   {bestLatency} ticks");
 
             if (_progress.BeatGateRecord && _progress.BeatLatencyRecord)
-                detail.Append("\nsmaller AND faster than last time");
+                detail.Append("\nsmaller and faster than last time");
             else if (_progress.BeatGateRecord)
                 detail.Append("\nsmaller than last time");
             else if (_progress.BeatLatencyRecord)
