@@ -1,6 +1,7 @@
 {
   "name": "Nothing but NAND",
   "order": 40,
+  "goal": "Make the bin receive A XOR B, using nothing but NAND gates.",
   "hint": "NAND alone can build every gate there is. Even the one with a single input.",
   "tickLimit": 40,
   "maxWireDelay": 3,

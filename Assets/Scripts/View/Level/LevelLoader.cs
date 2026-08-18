@@ -268,10 +268,11 @@ namespace BitSorter.View
                 : LevelDefinition.DefaultMaxWireDelay;
 
             string hint = string.IsNullOrWhiteSpace(file.hint) ? string.Empty : file.hint.Trim();
+            string goal = string.IsNullOrWhiteSpace(file.goal) ? string.Empty : file.goal.Trim();
 
             return LevelLoadResult.Accept(new LevelDefinition(
                 file.name.Trim(), hint, tickLimit, vectorCount, fixtures, budget, expectations,
-                maxWireDelay, file.delayBudget, file.maxLatency, file.order));
+                maxWireDelay, file.delayBudget, file.maxLatency, file.order, goal));
         }
 
         private static bool TryBuildBudget(

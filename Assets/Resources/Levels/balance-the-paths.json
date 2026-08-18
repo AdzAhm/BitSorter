@@ -1,6 +1,7 @@
 {
   "name": "Balance the paths",
   "order": 25,
+  "goal": "Make the bin receive (A XOR B) AND B, with both paths arriving together.",
   "hint": "a gate waits for both inputs. The next bit down the wire does not wait.",
   "tickLimit": 40,
   "maxWireDelay": 3,

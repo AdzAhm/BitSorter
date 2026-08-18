@@ -1,6 +1,7 @@
 {
   "name": "Pick a lane",
   "order": 70,
+  "goal": "Make the bin receive A when s is 0, and B when s is 1.",
   "hint": "s chooses which input reaches the bin. s has to be in two places at once.",
   "tickLimit": 60,
   "maxWireDelay": 3,

@@ -1,6 +1,7 @@
 {
   "name": "Carry the one",
   "order": 90,
+  "goal": "Add three bits. SUM gets the result, COUT gets the carry out.",
   "hint": "a full adder is two half adders stacked. The carries need joining.",
   "tickLimit": 60,
   "maxWireDelay": 3,

@@ -1,6 +1,7 @@
 {
   "name": "The slow lane",
   "order": 60,
+  "goal": "Make the bin receive (((A XOR B) XOR C) AND A) OR B.",
   "hint": "every gate you pass through costs a tick. The bits that skip one arrive early.",
   "tickLimit": 60,
   "maxWireDelay": 4,

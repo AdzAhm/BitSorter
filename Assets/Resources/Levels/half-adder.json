@@ -1,6 +1,7 @@
 {
   "name": "Half adder",
   "order": 80,
+  "goal": "Add two bits. SUM gets the result, CARRY gets the overflow.",
   "hint": "two bins, two questions about the same pair of bits. Each source has to answer both.",
   "tickLimit": 40,
   "fixtures": [

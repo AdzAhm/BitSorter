@@ -1,6 +1,7 @@
 {
   "name": "The long way round",
   "order": 20,
+  "goal": "Make the bin receive NOT (A AND B) -- a NAND -- without using a NAND gate.",
   "hint": "there is no NAND here. There are two ways to make one.",
   "tickLimit": 40,
   "maxWireDelay": 1,

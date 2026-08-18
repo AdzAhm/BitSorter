@@ -1,6 +1,7 @@
 {
   "name": "Route the bit",
   "order": 10,
+  "goal": "Send a 1 into the bin marked ONE, and leave the other bin empty.",
   "hint": "the bin marked ONE wants a 1 -- make the bit match the bin",
   "tickLimit": 40,
   "fixtures": [
