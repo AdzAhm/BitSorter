@@ -94,6 +94,9 @@ namespace BitSorter.View.EditorTools
             StatusBanner banner = host.AddComponent<StatusBanner>();
             BitsLostMeter bitsLost = host.AddComponent<BitsLostMeter>();
 
+            // AddComponent brings its own AudioSource along, via RequireComponent.
+            GameAudio audio = host.AddComponent<GameAudio>();
+
             Assign(board, "_camera", camera);
             Assign(bits, "_sparks", sparks);
             Assign(ports, "_runner", runner);
@@ -153,6 +156,10 @@ namespace BitSorter.View.EditorTools
             Assign(bitsLost, "_session", session);
             Assign(bitsLost, "_runner", runner);
             Assign(bitsLost, "_canvas", canvas);
+
+            Assign(audio, "_runner", runner);
+            Assign(audio, "_session", session);
+            Assign(audio, "_bits", bits);
 
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene, ScenePath);

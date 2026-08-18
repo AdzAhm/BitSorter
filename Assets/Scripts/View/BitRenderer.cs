@@ -40,6 +40,27 @@ namespace BitSorter.View
 
         private Transform _container;
 
+        /// <summary>
+        /// Gates that have fired since this component woke, and bits that have reached a bin.
+        /// </summary>
+        /// <remarks>
+        /// Monotonic, so a one-shot reaction can tell "it happened again" from "it is still true" by
+        /// caching the last value it saw -- the same idiom
+        /// <see cref="WireDelayController.ChangeCount"/> uses.
+        ///
+        /// They live here because this component already works both facts out. It reconstructs them
+        /// by diffing bits between frames, since neither the simulation nor the runner announces
+        /// anything, and duplicating that diff elsewhere would mean two subtly different ideas of
+        /// what "fired" means.
+        ///
+        /// Sources are deliberately not counted as firing. One emits every tick from tick zero, so
+        /// counting them would just be a second, noisier clock.
+        /// </remarks>
+        public int GateFiredCount { get; private set; }
+
+        /// <inheritdoc cref="GateFiredCount"/>
+        public int BinLandedCount { get; private set; }
+
         private void Awake()
         {
             if (_runner == null)
@@ -156,6 +177,11 @@ namespace BitSorter.View
         /// </summary>
         private void OnNodeFired(Edge edge, Vector2 outputPosition)
         {
+            // Counted before the sparks null-check, so the tally is a fact about the simulation
+            // rather than a side effect of whether an effects component happens to be wired up.
+            if (!(edge.Source.Owner is SourceNode))
+                GateFiredCount++;
+
             if (_sparks == null)
                 return;
 
@@ -168,7 +194,7 @@ namespace BitSorter.View
         /// </summary>
         private void OnBitGone(SimulationView view, long key)
         {
-            if (_sparks == null || TicksOf(key) != 1)
+            if (TicksOf(key) != 1)
                 return;
 
             int edgeId = EdgeOf(key);
@@ -178,6 +204,14 @@ namespace BitSorter.View
             Edge edge = view.GetEdge(edgeId);
             if (edge == null)
                 return;   // the wire was deleted; nothing arrived
+
+            // Only arrivals at a bin are counted. A bit reaching a gate's input port is the ordinary
+            // business of the circuit and happens constantly; reaching a bin is the result.
+            if (edge.Target.Owner is SinkNode)
+                BinLandedCount++;
+
+            if (_sparks == null)
+                return;
 
             Vector2 target = PortGeometry.EndpointOf(edge.Target, _runner.PositionOf(edge.Target.Owner.Id));
             _sparks.Burst(target, NodeShapes.ColourFor(edge.Target.Owner));

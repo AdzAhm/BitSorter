@@ -1,0 +1,136 @@
+using BitSorter.LogicCore;
+using UnityEngine;
+
+namespace BitSorter.View
+{
+    /// <summary>
+    /// Plays the game's cues by watching the things that already happen, rather than by being told.
+    /// </summary>
+    /// <remarks>
+    /// Every source here is a counter or a state that some other component already maintains, polled
+    /// against a cached copy -- the idiom the renderers all use. Nothing needed an event, and nothing
+    /// in LogicCore or SimulationRunner had to change to make a sound.
+    ///
+    /// Needs an AudioListener in the scene or every cue plays to nobody, silently and with no
+    /// warning. The scene builder puts one on the camera.
+    /// </remarks>
+    [RequireComponent(typeof(AudioSource))]
+    public sealed class GameAudio : MonoBehaviour
+    {
+        [SerializeField] private SimulationRunner _runner;
+        [SerializeField] private LevelSession _session;
+        [SerializeField] private BitRenderer _bits;
+
+        [Tooltip("Scales every cue. Zero is silence.")]
+        [Range(0f, 1f)]
+        [SerializeField] private float _masterVolume = 0.8f;
+
+        [Tooltip("Most gate cues in one frame. A wide circuit can fire many at once.")]
+        [SerializeField] private int _gateBurstLimit = 3;
+
+        private AudioSource _source;
+
+        private int _tick = -1;
+        private int _gatesFired;
+        private int _binsLanded;
+        private int _corrupted;
+        private RunState _state = RunState.Editing;
+
+        private void Awake()
+        {
+            if (_runner == null) _runner = FindFirstObjectByType<SimulationRunner>();
+            if (_session == null) _session = FindFirstObjectByType<LevelSession>();
+            if (_bits == null) _bits = FindFirstObjectByType<BitRenderer>();
+
+            _source = GetComponent<AudioSource>();
+            _source.playOnAwake = false;
+            _source.spatialBlend = 0f;   // 2D; the board is not a place
+        }
+
+        private void Update()
+        {
+            if (_runner == null || !_runner.IsReady)
+                return;
+
+            SimulationView view = _runner.View;
+
+            ReadClock(view);
+            ReadCollisions(view);
+            ReadBits();
+            ReadVerdict();
+        }
+
+        /// <summary>
+        /// One tick, one click.
+        /// </summary>
+        /// <remarks>
+        /// Reads CurrentTick rather than hooking the tick loop, so the runner keeps knowing nothing
+        /// about audio. A rebuild resets the tick to zero, which shows up here as the count going
+        /// backwards and is simply re-baselined rather than played.
+        /// </remarks>
+        private void ReadClock(SimulationView view)
+        {
+            int now = view.CurrentTick;
+
+            if (now == _tick)
+                return;
+
+            bool advanced = now > _tick && _tick >= 0;
+            _tick = now;
+
+            if (advanced)
+                Play(Cue.Tick);
+        }
+
+        private void ReadCollisions(SimulationView view)
+        {
+            int now = view.CorruptedCount;
+
+            if (now > _corrupted)
+                Play(Cue.Collide);   // same frame as the meter's punch and the spark burst
+
+            _corrupted = now;
+        }
+
+        private void ReadBits()
+        {
+            if (_bits == null)
+                return;
+
+            // Capped. A wide circuit can fire six gates on one tick, and six copies of the same clip
+            // in one frame is a click, not six sounds.
+            int gates = Mathf.Min(_bits.GateFiredCount - _gatesFired, _gateBurstLimit);
+            for (int i = 0; i < gates; i++)
+                Play(Cue.Gate);
+
+            _gatesFired = _bits.GateFiredCount;
+
+            int landed = Mathf.Min(_bits.BinLandedCount - _binsLanded, _gateBurstLimit);
+            for (int i = 0; i < landed; i++)
+                Play(Cue.Land);
+
+            _binsLanded = _bits.BinLandedCount;
+        }
+
+        private void ReadVerdict()
+        {
+            if (_session == null)
+                return;
+
+            RunState now = _session.State;
+
+            if (now != _state && now == RunState.Passed)
+                Play(Cue.Win);
+
+            _state = now;
+        }
+
+        private void Play(Cue cue)
+        {
+            if (_source == null || _masterVolume <= 0f)
+                return;
+
+            _source.PlayOneShot(ProceduralAudio.Clip(cue), ProceduralAudio.VolumeOf(cue) * _masterVolume);
+        }
+    }
+}
