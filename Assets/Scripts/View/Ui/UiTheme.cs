@@ -33,6 +33,35 @@ namespace BitSorter.View
         public const float ButtonHeight = 44f;
         public const float PaletteButton = 64f;
 
+        // -----------------------------------------------------------------
+        // The bottom strip
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// Where each row along the bottom edge sits, measured upward from it.
+        /// </summary>
+        /// <remarks>
+        /// Stated here rather than worked out separately in each component, because they were: the
+        /// refusal toast and the controls line were positioned independently, both landed on roughly
+        /// the same row, and "no port there" drew straight over "drag a port to wire". Two panels
+        /// that must not overlap cannot each own half the arithmetic.
+        ///
+        /// Each row is defined in terms of the one below it, so raising a font size moves everything
+        /// above it instead of quietly eating the gap.
+        /// </remarks>
+        public const float ControlsHeight = 26f;
+
+        public const float ToastHeight = 38f;
+
+        /// <summary>Run and Reset, sitting on the bottom margin.</summary>
+        public const float ButtonRow = Margin;
+
+        /// <summary>The keyboard reference, just above the buttons.</summary>
+        public const float ControlsRow = ButtonRow + ButtonHeight + Gap;
+
+        /// <summary>Refusals, clear of the controls line with a gap of its own.</summary>
+        public const float ToastRow = ControlsRow + ControlsHeight + Gap;
+
         /// <summary>A stretched child RectTransform, ready to be anchored by the caller.</summary>
         public static RectTransform Rect(string name, Transform parent)
         {

@@ -99,7 +99,6 @@ namespace BitSorter.View.EditorTools
             HelpPanel help = host.AddComponent<HelpPanel>();
             WinPanel winPanel = host.AddComponent<WinPanel>();
             SinkCelebration celebration = host.AddComponent<SinkCelebration>();
-            host.AddComponent<RobotCursor>();
 
             // AddComponent brings its own AudioSource along, via RequireComponent.
             GameAudio audio = host.AddComponent<GameAudio>();

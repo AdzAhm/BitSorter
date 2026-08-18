@@ -56,7 +56,7 @@ namespace BitSorter.View
             _run.onClick.AddListener(() => Fire(Run));
             _reset.onClick.AddListener(() => Fire(ResetBoard));
 
-            BuildControlsLine(root);
+            BuildControlsLine();
         }
 
         /// <summary>
@@ -70,13 +70,17 @@ namespace BitSorter.View
         /// Buttons cover run and reset, and the palette covers selection, so those are left out. What
         /// remains is exactly what the interface cannot yet express.
         /// </remarks>
-        private void BuildControlsLine(RectTransform root)
+        private void BuildControlsLine()
         {
+            // Parented to the canvas and placed on a shared row rather than hung off the button
+            // block, so its position and the toast's come from the same arithmetic. When each owned
+            // half of it, they landed on the same line and drew over each other.
             TextMeshProUGUI line = UiTheme.Label(
-                "controls", root, 16f, UiTheme.TextDim, TextAlignmentOptions.Center);
+                "controls", _canvas.transform, 18f, UiTheme.TextDim, TextAlignmentOptions.Center);
 
-            UiTheme.Anchor(line.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 0f),
-                new Vector2(0f, 10f), new Vector2(900f, 24f));
+            UiTheme.Anchor(line.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
+                new Vector2(0f, UiTheme.ControlsRow),
+                new Vector2(1000f, UiTheme.ControlsHeight));
 
             line.text =
                 "drag a port to wire     right click to delete     scroll a wire to re-time     " +

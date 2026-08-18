@@ -118,24 +118,24 @@ namespace BitSorter.View
             Image background = UiTheme.Panel_("Help", _canvas.transform, UiTheme.Panel);
             _panel = background.GetComponent<RectTransform>();
             UiTheme.Anchor(_panel, new Vector2(1f, 1f), new Vector2(1f, 1f),
-                new Vector2(-UiTheme.Margin, -(UiTheme.Margin + 100f)), new Vector2(280f, 360f));
+                new Vector2(-UiTheme.Margin, -(UiTheme.Margin + 100f)), new Vector2(330f, 380f));
 
             background.raycastTarget = false;
 
             TextMeshProUGUI title = UiTheme.Label(
-                "title", _panel, 15f, UiTheme.Text, TextAlignmentOptions.Center);
+                "title", _panel, 17f, UiTheme.Text, TextAlignmentOptions.Center);
             UiTheme.Anchor(title.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-                new Vector2(0f, -12f), new Vector2(250f, 22f));
+                new Vector2(0f, -12f), new Vector2(300f, 24f));
             title.text = "WHAT THE BINS WANT";
 
             // Monospaced, or the columns do not line up and the table is worse than no table.
-            _table = UiTheme.Label("table", _panel, 15f, UiTheme.Accent, TextAlignmentOptions.Top);
+            _table = UiTheme.Label("table", _panel, 18f, UiTheme.Accent, TextAlignmentOptions.Top);
             UiTheme.Anchor(_table.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-                new Vector2(0f, -40f), new Vector2(250f, 250f));
+                new Vector2(0f, -44f), new Vector2(300f, 260f));
 
-            _hint = UiTheme.Label("hint", _panel, 13f, UiTheme.TextDim, TextAlignmentOptions.Top);
+            _hint = UiTheme.Label("hint", _panel, 15f, UiTheme.TextDim, TextAlignmentOptions.Top);
             UiTheme.Anchor(_hint.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
-                new Vector2(0f, 12f), new Vector2(250f, 70f));
+                new Vector2(0f, 12f), new Vector2(300f, 76f));
             _hint.textWrappingMode = TextWrappingModes.Normal;
         }
 
@@ -156,9 +156,10 @@ namespace BitSorter.View
 
             _hint.text = level != null ? level.Hint : string.Empty;
 
-            // Taller tables need a taller panel. Eight vectors plus a header and rule is eleven lines.
+            // Taller tables need a taller panel. Eight vectors plus a header and rule is ten lines,
+            // and the per-line figure tracks the table's font size rather than being guessed.
             int lines = level != null ? level.VectorCount + 2 : 3;
-            float height = 110f + lines * 20f;
+            float height = 130f + lines * 24f;
             _panel.sizeDelta = new Vector2(_panel.sizeDelta.x, height);
         }
 

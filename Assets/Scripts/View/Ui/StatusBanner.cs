@@ -49,36 +49,43 @@ namespace BitSorter.View
 
             Image panel = UiTheme.Panel_("Status", _canvas.transform, UiTheme.Panel);
             var root = panel.GetComponent<RectTransform>();
+            // Taller and wider than it was: the goal and hint were sized for glanceability and ended
+            // up needing a lean-in. Each row below is placed from the one above rather than from a
+            // fixed offset, so a future size change moves the stack instead of overlapping it.
             UiTheme.Anchor(root, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-                new Vector2(0f, -UiTheme.Margin), new Vector2(720f, 104f));
+                new Vector2(0f, -UiTheme.Margin), new Vector2(780f, 122f));
 
             panel.raycastTarget = false;   // the banner is a readout, never a click target
 
-            _title = UiTheme.Label("title", root, 22f, UiTheme.Text, TextAlignmentOptions.Center);
+            _title = UiTheme.Label("title", root, 24f, UiTheme.Text, TextAlignmentOptions.Center);
             UiTheme.Anchor(_title.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-                new Vector2(0f, -10f), new Vector2(700f, 28f));
+                new Vector2(0f, -10f), new Vector2(760f, 30f));
 
-            _goal = UiTheme.Label("goal", root, 16f, UiTheme.Accent, TextAlignmentOptions.Center);
+            _goal = UiTheme.Label("goal", root, 19f, UiTheme.Accent, TextAlignmentOptions.Center);
             UiTheme.Anchor(_goal.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-                new Vector2(0f, -40f), new Vector2(700f, 24f));
+                new Vector2(0f, -44f), new Vector2(760f, 28f));
             _goal.textWrappingMode = TextWrappingModes.Normal;
 
-            _hint = UiTheme.Label("hint", root, 13f, UiTheme.TextDim, TextAlignmentOptions.Center);
+            _hint = UiTheme.Label("hint", root, 15f, UiTheme.TextDim, TextAlignmentOptions.Center);
             UiTheme.Anchor(_hint.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-                new Vector2(0f, -68f), new Vector2(700f, 22f));
+                new Vector2(0f, -78f), new Vector2(760f, 24f));
 
-            _verdict = UiTheme.Label("verdict", root, 16f, UiTheme.Text, TextAlignmentOptions.Center);
+            _verdict = UiTheme.Label("verdict", root, 18f, UiTheme.Text, TextAlignmentOptions.Center);
             UiTheme.Anchor(_verdict.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 1f),
-                new Vector2(0f, -6f), new Vector2(700f, 24f));
+                new Vector2(0f, -6f), new Vector2(760f, 26f));
 
             _toastBackground = UiTheme.Panel_("Toast", _canvas.transform, UiTheme.Bad * 0.5f);
             var toastRect = _toastBackground.GetComponent<RectTransform>();
+
+            // On its own row above the controls line, from the shared arithmetic in UiTheme. These
+            // two used to be positioned independently and overlapped: "no port there" drew straight
+            // over "drag a port to wire", at exactly the moment the player most needed to read both.
             UiTheme.Anchor(toastRect, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
-                new Vector2(0f, UiTheme.Margin + UiTheme.ButtonHeight + UiTheme.Gap),
-                new Vector2(460f, 34f));
+                new Vector2(0f, UiTheme.ToastRow),
+                new Vector2(520f, UiTheme.ToastHeight));
             _toastBackground.raycastTarget = false;
 
-            _toast = UiTheme.Label("toast text", toastRect, 14f, UiTheme.Text, TextAlignmentOptions.Center);
+            _toast = UiTheme.Label("toast text", toastRect, 16f, UiTheme.Text, TextAlignmentOptions.Center);
             UiTheme.Stretch(_toast.rectTransform, 6f);
         }
 
