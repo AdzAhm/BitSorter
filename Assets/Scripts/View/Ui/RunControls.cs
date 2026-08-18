@@ -73,14 +73,14 @@ namespace BitSorter.View
         private void BuildControlsLine(RectTransform root)
         {
             TextMeshProUGUI line = UiTheme.Label(
-                "controls", root, 12f, UiTheme.TextDim, TextAlignmentOptions.Center);
+                "controls", root, 16f, UiTheme.TextDim, TextAlignmentOptions.Center);
 
             UiTheme.Anchor(line.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 0f),
-                new Vector2(0f, 6f), new Vector2(720f, 18f));
+                new Vector2(0f, 10f), new Vector2(900f, 24f));
 
             line.text =
-                "drag a port to wire    right click to delete    scroll a wire to re-time    " +
-                "space pause    Q / E level";
+                "drag a port to wire     right click to delete     scroll a wire to re-time     " +
+                "H for help     ESC for levels";
         }
 
         private void Update()

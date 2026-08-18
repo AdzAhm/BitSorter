@@ -1,7 +1,7 @@
 {
   "name": "Four corners",
   "order": 30,
-  "goal": "Match the truth table: a 1 on every row except A=0 B=1 C=1 and A=1 B=0 C=0.",
+  "goal": "Match the truth table. Press ! or H to see it -- three groupings will cover it.",
   "hint": "six of the eight rows want a 1. Three gates' worth of grouping will do it.",
   "tickLimit": 60,
   "maxWireDelay": 3,

@@ -28,7 +28,11 @@ namespace BitSorter.View
         [Tooltip("Most gate cues in one frame. A wide circuit can fire many at once.")]
         [SerializeField] private int _gateBurstLimit = 3;
 
+        [Tooltip("Background loop. Turn off for silence while working on the sound effects.")]
+        [SerializeField] private bool _music = true;
+
         private AudioSource _source;
+        private AudioSource _musicSource;
 
         private int _tick = -1;
         private int _gatesFired;
@@ -45,6 +49,22 @@ namespace BitSorter.View
             _source = GetComponent<AudioSource>();
             _source.playOnAwake = false;
             _source.spatialBlend = 0f;   // 2D; the board is not a place
+        }
+
+        private void Start()
+        {
+            if (!_music)
+                return;
+
+            // Its own source, not PlayOneShot. The loop needs to hold a playback position and be
+            // stoppable, and mixing it into the cue source would have every collision duck it.
+            _musicSource = gameObject.AddComponent<AudioSource>();
+            _musicSource.clip = ProceduralAudio.Clip(Cue.Music);
+            _musicSource.loop = true;
+            _musicSource.playOnAwake = false;
+            _musicSource.spatialBlend = 0f;
+            _musicSource.volume = ProceduralAudio.VolumeOf(Cue.Music) * _masterVolume;
+            _musicSource.Play();
         }
 
         private void Update()

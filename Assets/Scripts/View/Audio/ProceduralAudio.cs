@@ -21,6 +21,9 @@ namespace BitSorter.View
 
         /// <summary>The level was solved.</summary>
         Win,
+
+        /// <summary>A long, quiet loop under everything else.</summary>
+        Music,
     }
 
     /// <summary>
@@ -53,6 +56,11 @@ namespace BitSorter.View
                 case Cue.Land: return 0.45f;
                 case Cue.Collide: return 0.75f;
                 case Cue.Win: return 0.65f;
+
+                // Under everything. Music that competes with the collision cue would bury the one
+                // sound a player must never miss.
+                case Cue.Music: return 0.16f;
+
                 default: return 0.5f;
             }
         }
@@ -120,6 +128,33 @@ namespace BitSorter.View
                         return total;
                     });
 
+                // A slow loop in the same key as the win sting, built from two drifting sine pads and
+                // a sparse bass. Deliberately close to ambient: this plays for as long as someone is
+                // thinking about a K-map, and anything with a tune would be unbearable by the third
+                // attempt. Sixteen seconds so the repeat is not obvious.
+                case Cue.Music:
+                    return Make("music", 16f, (t, d) =>
+                    {
+                        // Root moves every four bars around a minor-ish drone, never resolving.
+                        float[] roots = { 130.81f, 146.83f, 110.00f, 123.47f };
+                        int bar = Mathf.FloorToInt(t / 4f) % roots.Length;
+                        float root = roots[bar];
+
+                        // Two voices detuned by a few cents, which is what makes a pad breathe
+                        // instead of sitting still.
+                        float pad = Sine(t, root) * 0.5f + Sine(t, root * 1.005f) * 0.5f;
+                        pad += Sine(t, root * 1.5f) * 0.28f;   // a fifth above
+
+                        // Slow swell, so the loop has somewhere to go.
+                        float swell = 0.55f + 0.45f * Mathf.Sin(2f * Mathf.PI * t / 8f);
+
+                        // A soft pulse on the beat, quiet enough to feel rather than hear.
+                        float beat = (t * 0.5f) % 1f;
+                        float bass = Sine(t, root * 0.5f) * Mathf.Exp(-6f * beat) * 0.35f;
+
+                        return (pad * 0.34f * swell + bass) * Fade(t, d, 1.5f);
+                    });
+
                 default:
                     return Make("silence", 0.01f, (t, d) => 0f);
             }
@@ -172,6 +207,24 @@ namespace BitSorter.View
             seed = (seed << 13) ^ seed;
             int n = seed * (seed * seed * 15731 + 789221) + 1376312589;
             return 1f - (n & 0x7fffffff) / 1073741824f;
+        }
+
+        /// <summary>
+        /// Eases in at the start and out at the end, so a looping clip has no seam.
+        /// </summary>
+        /// <remarks>
+        /// A loop that starts and ends at different amplitudes clicks once per repetition, and a
+        /// click every sixteen seconds is far more irritating than the music is pleasant.
+        /// </remarks>
+        private static float Fade(float t, float duration, float seconds)
+        {
+            if (seconds <= 0f || duration <= 0f)
+                return 1f;
+
+            float rise = Mathf.Clamp01(t / seconds);
+            float fall = Mathf.Clamp01((duration - t) / seconds);
+
+            return Mathf.Min(rise, fall);
         }
 
         private static float Decay(float t, float duration, float rate)

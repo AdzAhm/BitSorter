@@ -96,8 +96,10 @@ namespace BitSorter.View.EditorTools
             DiagnosticsPanel diagnostics = host.AddComponent<DiagnosticsPanel>();
             ProgressTracker progress = host.AddComponent<ProgressTracker>();
             LevelSelectPanel levelSelect = host.AddComponent<LevelSelectPanel>();
+            HelpPanel help = host.AddComponent<HelpPanel>();
             WinPanel winPanel = host.AddComponent<WinPanel>();
             SinkCelebration celebration = host.AddComponent<SinkCelebration>();
+            host.AddComponent<RobotCursor>();
 
             // AddComponent brings its own AudioSource along, via RequireComponent.
             GameAudio audio = host.AddComponent<GameAudio>();
@@ -170,6 +172,9 @@ namespace BitSorter.View.EditorTools
             Assign(levelSelect, "_session", session);
             Assign(levelSelect, "_progress", progress);
             Assign(levelSelect, "_canvas", canvas);
+
+            Assign(help, "_session", session);
+            Assign(help, "_canvas", canvas);
 
             Assign(winPanel, "_session", session);
             Assign(winPanel, "_runner", runner);
