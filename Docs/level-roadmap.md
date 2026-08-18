@@ -692,28 +692,50 @@ The multi-solution levels get one test per solution. That is what stops a level
 shipping that is accidentally single-solution, or whose designed mistake turns out
 not to be reachable.
 
-## Deferred: making it feel like a game
+## Making it feel like a game
 
 Raised after the first full playthrough, when the game read as a tool rather than
-a game. Not being built yet, and parked here so the reasoning is not lost.
+a game.
 
 The diagnosis, for whatever it is worth: **the game reacts to being correct, never
 to being clever.** Those are different, and the gap is where the feeling lives.
 
-- **Debris from corruption.** Corruption is mechanically rich and emotionally flat.
+**Four of the five below are built.** Debris, the ending and board idle life all
+shipped in the polish pass, along with a tone pass over every string the game says
+in its own voice. Chapter cards were not built and the narrator stays parked. The
+entries are kept because the reasoning behind them is still the reasoning behind
+what shipped.
+
+Two things worth recording from doing it:
+
+- The debris work was expected to need a per-tick list of collision sites. That
+  would have been wrong. `SimulationRunner` ticks in a `while` loop against an
+  accumulator, so several ticks can pass inside one frame and a per-tick list is
+  invisible to anything polling once a frame. `CorruptionSites` accumulates over
+  the run instead, mirroring `CorruptedCount`, and is discarded with the graph.
+
+- The naive `balance-the-paths` wiring marks **both** of the AND's inputs, not
+  one. The late path collides first, which jams the gate, so the early path's port
+  is never drained and collides on the following tick. Both marks are correct: the
+  fault is the pair disagreeing, not either input alone.
+
+- **Debris from corruption. Built.** Corruption is mechanically rich and emotionally flat.
   A destroyed bit could leave a scorch at the junction that killed it, persisting
   until the next run, so a player *sees* where the fault is rather than reading a
   count. This is the cheapest of the five and probably the most valuable: it turns
   the one number the game already tracks into a place on the board.
 
-- **Chapter cards between syllabus sections.** Nine levels arrive as a flat list.
+- **Chapter cards between syllabus sections. Not built.** Nine levels arrive as a flat list.
   A card at the boundaries — combinational logic ends, sequential begins — would
   give the run a shape it currently has none of.
 
-- **An ending.** Solving Carry the One does exactly what solving the tutorial does.
-  There is no last note.
+- **An ending. Built.** Solving Carry the One did exactly what solving the tutorial
+  does. `EndingPanel` now replaces the win panel on the last level once everything
+  else is solved, and `IsTheEnd` is one static both panels call so they cannot
+  disagree and show both or neither.
 
-- **Board idle life.** Nothing on the board has any presence between runs: no idle
+- **Board idle life. Built, in its cheapest form.** Nothing on the board had any
+  presence between runs: no idle
   motion, no reaction to being wired, no anticipation before Run. Worth noting that
   the bits already squash on arrival, and that one detail does a disproportionate
   amount of work — it is the only animation in the game that is not functional.
