@@ -5,7 +5,8 @@
         "BitSorter.View",
         "BitSorter.LogicCore",
         "Unity.RenderPipelines.Core.Runtime",
-        "Unity.RenderPipelines.Universal.Runtime"
+        "Unity.RenderPipelines.Universal.Runtime",
+        "Unity.InputSystem"
     ],
     "includePlatforms": [
         "Editor"

@@ -2,9 +2,12 @@ using System.IO;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.InputSystem.UI;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 
 namespace BitSorter.View.EditorTools
 {
@@ -62,6 +65,7 @@ namespace BitSorter.View.EditorTools
 
             Camera camera = CreateCamera();
             CreateBloomVolume();
+            CreateUi();
 
             var host = new GameObject("Simulation");
 
@@ -81,6 +85,7 @@ namespace BitSorter.View.EditorTools
             WireDelayController wireDelay = host.AddComponent<WireDelayController>();
             SparkEffects sparks = host.AddComponent<SparkEffects>();
             BoardBackground board = host.AddComponent<BoardBackground>();
+            PointerGate pointer = host.AddComponent<PointerGate>();
 
             Assign(board, "_camera", camera);
             Assign(bits, "_sparks", sparks);
@@ -113,6 +118,13 @@ namespace BitSorter.View.EditorTools
             Assign(wireDelay, "_runner", runner);
             Assign(wireDelay, "_wiring", wiring);
             Assign(wireDelay, "_camera", camera);
+            // One gate, three consumers. Every mouse reader asks it before acting, which is what stops
+            // a single press being handled by two of them at once.
+            Assign(pointer, "_wiring", wiring);
+            Assign(placement, "_pointer", pointer);
+            Assign(wiring, "_pointer", pointer);
+            Assign(wireDelay, "_pointer", pointer);
+
             Assign(input, "_session", session);
             Assign(input, "_runner", runner);
             Assign(hud, "_runner", runner);
@@ -169,7 +181,48 @@ namespace BitSorter.View.EditorTools
             data.renderPostProcessing = true;
             data.antialiasing = AntialiasingMode.SubpixelMorphologicalAntiAliasing;
 
+            // Without a listener every AudioSource in the scene plays to nobody, silently and with no
+            // warning. The scene had none, so this is the difference between the game having sound
+            // and appearing to have none.
+            cameraObject.AddComponent<AudioListener>();
+
             return camera;
+        }
+
+        /// <summary>
+        /// The canvas and the event system that feeds it.
+        /// </summary>
+        /// <remarks>
+        /// Screen Space Overlay deliberately, not Screen Space Camera. The camera runs bloom and
+        /// SMAA, and a camera-space canvas would be post-processed along with the board -- readable
+        /// text is not improved by being bloomed.
+        ///
+        /// The input module must be <see cref="InputSystemUIInputModule"/>. The project is set to the
+        /// new Input System exclusively (activeInputHandler 1), so the legacy StandaloneInputModule
+        /// would compile, sit in the scene, and quietly deliver no events at all.
+        /// </remarks>
+        private static void CreateUi()
+        {
+            var canvasObject = new GameObject("Game UI");
+
+            var canvas = canvasObject.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+
+            var scaler = canvasObject.AddComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920f, 1080f);
+
+            // Halfway between matching width and height, so neither axis is favoured when the window
+            // is not 16:9. The board is wider than it is tall, so a width-only match would push the
+            // interface off a tall window.
+            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+            scaler.matchWidthOrHeight = 0.5f;
+
+            canvasObject.AddComponent<GraphicRaycaster>();
+
+            var eventSystemObject = new GameObject("Event System");
+            eventSystemObject.AddComponent<EventSystem>();
+            eventSystemObject.AddComponent<InputSystemUIInputModule>();
         }
 
         /// <summary>
