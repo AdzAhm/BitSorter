@@ -11,10 +11,21 @@ namespace BitSorter.View
         /// <summary>Position in the run, or zero for a level that names none.</summary>
         public readonly int Order;
 
-        public LevelEntry(string fileName, int order)
+        /// <summary>
+        /// The name a player sees. Falls back to the file name for a level that would not parse, so
+        /// a broken level is still listed and still selectable rather than silently missing.
+        /// </summary>
+        public readonly string DisplayName;
+
+        public LevelEntry(string fileName, int order) : this(fileName, order, fileName)
+        {
+        }
+
+        public LevelEntry(string fileName, int order, string displayName)
         {
             FileName = fileName;
             Order = order;
+            DisplayName = string.IsNullOrWhiteSpace(displayName) ? fileName : displayName;
         }
 
         public bool HasOrder => Order > 0;

@@ -65,8 +65,27 @@ namespace BitSorter.View
         /// </summary>
         public string LevelName => _levelName;
 
-        /// <summary>Level files available to cycle through, in name order.</summary>
-        public IReadOnlyList<string> AvailableLevels => _available ?? (_available = DiscoverLevels());
+        /// <summary>Every level, in play order, with the name a player sees.</summary>
+        /// <remarks>
+        /// Built once and cached. Adding a level to Resources/Levels puts it in the run with no other
+        /// change, but it does need a domain reload to be noticed, which is the same as it ever was.
+        /// </remarks>
+        public IReadOnlyList<LevelEntry> Catalogue => _catalogue ?? (_catalogue = DiscoverCatalogue());
+
+        /// <summary>Level file names in play order. Derived from <see cref="Catalogue"/>.</summary>
+        public IReadOnlyList<string> AvailableLevels => _available ?? (_available = NamesOf(Catalogue));
+
+        private IReadOnlyList<LevelEntry> _catalogue;
+
+        private static string[] NamesOf(IReadOnlyList<LevelEntry> catalogue)
+        {
+            var names = new string[catalogue.Count];
+
+            for (int i = 0; i < catalogue.Count; i++)
+                names[i] = catalogue[i].FileName;
+
+            return names;
+        }
 
         /// <summary>
         /// Raised once a level is loaded and the board is back to empty, carrying the new level.
@@ -231,7 +250,7 @@ namespace BitSorter.View
         /// part, unplaced, so a broken level shows up in the rotation and can be selected and
         /// diagnosed rather than silently vanishing.
         /// </remarks>
-        private string[] DiscoverLevels()
+        private IReadOnlyList<LevelEntry> DiscoverCatalogue()
         {
             Vector2Int halfExtents = _runner != null ? _runner.HalfExtents : new Vector2Int(4, 2);
 
@@ -244,7 +263,10 @@ namespace BitSorter.View
                     continue;
 
                 LevelLoadResult parsed = LevelLoader.Parse(assets[i].text, halfExtents);
-                entries.Add(new LevelEntry(assets[i].name, parsed.IsValid ? parsed.Level.Order : 0));
+
+                entries.Add(parsed.IsValid
+                    ? new LevelEntry(assets[i].name, parsed.Level.Order, parsed.Level.Name)
+                    : new LevelEntry(assets[i].name, 0));
             }
 
             IReadOnlyList<LevelEntry> ordered = LevelCatalog.Sort(entries, out string clash);
@@ -256,11 +278,7 @@ namespace BitSorter.View
                 Debug.LogError($"BitSorter: {clash}");
             }
 
-            var names = new string[ordered.Count];
-            for (int i = 0; i < ordered.Count; i++)
-                names[i] = ordered[i].FileName;
-
-            return names;
+            return ordered;
         }
 
         // -----------------------------------------------------------------
