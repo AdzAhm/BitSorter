@@ -1,7 +1,7 @@
 {
   "name": "Half adder",
   "order": 80,
-  "hint": "sum is A xor B, carry is A and B -- each source feeds both gates",
+  "hint": "two bins, two questions about the same pair of bits. Each source has to answer both.",
   "tickLimit": 40,
   "fixtures": [
     { "id": "a",     "kind": "Source", "cell": { "x": -3, "y":  1 }, "stream": "0011" },
