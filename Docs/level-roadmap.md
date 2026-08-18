@@ -331,10 +331,29 @@ clock timing.
 
 ---
 
-## Level designs — concrete, not yet built
+## Level designs — all six shipped
 
-Six levels, fully specified. Nothing here is written to
-`Assets/Resources/Levels/` yet; this is the version to argue with first.
+Six levels, fully specified, and **all six are now built and green**. Each landed
+as a red-then-green commit pair with its own test file, and every design below
+went green on the level file alone — no expected value, delay or latency needed
+adjusting from what was predicted here.
+
+| Level | Order | File | Tests |
+|---|---|---|---|
+| The Long Way Round | 20 | `the-long-way-round.json` | `LongWayRoundLevelTests` |
+| Four Corners | 30 | `four-corners.json` | `FourCornersLevelTests` |
+| Nothing but NAND | 40 | `nothing-but-nand.json` | `NothingButNandLevelTests` |
+| The Slow Lane | 60 | `the-slow-lane.json` | `SlowLaneLevelTests` |
+| Pick a Lane | 70 | `pick-a-lane.json` | `PickALaneLevelTests` |
+| Carry the One | 90 | `carry-the-one.json` | `CarryTheOneLevelTests` |
+
+Play order is now authored rather than accidental: each file names an `order` and
+`LevelCatalog` sorts by it, refusing to be quiet about two levels claiming the same
+seat. The full run is 10 route-the-bit, 20, 30, 40, 50 balance-the-paths, 60, 70,
+80 half-adder, 90 — tens, so a level can be inserted without renumbering.
+
+The designs are kept below as written, because the reasoning behind each budget and
+delay figure is the part that would otherwise be lost.
 
 ### The arithmetic every design below uses
 
