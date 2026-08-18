@@ -1,0 +1,25 @@
+{
+  "name": "Carry the one",
+  "order": 90,
+  "hint": "a full adder is two half adders stacked. The carries need joining.",
+  "tickLimit": 60,
+  "maxWireDelay": 3,
+  "delayBudget": 5,
+  "maxLatency": 4,
+  "fixtures": [
+    { "id": "a",    "kind": "Source", "cell": { "x": -4, "y":  2 }, "stream": "00001111" },
+    { "id": "b",    "kind": "Source", "cell": { "x": -4, "y":  0 }, "stream": "00110011" },
+    { "id": "cin",  "kind": "Source", "cell": { "x": -4, "y": -2 }, "stream": "01010101" },
+    { "id": "sum",  "kind": "Sink",   "cell": { "x":  4, "y":  1 } },
+    { "id": "cout", "kind": "Sink",   "cell": { "x":  4, "y": -1 } }
+  ],
+  "budget": [
+    { "kind": "Xor", "count": 3 },
+    { "kind": "And", "count": 2 },
+    { "kind": "Or",  "count": 1 }
+  ],
+  "expected": [
+    { "sink": "sum",  "values": "01101001" },
+    { "sink": "cout", "values": "00010111" }
+  ]
+}
