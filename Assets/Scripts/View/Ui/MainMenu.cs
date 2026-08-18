@@ -62,9 +62,16 @@ namespace BitSorter.View
             Keyboard keyboard = Keyboard.current;
 
             // M, not Escape. Escape belongs to level select, and a key that closed one panel and
-            // opened another depending on what happened to be showing would be unpredictable.
-            if (keyboard != null && keyboard.mKey.wasPressedThisFrame)
+            // opened another depending on what was showing would be unpredictable.
+            //
+            // Closes whatever else is open, but only opens when nothing is -- otherwise M behind the
+            // level list stacked the menu under it, which is how this read in play: two full-screen
+            // panels at once, one of them unreachable.
+            if (keyboard != null && keyboard.mKey.wasPressedThisFrame
+                && (_shown || !UiModal.AnyOpen))
+            {
                 Show(!_shown);
+            }
 
             if (_shown)
                 Refresh();
@@ -223,6 +230,7 @@ namespace BitSorter.View
 
             if (visible)
             {
+                UiTheme.BringToFront(_root);
                 UiModal.Opened(this);
                 Refresh();
             }

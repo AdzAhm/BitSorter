@@ -136,6 +136,21 @@ namespace BitSorter.View
             return button;
         }
 
+        /// <summary>
+        /// Puts a panel in front of its siblings.
+        /// </summary>
+        /// <remarks>
+        /// A canvas draws children in sibling order, which is the order they were created -- so
+        /// without this, which panel covers which is decided by the order components happen to run
+        /// their Start, and the main menu opened *underneath* the level list. Whatever was opened
+        /// most recently should be the thing in front.
+        /// </remarks>
+        public static void BringToFront(RectTransform rect)
+        {
+            if (rect != null)
+                rect.SetAsLastSibling();
+        }
+
         /// <summary>Makes a child fill its parent.</summary>
         public static void Stretch(RectTransform rect, float inset = 0f)
         {

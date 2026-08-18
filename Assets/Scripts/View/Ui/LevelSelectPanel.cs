@@ -25,7 +25,17 @@ namespace BitSorter.View
             public string FileName;
             public Button Button;
             public Image Frame;
-            public TextMeshProUGUI Tick;
+            /// <summary>
+            /// A drawn dot, not a text glyph.
+            /// </summary>
+            /// <remarks>
+            /// This was a tick character, and LiberationSans -- the only font the project ships --
+            /// has no U+2713. TMP fell back to nothing and logged a warning for every row on every
+            /// refresh, which is several a second with the panel open. A generated sprite has no
+            /// font to be missing from.
+            /// </remarks>
+            public Image Tick;
+
             public TextMeshProUGUI Label;
             public TextMeshProUGUI Best;
         }
@@ -125,9 +135,14 @@ namespace BitSorter.View
 
             row.Frame = row.Button.GetComponent<Image>();
 
-            row.Tick = UiTheme.Label("tick", rect, 18f, UiTheme.Good, TextAlignmentOptions.Center);
-            UiTheme.Anchor(row.Tick.rectTransform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f),
-                new Vector2(14f, 0f), new Vector2(28f, height));
+            RectTransform tickRect = UiTheme.Rect("tick", rect);
+            UiTheme.Anchor(tickRect, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f),
+                new Vector2(20f, 0f), new Vector2(14f, 14f));
+
+            row.Tick = tickRect.gameObject.AddComponent<Image>();
+            row.Tick.sprite = ProceduralSprites.Circle();
+            row.Tick.color = UiTheme.Good;
+            row.Tick.raycastTarget = false;
 
             row.Label = UiTheme.Label("name", rect, 17f, UiTheme.Text, TextAlignmentOptions.Left);
             UiTheme.Anchor(row.Label.rectTransform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f),
@@ -160,6 +175,7 @@ namespace BitSorter.View
 
             if (visible)
             {
+                UiTheme.BringToFront(_root);
                 UiModal.Opened(this);
                 Refresh();
             }
@@ -182,7 +198,7 @@ namespace BitSorter.View
                 bool done = _progress != null && _progress.IsComplete(row.FileName);
                 bool here = row.FileName == current;
 
-                row.Tick.text = done ? "✓" : string.Empty;
+                row.Tick.enabled = done;
 
                 // The record sits beside the name rather than replacing it, so an unsolved level and
                 // a solved one read the same way and the list stays scannable.

@@ -49,26 +49,30 @@ namespace BitSorter.View
 
             Image panel = UiTheme.Panel_("Win", _canvas.transform, UiTheme.Panel);
             _root = panel.GetComponent<RectTransform>();
+            // Sized for the most it ever has to say: name, gate breakdown, delay spend, a blank
+            // line, the record, and a line about beating it. Six lines were overflowing a panel
+            // built for three, straight over the buttons.
             UiTheme.Anchor(_root, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                Vector2.zero, new Vector2(460f, 210f));
+                Vector2.zero, new Vector2(500f, 330f));
 
-            _title = UiTheme.Label("title", _root, 30f, UiTheme.Good, TextAlignmentOptions.Center);
+            _title = UiTheme.Label("title", _root, 32f, UiTheme.Good, TextAlignmentOptions.Center);
             UiTheme.Anchor(_title.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-                new Vector2(0f, -28f), new Vector2(420f, 40f));
+                new Vector2(0f, -26f), new Vector2(460f, 42f));
 
-            _detail = UiTheme.Label("detail", _root, 16f, UiTheme.Text, TextAlignmentOptions.Center);
+            _detail = UiTheme.Label("detail", _root, 17f, UiTheme.Text, TextAlignmentOptions.Top);
             UiTheme.Anchor(_detail.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-                new Vector2(0f, -78f), new Vector2(420f, 70f));
+                new Vector2(0f, -80f), new Vector2(440f, 150f));
+            _detail.alignment = TextAlignmentOptions.Center;
             _detail.textWrappingMode = TextWrappingModes.Normal;
 
             _next = UiTheme.Button_("Next", _root, "NEXT LEVEL", out _nextLabel);
             UiTheme.Anchor(_next.GetComponent<RectTransform>(), new Vector2(0.5f, 0f),
-                new Vector2(0.5f, 0f), new Vector2(-72f, 24f), new Vector2(150f, UiTheme.ButtonHeight));
+                new Vector2(0.5f, 0f), new Vector2(-84f, 28f), new Vector2(160f, UiTheme.ButtonHeight));
             _next.onClick.AddListener(NextLevel);
 
             Button stay = UiTheme.Button_("Stay", _root, "KEEP TINKERING", out TextMeshProUGUI _);
             UiTheme.Anchor(stay.GetComponent<RectTransform>(), new Vector2(0.5f, 0f),
-                new Vector2(0.5f, 0f), new Vector2(80f, 24f), new Vector2(170f, UiTheme.ButtonHeight));
+                new Vector2(0.5f, 0f), new Vector2(84f, 28f), new Vector2(160f, UiTheme.ButtonHeight));
             stay.onClick.AddListener(Dismiss);
 
             _root.gameObject.SetActive(false);
@@ -179,6 +183,11 @@ namespace BitSorter.View
 
             if (_root.gameObject.activeSelf != visible)
                 _root.gameObject.SetActive(visible);
+
+            // Comes forward, but never in front of a full-screen panel. A run finished behind an
+            // open level list would otherwise punch this through the middle of it.
+            if (visible && !UiModal.AnyOpen)
+                UiTheme.BringToFront(_root);
         }
 
         private void NextLevel()

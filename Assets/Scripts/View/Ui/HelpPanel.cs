@@ -170,6 +170,9 @@ namespace BitSorter.View
 
             if (_panel != null && _panel.gameObject.activeSelf != visible)
                 _panel.gameObject.SetActive(visible);
+
+            if (visible)
+                UiTheme.BringToFront(_panel);
         }
     }
 }
