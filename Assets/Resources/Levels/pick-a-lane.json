@@ -1,0 +1,24 @@
+{
+  "name": "Pick a lane",
+  "order": 70,
+  "hint": "s chooses which input reaches the bin. s has to be in two places at once.",
+  "tickLimit": 60,
+  "maxWireDelay": 3,
+  "delayBudget": 4,
+  "maxLatency": 4,
+  "fixtures": [
+    { "id": "a",   "kind": "Source", "cell": { "x": -4, "y":  2 }, "stream": "00001111" },
+    { "id": "b",   "kind": "Source", "cell": { "x": -4, "y":  0 }, "stream": "00110011" },
+    { "id": "s",   "kind": "Source", "cell": { "x": -4, "y": -2 }, "stream": "01010101" },
+    { "id": "out", "kind": "Sink",   "cell": { "x":  4, "y":  0 } }
+  ],
+  "budget": [
+    { "kind": "Not", "count": 1 },
+    { "kind": "And", "count": 2 },
+    { "kind": "Or",  "count": 1 },
+    { "kind": "Xor", "count": 2 }
+  ],
+  "expected": [
+    { "sink": "out", "values": "00011011" }
+  ]
+}
