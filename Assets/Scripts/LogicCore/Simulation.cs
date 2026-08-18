@@ -18,6 +18,7 @@ namespace BitSorter.LogicCore
         private readonly List<Node> _nodes = new List<Node>();
         private readonly List<Edge> _edges = new List<Edge>();
         private readonly List<Arrival> _arrivals = new List<Arrival>();
+        private readonly List<InputPort> _corruptionSites = new List<InputPort>();
 
         /// <summary>The tick the next call to <see cref="Tick"/> will execute. Starts at 0.</summary>
         public int CurrentTick { get; private set; }
@@ -27,6 +28,25 @@ namespace BitSorter.LogicCore
         /// collision between differing values destroys two bits and so adds two.
         /// </summary>
         public int CorruptedCount { get; private set; }
+
+        /// <summary>
+        /// The input ports where collisions destroyed bits, in first-collision order and without
+        /// repeats. A port that collides on every tick of a run appears once.
+        /// </summary>
+        /// <remarks>
+        /// The companion to <see cref="CorruptedCount"/>: the count says how much was lost, this
+        /// says where. It accumulates over the run and is never cleared, exactly as the count is --
+        /// a graph is thrown away and rebuilt between runs rather than reset, so both start empty
+        /// when they should. A per-tick list would be wrong for the one consumer that matters:
+        /// several ticks can elapse in a single frame, so anything polling once a frame would miss
+        /// sites entirely.
+        ///
+        /// Which ports appear is order-independent, as the tick loop requires. A collision happens
+        /// at a port exactly when two bits arrive there in one tick, and that does not depend on
+        /// the order they are delivered in. The order of the list follows edge insertion order,
+        /// which is deterministic but is not something to depend on.
+        /// </remarks>
+        public IReadOnlyList<InputPort> CorruptionSites => _corruptionSites;
 
         /// <summary>
         /// One past the highest node id ever issued -- the bound for an id loop, not a population
@@ -138,6 +158,15 @@ namespace BitSorter.LogicCore
                     RetireEdge(id);
             }
 
+            // A site on a node that no longer exists has nowhere to be, and its id is about to
+            // become -1. Dropping it is not a correction to CorruptedCount: the count keeps every
+            // bit this run destroyed, as it must. Only the place stops being addressable.
+            for (int i = _corruptionSites.Count - 1; i >= 0; i--)
+            {
+                if (_corruptionSites[i].Owner == node)
+                    _corruptionSites.RemoveAt(i);
+            }
+
             _nodes[node.Id] = null;
             LiveNodeCount--;
             node.Id = -1;
@@ -202,7 +231,17 @@ namespace BitSorter.LogicCore
             for (int i = 0; i < _arrivals.Count; i++)
             {
                 Arrival arrival = _arrivals[i];
-                CorruptedCount += arrival.Target.Deliver(arrival.Value, tick);
+                int destroyed = arrival.Target.Deliver(arrival.Value, tick);
+
+                if (destroyed <= 0)
+                    continue;
+
+                CorruptedCount += destroyed;
+
+                // Linear, but over the number of ports that have ever collided in one run, which is
+                // a handful at most and usually zero.
+                if (!_corruptionSites.Contains(arrival.Target))
+                    _corruptionSites.Add(arrival.Target);
             }
 
             // Phase 3: evaluate every ready node. See the remarks above for why this order is free.

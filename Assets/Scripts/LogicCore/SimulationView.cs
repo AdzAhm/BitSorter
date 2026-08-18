@@ -44,6 +44,14 @@ namespace BitSorter.LogicCore
         /// <summary>Bits destroyed by collisions so far.</summary>
         public int CorruptedCount => _simulation.CorruptedCount;
 
+        /// <summary>Where those collisions happened, without repeats.</summary>
+        /// <remarks>
+        /// Small and indexable, so unlike Nodes and Edges this one is fine to read directly. It
+        /// holds one entry per port that has ever collided in this run, which is normally none.
+        /// </remarks>
+        public System.Collections.Generic.IReadOnlyList<InputPort> CorruptionSites =>
+            _simulation.CorruptionSites;
+
         /// <summary>
         /// One past the highest id ever issued -- the bound for an id loop, not a population
         /// count. Removed ids leave nulls behind; see <see cref="LiveNodeCount"/>.
