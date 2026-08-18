@@ -1,4 +1,5 @@
 using System.Collections;
+using System.IO;
 using NUnit.Framework;
 using BitSorter.View;
 using UnityEngine;
@@ -85,6 +86,46 @@ namespace BitSorter.PlayMode.Tests
             _gate = _host.AddComponent<PointerGate>();
         }
 
+        /// <summary>
+        /// Dumps what the gate can see to the scratchpad.
+        /// </summary>
+        /// <remarks>
+        /// Entering play mode reloads the domain, which destroys any TestRunnerApi callback
+        /// registered from outside the project -- so a failure message can be seen in the Test Runner
+        /// window but not read back programmatically. Writing from inside the test sidesteps that
+        /// entirely: the file survives because it is not in the domain.
+        /// </remarks>
+        private void Diagnose(string label, Vector2 pointer, Button button)
+        {
+            var events = EventSystem.current;
+            var data = new PointerEventData(events) { position = pointer };
+            var hits = new System.Collections.Generic.List<RaycastResult>();
+
+            if (events != null)
+                events.RaycastAll(data, hits);
+
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine("--- " + label + " ---");
+            sb.AppendLine("screen        = " + Screen.width + "x" + Screen.height);
+            sb.AppendLine("pointer       = " + pointer);
+            sb.AppendLine("mouse.pos     = " + (_mouse != null ? _mouse.position.ReadValue().ToString() : "null"));
+            sb.AppendLine("EventSystem   = " + (events == null ? "null" : events.name));
+            sb.AppendLine("raycast hits  = " + hits.Count);
+
+            foreach (RaycastResult hit in hits)
+                sb.AppendLine("   hit: " + hit.gameObject.name);
+
+            sb.AppendLine("button active = " + (button != null && button.isActiveAndEnabled));
+            sb.AppendLine("gate.OverUi   = " + (_gate != null ? _gate.PointerOverUi.ToString() : "null"));
+            sb.AppendLine("gate.Owner    = " + (_gate != null ? _gate.Owner.ToString() : "null"));
+
+            File.AppendAllText(DiagnosticPath, sb.ToString());
+        }
+
+        private const string DiagnosticPath =
+            "C:/Users/55556/AppData/Local/Temp/claude/c--Users-55556-Unity-projects2-BitSorter/" +
+            "47f161da-fdef-4794-939c-ac4a4dbcc0d1/scratchpad/playmode-diagnostic.txt";
+
         // -----------------------------------------------------------------
         // The regression this assembly exists for
         // -----------------------------------------------------------------
@@ -102,8 +143,15 @@ namespace BitSorter.PlayMode.Tests
             bool buttonFired = false;
             run.onClick.AddListener(() => buttonFired = true);
 
-            Set(_mouse.position, new Vector2(Screen.width * 0.5f, Screen.height * 0.5f));
+            var centre = new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
+            Set(_mouse.position, centre);
+
+            // Two frames, not one. The canvas has to have laid out and the raycaster registered
+            // before the first meaningful question can be asked.
             yield return null;
+            yield return null;
+
+            Diagnose("over-button", centre, run);
 
             Assert.IsTrue(_gate.PointerOverUi,
                 "sanity: the pointer must actually be over the button for this test to mean anything");
@@ -132,8 +180,12 @@ namespace BitSorter.PlayMode.Tests
             BuildBoardSide();
 
             // Off the button entirely -- the canvas is present but not under the cursor.
-            Set(_mouse.position, new Vector2(-50f, -50f));
+            var offscreen = new Vector2(-50f, -50f);
+            Set(_mouse.position, offscreen);
             yield return null;
+            yield return null;
+
+            Diagnose("off-button", offscreen, null);
 
             Assert.IsFalse(_gate.PointerOverUi);
             Assert.AreEqual(PointerOwner.None, _gate.Owner);
