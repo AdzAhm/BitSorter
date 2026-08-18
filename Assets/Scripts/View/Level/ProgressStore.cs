@@ -67,14 +67,72 @@ namespace BitSorter.View
             return true;
         }
 
+        /// <summary>
+        /// Reads the file, or starts empty if there is nothing readable there.
+        /// </summary>
+        /// <remarks>
+        /// Never throws, and the catch is deliberately broad. Every distinct failure here -- no file,
+        /// no permission, half a file, a file someone edited by hand -- has exactly the same correct
+        /// response, which is to carry on with no progress recorded. Enumerating them would add
+        /// branches without adding behaviour, and any one missed would crash the game on startup.
+        /// </remarks>
         public void Load()
         {
             LastError = null;
             _completed.Clear();
+
+            try
+            {
+                if (!File.Exists(_path))
+                    return;   // a first run is not a failure
+
+                string json = File.ReadAllText(_path);
+
+                if (string.IsNullOrWhiteSpace(json))
+                    return;
+
+                var file = JsonUtility.FromJson<ProgressFile>(json);
+
+                // Null rather than empty when the key is absent, which is the JsonUtility trap this
+                // format was shaped around.
+                if (file?.completed == null)
+                    return;
+
+                foreach (string name in file.completed)
+                {
+                    if (!string.IsNullOrEmpty(name))
+                        _completed.Add(name);
+                }
+            }
+            catch (Exception exception)
+            {
+                // Recorded rather than thrown. Someone debugging a lost save can find out why; a
+                // player mid-session never has to.
+                LastError = exception.Message;
+                _completed.Clear();
+            }
         }
 
+        /// <summary>Writes the file, and says nothing if it cannot.</summary>
+        /// <inheritdoc cref="Load"/>
         public void Save()
         {
+            try
+            {
+                var file = new ProgressFile { completed = new string[_completed.Count] };
+                _completed.CopyTo(file.completed);
+
+                string directory = Path.GetDirectoryName(_path);
+
+                if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+                    Directory.CreateDirectory(directory);
+
+                File.WriteAllText(_path, JsonUtility.ToJson(file, true));
+            }
+            catch (Exception exception)
+            {
+                LastError = exception.Message;
+            }
         }
 
         /// <summary>Forgets everything, on disk as well as in memory.</summary>
