@@ -93,8 +93,53 @@ namespace BitSorter.View
                 renderer.sortingOrder = 0;
 
                 _spawned.Add(instance);
+
+                SpawnLabel(node, centre, colour);
             }
         }
 
+        /// <summary>
+        /// Writes a fixture's name under it, so "A", "s" or "SUM" in a level's goal names something
+        /// the player can actually point at.
+        /// </summary>
+        /// <remarks>
+        /// Sources and sinks only. Every goal in the game refers to them by name -- "make the bin
+        /// receive A when s is 0" is unreadable on a board of unlabelled shapes -- whereas a gate's
+        /// silhouette already says what it is, and stamping "AND" across it would compete with the
+        /// one cue <see cref="NodeShapes"/> deliberately relies on.
+        ///
+        /// The text comes from <see cref="Node.Name"/>, which the circuit builder already sets from
+        /// the fixture id, so the label and the goal are quoting the same string. There is no second
+        /// place for a name to be written down and drift.
+        ///
+        /// Placed below the node rather than on it: a label over the body would be washed out by the
+        /// glow exactly when the node is most active.
+        /// </remarks>
+        private void SpawnLabel(Node node, Vector2 centre, Color colour)
+        {
+            bool isFixture = node is SourceNode || node is SinkNode;
+
+            if (!isFixture || string.IsNullOrEmpty(node.Name))
+                return;
+
+            var host = new GameObject($"Label {node.Name}");
+            host.transform.SetParent(_container, false);
+            host.transform.position = centre + new Vector2(0f, -PortGeometry.NodeSize * 0.78f);
+
+            var text = host.AddComponent<TMPro.TextMeshPro>();
+            text.text = node.Name.ToUpperInvariant();
+            text.fontSize = 3.2f;
+            text.alignment = TMPro.TextAlignmentOptions.Center;
+            text.color = colour;
+
+            // Sits above the board and the wires but below the bits, so a bit landing in a bin is
+            // never hidden behind the bin's own name.
+            text.sortingOrder = 1;
+
+            var rect = host.GetComponent<RectTransform>();
+            rect.sizeDelta = new Vector2(PortGeometry.NodeSize * 2.4f, 0.6f);
+
+            _spawned.Add(host);
+        }
     }
 }
