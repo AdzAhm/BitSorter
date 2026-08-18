@@ -392,6 +392,35 @@ namespace BitSorter.LogicCore.Tests
         }
 
         [Test]
+        public void AGoal_IsCarriedThrough()
+        {
+            string json =
+                @"{ ""name"": ""Aimed"", ""tickLimit"": 100," +
+                @" ""goal"": ""make the bin receive A XOR B"", ""hint"": ""a hint""," +
+                $@" ""fixtures"": [{SourceIn}, {BinOne}]," +
+                $@" ""expected"": [{ExpectOne}] }}";
+
+            LevelLoadResult result = Parse(json);
+
+            Assert.IsTrue(result.IsValid, result.Error);
+            Assert.AreEqual("make the bin receive A XOR B", result.Level.Goal);
+            Assert.AreEqual("a hint", result.Level.Hint, "the goal must not displace the hint");
+        }
+
+        [Test]
+        public void AnOmittedGoal_IsEmptyRatherThanNull()
+        {
+            // Same contract as Hint. A level without one still loads -- the rule that every shipped
+            // level names a goal is a curriculum rule, not a file-format one, because an inline test
+            // level has no player to inform.
+            LevelLoadResult result = ParseDefault();
+
+            Assert.IsTrue(result.IsValid, result.Error);
+            Assert.IsNotNull(result.Level.Goal);
+            Assert.IsEmpty(result.Level.Goal);
+        }
+
+        [Test]
         public void ALatencyCeiling_IsCarriedThrough()
         {
             string json =

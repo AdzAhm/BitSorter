@@ -27,6 +27,17 @@ namespace BitSorter.View
     public sealed class LevelFile
     {
         public string name;
+
+        /// <summary>
+        /// What the player is being asked to build, stated plainly. Unlike <see cref="hint"/> this is
+        /// allowed to name gates and give the function outright -- it is the objective, not a clue.
+        /// </summary>
+        public string goal;
+
+        /// <summary>
+        /// A nudge towards the objective, never a statement of it. Held to the no-giveaway rules in
+        /// CurriculumTests, which deliberately do not apply to <see cref="goal"/>.
+        /// </summary>
         public string hint;
 
         /// <summary>Zero means "unspecified"; the validator substitutes the default.</summary>

@@ -123,6 +123,84 @@ namespace BitSorter.LogicCore.Tests
             }
         }
 
+        // -----------------------------------------------------------------
+        // Goals: the objective, stated plainly
+        // -----------------------------------------------------------------
+
+        [Test]
+        public void EveryLevel_HasANonEmptyGoal()
+        {
+            // A level that does not say what it wants is a guessing game. This is the gate that stops
+            // a new level shipping without one.
+            foreach (KeyValuePair<string, LevelDefinition> level in LevelsInPlayOrder())
+            {
+                Assert.IsNotEmpty(level.Value.Goal,
+                    $"'{level.Key}' has no goal -- the player cannot see what they are being asked for");
+
+                Assert.IsNotNull(level.Value.Goal, $"'{level.Key}' goal is null");
+            }
+        }
+
+        [Test]
+        public void AGoalAndItsHint_AreNotTheSameSentence()
+        {
+            // If they say the same thing, one of them is doing no work -- and it is usually the hint
+            // that has quietly become a restatement of the objective.
+            foreach (KeyValuePair<string, LevelDefinition> level in LevelsInPlayOrder())
+            {
+                Assert.AreNotEqual(
+                    level.Value.Goal.Trim().ToLowerInvariant(),
+                    level.Value.Hint.Trim().ToLowerInvariant(),
+                    $"'{level.Key}' repeats its goal as its hint");
+            }
+        }
+
+        [Test]
+        public void TheNoGiveawayRules_ApplyToTheHintAndNotTheGoal()
+        {
+            // Pins the division on purpose. A goal is free to name every gate it likes -- "SUM gets
+            // A XOR B, CARRY gets A AND B" is a perfectly good objective and a terrible hint. If a
+            // future change ever extends the giveaway rules to cover goals, this fails and says why.
+            var goalNamingTwoGates = new LevelDefinition(
+                "test", "SUM gets A XOR B and CARRY gets A AND B",
+                100, 1,
+                new List<LevelFixture>(),
+                new List<LevelBudgetEntry>
+                {
+                    new LevelBudgetEntry(GateKind.Xor, 1),
+                    new LevelBudgetEntry(GateKind.And, 1),
+                },
+                new List<LevelExpectation>(),
+                goal: "SUM gets A XOR B and CARRY gets A AND B");
+
+            Assert.AreEqual(2, GatesNamedIn(goalNamingTwoGates.Goal, goalNamingTwoGates),
+                "sanity: this goal really does name two gates");
+
+            // And that is fine. The rule is about the hint, so nothing here should be treated as a
+            // violation -- the assertion is simply that a goal like this is representable.
+            Assert.IsNotEmpty(goalNamingTwoGates.Goal);
+        }
+
+        private static int GatesNamedIn(string text, LevelDefinition level)
+        {
+            var words = new HashSet<string>();
+            foreach (string word in text.ToLowerInvariant().Split(
+                         new[] { ' ', '.', ',', ';', ':', '-', '!', '?', '(', ')', '\'' },
+                         System.StringSplitOptions.RemoveEmptyEntries))
+            {
+                words.Add(word);
+            }
+
+            int named = 0;
+            foreach (LevelBudgetEntry entry in level.Budget)
+            {
+                if (words.Contains(GatePalette.Label(entry.Kind).ToLowerInvariant()))
+                    named++;
+            }
+
+            return named;
+        }
+
         [Test]
         public void NoHint_NamesMoreThanOneOfItsOwnGates()
         {

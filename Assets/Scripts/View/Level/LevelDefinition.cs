@@ -43,9 +43,11 @@ namespace BitSorter.View
             int maxWireDelay = DefaultMaxWireDelay,
             int delayBudget = 0,
             int maxLatency = 0,
-            int order = 0)
+            int order = 0,
+            string goal = "")
         {
             Order = order;
+            Goal = goal ?? string.Empty;
             Name = name;
             Hint = hint;
             TickLimit = tickLimit;
@@ -60,7 +62,21 @@ namespace BitSorter.View
 
         public string Name { get; }
 
-        /// <summary>One line for the HUD. May be empty, never null.</summary>
+        /// <summary>
+        /// What the player is being asked to build, stated plainly. May be empty, never null.
+        /// </summary>
+        /// <remarks>
+        /// The objective, not a clue, and the distinction is load-bearing. This is free to name gates
+        /// and give the function outright -- "SUM gets A XOR B" is a fine goal. <see cref="Hint"/> is
+        /// not: it is held to the no-giveaway rules in CurriculumTests, which apply to the hint alone.
+        ///
+        /// Splitting the two is what stopped hints drifting into stating their own answers. Before
+        /// this field existed the hint was the only place to put the objective, so the half adder's
+        /// hint ended up naming both its gates and which output each produced.
+        /// </remarks>
+        public string Goal { get; }
+
+        /// <summary>A nudge towards the goal. May be empty, never null.</summary>
         public string Hint { get; }
 
         /// <summary>
