@@ -128,10 +128,13 @@ namespace BitSorter.View
                         return total;
                     });
 
+                // Kept but switched off by default: this take was not liked in play, and the honest
+                // reading is that a drone is the wrong answer rather than a slightly wrong drone.
+                // Left here because the shape is the reusable part -- if music comes back it will
+                // most likely be sparse and event-driven rather than a continuous bed.
+                //
                 // A slow loop in the same key as the win sting, built from two drifting sine pads and
-                // a sparse bass. Deliberately close to ambient: this plays for as long as someone is
-                // thinking about a K-map, and anything with a tune would be unbearable by the third
-                // attempt. Sixteen seconds so the repeat is not obvious.
+                // a sparse bass. Sixteen seconds so the repeat is not obvious.
                 case Cue.Music:
                     return Make("music", 16f, (t, d) =>
                     {

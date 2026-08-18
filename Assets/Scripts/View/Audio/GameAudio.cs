@@ -28,8 +28,8 @@ namespace BitSorter.View
         [Tooltip("Most gate cues in one frame. A wide circuit can fire many at once.")]
         [SerializeField] private int _gateBurstLimit = 3;
 
-        [Tooltip("Background loop. Turn off for silence while working on the sound effects.")]
-        [SerializeField] private bool _music = true;
+        [Tooltip("Background loop. Off by default -- the current one was not liked; see the remark.")]
+        [SerializeField] private bool _music = false;
 
         private AudioSource _source;
         private AudioSource _musicSource;

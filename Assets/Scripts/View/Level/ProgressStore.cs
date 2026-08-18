@@ -20,6 +20,9 @@ namespace BitSorter.View
     {
         /// <summary>Level file names, without extension, as LevelLoader takes them.</summary>
         public string[] completed;
+
+        /// <summary>What was left on each board, and the best it has been solved.</summary>
+        public SavedBoard[] boards;
     }
 
     /// <summary>
@@ -39,6 +42,9 @@ namespace BitSorter.View
     {
         private readonly string _path;
         private readonly HashSet<string> _completed = new HashSet<string>(StringComparer.Ordinal);
+
+        private readonly Dictionary<string, SavedBoard> _boards =
+            new Dictionary<string, SavedBoard>(StringComparer.Ordinal);
 
         public ProgressStore(string path)
         {
@@ -80,6 +86,7 @@ namespace BitSorter.View
         {
             LastError = null;
             _completed.Clear();
+            _boards.Clear();
 
             try
             {
@@ -93,15 +100,28 @@ namespace BitSorter.View
 
                 var file = JsonUtility.FromJson<ProgressFile>(json);
 
-                // Null rather than empty when the key is absent, which is the JsonUtility trap this
-                // format was shaped around.
-                if (file?.completed == null)
+                if (file == null)
                     return;
 
-                foreach (string name in file.completed)
+                // Null rather than empty when the key is absent, which is the JsonUtility trap this
+                // format was shaped around. Each array is guarded on its own, so a file written
+                // before boards existed still restores its completions.
+                if (file.completed != null)
                 {
-                    if (!string.IsNullOrEmpty(name))
-                        _completed.Add(name);
+                    foreach (string name in file.completed)
+                    {
+                        if (!string.IsNullOrEmpty(name))
+                            _completed.Add(name);
+                    }
+                }
+
+                if (file.boards != null)
+                {
+                    foreach (SavedBoard board in file.boards)
+                    {
+                        if (board != null && !string.IsNullOrEmpty(board.level))
+                            _boards[board.level] = board;
+                    }
                 }
             }
             catch (Exception exception)
@@ -119,8 +139,14 @@ namespace BitSorter.View
         {
             try
             {
-                var file = new ProgressFile { completed = new string[_completed.Count] };
+                var file = new ProgressFile
+                {
+                    completed = new string[_completed.Count],
+                    boards = new SavedBoard[_boards.Count],
+                };
+
                 _completed.CopyTo(file.completed);
+                _boards.Values.CopyTo(file.boards, 0);
 
                 string directory = Path.GetDirectoryName(_path);
 
@@ -139,7 +165,92 @@ namespace BitSorter.View
         public void Clear()
         {
             _completed.Clear();
+            _boards.Clear();
             Save();
+        }
+
+        // -----------------------------------------------------------------
+        // Boards and personal bests
+        // -----------------------------------------------------------------
+
+        /// <summary>What was left on a level's board, or null if it has never been touched.</summary>
+        public SavedBoard BoardFor(string level) =>
+            !string.IsNullOrEmpty(level) && _boards.TryGetValue(level, out SavedBoard board)
+                ? board
+                : null;
+
+        /// <summary>Remembers what is on a level's board, keeping any record already set.</summary>
+        public void SaveBoard(string level, SavedBoard board)
+        {
+            if (string.IsNullOrEmpty(level) || board == null)
+                return;
+
+            SavedBoard existing = BoardFor(level);
+
+            // The record outlives the layout. A player who wipes a board has not lost the fact that
+            // they once solved it in four gates.
+            if (existing != null)
+            {
+                board.bestGates = existing.bestGates;
+                board.bestLatency = existing.bestLatency;
+            }
+
+            board.level = level;
+            _boards[level] = board;
+
+            Save();
+        }
+
+        /// <summary>Fewest gates a level has been solved with, or zero for no record.</summary>
+        public int BestGates(string level) => BoardFor(level)?.bestGates ?? 0;
+
+        /// <inheritdoc cref="BestGates"/>
+        public int BestLatency(string level) => BoardFor(level)?.bestLatency ?? 0;
+
+        /// <summary>
+        /// Records a solution, and says which of the two records it beat.
+        /// </summary>
+        /// <remarks>
+        /// The two are tracked separately and improve independently, because they genuinely trade
+        /// against each other -- the XOR-trick multiplexer is a gate smaller and a tick of budget
+        /// dearer than the textbook one. Collapsing them into a single "better" would make one of
+        /// the two invisible, and the trade is the lesson.
+        /// </remarks>
+        public bool RecordBest(string level, int gates, int latency, out bool gatesBeaten, out bool latencyBeaten)
+        {
+            gatesBeaten = false;
+            latencyBeaten = false;
+
+            if (string.IsNullOrEmpty(level) || gates < 0 || latency < 0)
+                return false;
+
+            SavedBoard board = BoardFor(level);
+
+            if (board == null)
+            {
+                board = new SavedBoard { level = level };
+                _boards[level] = board;
+            }
+
+            // A first solve sets both records without being a personal best -- there was nothing to
+            // beat, and telling someone they beat their record on their first attempt is hollow.
+            bool first = board.bestGates == 0 && board.bestLatency == 0;
+
+            if (board.bestGates == 0 || gates < board.bestGates)
+            {
+                gatesBeaten = !first && board.bestGates != 0;
+                board.bestGates = gates;
+            }
+
+            if (board.bestLatency == 0 || latency < board.bestLatency)
+            {
+                latencyBeaten = !first && board.bestLatency != 0;
+                board.bestLatency = latency;
+            }
+
+            Save();
+
+            return gatesBeaten || latencyBeaten;
         }
     }
 }

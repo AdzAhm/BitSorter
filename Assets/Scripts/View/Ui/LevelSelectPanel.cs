@@ -27,6 +27,7 @@ namespace BitSorter.View
             public Image Frame;
             public TextMeshProUGUI Tick;
             public TextMeshProUGUI Label;
+            public TextMeshProUGUI Best;
         }
 
         [SerializeField] private LevelSession _session;
@@ -125,8 +126,12 @@ namespace BitSorter.View
 
             row.Label = UiTheme.Label("name", rect, 17f, UiTheme.Text, TextAlignmentOptions.Left);
             UiTheme.Anchor(row.Label.rectTransform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f),
-                new Vector2(52f, 0f), new Vector2(440f, height));
+                new Vector2(52f, 0f), new Vector2(330f, height));
             row.Label.text = entry.DisplayName;
+
+            row.Best = UiTheme.Label("best", rect, 14f, UiTheme.TextDim, TextAlignmentOptions.Right);
+            UiTheme.Anchor(row.Best.rectTransform, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f),
+                new Vector2(-16f, 0f), new Vector2(130f, height));
 
             string file = entry.FileName;
             row.Button.onClick.AddListener(() => Choose(file));
@@ -161,6 +166,20 @@ namespace BitSorter.View
                 bool here = row.FileName == current;
 
                 row.Tick.text = done ? "✓" : string.Empty;
+
+                // The record sits beside the name rather than replacing it, so an unsolved level and
+                // a solved one read the same way and the list stays scannable.
+                if (done && _progress != null)
+                {
+                    int gates = _progress.BestGates(row.FileName);
+                    int ticks = _progress.BestLatency(row.FileName);
+
+                    row.Best.text = gates > 0 ? $"{gates}g  {ticks}t" : string.Empty;
+                }
+                else
+                {
+                    row.Best.text = string.Empty;
+                }
 
                 // Current level highlighted, solved ones dimmed but still selectable -- replaying is
                 // how a player improves a circuit, and nothing here should discourage it.

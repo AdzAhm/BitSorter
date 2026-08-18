@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.InputSystem;
 using UnityEngine.UI;
 using TMPro;
 
@@ -25,9 +26,17 @@ namespace BitSorter.View
         [Tooltip("Canvas the controls are built under. Found by type when left empty.")]
         [SerializeField] private Canvas _canvas;
 
+        [Tooltip("Seconds a CLEAR ALL press waits for its confirming second press.")]
+        [SerializeField] private float _confirmSeconds = 3f;
+
         private Button _run;
         private Button _reset;
+        private Button _clear;
         private TextMeshProUGUI _runLabel;
+        private TextMeshProUGUI _clearLabel;
+
+        /// <summary>When the pending CLEAR ALL confirmation lapses, or zero when none is pending.</summary>
+        private float _confirmUntil;
 
         private void Awake()
         {
@@ -43,18 +52,23 @@ namespace BitSorter.View
 
             RectTransform root = UiTheme.Rect("Run controls", _canvas.transform);
             UiTheme.Anchor(root, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
-                new Vector2(0f, UiTheme.Margin), new Vector2(280f, UiTheme.ButtonHeight));
+                new Vector2(0f, UiTheme.ButtonRow), new Vector2(430f, UiTheme.ButtonHeight));
 
             _run = UiTheme.Button_("Run", root, "RUN", out _runLabel);
             UiTheme.Anchor(_run.GetComponent<RectTransform>(), new Vector2(0f, 0f), new Vector2(0f, 0f),
-                Vector2.zero, new Vector2(160f, UiTheme.ButtonHeight));
+                Vector2.zero, new Vector2(150f, UiTheme.ButtonHeight));
 
             _reset = UiTheme.Button_("Reset", root, "RESET", out TextMeshProUGUI _);
-            UiTheme.Anchor(_reset.GetComponent<RectTransform>(), new Vector2(1f, 0f), new Vector2(1f, 0f),
-                Vector2.zero, new Vector2(112f, UiTheme.ButtonHeight));
+            UiTheme.Anchor(_reset.GetComponent<RectTransform>(), new Vector2(0f, 0f), new Vector2(0f, 0f),
+                new Vector2(158f, 0f), new Vector2(110f, UiTheme.ButtonHeight));
+
+            _clear = UiTheme.Button_("Clear", root, "CLEAR ALL", out _clearLabel);
+            UiTheme.Anchor(_clear.GetComponent<RectTransform>(), new Vector2(1f, 0f), new Vector2(1f, 0f),
+                Vector2.zero, new Vector2(150f, UiTheme.ButtonHeight));
 
             _run.onClick.AddListener(() => Fire(Run));
             _reset.onClick.AddListener(() => Fire(ResetBoard));
+            _clear.onClick.AddListener(() => Fire(AskToClear));
 
             BuildControlsLine();
         }
@@ -84,7 +98,7 @@ namespace BitSorter.View
 
             line.text =
                 "drag a port to wire     right click to delete     scroll a wire to re-time     " +
-                "H for help     ESC for levels";
+                "shift+R to clear     H for help     ESC for levels";
         }
 
         private void Update()
@@ -99,6 +113,57 @@ namespace BitSorter.View
 
             _run.interactable = _session.IsLoaded && _session.State != RunState.Running;
             _reset.interactable = _session.IsLoaded;
+
+            UpdateClear();
+        }
+
+        /// <summary>
+        /// Keeps the CLEAR ALL button in step with its pending confirmation, and reads the shortcut.
+        /// </summary>
+        /// <remarks>
+        /// Shift+R rather than a key of its own, so it reads as the heavier sibling of R. It goes
+        /// through exactly the same confirmation as the button: a shortcut that wiped the board on
+        /// one press would be the most destructive key in the game and the easiest to hit by mistake.
+        /// </remarks>
+        private void UpdateClear()
+        {
+            Keyboard keyboard = Keyboard.current;
+
+            bool shortcut = keyboard != null
+                            && keyboard.rKey.wasPressedThisFrame
+                            && keyboard.shiftKey.isPressed;
+
+            if (shortcut)
+                AskToClear();
+
+            bool pending = _confirmUntil > Time.unscaledTime;
+
+            // Lapsing quietly is deliberate. A confirmation that waited forever would eventually be
+            // answered by a click meant for something else.
+            if (!pending && _confirmUntil != 0f)
+                _confirmUntil = 0f;
+
+            _clearLabel.text = pending ? "SURE?" : "CLEAR ALL";
+            _clearLabel.color = pending ? UiTheme.Bad : UiTheme.Text;
+
+            // Nothing to clear on an untouched board, and nothing to clear mid-run.
+            _clear.interactable = _session.IsLoaded && _session.CanEdit && !_session.Blueprint.IsEmpty;
+        }
+
+        /// <summary>First press arms, second press within the window clears.</summary>
+        private void AskToClear()
+        {
+            if (_session == null || !_session.CanEdit || _session.Blueprint.IsEmpty)
+                return;
+
+            if (_confirmUntil > Time.unscaledTime)
+            {
+                _confirmUntil = 0f;
+                _session.ClearBoard();
+                return;
+            }
+
+            _confirmUntil = Time.unscaledTime + _confirmSeconds;
         }
 
         private void Run() => _session.Run();

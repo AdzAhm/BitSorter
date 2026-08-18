@@ -37,6 +37,36 @@ namespace BitSorter.View
             }
         }
 
+        /// <summary>
+        /// Parses a kind name, case-insensitively. False for anything unrecognised.
+        /// </summary>
+        /// <remarks>
+        /// The one place a gate name becomes a <see cref="GateKind"/>. Level files and save files
+        /// both spell kinds as strings -- JsonUtility deserializes enums from integers only, never
+        /// from names -- so without this there would be two parsers to keep in step.
+        /// </remarks>
+        public static bool TryParse(string text, out GateKind kind)
+        {
+            kind = GateKind.Not;
+
+            if (string.IsNullOrWhiteSpace(text))
+                return false;
+
+            switch (text.Trim().ToLowerInvariant())
+            {
+                case "not": kind = GateKind.Not; return true;
+                case "and": kind = GateKind.And; return true;
+                case "or": kind = GateKind.Or; return true;
+                case "xor": kind = GateKind.Xor; return true;
+                case "nand": kind = GateKind.Nand; return true;
+                case "nor": kind = GateKind.Nor; return true;
+                default: return false;
+            }
+        }
+
+        /// <summary>How many input ports a gate of this kind has.</summary>
+        public static int InputsOf(GateKind kind) => kind == GateKind.Not ? 1 : 2;
+
         public static string Label(GateKind kind)
         {
             switch (kind)

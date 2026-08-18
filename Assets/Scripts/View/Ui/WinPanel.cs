@@ -20,6 +20,7 @@ namespace BitSorter.View
     {
         [SerializeField] private LevelSession _session;
         [SerializeField] private SimulationRunner _runner;
+        [SerializeField] private ProgressTracker _progress;
 
         [Tooltip("Canvas the panel is built under. Found by type when left empty.")]
         [SerializeField] private Canvas _canvas;
@@ -37,6 +38,7 @@ namespace BitSorter.View
         {
             if (_session == null) _session = FindFirstObjectByType<LevelSession>();
             if (_runner == null) _runner = FindFirstObjectByType<SimulationRunner>();
+            if (_progress == null) _progress = FindFirstObjectByType<ProgressTracker>();
             if (_canvas == null) _canvas = FindFirstObjectByType<Canvas>();
         }
 
@@ -121,6 +123,8 @@ namespace BitSorter.View
             if (level.HasDelayBudget)
                 detail.Append($"\n{_session.SpentDelay} of {level.DelayBudget} delay spent");
 
+            AppendRecords(detail);
+
             _detail.text = detail.ToString();
 
             // The last level has nowhere to go, so the button says so rather than wrapping silently
@@ -132,6 +136,41 @@ namespace BitSorter.View
             _nextLabel.text = "NEXT LEVEL";
 
             Show(true);
+        }
+
+        /// <summary>
+        /// The player's own best on this level, and whether this run beat it.
+        /// </summary>
+        /// <remarks>
+        /// A personal best, not a rank. It is the same kind of fact as the gate count already on
+        /// this panel -- a description of the circuit in front of them, measured against the circuit
+        /// they built last time. Nobody else's number appears anywhere.
+        ///
+        /// Gates and latency are reported separately because they trade against each other, so
+        /// beating one while losing the other is a real and interesting outcome rather than a
+        /// contradiction to be collapsed.
+        /// </remarks>
+        private void AppendRecords(System.Text.StringBuilder detail)
+        {
+            if (_progress == null)
+                return;
+
+            string level = _session.LevelName;
+
+            int bestGates = _progress.BestGates(level);
+            int bestLatency = _progress.BestLatency(level);
+
+            if (bestGates <= 0 && bestLatency <= 0)
+                return;
+
+            detail.Append($"\n\nyour best   {bestGates} gates   {bestLatency} ticks");
+
+            if (_progress.BeatGateRecord && _progress.BeatLatencyRecord)
+                detail.Append("\nsmaller AND faster than last time");
+            else if (_progress.BeatGateRecord)
+                detail.Append("\nsmaller than last time");
+            else if (_progress.BeatLatencyRecord)
+                detail.Append("\nfaster than last time");
         }
 
         private void Show(bool visible)

@@ -101,6 +101,18 @@ namespace BitSorter.View
         /// </remarks>
         public event Action<LevelDefinition> LevelLoaded;
 
+        /// <summary>
+        /// Raised just before a level is replaced, carrying the file name of the one leaving, while
+        /// its board is still intact.
+        /// </summary>
+        /// <remarks>
+        /// The counterpart to <see cref="LevelLoaded"/>, and it exists because that one is too late
+        /// for anything that wants to *keep* something. LoadLevel clears the blueprint before it
+        /// announces the new level, so by the time LevelLoaded fires the outgoing board is already
+        /// gone. Anything saving work has to be told first.
+        /// </remarks>
+        public event Action<string> LevelUnloading;
+
         /// <summary>Position of the current level in <see cref="AvailableLevels"/>, or -1.</summary>
         public int LevelIndex
         {
@@ -178,6 +190,11 @@ namespace BitSorter.View
                 Debug.LogError($"BitSorter: {result.Error}. Available: {known}");
                 return false;
             }
+
+            // Announced before anything is thrown away, so a listener can keep the outgoing board.
+            // Guarded on IsLoaded: the first load has no previous level to save.
+            if (IsLoaded)
+                LevelUnloading?.Invoke(_levelName);
 
             _levelName = levelName;
             Level = result.Level;
@@ -303,6 +320,24 @@ namespace BitSorter.View
 
             Verdict = default;
             State = RunState.Running;
+        }
+
+        /// <summary>
+        /// Throws away everything the player built, leaving the level's fixtures and an empty board.
+        /// </summary>
+        /// <remarks>
+        /// Deliberately distinct from <see cref="ResetBoard"/>, which only rewinds the clock and
+        /// keeps the circuit. The two were the same word in an earlier interface and it was the
+        /// wrong word twice: a player who wants to start over has no way to, and a player who wants
+        /// to re-run loses their work.
+        /// </remarks>
+        public void ClearBoard()
+        {
+            if (!IsLoaded || _runner == null)
+                return;
+
+            _blueprint.Clear();
+            ResetBoard();
         }
 
         /// <summary>Returns to the pre-run board so the player can edit and try again.</summary>

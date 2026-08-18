@@ -170,11 +170,18 @@ Do not build ahead of me. The logic core, the view layer, the level
 format, the nine levels, the canvas interface, sound, level select and
 saved progress are all in.
 
-**Scoring is the one thing still off limits** until I ask for it by name.
-Gate count and latency are already *shown* on the win panel, which is
-deliberate and is not scoring: they are facts about the circuit, not a
-rank. A star rating, a leaderboard, or a best-so-far persisted per level
-would be. Note that throughput must never be one of them — see the
+**The line is ranking, not measurement.** A number describing the player's
+own circuit is fine, including one kept between sessions: gate count and
+latency on the win panel, and the personal best beside each level, are
+facts about what they built measured against what they built last time.
+Nobody else's number appears anywhere.
+
+**Still off limits until I ask by name:** anything that ranks a player
+against other people or against an authored ideal — a star rating, a par
+score, a leaderboard, a percentile, a grade. Those turn "here is your
+circuit" into "here is how you compare", which is a different game.
+
+Whatever gets measured, **throughput must never be one of them** — see the
 Syllabus scope note above for why it has only two states.
 
 ## Level ideas

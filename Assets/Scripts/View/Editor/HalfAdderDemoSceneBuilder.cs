@@ -167,6 +167,7 @@ namespace BitSorter.View.EditorTools
             Assign(diagnostics, "_canvas", canvas);
 
             Assign(progress, "_session", session);
+            Assign(progress, "_runner", runner);
 
             Assign(levelSelect, "_session", session);
             Assign(levelSelect, "_progress", progress);
@@ -177,6 +178,7 @@ namespace BitSorter.View.EditorTools
 
             Assign(winPanel, "_session", session);
             Assign(winPanel, "_runner", runner);
+            Assign(winPanel, "_progress", progress);
             Assign(winPanel, "_canvas", canvas);
 
             Assign(celebration, "_session", session);
