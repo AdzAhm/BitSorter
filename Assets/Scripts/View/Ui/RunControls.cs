@@ -130,6 +130,7 @@ namespace BitSorter.View
             Keyboard keyboard = Keyboard.current;
 
             bool shortcut = keyboard != null
+                            && !UiModal.AnyOpen
                             && keyboard.rKey.wasPressedThisFrame
                             && keyboard.shiftKey.isPressed;
 

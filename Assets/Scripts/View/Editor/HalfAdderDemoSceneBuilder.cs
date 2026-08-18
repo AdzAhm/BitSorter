@@ -99,6 +99,7 @@ namespace BitSorter.View.EditorTools
             HelpPanel help = host.AddComponent<HelpPanel>();
             WinPanel winPanel = host.AddComponent<WinPanel>();
             SinkCelebration celebration = host.AddComponent<SinkCelebration>();
+            MainMenu mainMenu = host.AddComponent<MainMenu>();
 
             // AddComponent brings its own AudioSource along, via RequireComponent.
             GameAudio audio = host.AddComponent<GameAudio>();
@@ -183,6 +184,11 @@ namespace BitSorter.View.EditorTools
 
             Assign(celebration, "_session", session);
             Assign(celebration, "_runner", runner);
+
+            Assign(mainMenu, "_session", session);
+            Assign(mainMenu, "_progress", progress);
+            Assign(mainMenu, "_levels", levelSelect);
+            Assign(mainMenu, "_canvas", canvas);
 
             Assign(audio, "_runner", runner);
             Assign(audio, "_session", session);

@@ -60,8 +60,13 @@ namespace BitSorter.View
         {
             Keyboard keyboard = Keyboard.current;
 
-            if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame)
+            // Escape closes this whatever else is open, but only opens it when nothing else is --
+            // otherwise it would stack the list on top of the main menu.
+            if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame
+                && (_shown || !UiModal.AnyOpen))
+            {
                 Show(!_shown);
+            }
 
             if (_shown)
                 Refresh();
@@ -143,6 +148,9 @@ namespace BitSorter.View
         // Showing
         // -----------------------------------------------------------------
 
+        /// <summary>Opens the list. Used by the main menu's Levels item as well as by Escape.</summary>
+        public void Open() => Show(true);
+
         private void Show(bool visible)
         {
             _shown = visible;
@@ -151,8 +159,17 @@ namespace BitSorter.View
                 _root.gameObject.SetActive(visible);
 
             if (visible)
+            {
+                UiModal.Opened(this);
                 Refresh();
+            }
+            else
+            {
+                UiModal.Closed(this);
+            }
         }
+
+        private void OnDisable() => UiModal.Closed(this);
 
         private void Refresh()
         {

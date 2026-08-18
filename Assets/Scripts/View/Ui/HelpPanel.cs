@@ -66,8 +66,9 @@ namespace BitSorter.View
         {
             Keyboard keyboard = Keyboard.current;
 
-            // H as well as the button. A player mid-wire should not have to find a target.
-            if (keyboard != null && keyboard.hKey.wasPressedThisFrame)
+            // H as well as the button. A player mid-wire should not have to find a target. Suppressed
+            // while a full-screen panel is up, where the help would open behind it.
+            if (keyboard != null && keyboard.hKey.wasPressedThisFrame && !UiModal.AnyOpen)
                 Show(!_shown);
         }
 

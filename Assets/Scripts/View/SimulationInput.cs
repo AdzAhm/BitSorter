@@ -44,11 +44,19 @@ namespace BitSorter.View
             if (keyboard == null)
                 return;
 
+            // A panel covering the board takes the keyboard with it. A scrim stops clicks by itself,
+            // because the pointer gate sees the interface, but keys would otherwise carry straight
+            // through -- Q behind the main menu changing level under it, space starting the clock on
+            // a board nobody can see.
+            if (UiModal.AnyOpen)
+                return;
+
             // Both Enter keys, because a numpad Enter is not the same control.
             if (keyboard.enterKey.wasPressedThisFrame || keyboard.numpadEnterKey.wasPressedThisFrame)
                 _session.Run();
 
-            if (keyboard.rKey.wasPressedThisFrame)
+            // Shift+R clears the board and is RunControls' to handle, so it must not also reset here.
+            if (keyboard.rKey.wasPressedThisFrame && !keyboard.shiftKey.isPressed)
                 _session.ResetBoard();
 
             // Q/E rather than the serialized level name, which cannot be trusted to stick: rebuilding

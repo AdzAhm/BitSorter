@@ -692,6 +692,37 @@ The multi-solution levels get one test per solution. That is what stops a level
 shipping that is accidentally single-solution, or whose designed mistake turns out
 not to be reachable.
 
+## Deferred: making it feel like a game
+
+Raised after the first full playthrough, when the game read as a tool rather than
+a game. Not being built yet, and parked here so the reasoning is not lost.
+
+The diagnosis, for whatever it is worth: **the game reacts to being correct, never
+to being clever.** Those are different, and the gap is where the feeling lives.
+
+- **Debris from corruption.** Corruption is mechanically rich and emotionally flat.
+  A destroyed bit could leave a scorch at the junction that killed it, persisting
+  until the next run, so a player *sees* where the fault is rather than reading a
+  count. This is the cheapest of the five and probably the most valuable: it turns
+  the one number the game already tracks into a place on the board.
+
+- **Chapter cards between syllabus sections.** Nine levels arrive as a flat list.
+  A card at the boundaries — combinational logic ends, sequential begins — would
+  give the run a shape it currently has none of.
+
+- **An ending.** Solving Carry the One does exactly what solving the tutorial does.
+  There is no last note.
+
+- **Board idle life.** Nothing on the board has any presence between runs: no idle
+  motion, no reaction to being wired, no anticipation before Run. Worth noting that
+  the bits already squash on arrival, and that one detail does a disproportionate
+  amount of work — it is the only animation in the game that is not functional.
+
+- **A narrator.** Considered and explicitly parked. The open question was whether a
+  voice needs a face — a persistent panel with a character — or whether rewriting
+  the existing strings is enough. The second is a prerequisite for the first
+  either way: a narrator with nothing to say is just a box.
+
 ## Format answers
 
 ### Q1: Can a test vector express a don't-care output?
