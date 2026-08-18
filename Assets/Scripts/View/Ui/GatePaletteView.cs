@@ -43,6 +43,7 @@ namespace BitSorter.View
 
         private readonly List<Row> _rows = new List<Row>();
         private RectTransform _root;
+        private TextMeshProUGUI _delay;
 
         private void Awake()
         {
@@ -75,6 +76,38 @@ namespace BitSorter.View
 
             for (int i = 0; i < _rows.Count; i++)
                 Refresh(_rows[i]);
+
+            RefreshDelay();
+        }
+
+        /// <summary>
+        /// How much of the delay budget is spent.
+        /// </summary>
+        /// <remarks>
+        /// Belongs with the parts list because it is a part: on a level like the-slow-lane the ticks
+        /// are as much a resource as the gates, and its budget is exactly the solution with nothing
+        /// spare. A player who cannot see the spend cannot tell a wrong guess from a wrong circuit.
+        ///
+        /// Hidden on levels that set no budget, where the number would only be noise.
+        /// </remarks>
+        private void RefreshDelay()
+        {
+            if (_delay == null)
+                return;
+
+            bool budgeted = _session.Level != null && _session.Level.HasDelayBudget;
+
+            if (_delay.gameObject.activeSelf != budgeted)
+                _delay.gameObject.SetActive(budgeted);
+
+            if (!budgeted)
+                return;
+
+            int spent = _session.SpentDelay;
+            int total = _session.Level.DelayBudget;
+
+            _delay.text = $"DELAY  {spent} of {total}";
+            _delay.color = spent < total ? UiTheme.TextDim : UiTheme.Bad;
         }
 
         /// <summary>Throws the old rows away and builds the new level's parts list.</summary>
@@ -100,10 +133,14 @@ namespace BitSorter.View
 
             float rowHeight = UiTheme.PaletteButton;
             float total = level.Budget.Count * (rowHeight + UiTheme.Gap) - UiTheme.Gap;
-            _root.sizeDelta = new Vector2(_root.sizeDelta.x, total);
+            _root.sizeDelta = new Vector2(_root.sizeDelta.x, total + 26f);
 
             for (int i = 0; i < level.Budget.Count; i++)
                 _rows.Add(BuildRow(level.Budget[i], i, rowHeight));
+
+            _delay = UiTheme.Label("delay", _root, 13f, UiTheme.TextDim, TextAlignmentOptions.Left);
+            UiTheme.Anchor(_delay.rectTransform, new Vector2(0f, 0f), new Vector2(0f, 0f),
+                new Vector2(UiTheme.Gap, 0f), new Vector2(_root.sizeDelta.x, 20f));
         }
 
         private Row BuildRow(LevelBudgetEntry entry, int index, float height)

@@ -101,7 +101,16 @@ namespace BitSorter.View
             LevelDefinition level = _session.Level;
 
             _title.color = UiTheme.Text;
-            _title.text = level.Name.ToUpperInvariant();
+
+            // Where this level sits in the run, so Q and E have somewhere to land the eye. Omitted
+            // when there is only one level, where "1 of 1" says nothing.
+            int index = _session.LevelIndex;
+            int count = _session.AvailableLevels.Count;
+
+            _title.text = count > 1 && index >= 0
+                ? $"{level.Name.ToUpperInvariant()}   {index + 1} / {count}"
+                : level.Name.ToUpperInvariant();
+
             _goal.text = level.Goal;
 
             // The hint steps aside once the run is over: at that point the verdict is the thing to

@@ -16,7 +16,7 @@ namespace BitSorter.View
     ///
     /// Publishes what it is pointing at rather than drawing anything. <see cref="EdgeRenderer"/> reads
     /// <see cref="HoveredEdgeId"/> and the change stamp to highlight and flash, the same way
-    /// <see cref="SimulationHud"/> reads PlacementController.Selected.
+    /// <see cref="GatePaletteView"/> reads PlacementController.Selected.
     ///
     /// Tracking by edge id works because re-timing a wire edits the blueprint in place, so the rebuild
     /// it triggers hands back the same ids in the same order. Were the wire removed and re-appended,

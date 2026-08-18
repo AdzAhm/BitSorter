@@ -78,7 +78,6 @@ namespace BitSorter.View.EditorTools
             EdgeRenderer edges = host.AddComponent<EdgeRenderer>();
             BitRenderer bits = host.AddComponent<BitRenderer>();
             PortRenderer ports = host.AddComponent<PortRenderer>();
-            SimulationHud hud = host.AddComponent<SimulationHud>();
             SimulationInput input = host.AddComponent<SimulationInput>();
             PlacementController placement = host.AddComponent<PlacementController>();
             WiringController wiring = host.AddComponent<WiringController>();
@@ -93,6 +92,8 @@ namespace BitSorter.View.EditorTools
             RunControls runControls = host.AddComponent<RunControls>();
             StatusBanner banner = host.AddComponent<StatusBanner>();
             BitsLostMeter bitsLost = host.AddComponent<BitsLostMeter>();
+
+            DiagnosticsPanel diagnostics = host.AddComponent<DiagnosticsPanel>();
 
             // AddComponent brings its own AudioSource along, via RequireComponent.
             GameAudio audio = host.AddComponent<GameAudio>();
@@ -137,10 +138,6 @@ namespace BitSorter.View.EditorTools
 
             Assign(input, "_session", session);
             Assign(input, "_runner", runner);
-            Assign(hud, "_runner", runner);
-            Assign(hud, "_session", session);
-            Assign(hud, "_placement", placement);
-
             Assign(palette, "_session", session);
             Assign(palette, "_placement", placement);
             Assign(palette, "_canvas", canvas);
@@ -159,6 +156,10 @@ namespace BitSorter.View.EditorTools
             Assign(bitsLost, "_session", session);
             Assign(bitsLost, "_runner", runner);
             Assign(bitsLost, "_canvas", canvas);
+
+            Assign(diagnostics, "_runner", runner);
+            Assign(diagnostics, "_session", session);
+            Assign(diagnostics, "_canvas", canvas);
 
             Assign(audio, "_runner", runner);
             Assign(audio, "_session", session);

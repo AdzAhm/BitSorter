@@ -55,6 +55,32 @@ namespace BitSorter.View
 
             _run.onClick.AddListener(() => Fire(Run));
             _reset.onClick.AddListener(() => Fire(ResetBoard));
+
+            BuildControlsLine(root);
+        }
+
+        /// <summary>
+        /// The actions that have no button.
+        /// </summary>
+        /// <remarks>
+        /// Permanent rather than behind the diagnostics key, because these are the only way to do
+        /// several things -- there is no button for drawing a wire, deleting one, or re-timing it.
+        /// Hiding them would leave a player who never presses F3 unable to finish a delay level.
+        ///
+        /// Buttons cover run and reset, and the palette covers selection, so those are left out. What
+        /// remains is exactly what the interface cannot yet express.
+        /// </remarks>
+        private void BuildControlsLine(RectTransform root)
+        {
+            TextMeshProUGUI line = UiTheme.Label(
+                "controls", root, 12f, UiTheme.TextDim, TextAlignmentOptions.Center);
+
+            UiTheme.Anchor(line.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 0f),
+                new Vector2(0f, 6f), new Vector2(720f, 18f));
+
+            line.text =
+                "drag a port to wire    right click to delete    scroll a wire to re-time    " +
+                "space pause    Q / E level";
         }
 
         private void Update()
