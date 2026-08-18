@@ -24,6 +24,9 @@ namespace BitSorter.View
         [SerializeField] private PlacementGrid _grid;
         [SerializeField] private Camera _camera;
 
+        [Tooltip("Asked before acting, so a click already spoken for elsewhere is left alone.")]
+        [SerializeField] private PointerGate _pointer;
+
         /// <summary>
         /// The palette entry a left click will place. Only ever a kind the current level stocks; the
         /// initial value here holds only until the first level announces itself.
@@ -40,6 +43,9 @@ namespace BitSorter.View
 
             if (_camera == null)
                 _camera = Camera.main;
+
+            if (_pointer == null)
+                _pointer = FindFirstObjectByType<PointerGate>();
         }
 
         // Awake has already resolved the session, and every OnEnable runs before the Start that
@@ -86,6 +92,12 @@ namespace BitSorter.View
             bool remove = mouse.rightButton.wasPressedThisFrame;
 
             if (!place && !remove)
+                return;
+
+            // Asked before the cell is even worked out. A press that belongs to a wire drag, to the
+            // palette, or to a canvas widget is not ours, and acting on it anyway is what produced
+            // the spurious "that cell is taken" on every single wire drag.
+            if (_pointer != null && !_pointer.MayAct(PointerUser.Placement))
                 return;
 
             Vector2 world = ScreenToWorld(mouse.position.ReadValue());

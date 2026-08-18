@@ -40,6 +40,6 @@ namespace BitSorter.View
         public PointerOwner Owner => PointerRules.OwnerOf(PaletteDragging, WiringDragging, PointerOverUi);
 
         /// <summary>Whether <paramref name="user"/> may act on this frame.</summary>
-        public bool MayAct(PointerUser user) => true;
+        public bool MayAct(PointerUser user) => PointerRules.MayAct(user, Owner);
     }
 }

@@ -32,6 +32,9 @@ namespace BitSorter.View
 
         [SerializeField] private Camera _camera;
 
+        [Tooltip("Asked before hovering or re-timing, so the scroll wheel over a panel is not ours.")]
+        [SerializeField] private PointerGate _pointer;
+
         [Tooltip("Seconds a wire stays flashed after its delay changes.")]
         [SerializeField] private float _flashSeconds = 0.35f;
 
@@ -84,8 +87,10 @@ namespace BitSorter.View
             }
 
             // Nothing is re-timable outside Editing, and a stale highlight during a run would suggest
-            // otherwise. Same for a wire drag: the cursor is committed to drawing a new wire.
-            if (!_session.CanEdit || (_wiring != null && _wiring.IsDragging))
+            // otherwise. The pointer gate covers the rest: a wire drag, a palette drag, or the cursor
+            // sitting over a panel all mean this scroll is not ours to act on. The highlight clears
+            // too, so a wire never looks hoverable while something else owns the cursor.
+            if (!_session.CanEdit || (_pointer != null && !_pointer.MayAct(PointerUser.WireDelay)))
             {
                 HoveredEdgeId = -1;
                 return;

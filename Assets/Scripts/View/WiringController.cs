@@ -20,6 +20,14 @@ namespace BitSorter.View
     /// rebuilt in step with GraphRevision. This runs only on click frames and while dragging, and
     /// is O(nodes x ports) -- a few dozen distance checks.
     /// </remarks>
+    /// <remarks>
+    /// Runs before every other mouse reader, and that ordering is load-bearing rather than tidy.
+    /// A press that grabs a port and a press that places a gate are the same press: BeginDrag has to
+    /// have claimed the pointer *within this frame* before PlacementController asks the gate whether
+    /// it may act. Left to Unity's undefined component order, the fix would work on some runs and
+    /// not others -- the worst possible shape for an input bug.
+    /// </remarks>
+    [DefaultExecutionOrder(-100)]
     public sealed class WiringController : MonoBehaviour
     {
         [SerializeField] private LevelSession _session;
@@ -29,6 +37,9 @@ namespace BitSorter.View
         [SerializeField] private Color _previewNeutral = new Color(0.70f, 0.72f, 0.80f, 0.85f);
         [SerializeField] private Color _previewValid = new Color(0.40f, 0.90f, 0.50f, 0.95f);
         [SerializeField] private Color _previewInvalid = new Color(0.95f, 0.40f, 0.36f, 0.95f);
+
+        [Tooltip("Asked before a drag may begin, so a press on a canvas widget starts no wire.")]
+        [SerializeField] private PointerGate _pointer;
 
         private LineRenderer _preview;
         private PortAddress _dragFrom = PortAddress.None;
@@ -45,6 +56,9 @@ namespace BitSorter.View
 
             if (_camera == null)
                 _camera = Camera.main;
+
+            if (_pointer == null)
+                _pointer = FindFirstObjectByType<PointerGate>();
 
             CreatePreview();
         }
@@ -111,6 +125,11 @@ namespace BitSorter.View
 
         private void BeginDrag(Vector2 world)
         {
+            // Only the start is gated. Once a drag is under way this controller *is* the owner, so
+            // asking again mid-drag would have it refuse its own interaction.
+            if (_pointer != null && !_pointer.MayAct(PointerUser.Wiring))
+                return;
+
             PortAddress port = FindPort(world);
             if (!port.IsValid)
                 return;
