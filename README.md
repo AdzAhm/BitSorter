@@ -1,100 +1,164 @@
 # BitSorter
 
-A puzzle game about building digital circuits, where bits are physical
-objects that fall through gates. Built in Unity as a way of working
-through a computer engineering digital systems course from the inside.
+Bits fall through logic. Sort them.
 
-**Status:** simulation core complete and tested (38 tests). Unity view
-layer not yet started — there is nothing on screen yet.
+A puzzle game about building digital circuits. Sources emit a stream of 0s and
+1s, bins want particular values, and you have a box of gates. Wire them together
+so every bin gets what it asked for.
 
-## The idea
+Nine levels, from routing a single bit to building a full adder. Built in Unity
+as a way of working through a computer engineering digital systems course from
+the inside.
 
-Bits (0 and 1) drop from spouts at the top of the board. The player
-places gates, wires and delay elements to route and transform them so
-they land in the correct bins. Each level is specified by a truth table
-or timing requirement.
+---
 
-Levels follow a digital systems syllabus: routing and propagation
-delay, single gates, NAND-only construction, half and full adders,
-multiplexers, registers, counters, and finally a small datapath.
+## Playing
 
-## Why it's not a physics game
+Unzip the build anywhere and run `BitSorter.exe`. Nothing is installed and
+nothing is written outside your own user folder.
 
-The obvious implementation is Rigidbody2D marbles bouncing off ramps.
-That fails: floating-point variation means the same circuit can produce
-different results on different runs, so a correct solution can fail and
-levels cannot be validated automatically.
+Windows will probably warn that it does not recognise the publisher — the build
+is unsigned, which is all that warning means. "More info", then "Run anyway".
 
-Instead the game is a deterministic tick-based simulator, and Unity is
-only a view. Bits are tokens on a graph, not rigid bodies. The physics
-look — bouncing, sparks, squash and stretch — is animation driven by
-simulation state, and never feeds back into it.
+### Two rules explain almost everything
 
-## Architecture
+**A gate fires when all of its inputs are full, and consumes them.** It cannot
+fire on one input and wait for the other. Whatever arrives first sits in the port
+until its partner turns up.
 
-    Assets/Scripts/LogicCore/   pure C#, no UnityEngine reference
-    Assets/Tests/EditMode/      NUnit tests against LogicCore
-    Assets/Scripts/View/        Unity rendering (not yet built)
+**Every wire takes at least one tick.** A longer path costs more ticks, so two
+paths into the same gate can arrive at different times.
 
-`LogicCore` is compiled as its own assembly with
-`noEngineReferences: true`, so a stray `using UnityEngine;` fails to
-compile rather than silently coupling the simulator to the engine. It
-also builds and passes its full test suite in a plain NUnit project
-with no Unity assemblies present.
+Put those together and you get the mistake the middle levels are built around. If
+one input to a gate arrives a tick before the other, the early bit waits in its
+port — and the *next* bit down that wire arrives to find it still there. They
+collide, and both are destroyed.
 
-State flows LogicCore → View only.
+A red scorch mark appears on the port where that happened. It is the most useful
+thing on the screen: it names the junction whose paths are unbalanced. Fix it by
+making both paths take the same number of ticks, either by routing differently or
+by scrolling a wire to lengthen it.
 
-## Simulation model
+An unbalanced circuit does not run slower. It loses bits.
 
-Time is an integer tick. Each `Tick()` runs three phases in a fixed
-order: advance bits in transit, deliver arrivals into input ports,
-evaluate nodes.
+### Controls
+
+| Action | Effect |
+| --- | --- |
+| Click a gate in the palette, then click the board | Place it |
+| Drag from one port to another | Wire them |
+| Right click | Delete a gate or a wire |
+| Scroll on a wire | Change its delay |
+| `Enter`, or the RUN button | Run |
+| `R` | Reset the board back to editing |
+| `Shift`+`R` | Clear everything you built |
+| `Space` | Pause a run |
+| `→` while paused | Step one tick |
+| `H`, or the `!` button | This level's truth table and a hint |
+| `Esc` | Level list |
+| `M` | Main menu |
+| `Q` / `E` | Previous / next level |
+| `F3` | Diagnostics |
+
+### Your progress
+
+Solved levels, the circuits you built, and your best gate count and tick count
+per level save automatically to:
+
+```text
+%USERPROFILE%\AppData\LocalLow\Ahmad\BitSorter\progress.json
+```
+
+Delete that file to start over. Nothing is uploaded, and nothing is compared
+against anyone else — every number the game shows is about the circuit in front
+of you, or the one you built last time.
+
+---
+
+## Developing
+
+Unity 6.3 LTS (6000.3.11f1).
+
+- **BitSorter → Build Windows Player** writes a player to `Build/Windows/`.
+- **BitSorter → Build Play Scene** regenerates the play scene from code. The
+  scene is generated rather than authored, so anything added by hand is discarded
+  the next time that runs.
+- Tests: Window → General → Test Runner → EditMode → Run All. 425 at present.
+
+### Why it isn't a physics game
+
+The obvious implementation is Rigidbody2D marbles bouncing off ramps. That fails:
+floating-point variation means the same circuit can produce different results on
+different runs, so a correct solution can fail and levels cannot be validated
+automatically.
+
+Instead the game is a deterministic tick-based simulator, and Unity is only a
+view. Bits are tokens on a graph, not rigid bodies. The physical look — sparks,
+bloom, debris — is animation driven by simulation state, and never feeds back
+into it.
+
+### Architecture
+
+```text
+Assets/Scripts/LogicCore/   pure C#, no UnityEngine reference
+Assets/Scripts/View/        Unity rendering, input and interface
+Assets/Resources/Levels/    one JSON file per level
+Assets/Tests/EditMode/      NUnit tests
+```
+
+`LogicCore` is its own assembly with `noEngineReferences: true`, so a stray
+`using UnityEngine;` fails to compile rather than silently coupling the simulator
+to the engine.
+
+State flows LogicCore → View only. The view never mutates the simulation.
+
+The interface is a Canvas built in code, for the same reason the scene is: an
+authored hierarchy would be dozens of RectTransforms for the builder to reproduce
+and get subtly wrong. Sprites and sound are both generated at runtime, so there
+are no art or audio files and no licences.
+
+### Simulation model
+
+Time is an integer tick. Each `Tick()` runs three phases in a fixed order:
+advance bits in transit, deliver arrivals into input ports, evaluate nodes.
 
 - An input port holds at most one bit (`Bit?`, where null is empty).
-- A node evaluates only when **all** its input ports are filled, then
-  consumes them. This is what makes two-input gates work with serially
-  arriving bits, and it makes timing part of the puzzle.
-- Every edge has an integer delay of at least 1. Zero-delay edges are
-  rejected at construction because they would force node evaluation
-  into topological order.
-- **Node evaluation order within a tick cannot affect the result.**
-  This is a tested invariant: the same graph built with nodes and edges
-  registered in reverse order produces identical output.
-- A bit delivered to an occupied port is a collision. Matching values
-  destroy the arrival; differing values destroy both and poison the
-  port for the rest of that delivery phase, so no ordering leaves a
-  survivor. `CorruptedCount` counts destroyed bits, not events.
+- A node evaluates only when **all** its input ports are filled, then consumes
+  them. That is what makes two-input gates work with serially arriving bits, and
+  it makes timing part of the puzzle.
+- Every edge has an integer delay of at least 1. Zero-delay edges are rejected at
+  construction because they would force node evaluation into topological order.
+- **Node evaluation order within a tick cannot affect the result.** This is a
+  tested invariant: the same graph built with nodes and edges registered in
+  reverse order produces identical output.
+- A bit delivered to an occupied port is a collision. Matching values destroy the
+  arrival; differing values destroy both and poison the port for the rest of that
+  delivery phase, so no ordering leaves a survivor. `CorruptedCount` counts
+  destroyed bits, not events, and `CorruptionSites` says which ports they were
+  destroyed at.
 
-### The consequence that shapes the game
+#### The consequence that shapes the game
 
-Because delay is real and ports latch, a circuit with a correct truth
-table can still fail if its paths are unbalanced. A second-stage gate
-receiving its two inputs on different ticks holds the first, waits, and
-corrupts when the next bit arrives. The failure is corruption, not a
-wrong answer.
+Because delay is real and ports latch, a circuit with a correct truth table can
+still fail if its paths are unbalanced. A second-stage gate receiving its inputs
+on different ticks holds the first, waits, and corrupts when the next arrives.
+The failure is corruption, not a wrong answer.
 
-That is the same problem timing closure solves in real hardware, and it
-is the intended difficulty of the adder chapters.
+That is the same problem timing closure solves in real hardware, and it is the
+intended difficulty of the adder chapters.
 
-## Running the tests
+There is also no backpressure — a source has no inputs, so it emits every tick
+regardless of what is stalled downstream. This is why throughput is not scored:
+a balanced circuit sustains exactly one vector per tick whatever its depth, and
+an unbalanced one fails outright, so there is nothing in between to rank.
 
-Open the project in Unity 6, then Window → General → Test Runner →
-EditMode → Run All.
+### Not built
 
-## Built so far
+- `RegisterNode` for sequential logic. Memory cannot emerge from gate feedback
+  under consume semantics — a cross-coupled NOR latch deadlocks at startup and
+  stalls after one firing — so registers have to be a primitive rather than
+  something the player builds. A deliberate decision, not an oversight.
+- Anything that ranks a player against other people or an authored ideal. Star
+  ratings, par scores and leaderboards are out by design.
 
-- Simulation, nodes, ports, edges, tick loop
-- Source, sink and pass-through nodes
-- NOT, AND, OR, XOR, NAND, NOR
-- Half adder, built by wiring rather than as a component
-- 38 Edit Mode tests
-
-## Not yet built
-
-- Unity view layer, art, and input
-- `RegisterNode` for sequential logic. Memory cannot emerge from gate
-  feedback under consume semantics — a cross-coupled NOR latch fires
-  once and stalls — so registers are a primitive rather than something
-  the player builds. Recorded as a deliberate decision, not an
-  oversight.
-- Level format, scoring, campaign
+`CLAUDE.md` carries the full set of decisions and the reasoning behind them.

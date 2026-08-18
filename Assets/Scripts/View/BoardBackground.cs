@@ -17,6 +17,9 @@ namespace BitSorter.View
         [SerializeField] private Color _tint = new Color(1f, 1f, 1f, 1f);
         [SerializeField] private float _padding = 2f;
 
+        private SpriteRenderer _renderer;
+        private Vector2 _size;
+
         private void Start()
         {
             if (_camera == null)
@@ -33,7 +36,28 @@ namespace BitSorter.View
             renderer.color = _tint;
             renderer.sortingOrder = -10;   // behind the grid dots, which sit at -2
 
-            renderer.size = ViewSize();
+            _renderer = renderer;
+            _size = ViewSize();
+            renderer.size = _size;
+        }
+
+        /// <summary>
+        /// Re-tiles when the view changes shape, which it now does: <see cref="CameraFit"/> zooms
+        /// out on a narrow window, and a backdrop sized once at startup would leave bare space
+        /// around the board.
+        /// </summary>
+        private void LateUpdate()
+        {
+            if (_renderer == null)
+                return;
+
+            Vector2 wanted = ViewSize();
+
+            if ((wanted - _size).sqrMagnitude < 0.0001f)
+                return;
+
+            _size = wanted;
+            _renderer.size = wanted;
         }
 
         private Vector2 ViewSize()

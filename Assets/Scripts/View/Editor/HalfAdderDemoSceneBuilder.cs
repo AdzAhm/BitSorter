@@ -107,6 +107,11 @@ namespace BitSorter.View.EditorTools
             GameAudio audio = host.AddComponent<GameAudio>();
 
             Assign(board, "_camera", camera);
+
+            // Added here rather than in CreateCamera because the grid it measures does not exist
+            // yet at that point.
+            CameraFit fit = camera.gameObject.AddComponent<CameraFit>();
+            Assign(fit, "_grid", grid);
             Assign(bits, "_sparks", sparks);
             Assign(scorch, "_runner", runner);
             Assign(ports, "_runner", runner);
@@ -239,6 +244,8 @@ namespace BitSorter.View.EditorTools
 
             var camera = cameraObject.AddComponent<Camera>();
             camera.orthographic = true;
+            // The framing the board was designed at. CameraFit treats this as a floor and zooms out
+            // on anything narrower, so it is no longer the only shape the game is playable at.
             camera.orthographicSize = 5.5f;   // shows roughly x -9..9 at 16:9
             camera.clearFlags = CameraClearFlags.SolidColor;
             camera.backgroundColor = new Color(0.09f, 0.10f, 0.13f);
