@@ -61,7 +61,7 @@ namespace BitSorter.LogicCore.Tests
         [Test]
         public void APaletteDrag_TakesTheBoardFromEveryoneElse()
         {
-            _gate.PaletteDragging = true;
+            _gate.BeginPaletteDrag(_host);
 
             Assert.AreEqual(PointerOwner.Palette, _gate.Owner);
 
@@ -78,14 +78,61 @@ namespace BitSorter.LogicCore.Tests
         {
             // The release path, at the component level. A palette drag that ended without handing
             // the board back would look exactly like the game having crashed.
-            _gate.PaletteDragging = true;
+            _gate.BeginPaletteDrag(_host);
             Assert.AreNotEqual(PointerOwner.None, _gate.Owner);
 
-            _gate.PaletteDragging = false;
+            _gate.EndPaletteDrag(_host);
 
             Assert.AreEqual(PointerOwner.None, _gate.Owner);
             Assert.IsTrue(_gate.MayAct(PointerUser.Placement), "placement should work again");
             Assert.IsTrue(_gate.MayAct(PointerUser.WireDelay), "and so should re-timing");
+        }
+
+        [Test]
+        public void DestroyingTheDragger_ReleasesThePointerByItself()
+        {
+            // The case that has no OnEndDrag to rely on. GatePaletteView destroys every row when the
+            // level changes, so switching level mid-drag tears the dragging object out from under the
+            // interaction -- and a stored flag would stay true forever, disabling the whole board with
+            // no error and nothing the player could do.
+            var dragger = new GameObject("palette row");
+            _gate.BeginPaletteDrag(dragger);
+
+            Assert.AreEqual(PointerOwner.Palette, _gate.Owner, "sanity: the drag is under way");
+
+            Object.DestroyImmediate(dragger);
+
+            Assert.AreEqual(PointerOwner.None, _gate.Owner,
+                "a destroyed dragger must not keep owning the pointer");
+            Assert.IsTrue(_gate.MayAct(PointerUser.Placement));
+        }
+
+        [Test]
+        public void AStaleEndOfDrag_CannotCancelANewerOne()
+        {
+            // Ownership is checked on release. Without that, a late OnEndDrag from a row that has
+            // already finished would hand the pointer away in the middle of someone else's drag.
+            var first = new GameObject("first row");
+            var second = new GameObject("second row");
+
+            try
+            {
+                _gate.BeginPaletteDrag(first);
+                _gate.BeginPaletteDrag(second);
+
+                _gate.EndPaletteDrag(first);
+
+                Assert.AreEqual(PointerOwner.Palette, _gate.Owner,
+                    "the second drag is still going and must keep the pointer");
+
+                _gate.EndPaletteDrag(second);
+                Assert.AreEqual(PointerOwner.None, _gate.Owner);
+            }
+            finally
+            {
+                Object.DestroyImmediate(first);
+                Object.DestroyImmediate(second);
+            }
         }
 
         [Test]
@@ -95,7 +142,9 @@ namespace BitSorter.LogicCore.Tests
             // current owner is what the gate must answer, for every consumer.
             foreach (bool palette in new[] { false, true })
             {
-                _gate.PaletteDragging = palette;
+                if (palette) _gate.BeginPaletteDrag(_host);
+                else _gate.EndPaletteDrag(_host);
+
                 PointerOwner owner = _gate.Owner;
 
                 foreach (PointerUser user in new[]

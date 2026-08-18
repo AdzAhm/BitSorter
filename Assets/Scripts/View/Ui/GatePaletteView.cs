@@ -35,6 +35,12 @@ namespace BitSorter.View
         [Tooltip("Canvas the palette is built under. Found by type when left empty.")]
         [SerializeField] private Canvas _canvas;
 
+        [Tooltip("Handed to each row so a drag out of the menu owns the pointer.")]
+        [SerializeField] private PointerGate _pointer;
+
+        [SerializeField] private PlacementGrid _grid;
+        [SerializeField] private Camera _camera;
+
         private readonly List<Row> _rows = new List<Row>();
         private RectTransform _root;
 
@@ -43,6 +49,9 @@ namespace BitSorter.View
             if (_session == null) _session = FindFirstObjectByType<LevelSession>();
             if (_placement == null) _placement = FindFirstObjectByType<PlacementController>();
             if (_canvas == null) _canvas = FindFirstObjectByType<Canvas>();
+            if (_pointer == null) _pointer = FindFirstObjectByType<PointerGate>();
+            if (_grid == null) _grid = FindFirstObjectByType<PlacementGrid>();
+            if (_camera == null) _camera = Camera.main;
         }
 
         // OnEnable, not Start: the first level is loaded during LevelSession's own Start, and Unity
@@ -134,6 +143,11 @@ namespace BitSorter.View
 
             GateKind kind = entry.Kind;
             row.Button.onClick.AddListener(() => Choose(kind));
+
+            // Dragging and clicking coexist: Unity only raises the drag handlers once the pointer has
+            // moved past the drag threshold, so a press that stays put is still a click.
+            var drag = row.Button.gameObject.AddComponent<PaletteDragSource>();
+            drag.Configure(kind, _session, _pointer, _grid, _camera, _canvas);
 
             return row;
         }

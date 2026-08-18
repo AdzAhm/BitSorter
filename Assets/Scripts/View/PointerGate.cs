@@ -23,11 +23,36 @@ namespace BitSorter.View
         [Tooltip("Consulted so a wire drag owns the pointer for its whole duration.")]
         [SerializeField] private WiringController _wiring;
 
+        /// <summary>Whoever is currently dragging a gate out of the palette, or null.</summary>
+        private Object _paletteDragOwner;
+
         /// <summary>
-        /// Set by the palette while a gate is being dragged out of it. A plain property rather than
-        /// a poll, because the palette is the only thing that knows, and it knows exactly.
+        /// Whether a gate is being dragged out of the palette.
         /// </summary>
-        public bool PaletteDragging { get; set; }
+        /// <remarks>
+        /// Derived from whether the dragging object still exists, rather than from a flag someone
+        /// remembered to clear. That is not fussiness: <see cref="GatePaletteView"/> destroys every
+        /// row when the level changes, so a drag interrupted by a level switch never receives its
+        /// OnEndDrag and a stored flag would stay true forever -- silently disabling the whole board
+        /// with no error.
+        ///
+        /// Unity's overloaded null check reports a destroyed object as null, so the row being torn
+        /// out from under the drag releases the pointer by itself.
+        /// </remarks>
+        public bool PaletteDragging => _paletteDragOwner != null;
+
+        /// <summary>Claims the pointer for a palette drag.</summary>
+        public void BeginPaletteDrag(Object owner) => _paletteDragOwner = owner;
+
+        /// <summary>
+        /// Releases a palette drag. Ignores a release from anyone but the current owner, so a stale
+        /// end-of-drag cannot cancel a newer one.
+        /// </summary>
+        public void EndPaletteDrag(Object owner)
+        {
+            if (_paletteDragOwner == owner)
+                _paletteDragOwner = null;
+        }
 
         /// <summary>Whether a wire is mid-drag. False when no wiring controller is wired up.</summary>
         public bool WiringDragging => _wiring != null && _wiring.IsDragging;

@@ -144,6 +144,9 @@ namespace BitSorter.View.EditorTools
             Assign(palette, "_session", session);
             Assign(palette, "_placement", placement);
             Assign(palette, "_canvas", canvas);
+            Assign(palette, "_pointer", pointer);
+            Assign(palette, "_grid", grid);
+            Assign(palette, "_camera", camera);
 
             Assign(runControls, "_session", session);
             Assign(runControls, "_runner", runner);
