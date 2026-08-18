@@ -49,6 +49,44 @@ namespace BitSorter.View
             CreatePreview();
         }
 
+        // Attached in OnEnable, not Start: LevelSession loads its first level during its own Start,
+        // and Unity has run every OnEnable by then but not every Start.
+        private void OnEnable()
+        {
+            if (_session != null)
+                _session.LevelLoaded += OnLevelLoaded;
+        }
+
+        private void OnDisable()
+        {
+            if (_session != null)
+                _session.LevelLoaded -= OnLevelLoaded;
+        }
+
+        /// <summary>
+        /// Drops a drag in flight, leaving nothing half-held.
+        /// </summary>
+        /// <remarks>
+        /// The escape hatch for the one stuck state this component can reach. A drag released over
+        /// the board, over nothing, or off the edge all end through <see cref="EndDrag"/>, which
+        /// clears the port before it does anything else -- but a level switch mid-drag never reaches
+        /// that path, and would leave <see cref="IsDragging"/> true against a graph that has since
+        /// been thrown away. Everything downstream reads IsDragging to decide whether the pointer is
+        /// spoken for, so a stuck one disables the board silently.
+        ///
+        /// Safe to call at any time, including when nothing is being dragged.
+        /// </remarks>
+        public void CancelDrag()
+        {
+            _dragFrom = PortAddress.None;
+
+            // Null while the component has not run Awake, which is the case in Edit Mode tests.
+            if (_preview != null)
+                _preview.enabled = false;
+        }
+
+        private void OnLevelLoaded(LevelDefinition level) => CancelDrag();
+
         private void Update()
         {
             Mouse mouse = Mouse.current;
