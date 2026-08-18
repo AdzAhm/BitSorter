@@ -65,7 +65,7 @@ namespace BitSorter.View.EditorTools
 
             Camera camera = CreateCamera();
             CreateBloomVolume();
-            CreateUi();
+            Canvas canvas = CreateUi();
 
             var host = new GameObject("Simulation");
 
@@ -86,6 +86,12 @@ namespace BitSorter.View.EditorTools
             SparkEffects sparks = host.AddComponent<SparkEffects>();
             BoardBackground board = host.AddComponent<BoardBackground>();
             PointerGate pointer = host.AddComponent<PointerGate>();
+
+            // The interface builds its own hierarchy under the canvas at runtime, the same way the
+            // grid builds its dots. Only the component and its references live in the scene.
+            GatePaletteView palette = host.AddComponent<GatePaletteView>();
+            RunControls runControls = host.AddComponent<RunControls>();
+            StatusBanner banner = host.AddComponent<StatusBanner>();
 
             Assign(board, "_camera", camera);
             Assign(bits, "_sparks", sparks);
@@ -130,6 +136,18 @@ namespace BitSorter.View.EditorTools
             Assign(hud, "_runner", runner);
             Assign(hud, "_session", session);
             Assign(hud, "_placement", placement);
+
+            Assign(palette, "_session", session);
+            Assign(palette, "_placement", placement);
+            Assign(palette, "_canvas", canvas);
+
+            Assign(runControls, "_session", session);
+            Assign(runControls, "_runner", runner);
+            Assign(runControls, "_canvas", canvas);
+
+            Assign(banner, "_session", session);
+            Assign(banner, "_runner", runner);
+            Assign(banner, "_canvas", canvas);
 
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene, ScenePath);
@@ -201,7 +219,7 @@ namespace BitSorter.View.EditorTools
         /// new Input System exclusively (activeInputHandler 1), so the legacy StandaloneInputModule
         /// would compile, sit in the scene, and quietly deliver no events at all.
         /// </remarks>
-        private static void CreateUi()
+        private static Canvas CreateUi()
         {
             var canvasObject = new GameObject("Game UI");
 
@@ -223,6 +241,8 @@ namespace BitSorter.View.EditorTools
             var eventSystemObject = new GameObject("Event System");
             eventSystemObject.AddComponent<EventSystem>();
             eventSystemObject.AddComponent<InputSystemUIInputModule>();
+
+            return canvas;
         }
 
         /// <summary>

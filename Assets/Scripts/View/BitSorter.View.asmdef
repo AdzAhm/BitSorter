@@ -3,7 +3,9 @@
     "rootNamespace": "BitSorter.View",
     "references": [
         "BitSorter.LogicCore",
-        "Unity.InputSystem"
+        "Unity.InputSystem",
+        "UnityEngine.UI",
+        "Unity.TextMeshPro"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

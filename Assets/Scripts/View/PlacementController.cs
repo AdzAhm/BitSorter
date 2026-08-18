@@ -121,18 +121,28 @@ namespace BitSorter.View
             _session.TryDeleteWireAt(world);
         }
 
-        private void ReadPalette(Keyboard keyboard)
+        /// <summary>
+        /// Selects a palette entry, refusing a kind the level does not stock. Returns whether the
+        /// selection changed anything.
+        /// </summary>
+        /// <remarks>
+        /// The one way in for both the number keys and the palette buttons, so the two cannot drift
+        /// apart -- a button that bypassed the Offers check would advertise a part the player does
+        /// not have and refuse every click that followed.
+        /// </remarks>
+        public bool TrySelect(GateKind kind)
         {
-            if (!TryReadKind(keyboard, out GateKind kind))
-                return;
-
-            // A key for a gate the level does not stock is ignored rather than obeyed. Selecting it
-            // could only lead to a refusal at the next click, and it would leave the HUD advertising
-            // a part the player does not have.
             if (_session != null && _session.Level != null && !_session.Level.Offers(kind))
-                return;
+                return false;
 
             Selected = kind;
+            return true;
+        }
+
+        private void ReadPalette(Keyboard keyboard)
+        {
+            if (TryReadKind(keyboard, out GateKind kind))
+                TrySelect(kind);
         }
 
         private static bool TryReadKind(Keyboard keyboard, out GateKind kind)

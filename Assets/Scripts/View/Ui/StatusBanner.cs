@@ -1,0 +1,150 @@
+using UnityEngine;
+using UnityEngine.UI;
+using TMPro;
+
+namespace BitSorter.View
+{
+    /// <summary>
+    /// The level's name, what it is asking for, and how the last run went.
+    /// </summary>
+    /// <remarks>
+    /// Goal and hint are separate lines because they are separate things, and keeping them apart is
+    /// what stopped hints drifting into stating their own answers -- see
+    /// <see cref="LevelDefinition.Goal"/>. The goal is the brief and is always readable; the hint is
+    /// a nudge and is deliberately quieter.
+    ///
+    /// Everything here is polled. Every renderer in this project polls rather than subscribing, and
+    /// a banner that subscribed would need to hear about run state, verdicts and refusals from three
+    /// different places.
+    /// </remarks>
+    public sealed class StatusBanner : MonoBehaviour
+    {
+        [SerializeField] private LevelSession _session;
+        [SerializeField] private SimulationRunner _runner;
+
+        [Tooltip("Canvas the banner is built under. Found by type when left empty.")]
+        [SerializeField] private Canvas _canvas;
+
+        [Tooltip("Seconds a refusal stays on screen.")]
+        [SerializeField] private float _rejectionSeconds = 2f;
+
+        private TextMeshProUGUI _title;
+        private TextMeshProUGUI _goal;
+        private TextMeshProUGUI _hint;
+        private TextMeshProUGUI _verdict;
+        private Image _toastBackground;
+        private TextMeshProUGUI _toast;
+
+        private void Awake()
+        {
+            if (_session == null) _session = FindFirstObjectByType<LevelSession>();
+            if (_runner == null) _runner = FindFirstObjectByType<SimulationRunner>();
+            if (_canvas == null) _canvas = FindFirstObjectByType<Canvas>();
+        }
+
+        private void Start()
+        {
+            if (_canvas == null)
+                return;
+
+            Image panel = UiTheme.Panel_("Status", _canvas.transform, UiTheme.Panel);
+            var root = panel.GetComponent<RectTransform>();
+            UiTheme.Anchor(root, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
+                new Vector2(0f, -UiTheme.Margin), new Vector2(720f, 104f));
+
+            panel.raycastTarget = false;   // the banner is a readout, never a click target
+
+            _title = UiTheme.Label("title", root, 22f, UiTheme.Text, TextAlignmentOptions.Center);
+            UiTheme.Anchor(_title.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
+                new Vector2(0f, -10f), new Vector2(700f, 28f));
+
+            _goal = UiTheme.Label("goal", root, 16f, UiTheme.Accent, TextAlignmentOptions.Center);
+            UiTheme.Anchor(_goal.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
+                new Vector2(0f, -40f), new Vector2(700f, 24f));
+            _goal.textWrappingMode = TextWrappingModes.Normal;
+
+            _hint = UiTheme.Label("hint", root, 13f, UiTheme.TextDim, TextAlignmentOptions.Center);
+            UiTheme.Anchor(_hint.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
+                new Vector2(0f, -68f), new Vector2(700f, 22f));
+
+            _verdict = UiTheme.Label("verdict", root, 16f, UiTheme.Text, TextAlignmentOptions.Center);
+            UiTheme.Anchor(_verdict.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 1f),
+                new Vector2(0f, -6f), new Vector2(700f, 24f));
+
+            _toastBackground = UiTheme.Panel_("Toast", _canvas.transform, UiTheme.Bad * 0.5f);
+            var toastRect = _toastBackground.GetComponent<RectTransform>();
+            UiTheme.Anchor(toastRect, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
+                new Vector2(0f, UiTheme.Margin + UiTheme.ButtonHeight + UiTheme.Gap),
+                new Vector2(460f, 34f));
+            _toastBackground.raycastTarget = false;
+
+            _toast = UiTheme.Label("toast text", toastRect, 14f, UiTheme.Text, TextAlignmentOptions.Center);
+            UiTheme.Stretch(_toast.rectTransform, 6f);
+        }
+
+        private void Update()
+        {
+            if (_session == null || _title == null)
+                return;
+
+            if (!_session.IsLoaded)
+            {
+                _title.text = "LEVEL DID NOT LOAD";
+                _title.color = UiTheme.Bad;
+                _goal.text = _session.LoadError ?? string.Empty;
+                _hint.text = string.Empty;
+                _verdict.text = string.Empty;
+                ShowToast(false);
+                return;
+            }
+
+            LevelDefinition level = _session.Level;
+
+            _title.color = UiTheme.Text;
+            _title.text = level.Name.ToUpperInvariant();
+            _goal.text = level.Goal;
+
+            // The hint steps aside once the run is over: at that point the verdict is the thing to
+            // read, and two lines of advice under it just competes for attention.
+            bool editing = _session.State == RunState.Editing;
+            _hint.text = editing ? level.Hint : string.Empty;
+
+            ShowVerdict();
+            ShowToast(_runner != null && _runner.WasRecentlyRejected(_rejectionSeconds));
+
+            if (_toast != null && _runner != null)
+                _toast.text = _runner.LastRejectionReason ?? string.Empty;
+        }
+
+        private void ShowVerdict()
+        {
+            switch (_session.State)
+            {
+                case RunState.Passed:
+                    _verdict.color = UiTheme.Good;
+                    _verdict.text = "PASS -- " + _session.Verdict.Reason;
+                    break;
+
+                case RunState.Failed:
+                    _verdict.color = UiTheme.Bad;
+                    _verdict.text = "FAIL -- " + _session.Verdict.Reason;
+                    break;
+
+                case RunState.Running:
+                    _verdict.color = UiTheme.TextDim;
+                    _verdict.text = _runner != null && _runner.IsPaused ? "RUNNING (paused)" : "RUNNING";
+                    break;
+
+                default:
+                    _verdict.text = string.Empty;
+                    break;
+            }
+        }
+
+        private void ShowToast(bool visible)
+        {
+            if (_toastBackground != null && _toastBackground.gameObject.activeSelf != visible)
+                _toastBackground.gameObject.SetActive(visible);
+        }
+    }
+}
