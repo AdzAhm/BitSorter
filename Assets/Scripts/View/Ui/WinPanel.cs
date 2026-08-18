@@ -87,7 +87,9 @@ namespace BitSorter.View
 
             if (now != _state)
             {
-                if (now == RunState.Passed)
+                // The last level with everything else already solved belongs to EndingPanel. The
+                // condition lives there so the two cannot disagree and show both or neither.
+                if (now == RunState.Passed && !EndingPanel.IsTheEnd(_session, _progress))
                     Present();
                 else if (_shown)
                     Show(false);   // reset or a new run takes the panel away
