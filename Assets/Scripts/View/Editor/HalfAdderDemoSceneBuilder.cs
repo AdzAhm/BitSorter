@@ -84,6 +84,7 @@ namespace BitSorter.View.EditorTools
             WireDelayController wireDelay = host.AddComponent<WireDelayController>();
             SparkEffects sparks = host.AddComponent<SparkEffects>();
             ScorchMarks scorch = host.AddComponent<ScorchMarks>();
+            GridPulse pulse = host.AddComponent<GridPulse>();
             BoardBackground board = host.AddComponent<BoardBackground>();
             PointerGate pointer = host.AddComponent<PointerGate>();
 
@@ -114,6 +115,9 @@ namespace BitSorter.View.EditorTools
             Assign(fit, "_grid", grid);
             Assign(bits, "_sparks", sparks);
             Assign(scorch, "_runner", runner);
+
+            Assign(pulse, "_grid", grid);
+            Assign(pulse, "_runner", runner);
             Assign(ports, "_runner", runner);
             Assign(ports, "_stubPrefab", bitPrefab);
             Assign(grid, "_dotPrefab", bitPrefab);
