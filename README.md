@@ -119,9 +119,39 @@ equivalent. Progress does not travel between the desktop build and a browser, an
 because it is keyed to the address, the two browser links above each keep their
 own.
 
-Nothing is uploaded, and nothing is compared against anyone else — every number
-the game shows is about the circuit in front of you, or the one you built last
-time.
+Your progress file itself is never uploaded. Nothing is compared against anyone
+else either — every number the game shows is about the circuit in front of you, or
+the one you built last time.
+
+### What it collects
+
+The game uses Unity Analytics, which sends anonymous usage data to Unity.
+
+Two events come from the game itself, and nothing else does:
+
+| Event | Sent when | Data |
+| --- | --- | --- |
+| `levelStarted` | A level is opened | `levelName`, the level's file name |
+| `levelSolved` | A level is solved | `levelName`, the level's file name |
+
+`levelName` is the identifier, like `half-adder` — not a display title and not
+anything you typed. The pair exists to answer one question: which level people
+stop at.
+
+Alongside those, Unity's SDK collects its own standard session data: a random
+installation identifier, session start and end, app version, platform and
+operating system, device model, language, and an approximate region derived from
+your IP address. That set is Unity's, not mine, and
+[Unity documents it](https://docs.unity.com/analytics/en/manual/UnityAnalyticsData).
+
+**What is never sent:** your progress file, the circuits you build, your gate or
+tick counts, your personal bests, or any account, name or email. There is no
+login, and the game asks for nothing.
+
+There is currently **no in-game opt-out**. Collection starts when the game does.
+If you would rather not send anything, the browser builds respect the usual
+tracker and script blocking, and the desktop build can be run with networking
+denied to it.
 
 ---
 

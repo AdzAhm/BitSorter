@@ -167,8 +167,17 @@ failure side.
 
 ## Not yet
 Do not build ahead of me. The logic core, the view layer, the level
-format, the nine levels, the canvas interface, sound, level select and
-saved progress are all in.
+format, the nine levels, the canvas interface, sound, level select,
+saved progress and analytics are all in.
+
+**Analytics is the one thing that sends data anywhere.** `GameAnalytics`
+reports exactly two events, `levelStarted` and `levelSolved`, each
+carrying the level's file name, to answer one question: which level
+people stop at. The README's "What it collects" section is the canonical
+list — do not restate it elsewhere. Nothing about the player's circuit,
+their bests or their progress file is ever sent, and a reporting failure
+must never interrupt play. Adding a third event, or a new parameter, is a
+change to what players were told is collected, so ask first.
 
 **The line is ranking, not measurement.** A number describing the player's
 own circuit is fine, including one kept between sessions: gate count and

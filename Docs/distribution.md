@@ -137,6 +137,41 @@ serving `.br` with the right `Content-Encoding` gives a faster start.
 
 ---
 
+## Analytics
+
+The game reports to Unity Analytics. **The README's "What it collects" section is
+the canonical list of what is sent** — this section covers only what publishing it
+requires.
+
+`GameAnalytics` initialises Unity Services and calls `StartDataCollection()`, then
+reports `levelStarted` and `levelSolved`. It hangs off
+`[RuntimeInitializeOnLoadMethod]` rather than a scene component, because
+`HalfAdderDemoSceneBuilder` owns scene contents and a component would mean
+regenerating and re-verifying the scene for something that needs no inspector
+fields. The game ships one scene, so the hook fires exactly once.
+
+Three things to know before trusting the numbers:
+
+- **Custom events must be registered in the Unity Cloud dashboard before they are
+  accepted.** Until `levelStarted` and `levelSolved` exist there, with a string
+  parameter named `levelName`, the service rejects them and the only sign is a
+  warning in the player log. The events being in the build is not enough.
+- **The project must stay linked.** Collection depends on the `cloudProjectId` in
+  `ProjectSettings.asset`. Unlinking the project silently stops reporting.
+- **There is no opt-out.** `StartDataCollection()` is called unconditionally at
+  startup, which treats launching the game as consent. That is worth revisiting
+  before showing this to anyone in a jurisdiction that disagrees, and it is why the
+  README says so plainly rather than burying it.
+
+Reporting failures never interrupt play. A missing project, a blocked request or a
+rejected event warns and is otherwise ignored, because nothing about analytics is
+worth costing a player their run.
+
+Storefronts ask about data collection. itch.io and Unity Play both have a field for
+it, and the answer is now yes rather than no.
+
+---
+
 ## itch.io
 
 **Upload:** zip the *contents* of `Build/WebGL/` — `index.html` must be at the top

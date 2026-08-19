@@ -1,3 +1,4 @@
+using System;
 using BitSorter.LogicCore;
 using UnityEngine;
 
@@ -35,6 +36,17 @@ namespace BitSorter.View
 
         /// <inheritdoc cref="BeatGateRecord"/>
         public bool BeatLatencyRecord { get; private set; }
+
+        /// <summary>
+        /// Raised with the level's file name each time a level is solved.
+        /// </summary>
+        /// <remarks>
+        /// Exists so anything else that cares about a solve does not have to re-derive it. Detecting
+        /// a solve means watching for the frame <see cref="LevelSession.State"/> becomes
+        /// <see cref="RunState.Passed"/>, and a second copy of that check is a second thing to drift.
+        /// Fires on every solve, including re-solves of a level already recorded.
+        /// </remarks>
+        public event Action<string> LevelSolved;
 
         private void Awake()
         {
@@ -156,6 +168,9 @@ namespace BitSorter.View
             // Saved immediately rather than at the next level switch. A player who solves something
             // and then closes the game has done the one thing most worth remembering.
             SaveBoard(level);
+
+            // Last, so a throwing subscriber cannot cost the player their record.
+            LevelSolved?.Invoke(level);
         }
 
         /// <summary>
