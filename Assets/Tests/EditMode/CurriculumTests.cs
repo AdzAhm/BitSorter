@@ -46,6 +46,50 @@ namespace BitSorter.LogicCore.Tests
         }
 
         // -----------------------------------------------------------------
+        // The run is the run
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// The nine levels, in the order they are meant to be played.
+        /// </summary>
+        /// <remarks>
+        /// Every other test in this class describes a property of whatever levels happen to exist:
+        /// they walk the set and check each one has a hint, a goal, an order after the tutorial. All
+        /// of that passes on eight levels. Delete a file and nothing here notices, because there was
+        /// nothing asserting the set itself -- which makes a missing level the one curriculum fault
+        /// the curriculum tests could not see.
+        ///
+        /// Written out rather than counted, because a count catches a deletion but not a rename or a
+        /// reordering, and the order is the curriculum. This failing is not a bug: it means somebody
+        /// changed the run, which is a deliberate act and should have to say so here.
+        /// </remarks>
+        [Test]
+        public void TheRun_IsTheNineLevelsInTheirTaughtOrder()
+        {
+            string[] expected =
+            {
+                "route-the-bit",
+                "the-long-way-round",
+                "balance-the-paths",
+                "four-corners",
+                "nothing-but-nand",
+                "the-slow-lane",
+                "pick-a-lane",
+                "half-adder",
+                "carry-the-one",
+            };
+
+            IReadOnlyList<KeyValuePair<string, LevelDefinition>> run = LevelsInPlayOrder();
+            var actual = new string[run.Count];
+
+            for (int i = 0; i < run.Count; i++)
+                actual[i] = run[i].Key;
+
+            Assert.AreEqual(expected, actual,
+                "the run has changed: a level was added, removed, renamed or reordered");
+        }
+
+        // -----------------------------------------------------------------
         // Teach a mechanic before requiring it
         // -----------------------------------------------------------------
 
