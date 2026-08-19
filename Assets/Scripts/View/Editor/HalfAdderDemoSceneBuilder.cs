@@ -103,6 +103,12 @@ namespace BitSorter.View.EditorTools
             SinkCelebration celebration = host.AddComponent<SinkCelebration>();
             MainMenu mainMenu = host.AddComponent<MainMenu>();
             EndingPanel ending = host.AddComponent<EndingPanel>();
+
+            // After levelSelect, and that is not arbitrary. Both read Escape in the same frame, and
+            // the level list only opens when nothing else is open -- so it has to look while the
+            // sandbox panel is still registered as open. Unity runs components on one GameObject in
+            // the order they were added, so moving this line above levelSelect would make one
+            // Escape close the sandbox and open the level list at once. See SandboxPanel.Update.
             SandboxPanel sandbox = host.AddComponent<SandboxPanel>();
             SinkReadout sinkReadout = host.AddComponent<SinkReadout>();
 
