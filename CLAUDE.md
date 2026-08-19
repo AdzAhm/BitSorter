@@ -128,6 +128,13 @@ failure side.
   same change. No component without a truth-table test.
 - After editing scripts, remind me to focus the Unity window so it
   recompiles, then run EditMode tests before we commit.
+- **`Editor.log` accumulates across sessions.** A warning found in it may
+  be from an old compile and describe code that has since changed, so
+  verify against a fresh compile before acting on one. Reading history as
+  present tense produced a sweep finding that two `GridPulse` fields were
+  dead when a later commit had started using them; deleting them would
+  have broken the grid pulse. Check the log position against the most
+  recent compile, or better, get the warning from a build you just ran.
 - After any change that builds or modifies the demo scene, verify the
   saved scene file itself — serialized references can be `{fileID: 0}`
   even when the setup code looks correct. A scene that opens fine on
