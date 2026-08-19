@@ -16,12 +16,26 @@ Nine levels, from routing a single bit to building a full adder. Built in Unity
 as a way of working through a computer engineering digital systems course from
 the inside.
 
+## Play it
+
+| Where | |
+| --- | --- |
+| **In a browser** | [Unity Play](https://play.unity.com/en/games/c22f4580-98a3-4fcd-a844-e9d731257c83/bitsorter), or [GitHub Pages](https://adzahm.github.io/BitSorter/) |
+| **Windows** | [Download the latest release](https://github.com/AdzAhm/BitSorter/releases/latest) — 37 MB zip |
+
+The two browser links are the same build, hosted twice so neither one going down
+takes the game with it. Nothing to install, and no account needed for either.
+
 ---
 
 ## Playing
 
-Unzip the build anywhere and run `BitSorter.exe`. Nothing is installed and
-nothing is written outside your own user folder.
+**In a browser**, use either link above. Progress is saved by the browser itself,
+so it survives a reload but is per-browser and per-device — and a private window
+or blocked third-party storage will make the game forget between sessions.
+
+**On Windows**, unzip the release anywhere and run `BitSorter.exe`. Nothing is
+installed and nothing is written outside your own user folder.
 
 Windows will probably warn that it does not recognise the publisher — the build
 is unsigned, which is all that warning means. "More info", then "Run anyway".
@@ -93,15 +107,19 @@ replaces it.
 ### Your progress
 
 Solved levels, the circuits you built, and your best gate count and tick count
-per level save automatically to:
+save automatically, per level. On Windows they go to a file:
 
 ```text
 %USERPROFILE%\AppData\LocalLow\[User]\BitSorter\progress.json
 ```
 
-Delete that file to start over. Nothing is uploaded, and nothing is compared
-against anyone else — every number the game shows is about the circuit in front
-of you, or the one you built last time.
+Delete that file to start over. In a browser the same data lives in the
+browser's own storage for that site instead, so clearing site data is the
+equivalent, and the two do not share progress.
+
+Nothing is uploaded, and nothing is compared against anyone else — every number
+the game shows is about the circuit in front of you, or the one you built last
+time.
 
 ---
 
@@ -111,8 +129,11 @@ Unity 6.3 LTS (6000.3.11f1).
 
 - **BitSorter → Build Windows Player** writes a player to `Build/Windows/`.
 - **BitSorter → Build WebGL Player** writes a browser build to `Build/WebGL/`.
-  See [Docs/distribution.md](Docs/distribution.md) for what differs in a browser
-  and what itch.io and Unity Play each need.
+  See [Docs/distribution.md](Docs/distribution.md) for what differs in a browser,
+  and what Pages, itch.io and Unity Play each need.
+- **BitSorter → Publish WebGL to GitHub Pages** force-pushes `Build/WebGL/` to the
+  `gh-pages` branch, via [Tools/publish-pages.ps1](Tools/publish-pages.ps1). The
+  script runs standalone too, and warns if the build is older than the scripts.
 - **BitSorter → Generate App Icon** redraws `Assets/Icon/BitSorterIcon.png` and
   assigns it to every standalone icon size.
 - **BitSorter → Build Play Scene** regenerates the play scene from code. The

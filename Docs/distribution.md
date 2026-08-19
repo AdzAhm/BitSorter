@@ -185,6 +185,91 @@ Unity Play enforces an upload size limit that has changed over time — check th
 current figure when you upload. For reference this build is around 14 MB of
 compressed payload, which is small by their standards.
 
+## GitHub Pages
+
+Live at <https://adzahm.github.io/BitSorter/>, served from the `gh-pages` branch.
+
+**Publish with BitSorter → Publish WebGL to GitHub Pages**, or run
+`Tools/publish-pages.ps1` directly. Build first; the script warns if anything under
+`Assets/` is newer than the build it is about to push, but it will not stop you.
+
+One-time setup, needed once before the URL resolves: **Settings → Pages → Source:
+Deploy from a branch → `gh-pages` / `(root)`**. Pushing the branch does not enable
+Pages by itself.
+
+**The repository has to be public first.** On the free plan GitHub Pages serves
+public repositories only; in a private one the Pages settings offer to make it
+public or to upgrade, and until then the branch sits there unserved. The same
+applies to release downloads, which are only reachable by accounts with access to
+the repository. Of the three links in the README, only Unity Play works from a
+private repo, because Unity hosts that build rather than GitHub.
+
+### The fallback is what makes this work
+
+Pages cannot send `Content-Encoding: br`, and there is no way to make it. It offers
+no custom-header configuration at all — `_headers` files are a Netlify and
+Cloudflare Pages feature, not GitHub's.
+
+That would normally be fatal to a Brotli build. It isn't here, because the
+extension tells you which mode the build is in:
+
+| Decompression fallback | Files named | Who decompresses |
+|---|---|---|
+| **On** (ours) | `.unityweb` | The loader, in JavaScript |
+| Off | `.br` | The server, via `Content-Encoding` |
+
+Ours are `.unityweb`. Pages serves them as `application/octet-stream` with no
+`Content-Encoding` header — it has no way to know the bytes are Brotli — and the
+loader recognises the stream and inflates it itself. Confirmed on the real files:
+they start `6b 8d 00 55`, so Brotli, since gzip would start `1f 8b`.
+
+**So the fallback must stay on for Pages.** Turn it off and the files become `.br`,
+Pages still won't send the header, and the loader aborts to a blank page with a
+console error. Unlike itch, there is no host setting that can rescue it.
+
+The subpath works without editing the generated HTML, which is the other thing that
+usually breaks a project Pages site. Unity emits `var buildUrl = "Build"` and
+`href="TemplateData/…"`, all relative with no leading slash, so being served from
+`/BitSorter/` rather than a domain root is fine.
+
+### Repo layout
+
+The site is the branch root — `index.html` at top level, `Build/` and
+`TemplateData/` beside it, exactly as Unity emits them, plus `.nojekyll`.
+
+`.nojekyll` is not strictly required for this file set, since nothing here starts
+with an underscore for Jekyll to skip. It disables the Jekyll step entirely, which
+removes a class of surprise and a little deploy time.
+
+**Do not use the `/docs` folder option instead.** Pages wants a folder named
+exactly `docs`, and this repo already has `Docs/`. Git would treat those as two
+paths; Windows cannot represent both at once, so the result is a repo that will not
+check out cleanly on the machine it was authored on.
+
+### Why it is force-pushed every time
+
+`gh-pages` is an orphan branch, rebuilt from nothing on each publish and
+force-pushed. A 14 MB WebGL build barely deltas against the previous one, so
+appending commits would add most of a build to the repository on every republish.
+Replacing the branch keeps it at one commit forever.
+
+The script assembles it with `git init` in a scratch repo under `%TEMP%`, not with
+`git clone`. A fresh repository's first commit has no parent, which is already what
+an orphan branch is — so there is no working tree to empty, `main`'s `/[Bb]uild/`
+ignore rule is not present to fight, and nothing runs `git rm` inside the project
+folder while Unity is watching it.
+
+It also sets `core.autocrlf false` in that scratch repo. This machine has
+`core.autocrlf=true` globally, which would rewrite line endings in `index.html` and
+`style.css` on commit. It happens to be a no-op because Unity emits LF, but a
+publish should push the bytes that were built rather than rely on that. The four
+compressed payloads were never at risk — git detects them as binary and leaves them
+alone, verified by hashing them against the branch after the first deploy.
+
+The commit message records which source the build came from, `+dirty` if the working
+tree had uncommitted changes at the time — worth knowing, since a WebGL build can
+easily contain code that is not in any commit.
+
 ---
 
 ## Desktop
@@ -202,3 +287,75 @@ the `_DoNotShip` folder Unity leaves behind, so the folder can go out as it is.
 The build is **unsigned**, so Windows SmartScreen warns that the publisher is not
 recognised. That is expected for an unsigned binary and is mentioned in the
 README, but tell testers directly or they will assume it is broken.
+
+---
+
+## GitHub Releases
+
+The Windows download in the README points at
+<https://github.com/AdzAhm/BitSorter/releases/latest>, which resolves to whichever
+release is marked latest. The link does not change when you publish a new one, so
+the README does not need editing per release — but it only resolves at all once a
+release exists and is marked latest.
+
+### The zip
+
+Zip `Build/Windows/` **inside a containing folder**, so unzipping produces one
+`BitSorter/` folder rather than 185 loose files in someone's Downloads:
+
+```text
+BitSorter-1.0.0-Windows.zip
+└── BitSorter/
+    ├── BitSorter.exe
+    ├── BitSorter_Data/
+    ├── MonoBleedingEdge/
+    ├── D3D12/
+    ├── UnityCrashHandler64.exe
+    └── UnityPlayer.dll
+```
+
+**This is the opposite of what itch.io wants**, above, where `index.html` has to be
+at the archive root with no containing folder. Same project, two archives, opposite
+rule. Around 37 MB compressed, from 100 MB on disk.
+
+`Build/` is gitignored, so the zip can sit next to the build without any risk of
+being committed.
+
+Check for a `_DoNotShip` folder before zipping. `WindowsBuild` deletes it, so it
+should not be there — but it carries IL2CPP symbols, and shipping it is the kind of
+mistake nobody notices until the download is twice the size it should be.
+
+### Cutting one
+
+A release is three things bolted together: **a tag** naming one commit forever,
+**notes**, and **attached files**. The tag is the part that gets skipped.
+
+```powershell
+git tag -a v1.0.0 -m "First release: nine levels, Windows and browser"
+git push origin v1.0.0
+```
+
+`-a` makes it annotated, so it stores an author and a date as a real object; a bare
+`git tag v1.0.0` is a bookmark with neither. Note that `git push` on its own does
+**not** push tags — the second line is required.
+
+Then **Releases → Draft a new release** on GitHub, choose the existing tag from the
+dropdown, paste the notes, drag the zip onto the attachment area, and publish.
+
+Two things to get right:
+
+- **Wait for the attachment to finish uploading.** The publish button stays live
+  while it is still going, and a release with no binary is a 404 for everyone who
+  followed the README.
+- **Leave "Set as the latest release" ticked.** That is what makes the README link
+  resolve.
+
+Avoid typing a new tag name into the release form. GitHub will create it on publish,
+but only on the remote, so your local repo does not have it until the next
+`git fetch --tags` — which is how local and remote tags quietly diverge.
+
+`gh release create` does the same job in one command if the GitHub CLI is ever
+installed. It is not, as of this writing.
+
+**What only you can provide:** the version number, the notes, and the decision that
+a given commit is worth releasing.
