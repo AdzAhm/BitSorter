@@ -110,12 +110,14 @@ Solved levels, the circuits you built, and your best gate count and tick count
 save automatically, per level. On Windows they go to a file:
 
 ```text
-%USERPROFILE%\AppData\LocalLow\[User]\BitSorter\progress.json
+%USERPROFILE%\AppData\LocalLow\ZADZ\BitSorter\progress.json
 ```
 
-Delete that file to start over. In a browser the same data lives in the
-browser's own storage for that site instead, so clearing site data is the
-equivalent, and the two do not share progress.
+Delete that file to start over. In a browser the same data lives in the browser's
+own storage for the address you played at, so clearing site data is the
+equivalent. Progress does not travel between the desktop build and a browser, and
+because it is keyed to the address, the two browser links above each keep their
+own.
 
 Nothing is uploaded, and nothing is compared against anyone else — every number
 the game shows is about the circuit in front of you, or the one you built last
