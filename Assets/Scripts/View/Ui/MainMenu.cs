@@ -33,6 +33,9 @@ namespace BitSorter.View
         private RectTransform _root;
         private TextMeshProUGUI _progressLine;
         private TextMeshProUGUI _continueLabel;
+        private TextMeshProUGUI _soundLabel;
+        private TextMeshProUGUI _nextLine;
+        private GameAudio _audio;
         private bool _shown;
 
         /// <summary>Whether the menu is covering the board.</summary>
@@ -43,6 +46,7 @@ namespace BitSorter.View
             if (_session == null) _session = FindFirstObjectByType<LevelSession>();
             if (_progress == null) _progress = FindFirstObjectByType<ProgressTracker>();
             if (_levels == null) _levels = FindFirstObjectByType<LevelSelectPanel>();
+            if (_audio == null) _audio = FindFirstObjectByType<GameAudio>();
             if (_canvas == null) _canvas = FindFirstObjectByType<Canvas>();
         }
 
@@ -99,19 +103,42 @@ namespace BitSorter.View
                 new Vector2(0f, 104f), new Vector2(700f, 26f));
             tagline.text = "bits fall through logic. sort them.";
 
-            Button resume = Item("Continue", 30f, out _continueLabel);
+            // A rule under the title. The menu was a title and three buttons floating in black,
+            // which reads as unfinished rather than as spare.
+            Image rule = UiTheme.Panel_("rule", _root, UiTheme.Accent * 0.4f);
+            UiTheme.Anchor(rule.GetComponent<RectTransform>(),
+                new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                new Vector2(0f, 78f), new Vector2(320f, 2f));
+
+            Button resume = Item("Continue", 32f, out _continueLabel);
             resume.onClick.AddListener(() => Fire(Continue));
 
-            Button levels = Item("Levels", -30f, out TextMeshProUGUI _);
+            Button levels = Item("Levels", -22f, out TextMeshProUGUI _);
             levels.onClick.AddListener(() => Fire(OpenLevels));
 
-            Button quit = Item("Quit", -90f, out TextMeshProUGUI _);
+            Button sound = Item("Sound", -76f, out _soundLabel);
+            sound.onClick.AddListener(() => Fire(ToggleSound));
+
+            Button quit = Item("Quit", -130f, out TextMeshProUGUI _);
             quit.onClick.AddListener(() => Fire(Quit));
+
+            // Where Continue actually goes. "CONTINUE" alone tells a returning player nothing about
+            // which of nine levels they are about to land on.
+            _nextLine = UiTheme.Label(
+                "next", _root, 15f, UiTheme.Accent, TextAlignmentOptions.Center);
+            UiTheme.Anchor(_nextLine.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                new Vector2(0f, -178f), new Vector2(700f, 22f));
 
             _progressLine = UiTheme.Label(
                 "progress", _root, 16f, UiTheme.TextDim, TextAlignmentOptions.Center);
             UiTheme.Anchor(_progressLine.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                new Vector2(0f, -152f), new Vector2(700f, 24f));
+                new Vector2(0f, -204f), new Vector2(700f, 24f));
+
+            TextMeshProUGUI keys = UiTheme.Label(
+                "keys", _root, 13f, UiTheme.TextDim, TextAlignmentOptions.Center);
+            UiTheme.Anchor(keys.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
+                new Vector2(0f, 30f), new Vector2(900f, 20f));
+            keys.text = "M menu     ESC levels     H help     N mute";
         }
 
         private Button Item(string name, float y, out TextMeshProUGUI label)
@@ -142,7 +169,40 @@ namespace BitSorter.View
                 : $"{done} of {total} solved";
 
             // "Continue" on a fresh save is a lie -- there is nothing to continue from.
-            _continueLabel.text = done == 0 && _session.LevelIndex == 0 ? "START" : "CONTINUE";
+            bool fresh = done == 0 && _session.LevelIndex == 0;
+
+            _continueLabel.text = fresh ? "START" : "CONTINUE";
+            _soundLabel.text = GameAudio.MusicMuted ? "SOUND  OFF" : "SOUND  ON";
+
+            // Named from the same walk Continue itself uses, so the label cannot promise one level
+            // and the button open another.
+            LevelEntry next = NextUp();
+
+            _nextLine.text = done >= total
+                ? "all solved -- replay anything you like"
+                : $"next up: {next.DisplayName}";
+        }
+
+        /// <summary>The level <see cref="Continue"/> would open.</summary>
+        private LevelEntry NextUp()
+        {
+            IReadOnlyList<LevelEntry> catalogue = _session.Catalogue;
+
+            foreach (LevelEntry entry in catalogue)
+            {
+                if (_progress == null || !_progress.IsComplete(entry.FileName))
+                    return entry;
+            }
+
+            return catalogue[catalogue.Count - 1];
+        }
+
+        private void ToggleSound()
+        {
+            if (_audio != null)
+                _audio.ToggleMusic();
+
+            Refresh();
         }
 
         private int SolvedCount()
@@ -178,24 +238,13 @@ namespace BitSorter.View
         {
             Show(false);
 
-            if (_session == null || !_session.IsLoaded || _progress == null)
+            if (_session == null || !_session.IsLoaded || _session.Catalogue.Count == 0)
                 return;
 
-            IReadOnlyList<LevelEntry> catalogue = _session.Catalogue;
+            LevelEntry next = NextUp();
 
-            foreach (LevelEntry entry in catalogue)
-            {
-                if (!_progress.IsComplete(entry.FileName))
-                {
-                    if (entry.FileName != _session.LevelName)
-                        _session.LoadLevel(entry.FileName);
-
-                    return;
-                }
-            }
-
-            if (catalogue.Count > 0)
-                _session.LoadLevel(catalogue[catalogue.Count - 1].FileName);
+            if (next.FileName != _session.LevelName)
+                _session.LoadLevel(next.FileName);
         }
 
         private void OpenLevels()

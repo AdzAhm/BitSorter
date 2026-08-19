@@ -1,5 +1,6 @@
 using BitSorter.LogicCore;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 namespace BitSorter.View
 {
@@ -28,11 +29,40 @@ namespace BitSorter.View
         [Tooltip("Most gate cues in one frame. A wide circuit can fire many at once.")]
         [SerializeField] private int _gateBurstLimit = 3;
 
-        [Tooltip("Background loop. Off by default -- the current one was not liked; see the remark.")]
-        [SerializeField] private bool _music = false;
+        [Tooltip("Background loop. On by default; the player's choice is remembered.")]
+        [SerializeField] private bool _music = true;
+
+        private const string MutedKey = "bitsorter.music.muted";
 
         private AudioSource _source;
         private AudioSource _musicSource;
+
+        /// <summary>Whether the background loop is currently silenced.</summary>
+        /// <remarks>
+        /// Kept in PlayerPrefs rather than in the progress file. It describes this machine's
+        /// speakers, not the player's circuits, and someone who copies a save to another computer
+        /// should not carry a mute across with it.
+        /// </remarks>
+        public static bool MusicMuted
+        {
+            get => PlayerPrefs.GetInt(MutedKey, 0) != 0;
+            private set
+            {
+                PlayerPrefs.SetInt(MutedKey, value ? 1 : 0);
+                PlayerPrefs.Save();
+            }
+        }
+
+        /// <summary>Silences or restores the background loop, and remembers which.</summary>
+        public void ToggleMusic() => SetMuted(!MusicMuted);
+
+        public void SetMuted(bool muted)
+        {
+            MusicMuted = muted;
+
+            if (_musicSource != null)
+                _musicSource.mute = muted;
+        }
 
         private int _tick = -1;
         private int _gatesFired;
@@ -64,11 +94,21 @@ namespace BitSorter.View
             _musicSource.playOnAwake = false;
             _musicSource.spatialBlend = 0f;
             _musicSource.volume = ProceduralAudio.VolumeOf(Cue.Music) * _masterVolume;
+
+            // Muted rather than not started, so the loop keeps its playback position and unmuting
+            // does not restart the phrase from the top every time.
+            _musicSource.mute = MusicMuted;
             _musicSource.Play();
         }
 
         private void Update()
         {
+            // Before the readiness check: muting should work on the menu, where there is no graph.
+            Keyboard keyboard = Keyboard.current;
+
+            if (keyboard != null && keyboard.nKey.wasPressedThisFrame)
+                ToggleMusic();
+
             if (_runner == null || !_runner.IsReady)
                 return;
 

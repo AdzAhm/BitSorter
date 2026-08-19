@@ -128,34 +128,72 @@ namespace BitSorter.View
                         return total;
                     });
 
-                // Kept but switched off by default: this take was not liked in play, and the honest
-                // reading is that a drone is the wrong answer rather than a slightly wrong drone.
-                // Left here because the shape is the reusable part -- if music comes back it will
-                // most likely be sparse and event-driven rather than a continuous bed.
+                // The previous take was a continuous pad, and the honest reading of why it was
+                // disliked is that a drone is the wrong answer rather than a slightly wrong drone.
+                // A drone has no shape: there is no phrase to follow, so it becomes pressure on the
+                // ear within a minute and there is nothing to do about it but switch it off.
                 //
-                // A slow loop in the same key as the win sting, built from two drifting sine pads and
-                // a sparse bass. Sixteen seconds so the repeat is not obvious.
+                // This is plucked and sparse instead. Notes are struck and allowed to ring out, and
+                // roughly half the grid of steps is silence, so the ear gets somewhere to rest. It
+                // has to survive being heard for twenty minutes while someone stares at a K-map,
+                // which means the loudest thing in it should still be quieter than thinking.
+                //
+                // A minor pentatonic throughout. It has no semitone clashes, so a note landing on
+                // any chord in the progression is consonant and nothing ever demands resolution --
+                // exactly the quality wanted for something that repeats forever.
+                //
+                // Thirty-two seconds: four eight-second bars, and the figure lifts an octave on
+                // alternate passes so the second half of the loop is not the first half again.
                 case Cue.Music:
-                    return Make("music", 16f, (t, d) =>
+                    return Make("music", 32f, (t, d) =>
                     {
-                        // Root moves every four bars around a minor-ish drone, never resolving.
-                        float[] roots = { 130.81f, 146.83f, 110.00f, 123.47f };
-                        int bar = Mathf.FloorToInt(t / 4f) % roots.Length;
-                        float root = roots[bar];
+                        const float Step = 0.5f;
 
-                        // Two voices detuned by a few cents, which is what makes a pad breathe
-                        // instead of sitting still.
-                        float pad = Sine(t, root) * 0.5f + Sine(t, root * 1.005f) * 0.5f;
-                        pad += Sine(t, root * 1.5f) * 0.28f;   // a fifth above
+                        // Semitones above A, or -1 for a rest. Ten of sixteen steps are silent.
+                        int[] figure = { 0, -1, 3, -1, 7, -1, 5, -1, -1, 10, -1, 7, -1, 3, -1, -1 };
 
-                        // Slow swell, so the loop has somewhere to go.
-                        float swell = 0.55f + 0.45f * Mathf.Sin(2f * Mathf.PI * t / 8f);
+                        // Am - F - C - G. The bass moves, the scale does not.
+                        float[] roots = { 110.00f, 87.31f, 130.81f, 98.00f };
 
-                        // A soft pulse on the beat, quiet enough to feel rather than hear.
-                        float beat = (t * 0.5f) % 1f;
-                        float bass = Sine(t, root * 0.5f) * Mathf.Exp(-6f * beat) * 0.35f;
+                        int bar = Mathf.FloorToInt(t / 8f) % roots.Length;
+                        int now = Mathf.FloorToInt(t / Step);
 
-                        return (pad * 0.34f * swell + bass) * Fade(t, d, 1.5f);
+                        // Notes ring for well over a step, so several are sounding at once. Walking
+                        // back a few steps and summing is what lets them overlap instead of being
+                        // cut off by the next one.
+                        float voice = 0f;
+
+                        for (int back = 0; back < 5; back++)
+                        {
+                            int s = now - back;
+
+                            if (s < 0)
+                                continue;
+
+                            int semi = figure[s % 16];
+
+                            if (semi < 0)
+                                continue;
+
+                            int lift = (s / 16) % 2 == 0 ? 0 : 12;
+                            float age = t - s * Step;
+
+                            // Phase measured from the note's own start, so every pluck begins at
+                            // zero crossing and no note starts with a click.
+                            float hz = 440f * Mathf.Pow(2f, (semi + lift) / 12f);
+                            float ring = Mathf.Exp(-2.6f * age);
+
+                            voice += (Sine(age, hz) + Sine(age, hz * 2f) * 0.22f) * ring;
+                        }
+
+                        // One bass note a bar, struck and left to fall away. Felt more than heard.
+                        float barAge = t % 8f;
+                        float bass = Sine(t, roots[bar] * 0.5f) * Mathf.Exp(-0.45f * barAge);
+
+                        // A trace of hiss, so the quiet parts are not digitally dead.
+                        float air = Noise(t) * 0.010f;
+
+                        return (voice * 0.15f + bass * 0.16f + air) * Fade(t, d, 2f);
                     });
 
                 default:

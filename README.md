@@ -57,6 +57,7 @@ An unbalanced circuit does not run slower. It loses bits.
 | `H`, or the `!` button | This level's truth table and a hint |
 | `Esc` | Level list |
 | `M` | Main menu |
+| `N` | Mute the music |
 | `Q` / `E` | Previous / next level |
 | `F3` | Diagnostics |
 

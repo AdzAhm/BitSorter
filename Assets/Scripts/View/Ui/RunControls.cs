@@ -98,7 +98,7 @@ namespace BitSorter.View
 
             line.text =
                 "drag a port to wire     right click to delete     scroll a wire to re-time     " +
-                "shift+R to clear     H for help     ESC for levels";
+                "shift+R to clear     H for help     ESC for levels     N to mute";
         }
 
         private void Update()

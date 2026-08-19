@@ -25,10 +25,13 @@ namespace BitSorter.View
         [SerializeField] private SimulationRunner _runner;
 
         [Tooltip("Waves per second.")]
-        [SerializeField] private float _speed = 0.22f;
+        [SerializeField] private float _speed = 0.3f;
 
         [Tooltip("How much a dot brightens at the crest, as a fraction of its base colour.")]
-        [SerializeField] private float _depth = 0.5f;
+        [SerializeField] private float _depth = 1.1f;
+
+        [Tooltip("How much a dot grows at the crest, as a fraction of its base size.")]
+        [SerializeField] private float _swell = 0.45f;
 
         [Tooltip("Multiplier applied to the depth while a run is in progress.")]
         [SerializeField] private float _runningDepth = 0.25f;
@@ -37,6 +40,7 @@ namespace BitSorter.View
         private readonly List<float> _phases = new List<float>();
 
         private Color _base;
+        private float _baseScale = 1f;
         private bool _ready;
 
         private void Awake()
@@ -82,7 +86,10 @@ namespace BitSorter.View
             }
 
             if (_dots.Count > 0)
+            {
                 _base = _dots[0].color;
+                _baseScale = _dots[0].transform.localScale.x;
+            }
         }
 
         private void Update()
@@ -94,7 +101,7 @@ namespace BitSorter.View
                 return;
 
             bool running = _runner != null && _runner.IsReady && !_runner.IsIdle();
-            float depth = _depth * (running ? _runningDepth : 1f);
+            float quiet = running ? _runningDepth : 1f;
             float t = Time.time * _speed;
 
             for (int i = 0; i < _dots.Count; i++)
@@ -102,10 +109,21 @@ namespace BitSorter.View
                 // 0..1, so a dot only ever brightens from its authored colour and never dims below
                 // it -- the grid's resting appearance stays the one that was chosen.
                 float wave = 0.5f + 0.5f * Mathf.Sin((t + _phases[i]) * Mathf.PI * 2f);
-                float scale = 1f + depth * wave;
+
+                float lift = 1f + _depth * quiet * wave;
 
                 _dots[i].color = new Color(
-                    _base.r * scale, _base.g * scale, _base.b * scale, _base.a);
+                    _base.r * lift, _base.g * lift, _base.b * lift, _base.a);
+
+                // Size as well as brightness, because brightness alone did not register.
+                //
+                // A grid dot is 0.14 world units, which is about seven pixels. Measured in play,
+                // the old wave was moving each dot between 1.23x and 1.48x of its base colour --
+                // running exactly as intended, and completely imperceptible, because a small
+                // brightness step on a dark seven-pixel sprite is below the threshold at which
+                // anyone notices anything. Scale is the channel that reads at that size.
+                float swell = _baseScale * (1f + _swell * quiet * wave);
+                _dots[i].transform.localScale = new Vector3(swell, swell, 1f);
             }
         }
     }

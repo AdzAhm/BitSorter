@@ -95,11 +95,27 @@ namespace BitSorter.View
 
             var renderer = go.AddComponent<SpriteRenderer>();
 
-            // The bloom the bits already use, rather than a new sprite. It is the one shape in the
-            // project tuned to fade at its edges, which is what a scorch wants.
+            // Glow, which is a soft halo rather than a hard mark.
+            //
+            // Known limitation, measured rather than guessed at: Glow is a radial falloff field
+            // built to sit behind something bright, so most of its area is nearly transparent. At
+            // half alpha this renders as a soft smudge, not a burn -- 1.15 world units against the
+            // node's 1.20, so the size is right and the read is still weak. A hard-bodied sprite
+            // like Circle under the halo would make it legible. Deliberately not done: the layer
+            // fix below is what made it visible at all, and that was judged enough.
             renderer.sprite = ProceduralSprites.Glow();
             renderer.color = new Color(_colour.r, _colour.g, _colour.b, 0f);
-            renderer.sortingOrder = -4;   // over the grid dots, under the gate it marks
+
+            // Over the gate, under the bits.
+            //
+            // This was -4, which put it under the node body at 0 -- and a mark sits ON a node's
+            // input port, so the node it marks covered almost all of it. In play it showed as a
+            // few red pixels at the gate's left edge and read as nothing at all. A mark drawn
+            // behind the thing it marks is invisible by construction, not by tuning.
+            //
+            // 2 clears the node body and its port stubs at 1, and stays under bits at 3 and sparks
+            // at 4, so a bit crossing a scorched gate still draws on top of the stain.
+            renderer.sortingOrder = 2;
 
             var mark = new Mark { Renderer = renderer, Born = Time.time };
 
