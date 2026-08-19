@@ -168,7 +168,24 @@ failure side.
 ## Not yet
 Do not build ahead of me. The logic core, the view layer, the level
 format, the nine levels, the canvas interface, sound, level select,
-saved progress and analytics are all in.
+saved progress, analytics and the sandbox are all in.
+
+**The sandbox is built in code, not authored as JSON.** That is a
+decision, not a shortcut: `LevelLoader.Validate` refuses a level with no
+expectations and refuses a sink nothing grades — both correct for a
+taught level and both fatal to free play — and `CurriculumTests` then
+demands a hint and a goal from every file in `Resources/Levels`. Building
+it in `SandboxLevel` leaves all of those rules exactly as strict as they
+were rather than carving an exception through them. It also means the
+sandbox is not in `LevelCatalog`, so it is not a tenth level: it has no
+order, no completion tick and no personal best, and it is reached by an
+explicit entry in the main menu and at the foot of the level list.
+
+Free play is ungraded via `RunState.Finished`, which is deliberately not
+`Passed` — every "did they win" check names `Passed`, so none of them
+fire. Unlimited is spelled `-1`, the way `RemainingDelay` already spells
+an absent budget, and the trap is that zero and unlimited are opposites
+that both look falsy: test `== 0` for "not stocked", never `<= 0`.
 
 **Analytics is the one thing that sends data anywhere.** `GameAnalytics`
 reports exactly two events, `levelStarted` and `levelSolved`, each

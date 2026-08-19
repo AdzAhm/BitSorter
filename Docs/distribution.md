@@ -137,6 +137,19 @@ serving `.br` with the right `Content-Encoding` gives a faster start.
 
 ---
 
+## The sandbox, when describing the game
+
+Store pages ask what is in the game, and the answer is no longer only the nine
+levels: there is a free-play sandbox with player-configured sources and sinks and
+no grading. Worth a line on itch.io and Unity Play, because "nine puzzle levels"
+undersells it and a screenshot of the sandbox looks like a tenth level otherwise.
+
+It ships inside the same build and needs nothing from any host. It is built in
+code rather than authored under `Resources/Levels`, so it adds no file to package
+and cannot appear in the level rotation — see CLAUDE.md for why that matters.
+
+---
+
 ## Analytics
 
 The game reports to Unity Analytics. **The README's "What it collects" section is

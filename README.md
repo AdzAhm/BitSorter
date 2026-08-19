@@ -40,6 +40,9 @@ installed and nothing is written outside your own user folder.
 Windows will probably warn that it does not recognise the publisher — the build
 is unsigned, which is all that warning means. "More info", then "Run anyway".
 
+Nine levels teach the ideas in order, and [a sandbox](#the-sandbox) is there for
+when you would rather build something without being marked on it.
+
 ### Two rules explain almost everything
 
 **A gate fires when all of its inputs are full, and consumes them.** It cannot
@@ -66,16 +69,17 @@ An unbalanced circuit does not run slower. It loses bits.
 | Action | Effect |
 | --- | --- |
 | Click a gate in the palette, then click the board | Place it |
+| `1` – `6` | Pick a gate: NOT, AND, OR, XOR, NAND, NOR |
 | Drag from one port to another | Wire them |
 | Right click | Delete a gate or a wire |
-| Scroll on a wire | Change its delay |
+| Scroll on a wire, or `[` / `]` | Change its delay |
 | `Enter`, or the RUN button | Run |
 | `R` | Reset the board back to editing |
 | `Shift`+`R` | Clear everything you built |
 | `Space` | Pause a run |
 | `→` while paused | Step one tick |
 | `H`, or the `!` button | This level's truth table and a hint |
-| `Esc` | Level list |
+| `Esc` | Level list, and the way into the sandbox |
 | `M` | Main menu |
 | `N` | Mute the music |
 | `Q` / `E` | Previous / next level |
@@ -103,6 +107,29 @@ representation. Static and dynamic hazards are out too, and cannot be expressed 
 a hazard needs a continuous signal model, and bits here are discrete tokens with
 nowhere for a glitch to live. Unbalanced-path corruption is the lesson that
 replaces it.
+
+### The sandbox
+
+Free play, from the main menu or the foot of the level list. Every gate, as many
+as you like, no delay budget, and nothing to pass or fail.
+
+You set up the inputs yourself: how many sources, what each one emits, how many
+sinks, and how many test vectors they all run for. Click a bit in the panel to
+flip it between 0 and 1.
+
+**A readout in the corner shows what each sink actually caught**, in order, while
+the run happens and after it stops. That is the point of the mode. In a level you
+already know what you wanted and the verdict tells you whether you got it; here
+there is no intended answer, so what came out is the only result there is.
+
+Everything else behaves normally. Bits still collide on unbalanced paths, the
+bits-lost meter still fires, and the scorch mark still names the junction — you
+just do not get marked on any of it. The board is saved like any other, so a
+sandbox circuit and its setup are still there next time.
+
+Changing the number of sources or sinks rebuilds the board, and anything that no
+longer has somewhere to connect is dropped. Changing a stream leaves your circuit
+alone.
 
 ### Your progress
 
@@ -175,7 +202,11 @@ Unity 6.3 LTS (6000.3.11f1).
 - **BitSorter → Build Play Scene** regenerates the play scene from code. The
   scene is generated rather than authored, so anything added by hand is discarded
   the next time that runs.
-- Tests: Window → General → Test Runner → EditMode → Run All. 425 at present.
+- Tests: Window → General → Test Runner. 443 EditMode and 4 PlayMode at present.
+  The PlayMode four cover pointer arbitration, which needs a live scene; if you
+  ever script that run, read the results from `TestResults.xml` in the save
+  directory rather than from a `TestRunnerApi` callback, which does not survive
+  the domain reload that entering play mode causes.
 
 ### Why it isn't a physics game
 
