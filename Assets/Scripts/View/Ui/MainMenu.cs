@@ -119,8 +119,13 @@ namespace BitSorter.View
             Button sound = Item("Sound", -76f, out _soundLabel);
             sound.onClick.AddListener(() => Fire(ToggleSound));
 
+            // No Quit in a browser. Application.Quit does nothing there -- a tab is closed by the
+            // browser, not by the page -- so the button would sit in the menu doing nothing at all,
+            // which is worse than not offering it.
+#if !UNITY_WEBGL || UNITY_EDITOR
             Button quit = Item("Quit", -130f, out TextMeshProUGUI _);
             quit.onClick.AddListener(() => Fire(Quit));
+#endif
 
             // Where Continue actually goes. "CONTINUE" alone tells a returning player nothing about
             // which of nine levels they are about to land on.
@@ -255,6 +260,7 @@ namespace BitSorter.View
                 _levels.Open();
         }
 
+#if !UNITY_WEBGL || UNITY_EDITOR
         private static void Quit()
         {
 #if UNITY_EDITOR
@@ -265,6 +271,7 @@ namespace BitSorter.View
             Application.Quit();
 #endif
         }
+#endif
 
         // -----------------------------------------------------------------
         // Showing

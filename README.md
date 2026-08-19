@@ -110,6 +110,11 @@ of you, or the one you built last time.
 Unity 6.3 LTS (6000.3.11f1).
 
 - **BitSorter → Build Windows Player** writes a player to `Build/Windows/`.
+- **BitSorter → Build WebGL Player** writes a browser build to `Build/WebGL/`.
+  See [Docs/distribution.md](Docs/distribution.md) for what differs in a browser
+  and what itch.io and Unity Play each need.
+- **BitSorter → Generate App Icon** redraws `Assets/Icon/BitSorterIcon.png` and
+  assigns it to every standalone icon size.
 - **BitSorter → Build Play Scene** regenerates the play scene from code. The
   scene is generated rather than authored, so anything added by hand is discarded
   the next time that runs.
