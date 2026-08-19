@@ -96,7 +96,7 @@ Solved levels, the circuits you built, and your best gate count and tick count
 per level save automatically to:
 
 ```text
-%USERPROFILE%\AppData\LocalLow\Ahmad\BitSorter\progress.json
+%USERPROFILE%\AppData\LocalLow\[User]\BitSorter\progress.json
 ```
 
 Delete that file to start over. Nothing is uploaded, and nothing is compared
