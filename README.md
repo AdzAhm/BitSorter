@@ -2,9 +2,15 @@
 
 Bits fall through logic. Sort them.
 
+![A half adder running: bits leave the two sources, cross into an XOR and an AND,
+and land in the SUM and CARRY bins](Docs/half-adder.gif)
+
 A puzzle game about building digital circuits. Sources emit a stream of 0s and
 1s, bins want particular values, and you have a box of gates. Wire them together
 so every bin gets what it asked for.
+
+Above is level 8, the half adder: `A` and `B` each feed both gates, XOR produces
+the sum and AND produces the carry. Yellow bits are 1, grey are 0.
 
 Nine levels, from routing a single bit to building a full adder. Built in Unity
 as a way of working through a computer engineering digital systems course from
@@ -60,6 +66,29 @@ An unbalanced circuit does not run slower. It loses bits.
 | `N` | Mute the music |
 | `Q` / `E` | Previous / next level |
 | `F3` | Diagnostics |
+
+### What it teaches
+
+Nine levels, in this order. Each one is a topic from a digital systems course,
+arranged so that a mechanic is always taught before it is required.
+
+| | Level | The idea |
+|---|---|---|
+| 1 | Route the bit | Sources, bins, wires. A bin that must stay empty |
+| 2 | The long way round | Boolean algebra and De Morgan — build a NAND without one |
+| 3 | Balance the paths | Propagation delay, and the collision an unbalanced path causes |
+| 4 | Four corners | K-map minimisation. Two different minimal covers both pass |
+| 5 | Nothing but NAND | Functional completeness — XOR out of NANDs alone |
+| 6 | The slow lane | Delay arithmetic across a deep circuit |
+| 7 | Pick a lane | A multiplexer, and fan-out to two places at once |
+| 8 | Half adder | Two outputs from one circuit: sum and carry |
+| 9 | Carry the one | A full adder, joining two half adders and their carries |
+
+Deliberately out of scope: assembly, datapaths, memory addressing and number
+representation. Static and dynamic hazards are out too, and cannot be expressed —
+a hazard needs a continuous signal model, and bits here are discrete tokens with
+nowhere for a glitch to live. Unbalanced-path corruption is the lesson that
+replaces it.
 
 ### Your progress
 
