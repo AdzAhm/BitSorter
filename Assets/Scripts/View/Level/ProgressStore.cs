@@ -182,8 +182,28 @@ namespace BitSorter.View
         /// <summary>Remembers what is on a level's board, keeping any record already set.</summary>
         public void SaveBoard(string level, SavedBoard board)
         {
+            if (StageBoard(level, board))
+                Save();
+        }
+
+        /// <summary>
+        /// Same merge as <see cref="SaveBoard"/>, but leaves the file alone. False when there was
+        /// nothing to record.
+        /// </summary>
+        /// <remarks>
+        /// For a caller that is about to cause a write anyway and would otherwise cause a second one.
+        /// The sandbox panel is the case: changing a source re-adopts the level, which raises
+        /// LevelUnloading, which makes <see cref="ProgressTracker"/> save the board -- so staging the
+        /// setup here lets that one write carry it, instead of following it with another.
+        ///
+        /// Safe to stage and never write: every path that matters writes afterwards. Leaving the
+        /// sandbox raises LevelUnloading and quitting saves the open board, and both merge whatever
+        /// is staged here into the file.
+        /// </remarks>
+        public bool StageBoard(string level, SavedBoard board)
+        {
             if (string.IsNullOrEmpty(level) || board == null)
-                return;
+                return false;
 
             SavedBoard existing = BoardFor(level);
 
@@ -205,7 +225,7 @@ namespace BitSorter.View
             board.level = level;
             _boards[level] = board;
 
-            Save();
+            return true;
         }
 
         /// <summary>Fewest gates a level has been solved with, or zero for no record.</summary>

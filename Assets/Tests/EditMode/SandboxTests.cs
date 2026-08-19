@@ -286,6 +286,39 @@ namespace BitSorter.LogicCore.Tests
         }
 
         [Test]
+        public void StagingASetup_DoesNotTouchTheFile()
+        {
+            // The sandbox panel stages rather than saves, so that changing a source costs the one
+            // write the level swap already causes instead of a second one. If staging ever starts
+            // writing, that is two whole-file writes per click again.
+            string path = System.IO.Path.Combine(
+                System.IO.Path.GetTempPath(), $"bitsorter-stage-{System.Guid.NewGuid():N}.json");
+
+            try
+            {
+                var store = new ProgressStore(path);
+
+                store.StageBoard(SandboxLevel.Key, new SavedBoard { sandbox = Config(1, 1, 4, "1010") });
+
+                Assert.IsFalse(System.IO.File.Exists(path), "staging wrote the progress file");
+
+                // Still in memory, and still there for the next real save to carry.
+                Assert.IsNotNull(store.BoardFor(SandboxLevel.Key).sandbox);
+
+                store.SaveBoard(SandboxLevel.Key, new SavedBoard());
+
+                Assert.IsTrue(System.IO.File.Exists(path), "a real save did not write");
+                Assert.IsNotNull(store.BoardFor(SandboxLevel.Key).sandbox,
+                    "the staged setup was lost by the save that should have carried it");
+            }
+            finally
+            {
+                if (System.IO.File.Exists(path))
+                    System.IO.File.Delete(path);
+            }
+        }
+
+        [Test]
         public void AnOrdinaryBoardSave_DoesNotWipeTheSandboxSetup()
         {
             // ProgressTracker knows nothing about sandboxes and saves boards with no config on them.

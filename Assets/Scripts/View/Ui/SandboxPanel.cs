@@ -106,18 +106,31 @@ namespace BitSorter.View
 
         private void Adopt()
         {
+            // Staged before the level is swapped, so the save that swapping triggers writes the
+            // setup along with the board. The other order cost two whole-file writes per click.
+            Stage();
+
             _session.Adopt(SandboxLevel.Build(_config, Extents()), SandboxLevel.Key);
-            Persist();
         }
 
         /// <summary>
-        /// Writes the setup into the sandbox's own saved board, leaving its circuit alone.
+        /// Records the setup in memory, for the next save of this board to write.
         /// </summary>
         /// <remarks>
-        /// Reads the stored board back rather than writing a fresh one, because a fresh one would
-        /// have no placements and saving it would wipe the circuit that was just restored onto it.
+        /// Deliberately not a write. <see cref="LevelSession.Adopt"/> raises LevelUnloading, which
+        /// makes <see cref="ProgressTracker"/> save the sandbox board, and
+        /// <see cref="ProgressStore.SaveBoard"/> carries a staged setup forward into it -- so one
+        /// click produces one write instead of two. CLAUDE.md rejects a file write per click for
+        /// boards, and a setup is no different.
+        ///
+        /// Nothing is lost by never writing directly. Leaving the sandbox and quitting both save the
+        /// open board, and a setup that survives neither was never worth a file write: it is the
+        /// opening default, which is rebuilt identically next time.
+        ///
+        /// Reads the stored board back rather than making a fresh one, because a fresh one has no
+        /// placements and would stage away the circuit it belongs to.
         /// </remarks>
-        private void Persist()
+        private void Stage()
         {
             if (_progress == null || _progress.Store == null)
                 return;
@@ -125,7 +138,7 @@ namespace BitSorter.View
             SavedBoard board = _progress.Store.BoardFor(SandboxLevel.Key) ?? new SavedBoard();
             board.sandbox = _config.Clone();
 
-            _progress.Store.SaveBoard(SandboxLevel.Key, board);
+            _progress.Store.StageBoard(SandboxLevel.Key, board);
         }
 
         // -----------------------------------------------------------------
