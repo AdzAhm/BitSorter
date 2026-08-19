@@ -79,7 +79,14 @@ foreach ($required in @('Build', 'TemplateData')) {
     }
 }
 
-$buildTime = (Get-Item $indexPath).LastWriteTime
+# The newest file in the output, not index.html. Unity leaves index.html alone when the
+# template renders identically, so a rebuild that changes only code leaves its timestamp
+# hours behind -- which made this report a stale time and then wrongly accuse a current
+# build of being stale.
+$buildTime = (Get-ChildItem -Path $webglPath -Recurse -File |
+    Sort-Object LastWriteTime -Descending |
+    Select-Object -First 1).LastWriteTime
+
 Write-Host "Build:  $webglPath" -ForegroundColor Cyan
 Write-Host "Built:  $buildTime"
 
