@@ -108,7 +108,9 @@ namespace BitSorter.View
 
             // Run stays available after a verdict -- LevelSession.Run rebuilds first, so it works
             // straight after a failure without needing a Reset in between, and the label says so.
-            bool settled = _session.State == RunState.Passed || _session.State == RunState.Failed;
+            bool settled = _session.State == RunState.Passed ||
+                           _session.State == RunState.Failed ||
+                           _session.State == RunState.Finished;
             _runLabel.text = settled ? "RUN AGAIN" : "RUN";
 
             _run.interactable = _session.IsLoaded && _session.State != RunState.Running;

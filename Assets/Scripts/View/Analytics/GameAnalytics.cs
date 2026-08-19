@@ -116,6 +116,12 @@ namespace BitSorter.View
             if (_unavailable || string.IsNullOrEmpty(levelName))
                 return;
 
+            // Free play is not a level and must not look like one. It can never be solved, so a
+            // levelStarted from here would be a start with no solve after it -- indistinguishable
+            // from someone giving up, in the one measurement these events exist to make.
+            if (levelName == SandboxLevel.Key)
+                return;
+
             if (!_collecting)
             {
                 Pending.Add(new KeyValuePair<string, string>(eventName, levelName));

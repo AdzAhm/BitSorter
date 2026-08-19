@@ -42,6 +42,7 @@ namespace BitSorter.View
 
         [SerializeField] private LevelSession _session;
         [SerializeField] private ProgressTracker _progress;
+        [SerializeField] private SandboxPanel _sandbox;
 
         [Tooltip("Canvas the panel is built under. Found by type when left empty.")]
         [SerializeField] private Canvas _canvas;
@@ -54,6 +55,7 @@ namespace BitSorter.View
         {
             if (_session == null) _session = FindFirstObjectByType<LevelSession>();
             if (_progress == null) _progress = FindFirstObjectByType<ProgressTracker>();
+            if (_sandbox == null) _sandbox = FindFirstObjectByType<SandboxPanel>();
             if (_canvas == null) _canvas = FindFirstObjectByType<Canvas>();
         }
 
@@ -111,7 +113,10 @@ namespace BitSorter.View
             const float rowHeight = 42f;
             const float gap = 6f;
 
-            float total = catalogue.Count * (rowHeight + gap) - gap;
+            // One row past the catalogue for free play, plus a wider gap before it. Sandbox is not a
+            // level and is not in Catalogue -- it has no file, no order and nothing to complete -- so
+            // it is appended here rather than being allowed to look like a tenth level.
+            float total = (catalogue.Count + 1) * (rowHeight + gap) - gap + SandboxGap;
 
             RectTransform list = UiTheme.Rect("list", _root);
             UiTheme.Anchor(list, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
@@ -119,6 +124,49 @@ namespace BitSorter.View
 
             for (int i = 0; i < catalogue.Count; i++)
                 _rows.Add(BuildRow(catalogue[i], list, i, rowHeight, gap));
+
+            BuildSandboxRow(list, catalogue.Count, rowHeight, gap);
+        }
+
+        /// <summary>Extra space between the last level and free play, so the run reads as ending.</summary>
+        private const float SandboxGap = 14f;
+
+        /// <summary>
+        /// Free play, below the run. Deliberately not a <see cref="Row"/>: rows carry a completion
+        /// tick and a personal best, and a sandbox has neither and never will.
+        /// </summary>
+        private void BuildSandboxRow(RectTransform list, int index, float height, float gap)
+        {
+            Button button = UiTheme.Button_("Sandbox", list, string.Empty,
+                out TextMeshProUGUI caption);
+            Destroy(caption.gameObject);
+
+            var rect = button.GetComponent<RectTransform>();
+            UiTheme.Anchor(rect, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
+                new Vector2(0f, -index * (height + gap) - SandboxGap), new Vector2(520f, height));
+
+            TextMeshProUGUI label = UiTheme.Label(
+                "name", rect, 17f, UiTheme.Accent, TextAlignmentOptions.Left);
+            UiTheme.Anchor(label.rectTransform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f),
+                new Vector2(52f, 0f), new Vector2(330f, height));
+            label.text = "Sandbox";
+
+            TextMeshProUGUI note = UiTheme.Label(
+                "note", rect, 13f, UiTheme.TextDim, TextAlignmentOptions.Right);
+            UiTheme.Anchor(note.rectTransform, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f),
+                new Vector2(-16f, 0f), new Vector2(200f, height));
+            note.text = "free play";
+
+            button.onClick.AddListener(() =>
+            {
+                Show(false);
+
+                if (_sandbox != null)
+                    _sandbox.Open();
+
+                if (EventSystem.current != null)
+                    EventSystem.current.SetSelectedGameObject(null);
+            });
         }
 
         private Row BuildRow(LevelEntry entry, RectTransform list, int index, float height, float gap)

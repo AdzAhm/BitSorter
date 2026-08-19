@@ -14,6 +14,18 @@ namespace BitSorter.View
 
         Passed,
         Failed,
+
+        /// <summary>
+        /// The run stopped and was not graded, because the level does not grade. Free play only.
+        /// </summary>
+        /// <remarks>
+        /// A third outcome rather than reusing Passed, and the distinction does real work: every
+        /// "did they win" check in the interface names Passed explicitly, so all of them -- the win
+        /// panel, the ending panel, the sink celebration, the win chime and the solve record -- stay
+        /// silent here without being taught about free play. Only the two checks that mean "has the
+        /// run stopped", in RunControls and StatusBanner, have to know this exists.
+        /// </remarks>
+        Finished,
     }
 
     public enum RunOutcome

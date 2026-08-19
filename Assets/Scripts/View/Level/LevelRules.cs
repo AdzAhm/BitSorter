@@ -125,10 +125,13 @@ namespace BitSorter.View
             int budgeted = level.BudgetFor(kind);
             string label = GatePalette.Label(kind);
 
-            // Absent from the budget and exhausted are different messages, because they need
-            // different reactions: one means "never in this level", the other "remove one first".
-            if (budgeted <= 0)
+            // Tested against zero, not <= 0: an unlimited budget is negative by design, and the
+            // obvious <= would read it as "this level does not stock that gate".
+            if (budgeted == 0)
                 return LevelVerdict.Reject(LevelOutcome.NotInBudget, $"No {label} gates on this level.");
+
+            if (budgeted == LevelDefinition.UnlimitedBudget)
+                return LevelVerdict.Accept();
 
             int placed = blueprint.CountOf(kind);
 
@@ -174,11 +177,14 @@ namespace BitSorter.View
         }
 
         /// <summary>
-        /// How many of a kind are still available. Negative is impossible: placement is gated on
+        /// How many of a kind are still available, or <see cref="LevelDefinition.UnlimitedBudget"/>
+        /// when the level sets no limit. Never negative otherwise: placement is gated on
         /// <see cref="CanPlace"/>.
         /// </summary>
         public static int RemainingFor(LevelDefinition level, CircuitBlueprint blueprint, GateKind kind) =>
-            level.BudgetFor(kind) - blueprint.CountOf(kind);
+            level.IsUnlimited(kind)
+                ? LevelDefinition.UnlimitedBudget
+                : level.BudgetFor(kind) - blueprint.CountOf(kind);
 
         // -----------------------------------------------------------------
         // Wire delay

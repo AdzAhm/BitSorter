@@ -103,6 +103,8 @@ namespace BitSorter.View.EditorTools
             SinkCelebration celebration = host.AddComponent<SinkCelebration>();
             MainMenu mainMenu = host.AddComponent<MainMenu>();
             EndingPanel ending = host.AddComponent<EndingPanel>();
+            SandboxPanel sandbox = host.AddComponent<SandboxPanel>();
+            SinkReadout sinkReadout = host.AddComponent<SinkReadout>();
 
             // AddComponent brings its own AudioSource along, via RequireComponent.
             GameAudio audio = host.AddComponent<GameAudio>();
@@ -184,7 +186,17 @@ namespace BitSorter.View.EditorTools
 
             Assign(levelSelect, "_session", session);
             Assign(levelSelect, "_progress", progress);
+            Assign(levelSelect, "_sandbox", sandbox);
             Assign(levelSelect, "_canvas", canvas);
+
+            Assign(sandbox, "_session", session);
+            Assign(sandbox, "_progress", progress);
+            Assign(sandbox, "_runner", runner);
+            Assign(sandbox, "_canvas", canvas);
+
+            Assign(sinkReadout, "_session", session);
+            Assign(sinkReadout, "_runner", runner);
+            Assign(sinkReadout, "_canvas", canvas);
 
             Assign(help, "_session", session);
             Assign(help, "_canvas", canvas);
@@ -205,6 +217,7 @@ namespace BitSorter.View.EditorTools
             Assign(mainMenu, "_session", session);
             Assign(mainMenu, "_progress", progress);
             Assign(mainMenu, "_levels", levelSelect);
+            Assign(mainMenu, "_sandbox", sandbox);
             Assign(mainMenu, "_canvas", canvas);
 
             Assign(audio, "_runner", runner);

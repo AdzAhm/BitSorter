@@ -210,6 +210,41 @@ namespace BitSorter.View
         }
 
         /// <summary>
+        /// Takes a level that came from somewhere other than a file, under the given key.
+        /// </summary>
+        /// <remarks>
+        /// <see cref="LoadLevel"/> with the file read taken out, and everything after it kept
+        /// identical -- the same unload announcement, the same blueprint clear, the same rebuild, the
+        /// same load announcement last. That sameness is the point: <see cref="ProgressTracker"/>
+        /// saves and restores boards off those two events, so free play gets persistence without
+        /// either side knowing the other exists.
+        ///
+        /// The key stands in for a file name and is what the board is saved against. Nothing checks
+        /// that a file by that name exists, and for <see cref="SandboxLevel.Key"/> none does.
+        ///
+        /// Rebuilding is also how free play applies an edit to its sources: changing them changes the
+        /// graph, so the config produces a new definition and it arrives back through here.
+        /// </remarks>
+        public bool Adopt(LevelDefinition level, string key)
+        {
+            if (level == null || string.IsNullOrWhiteSpace(key))
+                return false;
+
+            if (IsLoaded)
+                LevelUnloading?.Invoke(_levelName);
+
+            _levelName = key;
+            Level = level;
+            LoadError = null;
+
+            _blueprint.Clear();
+            ResetBoard();
+
+            LevelLoaded?.Invoke(Level);
+            return true;
+        }
+
+        /// <summary>
         /// Loads the next level file along, wrapping at the end. Discards whatever was on the board.
         /// </summary>
         /// <remarks>
@@ -356,9 +391,20 @@ namespace BitSorter.View
 
         private void Settle(bool settled)
         {
+            _runner.ClockRunning = false;
+
+            // Free play is not graded at all rather than graded and ignored. Asking the grader for a
+            // verdict nobody reads would leave a Failed sitting in Verdict for the status banner to
+            // find, and there is nothing for a sandbox circuit to have failed at.
+            if (!Level.IsGraded)
+            {
+                Verdict = default;
+                State = RunState.Finished;
+                return;
+            }
+
             Verdict = LevelGrader.Grade(_runner.View, Level, _runner.FixtureNodeIds, settled);
             State = Verdict.IsPass ? RunState.Passed : RunState.Failed;
-            _runner.ClockRunning = false;
         }
 
         // -----------------------------------------------------------------

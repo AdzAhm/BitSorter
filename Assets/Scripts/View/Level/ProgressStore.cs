@@ -193,6 +193,13 @@ namespace BitSorter.View
             {
                 board.bestGates = existing.bestGates;
                 board.bestLatency = existing.bestLatency;
+
+                // So does free play's set of sources and sinks, and for the same reason. Routine
+                // board saves come from ProgressTracker, which knows nothing about sandboxes and
+                // leaves this null; carrying it forward here is what stops an ordinary save of the
+                // gates wiping the fixtures they are wired to.
+                if (board.sandbox == null)
+                    board.sandbox = existing.sandbox;
             }
 
             board.level = level;

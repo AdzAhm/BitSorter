@@ -32,6 +32,19 @@ namespace BitSorter.View
         /// </remarks>
         public const int DefaultMaxWireDelay = 9;
 
+        /// <summary>
+        /// A budget count meaning "as many as you like".
+        /// </summary>
+        /// <remarks>
+        /// Spelled the same way as <see cref="LevelRules.RemainingDelay"/> spells an absent delay
+        /// budget, because it is the same idea and a second spelling would be a second thing to learn.
+        ///
+        /// Not authorable: <see cref="LevelLoader"/> still refuses a count below 1, so a JSON level
+        /// cannot reach this. Only a level built in code can, which is what keeps the nine levels
+        /// exactly as strict as they were.
+        /// </remarks>
+        public const int UnlimitedBudget = -1;
+
         public LevelDefinition(
             string name,
             string hint,
@@ -44,8 +57,10 @@ namespace BitSorter.View
             int delayBudget = 0,
             int maxLatency = 0,
             int order = 0,
-            string goal = "")
+            string goal = "",
+            bool isGraded = true)
         {
+            IsGraded = isGraded;
             Order = order;
             Goal = goal ?? string.Empty;
             Name = name;
@@ -61,6 +76,19 @@ namespace BitSorter.View
         }
 
         public string Name { get; }
+
+        /// <summary>
+        /// Whether a settled run produces a verdict. False for free play, where there is nothing to
+        /// be right about.
+        /// </summary>
+        /// <remarks>
+        /// Checked by <see cref="LevelSession.Settle"/> before it grades. An ungraded run ends in
+        /// <see cref="RunState.Finished"/>, which is deliberately not <see cref="RunState.Passed"/>:
+        /// every "did they win" check in the interface asks for Passed by name, so none of them --
+        /// the win panel, the celebration, the chime, the solve record -- fires for free play without
+        /// any of them being edited.
+        /// </remarks>
+        public bool IsGraded { get; }
 
         /// <summary>
         /// What the player is being asked to build, stated plainly. May be empty, never null.
@@ -179,8 +207,13 @@ namespace BitSorter.View
         }
 
         /// <summary>
-        /// How many of a kind the player may place, or zero for a kind this level does not offer.
+        /// How many of a kind the player may place: zero for a kind this level does not offer, or
+        /// <see cref="UnlimitedBudget"/> for one it offers without limit.
         /// </summary>
+        /// <remarks>
+        /// Zero and unlimited are both falsy-looking and mean opposite things, so callers must test
+        /// <c>== 0</c> for "not offered" rather than <c>&lt;= 0</c>.
+        /// </remarks>
         public int BudgetFor(GateKind kind)
         {
             for (int i = 0; i < Budget.Count; i++)
@@ -192,12 +225,15 @@ namespace BitSorter.View
             return 0;
         }
 
+        /// <summary>Whether a kind is stocked without limit.</summary>
+        public bool IsUnlimited(GateKind kind) => BudgetFor(kind) == UnlimitedBudget;
+
         /// <summary>
         /// Whether the level stocks this kind at all, however many are still unplaced. The question
         /// the palette asks: a kind that is offered but exhausted stays selectable, because the
         /// player may yet remove one and place it elsewhere.
         /// </summary>
-        public bool Offers(GateKind kind) => BudgetFor(kind) > 0;
+        public bool Offers(GateKind kind) => BudgetFor(kind) != 0;
 
         /// <summary>
         /// The first kind on the parts list, for a palette that has to start on something. False for

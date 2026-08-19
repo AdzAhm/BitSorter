@@ -59,6 +59,22 @@ namespace BitSorter.View
 
         public int bestGates;
         public int bestLatency;
+
+        /// <summary>
+        /// Free play's sources and sinks. Null for every authored level, whose fixtures come from its
+        /// file and are not the player's to change.
+        /// </summary>
+        /// <remarks>
+        /// A new key in an existing file, which is safe in both directions: JsonUtility reads a
+        /// missing key as null, so saves written before this field load unchanged, and a build
+        /// without it ignores the key rather than choking on it.
+        ///
+        /// This has to be applied before the placements are restored, not after.
+        /// <see cref="BoardSerializer.Restore"/> checks every gate against
+        /// <see cref="LevelDefinition.FixtureAt"/>, so restoring gates into a sandbox whose sources
+        /// do not exist yet would drop everything wired to one.
+        /// </remarks>
+        public SandboxConfig sandbox;
     }
 
     /// <summary>
@@ -153,12 +169,15 @@ namespace BitSorter.View
 
                 var cell = new Vector2Int(placement.x, placement.y);
 
+                bool withinBudget = level.IsUnlimited(kind) ||
+                                    blueprint.CountOf(kind) < level.BudgetFor(kind);
+
                 bool legal =
                     Mathf.Abs(cell.x) <= halfExtents.x &&
                     Mathf.Abs(cell.y) <= halfExtents.y &&
                     level.FixtureAt(cell) == null &&
                     !blueprint.HasPlacementAt(cell) &&
-                    blueprint.CountOf(kind) < level.BudgetFor(kind);
+                    withinBudget;
 
                 if (!legal)
                 {

@@ -151,6 +151,13 @@ namespace BitSorter.View
                     _verdict.text = _runner != null && _runner.IsPaused ? "PAUSED" : "RUNNING";
                     break;
 
+                // Neutral on purpose. Free play has no verdict, and colouring this Good or Bad would
+                // invent one -- the sink readout is where the player looks for what happened.
+                case RunState.Finished:
+                    _verdict.color = UiTheme.TextDim;
+                    _verdict.text = "DONE";
+                    break;
+
                 default:
                     _verdict.text = string.Empty;
                     break;

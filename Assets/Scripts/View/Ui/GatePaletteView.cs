@@ -203,10 +203,13 @@ namespace BitSorter.View
         private void Refresh(Row row)
         {
             int placed = _session.PlacedCountOf(row.Kind);
+            bool unlimited = _session.Level.IsUnlimited(row.Kind);
             int total = _session.Level.BudgetFor(row.Kind);
-            int left = total - placed;
+            int left = unlimited ? 1 : total - placed;
 
-            row.Count.text = $"{left} of {total}";
+            // Free play still shows what is on the board -- the count is the useful half of this row
+            // even when nothing is being spent -- but there is no "of" to put after it.
+            row.Count.text = unlimited ? $"{placed} placed" : $"{left} of {total}";
 
             // Exhausted is dimmed but still selectable: the player may yet remove one and place it
             // elsewhere, which is exactly what LevelDefinition.Offers documents.

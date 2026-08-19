@@ -23,6 +23,7 @@ namespace BitSorter.View
         [SerializeField] private LevelSession _session;
         [SerializeField] private ProgressTracker _progress;
         [SerializeField] private LevelSelectPanel _levels;
+        [SerializeField] private SandboxPanel _sandbox;
 
         [Tooltip("Canvas the menu is built under. Found by type when left empty.")]
         [SerializeField] private Canvas _canvas;
@@ -46,6 +47,7 @@ namespace BitSorter.View
             if (_session == null) _session = FindFirstObjectByType<LevelSession>();
             if (_progress == null) _progress = FindFirstObjectByType<ProgressTracker>();
             if (_levels == null) _levels = FindFirstObjectByType<LevelSelectPanel>();
+            if (_sandbox == null) _sandbox = FindFirstObjectByType<SandboxPanel>();
             if (_audio == null) _audio = FindFirstObjectByType<GameAudio>();
             if (_canvas == null) _canvas = FindFirstObjectByType<Canvas>();
         }
@@ -116,28 +118,36 @@ namespace BitSorter.View
             Button levels = Item("Levels", -22f, out TextMeshProUGUI _);
             levels.onClick.AddListener(() => Fire(OpenLevels));
 
-            Button sound = Item("Sound", -76f, out _soundLabel);
+            // Below the run, not beside it. Free play is where someone goes once the levels have
+            // taught them something, and putting it first would offer a blank board to a player who
+            // has not yet been told what a board is for.
+            Button sandbox = Item("Sandbox", -76f, out TextMeshProUGUI _);
+            sandbox.onClick.AddListener(() => Fire(OpenSandbox));
+
+            Button sound = Item("Sound", -130f, out _soundLabel);
             sound.onClick.AddListener(() => Fire(ToggleSound));
 
             // No Quit in a browser. Application.Quit does nothing there -- a tab is closed by the
             // browser, not by the page -- so the button would sit in the menu doing nothing at all,
             // which is worse than not offering it.
 #if !UNITY_WEBGL || UNITY_EDITOR
-            Button quit = Item("Quit", -130f, out TextMeshProUGUI _);
+            Button quit = Item("Quit", -184f, out TextMeshProUGUI _);
             quit.onClick.AddListener(() => Fire(Quit));
 #endif
 
             // Where Continue actually goes. "CONTINUE" alone tells a returning player nothing about
             // which of nine levels they are about to land on.
+            // Moved down with the Quit button when Sandbox joined the list. These sat at -178 and
+            // -204, which the new Quit row now occupies.
             _nextLine = UiTheme.Label(
                 "next", _root, 15f, UiTheme.Accent, TextAlignmentOptions.Center);
             UiTheme.Anchor(_nextLine.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                new Vector2(0f, -178f), new Vector2(700f, 22f));
+                new Vector2(0f, -232f), new Vector2(700f, 22f));
 
             _progressLine = UiTheme.Label(
                 "progress", _root, 16f, UiTheme.TextDim, TextAlignmentOptions.Center);
             UiTheme.Anchor(_progressLine.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                new Vector2(0f, -204f), new Vector2(700f, 24f));
+                new Vector2(0f, -258f), new Vector2(700f, 24f));
 
             TextMeshProUGUI keys = UiTheme.Label(
                 "keys", _root, 13f, UiTheme.TextDim, TextAlignmentOptions.Center);
@@ -258,6 +268,14 @@ namespace BitSorter.View
 
             if (_levels != null)
                 _levels.Open();
+        }
+
+        private void OpenSandbox()
+        {
+            Show(false);
+
+            if (_sandbox != null)
+                _sandbox.Open();
         }
 
 #if !UNITY_WEBGL || UNITY_EDITOR
