@@ -150,16 +150,22 @@ namespace BitSorter.View
                 return;
 
             string table = TruthTable.Format(level);
+            bool hasTable = !string.IsNullOrEmpty(table);
 
+            // Empty for a level that grades nothing -- free play has no expectations, so there is no
+            // table to draw. Rendering the wrapper anyway left a blank block sized for a table that
+            // was never coming, which reads as something having failed to load.
+            //
             // mspace rather than a monospaced font: the project ships one font, and forcing an
             // advance width is enough to make columns line up without adding another asset.
-            _table.text = $"<mspace=0.62em>{table}</mspace>";
+            _table.text = hasTable ? $"<mspace=0.62em>{table}</mspace>" : string.Empty;
 
             _hint.text = level != null ? level.Hint : string.Empty;
 
             // Taller tables need a taller panel. Eight vectors plus a header and rule is ten lines,
-            // and the per-line figure tracks the table's font size rather than being guessed.
-            int lines = level != null ? level.VectorCount + 2 : 3;
+            // and the per-line figure tracks the table's font size rather than being guessed. With no
+            // table the panel shrinks to the hint rather than keeping the space open.
+            int lines = hasTable ? level.VectorCount + 2 : 0;
             float height = 130f + lines * 24f;
             _panel.sizeDelta = new Vector2(_panel.sizeDelta.x, height);
         }

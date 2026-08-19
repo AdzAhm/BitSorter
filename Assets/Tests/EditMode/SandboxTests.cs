@@ -106,6 +106,54 @@ namespace BitSorter.LogicCore.Tests
         }
 
         // -----------------------------------------------------------------
+        // Saying why nothing happens
+        // -----------------------------------------------------------------
+
+        [Test]
+        public void ASetupThatCanRun_HasNothingToWarnAbout()
+        {
+            Assert.IsNull(SandboxLevel.Warning(SandboxLevel.Default(Board)));
+        }
+
+        [Test]
+        public void WithNoSources_TheGoalSaysNothingIsEmitted()
+        {
+            LevelDefinition level = SandboxLevel.Build(Config(0, 2, 4), Board);
+
+            Assert.IsNotNull(SandboxLevel.Warning(Config(0, 2, 4)));
+            StringAssert.Contains("No sources", level.Goal);
+        }
+
+        [Test]
+        public void WithNoSinks_TheGoalSaysBitsHaveNowhereToLand()
+        {
+            LevelDefinition level = SandboxLevel.Build(Config(2, 0, 4, "1010", "0011"), Board);
+
+            StringAssert.Contains("No sinks", level.Goal);
+        }
+
+        [Test]
+        public void TheWarningAndTheGoal_AreTheSameSentence()
+        {
+            // One wording in two places -- the status banner and the sandbox panel -- rather than
+            // two that can drift apart.
+            SandboxConfig broken = Config(0, 1, 4);
+
+            Assert.AreEqual(SandboxLevel.Warning(broken), SandboxLevel.GoalFor(broken));
+        }
+
+        [Test]
+        public void AnEmptySandbox_StillBuildsAndStillGradesNothing()
+        {
+            // Reachable from the panel, so it must not throw on the way to saying so.
+            LevelDefinition level = SandboxLevel.Build(Config(0, 0, 4), Board);
+
+            Assert.IsFalse(level.IsGraded);
+            Assert.IsEmpty(level.Fixtures);
+            Assert.IsNotEmpty(level.Goal);
+        }
+
+        // -----------------------------------------------------------------
         // Streams
         // -----------------------------------------------------------------
 

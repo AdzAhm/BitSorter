@@ -35,6 +35,38 @@ namespace BitSorter.View
         public const int DefaultSources = 2;
         public const int DefaultSinks = 2;
 
+        private const string FreePlay = "Free play. Build anything; nothing passes or fails.";
+
+        /// <summary>
+        /// Why this setup cannot do anything, or null when it can.
+        /// </summary>
+        /// <remarks>
+        /// A sandbox with no sources settles the instant it is run, and one with no sinks has
+        /// nowhere for a bit to end up. Both are reachable -- the panel allows zero of either -- and
+        /// both otherwise present as a run that ends immediately with nothing to show, which reads
+        /// as the game being broken rather than as the board being empty.
+        ///
+        /// One wording, used twice: <see cref="GoalFor"/> puts it in the status banner for a player
+        /// looking at the board, and the sandbox panel shows the same string for a player looking at
+        /// the setup. The panel covers the banner, so both are needed; a second wording would not be.
+        /// </remarks>
+        public static string Warning(SandboxConfig config)
+        {
+            if (config == null)
+                return null;
+
+            if (config.sources == null || config.sources.Length == 0)
+                return "No sources, so nothing is emitted. Add one to see anything happen.";
+
+            if (config.sinks <= 0)
+                return "No sinks, so bits have nowhere to land. Add one to catch them.";
+
+            return null;
+        }
+
+        /// <summary>What the status banner says: the trouble if there is any, else what free play is.</summary>
+        public static string GoalFor(SandboxConfig config) => Warning(config) ?? FreePlay;
+
         private static readonly GateKind[] EveryKind =
         {
             GateKind.Not, GateKind.And, GateKind.Or, GateKind.Xor, GateKind.Nand, GateKind.Nor,
@@ -123,7 +155,7 @@ namespace BitSorter.View
                 delayBudget: 0,
                 maxLatency: 0,
                 order: 0,
-                goal: "Free play. Build anything; nothing passes or fails.",
+                goal: GoalFor(config),
                 isGraded: false);
         }
 

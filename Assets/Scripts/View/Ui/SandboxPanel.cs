@@ -191,6 +191,22 @@ namespace BitSorter.View
             int capacity = SandboxLevel.Capacity(Extents());
             float y = 0f;
 
+            // The same sentence the status banner carries, because the panel is covering the banner
+            // and the moment the count reaches zero is the moment it needs saying.
+            string warning = SandboxLevel.Warning(_config);
+
+            if (warning != null)
+            {
+                TextMeshProUGUI note = UiTheme.Label(
+                    "warning", _bodyRoot, 14f, UiTheme.Bad, TextAlignmentOptions.Left);
+                UiTheme.Anchor(note.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f),
+                    new Vector2(0f, y), new Vector2(540f, 22f));
+                note.text = warning;
+                _body.Add(note.gameObject);
+
+                y -= 30f;
+            }
+
             y = Stepper(y, "Sources", _config.sources.Length, capacity, SetSources);
 
             for (int i = 0; i < _config.sources.Length; i++)
