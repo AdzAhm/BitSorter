@@ -158,10 +158,16 @@ Three things to know before trusting the numbers:
   warning in the player log. The events being in the build is not enough.
 - **The project must stay linked.** Collection depends on the `cloudProjectId` in
   `ProjectSettings.asset`. Unlinking the project silently stops reporting.
-- **There is no opt-out.** `StartDataCollection()` is called unconditionally at
-  startup, which treats launching the game as consent. That is worth revisiting
-  before showing this to anyone in a jurisdiction that disagrees, and it is why the
-  README says so plainly rather than burying it.
+- **Reporting is on by default and the player can turn it off**, from the main
+  menu's Data item. `GameAnalytics` sets Unity's consent state rather than calling
+  the deprecated `StartDataCollection`, so denying really stops collection instead
+  of hiding it. The two flows cannot be mixed: once consent is set this way, the
+  SDK throws if the old calls are used, which is why none remain.
+- **The choice is remembered in `PlayerPrefs`, not by the consent framework.**
+  `UnityEngine.UnityConsentModule` has no save, load or clear, so consent is
+  per-session and the game re-applies the stored answer at every launch. Clearing
+  site data in a browser therefore resets it to on, exactly as it resets the mute
+  setting.
 
 Reporting failures never interrupt play. A missing project, a blocked request or a
 rejected event warns and is otherwise ignored, because nothing about analytics is

@@ -179,6 +179,14 @@ their bests or their progress file is ever sent, and a reporting failure
 must never interrupt play. Adding a third event, or a new parameter, is a
 change to what players were told is collected, so ask first.
 
+**Reporting is on by default and the player can turn it off**, from the
+main menu's Data item. Consent goes through `EndUserConsent`, not the
+deprecated `StartDataCollection`; the two flows cannot be mixed, so no
+call to the old one may come back. The consent framework does not persist
+anything, so the answer lives in `PlayerPrefs` beside the mute setting and
+is re-applied every launch. Removing the off switch, or defaulting it to
+off, is a decision about what players were promised — ask first.
+
 **The line is ranking, not measurement.** A number describing the player's
 own circuit is fine, including one kept between sessions: gate count and
 latency on the win panel, and the personal best beside each level, are

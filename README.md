@@ -148,10 +148,14 @@ your IP address. That set is Unity's, not mine, and
 tick counts, your personal bests, or any account, name or email. There is no
 login, and the game asks for nothing.
 
-There is currently **no in-game opt-out**. Collection starts when the game does.
-If you would rather not send anything, the browser builds respect the usual
-tracker and script blocking, and the desktop build can be run with networking
-denied to it.
+**To turn it off:** main menu → **Data**. It toggles between `DATA ON` and
+`DATA OFF`, takes effect immediately, and is remembered on that machine. Turning
+it off stops collection rather than merely hiding it — the game tells Unity's
+consent framework that consent is denied, and nothing is queued or sent while it
+is off.
+
+Reporting is on unless you turn it off, so if you would rather it never ran at
+all, that is the first thing to change.
 
 ---
 

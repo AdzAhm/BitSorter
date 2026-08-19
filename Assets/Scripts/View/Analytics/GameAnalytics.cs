@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Unity.Services.Analytics;
 using Unity.Services.Core;
 using UnityEngine;
+using UnityEngine.UnityConsent;
 
 namespace BitSorter.View
 {
@@ -34,6 +35,39 @@ namespace BitSorter.View
         private const string LevelSolved = "levelSolved";
         private const string LevelNameParameter = "levelName";
 
+        private const string ConsentKey = "bitsorter.analytics";
+
+        /// <summary>
+        /// Whether the player allows reporting. On unless they turn it off.
+        /// </summary>
+        /// <remarks>
+        /// In PlayerPrefs for the same reason the mute setting is: it describes this machine, not
+        /// the player's circuits, and copying a save to another computer should not carry it along.
+        ///
+        /// The consent module itself does not persist anything -- it has no save, load or clear --
+        /// so the answer has to be remembered here and re-applied on every launch.
+        /// </remarks>
+        public static bool Reporting
+        {
+            get => PlayerPrefs.GetInt(ConsentKey, 1) != 0;
+            private set
+            {
+                PlayerPrefs.SetInt(ConsentKey, value ? 1 : 0);
+                PlayerPrefs.Save();
+            }
+        }
+
+        /// <summary>Turns reporting on or off and tells the SDK, for the main menu's Data item.</summary>
+        /// <remarks>
+        /// Takes effect immediately in both directions. Granting mid-session starts collection --
+        /// the SDK begins on the grant, not only at startup -- and denying stops it.
+        /// </remarks>
+        public static void SetReporting(bool reporting)
+        {
+            Reporting = reporting;
+            ApplyConsent();
+        }
+
         private static readonly List<KeyValuePair<string, string>> Pending =
             new List<KeyValuePair<string, string>>();
 
@@ -56,8 +90,12 @@ namespace BitSorter.View
 
             try
             {
+                // Consent before initialising. The SDK starts collecting during InitializeAsync when
+                // consent is already granted, so setting it first means no gap at startup.
+                ApplyConsent();
+
                 await UnityServices.InitializeAsync();
-                AnalyticsService.Instance.StartDataCollection();
+
                 _collecting = true;
                 Flush();
             }
@@ -68,6 +106,33 @@ namespace BitSorter.View
                 _unavailable = true;
                 Pending.Clear();
                 Debug.LogWarning($"BitSorter: analytics unavailable -- {e.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Tells the consent framework what the player has chosen.
+        /// </summary>
+        /// <remarks>
+        /// This replaced StartDataCollection, which Unity deprecated in 6.2. The two cannot be mixed:
+        /// the SDK throws if the old calls are used once consent has been set this way, which is why
+        /// there is no StartDataCollection left anywhere.
+        ///
+        /// It also means an explicit Denied rather than leaving it alone. The default state is
+        /// Unspecified and collects nothing, so simply dropping the old call would have turned
+        /// reporting off without anyone deciding to.
+        /// </remarks>
+        private static void ApplyConsent()
+        {
+            try
+            {
+                EndUserConsent.SetConsentState(new ConsentState
+                {
+                    AnalyticsIntent = Reporting ? ConsentStatus.Granted : ConsentStatus.Denied,
+                });
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"BitSorter: could not set analytics consent -- {e.Message}");
             }
         }
 
@@ -114,6 +179,12 @@ namespace BitSorter.View
         private static void Record(string eventName, string levelName)
         {
             if (_unavailable || string.IsNullOrEmpty(levelName))
+                return;
+
+            // Checked here as well as at the consent framework, so a player who has turned reporting
+            // off does not even accumulate a queue of events waiting for an upload that must not
+            // happen.
+            if (!Reporting)
                 return;
 
             // Free play is not a level and must not look like one. It can never be solved, so a

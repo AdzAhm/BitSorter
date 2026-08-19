@@ -35,6 +35,7 @@ namespace BitSorter.View
         private TextMeshProUGUI _progressLine;
         private TextMeshProUGUI _continueLabel;
         private TextMeshProUGUI _soundLabel;
+        private TextMeshProUGUI _dataLabel;
         private TextMeshProUGUI _nextLine;
         private GameAudio _audio;
         private bool _shown;
@@ -127,27 +128,32 @@ namespace BitSorter.View
             Button sound = Item("Sound", -130f, out _soundLabel);
             sound.onClick.AddListener(() => Fire(ToggleSound));
 
+            // The off switch for reporting. In the menu rather than buried, because a setting nobody
+            // can find is not a choice -- and the README tells players it is here.
+            Button data = Item("Data", -184f, out _dataLabel);
+            data.onClick.AddListener(() => Fire(ToggleData));
+
             // No Quit in a browser. Application.Quit does nothing there -- a tab is closed by the
             // browser, not by the page -- so the button would sit in the menu doing nothing at all,
             // which is worse than not offering it.
 #if !UNITY_WEBGL || UNITY_EDITOR
-            Button quit = Item("Quit", -184f, out TextMeshProUGUI _);
+            Button quit = Item("Quit", -238f, out TextMeshProUGUI _);
             quit.onClick.AddListener(() => Fire(Quit));
 #endif
 
             // Where Continue actually goes. "CONTINUE" alone tells a returning player nothing about
             // which of nine levels they are about to land on.
-            // Moved down with the Quit button when Sandbox joined the list. These sat at -178 and
-            // -204, which the new Quit row now occupies.
+            // These follow the bottom of the button column, which has grown twice -- once for Sandbox
+            // and once for Data. The canvas is 1080 tall, so there is room below -238 for both.
             _nextLine = UiTheme.Label(
                 "next", _root, 15f, UiTheme.Accent, TextAlignmentOptions.Center);
             UiTheme.Anchor(_nextLine.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                new Vector2(0f, -232f), new Vector2(700f, 22f));
+                new Vector2(0f, -286f), new Vector2(700f, 22f));
 
             _progressLine = UiTheme.Label(
                 "progress", _root, 16f, UiTheme.TextDim, TextAlignmentOptions.Center);
             UiTheme.Anchor(_progressLine.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                new Vector2(0f, -258f), new Vector2(700f, 24f));
+                new Vector2(0f, -312f), new Vector2(700f, 24f));
 
             TextMeshProUGUI keys = UiTheme.Label(
                 "keys", _root, 13f, UiTheme.TextDim, TextAlignmentOptions.Center);
@@ -188,6 +194,7 @@ namespace BitSorter.View
 
             _continueLabel.text = fresh ? "START" : "CONTINUE";
             _soundLabel.text = GameAudio.MusicMuted ? "SOUND  OFF" : "SOUND  ON";
+            _dataLabel.text = GameAnalytics.Reporting ? "DATA  ON" : "DATA  OFF";
 
             // Named from the same walk Continue itself uses, so the label cannot promise one level
             // and the button open another.
@@ -217,6 +224,12 @@ namespace BitSorter.View
             if (_audio != null)
                 _audio.ToggleMusic();
 
+            Refresh();
+        }
+
+        private void ToggleData()
+        {
+            GameAnalytics.SetReporting(!GameAnalytics.Reporting);
             Refresh();
         }
 
