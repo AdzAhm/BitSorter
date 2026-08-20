@@ -219,19 +219,18 @@ namespace BitSorter.View
                 y -= 30f;
             }
 
-            y = Stepper(y, "Sources", _config.sources.Length, capacity, SetSources);
+            y = Stepper(y, "Sources", _config.sources.Length, SandboxRules.Sources(capacity), SetSources);
 
             for (int i = 0; i < _config.sources.Length; i++)
                 y = StreamRow(y, i);
 
             y -= 10f;
-            y = Stepper(y, "Sinks", _config.sinks, capacity, SetSinks);
-            y = Stepper(y, "Vectors", _config.vectors,
-                SandboxConfig.MaxVectors, SetVectors, SandboxConfig.MinVectors);
+            y = Stepper(y, "Sinks", _config.sinks, SandboxRules.Sinks(capacity), SetSinks);
+            y = Stepper(y, "Vectors", _config.vectors, SandboxRules.Vectors(), SetVectors);
         }
 
         private float Stepper(
-            float y, string caption, int value, int max, System.Action<int> set, int min = 0)
+            float y, string caption, int value, StepRange range, System.Action<int> set)
         {
             const float height = 30f;
 
@@ -242,7 +241,7 @@ namespace BitSorter.View
             label.text = caption;
             _body.Add(label.gameObject);
 
-            Step(y, 160f, "-", value > min, () => set(value - 1));
+            Step(y, 160f, "-", range.CanDecrease(value), () => set(value - 1));
 
             TextMeshProUGUI count = UiTheme.Label(
                 $"{caption} count", _bodyRoot, 16f, UiTheme.Accent, TextAlignmentOptions.Center);
@@ -251,7 +250,7 @@ namespace BitSorter.View
             count.text = value.ToString();
             _body.Add(count.gameObject);
 
-            Step(y, 240f, "+", value < max, () => set(value + 1));
+            Step(y, 240f, "+", range.CanIncrease(value), () => set(value + 1));
 
             return y - (height + 6f);
         }
@@ -311,8 +310,7 @@ namespace BitSorter.View
 
         private void SetSources(int count)
         {
-            int capacity = SandboxLevel.Capacity(Extents());
-            count = Mathf.Clamp(count, 0, capacity);
+            count = SandboxRules.Sources(SandboxLevel.Capacity(Extents())).Clamp(count);
 
             var next = new string[count];
 
@@ -329,27 +327,22 @@ namespace BitSorter.View
 
         private void SetSinks(int count)
         {
-            _config.sinks = Mathf.Clamp(count, 0, SandboxLevel.Capacity(Extents()));
+            _config.sinks = SandboxRules.Sinks(SandboxLevel.Capacity(Extents())).Clamp(count);
             Changed();
         }
 
         private void SetVectors(int count)
         {
-            _config.vectors = Mathf.Clamp(count, SandboxConfig.MinVectors, SandboxConfig.MaxVectors);
+            _config.vectors = SandboxRules.Vectors().Clamp(count);
             Changed();
         }
 
         private void Flip(int index, int vector)
         {
-            string stream = _config.sources[index];
-
-            if (vector < 0 || vector >= stream.Length)
+            if (index < 0 || index >= _config.sources.Length)
                 return;
 
-            char[] bits = stream.ToCharArray();
-            bits[vector] = bits[vector] == '1' ? '0' : '1';
-
-            _config.sources[index] = new string(bits);
+            _config.sources[index] = SandboxRules.Flip(_config.sources[index], vector);
             Changed();
         }
 

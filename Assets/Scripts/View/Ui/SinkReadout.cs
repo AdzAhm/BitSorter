@@ -66,7 +66,7 @@ namespace BitSorter.View
                 return;
 
             LevelDefinition level = _session.Level;
-            bool wanted = level != null && !level.IsGraded && _runner != null && _runner.IsReady;
+            bool wanted = SinkReadoutRules.IsVisible(level, _runner != null && _runner.IsReady);
 
             if (_root.gameObject.activeSelf != wanted)
                 _root.gameObject.SetActive(wanted);
@@ -74,7 +74,7 @@ namespace BitSorter.View
             if (!wanted)
                 return;
 
-            string signature = Signature(level);
+            string signature = SinkReadoutRules.Signature(level);
 
             if (signature != _built)
                 Rebuild(level, signature);
@@ -107,25 +107,6 @@ namespace BitSorter.View
             _root.gameObject.SetActive(false);
         }
 
-        /// <summary>
-        /// The sinks, in order, as one string. Cheap to compare per frame, and it changes exactly when
-        /// the rows would need rebuilding -- which in free play is whenever a sink is added or removed.
-        /// </summary>
-        private static string Signature(LevelDefinition level)
-        {
-            var text = new StringBuilder();
-
-            for (int i = 0; i < level.Fixtures.Count; i++)
-            {
-                if (level.Fixtures[i].Kind != FixtureKind.Sink)
-                    continue;
-
-                text.Append(level.Fixtures[i].Id).Append('|');
-            }
-
-            return text.ToString();
-        }
-
         private void Rebuild(LevelDefinition level, string signature)
         {
             for (int i = 0; i < _rows.Count; i++)
@@ -139,7 +120,7 @@ namespace BitSorter.View
 
             _rows.Clear();
 
-            const float height = 20f;
+            const float height = SinkReadoutRules.RowHeight;
             int index = 0;
 
             for (int i = 0; i < level.Fixtures.Count; i++)
@@ -166,9 +147,7 @@ namespace BitSorter.View
                 index++;
             }
 
-            // Grown to fit rather than scrolled: the board caps sinks at one column, so this is a
-            // handful of rows at most.
-            _root.sizeDelta = new Vector2(230f, 46f + Mathf.Max(1, index) * height);
+            _root.sizeDelta = new Vector2(230f, SinkReadoutRules.PanelHeight(index));
             _built = signature;
         }
 
@@ -184,25 +163,16 @@ namespace BitSorter.View
             {
                 Row row = _rows[i];
 
-                _text.Clear();
+                // A sink the runner cannot resolve reads the same as one that caught nothing: both
+                // have no bits to show, and the player has no use for the distinction.
+                IReadOnlyList<SinkNode.Reception> caught =
+                    TryFindSink(view, row.SinkId, out SinkNode sink) ? sink.Received : null;
 
-                if (TryFindSink(view, row.SinkId, out SinkNode sink))
-                {
-                    IReadOnlyList<SinkNode.Reception> caught = sink.Received;
+                bool any = SinkReadoutRules.CaughtAnything(caught);
+                SinkReadoutRules.Write(_text, caught);
 
-                    for (int k = 0; k < caught.Count; k++)
-                    {
-                        if (k > 0)
-                            _text.Append(' ');
-
-                        _text.Append((int)caught[k].Value);
-                    }
-                }
-
-                // An em dash rather than an empty line, so "nothing arrived" is a statement and not a
-                // gap the player has to interpret.
-                row.Bits.text = _text.Length > 0 ? _text.ToString() : "--";
-                row.Bits.color = _text.Length > 0 ? UiTheme.Text : UiTheme.TextDim;
+                row.Bits.text = any ? _text.ToString() : SinkReadoutRules.Nothing;
+                row.Bits.color = any ? UiTheme.Text : UiTheme.TextDim;
             }
         }
 
