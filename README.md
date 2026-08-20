@@ -73,6 +73,8 @@ An unbalanced circuit does not run slower. It loses bits.
 | Drag from one port to another | Wire them |
 | Right click | Delete a gate or a wire |
 | Scroll on a wire, or `[` / `]` | Change its delay |
+| `Ctrl`+`Z`, or the UNDO button | Undo the last edit |
+| `Ctrl`+`Y` / `Ctrl`+`Shift`+`Z` | Redo it |
 | `Enter`, or the RUN button | Run |
 | `R` | Reset the board back to editing |
 | `Shift`+`R` | Clear everything you built |
@@ -202,7 +204,7 @@ Unity 6.3 LTS (6000.3.11f1).
 - **BitSorter → Build Play Scene** regenerates the play scene from code. The
   scene is generated rather than authored, so anything added by hand is discarded
   the next time that runs.
-- Tests: Window → General → Test Runner. 443 EditMode and 4 PlayMode at present.
+- Tests: Window → General → Test Runner. 503 EditMode and 4 PlayMode at present.
   The PlayMode four cover pointer arbitration, which needs a live scene; if you
   ever script that run, read the results from `TestResults.xml` in the save
   directory rather than from a `TestRunnerApi` callback, which does not survive
