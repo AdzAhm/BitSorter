@@ -33,6 +33,17 @@ namespace BitSorter.View
 
         private readonly CircuitBlueprint _blueprint = new CircuitBlueprint();
 
+        /// <summary>
+        /// Undo history for the board, emptied on every level load.
+        /// </summary>
+        /// <remarks>
+        /// Deliberately not persisted and deliberately not carried across levels. A snapshot restored
+        /// into another level's graph would put gates on cells that level may not even have, and the
+        /// saved board a player returns to is a starting point rather than a step they can reverse
+        /// past.
+        /// </remarks>
+        private readonly BoardHistory _history = new BoardHistory();
+
         /// <summary>Every level file found under Resources/Levels, by name, in cycle order.</summary>
         private string[] _available;
 
@@ -55,6 +66,17 @@ namespace BitSorter.View
 
         /// <summary>The gate both editing controllers check before acting on a click.</summary>
         public bool CanEdit => IsLoaded && State == RunState.Editing;
+
+        /// <summary>Whether there is an edit to step back through, and the board is editable.</summary>
+        /// <remarks>
+        /// Gated on <see cref="CanEdit"/> rather than on the stack alone. Nothing during a run changes
+        /// the blueprint, so there is never anything to undo mid-run -- but an undo that landed while
+        /// the simulation was live would swap the graph out from under the bits in flight.
+        /// </remarks>
+        public bool CanUndo => CanEdit && _history.CanUndo;
+
+        /// <inheritdoc cref="CanUndo"/>
+        public bool CanRedo => CanEdit && _history.CanRedo;
 
         /// <summary>What the player built. Read-only to everyone but this component.</summary>
         public CircuitBlueprint Blueprint => _blueprint;
@@ -201,6 +223,12 @@ namespace BitSorter.View
             LoadError = null;
 
             _blueprint.Clear();
+
+            // Cleared here rather than on LevelLoaded, which fires below: ProgressTracker restores the
+            // saved board on that event, and the board a player comes back to is a starting point
+            // rather than a step they can reverse past.
+            _history.Clear();
+
             ResetBoard();
 
             // Last, so a subscriber sees a board that is already empty and a level that is already
@@ -238,6 +266,12 @@ namespace BitSorter.View
             LoadError = null;
 
             _blueprint.Clear();
+
+            // Cleared here rather than on LevelLoaded, which fires below: ProgressTracker restores the
+            // saved board on that event, and the board a player comes back to is a starting point
+            // rather than a step they can reverse past.
+            _history.Clear();
+
             ResetBoard();
 
             LevelLoaded?.Invoke(Level);
@@ -371,6 +405,11 @@ namespace BitSorter.View
             if (!IsLoaded || _runner == null)
                 return;
 
+            // An empty board has nothing to go back to, and recording it would hand the player a
+            // Ctrl+Z that visibly does nothing.
+            if (!_blueprint.IsEmpty)
+                Record(BoardEdit.Structural);
+
             _blueprint.Clear();
             ResetBoard();
         }
@@ -444,6 +483,43 @@ namespace BitSorter.View
         /// <summary>Ticks of delay already added across every wire.</summary>
         public int SpentDelay => _blueprint.ExtraDelay();
 
+        /// <summary>
+        /// Steps the board back one edit.
+        /// </summary>
+        /// <remarks>
+        /// Restores a snapshot and rebuilds, which is the same pair every other edit here performs.
+        /// Nothing special-cases what the edit was: the board that was there is simply put back, so an
+        /// undo of a gate removal brings its wires with it for free.
+        /// </remarks>
+        public bool Undo() => Step(_history.TryUndo);
+
+        /// <summary>Steps forward again through an edit that was undone.</summary>
+        public bool Redo() => Step(_history.TryRedo);
+
+        private delegate bool HistoryStep(BlueprintSnapshot current, out BlueprintSnapshot restored);
+
+        private bool Step(HistoryStep step)
+        {
+            if (!CanEdit)
+                return false;
+
+            if (!step(_blueprint.Snapshot(), out BlueprintSnapshot restored))
+                return false;
+
+            _blueprint.Restore(restored);
+            _runner.Rebuild(Level, _blueprint);
+            return true;
+        }
+
+        /// <summary>
+        /// Records the board as it stands, just before an edit that is going ahead.
+        /// </summary>
+        /// <remarks>
+        /// Called after validation and before the mutation in every editing method below, so a refused
+        /// edit leaves no step behind for the player to press Ctrl+Z through.
+        /// </remarks>
+        private void Record(BoardEdit edit) => _history.Push(_blueprint.Snapshot(), edit);
+
         public bool TryPlaceGate(GateKind kind, Vector2Int cell)
         {
             if (!IsLoaded)
@@ -458,6 +534,7 @@ namespace BitSorter.View
                 return false;
             }
 
+            Record(BoardEdit.Structural);
             _blueprint.Place(cell, kind);
             _runner.Rebuild(Level, _blueprint);
             return true;
@@ -486,6 +563,7 @@ namespace BitSorter.View
                 return verdict.Outcome != LevelOutcome.NothingThere;
             }
 
+            Record(BoardEdit.Structural);
             _blueprint.RemoveAt(cell);
             _runner.Rebuild(Level, _blueprint);
             return true;
@@ -525,6 +603,7 @@ namespace BitSorter.View
                 return false;   // a node vanished between the drag starting and ending
             }
 
+            Record(BoardEdit.Structural);
             _blueprint.AddWire(new BlueprintWire(source, target, delay));
             _runner.Rebuild(Level, _blueprint);
             return true;
@@ -555,6 +634,7 @@ namespace BitSorter.View
             if (!TryWireIndex(edge, out int index))
                 return false;
 
+            Record(BoardEdit.Structural);
             _blueprint.RemoveWireAt(index);
             _runner.Rebuild(Level, _blueprint);
             return true;
@@ -593,6 +673,8 @@ namespace BitSorter.View
                 return false;
             }
 
+            // Keyed on the wire, so a run of scroll notches on one wire is a single undo step.
+            Record(BoardEdit.WireDelay(index));
             _blueprint.SetDelayAt(index, target);
             _runner.Rebuild(Level, _blueprint);
             return true;

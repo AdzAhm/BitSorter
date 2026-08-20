@@ -112,6 +112,20 @@ failure side.
   rather than reading it back off the object. Bits lost to a removal are
   not corruption and must never touch CorruptedCount.
 
+- **Undo is a stack of whole-board snapshots, not inverse operations.**
+  `BlueprintSnapshot` copies the blueprint's two lists; both hold only
+  readonly structs, so a snapshot shares nothing with the live board and
+  is correct by construction rather than by argument. Inverses were
+  rejected because two of the six edits — removing a gate, and CLEAR ALL —
+  take wires with them, so their inverses are subgraph snapshots anyway.
+  The undo unit is one committed edit, recorded after validation so a
+  refused edit leaves no step behind. The exception is wire delay: a run
+  of scroll notches on **one** wire coalesces into a single step, because
+  scrolling 1→4 and pressing Ctrl+Z should land on 1, not 3. History is
+  capped, gated on `CanEdit`, and cleared on every level load — before
+  `LevelLoaded`, so the board `ProgressTracker` restores is the baseline
+  rather than a step the player can reverse past.
+
 - **Sequential logic uses stateful RegisterNode primitives plus seedable
   edges, not gate-built latches.** Consume semantics destroys a value on
   use, so a cross-coupled NOR latch deadlocks at startup (each gate waits
@@ -175,7 +189,7 @@ failure side.
 ## Not yet
 Do not build ahead of me. The logic core, the view layer, the level
 format, the nine levels, the canvas interface, sound, level select,
-saved progress, analytics and the sandbox are all in.
+saved progress, analytics, the sandbox and board undo are all in.
 
 **The sandbox is built in code, not authored as JSON.** That is a
 decision, not a shortcut: `LevelLoader.Validate` refuses a level with no

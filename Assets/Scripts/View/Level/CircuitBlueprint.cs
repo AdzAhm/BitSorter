@@ -95,6 +95,79 @@ namespace BitSorter.View
     }
 
     /// <summary>
+    /// An immutable copy of a board, as <see cref="BoardHistory"/> stores it.
+    /// </summary>
+    /// <remarks>
+    /// A snapshot rather than an inverse operation, and the reason is visible right here: a blueprint
+    /// is two lists of readonly structs and nothing else. Copying the lists copies the board, with
+    /// nothing shared and nothing to alias, so a snapshot is correct by construction rather than by
+    /// argument. Undoing by inverse would need six inverses instead -- and two of them, removing a gate
+    /// and clearing the board, take wires with them, so their inverses are subgraph snapshots anyway.
+    ///
+    /// Immutable so a stack of these cannot be edited from underneath by the live board they came from.
+    /// </remarks>
+    public sealed class BlueprintSnapshot
+    {
+        private readonly GatePlacement[] _placements;
+        private readonly BlueprintWire[] _wires;
+
+        internal BlueprintSnapshot(List<GatePlacement> placements, List<BlueprintWire> wires)
+        {
+            _placements = placements.ToArray();
+            _wires = wires.ToArray();
+        }
+
+        public int PlacementCount => _placements.Length;
+
+        public int WireCount => _wires.Length;
+
+        public bool IsEmpty => _placements.Length == 0 && _wires.Length == 0;
+
+        internal void RestoreInto(List<GatePlacement> placements, List<BlueprintWire> wires)
+        {
+            placements.Clear();
+            placements.AddRange(_placements);
+
+            wires.Clear();
+            wires.AddRange(_wires);
+        }
+
+        /// <summary>
+        /// Whether two snapshots describe the same board, order included.
+        /// </summary>
+        /// <remarks>
+        /// Order is part of the comparison because it is part of the contract: a rebuild assigns node
+        /// and edge ids by list position, so two boards holding the same gates in a different order are
+        /// not the same board.
+        /// </remarks>
+        public bool Matches(BlueprintSnapshot other)
+        {
+            if (other == null)
+                return false;
+
+            if (other._placements.Length != _placements.Length || other._wires.Length != _wires.Length)
+                return false;
+
+            for (int i = 0; i < _placements.Length; i++)
+            {
+                if (_placements[i].Cell != other._placements[i].Cell ||
+                    _placements[i].Kind != other._placements[i].Kind)
+                {
+                    return false;
+                }
+            }
+
+            for (int i = 0; i < _wires.Length; i++)
+            {
+                if (!_wires[i].Equals(other._wires[i]))
+                    return false;
+            }
+
+            return true;
+        }
+    }
+
+    /// <summary>
     /// Everything the player built, as data. The single authority on the circuit: the Simulation is a
     /// derived artifact rebuilt from this on Run, on Reset, and on every edit.
     /// </summary>
@@ -280,6 +353,29 @@ namespace BitSorter.View
         {
             _placements.Clear();
             _wires.Clear();
+        }
+
+        // -----------------------------------------------------------------
+        // Undo
+        // -----------------------------------------------------------------
+
+        /// <summary>A copy of the board as it stands, for <see cref="BoardHistory"/> to hold.</summary>
+        public BlueprintSnapshot Snapshot() => new BlueprintSnapshot(_placements, _wires);
+
+        /// <summary>
+        /// Replaces the board with a snapshot taken earlier.
+        /// </summary>
+        /// <remarks>
+        /// Restores in place rather than swapping the lists, because <see cref="Placements"/> and
+        /// <see cref="Wires"/> hand out the live lists and a caller may be holding one. Ignores null so
+        /// an undo with nothing to restore leaves the board alone instead of emptying it.
+        /// </remarks>
+        public void Restore(BlueprintSnapshot snapshot)
+        {
+            if (snapshot == null)
+                return;
+
+            snapshot.RestoreInto(_placements, _wires);
         }
 
         private int IndexOfPlacement(Vector2Int cell)

@@ -31,6 +31,8 @@ namespace BitSorter.View
 
         private Button _run;
         private Button _reset;
+        private Button _undo;
+        private Button _redo;
         private Button _clear;
         private TextMeshProUGUI _runLabel;
         private TextMeshProUGUI _clearLabel;
@@ -50,9 +52,12 @@ namespace BitSorter.View
             if (_canvas == null)
                 return;
 
+            // Widened from 430 to fit undo and redo between Reset and CLEAR ALL. They belong on this
+            // row rather than near the palette: this is the row of things done *to* the board, and
+            // undo is the counterpart of the most destructive button on it.
             RectTransform root = UiTheme.Rect("Run controls", _canvas.transform);
             UiTheme.Anchor(root, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
-                new Vector2(0f, UiTheme.ButtonRow), new Vector2(430f, UiTheme.ButtonHeight));
+                new Vector2(0f, UiTheme.ButtonRow), new Vector2(600f, UiTheme.ButtonHeight));
 
             _run = UiTheme.Button_("Run", root, "RUN", out _runLabel);
             UiTheme.Anchor(_run.GetComponent<RectTransform>(), new Vector2(0f, 0f), new Vector2(0f, 0f),
@@ -62,12 +67,22 @@ namespace BitSorter.View
             UiTheme.Anchor(_reset.GetComponent<RectTransform>(), new Vector2(0f, 0f), new Vector2(0f, 0f),
                 new Vector2(158f, 0f), new Vector2(110f, UiTheme.ButtonHeight));
 
+            _undo = UiTheme.Button_("Undo", root, "UNDO", out TextMeshProUGUI _);
+            UiTheme.Anchor(_undo.GetComponent<RectTransform>(), new Vector2(0f, 0f), new Vector2(0f, 0f),
+                new Vector2(276f, 0f), new Vector2(76f, UiTheme.ButtonHeight));
+
+            _redo = UiTheme.Button_("Redo", root, "REDO", out TextMeshProUGUI _);
+            UiTheme.Anchor(_redo.GetComponent<RectTransform>(), new Vector2(0f, 0f), new Vector2(0f, 0f),
+                new Vector2(356f, 0f), new Vector2(76f, UiTheme.ButtonHeight));
+
             _clear = UiTheme.Button_("Clear", root, "CLEAR ALL", out _clearLabel);
             UiTheme.Anchor(_clear.GetComponent<RectTransform>(), new Vector2(1f, 0f), new Vector2(1f, 0f),
                 Vector2.zero, new Vector2(150f, UiTheme.ButtonHeight));
 
             _run.onClick.AddListener(() => Fire(Run));
             _reset.onClick.AddListener(() => Fire(ResetBoard));
+            _undo.onClick.AddListener(() => Fire(Undo));
+            _redo.onClick.AddListener(() => Fire(Redo));
             _clear.onClick.AddListener(() => Fire(AskToClear));
 
             BuildControlsLine();
@@ -98,7 +113,7 @@ namespace BitSorter.View
 
             line.text =
                 "drag a port to wire     right click to delete     scroll a wire to re-time     " +
-                "shift+R to clear     H for help     ESC for levels     N to mute";
+                "ctrl+Z to undo     shift+R to clear     H for help     ESC for levels     N to mute";
         }
 
         private void Update()
@@ -115,6 +130,11 @@ namespace BitSorter.View
 
             _run.interactable = _session.IsLoaded && _session.State != RunState.Running;
             _reset.interactable = _session.IsLoaded;
+
+            // Dead when there is nothing to step through, which is how the player finds out the
+            // history is empty without pressing anything.
+            _undo.interactable = _session.CanUndo;
+            _redo.interactable = _session.CanRedo;
 
             UpdateClear();
         }
@@ -170,6 +190,10 @@ namespace BitSorter.View
         }
 
         private void Run() => _session.Run();
+
+        private void Undo() => _session.Undo();
+
+        private void Redo() => _session.Redo();
 
         /// <summary>
         /// Named ResetBoard, not Reset, for the same reason <see cref="LevelSession.ResetBoard"/> is.

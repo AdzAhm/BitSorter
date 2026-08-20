@@ -51,6 +51,32 @@ namespace BitSorter.View
             if (UiModal.AnyOpen)
                 return;
 
+            // Ctrl+Z and Ctrl+Y, with Ctrl+Shift+Z as the redo binding a lot of people reach for
+            // first. Handled ahead of everything below and returning once matched, so a modified
+            // press cannot also fire the unmodified action -- z and y are unbound today, but leaving
+            // that to luck is how R ended up needing its own shift check further down.
+            //
+            // The session decides whether either is legal; both are refused unless the board is
+            // editable, so this does not need to know the run state.
+            if (keyboard.ctrlKey.isPressed)
+            {
+                if (keyboard.zKey.wasPressedThisFrame)
+                {
+                    if (keyboard.shiftKey.isPressed)
+                        _session.Redo();
+                    else
+                        _session.Undo();
+
+                    return;
+                }
+
+                if (keyboard.yKey.wasPressedThisFrame)
+                {
+                    _session.Redo();
+                    return;
+                }
+            }
+
             // Both Enter keys, because a numpad Enter is not the same control.
             if (keyboard.enterKey.wasPressedThisFrame || keyboard.numpadEnterKey.wasPressedThisFrame)
                 _session.Run();
