@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -39,6 +40,12 @@ namespace BitSorter.View
         private TextMeshProUGUI _nextLine;
         private GameAudio _audio;
         private bool _shown;
+
+        /// <summary>
+        /// Held rather than built per call: <see cref="Refresh"/> runs every frame the menu is up, and
+        /// a fresh closure each time would be per-frame garbage for a screen that is standing still.
+        /// </summary>
+        private Predicate<string> _isComplete;
 
         /// <summary>Whether the menu is covering the board.</summary>
         public bool IsOpen => _shown;
@@ -185,9 +192,7 @@ namespace BitSorter.View
             int total = _session.Catalogue.Count;
             int done = SolvedCount();
 
-            _progressLine.text = done == 0
-                ? $"{total} levels"
-                : $"{done} of {total} solved";
+            _progressLine.text = MenuRules.DescribeProgress(done, total);
 
             // "Continue" on a fresh save is a lie -- there is nothing to continue from.
             bool fresh = done == 0 && _session.LevelIndex == 0;
@@ -197,27 +202,22 @@ namespace BitSorter.View
             _dataLabel.text = GameAnalytics.Reporting ? "DATA  ON" : "DATA  OFF";
 
             // Named from the same walk Continue itself uses, so the label cannot promise one level
-            // and the button open another.
-            LevelEntry next = NextUp();
-
-            _nextLine.text = done >= total
-                ? "all solved -- replay anything you like"
-                : $"next up: {next.DisplayName}";
+            // and the button open another. Asked only once the run is known to have a frontier left:
+            // an empty catalogue has no next level, and used to throw here rather than say so.
+            if (MenuRules.AllSolved(done, total))
+                _nextLine.text = "all solved -- replay anything you like";
+            else if (TryNextUp(out LevelEntry next))
+                _nextLine.text = $"next up: {next.DisplayName}";
+            else
+                _nextLine.text = string.Empty;
         }
 
-        /// <summary>The level <see cref="Continue"/> would open.</summary>
-        private LevelEntry NextUp()
-        {
-            IReadOnlyList<LevelEntry> catalogue = _session.Catalogue;
+        /// <summary>The level <see cref="Continue"/> would open, if the run has one.</summary>
+        private bool TryNextUp(out LevelEntry next) =>
+            MenuRules.TryNextUp(_session.Catalogue, IsComplete, out next);
 
-            foreach (LevelEntry entry in catalogue)
-            {
-                if (_progress == null || !_progress.IsComplete(entry.FileName))
-                    return entry;
-            }
-
-            return catalogue[catalogue.Count - 1];
-        }
+        private Predicate<string> IsComplete =>
+            _isComplete ?? (_isComplete = name => _progress != null && _progress.IsComplete(name));
 
         private void ToggleSound()
         {
@@ -266,10 +266,12 @@ namespace BitSorter.View
         {
             Show(false);
 
-            if (_session == null || !_session.IsLoaded || _session.Catalogue.Count == 0)
+            if (_session == null || !_session.IsLoaded)
                 return;
 
-            LevelEntry next = NextUp();
+            // The empty-catalogue guard lives in the walk now, so both callers get it.
+            if (!TryNextUp(out LevelEntry next))
+                return;
 
             if (next.FileName != _session.LevelName)
                 _session.LoadLevel(next.FileName);
