@@ -87,13 +87,19 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
-        /// Dumps what the gate can see to the scratchpad.
+        /// Dumps what the gate can see to a file beside the test results.
         /// </summary>
         /// <remarks>
         /// Entering play mode reloads the domain, which destroys any TestRunnerApi callback
         /// registered from outside the project -- so a failure message can be seen in the Test Runner
         /// window but not read back programmatically. Writing from inside the test sidesteps that
         /// entirely: the file survives because it is not in the domain.
+        ///
+        /// Under persistentDataPath, not an absolute path. This ran as a WebGL player once, where the
+        /// filesystem is Emscripten's and Unix-rooted -- a "C:/..." literal resolved to "/C:/..." and
+        /// threw DirectoryNotFoundException before a single assertion was reached, which is what made
+        /// both tests in this fixture red. persistentDataPath is writable in every player, needs no
+        /// drive letter, and is where TestResults.xml already lands.
         /// </remarks>
         private void Diagnose(string label, Vector2 pointer, Button button)
         {
@@ -122,9 +128,23 @@ namespace BitSorter.PlayMode.Tests
             File.AppendAllText(DiagnosticPath, sb.ToString());
         }
 
-        private const string DiagnosticPath =
-            "C:/Users/55556/AppData/Local/Temp/claude/c--Users-55556-Unity-projects2-BitSorter/" +
-            "47f161da-fdef-4794-939c-ac4a4dbcc0d1/scratchpad/playmode-diagnostic.txt";
+        private static string DiagnosticPath =>
+            Path.Combine(Application.persistentDataPath, "playmode-diagnostic.txt");
+
+        /// <summary>
+        /// Starts each run's dump empty.
+        /// </summary>
+        /// <remarks>
+        /// Appending forever is the Editor.log trap CLAUDE.md documents: three runs had stacked up in
+        /// this file, and reading the oldest as the current one is exactly the mistake that section
+        /// warns about. Truncating once per fixture means what is in the file is what just happened.
+        /// </remarks>
+        [OneTimeSetUp]
+        public void ClearDiagnostic()
+        {
+            if (File.Exists(DiagnosticPath))
+                File.Delete(DiagnosticPath);
+        }
 
         // -----------------------------------------------------------------
         // The regression this assembly exists for
