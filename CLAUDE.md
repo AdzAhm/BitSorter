@@ -269,9 +269,7 @@ by name. Treat this section as a place to park ideas, not as a to-do list.
   chapters — a level can constrain the delay budget, but it cannot hand
   the player a pre-broken circuit to repair.
 
-- **A waiting bit needs a stronger visual.** A bit held in an input port
-  currently renders as a small square inside the node. That is readable
-  but not legible: it does not communicate "waiting for a second input"
-  to anyone who does not already know the rules. Needs a stronger
-  treatment — pulse, glow, or a filled/empty port indicator — before
-  playtesting with anyone unfamiliar with the game.
+- **Shipped: waiting bits now pulse in the input stubs.** A filled input on
+  a gate that is still missing its other input now scales and brightens
+  in place, with colour by bit value, so "this bit is waiting" reads
+  immediately instead of as a static square that looks like decoration.

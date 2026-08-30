@@ -43,6 +43,10 @@ is unsigned, which is all that warning means. "More info", then "Run anyway".
 Nine levels teach the ideas in order, and [a sandbox](#the-sandbox) is there for
 when you would rather build something without being marked on it.
 
+On a fresh save, the first level opens with a short three-step walkthrough of
+wiring, gate firing, and collision marks. It appears once and then gets out of
+your way.
+
 ### Two rules explain almost everything
 
 **A gate fires when all of its inputs are full, and consumes them.** It cannot

@@ -15,6 +15,10 @@ namespace BitSorter.View
         [SerializeField] private GameObject _stubPrefab;
         [SerializeField] private Color _inputColour = new Color(0.62f, 0.66f, 0.76f);
         [SerializeField] private Color _outputColour = new Color(0.80f, 0.78f, 0.58f);
+        [SerializeField] private Color _waitingZeroColour = new Color(0.60f, 0.72f, 0.92f);
+        [SerializeField] private Color _waitingOneColour = new Color(1.00f, 0.88f, 0.32f);
+        [SerializeField] private float _waitingPulseSeconds = 0.7f;
+        [SerializeField] private float _waitingScale = 1.65f;
 
         [SerializeField] private Color _collisionColour = new Color(1.00f, 0.28f, 0.24f);
         [SerializeField] private float _flashSeconds = 0.35f;
@@ -53,8 +57,53 @@ namespace BitSorter.View
                 _builtRevision = _runner.GraphRevision;
             }
 
+            ShowWaitingBits();
             DetectCollisions();
             AdvanceFlashes();
+        }
+
+        /// <summary>
+        /// A filled-but-not-ready input is the waiting state that teaches timing, so it gets a
+        /// stronger treatment than an idle stub.
+        /// </summary>
+        private void ShowWaitingBits()
+        {
+            SimulationView view = _runner.View;
+            float pulse = InputPortVisuals.Pulse01(Time.time, _waitingPulseSeconds);
+
+            for (int nodeId = 0; nodeId < view.NodeCount; nodeId++)
+            {
+                Node node = view.GetNode(nodeId);
+                if (node == null)
+                    continue;
+
+                for (int portIndex = 0; portIndex < node.InputCount; portIndex++)
+                {
+                    PortAddress key = new PortAddress(nodeId, true, portIndex);
+
+                    if (!_inputStubs.TryGetValue(key, out SpriteRenderer stub) || stub == null)
+                        continue;
+
+                    // Collision flash owns the stub while it is active.
+                    if (_flashing.ContainsKey(key))
+                        continue;
+
+                    InputPort port = node.In(portIndex);
+
+                    if (!InputPortVisuals.IsWaiting(port))
+                    {
+                        stub.color = _inputColour;
+                        stub.transform.localScale = Vector3.one * PortGeometry.StubSize;
+                        continue;
+                    }
+
+                    float scale = Mathf.Lerp(1f, _waitingScale, pulse);
+                    stub.transform.localScale = Vector3.one * PortGeometry.StubSize * scale;
+
+                    stub.color = InputPortVisuals.WaitingColour(
+                        port.Pending.Value, _waitingZeroColour, _waitingOneColour, pulse);
+                }
+            }
         }
 
         /// <summary>

@@ -103,6 +103,7 @@ namespace BitSorter.View.EditorTools
             SinkCelebration celebration = host.AddComponent<SinkCelebration>();
             MainMenu mainMenu = host.AddComponent<MainMenu>();
             EndingPanel ending = host.AddComponent<EndingPanel>();
+            OnboardingPanel onboarding = host.AddComponent<OnboardingPanel>();
 
             // After levelSelect, and that is not arbitrary. Both read Escape in the same frame, and
             // the level list only opens when nothing else is open -- so it has to look while the
@@ -225,6 +226,10 @@ namespace BitSorter.View.EditorTools
             Assign(mainMenu, "_levels", levelSelect);
             Assign(mainMenu, "_sandbox", sandbox);
             Assign(mainMenu, "_canvas", canvas);
+
+            Assign(onboarding, "_session", session);
+            Assign(onboarding, "_progress", progress);
+            Assign(onboarding, "_canvas", canvas);
 
             Assign(audio, "_runner", runner);
             Assign(audio, "_session", session);
