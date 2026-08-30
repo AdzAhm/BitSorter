@@ -25,10 +25,6 @@ namespace BitSorter.View
     public sealed class ScorchMarks : MonoBehaviour
     {
         [SerializeField] private SimulationRunner _runner;
-
-        [Tooltip("Colour of the mark. Defaults to the red already used for destruction.")]
-        [SerializeField] private Color _colour = new Color(0.95f, 0.30f, 0.28f);
-
         [SerializeField] private float _size = 1.15f;
         [SerializeField] private float _alpha = 0.5f;
 
@@ -46,6 +42,7 @@ namespace BitSorter.View
 
         private Transform _container;
         private int _revision = -1;
+        private int _visualVersion = -1;
 
         private void Awake()
         {
@@ -65,6 +62,12 @@ namespace BitSorter.View
             if (_runner.GraphRevision != _revision)
             {
                 _revision = _runner.GraphRevision;
+                Clear();
+            }
+
+            if (VisualAccessibilitySettings.Version != _visualVersion)
+            {
+                _visualVersion = VisualAccessibilitySettings.Version;
                 Clear();
             }
 
@@ -103,8 +106,12 @@ namespace BitSorter.View
             // node's 1.20, so the size is right and the read is still weak. A hard-bodied sprite
             // like Circle under the halo would make it legible. Deliberately not done: the layer
             // fix below is what made it visible at all, and that was judged enough.
-            renderer.sprite = ProceduralSprites.Glow();
-            renderer.color = new Color(_colour.r, _colour.g, _colour.b, 0f);
+            renderer.sprite = VisualAccessibilitySettings.ShapeCues
+                ? ProceduralSprites.Diamond()
+                : ProceduralSprites.Glow();
+
+            Color colour = VisualAccessibilitySettings.CorruptionColor();
+            renderer.color = new Color(colour.r, colour.g, colour.b, 0f);
 
             // Over the gate, under the bits.
             //
@@ -143,7 +150,8 @@ namespace BitSorter.View
                 float t = _bloomSeconds <= 0f ? 1f : Mathf.Clamp01(age / _bloomSeconds);
 
                 SpriteRenderer renderer = mark.Renderer;
-                renderer.color = new Color(_colour.r, _colour.g, _colour.b, _alpha * t);
+                Color colour = VisualAccessibilitySettings.CorruptionColor();
+                renderer.color = new Color(colour.r, colour.g, colour.b, _alpha * t);
 
                 // Overshoots and settles, so it lands rather than simply appearing.
                 float scale = _size * (1f + 0.5f * (1f - t) * (1f - t));

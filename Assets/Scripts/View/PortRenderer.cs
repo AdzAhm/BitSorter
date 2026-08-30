@@ -15,8 +15,6 @@ namespace BitSorter.View
         [SerializeField] private GameObject _stubPrefab;
         [SerializeField] private Color _inputColour = new Color(0.62f, 0.66f, 0.76f);
         [SerializeField] private Color _outputColour = new Color(0.80f, 0.78f, 0.58f);
-        [SerializeField] private Color _waitingZeroColour = new Color(0.60f, 0.72f, 0.92f);
-        [SerializeField] private Color _waitingOneColour = new Color(1.00f, 0.88f, 0.32f);
         [SerializeField] private float _waitingPulseSeconds = 0.7f;
         [SerializeField] private float _waitingScale = 1.65f;
 
@@ -101,7 +99,10 @@ namespace BitSorter.View
                     stub.transform.localScale = Vector3.one * PortGeometry.StubSize * scale;
 
                     stub.color = InputPortVisuals.WaitingColour(
-                        port.Pending.Value, _waitingZeroColour, _waitingOneColour, pulse);
+                        port.Pending.Value,
+                        VisualAccessibilitySettings.WaitingZeroColor(),
+                        VisualAccessibilitySettings.WaitingOneColor(),
+                        pulse);
                 }
             }
         }
