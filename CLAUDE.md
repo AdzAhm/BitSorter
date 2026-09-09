@@ -103,6 +103,24 @@ failure side.
   matching-value collision adds 1. A mixed-value collision adds 2, since
   both bits are destroyed.
 
+- **Between ticks, an occupied input port always belongs to a stalled
+  gate.** `Tick` runs advance, deliver, evaluate in that order, so a node
+  whose ports are all full is evaluated in the tick that filled them and
+  never survives to the next frame holding them. "Holding a bit" and "could
+  not fire" are therefore the same observable condition, which is why the
+  view needs no separate stall computation. Mid-tick is the exception the
+  code still has to handle: a node can be momentarily ready and about to
+  fire, and that must not read as stuck. `PortState.IsStalled` is the one
+  place this is decided.
+
+- **An imminent collision is predictable exactly, not heuristically.**
+  Delivery is phase 2 and evaluation is phase 3, so nothing can empty a
+  port between now and an arrival one tick out: if the port is occupied and
+  a bit has one tick left, they meet. Comparing that bit's value to
+  `Pending` says in advance which outcome `Deliver` will pick. This is what
+  lets the board warn before the bang rather than only mark the damage
+  after, and it is why the warning can never be a false alarm.
+
 - **NodeCount and EdgeCount are id bounds, not populations.** Removing
   leaves a tombstone: the slot becomes null and the id is retired, never
   reissued, so every surviving id keeps meaning the same node. Use
@@ -269,9 +287,20 @@ by name. Treat this section as a place to park ideas, not as a to-do list.
   chapters — a level can constrain the delay budget, but it cannot hand
   the player a pre-broken circuit to repair.
 
-- **A waiting bit needs a stronger visual.** A bit held in an input port
-  currently renders as a small square inside the node. That is readable
-  but not legible: it does not communicate "waiting for a second input"
-  to anyone who does not already know the rules. Needs a stronger
-  treatment — pulse, glow, or a filled/empty port indicator — before
-  playtesting with anyone unfamiliar with the game.
+- **A waiting bit needs a stronger visual. Shipped.** This entry used to
+  claim a held bit rendered as a small square inside the node. It never
+  did: `BitRenderer` released the sprite the moment the bit left transit
+  and nothing drew it again, so a waiting bit was drawn as *nothing* and a
+  stalled board showed gates idling for no stated reason.
+
+  Now an empty input socket is a hollow ring and a full one is a filled
+  disc in that bit's own colour, carrying the glow it had on the wire. A
+  stalled gate drains and dims with a slow amber breath — **darker, not
+  brighter**: the first attempt raised its glow and under bloom the gate
+  blew out into one bright blob with the sockets lost inside it, which is
+  backwards, because the sockets are what carry the meaning. A collision
+  one tick away throbs on the port, the wire and the bit at once, amber
+  when only the arrival dies and red when the waiting bit dies too.
+
+  Still worth playtesting with someone unfamiliar with the game — that was
+  the original point of this entry and no amount of design settles it.
