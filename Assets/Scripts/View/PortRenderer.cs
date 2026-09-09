@@ -42,19 +42,21 @@ namespace BitSorter.View
         [Tooltip("How much larger a socket holding a bit is drawn than an empty one.")]
         [SerializeField] private float _heldScale = 1.28f;
 
-        [Tooltip("A collision next tick that destroys only the arriving bit.")]
-        [SerializeField] private Color _warningColour = new Color(1.00f, 0.74f, 0.22f);
-
-        [Tooltip("A collision next tick that destroys the waiting bit as well.")]
-        [SerializeField] private Color _dangerColour = new Color(1.00f, 0.28f, 0.24f);
-
-        [SerializeField] private float _warningPulseHz = 3.5f;
+        [Tooltip("How far a socket swells at the peak of an imminent-collision throb.")]
         [SerializeField] private float _warningScale = 1.7f;
+
+        [Tooltip("Halo on a socket that is holding a bit, so a landed bit keeps the glow it flew with.")]
+        [SerializeField] private float _heldGlowScale = 2.6f;
+        [SerializeField] private float _heldGlowAlpha = 0.60f;
 
         private readonly List<GameObject> _spawned = new List<GameObject>();
 
         /// <summary>Input stubs by node id and port index, so a collision can find its stub.</summary>
         private readonly Dictionary<PortAddress, SpriteRenderer> _inputStubs =
+            new Dictionary<PortAddress, SpriteRenderer>();
+
+        /// <summary>The halo behind each input stub, lit only while the socket holds something.</summary>
+        private readonly Dictionary<PortAddress, SpriteRenderer> _inputGlows =
             new Dictionary<PortAddress, SpriteRenderer>();
 
         /// <summary>Seconds of flash still owed to a port, keyed the same way.</summary>
@@ -174,16 +176,22 @@ namespace BitSorter.View
 
             if (_doomed.TryGetValue(key, out bool heldBitDies))
             {
-                // Sine rather than a sawtooth: the port should throb, not blink, so it reads as
-                // urgency without competing with the flash a real collision produces.
-                float pulse = 0.5f + 0.5f * Mathf.Sin(Time.time * _warningPulseHz * Mathf.PI * 2f);
+                // A throb rather than a blink, so it reads as urgency without competing with the
+                // flash a real collision produces.
+                float pulse = PortState.Pulse(Time.time, PortState.WarningHz);
 
-                colour = Color.Lerp(colour, heldBitDies ? _dangerColour : _warningColour, pulse);
+                colour = Color.Lerp(colour, PortState.WarningColour(heldBitDies), pulse);
                 scale *= Mathf.Lerp(1f, _warningScale, pulse);
             }
 
             stub.color = colour;
             stub.transform.localScale = Vector3.one * PortGeometry.StubSize * scale;
+
+            // A held bit needs the glow it had on the wire. Without it a waiting zero -- deliberately
+            // the dimmest colour on the board -- disappears against the gate it is sitting on, which
+            // is precisely the gate that has gone dim because that bit is stuck there.
+            if (_inputGlows.TryGetValue(key, out SpriteRenderer glow) && glow != null)
+                glow.color = new Color(colour.r, colour.g, colour.b, holding ? _heldGlowAlpha : 0f);
         }
 
         /// <summary>
@@ -296,6 +304,7 @@ namespace BitSorter.View
 
             _spawned.Clear();
             _inputStubs.Clear();
+            _inputGlows.Clear();
             _flashing.Clear();   // stub references are about to be replaced
             _doomed.Clear();
 
@@ -331,12 +340,37 @@ namespace BitSorter.View
             // change, so they are finished here.
             renderer.sprite = isInput ? ProceduralSprites.Ring() : ProceduralSprites.Dot();
             renderer.color = isInput ? _inputColour : _outputColour;
-            renderer.sortingOrder = 1;   // above the node body, below bits
+            // Above the scorch mark, which is drawn at 2 and is four times the width of a stub. A
+            // port that has collided before is exactly the one whose state is worth reading, so the
+            // burn must not bury it.
+            renderer.sortingOrder = 3;
 
             if (isInput)
-                _inputStubs[new PortAddress(nodeId, true, index)] = renderer;
+            {
+                var key = new PortAddress(nodeId, true, index);
+                _inputStubs[key] = renderer;
+                _inputGlows[key] = SpawnGlow(stub.transform);
+            }
 
             _spawned.Add(stub);
+        }
+
+        /// <summary>
+        /// The halo behind one input socket. A child, so it follows the stub's swell when a
+        /// collision is coming and needs no position of its own.
+        /// </summary>
+        private SpriteRenderer SpawnGlow(Transform stub)
+        {
+            var host = new GameObject("Socket glow");
+            host.transform.SetParent(stub, false);
+            host.transform.localScale = Vector3.one * _heldGlowScale;
+
+            var renderer = host.AddComponent<SpriteRenderer>();
+            renderer.sprite = ProceduralSprites.Glow();
+            renderer.sortingOrder = 1;
+            renderer.color = Color.clear;   // lit only once something is being held
+
+            return renderer;
         }
     }
 }

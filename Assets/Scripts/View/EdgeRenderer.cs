@@ -194,6 +194,18 @@ namespace BitSorter.View
                 if (edgeId == hovered)
                     colour = _hoverColour;
 
+                // Outranks hover: what this wire is about to do matters more than what the cursor
+                // happens to be near. Tinting the whole wire rather than the stretch ahead of the
+                // bit keeps this to a colour change, so no geometry is rebuilt for a warning -- and
+                // it ties the wire to the port it is aimed at, which is the thing being warned about.
+                Edge edge = _runner.View.GetEdge(edgeId);
+
+                if (edge != null && PortState.WillCollide(edge, out bool heldBitDies))
+                {
+                    colour = Color.Lerp(colour, PortState.WarningColour(heldBitDies),
+                        PortState.Pulse(Time.time, PortState.WarningHz));
+                }
+
                 // The flash wins over hover: it is the acknowledgement of an action the player just took.
                 float flash = _delay != null ? _delay.FlashStrengthFor(edgeId) : 0f;
                 if (flash > 0f)

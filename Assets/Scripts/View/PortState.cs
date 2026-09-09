@@ -1,4 +1,5 @@
 using BitSorter.LogicCore;
+using UnityEngine;
 
 namespace BitSorter.View
 {
@@ -13,6 +14,46 @@ namespace BitSorter.View
     /// </remarks>
     public static class PortState
     {
+        /// <summary>
+        /// A gate that is waiting, and a collision that will destroy only the arriving bit.
+        /// </summary>
+        /// <remarks>
+        /// Here rather than on the renderers because the waiting language is spoken in three
+        /// places -- the socket, the gate body and the wire -- and it only reads as one idea if
+        /// they agree. Three serialized colours that have to be kept in step by hand are three
+        /// chances for the board to start saying two different things at once.
+        ///
+        /// Amber against red is the whole distinction: something is waiting, versus something is
+        /// about to be lost that you can currently see.
+        /// </remarks>
+        public static readonly Color Waiting = new Color(1.00f, 0.74f, 0.22f);
+
+        /// <inheritdoc cref="Waiting"/>
+        public static readonly Color Doomed = new Color(1.00f, 0.28f, 0.24f);
+
+        /// <summary>
+        /// How to colour an imminent collision, given whether the waiting bit dies with it.
+        /// </summary>
+        public static Color WarningColour(bool heldBitDies) => heldBitDies ? Doomed : Waiting;
+
+        /// <summary>
+        /// How fast an imminent collision throbs, shared by the port, the wire and the bit on it.
+        /// </summary>
+        /// <remarks>
+        /// One rate, for the same reason there is one colour. Three things warning about a single
+        /// collision at three rates read as three unrelated flickers; in step they read as one
+        /// event with three parts. Deliberately faster than a stalled gate's breathing, so urgency
+        /// is told by rate as well as by colour.
+        /// </remarks>
+        public const float WarningHz = 3.5f;
+
+        /// <summary>
+        /// A 0..1 throb for anything drawing attention to itself, so every warning on the board
+        /// breathes in step instead of interfering with itself.
+        /// </summary>
+        public static float Pulse(float time, float hertz) =>
+            0.5f + 0.5f * Mathf.Sin(time * hertz * Mathf.PI * 2f);
+
         /// <summary>
         /// Whether <paramref name="node"/> is holding bits it cannot yet act on.
         /// </summary>

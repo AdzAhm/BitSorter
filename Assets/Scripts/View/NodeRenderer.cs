@@ -19,7 +19,31 @@ namespace BitSorter.View
         [SerializeField] private float _glowScale = 2.1f;
         [SerializeField] private float _glowAlpha = 0.42f;
 
+        [Tooltip("How far a stalled gate's body fades towards grey.")]
+        [SerializeField] private float _stallFade = 0.55f;
+
+        [Tooltip("Deliberately slow. A stalled gate breathes; a doomed port throbs.")]
+        [SerializeField] private float _stallPulseHz = 1.1f;
+
+        [Tooltip("Range the stalled glow breathes between. Both below the lit glow, on purpose.")]
+        [SerializeField] private float _stallGlowMin = 0.10f;
+        [SerializeField] private float _stallGlowMax = 0.30f;
+
+        [Tooltip("How far a stalled gate's body dims, on top of losing its colour.")]
+        [SerializeField] private float _stallDim = 0.62f;
+
         private readonly List<GameObject> _spawned = new List<GameObject>();
+
+        /// <summary>Body and glow renderers by node id, so the stall pass can find them.</summary>
+        private readonly Dictionary<int, SpriteRenderer> _bodies = new Dictionary<int, SpriteRenderer>();
+        private readonly Dictionary<int, SpriteRenderer> _halos = new Dictionary<int, SpriteRenderer>();
+
+        /// <summary>
+        /// The colour a node has when nothing is wrong, kept because the stall pass overwrites it
+        /// and <see cref="NodeShapes.ColourFor"/> would otherwise have to be asked every frame.
+        /// </summary>
+        private readonly Dictionary<int, Color> _baseColours = new Dictionary<int, Color>();
+
         private Transform _container;
         private int _builtRevision = -1;
 
@@ -37,11 +61,73 @@ namespace BitSorter.View
             if (_runner == null || !_runner.IsReady)
                 return;
 
-            if (_runner.GraphRevision == _builtRevision)
-                return;
+            if (_runner.GraphRevision != _builtRevision)
+            {
+                Rebuild();
+                _builtRevision = _runner.GraphRevision;
+            }
 
-            Rebuild();
-            _builtRevision = _runner.GraphRevision;
+            ApplyStallStates();
+        }
+
+        /// <summary>
+        /// Marks every gate that is holding bits it cannot act on.
+        /// </summary>
+        /// <remarks>
+        /// The glow carries this rather than a second sprite. It was static and coloured by node
+        /// type, but type is already told by the silhouette -- which CLAUDE.md names as the cue
+        /// bloom is chosen to preserve -- so the glow was free to mean something that changes.
+        ///
+        /// A stalled gate goes **darker**, not brighter, and this is the whole trick. The first
+        /// attempt raised the glow to an urgent amber, and under bloom the gate blew out into a
+        /// single bright blob with its ports somewhere inside it -- inverting the hierarchy, since
+        /// the sockets are what actually say what is being held. Dimming instead lets the held bit
+        /// become the brightest thing on the gate, which is both legible and true: the gate really
+        /// has gone dormant, and the bit really is the only thing happening on it.
+        ///
+        /// The amber is left as a slow low breath, enough to separate "waiting" from "idle"
+        /// without competing with anything.
+        /// </remarks>
+        private void ApplyStallStates()
+        {
+            SimulationView view = _runner.View;
+            float breath = PortState.Pulse(Time.time, _stallPulseHz);
+
+            for (int id = 0; id < view.NodeCount; id++)
+            {
+                Node node = view.GetNode(id);
+
+                if (node == null)
+                    continue;   // retired id
+
+                if (!_baseColours.TryGetValue(id, out Color baseColour))
+                    continue;
+
+                bool stalled = PortState.IsStalled(node);
+
+                if (_bodies.TryGetValue(id, out SpriteRenderer body) && body != null)
+                    body.color = stalled ? Dormant(baseColour) : baseColour;
+
+                if (!_halos.TryGetValue(id, out SpriteRenderer halo) || halo == null)
+                    continue;
+
+                halo.color = stalled
+                    ? new Color(PortState.Waiting.r, PortState.Waiting.g, PortState.Waiting.b,
+                        Mathf.Lerp(_stallGlowMin, _stallGlowMax, breath))
+                    : new Color(baseColour.r, baseColour.g, baseColour.b, _glowAlpha);
+            }
+        }
+
+        /// <summary>
+        /// What a gate looks like while it can do nothing: drained of its colour, then darkened.
+        /// </summary>
+        private Color Dormant(Color colour)
+        {
+            float grey = colour.grayscale;
+            Color drained = Color.Lerp(colour, new Color(grey, grey, grey, colour.a), _stallFade);
+
+            return new Color(drained.r * _stallDim, drained.g * _stallDim, drained.b * _stallDim,
+                colour.a);
         }
 
         private void Rebuild()
@@ -58,6 +144,11 @@ namespace BitSorter.View
             }
 
             _spawned.Clear();
+
+            // The renderers these point at are about to be destroyed.
+            _bodies.Clear();
+            _halos.Clear();
+            _baseColours.Clear();
 
             SimulationView view = _runner.View;
 
@@ -81,6 +172,8 @@ namespace BitSorter.View
                 haloRenderer.sortingOrder = -3;
 
                 _spawned.Add(halo);
+                _halos[id] = haloRenderer;
+                _baseColours[id] = colour;
 
                 GameObject instance = ViewSprites.Spawn(_nodePrefab, _container, $"Node {id} - {node}");
                 instance.transform.position = centre;
@@ -93,6 +186,7 @@ namespace BitSorter.View
                 renderer.sortingOrder = 0;
 
                 _spawned.Add(instance);
+                _bodies[id] = renderer;
 
                 SpawnLabel(node, centre, colour);
             }

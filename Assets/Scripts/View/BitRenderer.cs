@@ -115,6 +115,16 @@ namespace BitSorter.View
                     }
 
                     Color colour = BitVisuals.ColourFor(bit.Value);
+
+                    // The bit that is one tick from an occupied port takes the warning colour, in
+                    // step with the wire under it and the socket ahead of it. Without this the
+                    // board would warn about the destination while the thing arriving looked fine.
+                    if (bit.TicksRemaining == 1 && PortState.WillCollide(edge, out bool heldBitDies))
+                    {
+                        colour = Color.Lerp(colour, PortState.WarningColour(heldBitDies),
+                            PortState.Pulse(Time.time, PortState.WarningHz));
+                    }
+
                     float travelled = Travelled(bit, fraction);
 
                     Transform bitTransform = sprite.transform;
@@ -250,7 +260,7 @@ namespace BitSorter.View
 
             var renderer = instance.GetComponent<SpriteRenderer>();
             renderer.sprite = ProceduralSprites.Dot();
-            renderer.sortingOrder = 3;   // in front of nodes, wires and port stubs
+            renderer.sortingOrder = 5;   // in front of nodes, wires, scorch marks and port stubs
 
             // Halo is a child, so it inherits the squash and stays centred on the bit.
             var halo = new GameObject("Glow");
@@ -259,7 +269,7 @@ namespace BitSorter.View
 
             var haloRenderer = halo.AddComponent<SpriteRenderer>();
             haloRenderer.sprite = ProceduralSprites.Glow();
-            haloRenderer.sortingOrder = 2;
+            haloRenderer.sortingOrder = 4;
             _halos[renderer] = haloRenderer;
 
             _trails[renderer] = BuildTrail(instance.transform);
