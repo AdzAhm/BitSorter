@@ -1,13 +1,29 @@
+using BitSorter.LogicCore;
 using UnityEngine;
 
 namespace BitSorter.View
 {
     /// <summary>
-    /// Pure maths for how a bit is drawn. Separated from <see cref="BitRenderer"/> so the curves
-    /// can be pinned by tests without a scene.
+    /// Pure maths and colour for how a bit is drawn. Separated from <see cref="BitRenderer"/> so
+    /// the curves can be pinned by tests without a scene.
     /// </summary>
     public static class BitVisuals
     {
+        /// <summary>What a zero looks like, anywhere it is drawn.</summary>
+        /// <remarks>
+        /// Here rather than on a renderer because a bit is now drawn in two places: travelling
+        /// along a wire, and sitting in the input port it arrived at. Those must be the same
+        /// colour or the bit appears to change identity on landing, and a serialized field on one
+        /// renderer that the other has to copy is exactly the second copy that drifts.
+        /// </remarks>
+        public static readonly Color Zero = new Color(0.42f, 0.48f, 0.58f);
+
+        /// <inheritdoc cref="Zero"/>
+        public static readonly Color One = new Color(1.00f, 0.88f, 0.32f);
+
+        /// <summary>The colour a bit of this value is drawn in, wherever it is.</summary>
+        public static Color ColourFor(Bit value) => value == Bit.One ? One : Zero;
+
         /// <summary>Fraction of the journey over which the squash builds up.</summary>
         public const float SquashWindow = 0.18f;
 

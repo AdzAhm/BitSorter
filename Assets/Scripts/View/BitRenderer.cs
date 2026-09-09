@@ -22,8 +22,6 @@ namespace BitSorter.View
         [SerializeField] private SimulationRunner _runner;
         [SerializeField] private GameObject _bitPrefab;
         [SerializeField] private float _bitSize = 0.42f;
-        [SerializeField] private Color _zeroColour = new Color(0.42f, 0.48f, 0.58f);
-        [SerializeField] private Color _oneColour = new Color(1.00f, 0.88f, 0.32f);
 
         [SerializeField] private SparkEffects _sparks;
         [SerializeField] private float _glowScale = 2.4f;
@@ -116,7 +114,7 @@ namespace BitSorter.View
                         OnNodeFired(edge, from);
                     }
 
-                    Color colour = bit.Value == Bit.One ? _oneColour : _zeroColour;
+                    Color colour = BitVisuals.ColourFor(bit.Value);
                     float travelled = Travelled(bit, fraction);
 
                     Transform bitTransform = sprite.transform;

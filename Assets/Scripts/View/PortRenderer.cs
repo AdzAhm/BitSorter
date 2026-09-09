@@ -5,20 +5,51 @@ using UnityEngine;
 namespace BitSorter.View
 {
     /// <summary>
-    /// Draws a small stub for every port, so ports are individually visible and clickable.
-    /// Positions come from <see cref="PortGeometry"/>, the same function the hit tester uses.
+    /// Draws a stub for every port, and makes the input stubs say what they are holding: hollow
+    /// when empty, filled with the bit's own colour when one is waiting, and pulsing when a second
+    /// bit is one tick away from colliding with it.
     /// </summary>
-    /// <inheritdoc cref="NodeRenderer"/>
+    /// <remarks>
+    /// Positions come from <see cref="PortGeometry"/>, the same function the hit tester uses.
+    ///
+    /// This component owns the input stub's colour, sprite and scale outright, and everything that
+    /// wants to say something about a port says it here. Ports carry four overlapping messages --
+    /// resting state, an imminent collision, the flash when one happens, and the value being held
+    /// -- and a second component writing the same SpriteRenderer would produce whichever of them
+    /// ran last that frame. That is the drift <see cref="PortGeometry"/>'s own remarks warn about,
+    /// arrived at from the other direction.
+    ///
+    /// Filled against hollow is doing the real work. A paused board has no animation to read, so
+    /// the difference between holding and empty has to survive being looked at once, and shape
+    /// does that where brightness alone would not. The pulse is emphasis on top, never the carrier.
+    ///
+    /// Output stubs are deliberately left alone. <see cref="OutputPort"/> holds no state, so giving
+    /// them the same treatment would imply a symmetry that does not exist.
+    /// </remarks>
     public sealed class PortRenderer : MonoBehaviour
     {
         [SerializeField] private SimulationRunner _runner;
         [SerializeField] private GameObject _stubPrefab;
+
+        [Tooltip("An input port with nothing in it.")]
         [SerializeField] private Color _inputColour = new Color(0.62f, 0.66f, 0.76f);
         [SerializeField] private Color _outputColour = new Color(0.80f, 0.78f, 0.58f);
 
         [SerializeField] private Color _collisionColour = new Color(1.00f, 0.28f, 0.24f);
         [SerializeField] private float _flashSeconds = 0.35f;
         [SerializeField] private float _flashScale = 1.9f;
+
+        [Tooltip("How much larger a socket holding a bit is drawn than an empty one.")]
+        [SerializeField] private float _heldScale = 1.28f;
+
+        [Tooltip("A collision next tick that destroys only the arriving bit.")]
+        [SerializeField] private Color _warningColour = new Color(1.00f, 0.74f, 0.22f);
+
+        [Tooltip("A collision next tick that destroys the waiting bit as well.")]
+        [SerializeField] private Color _dangerColour = new Color(1.00f, 0.28f, 0.24f);
+
+        [SerializeField] private float _warningPulseHz = 3.5f;
+        [SerializeField] private float _warningScale = 1.7f;
 
         private readonly List<GameObject> _spawned = new List<GameObject>();
 
@@ -29,6 +60,12 @@ namespace BitSorter.View
         /// <summary>Seconds of flash still owed to a port, keyed the same way.</summary>
         private readonly Dictionary<PortAddress, float> _flashing = new Dictionary<PortAddress, float>();
         private readonly List<PortAddress> _active = new List<PortAddress>();
+
+        /// <summary>
+        /// Ports a bit will hit next tick, and whether the bit already sitting there dies too.
+        /// Rebuilt every frame rather than kept, so it cannot outlive the tick it describes.
+        /// </summary>
+        private readonly Dictionary<PortAddress, bool> _doomed = new Dictionary<PortAddress, bool>();
 
         private Transform _container;
         private int _builtRevision = -1;
@@ -53,9 +90,121 @@ namespace BitSorter.View
                 _builtRevision = _runner.GraphRevision;
             }
 
+            Forecast();
+            ApplyPortStates();
+
+            // Last, so the aftermath of a collision paints over the resting state rather than
+            // being overwritten by it.
             DetectCollisions();
             AdvanceFlashes();
         }
+
+        // -----------------------------------------------------------------
+        // Waiting state
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// Finds every port about to be hit, from the edges rather than the ports, because only an
+        /// edge knows what is on its way.
+        /// </summary>
+        /// <remarks>
+        /// Two wires can deliver into one port on the same tick, so the worse outcome wins: if
+        /// either arrival differs from the value being held, the held bit does not survive.
+        /// </remarks>
+        private void Forecast()
+        {
+            _doomed.Clear();
+
+            SimulationView view = _runner.View;
+
+            for (int id = 0; id < view.EdgeCount; id++)
+            {
+                Edge edge = view.GetEdge(id);
+
+                if (edge == null)
+                    continue;   // retired id
+
+                if (!PortState.WillCollide(edge, out bool heldBitDies))
+                    continue;
+
+                var key = new PortAddress(edge.Target.Owner.Id, true, edge.Target.Index);
+
+                _doomed[key] = _doomed.TryGetValue(key, out bool already)
+                    ? already || heldBitDies
+                    : heldBitDies;
+            }
+        }
+
+        private void ApplyPortStates()
+        {
+            SimulationView view = _runner.View;
+
+            for (int id = 0; id < view.NodeCount; id++)
+            {
+                Node node = view.GetNode(id);
+
+                if (node == null)
+                    continue;   // retired id
+
+                for (int i = 0; i < node.InputCount; i++)
+                {
+                    var key = new PortAddress(id, true, i);
+
+                    // A port mid-flash is showing what just happened to it, which outranks what it
+                    // is holding now -- and on a mixed collision it is holding nothing.
+                    if (_flashing.ContainsKey(key))
+                        continue;
+
+                    if (!_inputStubs.TryGetValue(key, out SpriteRenderer stub) || stub == null)
+                        continue;
+
+                    Paint(stub, node.In(i), key);
+                }
+            }
+        }
+
+        private void Paint(SpriteRenderer stub, InputPort port, PortAddress key)
+        {
+            bool holding = port.IsOccupied;
+
+            stub.sprite = holding ? ProceduralSprites.Dot() : ProceduralSprites.Ring();
+
+            Color colour = RestingColourOf(port);
+            float scale = holding ? _heldScale : 1f;
+
+            if (_doomed.TryGetValue(key, out bool heldBitDies))
+            {
+                // Sine rather than a sawtooth: the port should throb, not blink, so it reads as
+                // urgency without competing with the flash a real collision produces.
+                float pulse = 0.5f + 0.5f * Mathf.Sin(Time.time * _warningPulseHz * Mathf.PI * 2f);
+
+                colour = Color.Lerp(colour, heldBitDies ? _dangerColour : _warningColour, pulse);
+                scale *= Mathf.Lerp(1f, _warningScale, pulse);
+            }
+
+            stub.color = colour;
+            stub.transform.localScale = Vector3.one * PortGeometry.StubSize * scale;
+        }
+
+        /// <summary>
+        /// What a port looks like when nothing is happening to it: the bit's own colour if it is
+        /// holding one, so a bit that lands keeps the identity it had on the wire.
+        /// </summary>
+        private Color RestingColourOf(InputPort port) =>
+            port != null && port.IsOccupied
+                ? BitVisuals.ColourFor(port.Pending.Value)
+                : _inputColour;
+
+        private InputPort PortAt(PortAddress key)
+        {
+            Node node = _runner.NodeAt(key.NodeId);
+
+            return node != null && key.Index < node.InputCount ? node.In(key.Index) : null;
+        }
+
+        // -----------------------------------------------------------------
+        // Collision aftermath
+        // -----------------------------------------------------------------
 
         /// <summary>
         /// LastCorruptedTick names exactly which port lost bits and on which tick, so no state has
@@ -104,22 +253,35 @@ namespace BitSorter.View
                     continue;
                 }
 
+                // Resolved against the port rather than a fixed colour: a matching collision leaves
+                // the port still holding its value, so fading back to the empty colour would blank
+                // a socket that is not empty.
+                InputPort port = PortAt(key);
+
                 if (remaining <= 0f)
                 {
-                    stub.color = _inputColour;
-                    stub.transform.localScale = Vector3.one * PortGeometry.StubSize;
                     _flashing.Remove(key);
+
+                    // Handed straight back to the resting look, so the port is never left for a
+                    // frame showing the end of a flash that is over.
+                    if (port != null)
+                        Paint(stub, port, key);
+
                     continue;
                 }
 
                 _flashing[key] = remaining;
 
                 float t = remaining / _flashSeconds;
-                stub.color = Color.Lerp(_inputColour, _collisionColour, t);
+                stub.color = Color.Lerp(RestingColourOf(port), _collisionColour, t);
                 stub.transform.localScale =
                     Vector3.one * PortGeometry.StubSize * Mathf.Lerp(1f, _flashScale, t);
             }
         }
+
+        // -----------------------------------------------------------------
+        // Building
+        // -----------------------------------------------------------------
 
         private void Rebuild()
         {
@@ -135,6 +297,7 @@ namespace BitSorter.View
             _spawned.Clear();
             _inputStubs.Clear();
             _flashing.Clear();   // stub references are about to be replaced
+            _doomed.Clear();
 
             SimulationView view = _runner.View;
 
@@ -163,7 +326,10 @@ namespace BitSorter.View
             stub.transform.localScale = Vector3.one * PortGeometry.StubSize;
 
             var renderer = stub.GetComponent<SpriteRenderer>();
-            renderer.sprite = ProceduralSprites.Dot();
+
+            // Inputs start hollow and are painted properly on the first frame; outputs never
+            // change, so they are finished here.
+            renderer.sprite = isInput ? ProceduralSprites.Ring() : ProceduralSprites.Dot();
             renderer.color = isInput ? _inputColour : _outputColour;
             renderer.sortingOrder = 1;   // above the node body, below bits
 

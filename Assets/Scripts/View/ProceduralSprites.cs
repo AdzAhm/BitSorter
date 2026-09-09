@@ -71,6 +71,25 @@ namespace BitSorter.View
             return 1f - Mathf.SmoothStep(0.35f, 1f, d);
         });
 
+        /// <summary>
+        /// An open ring, for an input port with nothing in it.
+        /// </summary>
+        /// <remarks>
+        /// The hollow counterpart to <see cref="Dot"/>, and deliberately the same overall size.
+        /// Filled against empty is the distinction that survives being glanced at on a paused
+        /// board, where a difference in colour or brightness alone would not. Soft on both edges
+        /// for the same reason the dot is: a hard ring shimmers against the board tiling.
+        /// </remarks>
+        public static Sprite Ring() => Field("ring", DotSize, p =>
+        {
+            float d = p.magnitude;
+
+            float outer = 1f - Mathf.SmoothStep(0.62f, 0.98f, d);
+            float inner = Mathf.SmoothStep(0.28f, 0.58f, d);
+
+            return outer * inner;
+        });
+
         // -----------------------------------------------------------------
         // Board background
         // -----------------------------------------------------------------
