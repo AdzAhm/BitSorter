@@ -188,6 +188,23 @@ failure side.
   same change. No component without a truth-table test.
 - After editing scripts, remind me to focus the Unity window so it
   recompiles, then run EditMode tests before we commit.
+- **When Unity stops recompiling, reimport the `.asmdef`.** An editor left
+  open for a long session can stop rebuilding entirely: `AssetDatabase
+  .Refresh`, `ImportAsset(ForceUpdate)`, `CompilationPipeline
+  .RequestScriptCompilation` and even a play-mode cycle all report success
+  and produce nothing. Reimporting the assembly definition marks the
+  assembly itself dirty and is the trigger that works.
+
+  **Check the DLL, not the test count.** A stale domain runs the previous
+  assemblies and reports a full green pass that proves nothing — that
+  happened three times in one session before the count not moving gave it
+  away. `Library/ScriptAssemblies/*.dll` timestamps, or grepping one for a
+  symbol you just added, is the honest check.
+
+  To verify compilation without Unity at all, Bee leaves the exact compiler
+  invocation in `Library/Bee/artifacts/*/BitSorter.*.rsp`; redirect `-out`
+  and run it through the editor's own Roslyn. That catches compile errors in
+  seconds and is independent of whatever state the editor is in.
 - **`Editor.log` accumulates across sessions.** A warning found in it may
   be from an old compile and describe code that has since changed, so
   verify against a fresh compile before acting on one. Reading history as
