@@ -24,8 +24,9 @@ namespace BitSorter.LogicCore.Tests
             bool wiredIn = false,
             bool wiredOut = false,
             bool running = false,
-            bool passed = false) =>
-            new BoardFacts(selected, gate, wiredIn, wiredOut, running, passed);
+            bool passed = false,
+            bool failed = false) =>
+            new BoardFacts(selected, gate, wiredIn, wiredOut, running, passed, failed);
 
         /// <summary>Everything done up to and including the wiring.</summary>
         private static BoardFacts Wired() =>
@@ -135,6 +136,50 @@ namespace BitSorter.LogicCore.Tests
             // after it settled would ask the player to press a button they had already pressed.
             Assert.IsTrue(TutorialScript.IsComplete(4,
                 Facts(TutorialLevel.Part, true, true, true, running: false, passed: true)));
+        }
+
+        // -----------------------------------------------------------------
+        // A run that fails
+        // -----------------------------------------------------------------
+
+        [Test]
+        public void Normally_ThereIsNoRecoveryLine()
+        {
+            Assert.IsNull(TutorialScript.RecoveryText(Facts()));
+            Assert.IsNull(TutorialScript.RecoveryText(Wired()));
+        }
+
+        [Test]
+        public void AFailedRun_SendsThePlayerBackToRun_AndSaysWhatToPress()
+        {
+            // Reachable: a second wire into the bin's port collides, and the run fails. Without the
+            // recovery line the watch step could never finish, run would be asked for again, and
+            // pressing it would fail again -- while the panel still said the circuit works.
+            BoardFacts failed = Facts(TutorialLevel.Part, true, true, true, failed: true);
+
+            Assert.AreEqual(4, TutorialScript.CurrentStep(failed), "back to the run step");
+            Assert.IsNotNull(TutorialScript.RecoveryText(failed), "and told what to press");
+        }
+
+        [Test]
+        public void TheRecoveryLineGoesAwayOnceRunningAgain()
+        {
+            BoardFacts rerunning = Facts(TutorialLevel.Part, true, true, true,
+                running: true, failed: true);
+
+            Assert.IsNull(TutorialScript.RecoveryText(rerunning));
+        }
+
+        [Test]
+        public void TheWatchStep_CompletesOnTheRunSettling_NotOnAKeyPress()
+        {
+            // Nothing the player might not press can be required here. Space and the right arrow are
+            // mentioned in the text as things they may do, never as things they must.
+            Assert.IsFalse(TutorialScript.IsComplete(5,
+                Facts(TutorialLevel.Part, true, true, true, running: true)), "still in flight");
+
+            Assert.IsTrue(TutorialScript.IsComplete(5,
+                Facts(TutorialLevel.Part, true, true, true, passed: true)), "settled");
         }
 
         [Test]

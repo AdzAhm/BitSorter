@@ -62,8 +62,17 @@ namespace BitSorter.View
         public readonly bool Running;
         public readonly bool Passed;
 
+        /// <summary>The last run ended without the bit arriving as expected.</summary>
+        /// <remarks>
+        /// Reachable even here: WiringRules allows a second wire into one input port, so a player
+        /// who also runs A straight to the bin gets two arrivals and a failed run. Without this the
+        /// watch step could never finish, the run step would ask for RUN again, and pressing it
+        /// would fail again -- a loop, with the panel still insisting the circuit works.
+        /// </remarks>
+        public readonly bool RunFailed;
+
         public BoardFacts(GateKind selected, bool gateOnCell, bool sourceWiredToGate,
-            bool gateWiredToBin, bool running, bool passed)
+            bool gateWiredToBin, bool running, bool passed, bool runFailed = false)
         {
             Selected = selected;
             GateOnCell = gateOnCell;
@@ -71,6 +80,7 @@ namespace BitSorter.View
             GateWiredToBin = gateWiredToBin;
             Running = running;
             Passed = passed;
+            RunFailed = runFailed;
         }
     }
 
@@ -108,17 +118,17 @@ namespace BitSorter.View
 
             new TutorialStep(PlaceId,
                 "Now click the highlighted square to put it down. " +
-                "Right click a part to take it back.",
+                "Right click a part to remove it.",
                 TutorialTarget.BoardCell),
 
             new TutorialStep(WireInId,
                 "The small dots on each part are ports. " +
-                "Press on A's port, drag across, and let go on the gate's left port.",
+                "Drag from A's port to the gate's left port.",
                 TutorialTarget.SourcePort, TutorialTarget.GateInput),
 
             new TutorialStep(WireOutId,
-                "Once more, from the gate's right port to the bin. " +
-                "A right click on any wire removes it.",
+                "Now wire the gate's right port to the bin. " +
+                "Right click a wire to remove it.",
                 TutorialTarget.GateOutput, TutorialTarget.SinkPort),
 
             new TutorialStep(RunId,
@@ -170,6 +180,20 @@ namespace BitSorter.View
                     return false;
             }
         }
+
+        /// <summary>
+        /// What to say instead of the current step, or null to say the step.
+        /// </summary>
+        /// <remarks>
+        /// A failed run puts the player back on "press RUN" -- correctly, since Run rebuilds first
+        /// and works straight after a failure -- but the step's own text would then claim the
+        /// circuit works while the board says otherwise. This says what to press, and nothing about
+        /// why the run failed: that is the collision hint's subject, on the level where it matters.
+        /// </remarks>
+        public static string RecoveryText(BoardFacts facts) =>
+            facts.RunFailed && !facts.Running && !facts.Passed
+                ? "That did not reach the bin. Press RESET to put the board back and try again."
+                : null;
 
         /// <summary>
         /// The first step that is not finished, or <see cref="Count"/> when they all are.
