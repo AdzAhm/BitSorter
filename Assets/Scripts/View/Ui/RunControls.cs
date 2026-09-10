@@ -111,9 +111,9 @@ namespace BitSorter.View
                 new Vector2(0f, UiTheme.ControlsRow),
                 new Vector2(1000f, UiTheme.ControlsHeight));
 
-            line.text =
-                "drag a port to wire     right click to delete     scroll a wire to re-time     " +
-                "ctrl+Z to undo     shift+R to clear     H for help     ESC for levels     N to mute";
+            // From ControlsReference, not spelled out here. The tutorial's card lists the same
+            // controls, and two copies would disagree the first time a binding changed.
+            line.text = ControlsReference.Line;
         }
 
         private void Update()

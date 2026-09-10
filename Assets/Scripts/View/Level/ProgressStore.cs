@@ -34,6 +34,17 @@ namespace BitSorter.View
         /// where a missing key and an explicit zero read the same.
         /// </remarks>
         public string[] hintsSeen;
+
+        /// <summary>
+        /// One-off things this player has been through, such as the guided tutorial.
+        /// </summary>
+        /// <remarks>
+        /// Its own array rather than a name in <see cref="completed"/>: that one counts solved
+        /// levels, and <c>MenuRules.AllSolved</c> and the ending panel both read the count, so a
+        /// tutorial in there would make nine levels look like ten. And not in
+        /// <see cref="hintsSeen"/> either, whose ids are held to hint rules by tests.
+        /// </remarks>
+        public string[] milestones;
     }
 
     /// <summary>
@@ -58,6 +69,8 @@ namespace BitSorter.View
             new Dictionary<string, SavedBoard>(StringComparer.Ordinal);
 
         private readonly HashSet<string> _hintsSeen = new HashSet<string>(StringComparer.Ordinal);
+
+        private readonly HashSet<string> _milestones = new HashSet<string>(StringComparer.Ordinal);
 
         public ProgressStore(string path)
         {
@@ -108,6 +121,20 @@ namespace BitSorter.View
             return true;
         }
 
+        /// <summary>Whether this player has already been through a one-off, such as the tutorial.</summary>
+        public bool HasMilestone(string id) =>
+            !string.IsNullOrEmpty(id) && _milestones.Contains(id);
+
+        /// <summary>Records a one-off and writes the file. Idempotent; true only the first time.</summary>
+        public bool MarkMilestone(string id)
+        {
+            if (string.IsNullOrEmpty(id) || !_milestones.Add(id))
+                return false;
+
+            Save();
+            return true;
+        }
+
         /// <summary>
         /// Reads the file, or starts empty if there is nothing readable there.
         /// </summary>
@@ -123,6 +150,7 @@ namespace BitSorter.View
             _completed.Clear();
             _boards.Clear();
             _hintsSeen.Clear();
+            _milestones.Clear();
 
             try
             {
@@ -170,6 +198,15 @@ namespace BitSorter.View
                             _hintsSeen.Add(id);
                     }
                 }
+
+                if (file.milestones != null)
+                {
+                    foreach (string id in file.milestones)
+                    {
+                        if (!string.IsNullOrEmpty(id))
+                            _milestones.Add(id);
+                    }
+                }
             }
             catch (Exception exception)
             {
@@ -181,6 +218,7 @@ namespace BitSorter.View
                 // Cleared too, erring towards showing a hint again rather than silently swallowing
                 // one: a half-read file must not leave a player taught by a save it could not parse.
                 _hintsSeen.Clear();
+                _milestones.Clear();
             }
         }
 
@@ -195,11 +233,13 @@ namespace BitSorter.View
                     completed = new string[_completed.Count],
                     boards = new SavedBoard[_boards.Count],
                     hintsSeen = new string[_hintsSeen.Count],
+                    milestones = new string[_milestones.Count],
                 };
 
                 _completed.CopyTo(file.completed);
                 _boards.Values.CopyTo(file.boards, 0);
                 _hintsSeen.CopyTo(file.hintsSeen);
+                _milestones.CopyTo(file.milestones);
 
                 string directory = Path.GetDirectoryName(_path);
 
@@ -220,6 +260,7 @@ namespace BitSorter.View
             _completed.Clear();
             _boards.Clear();
             _hintsSeen.Clear();
+            _milestones.Clear();
             Save();
         }
 

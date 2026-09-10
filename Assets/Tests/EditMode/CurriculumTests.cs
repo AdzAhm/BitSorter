@@ -345,6 +345,55 @@ namespace BitSorter.LogicCore.Tests
             }
         }
 
+        /// <summary>
+        /// The tutorial teaches inputs. It must not start explaining mechanics, which is what the
+        /// first-time hints are for and what the level hints already do for their own level.
+        /// </summary>
+        /// <remarks>
+        /// The overlap is easy to reach by accident: the natural way to explain what Run does is to
+        /// say what happens when the bit arrives, and that is the collision and stall hints' subject.
+        /// Same four-word rule as above, and for the same reason -- the meaning is allowed to be
+        /// related, the sentence is not allowed to be the same.
+        /// </remarks>
+        [Test]
+        public void NoTutorialStep_ReusesAHintsWording()
+        {
+            const int Run = 4;
+
+            foreach (TutorialStep step in TutorialScript.Steps)
+            {
+                string[] stepWords = Words(step.Text);
+
+                foreach (string phrase in Phrases(stepWords, Run))
+                {
+                    foreach (string hintId in HintRules.All)
+                    {
+                        string hint = " " + string.Join(" ", Words(HintRules.TextFor(hintId))) + " ";
+
+                        Assert.IsFalse(hint.Contains(phrase),
+                            $"tutorial step '{step.Id}' reuses '{phrase.Trim()}' from the " +
+                            $"'{hintId}' hint. The tutorial teaches inputs, the hint teaches why.");
+                    }
+
+                    foreach (KeyValuePair<string, LevelDefinition> level in LevelsInPlayOrder())
+                    {
+                        string levelHint = " " + string.Join(" ", Words(level.Value.Hint)) + " ";
+
+                        Assert.IsFalse(levelHint.Contains(phrase),
+                            $"tutorial step '{step.Id}' reuses '{phrase.Trim()}' from " +
+                            $"'{level.Key}'.");
+                    }
+                }
+            }
+        }
+
+        /// <summary>Every run of <paramref name="length"/> words, space-padded for whole-word matching.</summary>
+        private static IEnumerable<string> Phrases(string[] words, int length)
+        {
+            for (int i = 0; i + length <= words.Length; i++)
+                yield return " " + string.Join(" ", words, i, length) + " ";
+        }
+
         /// <summary>Lowercased words with punctuation dropped, so wording is compared and not typography.</summary>
         private static string[] Words(string text)
         {

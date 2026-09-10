@@ -1,0 +1,193 @@
+using System.Collections.Generic;
+using BitSorter.LogicCore;
+
+namespace BitSorter.View
+{
+    /// <summary>What a step is pointing at.</summary>
+    public enum TutorialTarget
+    {
+        None,
+        PaletteEntry,
+        BoardCell,
+        SourcePort,
+        GateInput,
+        GateOutput,
+        SinkPort,
+        RunButton,
+        Bin,
+    }
+
+    /// <summary>One instruction, what it highlights, and nothing else.</summary>
+    /// <remarks>
+    /// Two targets because wiring is a gesture between two places, and highlighting only the end a
+    /// drag starts from leaves the player holding a wire with nowhere to put it.
+    /// </remarks>
+    public readonly struct TutorialStep
+    {
+        public readonly string Id;
+        public readonly string Text;
+        public readonly TutorialTarget From;
+        public readonly TutorialTarget To;
+
+        public TutorialStep(string id, string text, TutorialTarget from,
+            TutorialTarget to = TutorialTarget.None)
+        {
+            Id = id;
+            Text = text;
+            From = from;
+            To = to;
+        }
+
+        public override string ToString() => Id;
+    }
+
+    /// <summary>
+    /// Everything about the board a step needs in order to decide whether it is finished.
+    /// </summary>
+    /// <remarks>
+    /// Gathered by <see cref="TutorialDirector"/> and handed here as plain values, so every step's
+    /// condition is a pure function of board state and can be tested without a scene -- the split
+    /// <see cref="PortState"/> and <see cref="HintRules"/> already use.
+    ///
+    /// Every field is a fact about the board *now*, never a record of something that happened. That
+    /// is what lets a step un-finish: delete the wire and the step it belonged to comes back,
+    /// including through Ctrl+Z, with nothing tracking the undo.
+    /// </remarks>
+    public readonly struct BoardFacts
+    {
+        public readonly GateKind Selected;
+        public readonly bool GateOnCell;
+        public readonly bool SourceWiredToGate;
+        public readonly bool GateWiredToBin;
+        public readonly bool Running;
+        public readonly bool Passed;
+
+        public BoardFacts(GateKind selected, bool gateOnCell, bool sourceWiredToGate,
+            bool gateWiredToBin, bool running, bool passed)
+        {
+            Selected = selected;
+            GateOnCell = gateOnCell;
+            SourceWiredToGate = sourceWiredToGate;
+            GateWiredToBin = gateWiredToBin;
+            Running = running;
+            Passed = passed;
+        }
+    }
+
+    /// <summary>
+    /// The six steps, in order, and what finishes each one.
+    /// </summary>
+    /// <remarks>
+    /// These teach **which input does what**, and stop there. A level's goal says what you are
+    /// trying to do, its hint how to solve that level, and a first-time hint explains why the board
+    /// just behaved as it did. So a step here may say that a wire can be scrolled -- that is an
+    /// input -- but must not say what a longer wire does to arrival order, because that is the
+    /// wireDelay hint's job on the level where it starts to matter. Finishing the tutorial marks no
+    /// hint as seen.
+    ///
+    /// Nothing here blocks anything. A step that is not satisfied simply does not advance, and every
+    /// other action stays as legal as it was. Refusing input would mean reaching into
+    /// PlacementController, WiringController and PaletteDragSource, and CLAUDE.md is explicit that
+    /// pointer ownership is derived and never claimed, because a claim that leaks disables the game
+    /// with no way for the player to recover.
+    /// </remarks>
+    public static class TutorialScript
+    {
+        public const string SelectId = "select";
+        public const string PlaceId = "place";
+        public const string WireInId = "wireIn";
+        public const string WireOutId = "wireOut";
+        public const string RunId = "run";
+        public const string WatchId = "watch";
+
+        public static IReadOnlyList<TutorialStep> Steps { get; } = new[]
+        {
+            new TutorialStep(SelectId,
+                "This is the parts list. Click the NOT gate to pick one up.",
+                TutorialTarget.PaletteEntry),
+
+            new TutorialStep(PlaceId,
+                "Now click the highlighted square to put it down. " +
+                "Right click a part to take it back.",
+                TutorialTarget.BoardCell),
+
+            new TutorialStep(WireInId,
+                "The small dots on each part are ports. " +
+                "Press on A's port, drag across, and let go on the gate's left port.",
+                TutorialTarget.SourcePort, TutorialTarget.GateInput),
+
+            new TutorialStep(WireOutId,
+                "Once more, from the gate's right port to the bin. " +
+                "A right click on any wire removes it.",
+                TutorialTarget.GateOutput, TutorialTarget.SinkPort),
+
+            new TutorialStep(RunId,
+                "That is a working circuit. Press RUN to send a bit through it.",
+                TutorialTarget.RunButton),
+
+            new TutorialStep(WatchId,
+                "Follow the bit. Space pauses a run, and the right arrow key moves it forward " +
+                "one tick.",
+                TutorialTarget.Bin),
+        };
+
+        public static int Count => Steps.Count;
+
+        /// <summary>Whether the step at <paramref name="index"/> is finished.</summary>
+        /// <remarks>
+        /// An out-of-range index is finished, so a director that has walked off the end stops rather
+        /// than throwing at the player.
+        /// </remarks>
+        public static bool IsComplete(int index, BoardFacts facts)
+        {
+            if (index < 0 || index >= Steps.Count)
+                return true;
+
+            switch (Steps[index].Id)
+            {
+                case SelectId:
+                    return facts.Selected == TutorialLevel.Part;
+
+                case PlaceId:
+                    return facts.GateOnCell;
+
+                case WireInId:
+                    return facts.SourceWiredToGate;
+
+                case WireOutId:
+                    return facts.GateWiredToBin;
+
+                // Passed counts as well as Running. A run is over in a couple of seconds and the
+                // director may not look until after it has settled, which would otherwise leave the
+                // tutorial asking for a button press that has already happened.
+                case RunId:
+                    return facts.Running || facts.Passed;
+
+                case WatchId:
+                    return facts.Passed;
+
+                default:
+                    return false;
+            }
+        }
+
+        /// <summary>
+        /// The first step that is not finished, or <see cref="Count"/> when they all are.
+        /// </summary>
+        /// <remarks>
+        /// Scanned from the start every time rather than remembered, which is what makes going
+        /// backwards work: delete the wire the player just made and this returns that step again,
+        /// with no undo handling anywhere.
+        /// </remarks>
+        public static int CurrentStep(BoardFacts facts)
+        {
+            for (int i = 0; i < Steps.Count; i++)
+            {
+                if (!IsComplete(i, facts))
+                    return i;
+            }
+
+            return Steps.Count;
+        }
+    }
+}
