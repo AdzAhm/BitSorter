@@ -175,6 +175,85 @@ namespace BitSorter.LogicCore.Tests
         }
 
         // -----------------------------------------------------------------
+        // First-time hints
+        // -----------------------------------------------------------------
+
+        [Test]
+        public void AHintShownOnce_IsNeverShownAgain()
+        {
+            var first = new ProgressStore(_path);
+            first.Load();
+
+            Assert.IsFalse(first.HasSeenHint(HintRules.Stalled), "nobody has seen anything yet");
+            Assert.IsTrue(first.MarkHintSeen(HintRules.Stalled), "the first time is the first time");
+            Assert.IsFalse(first.MarkHintSeen(HintRules.Stalled), "and only once");
+
+            var second = new ProgressStore(_path);
+            second.Load();
+
+            Assert.IsTrue(second.HasSeenHint(HintRules.Stalled),
+                "a hint shown in one session must not come back in the next");
+        }
+
+        [Test]
+        public void HintsAreTrackedSeparatelyFromEachOther()
+        {
+            var store = new ProgressStore(_path);
+            store.Load();
+            store.MarkHintSeen(HintRules.Collision);
+
+            Assert.IsTrue(store.HasSeenHint(HintRules.Collision));
+            Assert.IsFalse(store.HasSeenHint(HintRules.Stalled), "one seen is not all seen");
+        }
+
+        [Test]
+        public void ASaveWrittenBeforeHintsExisted_StillLoads()
+        {
+            // The array is absent, not empty. JsonUtility cannot tell those apart for a value type,
+            // which is the trap this whole file format was shaped around -- so each array is guarded
+            // on its own and an older save keeps its completions.
+            File.WriteAllText(_path, "{\"completed\":[\"route-the-bit\"]}");
+
+            var store = new ProgressStore(_path);
+            store.Load();
+
+            Assert.IsNull(store.LastError, "an older save is not a broken one");
+            Assert.IsTrue(store.IsComplete("route-the-bit"), "completions survive");
+            Assert.IsFalse(store.HasSeenHint(HintRules.Stalled), "and no hint counts as shown");
+        }
+
+        [Test]
+        public void AnEmptyHintId_IsNeverSeenAndNeverRecorded()
+        {
+            var store = new ProgressStore(_path);
+            store.Load();
+
+            Assert.IsFalse(store.MarkHintSeen(null));
+            Assert.IsFalse(store.MarkHintSeen(string.Empty));
+            Assert.IsFalse(store.HasSeenHint(null));
+            Assert.IsFalse(store.HasSeenHint(string.Empty));
+        }
+
+        [Test]
+        public void ClearingProgressAlsoForgetsTheHints()
+        {
+            var store = new ProgressStore(_path);
+            store.Load();
+            store.MarkComplete("route-the-bit");
+            store.MarkHintSeen(HintRules.WireDelay);
+
+            store.Clear();
+
+            Assert.IsFalse(store.HasSeenHint(HintRules.WireDelay),
+                "starting over means meeting the game again");
+
+            var reloaded = new ProgressStore(_path);
+            reloaded.Load();
+
+            Assert.IsFalse(reloaded.HasSeenHint(HintRules.WireDelay), "and on disk too");
+        }
+
+        // -----------------------------------------------------------------
         // Where it lives
         // -----------------------------------------------------------------
 

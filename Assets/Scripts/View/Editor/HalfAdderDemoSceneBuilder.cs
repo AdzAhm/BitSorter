@@ -95,8 +95,15 @@ namespace BitSorter.View.EditorTools
             StatusBanner banner = host.AddComponent<StatusBanner>();
             BitsLostMeter bitsLost = host.AddComponent<BitsLostMeter>();
 
+            HintBanner hintBanner = host.AddComponent<HintBanner>();
+
             DiagnosticsPanel diagnostics = host.AddComponent<DiagnosticsPanel>();
             ProgressTracker progress = host.AddComponent<ProgressTracker>();
+
+            // After the tracker, whose Awake loads the store this reads. Component Awake order on one
+            // GameObject follows the order they were added, and a hint that asked an unloaded store
+            // would decide nothing had ever been seen and show every hint again.
+            FirstTimeHints hints = host.AddComponent<FirstTimeHints>();
             LevelSelectPanel levelSelect = host.AddComponent<LevelSelectPanel>();
             HelpPanel help = host.AddComponent<HelpPanel>();
             WinPanel winPanel = host.AddComponent<WinPanel>();
@@ -206,6 +213,13 @@ namespace BitSorter.View.EditorTools
 
             Assign(help, "_session", session);
             Assign(help, "_canvas", canvas);
+
+            Assign(hintBanner, "_canvas", canvas);
+
+            Assign(hints, "_session", session);
+            Assign(hints, "_runner", runner);
+            Assign(hints, "_progress", progress);
+            Assign(hints, "_banner", hintBanner);
 
             Assign(winPanel, "_session", session);
             Assign(winPanel, "_runner", runner);

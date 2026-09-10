@@ -302,5 +302,62 @@ namespace BitSorter.LogicCore.Tests
                 }
             }
         }
+
+        // -----------------------------------------------------------------
+        // Three kinds of teaching, kept apart
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// A first-time hint explains a mechanic; a level's hint nudges towards that level's answer.
+        /// Neither may become a copy of the other.
+        /// </summary>
+        /// <remarks>
+        /// The overlap is real and easy to fall into: balance-the-paths' hint already covers
+        /// stalling and collision *for that level*, and a first-time hint that reached for the same
+        /// words would be the second copy of a fact that CLAUDE.md's "derived, never restated" rule
+        /// exists to prevent -- with the added cost that the player reads it twice.
+        ///
+        /// Compared as runs of words rather than by meaning, because the meaning genuinely is the
+        /// same. Both describe how a gate fires. What must differ is the sentence.
+        /// </remarks>
+        [Test]
+        public void NoFirstTimeHint_ReusesALevelHintsWording()
+        {
+            const int Run = 4;
+
+            foreach (string id in HintRules.All)
+            {
+                string[] hintWords = Words(HintRules.TextFor(id));
+
+                foreach (KeyValuePair<string, LevelDefinition> level in LevelsInPlayOrder())
+                {
+                    string levelHint = " " + string.Join(" ", Words(level.Value.Hint)) + " ";
+
+                    for (int i = 0; i + Run <= hintWords.Length; i++)
+                    {
+                        string phrase = " " + string.Join(" ", hintWords, i, Run) + " ";
+
+                        Assert.IsFalse(levelHint.Contains(phrase),
+                            $"first-time hint '{id}' reuses '{phrase.Trim()}' from " +
+                            $"'{level.Key}'. A mechanic hint and a level hint have different jobs.");
+                    }
+                }
+            }
+        }
+
+        /// <summary>Lowercased words with punctuation dropped, so wording is compared and not typography.</summary>
+        private static string[] Words(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+                return new string[0];
+
+            var cleaned = new System.Text.StringBuilder(text.Length);
+
+            foreach (char c in text.ToLowerInvariant())
+                cleaned.Append(char.IsLetterOrDigit(c) ? c : ' ');
+
+            return cleaned.ToString()
+                .Split(new[] { ' ' }, System.StringSplitOptions.RemoveEmptyEntries);
+        }
     }
 }

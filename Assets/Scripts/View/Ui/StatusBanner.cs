@@ -53,7 +53,8 @@ namespace BitSorter.View
             // up needing a lean-in. Each row below is placed from the one above rather than from a
             // fixed offset, so a future size change moves the stack instead of overlapping it.
             UiTheme.Anchor(root, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-                new Vector2(0f, -UiTheme.Margin), new Vector2(780f, 122f));
+                new Vector2(0f, -UiTheme.Margin),
+                new Vector2(UiTheme.BannerWidth, UiTheme.BannerHeight));
 
             panel.raycastTarget = false;   // the banner is a readout, never a click target
 

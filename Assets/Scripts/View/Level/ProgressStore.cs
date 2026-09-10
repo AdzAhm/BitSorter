@@ -23,6 +23,17 @@ namespace BitSorter.View
 
         /// <summary>What was left on each board, and the best it has been solved.</summary>
         public SavedBoard[] boards;
+
+        /// <summary>
+        /// Ids of the first-time hints this player has already been shown.
+        /// </summary>
+        /// <remarks>
+        /// A list of ids for the same reason <see cref="completed"/> is a list of names: presence
+        /// means seen, and an absent array is unambiguously "nothing shown yet". A count or a set
+        /// of flags would run straight into the JsonUtility trap this format was shaped around,
+        /// where a missing key and an explicit zero read the same.
+        /// </remarks>
+        public string[] hintsSeen;
     }
 
     /// <summary>
@@ -45,6 +56,8 @@ namespace BitSorter.View
 
         private readonly Dictionary<string, SavedBoard> _boards =
             new Dictionary<string, SavedBoard>(StringComparer.Ordinal);
+
+        private readonly HashSet<string> _hintsSeen = new HashSet<string>(StringComparer.Ordinal);
 
         public ProgressStore(string path)
         {
@@ -73,6 +86,28 @@ namespace BitSorter.View
             return true;
         }
 
+        /// <summary>Whether a first-time hint has already been shown to this player.</summary>
+        public bool HasSeenHint(string hintId) =>
+            !string.IsNullOrEmpty(hintId) && _hintsSeen.Contains(hintId);
+
+        /// <summary>
+        /// Records a first-time hint as shown and writes the file. Idempotent, and returns whether
+        /// this was the first time -- which is the caller's cue to actually show it.
+        /// </summary>
+        /// <remarks>
+        /// Writes immediately, exactly as <see cref="MarkComplete"/> does. There are a handful of
+        /// these in a save's whole lifetime, and a hint shown twice because the game closed before a
+        /// deferred write is the one failure this is meant to prevent.
+        /// </remarks>
+        public bool MarkHintSeen(string hintId)
+        {
+            if (string.IsNullOrEmpty(hintId) || !_hintsSeen.Add(hintId))
+                return false;
+
+            Save();
+            return true;
+        }
+
         /// <summary>
         /// Reads the file, or starts empty if there is nothing readable there.
         /// </summary>
@@ -87,6 +122,7 @@ namespace BitSorter.View
             LastError = null;
             _completed.Clear();
             _boards.Clear();
+            _hintsSeen.Clear();
 
             try
             {
@@ -123,6 +159,17 @@ namespace BitSorter.View
                             _boards[board.level] = board;
                     }
                 }
+
+                // Guarded on its own, like the two above, so a save written before hints existed
+                // still restores its completions and boards rather than being read as corrupt.
+                if (file.hintsSeen != null)
+                {
+                    foreach (string id in file.hintsSeen)
+                    {
+                        if (!string.IsNullOrEmpty(id))
+                            _hintsSeen.Add(id);
+                    }
+                }
             }
             catch (Exception exception)
             {
@@ -130,6 +177,10 @@ namespace BitSorter.View
                 // player mid-session never has to.
                 LastError = exception.Message;
                 _completed.Clear();
+
+                // Cleared too, erring towards showing a hint again rather than silently swallowing
+                // one: a half-read file must not leave a player taught by a save it could not parse.
+                _hintsSeen.Clear();
             }
         }
 
@@ -143,10 +194,12 @@ namespace BitSorter.View
                 {
                     completed = new string[_completed.Count],
                     boards = new SavedBoard[_boards.Count],
+                    hintsSeen = new string[_hintsSeen.Count],
                 };
 
                 _completed.CopyTo(file.completed);
                 _boards.Values.CopyTo(file.boards, 0);
+                _hintsSeen.CopyTo(file.hintsSeen);
 
                 string directory = Path.GetDirectoryName(_path);
 
@@ -166,6 +219,7 @@ namespace BitSorter.View
         {
             _completed.Clear();
             _boards.Clear();
+            _hintsSeen.Clear();
             Save();
         }
 

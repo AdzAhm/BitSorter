@@ -62,6 +62,31 @@ namespace BitSorter.View
         /// <summary>Refusals, clear of the controls line with a gap of its own.</summary>
         public const float ToastRow = ControlsRow + ControlsHeight + Gap;
 
+        // -----------------------------------------------------------------
+        // The top stack
+        // -----------------------------------------------------------------
+
+        /// <summary>The status banner, on the top margin.</summary>
+        /// <remarks>
+        /// Shared for the same reason the rows above are: a first-time hint sits directly under the
+        /// banner, and two panels that must not overlap cannot each own half the arithmetic. Growing
+        /// the banner now pushes the hint down instead of drawing one over the other.
+        /// </remarks>
+        public const float BannerWidth = 780f;
+
+        /// <inheritdoc cref="BannerWidth"/>
+        public const float BannerHeight = 122f;
+
+        public const float HintHeight = 46f;
+
+        /// <summary>First-time hints, just below the banner.</summary>
+        /// <remarks>
+        /// Deliberately the top of the screen and not the toast row. The toast reports refusals and
+        /// is coloured for them; a lesson sharing that row would be read as another thing the player
+        /// did wrong. The banner is already where text is read, and it leaves the board clear.
+        /// </remarks>
+        public const float HintRow = Margin + BannerHeight + Gap;
+
         /// <summary>A stretched child RectTransform, ready to be anchored by the caller.</summary>
         public static RectTransform Rect(string name, Transform parent)
         {
