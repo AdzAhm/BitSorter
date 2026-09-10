@@ -283,6 +283,52 @@ namespace BitSorter.LogicCore.Tests
             }
         }
 
+        // -----------------------------------------------------------------
+        // It is not a level, and nothing may count it as one
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// The tutorial and free play are both outside the run, and everything that counts levels
+        /// has to know it.
+        /// </summary>
+        /// <remarks>
+        /// This bit only once the tutorial became graded. Free play never passes, so it never
+        /// reached the code that records a solve; the tutorial ends on a real pass, and without the
+        /// guard it landed in the completed list, took a personal best, saved a board that would
+        /// have been restored over its own first step, and reported itself to analytics as a level
+        /// nobody ever stops at.
+        /// </remarks>
+        [Test]
+        public void TheTutorialAndTheSandbox_AreOffCatalogue()
+        {
+            Assert.IsTrue(LevelCatalog.IsOffCatalogue(TutorialLevel.Key));
+            Assert.IsTrue(LevelCatalog.IsOffCatalogue(SandboxLevel.Key));
+        }
+
+        [Test]
+        public void EveryRealLevel_IsOnTheCatalogue()
+        {
+            // The guard has to be narrow. A predicate that swallowed a real level would stop it
+            // being recorded as solved at all, which is a far worse failure than the one it fixes.
+            TextAsset[] assets = Resources.LoadAll<TextAsset>(LevelLoader.ResourcePath);
+
+            Assert.IsNotEmpty(assets, "no level files found");
+
+            foreach (TextAsset asset in assets)
+            {
+                Assert.IsFalse(LevelCatalog.IsOffCatalogue(asset.name),
+                    $"'{asset.name}' is a real level and must still be counted");
+            }
+        }
+
+        [Test]
+        public void AnEmptyOrUnknownKey_IsNotOffCatalogue()
+        {
+            Assert.IsFalse(LevelCatalog.IsOffCatalogue(null));
+            Assert.IsFalse(LevelCatalog.IsOffCatalogue(string.Empty));
+            Assert.IsFalse(LevelCatalog.IsOffCatalogue("route-the-bit"));
+        }
+
         [Test]
         public void TheTutorialIsNotOneOfTheNineLevels()
         {

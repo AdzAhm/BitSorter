@@ -187,10 +187,12 @@ namespace BitSorter.View
             if (!Reporting)
                 return;
 
-            // Free play is not a level and must not look like one. It can never be solved, so a
-            // levelStarted from here would be a start with no solve after it -- indistinguishable
-            // from someone giving up, in the one measurement these events exist to make.
-            if (levelName == SandboxLevel.Key)
+            // Free play and the tutorial are not levels and must not look like ones. Free play can
+            // never be solved, so a levelStarted from it would be a start with no solve after it --
+            // indistinguishable from someone giving up, in the one measurement these events exist to
+            // make. The tutorial is the opposite and just as wrong: it is solved by everybody who
+            // finishes it, so it would report a level nobody ever stops at.
+            if (LevelCatalog.IsOffCatalogue(levelName))
                 return;
 
             if (!_collecting)

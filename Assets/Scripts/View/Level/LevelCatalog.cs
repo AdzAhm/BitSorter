@@ -49,6 +49,23 @@ namespace BitSorter.View
     public static class LevelCatalog
     {
         /// <summary>
+        /// Whether a key names something that is not one of the levels in the run.
+        /// </summary>
+        /// <remarks>
+        /// Free play and the guided tutorial both reach the board through
+        /// <see cref="LevelSession.Adopt"/> under a key that is not a file name, and neither is in
+        /// this catalogue. Anything that counts levels, ranks them or reports them has to say so, or
+        /// nine levels start looking like eleven.
+        ///
+        /// One predicate rather than a key comparison repeated at each site: there were two such
+        /// comparisons and a third was needed, which is the point at which they start disagreeing.
+        /// The tutorial being *graded* is what made this bite -- the sandbox never passes, so it
+        /// never reached the code that records a solve, and the tutorial does.
+        /// </remarks>
+        public static bool IsOffCatalogue(string key) =>
+            key == SandboxLevel.Key || key == TutorialLevel.Key;
+
+        /// <summary>
         /// The levels in the order they should be played. <paramref name="error"/> is null when all is
         /// well, otherwise one line naming the clash.
         /// </summary>

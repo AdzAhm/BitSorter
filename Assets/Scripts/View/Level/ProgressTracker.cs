@@ -113,12 +113,26 @@ namespace BitSorter.View
             if (_store == null || string.IsNullOrEmpty(levelName))
                 return;
 
+            // The tutorial always starts empty. Its steps are predicates over the board, so a
+            // restored circuit would satisfy all six the instant it loaded and the whole thing would
+            // jump to its ending. Free play is the opposite and deliberately does keep its board,
+            // which is why this names the tutorial rather than asking IsOffCatalogue.
+            if (levelName == TutorialLevel.Key)
+                return;
+
             _store.SaveBoard(levelName, BoardSerializer.ToSaved(levelName, _session.Blueprint));
         }
 
         private void RestoreBoard(LevelDefinition level)
         {
             if (_store == null || level == null)
+                return;
+
+            // The tutorial always starts from an empty board -- see SaveBoard. Guarded on the way in
+            // as well as on the way out, because a save written before that guard existed still
+            // carries a finished tutorial circuit, and restoring one would satisfy all six steps the
+            // instant it loaded.
+            if (_session.LevelName == TutorialLevel.Key)
                 return;
 
             SavedBoard saved = _store.BoardFor(_session.LevelName);
@@ -150,6 +164,13 @@ namespace BitSorter.View
         private void RecordSolve()
         {
             string level = _session.LevelName;
+
+            // Not a level in the run, so it is not a level that can be completed. The tutorial is
+            // graded -- it ends on a real pass, which is the point -- and without this it would land
+            // in the completed list, inflate CompletedCount, and take a personal best beside levels
+            // it is not one of.
+            if (LevelCatalog.IsOffCatalogue(level))
+                return;
 
             _store.MarkComplete(level);
 
