@@ -93,8 +93,14 @@ namespace BitSorter.View
             // Not an event but a verb the player has no way to discover: nothing on screen says a
             // wire can be scrolled. Offered on the first board that budgets delay, while there is
             // still a board to try it on.
+            //
+            // Waits for a wire to exist. Firing on an empty board told the player to scroll
+            // something that was not there yet -- an instruction they could not follow and would
+            // have forgotten by the time they could.
             TryShow(store, HintRules.WireDelay,
-                _session.Level.HasDelayBudget && _session.State == RunState.Editing);
+                _session.Level.HasDelayBudget
+                && _session.State == RunState.Editing
+                && _session.Blueprint.Wires.Count > 0);
         }
 
         /// <summary>

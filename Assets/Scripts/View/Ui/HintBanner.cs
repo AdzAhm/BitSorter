@@ -82,6 +82,19 @@ namespace BitSorter.View
                 Hide();
         }
 
+        /// <summary>
+        /// Whether the player has asked for the hint to go away.
+        /// </summary>
+        /// <remarks>
+        /// A click anywhere counts, and so do the two keys that mean "I have read it" -- Escape and
+        /// Space. Every other key does not, which is the whole point: this used to take any key at
+        /// all, so Q and E stepping through levels, R resetting the board and the arrow key walking
+        /// a run all silently threw away a hint the player had not finished reading. None of those
+        /// presses were aimed at it.
+        ///
+        /// Space is deliberately included even though it pauses a run: a player reaching for pause
+        /// mid-hint is looking at the board, which is exactly when the hint has done its job.
+        /// </remarks>
         private static bool Dismissed()
         {
             Mouse mouse = Mouse.current;
@@ -93,7 +106,9 @@ namespace BitSorter.View
             }
 
             Keyboard keyboard = Keyboard.current;
-            return keyboard != null && keyboard.anyKey.wasPressedThisFrame;
+
+            return keyboard != null
+                   && (keyboard.escapeKey.wasPressedThisFrame || keyboard.spaceKey.wasPressedThisFrame);
         }
 
         /// <summary>Puts a hint up. Ignores anything empty, so a missing id shows no empty bar.</summary>

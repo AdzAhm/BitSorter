@@ -98,7 +98,7 @@ namespace BitSorter.View
 
             return new LevelDefinition(
                 name: "First steps",
-                hint: "Follow the highlights. Nothing here can go wrong.",
+                hint: "Follow the highlights. Anything you do here can be undone.",
                 tickLimit: LevelLoader.DefaultTickLimit,
                 vectorCount: 1,
                 fixtures: fixtures,
