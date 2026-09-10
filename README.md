@@ -40,8 +40,9 @@ installed and nothing is written outside your own user folder.
 Windows will probably warn that it does not recognise the publisher — the build
 is unsigned, which is all that warning means. "More info", then "Run anyway".
 
-Nine levels teach the ideas in order, and [a sandbox](#the-sandbox) is there for
-when you would rather build something without being marked on it.
+[A guided tutorial](#the-tutorial) covers the controls, nine levels teach the
+ideas in order, and [a sandbox](#the-sandbox) is there for when you would rather
+build something without being marked on it.
 
 ### Two rules explain almost everything
 
@@ -64,6 +65,34 @@ by scrolling a wire to lengthen it.
 
 An unbalanced circuit does not run slower. It loses bits.
 
+### Reading the board
+
+Every input port is drawn on the gate itself: a hollow ring when it is empty, a
+filled disc in the bit's own colour when it is holding one. A gate holding a bit
+it cannot use yet — waiting on its other input — dims and breathes slowly amber.
+A paused board therefore says which gates are stuck, and which port is the reason.
+
+When a bit is waiting and another is one tick from arriving on the same wire, the
+port, the wire and the incoming bit all pulse together: amber when only the
+arrival will be destroyed, red when the waiting bit dies with it. That warning is
+exact rather than a guess. Delivery happens before evaluation, so nothing can
+empty the port in between — if it is lit, the collision is already unavoidable.
+
+### The tutorial
+
+A short guided level at the head of the level list, which walks through picking a
+part, placing it, wiring it up and running it. Six steps, each waiting for you to
+actually do the thing rather than for you to click Next.
+
+It never takes the controls away. Every other action stays legal throughout, and
+a step quietly un-finishes itself if you delete what it asked for — undo
+included. Skippable at any point, and replayable from the level list afterwards.
+On a fresh save it runs once by itself.
+
+Past that, single-line hints appear the first time you meet something that wants
+explaining: a gate stalling, a collision, and the fact that a wire's delay can be
+scrolled at all. Each appears once, ever, and none of them pause the game.
+
 ### Controls
 
 | Action | Effect |
@@ -80,7 +109,7 @@ An unbalanced circuit does not run slower. It loses bits.
 | `Shift`+`R` | Clear everything you built |
 | `Space` | Pause a run |
 | `→` while paused | Step one tick |
-| `H`, or the `!` button | This level's truth table and a hint |
+| `H`, or the `?` button | This level's truth table and a hint |
 | `Esc` | Level list, and the way into the sandbox |
 | `M` | Main menu |
 | `N` | Mute the music |
