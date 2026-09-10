@@ -67,6 +67,11 @@ namespace BitSorter.View
 
         public static AudioClip Clip(Cue cue)
         {
+            // Music is not one clip but a set of them, with its own cache. Clip keeps working for
+            // any caller that just wants "the music" and hands back the first track.
+            if (cue == Cue.Music)
+                return MusicClip(0);
+
             if (Cache.TryGetValue(cue, out AudioClip cached) && cached != null)
                 return cached;
 
@@ -128,91 +133,265 @@ namespace BitSorter.View
                         return total;
                     });
 
-                // The previous take was a continuous pad, and the honest reading of why it was
-                // disliked is that a drone is the wrong answer rather than a slightly wrong drone.
-                // A drone has no shape: there is no phrase to follow, so it becomes pressure on the
-                // ear within a minute and there is nothing to do about it but switch it off.
-                //
-                // This is plucked and sparse instead. Notes are struck and allowed to ring out, and
-                // roughly half the grid of steps is silence, so the ear gets somewhere to rest. It
-                // has to survive being heard for twenty minutes while someone stares at a K-map,
-                // which means the loudest thing in it should still be quieter than thinking.
-                //
-                // A minor pentatonic throughout. It has no semitone clashes, so a note landing on
-                // any chord in the progression is consonant and nothing ever demands resolution --
-                // exactly the quality wanted for something that repeats forever.
-                //
-                // Thirty-two seconds: four eight-second bars, and the figure lifts an octave on
-                // alternate passes so the second half of the loop is not the first half again.
-                case Cue.Music:
-                    return Make("music", 32f, (t, d) =>
-                    {
-                        const float Step = 0.5f;
-
-                        // Semitones above A, or -1 for a rest. Ten of sixteen steps are silent.
-                        int[] figure = { 0, -1, 3, -1, 7, -1, 5, -1, -1, 10, -1, 7, -1, 3, -1, -1 };
-
-                        // Am - F - C - G. The bass moves, the scale does not.
-                        float[] roots = { 110.00f, 87.31f, 130.81f, 98.00f };
-
-                        int bar = Mathf.FloorToInt(t / 8f) % roots.Length;
-                        int now = Mathf.FloorToInt(t / Step);
-
-                        // Notes ring for well over a step, so several are sounding at once. Walking
-                        // back a few steps and summing is what lets them overlap instead of being
-                        // cut off by the next one.
-                        float voice = 0f;
-
-                        for (int back = 0; back < 5; back++)
-                        {
-                            int s = now - back;
-
-                            if (s < 0)
-                                continue;
-
-                            int semi = figure[s % 16];
-
-                            if (semi < 0)
-                                continue;
-
-                            int lift = (s / 16) % 2 == 0 ? 0 : 12;
-                            float age = t - s * Step;
-
-                            // Phase measured from the note's own start, so every pluck begins at
-                            // zero crossing and no note starts with a click.
-                            float hz = 440f * Mathf.Pow(2f, (semi + lift) / 12f);
-                            float ring = Mathf.Exp(-2.6f * age);
-
-                            voice += (Sine(age, hz) + Sine(age, hz * 2f) * 0.22f) * ring;
-                        }
-
-                        // One bass note a bar, struck and left to fall away. Felt more than heard.
-                        float barAge = t % 8f;
-                        float bass = Sine(t, roots[bar] * 0.5f) * Mathf.Exp(-0.45f * barAge);
-
-                        // A trace of hiss, so the quiet parts are not digitally dead.
-                        float air = Noise(t) * 0.010f;
-
-                        return (voice * 0.15f + bass * 0.16f + air) * Fade(t, d, 2f);
-                    });
-
+                // Music never reaches here: Clip routes it to MusicClip before Build is called.
                 default:
                     return Make("silence", 0.01f, (t, d) => 0f);
             }
+        }
+
+        // -----------------------------------------------------------------
+        // The background tracks
+        // -----------------------------------------------------------------
+
+        /// <summary>How many background tracks exist. <see cref="MusicRules"/> decides the order.</summary>
+        public static int MusicTracks => Tracks.Length;
+
+        /// <summary>
+        /// The notes a track plays, as semitones above A4, with its rests removed.
+        /// </summary>
+        /// <remarks>
+        /// The one property that has to hold across the whole set: every track is A minor pentatonic
+        /// and stays there, which is what lets any of them follow any other without the switch
+        /// sounding like a key change. Exposed so that is checkable rather than a comment -- the
+        /// figures themselves are just numbers, and a wrong one would be inaudible to read and
+        /// obvious to hear.
+        /// </remarks>
+        public static IReadOnlyList<int> MusicNotes(int index)
+        {
+            index = Mathf.Clamp(index, 0, Tracks.Length - 1);
+
+            var notes = new List<int>();
+
+            foreach (int semi in Tracks[index].Figure)
+            {
+                if (semi != Rest)
+                    notes.Add(semi);
+            }
+
+            return notes;
+        }
+
+        /// <summary>A step with no note on it. Negative, and no note is ever written this low.</summary>
+        private const int Rest = -1;
+
+
+        /// <summary>
+        /// One background track, built on first use and kept.
+        /// </summary>
+        /// <remarks>
+        /// Lazily, and per track: a session that never leaves the first level pays for one clip
+        /// rather than three. An out-of-range index is clamped rather than thrown on, because the
+        /// failure mode of a throw here is silence with a stack trace behind it.
+        /// </remarks>
+        public static AudioClip MusicClip(int index)
+        {
+            index = Mathf.Clamp(index, 0, Tracks.Length - 1);
+
+            if (MusicCache.TryGetValue(index, out AudioClip cached) && cached != null)
+                return cached;
+
+            Track track = Tracks[index];
+            AudioClip clip = Make("music" + index, track.Seconds,
+                                  (t, d) => Sample(track, t, d), MusicSampleRate);
+
+            MusicCache[index] = clip;
+            return clip;
+        }
+
+        private static readonly Dictionary<int, AudioClip> MusicCache = new Dictionary<int, AudioClip>();
+
+        /// <summary>Seconds per bar: one chord, and one pass of the figure.</summary>
+        private const float BarSeconds = 8f;
+
+        /// <summary>Seconds per step of the figure.</summary>
+        private const float StepSeconds = 0.5f;
+
+        /// <summary>
+        /// Music is rendered at half the rate the cues are.
+        /// </summary>
+        /// <remarks>
+        /// Nothing in these tracks comes near the Nyquist limit this leaves. The highest note any
+        /// figure reaches is about 2 kHz, and its one harmonic sits at 4 kHz against a ceiling of
+        /// 11 kHz. What it buys is memory: these clips are held as uncompressed floats and they are
+        /// long, so at the cue rate six of them would cost 34 MB of heap in a game whose entire
+        /// browser build is 16 MB. At this rate the whole set costs half that, and a session only
+        /// pays for the tracks it actually reaches.
+        /// </remarks>
+        private const int MusicSampleRate = 22050;
+
+        /// <summary>
+        /// One background track. Everything that differs between them is data; the rendering is
+        /// shared, so three tracks cannot drift into three different instruments.
+        /// </summary>
+        private readonly struct Track
+        {
+            /// <summary>Semitones above A4 per step, or -1 for a rest.</summary>
+            public readonly int[] Figure;
+
+            /// <summary>One chord root per bar, in Hz. The bass moves; the scale does not.</summary>
+            public readonly float[] Roots;
+
+            /// <summary>How fast a pluck dies away. Higher is shorter.</summary>
+            public readonly float Ring;
+
+            /// <summary>Semitones the figure moves on alternate passes. Signed.</summary>
+            public readonly int Lift;
+
+            public Track(int[] figure, float[] roots, float ring, int lift)
+            {
+                Figure = figure;
+                Roots = roots;
+                Ring = ring;
+                Lift = lift;
+            }
+
+            /// <summary>
+            /// Clip length: one pass of the chord cycle.
+            /// </summary>
+            /// <remarks>
+            /// Derived rather than stated, so a track cannot claim a length its chords do not fill
+            /// and end half way through a bar. It also keeps the octave lift lined up: the figure is
+            /// one bar long, so bars are passes, and an even number of bars leaves the lift back
+            /// where it started when the clip wraps.
+            /// </remarks>
+            public float Seconds => Roots.Length * BarSeconds;
+        }
+
+        /// <summary>
+        /// The six tracks, in the order <see cref="MusicRules"/> cycles them.
+        /// </summary>
+        /// <remarks>
+        /// All three are A minor pentatonic -- A, C, D, E, G -- and stay there. The scale has no
+        /// semitone clashes, so any note lands consonantly on any chord in any of these
+        /// progressions and nothing ever demands resolution, which is the whole requirement for
+        /// something that repeats while somebody stares at a K-map.
+        ///
+        /// They are the same shape on purpose: four bars, sixteen steps, one instrument, one tempo,
+        /// one key. What differs is density -- four notes to eight, out of sixteen possible -- how
+        /// long a note rings, which way the figure moves on its alternate pass, which register it
+        /// sits in, and where the chords go. Switching between them should read as the same music
+        /// continuing rather than as the game changing its mind.
+        /// </remarks>
+        private static readonly Track[] Tracks =
+        {
+            // 0. The original, unchanged. Even, mid-register, a note roughly every other step, and
+            //    the figure lifts an octave on alternate passes so the second half of the loop is
+            //    not the first half again.
+            new Track(
+                figure: new[] { 0, -1, 3, -1, 7, -1, 5, -1, -1, 10, -1, 7, -1, 3, -1, -1 },
+                roots: new[] { 110.00f, 87.31f, 130.81f, 98.00f },   // Am - F - C - G
+                ring: 2.6f,
+                lift: 12),
+
+            // 1. The sparse one. Five notes in sixteen steps and a longer ring, so it is mostly the
+            //    sound of something decaying. It climbs, then drops an octave on the alternate pass
+            //    instead of rising -- the opposite gesture to track 0 out of the same mechanism.
+            //    The chords hang rather than travel: Am twice, and never further than a step away.
+            new Track(
+                figure: new[] { 7, -1, -1, 10, -1, -1, 12, -1, -1, -1, 15, -1, -1, 10, -1, -1 },
+                roots: new[] { 110.00f, 82.41f, 110.00f, 98.00f },   // Am - Em - Am - G
+                ring: 2.0f,
+                lift: -12),
+
+            // 2. The plucked one. A shorter ring, so notes are struck rather than rung, and the
+            //    figure falls before it turns back -- the one shape neither of the others has. Its
+            //    progression starts away from the tonic and never quite arrives.
+            new Track(
+                figure: new[] { 12, -1, 10, -1, 7, -1, -1, 5, -1, 3, -1, -1, 5, -1, 7, -1 },
+                roots: new[] { 130.81f, 98.00f, 110.00f, 87.31f },   // C - G - Am - F
+                ring: 3.0f,
+                lift: 12),
+
+            // 3. The off-beat one. Its notes fall between track 0's rather than on them, so the two
+            //    sit against the bar differently despite sharing a tempo. The progression arrives at
+            //    Am only at the very end, and then the loop takes it away again.
+            new Track(
+                figure: new[] { -1, 3, -1, -1, 5, -1, 7, -1, -1, -1, 3, -1, 0, -1, -1, -1 },
+                roots: new[] { 87.31f, 130.81f, 98.00f, 110.00f },   // F - C - G - Am
+                ring: 2.3f,
+                lift: -12),
+
+            // 4. The low one. Four notes, the longest ring of any of them, and written an octave
+            //    below the rest, so it reads as the quietest track in the set without being mixed
+            //    any quieter. The chords barely move: Am, then a step away and back, twice.
+            new Track(
+                figure: new[] { -12, -1, -1, -1, -5, -1, -1, -1, -2, -1, -1, -1, -5, -1, -1, -1 },
+                roots: new[] { 110.00f, 98.00f, 87.31f, 98.00f },   // Am - G - F - G
+                ring: 1.7f,
+                lift: 12),
+
+            // 5. The busiest, which still means eight notes in eight seconds. They come in pairs,
+            //    and the ring is the shortest in the set so a pair reads as two notes rather than
+            //    as a chord.
+            new Track(
+                figure: new[] { 0, 3, -1, -1, 7, 5, -1, -1, 10, 7, -1, -1, 3, 0, -1, -1 },
+                roots: new[] { 110.00f, 130.81f, 87.31f, 98.00f },   // Am - C - F - G
+                ring: 3.2f,
+                lift: 12),
+        };
+
+        /// <summary>
+        /// One sample of a track: the plucked figure, a bass note under it, and a trace of air.
+        /// </summary>
+        /// <remarks>
+        /// Notes ring for well over a step, so several sound at once. Walking back a few steps and
+        /// summing is what lets them overlap instead of being cut off by the next one -- five is far
+        /// enough back that the oldest is inaudible at every ring rate here.
+        /// </remarks>
+        private static float Sample(Track track, float t, float d)
+        {
+            int steps = track.Figure.Length;
+            int now = Mathf.FloorToInt(t / StepSeconds);
+            int bar = Mathf.FloorToInt(t / BarSeconds) % track.Roots.Length;
+
+            float voice = 0f;
+
+            for (int back = 0; back < 5; back++)
+            {
+                int s = now - back;
+
+                if (s < 0)
+                    continue;
+
+                int semi = track.Figure[s % steps];
+
+                if (semi == Rest)
+                    continue;
+
+                int lift = (s / steps) % 2 == 0 ? 0 : track.Lift;
+                float age = t - s * StepSeconds;
+
+                // Phase measured from the note's own start, so every pluck begins at a zero crossing
+                // and no note starts with a click.
+                float hz = 440f * Mathf.Pow(2f, (semi + lift) / 12f);
+                float ring = Mathf.Exp(-track.Ring * age);
+
+                voice += (Sine(age, hz) + Sine(age, hz * 2f) * 0.22f) * ring;
+            }
+
+            // One bass note a bar, struck and left to fall away. Felt more than heard.
+            float barAge = t % BarSeconds;
+            float bass = Sine(t, track.Roots[bar] * 0.5f) * Mathf.Exp(-0.45f * barAge);
+
+            // A trace of hiss, so the quiet parts are not digitally dead.
+            float air = Noise(t) * 0.010f;
+
+            return (voice * 0.15f + bass * 0.16f + air) * Fade(t, d, 2f);
         }
 
         /// <summary>
         /// Renders a waveform. <paramref name="shape"/> is given the time in seconds and the clip's
         /// duration, and returns a sample which is clamped before it is stored.
         /// </summary>
-        private static AudioClip Make(string name, float seconds, Func<float, float, float> shape)
+        private static AudioClip Make(string name, float seconds, Func<float, float, float> shape,
+                                      int rate = SampleRate)
         {
-            int count = Mathf.Max(1, Mathf.RoundToInt(seconds * SampleRate));
+            int count = Mathf.Max(1, Mathf.RoundToInt(seconds * rate));
             var samples = new float[count];
 
             for (int i = 0; i < count; i++)
             {
-                float t = (float)i / SampleRate;
+                float t = (float)i / rate;
 
                 // Clamped rather than normalised: a cue that clipped would be a bug in its own
                 // numbers, and silently rescaling it would hide that while changing the mix.
@@ -228,7 +407,7 @@ namespace BitSorter.View
                 samples[count - 1 - i] *= k;
             }
 
-            AudioClip clip = AudioClip.Create(name, count, 1, SampleRate, false);
+            AudioClip clip = AudioClip.Create(name, count, 1, rate, false);
             clip.SetData(samples, 0);
             return clip;
         }
