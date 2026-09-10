@@ -87,6 +87,17 @@ namespace BitSorter.View
         /// </remarks>
         public const float HintRow = Margin + BannerHeight + Gap;
 
+        public const float TutorialHeight = 52f;
+
+        /// <summary>The tutorial's instruction line, below the hint line.</summary>
+        /// <remarks>
+        /// Stacked from <see cref="HintRow"/> rather than from a fresh offset, so a hint and a
+        /// tutorial step that happen to be up at once sit one under the other instead of on top of
+        /// each other. Both can be: a hint fires on what the board did, and the tutorial is asking
+        /// for the next thing to do about it.
+        /// </remarks>
+        public const float TutorialRow = HintRow + HintHeight + Gap;
+
         /// <summary>A stretched child RectTransform, ready to be anchored by the caller.</summary>
         public static RectTransform Rect(string name, Transform parent)
         {

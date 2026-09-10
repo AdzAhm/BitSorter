@@ -45,6 +45,26 @@ namespace BitSorter.View
         private RectTransform _root;
         private TextMeshProUGUI _delay;
 
+        /// <summary>
+        /// Where a part's row sits, for the tutorial to point at. Null if this level does not offer
+        /// that part, or before the palette has been built.
+        /// </summary>
+        /// <remarks>
+        /// Read-only, and returns the transform rather than the Row: a caller that could reach the
+        /// Button could also disable it, and nothing outside this component decides whether a part
+        /// is available.
+        /// </remarks>
+        public RectTransform RectFor(GateKind kind)
+        {
+            for (int i = 0; i < _rows.Count; i++)
+            {
+                if (_rows[i].Kind == kind && _rows[i].Button != null)
+                    return _rows[i].Button.GetComponent<RectTransform>();
+            }
+
+            return null;
+        }
+
         private void Awake()
         {
             if (_session == null) _session = FindFirstObjectByType<LevelSession>();

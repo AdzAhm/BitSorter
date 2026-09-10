@@ -43,6 +43,7 @@ namespace BitSorter.View
         [SerializeField] private LevelSession _session;
         [SerializeField] private ProgressTracker _progress;
         [SerializeField] private SandboxPanel _sandbox;
+        [SerializeField] private TutorialDirector _tutorial;
 
         [Tooltip("Canvas the panel is built under. Found by type when left empty.")]
         [SerializeField] private Canvas _canvas;
@@ -56,6 +57,7 @@ namespace BitSorter.View
             if (_session == null) _session = FindFirstObjectByType<LevelSession>();
             if (_progress == null) _progress = FindFirstObjectByType<ProgressTracker>();
             if (_sandbox == null) _sandbox = FindFirstObjectByType<SandboxPanel>();
+            if (_tutorial == null) _tutorial = FindFirstObjectByType<TutorialDirector>();
             if (_canvas == null) _canvas = FindFirstObjectByType<Canvas>();
         }
 
@@ -116,20 +118,67 @@ namespace BitSorter.View
             // One row past the catalogue for free play, plus a wider gap before it. Sandbox is not a
             // level and is not in Catalogue -- it has no file, no order and nothing to complete -- so
             // it is appended here rather than being allowed to look like a tenth level.
-            float total = (catalogue.Count + 1) * (rowHeight + gap) - gap + SandboxGap;
+            float total = (catalogue.Count + 2) * (rowHeight + gap) - gap
+                          + SandboxGap + TutorialGap;
 
             RectTransform list = UiTheme.Rect("list", _root);
             UiTheme.Anchor(list, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                 Vector2.zero, new Vector2(520f, total));
 
-            for (int i = 0; i < catalogue.Count; i++)
-                _rows.Add(BuildRow(catalogue[i], list, i, rowHeight, gap));
+            // The tutorial sits above the run, free play below it. Neither is in Catalogue, and the
+            // gaps on either side are what say so: what lies between them is the nine levels.
+            BuildTutorialRow(list, rowHeight);
 
-            BuildSandboxRow(list, catalogue.Count, rowHeight, gap);
+            for (int i = 0; i < catalogue.Count; i++)
+                _rows.Add(BuildRow(catalogue[i], list, i + 1, rowHeight, gap, TutorialGap));
+
+            BuildSandboxRow(list, catalogue.Count + 1, rowHeight, gap);
         }
 
         /// <summary>Extra space between the last level and free play, so the run reads as ending.</summary>
         private const float SandboxGap = 14f;
+
+        /// <summary>The same, above the run, so the tutorial reads as coming before it.</summary>
+        private const float TutorialGap = 14f;
+
+        /// <summary>
+        /// The guided tutorial, above the run. Deliberately not a <see cref="Row"/>, for the same
+        /// reason free play is not: rows carry a completion tick and a personal best, and the
+        /// tutorial has neither.
+        /// </summary>
+        private void BuildTutorialRow(RectTransform list, float height)
+        {
+            Button button = UiTheme.Button_("Tutorial", list, string.Empty,
+                out TextMeshProUGUI caption);
+            Destroy(caption.gameObject);
+
+            var rect = button.GetComponent<RectTransform>();
+            UiTheme.Anchor(rect, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
+                Vector2.zero, new Vector2(520f, height));
+
+            TextMeshProUGUI label = UiTheme.Label(
+                "name", rect, 17f, UiTheme.Accent, TextAlignmentOptions.Left);
+            UiTheme.Anchor(label.rectTransform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f),
+                new Vector2(52f, 0f), new Vector2(330f, height));
+            label.text = "Tutorial";
+
+            TextMeshProUGUI note = UiTheme.Label(
+                "note", rect, 13f, UiTheme.TextDim, TextAlignmentOptions.Right);
+            UiTheme.Anchor(note.rectTransform, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f),
+                new Vector2(-16f, 0f), new Vector2(200f, height));
+            note.text = "the controls";
+
+            button.onClick.AddListener(() =>
+            {
+                Show(false);
+
+                if (_tutorial != null)
+                    _tutorial.Begin();
+
+                if (EventSystem.current != null)
+                    EventSystem.current.SetSelectedGameObject(null);
+            });
+        }
 
         /// <summary>
         /// Free play, below the run. Deliberately not a <see cref="Row"/>: rows carry a completion
@@ -143,7 +192,8 @@ namespace BitSorter.View
 
             var rect = button.GetComponent<RectTransform>();
             UiTheme.Anchor(rect, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-                new Vector2(0f, -index * (height + gap) - SandboxGap), new Vector2(520f, height));
+                new Vector2(0f, -index * (height + gap) - SandboxGap - TutorialGap),
+                new Vector2(520f, height));
 
             TextMeshProUGUI label = UiTheme.Label(
                 "name", rect, 17f, UiTheme.Accent, TextAlignmentOptions.Left);
@@ -169,7 +219,8 @@ namespace BitSorter.View
             });
         }
 
-        private Row BuildRow(LevelEntry entry, RectTransform list, int index, float height, float gap)
+        private Row BuildRow(LevelEntry entry, RectTransform list, int index, float height,
+            float gap, float offset = 0f)
         {
             var row = new Row { FileName = entry.FileName };
 
@@ -179,7 +230,7 @@ namespace BitSorter.View
 
             var rect = row.Button.GetComponent<RectTransform>();
             UiTheme.Anchor(rect, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-                new Vector2(0f, -index * (height + gap)), new Vector2(520f, height));
+                new Vector2(0f, -index * (height + gap) - offset), new Vector2(520f, height));
 
             row.Frame = row.Button.GetComponent<Image>();
 

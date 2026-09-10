@@ -30,6 +30,10 @@ namespace BitSorter.View
         [SerializeField] private float _confirmSeconds = 3f;
 
         private Button _run;
+
+        /// <summary>Where the Run button sits, for the tutorial to point at.</summary>
+        public RectTransform RunButton =>
+            _run != null ? _run.GetComponent<RectTransform>() : null;
         private Button _reset;
         private Button _undo;
         private Button _redo;

@@ -96,6 +96,8 @@ namespace BitSorter.View.EditorTools
             BitsLostMeter bitsLost = host.AddComponent<BitsLostMeter>();
 
             HintBanner hintBanner = host.AddComponent<HintBanner>();
+            TutorialPanel tutorialPanel = host.AddComponent<TutorialPanel>();
+            TutorialHighlighter tutorialRings = host.AddComponent<TutorialHighlighter>();
 
             DiagnosticsPanel diagnostics = host.AddComponent<DiagnosticsPanel>();
             ProgressTracker progress = host.AddComponent<ProgressTracker>();
@@ -104,6 +106,11 @@ namespace BitSorter.View.EditorTools
             // GameObject follows the order they were added, and a hint that asked an unloaded store
             // would decide nothing had ever been seen and show every hint again.
             FirstTimeHints hints = host.AddComponent<FirstTimeHints>();
+
+            // After the tracker for the same reason the hints are: its Awake loads the store, and a
+            // director that asked an unloaded one would decide nobody had seen the tutorial and
+            // start it over somebody's saved board.
+            TutorialDirector tutorial = host.AddComponent<TutorialDirector>();
             LevelSelectPanel levelSelect = host.AddComponent<LevelSelectPanel>();
             HelpPanel help = host.AddComponent<HelpPanel>();
             WinPanel winPanel = host.AddComponent<WinPanel>();
@@ -220,6 +227,21 @@ namespace BitSorter.View.EditorTools
             Assign(hints, "_runner", runner);
             Assign(hints, "_progress", progress);
             Assign(hints, "_banner", hintBanner);
+
+            Assign(tutorialPanel, "_canvas", canvas);
+            Assign(tutorialRings, "_canvas", canvas);
+
+            Assign(tutorial, "_session", session);
+            Assign(tutorial, "_runner", runner);
+            Assign(tutorial, "_progress", progress);
+            Assign(tutorial, "_placement", placement);
+            Assign(tutorial, "_grid", grid);
+            Assign(tutorial, "_palette", palette);
+            Assign(tutorial, "_runControls", runControls);
+            Assign(tutorial, "_panel", tutorialPanel);
+            Assign(tutorial, "_highlighter", tutorialRings);
+
+            Assign(levelSelect, "_tutorial", tutorial);
 
             Assign(winPanel, "_session", session);
             Assign(winPanel, "_runner", runner);
