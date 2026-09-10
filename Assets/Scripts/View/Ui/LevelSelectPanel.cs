@@ -52,6 +52,12 @@ namespace BitSorter.View
         private RectTransform _root;
         private bool _shown;
 
+        /// <summary>
+        /// The tutorial row's tick. Kept on its own rather than in <see cref="_rows"/>, because a
+        /// Row also carries a personal best and the tutorial has none.
+        /// </summary>
+        private Image _tutorialTick;
+
         private void Awake()
         {
             if (_session == null) _session = FindFirstObjectByType<LevelSession>();
@@ -155,6 +161,18 @@ namespace BitSorter.View
             var rect = button.GetComponent<RectTransform>();
             UiTheme.Anchor(rect, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
                 Vector2.zero, new Vector2(520f, height));
+
+            // Same drawn dot the levels use, in the same place, so "done" reads the same way down
+            // the whole list. A glyph would not: the one font this project ships has no tick in it.
+            RectTransform tickRect = UiTheme.Rect("tick", rect);
+            UiTheme.Anchor(tickRect, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f),
+                new Vector2(26f, 0f), new Vector2(14f, 14f));
+
+            _tutorialTick = tickRect.gameObject.AddComponent<Image>();
+            _tutorialTick.sprite = ProceduralSprites.Circle();
+            _tutorialTick.color = UiTheme.Good;
+            _tutorialTick.raycastTarget = false;
+            _tutorialTick.enabled = false;
 
             TextMeshProUGUI label = UiTheme.Label(
                 "name", rect, 17f, UiTheme.Accent, TextAlignmentOptions.Left);
@@ -289,6 +307,16 @@ namespace BitSorter.View
         private void Refresh()
         {
             string current = _session.LevelName;
+
+            // Driven by the milestone, never by IsComplete. The tutorial is off-catalogue and must
+            // never appear in the completed list -- that is exactly the bug this tick would
+            // otherwise be reporting.
+            if (_tutorialTick != null)
+            {
+                _tutorialTick.enabled = _progress != null
+                                        && _progress.Store != null
+                                        && _progress.Store.HasMilestone(TutorialLevel.Key);
+            }
 
             for (int i = 0; i < _rows.Count; i++)
             {

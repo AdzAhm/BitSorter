@@ -233,21 +233,9 @@ namespace BitSorter.View
             Refresh();
         }
 
-        private int SolvedCount()
-        {
-            if (_progress == null)
-                return 0;
-
-            int done = 0;
-
-            foreach (LevelEntry entry in _session.Catalogue)
-            {
-                if (_progress.IsComplete(entry.FileName))
-                    done++;
-            }
-
-            return done;
-        }
+        // The same predicate Continue walks with, so the count and the frontier can never disagree
+        // about what is solved.
+        private int SolvedCount() => MenuRules.SolvedCount(_session.Catalogue, IsComplete);
 
         // -----------------------------------------------------------------
         // Choices

@@ -52,6 +52,33 @@ namespace BitSorter.View
         }
 
         /// <summary>
+        /// How many levels in the run are solved.
+        /// </summary>
+        /// <remarks>
+        /// Counted by walking the catalogue and asking about each entry, never by asking the store
+        /// how many names it is holding. The two differ exactly when something that is not a level
+        /// gets recorded as complete, and that has happened: the tutorial is graded, so it marked
+        /// itself solved and the menu read "4 of 9" on a save with three levels done. Counting this
+        /// way makes "10 of 9" unrepresentable rather than merely unlikely.
+        /// </remarks>
+        public static int SolvedCount(
+            IReadOnlyList<LevelEntry> catalogue, Predicate<string> isComplete)
+        {
+            if (catalogue == null || isComplete == null)
+                return 0;
+
+            int solved = 0;
+
+            foreach (LevelEntry entry in catalogue)
+            {
+                if (isComplete(entry.FileName))
+                    solved++;
+            }
+
+            return solved;
+        }
+
+        /// <summary>
         /// What the progress line says.
         /// </summary>
         /// <remarks>

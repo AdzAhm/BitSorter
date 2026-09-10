@@ -135,5 +135,63 @@ namespace BitSorter.LogicCore.Tests
             Assert.IsFalse(MenuRules.AllSolved(8, 9));
             Assert.IsTrue(MenuRules.AllSolved(9, 9));
         }
+
+        // -----------------------------------------------------------------
+        // Counting what is solved
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// The count walks the catalogue, so a key that is not a level cannot inflate it.
+        /// </summary>
+        /// <remarks>
+        /// The regression this half exists for: the tutorial is graded, so it recorded itself as
+        /// complete, and a menu counting the store's names read "4 of 9" on a save with three levels
+        /// done. Counting catalogue entries makes that unrepresentable rather than merely unlikely.
+        /// </remarks>
+        [Test]
+        public void SolvedCount_IgnoresAnythingNotInTheCatalogue()
+        {
+            IReadOnlyList<LevelEntry> run = Catalogue("one", "two", "three");
+
+            Assert.AreEqual(2, MenuRules.SolvedCount(run, Solved("one", "three")));
+
+            // Free play and the tutorial recorded as solved must not move the number.
+            Assert.AreEqual(2, MenuRules.SolvedCount(
+                run, Solved("one", "three", SandboxLevel.Key, TutorialLevel.Key)));
+        }
+
+        [Test]
+        public void SolvedCount_CountsNoneAndAll()
+        {
+            IReadOnlyList<LevelEntry> run = Catalogue("one", "two");
+
+            Assert.AreEqual(0, MenuRules.SolvedCount(run, Solved()));
+            Assert.AreEqual(2, MenuRules.SolvedCount(run, Solved("one", "two")));
+        }
+
+        [Test]
+        public void SolvedCount_NeverExceedsTheCatalogue()
+        {
+            // What "10 of 9" looked like. The count is bounded by the run by construction now.
+            IReadOnlyList<LevelEntry> run = Catalogue("one", "two");
+
+            int solved = MenuRules.SolvedCount(run, Solved("one", "two", "ghost", "another"));
+
+            Assert.LessOrEqual(solved, run.Count);
+            Assert.IsFalse(MenuRules.DescribeProgress(solved, run.Count).StartsWith("3 "));
+        }
+
+        [Test]
+        public void SolvedCount_SurvivesNothingToCount()
+        {
+            Assert.AreEqual(0, MenuRules.SolvedCount(null, Solved("one")));
+            Assert.AreEqual(0, MenuRules.SolvedCount(Catalogue("one"), null));
+        }
+
+        [Test]
+        public void TheProgressLine_ReadsAsTheUserAskedFor()
+        {
+            Assert.AreEqual("7 of 9 solved", MenuRules.DescribeProgress(7, 9));
+        }
     }
 }

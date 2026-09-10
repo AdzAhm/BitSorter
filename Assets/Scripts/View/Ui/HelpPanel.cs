@@ -29,6 +29,14 @@ namespace BitSorter.View
         private RectTransform _panel;
         private TextMeshProUGUI _table;
         private TextMeshProUGUI _hint;
+
+        /// <summary>The rule and heading that mark where the table stops and the nudge starts.</summary>
+        /// <remarks>
+        /// Both are hidden on a level with no table, where there is nothing on the other side of the
+        /// line to divide the hint from.
+        /// </remarks>
+        private Image _divider;
+        private TextMeshProUGUI _hintHeading;
         private Image _badge;
         private bool _shown;
 
@@ -108,10 +116,21 @@ namespace BitSorter.View
                     EventSystem.current.SetSelectedGameObject(null);
             });
 
+            // A question mark, not an exclamation mark. "!" is what this game uses for things that
+            // have gone wrong -- the refusal toast, the bits-lost meter, the scorch marks -- so a
+            // permanent one in the corner reads as a warning the player cannot clear.
             TextMeshProUGUI mark = UiTheme.Label(
-                "!", rect, 22f, Color.white, TextAlignmentOptions.Center);
+                "mark", rect, 22f, Color.white, TextAlignmentOptions.Center);
             UiTheme.Stretch(mark.rectTransform);
-            mark.text = "!";
+            mark.text = "?";
+
+            // The badge is round and unlabelled, which is not obviously a button. The key beside it
+            // says both that it opens something and how to open it without aiming at all.
+            TextMeshProUGUI key = UiTheme.Label(
+                "key", rect, 12f, UiTheme.TextDim, TextAlignmentOptions.Center);
+            UiTheme.Anchor(key.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 1f),
+                new Vector2(0f, -4f), new Vector2(60f, 16f));
+            key.text = "H";
         }
 
         private void BuildPanel()
@@ -134,10 +153,27 @@ namespace BitSorter.View
             UiTheme.Anchor(_table.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
                 new Vector2(0f, -44f), new Vector2(300f, 260f));
 
+            // The hint block is built from the bottom edge up, so it keeps its shape when Fill
+            // resizes the panel for a taller table. Before this the hint sat straight under the
+            // table in the same weight and read as more rows of it -- two different kinds of thing
+            // with nothing between them saying so.
             _hint = UiTheme.Label("hint", _panel, 15f, UiTheme.TextDim, TextAlignmentOptions.Top);
             UiTheme.Anchor(_hint.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
-                new Vector2(0f, 12f), new Vector2(300f, 76f));
+                new Vector2(0f, 12f), new Vector2(300f, 72f));
             _hint.textWrappingMode = TextWrappingModes.Normal;
+
+            _hintHeading = UiTheme.Label(
+                "hint heading", _panel, 13f, UiTheme.Text, TextAlignmentOptions.Center);
+            UiTheme.Anchor(_hintHeading.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
+                new Vector2(0f, 88f), new Vector2(300f, 18f));
+            _hintHeading.text = "A NUDGE";
+
+            Image rule = UiTheme.Panel_("divider", _panel, UiTheme.PanelEdge);
+            _divider = rule;
+            _divider.sprite = null;   // a plain hairline, not the rounded panel silhouette
+            _divider.raycastTarget = false;
+            UiTheme.Anchor(rule.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
+                new Vector2(0f, 112f), new Vector2(280f, 1f));
         }
 
         // -----------------------------------------------------------------
@@ -162,11 +198,19 @@ namespace BitSorter.View
 
             _hint.text = level != null ? level.Hint : string.Empty;
 
+            // Nothing to divide the hint from on a level that grades nothing, so the rule and its
+            // heading go with the table rather than floating above an empty space.
+            if (_divider != null)
+                _divider.enabled = hasTable;
+
+            if (_hintHeading != null)
+                _hintHeading.gameObject.SetActive(hasTable);
+
             // Taller tables need a taller panel. Eight vectors plus a header and rule is ten lines,
             // and the per-line figure tracks the table's font size rather than being guessed. With no
             // table the panel shrinks to the hint rather than keeping the space open.
             int lines = hasTable ? level.VectorCount + 2 : 0;
-            float height = 130f + lines * 24f;
+            float height = (hasTable ? 160f : 130f) + lines * 24f;
             _panel.sizeDelta = new Vector2(_panel.sizeDelta.x, height);
         }
 
