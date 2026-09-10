@@ -31,10 +31,6 @@ namespace BitSorter.View
     /// </remarks>
     public static class GameAnalytics
     {
-        private const string LevelStarted = "levelStarted";
-        private const string LevelSolved = "levelSolved";
-        private const string LevelNameParameter = "levelName";
-
         private const string ConsentKey = "bitsorter.analytics";
 
         /// <summary>
@@ -168,31 +164,19 @@ namespace BitSorter.View
         // progress is stored under, so that is what gets reported rather than the display title.
         private static void OnLevelLoaded(LevelDefinition level)
         {
-            Record(LevelStarted, _session != null ? _session.LevelName : null);
+            Record(AnalyticsRules.LevelStarted, _session != null ? _session.LevelName : null);
         }
 
         private static void OnLevelSolved(string levelName)
         {
-            Record(LevelSolved, levelName);
+            Record(AnalyticsRules.LevelSolved, levelName);
         }
 
         private static void Record(string eventName, string levelName)
         {
-            if (_unavailable || string.IsNullOrEmpty(levelName))
-                return;
-
-            // Checked here as well as at the consent framework, so a player who has turned reporting
-            // off does not even accumulate a queue of events waiting for an upload that must not
-            // happen.
-            if (!Reporting)
-                return;
-
-            // Free play and the tutorial are not levels and must not look like ones. Free play can
-            // never be solved, so a levelStarted from it would be a start with no solve after it --
-            // indistinguishable from someone giving up, in the one measurement these events exist to
-            // make. The tutorial is the opposite and just as wrong: it is solved by everybody who
-            // finishes it, so it would report a level nobody ever stops at.
-            if (LevelCatalog.IsOffCatalogue(levelName))
+            // Every reason to stay quiet lives in AnalyticsRules, where it can be tested without a
+            // scene. This method is left with the part that needs one: the queue and the SDK.
+            if (!AnalyticsRules.ShouldReport(levelName, Reporting, _unavailable))
                 return;
 
             if (!_collecting)
@@ -216,7 +200,7 @@ namespace BitSorter.View
         {
             try
             {
-                var payload = new CustomEvent(eventName) { { LevelNameParameter, levelName } };
+                var payload = new CustomEvent(eventName) { { AnalyticsRules.LevelNameParameter, levelName } };
 
                 AnalyticsService.Instance.RecordEvent(payload);
                 AnalyticsService.Instance.Flush();
