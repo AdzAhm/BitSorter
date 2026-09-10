@@ -31,11 +31,40 @@ namespace BitSorter.View
         private Button _next;
         private TextMeshProUGUI _nextLabel;
 
-        /// <summary>Set for one frame when the player presses Skip.</summary>
-        public bool SkipPressed { get; private set; }
+        private bool _skipPressed;
+        private bool _nextPressed;
 
-        /// <summary>Set for one frame when the player presses the continue button.</summary>
-        public bool NextPressed { get; private set; }
+        /// <summary>
+        /// Takes the pending Skip press, if there is one, and clears it.
+        /// </summary>
+        /// <remarks>
+        /// Consumed by the reader rather than expiring on a timer, and that is deliberate. A flag
+        /// cleared in LateUpdate would depend on the EventSystem happening to process the click
+        /// before the director's Update -- they are on different GameObjects, so nothing guarantees
+        /// it -- and on the wrong side of that coin the press would be cleared before it was ever
+        /// seen. A press waits here until somebody takes it.
+        /// </remarks>
+        public bool ConsumeSkip()
+        {
+            bool pressed = _skipPressed;
+            _skipPressed = false;
+            return pressed;
+        }
+
+        /// <inheritdoc cref="ConsumeSkip"/>
+        public bool ConsumeNext()
+        {
+            bool pressed = _nextPressed;
+            _nextPressed = false;
+            return pressed;
+        }
+
+        /// <summary>Drops any press nobody took, for a phase change that makes it meaningless.</summary>
+        public void ForgetPresses()
+        {
+            _skipPressed = false;
+            _nextPressed = false;
+        }
 
         private void Awake()
         {
@@ -66,6 +95,13 @@ namespace BitSorter.View
             _next = Corner("Next", "NEXT", 1f);
             _skip = Corner("Skip", "SKIP", 2f);
 
+            // Attached here and not in OnEnable, which runs before Start and so before these
+            // buttons exist -- the listener was silently never added, and every press did nothing.
+            // Nothing detaches them: the buttons are children of a panel this component owns for
+            // the whole scene, so they die together.
+            _next.onClick.AddListener(OnNext);
+            _skip.onClick.AddListener(OnSkip);
+
             Show(false);
         }
 
@@ -91,29 +127,17 @@ namespace BitSorter.View
             return button;
         }
 
-        private void OnEnable()
-        {
-            if (_skip != null) _skip.onClick.AddListener(OnSkip);
-            if (_next != null) _next.onClick.AddListener(OnNext);
-        }
-
-        private void OnDisable()
-        {
-            if (_skip != null) _skip.onClick.RemoveListener(OnSkip);
-            if (_next != null) _next.onClick.RemoveListener(OnNext);
-        }
-
         // Focus is dropped on every press. A Button that keeps it swallows Space and Enter, both of
         // which this game binds -- and Space is a control the last step actively recommends.
         private void OnSkip()
         {
-            SkipPressed = true;
+            _skipPressed = true;
             Deselect();
         }
 
         private void OnNext()
         {
-            NextPressed = true;
+            _nextPressed = true;
             Deselect();
         }
 
@@ -121,14 +145,6 @@ namespace BitSorter.View
         {
             if (EventSystem.current != null)
                 EventSystem.current.SetSelectedGameObject(null);
-        }
-
-        private void LateUpdate()
-        {
-            // Cleared at the end of the frame rather than when read, so the director sees a press
-            // whatever order the two components update in.
-            SkipPressed = false;
-            NextPressed = false;
         }
 
         /// <summary>Puts a line up, optionally offering a continue button.</summary>

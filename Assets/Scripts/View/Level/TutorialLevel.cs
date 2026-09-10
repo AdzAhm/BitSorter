@@ -32,8 +32,22 @@ namespace BitSorter.View
         /// </summary>
         public const string Key = "tutorial";
 
-        /// <summary>The one part the tutorial asks the player to place.</summary>
+        /// <summary>The part the tutorial asks the player to place.</summary>
         public const GateKind Part = GateKind.Not;
+
+        /// <summary>
+        /// A second part, listed first, that the tutorial never asks for.
+        /// </summary>
+        /// <remarks>
+        /// Here so the first step is a real action. PlacementController.SelectFirstOffered puts the
+        /// selection on a level's first budget row every time a level loads, so a palette holding
+        /// only the part we ask for would arrive already selected -- the step would complete before
+        /// the player touched anything, and they would never learn the palette is clickable.
+        ///
+        /// It also stops a one-row "parts list" teaching that a parts list has one row. Placing it
+        /// by mistake is recoverable, and recovering is what the next step's right click teaches.
+        /// </remarks>
+        public const GateKind Decoy = GateKind.And;
 
         public const string SourceId = "a";
         public const string SinkId = "bin";
@@ -68,8 +82,10 @@ namespace BitSorter.View
                     System.Array.Empty<Bit>()),
             };
 
-            var budget = new List<LevelBudgetEntry>(1)
+            // Decoy first, deliberately: see its remarks.
+            var budget = new List<LevelBudgetEntry>(2)
             {
+                new LevelBudgetEntry(Decoy, 1),
                 new LevelBudgetEntry(Part, 1),
             };
 

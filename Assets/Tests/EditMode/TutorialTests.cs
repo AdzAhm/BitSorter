@@ -194,14 +194,58 @@ namespace BitSorter.LogicCore.Tests
         // -----------------------------------------------------------------
 
         [Test]
-        public void TheBoardIsOneSourceOneBinAndOnePart()
+        public void TheBoardIsOneSourceAndOneBin()
         {
             LevelDefinition level = TutorialLevel.Build(Board);
 
             Assert.AreEqual(2, level.Fixtures.Count, "one source and one bin");
-            Assert.AreEqual(1, level.Budget.Count, "exactly one kind of part is offered");
-            Assert.AreEqual(TutorialLevel.Part, level.Budget[0].Kind);
-            Assert.AreEqual(1, level.Budget[0].Count, "and only one of it");
+        }
+
+        [Test]
+        public void ThePaletteOffersThePartAndOneOther()
+        {
+            LevelDefinition level = TutorialLevel.Build(Board);
+
+            Assert.AreEqual(2, level.Budget.Count, "the part asked for, and the decoy");
+
+            bool offersPart = false;
+
+            foreach (LevelBudgetEntry entry in level.Budget)
+            {
+                if (entry.Kind == TutorialLevel.Part)
+                {
+                    offersPart = true;
+                    Assert.AreEqual(1, entry.Count, "one of the part, not a supply of them");
+                }
+            }
+
+            Assert.IsTrue(offersPart, "the tutorial asks for a part it does not stock");
+        }
+
+        /// <summary>
+        /// The part the tutorial asks for must not be the palette's first row.
+        /// </summary>
+        /// <remarks>
+        /// PlacementController.SelectFirstOffered puts the selection on a level's first budget row
+        /// every time a level loads. If that were the part the first step asks for, the step would
+        /// already be complete before the player touched anything -- the tutorial would open on step
+        /// two and nobody would learn the palette is clickable. Found in play mode, not here, which
+        /// is why the guard exists now.
+        /// </remarks>
+        [Test]
+        public void TheFirstStep_IsNotAlreadyDoneByTheAutoSelection()
+        {
+            LevelDefinition level = TutorialLevel.Build(Board);
+
+            Assert.AreNotEqual(TutorialLevel.Part, level.Budget[0].Kind,
+                "the part asked for is auto-selected on load, so the select step would be free");
+
+            Assert.IsTrue(level.TryFirstBudgetKind(out GateKind first));
+            Assert.AreEqual(TutorialLevel.Decoy, first, "the decoy is what arrives selected");
+
+            // And the step really is unfinished in that state.
+            Assert.IsFalse(TutorialScript.IsComplete(0, Facts(first)),
+                "arriving with the decoy selected must leave the select step to do");
         }
 
         [Test]

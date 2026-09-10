@@ -93,6 +93,10 @@ namespace BitSorter.View
 
             _session.Adopt(TutorialLevel.Build(_runner.HalfExtents), TutorialLevel.Key);
             _phase = Phase.Intro;
+
+            // Anything pressed before this moment belonged to a tutorial that is over.
+            if (_panel != null)
+                _panel.ForgetPresses();
         }
 
         private void Update()
@@ -119,7 +123,7 @@ namespace BitSorter.View
                 return;
             }
 
-            if (_panel.SkipPressed)
+            if (_panel.ConsumeSkip())
             {
                 Stop(record: true);
                 return;
@@ -130,7 +134,7 @@ namespace BitSorter.View
                 case Phase.Intro:
                     _panel.Show(Intro, showNext: true, nextCaption: "START");
 
-                    if (_panel.NextPressed)
+                    if (_panel.ConsumeNext())
                         _phase = Phase.Steps;
 
                     break;
@@ -145,7 +149,7 @@ namespace BitSorter.View
                         ControlsReference.Card,
                         showNext: true, nextCaption: "DONE");
 
-                    if (_panel.NextPressed)
+                    if (_panel.ConsumeNext())
                         Stop(record: true);
 
                     break;
@@ -289,7 +293,14 @@ namespace BitSorter.View
         private bool TryFixture(string id, out int nodeId) =>
             _runner.FixtureNodeIds.TryGetValue(id, out nodeId);
 
-        /// <summary>The gate on the cell the tutorial asked for, if the player has placed it.</summary>
+        /// <summary>
+        /// The part the tutorial asked for, on the cell it asked for, if the player has placed it.
+        /// </summary>
+        /// <remarks>
+        /// The kind is checked as well as the cell. The palette offers a decoy, and dropping that on
+        /// the right square is not the step: without this the tutorial would accept the wrong part
+        /// and move on to wiring a gate the level cannot be solved with.
+        /// </remarks>
         private bool TryGate(out int nodeId)
         {
             nodeId = -1;
@@ -298,7 +309,9 @@ namespace BitSorter.View
 
             for (int id = 0; id < view.NodeCount; id++)
             {
-                if (view.GetNode(id) == null)
+                Node node = view.GetNode(id);
+
+                if (node == null || !(node is NotGate))
                     continue;
 
                 if (_runner.TryCellOf(id, out Vector2Int cell) && cell == TutorialLevel.GateCell)
