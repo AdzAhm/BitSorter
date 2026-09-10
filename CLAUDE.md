@@ -29,6 +29,28 @@ just because it is written down here.
   said which output each produced.
 - A mechanic is taught before it is required. `CurriculumTests` enforces
   that the delay tutorial precedes every level that budgets delay.
+- **There is a third kind of teaching: the first-time hint.** `goal` states
+  the objective, `hint` nudges towards *this level's* answer, and a hint in
+  `HintRules` explains a *mechanic*, once ever, the first time the player
+  meets it. Three of them: a gate stalling, a collision, and the fact that a
+  wire's delay can be scrolled at all. They are fired by what happens, not by
+  which level is loaded, and `hintsSeen` in the save remembers them.
+
+  The jobs must stay apart. `balance-the-paths`' hint already covers stalling
+  and collision *for that level*, so a first-time hint reaching for the same
+  words would be a second copy the player also has to read twice.
+  `CurriculumTests` refuses any four-word run shared between the two.
+
+  There is deliberately **no hint for a bin that must stay empty**:
+  `route-the-bit`'s goal says it on the first level, and the sink readout and
+  the fail verdict both name it afterwards.
+
+  **The stall hint fires on a duration, never on a port filling.** A gate is
+  never seen holding one input mid-delivery — see the tick-order decision
+  below — but a one-tick imbalance is a real stall on a circuit that works,
+  and explaining it would teach the player about a mistake they did not make.
+  It fires when the run settles with a gate still stalled, or after four
+  consecutive ticks.
 
 ## My level
 I'm a 3rd-semester CE student, new to Unity and git.
