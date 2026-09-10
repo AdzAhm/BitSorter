@@ -34,6 +34,17 @@ namespace BitSorter.View
         private RunState _state = RunState.Editing;
         private bool _shown;
 
+        /// <summary>
+        /// Whether the solved panel is on screen.
+        /// </summary>
+        /// <remarks>
+        /// Exposed for the tutorial, which shows its own ending card and must wait for this one to
+        /// be gone first. It cannot ask <see cref="UiModal"/>, because this panel deliberately never
+        /// registers there -- it is a card in the middle of the board, not a full-screen takeover,
+        /// and the board behind it stays live so the player can keep editing.
+        /// </remarks>
+        public bool IsShowing => _shown;
+
         private void Awake()
         {
             if (_session == null) _session = FindFirstObjectByType<LevelSession>();

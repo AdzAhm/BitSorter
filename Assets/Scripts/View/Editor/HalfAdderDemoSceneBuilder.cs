@@ -98,6 +98,7 @@ namespace BitSorter.View.EditorTools
             HintBanner hintBanner = host.AddComponent<HintBanner>();
             TutorialPanel tutorialPanel = host.AddComponent<TutorialPanel>();
             TutorialHighlighter tutorialRings = host.AddComponent<TutorialHighlighter>();
+            TutorialCard tutorialCard = host.AddComponent<TutorialCard>();
 
             DiagnosticsPanel diagnostics = host.AddComponent<DiagnosticsPanel>();
             ProgressTracker progress = host.AddComponent<ProgressTracker>();
@@ -107,13 +108,17 @@ namespace BitSorter.View.EditorTools
             // would decide nothing had ever been seen and show every hint again.
             FirstTimeHints hints = host.AddComponent<FirstTimeHints>();
 
-            // After the tracker for the same reason the hints are: its Awake loads the store, and a
-            // director that asked an unloaded one would decide nobody had seen the tutorial and
-            // start it over somebody's saved board.
-            TutorialDirector tutorial = host.AddComponent<TutorialDirector>();
             LevelSelectPanel levelSelect = host.AddComponent<LevelSelectPanel>();
             HelpPanel help = host.AddComponent<HelpPanel>();
             WinPanel winPanel = host.AddComponent<WinPanel>();
+
+            // After ProgressTracker, whose Awake loads the store it reads, and after WinPanel, which
+            // is the load-bearing half. Components on one GameObject run in the order they were
+            // added, so on the frame a run passes WinPanel presents first and the director sees a
+            // solved panel already up. Added before it, the director would look for a panel that had
+            // not presented yet, conclude there was none, and put its ending card on screen
+            // alongside it -- which is the exact overlap this ordering exists to prevent.
+            TutorialDirector tutorial = host.AddComponent<TutorialDirector>();
             SinkCelebration celebration = host.AddComponent<SinkCelebration>();
             MainMenu mainMenu = host.AddComponent<MainMenu>();
             EndingPanel ending = host.AddComponent<EndingPanel>();
@@ -240,6 +245,10 @@ namespace BitSorter.View.EditorTools
             Assign(tutorial, "_runControls", runControls);
             Assign(tutorial, "_panel", tutorialPanel);
             Assign(tutorial, "_highlighter", tutorialRings);
+            Assign(tutorial, "_card", tutorialCard);
+            Assign(tutorial, "_winPanel", winPanel);
+
+            Assign(tutorialCard, "_canvas", canvas);
 
             Assign(levelSelect, "_tutorial", tutorial);
 

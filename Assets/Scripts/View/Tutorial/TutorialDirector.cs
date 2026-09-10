@@ -24,6 +24,10 @@ namespace BitSorter.View
             Idle,
             Intro,
             Steps,
+
+            /// <summary>Solved, waiting for the ordinary win panel to be dismissed.</summary>
+            AwaitWin,
+
             Card,
         }
 
@@ -36,6 +40,8 @@ namespace BitSorter.View
         [SerializeField] private RunControls _runControls;
         [SerializeField] private TutorialPanel _panel;
         [SerializeField] private TutorialHighlighter _highlighter;
+        [SerializeField] private TutorialCard _card;
+        [SerializeField] private WinPanel _winPanel;
 
         private const string Intro =
             "Welcome. A bit starts at A on the left and has to reach the bin on the right. " +
@@ -58,6 +64,8 @@ namespace BitSorter.View
             if (_runControls == null) _runControls = FindFirstObjectByType<RunControls>();
             if (_panel == null) _panel = FindFirstObjectByType<TutorialPanel>();
             if (_highlighter == null) _highlighter = FindFirstObjectByType<TutorialHighlighter>();
+            if (_card == null) _card = FindFirstObjectByType<TutorialCard>();
+            if (_winPanel == null) _winPanel = FindFirstObjectByType<WinPanel>();
         }
 
         private void OnEnable()
@@ -113,13 +121,28 @@ namespace BitSorter.View
                 return;
             }
 
-            // A panel over the board means the player has gone looking for something else. The
-            // tutorial waits rather than talking over it.
-            if (UiModal.AnyOpen)
+            // Before the modal guard, because the card *is* a modal: it registers with UiModal so
+            // the board holds still behind it, and a guard that fired on that would make the card
+            // hide itself the frame after it appeared.
+            if (_phase == Phase.Card)
             {
-                _panel.Show(false);
-                _highlighter.Begin();
-                _highlighter.End();
+                RunCard();
+                return;
+            }
+
+            // Something is covering the board -- the level list, or the solved panel. Either way the
+            // tutorial waits rather than talking over it.
+            if (UiModal.AnyOpen || WinShowing)
+            {
+                Hide();
+                return;
+            }
+
+            // The solved panel has been dismissed and nothing replaced it, so the ending can have
+            // the screen to itself.
+            if (_phase == Phase.AwaitWin)
+            {
+                ShowCard();
                 return;
             }
 
@@ -142,18 +165,42 @@ namespace BitSorter.View
                 case Phase.Steps:
                     RunSteps();
                     break;
-
-                case Phase.Card:
-                    _panel.Show(
-                        "That is the whole loop. Everything else you can do:\n" +
-                        ControlsReference.Card,
-                        showNext: true, nextCaption: "DONE");
-
-                    if (_panel.ConsumeNext())
-                        Stop(record: true);
-
-                    break;
             }
+        }
+
+        private bool WinShowing => _winPanel != null && _winPanel.IsShowing;
+
+        /// <summary>Takes the instruction strip and every highlight off the screen.</summary>
+        private void Hide()
+        {
+            _panel.Show(false);
+            _highlighter.Begin();
+            _highlighter.End();
+        }
+
+        private void ShowCard()
+        {
+            Hide();
+            _phase = Phase.Card;
+
+            if (_card != null)
+                _card.Show(true);
+        }
+
+        /// <summary>
+        /// The ending. One button, and it leads into the first level rather than merely closing.
+        /// </summary>
+        private void RunCard()
+        {
+            if (_card == null || !_card.ConsumeFinish())
+                return;
+
+            Stop(record: true);
+
+            // Straight into the run. The tutorial sits before the first level, so finishing it and
+            // arriving there should be one action rather than two.
+            if (_session.AvailableLevels.Count > 0)
+                _session.LoadLevel(_session.AvailableLevels[0]);
         }
 
         /// <summary>
@@ -190,7 +237,10 @@ namespace BitSorter.View
 
             if (index >= TutorialScript.Count)
             {
-                _phase = Phase.Card;
+                // Not the card yet. The run has just passed, so the ordinary solved panel is about
+                // to appear; the ending waits its turn rather than sharing the screen with it.
+                _phase = Phase.AwaitWin;
+                Hide();
                 return;
             }
 
@@ -383,6 +433,9 @@ namespace BitSorter.View
 
             if (_panel != null)
                 _panel.Show(false);
+
+            if (_card != null)
+                _card.Show(false);
 
             if (_highlighter != null)
             {
