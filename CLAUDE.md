@@ -275,12 +275,32 @@ reaching into `PlacementController`, `WiringController` and `PaletteDragSource`,
 and pointer ownership is derived and never claimed precisely because a claim
 that leaks disables the game with no way back.
 
-Two traps worth knowing, both found in play mode and neither visible from the
-script. `PlacementController` puts the selection on a level's **first** budget
-row on every load, so the tutorial stocks a decoy first — otherwise the "pick a
-part" step is already complete before the player touches anything. And the
-main menu holds `UiModal` at boot, so auto-launch waits for it to have been
-closed rather than firing on startup.
+**It ends on its own card, after the win panel.** The run settles `Passed`, the
+ordinary solved panel appears, and only once it is dismissed does the card take
+the screen — a full-screen scrim built like `EndingPanel`, the controls in two
+columns from `ControlsReference.Groups`, and one button into the first level.
+Skipping is the small quiet button on the instruction strip and just stops, so
+finishing and skipping do not look alike.
+
+**Nothing outside the run may count itself as a level.** `LevelCatalog.
+IsOffCatalogue` is the one place that knows free play and the tutorial are not
+levels in the run, and `ProgressTracker` and `GameAnalytics` both ask it. The
+tutorial being *graded* is what made this bite: free play never passes so it
+never reached the code that records a solve, and without the guard the tutorial
+marked itself complete, took a personal best and reported itself to analytics.
+The board rule is narrower still — free play keeps its board on purpose, and only
+the tutorial must always start empty, guarded on save *and* on restore because a
+restored circuit would satisfy all six steps the instant it loaded.
+
+Traps worth knowing, all found in play mode and none visible from the script.
+`PlacementController` puts the selection on a level's **first** budget row on
+every load, so the tutorial stocks a decoy first — otherwise the "pick a part"
+step is already complete before the player touches anything. The main menu holds
+`UiModal` at boot, so auto-launch waits for it to have been closed rather than
+firing on startup. And `WinPanel` never registers with `UiModal`, so the director
+watches its `IsShowing` instead — which only works because the scene builder adds
+the director **after** `WinPanel`, so on the frame a run passes the win panel has
+already presented.
 
 **Analytics is the one thing that sends data anywhere.** `GameAnalytics`
 reports exactly two events, `levelStarted` and `levelSolved`, each
