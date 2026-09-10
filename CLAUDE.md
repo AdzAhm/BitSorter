@@ -29,7 +29,7 @@ just because it is written down here.
   said which output each produced.
 - A mechanic is taught before it is required. `CurriculumTests` enforces
   that the delay tutorial precedes every level that budgets delay.
-- **There is a third kind of teaching: the first-time hint.** `goal` states
+- **There are four kinds of teaching, and they must stay apart.** `goal` states
   the objective, `hint` nudges towards *this level's* answer, and a hint in
   `HintRules` explains a *mechanic*, once ever, the first time the player
   meets it. Three of them: a gate stalling, a collision, and the fact that a
@@ -40,6 +40,12 @@ just because it is written down here.
   and collision *for that level*, so a first-time hint reaching for the same
   words would be a second copy the player also has to read twice.
   `CurriculumTests` refuses any four-word run shared between the two.
+
+  The fourth is the **guided tutorial**, which teaches *which input does what*
+  and nothing else. It may say a wire can be scrolled — that is an input — but
+  not what a longer wire does to arrival order, which is `wireDelay`'s job on
+  the level where it matters. Finishing it marks no hint as seen, and
+  `CurriculumTests` holds tutorial text to the same four-word rule.
 
   There is deliberately **no hint for a bin that must stay empty**:
   `route-the-bit`'s goal says it on the first level, and the sink readout and
@@ -247,6 +253,34 @@ Free play is ungraded via `RunState.Finished`, which is deliberately not
 fire. Unlimited is spelled `-1`, the way `RemainingDelay` already spells
 an absent budget, and the trap is that zero and unlimited are opposites
 that both look falsy: test `== 0` for "not stocked", never `<= 0`.
+
+**The guided tutorial is code-built, like the sandbox, and for the same
+reasons.** `LevelLoader.Validate` and `CurriculumTests` stay exactly as strict
+as they were rather than gaining an exception, and a level file cannot author
+wires. It reaches the board through `LevelSession.Adopt`, so `ProgressTracker`
+persistence works with neither side knowing the other exists.
+
+It is **not in `LevelCatalog`**: it cannot disturb the nine-level run that
+`CurriculumTests` pins, and it never appears in `AvailableLevels`, so Q and E do
+not cycle into it and the banner still counts to nine. It is reached by a row at
+the head of the level list — free play's row at the foot is the same idea — and
+once by itself on a save with no `tutorial` milestone. Unlike the sandbox it
+*is* graded, so the last step ends on the ordinary win panel.
+
+**It never blocks input.** Each step is a predicate over board state, so an
+unsatisfied step simply does not advance and every other action stays legal —
+and a step un-finishes by itself when the player deletes what it asked for,
+Ctrl+Z included, with nothing tracking the undo. Gating input would mean
+reaching into `PlacementController`, `WiringController` and `PaletteDragSource`,
+and pointer ownership is derived and never claimed precisely because a claim
+that leaks disables the game with no way back.
+
+Two traps worth knowing, both found in play mode and neither visible from the
+script. `PlacementController` puts the selection on a level's **first** budget
+row on every load, so the tutorial stocks a decoy first — otherwise the "pick a
+part" step is already complete before the player touches anything. And the
+main menu holds `UiModal` at boot, so auto-launch waits for it to have been
+closed rather than firing on startup.
 
 **Analytics is the one thing that sends data anywhere.** `GameAnalytics`
 reports exactly two events, `levelStarted` and `levelSolved`, each
