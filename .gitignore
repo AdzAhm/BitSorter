@@ -68,3 +68,19 @@ sysinfo.txt
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# ---------------------------------------------------------------------
+# Play Mode test run leftovers
+# ---------------------------------------------------------------------
+# The test framework builds a temporary scene and a run manifest inside Assets/
+# and removes them in its post-build cleanup. A run that is interrupted -- or one
+# where the editor loses focus and stops ticking -- leaves them behind, where they
+# show up as untracked files that look like something went wrong.
+#
+# These rules come after the "!/[Aa]ssets/**/*.meta" negation above on purpose:
+# later rules win, so the companion .meta files are ignored too.
+/[Aa]ssets/InitTestScene*.unity
+/[Aa]ssets/InitTestScene*.unity.meta
+/[Aa]ssets/PerformanceTestRunInfo.json
+/[Aa]ssets/PerformanceTestRunInfo.json.meta
+/[Pp]roject[Ss]ettings/PerformanceTestSettings.json
