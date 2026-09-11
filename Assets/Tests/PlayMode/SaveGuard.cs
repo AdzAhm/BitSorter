@@ -32,15 +32,53 @@ namespace BitSorter.PlayMode.Tests
         private static string Stashed => Real + ".testbackup";
 
         /// <summary>Moves the real save aside, leaving the game to start from nothing.</summary>
+        /// <remarks>
+        /// **A stash that already exists is the player's save, not debris.** This method had that
+        /// backwards once and destroyed a real save with it: after a run that died before restoring,
+        /// the stash holds the player's file and the thing sitting at the normal path is whatever the
+        /// tests wrote afterwards. Deleting "the stale stash" therefore deleted the only real copy
+        /// and kept an empty one. Completed levels, personal bests and seen hints, all gone, by the
+        /// guard written to prevent exactly that.
+        ///
+        /// So an existing stash is never touched. The file at the live path is the disposable one.
+        /// </remarks>
         internal static void Stash()
         {
-            // A stash already sitting there is the debris of a run that crashed before restoring.
-            // The real file is the one to keep, so the stale stash goes rather than the save.
-            if (File.Exists(Stashed) && File.Exists(Real))
-                File.Delete(Stashed);
+            Archive();
+
+            if (File.Exists(Stashed))
+            {
+                // A previous run died before restoring. The stash is the save; whatever is at the
+                // live path now is test debris, and that is the one that goes.
+                if (File.Exists(Real))
+                    File.Delete(Real);
+
+                return;
+            }
 
             if (File.Exists(Real))
                 File.Move(Real, Stashed);
+        }
+
+        /// <summary>
+        /// Keeps a dated copy that nothing here ever deletes.
+        /// </summary>
+        /// <remarks>
+        /// Belt as well as braces. The move-and-restore above is correct now, but it was also
+        /// "correct" when it deleted a save, and the cost of being wrong is somebody's progress
+        /// rather than a red test. These copies are never cleaned up by this class -- a few hundred
+        /// bytes each is a trade worth making every time.
+        /// </remarks>
+        private static void Archive()
+        {
+            if (!File.Exists(Real))
+                return;
+
+            string stamp = System.DateTime.Now.ToString("yyyyMMdd-HHmmss");
+            string copy = Real + ".archive-" + stamp;
+
+            if (!File.Exists(copy))
+                File.Copy(Real, copy);
         }
 
         /// <summary>Deletes whatever the tests wrote and puts the player's file back.</summary>
