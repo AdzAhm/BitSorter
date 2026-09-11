@@ -29,9 +29,6 @@ namespace BitSorter.View
         [Tooltip("Most gate cues in one frame. A wide circuit can fire many at once.")]
         [SerializeField] private int _gateBurstLimit = 3;
 
-        [Tooltip("Background loop. On by default; the player's choice is remembered.")]
-        [SerializeField] private bool _music = true;
-
         [Tooltip("Seconds to fade down and back up when the track changes at a level boundary.")]
         [SerializeField] private float _switchSeconds = 0.7f;
 
@@ -52,32 +49,48 @@ namespace BitSorter.View
         /// <summary>Fade multiplier, 0 to 1. Rides down and back up across a track change.</summary>
         private float _gain = 1f;
 
-        /// <summary>Whether the background loop is currently silenced.</summary>
+        /// <summary>Whether the game is silenced -- the music and every cue.</summary>
         /// <remarks>
         /// Kept in PlayerPrefs rather than in the progress file. It describes this machine's
         /// speakers, not the player's circuits, and someone who copies a save to another computer
         /// should not carry a mute across with it.
+        ///
+        /// One switch for the whole game rather than one for music and one for effects. Every cue
+        /// has something on screen that says the same thing -- the scorch mark and the bits-lost
+        /// meter for a collision, the win panel for a pass, the bits themselves for a gate firing
+        /// or a landing -- so silence costs the player no information, and a second setting would
+        /// be two switches and four states for a game with five cues and one loop.
+        ///
+        /// This used to silence only the music while the clock carried on ticking twice a second,
+        /// which is the one sound somebody reaching for mute most wants gone.
+        ///
+        /// The PlayerPrefs key still says music. Renaming it would reset the preference of anyone
+        /// who had already turned the sound off, which is a worse trade than a stale key name.
         /// </remarks>
-        public static bool MusicMuted
+        public static bool Muted
         {
             get => PlayerPrefs.GetInt(MutedKey, 0) != 0;
-            private set
+            set
             {
                 PlayerPrefs.SetInt(MutedKey, value ? 1 : 0);
                 PlayerPrefs.Save();
             }
         }
 
-        /// <summary>Silences or restores the background loop, and remembers which.</summary>
-        public void ToggleMusic() => SetMuted(!MusicMuted);
+        /// <summary>Silences or restores the game, and remembers which.</summary>
+        public void ToggleMute() => SetMuted(!Muted);
 
-        public void SetMuted(bool muted)
-        {
-            MusicMuted = muted;
-
-            if (_musicSource != null)
-                _musicSource.mute = muted;
-        }
+        /// <remarks>
+        /// Only the stored answer is written here. The source is brought into line with it in
+        /// <see cref="DriveMusic"/> every frame, the way every other readout in this project
+        /// polls rather than being pushed to -- so the setting is the single source of truth and
+        /// cannot be changed by a route that forgets to update the source.
+        ///
+        /// The loop is muted rather than stopped, so it keeps its playback position and unmuting
+        /// does not restart the phrase from the top. The cues need no equivalent: they are fired
+        /// one at a time and <see cref="Play"/> simply declines to fire them.
+        /// </remarks>
+        public void SetMuted(bool muted) => Muted = muted;
 
         private int _tick = -1;
         private int _gatesFired;
@@ -133,11 +146,18 @@ namespace BitSorter.View
             _playingUnder = key;
         }
 
+        /// <summary>
+        /// Builds the music source. Always -- whether the player wants to hear it is
+        /// <see cref="Muted"/>'s business, not this method's.
+        /// </summary>
+        /// <remarks>
+        /// There used to be a serialized bool here as well, and it was the wrong shape: unticking
+        /// it meant no source was ever built, so <see cref="SetMuted"/> had nothing to act on and
+        /// the menu toggle and the N key both silently did nothing. Two switches for one question,
+        /// and the one the player could not reach won.
+        /// </remarks>
         private void Start()
         {
-            if (!_music)
-                return;
-
             // Its own source, not PlayOneShot. The loop needs to hold a playback position and be
             // stoppable, and mixing it into the cue source would have every collision duck it.
             _musicSource = gameObject.AddComponent<AudioSource>();
@@ -147,9 +167,7 @@ namespace BitSorter.View
             _musicSource.spatialBlend = 0f;
             _musicSource.volume = ProceduralAudio.VolumeOf(Cue.Music) * _masterVolume;
 
-            // Muted rather than not started, so the loop keeps its playback position and unmuting
-            // does not restart the phrase from the top every time.
-            _musicSource.mute = MusicMuted;
+            _musicSource.mute = Muted;
             _musicSource.Play();
         }
 
@@ -159,7 +177,7 @@ namespace BitSorter.View
             Keyboard keyboard = Keyboard.current;
 
             if (keyboard != null && keyboard.nKey.wasPressedThisFrame)
-                ToggleMusic();
+                ToggleMute();
 
             // Before the readiness check too: a track change is triggered by a level load, and a
             // level load is exactly the moment the runner is briefly not ready.
@@ -261,6 +279,10 @@ namespace BitSorter.View
             if (_musicSource == null)
                 return;
 
+            // Ahead of the fade, and ahead of its early-out: a settled track still has to notice
+            // the player reaching for mute.
+            _musicSource.mute = Muted;
+
             float rate = Time.unscaledDeltaTime / Mathf.Max(0.05f, _switchSeconds);
 
             if (_wanted != _track)
@@ -288,12 +310,24 @@ namespace BitSorter.View
             _musicSource.volume = ProceduralAudio.VolumeOf(Cue.Music) * _masterVolume * _gain;
         }
 
+        /// <summary>
+        /// How many cues have actually been played this session.
+        /// </summary>
+        /// <remarks>
+        /// A counter to watch, exactly like the `GateFiredCount` this class already polls off
+        /// <see cref="BitRenderer"/>. A one-shot is fired and forgotten, so there is otherwise
+        /// nothing to ask about whether the game made a sound -- and "mute actually silences the
+        /// cues, not only the music" is the one thing about this class worth proving.
+        /// </remarks>
+        public int CuesPlayed { get; private set; }
+
         private void Play(Cue cue)
         {
-            if (_source == null || _masterVolume <= 0f)
+            if (Muted || _source == null || _masterVolume <= 0f)
                 return;
 
             _source.PlayOneShot(ProceduralAudio.Clip(cue), ProceduralAudio.VolumeOf(cue) * _masterVolume);
+            CuesPlayed++;
         }
     }
 }

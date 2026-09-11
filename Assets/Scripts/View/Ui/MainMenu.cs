@@ -198,7 +198,7 @@ namespace BitSorter.View
             bool fresh = done == 0 && _session.LevelIndex == 0;
 
             _continueLabel.text = fresh ? "START" : "CONTINUE";
-            _soundLabel.text = GameAudio.MusicMuted ? "SOUND  OFF" : "SOUND  ON";
+            _soundLabel.text = GameAudio.Muted ? "SOUND  OFF" : "SOUND  ON";
             _dataLabel.text = GameAnalytics.Reporting ? "DATA  ON" : "DATA  OFF";
 
             // Named from the same walk Continue itself uses, so the label cannot promise one level
@@ -222,7 +222,7 @@ namespace BitSorter.View
         private void ToggleSound()
         {
             if (_audio != null)
-                _audio.ToggleMusic();
+                _audio.ToggleMute();
 
             Refresh();
         }

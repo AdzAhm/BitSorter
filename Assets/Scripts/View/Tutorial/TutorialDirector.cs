@@ -53,6 +53,23 @@ namespace BitSorter.View
         /// <summary>Whether the tutorial is running right now.</summary>
         public bool IsRunning => _phase != Phase.Idle;
 
+        /// <summary>
+        /// How many steps the board currently satisfies, counting from the top.
+        /// </summary>
+        /// <remarks>
+        /// Derived on every read, never stored -- the same rule the rest of the view follows, and
+        /// the reason a step un-finishes by itself when the player deletes what it asked for.
+        ///
+        /// Public because the interesting failures are all of the form "a step was already
+        /// satisfied before the player did anything": the auto-selected budget row made step one
+        /// free, and a restored board would have satisfied all six the instant it loaded. Neither
+        /// is visible from outside without asking the director what it thinks the board says.
+        /// </remarks>
+        public int CurrentStep =>
+            _session == null || _runner == null || !_runner.IsReady
+                ? 0
+                : TutorialScript.CurrentStep(Gather());
+
         private void Awake()
         {
             if (_session == null) _session = FindFirstObjectByType<LevelSession>();

@@ -112,7 +112,7 @@ scrolled at all. Each appears once, ever, and none of them pause the game.
 | `H`, or the `?` button | This level's truth table and a hint |
 | `Esc` | Level list, and the way into the sandbox |
 | `M` | Main menu |
-| `N` | Mute the music |
+| `N` | Mute the game |
 | `Q` / `E` | Previous / next level |
 | `F3` | Diagnostics |
 

@@ -205,6 +205,36 @@ failure side.
   invocation in `Library/Bee/artifacts/*/BitSorter.*.rsp`; redirect `-out`
   and run it through the editor's own Roslyn. That catches compile errors in
   seconds and is independent of whatever state the editor is in.
+- **Play Mode tests load the real scene, and must put it back.** `TestScene.Load`
+  and `TestScene.Clear` are the only way in and out. A fixture that loads the game
+  and simply finishes leaves it loaded for whatever runs next, and NUnit orders
+  fixtures alphabetically -- `AudioPlayTests` ran first and handed a fully built
+  game to `PointerArbitrationPlayTests`, which builds its own canvas and assumes
+  nothing else is on screen. Two of its four tests went red with none of its own
+  code changed, because the main menu is a full-screen panel and the pointer was
+  therefore over UI at every coordinate. A test leaking into another test is worse
+  than either failing: the red lands in the fixture that is still correct.
+
+  **They also touch the player's own files.** `SaveGuard` moves the real
+  `progress.json` aside and puts it back, and every fixture turns analytics off in
+  `OneTimeSetUp` and restores it after -- `GameAnalytics.Boot` runs on
+  AfterSceneLoad and would otherwise post real `levelStarted` events from a test
+  run, into the one measurement the game collects.
+
+  **Drive the clock, do not wait for it.** `SimulationRunner.StepOneTick` advances
+  exactly one tick. The first version of the cue tests called `Run()` and waited
+  ninety frames for the two-per-second clock to produce something; it produced
+  nothing, with no explanation, and the muted half of the pair *passed* -- a test
+  asserting no sound was made is trivially satisfied when nothing would have made
+  one. Assertions about absence need a paired test proving the thing is possible.
+
+  **Results come from the framework, not from a callback.** Entering play mode
+  reloads the domain and destroys any `TestRunnerApi` callback registered from a
+  RunCommand, so Play Mode results cannot be collected that way. Unity writes them
+  to `TestResults.xml` under `persistentDataPath` regardless. Read that.
+
+  **Unity must be focused**, or it does not tick and the run never enters play
+  mode -- it sits there reporting nothing.
 - **`Editor.log` accumulates across sessions.** A warning found in it may
   be from an old compile and describe code that has since changed, so
   verify against a fresh compile before acting on one. Reading history as
@@ -259,6 +289,14 @@ failure side.
   the player first heard it. The only random part is where in the cycle a
   session starts, picked once in `GameAudio.Awake`; everything after that is
   deterministic so a test can say which track should be playing.
+
+  **Mute is one switch for the whole game**, music and cues alike. Every cue has
+  something on screen saying the same thing, so silence costs no information,
+  and a second setting would be four states to reason about for five cues and
+  one loop. It used to silence only the music while the clock carried on
+  ticking, which is the sound somebody reaching for mute most wants gone. The
+  PlayerPrefs key still says music, deliberately: renaming it would reset the
+  preference of anyone who had already turned the sound off.
 
   Music is rendered at half the sample rate the cues are. Nothing in it comes
   near that Nyquist limit, and it is what keeps six long uncompressed clips
