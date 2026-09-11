@@ -37,6 +37,21 @@ namespace BitSorter.View
         /// </remarks>
         private Image _divider;
         private TextMeshProUGUI _hintHeading;
+        /// <summary>
+        /// The character on the badge.
+        /// </summary>
+        /// <remarks>
+        /// A question mark, not an exclamation mark. "!" is what this game uses for things that have
+        /// gone wrong -- the refusal toast, the bits-lost meter, the scorch marks -- so a permanent
+        /// one in the corner reads as a warning the player cannot clear.
+        ///
+        /// A constant rather than a literal because level text tells the player to press it, and
+        /// those two drifted apart the last time this changed: the badge became "?" and
+        /// `four-corners` went on saying "!" for a release. `PlayerTextTests` now reads this and
+        /// checks every button a player is told to press against it.
+        /// </remarks>
+        public const string BadgeGlyph = "?";
+
         private Image _badge;
         private bool _shown;
 
@@ -116,13 +131,10 @@ namespace BitSorter.View
                     EventSystem.current.SetSelectedGameObject(null);
             });
 
-            // A question mark, not an exclamation mark. "!" is what this game uses for things that
-            // have gone wrong -- the refusal toast, the bits-lost meter, the scorch marks -- so a
-            // permanent one in the corner reads as a warning the player cannot clear.
             TextMeshProUGUI mark = UiTheme.Label(
                 "mark", rect, 22f, Color.white, TextAlignmentOptions.Center);
             UiTheme.Stretch(mark.rectTransform);
-            mark.text = "?";
+            mark.text = BadgeGlyph;
 
             // The badge is round and unlabelled, which is not obviously a button. The key beside it
             // says both that it opens something and how to open it without aiming at all.

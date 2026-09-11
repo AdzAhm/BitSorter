@@ -86,21 +86,25 @@ namespace BitSorter.PlayMode.Tests
         // -----------------------------------------------------------------
 
         /// <summary>
-        /// Every serialized Object reference on every BitSorter component is filled in.
+        /// Every component finishes Awake with all of its references resolved, from any source.
         /// </summary>
         /// <remarks>
-        /// The `{fileID: 0}` class, killed generically rather than one field at a time. A scene that
-        /// opens fine on the machine that built it can still be broken for a fresh clone, and the
-        /// symptom is a NullReferenceException in Update on somebody else's computer.
+        /// **This does not prove the scene builder wired anything**, and it was named as though it
+        /// did. Every component in this project ends Awake with a fallback -- `if (_x == null) _x =
+        /// FindFirstObjectByType&lt;X&gt;()` -- so a field the builder forgot is filled in before any
+        /// test can look at it. Reading fields after Awake cannot tell "serialized correctly" from
+        /// "found at runtime", and the old name claimed the first.
         ///
-        /// Only fields the builder is responsible for: a `[SerializeField]` of an Object type, on a
-        /// component in the game's own namespace. Fields that are legitimately optional would have to
-        /// be excluded by name if any ever appear -- none do today, which is itself worth pinning,
-        /// because every one of them is currently found by `FindFirstObjectByType` in Awake as a
-        /// fallback and a silently unfilled field would work here and fail in a build.
+        /// What it does prove is still worth having, and is the thing that actually crashes: after
+        /// Awake, nothing is holding a null it will dereference in Update. That catches a component
+        /// whose collaborator is missing from the scene altogether, which no fallback can rescue.
+        ///
+        /// Testing serialization properly means reading `HalfAdderDemo.unity` as text and looking for
+        /// `{fileID: 0}`, because that file is the only place the distinction exists. Worth doing; it
+        /// is not this test.
         /// </remarks>
         [UnityTest]
-        public IEnumerator EverySerializedReferenceInTheScene_IsWired()
+        public IEnumerator EveryComponent_FinishesAwakeWithNothingNull()
         {
             yield return LoadScene();
 
@@ -130,7 +134,8 @@ namespace BitSorter.PlayMode.Tests
             }
 
             CollectionAssert.IsEmpty(missing,
-                "serialized references left empty by the scene builder:\n  " +
+                "references still null after Awake, fallback included -- so the collaborator is " +
+                "missing from the scene entirely:\n  " +
                 string.Join("\n  ", missing));
         }
 

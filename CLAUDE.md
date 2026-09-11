@@ -47,6 +47,13 @@ just because it is written down here.
   the level where it matters. Finishing it marks no hint as seen, and
   `CurriculumTests` holds tutorial text to the same four-word rule.
 
+  **The level's `hint` is shown in one place: the help panel, behind the `?`
+  badge.** It used to be on the status banner *as well*, so the same sentence was
+  on screen twice at once, in the same size and colour -- and a player who pressed
+  `?` to "see the hint" was handed a line already in front of them, which teaches
+  that the button is not worth pressing. The banner carries the title and the goal
+  and nothing else. Asking for a nudge is a decision; the brief is not.
+
   There is deliberately **no hint for a bin that must stay empty**:
   `route-the-bit`'s goal says it on the first level, and the sink readout and
   the fail verdict both name it afterwards.

@@ -8,10 +8,21 @@ namespace BitSorter.View
     /// The level's name, what it is asking for, and how the last run went.
     /// </summary>
     /// <remarks>
-    /// Goal and hint are separate lines because they are separate things, and keeping them apart is
-    /// what stopped hints drifting into stating their own answers -- see
-    /// <see cref="LevelDefinition.Goal"/>. The goal is the brief and is always readable; the hint is
-    /// a nudge and is deliberately quieter.
+    /// **The goal only. The hint belongs to <see cref="HelpPanel"/>.**
+    ///
+    /// Both used to be here, and the help panel showed the hint as well -- the same sentence, at the
+    /// same size, in the same colour, on screen twice at once. A player who read "press ? to see it",
+    /// pressed it, and was handed a line already in front of them learned that the help button was
+    /// not worth pressing. It also broke the rule the rest of this layer follows: a second copy of a
+    /// fact is a second thing to drift.
+    ///
+    /// The help panel keeps it because asking for a nudge is a decision. The goal is the brief and
+    /// is always readable; the hint is advice, and advice nobody asked for is noise on a strip that
+    /// also carries first-time hints and the tutorial's instructions.
+    ///
+    /// Goal and hint remain separate *fields* for the reason they always were -- keeping them apart
+    /// is what stopped hints drifting into stating their own answers, which `CurriculumTests` still
+    /// enforces on the hint alone. See <see cref="LevelDefinition.Goal"/>.
     ///
     /// Everything here is polled. Every renderer in this project polls rather than subscribing, and
     /// a banner that subscribed would need to hear about run state, verdicts and refusals from three
@@ -30,7 +41,6 @@ namespace BitSorter.View
 
         private TextMeshProUGUI _title;
         private TextMeshProUGUI _goal;
-        private TextMeshProUGUI _hint;
         private TextMeshProUGUI _verdict;
         private Image _toastBackground;
         private TextMeshProUGUI _toast;
@@ -67,10 +77,6 @@ namespace BitSorter.View
                 new Vector2(0f, -44f), new Vector2(760f, 28f));
             _goal.textWrappingMode = TextWrappingModes.Normal;
 
-            _hint = UiTheme.Label("hint", root, 15f, UiTheme.TextDim, TextAlignmentOptions.Center);
-            UiTheme.Anchor(_hint.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-                new Vector2(0f, -78f), new Vector2(760f, 24f));
-
             _verdict = UiTheme.Label("verdict", root, 18f, UiTheme.Text, TextAlignmentOptions.Center);
             UiTheme.Anchor(_verdict.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 1f),
                 new Vector2(0f, -6f), new Vector2(760f, 26f));
@@ -100,7 +106,6 @@ namespace BitSorter.View
                 _title.text = "LEVEL DID NOT LOAD";
                 _title.color = UiTheme.Bad;
                 _goal.text = _session.LoadError ?? string.Empty;
-                _hint.text = string.Empty;
                 _verdict.text = string.Empty;
                 ShowToast(false);
                 return;
@@ -120,11 +125,6 @@ namespace BitSorter.View
                 : level.Name.ToUpperInvariant();
 
             _goal.text = level.Goal;
-
-            // The hint steps aside once the run is over: at that point the verdict is the thing to
-            // read, and two lines of advice under it just competes for attention.
-            bool editing = _session.State == RunState.Editing;
-            _hint.text = editing ? level.Hint : string.Empty;
 
             ShowVerdict();
             ShowToast(_runner != null && _runner.WasRecentlyRejected(_rejectionSeconds));

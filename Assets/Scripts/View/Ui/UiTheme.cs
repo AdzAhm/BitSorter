@@ -74,8 +74,17 @@ namespace BitSorter.View
         /// </remarks>
         public const float BannerWidth = 780f;
 
+        /// <summary>
+        /// Tall enough for the title and the goal, and nothing else.
+        /// </summary>
+        /// <remarks>
         /// <inheritdoc cref="BannerWidth"/>
-        public const float BannerHeight = 122f;
+        ///
+        /// Was 122 while the banner also carried the level's hint. Dropping that line freed thirty
+        /// pixels, and because every row below is measured from here, the first-time hint and the
+        /// tutorial's instruction strip both moved up with it rather than leaving a hole.
+        /// </remarks>
+        public const float BannerHeight = 92f;
 
         public const float HintHeight = 46f;
 
