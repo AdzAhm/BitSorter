@@ -5,113 +5,113 @@ using UnityEngine;
 namespace BitSorter.PlayMode.Tests
 {
     /// <summary>
-    /// Puts the player's real progress file out of reach for the duration of a fixture, and puts it
-    /// back afterwards.
+    /// Points the game at a scratch save for the duration of a fixture, and never touches the
+    /// player's own.
     /// </summary>
     /// <remarks>
-    /// These tests load the real scene, which means `ProgressTracker` opens the real save at
-    /// `Application.persistentDataPath` and writes to it whenever anything is solved or any hint is
-    /// marked seen. That has already gone wrong twice by hand: play-testing the tutorial wrote a
-    /// `tutorial` milestone and a saved board into a real save, and both had to be unpicked
-    /// afterwards. A test suite doing it automatically, on every run, would be worse.
+    /// These tests load the real scene, which means `ProgressTracker` opens whatever
+    /// `ProgressStore.DefaultPath` returns and writes to it whenever anything is solved or any hint
+    /// is marked seen. Two earlier designs handled that by moving the real file out of the way, and
+    /// both were wrong in the same direction -- they made the player's data depend on a test run
+    /// finishing cleanly.
     ///
-    /// Moving the file rather than pointing the game somewhere else is deliberate. `ProgressTracker`
-    /// has a `_pathOverride` field but it is private and serialized, so the only way to set it from
-    /// here is reflection -- and it would have to happen between the scene loading and `Awake`
-    /// running, which is not a moment a test gets to act in. Moving the file needs no seam, no
-    /// production change, and works no matter how the store is constructed.
+    /// The first deleted a save outright: after a run that died before restoring, the stash held the
+    /// real file and the live path held test debris, and the "clean up the stale stash" branch
+    /// deleted exactly the wrong one. The second fixed that and still left the file *missing* when a
+    /// run was interrupted, so the game opened looking like a fresh install.
     ///
-    /// The stash is a sibling file rather than a temp directory, so a run that dies without
-    /// restoring leaves the original next to where it belongs, under an obvious name, rather than
-    /// somewhere the player would never look.
+    /// Redirecting removes the class instead of handling it. Nothing here opens, copies, moves or
+    /// deletes `progress.json`. An interrupted run leaves it exactly as it was, because no step in
+    /// this file ever refers to it.
+    ///
+    /// The one thing still worth doing defensively is a copy, once per session, in case a future
+    /// change reintroduces a path that does write to the real file. It costs a few kilobytes and it
+    /// is the thing that made the first incident recoverable.
     /// </remarks>
     internal static class SaveGuard
     {
-        private static string Real => ProgressStore.DefaultPath;
+        /// <summary>The player's real file. Read for the safety copy, and for nothing else.</summary>
+        private static string Real =>
+            Path.Combine(Application.persistentDataPath, "progress.json");
 
-        private static string Stashed => Real + ".testbackup";
+        /// <summary>The scratch file the tests actually use.</summary>
+        private static string Scratch =>
+            Path.Combine(Application.persistentDataPath, "progress.testrun.json");
 
-        /// <summary>Moves the real save aside, leaving the game to start from nothing.</summary>
-        /// <remarks>
-        /// **A stash that already exists is the player's save, not debris.** This method had that
-        /// backwards once and destroyed a real save with it: after a run that died before restoring,
-        /// the stash holds the player's file and the thing sitting at the normal path is whatever the
-        /// tests wrote afterwards. Deleting "the stale stash" therefore deleted the only real copy
-        /// and kept an empty one. Completed levels, personal bests and seen hints, all gone, by the
-        /// guard written to prevent exactly that.
-        ///
-        /// So an existing stash is never touched. The file at the live path is the disposable one.
-        /// </remarks>
-        internal static void Stash()
-        {
-            Archive();
-
-            if (File.Exists(Stashed))
-            {
-                // A previous run died before restoring. The stash is the save; whatever is at the
-                // live path now is test debris, and that is the one that goes.
-                if (File.Exists(Real))
-                    File.Delete(Real);
-
-                return;
-            }
-
-            if (File.Exists(Real))
-                File.Move(Real, Stashed);
-        }
+        private static bool _archived;
 
         /// <summary>
-        /// Keeps a dated copy that nothing here ever deletes.
+        /// Sends the game's saving and loading to a scratch file.
         /// </summary>
         /// <remarks>
-        /// Belt as well as braces. The move-and-restore above is correct now, but it was also
-        /// "correct" when it deleted a save, and the cost of being wrong is somebody's progress
-        /// rather than a red test. These copies are never cleaned up by this class -- a few hundred
-        /// bytes each is a trade worth making every time.
+        /// Must run before the scene loads. `ProgressTracker` resolves the path in Awake and keeps
+        /// the store it built, so a redirect set afterwards would apply to nothing.
         /// </remarks>
-        private static void Archive()
+        internal static void Redirect()
         {
-            if (!File.Exists(Real))
-                return;
+            ArchiveOnce();
 
-            string stamp = System.DateTime.Now.ToString("yyyyMMdd-HHmmss");
-            string copy = Real + ".archive-" + stamp;
+            // Debris from a previous run. Deleting it here rather than in Release means an
+            // interrupted run leaves something to look at.
+            if (File.Exists(Scratch))
+                File.Delete(Scratch);
 
-            if (!File.Exists(copy))
-                File.Copy(Real, copy);
+            ProgressStore.Redirected = Scratch;
         }
 
-        /// <summary>Deletes whatever the tests wrote and puts the player's file back.</summary>
-        internal static void Restore()
+        /// <summary>Hands saving and loading back to the player's own file.</summary>
+        internal static void Release()
         {
-            if (File.Exists(Real))
-                File.Delete(Real);
+            ProgressStore.Redirected = null;
 
-            if (File.Exists(Stashed))
-                File.Move(Stashed, Real);
+            if (File.Exists(Scratch))
+                File.Delete(Scratch);
         }
 
         /// <summary>
         /// Writes a save for the scene to find when it loads.
         /// </summary>
         /// <remarks>
-        /// Only valid between <see cref="Stash"/> and <see cref="Restore"/>, and only before the
-        /// scene loads -- `ProgressTracker` reads the file in `Awake` and never looks again.
+        /// Only meaningful between <see cref="Redirect"/> and <see cref="Release"/>, and only before
+        /// the scene loads -- `ProgressTracker` reads the file in Awake and never looks again.
         /// </remarks>
         internal static void Plant(string json)
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(Real));
-            File.WriteAllText(Real, json);
+            Debug.Assert(ProgressStore.Redirected != null,
+                "SaveGuard.Plant before Redirect would write to the player's own save");
+
+            File.WriteAllText(Scratch, json);
         }
 
-        /// <summary>Removes any save a previous test in the same fixture planted.</summary>
+        /// <summary>Removes anything a previous test in the same fixture planted or the game wrote.</summary>
         internal static void Clear()
         {
-            if (File.Exists(Real))
-                File.Delete(Real);
+            if (File.Exists(Scratch))
+                File.Delete(Scratch);
         }
 
-        /// <summary>What the game actually wrote, or null. For asserting a test did not persist.</summary>
-        internal static string Read() => File.Exists(Real) ? File.ReadAllText(Real) : null;
+        /// <summary>What the game wrote during a test, or null.</summary>
+        internal static string Read() => File.Exists(Scratch) ? File.ReadAllText(Scratch) : null;
+
+        /// <summary>
+        /// One dated copy of the real save per session, which nothing here ever deletes.
+        /// </summary>
+        /// <remarks>
+        /// Belt as well as braces. The redirect above means no test should be able to reach the
+        /// player's file at all -- but the last two designs were also believed safe, and the cost of
+        /// being wrong is somebody's progress rather than a red test.
+        /// </remarks>
+        private static void ArchiveOnce()
+        {
+            if (_archived || !File.Exists(Real))
+                return;
+
+            _archived = true;
+
+            string copy = Real + ".archive-" + System.DateTime.Now.ToString("yyyyMMdd-HHmmss");
+
+            if (!File.Exists(copy))
+                File.Copy(Real, copy);
+        }
     }
 }

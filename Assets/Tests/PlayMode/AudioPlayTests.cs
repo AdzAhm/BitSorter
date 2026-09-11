@@ -37,13 +37,13 @@ namespace BitSorter.PlayMode.Tests
             _mutedWas = GameAudio.Muted;
 
             GameAnalytics.SetReporting(false);
-            SaveGuard.Stash();
+            SaveGuard.Redirect();
         }
 
         [OneTimeTearDown]
         public void OneTimeCleanup()
         {
-            SaveGuard.Restore();
+            SaveGuard.Release();
 
             // The player's own mute preference. These tests flip it, and it lives in PlayerPrefs
             // rather than in the save file, so SaveGuard would not have put it back.

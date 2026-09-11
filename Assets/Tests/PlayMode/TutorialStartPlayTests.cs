@@ -38,13 +38,13 @@ namespace BitSorter.PlayMode.Tests
             _reportingWas = GameAnalytics.Reporting;
             GameAnalytics.SetReporting(false);
 
-            SaveGuard.Stash();
+            SaveGuard.Redirect();
         }
 
         [OneTimeTearDown]
         public void OneTimeCleanup()
         {
-            SaveGuard.Restore();
+            SaveGuard.Release();
             GameAnalytics.SetReporting(_reportingWas);
         }
 

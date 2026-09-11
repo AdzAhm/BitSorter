@@ -86,6 +86,21 @@ namespace BitSorter.View
         /// </remarks>
         public const float BannerHeight = 92f;
 
+        /// <summary>
+        /// The verdict line, which hangs below the banner rather than sitting inside it.
+        /// </summary>
+        /// <remarks>
+        /// `StatusBanner` anchors it to the banner's bottom edge, six pixels clear, so it is outside
+        /// the panel and every row below has to allow for it. Nothing did: the verdict occupied
+        /// 114-140 and the first-time hint began at 116, a twenty-four pixel overlap that appeared
+        /// exactly when both were up -- the stall hint fires when a run settles with a gate still
+        /// stalled, which is the same moment the verdict turns to FAIL.
+        ///
+        /// The same mistake the toast row already fixed once, in the same file. Two things that must
+        /// not overlap cannot each own half the arithmetic.
+        /// </remarks>
+        public const float VerdictHeight = 6f + 26f;
+
         public const float HintHeight = 46f;
 
         /// <summary>First-time hints, just below the banner.</summary>
@@ -94,7 +109,7 @@ namespace BitSorter.View
         /// is coloured for them; a lesson sharing that row would be read as another thing the player
         /// did wrong. The banner is already where text is read, and it leaves the board clear.
         /// </remarks>
-        public const float HintRow = Margin + BannerHeight + Gap;
+        public const float HintRow = Margin + BannerHeight + VerdictHeight + Gap;
 
         public const float TutorialHeight = 52f;
 

@@ -235,6 +235,16 @@ failure side.
   asserting no sound was made is trivially satisfied when nothing would have made
   one. Assertions about absence need a paired test proving the thing is possible.
 
+  **Never move the player's save.** `SaveGuard` points `ProgressStore.Redirected`
+  at a scratch file and the real `progress.json` is not opened, copied, moved or
+  deleted by any test. Two earlier designs moved it aside and moved it back, and
+  both made the player's data depend on a run finishing cleanly: the first
+  destroyed a save outright — after an interrupted run the stash held the real
+  file and the live path held test debris, and the "clean up the stale stash"
+  branch deleted the wrong one — and the second still left the file *missing* on
+  an interrupt, so the game opened looking like a fresh install. Redirecting
+  removes the class instead of handling it.
+
   **Results come from the framework, not from a callback.** Entering play mode
   reloads the domain and destroys any `TestRunnerApi` callback registered from a
   RunCommand, so Play Mode results cannot be collected that way. Unity writes them
@@ -401,6 +411,17 @@ list — do not restate it elsewhere. Nothing about the player's circuit,
 their bests or their progress file is ever sent, and a reporting failure
 must never interrupt play. Adding a third event, or a new parameter, is a
 change to what players were told is collected, so ask first.
+
+**Each event fires once per level per session.** Re-entering a level from the
+level list refires `LevelLoaded`, so counting every load meant a player who
+reopened a hard level four times before giving up read as four people quitting
+— and levels get reopened in proportion to how hard they are, so the apparent
+drop-off was inflated most at exactly the levels this measures. The old number
+was not merely noisy: `LevelLoaded` fires on opening a level but not on RESET,
+so it counted neither attempts nor players, only which key somebody retried
+with. Solves are deduplicated too, or a level solved twice in one session would
+report more solves than starts. `AnalyticsRules.ShouldReport` takes the answer;
+`GameAnalytics` keeps the set, cleared on boot and never persisted.
 
 **Reporting is on by default and the player can turn it off**, from the
 main menu's Data item. Consent goes through `EndUserConsent`, not the

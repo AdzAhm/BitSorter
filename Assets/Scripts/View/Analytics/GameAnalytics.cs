@@ -67,6 +67,17 @@ namespace BitSorter.View
         private static readonly List<KeyValuePair<string, string>> Pending =
             new List<KeyValuePair<string, string>>();
 
+        /// <summary>Which event-and-level pairs have been sent this session.</summary>
+        /// <remarks>
+        /// A session, not an install. Nothing is persisted: somebody coming back tomorrow is a new
+        /// visit to the level and worth counting again, and remembering it would mean writing
+        /// something about their progress to disk for the sake of a metric.
+        ///
+        /// Cleared in <see cref="Boot"/> beside the pending queue, for the same reason it is:
+        /// statics survive entering play mode when domain reload is switched off.
+        /// </remarks>
+        private static readonly HashSet<string> Sent = new HashSet<string>(StringComparer.Ordinal);
+
         private static bool _collecting;
         private static bool _unavailable;
         private static LevelSession _session;
@@ -79,6 +90,7 @@ namespace BitSorter.View
             // subscribing rather than trusting a fresh start.
             Unsubscribe();
             Pending.Clear();
+            Sent.Clear();
             _collecting = false;
             _unavailable = false;
 
@@ -176,8 +188,14 @@ namespace BitSorter.View
         {
             // Every reason to stay quiet lives in AnalyticsRules, where it can be tested without a
             // scene. This method is left with the part that needs one: the queue and the SDK.
-            if (!AnalyticsRules.ShouldReport(levelName, Reporting, _unavailable))
+            string key = AnalyticsRules.SessionKey(eventName, levelName);
+
+            if (!AnalyticsRules.ShouldReport(levelName, Reporting, _unavailable, Sent.Contains(key)))
                 return;
+
+            // Recorded before the queue rather than after the send: an event queued while services
+            // are still starting must not be counted again by a level load that arrives first.
+            Sent.Add(key);
 
             if (!_collecting)
             {

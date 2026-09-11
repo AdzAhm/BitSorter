@@ -12,19 +12,20 @@ using UnityEngine.TestTools;
 namespace BitSorter.PlayMode.Tests
 {
     /// <summary>
-    /// The built scene itself: that every reference the builder wires actually survived
-    /// serialisation, and that the components which depend on running in a particular order do.
+    /// The built scene itself: that nothing it produces is holding a null, and that the components
+    /// which depend on running in a particular order do.
     /// </summary>
     /// <remarks>
-    /// This is the fixture the project has needed longest. `HalfAdderDemoSceneBuilder` is the only
-    /// authority on scene contents, and the two ways its output goes wrong are both invisible from
-    /// any single script: a reference that serialised as `{fileID: 0}` despite setup code that looks
-    /// correct, and two components whose Update order decides whether one of them sees the other's
-    /// state. CLAUDE.md documents both, and until now both were checked by reading YAML by eye.
+    /// `HalfAdderDemoSceneBuilder` is the only authority on scene contents, and its output goes
+    /// wrong in ways no single script can show: a collaborator missing from the scene, or two
+    /// components whose Update order decides whether one sees the other's state.
     ///
     /// Loading the real scene is the point -- a hand-built subset like
-    /// <see cref="PointerArbitrationPlayTests"/> uses could not catch either. It also means the
-    /// game's real save file and the real analytics consent are in play, so both are quarantined in
+    /// <see cref="PointerArbitrationPlayTests"/> uses could not catch either. The `{fileID: 0}` case
+    /// is deliberately *not* here: it needs the scene read as a file, which `SceneWiringTests` does
+    /// in Edit Mode, because by the time this fixture can look, Awake has already filled the gaps in.
+    ///
+    /// It also means the real analytics consent is in play, so it is turned off in
     /// <see cref="OneTimeSetup"/> before a single frame runs.
     /// </remarks>
     [TestFixture]
@@ -41,11 +42,9 @@ namespace BitSorter.PlayMode.Tests
         /// would post real events to the dashboard and quietly corrupt the one measurement the game
         /// collects -- the answer to "which level do people stop at" would include a robot.
         ///
-        /// The progress file is the other. It is read and written by `ProgressTracker` at
-        /// `Application.persistentDataPath`, and play-testing the tutorial has already written a
-        /// milestone into a real save twice. This fixture never solves anything, so it should not
-        /// write -- but "should not" is how both of those happened, so the file is copied aside and
-        /// put back regardless.
+        /// The progress file is the other, and <see cref="SaveGuard"/> handles it by pointing the
+        /// game at a scratch file rather than by moving the player's out of the way. Nothing here
+        /// ever opens the real save.
         /// </remarks>
         [OneTimeSetUp]
         public void OneTimeSetup()
@@ -53,13 +52,13 @@ namespace BitSorter.PlayMode.Tests
             _reportingWas = GameAnalytics.Reporting;
             GameAnalytics.SetReporting(false);
 
-            SaveGuard.Stash();
+            SaveGuard.Redirect();
         }
 
         [OneTimeTearDown]
         public void OneTimeCleanup()
         {
-            SaveGuard.Restore();
+            SaveGuard.Release();
             GameAnalytics.SetReporting(_reportingWas);
         }
 

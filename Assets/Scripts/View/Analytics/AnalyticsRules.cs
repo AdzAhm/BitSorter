@@ -35,6 +35,7 @@ namespace BitSorter.View
         /// <param name="levelName">The level's file name, or a key that is not a level.</param>
         /// <param name="reporting">The player's choice, from the main menu's Data item.</param>
         /// <param name="unavailable">Initialisation failed, so there is nowhere to send anything.</param>
+        /// <param name="alreadySentThisSession">This event, for this level, has gone once already.</param>
         /// <remarks>
         /// Consent is checked here as well as at the consent framework, so a player who has turned
         /// reporting off does not even accumulate a queue of events waiting for an upload that must
@@ -45,10 +46,28 @@ namespace BitSorter.View
         /// never be solved, so a start from it would look exactly like someone giving up; the
         /// tutorial is solved by everybody who finishes it, so it would look like a level nobody
         /// ever stops at. Both would answer the question wrongly, in opposite directions.
+        ///
+        /// **Once per level per session, for each event.** Re-entering a level from the level list
+        /// fires `LevelLoaded` again, so without this a player who reopens a hard level four times
+        /// before giving up reports four starts and no solve, and reads as four people who quit. The
+        /// bias is not random: levels get reopened in proportion to how hard they are, so the
+        /// apparent drop-off was inflated most at exactly the levels this measurement exists to find.
+        ///
+        /// The old number was not merely noisy, it was incoherent. `LevelLoaded` fires on opening a
+        /// level but not on RESET, so it counted neither attempts nor players -- it counted which key
+        /// somebody happened to retry with. Counting each level once a session makes starts "reached
+        /// it", solves "beat it", and the difference "stopped here", which is the question.
+        ///
+        /// Solves are deduplicated too, and must be: a player who solved a level twice in one session
+        /// against a start counted once would report more solves than starts.
+        ///
+        /// This changes when an event fires, never what is collected. Both events, and the single
+        /// `levelName` parameter, are exactly as they were.
         /// </remarks>
-        public static bool ShouldReport(string levelName, bool reporting, bool unavailable)
+        public static bool ShouldReport(string levelName, bool reporting, bool unavailable,
+                                        bool alreadySentThisSession = false)
         {
-            if (unavailable || !reporting)
+            if (unavailable || !reporting || alreadySentThisSession)
                 return false;
 
             if (string.IsNullOrEmpty(levelName))
@@ -56,5 +75,9 @@ namespace BitSorter.View
 
             return !LevelCatalog.IsOffCatalogue(levelName);
         }
+
+        /// <summary>The key an event is remembered under, so each pair is counted once.</summary>
+        public static string SessionKey(string eventName, string levelName) =>
+            eventName + "|" + levelName;
     }
 }

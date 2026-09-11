@@ -79,7 +79,26 @@ namespace BitSorter.View
 
         /// <summary>Where the real game keeps its progress.</summary>
         public static string DefaultPath =>
-            Path.Combine(Application.persistentDataPath, "progress.json");
+            Redirected ?? Path.Combine(Application.persistentDataPath, "progress.json");
+
+        /// <summary>
+        /// Sends every store built from <see cref="DefaultPath"/> somewhere else. Null in the game.
+        /// </summary>
+        /// <remarks>
+        /// This exists because Play Mode tests load the real scene, and the real scene opens the real
+        /// save. The first attempt at protecting it moved the file aside and moved it back afterwards,
+        /// which has two failure modes and hit both: the restore logic destroyed a save outright once,
+        /// and an interrupted run left the file missing, so the game looked like a fresh install until
+        /// somebody put it back by hand.
+        ///
+        /// Redirecting removes the class rather than handling it. The player's file is never opened,
+        /// copied, moved or deleted by a test, so there is no state to get wrong and nothing to
+        /// restore if a run dies half way through.
+        ///
+        /// It has to be set before the scene loads: <see cref="ProgressTracker"/> builds its store in
+        /// Awake and never looks at the path again.
+        /// </remarks>
+        public static string Redirected { get; set; }
 
         /// <summary>Why the last load failed, or null. For diagnostics, never for control flow.</summary>
         public string LastError { get; private set; }
