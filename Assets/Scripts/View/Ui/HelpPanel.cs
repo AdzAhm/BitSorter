@@ -7,7 +7,7 @@ using TMPro;
 namespace BitSorter.View
 {
     /// <summary>
-    /// The "!" button, and what it opens: the level's truth table and its hint.
+    /// The "?" button, and what it opens: the level's truth table and its hint.
     /// </summary>
     /// <remarks>
     /// Exists because four-corners was unsolvable in practice. Its goal had to describe an
