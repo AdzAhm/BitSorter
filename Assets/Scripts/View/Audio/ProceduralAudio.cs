@@ -192,7 +192,7 @@ namespace BitSorter.View
 
             Track track = Tracks[index];
             AudioClip clip = Make("music" + index, track.Seconds,
-                                  (t, d) => Sample(track, t, d), MusicSampleRate);
+                                  (t, d) => Sample(track, t, d), MusicSampleRate, track.Tail);
 
             MusicCache[index] = clip;
             return clip;
@@ -220,8 +220,39 @@ namespace BitSorter.View
         private const int MusicSampleRate = 22050;
 
         /// <summary>
+        /// How a track's notes are struck. The figures say which notes; this says what plays them.
+        /// </summary>
+        private enum Voice
+        {
+            /// <summary>
+            /// A sine and its octave, at full amplitude the instant the note starts.
+            /// </summary>
+            /// <remarks>
+            /// The original six. An instant attack is what makes it read as plucked rather than
+            /// played -- there is no rise, only a fall.
+            /// </remarks>
+            Plucked,
+
+            /// <summary>
+            /// Struck and held: a soft rise, two oscillators beating against each other, a bell
+            /// partial over the top, and a long tail.
+            /// </summary>
+            /// <remarks>
+            /// Four differences, and each one is doing a specific job. The rise turns a pluck into a
+            /// key being pressed. The second oscillator sits a few cents sharp so the two drift in
+            /// and out of phase, which is the whole of that warm electric-piano shimmer. The partial
+            /// three octaves-and-a-fifth up decays much faster than the fundamental, which is the
+            /// metallic knock of a tine being hit. And the tail is reverb, applied to the finished
+            /// buffer rather than per note.
+            ///
+            /// It is quieter at source than Plucked on purpose, because the reverb adds it back.
+            /// </remarks>
+            Keys,
+        }
+
+        /// <summary>
         /// One background track. Everything that differs between them is data; the rendering is
-        /// shared, so three tracks cannot drift into three different instruments.
+        /// shared, so nine tracks cannot drift into nine different instruments.
         /// </summary>
         private readonly struct Track
         {
@@ -237,12 +268,21 @@ namespace BitSorter.View
             /// <summary>Semitones the figure moves on alternate passes. Signed.</summary>
             public readonly int Lift;
 
-            public Track(int[] figure, float[] roots, float ring, int lift)
+            /// <summary>What plays the notes.</summary>
+            public readonly Voice Voice;
+
+            /// <summary>How much of the finished buffer feeds back as reverb. Zero is none.</summary>
+            public readonly float Tail;
+
+            public Track(int[] figure, float[] roots, float ring, int lift,
+                         Voice voice = Voice.Plucked, float tail = 0f)
             {
                 Figure = figure;
                 Roots = roots;
                 Ring = ring;
                 Lift = lift;
+                Voice = voice;
+                Tail = tail;
             }
 
             /// <summary>
@@ -258,13 +298,17 @@ namespace BitSorter.View
         }
 
         /// <summary>
-        /// The six tracks, in the order <see cref="MusicRules"/> cycles them.
+        /// The nine tracks, in the order <see cref="MusicRules"/> cycles them.
         /// </summary>
         /// <remarks>
-        /// All three are A minor pentatonic -- A, C, D, E, G -- and stay there. The scale has no
+        /// All nine use the same five notes -- A, C, D, E, G -- and stay there. The scale has no
         /// semitone clashes, so any note lands consonantly on any chord in any of these
         /// progressions and nothing ever demands resolution, which is the whole requirement for
         /// something that repeats while somebody stares at a K-map.
+        ///
+        /// Six of them root that collection on A and read as minor; three root it on C and read
+        /// as major. Identical notes, different home. It is the cheapest way to put two moods in
+        /// one set without the scale rule that holds the set together having to bend.
         ///
         /// They are the same shape on purpose: four bars, sixteen steps, one instrument, one tempo,
         /// one key. What differs is density -- four notes to eight, out of sixteen possible -- how
@@ -328,6 +372,52 @@ namespace BitSorter.View
                 roots: new[] { 110.00f, 130.81f, 87.31f, 98.00f },   // Am - C - F - G
                 ring: 3.2f,
                 lift: 12),
+
+            // -------------------------------------------------------------------------
+            // 6 to 8: the warm ones.
+            //
+            // Same five notes as everything above -- A, C, D, E, G -- and that is the trick.
+            // A minor pentatonic and C major pentatonic are the same pitch collection; only
+            // which note the bass calls home decides whether it sounds melancholy or open.
+            // Rooting these on C rather than A makes them read bright without moving a single
+            // note out of the scale the whole set shares, so a warm track can still follow a
+            // sad one without the switch sounding like a key change.
+            //
+            // Their figures lean on C, E and G where the first six lean on A and D, they are the
+            // sparsest in the set, and they drop an octave on the alternate pass rather than
+            // climbing, so they wander downwards and never arrive anywhere.
+            // -------------------------------------------------------------------------
+
+            // 6. A C major triad, one note at a time, with nothing else in the bar. Four notes in
+            //    eight seconds is the sparsest thing here by some way.
+            new Track(
+                figure: new[] { 3, -1, -1, -1, 7, -1, -1, -1, 10, -1, -1, -1, 7, -1, -1, -1 },
+                roots: new[] { 130.81f, 87.31f, 130.81f, 98.00f },   // C - F - C - G
+                ring: 1.4f,
+                lift: -12,
+                voice: Voice.Keys,
+                tail: 0.16f),
+
+            // 7. Rises to the octave and comes back down the same way. The chords move under a
+            //    figure that mostly does not, which is what stops it reading as an exercise.
+            new Track(
+                figure: new[] { 7, -1, -1, 10, -1, -1, 12, -1, -1, -1, 10, -1, -1, 7, -1, -1 },
+                roots: new[] { 87.31f, 130.81f, 98.00f, 130.81f },   // F - C - G - C
+                ring: 1.2f,
+                lift: -12,
+                voice: Voice.Keys,
+                tail: 0.17f),
+
+            // 8. Falls from the octave to the root and lifts one step at the end, so the loop
+            //    point is the one moment it sounds like it is going somewhere. The longest ring
+            //    in the set: by the fourth note the first is still sounding.
+            new Track(
+                figure: new[] { 12, -1, -1, -1, 10, -1, 7, -1, -1, -1, 3, -1, -1, -1, 5, -1 },
+                roots: new[] { 130.81f, 110.00f, 87.31f, 130.81f },   // C - Am - F - C
+                ring: 1.6f,
+                lift: -12,
+                voice: Voice.Keys,
+                tail: 0.15f),
         };
 
         /// <summary>
@@ -361,12 +451,12 @@ namespace BitSorter.View
                 int lift = (s / steps) % 2 == 0 ? 0 : track.Lift;
                 float age = t - s * StepSeconds;
 
-                // Phase measured from the note's own start, so every pluck begins at a zero crossing
-                // and no note starts with a click.
+                // Phase measured from the note's own start, so every note begins at a zero crossing
+                // and none of them start with a click.
                 float hz = 440f * Mathf.Pow(2f, (semi + lift) / 12f);
                 float ring = Mathf.Exp(-track.Ring * age);
 
-                voice += (Sine(age, hz) + Sine(age, hz * 2f) * 0.22f) * ring;
+                voice += track.Voice == Voice.Keys ? Keys(age, hz, ring) : Plucked(age, hz, ring);
             }
 
             // One bass note a bar, struck and left to fall away. Felt more than heard.
@@ -384,7 +474,7 @@ namespace BitSorter.View
         /// duration, and returns a sample which is clamped before it is stored.
         /// </summary>
         private static AudioClip Make(string name, float seconds, Func<float, float, float> shape,
-                                      int rate = SampleRate)
+                                      int rate = SampleRate, float tail = 0f)
         {
             int count = Mathf.Max(1, Mathf.RoundToInt(seconds * rate));
             var samples = new float[count];
@@ -398,6 +488,9 @@ namespace BitSorter.View
                 samples[i] = Mathf.Clamp(shape(t, seconds), -1f, 1f);
             }
 
+            if (tail > 0f)
+                Reverberate(samples, rate, tail);
+
             // A short fade at the very end. Cutting a waveform mid-cycle produces an audible pop that
             // is easy to mistake for a sound the game meant to make.
             int fade = Mathf.Min(220, count / 4);
@@ -410,6 +503,70 @@ namespace BitSorter.View
             AudioClip clip = AudioClip.Create(name, count, 1, rate, false);
             clip.SetData(samples, 0);
             return clip;
+        }
+
+        /// <summary>Sine plus octave, straight in at full amplitude.</summary>
+        private static float Plucked(float age, float hz, float ring) =>
+            (Sine(age, hz) + Sine(age, hz * 2f) * 0.22f) * ring;
+
+        /// <summary>
+        /// A struck key: soft rise, detuned pair, and a tine that fades faster than the note.
+        /// </summary>
+        /// <remarks>
+        /// The detune is four cents, which is a beat every few seconds rather than a wobble -- far
+        /// enough to stop the pair sounding like one oscillator, close enough not to sound out of
+        /// tune. The tine is a twelfth up and dies in a fraction of the time the note does, so it
+        /// is heard as the moment of the strike rather than as a note of its own.
+        ///
+        /// Deliberately quieter than <see cref="Plucked"/>: these tracks are reverberated
+        /// afterwards, which puts the level back.
+        /// </remarks>
+        private static float Keys(float age, float hz, float ring)
+        {
+            float attack = 1f - Mathf.Exp(-26f * age);
+
+            float body = Sine(age, hz) + Sine(age, hz * 1.004f) * 0.75f;
+            float tine = Sine(age, hz * 3f) * 0.11f * Mathf.Exp(-9f * age);
+
+            return (body + tine) * attack * ring * 0.62f;
+        }
+
+        /// <summary>
+        /// Adds a reverb tail to a finished buffer.
+        /// </summary>
+        /// <remarks>
+        /// Three delay taps fed back into the signal as it is written, so each repeat is itself
+        /// repeated and the tail decays smoothly instead of arriving as three distinct echoes. The
+        /// delays are deliberately not multiples of each other -- taps that line up read as a
+        /// rhythm, which is the one thing this must not add.
+        ///
+        /// Total loop gain is three times <paramref name="feedback"/>, so it has to stay well under
+        /// a third or the tail grows instead of fading. The tracks using it ask for about 0.16.
+        ///
+        /// Applied to the whole buffer rather than per note, which is why it costs one pass over
+        /// the samples at bake time and nothing at all while the game is running.
+        /// </remarks>
+        private static void Reverberate(float[] samples, int rate, float feedback)
+        {
+            int[] taps =
+            {
+                Mathf.RoundToInt(0.0371f * rate),
+                Mathf.RoundToInt(0.0533f * rate),
+                Mathf.RoundToInt(0.0719f * rate),
+            };
+
+            for (int i = 0; i < samples.Length; i++)
+            {
+                float wet = 0f;
+
+                foreach (int tap in taps)
+                {
+                    if (i >= tap)
+                        wet += samples[i - tap];
+                }
+
+                samples[i] = Mathf.Clamp(samples[i] + wet * feedback, -1f, 1f);
+            }
         }
 
         private static float Sine(float t, float hz) => Mathf.Sin(2f * Mathf.PI * hz * t);

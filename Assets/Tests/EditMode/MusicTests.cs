@@ -6,16 +6,20 @@ using UnityEngine;
 namespace BitSorter.LogicCore.Tests
 {
     /// <summary>
-    /// The six background tracks, and the rule that decides which one is playing.
+    /// The nine background tracks, and the rule that decides which one is playing.
     /// </summary>
     /// <remarks>
-    /// Nobody can assert that music is good. What can be asserted is that six tracks stayed six
-    /// variations of one idea rather than drifting into six different pieces -- same key, same
-    /// tempo, same instrument -- and that the track cannot change at a moment the player would
+    /// Nobody can assert that music is good. What can be asserted is that nine tracks stayed nine
+    /// variations of one idea rather than drifting into nine different pieces -- same five notes,
+    /// same tempo, same length -- and that the track cannot change at a moment the player would
     /// notice it changing.
     ///
+    /// The scale test is the load-bearing one now that the set spans two moods. Six tracks root the
+    /// collection on A and read as minor, three root it on C and read as major, and the only reason
+    /// that is safe is that the notes themselves never leave the shared five.
+    ///
     /// The waveform assertions here are deliberately a subset of what <see cref="ProceduralAudioTests"/>
-    /// does to the short cues. Rendering six thirty-two second clips is the slowest thing in the Edit
+    /// does to the short cues. Rendering nine thirty-two second clips is the slowest thing in the Edit
     /// Mode suite, so each is built once and interrogated, rather than once per test.
     /// </remarks>
     public class MusicTests
@@ -42,9 +46,9 @@ namespace BitSorter.LogicCore.Tests
         // -----------------------------------------------------------------
 
         [Test]
-        public void ThereAreSixTracks()
+        public void ThereAreNineTracks()
         {
-            Assert.AreEqual(6, ProceduralAudio.MusicTracks);
+            Assert.AreEqual(9, ProceduralAudio.MusicTracks);
         }
 
         [Test]
