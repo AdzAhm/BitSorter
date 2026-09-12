@@ -278,6 +278,26 @@ failure side.
 
   **Unity must be focused**, or it does not tick and the run never enters play
   mode -- it sits there reporting nothing.
+
+  **Run them from the PlayMode tab, never the Player tab.** The Player tab is a
+  different thing wearing the same name: it builds a player for the active target
+  and runs the tests inside it. With WebGL active that means linking a
+  *development* WebGL player, which is minutes of work, produces a 127 MB wasm,
+  and is not what any test here needs -- `TestScene.Load` loads the real scene in
+  the editor and that is the whole point. A Player-tab failure says nothing about
+  the suite: it fails in `PlayerLauncher` before a single test is reached, and the
+  error it reports is a native link error from Unity's own libraries.
+
+  It has failed exactly that way once, on
+  `undefined symbol: unitytls_ssl_set_client_transport_id` out of
+  `WebGLSupport_UnityPlayer.TLSModule_Dynamic.a`. Worth knowing three things
+  before chasing it. Every module variant, release included, references that
+  symbol as undefined, so it comes from a unitytls library outside
+  `BuildTools/lib` -- the archives there are not the problem. The release build
+  resolves it and has shipped. And the failure window opened when
+  `com.unity.pipeline 0.6.0-exp.1` was added to the project, which also repins
+  `com.unity.test-framework`; a development player had linked cleanly the day
+  before. Try removing that package first.
 - **`Editor.log` accumulates across sessions.** A warning found in it may
   be from an old compile and describe code that has since changed, so
   verify against a fresh compile before acting on one. Reading history as
