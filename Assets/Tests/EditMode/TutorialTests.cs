@@ -339,5 +339,72 @@ namespace BitSorter.LogicCore.Tests
             var asset = Resources.Load<TextAsset>($"{LevelLoader.ResourcePath}/{TutorialLevel.Key}");
             Assert.IsNull(asset, "the tutorial must not exist as a level file");
         }
+
+        // -----------------------------------------------------------------
+        // Getting out of the ending card
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// The press that ends the tutorial is taken exactly once.
+        /// </summary>
+        /// <remarks>
+        /// Escape and the button now share <see cref="TutorialCard.Finish"/>, and the director polls
+        /// <see cref="TutorialCard.ConsumeFinish"/> from its own Update. A press that could be read
+        /// twice would end the tutorial and then load the first level twice; one that cleared itself
+        /// before the director looked would leave the card up with nothing able to dismiss it.
+        ///
+        /// The card is exercised without its canvas, so Start never runs and nothing is built. That
+        /// is deliberate -- this is the one part of the panel that is pure state, and the keyboard
+        /// read that reaches it needs a live scene and a device, which Edit Mode has neither of.
+        /// </remarks>
+        [Test]
+        public void TheCardsFinishPress_IsTakenExactlyOnce()
+        {
+            var host = new GameObject("card", typeof(TutorialCard));
+
+            try
+            {
+                var card = host.GetComponent<TutorialCard>();
+
+                Assert.IsFalse(card.ConsumeFinish(), "nothing has been pressed yet");
+
+                card.Finish();
+
+                Assert.IsTrue(card.ConsumeFinish(), "the press has to reach the director once");
+                Assert.IsFalse(card.ConsumeFinish(), "and must not be read a second time");
+            }
+            finally
+            {
+                Object.DestroyImmediate(host);
+            }
+        }
+
+        /// <summary>
+        /// The card's two columns stay close enough in height to be two columns.
+        /// </summary>
+        /// <remarks>
+        /// The first control group fills the left column and the rest stack down the right, so the
+        /// right one is where new bindings land -- most are neither building nor running. The button
+        /// is positioned below whichever column reaches lowest, so a long column can no longer draw
+        /// through it, but it can still leave the left half of the card empty.
+        ///
+        /// The bound is deliberately loose. This is not a pixel assertion; it fires when the split
+        /// has stopped being a split.
+        /// </remarks>
+        [Test]
+        public void TheCardsColumns_StayRoughlyBalanced()
+        {
+            int tallest = TutorialCard.TallestColumnRows;
+            int total = ControlsReference.All.Count + ControlsReference.Groups.Count;
+
+            Assert.Greater(tallest, 0, "the card would have no controls on it");
+
+            Assert.Less(tallest, total,
+                "every control has ended up in one column, so the two-column layout is doing nothing");
+
+            Assert.LessOrEqual(tallest, 14,
+                $"the taller column needs {tallest} rows. The card is a fixed height and this is " +
+                "past what reads as a list rather than a wall -- the groups want rebalancing.");
+        }
     }
 }

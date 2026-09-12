@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using TMPro;
@@ -72,6 +73,34 @@ namespace BitSorter.View
             Show(false);
         }
 
+        /// <summary>
+        /// Escape ends the tutorial, as the button does.
+        /// </summary>
+        /// <remarks>
+        /// The same answer <see cref="EndingPanel"/> gives, for the same reason it gives it: a
+        /// full-screen panel only a mouse can dismiss is one bad click away from feeling stuck. It
+        /// matters more here than there, because this card registers with <see cref="UiModal"/> --
+        /// so while it is up, Escape does not reach the level list, M does not reach the main menu,
+        /// and <see cref="SimulationInput"/> reads nothing at all. The button was the only way out
+        /// of the whole game.
+        ///
+        /// Escape *finishes* rather than merely hiding. <see cref="TutorialDirector"/> is sitting in
+        /// its Card phase waiting for <see cref="ConsumeFinish"/>, so hiding without that would
+        /// leave it waiting on a card nobody can see -- which is the stuck state, not the way out of
+        /// it. Finishing also records the milestone, which is right: somebody who dismisses the
+        /// ending has finished the tutorial.
+        /// </remarks>
+        private void Update()
+        {
+            if (!_shown)
+                return;
+
+            Keyboard keyboard = Keyboard.current;
+
+            if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame)
+                Finish();
+        }
+
         // -----------------------------------------------------------------
         // Building
         // -----------------------------------------------------------------
@@ -95,15 +124,24 @@ namespace BitSorter.View
             body.textWrappingMode = TextWrappingModes.Normal;
             body.text = Body;
 
-            BuildColumns();
+            float columnsBottom = BuildColumns();
+
+            const float buttonHeight = UiTheme.ButtonHeight + 6f;
+
+            // Placed under whichever column reaches lowest, rather than at a fixed offset. It was
+            // fixed at -220, which happened to clear the columns until a control was added to the
+            // reference -- eleven rows in the right-hand column reach exactly the button's top edge,
+            // and the twelfth would have drawn through it. Deriving the position means adding a
+            // binding cannot collide here at all.
+            float buttonY = columnsBottom - ButtonGap - buttonHeight * 0.5f;
 
             Button play = UiTheme.Button_("Play", _root, "PLAY THE FIRST LEVEL",
                 out TextMeshProUGUI _);
             UiTheme.Anchor(play.GetComponent<RectTransform>(), new Vector2(0.5f, 0.5f),
-                new Vector2(0.5f, 0.5f), new Vector2(0f, -220f),
-                new Vector2(300f, UiTheme.ButtonHeight + 6f));
+                new Vector2(0.5f, 0.5f), new Vector2(0f, buttonY),
+                new Vector2(300f, buttonHeight));
 
-            play.onClick.AddListener(OnFinish);
+            play.onClick.AddListener(Finish);
         }
 
         /// <summary>
@@ -114,17 +152,18 @@ namespace BitSorter.View
         /// and a third column at this width would clip it. Which group lands where is decided by
         /// height rather than written down: the first group fills the left column and the rest stack
         /// down the right, so adding a control cannot silently push a heading off the panel.
+        ///
+        /// Returns how low the columns reach, so the button can be put below them rather than at a
+        /// guessed offset.
         /// </remarks>
-        private void BuildColumns()
+        private float BuildColumns()
         {
             const float columnWidth = 330f;
-            const float rowHeight = 26f;
-            const float headingGap = 12f;
 
             IReadOnlyList<ControlGroup> groups = ControlsReference.Groups;
 
-            float leftY = 90f;
-            float rightY = 90f;
+            float leftY = ColumnTop;
+            float rightY = ColumnTop;
 
             for (int i = 0; i < groups.Count; i++)
             {
@@ -132,12 +171,61 @@ namespace BitSorter.View
                 float x = left ? -175f : 175f;
                 float y = left ? leftY : rightY;
 
-                y = BuildGroup(groups[i], x, y, columnWidth, rowHeight, headingGap);
+                y = BuildGroup(groups[i], x, y, columnWidth, RowHeight, HeadingGap);
 
                 if (left)
                     leftY = y;
                 else
                     rightY = y;
+            }
+
+            return Mathf.Min(leftY, rightY);
+        }
+
+        /// <summary>Where the columns begin, measured from the middle of the card.</summary>
+        private const float ColumnTop = 90f;
+
+        /// <summary>Height of one heading or one control row.</summary>
+        private const float RowHeight = 26f;
+
+        /// <summary>Extra space after a group, so the headings separate the blocks.</summary>
+        private const float HeadingGap = 12f;
+
+        /// <summary>Space between the lowest control row and the button under it.</summary>
+        private const float ButtonGap = 24f;
+
+        /// <summary>
+        /// Rows the taller of the two columns needs, headings counted.
+        /// </summary>
+        /// <remarks>
+        /// The balance the two-column split depends on. The first group takes the left column and
+        /// the rest stack down the right, which is fine while the two are comparable and starts
+        /// wasting half the card when they are not -- and the right column is the one that grows,
+        /// because new bindings are usually neither building nor running.
+        ///
+        /// Public so the balance can be asserted without a canvas. Nothing in the layout reads it;
+        /// the layout measures as it goes.
+        /// </remarks>
+        public static int TallestColumnRows
+        {
+            get
+            {
+                IReadOnlyList<ControlGroup> groups = ControlsReference.Groups;
+
+                int left = 0;
+                int right = 0;
+
+                for (int i = 0; i < groups.Count; i++)
+                {
+                    int rows = 1 + groups[i].Entries.Count;   // the heading, then its controls
+
+                    if (i == 0)
+                        left += rows;
+                    else
+                        right += rows;
+                }
+
+                return left > right ? left : right;
             }
         }
 
@@ -174,7 +262,15 @@ namespace BitSorter.View
         // Showing
         // -----------------------------------------------------------------
 
-        private void OnFinish()
+        /// <summary>
+        /// Ends the tutorial. Shared by the button and by Escape, so the two cannot diverge.
+        /// </summary>
+        /// <remarks>
+        /// Public because it is the seam the press-consumption test reaches through -- driving the
+        /// real button needs a canvas and an EventSystem, and driving Escape needs those plus a
+        /// keyboard.
+        /// </remarks>
+        public void Finish()
         {
             _finishPressed = true;
 
