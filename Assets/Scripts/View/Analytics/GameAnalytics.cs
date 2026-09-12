@@ -37,20 +37,17 @@ namespace BitSorter.View
         /// Whether the player allows reporting. On unless they turn it off.
         /// </summary>
         /// <remarks>
-        /// In PlayerPrefs for the same reason the mute setting is: it describes this machine, not
-        /// the player's circuits, and copying a save to another computer should not carry it along.
+        /// In <see cref="Preferences"/> for the same reason the mute setting is: it describes this
+        /// machine, not the player's circuits, and copying a save to another computer should not
+        /// carry it along.
         ///
         /// The consent module itself does not persist anything -- it has no save, load or clear --
         /// so the answer has to be remembered here and re-applied on every launch.
         /// </remarks>
         public static bool Reporting
         {
-            get => PlayerPrefs.GetInt(ConsentKey, 1) != 0;
-            private set
-            {
-                PlayerPrefs.SetInt(ConsentKey, value ? 1 : 0);
-                PlayerPrefs.Save();
-            }
+            get => Preferences.GetInt(ConsentKey, 1) != 0;
+            private set => Preferences.SetInt(ConsentKey, value ? 1 : 0);
         }
 
         /// <summary>Turns reporting on or off and tells the SDK, for the main menu's Data item.</summary>

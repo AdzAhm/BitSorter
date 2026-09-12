@@ -31,8 +31,6 @@ namespace BitSorter.PlayMode.Tests
     [TestFixture]
     public class SceneCompositionPlayTests
     {
-        private bool _reportingWas;
-
         /// <summary>
         /// Stops the fixture touching anything the player owns.
         /// </summary>
@@ -49,17 +47,17 @@ namespace BitSorter.PlayMode.Tests
         [OneTimeSetUp]
         public void OneTimeSetup()
         {
-            _reportingWas = GameAnalytics.Reporting;
-            GameAnalytics.SetReporting(false);
-
+            // Redirect first: SetReporting writes to the real machine otherwise. Mute and
+            // reporting both go through Preferences, which SaveGuard redirects alongside the
+            // save file, so nothing here has to be read and put back afterwards.
             SaveGuard.Redirect();
+            GameAnalytics.SetReporting(false);
         }
 
         [OneTimeTearDown]
         public void OneTimeCleanup()
         {
             SaveGuard.Release();
-            GameAnalytics.SetReporting(_reportingWas);
         }
 
         /// <summary>

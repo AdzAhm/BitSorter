@@ -51,7 +51,8 @@ namespace BitSorter.View
 
         /// <summary>Whether the game is silenced -- the music and every cue.</summary>
         /// <remarks>
-        /// Kept in PlayerPrefs rather than in the progress file. It describes this machine's
+        /// Kept in <see cref="Preferences"/> -- PlayerPrefs behind a redirectable seam -- rather
+        /// than in the progress file. It describes this machine's
         /// speakers, not the player's circuits, and someone who copies a save to another computer
         /// should not carry a mute across with it.
         ///
@@ -69,12 +70,8 @@ namespace BitSorter.View
         /// </remarks>
         public static bool Muted
         {
-            get => PlayerPrefs.GetInt(MutedKey, 0) != 0;
-            set
-            {
-                PlayerPrefs.SetInt(MutedKey, value ? 1 : 0);
-                PlayerPrefs.Save();
-            }
+            get => Preferences.GetInt(MutedKey, 0) != 0;
+            set => Preferences.SetInt(MutedKey, value ? 1 : 0);
         }
 
         /// <summary>Silences or restores the game, and remembers which.</summary>

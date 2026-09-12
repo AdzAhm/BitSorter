@@ -27,28 +27,30 @@ namespace BitSorter.PlayMode.Tests
     [TestFixture]
     public class AudioPlayTests
     {
-        private bool _reportingWas;
-        private bool _mutedWas;
-
+        /// <summary>
+        /// Redirect first, then change anything.
+        /// </summary>
+        /// <remarks>
+        /// The order is the whole point. These tests flip the mute, which used to be read, saved
+        /// and restored around them -- so an interrupted run left the developer's game muted. Mute
+        /// and reporting both go through <see cref="Preferences"/> now, and SaveGuard redirects it
+        /// alongside the save file, so there is nothing to restore: the real settings are never
+        /// read and never written.
+        ///
+        /// SetReporting has to come *after* Redirect, or it writes to the real machine on its way
+        /// past. It used to come before.
+        /// </remarks>
         [OneTimeSetUp]
         public void OneTimeSetup()
         {
-            _reportingWas = GameAnalytics.Reporting;
-            _mutedWas = GameAudio.Muted;
-
-            GameAnalytics.SetReporting(false);
             SaveGuard.Redirect();
+            GameAnalytics.SetReporting(false);
         }
 
         [OneTimeTearDown]
         public void OneTimeCleanup()
         {
             SaveGuard.Release();
-
-            // The player's own mute preference. These tests flip it, and it lives in PlayerPrefs
-            // rather than in the save file, so SaveGuard would not have put it back.
-            GameAudio.Muted = _mutedWas;
-            GameAnalytics.SetReporting(_reportingWas);
         }
 
         /// <summary>
