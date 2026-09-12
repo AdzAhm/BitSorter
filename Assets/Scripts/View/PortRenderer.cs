@@ -241,7 +241,7 @@ namespace BitSorter.View
                 {
                     var key = new PortAddress(id, true, i);
 
-                    if (!_collisions.IsNews(key, node.In(i).LastCorruptedTick))
+                    if (!_collisions.IsNews(key, node.In(i).LastCollisionTick))
                         continue;
 
                     _flashing[key] = _flashSeconds;

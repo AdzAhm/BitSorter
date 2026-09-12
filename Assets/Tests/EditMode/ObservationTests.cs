@@ -317,9 +317,86 @@ namespace BitSorter.LogicCore.Tests
             sim.Run(2);
 
             Assert.AreEqual(1, sink.In(0).LastCorruptedTick, "the collision happened on tick 1");
+            Assert.AreEqual(1, sink.In(0).LastCollisionTick, "and a bit was destroyed on tick 1");
             AssertPortEmpty(sink.In(0));
             Assert.AreEqual(2, view.CorruptedCount, "both bits destroyed");
             CollectionAssert.IsEmpty(sink.Received);
+        }
+
+        /// <summary>
+        /// A matching-value collision is as observable as a mixed one.
+        /// </summary>
+        /// <remarks>
+        /// Only mixed collisions empty a port, so only they set the poison flag -- correctly, since
+        /// the tick loop reads it to refuse later arrivals. But a matching collision still destroys
+        /// a bit: CorruptedCount rises, a CorruptionSite is registered, and the bits-lost meter
+        /// counts it. The one thing missing was a tick to hang it on, and the port renderer keys its
+        /// flash on exactly that -- so half of all collisions scorched the board and moved the meter
+        /// without the port itself reacting at all.
+        ///
+        /// Paired with MixedCollision_IsVisibleThroughLastCorruptedTick above, which is the case
+        /// that always worked. Together they say the two collisions differ in what they do to the
+        /// port and agree in being visible.
+        /// </remarks>
+        [Test]
+        public void MatchingCollision_IsVisibleThroughLastCollisionTick()
+        {
+            // Two identical values land on one port during tick 1. The port keeps its value and
+            // the arrival is destroyed, so nothing is poisoned and nothing is emptied.
+            var sim = new Simulation();
+            var first = sim.Add(new SourceNode(new[] { Bit.One }));
+            var second = sim.Add(new SourceNode(new[] { Bit.One }));
+            var gate = sim.Add(new AndGate());   // never fires: its other input is unwired
+
+            sim.Connect(first.Out(0), gate.In(0), delay: 1);
+            sim.Connect(second.Out(0), gate.In(0), delay: 1);
+
+            SimulationView view = sim.View;
+            Assert.AreEqual(-1, gate.In(0).LastCollisionTick, "nothing has collided yet");
+
+            sim.Run(2);
+
+            Assert.AreEqual(1, view.CorruptedCount, "one bit destroyed, the arrival");
+            AssertPortHolds(gate.In(0), Bit.One, "the port keeps the value it was holding");
+
+            Assert.AreEqual(-1, gate.In(0).LastCorruptedTick,
+                "nothing was emptied, so the poison flag must stay clear");
+
+            Assert.AreEqual(1, gate.In(0).LastCollisionTick,
+                "a bit was destroyed at this port on tick 1, and the view has no other way to know");
+        }
+
+        /// <summary>
+        /// Recording a matching collision does not poison the port.
+        /// </summary>
+        /// <remarks>
+        /// The reason this needed a second field rather than a wider meaning for the first. Set the
+        /// poison flag on a matching collision and a third arrival in the same tick takes the
+        /// poison branch -- one bit destroyed, port still holding -- instead of being a mixed
+        /// collision, which destroys two and clears it. Different CorruptedCount, different port
+        /// state, from what looks like a reporting change.
+        /// </remarks>
+        [Test]
+        public void AMatchingCollision_LeavesAThirdArrivalToCollideNormally()
+        {
+            var sim = new Simulation();
+            var a = sim.Add(new SourceNode(new[] { Bit.One }));
+            var b = sim.Add(new SourceNode(new[] { Bit.One }));
+            var c = sim.Add(new SourceNode(new[] { Bit.Zero }));
+            var gate = sim.Add(new AndGate());   // never fires
+
+            sim.Connect(a.Out(0), gate.In(0), delay: 1);
+            sim.Connect(b.Out(0), gate.In(0), delay: 1);
+            sim.Connect(c.Out(0), gate.In(0), delay: 1);
+
+            sim.Run(2);
+
+            // One lands. The matching one is destroyed. The differing one then meets a port that is
+            // still holding, so both of those die too: 1 + 2 = 3.
+            Assert.AreEqual(3, sim.CorruptedCount, "the third arrival must still collide properly");
+            AssertPortEmpty(gate.In(0));
+            Assert.AreEqual(1, gate.In(0).LastCorruptedTick, "the mixed collision poisoned it");
+            Assert.AreEqual(1, gate.In(0).LastCollisionTick);
         }
 
         // -----------------------------------------------------------------
@@ -373,11 +450,11 @@ namespace BitSorter.LogicCore.Tests
             Assert.AreEqual(progress, bit.Progress, 0.0001f, "progress along the edge");
         }
 
-        private static void AssertPortHolds(InputPort port, Bit value)
+        private static void AssertPortHolds(InputPort port, Bit value, string because = null)
         {
-            Assert.IsTrue(port.IsOccupied, $"{port} should be occupied");
+            Assert.IsTrue(port.IsOccupied, because ?? $"{port} should be occupied");
             Assert.IsTrue(port.Pending.HasValue);
-            Assert.AreEqual(value, port.Pending.Value);
+            Assert.AreEqual(value, port.Pending.Value, because);
         }
 
         private static void AssertPortEmpty(InputPort port)
