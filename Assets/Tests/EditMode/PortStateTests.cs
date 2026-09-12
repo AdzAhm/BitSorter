@@ -214,12 +214,12 @@ namespace BitSorter.LogicCore.Tests
         {
             var watch = new CollisionWatch();
 
-            Assert.IsTrue(watch.IsNews(SomePort, collidedOnTick: 4, tickJustExecuted: 4),
+            Assert.IsTrue(watch.IsNews(SomePort, collidedOnTick: 4),
                 "the frame after a collision should flash it");
 
             for (int frame = 0; frame < 5; frame++)
             {
-                Assert.IsFalse(watch.IsNews(SomePort, collidedOnTick: 4, tickJustExecuted: 4),
+                Assert.IsFalse(watch.IsNews(SomePort, collidedOnTick: 4),
                     "the same collision was flashed again on a later frame of the same tick");
             }
         }
@@ -244,14 +244,14 @@ namespace BitSorter.LogicCore.Tests
 
             const int settledAt = 7;   // the clock stops here and never moves again
 
-            Assert.IsTrue(watch.IsNews(SomePort, settledAt, settledAt), "the collision should flash once");
+            Assert.IsTrue(watch.IsNews(SomePort, settledAt), "the collision should flash once");
 
             int flashes = 0;
 
             // A couple of seconds of frames against a frozen clock.
             for (int frame = 0; frame < 120; frame++)
             {
-                if (watch.IsNews(SomePort, settledAt, settledAt))
+                if (watch.IsNews(SomePort, settledAt))
                     flashes++;
             }
 
@@ -265,8 +265,8 @@ namespace BitSorter.LogicCore.Tests
         {
             var watch = new CollisionWatch();
 
-            Assert.IsFalse(watch.IsNews(SomePort, collidedOnTick: -1, tickJustExecuted: 0));
-            Assert.IsFalse(watch.IsNews(SomePort, collidedOnTick: -1, tickJustExecuted: 9));
+            Assert.IsFalse(watch.IsNews(SomePort, collidedOnTick: -1));
+            Assert.IsFalse(watch.IsNews(SomePort, collidedOnTick: -1));
         }
 
         [Test]
@@ -275,10 +275,10 @@ namespace BitSorter.LogicCore.Tests
             // Two separate collisions are two separate events, and the second has to be shown.
             var watch = new CollisionWatch();
 
-            Assert.IsTrue(watch.IsNews(SomePort, collidedOnTick: 2, tickJustExecuted: 2));
-            Assert.IsFalse(watch.IsNews(SomePort, collidedOnTick: 2, tickJustExecuted: 2));
+            Assert.IsTrue(watch.IsNews(SomePort, collidedOnTick: 2));
+            Assert.IsFalse(watch.IsNews(SomePort, collidedOnTick: 2));
 
-            Assert.IsTrue(watch.IsNews(SomePort, collidedOnTick: 5, tickJustExecuted: 5),
+            Assert.IsTrue(watch.IsNews(SomePort, collidedOnTick: 5),
                 "a later collision at the same port is a new event");
         }
 
@@ -289,12 +289,12 @@ namespace BitSorter.LogicCore.Tests
             // collision on the same tick number is a different collision.
             var watch = new CollisionWatch();
 
-            Assert.IsTrue(watch.IsNews(SomePort, collidedOnTick: 1, tickJustExecuted: 1));
-            Assert.IsFalse(watch.IsNews(SomePort, collidedOnTick: 1, tickJustExecuted: 1));
+            Assert.IsTrue(watch.IsNews(SomePort, collidedOnTick: 1));
+            Assert.IsFalse(watch.IsNews(SomePort, collidedOnTick: 1));
 
             watch.Clear();
 
-            Assert.IsTrue(watch.IsNews(SomePort, collidedOnTick: 1, tickJustExecuted: 1),
+            Assert.IsTrue(watch.IsNews(SomePort, collidedOnTick: 1),
                 "after a rebuild the same tick number is a different run's collision");
         }
 
@@ -304,9 +304,9 @@ namespace BitSorter.LogicCore.Tests
             var watch = new CollisionWatch();
             var other = new PortAddress(3, true, 0);   // same node, the sibling port
 
-            Assert.IsTrue(watch.IsNews(SomePort, collidedOnTick: 3, tickJustExecuted: 3));
+            Assert.IsTrue(watch.IsNews(SomePort, collidedOnTick: 3));
 
-            Assert.IsTrue(watch.IsNews(other, collidedOnTick: 3, tickJustExecuted: 3),
+            Assert.IsTrue(watch.IsNews(other, collidedOnTick: 3),
                 "one port being shown must not swallow another port's collision on the same tick");
         }
     }

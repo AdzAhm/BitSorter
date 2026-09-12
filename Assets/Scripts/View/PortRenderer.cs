@@ -219,16 +219,17 @@ namespace BitSorter.View
 
         /// <summary>
         /// LastCorruptedTick names exactly which port lost bits and on which tick, so no state has
-        /// to be diffed. CurrentTick is the tick about to run, so the one just executed is one less.
+        /// to be diffed here.
         /// </summary>
         /// <remarks>
         /// Whether a collision is news belongs to <see cref="CollisionWatch"/>, which is reachable
-        /// from Edit Mode; this is left with the countdown and the drawing.
+        /// from Edit Mode; this is left with the countdown and the drawing. It no longer compares
+        /// against the tick just executed -- a standing fact is not an event, and treating it as one
+        /// re-armed the flash on every frame once the clock stopped.
         /// </remarks>
         private void DetectCollisions()
         {
             SimulationView view = _runner.View;
-            int justExecuted = view.CurrentTick - 1;
 
             for (int id = 0; id < view.NodeCount; id++)
             {
@@ -240,7 +241,7 @@ namespace BitSorter.View
                 {
                     var key = new PortAddress(id, true, i);
 
-                    if (!_collisions.IsNews(key, node.In(i).LastCorruptedTick, justExecuted))
+                    if (!_collisions.IsNews(key, node.In(i).LastCorruptedTick))
                         continue;
 
                     _flashing[key] = _flashSeconds;

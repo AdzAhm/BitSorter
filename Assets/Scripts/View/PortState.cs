@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using BitSorter.LogicCore;
 using UnityEngine;
 
@@ -139,21 +140,42 @@ namespace BitSorter.View
     /// </remarks>
     public sealed class CollisionWatch
     {
+        /// <summary>The collision tick each port has already been flashed for.</summary>
+        private readonly Dictionary<PortAddress, int> _shown = new Dictionary<PortAddress, int>();
+
         /// <summary>Forgets everything, for a rebuild that replaced the ports this described.</summary>
-        public void Clear()
-        {
-        }
+        /// <remarks>
+        /// Needed because a rebuild restarts the clock at zero, so the same tick number belongs to
+        /// a different run and its collisions have not been shown.
+        /// </remarks>
+        public void Clear() => _shown.Clear();
 
         /// <summary>
-        /// Whether <paramref name="port"/> has just collided, and should be flashed.
+        /// Whether <paramref name="port"/> has collided since it was last flashed.
         /// </summary>
         /// <param name="collidedOnTick">
         /// The tick a collision last destroyed a bit at this port, or -1 for never.
         /// </param>
-        /// <param name="tickJustExecuted">
-        /// The tick the simulation has most recently finished, which is CurrentTick - 1.
-        /// </param>
-        public bool IsNews(PortAddress port, int collidedOnTick, int tickJustExecuted) =>
-            collidedOnTick >= 0 && collidedOnTick == tickJustExecuted;
+        /// <remarks>
+        /// Answers true at most once per collision, and records the answer -- so a caller polling
+        /// every frame gets one flash per event rather than one per look.
+        ///
+        /// There is deliberately no tick argument. The previous rule also required the collision to
+        /// have happened on the tick just executed, and that fails in both directions: it re-fires
+        /// for as long as the clock is stopped, and it misses a collision outright when the runner
+        /// falls far enough behind to execute two ticks between frames. A collision the caller has
+        /// not been told about is news whenever it is noticed.
+        /// </remarks>
+        public bool IsNews(PortAddress port, int collidedOnTick)
+        {
+            if (collidedOnTick < 0)
+                return false;
+
+            if (_shown.TryGetValue(port, out int already) && already == collidedOnTick)
+                return false;
+
+            _shown[port] = collidedOnTick;
+            return true;
+        }
     }
 }
