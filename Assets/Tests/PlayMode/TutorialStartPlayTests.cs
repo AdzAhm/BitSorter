@@ -192,6 +192,90 @@ namespace BitSorter.PlayMode.Tests
         }
 
         // -----------------------------------------------------------------
+        // Running it twice in one session
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// The tutorial can be left part way through and started again.
+        /// </summary>
+        /// <remarks>
+        /// TutorialHighlighter pools its rings, and a canvas ring used to be parented to whatever it
+        /// pointed at. Step one rings a palette row -- and GatePaletteView destroys every row when
+        /// the level changes, taking the ring with it. The pool then held a destroyed Image, and the
+        /// next run threw MissingReferenceException out of Update on the frame it tried to point at
+        /// anything, every frame, until the player skipped.
+        ///
+        /// A reachable path: start the tutorial, press Escape, pick a level from the list, then come
+        /// back to the tutorial from the head of that same list.
+        ///
+        /// No explicit assertion is needed for the exception itself -- an unhandled one in Update is
+        /// logged as an error and the framework fails the test on it. The assertions are that the
+        /// tutorial actually got going both times, so the test cannot pass by never reaching the
+        /// ring code.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator TheTutorialCanBeRunTwiceInOneSession()
+        {
+            yield return LoadScene();
+
+            TutorialDirector director = Find<TutorialDirector>();
+            LevelSession session = Find<LevelSession>();
+            TutorialPanel panel = Find<TutorialPanel>();
+
+            Assert.IsNotNull(panel, "no tutorial panel in the scene");
+            Assert.Greater(session.AvailableLevels.Count, 0, "no levels to leave the tutorial for");
+
+            string elsewhere = session.AvailableLevels[0];
+
+            // First run, far enough in to ring the palette row.
+            yield return BeginTutorial(director);
+            yield return PastTheIntro(panel);
+
+            Assert.IsTrue(director.IsRunning, "the tutorial did not start the first time");
+            Assert.AreEqual(0, director.CurrentStep,
+                "step one is the one that rings a palette row, and is where this has to be left");
+
+            // Leaving the board destroys the palette rows, and with them anything parented to one.
+            session.LoadLevel(elsewhere);
+            yield return null;
+            yield return null;
+
+            Assert.IsFalse(director.IsRunning, "leaving the tutorial's board should end it");
+
+            // Second run. The pooled ring from the first has to still be usable.
+            yield return BeginTutorial(director);
+            yield return PastTheIntro(panel);
+
+            Assert.IsTrue(director.IsRunning, "the tutorial did not start the second time");
+            Assert.AreEqual(TutorialLevel.Key, session.LevelName, "the tutorial's board did not load");
+
+            Assert.AreEqual(0, director.CurrentStep,
+                "the tutorial came back on the wrong step, so the board it adopted was not fresh");
+
+            // A few more frames, because the failure was one exception per frame rather than one.
+            for (int frame = 0; frame < 5; frame++)
+                yield return null;
+
+            Assert.IsTrue(director.IsRunning, "the tutorial stopped by itself during its second run");
+        }
+
+        /// <summary>
+        /// Presses the opening card's START, so the director leaves Intro for the steps.
+        /// </summary>
+        /// <remarks>
+        /// The intro phase highlights nothing, so a test that stops there never reaches the ring
+        /// pool at all -- which is how this defect would have gone on hiding from a test that
+        /// merely called Begin.
+        /// </remarks>
+        private static IEnumerator PastTheIntro(TutorialPanel panel)
+        {
+            panel.Next();
+
+            yield return null;   // the director consumes the press and enters Steps
+            yield return null;   // and runs a step, which is what points at a palette row
+        }
+
+        // -----------------------------------------------------------------
         // It does not start itself at the wrong moment
         // -----------------------------------------------------------------
 

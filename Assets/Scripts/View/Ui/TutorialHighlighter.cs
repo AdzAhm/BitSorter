@@ -74,16 +74,44 @@ namespace BitSorter.View
         }
 
         /// <summary>Hides whatever was not claimed since <see cref="Begin"/>.</summary>
+        /// <remarks>
+        /// Null-checks both pools. Nothing should be able to destroy a ring now that they are no
+        /// longer parented to what they point at, but a pool that hands out a dead object takes the
+        /// tutorial down with an exception per frame -- the same belt-and-braces
+        /// <see cref="ProceduralAudio"/> keeps on its clip cache.
+        /// </remarks>
         public void End()
         {
             for (int i = _canvasUsed; i < _canvasRings.Count; i++)
-                _canvasRings[i].gameObject.SetActive(false);
+            {
+                if (_canvasRings[i] != null)
+                    _canvasRings[i].gameObject.SetActive(false);
+            }
 
             for (int i = _worldUsed; i < _worldRings.Count; i++)
-                _worldRings[i].gameObject.SetActive(false);
+            {
+                if (_worldRings[i] != null)
+                    _worldRings[i].gameObject.SetActive(false);
+            }
         }
 
+        /// <summary>Reused by every canvas ring; GetWorldCorners fills it in place.</summary>
+        private static readonly Vector3[] Corners = new Vector3[4];
+
         /// <summary>Rings a Canvas element: a palette row, or the Run button.</summary>
+        /// <remarks>
+        /// Positioned over the target, not parented to it.
+        ///
+        /// Parenting looked better -- the ring followed its target for free -- and it made the pool
+        /// hand out destroyed objects. <see cref="GatePaletteView"/> destroys every palette row when
+        /// the level changes, and a ring parented to a row went with it, leaving a dead Image in
+        /// <see cref="_canvasRings"/>. Starting the tutorial, leaving it during a step that rings
+        /// the palette, and starting it again then threw MissingReferenceException on the pooled
+        /// ring, every frame, until the tutorial was skipped.
+        ///
+        /// Following the target costs nothing anyway: the director re-resolves its targets and calls
+        /// this every frame, so a rebuilt palette is picked up on the next one regardless.
+        /// </remarks>
         public void PointAt(RectTransform target)
         {
             if (target == null || _canvas == null)
@@ -91,10 +119,18 @@ namespace BitSorter.View
 
             Image ring = NextCanvasRing();
 
-            // Parented to the target rather than positioned over it, so it follows a palette that
-            // rebuilds itself when the level changes.
-            ring.rectTransform.SetParent(target, false);
-            UiTheme.Stretch(ring.rectTransform, -_canvasPadding);
+            target.GetWorldCorners(Corners);
+
+            // Corners are bottom-left, top-left, top-right, bottom-right. World space for an
+            // overlay canvas is screen pixels, and sizeDelta is in canvas units, hence the divide.
+            float scale = _canvas.scaleFactor <= 0f ? 1f : _canvas.scaleFactor;
+
+            float width = Vector3.Distance(Corners[0], Corners[3]) / scale;
+            float height = Vector3.Distance(Corners[0], Corners[1]) / scale;
+
+            ring.rectTransform.position = (Corners[0] + Corners[2]) * 0.5f;
+            ring.rectTransform.sizeDelta = new Vector2(
+                width + 2f * _canvasPadding, height + 2f * _canvasPadding);
 
             ring.color = Tinted();
             ring.gameObject.SetActive(true);
@@ -123,12 +159,30 @@ namespace BitSorter.View
 
         private Image NextCanvasRing()
         {
-            if (_canvasUsed < _canvasRings.Count)
-                return _canvasRings[_canvasUsed++];
+            // A pooled ring that has somehow been destroyed is replaced rather than handed out.
+            // Without this the whole tutorial dies on a MissingReferenceException per frame.
+            while (_canvasUsed < _canvasRings.Count)
+            {
+                Image pooled = _canvasRings[_canvasUsed];
+
+                if (pooled != null)
+                {
+                    _canvasUsed++;
+                    return pooled;
+                }
+
+                _canvasRings.RemoveAt(_canvasUsed);
+            }
 
             Image ring = UiTheme.Panel_("Tutorial ring", _canvas.transform, _colour);
             ring.sprite = ProceduralSprites.RoundedSquare();
             ring.raycastTarget = false;   // never eat the click the step is asking for
+
+            // Centred, so sizeDelta is the ring's actual size and PointAt can place it over its
+            // target by world position. It used to be stretched to fill a parent it no longer has.
+            ring.rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
+            ring.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+            ring.rectTransform.pivot = new Vector2(0.5f, 0.5f);
 
             _canvasRings.Add(ring);
             _canvasUsed++;

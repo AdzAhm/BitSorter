@@ -99,8 +99,8 @@ namespace BitSorter.View
             // buttons exist -- the listener was silently never added, and every press did nothing.
             // Nothing detaches them: the buttons are children of a panel this component owns for
             // the whole scene, so they die together.
-            _next.onClick.AddListener(OnNext);
-            _skip.onClick.AddListener(OnSkip);
+            _next.onClick.AddListener(Next);
+            _skip.onClick.AddListener(Skip);
 
             Show(false);
         }
@@ -129,13 +129,21 @@ namespace BitSorter.View
 
         // Focus is dropped on every press. A Button that keeps it swallows Space and Enter, both of
         // which this game binds -- and Space is a control the last step actively recommends.
-        private void OnSkip()
+
+        /// <summary>Presses SKIP. Public so a test can drive the tutorial without a mouse.</summary>
+        /// <remarks>
+        /// The same seam <see cref="TutorialCard.Finish"/> is, and for the same reason: clicking the
+        /// real button needs a canvas, an EventSystem and a pointer, and the phases either side of
+        /// these presses are where the tutorial's initialisation bugs have all lived.
+        /// </remarks>
+        public void Skip()
         {
             _skipPressed = true;
             Deselect();
         }
 
-        private void OnNext()
+        /// <inheritdoc cref="Skip"/>
+        public void Next()
         {
             _nextPressed = true;
             Deselect();
