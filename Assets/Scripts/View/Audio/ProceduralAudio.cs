@@ -146,6 +146,39 @@ namespace BitSorter.View
         /// <summary>How many background tracks exist. <see cref="MusicRules"/> decides the order.</summary>
         public static int MusicTracks => Tracks.Length;
 
+        /// <summary>How long one track runs, in seconds.</summary>
+        /// <remarks>
+        /// Derived from the chord cycle, exactly as the clip is. Exposed so the set's memory cost
+        /// can be asserted rather than worked out by hand -- see <see cref="MusicBytes"/>.
+        /// </remarks>
+        public static float MusicSeconds(int index) =>
+            Tracks[Mathf.Clamp(index, 0, Tracks.Length - 1)].Seconds;
+
+        /// <summary>
+        /// Heap the whole music set costs once every track has been built.
+        /// </summary>
+        /// <remarks>
+        /// The figure the <see cref="MusicSampleRate"/> remarks argue from, computed rather than
+        /// written down. It was written down, for six tracks, and three more were added without it
+        /// moving -- so the comment claimed half of what the set actually costs and nothing noticed.
+        ///
+        /// Mono, uncompressed, four bytes a sample: clips are created with a stream flag of false,
+        /// so a built track is a float array resident for the session. Tracks are built lazily, so
+        /// this is the ceiling a long session reaches rather than the startup cost.
+        /// </remarks>
+        public static int MusicBytes
+        {
+            get
+            {
+                int bytes = 0;
+
+                for (int i = 0; i < Tracks.Length; i++)
+                    bytes += Mathf.RoundToInt(Tracks[i].Seconds * MusicSampleRate) * sizeof(float);
+
+                return bytes;
+            }
+        }
+
         /// <summary>
         /// The notes a track plays, as semitones above A4, with its rests removed.
         /// </summary>
@@ -212,10 +245,16 @@ namespace BitSorter.View
         /// <remarks>
         /// Nothing in these tracks comes near the Nyquist limit this leaves. The highest note any
         /// figure reaches is about 2 kHz, and its one harmonic sits at 4 kHz against a ceiling of
-        /// 11 kHz. What it buys is memory: these clips are held as uncompressed floats and they are
-        /// long, so at the cue rate six of them would cost 34 MB of heap in a game whose entire
-        /// browser build is 16 MB. At this rate the whole set costs half that, and a session only
-        /// pays for the tracks it actually reaches.
+        /// 11 kHz.
+        ///
+        /// What it buys is memory: these clips are held as uncompressed floats and they are long.
+        /// Nine tracks of 32 seconds cost about 24 MiB here, against about 48 MiB at the cue rate,
+        /// in a game whose entire browser build is 16 MB. Tracks are built on first use, so a
+        /// session only pays for the ones it reaches.
+        ///
+        /// Those numbers are <see cref="MusicBytes"/>, and MusicTests asserts against it rather
+        /// than against this paragraph. The paragraph said six tracks and 34 MB for a while after
+        /// there were nine, because nothing was checking.
         /// </remarks>
         private const int MusicSampleRate = 22050;
 

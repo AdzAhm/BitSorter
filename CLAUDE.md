@@ -156,6 +156,32 @@ failure side.
   lets the board warn before the bang rather than only mark the damage
   after, and it is why the warning can never be a false alarm.
 
+- **A bit is identified by `(Edge.Id, BitInTransit.Serial)`, never by
+  `TicksRemaining`.** The serial is assigned in `Edge.Accept` and never
+  reused. Deterministic despite being assigned as bits are emitted: an edge
+  has one source port and a node evaluates at most once per tick, so an
+  edge accepts at most one bit per tick and the sequence is tick order
+  whatever order the nodes were visited in.
+
+  `TicksRemaining` separates the bits on one edge *at one instant*, which
+  is all a single frame's drawing needs, and `BitInTransit` used to
+  recommend it for following a bit *between* frames as well. Those are
+  different claims. Across a tick boundary the count a departing bit
+  vacates is taken by the bit behind it, so on a delay-1 edge — every wire
+  until the player lengthens one — a whole stream reads as one bit that
+  never arrives. `BitRenderer` diffed frames on it, so no spark fired after
+  the first and the gate and landing cues stopped with them.
+
+  **Two collision facts, and they are not the same.**
+  `InputPort.LastCorruptedTick` is the poison flag: simulation state, read
+  by the tick loop to refuse later arrivals, and set only where a port is
+  actually emptied. `LastCollisionTick` is observational, set wherever a bit
+  is destroyed, and nothing in the loop reads it. A matching-value
+  collision loses a bit without emptying the port, so it sets the second
+  and not the first — and widening the first to cover it would poison a
+  port that still legitimately holds its value, changing both
+  `CorruptedCount` and the port's contents.
+
 - **NodeCount and EdgeCount are id bounds, not populations.** Removing
   leaves a tombstone: the slot becomes null and the id is retired, never
   reissued, so every surviving id keeps meaning the same node. Use
@@ -324,10 +350,15 @@ failure side.
   preference of anyone who had already turned the sound off.
 
   Music is rendered at half the sample rate the cues are. Nothing in it comes
-  near that Nyquist limit, and it is what keeps six long uncompressed clips
-  affordable -- at the cue rate the set would cost 34 MB of heap in a game whose
-  whole browser build is 16 MB. Clips are built on first use, so a session only
-  pays for the tracks it reaches.
+  near that Nyquist limit, and it is what keeps nine long uncompressed clips
+  affordable -- 24 MiB of heap, against 48 at the cue rate, in a game whose whole
+  browser build is 16 MB. Clips are built on first use, so a session only pays
+  for the tracks it reaches.
+
+  **That figure is `ProceduralAudio.MusicBytes` and `MusicTests` asserts against
+  it.** It used to be a number in a comment, written when there were six tracks,
+  and it still said six and 34 MB after three more were added -- the set cost
+  half again as much as the only place that explained the decision claimed.
 - **Anything shown to the player is derived, never restated.** The truth
   table comes from the level's own streams and expectations; node labels
   come from `Node.Name`. A second copy of a fact is a second thing to
@@ -489,6 +520,19 @@ by name. Treat this section as a place to park ideas, not as a to-do list.
   backwards, because the sockets are what carry the meaning. A collision
   one tick away throbs on the port, the wire and the bit at once, amber
   when only the arrival dies and red when the waiting bit dies too.
+
+  **The aftermath flash fires once per collision, and every collision gets
+  one.** Both halves of that were wrong. It was armed from "the port's last
+  collision was the tick just executed", which is a standing fact rather
+  than an event — so the view re-armed it on every frame, invisibly while
+  the clock moved and permanently once it stopped. A run that settled on a
+  collision tick left the port swollen and red until the next rebuild, and
+  never repainted with what it was holding, because a port mid-flash is
+  skipped by the resting pass. And it keyed on the poison flag, which only
+  a mixed-value collision sets, so a matching-value collision scorched the
+  board and moved the meter while the port itself did nothing.
+  `CollisionWatch` owns the decision now and is reachable from Edit Mode;
+  the renderer keeps the countdown.
 
   Still worth playtesting with someone unfamiliar with the game — that was
   the original point of this entry and no amount of design settles it.

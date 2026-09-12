@@ -233,11 +233,19 @@ Unity 6.3 LTS (6000.3.11f1).
 - **BitSorter → Build Play Scene** regenerates the play scene from code. The
   scene is generated rather than authored, so anything added by hand is discarded
   the next time that runs.
-- Tests: Window → General → Test Runner. 503 EditMode and 4 PlayMode at present.
-  The PlayMode four cover pointer arbitration, which needs a live scene; if you
-  ever script that run, read the results from `TestResults.xml` in the save
+- Tests: Window → General → Test Runner. Roughly 645 EditMode cases and 23
+  PlayMode at present, the PlayMode ones across four fixtures — pointer
+  arbitration, audio, scene composition and the tutorial's opening. Those need a
+  live scene, and Unity has to be focused or the run never enters play mode. If
+  you ever script that run, read the results from `TestResults.xml` in the save
   directory rather than from a `TestRunnerApi` callback, which does not survive
   the domain reload that entering play mode causes.
+- To compile without the editor at all, Bee leaves the exact compiler invocation
+  in `Library/Bee/artifacts/*/BitSorter.*.rsp`; redirect `-out` and run it
+  through `Editor/Data/DotNetSdkRoslyn/csc.dll`. Two things to watch: gate on
+  csc's exit code rather than grepping for `error`, because a missing reference
+  reports with no `path(line,col):` prefix, and append any source file added
+  since Bee wrote the rsp, or it simply is not compiled.
 
 ### Why it isn't a physics game
 

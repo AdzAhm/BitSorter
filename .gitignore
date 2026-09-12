@@ -79,8 +79,13 @@ desktop.ini
 #
 # These rules come after the "!/[Aa]ssets/**/*.meta" negation above on purpose:
 # later rules win, so the companion .meta files are ignored too.
+#
+# The run manifests land in Assets/Resources/, not in Assets/ -- the performance
+# testing package needs them loadable at runtime. There are two of them, Info and
+# Settings, and only one was named here. Both were left behind by an interrupted
+# run and both showed up as untracked; neither matched these rules.
 /[Aa]ssets/InitTestScene*.unity
 /[Aa]ssets/InitTestScene*.unity.meta
-/[Aa]ssets/PerformanceTestRunInfo.json
-/[Aa]ssets/PerformanceTestRunInfo.json.meta
+/[Aa]ssets/[Rr]esources/PerformanceTestRun*.json
+/[Aa]ssets/[Rr]esources/PerformanceTestRun*.json.meta
 /[Pp]roject[Ss]ettings/PerformanceTestSettings.json

@@ -356,5 +356,61 @@ namespace BitSorter.LogicCore.Tests
             Assert.AreEqual(0, MusicRules.NextTrack(3, 0));
             Assert.AreEqual(0, MusicRules.NextTrack(3, -1));
         }
+
+        // -----------------------------------------------------------------
+        // What the set costs
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// The music set fits the budget the browser build is held to.
+        /// </summary>
+        /// <remarks>
+        /// The reason the music is rendered at half the cue rate, asserted rather than described.
+        /// ProceduralAudio's own remarks stated the figure for six tracks and then three more were
+        /// added, so the comment claimed half of what the set actually cost -- and a comment is not
+        /// something a build can check.
+        ///
+        /// The ceiling is generous on purpose. This is not a target to optimise towards; it is a
+        /// tripwire for another three tracks, or a doubled sample rate, going in without anyone
+        /// doing the arithmetic. Clips are built lazily, so this is the ceiling a long session
+        /// reaches rather than the startup cost.
+        /// </remarks>
+        [Test]
+        public void TheWholeMusicSet_FitsInItsMemoryBudget()
+        {
+            const int megabyte = 1024 * 1024;
+            const int ceiling = 32 * megabyte;
+
+            int bytes = ProceduralAudio.MusicBytes;
+
+            Assert.Greater(bytes, 0, "the set measured as costing nothing, so this proves nothing");
+
+            Assert.Less(bytes, ceiling,
+                $"the music set now costs {bytes / (float)megabyte:0.0} MiB of heap against a " +
+                $"{ceiling / megabyte} MiB ceiling, in a game whose whole browser build is 16 MB. " +
+                "Either drop a track or lower MusicSampleRate -- and update the figure in its " +
+                "remarks, which is where this number is explained.");
+        }
+
+        /// <summary>Every track is the same length, so the cost scales with the count alone.</summary>
+        /// <remarks>
+        /// <see cref="EveryTrack_IsTheSameLengthAndTempoAsTheFirst"/> says this of the built clips.
+        /// This says it of the figure the memory assertion above is computed from, which is derived
+        /// from the chord cycle and does not need a clip built to read.
+        /// </remarks>
+        [Test]
+        public void EveryTrack_ReportsTheSameLength()
+        {
+            float first = ProceduralAudio.MusicSeconds(0);
+
+            Assert.Greater(first, 0f, "a track of no length would cost nothing and play nothing");
+
+            for (int i = 1; i < ProceduralAudio.MusicTracks; i++)
+            {
+                Assert.AreEqual(first, ProceduralAudio.MusicSeconds(i), 0.001f,
+                    $"track {i} is a different length from the first, so the set is not one piece " +
+                    "of music and its cost no longer scales with the track count");
+            }
+        }
     }
 }
