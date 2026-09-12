@@ -52,6 +52,24 @@ namespace BitSorter.View
         /// </remarks>
         public const string BadgeGlyph = "?";
 
+        /// <summary>
+        /// Width of one character of the table, in canvas units.
+        /// </summary>
+        /// <remarks>
+        /// The table is rendered at font size 18 inside an <c>mspace</c> tag of 0.62em, so every
+        /// character advances by exactly 18 * 0.62. Stated as arithmetic on those two numbers
+        /// rather than as the product, so changing the font size cannot leave this behind.
+        /// </remarks>
+        private const float TableFontSize = 18f;
+        private const float TableMonospace = 0.62f;
+        private const float TableCharacterWidth = TableFontSize * TableMonospace;
+
+        /// <summary>Gap between the table and the panel edge, on each side.</summary>
+        private const float TablePadding = 15f;
+
+        /// <summary>Never narrower than this, so the hint below still has a column to wrap in.</summary>
+        private const float MinimumWidth = 330f;
+
         private Image _badge;
         private bool _shown;
 
@@ -160,8 +178,10 @@ namespace BitSorter.View
                 new Vector2(0f, -12f), new Vector2(300f, 24f));
             title.text = "WHAT THE BINS WANT";
 
-            // Monospaced, or the columns do not line up and the table is worse than no table.
-            _table = UiTheme.Label("table", _panel, 18f, UiTheme.Accent, TextAlignmentOptions.Top);
+            // Monospaced, or the columns do not line up and the table is worse than no table. The
+            // size is shared with the width arithmetic in Fill, which measures characters.
+            _table = UiTheme.Label(
+                "table", _panel, TableFontSize, UiTheme.Accent, TextAlignmentOptions.Top);
             UiTheme.Anchor(_table.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
                 new Vector2(0f, -44f), new Vector2(300f, 260f));
 
@@ -206,7 +226,9 @@ namespace BitSorter.View
             //
             // mspace rather than a monospaced font: the project ships one font, and forcing an
             // advance width is enough to make columns line up without adding another asset.
-            _table.text = hasTable ? $"<mspace=0.62em>{table}</mspace>" : string.Empty;
+            _table.text = hasTable
+                ? $"<mspace={TableMonospace}em>{table}</mspace>"
+                : string.Empty;
 
             _hint.text = level != null ? level.Hint : string.Empty;
 
@@ -223,7 +245,16 @@ namespace BitSorter.View
             // table the panel shrinks to the hint rather than keeping the space open.
             int lines = hasTable ? level.VectorCount + 2 : 0;
             float height = (hasTable ? 160f : 130f) + lines * 24f;
-            _panel.sizeDelta = new Vector2(_panel.sizeDelta.x, height);
+
+            // And wider tables need a wider panel. Columns are as wide as the longest fixture name
+            // now that they are no longer truncated, so a level grading "binOne" and "binZero" needs
+            // more room than one grading "out". Measured off the finished table rather than
+            // recomputed from the level, so the panel cannot disagree with the text inside it.
+            float tableWidth = TruthTable.WidestLine(table) * TableCharacterWidth;
+            float width = Mathf.Max(MinimumWidth, tableWidth + 2f * TablePadding);
+
+            _panel.sizeDelta = new Vector2(width, height);
+            _table.rectTransform.sizeDelta = new Vector2(width - 2f * TablePadding, lines * 24f + 8f);
         }
 
         private void Show(bool visible)

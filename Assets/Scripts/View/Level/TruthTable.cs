@@ -39,54 +39,120 @@ namespace BitSorter.View
             if (sources.Count == 0 || level.Expectations.Count == 0)
                 return string.Empty;
 
+            int width = ColumnWidth(sources, level.Expectations);
+
             var text = new StringBuilder();
 
-            AppendHeader(text, sources, level.Expectations);
-            AppendRule(text, sources, level.Expectations);
+            AppendHeader(text, sources, level.Expectations, width);
+            AppendRule(text, sources, level.Expectations, width);
 
             for (int vector = 0; vector < level.VectorCount; vector++)
-                AppendRow(text, sources, level.Expectations, vector);
+                AppendRow(text, sources, level.Expectations, vector, width);
 
             return text.ToString();
         }
 
+        /// <summary>
+        /// Characters in the widest line of a rendered table, so a panel can size itself to it.
+        /// </summary>
+        /// <remarks>
+        /// Derived from the finished table rather than recomputed from the level, so a panel and the
+        /// text inside it cannot disagree about how wide the table is.
+        /// </remarks>
+        public static int WidestLine(string table)
+        {
+            int widest = 0;
+            int current = 0;
+
+            for (int i = 0; i < (table?.Length ?? 0); i++)
+            {
+                if (table[i] != '\n')
+                {
+                    current++;
+                    continue;
+                }
+
+                if (current > widest)
+                    widest = current;
+
+                current = 0;
+            }
+
+            return current > widest ? current : widest;
+        }
+
+        /// <summary>
+        /// How many characters every column is padded to: the longest name in this table, never
+        /// fewer than three.
+        /// </summary>
+        /// <remarks>
+        /// Derived rather than fixed, because a fixed width has to truncate and truncation
+        /// collides. It was three, and route-the-bit grades `binOne` and `binZero` -- both of which
+        /// came out as "bin", on the one level whose lesson is that the other bin must stay empty.
+        ///
+        /// There is no cap. A level with a very long fixture id gets a wide table, which is visible
+        /// and self-explanatory and tells the author to shorten the id; two columns with the same
+        /// heading is neither. Every shipped level's longest name is seven characters.
+        /// </remarks>
+        private static int ColumnWidth(
+            List<LevelFixture> sources, IReadOnlyList<LevelExpectation> sinks)
+        {
+            int width = 3;
+
+            for (int i = 0; i < sources.Count; i++)
+            {
+                if (sources[i].Id.Length > width)
+                    width = sources[i].Id.Length;
+            }
+
+            for (int i = 0; i < sinks.Count; i++)
+            {
+                if (sinks[i].SinkId.Length > width)
+                    width = sinks[i].SinkId.Length;
+            }
+
+            return width;
+        }
+
         private static void AppendHeader(
-            StringBuilder text, List<LevelFixture> sources, IReadOnlyList<LevelExpectation> sinks)
+            StringBuilder text, List<LevelFixture> sources, IReadOnlyList<LevelExpectation> sinks,
+            int width)
         {
             for (int i = 0; i < sources.Count; i++)
-                text.Append(Cell(sources[i].Id));
+                text.Append(Cell(sources[i].Id, width));
 
             text.Append(" |");
 
             for (int i = 0; i < sinks.Count; i++)
-                text.Append(Cell(sinks[i].SinkId));
+                text.Append(Cell(sinks[i].SinkId, width));
 
             text.Append('\n');   // explicit, so the table reads the same on every platform
         }
 
         private static void AppendRule(
-            StringBuilder text, List<LevelFixture> sources, IReadOnlyList<LevelExpectation> sinks)
+            StringBuilder text, List<LevelFixture> sources, IReadOnlyList<LevelExpectation> sinks,
+            int width)
         {
             for (int i = 0; i < sources.Count; i++)
-                text.Append(Cell("-"));
+                text.Append(Cell("-", width));
 
             text.Append(" +");
 
             for (int i = 0; i < sinks.Count; i++)
-                text.Append(Cell("-"));
+                text.Append(Cell("-", width));
 
             text.Append('\n');   // explicit, so the table reads the same on every platform
         }
 
         private static void AppendRow(
             StringBuilder text, List<LevelFixture> sources,
-            IReadOnlyList<LevelExpectation> sinks, int vector)
+            IReadOnlyList<LevelExpectation> sinks, int vector, int width)
         {
             for (int i = 0; i < sources.Count; i++)
             {
                 LevelFixture source = sources[i];
                 string bit = vector < source.Stream.Count ? ((int)source.Stream[vector]).ToString() : "?";
-                text.Append(Cell(bit));
+                text.Append(Cell(bit, width));
             }
 
             text.Append(" |");
@@ -98,26 +164,23 @@ namespace BitSorter.View
 
                 // A silent vector is shown as a gap rather than a dash, because a dash next to a
                 // column of noughts reads as a minus sign. A don't-care keeps its 'x'.
-                text.Append(Cell(c == '-' ? "." : c.ToString()));
+                text.Append(Cell(c == '-' ? "." : c.ToString(), width));
             }
 
             text.Append('\n');   // explicit, so the table reads the same on every platform
         }
 
         /// <summary>
-        /// One column, padded so the table lines up in a monospaced block.
+        /// One column, padded to <paramref name="width"/> so the table lines up in a monospaced
+        /// block. Never truncates: the width is chosen to fit.
         /// </summary>
         /// <remarks>
-        /// Truncated rather than widened for a long name. A fixture called "carry" would otherwise
-        /// push every column out and turn the table into a scrolling mess; three characters is enough
-        /// to tell "sum" from "cout" at a glance, which is all the header has to do.
+        /// This used to truncate to three characters, on the grounds that three is enough to tell
+        /// "sum" from "cout". It is, and it is not enough to tell "binOne" from "binZero" -- see
+        /// <see cref="ColumnWidth"/>. A heading has to be the name the level's goal uses, because
+        /// that is the string the player is reading everywhere else.
         /// </remarks>
-        private static string Cell(string content)
-        {
-            if (content.Length > 3)
-                content = content.Substring(0, 3);
-
-            return " " + content.PadLeft(3);
-        }
+        private static string Cell(string content, int width) =>
+            " " + content.PadLeft(width);
     }
 }

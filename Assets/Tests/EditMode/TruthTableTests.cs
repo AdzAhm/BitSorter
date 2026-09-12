@@ -187,6 +187,57 @@ namespace BitSorter.LogicCore.Tests
             Assert.IsEmpty(TruthTable.Format(null));
         }
 
+        // -----------------------------------------------------------------
+        // Measuring a table, so a panel can fit it
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// The measurement <see cref="HelpPanel"/> sizes itself from.
+        /// </summary>
+        /// <remarks>
+        /// Columns are as wide as the longest fixture name now that nothing is truncated, so the
+        /// panel can no longer assume a fixed width -- carry-the-one needs more room than four
+        /// corners does. Measured off the finished table so the panel and the text inside it cannot
+        /// disagree, which means this function is the seam and is worth pinning.
+        /// </remarks>
+        [Test]
+        public void WidestLine_IsTheLongestRow()
+        {
+            Assert.AreEqual(0, TruthTable.WidestLine(null), "nothing to measure");
+            Assert.AreEqual(0, TruthTable.WidestLine(string.Empty));
+
+            Assert.AreEqual(5, TruthTable.WidestLine("abc\nabcde\na\n"),
+                "the longest row decides, wherever it sits");
+
+            Assert.AreEqual(4, TruthTable.WidestLine("ab\nabcd"),
+                "a table with no trailing newline still counts its last row");
+        }
+
+        [Test]
+        public void WidestLine_MatchesEveryRowOfEveryShippedTable()
+        {
+            // Every row is padded to the same width, so the measurement is also the width of each
+            // individual line. If those two ever diverge the table has gone ragged.
+            TextAsset[] assets = Resources.LoadAll<TextAsset>(LevelLoader.ResourcePath);
+
+            foreach (TextAsset asset in assets)
+            {
+                LevelLoadResult parsed = LevelLoader.Parse(asset.text, LevelTestFixtures.Board);
+                Assert.IsTrue(parsed.IsValid, asset.name);
+
+                string table = TruthTable.Format(parsed.Level);
+                int widest = TruthTable.WidestLine(table);
+
+                Assert.Greater(widest, 0, $"{asset.name} measured as no width at all");
+
+                foreach (string line in Lines(table))
+                {
+                    Assert.AreEqual(widest, line.Length,
+                        $"{asset.name}: '{line}' is not the width the panel will be sized to");
+                }
+            }
+        }
+
         [Test]
         public void ColumnsLineUpAcrossEveryRow()
         {
