@@ -112,8 +112,14 @@ namespace BitSorter.LogicCore.Tests
             Assert.AreEqual(3, edge.InTransitCount);
 
             // Emission order is preserved, so index 0 is the oldest bit and the closest to
-            // arriving. Remaining counts are strictly increasing along the edge, which is what
-            // makes TicksRemaining a unique handle on a bit within one edge.
+            // arriving, and remaining counts are strictly increasing along the edge.
+            //
+            // Note what that does and does not establish. It separates the bits on this edge *at
+            // this instant*, which is all a single frame's drawing needs. It says nothing about
+            // whether the count still names the same bit next tick -- it does not, and
+            // ABitsIdentity_IsNeverReusedByAnotherBit is the test for that. This comment used to
+            // claim TicksRemaining was "a unique handle on a bit", which is how a renderer came to
+            // follow bits by it.
             BitInTransit nearest = edge.GetBitInTransit(0);
             BitInTransit middle = edge.GetBitInTransit(1);
             BitInTransit furthest = edge.GetBitInTransit(2);
@@ -143,7 +149,7 @@ namespace BitSorter.LogicCore.Tests
         /// long and keys its sprite pool on it.
         /// </remarks>
         private static long IdentityOf(Edge edge, BitInTransit bit) =>
-            ((long)edge.Id << 32) | (uint)bit.TicksRemaining;
+            ((long)edge.Id << 32) | (uint)bit.Serial;
 
         /// <summary>
         /// A bit's handle belongs to that bit alone, for as long as the run lasts.

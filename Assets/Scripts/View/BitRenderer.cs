@@ -8,11 +8,17 @@ namespace BitSorter.View
     /// Draws every bit currently in transit, one pooled sprite each, interpolated along its wire.
     /// </summary>
     /// <remarks>
-    /// Sprites are keyed by (edge id, ticks remaining). Within one tick that pair is constant, so
-    /// a bit keeps the same sprite across every frame of that tick. At a tick boundary the
-    /// remaining count drops by exactly one, so the lookup also tries the previous tick's key --
-    /// which means a bit keeps one sprite for its whole journey rather than being handed a fresh
-    /// one each tick.
+    /// Sprites are keyed by (edge id, <see cref="BitInTransit.Serial"/>), which names one bit for
+    /// the whole graph's life. So a bit keeps one sprite from emission to delivery, and the frame
+    /// diff below means exactly what it says: a key that was not here last frame is a bit that has
+    /// just been emitted, and one that has gone is a bit that has left the wire.
+    ///
+    /// It was keyed by (edge id, ticks remaining), with a second lookup at the previous tick's
+    /// count to bridge tick boundaries. That aliases: the count a departing bit vacates is taken
+    /// by the bit behind it, so on a delay-1 edge -- which is every wire until the player lengthens
+    /// one -- a whole stream read as a single bit that never arrived. No spark fired after the
+    /// first, and <see cref="GateFiredCount"/> and <see cref="BinLandedCount"/> stopped counting,
+    /// which took the gate and landing cues with them.
     ///
     /// Nothing here allocates per frame: the simulation is polled by index, the dictionaries are
     /// reused and swapped rather than rebuilt, and sprites come from a pool.
@@ -28,8 +34,28 @@ namespace BitSorter.View
         [SerializeField] private float _glowAlpha = 0.55f;
         [SerializeField] private float _trailSeconds = 0.22f;
 
-        private Dictionary<long, SpriteRenderer> _live = new Dictionary<long, SpriteRenderer>();
-        private Dictionary<long, SpriteRenderer> _next = new Dictionary<long, SpriteRenderer>();
+        /// <summary>
+        /// One drawn bit: its sprite, and how far it had left to travel when last seen.
+        /// </summary>
+        /// <remarks>
+        /// The remaining count is carried here rather than read back out of the key, which is what
+        /// it used to be. <see cref="OnBitGone"/> needs it to tell a bit that arrived from one whose
+        /// wire was deleted under it, and the key is now a serial that says nothing about position.
+        /// </remarks>
+        private readonly struct Tracked
+        {
+            public readonly SpriteRenderer Sprite;
+            public readonly int TicksRemaining;
+
+            public Tracked(SpriteRenderer sprite, int ticksRemaining)
+            {
+                Sprite = sprite;
+                TicksRemaining = ticksRemaining;
+            }
+        }
+
+        private Dictionary<long, Tracked> _live = new Dictionary<long, Tracked>();
+        private Dictionary<long, Tracked> _next = new Dictionary<long, Tracked>();
         private readonly Stack<SpriteRenderer> _pool = new Stack<SpriteRenderer>();
         private readonly Dictionary<SpriteRenderer, SpriteRenderer> _halos =
             new Dictionary<SpriteRenderer, SpriteRenderer>();
@@ -98,18 +124,20 @@ namespace BitSorter.View
                 {
                     BitInTransit bit = edge.GetBitInTransit(i);
 
-                    long key = Key(edge.Id, bit.TicksRemaining);
-                    long keyLastTick = Key(edge.Id, bit.TicksRemaining + 1);
+                    long key = Key(edge.Id, bit.Serial);
 
                     SpriteRenderer sprite;
-                    if (_live.TryGetValue(key, out sprite))
+
+                    if (_live.TryGetValue(key, out Tracked already))
+                    {
                         _live.Remove(key);
-                    else if (_live.TryGetValue(keyLastTick, out sprite))
-                        _live.Remove(keyLastTick);   // same bit, one tick further along
+                        sprite = already.Sprite;
+                    }
                     else
                     {
-                        // Neither key matched, so this bit did not exist last frame -- which means
-                        // the node feeding this edge just consumed its inputs and fired.
+                        // This serial was not on the wire last frame, so the node feeding this edge
+                        // has just consumed its inputs and fired. One lookup, because the key names
+                        // the bit rather than its position.
                         sprite = Rent();
                         OnNodeFired(edge, from);
                     }
@@ -141,21 +169,21 @@ namespace BitSorter.View
                     sprite.color = colour;
                     Tint(sprite, colour);
 
-                    _next[key] = sprite;
+                    _next[key] = new Tracked(sprite, bit.TicksRemaining);
                 }
             }
 
             // Whatever is still in _live was not seen this frame, so those bits are gone.
             // Dictionary<,> has a struct enumerator, so this foreach does not allocate.
-            foreach (KeyValuePair<long, SpriteRenderer> stale in _live)
+            foreach (KeyValuePair<long, Tracked> stale in _live)
             {
-                OnBitGone(view, stale.Key);
-                Release(stale.Value);
+                OnBitGone(view, stale.Key, stale.Value.TicksRemaining);
+                Release(stale.Value.Sprite);
             }
 
             _live.Clear();
 
-            Dictionary<long, SpriteRenderer> spent = _live;
+            Dictionary<long, Tracked> spent = _live;
             _live = _next;
             _next = spent;
         }
@@ -172,12 +200,13 @@ namespace BitSorter.View
             return Mathf.Clamp01((bit.TotalDelay - bit.TicksRemaining + fraction) / bit.TotalDelay);
         }
 
-        private static long Key(int edgeId, int ticksRemaining) =>
-            ((long)edgeId << 32) | (uint)ticksRemaining;
+        /// <summary>
+        /// One bit, named for the life of the graph. See <see cref="BitInTransit.Serial"/>.
+        /// </summary>
+        private static long Key(int edgeId, int serial) =>
+            ((long)edgeId << 32) | (uint)serial;
 
         private static int EdgeOf(long key) => (int)(key >> 32);
-
-        private static int TicksOf(long key) => (int)(key & 0xFFFFFFFFL);
 
         /// <summary>
         /// A brand-new bit on this edge means its source node consumed its inputs and emitted this
@@ -200,9 +229,13 @@ namespace BitSorter.View
         /// A bit that vanished with one tick left arrived at its target port. A bit that vanished
         /// because its edge was deleted did not, so the edge has to still exist.
         /// </summary>
-        private void OnBitGone(SimulationView view, long key)
+        /// <param name="ticksRemaining">
+        /// What the bit had left to travel when it was last drawn, from <see cref="Tracked"/>. The
+        /// key is a serial now and says nothing about how far along the wire the bit had got.
+        /// </param>
+        private void OnBitGone(SimulationView view, long key, int ticksRemaining)
         {
-            if (TicksOf(key) != 1)
+            if (ticksRemaining != 1)
                 return;
 
             int edgeId = EdgeOf(key);

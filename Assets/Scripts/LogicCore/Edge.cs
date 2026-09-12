@@ -27,9 +27,24 @@ namespace BitSorter.LogicCore
         {
             public Bit Value;
             public int TicksRemaining;
+            public int Serial;
         }
 
         private readonly List<Transit> _inTransit = new List<Transit>();
+
+        /// <summary>
+        /// The serial the next bit accepted onto this edge will carry. Only ever increments.
+        /// </summary>
+        /// <remarks>
+        /// Per edge rather than per simulation, so the number stays small and means something
+        /// locally: it is how many bits this wire has carried.
+        ///
+        /// Assigning it in <see cref="Accept"/> does not threaten the rule that node evaluation
+        /// order cannot affect the result. An edge has exactly one source port and a node evaluates
+        /// at most once per tick, so an edge accepts at most one bit per tick -- the serial sequence
+        /// on a given edge is therefore tick order, whatever order the nodes were visited in.
+        /// </remarks>
+        private int _nextSerial;
 
         /// <summary>
         /// Stable identifier, assigned when the edge is added to a <see cref="Simulation"/> and
@@ -57,7 +72,7 @@ namespace BitSorter.LogicCore
         public BitInTransit GetBitInTransit(int index)
         {
             Transit transit = _inTransit[index];
-            return new BitInTransit(transit.Value, transit.TicksRemaining, Delay);
+            return new BitInTransit(transit.Value, transit.TicksRemaining, Delay, transit.Serial);
         }
 
         internal Edge(OutputPort source, InputPort target, int delay)
@@ -77,7 +92,12 @@ namespace BitSorter.LogicCore
 
         internal void Accept(Bit value)
         {
-            _inTransit.Add(new Transit { Value = value, TicksRemaining = Delay });
+            _inTransit.Add(new Transit
+            {
+                Value = value,
+                TicksRemaining = Delay,
+                Serial = _nextSerial++,
+            });
         }
 
         /// <summary>
