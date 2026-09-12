@@ -106,6 +106,64 @@ namespace BitSorter.LogicCore.Tests
             }
         }
 
+        // -----------------------------------------------------------------
+        // The menu's own line
+        // -----------------------------------------------------------------
+
+        [Test]
+        public void EveryMenuControl_ReachesTheMenuLine()
+        {
+            foreach (ControlEntry entry in ControlsReference.All)
+            {
+                if (!entry.OnMenu)
+                    continue;
+
+                StringAssert.Contains(entry.Text, ControlsReference.MenuLine,
+                    $"'{entry.Text}' is flagged for the menu but never reaches it");
+            }
+        }
+
+        [Test]
+        public void TheMenuLineSaysNothingThatIsNotInTheList()
+        {
+            // The direction that catches a literal creeping back in. The menu used to draw its own
+            // string, and that string was the only place M appeared.
+            string[] shown = ControlsReference.MenuLine.Split(
+                new[] { ControlsReference.LineSeparator }, StringSplitOptions.RemoveEmptyEntries);
+
+            foreach (string piece in shown)
+            {
+                bool known = false;
+
+                foreach (ControlEntry entry in ControlsReference.All)
+                {
+                    if (entry.Text == piece.Trim())
+                        known = true;
+                }
+
+                Assert.IsTrue(known,
+                    $"the menu line shows '{piece.Trim()}', which is not in ControlsReference.All");
+            }
+        }
+
+        [Test]
+        public void TheMenuLineIsAShortlist_NotEverything()
+        {
+            // The menu is a front door: it names the panels and the sound, not how to wire a gate.
+            int onMenu = 0;
+
+            foreach (ControlEntry entry in ControlsReference.All)
+            {
+                if (entry.OnMenu)
+                    onMenu++;
+            }
+
+            Assert.Greater(onMenu, 0, "the menu line would be empty");
+
+            Assert.Less(onMenu, ControlsReference.All.Count,
+                "if the menu line carries everything, the flag has stopped meaning anything");
+        }
+
         /// <summary>
         /// Both renderings are exactly as long as the list says they should be.
         /// </summary>
@@ -126,7 +184,18 @@ namespace BitSorter.LogicCore.Tests
                     onLine++;
             }
 
+            int onMenu = 0;
+
+            foreach (ControlEntry entry in ControlsReference.All)
+            {
+                if (entry.OnMenu)
+                    onMenu++;
+            }
+
             int lineCount = ControlsReference.Line.Split(
+                new[] { ControlsReference.LineSeparator }, StringSplitOptions.RemoveEmptyEntries).Length;
+
+            int menuCount = ControlsReference.MenuLine.Split(
                 new[] { ControlsReference.LineSeparator }, StringSplitOptions.RemoveEmptyEntries).Length;
 
             int grouped = 0;
@@ -135,6 +204,7 @@ namespace BitSorter.LogicCore.Tests
                 grouped += group.Entries.Count;
 
             Assert.AreEqual(onLine, lineCount, "the status line is not the flagged entries");
+            Assert.AreEqual(onMenu, menuCount, "the menu line is not the flagged entries");
             Assert.AreEqual(total, grouped, "the card's columns are not the whole list");
         }
 

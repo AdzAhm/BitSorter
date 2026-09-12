@@ -35,11 +35,26 @@ namespace BitSorter.View
         /// <summary>Which heading it sits under on the card.</summary>
         public readonly ControlKind Kind;
 
-        public ControlEntry(string text, bool onStatusLine, ControlKind kind)
+        /// <summary>
+        /// Whether it also earns a place on the short line at the foot of the main menu.
+        /// </summary>
+        /// <remarks>
+        /// A third rendering, and it needs its own flag for the reason the first one does: the menu
+        /// is a front door, so its line names the panels and the sound and nothing about building a
+        /// circuit -- there is no board behind it to build on.
+        ///
+        /// It exists at all because the menu used to draw a literal of its own. Two hand-written
+        /// copies of the bindings is the drift this whole type was extracted to stop, and the copy
+        /// was the only place the game ever mentioned M.
+        /// </remarks>
+        public readonly bool OnMenu;
+
+        public ControlEntry(string text, bool onStatusLine, ControlKind kind, bool onMenu = false)
         {
             Text = text;
             OnStatusLine = onStatusLine;
             Kind = kind;
+            OnMenu = onMenu;
         }
 
         public override string ToString() => Text;
@@ -99,10 +114,15 @@ namespace BitSorter.View
             new ControlEntry("Space to pause a run", false, ControlKind.Running),
             new ControlEntry("right arrow to step one tick", false, ControlKind.Running),
 
-            new ControlEntry("H for help", true, ControlKind.Everything),
-            new ControlEntry("ESC for levels", true, ControlKind.Everything),
+            new ControlEntry("H for help", true, ControlKind.Everything, onMenu: true),
+            new ControlEntry("ESC for levels", true, ControlKind.Everything, onMenu: true),
             new ControlEntry("Q and E to change level", false, ControlKind.Everything),
-            new ControlEntry("N to mute", true, ControlKind.Everything),
+            new ControlEntry("N to mute", true, ControlKind.Everything, onMenu: true),
+
+            // Deliberately not on the status line. That row already carries eight entries across a
+            // thousand pixels; the menu is where this one is worth saying, and the card is where it
+            // was missing entirely.
+            new ControlEntry("M for the main menu", false, ControlKind.Everything, onMenu: true),
         };
 
         /// <summary>The groups in the order the card lays them out.</summary>
@@ -112,26 +132,34 @@ namespace BitSorter.View
         /// </remarks>
         public static IReadOnlyList<ControlGroup> Groups { get; } = BuildGroups();
 
+        /// <summary>The short line at the foot of the main menu.</summary>
+        /// <remarks>
+        /// Derived, like <see cref="Line"/> and <see cref="Groups"/>. The menu used to draw its own
+        /// literal -- "M menu     ESC levels     H help     N mute" -- which was a second
+        /// hand-written copy of the bindings and the only place M was ever mentioned.
+        /// </remarks>
+        public static string MenuLine => Joined(entry => entry.OnMenu);
+
         /// <summary>The one-line strip along the bottom of the board.</summary>
-        public static string Line
+        public static string Line => Joined(entry => entry.OnStatusLine);
+
+        /// <summary>Every entry the predicate accepts, in list order, on one line.</summary>
+        private static string Joined(System.Predicate<ControlEntry> wanted)
         {
-            get
+            var text = new StringBuilder();
+
+            foreach (ControlEntry entry in All)
             {
-                var text = new StringBuilder();
+                if (!wanted(entry))
+                    continue;
 
-                foreach (ControlEntry entry in All)
-                {
-                    if (!entry.OnStatusLine)
-                        continue;
+                if (text.Length > 0)
+                    text.Append(LineSeparator);
 
-                    if (text.Length > 0)
-                        text.Append(LineSeparator);
-
-                    text.Append(entry.Text);
-                }
-
-                return text.ToString();
+                text.Append(entry.Text);
             }
+
+            return text.ToString();
         }
 
         private static IReadOnlyList<ControlGroup> BuildGroups()

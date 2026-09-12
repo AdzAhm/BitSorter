@@ -166,7 +166,10 @@ namespace BitSorter.View
                 "keys", _root, 13f, UiTheme.TextDim, TextAlignmentOptions.Center);
             UiTheme.Anchor(keys.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
                 new Vector2(0f, 30f), new Vector2(900f, 20f));
-            keys.text = "M menu     ESC levels     H help     N mute";
+            // From ControlsReference, not spelled out here. This was a literal, which made it a
+            // second hand-written copy of the bindings -- and the only place in the whole game that
+            // mentioned M, so the tutorial's card never taught the way back to this screen.
+            keys.text = ControlsReference.MenuLine;
         }
 
         private Button Item(string name, float y, out TextMeshProUGUI label)
