@@ -138,6 +138,38 @@ namespace BitSorter.LogicCore.Tests
             Assert.AreEqual(total, grouped, "the card's columns are not the whole list");
         }
 
+        /// <summary>
+        /// The card names the way back to the main menu.
+        /// </summary>
+        /// <remarks>
+        /// The card is handed to a player who has just finished the tutorial, as the complete
+        /// reference -- that is what it is for. The main menu is reachable by M and by nothing else
+        /// except finishing the last level, so a card that does not mention it teaches that there is
+        /// no way back to the front door.
+        ///
+        /// M was bound in MainMenu.Update and written into a literal keys line in MainMenu.Build,
+        /// and never added here. Every test above passes with it missing, because they all compare
+        /// this list against its own two renderings and nothing compares it against the game.
+        /// </remarks>
+        [Test]
+        public void TheReference_NamesTheWayBackToTheMainMenu()
+        {
+            bool named = false;
+
+            foreach (ControlGroup group in ControlsReference.Groups)
+            {
+                foreach (ControlEntry entry in group.Entries)
+                {
+                    if (entry.Text.IndexOf("menu", StringComparison.OrdinalIgnoreCase) >= 0)
+                        named = true;
+                }
+            }
+
+            Assert.IsTrue(named,
+                "no control on the card mentions the main menu, so a player who finishes the " +
+                "tutorial is never told how to reach it");
+        }
+
         [Test]
         public void EveryGroupHasSomethingInIt()
         {
