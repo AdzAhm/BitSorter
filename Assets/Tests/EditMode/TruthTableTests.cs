@@ -103,6 +103,67 @@ namespace BitSorter.LogicCore.Tests
             StringAssert.Contains("car", header);
         }
 
+        /// <summary>
+        /// No two columns share a heading, on any shipped level.
+        /// </summary>
+        /// <remarks>
+        /// Columns were padded to a fixed three characters and anything longer was truncated, which
+        /// collided the moment two names shared a prefix. route-the-bit grades `binOne` and
+        /// `binZero`, and both render as "bin" -- so the very first level, whose whole lesson is that
+        /// one bin must stay empty, showed two output columns with identical headings and no way to
+        /// tell which was which.
+        ///
+        /// Checked across every level rather than that one, because the next colliding pair will be
+        /// somewhere else.
+        /// </remarks>
+        [Test]
+        public void NoTwoColumnsShareAHeading()
+        {
+            TextAsset[] assets = Resources.LoadAll<TextAsset>(LevelLoader.ResourcePath);
+
+            foreach (TextAsset asset in assets)
+            {
+                LevelLoadResult parsed = LevelLoader.Parse(asset.text, LevelTestFixtures.Board);
+                Assert.IsTrue(parsed.IsValid, asset.name);
+
+                string header = Lines(TruthTable.Format(parsed.Level))[0];
+
+                string[] headings = header.Split(
+                    new[] { ' ', '|' }, System.StringSplitOptions.RemoveEmptyEntries);
+
+                var seen = new System.Collections.Generic.HashSet<string>();
+
+                foreach (string heading in headings)
+                {
+                    Assert.IsTrue(seen.Add(heading),
+                        $"{asset.name}: two columns are both headed '{heading}', so the table " +
+                        $"cannot be read. Header: {header.Trim()}");
+                }
+            }
+        }
+
+        /// <summary>
+        /// A heading is the fixture's whole name, so the table and the goal quote the same string.
+        /// </summary>
+        /// <remarks>
+        /// The pair to the test above: distinctness alone could be had by numbering the columns,
+        /// which would be distinct and meaningless. A level's goal names its bins -- "leave the
+        /// other bin empty" is about `binZero` -- so the table has to use the name the player is
+        /// reading elsewhere.
+        /// </remarks>
+        [Test]
+        public void AHeadingIsTheWholeFixtureName()
+        {
+            LevelDefinition level = Load("route-the-bit");
+            string header = Lines(TruthTable.Format(level))[0];
+
+            foreach (string id in new[] { "in", "binOne", "binZero" })
+            {
+                StringAssert.Contains(id, header,
+                    $"the header should name '{id}' in full, not an abbreviation of it");
+            }
+        }
+
         [Test]
         public void EveryShippedLevelProducesATable()
         {
