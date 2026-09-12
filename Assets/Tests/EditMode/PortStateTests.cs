@@ -193,5 +193,121 @@ namespace BitSorter.LogicCore.Tests
             Assert.IsFalse(PortState.WillCollide(null, out bool heldBitDies));
             Assert.IsFalse(heldBitDies);
         }
+
+        // -----------------------------------------------------------------
+        // Showing a collision once
+        // -----------------------------------------------------------------
+
+        private static readonly PortAddress SomePort = new PortAddress(3, true, 1);
+
+        /// <summary>
+        /// One collision is one flash, however many frames look at it.
+        /// </summary>
+        /// <remarks>
+        /// The view draws many frames per tick, so the same collision is looked at repeatedly
+        /// before anything else can happen. Each look used to re-arm the flash, which was invisible
+        /// while the clock kept moving and permanent as soon as it stopped -- see
+        /// <see cref="ASettledRun_DoesNotFlashForever"/>.
+        /// </remarks>
+        [Test]
+        public void OneCollision_IsNewsExactlyOnce()
+        {
+            var watch = new CollisionWatch();
+
+            Assert.IsTrue(watch.IsNews(SomePort, collidedOnTick: 4, tickJustExecuted: 4),
+                "the frame after a collision should flash it");
+
+            for (int frame = 0; frame < 5; frame++)
+            {
+                Assert.IsFalse(watch.IsNews(SomePort, collidedOnTick: 4, tickJustExecuted: 4),
+                    "the same collision was flashed again on a later frame of the same tick");
+            }
+        }
+
+        /// <summary>
+        /// A run that settles on a collision tick stops flashing.
+        /// </summary>
+        /// <remarks>
+        /// The whole defect, in the shape it actually occurs. LevelSession.Settle stops the clock,
+        /// so CurrentTick freezes and "the tick just executed" stops moving. A port whose last
+        /// collision was on that very tick therefore satisfied the arming condition on every frame
+        /// for the rest of the run: permanently swollen and red, and never repainted with what it
+        /// was holding, because a port mid-flash is skipped by the resting pass.
+        ///
+        /// Reachable on any failing run whose last delivery is a mixed collision, which is the
+        /// ordinary shape of the levels this mechanic teaches.
+        /// </remarks>
+        [Test]
+        public void ASettledRun_DoesNotFlashForever()
+        {
+            var watch = new CollisionWatch();
+
+            const int settledAt = 7;   // the clock stops here and never moves again
+
+            Assert.IsTrue(watch.IsNews(SomePort, settledAt, settledAt), "the collision should flash once");
+
+            int flashes = 0;
+
+            // A couple of seconds of frames against a frozen clock.
+            for (int frame = 0; frame < 120; frame++)
+            {
+                if (watch.IsNews(SomePort, settledAt, settledAt))
+                    flashes++;
+            }
+
+            Assert.AreEqual(0, flashes,
+                $"the flash was re-armed on {flashes} of 120 frames after the clock stopped, so the " +
+                "port stays red and swollen until the board is rebuilt");
+        }
+
+        [Test]
+        public void APortThatHasNeverCollided_IsNeverNews()
+        {
+            var watch = new CollisionWatch();
+
+            Assert.IsFalse(watch.IsNews(SomePort, collidedOnTick: -1, tickJustExecuted: 0));
+            Assert.IsFalse(watch.IsNews(SomePort, collidedOnTick: -1, tickJustExecuted: 9));
+        }
+
+        [Test]
+        public void ASecondCollision_AtTheSamePort_IsNewsAgain()
+        {
+            // Two separate collisions are two separate events, and the second has to be shown.
+            var watch = new CollisionWatch();
+
+            Assert.IsTrue(watch.IsNews(SomePort, collidedOnTick: 2, tickJustExecuted: 2));
+            Assert.IsFalse(watch.IsNews(SomePort, collidedOnTick: 2, tickJustExecuted: 2));
+
+            Assert.IsTrue(watch.IsNews(SomePort, collidedOnTick: 5, tickJustExecuted: 5),
+                "a later collision at the same port is a new event");
+        }
+
+        [Test]
+        public void ClearingTheWatch_LetsTheSameTickFlashAgain()
+        {
+            // A rebuild replaces every port, and the next run starts its clock at zero again, so a
+            // collision on the same tick number is a different collision.
+            var watch = new CollisionWatch();
+
+            Assert.IsTrue(watch.IsNews(SomePort, collidedOnTick: 1, tickJustExecuted: 1));
+            Assert.IsFalse(watch.IsNews(SomePort, collidedOnTick: 1, tickJustExecuted: 1));
+
+            watch.Clear();
+
+            Assert.IsTrue(watch.IsNews(SomePort, collidedOnTick: 1, tickJustExecuted: 1),
+                "after a rebuild the same tick number is a different run's collision");
+        }
+
+        [Test]
+        public void TwoPorts_AreWatchedIndependently()
+        {
+            var watch = new CollisionWatch();
+            var other = new PortAddress(3, true, 0);   // same node, the sibling port
+
+            Assert.IsTrue(watch.IsNews(SomePort, collidedOnTick: 3, tickJustExecuted: 3));
+
+            Assert.IsTrue(watch.IsNews(other, collidedOnTick: 3, tickJustExecuted: 3),
+                "one port being shown must not swallow another port's collision on the same tick");
+        }
     }
 }

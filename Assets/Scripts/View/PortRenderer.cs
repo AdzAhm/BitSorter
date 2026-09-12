@@ -61,6 +61,9 @@ namespace BitSorter.View
 
         /// <summary>Seconds of flash still owed to a port, keyed the same way.</summary>
         private readonly Dictionary<PortAddress, float> _flashing = new Dictionary<PortAddress, float>();
+
+        /// <summary>Which collisions have already been shown, so one is not flashed twice.</summary>
+        private readonly CollisionWatch _collisions = new CollisionWatch();
         private readonly List<PortAddress> _active = new List<PortAddress>();
 
         /// <summary>
@@ -218,6 +221,10 @@ namespace BitSorter.View
         /// LastCorruptedTick names exactly which port lost bits and on which tick, so no state has
         /// to be diffed. CurrentTick is the tick about to run, so the one just executed is one less.
         /// </summary>
+        /// <remarks>
+        /// Whether a collision is news belongs to <see cref="CollisionWatch"/>, which is reachable
+        /// from Edit Mode; this is left with the countdown and the drawing.
+        /// </remarks>
         private void DetectCollisions()
         {
             SimulationView view = _runner.View;
@@ -231,10 +238,12 @@ namespace BitSorter.View
 
                 for (int i = 0; i < node.InputCount; i++)
                 {
-                    if (node.In(i).LastCorruptedTick != justExecuted)
+                    var key = new PortAddress(id, true, i);
+
+                    if (!_collisions.IsNews(key, node.In(i).LastCorruptedTick, justExecuted))
                         continue;
 
-                    _flashing[new PortAddress(id, true, i)] = _flashSeconds;
+                    _flashing[key] = _flashSeconds;
                 }
             }
         }
@@ -306,6 +315,7 @@ namespace BitSorter.View
             _inputStubs.Clear();
             _inputGlows.Clear();
             _flashing.Clear();   // stub references are about to be replaced
+            _collisions.Clear();
             _doomed.Clear();
 
             SimulationView view = _runner.View;

@@ -126,4 +126,34 @@ namespace BitSorter.View
             return false;
         }
     }
+
+    /// <summary>
+    /// Which ports have had a collision the player has not been shown yet.
+    /// </summary>
+    /// <remarks>
+    /// A stateful helper beside the pure rules, exactly as <see cref="StallClock"/> sits beside
+    /// <see cref="HintRules"/> and for the same reason: the decision is a small state machine over
+    /// simulation state, and keeping it out of the renderer is what makes it reachable from Edit
+    /// Mode. <see cref="PortRenderer"/> owns the countdown and the drawing; this owns only the
+    /// question of whether a collision is news.
+    /// </remarks>
+    public sealed class CollisionWatch
+    {
+        /// <summary>Forgets everything, for a rebuild that replaced the ports this described.</summary>
+        public void Clear()
+        {
+        }
+
+        /// <summary>
+        /// Whether <paramref name="port"/> has just collided, and should be flashed.
+        /// </summary>
+        /// <param name="collidedOnTick">
+        /// The tick a collision last destroyed a bit at this port, or -1 for never.
+        /// </param>
+        /// <param name="tickJustExecuted">
+        /// The tick the simulation has most recently finished, which is CurrentTick - 1.
+        /// </param>
+        public bool IsNews(PortAddress port, int collidedOnTick, int tickJustExecuted) =>
+            collidedOnTick >= 0 && collidedOnTick == tickJustExecuted;
+    }
 }
