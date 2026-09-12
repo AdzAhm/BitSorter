@@ -91,8 +91,9 @@ namespace BitSorter.View
             Image panel = UiTheme.Panel_("Sink readout", _canvas.transform, UiTheme.Panel);
             _root = panel.GetComponent<RectTransform>();
 
-            UiTheme.Anchor(_root, new Vector2(1f, 0f), new Vector2(1f, 0f),
-                new Vector2(-16f, 16f), new Vector2(230f, 130f));
+            // Bottom right, from the shared corner arithmetic. Height is replaced by Rebuild once
+            // the number of sinks is known.
+            UiTheme.AnchorBottomCorner(_root, UiTheme.ReadoutCorner, 130f);
 
             TextMeshProUGUI title = UiTheme.Label(
                 "title", _root, 13f, UiTheme.TextDim, TextAlignmentOptions.Left);
@@ -147,7 +148,7 @@ namespace BitSorter.View
                 index++;
             }
 
-            _root.sizeDelta = new Vector2(230f, SinkReadoutRules.PanelHeight(index));
+            _root.sizeDelta = new Vector2(UiTheme.ReadoutWidth, SinkReadoutRules.PanelHeight(index));
             _built = signature;
         }
 

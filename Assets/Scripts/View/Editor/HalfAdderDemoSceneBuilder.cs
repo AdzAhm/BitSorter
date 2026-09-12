@@ -356,7 +356,8 @@ namespace BitSorter.View.EditorTools
 
             var scaler = canvasObject.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1920f, 1080f);
+            // From UiTheme, which every panel offset in the interface is measured against.
+            scaler.referenceResolution = UiTheme.ReferenceResolution;
 
             // Halfway between matching width and height, so neither axis is favoured when the window
             // is not 16:9. The board is wider than it is tall, so a width-only match would push the

@@ -33,6 +33,57 @@ namespace BitSorter.View
         public const float ButtonHeight = 44f;
         public const float PaletteButton = 64f;
 
+        /// <summary>
+        /// The canvas size every offset in this file is expressed against.
+        /// </summary>
+        /// <remarks>
+        /// The scene builder hands this to the CanvasScaler, rather than stating 1920x1080 of its
+        /// own, so "canvas units" means one thing in both places.
+        /// </remarks>
+        public static readonly Vector2 ReferenceResolution = new Vector2(1920f, 1080f);
+
+        // -----------------------------------------------------------------
+        // The bottom corners
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// Width of both bottom-corner readouts: free play's catch, and the diagnostics panel.
+        /// </summary>
+        /// <remarks>
+        /// Shared for the reason the rows above are shared. The two used to anchor bottom-right at
+        /// the same offset with the same width, each stating its own numbers -- so in free play with
+        /// F3 open they occupied exactly the same rectangle and drew on top of each other. Two
+        /// panels that must not overlap cannot each own half the arithmetic.
+        /// </remarks>
+        public const float ReadoutWidth = 230f;
+
+        /// <summary>Free play's catch readout takes the right corner.</summary>
+        public static readonly Vector2 ReadoutCorner = new Vector2(1f, 0f);
+
+        /// <summary>Diagnostics takes the left, which nothing else uses at this height.</summary>
+        /// <remarks>
+        /// The palette is centred on the left edge and stops well above the bottom margin, and the
+        /// controls line and the button row are both centred and narrower than the gap between the
+        /// two corners.
+        /// </remarks>
+        public static readonly Vector2 DiagnosticsCorner = new Vector2(0f, 0f);
+
+        /// <summary>
+        /// Puts a readout in one of the two bottom corners, at the shared width.
+        /// </summary>
+        /// <remarks>
+        /// Anchored to its own corner rather than positioned absolutely, because the canvas scaler
+        /// matches width or height at 0.5 -- so how many canvas units wide the screen is depends on
+        /// the window's shape, and only an anchor keeps a panel on the edge it belongs to.
+        /// </remarks>
+        public static void AnchorBottomCorner(RectTransform rect, Vector2 corner, float height)
+        {
+            float inset = corner.x > 0.5f ? -Margin : Margin;
+
+            Anchor(rect, corner, corner, new Vector2(inset, Margin),
+                new Vector2(ReadoutWidth, height));
+        }
+
         // -----------------------------------------------------------------
         // The bottom strip
         // -----------------------------------------------------------------

@@ -44,8 +44,9 @@ namespace BitSorter.View
 
             Image panel = UiTheme.Panel_("Diagnostics", _canvas.transform, UiTheme.Panel);
             _root = panel.GetComponent<RectTransform>();
-            UiTheme.Anchor(_root, new Vector2(1f, 0f), new Vector2(1f, 0f),
-                new Vector2(-UiTheme.Margin, UiTheme.Margin), new Vector2(230f, 96f));
+            // Bottom left. This was bottom right at the same offset and the same width as
+            // SinkReadout, so in free play with F3 open the two drew in exactly the same rectangle.
+            UiTheme.AnchorBottomCorner(_root, UiTheme.DiagnosticsCorner, 96f);
 
             panel.raycastTarget = false;
 
