@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using NUnit.Framework;
 using BitSorter.LogicCore;
 
@@ -127,6 +128,127 @@ namespace BitSorter.LogicCore.Tests
 
             for (int i = 0; i < edge.InTransitCount; i++)
                 Assert.AreEqual(3, edge.GetBitInTransit(i).TotalDelay, $"bit {i} total delay");
+        }
+
+        // -----------------------------------------------------------------
+        // Following one bit between frames
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// The handle <see cref="BitInTransit"/> tells a renderer to follow a bit by.
+        /// </summary>
+        /// <remarks>
+        /// Written once, so the tests below assert a property of the documented contract rather
+        /// than of an expression copied out four times. BitRenderer packs exactly this pair into a
+        /// long and keys its sprite pool on it.
+        /// </remarks>
+        private static long IdentityOf(Edge edge, BitInTransit bit) =>
+            ((long)edge.Id << 32) | (uint)bit.TicksRemaining;
+
+        /// <summary>
+        /// A bit's handle belongs to that bit alone, for as long as the run lasts.
+        /// </summary>
+        /// <remarks>
+        /// <see cref="SeveralBitsOnOneEdge_AreReportedNearestTargetFirst"/> establishes that no two
+        /// bits on one edge share a handle **at one instant**, which is a weaker claim than the one
+        /// renderers are handed. Following a bit *between frames* needs the handle to be unique over
+        /// time as well, and nothing asserted that -- so a handle that aliases across a tick
+        /// boundary read as correct and had a green test apparently backing it.
+        ///
+        /// Counted as distinct handles over the whole run: a source emits one bit per tick, so an
+        /// edge carrying the whole stream should hand out exactly as many handles as there were bits.
+        /// </remarks>
+        [TestCase(1)]
+        [TestCase(2)]
+        [TestCase(3)]
+        public void ABitsIdentity_IsNeverReusedByAnotherBit(int delay)
+        {
+            Bit[] stream = { Bit.One, Bit.Zero, Bit.One, Bit.Zero };
+
+            var sim = new Simulation();
+            var source = sim.Add(new SourceNode(stream));
+            var sink = sim.Add(new SinkNode());
+            Edge edge = sim.Connect(source.Out(0), sink.In(0), delay);
+
+            var seen = new HashSet<long>();
+
+            // Long enough for every bit to be emitted and delivered.
+            for (int tick = 0; tick < stream.Length + delay + 2; tick++)
+            {
+                sim.Tick();
+
+                for (int i = 0; i < edge.InTransitCount; i++)
+                    seen.Add(IdentityOf(edge, edge.GetBitInTransit(i)));
+            }
+
+            Assert.AreEqual(stream.Length, sink.Received.Count, "every bit should have arrived");
+
+            Assert.AreEqual(stream.Length, seen.Count,
+                $"a delay-{delay} edge carried {stream.Length} bits but handed out {seen.Count} " +
+                "distinct handles, so two different bits share one -- anything following a bit " +
+                "between frames will mistake the second for the first");
+        }
+
+        /// <summary>
+        /// Following bits by their handle sees every emission and every arrival.
+        /// </summary>
+        /// <remarks>
+        /// The consequence the handle exists for, stated as the diff a renderer actually performs: a
+        /// handle that was not there last frame is a bit that has just been emitted, and one that has
+        /// gone with a single tick left is a bit that has just arrived. Those two events are what
+        /// drive the spark bursts and the gate and landing cues.
+        ///
+        /// Written against the observation API alone -- no renderer, no scene -- because the defect
+        /// is in what the API promises rather than in who consumes it.
+        /// </remarks>
+        [TestCase(1)]
+        [TestCase(3)]
+        public void FollowingBitsByIdentity_SeesEveryEmissionAndEveryArrival(int delay)
+        {
+            Bit[] stream = { Bit.One, Bit.Zero, Bit.One, Bit.Zero };
+
+            var sim = new Simulation();
+            var source = sim.Add(new SourceNode(stream));
+            var sink = sim.Add(new SinkNode());
+            Edge edge = sim.Connect(source.Out(0), sink.In(0), delay);
+
+            var live = new Dictionary<long, int>();
+            int emissions = 0;
+            int arrivals = 0;
+
+            for (int tick = 0; tick < stream.Length + delay + 2; tick++)
+            {
+                sim.Tick();
+
+                var next = new Dictionary<long, int>();
+
+                for (int i = 0; i < edge.InTransitCount; i++)
+                {
+                    BitInTransit bit = edge.GetBitInTransit(i);
+                    long handle = IdentityOf(edge, bit);
+
+                    if (!live.Remove(handle))
+                        emissions++;   // not there last frame, so it has just been emitted
+
+                    next[handle] = bit.TicksRemaining;
+                }
+
+                // Whatever is left was on the edge last frame and is not now. A single tick from the
+                // target means it was delivered rather than lost to an edit.
+                foreach (KeyValuePair<long, int> gone in live)
+                {
+                    if (gone.Value == 1)
+                        arrivals++;
+                }
+
+                live = next;
+            }
+
+            Assert.AreEqual(stream.Length, emissions,
+                $"a delay-{delay} edge carried {stream.Length} bits but only {emissions} looked new");
+
+            Assert.AreEqual(stream.Length, arrivals,
+                $"{stream.Length} bits reached the sink but only {arrivals} were seen arriving");
         }
 
         // -----------------------------------------------------------------
