@@ -10,6 +10,7 @@ namespace BitSorter.LogicCore
     public sealed class InputPort
     {
         private int _corruptedOnTick = -1;
+        private int _collidedOnTick = -1;
 
         public Node Owner { get; }
         public int Index { get; }
@@ -46,7 +47,7 @@ namespace BitSorter.LogicCore
         /// would make a matching collision refuse the rest of the tick's arrivals, which changes
         /// both CorruptedCount and the port's contents.
         /// </remarks>
-        public int LastCollisionTick => _corruptedOnTick;
+        public int LastCollisionTick => _collidedOnTick;
 
         internal InputPort(Node owner, int index)
         {
@@ -65,23 +66,38 @@ namespace BitSorter.LogicCore
         /// cleared and stays poisoned for the remainder of this tick's delivery phase. Without the
         /// poison, a third arrival in the same tick could refill the port that a mixed collision
         /// just emptied, and the outcome would depend on edge insertion order again.
+        ///
+        /// Every branch that destroys something stamps <see cref="LastCollisionTick"/>, and only
+        /// the emptying branch stamps the poison flag. Keeping the two apart is what lets the view
+        /// react to a matching collision without the tick loop's behaviour changing: nothing here
+        /// reads LastCollisionTick, so writing it cannot affect an outcome.
         /// </remarks>
         internal int Deliver(Bit value, int tick)
         {
+            // Already poisoned this tick: the arrival is destroyed and the port stays empty.
             if (_corruptedOnTick == tick)
+            {
+                _collidedOnTick = tick;
                 return 1;
+            }
 
             if (!Pending.HasValue)
             {
                 Pending = value;
-                return 0;
+                return 0;   // the only branch that destroys nothing
             }
 
+            // Same value: unambiguous, so the port keeps it and only the arrival is lost. Not a
+            // corruption of the port's contents, so deliberately no poison -- see LastCollisionTick.
             if (Pending.Value == value)
+            {
+                _collidedOnTick = tick;
                 return 1;
+            }
 
             Pending = null;
             _corruptedOnTick = tick;
+            _collidedOnTick = tick;
             return 2;
         }
 

@@ -218,9 +218,14 @@ namespace BitSorter.View
         // -----------------------------------------------------------------
 
         /// <summary>
-        /// LastCorruptedTick names exactly which port lost bits and on which tick, so no state has
+        /// LastCollisionTick names exactly which port lost bits and on which tick, so no state has
         /// to be diffed here.
         /// </summary>
+        /// <remarks>
+        /// LastCollisionTick, not LastCorruptedTick. The second is the poison flag and is set only
+        /// where a port is emptied, so keying on it meant a matching-value collision -- which loses
+        /// a bit and leaves the port holding its value -- never flashed at all.
+        /// </remarks>
         /// <remarks>
         /// Whether a collision is news belongs to <see cref="CollisionWatch"/>, which is reachable
         /// from Edit Mode; this is left with the countdown and the drawing. It no longer compares
