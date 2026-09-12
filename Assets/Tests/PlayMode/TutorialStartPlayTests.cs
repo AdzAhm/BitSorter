@@ -126,28 +126,65 @@ namespace BitSorter.PlayMode.Tests
                 "part; something has reordered its budget");
         }
 
+        /// <summary>
+        /// A board saved under the tutorial's key, as an older build could have written.
+        /// </summary>
+        /// <remarks>
+        /// The kind is written as <see cref="GatePalette.Label"/> gives it -- "NOT" -- because that
+        /// is what <see cref="BoardSerializer.ToSaved"/> writes and therefore what a real save
+        /// contains. It used to be written as <c>(int)TutorialLevel.Part</c>, an integer into a
+        /// string field, which no amount of JsonUtility leniency turns into a gate kind:
+        /// GatePalette.TryParse refused it and the restore dropped the placement every time.
+        ///
+        /// That made the test that used this vacuous. It asserted the board was *not* restored, and
+        /// the board could never have been restored, so it passed just as happily with the guard it
+        /// exists to protect deleted. Hence the positive control below.
+        /// </remarks>
+        private static string ASavedTutorialBoardJson() =>
+            "{\"completed\":[]," +
+            "\"boards\":[{\"level\":\"" + TutorialLevel.Key + "\"," +
+            "\"placements\":[{\"kind\":\"" + GatePalette.Label(TutorialLevel.Part) + "\"," +
+            "\"x\":" + TutorialLevel.GateCell.x + ",\"y\":" + TutorialLevel.GateCell.y + "}]," +
+            "\"wires\":[],\"bestGates\":0,\"bestLatency\":0}]," +
+            "\"hintsSeen\":[],\"milestones\":[]}";
+
         [UnityTest]
         public IEnumerator ASavedTutorialBoard_IsNeverRestored()
         {
-            // A board saved under the tutorial's key, as an older build could have written. Planted
-            // before the scene loads, because ProgressTracker reads the file in Awake and never
-            // looks again.
-            SaveGuard.Plant(
-                "{\"completed\":[]," +
-                "\"boards\":[{\"level\":\"" + TutorialLevel.Key + "\"," +
-                "\"placements\":[{\"kind\":" + (int)TutorialLevel.Part + ",\"x\":0,\"y\":0}]," +
-                "\"wires\":[],\"bestGates\":0,\"bestLatency\":0}]," +
-                "\"hintsSeen\":[],\"milestones\":[]}");
+            // Planted before the scene loads, because ProgressTracker reads the file in Awake and
+            // never looks again.
+            SaveGuard.Plant(ASavedTutorialBoardJson());
 
             yield return LoadScene();
 
             TutorialDirector director = Find<TutorialDirector>();
             LevelSession session = Find<LevelSession>();
+            SimulationRunner runner = Find<SimulationRunner>();
+            ProgressTracker progress = Find<ProgressTracker>();
 
             yield return BeginTutorial(director);
 
             Assert.AreEqual(TutorialLevel.Key, session.LevelName, "the tutorial did not load");
 
+            // The positive control, and the whole reason the assertion below means anything. The
+            // same saved board, restored by hand into a throwaway blueprint against the tutorial's
+            // own level: it has to come back with the gate in it. If it does not, the planted save
+            // is malformed and an empty board proves nothing about the guard.
+            SavedBoard saved = progress.Store.BoardFor(TutorialLevel.Key);
+            Assert.IsNotNull(saved, "the planted save did not even parse into the store");
+
+            var scratch = new CircuitBlueprint();
+            int dropped = BoardSerializer.Restore(
+                saved, TutorialLevel.Build(runner.HalfExtents), scratch, runner.HalfExtents);
+
+            Assert.AreEqual(0, dropped,
+                "the planted board was dropped by the restore, so it could never have landed on the " +
+                "tutorial and the assertion below is vacuous");
+
+            Assert.AreEqual(1, scratch.Placements.Count,
+                "the planted board has to be restorable for its absence below to mean anything");
+
+            // And now the thing actually under test: the real board stayed empty.
             Assert.IsEmpty(session.Blueprint.Placements,
                 "a saved board was restored onto the tutorial, which satisfies its steps before the " +
                 "player arrives");
