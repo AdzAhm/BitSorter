@@ -190,7 +190,7 @@ MonoBehaviour:
   _bits: {fileID: 794885921}
   _masterVolume: 0.8
   _gateBurstLimit: 3
-  _music: 1
+  _switchSeconds: 0.7
 --- !u!82 &794885890
 AudioSource:
   m_ObjectHideFlags: 0
