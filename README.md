@@ -189,12 +189,15 @@ Two events come from the game itself, and nothing else does:
 
 | Event | Sent when | Data |
 | --- | --- | --- |
-| `levelStarted` | A level is opened | `levelName`, the level's file name |
-| `levelSolved` | A level is solved | `levelName`, the level's file name |
+| `levelStarted` | The first time a level is opened in a session | `levelName`, the level's file name |
+| `levelSolved` | The first time a level is solved in a session | `levelName`, the level's file name |
 
 `levelName` is the identifier, like `half-adder` — not a display title and not
 anything you typed. The pair exists to answer one question: which level people
 stop at.
+
+Each is sent at most once per level per session. Reopening a level, or
+solving it again, is not counted a second time.
 
 Alongside those, Unity's SDK collects its own standard session data: a random
 installation identifier, session start and end, app version, platform and
