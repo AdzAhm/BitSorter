@@ -295,9 +295,15 @@ failure side.
   symbol as undefined, so it comes from a unitytls library outside
   `BuildTools/lib` -- the archives there are not the problem. The release build
   resolves it and has shipped. And the failure window opened when
-  `com.unity.pipeline 0.6.0-exp.1` was added to the project, which also repins
-  `com.unity.test-framework`; a development player had linked cleanly the day
-  before. Try removing that package first.
+  `com.unity.pipeline 0.6.0-exp.1` was added to the project; a development
+  player had linked cleanly the day before.
+
+  **That package has been removed** -- it was never added deliberately. Whether
+  removing it restores the development link is not yet known, because no
+  development WebGL player has been built since. If the Player tab fails the same
+  way again, the package was not the cause. This paragraph once said the package
+  repinned `com.unity.test-framework`. It did not: it declares a dependency on
+  1.1.33, and the project's own 1.6.0 pin resolved the same before and after.
 - **`Editor.log` accumulates across sessions.** A warning found in it may
   be from an old compile and describe code that has since changed, so
   verify against a fresh compile before acting on one. Reading history as
