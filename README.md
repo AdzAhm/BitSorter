@@ -242,10 +242,11 @@ Unity 6.3 LTS (6000.3.11f1).
 - **BitSorter → Build Play Scene** regenerates the play scene from code. The
   scene is generated rather than authored, so anything added by hand is discarded
   the next time that runs.
-- Tests: Window → General → Test Runner. Roughly 645 EditMode cases and 23
-  PlayMode at present, the PlayMode ones across four fixtures — pointer
-  arbitration, audio, scene composition and the tutorial's opening. Those need a
-  live scene, and Unity has to be focused or the run never enters play mode. If
+- Tests: Window → General → Test Runner. Roughly 655 EditMode cases and 30
+  PlayMode at present, the PlayMode ones across six fixtures — pointer
+  arbitration, audio, scene composition, the tutorial's opening, the frame a run
+  ends on, and the HUD allocating nothing on a quiet frame. Those need a live
+  scene, and Unity has to be focused or the run never enters play mode. If
   you ever script that run, read the results from `TestResults.xml` in the save
   directory rather than from a `TestRunnerApi` callback, which does not survive
   the domain reload that entering play mode causes.
