@@ -309,6 +309,25 @@ namespace BitSorter.LogicCore.Tests
             Assert.AreEqual(1, verdict.Vector, "the intruder still belongs to vector 1");
         }
 
+        [TestCase("-011")]
+        [TestCase("-1-0")]
+        public void ALeadingSilentVector_NamesTheIntruder(string expected)
+        {
+            // The pass-through puts a bit on vector 0, where both expectations ask for silence. The
+            // sink's latency used to be read off the first bit received, on the assumption that it
+            // belongs to the first expected vector -- which the intruder here does not. Every vector
+            // then came out one too high: "-011" blamed vector 4 of a four-vector level, and "-1-0"
+            // blamed vector 2, which the circuit leaves exactly as silent as it should be.
+            LevelDefinition level = LevelTestFixtures.FourVectors(expected);
+            CircuitBlueprint blueprint = PassThroughToSink();
+
+            RunVerdict verdict = LevelTestFixtures.RunAndGrade(level, blueprint);
+
+            Assert.AreEqual(RunOutcome.ExtraOutput, verdict.Outcome, verdict.ToString());
+            Assert.AreEqual(0, verdict.Vector, "the intruder is vector 0's bit");
+            StringAssert.Contains("vector 0", verdict.Reason);
+        }
+
         [Test]
         public void ASinkExpectedToStayEmpty_KeepsItsOwnWording()
         {
