@@ -331,3 +331,13 @@ an unbalanced one fails outright, so there is nothing in between to rank.
   ratings, par scores and leaderboards are out by design.
 
 `CLAUDE.md` carries the full set of decisions and the reasoning behind them.
+
+---
+
+## Licence
+
+MIT: see [LICENSE](LICENSE). That covers the code, the levels and the docs.
+
+The TextMesh Pro files Unity bundles under `Assets/TextMesh Pro/` keep their own
+terms: the Unity Companion License, the SIL Open Font License for Liberation Sans,
+and EmojiOne's for its sprites. The details are in `LICENSE`.
