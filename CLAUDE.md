@@ -521,6 +521,9 @@ by name. Treat this section as a place to park ideas, not as a to-do list.
   every other gate, including NOT, can be built from either one alone.
   A level that hands the player nothing but NANDs and asks for XOR.
 
+  **Shipped** as `nothing-but-nand.json`, level 5. This entry went on reading
+  as an unbuilt idea after the level existed.
+
 - **Unbalanced path delays.** Feeding a second-stage gate along paths of
   different total delay causes corruption, not wrong answers. The early
   bit latches in its port, and the next arrival collides with it. This is
