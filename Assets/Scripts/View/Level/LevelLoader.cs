@@ -54,9 +54,9 @@ namespace BitSorter.View
         /// <remarks>
         /// Worth setting per level rather than leaning on this. The limit is spent in real time at the
         /// runner's tick interval, so it is also how long a player stares at a circuit that is never
-        /// going to finish: 100 ticks at the default half-second tick is nearly a minute. Both shipped
-        /// levels settle within 6 ticks and cap themselves at 40. R interrupts a run at any point, so
-        /// this is a backstop rather than the only way out.
+        /// going to finish: 100 ticks at the default half-second tick is nearly a minute. Every shipped
+        /// level sets its own, at 40 or 60; free play and the tutorial are what fall back to this. R
+        /// interrupts a run at any point, so this is a backstop rather than the only way out.
         /// </remarks>
         public const int DefaultTickLimit = 100;
 

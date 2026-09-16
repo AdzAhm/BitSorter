@@ -81,8 +81,9 @@ namespace BitSorter.LogicCore
             if (target == null) throw new ArgumentNullException(nameof(target));
             if (delay < 1)
                 throw new ArgumentOutOfRangeException(nameof(delay), delay,
-                    "Edge delay must be at least 1 tick. Emission happens after delivery within a " +
-                    "tick, so a delay-0 bit could never be delivered.");
+                    "Edge delay must be at least 1 tick. With no delay, one node could see another's " +
+                    "output within the same tick, and the result would depend on the order nodes " +
+                    "are evaluated in.");
 
             Source = source;
             Target = target;

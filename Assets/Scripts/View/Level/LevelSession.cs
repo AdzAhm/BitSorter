@@ -201,8 +201,9 @@ namespace BitSorter.View
         // -----------------------------------------------------------------
 
         /// <summary>
-        /// Loads a level by file name and returns to an empty, editable board. Public so a level-select
-        /// flow can call it later; nothing does yet.
+        /// Loads a level by file name and returns to an empty, editable board. The way into every
+        /// level: the level list, the main menu's Continue, the solved panel's NEXT, Q and E, and the
+        /// tutorial's closing card.
         /// </summary>
         public bool LoadLevel(string levelName)
         {
@@ -295,8 +296,8 @@ namespace BitSorter.View
         /// </summary>
         /// <remarks>
         /// Deliberately keys off the files present rather than a list written down anywhere, so adding
-        /// a level to Resources/Levels puts it in the rotation with no other change. This is a way to
-        /// reach a level, not a level-select screen -- CLAUDE.md still has that under "Not yet".
+        /// a level to Resources/Levels puts it in the rotation with no other change. Q and E use this;
+        /// the level list loads a level by name instead.
         ///
         /// Cycling rather than editing the serialized field because the field cannot be relied on:
         /// rebuilding the scene recreates the component, and a Play-mode edit to it is reverted when
