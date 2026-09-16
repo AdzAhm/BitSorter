@@ -264,6 +264,46 @@ namespace BitSorter.LogicCore.Tests
         }
 
         [Test]
+        public void DelayTheBudgetCannotPayForIsDropped()
+        {
+            // balance-the-paths allows three ticks on any one wire but only two extra ticks in all.
+            // Each wire below is legal by itself and the pair is not: editing refuses the second
+            // re-time, so a restore must not hand the player a board they could never have built --
+            // and one the grader, which never looks at the budget, would then pass.
+            LevelDefinition level = Level("balance-the-paths");
+            Assert.AreEqual(2, level.DelayBudget, "sanity: the level's budget has changed");
+
+            var saved = new SavedBoard
+            {
+                level = "balance-the-paths",
+                placements = new SavedPlacement[0],
+                wires = new[]
+                {
+                    new SavedWire
+                    {
+                        fromX = SourceA.x, fromY = SourceA.y, fromPort = 0,
+                        toX = OutCell.x, toY = OutCell.y, toPort = 0,
+                        delay = 3,
+                    },
+                    new SavedWire
+                    {
+                        fromX = SourceB.x, fromY = SourceB.y, fromPort = 0,
+                        toX = OutCell.x, toY = OutCell.y, toPort = 0,
+                        delay = 3,
+                    },
+                },
+            };
+
+            var blueprint = new CircuitBlueprint();
+            int dropped = BoardSerializer.Restore(saved, level, blueprint, Board);
+
+            Assert.LessOrEqual(blueprint.ExtraDelay(), level.DelayBudget,
+                "the restored board spends more delay than the level allows");
+            Assert.AreEqual(1, dropped, "only the wire the budget cannot pay for should go");
+            Assert.AreEqual(1, blueprint.Wires.Count, "the first wire still fits and should stay");
+        }
+
+        [Test]
         public void APortThatDoesNotExistIsDropped()
         {
             LevelDefinition level = Level();
