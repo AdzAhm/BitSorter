@@ -29,10 +29,18 @@ namespace BitSorter.LogicCore.Tests
         [TearDown]
         public void TearDown() => Delete();
 
+        // The two files that sit beside a save: the write in progress, and a copy of a save that
+        // could not be read.
+        private string TempPath => _path + ".tmp";
+        private string UnreadablePath => _path + ".unreadable";
+
         private void Delete()
         {
-            if (File.Exists(_path))
-                File.Delete(_path);
+            foreach (string path in new[] { _path, TempPath, UnreadablePath })
+            {
+                if (File.Exists(path))
+                    File.Delete(path);
+            }
         }
 
         // -----------------------------------------------------------------
@@ -172,6 +180,47 @@ namespace BitSorter.LogicCore.Tests
             Assert.AreEqual(1, store.CompletedCount, "the empty ones are not levels");
             Assert.IsFalse(store.IsComplete(null));
             Assert.IsFalse(store.IsComplete(string.Empty));
+        }
+
+        // -----------------------------------------------------------------
+        // A save that dies half way
+        // -----------------------------------------------------------------
+
+        [Test]
+        public void ASaveInterruptedBeforeItLanded_IsRecovered()
+        {
+            // A save is written beside the real file and then moved over it. Dying between the two
+            // leaves the complete new save as the temporary file and no real file at all -- and
+            // reading that as a fresh install would throw away everything the new save holds.
+            File.WriteAllText(TempPath, "{\"completed\":[\"route-the-bit\"]}");
+
+            var store = new ProgressStore(_path);
+            store.Load();
+
+            Assert.IsTrue(store.IsComplete("route-the-bit"),
+                "the finished write was sitting beside the save and was not read");
+        }
+
+        [Test]
+        public void AnUnreadableSave_IsKeptForRecovery()
+        {
+            // An unreadable save starts the game fresh, which is right. The next write replacing the
+            // unreadable file is not: whatever was still in it can only be recovered by hand, and
+            // only if it still exists.
+            const string Damaged = "{\"completed\":[\"route-the-bit\",\"half-add";
+            File.WriteAllText(_path, Damaged);
+
+            var store = new ProgressStore(_path);
+            store.Load();
+
+            Assert.IsNotNull(store.LastError, "sanity: the damaged file should not have parsed");
+
+            store.MarkComplete("the-long-way-round");   // any write at all
+
+            Assert.IsTrue(File.Exists(UnreadablePath),
+                "the damaged save was overwritten without a copy being kept");
+            Assert.AreEqual(Damaged, File.ReadAllText(UnreadablePath),
+                "the kept copy should be the damaged file exactly as it was");
         }
 
         // -----------------------------------------------------------------
