@@ -204,7 +204,7 @@ namespace BitSorter.View
 
             for (int i = 0; i < level.Expectations.Count; i++)
             {
-                RunVerdict verdict = GradeSink(view, level.Expectations[i], sinkNodeIds);
+                RunVerdict verdict = GradeSink(view, level.Expectations[i], sinkNodeIds, level.VectorCount);
 
                 if (!verdict.IsPass)
                     return verdict;
@@ -228,7 +228,8 @@ namespace BitSorter.View
         private static RunVerdict GradeSink(
             SimulationView view,
             LevelExpectation expectation,
-            IReadOnlyDictionary<string, int> sinkNodeIds)
+            IReadOnlyDictionary<string, int> sinkNodeIds,
+            int vectorCount)
         {
             string sinkId = expectation.SinkId;
 
@@ -253,12 +254,12 @@ namespace BitSorter.View
             // happens to fit the next slot, on no vector at all.
             //
             // Sources emit vector v on tick v, so a sink at a steady latency L receives vector v on
-            // tick v + L, and L can be read off the first expected bit. This is used only to word
-            // the failure: pass and fail are still decided by value and count alone, so the rule
-            // that arrival ticks are not graded is untouched.
+            // tick v + L -- see InferLatency for how L is found. This is used only to word the
+            // failure: pass and fail are still decided by value and count alone, so the rule that
+            // arrival ticks are not graded is untouched.
             if (expectation.HasSilentVectors && expected.Count > 0 && received.Count > expected.Count)
             {
-                int latency = received[0].Tick - expected[0].Vector;
+                int latency = InferLatency(received, expected, vectorCount);
 
                 for (int i = 0; i < received.Count; i++)
                 {
@@ -371,6 +372,62 @@ namespace BitSorter.View
                 $"Right answer, too slow. {worstSink} took {worst} ticks and this level allows " +
                 $"{level.MaxLatency}. The critical path is too long.",
                 -1, worstSink);
+        }
+
+        /// <summary>
+        /// The latency that best explains when a sink's bits arrived, for naming an intruder.
+        /// </summary>
+        /// <remarks>
+        /// This used to be read off the first bit received, on the assumption that it belongs to the
+        /// first expected vector. An intruder arriving before that vector breaks the assumption, and
+        /// every vector then comes out shifted: "-011" through a plain wire blamed vector 4 of a
+        /// four-vector level.
+        ///
+        /// At most <c>extra</c> intruders can arrive ahead of the first expected bit, so it is one of
+        /// the first <c>extra + 1</c> receptions. Each of those gives a candidate latency, and the
+        /// candidate that puts the most receptions on expected vectors wins. A tie goes to the one
+        /// that puts more of them on vectors that exist at all -- a source emits vectors 0 to
+        /// count - 1 and nothing else -- and a tie after that goes to the earliest.
+        ///
+        /// Quadratic in the receptions, which are one per vector at most bar the intruders, and only
+        /// ever run on a failure path.
+        /// </remarks>
+        private static int InferLatency(
+            IReadOnlyList<SinkNode.Reception> received,
+            IReadOnlyList<ExpectedBit> expected,
+            int vectorCount)
+        {
+            int extra = received.Count - expected.Count;
+            int best = received[0].Tick - expected[0].Vector;
+            int bestMatches = -1;
+            int bestInRange = -1;
+
+            for (int i = 0; i <= extra && i < received.Count; i++)
+            {
+                int latency = received[i].Tick - expected[0].Vector;
+                int matches = 0;
+                int inRange = 0;
+
+                for (int k = 0; k < received.Count; k++)
+                {
+                    int vector = received[k].Tick - latency;
+
+                    if (vector >= 0 && vector < vectorCount)
+                        inRange++;
+
+                    if (ExpectsBitAt(expected, vector))
+                        matches++;
+                }
+
+                if (matches > bestMatches || (matches == bestMatches && inRange > bestInRange))
+                {
+                    best = latency;
+                    bestMatches = matches;
+                    bestInRange = inRange;
+                }
+            }
+
+            return best;
         }
 
         /// <summary>
