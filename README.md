@@ -177,6 +177,10 @@ equivalent. Progress does not travel between the desktop build and a browser, an
 because it is keyed to the address, the two browser links above each keep their
 own.
 
+If the file is ever damaged, say by a crash part way through saving, the game
+starts fresh rather than refusing to open, and keeps a copy of the damaged file
+beside it as `progress.json.unreadable`.
+
 Your progress file itself is never uploaded. Nothing is compared against anyone
 else either — every number the game shows is about the circuit in front of you, or
 the one you built last time.

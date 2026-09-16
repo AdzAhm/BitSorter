@@ -59,6 +59,10 @@ namespace BitSorter.View
     /// also the one most likely to be truncated by a crash or edited by hand -- and losing a session
     /// to a stack trace on startup is a far worse failure than losing the record of which levels were
     /// finished. Anything unreadable is treated as "nothing completed yet".
+    ///
+    /// Treated as, not thrown away. The next save would replace an unreadable file, so a copy is
+    /// kept beside it first, as <c>progress.json.unreadable</c>, for anyone who wants to recover it by
+    /// hand. And a save is never written over the file it replaces: see <see cref="Save"/>.
     /// </remarks>
     public sealed class ProgressStore
     {
@@ -76,6 +80,12 @@ namespace BitSorter.View
         {
             _path = path;
         }
+
+        /// <summary>Where a save is written before it is moved over the real file.</summary>
+        private string TempPath => _path + ".tmp";
+
+        /// <summary>Where the last save that could not be read is kept.</summary>
+        private string UnreadablePath => _path + ".unreadable";
 
         /// <summary>Where the real game keeps its progress.</summary>
         public static string DefaultPath =>
@@ -171,12 +181,16 @@ namespace BitSorter.View
             _hintsSeen.Clear();
             _milestones.Clear();
 
+            string source = null;
+
             try
             {
-                if (!File.Exists(_path))
+                source = ReadablePath();
+
+                if (source == null)
                     return;   // a first run is not a failure
 
-                string json = File.ReadAllText(_path);
+                string json = File.ReadAllText(source);
 
                 if (string.IsNullOrWhiteSpace(json))
                     return;
@@ -238,11 +252,59 @@ namespace BitSorter.View
                 // one: a half-read file must not leave a player taught by a save it could not parse.
                 _hintsSeen.Clear();
                 _milestones.Clear();
+
+                KeepAside(source);
+            }
+        }
+
+        /// <summary>
+        /// The file to read: the save itself, or a finished write that never got moved into place.
+        /// </summary>
+        /// <remarks>
+        /// <see cref="Save"/> removes the old file before moving the new one in, so a crash between
+        /// the two leaves only the temporary file, and it is complete. Reading it is the difference
+        /// between losing nothing and looking like a fresh install.
+        ///
+        /// When both exist, the real file wins. The temporary one is then either a finished write
+        /// that died before replacing it, which costs only the last change, or a half-finished one,
+        /// which must not be read at all.
+        /// </remarks>
+        private string ReadablePath()
+        {
+            if (File.Exists(_path))
+                return _path;
+
+            return File.Exists(TempPath) ? TempPath : null;
+        }
+
+        /// <summary>
+        /// Copies a save that could not be read to where the next save will not replace it.
+        /// </summary>
+        private void KeepAside(string source)
+        {
+            if (source == null)
+                return;
+
+            try
+            {
+                File.Copy(source, UnreadablePath, true);
+            }
+            catch (Exception)
+            {
+                // The load's own error is already recorded, and there is nothing more to try.
             }
         }
 
         /// <summary>Writes the file, and says nothing if it cannot.</summary>
-        /// <inheritdoc cref="Load"/>
+        /// <remarks>
+        /// Never written in place. Writing over the real file empties it first, so a crash part way
+        /// through left nothing complete anywhere. The whole save goes to a temporary file beside it,
+        /// the old file is removed, and the new one is moved into its place; see
+        /// <see cref="ReadablePath"/> for how each point of failure reads back.
+        ///
+        /// Delete and move rather than File.Replace, because rename is the one file operation every
+        /// platform this ships to supports, the browser's virtual file system included.
+        /// </remarks>
         public void Save()
         {
             try
@@ -265,7 +327,12 @@ namespace BitSorter.View
                 if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
                     Directory.CreateDirectory(directory);
 
-                File.WriteAllText(_path, JsonUtility.ToJson(file, true));
+                File.WriteAllText(TempPath, JsonUtility.ToJson(file, true));
+
+                if (File.Exists(_path))
+                    File.Delete(_path);
+
+                File.Move(TempPath, _path);
             }
             catch (Exception exception)
             {

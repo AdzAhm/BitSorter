@@ -202,6 +202,25 @@ namespace BitSorter.LogicCore.Tests
         }
 
         [Test]
+        public void ASaveThatLanded_LeavesNothingBesideIt()
+        {
+            // The temporary file is only ever a save in flight. Left behind by a save that finished,
+            // it would be read the next time the real file went missing -- and it would be stale.
+            var store = new ProgressStore(_path);
+            store.Load();
+            store.MarkComplete("route-the-bit");
+            store.MarkComplete("half-adder");
+
+            Assert.IsTrue(File.Exists(_path), "the save did not land");
+            Assert.IsFalse(File.Exists(TempPath), "the write in progress was left behind");
+
+            var reread = new ProgressStore(_path);
+            reread.Load();
+
+            Assert.IsTrue(reread.IsComplete("half-adder"), "the second save did not replace the first");
+        }
+
+        [Test]
         public void AnUnreadableSave_IsKeptForRecovery()
         {
             // An unreadable save starts the game fresh, which is right. The next write replacing the
