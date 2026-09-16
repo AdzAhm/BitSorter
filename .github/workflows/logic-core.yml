@@ -1,0 +1,24 @@
+# Runs the simulator's own tests on every push and pull request.
+#
+# No Unity here: Assets/Scripts/LogicCore has no engine references, so Tools/ci builds it with the
+# plain .NET SDK and runs the test files that touch nothing else. The rest of the suite -- the view
+# layer, the levels and the Play Mode tests -- still runs in the editor.
+name: LogicCore tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Test
+        run: dotnet test Tools/ci/LogicCore.Tests/LogicCore.Tests.csproj --configuration Release

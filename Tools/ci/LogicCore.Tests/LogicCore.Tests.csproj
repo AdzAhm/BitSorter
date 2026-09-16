@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The logic-core tests, run with `dotnet test` and no Unity licence.
+
+    Only the test files that touch nothing but LogicCore are listed. The rest of the EditMode suite
+    reaches into BitSorter.View and UnityEngine and runs in the editor. A file listed here that
+    later gains a Unity dependency breaks this build, which is the point: these six are the
+    simulator's own tests and should never need the engine.
+
+    NUnit stays on 3.x because the tests use the classic Assert.AreEqual family, which NUnit 4
+    moved to ClassicAssert. Unity's own NUnit is a 3.x fork.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <AssemblyName>BitSorter.LogicCore.Tests</AssemblyName>
+    <RootNamespace>BitSorter.LogicCore.Tests</RootNamespace>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../../../Assets/Tests/EditMode/FullAdderTests.cs" />
+    <Compile Include="../../../Assets/Tests/EditMode/GateTests.cs" />
+    <Compile Include="../../../Assets/Tests/EditMode/HalfAdderTests.cs" />
+    <Compile Include="../../../Assets/Tests/EditMode/ObservationTests.cs" />
+    <Compile Include="../../../Assets/Tests/EditMode/RemovalTests.cs" />
+    <Compile Include="../../../Assets/Tests/EditMode/SimulationTests.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../LogicCore/LogicCore.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
+    <PackageReference Include="NUnit" Version="3.14.0" />
+    <PackageReference Include="NUnit3TestAdapter" Version="6.3.0" />
+  </ItemGroup>
+
+</Project>

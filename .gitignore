@@ -35,6 +35,10 @@ ExportedObj/
 # Generated C# project and solution files (Unity regenerates these)
 # ---------------------------------------------------------------------
 *.csproj
+# ...except the logic-core CI projects, which are written by hand rather than by Unity.
+!/Tools/ci/**/*.csproj
+/Tools/ci/**/bin/
+/Tools/ci/**/obj/
 *.unityproj
 *.sln
 *.slnx

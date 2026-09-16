@@ -1,5 +1,7 @@
 # BitSorter
 
+[![LogicCore tests](https://github.com/AdzAhm/BitSorter/actions/workflows/logic-core.yml/badge.svg)](https://github.com/AdzAhm/BitSorter/actions/workflows/logic-core.yml)
+
 Bits fall through logic. Sort them.
 
 ![A half adder running: bits leave the two sources, cross into an XOR and an AND,
@@ -253,6 +255,10 @@ Unity 6.3 LTS (6000.3.11f1).
   csc's exit code rather than grepping for `error`, because a missing reference
   reports with no `path(line,col):` prefix, and append any source file added
   since Bee wrote the rsp, or it simply is not compiled.
+- **CI** runs the simulator's own tests on every push, with no Unity involved:
+  `Tools/ci/` builds `Assets/Scripts/LogicCore` for netstandard2.1 and runs the
+  test files that touch nothing else. Locally, the same run is
+  `dotnet test Tools/ci/LogicCore.Tests/LogicCore.Tests.csproj`.
 
 ### Why it isn't a physics game
 

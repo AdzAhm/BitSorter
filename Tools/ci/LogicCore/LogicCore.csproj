@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The simulator, built without Unity.
+
+    Assets/Scripts/LogicCore has no engine references (its asmdef sets noEngineReferences), so
+    the same source files compile here unchanged. netstandard2.1 and C# 9 are what Unity builds
+    them with, so code the editor would refuse is refused here too.
+
+    A separate assembly rather than sources compiled into the tests, so the tests see exactly the
+    public surface they see in Unity and nothing internal.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <AssemblyName>BitSorter.LogicCore</AssemblyName>
+    <RootNamespace>BitSorter.LogicCore</RootNamespace>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../../../Assets/Scripts/LogicCore/**/*.cs" />
+  </ItemGroup>
+
+</Project>
