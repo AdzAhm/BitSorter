@@ -64,6 +64,26 @@ namespace BitSorter.LogicCore.Tests
         public void NorGate_TruthTable(Bit a, Bit b, Bit expected) =>
             AssertBinaryGate(new NorGate { Name = "nor" }, a, b, expected);
 
+        // Not a player's gate, but a LogicCore component all the same, and other tests lean on it
+        // to add a tick to a path -- which is only safe if it hands its bit on unchanged.
+        [TestCase(Bit.Zero, Bit.Zero)]
+        [TestCase(Bit.One, Bit.One)]
+        public void PassThroughNode_TruthTable(Bit input, Bit expected)
+        {
+            var sim = new Simulation();
+            var source = sim.Add(new SourceNode(new[] { input }) { Name = "source" });
+            var pass = sim.Add(new PassThroughNode { Name = "pass" });
+            var sink = sim.Add(new SinkNode() { Name = "sink" });
+
+            sim.Connect(source.Out(0), pass.In(0), delay: 1);  // arrives tick 1, node fires tick 1
+            sim.Connect(pass.Out(0), sink.In(0), delay: 1);    // and reaches the sink at tick 2
+
+            sim.Run(4);
+
+            CollectionAssert.AreEqual(new[] { R(expected, 2) }, sink.Received);
+            Assert.AreEqual(0, sim.CorruptedCount);
+        }
+
         // -----------------------------------------------------------------
         // Gating on input readiness
         // -----------------------------------------------------------------
