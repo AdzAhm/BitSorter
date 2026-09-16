@@ -12,7 +12,7 @@ namespace BitSorter.View
     /// <see cref="TutorialScript"/>'s answer, from facts gathered below; this decides nothing about
     /// the sequence, and nothing here blocks any input.
     ///
-    /// Three phases either side of the six steps. An opening line orients the player before being
+    /// One phase either side of the six steps. An opening line orients the player before being
     /// asked to click anything, and a closing card lists the controls the six steps never touched.
     /// Neither is a step: a step is a predicate over board state, and "the player pressed Next" is
     /// not, so making them steps would mean tracking exactly the latching state the design avoids.
@@ -24,10 +24,6 @@ namespace BitSorter.View
             Idle,
             Intro,
             Steps,
-
-            /// <summary>Solved, waiting for the ordinary win panel to be dismissed.</summary>
-            AwaitWin,
-
             Card,
         }
 
@@ -49,6 +45,17 @@ namespace BitSorter.View
 
         private Phase _phase = Phase.Idle;
         private bool _menuHasClosed;
+
+        /// <summary>
+        /// Whether the solved panel has been seen on screen since the run passed.
+        /// </summary>
+        /// <remarks>
+        /// The ending waits for the solved panel to have had its turn, and "not showing" cannot say
+        /// that by itself: on the frame a run passes, the panel may simply not have updated yet, and
+        /// whether it has depends on an Update order Unity does not define. So the card waits until
+        /// the panel has been seen, and then until it is gone.
+        /// </remarks>
+        private bool _winSeen;
 
         /// <summary>Whether the tutorial is running right now.</summary>
         public bool IsRunning => _phase != Phase.Idle;
@@ -132,6 +139,11 @@ namespace BitSorter.View
             if (!_menuHasClosed && !UiModal.AnyOpen)
                 _menuHasClosed = true;
 
+            if (_session.State != RunState.Passed)
+                _winSeen = false;
+            else if (WinShowing)
+                _winSeen = true;
+
             if (_phase == Phase.Idle)
             {
                 OfferOnAFreshSave();
@@ -152,14 +164,6 @@ namespace BitSorter.View
             if (UiModal.AnyOpen || WinShowing)
             {
                 Hide();
-                return;
-            }
-
-            // The solved panel has been dismissed and nothing replaced it, so the ending can have
-            // the screen to itself.
-            if (_phase == Phase.AwaitWin)
-            {
-                ShowCard();
                 return;
             }
 
@@ -254,10 +258,16 @@ namespace BitSorter.View
 
             if (index >= TutorialScript.Count)
             {
-                // Not the card yet. The run has just passed, so the ordinary solved panel is about
-                // to appear; the ending waits its turn rather than sharing the screen with it.
-                _phase = Phase.AwaitWin;
-                Hide();
+                // The run has passed. The ordinary solved panel goes first, and the ending waits
+                // until it has been shown and dismissed rather than sharing the screen with it. The
+                // guard above already holds everything back while the panel is up.
+                if (_winPanel != null && !_winSeen)
+                {
+                    Hide();
+                    return;
+                }
+
+                ShowCard();
                 return;
             }
 

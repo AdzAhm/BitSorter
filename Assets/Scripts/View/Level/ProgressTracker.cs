@@ -26,12 +26,17 @@ namespace BitSorter.View
         [SerializeField] private string _pathOverride;
 
         private ProgressStore _store;
-        private RunState _state = RunState.Editing;
 
         /// <summary>The store, loaded. Null only before Awake has run.</summary>
         public ProgressStore Store => _store;
 
-        /// <summary>Set on the frame a personal best is beaten, for the win panel to read.</summary>
+        /// <summary>
+        /// Whether the last solve beat the gate record, for the win panel to read.
+        /// </summary>
+        /// <remarks>
+        /// Set inside the call that settles the run, so it is already current on whichever frame
+        /// anything first sees the pass.
+        /// </remarks>
         public bool BeatGateRecord { get; private set; }
 
         /// <inheritdoc cref="BeatGateRecord"/>
@@ -41,10 +46,9 @@ namespace BitSorter.View
         /// Raised with the level's file name each time a level is solved.
         /// </summary>
         /// <remarks>
-        /// Exists so anything else that cares about a solve does not have to re-derive it. Detecting
-        /// a solve means watching for the frame <see cref="LevelSession.State"/> becomes
-        /// <see cref="RunState.Passed"/>, and a second copy of that check is a second thing to drift.
-        /// Fires on every solve, including re-solves of a level already recorded.
+        /// Exists so anything else that cares about a solve does not have to re-derive it, including
+        /// the rule that the tutorial and free play are not levels. Fires on every solve, including
+        /// re-solves of a level already recorded.
         /// </remarks>
         public event Action<string> LevelSolved;
 
@@ -73,6 +77,7 @@ namespace BitSorter.View
 
             _session.LevelUnloading += SaveBoard;
             _session.LevelLoaded += RestoreBoard;
+            _session.RunEnded += OnRunEnded;
         }
 
         private void OnDisable()
@@ -82,6 +87,7 @@ namespace BitSorter.View
 
             _session.LevelUnloading -= SaveBoard;
             _session.LevelLoaded -= RestoreBoard;
+            _session.RunEnded -= OnRunEnded;
         }
 
         /// <summary>Quitting is the other way a board goes missing.</summary>
@@ -91,17 +97,19 @@ namespace BitSorter.View
                 SaveBoard(_session.LevelName);
         }
 
-        private void Update()
+        /// <summary>
+        /// Records a solve in the same call that settles the run.
+        /// </summary>
+        /// <remarks>
+        /// This used to be an Update watching for the state to become Passed, and the win panel
+        /// watched for the same thing in an Update of its own. Unity does not define which of the two
+        /// runs first, so the panel could present before the solve was recorded and show the previous
+        /// record. Recording here means the record is current before anything can see the pass.
+        /// </remarks>
+        private void OnRunEnded(RunState state)
         {
-            if (_session == null || _store == null || !_session.IsLoaded)
-                return;
-
-            RunState now = _session.State;
-
-            if (now != _state && now == RunState.Passed)
+            if (state == RunState.Passed && _store != null && _session.IsLoaded)
                 RecordSolve();
-
-            _state = now;
         }
 
         // -----------------------------------------------------------------

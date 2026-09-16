@@ -135,6 +135,18 @@ namespace BitSorter.View
         /// </remarks>
         public event Action<string> LevelUnloading;
 
+        /// <summary>
+        /// Raised when a run stops, carrying the state it stopped in: Passed, Failed or Finished.
+        /// </summary>
+        /// <remarks>
+        /// Raised after <see cref="State"/> and <see cref="Verdict"/> are final, from the same call
+        /// that sets them. That is the point of it. Anything polling State in its own Update sees a
+        /// pass on whichever frame Unity happens to update it, and Unity does not define that order
+        /// between components -- so something that has to be true by the time a pass is visible,
+        /// like the solve being on record, belongs here rather than in a second poll.
+        /// </remarks>
+        public event Action<RunState> RunEnded;
+
         /// <summary>Position of the current level in <see cref="AvailableLevels"/>, or -1.</summary>
         public int LevelIndex
         {
@@ -439,11 +451,14 @@ namespace BitSorter.View
             {
                 Verdict = default;
                 State = RunState.Finished;
-                return;
+            }
+            else
+            {
+                Verdict = LevelGrader.Grade(_runner.View, Level, _runner.FixtureNodeIds, settled);
+                State = Verdict.IsPass ? RunState.Passed : RunState.Failed;
             }
 
-            Verdict = LevelGrader.Grade(_runner.View, Level, _runner.FixtureNodeIds, settled);
-            State = Verdict.IsPass ? RunState.Passed : RunState.Failed;
+            RunEnded?.Invoke(State);
         }
 
         // -----------------------------------------------------------------
