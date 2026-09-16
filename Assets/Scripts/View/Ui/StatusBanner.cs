@@ -45,6 +45,17 @@ namespace BitSorter.View
         private Image _toastBackground;
         private TextMeshProUGUI _toast;
 
+        // What the title and the verdict were last drawn from. Both are formatted strings, and
+        // formatting them every frame handed TextMeshPro text equal to what it already had while
+        // leaving garbage behind each time. They are redrawn only when one of these changes.
+        private LevelDefinition _titleLevel;
+        private int _titleIndex;
+        private int _titleCount;
+
+        private RunState? _verdictState;
+        private string _verdictReason;
+        private bool _verdictPaused;
+
         private void Awake()
         {
             if (_session == null) _session = FindFirstObjectByType<LevelSession>();
@@ -108,6 +119,10 @@ namespace BitSorter.View
                 _goal.text = _session.LoadError ?? string.Empty;
                 _verdict.text = string.Empty;
                 ShowToast(false);
+
+                // Both were just overwritten, so both are drawn afresh once a level does load.
+                _titleLevel = null;
+                _verdictState = null;
                 return;
             }
 
@@ -120,9 +135,16 @@ namespace BitSorter.View
             int index = _session.LevelIndex;
             int count = _session.AvailableLevels.Count;
 
-            _title.text = count > 1 && index >= 0
-                ? $"{level.Name.ToUpperInvariant()}   {index + 1} / {count}"
-                : level.Name.ToUpperInvariant();
+            if (level != _titleLevel || index != _titleIndex || count != _titleCount)
+            {
+                _title.text = count > 1 && index >= 0
+                    ? $"{level.Name.ToUpperInvariant()}   {index + 1} / {count}"
+                    : level.Name.ToUpperInvariant();
+
+                _titleLevel = level;
+                _titleIndex = index;
+                _titleCount = count;
+            }
 
             _goal.text = level.Goal;
 
@@ -135,21 +157,32 @@ namespace BitSorter.View
 
         private void ShowVerdict()
         {
-            switch (_session.State)
+            RunState state = _session.State;
+            string reason = _session.Verdict.Reason;
+            bool paused = _runner != null && _runner.IsPaused;
+
+            if (state == _verdictState && reason == _verdictReason && paused == _verdictPaused)
+                return;
+
+            _verdictState = state;
+            _verdictReason = reason;
+            _verdictPaused = paused;
+
+            switch (state)
             {
                 case RunState.Passed:
                     _verdict.color = UiTheme.Good;
-                    _verdict.text = "PASS -- " + _session.Verdict.Reason;
+                    _verdict.text = "PASS -- " + reason;
                     break;
 
                 case RunState.Failed:
                     _verdict.color = UiTheme.Bad;
-                    _verdict.text = "FAIL -- " + _session.Verdict.Reason;
+                    _verdict.text = "FAIL -- " + reason;
                     break;
 
                 case RunState.Running:
                     _verdict.color = UiTheme.TextDim;
-                    _verdict.text = _runner != null && _runner.IsPaused ? "PAUSED" : "RUNNING";
+                    _verdict.text = paused ? "PAUSED" : "RUNNING";
                     break;
 
                 // Neutral on purpose. Free play has no verdict, and colouring this Good or Bad would

@@ -27,6 +27,13 @@ namespace BitSorter.View
             public Image Frame;
             public Image Icon;
             public TextMeshProUGUI Count;
+
+            // What Count was last drawn from. Formatting it every frame handed TextMeshPro text
+            // equal to what it already had while leaving garbage behind; it is redrawn on change.
+            // A fresh row starts undrawn.
+            public int DrawnPlaced = -1;
+            public int DrawnTotal = -1;
+            public bool DrawnUnlimited;
         }
 
         [SerializeField] private LevelSession _session;
@@ -44,6 +51,10 @@ namespace BitSorter.View
         private readonly List<Row> _rows = new List<Row>();
         private RectTransform _root;
         private TextMeshProUGUI _delay;
+
+        // What the delay line was last drawn from, for the same reason each row keeps its own.
+        private int _drawnSpent = -1;
+        private int _drawnDelayBudget = -1;
 
         /// <summary>
         /// Where a part's row sits, for the tutorial to point at. Null if this level does not offer
@@ -126,7 +137,13 @@ namespace BitSorter.View
             int spent = _session.SpentDelay;
             int total = _session.Level.DelayBudget;
 
-            _delay.text = $"DELAY  {spent} of {total}";
+            if (spent != _drawnSpent || total != _drawnDelayBudget)
+            {
+                _delay.text = $"DELAY  {spent} of {total}";
+                _drawnSpent = spent;
+                _drawnDelayBudget = total;
+            }
+
             _delay.color = spent < total ? UiTheme.TextDim : UiTheme.Bad;
         }
 
@@ -159,6 +176,8 @@ namespace BitSorter.View
                 _rows.Add(BuildRow(level.Budget[i], i, rowHeight));
 
             _delay = UiTheme.Label("delay", _root, 13f, UiTheme.TextDim, TextAlignmentOptions.Left);
+            _drawnSpent = -1;
+            _drawnDelayBudget = -1;
             UiTheme.Anchor(_delay.rectTransform, new Vector2(0f, 0f), new Vector2(0f, 0f),
                 new Vector2(UiTheme.Gap, 0f), new Vector2(_root.sizeDelta.x, 20f));
         }
@@ -229,7 +248,13 @@ namespace BitSorter.View
 
             // Free play still shows what is on the board -- the count is the useful half of this row
             // even when nothing is being spent -- but there is no "of" to put after it.
-            row.Count.text = unlimited ? $"{placed} placed" : $"{left} of {total}";
+            if (placed != row.DrawnPlaced || total != row.DrawnTotal || unlimited != row.DrawnUnlimited)
+            {
+                row.Count.text = unlimited ? $"{placed} placed" : $"{left} of {total}";
+                row.DrawnPlaced = placed;
+                row.DrawnTotal = total;
+                row.DrawnUnlimited = unlimited;
+            }
 
             // Exhausted is dimmed but still selectable: the player may yet remove one and place it
             // elsewhere, which is exactly what LevelDefinition.Offers documents.
