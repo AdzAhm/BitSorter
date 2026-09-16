@@ -83,8 +83,9 @@ namespace BitSorter.View
     /// <remarks>
     /// Restoring validates rather than trusts, which is the whole reason this is separate from the
     /// store. A board saved before its level was edited can name a cell that now holds a fixture, a
-    /// gate the budget no longer stocks, or a port that no longer exists -- and restoring any of
-    /// those blindly would put the player on a board they could not have built and cannot fix.
+    /// gate the budget no longer stocks, a port that no longer exists, or more delay than the budget
+    /// now pays for -- and restoring any of those blindly would put the player on a board they could
+    /// not have built. The grader never looks at budgets, so an overspent board would also pass.
     /// Anything that no longer resolves is dropped, and the rest is restored.
     /// </remarks>
     public static class BoardSerializer
@@ -210,9 +211,15 @@ namespace BitSorter.View
                 var fromCell = new Vector2Int(wire.fromX, wire.fromY);
                 var toCell = new Vector2Int(wire.toX, wire.toY);
 
+                // Wires are kept in file order, so the ones that fit the budget first stay -- the
+                // same answer editing gives, where the re-time that overspends is the one refused.
+                bool affordable = !level.HasDelayBudget ||
+                                  blueprint.ExtraDelay() + (wire.delay - 1) <= level.DelayBudget;
+
                 bool legal =
                     wire.delay >= 1 &&
                     wire.delay <= level.MaxWireDelay &&
+                    affordable &&
                     wire.fromPort >= 0 && wire.fromPort < OutputsAt(fromCell, level, blueprint) &&
                     wire.toPort >= 0 && wire.toPort < InputsAt(toCell, level, blueprint) &&
                     !blueprint.HasWire(
