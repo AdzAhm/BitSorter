@@ -316,17 +316,6 @@ namespace BitSorter.View
         /// Whether the worst source-to-sink latency the run showed fits the level's ceiling.
         /// </summary>
         /// <remarks>
-        /// Sources emit vector v on tick v, so a bit's latency is the tick it was consumed minus the
-        /// vector it belongs to. Measured off the run rather than walked over the graph: a longest
-        /// path is undefined on a cyclic blueprint, and <see cref="WiringRules"/> permits cycles on
-        /// purpose. It also measures the circuit the player actually watched.
-        ///
-        /// The maximum across every graded bit, not the first vector's. In a circuit that reached
-        /// this point the two are the same, because a sink fed at uneven latency reorders or destroys
-        /// bits and has already failed above. Taking the maximum costs one comparison per bit and
-        /// means that if that structural assumption ever stops holding, the level fails loudly
-        /// instead of quietly grading the circuit on its best vector.
-        ///
         /// Only reached when the level sets a ceiling, so the rule that arrival ticks are not graded
         /// still holds everywhere else.
         /// </remarks>
@@ -335,8 +324,48 @@ namespace BitSorter.View
             LevelDefinition level,
             IReadOnlyDictionary<string, int> sinkNodeIds)
         {
+            int worst = WorstLatency(view, level, sinkNodeIds, out string worstSink);
+
+            if (worst <= level.MaxLatency)
+                return RunVerdict.Pass(null);
+
+            return RunVerdict.Fail(RunOutcome.TooSlow,
+                $"Right answer, too slow. {worstSink} took {worst} ticks and this level allows " +
+                $"{level.MaxLatency}. The critical path is too long.",
+                -1, worstSink);
+        }
+
+        /// <summary>
+        /// The worst source-to-sink latency a finished run showed, in ticks, or -1 when no graded
+        /// bit arrived. <paramref name="worstSink"/> names the sink it was measured at.
+        /// </summary>
+        /// <remarks>
+        /// One measurement for both of its readers: the latency ceiling here, and the personal best
+        /// <see cref="ProgressTracker"/> records. Two copies of it could disagree about what a player
+        /// was graded on and what they were told they achieved.
+        ///
+        /// Sources emit vector v on tick v, so a bit's latency is the tick it was consumed minus the
+        /// vector it belongs to. Measured off the run rather than walked over the graph: a longest
+        /// path is undefined on a cyclic blueprint, and <see cref="WiringRules"/> permits cycles on
+        /// purpose. It also measures the circuit the player actually watched.
+        ///
+        /// The maximum across every graded bit, not the first vector's. In a circuit that passed the
+        /// sequence checks the two are the same, because a sink fed at uneven latency reorders or
+        /// destroys bits and fails those. Taking the maximum costs one comparison per bit and means
+        /// that if that structural assumption ever stops holding, the level fails loudly instead of
+        /// quietly grading the circuit on its best vector.
+        ///
+        /// Pairs received and expected bits by position, which is only meaningful once the sequences
+        /// have been shown to match -- that is, on a run that passed them.
+        /// </remarks>
+        public static int WorstLatency(
+            SimulationView view,
+            LevelDefinition level,
+            IReadOnlyDictionary<string, int> sinkNodeIds,
+            out string worstSink)
+        {
             int worst = -1;
-            string worstSink = null;
+            worstSink = null;
 
             for (int i = 0; i < level.Expectations.Count; i++)
             {
@@ -351,8 +380,8 @@ namespace BitSorter.View
                 IReadOnlyList<SinkNode.Reception> received = sink.Received;
                 IReadOnlyList<ExpectedBit> expected = expectation.Expected;
 
-                // The two sequences have already been proved to match, so index k of one is index k
-                // of the other. The bound is belt and braces.
+                // The bound on both is belt and braces: on a run that passed the sequence checks,
+                // index k of one is index k of the other.
                 for (int k = 0; k < expected.Count && k < received.Count; k++)
                 {
                     int latency = received[k].Tick - expected[k].Vector;
@@ -365,13 +394,7 @@ namespace BitSorter.View
                 }
             }
 
-            if (worst <= level.MaxLatency)
-                return RunVerdict.Pass(null);
-
-            return RunVerdict.Fail(RunOutcome.TooSlow,
-                $"Right answer, too slow. {worstSink} took {worst} ticks and this level allows " +
-                $"{level.MaxLatency}. The critical path is too long.",
-                -1, worstSink);
+            return worst;
         }
 
         /// <summary>

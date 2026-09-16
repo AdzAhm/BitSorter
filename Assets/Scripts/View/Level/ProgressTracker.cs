@@ -1,5 +1,4 @@
 using System;
-using BitSorter.LogicCore;
 using UnityEngine;
 
 namespace BitSorter.View
@@ -203,35 +202,22 @@ namespace BitSorter.View
         }
 
         /// <summary>
-        /// The worst source-to-sink latency the winning run showed, in ticks.
+        /// The worst source-to-sink latency the winning run showed, in ticks, or zero if none.
         /// </summary>
         /// <remarks>
-        /// The same figure LevelGrader measures against maxLatency, worked out the same way: sources
-        /// emit vector v on tick v, so a bit's latency is the tick it landed minus the vector it
-        /// belongs to. Read off the run that just passed, so it describes the circuit the player
-        /// actually built.
+        /// <see cref="LevelGrader.WorstLatency"/> itself, so the record and the maxLatency ceiling
+        /// cannot measure different things. Read off the run that just passed, so it describes the
+        /// circuit the player actually built.
         /// </remarks>
         private int MeasuredLatency()
         {
             if (_runner == null || !_runner.IsReady)
                 return 0;
 
-            SimulationView view = _runner.View;
-            int worst = 0;
+            int worst = LevelGrader.WorstLatency(
+                _runner.View, _session.Level, _runner.FixtureNodeIds, out string _);
 
-            foreach (LevelExpectation expectation in _session.Level.Expectations)
-            {
-                if (!_runner.FixtureNodeIds.TryGetValue(expectation.SinkId, out int nodeId))
-                    continue;
-
-                if (nodeId < 0 || nodeId >= view.NodeCount || !(view.GetNode(nodeId) is SinkNode sink))
-                    continue;
-
-                for (int k = 0; k < expectation.Expected.Count && k < sink.Received.Count; k++)
-                    worst = Mathf.Max(worst, sink.Received[k].Tick - expectation.Expected[k].Vector);
-            }
-
-            return worst;
+            return Mathf.Max(0, worst);
         }
 
         /// <summary>Whether a level has ever been solved. False before Awake.</summary>
