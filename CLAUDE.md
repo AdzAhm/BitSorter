@@ -340,7 +340,11 @@ failure side.
   claimed and released — a claim that leaks disables input silently, with
   no error and no way for the player to recover. `WiringController` runs at
   `DefaultExecutionOrder(-100)` because a press that grabs a port and a
-  press that places a gate are the same press.
+  press that places a gate are the same press. `PointerGate` itself runs at
+  `-30000` and samples "over the interface" before anything reacts to the
+  frame's input: a tap puts press and release in one frame, the event system
+  handles the whole click, and a button that closes its panel would otherwise
+  leave nothing under the pointer by the time placement asks.
 - **Nothing may depend on the order components update in.** Unity leaves it
   undefined for scripts with no execution order. When one component needs a
   fact to be true by the time another can see something, produce that fact in
