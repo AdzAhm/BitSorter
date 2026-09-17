@@ -106,6 +106,49 @@ namespace BitSorter.LogicCore.Tests
         }
 
         // -----------------------------------------------------------------
+        // Fixtures stay where the circuit expects them
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// Adding a source or a sink never moves one that was already there.
+        /// </summary>
+        /// <remarks>
+        /// Wires are stored by cell. Fixtures used to be re-centred in their column whenever their
+        /// count changed, so going from one source to two moved A up a row and put B where A had
+        /// been -- and every wire the player had drawn from A now came from B. Nothing said so; the
+        /// circuit simply started computing something else.
+        /// </remarks>
+        [Test]
+        public void AddingAFixture_NeverMovesTheOnesAlreadyThere()
+        {
+            int capacity = SandboxLevel.Capacity(Board);
+
+            for (int count = 1; count < capacity; count++)
+            {
+                LevelDefinition fewer = SandboxLevel.Build(Config(count, count, 4), Board);
+                LevelDefinition more = SandboxLevel.Build(Config(count + 1, count + 1, 4), Board);
+
+                foreach (LevelFixture fixture in fewer.Fixtures)
+                {
+                    Assert.AreEqual(fixture.Cell, CellOf(more, fixture.Id),
+                        $"going from {count} to {count + 1}, {fixture.Id} moved");
+                }
+            }
+        }
+
+        private static Vector2Int CellOf(LevelDefinition level, string id)
+        {
+            foreach (LevelFixture fixture in level.Fixtures)
+            {
+                if (fixture.Id == id)
+                    return fixture.Cell;
+            }
+
+            Assert.Fail($"no fixture {id}");
+            return default;
+        }
+
+        // -----------------------------------------------------------------
         // Saying why nothing happens
         // -----------------------------------------------------------------
 
