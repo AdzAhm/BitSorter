@@ -103,21 +103,17 @@ namespace BitSorter.View.EditorTools
             DiagnosticsPanel diagnostics = host.AddComponent<DiagnosticsPanel>();
             ProgressTracker progress = host.AddComponent<ProgressTracker>();
 
-            // After the tracker, whose Awake loads the store this reads. Component Awake order on one
-            // GameObject follows the order they were added, and a hint that asked an unloaded store
-            // would decide nothing had ever been seen and show every hint again.
+            // Reads the tracker's store only in Update, after every Awake has run, so its place in
+            // this list does not matter. Nothing here should depend on the order components are
+            // added: Unity does not promise that they wake or update in that order.
             FirstTimeHints hints = host.AddComponent<FirstTimeHints>();
 
             LevelSelectPanel levelSelect = host.AddComponent<LevelSelectPanel>();
             HelpPanel help = host.AddComponent<HelpPanel>();
             WinPanel winPanel = host.AddComponent<WinPanel>();
 
-            // After ProgressTracker, whose Awake loads the store it reads, and after WinPanel, which
-            // is the load-bearing half. Components on one GameObject run in the order they were
-            // added, so on the frame a run passes WinPanel presents first and the director sees a
-            // solved panel already up. Added before it, the director would look for a panel that had
-            // not presented yet, conclude there was none, and put its ending card on screen
-            // alongside it -- which is the exact overlap this ordering exists to prevent.
+            // The director waits until it has seen the solved panel showing before its ending card
+            // goes up, so its place relative to WinPanel does not matter either.
             TutorialDirector tutorial = host.AddComponent<TutorialDirector>();
             SinkCelebration celebration = host.AddComponent<SinkCelebration>();
             MainMenu mainMenu = host.AddComponent<MainMenu>();
