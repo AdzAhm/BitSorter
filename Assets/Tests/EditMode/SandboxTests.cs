@@ -136,6 +136,30 @@ namespace BitSorter.LogicCore.Tests
             }
         }
 
+        /// <summary>
+        /// A cell that a later source or sink could need is not somewhere a gate can go.
+        /// </summary>
+        /// <remarks>
+        /// Otherwise adding a source can land it on a gate the player placed there, and the restore
+        /// that follows drops the gate -- along with every wire into it -- without a word.
+        /// </remarks>
+        [Test]
+        public void ACellAFixtureMayLaterNeed_IsNotSomewhereAGateCanGo()
+        {
+            LevelDefinition level = SandboxLevel.Build(Config(2, 2, 4), Board);
+            LevelDefinition full = SandboxLevel.Build(
+                Config(SandboxLevel.Capacity(Board), SandboxLevel.Capacity(Board), 4), Board);
+
+            foreach (LevelFixture fixture in full.Fixtures)
+            {
+                LevelVerdict verdict = LevelRules.CanPlace(
+                    level, new CircuitBlueprint(), RunState.Editing, GateKind.Not, fixture.Cell, Board);
+
+                Assert.IsFalse(verdict.IsValid,
+                    $"a gate may go on {fixture.Cell}, where {fixture.Id} would appear");
+            }
+        }
+
         private static Vector2Int CellOf(LevelDefinition level, string id)
         {
             foreach (LevelFixture fixture in level.Fixtures)
