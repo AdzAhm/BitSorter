@@ -56,6 +56,30 @@ namespace BitSorter.View
         private int _drawnSpent = -1;
         private int _drawnDelayBudget = -1;
 
+        private readonly Vector3[] _corners = new Vector3[4];
+
+        /// <summary>
+        /// The parts list's right edge, in screen pixels, or zero before it is built.
+        /// </summary>
+        /// <remarks>
+        /// Read by <see cref="CameraFit"/>, which frames the board clear of it. The canvas is a
+        /// screen-space overlay, so world corners are screen pixels.
+        ///
+        /// Measured whether or not the list is showing. It steps aside for full-screen panels, and a
+        /// board that re-framed every time one opened would jump about behind it.
+        /// </remarks>
+        public float ScreenRightEdge
+        {
+            get
+            {
+                if (_root == null)
+                    return 0f;
+
+                _root.GetWorldCorners(_corners);
+                return _corners[2].x;
+            }
+        }
+
         /// <summary>
         /// Where a part's row sits, for the tutorial to point at. Null if this level does not offer
         /// that part, or before the palette has been built.

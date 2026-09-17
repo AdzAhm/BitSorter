@@ -66,7 +66,13 @@ namespace BitSorter.View
                 return new Vector2(24f, 14f);
 
             float height = _camera.orthographicSize * 2f + _padding;
-            return new Vector2(height * _camera.aspect + _padding, height);
+
+            // The tile stays centred on the board, so its pattern keeps lining up with the grid, and
+            // grows instead to cover a camera that has moved sideways to frame the board clear of
+            // the interface.
+            float shift = Mathf.Abs(_camera.transform.position.x) * 2f;
+
+            return new Vector2(height * _camera.aspect + _padding + shift, height);
         }
     }
 }
