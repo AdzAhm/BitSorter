@@ -44,6 +44,21 @@ namespace BitSorter.View
         public int vectors;
 
         /// <summary>
+        /// Which way this config's fixtures were laid out when its board was saved.
+        /// </summary>
+        /// <remarks>
+        /// Zero is what JsonUtility reads for a save written before the field existed, and those
+        /// saves centred their fixtures in the column. <see cref="SandboxLevel.MigrateLegacyBoard"/>
+        /// moves such a board onto the fixed slots and raises this to <see cref="CurrentLayout"/>.
+        /// Everything that makes a new config sets it, because a new board mistaken for an old one
+        /// would have its wires moved somewhere they were never drawn.
+        /// </remarks>
+        public int layout;
+
+        /// <summary>Fixtures in fixed slots, counted from the top of the column.</summary>
+        public const int CurrentLayout = 1;
+
+        /// <summary>
         /// Brings the config back inside its own rules: counts clamped, and every stream exactly
         /// <see cref="vectors"/> characters of '0' or '1'.
         /// </summary>
@@ -85,7 +100,7 @@ namespace BitSorter.View
         /// <summary>A copy, so a config can be edited without disturbing the one already built.</summary>
         public SandboxConfig Clone()
         {
-            var copy = new SandboxConfig { sinks = sinks, vectors = vectors };
+            var copy = new SandboxConfig { sinks = sinks, vectors = vectors, layout = layout };
 
             if (sources != null)
             {

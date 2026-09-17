@@ -99,11 +99,19 @@ namespace BitSorter.View
             Show(true);
         }
 
+        /// <remarks>
+        /// A board saved before fixtures had fixed slots is moved onto them here, before free play is
+        /// built, because the restore that follows reads the same stored board. The store hands out
+        /// the board it holds, so the move is staged simply by making it, and written with the next
+        /// save of this board.
+        /// </remarks>
         private SandboxConfig Stored()
         {
             SavedBoard board = _progress != null && _progress.Store != null
                 ? _progress.Store.BoardFor(SandboxLevel.Key)
                 : null;
+
+            SandboxLevel.MigrateLegacyBoard(board, Extents());
 
             return board?.sandbox;
         }

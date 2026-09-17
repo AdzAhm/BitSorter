@@ -90,6 +90,7 @@ namespace BitSorter.View
             var config = new SandboxConfig
             {
                 vectors = DefaultVectors,
+                layout = SandboxConfig.CurrentLayout,
                 sinks = Mathf.Min(DefaultSinks, capacity),
                 sources = new string[Mathf.Min(DefaultSources, capacity)],
             };
@@ -123,7 +124,7 @@ namespace BitSorter.View
                 fixtures.Add(new LevelFixture(
                     SourceId(i),
                     FixtureKind.Source,
-                    Cell(-halfExtents.x, i, config.sources.Length, halfExtents),
+                    Cell(-halfExtents.x, i, halfExtents),
                     ToBits(config.sources[i])));
             }
 
@@ -132,7 +133,7 @@ namespace BitSorter.View
                 fixtures.Add(new LevelFixture(
                     SinkId(i),
                     FixtureKind.Sink,
-                    Cell(halfExtents.x, i, config.sinks, halfExtents),
+                    Cell(halfExtents.x, i, halfExtents),
                     System.Array.Empty<Bit>()));
             }
 
@@ -165,15 +166,83 @@ namespace BitSorter.View
         public static string SinkId(int index) => $"OUT {index + 1}";
 
         /// <summary>
-        /// Where the nth of <paramref name="count"/> fixtures sits in its column, centred vertically
-        /// so a lone source is level with the middle of the board rather than pinned to the top.
+        /// Where the nth fixture of a column sits: its own slot, counted from the top, whatever the
+        /// count.
         /// </summary>
-        private static Vector2Int Cell(int x, int index, int count, Vector2Int halfExtents)
-        {
-            int capacity = Capacity(halfExtents);
-            int offset = (capacity - count) / 2;
+        /// <remarks>
+        /// Fixtures used to be centred in the column, so a lone source sat level with the middle of
+        /// the board. That moved every fixture whenever the count changed, and wires are stored by
+        /// cell: adding a second source put B where A had been, and every wire drawn from A came
+        /// from B from then on, with nothing on screen to say so.
+        /// </remarks>
+        private static Vector2Int Cell(int x, int index, Vector2Int halfExtents) =>
+            new Vector2Int(x, halfExtents.y - index);
 
-            return new Vector2Int(x, halfExtents.y - offset - index);
+        /// <summary>
+        /// Moves a board saved while fixtures were centred onto the slots they have now. True if the
+        /// board needed it.
+        /// </summary>
+        /// <remarks>
+        /// Wire ends are moved from each fixture's old cell to its new one, by index, so a circuit
+        /// wired to A is still wired to A. The old cells are worked out from the saved counts, which
+        /// is all the old layout depended on. Only a wire's output end can be on a source and only
+        /// its input end on a sink, so each end is looked up against one column's moves and never
+        /// moved twice.
+        ///
+        /// Gates are left where they were. One in an edge column may now share a cell with a
+        /// fixture, and the restore drops it as it drops anything that no longer fits.
+        /// </remarks>
+        public static bool MigrateLegacyBoard(SavedBoard board, Vector2Int halfExtents)
+        {
+            SandboxConfig config = board?.sandbox;
+
+            if (config == null || config.layout >= SandboxConfig.CurrentLayout)
+                return false;
+
+            int capacity = Capacity(halfExtents);
+            config.Normalise(capacity, capacity);
+
+            Dictionary<Vector2Int, Vector2Int> sources =
+                LegacyMoves(-halfExtents.x, config.sources.Length, halfExtents);
+            Dictionary<Vector2Int, Vector2Int> sinks =
+                LegacyMoves(halfExtents.x, config.sinks, halfExtents);
+
+            if (board.wires != null)
+            {
+                foreach (SavedWire wire in board.wires)
+                {
+                    if (wire == null)
+                        continue;
+
+                    if (sources.TryGetValue(new Vector2Int(wire.fromX, wire.fromY), out Vector2Int from))
+                    {
+                        wire.fromX = from.x;
+                        wire.fromY = from.y;
+                    }
+
+                    if (sinks.TryGetValue(new Vector2Int(wire.toX, wire.toY), out Vector2Int to))
+                    {
+                        wire.toX = to.x;
+                        wire.toY = to.y;
+                    }
+                }
+            }
+
+            config.layout = SandboxConfig.CurrentLayout;
+            return true;
+        }
+
+        /// <summary>Each fixture's cell under the centred layout, to its cell now.</summary>
+        private static Dictionary<Vector2Int, Vector2Int> LegacyMoves(
+            int x, int count, Vector2Int halfExtents)
+        {
+            var moves = new Dictionary<Vector2Int, Vector2Int>(count);
+            int offset = (Capacity(halfExtents) - count) / 2;
+
+            for (int i = 0; i < count; i++)
+                moves[new Vector2Int(x, halfExtents.y - offset - i)] = Cell(x, i, halfExtents);
+
+            return moves;
         }
 
         private static Bit[] ToBits(string stream)

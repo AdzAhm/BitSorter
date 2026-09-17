@@ -149,6 +149,124 @@ namespace BitSorter.LogicCore.Tests
         }
 
         // -----------------------------------------------------------------
+        // Boards saved while fixtures were centred
+        // -----------------------------------------------------------------
+
+        [Test]
+        public void ANewSetup_IsOnTheCurrentLayout()
+        {
+            // A new board mistaken for an old one would have its wires moved the next time it loads.
+            SandboxConfig config = SandboxLevel.Default(Board);
+
+            Assert.AreEqual(SandboxConfig.CurrentLayout, config.layout);
+            Assert.AreEqual(SandboxConfig.CurrentLayout, config.Clone().layout, "a copy forgot the layout");
+        }
+
+        [Test]
+        public void AnOldBoard_KeepsItsWiresOnTheSameFixtures()
+        {
+            // Two of each on five rows were centred one row down: A and OUT 1 on row 1, B and
+            // OUT 2 on row 0.
+            SavedBoard board = LegacyBoard(Config(2, 2, 4, "0011", "0101"),
+                Wire(-4, 0, 0, 0),    // B into the gate
+                Wire(0, 0, 4, 0),     // the gate into OUT 2
+                Wire(-4, 1, 4, 1));   // A straight into OUT 1
+
+            Assert.IsTrue(SandboxLevel.MigrateLegacyBoard(board, Board));
+
+            AssertRestoresAs(board,
+                ("B", "gate"),
+                ("gate", "OUT 2"),
+                ("A", "OUT 1"));
+        }
+
+        [Test]
+        public void AnOldBoard_MovesEachColumnByItsOwnCount()
+        {
+            // One source was centred two rows down and three sinks one row down, so the two columns
+            // moved by different amounts.
+            SavedBoard board = LegacyBoard(Config(1, 3, 4, "0101"),
+                Wire(-4, 0, 0, 0),     // A into the gate
+                Wire(0, 0, 4, -1),     // the gate into OUT 3
+                Wire(-4, 0, 4, 1));    // A straight into OUT 1
+
+            Assert.IsTrue(SandboxLevel.MigrateLegacyBoard(board, Board));
+
+            AssertRestoresAs(board,
+                ("A", "gate"),
+                ("gate", "OUT 3"),
+                ("A", "OUT 1"));
+        }
+
+        [Test]
+        public void ABoardOnTheCurrentLayout_IsLeftAlone()
+        {
+            SandboxConfig config = SandboxLevel.Default(Board);
+            SavedBoard board = LegacyBoard(config, Wire(-4, 2, 0, 0));
+
+            Assert.IsFalse(SandboxLevel.MigrateLegacyBoard(board, Board));
+            Assert.AreEqual(2, board.wires[0].fromY, "a current board was moved");
+
+            Assert.IsFalse(SandboxLevel.MigrateLegacyBoard(null, Board));
+            Assert.IsFalse(SandboxLevel.MigrateLegacyBoard(new SavedBoard(), Board));
+        }
+
+        [Test]
+        public void MigratingTwice_MovesNothingTheSecondTime()
+        {
+            SavedBoard board = LegacyBoard(Config(2, 2, 4), Wire(-4, 0, 4, 0));
+
+            Assert.IsTrue(SandboxLevel.MigrateLegacyBoard(board, Board));
+            Assert.IsFalse(SandboxLevel.MigrateLegacyBoard(board, Board));
+
+            Assert.AreEqual(SandboxConfig.CurrentLayout, board.sandbox.layout);
+            Assert.AreEqual(1, board.wires[0].fromY, "B moved on from its new slot");
+        }
+
+        /// <summary>A saved sandbox board with a NOT gate in the middle and the given wires.</summary>
+        private static SavedBoard LegacyBoard(SandboxConfig config, params SavedWire[] wires) =>
+            new SavedBoard
+            {
+                level = SandboxLevel.Key,
+                sandbox = config,
+                placements = new[] { new SavedPlacement { x = 0, y = 0, kind = "Not" } },
+                wires = wires,
+            };
+
+        private static SavedWire Wire(int fromX, int fromY, int toX, int toY) =>
+            new SavedWire
+            {
+                fromX = fromX, fromY = fromY, fromPort = 0,
+                toX = toX, toY = toY, toPort = 0,
+                delay = 1,
+            };
+
+        /// <summary>
+        /// Restores the board into the level its setup builds, and checks every wire joins the named
+        /// ends, in order. "gate" is the one in the middle.
+        /// </summary>
+        private static void AssertRestoresAs(SavedBoard board, params (string from, string to)[] expected)
+        {
+            LevelDefinition level = SandboxLevel.Build(board.sandbox, Board);
+            var blueprint = new CircuitBlueprint();
+
+            Assert.AreEqual(0, BoardSerializer.Restore(board, level, blueprint, Board),
+                "the restore dropped part of the circuit");
+            Assert.AreEqual(expected.Length, blueprint.Wires.Count);
+
+            for (int i = 0; i < expected.Length; i++)
+            {
+                BlueprintWire wire = blueprint.Wires[i];
+
+                Assert.AreEqual(expected[i].from, NameAt(level, wire.From.Cell), $"wire {i} starts in the wrong place");
+                Assert.AreEqual(expected[i].to, NameAt(level, wire.To.Cell), $"wire {i} ends in the wrong place");
+            }
+        }
+
+        private static string NameAt(LevelDefinition level, Vector2Int cell) =>
+            level.FixtureAt(cell)?.Id ?? (cell == Vector2Int.zero ? "gate" : $"nothing at {cell}");
+
+        // -----------------------------------------------------------------
         // Saying why nothing happens
         // -----------------------------------------------------------------
 
