@@ -105,6 +105,12 @@ namespace BitSorter.View
 
         private void Update()
         {
+            // The badge, and the panel if it was open, step aside for a full-screen panel and come
+            // back as they were when it closes.
+            bool hud = UiModal.HudVisible;
+            UiTheme.SetShown(_badge, hud);
+            UiTheme.SetShown(_panel, _shown && hud);
+
             Keyboard keyboard = Keyboard.current;
 
             // H as well as the button. A player mid-wire should not have to find a target. Suppressed

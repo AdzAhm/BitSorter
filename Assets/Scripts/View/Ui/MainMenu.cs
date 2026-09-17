@@ -97,7 +97,7 @@ namespace BitSorter.View
 
         private void Build()
         {
-            Image scrim = UiTheme.Panel_("Main menu", _canvas.transform, new Color(0f, 0f, 0f, 0.88f));
+            Image scrim = UiTheme.Scrim("Main menu", _canvas.transform, new Color(0f, 0f, 0f, 0.88f));
             _root = scrim.GetComponent<RectTransform>();
             UiTheme.Stretch(_root);
 

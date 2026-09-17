@@ -137,5 +137,41 @@ namespace BitSorter.LogicCore.Tests
             Assert.GreaterOrEqual(UiTheme.TutorialRow, UiTheme.HintRow + UiTheme.HintHeight,
                 "the tutorial's instruction strip overlaps the first-time hint");
         }
+
+        // -----------------------------------------------------------------
+        // Full-screen backdrops
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// A full-screen backdrop is a flat rectangle from edge to edge.
+        /// </summary>
+        /// <remarks>
+        /// The panels used the rounded panel sprite for this, and its soft edges left the edges of
+        /// the screen undimmed -- exactly where the HUD sits -- so a "full-screen" panel had the
+        /// banner, run buttons and parts list lit up around it.
+        /// </remarks>
+        [Test]
+        public void AScrim_CoversTheWholeScreenWithAFlatColour()
+        {
+            var parent = new GameObject("canvas", typeof(RectTransform));
+
+            try
+            {
+                var colour = new Color(0f, 0f, 0f, 0.8f);
+                UnityEngine.UI.Image scrim = UiTheme.Scrim("scrim", parent.transform, colour);
+                var rect = scrim.rectTransform;
+
+                Assert.IsNull(scrim.sprite, "a sprite with soft edges leaves the screen's edges undimmed");
+                Assert.AreEqual(colour, scrim.color);
+                Assert.AreEqual(Vector2.zero, rect.anchorMin);
+                Assert.AreEqual(Vector2.one, rect.anchorMax);
+                Assert.AreEqual(Vector2.zero, rect.offsetMin);
+                Assert.AreEqual(Vector2.zero, rect.offsetMax);
+            }
+            finally
+            {
+                Object.DestroyImmediate(parent);
+            }
+        }
     }
 }

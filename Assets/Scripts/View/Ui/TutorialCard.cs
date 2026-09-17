@@ -107,7 +107,7 @@ namespace BitSorter.View
 
         private void Build()
         {
-            Image scrim = UiTheme.Panel_("Tutorial card", _canvas.transform, _scrimColour);
+            Image scrim = UiTheme.Scrim("Tutorial card", _canvas.transform, _scrimColour);
             _root = scrim.GetComponent<RectTransform>();
             UiTheme.Stretch(_root);
 

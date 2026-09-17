@@ -39,6 +39,7 @@ namespace BitSorter.View
         [Tooltip("Seconds a refusal stays on screen.")]
         [SerializeField] private float _rejectionSeconds = 2f;
 
+        private RectTransform _root;
         private TextMeshProUGUI _title;
         private TextMeshProUGUI _goal;
         private TextMeshProUGUI _verdict;
@@ -70,6 +71,7 @@ namespace BitSorter.View
 
             Image panel = UiTheme.Panel_("Status", _canvas.transform, UiTheme.Panel);
             var root = panel.GetComponent<RectTransform>();
+            _root = root;
             // Taller and wider than it was: the goal and hint were sized for glanceability and ended
             // up needing a lean-in. Each row below is placed from the one above rather than from a
             // fixed offset, so a future size change moves the stack instead of overlapping it.
@@ -111,6 +113,16 @@ namespace BitSorter.View
         {
             if (_session == null || _title == null)
                 return;
+
+            // Out of the way of a full-screen panel, whose own title would otherwise print over this.
+            bool shown = UiModal.HudVisible;
+            UiTheme.SetShown(_root, shown);
+
+            if (!shown)
+            {
+                ShowToast(false);
+                return;
+            }
 
             if (!_session.IsLoaded)
             {

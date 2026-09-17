@@ -105,6 +105,13 @@ namespace BitSorter.View
             if (_session == null || !_session.IsLoaded)
                 return;
 
+            // Out of the way of a full-screen panel, which would otherwise have it lit beside it.
+            bool shown = UiModal.HudVisible;
+            UiTheme.SetShown(_root, shown);
+
+            if (!shown)
+                return;
+
             for (int i = 0; i < _rows.Count; i++)
                 Refresh(_rows[i]);
 

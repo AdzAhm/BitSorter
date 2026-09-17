@@ -345,6 +345,14 @@ failure side.
   frame's input: a tap puts press and release in one frame, the event system
   handles the whole click, and a button that closes its panel would otherwise
   leave nothing under the pointer by the time placement asks.
+- **A full-screen panel has the screen to itself.** Its backdrop is
+  `UiTheme.Scrim`, a flat rectangle; the rounded `Panel_` sprite fades at its
+  edges and left the screen's edges, where the HUD lives, undimmed. The HUD --
+  banner, run buttons, controls line, parts list, help badge, bits-lost meter --
+  hides while `UiModal.HudVisible` is false, or the panels' titles and help
+  lines print over it. A panel that opens on a key asks
+  `UiModal.OpenOrJustClosed`, so the press that closed one panel cannot open
+  another in the same frame.
 - **Nothing may depend on the order components update in.** Unity leaves it
   undefined for scripts with no execution order. When one component needs a
   fact to be true by the time another can see something, produce that fact in

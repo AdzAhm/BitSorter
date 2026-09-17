@@ -40,6 +40,8 @@ namespace BitSorter.View
         private Button _clear;
         private TextMeshProUGUI _runLabel;
         private TextMeshProUGUI _clearLabel;
+        private RectTransform _root;
+        private TextMeshProUGUI _controlsLine;
 
         /// <summary>When the pending CLEAR ALL confirmation lapses, or zero when none is pending.</summary>
         private float _confirmUntil;
@@ -60,6 +62,7 @@ namespace BitSorter.View
             // row rather than near the palette: this is the row of things done *to* the board, and
             // undo is the counterpart of the most destructive button on it.
             RectTransform root = UiTheme.Rect("Run controls", _canvas.transform);
+            _root = root;
             UiTheme.Anchor(root, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
                 new Vector2(0f, UiTheme.ButtonRow), new Vector2(600f, UiTheme.ButtonHeight));
 
@@ -118,11 +121,20 @@ namespace BitSorter.View
             // From ControlsReference, not spelled out here. The tutorial's card lists the same
             // controls, and two copies would disagree the first time a binding changed.
             line.text = ControlsReference.Line;
+            _controlsLine = line;
         }
 
         private void Update()
         {
             if (_session == null || _run == null)
+                return;
+
+            // Out of the way of a full-screen panel: its help line sits on this row.
+            bool shown = UiModal.HudVisible;
+            UiTheme.SetShown(_root, shown);
+            UiTheme.SetShown(_controlsLine, shown);
+
+            if (!shown)
                 return;
 
             // Run stays available after a verdict -- LevelSession.Run rebuilds first, so it works

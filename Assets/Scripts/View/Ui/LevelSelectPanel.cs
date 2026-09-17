@@ -102,7 +102,7 @@ namespace BitSorter.View
 
             // A full-screen scrim, so the board behind reads as suspended rather than still live, and
             // so a stray click cannot reach it.
-            Image scrim = UiTheme.Panel_("Level select", _canvas.transform, new Color(0f, 0f, 0f, 0.78f));
+            Image scrim = UiTheme.Scrim("Level select", _canvas.transform, new Color(0f, 0f, 0f, 0.78f));
             _root = scrim.GetComponent<RectTransform>();
             UiTheme.Stretch(_root);
 

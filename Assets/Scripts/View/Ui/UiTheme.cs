@@ -181,6 +181,32 @@ namespace BitSorter.View
             return host.GetComponent<RectTransform>();
         }
 
+        /// <summary>
+        /// The backdrop behind a panel that takes the whole screen: a plain rectangle, edge to edge.
+        /// </summary>
+        /// <remarks>
+        /// Not <see cref="Panel_"/>. Its rounded, sliced sprite fades out towards the rect's edges,
+        /// so stretched over the screen it left the screen's edges -- which is where the HUD sits --
+        /// undimmed beside a supposedly full-screen panel. With no sprite, Unity draws a flat colour.
+        /// </remarks>
+        public static Image Scrim(string name, Transform parent, Color colour)
+        {
+            RectTransform rect = Rect(name, parent);
+            Stretch(rect);
+
+            var image = rect.gameObject.AddComponent<Image>();
+            image.color = colour;
+
+            return image;
+        }
+
+        /// <summary>Shows or hides a piece of interface, touching it only when that changes.</summary>
+        public static void SetShown(Component part, bool shown)
+        {
+            if (part != null && part.gameObject.activeSelf != shown)
+                part.gameObject.SetActive(shown);
+        }
+
         /// <summary>A filled panel background using the shared rounded silhouette.</summary>
         public static Image Panel_(string name, Transform parent, Color colour)
         {

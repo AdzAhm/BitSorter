@@ -62,6 +62,11 @@ namespace BitSorter.PlayMode.Tests
         {
             yield return TestScene.Load();
 
+            // The HUD steps aside for the main menu the game boots into, and a HUD that is not drawn
+            // has nothing to measure.
+            Find<MainMenu>().Show(false);
+            yield return null;
+
             Assert.IsTrue(Find<LevelSession>().LoadLevel(Level), "the level did not load");
 
             // One frame for the parts list to build its rows, one for everything to draw them.

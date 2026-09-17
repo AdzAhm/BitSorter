@@ -32,6 +32,16 @@ namespace BitSorter.View
         private static int _lastClosedFrame = -1;
 
         /// <summary>
+        /// Whether the HUD -- banner, run buttons, parts list, help badge -- should be drawn.
+        /// </summary>
+        /// <remarks>
+        /// Not while a full-screen panel is up. They used to stay lit beside one, and the panels'
+        /// own titles and help lines printed straight over the banner and the buttons. The one rule,
+        /// asked by each HUD piece, so they cannot disagree about when to step aside.
+        /// </remarks>
+        public static bool HudVisible => !AnyOpen;
+
+        /// <summary>
         /// Whether anything is covering the board, or was until earlier in this frame.
         /// </summary>
         /// <remarks>

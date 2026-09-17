@@ -89,7 +89,8 @@ namespace BitSorter.View
                 _punch = 1f;   // full pop, decayed below
             }
 
-            bool visible = BitsLostReadout.IsVisible(destroyed);
+            // Never beside a full-screen panel, like the rest of the HUD.
+            bool visible = BitsLostReadout.IsVisible(destroyed) && UiModal.HudVisible;
 
             if (_root.gameObject.activeSelf != visible)
                 _root.gameObject.SetActive(visible);
