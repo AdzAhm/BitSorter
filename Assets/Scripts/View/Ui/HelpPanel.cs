@@ -109,7 +109,7 @@ namespace BitSorter.View
 
             // H as well as the button. A player mid-wire should not have to find a target. Suppressed
             // while a full-screen panel is up, where the help would open behind it.
-            if (keyboard != null && keyboard.hKey.wasPressedThisFrame && !UiModal.AnyOpen)
+            if (keyboard != null && keyboard.hKey.wasPressedThisFrame && !UiModal.OpenOrJustClosed)
                 Show(!_shown);
         }
 

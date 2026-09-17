@@ -59,15 +59,10 @@ namespace BitSorter.View
 
         /// <remarks>
         /// Escape closes this, and <see cref="LevelSelectPanel"/> reads the same key in the same
-        /// frame. It opens on "shown, or nothing else is open", so the two agree only because this
-        /// panel is still registered with <see cref="UiModal"/> when the level list looks. That
-        /// holds because both are components on one GameObject and Unity runs them in the order
-        /// they were added -- <see cref="Editor.HalfAdderDemoSceneBuilder"/> adds the level list
-        /// first. Add this panel before it and one Escape would close the sandbox and open the
-        /// level list together.
-        ///
-        /// Left as it is rather than made order-proof, but written down, because nothing else in
-        /// the scene depends on component order and the next person will not think to look.
+        /// frame. The level list opens only when <see cref="UiModal.OpenOrJustClosed"/> is false, so
+        /// the press that closes this panel cannot also open the list, whichever of the two Unity
+        /// updates first. This used to rely on the scene builder adding the level list first, which
+        /// Unity never promised -- and in the browser build one Escape did both.
         /// </remarks>
         private void Update()
         {

@@ -82,7 +82,7 @@ namespace BitSorter.View
             // level list stacked the menu under it, which is how this read in play: two full-screen
             // panels at once, one of them unreachable.
             if (keyboard != null && keyboard.mKey.wasPressedThisFrame
-                && (_shown || !UiModal.AnyOpen))
+                && (_shown || !UiModal.OpenOrJustClosed))
             {
                 Show(!_shown);
             }

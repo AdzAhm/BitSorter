@@ -83,7 +83,7 @@ namespace BitSorter.View
             // Escape closes this whatever else is open, but only opens it when nothing else is --
             // otherwise it would stack the list on top of the main menu.
             if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame
-                && (_shown || !UiModal.AnyOpen))
+                && (_shown || !UiModal.OpenOrJustClosed))
             {
                 Show(!_shown);
             }
