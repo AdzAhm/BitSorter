@@ -192,6 +192,73 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsTrue(buttonFired, "the button itself must still work");
         }
 
+        /// <summary>
+        /// A click that closes the interface under the pointer is still not the board's.
+        /// </summary>
+        /// <remarks>
+        /// A touchpad tap -- or any click quick enough -- puts the press and the release in one
+        /// frame. The interface then handles the whole click before anything that polls the mouse
+        /// gets its Update: here the button hides itself, as a menu item does when it closes its
+        /// menu. By the time placement asks whether the pointer is over the interface, there is no
+        /// interface there, and the press lands on the board as well. The main menu's SANDBOX item
+        /// dropped a gate into the middle of the board exactly this way.
+        ///
+        /// The probe runs at a late execution order, which is where the default-order readers of the
+        /// mouse stand relative to the event system on any frame Unity chooses to run it first.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator AClickThatClosesItsPanel_DoesNotAlsoReachTheBoard()
+        {
+            Button button = BuildInterface();
+            BuildBoardSide();
+
+            button.onClick.AddListener(() => button.gameObject.SetActive(false));
+
+            var probe = _host.AddComponent<LatePlacementProbe>();
+            probe.Gate = _gate;
+
+            var centre = new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
+            Set(_mouse.position, centre);
+
+            yield return null;
+            yield return null;
+
+            Assert.IsTrue(_gate.PointerOverUi,
+                "sanity: the pointer must be over the button before the click");
+
+            PressAndRelease(_mouse.leftButton);
+            yield return null;
+            yield return null;
+
+            Assert.IsFalse(button.gameObject.activeSelf,
+                "sanity: the click should have reached the button and closed it");
+            Assert.AreEqual(1, probe.Presses, "sanity: the probe should have seen exactly one press");
+
+            Assert.AreEqual(0, probe.PressesTheBoardWouldTake,
+                "the press that closed the panel was also handed to the board");
+        }
+
+        [UnityTest]
+        public IEnumerator APointerGateLooksBeforeTheInterfaceReacts()
+        {
+            // Pins the order the fix above depends on, the same way the wiring controller's is
+            // pinned below. The gate has to see the interface as it was when the frame's input
+            // arrived, so it has to run before the event system and everything else.
+            BuildBoardSide();
+            yield return null;
+
+            object[] attributes = typeof(PointerGate)
+                .GetCustomAttributes(typeof(DefaultExecutionOrder), false);
+
+            Assert.AreEqual(1, attributes.Length,
+                "PointerGate must declare a DefaultExecutionOrder, or a closing click reaches the board");
+
+            var order = (DefaultExecutionOrder)attributes[0];
+
+            Assert.LessOrEqual(order.order, -10000,
+                "it must run ahead of the event system and every other script");
+        }
+
         [UnityTest]
         public IEnumerator WithThePointerOffTheInterface_TheBoardIsUsableAgain()
         {
@@ -257,6 +324,35 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsFalse(_gate.WiringDragging);
             Assert.AreEqual(PointerOwner.None, _gate.Owner);
             Assert.IsTrue(_gate.MayAct(PointerUser.Placement));
+        }
+    }
+
+    /// <summary>
+    /// Asks the gate what placement would ask, as late in the frame as a script can.
+    /// </summary>
+    /// <remarks>
+    /// Stands in for PlacementController without the level, grid and camera it needs. Late on
+    /// purpose: a real mouse reader at the default order can land after the event system, and
+    /// this makes that the only order the test ever sees.
+    /// </remarks>
+    [DefaultExecutionOrder(30000)]
+    internal sealed class LatePlacementProbe : MonoBehaviour
+    {
+        public PointerGate Gate;
+        public int Presses;
+        public int PressesTheBoardWouldTake;
+
+        private void Update()
+        {
+            Mouse mouse = Mouse.current;
+
+            if (mouse == null || Gate == null || !mouse.leftButton.wasPressedThisFrame)
+                return;
+
+            Presses++;
+
+            if (Gate.MayAct(PointerUser.Placement))
+                PressesTheBoardWouldTake++;
         }
     }
 }
