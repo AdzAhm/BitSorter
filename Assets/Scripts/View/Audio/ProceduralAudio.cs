@@ -460,12 +460,18 @@ namespace BitSorter.View
         };
 
         /// <summary>
-        /// One sample of a track: the plucked figure, a bass note under it, and a trace of air.
+        /// One sample of a track: the figure, and a bass note under it.
         /// </summary>
         /// <remarks>
         /// Notes ring for well over a step, so several sound at once. Walking back a few steps and
         /// summing is what lets them overlap instead of being cut off by the next one -- five is far
         /// enough back that the oldest is inaudible at every ring rate here.
+        ///
+        /// There is deliberately no noise floor. There was one -- white noise at a hundredth of full
+        /// scale, "so the quiet parts are not digitally dead" -- and it was reported as a hiss.
+        /// Being baked into the clip it rose and fell with the music, and in the sparse tracks,
+        /// where a note decays to nothing between strikes, it was the only thing left playing.
+        /// Silence between notes is what these tracks are for.
         /// </remarks>
         private static float Sample(Track track, float t, float d)
         {
@@ -502,10 +508,7 @@ namespace BitSorter.View
             float barAge = t % BarSeconds;
             float bass = Sine(t, track.Roots[bar] * 0.5f) * Mathf.Exp(-0.45f * barAge);
 
-            // A trace of hiss, so the quiet parts are not digitally dead.
-            float air = Noise(t) * 0.010f;
-
-            return (voice * 0.15f + bass * 0.16f + air) * Fade(t, d, 2f);
+            return (voice * 0.15f + bass * 0.16f) * Fade(t, d, 2f);
         }
 
         /// <summary>
