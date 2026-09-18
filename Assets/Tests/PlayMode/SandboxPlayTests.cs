@@ -89,6 +89,32 @@ namespace BitSorter.PlayMode.Tests
             Assert.AreEqual(1, session.Blueprint.Placements.Count, "flipping a bit changed the circuit");
         }
 
+        /// <summary>
+        /// The level list opened over free play takes the setup panel down with the rest of the HUD.
+        /// </summary>
+        /// <remarks>
+        /// The setup panel is part of the HUD now rather than a modal of its own, so it has to step
+        /// aside like the banner and the parts list do. Seen in the browser build drawn through the
+        /// level list's backdrop, along with the help badge.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator TheLevelList_TakesTheSetupPanelDownWithTheHud()
+        {
+            yield return TestScene.Load();
+            yield return OpenFreePlay();
+
+            Assert.IsNotNull(GameObject.Find("Sandbox setup"), "sanity: the setup panel should be showing");
+            Assert.IsNotNull(GameObject.Find("Help badge"), "sanity: the help badge should be showing");
+
+            Find<LevelSelectPanel>().Open();
+            yield return null;
+            yield return null;
+
+            Assert.IsTrue(UiModal.AnyOpen, "sanity: the level list should count as open");
+            Assert.IsNull(GameObject.Find("Sandbox setup"), "the setup panel is drawn over the level list");
+            Assert.IsNull(GameObject.Find("Help badge"), "the help badge is drawn over the level list");
+        }
+
         // -----------------------------------------------------------------
         // Helpers
         // -----------------------------------------------------------------
