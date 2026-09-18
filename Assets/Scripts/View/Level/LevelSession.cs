@@ -136,6 +136,22 @@ namespace BitSorter.View
         public event Action<string> LevelUnloading;
 
         /// <summary>
+        /// Raised when the level's own definition changed under a board that is staying as it is.
+        /// </summary>
+        /// <remarks>
+        /// Free play's event. Deliberately not <see cref="LevelLoaded"/>: that one means "here is a
+        /// new level and an empty board", and everything listening to it acts accordingly --
+        /// <see cref="ProgressTracker"/> writes the outgoing board to the save file and restores the
+        /// incoming one, the palette rebuilds, the selection resets. None of that is wanted when the
+        /// player has only changed what a source emits.
+        ///
+        /// Subscribe to this for anything derived from the level and not from the board: the truth
+        /// table in the help panel is the one that bites, since free play's streams are the player's
+        /// to edit and the table is built from them.
+        /// </remarks>
+        public event Action<LevelDefinition> LevelChanged;
+
+        /// <summary>
         /// Raised when a run stops, carrying the state it stopped in: Passed, Failed or Finished.
         /// </summary>
         /// <remarks>
@@ -288,6 +304,36 @@ namespace BitSorter.View
             ResetBoard();
 
             LevelLoaded?.Invoke(Level);
+            return true;
+        }
+
+        /// <summary>
+        /// Swaps the definition under the level already loaded, keeping the board, its undo history
+        /// and the part in hand.
+        /// </summary>
+        /// <remarks>
+        /// How free play applies an edit to its setup. It used to go through <see cref="Adopt"/>,
+        /// which is a level *switch* and does what a switch does: the undo history emptied, the
+        /// selection went back to the first part, a run was cancelled and the save file was
+        /// rewritten -- for one click on one bit.
+        ///
+        /// The blueprint carries over unexamined, and free play is what makes that safe: both edge
+        /// columns are reserved, so no gate can be standing where a new source or sink arrives. The
+        /// graph does change, so a run cannot continue over it and the board returns to Editing.
+        ///
+        /// Nothing is saved from here. The setup is staged by the caller and written by the next
+        /// ordinary save of this board -- leaving free play, or quitting -- exactly as the board
+        /// itself is.
+        /// </remarks>
+        public bool Reconfigure(LevelDefinition level)
+        {
+            if (level == null || !IsLoaded)
+                return false;
+
+            Level = level;
+
+            ResetBoard();
+            LevelChanged?.Invoke(Level);
             return true;
         }
 

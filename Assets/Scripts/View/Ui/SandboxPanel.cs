@@ -15,11 +15,14 @@ namespace BitSorter.View
     /// <see cref="LevelSelectPanel"/> both draws the level list and switches level. There is no
     /// separate controller because there is no second caller.
     ///
-    /// Every edit rebuilds the level and re-adopts it, because changing a source changes the graph.
-    /// The player's circuit survives that on its own: <see cref="LevelSession.Adopt"/> raises
-    /// LevelUnloading and then LevelLoaded, and <see cref="ProgressTracker"/> saves on the first and
-    /// restores on the second. Anything that no longer resolves -- a wire into a sink that has just
-    /// been removed -- is dropped by the restore's existing checks rather than by anything here.
+    /// Every edit rebuilds the level, because changing a source changes the graph, and hands it to
+    /// <see cref="LevelSession.Reconfigure"/>, which swaps the definition under the board the player
+    /// has built. A wire into a fixture that has just been counted away stays in the blueprint,
+    /// wired to nothing, and comes back if the fixture does.
+    ///
+    /// Entering free play still goes through <see cref="LevelSession.Adopt"/>, which is a real level
+    /// switch and is what makes <see cref="ProgressTracker"/> save the level being left and restore
+    /// the sandbox board.
     ///
     /// Bits are toggled rather than typed. A text field would need focus handling, and this game
     /// binds Space, Enter, R and Q/E, all of which a focused field would swallow.
@@ -349,10 +352,19 @@ namespace BitSorter.View
             Changed();
         }
 
+        /// <remarks>
+        /// Reconfigures rather than adopts. Adopting is how free play is *entered*, and it is a level
+        /// switch: it emptied the undo history, reset the part in hand, cancelled any run and wrote
+        /// the save file, once per click on one bit. The setup is still staged, so the next ordinary
+        /// save of this board carries it.
+        /// </remarks>
         private void Changed()
         {
             _config.Normalise(SandboxLevel.Capacity(Extents()), SandboxLevel.Capacity(Extents()));
-            Adopt();
+
+            Stage();
+            _session.Reconfigure(SandboxLevel.Build(_config, Extents()));
+
             Rebuild();
         }
 

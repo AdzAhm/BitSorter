@@ -82,13 +82,22 @@ namespace BitSorter.View
         private void OnEnable()
         {
             if (_session != null)
+            {
                 _session.LevelLoaded += OnLevelLoaded;
+
+                // Free play's streams are the player's to edit, and the truth table is built from
+                // them. Filled without closing: the setup is edited with this panel open.
+                _session.LevelChanged += Fill;
+            }
         }
 
         private void OnDisable()
         {
             if (_session != null)
+            {
                 _session.LevelLoaded -= OnLevelLoaded;
+                _session.LevelChanged -= Fill;
+            }
         }
 
         private void Start()
