@@ -24,7 +24,7 @@ namespace BitSorter.View
     /// after the music began, and cycling there would cross-fade the opening a second after the
     /// player first heard it.
     ///
-    /// Cycling rather than shuffling: a session works through all six whatever order the levels are
+    /// Cycling rather than shuffling: a session works through every track whatever order the levels are
     /// played in, and a test can say which one should be playing. The one thing that is random is
     /// where in the cycle a session starts, which is picked once in <see cref="GameAudio"/>'s Awake
     /// -- enough that two evenings on the same levels are not the same evening, while everything

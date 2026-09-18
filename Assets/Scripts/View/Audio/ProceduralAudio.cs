@@ -244,17 +244,21 @@ namespace BitSorter.View
         /// </summary>
         /// <remarks>
         /// Nothing in these tracks comes near the Nyquist limit this leaves. The highest note any
-        /// figure reaches is about 2 kHz, and its one harmonic sits at 4 kHz against a ceiling of
-        /// 11 kHz.
+        /// figure reaches is about 2 kHz, and nothing any voice adds to a note goes past 4.2 kHz,
+        /// against a ceiling of 11 kHz.
         ///
         /// What it buys is memory: these clips are held as uncompressed floats and they are long.
-        /// Nine tracks of 32 seconds cost about 24 MiB here, against about 48 MiB at the cue rate,
+        /// Ten tracks of 32 seconds cost about 27 MiB here, against about 54 MiB at the cue rate,
         /// in a game whose entire browser build is 16 MB. Tracks are built on first use, so a
         /// session only pays for the ones it reaches.
         ///
         /// Those numbers are <see cref="MusicBytes"/>, and MusicTests asserts against it rather
         /// than against this paragraph. The paragraph said six tracks and 34 MB for a while after
         /// there were nine, because nothing was checking.
+        ///
+        /// The cost of the low rate is that anything sudden sits right at its top edge, where
+        /// playback resampling turns it into a sizzle. That is one more reason nothing in a track
+        /// may change value in a single sample -- see <see cref="Sample"/>.
         /// </remarks>
         private const int MusicSampleRate = 22050;
 
@@ -264,11 +268,12 @@ namespace BitSorter.View
         private enum Voice
         {
             /// <summary>
-            /// A sine and its octave, at full amplitude the instant the note starts.
+            /// A sine and its octave, at full amplitude a millisecond after the note starts.
             /// </summary>
             /// <remarks>
-            /// The original six. An instant attack is what makes it read as plucked rather than
-            /// played -- there is no rise, only a fall.
+            /// The original six. An attack too fast to hear as a rise is what makes it read as
+            /// plucked rather than played -- to the ear there is only a fall. Fast, but not a single
+            /// sample: that was a click on every note.
             /// </remarks>
             Plucked,
 
@@ -306,7 +311,7 @@ namespace BitSorter.View
 
         /// <summary>
         /// One background track. Everything that differs between them is data; the rendering is
-        /// shared, so nine tracks cannot drift into nine different instruments.
+        /// shared, so ten tracks cannot drift into ten different instruments.
         /// </summary>
         private readonly struct Track
         {
@@ -385,23 +390,23 @@ namespace BitSorter.View
         }
 
         /// <summary>
-        /// The nine tracks, in the order <see cref="MusicRules"/> cycles them.
+        /// The ten tracks, in the order <see cref="MusicRules"/> cycles them.
         /// </summary>
         /// <remarks>
-        /// All nine use the same five notes -- A, C, D, E, G -- and stay there. The scale has no
+        /// All ten use the same five notes -- A, C, D, E, G -- and stay there. The scale has no
         /// semitone clashes, so any note lands consonantly on any chord in any of these
         /// progressions and nothing ever demands resolution, which is the whole requirement for
         /// something that repeats while somebody stares at a K-map.
         ///
-        /// Six of them root that collection on A and read as minor; three root it on C and read
+        /// Seven of them root that collection on A and read as minor; three root it on C and read
         /// as major. Identical notes, different home. It is the cheapest way to put two moods in
         /// one set without the scale rule that holds the set together having to bend.
         ///
-        /// They are the same shape on purpose: four bars, sixteen steps, one instrument, one tempo,
-        /// one key. What differs is density -- four notes to eight, out of sixteen possible -- how
-        /// long a note rings, which way the figure moves on its alternate pass, which register it
-        /// sits in, and where the chords go. Switching between them should read as the same music
-        /// continuing rather than as the game changing its mind.
+        /// They are the same shape on purpose: four bars, sixteen steps, one tempo, one key. What
+        /// differs is density -- four notes to eight, out of sixteen possible -- how long a note
+        /// rings, which way the figure moves on its alternate pass, which register it sits in,
+        /// where the chords go, and which of three <see cref="Voice"/>s plays it. Switching between
+        /// them should read as the same music continuing rather than as the game changing its mind.
         /// </remarks>
         private static readonly Track[] Tracks =
         {
