@@ -48,6 +48,15 @@ namespace BitSorter.PlayMode.Tests
         public override void Setup()
         {
             base.Setup();
+
+            // InputTestFixture switches on the Input System's read-value caching, and a self-check
+            // of that cache, which the game itself never runs with -- the project sets no input
+            // feature flags. Once the game had already run earlier in the same play session, the
+            // self-check fired on the queued Escape inside the Input System's own update, and the
+            // error it logged failed both Escape tests with every assertion passing. Off, every read
+            // comes straight from device state, which is how the shipped game reads it.
+            InputSystem.settings.SetInternalFeatureFlag("USE_READ_VALUE_CACHING", false);
+
             _keyboard = InputSystem.AddDevice<Keyboard>();
             InputSystem.AddDevice<Mouse>();
         }
