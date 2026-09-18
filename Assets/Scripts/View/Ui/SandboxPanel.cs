@@ -47,8 +47,17 @@ namespace BitSorter.View
             public TextMeshProUGUI[] Cells;
             public TextMeshProUGUI Extra;
 
-            /// <summary>What the row was last drawn from, so a frame that changed nothing draws nothing.</summary>
-            public string Drawn;
+            /// <summary>
+            /// How many bits the row was last drawn from, so a frame that changed nothing draws
+            /// nothing. A fresh row starts undrawn.
+            /// </summary>
+            /// <remarks>
+            /// The count alone is enough: a sink's list only ever grows, by one bit at a time, until
+            /// a rebuild empties it -- and a rebuild makes new rows. Comparing the values instead
+            /// would mean building a string per sink per frame, which is exactly the per-frame
+            /// allocation the HUD is held to none of.
+            /// </remarks>
+            public int Drawn = -1;
         }
 
         [SerializeField] private LevelSession _session;
@@ -593,14 +602,13 @@ namespace BitSorter.View
                     TryFindSink(row.SinkId, out SinkNode sink) ? sink.Received : null;
 
                 int count = caught != null ? caught.Count : 0;
-                string signature = $"{count}:{(count > 0 ? (int)caught[count - 1].Value : -1)}";
 
-                // Formatting every cell every frame hands TextMeshPro text equal to what it already
+                // Redrawing every cell every frame hands TextMeshPro text equal to what it already
                 // has and leaves the garbage behind anyway.
-                if (signature == row.Drawn)
+                if (count == row.Drawn)
                     continue;
 
-                row.Drawn = signature;
+                row.Drawn = count;
 
                 for (int v = 0; v < row.Cells.Length; v++)
                 {
