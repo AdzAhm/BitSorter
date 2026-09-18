@@ -120,7 +120,6 @@ namespace BitSorter.View.EditorTools
             EndingPanel ending = host.AddComponent<EndingPanel>();
 
             SandboxPanel sandbox = host.AddComponent<SandboxPanel>();
-            SinkReadout sinkReadout = host.AddComponent<SinkReadout>();
 
             // AddComponent brings its own AudioSource along, via RequireComponent.
             GameAudio audio = host.AddComponent<GameAudio>();
@@ -131,6 +130,11 @@ namespace BitSorter.View.EditorTools
             // yet at that point.
             CameraFit fit = camera.gameObject.AddComponent<CameraFit>();
             Assign(fit, "_grid", grid);
+
+            // The two things that cover the screen's edges. The board is framed between them, so a
+            // source in the outermost column is not left under the parts list or the setup panel.
+            Assign(fit, "_palette", palette);
+            Assign(fit, "_sandbox", sandbox);
             Assign(bits, "_sparks", sparks);
             Assign(scorch, "_runner", runner);
 
@@ -209,10 +213,6 @@ namespace BitSorter.View.EditorTools
             Assign(sandbox, "_progress", progress);
             Assign(sandbox, "_runner", runner);
             Assign(sandbox, "_canvas", canvas);
-
-            Assign(sinkReadout, "_session", session);
-            Assign(sinkReadout, "_runner", runner);
-            Assign(sinkReadout, "_canvas", canvas);
 
             Assign(help, "_session", session);
             Assign(help, "_canvas", canvas);

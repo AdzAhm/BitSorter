@@ -31,6 +31,9 @@ namespace BitSorter.View
         [Tooltip("The parts list, which covers the screen's left edge.")]
         [SerializeField] private GatePaletteView _palette;
 
+        [Tooltip("Free play's setup panel, docked on the right. Absent on a scene without one.")]
+        [SerializeField] private SandboxPanel _sandbox;
+
         [Tooltip("World units of clearance around the outermost cells.")]
         [SerializeField] private float _margin = 1.4f;
 
@@ -51,6 +54,7 @@ namespace BitSorter.View
 
             if (_grid == null) _grid = FindFirstObjectByType<PlacementGrid>();
             if (_palette == null) _palette = FindFirstObjectByType<GatePaletteView>();
+            if (_sandbox == null) _sandbox = FindFirstObjectByType<SandboxPanel>();
         }
 
         private void OnEnable() => Apply(LeftInset(), RightInset());
@@ -97,8 +101,12 @@ namespace BitSorter.View
             return edge > 0f ? edge + _insetGap : 0f;
         }
 
-        /// <summary>Pixels taken along the right edge. Nothing takes any yet.</summary>
-        private float RightInset() => 0f;
+        /// <summary>Pixels free play's setup panel takes along the right edge, gap included.</summary>
+        private float RightInset()
+        {
+            float edge = _sandbox != null ? _sandbox.ScreenLeftEdge : 0f;
+            return edge > 0f ? Screen.width - edge + _insetGap : 0f;
+        }
 
         /// <summary>Half the world width the board needs, including its margin.</summary>
         private float RequiredHalfWidth()

@@ -1,3 +1,6 @@
+using System.Collections.Generic;
+using BitSorter.LogicCore;
+
 namespace BitSorter.View
 {
     /// <summary>
@@ -100,6 +103,132 @@ namespace BitSorter.View
             bits[index] = bits[index] == '1' ? '0' : '1';
 
             return new string(bits);
+        }
+
+        // -----------------------------------------------------------------
+        // Filling the inputs
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// Most sources the truth-table button will fill.
+        /// </summary>
+        /// <remarks>
+        /// Four would need sixteen vectors and free play streams eight. The button says so rather
+        /// than disappearing, because "why is this dead" is the question a missing control cannot
+        /// answer.
+        /// </remarks>
+        public const int MaxTableSources = 3;
+
+        /// <summary>Whether every combination of this many sources fits in the vectors there are.</summary>
+        public static bool CanFillTable(int sources) =>
+            sources >= 1 && sources <= MaxTableSources && VectorsForTable(sources) <= SandboxConfig.MaxVectors;
+
+        /// <summary>How many vectors a full table of this many sources takes.</summary>
+        public static int VectorsForTable(int sources) => 1 << sources;
+
+        /// <summary>
+        /// Every combination of <paramref name="sources"/> inputs, one stream each.
+        /// </summary>
+        /// <remarks>
+        /// A counts slowest, the way it does in the levels' own tables and the way anyone writing one
+        /// out by hand does it -- A is the most significant bit. Getting that backwards would give a
+        /// table that is complete but reads upside down against every truth table in the game.
+        /// </remarks>
+        public static string[] Table(int sources)
+        {
+            if (!CanFillTable(sources))
+                return System.Array.Empty<string>();
+
+            int vectors = VectorsForTable(sources);
+            var streams = new string[sources];
+
+            for (int i = 0; i < sources; i++)
+            {
+                var bits = new char[vectors];
+                int weight = sources - 1 - i;
+
+                for (int v = 0; v < vectors; v++)
+                    bits[v] = ((v >> weight) & 1) == 1 ? '1' : '0';
+
+                streams[i] = new string(bits);
+            }
+
+            return streams;
+        }
+
+        // -----------------------------------------------------------------
+        // Reading the outputs
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// Shown in a column no bit has arrived in.
+        /// </summary>
+        /// <remarks>
+        /// A mark rather than a blank. "Nothing arrived" is a result in free play -- it is how a
+        /// player sees that a gate is stalled or that a bit was lost -- and an empty cell reads as a
+        /// rendering gap instead of an answer.
+        /// </remarks>
+        public const string Missing = "·";
+
+        /// <summary>
+        /// What a sink's nth column says: the bit that landed there, or <see cref="Missing"/>.
+        /// </summary>
+        /// <remarks>
+        /// Arrival order, not vector number, and the two are not the same: a circuit that drops a bit
+        /// shifts everything after it one column left. The column is a position in what came out, so
+        /// what the player sees is what arrived.
+        /// </remarks>
+        public static string Cell(IReadOnlyList<SinkNode.Reception> caught, int column)
+        {
+            if (caught == null || column < 0 || column >= caught.Count)
+                return Missing;
+
+            return caught[column].Value == Bit.One ? "1" : "0";
+        }
+
+        /// <summary>
+        /// Bits beyond the columns there are, or zero.
+        /// </summary>
+        /// <remarks>
+        /// A sink can catch more than one bit per vector -- a fan-in, or a loop -- and a readout that
+        /// simply stopped at the last column would hide exactly the surprise the player is looking
+        /// for. Counted rather than drawn, and shown as "+n".
+        /// </remarks>
+        public static int Extra(IReadOnlyList<SinkNode.Reception> caught, int columns)
+        {
+            if (caught == null || caught.Count <= columns)
+                return 0;
+
+            return caught.Count - columns;
+        }
+
+        // -----------------------------------------------------------------
+        // Run speed
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// What the speed buttons offer.
+        /// </summary>
+        /// <remarks>
+        /// Free play only. A taught level runs at the authored rate, which is slow enough to watch a
+        /// bit move, and the speed is not part of any puzzle -- but a sandbox is where somebody
+        /// builds a circuit that takes fifty seconds to say what it does.
+        ///
+        /// Powers of two rather than a slider: three buttons have three states to reason about, and
+        /// the clock divides exactly.
+        /// </remarks>
+        public static readonly int[] Speeds = { 1, 2, 4 };
+
+        /// <summary>The nearest offered speed, defaulting to the authored one.</summary>
+        public static int ClampSpeed(int speed)
+        {
+            for (int i = 0; i < Speeds.Length; i++)
+            {
+                if (Speeds[i] == speed)
+                    return speed;
+            }
+
+            return Speeds[0];
         }
     }
 }

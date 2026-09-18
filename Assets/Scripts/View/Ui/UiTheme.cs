@@ -43,24 +43,54 @@ namespace BitSorter.View
         public static readonly Vector2 ReferenceResolution = new Vector2(1920f, 1080f);
 
         // -----------------------------------------------------------------
+        // The right column
+        // -----------------------------------------------------------------
+
+        /// <summary>The help badge, below the bits-lost meter on the top right.</summary>
+        public const float BadgeSize = 38f;
+
+        /// <inheritdoc cref="BadgeSize"/>
+        public const float BadgeRow = Margin + 56f;
+
+        /// <summary>
+        /// Free play's setup panel, docked down the right edge.
+        /// </summary>
+        /// <remarks>
+        /// Stated here with the rows it has to clear, for the reason the bottom rows are: it sits
+        /// under the bits-lost meter and the help badge and over the refusal toast, and a panel
+        /// working out its own clearances is how two of them end up in one rectangle.
+        ///
+        /// Wide enough for eight bit cells beside a sink's name, which is what makes a caught bit
+        /// line up under the vector that produced it.
+        /// </remarks>
+        public const float SetupWidth = 300f;
+
+        /// <inheritdoc cref="SetupWidth"/>
+        public const float SetupTop = BadgeRow + BadgeSize + Gap;
+
+        /// <inheritdoc cref="SetupWidth"/>
+        public const float SetupBottom = ToastRow + ToastHeight + Gap;
+
+        // -----------------------------------------------------------------
         // The bottom corners
         // -----------------------------------------------------------------
 
         /// <summary>
-        /// Width of both bottom-corner readouts: free play's catch, and the diagnostics panel.
+        /// Width of a bottom-corner readout.
         /// </summary>
         /// <remarks>
-        /// Shared for the reason the rows above are shared. The two used to anchor bottom-right at
-        /// the same offset with the same width, each stating its own numbers -- so in free play with
-        /// F3 open they occupied exactly the same rectangle and drew on top of each other. Two
-        /// panels that must not overlap cannot each own half the arithmetic.
+        /// One corner is in use: diagnostics, on the left. Free play's catch readout held the right
+        /// one until it moved into the setup panel, where it sits under the streams that produced it
+        /// -- and the pair is what this constant is for. The two once anchored bottom-right at the
+        /// same offset with the same width, each stating its own numbers, so in free play with F3
+        /// open they occupied exactly the same rectangle.
+        ///
+        /// Narrow enough that a second corner readout could return without colliding with this one,
+        /// which <see cref="UiThemeTests"/> keeps true.
         /// </remarks>
-        public const float ReadoutWidth = 230f;
+        public const float CornerWidth = 230f;
 
-        /// <summary>Free play's catch readout takes the right corner.</summary>
-        public static readonly Vector2 ReadoutCorner = new Vector2(1f, 0f);
-
-        /// <summary>Diagnostics takes the left, which nothing else uses at this height.</summary>
+        /// <summary>Diagnostics takes the left corner, which nothing else uses at this height.</summary>
         /// <remarks>
         /// The palette is centred on the left edge and stops well above the bottom margin, and the
         /// controls line and the button row are both centred and narrower than the gap between the
@@ -81,7 +111,7 @@ namespace BitSorter.View
             float inset = corner.x > 0.5f ? -Margin : Margin;
 
             Anchor(rect, corner, corner, new Vector2(inset, Margin),
-                new Vector2(ReadoutWidth, height));
+                new Vector2(CornerWidth, height));
         }
 
         // -----------------------------------------------------------------

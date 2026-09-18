@@ -67,6 +67,11 @@ namespace BitSorter.View
         /// arrive malformed -- an edited save, or a board saved by a build with different limits.
         /// Padding with '0' rather than refusing: free play has nothing to be wrong about, and
         /// silently shortening a stream is friendlier than an error the player cannot act on.
+        ///
+        /// Streams are kept at their full length, not at <see cref="vectors"/>, and
+        /// <see cref="SandboxLevel.Build"/> takes the first few. Lowering the vector count used to
+        /// truncate every stream, so stepping 8 down to 2 and back up again returned six zeros where
+        /// the player's pattern had been -- a destructive edit dressed as a view setting.
         /// </remarks>
         public void Normalise(int maxSources, int maxSinks)
         {
@@ -80,7 +85,7 @@ namespace BitSorter.View
                 Array.Resize(ref sources, maxSources);
 
             for (int i = 0; i < sources.Length; i++)
-                sources[i] = NormaliseStream(sources[i], vectors);
+                sources[i] = NormaliseStream(sources[i], MaxVectors);
         }
 
         /// <summary>A stream of exactly <paramref name="length"/> characters, padded with '0'.</summary>

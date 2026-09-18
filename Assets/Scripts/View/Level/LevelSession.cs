@@ -253,6 +253,11 @@ namespace BitSorter.View
 
             _blueprint.Clear();
 
+            // The clock goes back to the authored rate: free play offers a faster one and a level
+            // that inherited it would run its lesson at four times the speed.
+            if (_runner != null)
+                _runner.Speed = SimulationRunner.DefaultSpeed;
+
             // Cleared here rather than on LevelLoaded, which fires below: ProgressTracker restores the
             // saved board on that event, and the board a player comes back to is a starting point
             // rather than a step they can reverse past.
@@ -295,6 +300,11 @@ namespace BitSorter.View
             LoadError = null;
 
             _blueprint.Clear();
+
+            // The clock goes back to the authored rate: free play offers a faster one and a level
+            // that inherited it would run its lesson at four times the speed.
+            if (_runner != null)
+                _runner.Speed = SimulationRunner.DefaultSpeed;
 
             // Cleared here rather than on LevelLoaded, which fires below: ProgressTracker restores the
             // saved board on that event, and the board a player comes back to is a starting point

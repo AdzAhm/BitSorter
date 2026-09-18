@@ -431,21 +431,32 @@ namespace BitSorter.LogicCore.Tests
             }
         }
 
+        /// <summary>
+        /// Lowering the vector count hides the bits past it rather than deleting them.
+        /// </summary>
+        /// <remarks>
+        /// It used to truncate every stream, so stepping 6 down to 2 and back up again returned four
+        /// zeros where the player's pattern had been -- a destructive edit that looked like a view
+        /// setting. The config keeps each stream at its full length and the level takes the first few.
+        /// </remarks>
         [Test]
-        public void ShorteningTheVectorCount_TruncatesEveryStreamTogether()
+        public void ShorteningTheVectorCount_HidesTheBitsPastItRatherThanDeletingThem()
         {
             SandboxConfig config = Config(2, 1, 6, "111111", "000000");
             config.vectors = 2;
 
-            LevelDefinition level = SandboxLevel.Build(config, Board);
+            LevelDefinition shortened = SandboxLevel.Build(config, Board);
 
-            Assert.AreEqual(2, level.VectorCount);
+            Assert.AreEqual(2, shortened.VectorCount);
+            Assert.AreEqual(2, shortened.FixtureById(SandboxLevel.SourceId(0)).Stream.Count);
 
-            foreach (LevelFixture fixture in level.Fixtures)
-            {
-                if (fixture.Kind == FixtureKind.Source)
-                    Assert.AreEqual(2, fixture.Stream.Count);
-            }
+            config.vectors = 6;
+            LevelDefinition restored = SandboxLevel.Build(config, Board);
+
+            Assert.AreEqual(
+                new[] { Bit.One, Bit.One, Bit.One, Bit.One, Bit.One, Bit.One },
+                new List<Bit>(restored.FixtureById(SandboxLevel.SourceId(0)).Stream).ToArray(),
+                "the bits past the shortened count were thrown away rather than hidden");
         }
 
         [Test]

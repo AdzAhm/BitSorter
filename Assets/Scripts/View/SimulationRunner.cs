@@ -96,7 +96,37 @@ namespace BitSorter.View
         /// sit motionless on top of its source node.
         /// </remarks>
         public float TickProgress =>
-            _tickInterval <= 0f ? 0f : Mathf.Clamp01(_accumulator / _tickInterval);
+            Interval <= 0f ? 0f : Mathf.Clamp01(_accumulator / Interval);
+
+        /// <summary>The authored rate, and the speed it is currently run at.</summary>
+        public const int DefaultSpeed = 1;
+
+        private int _speed = DefaultSpeed;
+
+        /// <summary>
+        /// How many times the authored rate the clock runs at.
+        /// </summary>
+        /// <remarks>
+        /// Offered in free play only, where a circuit the player built themselves can take the best
+        /// part of a minute to say what it does. Held here rather than in the panel because the clock
+        /// is here; the level session puts it back to <see cref="DefaultSpeed"/> whenever a level is
+        /// installed, so a fast sandbox cannot leak into a taught level.
+        /// </remarks>
+        public int Speed
+        {
+            get => _speed;
+            set => _speed = value < DefaultSpeed ? DefaultSpeed : value;
+        }
+
+        /// <summary>Seconds per tick at the current speed.</summary>
+        private float Interval => IntervalFor(_tickInterval, _speed);
+
+        /// <summary>
+        /// Seconds per tick for an authored interval run at a speed. Pure, so the arithmetic is
+        /// checkable without a scene.
+        /// </summary>
+        public static float IntervalFor(float authored, int speed) =>
+            authored / (speed < DefaultSpeed ? DefaultSpeed : speed);
 
         /// <summary>Screen position for a node id, or the origin if the id is unknown.</summary>
         public Vector2 PositionOf(int nodeId) =>
@@ -170,16 +200,18 @@ namespace BitSorter.View
 
         private void Update()
         {
+            float interval = Interval;
+
             // Paused deliberately leaves the accumulator alone, so TickProgress holds its value
             // and bits freeze mid-wire instead of snapping back to their last whole-tick position.
-            if (!IsReady || !ClockRunning || IsPaused || _tickInterval <= 0f)
+            if (!IsReady || !ClockRunning || IsPaused || interval <= 0f)
                 return;
 
             _accumulator += Time.deltaTime;
 
-            while (_accumulator >= _tickInterval)
+            while (_accumulator >= interval)
             {
-                _accumulator -= _tickInterval;
+                _accumulator -= interval;
                 _circuit.Simulation.Tick();
             }
         }

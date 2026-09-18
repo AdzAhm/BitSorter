@@ -95,8 +95,9 @@ namespace BitSorter.View
                 sources = new string[Mathf.Min(DefaultSources, capacity)],
             };
 
-            // The two-input truth table, which is what most circuits worth trying want fed into them.
-            string[] opening = { "0101", "0011" };
+            // The two-input truth table, which is what most circuits worth trying want fed into them,
+            // written the way the game writes every other one: A is the most significant bit.
+            string[] opening = SandboxRules.Table(DefaultSources);
 
             for (int i = 0; i < config.sources.Length; i++)
                 config.sources[i] = i < opening.Length ? opening[i] : string.Empty;
@@ -125,7 +126,7 @@ namespace BitSorter.View
                     SourceId(i),
                     FixtureKind.Source,
                     Cell(-halfExtents.x, i, halfExtents),
-                    ToBits(config.sources[i])));
+                    ToBits(config.sources[i], config.vectors)));
             }
 
             for (int i = 0; i < config.sinks; i++)
@@ -268,11 +269,20 @@ namespace BitSorter.View
             return moves;
         }
 
-        private static Bit[] ToBits(string stream)
+        /// <summary>
+        /// The first <paramref name="vectors"/> bits of a stream.
+        /// </summary>
+        /// <remarks>
+        /// The config keeps every stream at its full length, so the vector count decides how much of
+        /// one is emitted rather than how much of it survives. Lowering it and raising it again gets
+        /// the same pattern back.
+        /// </remarks>
+        private static Bit[] ToBits(string stream, int vectors)
         {
-            var bits = new Bit[stream.Length];
+            int length = Mathf.Clamp(vectors, 0, stream != null ? stream.Length : 0);
+            var bits = new Bit[length];
 
-            for (int i = 0; i < stream.Length; i++)
+            for (int i = 0; i < length; i++)
                 bits[i] = stream[i] == '1' ? Bit.One : Bit.Zero;
 
             return bits;

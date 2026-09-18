@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Text;
 using NUnit.Framework;
 using BitSorter.View;
 using UnityEngine;
@@ -194,6 +196,166 @@ namespace BitSorter.LogicCore.Tests
             string flipped = SandboxRules.Flip("0000", 2);
 
             Assert.AreEqual(flipped, SandboxConfig.NormaliseStream(flipped, flipped.Length));
+        }
+
+        // -----------------------------------------------------------------
+        // Filling in a truth table
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// The table is every combination, with A counting slowest.
+        /// </summary>
+        /// <remarks>
+        /// A as the most significant bit is how the levels' own tables are written and how anyone
+        /// writing one out by hand does it. Backwards would still be complete and would still read
+        /// upside down against every other table in the game.
+        /// </remarks>
+        [Test]
+        public void TheTruthTable_CountsUpWithAAsTheMostSignificantBit()
+        {
+            CollectionAssert.AreEqual(new[] { "01" }, SandboxRules.Table(1));
+            CollectionAssert.AreEqual(new[] { "0011", "0101" }, SandboxRules.Table(2));
+            CollectionAssert.AreEqual(
+                new[] { "00001111", "00110011", "01010101" }, SandboxRules.Table(3));
+        }
+
+        [Test]
+        public void EveryRowOfATable_IsAsLongAsTheVectorsItAsksFor()
+        {
+            for (int sources = 1; sources <= SandboxRules.MaxTableSources; sources++)
+            {
+                int vectors = SandboxRules.VectorsForTable(sources);
+                string[] table = SandboxRules.Table(sources);
+
+                Assert.AreEqual(sources, table.Length);
+                Assert.LessOrEqual(vectors, SandboxConfig.MaxVectors,
+                    "the table asks for more vectors than free play streams");
+
+                foreach (string row in table)
+                    Assert.AreEqual(vectors, row.Length);
+            }
+        }
+
+        [Test]
+        public void ATableTooBigForTheVectorsThereAre_IsRefusedRatherThanCutShort()
+        {
+            // Four sources need sixteen vectors and free play streams eight. A half-filled table
+            // would be a wrong answer dressed as a convenience.
+            Assert.IsFalse(SandboxRules.CanFillTable(SandboxRules.MaxTableSources + 1));
+            Assert.IsEmpty(SandboxRules.Table(SandboxRules.MaxTableSources + 1));
+
+            Assert.IsFalse(SandboxRules.CanFillTable(0), "there is no table of no inputs to fill");
+            Assert.IsEmpty(SandboxRules.Table(0));
+        }
+
+        [Test]
+        public void EveryVectorOfATable_IsADifferentCombination()
+        {
+            string[] table = SandboxRules.Table(3);
+            var seen = new HashSet<string>();
+
+            for (int v = 0; v < SandboxRules.VectorsForTable(3); v++)
+            {
+                var combination = new StringBuilder(3);
+
+                foreach (string row in table)
+                    combination.Append(row[v]);
+
+                Assert.IsTrue(seen.Add(combination.ToString()),
+                    $"vector {v} repeats the combination {combination}");
+            }
+        }
+
+        // -----------------------------------------------------------------
+        // Reading the outputs
+        // -----------------------------------------------------------------
+
+        [Test]
+        public void ACaughtBit_ShowsInTheColumnItArrivedIn()
+        {
+            IReadOnlyList<SinkNode.Reception> caught = Caught(1, 0, 1);
+
+            Assert.AreEqual("1", SandboxRules.Cell(caught, 0));
+            Assert.AreEqual("0", SandboxRules.Cell(caught, 1));
+            Assert.AreEqual("1", SandboxRules.Cell(caught, 2));
+        }
+
+        /// <summary>
+        /// A column nothing arrived in says so.
+        /// </summary>
+        /// <remarks>
+        /// "Nothing arrived" is a result in free play -- it is how a stalled gate or a lost bit
+        /// reads -- and an empty cell would look like a rendering gap rather than an answer.
+        /// </remarks>
+        [Test]
+        public void AColumnNothingArrivedIn_IsMarkedRatherThanLeftBlank()
+        {
+            Assert.AreEqual(SandboxRules.Missing, SandboxRules.Cell(Caught(1), 1));
+            Assert.AreEqual(SandboxRules.Missing, SandboxRules.Cell(Caught(), 0));
+            Assert.AreEqual(SandboxRules.Missing, SandboxRules.Cell(null, 0));
+            Assert.AreEqual(SandboxRules.Missing, SandboxRules.Cell(Caught(1), -1));
+
+            Assert.IsNotEmpty(SandboxRules.Missing);
+        }
+
+        [Test]
+        public void BitsPastTheLastColumn_AreCountedRatherThanDropped()
+        {
+            // A sink can catch more than one bit per vector, and a readout that stopped at the last
+            // column would hide exactly the surprise the player is looking for.
+            Assert.AreEqual(0, SandboxRules.Extra(Caught(1, 0), 4));
+            Assert.AreEqual(0, SandboxRules.Extra(Caught(1, 0, 1, 1), 4));
+            Assert.AreEqual(2, SandboxRules.Extra(Caught(1, 0, 1, 1, 0, 0), 4));
+            Assert.AreEqual(0, SandboxRules.Extra(null, 4));
+        }
+
+        // -----------------------------------------------------------------
+        // Run speed
+        // -----------------------------------------------------------------
+
+        [Test]
+        public void TheClock_DividesExactlyByTheSpeed()
+        {
+            Assert.AreEqual(0.5f, SimulationRunner.IntervalFor(0.5f, 1), 1e-5f);
+            Assert.AreEqual(0.25f, SimulationRunner.IntervalFor(0.5f, 2), 1e-5f);
+            Assert.AreEqual(0.125f, SimulationRunner.IntervalFor(0.5f, 4), 1e-5f);
+        }
+
+        [Test]
+        public void ASpeedBelowTheAuthoredOne_IsNotOffered()
+        {
+            // Nothing runs slower than the authored rate, and a zero or negative one would divide
+            // the interval into a clock that never ticks or ticks backwards.
+            Assert.AreEqual(SimulationRunner.DefaultSpeed, SandboxRules.ClampSpeed(0));
+            Assert.AreEqual(SimulationRunner.DefaultSpeed, SandboxRules.ClampSpeed(-4));
+            Assert.AreEqual(SimulationRunner.DefaultSpeed, SandboxRules.ClampSpeed(3), "3x is not offered");
+
+            Assert.AreEqual(0.5f, SimulationRunner.IntervalFor(0.5f, 0), 1e-5f);
+            Assert.AreEqual(0.5f, SimulationRunner.IntervalFor(0.5f, -2), 1e-5f);
+        }
+
+        [Test]
+        public void EverySpeedOffered_IsOneTheClockAccepts()
+        {
+            Assert.Contains(SimulationRunner.DefaultSpeed, SandboxRules.Speeds,
+                "the authored rate has to be one of the choices, or there is no way back to it");
+
+            foreach (int speed in SandboxRules.Speeds)
+            {
+                Assert.AreEqual(speed, SandboxRules.ClampSpeed(speed));
+                Assert.Less(SimulationRunner.IntervalFor(0.5f, speed), 0.5f + 1e-5f,
+                    $"{speed}x runs slower than the authored rate");
+            }
+        }
+
+        private static SinkNode.Reception[] Caught(params int[] values)
+        {
+            var caught = new SinkNode.Reception[values.Length];
+
+            for (int i = 0; i < values.Length; i++)
+                caught[i] = new SinkNode.Reception(values[i] == 1 ? Bit.One : Bit.Zero, i + 1);
+
+            return caught;
         }
     }
 }

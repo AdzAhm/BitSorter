@@ -145,7 +145,8 @@ namespace BitSorter.View
 
             // Top right, clear of the status banner and above the bits-lost meter's corner.
             UiTheme.Anchor(rect, new Vector2(1f, 1f), new Vector2(1f, 1f),
-                new Vector2(-UiTheme.Margin, -(UiTheme.Margin + 56f)), new Vector2(38f, 38f));
+                new Vector2(-UiTheme.Margin, -UiTheme.BadgeRow),
+                new Vector2(UiTheme.BadgeSize, UiTheme.BadgeSize));
 
             _badge.sprite = ProceduralSprites.Circle();
 

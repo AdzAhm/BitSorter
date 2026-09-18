@@ -24,25 +24,26 @@ namespace BitSorter.LogicCore.Tests
         // The two bottom corners
         // -----------------------------------------------------------------
 
+        /// <summary>The right-hand bottom corner, free since the catch readout moved.</summary>
+        private static readonly Vector2 RightCorner = new Vector2(1f, 0f);
+
         /// <summary>
-        /// Free play's catch readout and the diagnostics panel cannot overlap.
+        /// Free play's setup panel clears the interface above and below it.
         /// </summary>
         /// <remarks>
-        /// They did, exactly: both anchored bottom-right at (-16, 16) with a width of 230, each
-        /// stating its own numbers, so in free play with F3 open they occupied the identical
-        /// rectangle. Opposite corners plus a width under half the canvas is what makes that
-        /// unrepresentable at any window shape.
+        /// It is docked down the right edge, where the bits-lost meter and the help badge are
+        /// already, and it reaches down towards the refusal toast. Panels that must not overlap
+        /// cannot each own half the arithmetic, which is the lesson the rows below this one are here
+        /// to keep.
         /// </remarks>
         [Test]
-        public void TheTwoBottomCornerReadouts_AreOnOppositeSides()
+        public void TheSetupPanel_ClearsTheRowsAboveAndBelowIt()
         {
-            Assert.AreNotEqual(
-                UiTheme.ReadoutCorner.x, UiTheme.DiagnosticsCorner.x,
-                "both bottom-corner readouts anchor to the same side, so they will draw over each " +
-                "other -- free play with diagnostics open is where this shows");
+            Assert.GreaterOrEqual(UiTheme.SetupTop, UiTheme.BadgeRow + UiTheme.BadgeSize,
+                "the setup panel starts over the help badge");
 
-            Assert.AreEqual(0f, UiTheme.ReadoutCorner.y, "both sit on the bottom edge");
-            Assert.AreEqual(0f, UiTheme.DiagnosticsCorner.y, "both sit on the bottom edge");
+            Assert.GreaterOrEqual(UiTheme.SetupBottom, UiTheme.ToastRow + UiTheme.ToastHeight,
+                "the setup panel reaches down over the refusal toast");
         }
 
         /// <summary>
@@ -57,7 +58,7 @@ namespace BitSorter.LogicCore.Tests
         [Test]
         public void ABottomCornerReadout_IsFarNarrowerThanHalfTheCanvas()
         {
-            float pair = 2f * (UiTheme.ReadoutWidth + UiTheme.Margin);
+            float pair = 2f * (UiTheme.CornerWidth + UiTheme.Margin);
 
             Assert.Less(pair, UiTheme.ReferenceResolution.x * 0.6f,
                 $"two readouts plus their margins come to {pair} canvas units against a reference " +
@@ -74,11 +75,11 @@ namespace BitSorter.LogicCore.Tests
             {
                 var rect = host.GetComponent<RectTransform>();
 
-                UiTheme.AnchorBottomCorner(rect, UiTheme.ReadoutCorner, 100f);
+                UiTheme.AnchorBottomCorner(rect, RightCorner, 100f);
 
-                Assert.AreEqual(UiTheme.ReadoutCorner, rect.anchorMin);
-                Assert.AreEqual(UiTheme.ReadoutCorner, rect.anchorMax);
-                Assert.AreEqual(UiTheme.ReadoutWidth, rect.sizeDelta.x);
+                Assert.AreEqual(RightCorner, rect.anchorMin);
+                Assert.AreEqual(RightCorner, rect.anchorMax);
+                Assert.AreEqual(UiTheme.CornerWidth, rect.sizeDelta.x);
                 Assert.AreEqual(100f, rect.sizeDelta.y);
 
                 Assert.Less(rect.anchoredPosition.x, 0f,
