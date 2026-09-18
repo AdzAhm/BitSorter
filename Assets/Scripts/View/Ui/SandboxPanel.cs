@@ -95,6 +95,9 @@ namespace BitSorter.View
         private const float RowHeight = 24f;
         private const float StepHeight = 28f;
 
+        /// <summary>Where the rows start, below the title and the collapse button.</summary>
+        private const float BodyTop = 36f;
+
         private void Awake()
         {
             if (_session == null) _session = FindFirstObjectByType<LevelSession>();
@@ -245,13 +248,12 @@ namespace BitSorter.View
             Image panel = UiTheme.Panel_("Sandbox setup", _canvas.transform, UiTheme.Panel);
             _root = panel.GetComponent<RectTransform>();
 
-            // Stretched down the right edge between the rows it must not cover: the bits-lost meter
-            // and help badge above, the refusal toast below.
-            _root.anchorMin = new Vector2(1f, 0f);
-            _root.anchorMax = new Vector2(1f, 1f);
-            _root.pivot = new Vector2(1f, 1f);
-            _root.offsetMin = new Vector2(-(UiTheme.Margin + UiTheme.SetupWidth), UiTheme.SetupBottom);
-            _root.offsetMax = new Vector2(-UiTheme.Margin, -UiTheme.SetupTop);
+            // Hung from the top right, under the bits-lost meter and the help badge. Its height is
+            // the height of what is in it -- see Fit -- rather than the whole edge, which left a
+            // column of empty panel down the side of the board.
+            UiTheme.Anchor(_root, new Vector2(1f, 1f), new Vector2(1f, 1f),
+                new Vector2(-UiTheme.Margin, -UiTheme.SetupTop),
+                new Vector2(UiTheme.SetupWidth, 300f));
 
             TextMeshProUGUI title = UiTheme.Label(
                 "title", _root, 14f, UiTheme.TextDim, TextAlignmentOptions.Left);
@@ -266,7 +268,7 @@ namespace BitSorter.View
 
             _bodyRoot = UiTheme.Rect("body", _root);
             UiTheme.Anchor(_bodyRoot, new Vector2(0f, 1f), new Vector2(0f, 1f),
-                new Vector2(Pad, -36f), new Vector2(Inner, 10f));
+                new Vector2(Pad, -BodyTop), new Vector2(Inner, 10f));
 
             BuildTab();
 
@@ -353,7 +355,29 @@ namespace BitSorter.View
 
             y = Heading(y - 8f, "SPEED");
             SpeedRow(y);
+
+            Fit(y - 26f);
         }
+
+        /// <summary>
+        /// Sizes the panel to what is in it, without letting it reach the row below.
+        /// </summary>
+        /// <remarks>
+        /// The counts decide how many rows there are, so the height cannot be a constant, and a
+        /// panel stretched down the whole edge is a column of empty background beside the board.
+        /// <see cref="UiTheme.SetupBottom"/> is the floor: below it are the refusal toast and the
+        /// run buttons.
+        /// </remarks>
+        private void Fit(float bottom)
+        {
+            float wanted = BodyTop - bottom + Pad;
+            float room = CanvasHeight() - UiTheme.SetupTop - UiTheme.SetupBottom;
+
+            _root.sizeDelta = new Vector2(UiTheme.SetupWidth, Mathf.Min(wanted, room));
+        }
+
+        private float CanvasHeight() =>
+            _canvas != null && _canvas.transform is RectTransform rect ? rect.rect.height : 1080f;
 
         private float Heading(float y, string caption)
         {
@@ -492,7 +516,7 @@ namespace BitSorter.View
 
             Button zeros = UiTheme.Button_("all zero", _bodyRoot, "All 0", out TextMeshProUGUI zeroCaption);
             UiTheme.Anchor(zeros.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(1f, 1f),
-                new Vector2(Inner, y), new Vector2(Inner * 0.38f, 26f));
+                new Vector2(0f, y), new Vector2(Inner * 0.38f, 26f));
 
             zeroCaption.fontSize = 13f;
             zeros.interactable = _config.sources.Length > 0;

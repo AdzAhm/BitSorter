@@ -52,6 +52,9 @@ namespace BitSorter.View
         /// <inheritdoc cref="BadgeSize"/>
         public const float BadgeRow = Margin + 56f;
 
+        /// <summary>The key hint hanging under the badge, which is part of the badge's block.</summary>
+        public const float BadgeKeyHeight = 20f;
+
         /// <summary>
         /// Free play's setup panel, docked down the right edge.
         /// </summary>
@@ -66,7 +69,7 @@ namespace BitSorter.View
         public const float SetupWidth = 300f;
 
         /// <inheritdoc cref="SetupWidth"/>
-        public const float SetupTop = BadgeRow + BadgeSize + Gap;
+        public const float SetupTop = BadgeRow + BadgeSize + BadgeKeyHeight + Gap;
 
         /// <inheritdoc cref="SetupWidth"/>
         public const float SetupBottom = ToastRow + ToastHeight + Gap;

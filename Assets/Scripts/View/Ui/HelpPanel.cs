@@ -175,7 +175,7 @@ namespace BitSorter.View
             TextMeshProUGUI key = UiTheme.Label(
                 "key", rect, 12f, UiTheme.TextDim, TextAlignmentOptions.Center);
             UiTheme.Anchor(key.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 1f),
-                new Vector2(0f, -4f), new Vector2(60f, 16f));
+                new Vector2(0f, -4f), new Vector2(60f, UiTheme.BadgeKeyHeight - 4f));
             key.text = "H";
         }
 
