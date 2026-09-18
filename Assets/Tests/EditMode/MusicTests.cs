@@ -41,6 +41,51 @@ namespace BitSorter.LogicCore.Tests
                 yield return i;
         }
 
+        /// <summary>
+        /// What is left of a track above 8 kHz.
+        /// </summary>
+        /// <remarks>
+        /// Every note any track plays, harmonics included, sits below about 4 kHz. So nothing the
+        /// music means to play gets through this, and what does get through is what should not be
+        /// there: a noise floor, or the click of a waveform cut off mid-cycle. Both are exactly the
+        /// kind of fault that is plain on speakers and invisible to read in the code.
+        ///
+        /// An eighth-order Butterworth high-pass, as four biquads, steep enough that a 4 kHz partial
+        /// is down by more than 48 dB and cannot pass for noise.
+        /// </remarks>
+        private static float[] AboveTheNotes(int track)
+        {
+            AudioClip clip = ProceduralAudio.MusicClip(track);
+            float[] signal = SamplesOf(track);
+
+            // The pole Qs of an eighth-order Butterworth: 1 / (2 cos((2k - 1) pi / 16)).
+            foreach (double q in new[] { 0.5098, 0.6013, 0.9000, 2.5629 })
+            {
+                double w0 = 2.0 * System.Math.PI * 8000.0 / clip.frequency;
+                double cos = System.Math.Cos(w0);
+                double alpha = System.Math.Sin(w0) / (2.0 * q);
+                double a0 = 1.0 + alpha;
+
+                double b0 = (1.0 + cos) / 2.0 / a0, b1 = -(1.0 + cos) / a0, b2 = b0;
+                double a1 = -2.0 * cos / a0, a2 = (1.0 - alpha) / a0;
+
+                double x1 = 0, x2 = 0, y1 = 0, y2 = 0;
+
+                for (int n = 0; n < signal.Length; n++)
+                {
+                    double x = signal[n];
+                    double y = b0 * x + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2;
+
+                    x2 = x1; x1 = x;
+                    y2 = y1; y1 = y;
+
+                    signal[n] = (float)y;
+                }
+            }
+
+            return signal;
+        }
+
         // -----------------------------------------------------------------
         // The set
         // -----------------------------------------------------------------
@@ -169,6 +214,36 @@ namespace BitSorter.LogicCore.Tests
                     peak = Mathf.Max(peak, Mathf.Abs(sample));
 
                 Assert.Greater(peak, 0.05f, "track " + track + " came out inaudible");
+            }
+        }
+
+        /// <summary>
+        /// Nothing hisses under the music.
+        /// </summary>
+        /// <remarks>
+        /// Every track had a trace of white noise mixed in on purpose, "so the quiet parts are not
+        /// digitally dead". Being baked into the clip, it rose and fell with the music -- faded in and
+        /// out at every loop and every change of track -- and in the sparse tracks, where a note
+        /// decays to nothing between strikes, it was the only thing left playing. On speakers it was
+        /// a plain hiss, and it was reported as one.
+        ///
+        /// -66 dBFS above the notes, against about -51 with the noise in.
+        /// </remarks>
+        [Test]
+        public void NoTrackHasHissUnderIt()
+        {
+            foreach (int track in EveryTrack())
+            {
+                double sum = 0;
+                float[] residue = AboveTheNotes(track);
+
+                foreach (float sample in residue)
+                    sum += sample * sample;
+
+                float rms = (float)System.Math.Sqrt(sum / residue.Length);
+
+                Assert.Less(rms, 0.0005f,
+                    $"track {track} carries {rms:0.00000} RMS above 8 kHz, where none of its notes are");
             }
         }
 
