@@ -160,6 +160,75 @@ namespace BitSorter.LogicCore.Tests
             }
         }
 
+        [Test]
+        public void AGateSavedOnASlotAFixtureNeeds_IsDropped()
+        {
+            LevelDefinition level = SandboxLevel.Build(Config(2, 2, 4), Board);
+
+            var saved = new SavedBoard
+            {
+                placements = new[] { new SavedPlacement { x = -Board.x, y = 0, kind = "And" } },
+            };
+
+            var blueprint = new CircuitBlueprint();
+
+            Assert.AreEqual(1, BoardSerializer.Restore(saved, level, blueprint, Board));
+            Assert.AreEqual(0, blueprint.Placements.Count, "a gate came back onto a reserved slot");
+        }
+
+        /// <summary>
+        /// Taking a source away and putting it back leaves the circuit as it was.
+        /// </summary>
+        /// <remarks>
+        /// The wire stays in the blueprint while its source is gone, so lowering the count and
+        /// raising it again is a round trip. It is wired to nothing in the meantime, which is what
+        /// keeps a board with no source from simulating one.
+        /// </remarks>
+        [Test]
+        public void AWireFromASourceTheCountDropped_ComesBackWithIt()
+        {
+            LevelDefinition three = SandboxLevel.Build(Config(3, 2, 4), Board);
+            var blueprint = new CircuitBlueprint();
+
+            blueprint.Place(Vector2Int.zero, GateKind.Not);
+            blueprint.AddWire(new BlueprintWire(
+                new CellPort(CellOf(three, "C"), false, 0),
+                new CellPort(Vector2Int.zero, true, 0),
+                1));
+
+            LevelDefinition two = SandboxLevel.Build(Config(2, 2, 4), Board);
+            var withoutC = new CircuitBlueprint();
+
+            Assert.AreEqual(0,
+                BoardSerializer.Restore(BoardSerializer.ToSaved(SandboxLevel.Key, blueprint), two, withoutC, Board),
+                "the wire was thrown away with C");
+            Assert.AreEqual(1, withoutC.Wires.Count);
+            Assert.AreEqual(0, CircuitBuilder.Build(two, withoutC).Simulation.LiveEdgeCount,
+                "a wire with no source at its end was still wired up");
+
+            var withC = new CircuitBlueprint();
+            BoardSerializer.Restore(BoardSerializer.ToSaved(SandboxLevel.Key, withoutC), three, withC, Board);
+
+            Assert.AreEqual(1, CircuitBuilder.Build(three, withC).Simulation.LiveEdgeCount,
+                "the wire did not come back with C");
+        }
+
+        [Test]
+        public void AnAuthoredLevel_ReservesNothing()
+        {
+            // The reservation is free play's alone. A taught level's fixtures are the ones in its
+            // file, so there is no later one to keep a cell for -- and its edge columns stay usable.
+            LevelDefinition counted = LevelTestFixtures.Routing();
+
+            Assert.IsEmpty(counted.ReservedSlots);
+
+            LevelVerdict verdict = LevelRules.CanPlace(
+                counted, new CircuitBlueprint(), RunState.Editing, GateKind.Not,
+                new Vector2Int(-Board.x, -Board.y), Board);
+
+            Assert.IsTrue(verdict.IsValid, verdict.ToString());
+        }
+
         private static Vector2Int CellOf(LevelDefinition level, string id)
         {
             foreach (LevelFixture fixture in level.Fixtures)

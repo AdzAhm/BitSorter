@@ -24,6 +24,9 @@ namespace BitSorter.View
         /// <summary>A source or sink the level pinned down. Not the player's to remove.</summary>
         Fixed,
 
+        /// <summary>The cell is kept clear for a source or sink the level may grow into.</summary>
+        Reserved,
+
         /// <summary>Nothing on that cell to remove. Silent: a right click means "delete a wire" next.</summary>
         NothingThere,
 
@@ -121,6 +124,16 @@ namespace BitSorter.View
 
             if (blueprint.HasPlacementAt(cell))
                 return LevelVerdict.Reject(LevelOutcome.CellTaken, "That cell is taken.");
+
+            // Free play only: the player can add a source at any moment, and a gate standing in the
+            // new one's cell would be dropped by the reload rather than refused here.
+            if (level.TryReservedKind(cell, out FixtureKind reserved))
+            {
+                return LevelVerdict.Reject(LevelOutcome.Reserved,
+                    reserved == FixtureKind.Source
+                        ? "That column is kept for sources."
+                        : "That column is kept for sinks.");
+            }
 
             int budgeted = level.BudgetFor(kind);
             string label = GatePalette.Label(kind);

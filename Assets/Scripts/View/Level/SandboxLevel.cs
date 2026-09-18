@@ -157,7 +157,30 @@ namespace BitSorter.View
                 maxLatency: 0,
                 order: 0,
                 goal: GoalFor(config),
-                isGraded: false);
+                isGraded: false,
+                reservedSlots: Slots(halfExtents));
+        }
+
+        /// <summary>
+        /// Every cell in the two edge columns, tagged with the kind that column takes.
+        /// </summary>
+        /// <remarks>
+        /// The whole column, not merely the slots beyond the current count: the count is the
+        /// player's to raise at any moment, and a rule that changes shape as they step it would have
+        /// them place a gate legally and then watch it vanish.
+        /// </remarks>
+        private static LevelSlot[] Slots(Vector2Int halfExtents)
+        {
+            int capacity = Capacity(halfExtents);
+            var slots = new LevelSlot[capacity * 2];
+
+            for (int i = 0; i < capacity; i++)
+            {
+                slots[i] = new LevelSlot(Cell(-halfExtents.x, i, halfExtents), FixtureKind.Source);
+                slots[capacity + i] = new LevelSlot(Cell(halfExtents.x, i, halfExtents), FixtureKind.Sink);
+            }
+
+            return slots;
         }
 
         /// <summary>Source ids run A, B, C so they read like the inputs of an authored level.</summary>

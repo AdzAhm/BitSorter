@@ -177,6 +177,7 @@ namespace BitSorter.View
                     Mathf.Abs(cell.x) <= halfExtents.x &&
                     Mathf.Abs(cell.y) <= halfExtents.y &&
                     level.FixtureAt(cell) == null &&
+                    !level.IsReserved(cell) &&
                     !blueprint.HasPlacementAt(cell) &&
                     withinBudget;
 
@@ -241,13 +242,24 @@ namespace BitSorter.View
             return dropped;
         }
 
-        /// <summary>Output ports on whatever occupies a cell, or zero for an empty one.</summary>
+        /// <summary>
+        /// Output ports on whatever occupies a cell, or zero for an empty one.
+        /// </summary>
+        /// <remarks>
+        /// A reserved slot counts as the fixture it is kept for, even while empty. That is what lets
+        /// a wire outlive the source it was drawn from: free play's counts go down as well as up,
+        /// and a wire dropped on the way down would not come back on the way up. It stays in the
+        /// blueprint, drawn by nothing and simulated by nothing, until the fixture returns.
+        /// </remarks>
         private static int OutputsAt(Vector2Int cell, LevelDefinition level, CircuitBlueprint blueprint)
         {
             LevelFixture fixture = level.FixtureAt(cell);
 
             if (fixture != null)
                 return fixture.Kind == FixtureKind.Source ? 1 : 0;
+
+            if (level.TryReservedKind(cell, out FixtureKind reserved))
+                return reserved == FixtureKind.Source ? 1 : 0;
 
             return blueprint.TryGetPlacement(cell, out GateKind _) ? 1 : 0;
         }
@@ -259,6 +271,9 @@ namespace BitSorter.View
 
             if (fixture != null)
                 return fixture.Kind == FixtureKind.Sink ? 1 : 0;
+
+            if (level.TryReservedKind(cell, out FixtureKind reserved))
+                return reserved == FixtureKind.Sink ? 1 : 0;
 
             return blueprint.TryGetPlacement(cell, out GateKind kind)
                 ? GatePalette.InputsOf(kind)

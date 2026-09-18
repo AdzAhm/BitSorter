@@ -58,8 +58,10 @@ namespace BitSorter.View
             int maxLatency = 0,
             int order = 0,
             string goal = "",
-            bool isGraded = true)
+            bool isGraded = true,
+            IReadOnlyList<LevelSlot> reservedSlots = null)
         {
+            ReservedSlots = reservedSlots ?? System.Array.Empty<LevelSlot>();
             IsGraded = isGraded;
             Order = order;
             Goal = goal ?? string.Empty;
@@ -179,6 +181,42 @@ namespace BitSorter.View
         /// </summary>
         public IReadOnlyList<LevelExpectation> Expectations { get; }
 
+        /// <summary>
+        /// Cells kept clear for a source or sink this level may grow into. Empty for every authored
+        /// level, whose fixtures are exactly the ones in its file.
+        /// </summary>
+        /// <remarks>
+        /// Free play is the only user. Its counts are the player's to change, so a cell that holds
+        /// nothing today may hold source C tomorrow -- and a gate sitting there when it arrives is
+        /// dropped by the restore, silently, along with every wire into it. Reserving the two edge
+        /// columns up front means the refusal happens at the click, where it can be explained.
+        ///
+        /// Wires may still end on one. A fixture the player removes leaves its wires in the
+        /// blueprint, inert and undrawn -- <see cref="CircuitBuilder"/> skips a wire whose cell holds
+        /// no node -- and they come back with it. That is what makes lowering a count and raising it
+        /// again a round trip rather than a deletion.
+        /// </remarks>
+        public IReadOnlyList<LevelSlot> ReservedSlots { get; }
+
+        /// <summary>Whether a cell is kept for a fixture, and which kind would take it.</summary>
+        public bool TryReservedKind(Vector2Int cell, out FixtureKind kind)
+        {
+            for (int i = 0; i < ReservedSlots.Count; i++)
+            {
+                if (ReservedSlots[i].Cell == cell)
+                {
+                    kind = ReservedSlots[i].Kind;
+                    return true;
+                }
+            }
+
+            kind = default;
+            return false;
+        }
+
+        /// <inheritdoc cref="TryReservedKind"/>
+        public bool IsReserved(Vector2Int cell) => TryReservedKind(cell, out FixtureKind _);
+
         /// <summary>The fixture with this id, or null. Linear: a level has a handful of fixtures.</summary>
         public LevelFixture FixtureById(string id)
         {
@@ -252,6 +290,21 @@ namespace BitSorter.View
         }
 
         public override string ToString() => $"{Name} ({VectorCount} vectors)";
+    }
+
+    /// <summary>A cell held for a fixture that is not on the board yet.</summary>
+    public readonly struct LevelSlot
+    {
+        public readonly Vector2Int Cell;
+        public readonly FixtureKind Kind;
+
+        public LevelSlot(Vector2Int cell, FixtureKind kind)
+        {
+            Cell = cell;
+            Kind = kind;
+        }
+
+        public override string ToString() => $"{Kind} slot at {Cell}";
     }
 
     /// <summary>A source or sink the level pins to a cell.</summary>
