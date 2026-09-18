@@ -313,6 +313,22 @@ namespace BitSorter.View
             /// <summary>How much of the finished buffer feeds back as reverb. Zero is none.</summary>
             public readonly float Tail;
 
+            /// <summary>
+            /// How many steps back a note is still summed: until it has fallen below -60 dB.
+            /// </summary>
+            /// <remarks>
+            /// Derived from the ring, because a fixed number of steps cannot suit both kinds of
+            /// track. It was five everywhere, which dropped the warm tracks' long notes 1.4 to 5 %
+            /// of the way down, mid-cycle: a tick after the notes that the click test hears.
+            /// </remarks>
+            public readonly int Lookback;
+
+            /// <summary>
+            /// Each step's pitch, first pass then alternate pass, so a sample does not work out a
+            /// power of two for every note it sums.
+            /// </summary>
+            public readonly float[] Hz;
+
             public Track(int[] figure, float[] roots, float ring, int lift,
                          Voice voice = Voice.Plucked, float tail = 0f)
             {
@@ -322,6 +338,23 @@ namespace BitSorter.View
                 Lift = lift;
                 Voice = voice;
                 Tail = tail;
+
+                // Capped at one figure. A ring slow enough to reach the cap would be cut above
+                // -60 dB, and the click test would say so.
+                Lookback = Mathf.Clamp(
+                    Mathf.CeilToInt(Mathf.Log(1000f) / ring / StepSeconds), 1, figure.Length);
+
+                Hz = new float[figure.Length * 2];
+
+                for (int pass = 0; pass < 2; pass++)
+                {
+                    for (int s = 0; s < figure.Length; s++)
+                    {
+                        int semi = figure[s] + (pass == 0 ? 0 : lift);
+                        Hz[pass * figure.Length + s] =
+                            figure[s] == Rest ? 0f : 440f * Mathf.Pow(2f, semi / 12f);
+                    }
+                }
             }
 
             /// <summary>
@@ -463,9 +496,17 @@ namespace BitSorter.View
         /// One sample of a track: the figure, and a bass note under it.
         /// </summary>
         /// <remarks>
-        /// Notes ring for well over a step, so several sound at once. Walking back a few steps and
-        /// summing is what lets them overlap instead of being cut off by the next one -- five is far
-        /// enough back that the oldest is inaudible at every ring rate here.
+        /// Notes ring for well over a step, so several sound at once. Walking back and summing is
+        /// what lets them overlap instead of being cut off by the next one, and how far back is
+        /// <see cref="Track.Lookback"/>: far enough that a note has decayed below -60 dB before it
+        /// is dropped.
+        ///
+        /// **Nothing here may change value in a single sample.** A waveform that jumps puts energy
+        /// at every frequency the render holds, and above the notes that is a click -- right at the
+        /// edge of a 22 kHz render, where playback resampling turns it into a sizzle that comes and
+        /// goes with the music. Notes start at a zero crossing and rise over about a millisecond,
+        /// the bass is its own note per bar rather than one sine restarted on every bar line, and a
+        /// note is only dropped once there is nothing left of it to cut.
         ///
         /// There is deliberately no noise floor. There was one -- white noise at a hundredth of full
         /// scale, "so the quiet parts are not digitally dead" -- and it was reported as a hiss.
@@ -477,39 +518,69 @@ namespace BitSorter.View
         {
             int steps = track.Figure.Length;
             int now = Mathf.FloorToInt(t / StepSeconds);
-            int bar = Mathf.FloorToInt(t / BarSeconds) % track.Roots.Length;
 
             float voice = 0f;
 
-            for (int back = 0; back < 5; back++)
+            for (int back = 0; back < track.Lookback; back++)
             {
                 int s = now - back;
 
                 if (s < 0)
+                    break;
+
+                int step = s % steps;
+
+                if (track.Figure[step] == Rest)
                     continue;
 
-                int semi = track.Figure[s % steps];
+                float hz = track.Hz[((s / steps) % 2) * steps + step];
 
-                if (semi == Rest)
-                    continue;
-
-                int lift = (s / steps) % 2 == 0 ? 0 : track.Lift;
+                // Phase measured from the note's own start, so every note begins at a zero crossing.
                 float age = t - s * StepSeconds;
-
-                // Phase measured from the note's own start, so every note begins at a zero crossing
-                // and none of them start with a click.
-                float hz = 440f * Mathf.Pow(2f, (semi + lift) / 12f);
                 float ring = Mathf.Exp(-track.Ring * age);
 
                 voice += track.Voice == Voice.Keys ? Keys(age, hz, ring) : Plucked(age, hz, ring);
             }
 
-            // One bass note a bar, struck and left to fall away. Felt more than heard.
-            float barAge = t % BarSeconds;
-            float bass = Sine(t, track.Roots[bar] * 0.5f) * Mathf.Exp(-0.45f * barAge);
+            // One bass note a bar, struck and left to fall away. Felt more than heard. The previous
+            // bar's is still falling away under it: it used to be one sine whose envelope restarted
+            // on every bar line, jumping from 3 % to full at whatever phase it had reached -- the
+            // loudest click in the set, exactly every eight seconds. Kept one bar longer, it is
+            // dropped at 0.07 %, with nothing left to cut.
+            int bar = Mathf.FloorToInt(t / BarSeconds);
+            float barAge = t - bar * BarSeconds;
+            int roots = track.Roots.Length;
+
+            float bass = Bass(track.Roots[bar % roots], barAge);
+
+            if (bar > 0)
+                bass += Bass(track.Roots[(bar - 1) % roots], barAge + BarSeconds);
 
             return (voice * 0.15f + bass * 0.16f) * Fade(t, d, 2f);
         }
+
+        /// <summary>A bar's bass note, <paramref name="age"/> seconds after it was struck.</summary>
+        /// <remarks>
+        /// Its phase runs from its own start, so it begins at a zero crossing, and it rises over a
+        /// few milliseconds -- well under one cycle of a note this low -- rather than in one sample.
+        /// </remarks>
+        private static float Bass(float root, float age) =>
+            Sine(age, root * 0.5f) * Mathf.Exp(-0.45f * age) * Strike(age, 0.004f);
+
+        /// <summary>
+        /// How a struck note arrives: at full volume in about a millisecond, not in one sample.
+        /// </summary>
+        /// <remarks>
+        /// Still an instant to the ear -- a real pluck takes longer -- but a note that jumps to full
+        /// volume between two samples is a click on every note, sitting right at the top of what a
+        /// 22 kHz render holds.
+        ///
+        /// Twenty time constants in, what is left of the rise is below 10^-8 and it stops being
+        /// worked out. Every note in a track's lookback passes through here on every sample, and
+        /// nearly all of them are long past their first millisecond.
+        /// </remarks>
+        private static float Strike(float age, float seconds = 0.0005f) =>
+            age >= seconds * 20f ? 1f : 1f - Mathf.Exp(-age / seconds);
 
         /// <summary>
         /// Renders a waveform. <paramref name="shape"/> is given the time in seconds and the clip's
@@ -547,9 +618,9 @@ namespace BitSorter.View
             return clip;
         }
 
-        /// <summary>Sine plus octave, straight in at full amplitude.</summary>
+        /// <summary>Sine plus octave, in at full amplitude within a millisecond.</summary>
         private static float Plucked(float age, float hz, float ring) =>
-            (Sine(age, hz) + Sine(age, hz * 2f) * 0.22f) * ring;
+            (Sine(age, hz) + Sine(age, hz * 2f) * 0.22f) * ring * Strike(age);
 
         /// <summary>
         /// A struck key: soft rise, detuned pair, and a tine that fades faster than the note.
@@ -565,10 +636,12 @@ namespace BitSorter.View
         /// </remarks>
         private static float Keys(float age, float hz, float ring)
         {
-            float attack = 1f - Mathf.Exp(-26f * age);
+            // The rise is complete, and the tine gone, long before the note is: past those points
+            // each is under 10^-5 of its start and is left out rather than worked out per sample.
+            float attack = age < 0.5f ? 1f - Mathf.Exp(-26f * age) : 1f;
 
             float body = Sine(age, hz) + Sine(age, hz * 1.004f) * 0.75f;
-            float tine = Sine(age, hz * 3f) * 0.11f * Mathf.Exp(-9f * age);
+            float tine = age < 1.3f ? Sine(age, hz * 3f) * 0.11f * Mathf.Exp(-9f * age) : 0f;
 
             return (body + tine) * attack * ring * 0.62f;
         }
