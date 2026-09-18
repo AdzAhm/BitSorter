@@ -91,9 +91,9 @@ namespace BitSorter.LogicCore.Tests
         // -----------------------------------------------------------------
 
         [Test]
-        public void ThereAreNineTracks()
+        public void ThereAreTenTracks()
         {
-            Assert.AreEqual(9, ProceduralAudio.MusicTracks);
+            Assert.AreEqual(10, ProceduralAudio.MusicTracks);
         }
 
         [Test]
@@ -174,10 +174,12 @@ namespace BitSorter.LogicCore.Tests
         public void TheMusicRate_LeavesRoomForEveryNoteItPlays()
         {
             // Music is rendered at half the rate the cues are, which is only safe while nothing in it
-            // approaches the Nyquist limit. The highest thing any track produces is its top note's
-            // second harmonic; this fails if a figure is ever written high enough to alias.
+            // approaches the Nyquist limit. The highest thing any track produces is the plucked
+            // tracks' top note doubled, about 4.2 kHz -- the mallets' knock is four times its note,
+            // which is why that track is written low and tops out at 3.1 kHz. This fails if the
+            // rate is ever lowered under what those need.
             int rate = ProceduralAudio.MusicClip(0).frequency;
-            const float HighestHarmonic = 4200f;   // ~2.1 kHz top note, doubled
+            const float HighestHarmonic = 4200f;
 
             Assert.Greater(rate * 0.5f, HighestHarmonic * 1.5f,
                 "the music sample rate no longer has headroom for the notes being played");

@@ -287,6 +287,21 @@ namespace BitSorter.View
             /// It is quieter at source than Plucked on purpose, because the reverb adds it back.
             /// </remarks>
             Keys,
+
+            /// <summary>
+            /// A struck wooden bar: the note, and a knock two octaves up that is gone in a fraction
+            /// of a second.
+            /// </summary>
+            /// <remarks>
+            /// A marimba's first overtone sits at four times the note rather than two, and it is what
+            /// makes a struck bar sound like wood instead of like a plucked string. Short, so it
+            /// bounces where the others ring, and no reverb, so it stays dry and close.
+            ///
+            /// The knock is the highest thing any track produces relative to its note, so the track
+            /// that uses this is written in the lower register and drops an octave on its alternate
+            /// pass rather than climbing. That keeps the knock under 3.2 kHz.
+            /// </remarks>
+            Mallet,
         }
 
         /// <summary>
@@ -490,6 +505,26 @@ namespace BitSorter.View
                 lift: -12,
                 voice: Voice.Keys,
                 tail: 0.15f),
+
+            // -------------------------------------------------------------------------
+            // 9: the mallets.
+            //
+            // The only track that differs in what plays it rather than in what is played. Same five
+            // notes, same tempo, same four bars, so it crossfades with any of the others -- but a
+            // struck wooden bar, short and dry, where everything else is plucked or held.
+            // -------------------------------------------------------------------------
+
+            // 9. Eight notes, two of them pairs, climbing to G and stepping back down, with a short
+            //    ring so the pairs bounce rather than blur. Rooted on A, so it reads minor like the
+            //    first six. Under it, D: a bass root no other track uses, which colours the same five
+            //    notes without adding a sixth. Written low and dropping an octave on the alternate
+            //    pass, which keeps the mallet's knock under 3.2 kHz.
+            new Track(
+                figure: new[] { 0, -1, 3, -1, 5, 7, -1, -1, 3, -1, 10, -1, 7, 5, -1, -1 },
+                roots: new[] { 110.00f, 146.83f, 98.00f, 82.41f },   // Am - D - G - Em
+                ring: 3.0f,
+                lift: -12,
+                voice: Voice.Mallet),
         };
 
         /// <summary>
@@ -539,7 +574,20 @@ namespace BitSorter.View
                 float age = t - s * StepSeconds;
                 float ring = Mathf.Exp(-track.Ring * age);
 
-                voice += track.Voice == Voice.Keys ? Keys(age, hz, ring) : Plucked(age, hz, ring);
+                switch (track.Voice)
+                {
+                    case Voice.Keys:
+                        voice += Keys(age, hz, ring);
+                        break;
+
+                    case Voice.Mallet:
+                        voice += Mallet(age, hz, ring);
+                        break;
+
+                    default:
+                        voice += Plucked(age, hz, ring);
+                        break;
+                }
             }
 
             // One bass note a bar, struck and left to fall away. Felt more than heard. The previous
@@ -621,6 +669,20 @@ namespace BitSorter.View
         /// <summary>Sine plus octave, in at full amplitude within a millisecond.</summary>
         private static float Plucked(float age, float hz, float ring) =>
             (Sine(age, hz) + Sine(age, hz * 2f) * 0.22f) * ring * Strike(age);
+
+        /// <summary>
+        /// A struck bar: the note, and a knock at four times it that is gone within half a second.
+        /// </summary>
+        /// <remarks>
+        /// A slightly softer strike than a pluck -- a mallet is felt, not a fingernail. Past 0.7 s the
+        /// knock is under 10^-4 of where it began and is left out rather than worked out.
+        /// </remarks>
+        private static float Mallet(float age, float hz, float ring)
+        {
+            float knock = age < 0.7f ? Sine(age, hz * 4f) * 0.3f * Mathf.Exp(-14f * age) : 0f;
+
+            return (Sine(age, hz) + knock) * ring * Strike(age, 0.001f);
+        }
 
         /// <summary>
         /// A struck key: soft rise, detuned pair, and a tine that fades faster than the note.
