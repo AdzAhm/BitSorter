@@ -146,23 +146,34 @@ replaces it.
 Free play, from the main menu or the foot of the level list. Every gate, as many
 as you like, no delay budget, and nothing to pass or fail.
 
-You set up the inputs yourself: how many sources, what each one emits, how many
-sinks, and how many test vectors they all run for. Click a bit in the panel to
-flip it between 0 and 1.
+The setup is a panel docked down the right-hand side, beside the board rather
+than over it, and it collapses to a tab when you want the width back. You set up
+the inputs yourself: how many sources, what each one emits, how many sinks, and
+how many test vectors they all run for. Click a bit to flip it between 0 and 1,
+or fill every combination at once with **Truth table** — up to three sources,
+with A as the most significant bit, the way the levels write theirs.
 
-**A readout in the corner shows what each sink actually caught**, in order, while
-the run happens and after it stops. That is the point of the mode. In a level you
-already know what you wanted and the verdict tells you whether you got it; here
-there is no intended answer, so what came out is the only result there is.
+**Under the inputs, each sink shows what it actually caught**, in arrival order,
+in the same columns the streams above it use, while the run happens and after it
+stops. That is the point of the mode. In a level you already know what you wanted
+and the verdict tells you whether you got it; here there is no intended answer,
+so what came out is the only result there is. A `·` is a column nothing arrived
+in, and `+2` means two more bits arrived than there were columns for.
+
+**Speed** runs the clock at 1x, 2x or 4x, for a circuit of your own that takes a
+while to say what it does. Levels always run at the authored rate.
 
 Everything else behaves normally. Bits still collide on unbalanced paths, the
 bits-lost meter still fires, and the scorch mark still names the junction — you
 just do not get marked on any of it. The board is saved like any other, so a
 sandbox circuit and its setup are still there next time.
 
-Changing the number of sources or sinks rebuilds the board, and anything that no
-longer has somewhere to connect is dropped. Changing a stream leaves your circuit
-alone.
+Sources and sinks keep their own slots, counted from the top, so adding a third
+source never moves the first two and never moves the wires you drew from them.
+Both edge columns are kept for them, which is why a gate will not go there. Take
+a source away and the wires drawn from it stay where they are, connected to
+nothing, and come back when it does. Changing the setup never disturbs your
+circuit, the part in your hand or what Ctrl+Z will undo.
 
 ### Your progress
 
@@ -242,10 +253,11 @@ Unity 6.3 LTS (6000.3.11f1).
 - **BitSorter → Build Play Scene** regenerates the play scene from code. The
   scene is generated rather than authored, so anything added by hand is discarded
   the next time that runs.
-- Tests: Window → General → Test Runner. Roughly 655 EditMode cases and 30
-  PlayMode at present, the PlayMode ones across six fixtures — pointer
+- Tests: Window → General → Test Runner. Roughly 670 EditMode cases and 40
+  PlayMode at present, the PlayMode ones across seven fixtures — pointer
   arbitration, audio, scene composition, the tutorial's opening, the frame a run
-  ends on, and the HUD allocating nothing on a quiet frame. Those need a live
+  ends on, free play's setup, and the HUD allocating nothing on a quiet frame.
+  Those need a live
   scene, and Unity has to be focused or the run never enters play mode. If
   you ever script that run, read the results from `TestResults.xml` in the save
   directory rather than from a `TestRunnerApi` callback, which does not survive

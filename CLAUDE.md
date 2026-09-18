@@ -353,6 +353,12 @@ failure side.
   lines print over it. A panel that opens on a key asks
   `UiModal.OpenOrJustClosed`, so the press that closed one panel cannot open
   another in the same frame.
+- **The board is framed in what the interface leaves free.** `CameraFraming
+  .Fit` centres it between the pixels taken on the left and the right, and
+  `CameraFit` reads those from the parts list and free play's setup panel.
+  Fitting to the whole screen put the outermost column under the parts list,
+  where four shipped levels keep a source — in Carry the one, source B sat
+  under the AND with "DELAY 0 of 5" across its label.
 - **Nothing may depend on the order components update in.** Unity leaves it
   undefined for scripts with no execution order. When one component needs a
   fact to be true by the time another can see something, produce that fact in
@@ -430,6 +436,46 @@ Free play is ungraded via `RunState.Finished`, which is deliberately not
 fire. Unlimited is spelled `-1`, the way `RemainingDelay` already spells
 an absent budget, and the trap is that zero and unlimited are opposites
 that both look falsy: test `== 0` for "not stocked", never `<= 0`.
+
+**Its setup is a docked panel, not a modal.** `SandboxPanel` sits down the
+right-hand edge beside the board, collapses to a tab, reads no keys and
+never registers with `UiModal` — a panel that closed on Escape was racing
+the level list for the same press. It is part of the HUD, so it steps
+aside for a full-screen panel, and it reports its width to `CameraFit`,
+which frames the board in what is left. Free play's catch readout lives in
+it now, in the same columns as the streams above, rather than in the
+bottom-right corner.
+
+**A setup edit is `LevelSession.Reconfigure`, never `Adopt`.** Adopt is a
+level *switch*: it empties the undo history, resets the part in hand,
+cancels the run and makes `ProgressTracker` rewrite the save — which is
+what one click on one bit used to cost. Reconfigure swaps the definition
+under the board and raises `LevelChanged`, which is for anything derived
+from the level rather than the board; the help panel's truth table is the
+subscriber that matters, since free play's streams are the player's.
+Entering free play is still an Adopt, and that is what saves and restores.
+
+**Fixtures have fixed slots and both edge columns are reserved.** Slot *i*
+sits at `halfExtents.y - i`, never re-centred: fixtures used to be centred
+in their column, so adding a source moved every one of them, and wires are
+stored by cell — a circuit wired to A silently became one wired to B.
+`LevelDefinition.ReservedSlots` then keeps the whole of both columns clear
+of gates, because the count is the player's to raise at any moment.
+Wires may still end on a reserved slot, so a fixture counted away leaves
+its wires in the blueprint, built by nothing, and they return with it.
+Boards saved under the old layout are moved onto the new slots by
+`SandboxLevel.MigrateLegacyBoard`, which `SandboxConfig.layout` gates —
+a missing `layout` is zero, and zero means centred.
+
+**Streams are stored at `MaxVectors` and the level takes the first few**,
+so the vector count decides how much is emitted rather than how much
+survives. It used to truncate, so stepping down and back up returned
+zeros where the player's pattern had been.
+
+**`SimulationRunner.Speed` is free play's alone.** It divides the tick
+interval by 1, 2 or 4, and `LevelSession` puts it back to `DefaultSpeed`
+whenever a level is installed, so a fast sandbox cannot follow the player
+into a taught level.
 
 **The guided tutorial is code-built, like the sandbox, and for the same
 reasons.** `LevelLoader.Validate` and `CurriculumTests` stay exactly as strict
