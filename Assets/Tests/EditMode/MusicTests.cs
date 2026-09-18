@@ -247,6 +247,45 @@ namespace BitSorter.LogicCore.Tests
             }
         }
 
+        /// <summary>
+        /// No track clicks: nothing in it jumps from one value to another between two samples.
+        /// </summary>
+        /// <remarks>
+        /// A waveform that changes value instantly puts energy at every frequency up to the limit
+        /// of the render, and above the notes that is heard as a click. Three things did it: the
+        /// bass restarting at full volume and an arbitrary phase on every bar line, loudest of all
+        /// and exactly every eight seconds; each plucked note starting at full volume in a single
+        /// sample; and notes being dropped mid-cycle five steps after they began. The first two
+        /// also sit right at the edge of what a 22 kHz render holds, which is where playback
+        /// resampling turns them into a sizzle that comes and goes with the notes.
+        ///
+        /// -54 dBFS above the notes, against up to -30 on the bar lines before.
+        /// </remarks>
+        [Test]
+        public void NoTrackClicks()
+        {
+            foreach (int track in EveryTrack())
+            {
+                float[] residue = AboveTheNotes(track);
+                int rate = ProceduralAudio.MusicClip(track).frequency;
+
+                float peak = 0f;
+                int at = 0;
+
+                for (int n = 0; n < residue.Length; n++)
+                {
+                    if (Mathf.Abs(residue[n]) > peak)
+                    {
+                        peak = Mathf.Abs(residue[n]);
+                        at = n;
+                    }
+                }
+
+                Assert.Less(peak, 0.002f,
+                    $"track {track} clicks at {at / (float)rate:0.000} s, {peak:0.0000} above 8 kHz");
+            }
+        }
+
         [Test]
         public void EveryTrack_StartsAndEndsNearSilence()
         {
