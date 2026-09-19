@@ -56,6 +56,16 @@ namespace BitSorter.View
         /// <summary>Samples rendered between checks of the clock. Small enough to stop near the budget.</summary>
         private const int BakeSlice = 1024;
 
+        /// <summary>
+        /// The per-frame budget while a level change is waiting on its track. Half a frame at 60 Hz:
+        /// fast enough that the wait is a second or two, and still no frame anyone would see drop.
+        /// </summary>
+        private const float UrgentBakeMilliseconds = 8f;
+
+        /// <summary>Whether the level's wanted track is built, on the source or ready beside it.</summary>
+        private bool LevelTrackReady =>
+            (_levelClip != null && _wanted == _track) || (_ready != null && _readyTrack == _wanted);
+
         /// <summary>The next track, part-built. Null when there is nothing left to build.</summary>
         private ProceduralAudio.MusicBake _bake;
 
@@ -346,7 +356,7 @@ namespace BitSorter.View
         /// built, the buffer it is built in. Every track used to stay for the session, which at two
         /// dozen tracks is more browser heap than the whole game otherwise uses.
         /// </remarks>
-        private void BakeAhead()
+        private void BakeAhead(bool urgent)
         {
             if (_bag == null)
                 return;
@@ -373,7 +383,8 @@ namespace BitSorter.View
             if (_bake == null || _bake.Index != next)
                 _bake = ProceduralAudio.BakeMusic(next);
 
-            float until = Time.realtimeSinceStartup + _bakeMillisecondsPerFrame / 1000f;
+            float budget = urgent ? UrgentBakeMilliseconds : _bakeMillisecondsPerFrame;
+            float until = Time.realtimeSinceStartup + budget / 1000f;
 
             while (!_bake.Step(BakeSlice) && Time.realtimeSinceStartup < until) { }
 
@@ -389,8 +400,10 @@ namespace BitSorter.View
         /// The clip for a track, taken from what <see cref="BakeAhead"/> prepared if it is there.
         /// </summary>
         /// <remarks>
-        /// If it is not -- the level changed again within seconds of the last change -- the build is
-        /// finished on the spot. That stalls a frame, but it is the right track, and it is rare.
+        /// It always is by the time a switch reaches here, because <see cref="DriveMusic"/> holds a
+        /// switch until the track is built. The one exception is the very first frame, when there
+        /// is no main menu to play over the wait: the build is finished on the spot, at startup,
+        /// as it always was.
         /// </remarks>
         private AudioClip TakeClip(int track)
         {
@@ -430,13 +443,19 @@ namespace BitSorter.View
             if (_musicSource == null)
                 return;
 
-            BakeAhead();
-
             // Ahead of the fade, and ahead of its early-out: a settled track still has to notice
             // the player reaching for mute.
             _musicSource.mute = Muted;
 
             bool menu = MenuWanted;
+            bool switching = _begun && (menu != _onMenu || (!menu && _wanted != _track));
+
+            // A level track not built yet is waited for, never stalled on. The music already
+            // playing carries on at full volume while the build finishes at a faster pace, and the
+            // change comes a second or two late -- which nobody hears, where a frozen frame is seen.
+            bool waiting = switching && !menu && !LevelTrackReady;
+
+            BakeAhead(urgent: waiting);
 
             // The first frame starts whatever belongs on screen, at full volume. A fade in from
             // silence would read as the game being slow to start.
@@ -450,7 +469,17 @@ namespace BitSorter.View
             }
 
             float rate = Time.unscaledDeltaTime / Mathf.Max(0.05f, _switchSeconds);
-            bool switching = menu != _onMenu || (!menu && _wanted != _track);
+
+            if (waiting && !LevelTrackReady)
+            {
+                if (_gain < 1f)
+                {
+                    _gain = Mathf.Min(1f, _gain + rate);
+                    ApplyVolume();
+                }
+
+                return;
+            }
 
             if (switching)
             {

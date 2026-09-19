@@ -390,10 +390,13 @@ namespace BitSorter.PlayMode.Tests
             Assert.AreSame(before, music.clip, "resetting the board changed the track");
         }
 
-        /// <summary>Long enough for a fade down, a swap and a fade back up.</summary>
+        /// <summary>
+        /// Long enough for a fade down, a swap and a fade back up -- and for the new track to finish
+        /// building first, which GameAudio waits for rather than freezing a frame on.
+        /// </summary>
         private static IEnumerator WaitForTheFade()
         {
-            float until = Time.unscaledTime + 2.5f;
+            float until = Time.unscaledTime + 5f;
 
             while (Time.unscaledTime < until)
                 yield return null;
