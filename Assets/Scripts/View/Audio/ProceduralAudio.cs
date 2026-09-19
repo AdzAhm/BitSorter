@@ -154,35 +154,33 @@ namespace BitSorter.View
         /// <summary>How long one track runs, in seconds.</summary>
         /// <remarks>
         /// Derived from the chord cycle, exactly as the clip is. Exposed so the set's memory cost
-        /// can be asserted rather than worked out by hand -- see <see cref="MusicBytes"/>.
+        /// can be asserted rather than worked out by hand -- see <see cref="MusicResidentBytes"/>.
         /// </remarks>
         public static float MusicSeconds(int index) =>
             Tracks[Mathf.Clamp(index, 0, Tracks.Length - 1)].Seconds;
 
         /// <summary>
-        /// Heap the whole music set costs once every track has been built.
+        /// Heap one built track costs. Every track is the same length, which MusicTests asserts.
+        /// </summary>
+        /// <remarks>
+        /// Mono, uncompressed, four bytes a sample: clips are created with a stream flag of false, so
+        /// a built track is a float array for as long as its clip lives.
+        /// </remarks>
+        public static int MusicTrackBytes =>
+            Mathf.RoundToInt(Tracks[0].Seconds * MusicSampleRate) * sizeof(float);
+
+        /// <summary>
+        /// The most music heap the game ever holds: the track playing, the next one ready, and the
+        /// buffer the one after that is being built in.
         /// </summary>
         /// <remarks>
         /// The figure the <see cref="MusicSampleRate"/> remarks argue from, computed rather than
-        /// written down. It was written down, for six tracks, and three more were added without it
-        /// moving -- so the comment claimed half of what the set actually costs and nothing noticed.
-        ///
-        /// Mono, uncompressed, four bytes a sample: clips are created with a stream flag of false,
-        /// so a built track is a float array resident for the session. Tracks are built lazily, so
-        /// this is the ceiling a long session reaches rather than the startup cost.
+        /// written down. It used to be the whole set, because every track built stayed for the
+        /// session -- and a comment stating that figure for six tracks still said six after three
+        /// more were added. Tracks are freed as they are left now, so the count of tracks no longer
+        /// moves this at all; only their length and the rate do.
         /// </remarks>
-        public static int MusicBytes
-        {
-            get
-            {
-                int bytes = 0;
-
-                for (int i = 0; i < Tracks.Length; i++)
-                    bytes += Mathf.RoundToInt(Tracks[i].Seconds * MusicSampleRate) * sizeof(float);
-
-                return bytes;
-            }
-        }
+        public static int MusicResidentBytes => 3 * MusicTrackBytes;
 
         /// <summary>
         /// The notes a track plays, as semitones above A4, with its rests removed.
@@ -373,7 +371,7 @@ namespace BitSorter.View
         /// in a game whose entire browser build is 16 MB. Tracks are built on first use, so a
         /// session only pays for the ones it reaches.
         ///
-        /// Those numbers are <see cref="MusicBytes"/>, and MusicTests asserts against it rather
+        /// Those numbers are <see cref="MusicResidentBytes"/>, and MusicTests asserts against it rather
         /// than against this paragraph. The paragraph said six tracks and 34 MB for a while after
         /// there were nine, because nothing was checking.
         ///

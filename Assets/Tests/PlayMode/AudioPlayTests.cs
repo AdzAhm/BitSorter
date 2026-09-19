@@ -231,6 +231,35 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsTrue(music.isPlaying, "the new track is not playing");
         }
 
+        /// <summary>
+        /// The track a level change leaves behind is freed, not kept.
+        /// </summary>
+        /// <remarks>
+        /// Every track built used to stay for the session. At two dozen tracks that is more browser
+        /// heap than the rest of the game uses, so GameAudio holds two and destroys the one it left.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator TheTrackALevelChangeLeaves_IsFreed()
+        {
+            yield return LoadScene();
+
+            GameAudio audio = Find<GameAudio>();
+            LevelSession session = Find<LevelSession>();
+
+            AudioSource music = MusicSource(audio);
+            AudioClip before = music.clip;
+
+            Assert.IsTrue(before != null, "sanity: a track should be playing");
+
+            string elsewhere = session.AvailableLevels.First(name => name != session.LevelName);
+            session.LoadLevel(elsewhere);
+
+            yield return WaitForTheFade();
+
+            Assert.AreNotSame(before, music.clip, "sanity: the track should have changed");
+            Assert.IsTrue(before == null, "the track the level change left behind is still held");
+        }
+
         [UnityTest]
         public IEnumerator ReloadingTheSameLevel_LeavesTheTrackAlone()
         {

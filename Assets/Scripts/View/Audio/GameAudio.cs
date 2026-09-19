@@ -32,6 +32,20 @@ namespace BitSorter.View
         [Tooltip("Seconds to fade down and back up when the track changes at a level boundary.")]
         [SerializeField] private float _switchSeconds = 0.7f;
 
+        [Tooltip("Milliseconds per frame spent building the next track while this one plays.")]
+        [SerializeField] private float _bakeMillisecondsPerFrame = 2f;
+
+        /// <summary>Samples rendered between checks of the clock. Small enough to stop near the budget.</summary>
+        private const int BakeSlice = 1024;
+
+        /// <summary>The next track, part-built. Null when there is nothing left to build.</summary>
+        private ProceduralAudio.MusicBake _bake;
+
+        /// <summary>The next track, built and waiting, and which track it is.</summary>
+        private AudioClip _ready;
+
+        private int _readyTrack = -1;
+
         private const string MutedKey = "bitsorter.music.muted";
 
         private AudioSource _source;
@@ -145,6 +159,9 @@ namespace BitSorter.View
         {
             if (_musicSource != null && _musicSource.clip != null)
                 Destroy(_musicSource.clip);
+
+            if (_ready != null)
+                Destroy(_ready);
         }
 
         private void OnLevelLoaded(LevelDefinition level)
@@ -271,6 +288,81 @@ namespace BitSorter.View
         }
 
         /// <summary>
+        /// Builds the next track a little each frame, so it is ready before it is wanted.
+        /// </summary>
+        /// <remarks>
+        /// The next track is the one being switched to if a switch is under way, and otherwise the
+        /// one the shuffle will deal next. Building one takes a few hundred milliseconds; spread at a
+        /// couple of milliseconds a frame it is done in a few seconds, long before a player finishes
+        /// a level, and nobody sees it happen.
+        ///
+        /// At most two tracks are held: the one playing and the one ready -- plus, while it is being
+        /// built, the buffer it is built in. Every track used to stay for the session, which at two
+        /// dozen tracks is more browser heap than the whole game otherwise uses.
+        /// </remarks>
+        private void BakeAhead()
+        {
+            if (_bag == null)
+                return;
+
+            int next = _wanted != _track ? _wanted : _bag.PeekNext();
+
+            // A bag of one: the next track is this one, and there is nothing to prepare.
+            if (next == _track)
+                return;
+
+            if (_ready != null)
+            {
+                if (_readyTrack == next)
+                    return;
+
+                // The shuffle moved on past it -- two level changes inside one build.
+                Destroy(_ready);
+                _ready = null;
+                _readyTrack = -1;
+            }
+
+            if (_bake == null || _bake.Index != next)
+                _bake = ProceduralAudio.BakeMusic(next);
+
+            float until = Time.realtimeSinceStartup + _bakeMillisecondsPerFrame / 1000f;
+
+            while (!_bake.Step(BakeSlice) && Time.realtimeSinceStartup < until) { }
+
+            if (_bake.IsDone)
+            {
+                _ready = _bake.ToClip();
+                _readyTrack = _bake.Index;
+                _bake = null;
+            }
+        }
+
+        /// <summary>
+        /// The clip for a track, taken from what <see cref="BakeAhead"/> prepared if it is there.
+        /// </summary>
+        /// <remarks>
+        /// If it is not -- the level changed again within seconds of the last change -- the build is
+        /// finished on the spot. That stalls a frame, but it is the right track, and it is rare.
+        /// </remarks>
+        private AudioClip TakeClip(int track)
+        {
+            if (_ready != null && _readyTrack == track)
+            {
+                AudioClip clip = _ready;
+                _ready = null;
+                _readyTrack = -1;
+                return clip;
+            }
+
+            ProceduralAudio.MusicBake bake =
+                _bake != null && _bake.Index == track ? _bake : ProceduralAudio.BakeMusic(track);
+
+            _bake = null;
+            bake.Step(int.MaxValue);
+            return bake.ToClip();
+        }
+
+        /// <summary>
         /// Fades the track down, swaps it at the bottom, and fades back up.
         /// </summary>
         /// <remarks>
@@ -281,14 +373,16 @@ namespace BitSorter.View
         ///
         /// Unscaled time, so a fade cannot stall if the game is ever paused by timescale.
         ///
-        /// The clip is built on the frame it is first needed, which costs a few milliseconds
-        /// during a level transition -- less than the board rebuild happening beside it, and
-        /// less than the game already spent building the one track at boot.
+        /// The track switched to is normally built already, by <see cref="BakeAhead"/>. This used
+        /// to say building it on the spot cost "a few milliseconds"; measured, it was 260 to 550,
+        /// and the frame it landed on froze.
         /// </remarks>
         private void DriveMusic()
         {
             if (_musicSource == null)
                 return;
+
+            BakeAhead();
 
             // Ahead of the fade, and ahead of its early-out: a settled track still has to notice
             // the player reaching for mute.
@@ -310,7 +404,7 @@ namespace BitSorter.View
                     // closed.
                     AudioClip leaving = _musicSource.clip;
 
-                    _musicSource.clip = ProceduralAudio.MusicClip(_track);
+                    _musicSource.clip = TakeClip(_track);
                     _musicSource.Play();
 
                     if (leaving != null)
