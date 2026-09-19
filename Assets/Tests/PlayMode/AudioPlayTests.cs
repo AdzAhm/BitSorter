@@ -250,6 +250,144 @@ namespace BitSorter.PlayMode.Tests
             Assert.AreSame(level, music.clip, "the menu's visit changed the level's track");
         }
 
+        /// <summary>
+        /// The menu's recordings are heard at the loudness of the level music, both of them.
+        /// </summary>
+        /// <remarks>
+        /// They are commercial-style masters, and they played at the same volume as the generated
+        /// tracks: "Dream" came out eleven decibels louder than the level music, about twice as loud
+        /// to the ear, so the music dropped away every time a level started.
+        ///
+        /// Measured rather than trusted. The recordings are decoded from the files themselves and
+        /// put through what their import settings do to them; the level track is rendered; each is
+        /// scaled by the volume its source actually plays at. Three decibels is the spread the
+        /// generated tracks already have between themselves.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator TheMenuMusic_IsAsLoudAsTheLevelMusic()
+        {
+            yield return LoadScene();
+            yield return null;
+
+            AudioSource music = MusicSource(Find<GameAudio>());
+            var menu = new System.Collections.Generic.List<(string Name, double Db)>();
+
+            // Whichever track the menu opens on, then -- the level between -- the other.
+            AudioClip first = music.clip;
+            float firstVolume = music.volume;
+            Assert.IsTrue(IsMenuTrack(first), "sanity: the game should open on the menu's music");
+
+            yield return LeaveTheMenuForALevel();
+
+            AudioClip level = music.clip;
+            Assert.IsFalse(IsMenuTrack(level), "sanity: leaving the menu should play a level track");
+            double levelDb = RmsDb(ProceduralAudio.MusicSamples(int.Parse(level.name.Substring("music".Length))))
+                             + VolumeDb(music.volume);
+
+            Find<MainMenu>().Show(true);
+            yield return WaitForTheFade();
+
+            AudioClip second = music.clip;
+            Assert.IsTrue(IsMenuTrack(second), "sanity: the menu should play its music again");
+            Assert.AreNotEqual(first.name, second.name, "sanity: coming back should play the other track");
+
+            double[] recorded = new double[1];
+
+            yield return RecordedLoudness(first.name, recorded);
+            menu.Add((first.name, recorded[0] + VolumeDb(firstVolume)));
+
+            yield return RecordedLoudness(second.name, recorded);
+            menu.Add((second.name, recorded[0] + VolumeDb(music.volume)));
+
+            string report = $"the level's music is heard at {levelDb:0.0} dB; " +
+                            string.Join(", ", menu.Select(m => $"{m.Name} at {m.Db:0.0} dB"));
+
+            Assert.IsTrue(menu.All(m => System.Math.Abs(m.Db - levelDb) <= 3.0), report);
+        }
+
+        private static double VolumeDb(float volume) => 20.0 * System.Math.Log10(volume);
+
+        private static double RmsDb(float[] samples)
+        {
+            double sum = 0;
+
+            foreach (float sample in samples)
+                sum += sample * sample;
+
+            return 10.0 * System.Math.Log10(sum / samples.Length);
+        }
+
+        /// <summary>
+        /// How loud a menu recording is once imported: decoded from its file, mixed down to mono and
+        /// normalised to its peak, the way its import settings say.
+        /// </summary>
+        /// <remarks>
+        /// The game's own copy is compressed and cannot be read back, so this decodes the file the
+        /// import was made from. If the import stops mixing to mono or normalising, this model is
+        /// wrong, and it says so instead of measuring something the game no longer plays.
+        /// </remarks>
+        private static IEnumerator RecordedLoudness(string name, double[] db)
+        {
+            string path = System.IO.Path.Combine(Application.dataPath, "Audio/Music", name + ".mp3");
+            string meta = System.IO.File.ReadAllText(path + ".meta");
+
+            Assert.IsTrue(meta.Contains("forceToMono: 1") && meta.Contains("normalize: 1"),
+                name + " is no longer imported as normalised mono; update how this test measures it");
+
+            using (UnityEngine.Networking.UnityWebRequest request =
+                   UnityEngine.Networking.UnityWebRequestMultimedia.GetAudioClip(
+                       new System.Uri(path).AbsoluteUri, AudioType.MPEG))
+            {
+                var handler = (UnityEngine.Networking.DownloadHandlerAudioClip)request.downloadHandler;
+                handler.streamAudio = false;
+                handler.compressed = false;
+
+                yield return request.SendWebRequest();
+
+                Assert.AreEqual(UnityEngine.Networking.UnityWebRequest.Result.Success, request.result,
+                    "could not decode " + name + ": " + request.error);
+
+                AudioClip clip = UnityEngine.Networking.DownloadHandlerAudioClip.GetContent(request);
+
+                while (clip.loadState == AudioDataLoadState.Loading)
+                    yield return null;
+
+                // A second at a time, twice over: the peak first, then the loudness under it.
+                int channels = clip.channels;
+                var chunk = new float[clip.frequency * channels];
+                double peak = 0, sum = 0;
+
+                for (int pass = 0; pass < 2; pass++)
+                {
+                    for (int start = 0; start < clip.samples; start += clip.frequency)
+                    {
+                        int frames = Mathf.Min(clip.frequency, clip.samples - start);
+                        float[] data = frames == clip.frequency ? chunk : new float[frames * channels];
+
+                        Assert.IsTrue(clip.GetData(data, start), "could not read " + name + " back");
+
+                        for (int i = 0; i < frames; i++)
+                        {
+                            double mono = 0;
+
+                            for (int c = 0; c < channels; c++)
+                                mono += data[i * channels + c];
+
+                            mono /= channels;
+
+                            if (pass == 0)
+                                peak = System.Math.Max(peak, System.Math.Abs(mono));
+                            else
+                                sum += (mono / peak) * (mono / peak);
+                        }
+                    }
+                }
+
+                db[0] = 10.0 * System.Math.Log10(sum / clip.samples);
+                Object.Destroy(clip);
+            }
+        }
+
         /// <summary>The menu credits its music, as the CC BY track's licence requires.</summary>
         [UnityTest]
         public IEnumerator TheMenu_CreditsItsMusic()
