@@ -416,10 +416,10 @@ namespace BitSorter.View
         /// figure reaches is about 2 kHz, and nothing any voice adds to a note goes past 4.2 kHz,
         /// against a ceiling of 11 kHz.
         ///
-        /// What it buys is memory: these clips are held as uncompressed floats and they are long.
-        /// Ten tracks of 32 seconds cost about 27 MiB here, against about 54 MiB at the cue rate,
-        /// in a game whose entire browser build is 16 MB. Tracks are built on first use, so a
-        /// session only pays for the ones it reaches.
+        /// What it buys is memory: these clips are held as uncompressed floats and they are long. A
+        /// 32-second track is 2.8 MB here against 5.6 at the cue rate, and GameAudio holds at most
+        /// three at once, in a game whose entire browser build is 16 MB. Every track built used to
+        /// stay for the session; at two dozen tracks that would have been over 60 MB.
         ///
         /// Those numbers are <see cref="MusicResidentBytes"/>, and MusicTests asserts against it rather
         /// than against this paragraph. The paragraph said six tracks and 34 MB for a while after
@@ -510,7 +510,7 @@ namespace BitSorter.View
 
         /// <summary>
         /// One background track. Everything that differs between them is data; the rendering is
-        /// shared, so ten tracks cannot drift into ten different instruments.
+        /// shared, so the set cannot drift into as many instruments as it has tracks.
         /// </summary>
         private readonly struct Track
         {
@@ -630,23 +630,27 @@ namespace BitSorter.View
         }
 
         /// <summary>
-        /// The ten tracks, in the order <see cref="MusicRules"/> cycles them.
+        /// Every background track. <see cref="MusicBag"/> decides the order they play in.
         /// </summary>
         /// <remarks>
-        /// All ten use the same five notes -- A, C, D, E, G -- and stay there. The scale has no
-        /// semitone clashes, so any note lands consonantly on any chord in any of these
-        /// progressions and nothing ever demands resolution, which is the whole requirement for
-        /// something that repeats while somebody stares at a K-map.
+        /// All of them use the same five notes -- A, C, D, E, G -- and stay there, chords included.
+        /// The scale has no semitone clashes, so any note lands consonantly on any chord in any of
+        /// these progressions and nothing ever demands resolution, which is the whole requirement
+        /// for something that repeats while somebody stares at a K-map.
         ///
-        /// Seven of them root that collection on A and read as minor; three root it on C and read
-        /// as major. Identical notes, different home. It is the cheapest way to put two moods in
-        /// one set without the scale rule that holds the set together having to bend.
+        /// Most root that collection on A and read as minor; the rest root it on C, F or B-flat and
+        /// read as major, or as floating somewhere in between. Identical notes, different home. It
+        /// is the cheapest way to put many moods in one set without the scale rule that holds the
+        /// set together having to bend.
         ///
-        /// They are the same shape on purpose: four bars, sixteen steps, one tempo, one key. What
-        /// differs is density -- four notes to eight, out of sixteen possible -- how long a note
-        /// rings, which way the figure moves on its alternate pass, which register it sits in,
-        /// where the chords go, and which of three <see cref="Voice"/>s plays it. Switching between
-        /// them should read as the same music continuing rather than as the game changing its mind.
+        /// They are the same shape on purpose: four bars, sixteen steps, one tempo. What differs is
+        /// density -- four notes to eight, out of sixteen possible -- how long a note rings, which
+        /// way the figure moves on its alternate pass, which register it sits in, where the chords
+        /// go, whether soft chords swell under it, and which <see cref="Voice"/> plays it.
+        ///
+        /// Every one is an original composition. Nothing here is transcribed from, or written to
+        /// track, an existing piece -- the styles some of them reach for are other games' moods,
+        /// never their melodies.
         /// </remarks>
         private static readonly Track[] Tracks =
         {
