@@ -25,7 +25,22 @@ namespace BitSorter.View
 
         [Tooltip("Played while the main menu is showing, one after another. Imported, not generated: " +
                  "see MenuMusicCredit, which the menu shows.")]
-        [SerializeField] private AudioClip[] _menuTracks = System.Array.Empty<AudioClip>();
+        [SerializeField] private MenuTrack[] _menuTracks = System.Array.Empty<MenuTrack>();
+
+        /// <summary>One of the main menu's recordings, and how loud it is.</summary>
+        /// <remarks>
+        /// The loudness is measured, not chosen: the file's RMS in dBFS once imported -- mixed to
+        /// mono and normalised to its peak. The scene builder carries the figure beside each file's
+        /// path, and AudioPlayTests decodes the files again to check what the menu then sounds like.
+        /// The menu plays each at <see cref="ProceduralAudio.MusicLoudnessDb"/>, the level music's
+        /// loudness, whatever it was mastered at.
+        /// </remarks>
+        [System.Serializable]
+        public struct MenuTrack
+        {
+            public AudioClip Clip;
+            public float LoudnessDb;
+        }
 
         /// <summary>
         /// The credit the main menu shows for <see cref="_menuTracks"/>. One copy, here beside them.
@@ -519,7 +534,20 @@ namespace BitSorter.View
         }
 
         private void ApplyVolume() =>
-            _musicSource.volume = ProceduralAudio.VolumeOf(Cue.Music) * _masterVolume * _gain;
+            _musicSource.volume = ProceduralAudio.VolumeOf(Cue.Music) * _masterVolume * _gain *
+                                  (_onMenu ? MenuTrackGain : 1f);
+
+        /// <summary>
+        /// How far the menu track playing is turned down to sit at the level music's loudness.
+        /// </summary>
+        /// <remarks>
+        /// The recordings were mastered 6 to 11 dB louder than the generated tracks, and played at
+        /// the same volume the music dropped away every time a level started. Applied only while a
+        /// menu track is on the source, and the swap between the two kinds of music happens at the
+        /// bottom of the fade, so the change of level is never heard as a step.
+        /// </remarks>
+        private float MenuTrackGain =>
+            Mathf.Pow(10f, (ProceduralAudio.MusicLoudnessDb - _menuTracks[_menuTrack].LoudnessDb) / 20f);
 
         /// <summary>
         /// Whether the menu's own music should be playing: the main menu is up, and there is some.
@@ -530,7 +558,7 @@ namespace BitSorter.View
         /// </remarks>
         private bool MenuWanted =>
             _menu != null && _menu.IsOpen &&
-            _menuTracks != null && _menuTracks.Length > 0 && _menuTracks[_menuTrack] != null;
+            _menuTracks != null && _menuTracks.Length > 0 && _menuTracks[_menuTrack].Clip != null;
 
         /// <summary>
         /// Puts the right thing on the source: the current menu track, or the level's track.
@@ -600,6 +628,7 @@ namespace BitSorter.View
 
             PutMenuTrackOn();
             _musicSource.Play();
+            ApplyVolume();   // each menu track has its own loudness to be brought to
 
             if (ended != null && ended != _musicSource.clip)
                 ended.UnloadAudioData();
@@ -622,7 +651,7 @@ namespace BitSorter.View
 
             _menuHeard = true;
 
-            AudioClip clip = _menuTracks[_menuTrack];
+            AudioClip clip = _menuTracks[_menuTrack].Clip;
             clip.LoadAudioData();
 
             _musicSource.clip = clip;

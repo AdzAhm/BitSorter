@@ -480,6 +480,32 @@ namespace BitSorter.LogicCore.Tests
             }
         }
 
+        /// <summary>
+        /// Every track sits within 3 dB of the loudness the set is written to.
+        /// </summary>
+        /// <remarks>
+        /// Two jobs. A track much louder or quieter than the rest would jump out of the shuffle; and
+        /// the main menu's recordings are turned to <see cref="ProceduralAudio.MusicLoudnessDb"/> to
+        /// match the level music, which only works if that figure is what the tracks really are.
+        /// </remarks>
+        [Test]
+        public void EveryTrack_IsWithin3dBOfTheSetsLoudness()
+        {
+            foreach (int track in EveryTrack())
+            {
+                double sum = 0;
+                float[] samples = SamplesOf(track);
+
+                foreach (float sample in samples)
+                    sum += sample * sample;
+
+                double db = 10.0 * System.Math.Log10(sum / samples.Length);
+
+                Assert.That(db, Is.InRange(ProceduralAudio.MusicLoudnessDb - 3.0, ProceduralAudio.MusicLoudnessDb + 3.0),
+                    $"track {track} is {db:0.0} dB against the set's {ProceduralAudio.MusicLoudnessDb} dB");
+            }
+        }
+
         // -----------------------------------------------------------------
         // Which track is playing
         // -----------------------------------------------------------------

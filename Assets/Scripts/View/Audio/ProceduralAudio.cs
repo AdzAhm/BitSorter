@@ -183,6 +183,18 @@ namespace BitSorter.View
         public static int MusicResidentBytes => 3 * MusicTrackBytes;
 
         /// <summary>
+        /// How loud the background tracks are, as RMS in dBFS: the level every one is written to,
+        /// and the level anything else played as music is brought to.
+        /// </summary>
+        /// <remarks>
+        /// MusicTests holds every generated track within 3 dB of it, so this cannot drift away from
+        /// what the tracks actually are. The main menu's recordings were mastered 6 to 11 dB louder,
+        /// and played at the same volume the music dropped away every time a level started;
+        /// <see cref="GameAudio"/> turns each down to this.
+        /// </remarks>
+        public const float MusicLoudnessDb = -25f;
+
+        /// <summary>
         /// The notes a track plays, as semitones above A4, with its rests removed.
         /// </summary>
         /// <remarks>

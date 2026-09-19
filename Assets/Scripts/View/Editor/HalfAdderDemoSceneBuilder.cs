@@ -42,13 +42,20 @@ namespace BitSorter.View.EditorTools
         private const string BloomProfilePath = "Assets/Settings/DemoBloomProfile.asset";
 
         /// <summary>
-        /// The main menu's music, in the order it plays. Imported, free-licence tracks; their
-        /// credit is GameAudio.MenuMusicCredit, and the README says where each came from.
+        /// The main menu's music, and how loud each recording is. Imported, free-licence tracks;
+        /// their credit is GameAudio.MenuMusicCredit, and the README says where each came from.
         /// </summary>
-        private static readonly string[] MenuTrackPaths =
+        /// <remarks>
+        /// The loudness is the file's RMS in dBFS once imported -- mixed down to mono and normalised
+        /// to its peak, as its .meta says -- measured by decoding the file. The menu turns each
+        /// track to the level music's loudness with it. AudioPlayTests decodes both files again and
+        /// fails if the menu does not then sound as loud as a level, so a track added or re-exported
+        /// needs measuring before it goes in.
+        /// </remarks>
+        private static readonly (string Path, float LoudnessDb)[] MenuTrackFiles =
         {
-            "Assets/Audio/Music/jkjkke-dream.mp3",
-            "Assets/Audio/Music/matthew-pablo-woodland-fantasy.mp3",
+            ("Assets/Audio/Music/jkjkke-dream.mp3", -13.6f),
+            ("Assets/Audio/Music/matthew-pablo-woodland-fantasy.mp3", -18.5f),
         };
         private const string SquareTexturePath = ArtFolder + "/WhiteSquare.png";
         private const string NodePrefabPath = PrefabsFolder + "/NodeSquare.prefab";
@@ -276,7 +283,7 @@ namespace BitSorter.View.EditorTools
             Assign(audio, "_session", session);
             Assign(audio, "_bits", bits);
             Assign(audio, "_menu", mainMenu);
-            AssignArray(audio, "_menuTracks", MenuTracks());
+            AssignMenuTracks(audio);
 
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene, ScenePath);
@@ -472,36 +479,33 @@ namespace BitSorter.View.EditorTools
         }
 
         /// <summary>
-        /// The menu tracks, loaded from their paths. An error rather than a quiet gap for any that is
-        /// missing: the menu would simply play the level music, and nobody would know why.
+        /// Gives GameAudio the menu tracks, each loaded from its path with its loudness beside it.
         /// </summary>
-        private static Object[] MenuTracks()
+        /// <remarks>
+        /// An error rather than a quiet gap for any track that is missing: the menu would simply play
+        /// the level music, and nobody would know why.
+        /// </remarks>
+        private static void AssignMenuTracks(Object audio)
         {
-            var clips = new Object[MenuTrackPaths.Length];
-
-            for (int i = 0; i < MenuTrackPaths.Length; i++)
-            {
-                clips[i] = AssetDatabase.LoadAssetAtPath<AudioClip>(MenuTrackPaths[i]);
-
-                if (clips[i] == null)
-                    Debug.LogError($"BitSorter: menu track missing at {MenuTrackPaths[i]}.");
-            }
-
-            return clips;
-        }
-
-        /// <summary>The same for an array of object references.</summary>
-        private static void AssignArray(Object target, string fieldName, Object[] values)
-        {
-            SerializedObject serialized = Find(target, fieldName, out SerializedProperty property);
+            SerializedObject serialized = Find(audio, "_menuTracks", out SerializedProperty property);
 
             if (serialized == null)
                 return;
 
-            property.arraySize = values.Length;
+            property.arraySize = MenuTrackFiles.Length;
 
-            for (int i = 0; i < values.Length; i++)
-                property.GetArrayElementAtIndex(i).objectReferenceValue = values[i];
+            for (int i = 0; i < MenuTrackFiles.Length; i++)
+            {
+                (string path, float loudness) = MenuTrackFiles[i];
+                AudioClip clip = AssetDatabase.LoadAssetAtPath<AudioClip>(path);
+
+                if (clip == null)
+                    Debug.LogError($"BitSorter: menu track missing at {path}.");
+
+                SerializedProperty track = property.GetArrayElementAtIndex(i);
+                track.FindPropertyRelative("Clip").objectReferenceValue = clip;
+                track.FindPropertyRelative("LoudnessDb").floatValue = loudness;
+            }
 
             serialized.ApplyModifiedPropertiesWithoutUndo();
         }
