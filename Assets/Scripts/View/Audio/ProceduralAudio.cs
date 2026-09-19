@@ -425,8 +425,8 @@ namespace BitSorter.View
         /// </summary>
         /// <remarks>
         /// Nothing in these tracks comes near the Nyquist limit this leaves. The highest note any
-        /// figure reaches is about 2 kHz, and nothing any voice adds to a note goes past 4.2 kHz,
-        /// against a ceiling of 11 kHz.
+        /// figure reaches is about 1.6 kHz, and nothing any voice adds to a note goes past 4 kHz,
+        /// against a ceiling of 11 kHz -- <see cref="HighestPartialHz"/> is what holds it there.
         ///
         /// What it buys is memory: these clips are held as uncompressed floats and they are long. A
         /// 32-second track is 2.8 MB here against 5.6 at the cue rate, and GameAudio holds at most
@@ -483,9 +483,10 @@ namespace BitSorter.View
             /// makes a struck bar sound like wood instead of like a plucked string. Short, so it
             /// bounces where the others ring, and no reverb, so it stays dry and close.
             ///
-            /// The knock is the highest thing any track produces relative to its note, so the track
-            /// that uses this is written in the lower register and drops an octave on its alternate
-            /// pass rather than climbing. That keeps the knock under 3.2 kHz.
+            /// The knock is the highest partial of any voice relative to its note, so the tracks that
+            /// use this are written in the lower register and drop an octave on their alternate pass
+            /// rather than climbing. The highest knock in the set is track 17's, at 3.5 kHz;
+            /// <see cref="HighestPartialHz"/> is what holds every track under 4.4.
             /// </remarks>
             Mallet,
 
@@ -703,7 +704,7 @@ namespace BitSorter.View
                 ring: 2.3f,
                 lift: -12),
 
-            // 4. The low one. Four notes, the longest ring of any of them, and written an octave
+            // 4. The low one. Four notes, the longest ring of the first six, and written an octave
             //    below the rest, so it reads as the quietest track in the set without being mixed
             //    any quieter. The chords barely move: Am, then a step away and back, twice.
             new Track(
@@ -712,9 +713,9 @@ namespace BitSorter.View
                 ring: 1.7f,
                 lift: 12),
 
-            // 5. The busiest, which still means eight notes in eight seconds. They come in pairs,
-            //    and the ring is the shortest in the set so a pair reads as two notes rather than
-            //    as a chord.
+            // 5. The busiest -- no track has more -- which still means eight notes in eight
+            //    seconds. They come in pairs, and the ring is the shortest in the set, shared only
+            //    with track 22, so a pair reads as two notes rather than as a chord.
             new Track(
                 figure: new[] { 0, 3, -1, -1, 7, 5, -1, -1, 10, 7, -1, -1, 3, 0, -1, -1 },
                 roots: new[] { 110.00f, 130.81f, 87.31f, 98.00f },   // Am - C - F - G
@@ -731,13 +732,13 @@ namespace BitSorter.View
             // note out of the scale the whole set shares, so a warm track can still follow a
             // sad one without the switch sounding like a key change.
             //
-            // Their figures lean on C, E and G where the first six lean on A and D, they are the
-            // sparsest in the set, and they drop an octave on the alternate pass rather than
+            // Their figures lean on C, E and G where the first six lean on A and D, they are among
+            // the sparsest in the set, and they drop an octave on the alternate pass rather than
             // climbing, so they wander downwards and never arrive anywhere.
             // -------------------------------------------------------------------------
 
             // 6. A C major triad, one note at a time, with nothing else in the bar. Four notes in
-            //    eight seconds is the sparsest thing here by some way.
+            //    eight seconds, as sparse as anything in the set.
             new Track(
                 figure: new[] { 3, -1, -1, -1, 7, -1, -1, -1, 10, -1, -1, -1, 7, -1, -1, -1 },
                 roots: new[] { 130.81f, 87.31f, 130.81f, 98.00f },   // C - F - C - G
@@ -757,8 +758,8 @@ namespace BitSorter.View
                 tail: 0.17f),
 
             // 8. Falls from the octave to the root and lifts one step at the end, so the loop
-            //    point is the one moment it sounds like it is going somewhere. The longest ring
-            //    in the set: by the fourth note the first is still sounding.
+            //    point is the one moment it sounds like it is going somewhere. A long ring, so
+            //    each note is still fading when the next arrives.
             new Track(
                 figure: new[] { 12, -1, -1, -1, 10, -1, 7, -1, -1, -1, 3, -1, -1, -1, 5, -1 },
                 roots: new[] { 130.81f, 110.00f, 87.31f, 130.81f },   // C - Am - F - C
@@ -770,16 +771,16 @@ namespace BitSorter.View
             // -------------------------------------------------------------------------
             // 9: the mallets.
             //
-            // The only track that differs in what plays it rather than in what is played. Same five
-            // notes, same tempo, same four bars, so it crossfades with any of the others -- but a
-            // struck wooden bar, short and dry, where everything else is plucked or held.
+            // The first track to differ in what plays it rather than in what is played: a struck
+            // wooden bar, short and dry, where the tracks before it are plucked or held. Same five
+            // notes, same tempo, same four bars, so it crossfades with any of the others.
             // -------------------------------------------------------------------------
 
             // 9. Eight notes, two of them pairs, climbing to G and stepping back down, with a short
             //    ring so the pairs bounce rather than blur. Rooted on A, so it reads minor like the
-            //    first six. Under it, D: a bass root no other track uses, which colours the same five
-            //    notes without adding a sixth. Written low and dropping an octave on the alternate
-            //    pass, which keeps the mallet's knock under 3.2 kHz.
+            //    first six. Under it, D: the first bass root outside the A, C, E, F and G the others
+            //    used, which colours the same five notes without adding a sixth. Written low and
+            //    dropping an octave on the alternate pass, which keeps the mallet's knock near 3 kHz.
             new Track(
                 figure: new[] { 0, -1, 3, -1, 5, 7, -1, -1, 3, -1, 10, -1, 7, 5, -1, -1 },
                 roots: new[] { 110.00f, 146.83f, 98.00f, 82.41f },   // Am - D - G - Em
@@ -1224,7 +1225,8 @@ namespace BitSorter.View
         /// </summary>
         /// <remarks>
         /// The vibrato moves the phase rather than the frequency, so the pitch wobbles about the note
-        /// -- five times a second, a sixth of a semitone either way -- instead of drifting off it.
+        /// -- five times a second, 0.6 % or about a tenth of a semitone either way -- instead of
+        /// drifting off it.
         /// </remarks>
         private static float Choir(float age, float hz, float ring)
         {

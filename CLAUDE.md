@@ -375,7 +375,10 @@ failure side.
   Music credits, and -- for CC BY -- the in-game credit**, which is
   `GameAudio.MenuMusicCredit` on the main menu. Woodland Fantasy's author's own
   attribution page is gone, so the credit follows the CC BY 3.0 terms: author,
-  title, licence, and the change made (played in mono).
+  title, licence, the change made (converted to mono), and the licence's address
+  -- a browser build is a copy that ships without the README, which is the only
+  other place the address appeared. **It also needs its loudness measured**; see
+  the menu's music below.
 
   **Never a real game's soundtrack.** Minecraft's tracks -- C418's, Lena
   Raine's, "Sweden", "Infinite Amethyst" -- were asked for by name and declined.
@@ -428,10 +431,26 @@ failure side.
   running, seeded once in `GameAudio.Awake` -- the seed is the only random part,
   so a test can build the same bag and say which track should be playing.
 
-  **The main menu has its own music.** While it is showing, its two tracks play
-  in turn (they are not built to loop); leaving it fades to the level's track,
-  and coming back to the level resumes the same one, because opening the menu
-  is not a level change. The menu track not playing has its audio unloaded.
+  **The main menu has its own music.** Which of its two tracks it opens on is
+  drawn from the same session seed (`MusicRules.FirstMenuTrack`), and every start
+  after that is the other one: when a track ends -- they are not built to loop --
+  and every time the menu is opened again. It used to open on "Dream" every
+  launch and restart it on every visit, so "Woodland Fantasy" was heard only if
+  the menu stayed up for the whole two and a half minutes of Dream. Leaving the
+  menu fades to the level's track, and coming back to the level resumes the same
+  one, because opening the menu is not a level change. The menu track not
+  playing has its audio unloaded.
+
+  **The recordings play at the level music's loudness.** They were mastered 6 to
+  11 dB louder than the generated tracks, and at the same volume the music
+  dropped away every time a level started. `ProceduralAudio.MusicLoudnessDb` is
+  the set's loudness, which `MusicTests` holds every generated track to within
+  3 dB of; each menu track carries its own loudness beside its path in the scene
+  builder, and `GameAudio` turns it to the set's. That figure is measured, not
+  chosen -- the file's RMS once imported, mixed to mono and normalised -- and
+  `AudioPlayTests` decodes the files to check what the menu then sounds like
+  against a level. **A recording added or re-exported needs measuring before it
+  goes in**, or that test fails.
 
   **A track is built before it is needed, and a switch waits for it.**
   `MusicBake` renders a track a slice at a time, bit-identical to rendering it

@@ -253,7 +253,7 @@ Unity 6.3 LTS (6000.3.11f1).
 - **BitSorter → Build Play Scene** regenerates the play scene from code. The
   scene is generated rather than authored, so anything added by hand is discarded
   the next time that runs.
-- Tests: Window → General → Test Runner. Roughly 680 EditMode cases and 43
+- Tests: Window → General → Test Runner. Roughly 680 EditMode cases and 46
   PlayMode at present, the PlayMode ones across nine fixtures — pointer
   arbitration, audio and the menu's music, scene composition, the tutorial's
   opening, the frame a run ends on, free play's setup, full-screen panels and
