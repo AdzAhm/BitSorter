@@ -202,6 +202,101 @@ namespace BitSorter.LogicCore.Tests
                 "a two-wire loop cannot keep up with a bit every tick");
         }
 
+        /// <summary>
+        /// The same loop, with its vectors a clock apart, toggles exactly as a T flip-flop should.
+        /// </summary>
+        /// <remarks>
+        /// Two wires round the loop and a clock of two ticks: the state is back at the gate before
+        /// the next input arrives. The output is the new state, so a stream of 1s toggles on every
+        /// cycle and a 0 holds.
+        /// </remarks>
+        [Test]
+        public void ALoopWithinItsClock_Toggles()
+        {
+            SinkNode sink = Toggle(loopDelay: 1, clock: 2, Bit.One, Bit.One, Bit.Zero, Bit.One);
+
+            CollectionAssert.AreEqual(
+                new[] { Bit.One, Bit.Zero, Bit.Zero, Bit.One },
+                Values(sink),
+                "1 toggles the state, 0 holds it");
+        }
+
+        /// <summary>
+        /// A loop slower than its clock falls behind, and the inputs waiting for it collide.
+        /// </summary>
+        /// <remarks>
+        /// This is the chapter's version of the game's oldest claim: the circuit computes the right
+        /// thing and still fails, because the state cannot get back in time. It is the same fault a
+        /// real design has when its logic does not settle within the clock period.
+        /// </remarks>
+        [Test]
+        public void ALoopSlowerThanItsClock_Collides()
+        {
+            var sim = new Simulation();
+            BuildToggle(sim, loopDelay: 2, clock: 2, out SinkNode _,
+                Bit.One, Bit.One, Bit.One, Bit.One, Bit.One, Bit.One);
+
+            sim.Run(30);
+
+            Assert.Greater(sim.CorruptedCount, 0,
+                "three wires round a two-tick clock should not survive");
+        }
+
+        private static SinkNode Toggle(int loopDelay, int clock, params Bit[] stream)
+        {
+            var sim = new Simulation();
+            BuildToggle(sim, loopDelay, clock, out SinkNode sink, stream);
+
+            sim.Run(stream.Length * clock + 8);
+
+            Assert.AreEqual(0, sim.CorruptedCount, "a loop inside its clock should never collide");
+            return sink;
+        }
+
+        /// <summary>A T flip-flop: the state XORed with the input becomes the next state.</summary>
+        private static void BuildToggle(
+            Simulation sim, int loopDelay, int clock, out SinkNode sink, params Bit[] stream)
+        {
+            var source = sim.Add(new SourceNode(Spaced(stream, clock)) { Name = "in" });
+            var xor = sim.Add(new XorGate { Name = "xor" });
+            var register = sim.Add(new RegisterNode { Name = "reg" });
+            sink = sim.Add(new SinkNode { Name = "out" });
+
+            sim.Connect(source.Out(0), xor.In(0), delay: 1);
+            sim.Connect(register.Out(0), xor.In(1), delay: 1);
+            sim.Connect(xor.Out(0), register.In(0), delay: loopDelay);
+            sim.Connect(xor.Out(0), sink.In(0), delay: 1);
+        }
+
+        /// <summary>A stream with the clock's silent ticks between its bits, and none after.</summary>
+        private static Bit?[] Spaced(Bit[] stream, int clock)
+        {
+            var spaced = new System.Collections.Generic.List<Bit?>();
+
+            for (int i = 0; i < stream.Length; i++)
+            {
+                if (i > 0)
+                {
+                    for (int gap = 1; gap < clock; gap++)
+                        spaced.Add(null);
+                }
+
+                spaced.Add(stream[i]);
+            }
+
+            return spaced.ToArray();
+        }
+
+        private static Bit[] Values(SinkNode sink)
+        {
+            var values = new Bit[sink.Received.Count];
+
+            for (int i = 0; i < values.Length; i++)
+                values[i] = sink.Received[i].Value;
+
+            return values;
+        }
+
         [Test]
         public void ALoopWithNothingFeedingIt_NeverSettles()
         {

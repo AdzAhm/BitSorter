@@ -48,6 +48,40 @@ namespace BitSorter.LogicCore.Tests
             Assert.AreEqual(0, sim.CorruptedCount);
         }
 
+        /// <summary>
+        /// A source can be given ticks with no bit on them, which is how a level spaces its vectors
+        /// into clock cycles.
+        /// </summary>
+        [Test]
+        public void SourceWithSilentTicks_EmitsOnlyOnTheTicksThatHaveABit()
+        {
+            var sim = new Simulation();
+            var source = sim.Add(new SourceNode(new Bit?[] { Bit.One, null, null, Bit.Zero }));
+            var sink = sim.Add(new SinkNode());
+            sim.Connect(source.Out(0), sink.In(0), delay: 1);
+
+            sim.Run(6);
+
+            CollectionAssert.AreEqual(new[] { R(Bit.One, 1), R(Bit.Zero, 4) }, sink.Received,
+                "a clock of three ticks puts two silent ticks between vectors");
+            Assert.AreEqual(0, sim.CorruptedCount);
+        }
+
+        [Test]
+        public void SourceWithSilentTicks_IsExhaustedOnlyOnceItsWholeSequenceHasPlayed()
+        {
+            // The grader waits for this before it will call a run settled, which is why a level's
+            // gaps go between its vectors and never after the last one.
+            var sim = new Simulation();
+            var source = sim.Add(new SourceNode(new Bit?[] { Bit.One, null }));
+
+            sim.Tick();
+            Assert.IsFalse(source.IsExhausted, "the silent tick has not been played yet");
+
+            sim.Tick();
+            Assert.IsTrue(source.IsExhausted);
+        }
+
         [Test]
         public void ChainedDelaysAccumulate()
         {
