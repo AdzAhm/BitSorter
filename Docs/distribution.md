@@ -429,8 +429,11 @@ Avoid typing a new tag name into the release form. GitHub will create it on publ
 but only on the remote, so your local repo does not have it until the next
 `git fetch --tags` — which is how local and remote tags quietly diverge.
 
-`gh release create` does the same job in one command if the GitHub CLI is ever
-installed. It is not, as of this writing.
+`gh release create` does the same job in one command, and the GitHub CLI is
+installed now: v1.3.2 was cut with `gh release create v1.3.2 <zip> --verify-tag
+--latest --notes-file <notes>`. `--verify-tag` refuses to run unless the tag is
+already on GitHub, which rules out the remote-only tag described above, and
+`--latest` is the checkbox.
 
 **What only you can provide:** the version number, the notes, and the decision that
 a given commit is worth releasing.
