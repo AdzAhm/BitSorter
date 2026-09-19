@@ -403,6 +403,11 @@ namespace BitSorter.PlayMode.Tests
             StringAssert.Contains("Matthew Pablo", text);
             StringAssert.Contains("CC BY 3.0", text);
             StringAssert.Contains("jkjkke", text);
+
+            // CC BY 3.0 asks for the licence's address with every copy of the work. The README gives
+            // it, but a browser build is a copy that ships without the README.
+            StringAssert.Contains("creativecommons.org/licenses/by/3.0", text,
+                "the credit does not say where the CC BY licence can be read");
         }
 
         // -----------------------------------------------------------------
