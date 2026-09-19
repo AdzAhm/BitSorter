@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using NUnit.Framework;
 using BitSorter.View;
 using UnityEngine;
@@ -110,9 +111,9 @@ namespace BitSorter.LogicCore.Tests
         // -----------------------------------------------------------------
 
         [Test]
-        public void ThereAreTenTracks()
+        public void ThereAreTwentyFourTracks()
         {
-            Assert.AreEqual(10, ProceduralAudio.MusicTracks);
+            Assert.AreEqual(24, ProceduralAudio.MusicTracks);
         }
 
         [Test]
@@ -256,18 +257,33 @@ namespace BitSorter.LogicCore.Tests
             }
         }
 
+        /// <summary>
+        /// Nothing any track plays reaches near the top of the render or into where the hiss and
+        /// click tests look.
+        /// </summary>
+        /// <remarks>
+        /// Computed from each track's highest note and its voice's brightest partial, instead of the
+        /// hand-typed 4.2 kHz this used to be -- true of the voices that existed when it was typed,
+        /// and of nothing added since. A voice written too high would alias at a 22 kHz render, and
+        /// its partial would read as hiss above 8 kHz; the mallets, music box and crystal tracks are
+        /// all written low enough to stay clear, and this is what holds them there.
+        /// </remarks>
         [Test]
-        public void TheMusicRate_LeavesRoomForEveryNoteItPlays()
+        public void EveryTrack_StaysWellBelowTheTopOfTheRender()
         {
-            // Music is rendered at half the rate the cues are, which is only safe while nothing in it
-            // approaches the Nyquist limit. The highest thing any track produces is the plucked
-            // tracks' top note doubled, about 4.2 kHz -- the mallets' knock is four times its note,
-            // which is why that track is written low and tops out at 3.1 kHz. This fails if the
-            // rate is ever lowered under what those need.
+            const float Ceiling = 4400f;
             int rate = ProceduralAudio.MusicSampleRate;
-            const float HighestHarmonic = 4200f;
 
-            Assert.Greater(rate * 0.5f, HighestHarmonic * 1.5f,
+            foreach (int track in EveryTrack())
+            {
+                float top = ProceduralAudio.HighestPartialHz(track);
+
+                Assert.Greater(top, 0f, "track " + track + " measured as producing nothing");
+                Assert.LessOrEqual(top, Ceiling,
+                    $"track {track} reaches {top:0} Hz; write it lower or give its voice a darker partial");
+            }
+
+            Assert.Greater(rate * 0.5f, Ceiling * 1.5f,
                 "the music sample rate no longer has headroom for the notes being played");
         }
 
@@ -397,13 +413,16 @@ namespace BitSorter.LogicCore.Tests
             // chord in any of these progressions and nothing ever demands resolution. It is also
             // what lets any track follow any other without the switch sounding like a key change.
             // One mistyped semitone would be invisible to read and obvious to hear.
+            //
+            // The chord tones too. Their colour comes from the bass under them, never from a sixth
+            // note, and a chord is exactly where a stray semitone would hide best.
             foreach (int track in EveryTrack())
             {
                 IReadOnlyList<int> notes = ProceduralAudio.MusicNotes(track);
 
                 Assert.IsNotEmpty(notes, "track " + track + " plays nothing");
 
-                foreach (int semi in notes)
+                foreach (int semi in notes.Concat(ProceduralAudio.MusicChordNotes(track)))
                 {
                     int degree = ((semi % 12) + 12) % 12;
 

@@ -207,6 +207,56 @@ namespace BitSorter.View
             return notes;
         }
 
+        /// <summary>The chord tones a track strikes under its figure, as semitones above A4.</summary>
+        /// <remarks>
+        /// Separate from <see cref="MusicNotes"/>, which the sparseness rule counts: a chord is a
+        /// swell under the tune, not more tune. Both are held to the shared scale.
+        /// </remarks>
+        public static IReadOnlyList<int> MusicChordNotes(int index)
+        {
+            index = Mathf.Clamp(index, 0, Tracks.Length - 1);
+
+            var notes = new List<int>();
+
+            if (Tracks[index].Chords != null)
+            {
+                foreach (int[] chord in Tracks[index].Chords)
+                    notes.AddRange(chord);
+            }
+
+            return notes;
+        }
+
+        /// <summary>
+        /// The highest frequency a track produces: its highest note times its voice's highest
+        /// partial, or a chord tone's octave, whichever is higher.
+        /// </summary>
+        /// <remarks>
+        /// Computed, so the headroom rule is checked rather than trusted. The music is rendered at
+        /// 22 kHz, and MusicTests reads anything above 8 kHz as hiss or clicks -- a bright voice
+        /// written too high would fail both, or worse, alias. The rule used to be one hand-typed
+        /// number in a test, true of the voices that existed when it was typed.
+        /// </remarks>
+        public static float HighestPartialHz(int index)
+        {
+            Track track = Tracks[Mathf.Clamp(index, 0, Tracks.Length - 1)];
+            float top = 0f;
+
+            foreach (float hz in track.Hz)
+                top = Mathf.Max(top, hz * TopPartial(track.Voice));
+
+            if (track.ChordHz != null)
+            {
+                foreach (float[] chord in track.ChordHz)
+                {
+                    foreach (float hz in chord)
+                        top = Mathf.Max(top, hz * 2f);   // the pad's quiet octave
+                }
+            }
+
+            return top;
+        }
+
         /// <summary>A step with no note on it. Negative, and no note is ever written this low.</summary>
         private const int Rest = -1;
 
@@ -426,6 +476,36 @@ namespace BitSorter.View
             /// pass rather than climbing. That keeps the knock under 3.2 kHz.
             /// </remarks>
             Mallet,
+
+            /// <summary>
+            /// A felt piano: a soft hammer, a string that sheds its first brightness fast and then
+            /// rings, partials a touch sharp of true harmonics.
+            /// </summary>
+            /// <remarks>
+            /// The gentle, spacious piano of a lot of game soundtracks. Real strings are stiff, so
+            /// their overtones sit slightly sharp; that stretch is most of what makes a sine stack
+            /// read as a piano rather than an organ.
+            /// </remarks>
+            Piano,
+
+            /// <summary>
+            /// Glass: two sines a hair apart that drift in and out of phase, a soft rise, and a quick
+            /// glassy partial at three times the note.
+            /// </summary>
+            /// <remarks>
+            /// The slow beating between the pair is the shimmer -- about three times a second at the
+            /// notes these tracks sit on -- and the long reverb it is always given does the rest.
+            /// </remarks>
+            Crystal,
+
+            /// <summary>A steel comb struck by a pin: hard and bright, and gone quickly.</summary>
+            MusicBox,
+
+            /// <summary>
+            /// A sung "ah": a slow swell, a vibrato that eases in, and soft second and third
+            /// partials for the vowel.
+            /// </summary>
+            Choir,
         }
 
         /// <summary>
@@ -468,8 +548,29 @@ namespace BitSorter.View
             /// </summary>
             public readonly float[] Hz;
 
+            /// <summary>
+            /// Soft chord tones struck at the start of each bar, as semitones above A4, or null for a
+            /// track without them. One chord per bar, like the roots.
+            /// </summary>
+            /// <remarks>
+            /// Every tone is one of the shared five notes, and the scale test holds them to it. The
+            /// colour comes from the bass under them instead: the same A, C, E and G sound like a
+            /// minor seventh over A and like a lush major ninth over F.
+            /// </remarks>
+            public readonly int[][] Chords;
+
+            /// <summary><see cref="Chords"/> as frequencies, worked out once.</summary>
+            public readonly float[][] ChordHz;
+
+            /// <summary>
+            /// Scales the whole track, for the few whose chords and long rings stack up louder than
+            /// the rest of the set. One is the norm.
+            /// </summary>
+            public readonly float Gain;
+
             public Track(int[] figure, float[] roots, float ring, int lift,
-                         Voice voice = Voice.Plucked, float tail = 0f)
+                         Voice voice = Voice.Plucked, float tail = 0f, int[][] chords = null,
+                         float gain = 1f)
             {
                 Figure = figure;
                 Roots = roots;
@@ -477,11 +578,31 @@ namespace BitSorter.View
                 Lift = lift;
                 Voice = voice;
                 Tail = tail;
+                Chords = chords;
+                Gain = gain;
 
-                // Capped at one figure. A ring slow enough to reach the cap would be cut above
-                // -60 dB, and the click test would say so.
+                // Capped at two passes of the figure. A ring slow enough to reach the cap would be
+                // cut above -60 dB, and the click test would say so.
                 Lookback = Mathf.Clamp(
-                    Mathf.CeilToInt(Mathf.Log(1000f) / ring / StepSeconds), 1, figure.Length);
+                    Mathf.CeilToInt(Mathf.Log(1000f) / ring / StepSeconds), 1, figure.Length * 2);
+
+                ChordHz = null;
+
+                if (chords != null)
+                {
+                    if (chords.Length != roots.Length)
+                        throw new ArgumentException("A track needs one chord per bar, as it has one root per bar.");
+
+                    ChordHz = new float[chords.Length][];
+
+                    for (int b = 0; b < chords.Length; b++)
+                    {
+                        ChordHz[b] = new float[chords[b].Length];
+
+                        for (int k = 0; k < chords[b].Length; k++)
+                            ChordHz[b][k] = 440f * Mathf.Pow(2f, chords[b][k] / 12f);
+                    }
+                }
 
                 Hz = new float[figure.Length * 2];
 
@@ -649,6 +770,178 @@ namespace BitSorter.View
                 ring: 3.0f,
                 lift: -12,
                 voice: Voice.Mallet),
+
+            // -------------------------------------------------------------------------
+            // 10 to 13: crystal.
+            //
+            // Glass that shimmers, high and sparse, over slow-swelling chords and a long reverb:
+            // the floating, cave-like feel of the more recent Minecraft soundtracks. Original
+            // figures, like everything here. The lushness is the bass: B-flat, F and C under the
+            // same five notes turn plain triads into major sevenths, ninths and a Lydian shimmer
+            // without a single note leaving the scale.
+            // -------------------------------------------------------------------------
+
+            // 10. The most floating of them: five notes drifting down from the top, one every few
+            //     seconds, over B-flat, F, C and A minor.
+            new Track(
+                figure: new[] { 19, -1, -1, 15, -1, -1, -1, 12, -1, -1, 17, -1, -1, -1, 10, -1 },
+                roots: new[] { 116.54f, 87.31f, 130.81f, 110.00f },   // Bb - F - C - Am
+                ring: 0.7f,
+                lift: -12,
+                voice: Voice.Crystal,
+                tail: 0.2f,
+                chords: new[] { new[] { -7, 0, 7 }, new[] { -9, -5, 0 }, new[] { -5, -2, 5 }, new[] { -9, -5, -2 } },
+                gain: 0.72f),
+
+            // 11. Deeper, and minor: the figure sits an octave lower and turns back on itself, and
+            //     the chords move A minor, F, D, G.
+            new Track(
+                figure: new[] { 7, -1, -1, -1, 12, -1, 10, -1, -1, -1, 5, -1, -1, 7, -1, -1 },
+                roots: new[] { 110.00f, 87.31f, 146.83f, 98.00f },   // Am - F - D - G
+                ring: 0.8f,
+                lift: -12,
+                voice: Voice.Crystal,
+                tail: 0.19f,
+                chords: new[] { new[] { -9, -5, -2 }, new[] { -9, -5, 0 }, new[] { -7, -2, 3 }, new[] { -12, -7, -5 } }),
+
+            // 12. Open and bright: four notes, the longest ring of the four, rooted on C.
+            new Track(
+                figure: new[] { 15, -1, -1, -1, -1, 19, -1, -1, 17, -1, -1, -1, 12, -1, -1, -1 },
+                roots: new[] { 130.81f, 98.00f, 87.31f, 130.81f },   // C - G - F - C
+                ring: 0.6f,
+                lift: -12,
+                voice: Voice.Crystal,
+                tail: 0.2f,
+                chords: new[] { new[] { -5, -2, 5 }, new[] { -12, -7, -5 }, new[] { -9, -5, 0 }, new[] { -5, -2, 5 } }),
+
+            // 13. B-flat twice: the Lydian colour, the most dreamlike sound in the set, and a figure
+            //     that climbs to the top and settles back.
+            new Track(
+                figure: new[] { 12, -1, 17, -1, -1, -1, 19, -1, -1, 15, -1, -1, -1, 12, -1, -1 },
+                roots: new[] { 116.54f, 130.81f, 116.54f, 87.31f },   // Bb - C - Bb - F
+                ring: 0.75f,
+                lift: -12,
+                voice: Voice.Crystal,
+                tail: 0.2f,
+                chords: new[] { new[] { -7, 0, 7 }, new[] { -5, -2, 5 }, new[] { -7, 0, 7 }, new[] { -9, -5, 0 } }),
+
+            // -------------------------------------------------------------------------
+            // 14 to 16: felt piano.
+            //
+            // The gentle, spacious piano of the early Minecraft soundtrack's feel: soft hammers,
+            // long rings, room between phrases. Original melodies.
+            // -------------------------------------------------------------------------
+
+            // 14. Slow, warm and hymn-like: a simple line over C, G, A minor and F, with a soft
+            //     chord under every bar.
+            new Track(
+                figure: new[] { 7, -1, -1, -1, 3, -1, 5, -1, -1, -1, 10, -1, 7, -1, -1, -1 },
+                roots: new[] { 130.81f, 98.00f, 110.00f, 87.31f },   // C - G - Am - F
+                ring: 0.6f,
+                lift: -12,
+                voice: Voice.Piano,
+                tail: 0.15f,
+                chords: new[] { new[] { -5, -2, 3 }, new[] { -7, -2, 5 }, new[] { -9, -5, 0 }, new[] { -9, 0, 7 } }),
+
+            // 15. Wandering: a low note answered by high ones, wide leaps and no chords at all --
+            //     just the piano in a large room.
+            new Track(
+                figure: new[] { -12, -1, -1, 7, -1, -1, 12, -1, -5, -1, -1, 3, -1, -1, 10, -1 },
+                roots: new[] { 110.00f, 82.41f, 87.31f, 98.00f },   // Am - Em - F - G
+                ring: 0.7f,
+                lift: -12,
+                voice: Voice.Piano,
+                tail: 0.12f),
+
+            // 16. The melancholy one: four notes falling, the longest ring in the set.
+            new Track(
+                figure: new[] { 0, -1, -1, -1, -1, 3, -1, -2, -1, -1, -1, -5, -1, -1, -1, -1 },
+                roots: new[] { 110.00f, 87.31f, 146.83f, 82.41f },   // Am - F - D - Em
+                ring: 0.55f,
+                lift: -12,
+                voice: Voice.Piano,
+                tail: 0.15f,
+                chords: new[] { new[] { -9, -5, -2 }, new[] { -9, -5, 0 }, new[] { -7, -2, 3 }, new[] { -2, 0, 5 } }),
+
+            // -------------------------------------------------------------------------
+            // 17 and 18: more mallets, like track 9.
+            // -------------------------------------------------------------------------
+
+            // 17. Bright and major: up the C triad and back, over C, F, G, C.
+            new Track(
+                figure: new[] { 3, -1, 7, -1, 10, -1, 7, 12, -1, -1, 10, -1, 7, -1, -1, -1 },
+                roots: new[] { 130.81f, 87.31f, 98.00f, 130.81f },   // C - F - G - C
+                ring: 3.0f,
+                lift: -12,
+                voice: Voice.Mallet),
+
+            // 18. Minor and off the beat: it starts on a rest, and the bass steps down A, G, F, E.
+            new Track(
+                figure: new[] { -1, 0, -1, 5, 7, -1, -1, 3, -1, 0, -1, -1, 5, -1, 3, -1 },
+                roots: new[] { 110.00f, 98.00f, 87.31f, 82.41f },   // Am - G - F - Em
+                ring: 2.8f,
+                lift: -12,
+                voice: Voice.Mallet),
+
+            // -------------------------------------------------------------------------
+            // 19 and 20: music box.
+            // -------------------------------------------------------------------------
+
+            // 19. Sweet and major, a little like a lullaby.
+            new Track(
+                figure: new[] { 15, -1, 12, -1, 10, -1, 12, -1, 15, -1, -1, -1, 17, -1, 15, -1 },
+                roots: new[] { 130.81f, 110.00f, 87.31f, 98.00f },   // C - Am - F - G
+                ring: 2.2f,
+                lift: -12,
+                voice: Voice.MusicBox,
+                tail: 0.1f),
+
+            // 20. Dreamier and minor: leaps up to the top and falls back, like a snow globe
+            //     settling.
+            new Track(
+                figure: new[] { 12, -1, -1, 19, -1, 15, -1, -1, 17, -1, -1, 12, -1, 10, -1, -1 },
+                roots: new[] { 110.00f, 87.31f, 130.81f, 82.41f },   // Am - F - C - Em
+                ring: 2.0f,
+                lift: -12,
+                voice: Voice.MusicBox,
+                tail: 0.12f),
+
+            // -------------------------------------------------------------------------
+            // 21 and 22: light and cozy -- the sunny village of a hundred small games. The busiest
+            // in the set, still only half the steps filled.
+            // -------------------------------------------------------------------------
+
+            // 21. Plucked and cheerful, climbing an octave on the alternate pass for a lift.
+            new Track(
+                figure: new[] { 3, -1, 7, 10, -1, 7, -1, 3, 5, -1, 7, -1, -1, 3, -1, -1 },
+                roots: new[] { 130.81f, 87.31f, 130.81f, 98.00f },   // C - F - C - G
+                ring: 3.0f,
+                lift: 12),
+
+            // 22. Mallets that bounce: a skipping figure over F, C, G, C.
+            new Track(
+                figure: new[] { 7, 5, -1, 3, -1, -1, 5, 7, -1, 10, -1, -1, 7, -1, 5, -1 },
+                roots: new[] { 87.31f, 130.81f, 98.00f, 130.81f },   // F - C - G - C
+                ring: 3.2f,
+                lift: -12,
+                voice: Voice.Mallet),
+
+            // -------------------------------------------------------------------------
+            // 23: cinematic.
+            //
+            // A voice singing a slow minor line over dark, swelling chords and a low A under
+            // almost every bar: the feel of an old city at dusk, from the rooftops.
+            // -------------------------------------------------------------------------
+
+            new Track(
+                figure: new[] { 0, -1, -1, -1, 3, -1, -1, 5, 7, -1, -1, -1, 5, -1, 3, -1 },
+                roots: new[] { 110.00f, 87.31f, 98.00f, 110.00f },   // Am - F - G - Am
+                ring: 0.9f,
+                lift: -12,
+                voice: Voice.Choir,
+                tail: 0.2f,
+                chords: new[] { new[] { -12, -9, -5 }, new[] { -9, -5, 0 }, new[] { -12, -7, -5 }, new[] { -12, -9, -5 } },
+                gain: 0.72f),
         };
 
         /// <summary>
@@ -708,6 +1001,22 @@ namespace BitSorter.View
                         voice += Mallet(age, hz, ring);
                         break;
 
+                    case Voice.Piano:
+                        voice += Piano(age, hz, ring);
+                        break;
+
+                    case Voice.Crystal:
+                        voice += Crystal(age, hz, ring);
+                        break;
+
+                    case Voice.MusicBox:
+                        voice += MusicBox(age, hz, ring);
+                        break;
+
+                    case Voice.Choir:
+                        voice += Choir(age, hz, ring);
+                        break;
+
                     default:
                         voice += Plucked(age, hz, ring);
                         break;
@@ -728,7 +1037,46 @@ namespace BitSorter.View
             if (bar > 0)
                 bass += Bass(track.Roots[(bar - 1) % roots], barAge + BarSeconds);
 
-            return (voice * 0.15f + bass * 0.16f) * Fade(t, d, 2f);
+            // The chord, the same way as the bass: struck on the bar line, falling away at the same
+            // rate, the last bar's still sounding under it until there is nothing left to cut.
+            float chords = 0f;
+
+            if (track.ChordHz != null)
+            {
+                chords = Chord(track.ChordHz[bar % roots], barAge);
+
+                if (bar > 0)
+                    chords += Chord(track.ChordHz[(bar - 1) % roots], barAge + BarSeconds);
+            }
+
+            return (voice * 0.15f + bass * 0.16f + chords * 0.035f) * track.Gain * Fade(t, d, 2f);
+        }
+
+        /// <summary>A bar's chord, <paramref name="age"/> seconds after it was struck.</summary>
+        private static float Chord(float[] tones, float age)
+        {
+            float sum = 0f;
+
+            for (int k = 0; k < tones.Length; k++)
+                sum += Pad(age, tones[k]);
+
+            return sum;
+        }
+
+        /// <summary>
+        /// One chord tone: swells in over about a second, then falls away at the bass's rate.
+        /// </summary>
+        /// <remarks>
+        /// A slow rise is what makes a chord read as a swell under the tune rather than as more
+        /// notes. Two sines a little apart thicken it, and a quiet octave gives it air. Past nine
+        /// seconds the swell is complete to within 10^-8 and stops being worked out.
+        /// </remarks>
+        private static float Pad(float age, float hz)
+        {
+            float swell = age < 9f ? 1f - Mathf.Exp(-age / 0.45f) : 1f;
+            float body = Sine(age, hz) + Sine(age, hz * 1.003f) * 0.7f + Sine(age, hz * 2f) * 0.12f;
+
+            return body * swell * Mathf.Exp(-0.45f * age);
         }
 
         /// <summary>A bar's bass note, <paramref name="age"/> seconds after it was struck.</summary>
@@ -811,6 +1159,83 @@ namespace BitSorter.View
             float knock = age < 0.7f ? Sine(age, hz * 4f) * 0.3f * Mathf.Exp(-14f * age) : 0f;
 
             return (Sine(age, hz) + knock) * ring * Strike(age, 0.001f);
+        }
+
+        /// <summary>
+        /// A felt piano note: a 3 ms hammer, a first brightness that falls to about half in a quarter
+        /// of a second, and two overtones a touch sharp of harmonic that fade faster than the note.
+        /// </summary>
+        /// <remarks>
+        /// The overtones are gone to within 10^-5 by about eight and four seconds, and stop being
+        /// worked out there -- the lookback on these tracks is long, and most notes it sums are old.
+        /// </remarks>
+        private static float Piano(float age, float hz, float ring)
+        {
+            float bloom = 0.55f + 0.45f * Mathf.Exp(-5f * age);
+
+            float second = age < 8f ? Sine(age, hz * 2.003f) * 0.35f * Mathf.Exp(-1.5f * age) : 0f;
+            float third = age < 4f ? Sine(age, hz * 3.009f) * 0.12f * Mathf.Exp(-3f * age) : 0f;
+
+            return (Sine(age, hz) + second + third) * bloom * ring * Strike(age, 0.003f) * 0.8f;
+        }
+
+        /// <summary>
+        /// Glass: a detuned pair that shimmers as it beats, a 10 ms rise, and a glassy partial at
+        /// three times the note that is gone within a second and a half.
+        /// </summary>
+        private static float Crystal(float age, float hz, float ring)
+        {
+            float body = Sine(age, hz) + Sine(age, hz * 1.0035f) * 0.8f;
+            float glass = age < 1.5f ? Sine(age, hz * 3f) * 0.18f * Mathf.Exp(-6f * age) : 0f;
+
+            return (body + glass) * ring * Strike(age, 0.01f) * 0.55f;
+        }
+
+        /// <summary>
+        /// A music-box tooth: struck in a millisecond, the note, and a bright partial at three times
+        /// it that dies in well under a second.
+        /// </summary>
+        private static float MusicBox(float age, float hz, float ring)
+        {
+            float shine = age < 0.8f ? Sine(age, hz * 3f) * 0.3f * Mathf.Exp(-8f * age) : 0f;
+
+            return (Sine(age, hz) + shine) * ring * Strike(age, 0.001f) * 0.9f;
+        }
+
+        /// <summary>
+        /// A sung "ah": a 60 ms swell, soft second and third partials for the vowel, and a vibrato
+        /// that eases in over half a second, as a held voice does.
+        /// </summary>
+        /// <remarks>
+        /// The vibrato moves the phase rather than the frequency, so the pitch wobbles about the note
+        /// -- five times a second, a sixth of a semitone either way -- instead of drifting off it.
+        /// </remarks>
+        private static float Choir(float age, float hz, float ring)
+        {
+            float depth = hz * 0.006f / 5f * (age < 6f ? 1f - Mathf.Exp(-age / 0.5f) : 1f);
+            float phase = 2f * Mathf.PI * hz * age + depth * (1f - Mathf.Cos(2f * Mathf.PI * 5f * age));
+
+            float vowel = Mathf.Sin(phase) + Mathf.Sin(2f * phase) * 0.4f + Mathf.Sin(3f * phase) * 0.18f;
+
+            return vowel * ring * Strike(age, 0.06f) * 0.6f;
+        }
+
+        /// <summary>
+        /// How high a voice's highest partial sits, as a multiple of the note it plays.
+        /// </summary>
+        /// <remarks>
+        /// Read by <see cref="HighestPartialHz"/>, so a voice added later has to say how bright it
+        /// is before any track can use it.
+        /// </remarks>
+        private static float TopPartial(Voice voice)
+        {
+            switch (voice)
+            {
+                case Voice.Plucked: return 2f;
+                case Voice.Mallet: return 4f;
+                case Voice.Piano: return 3.009f;
+                default: return 3f;   // Keys' tine, Crystal's glass, MusicBox's shine, Choir's vowel
+            }
         }
 
         /// <summary>
