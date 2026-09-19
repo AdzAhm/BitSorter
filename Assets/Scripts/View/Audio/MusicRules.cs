@@ -44,6 +44,28 @@ namespace BitSorter.View
             return !string.Equals(playingUnder, loading, StringComparison.Ordinal);
         }
 
+        /// <summary>
+        /// Which of the main menu's tracks a session opens on: either, by chance.
+        /// </summary>
+        /// <remarks>
+        /// From the session's own seed, so that seed stays the only random thing about the music.
+        /// The menu always used to open on its first track, and the second came on only once the
+        /// first had played to its end -- two and a half minutes -- so a player could restart any
+        /// number of times and never hear it. After the first, the menu's tracks take turns;
+        /// <see cref="GameAudio"/> keeps the turn.
+        /// </remarks>
+        public static int FirstMenuTrack(int seed, int count)
+        {
+            if (count <= 1)
+                return 0;
+
+            // A stream of its own. The shuffle's first draw comes from new Random(seed), so reusing
+            // that would tie the menu's opening track to the first level's. Knuth's multiplicative
+            // hash spreads neighbouring seeds apart; the high bits are the well-mixed ones.
+            uint mixed = unchecked((uint)seed * 2654435761u);
+
+            return (int)((mixed >> 16) % (uint)count);
+        }
     }
 
     /// <summary>

@@ -639,6 +639,52 @@ namespace BitSorter.LogicCore.Tests
         }
 
         // -----------------------------------------------------------------
+        // The menu's first track
+        // -----------------------------------------------------------------
+
+        [Test]
+        public void TheMenusFirstTrack_IsTheSameForTheSameSeed()
+        {
+            // The seed is the only random thing about the music, so a test can say what a session
+            // will do -- which only holds if the same seed always gives the same answer.
+            for (int seed = -500; seed < 500; seed++)
+                Assert.AreEqual(MusicRules.FirstMenuTrack(seed, 2), MusicRules.FirstMenuTrack(seed, 2), "seed " + seed);
+        }
+
+        /// <summary>
+        /// Either track opens the menu about as often as the other.
+        /// </summary>
+        /// <remarks>
+        /// The menu always opened on its first track. A pick that leaned hard one way would be most
+        /// of that bug back, and neighbouring seeds are where a weak mix leans: they are the ones
+        /// tested here.
+        /// </remarks>
+        [Test]
+        public void EitherMenuTrack_OpensTheMenuAboutAsOftenAsTheOther()
+        {
+            var opened = new int[2];
+
+            for (int seed = 0; seed < 1000; seed++)
+                opened[MusicRules.FirstMenuTrack(seed, 2)]++;
+
+            Assert.That(opened[0], Is.InRange(400, 600), $"first {opened[0]}, second {opened[1]} in 1000");
+        }
+
+        [Test]
+        public void TheMenusFirstTrack_IsAlwaysOneItHas()
+        {
+            foreach (int seed in Seeds)
+            {
+                for (int count = 1; count <= 5; count++)
+                    Assert.That(MusicRules.FirstMenuTrack(seed, count), Is.InRange(0, count - 1), $"seed {seed}, {count} tracks");
+            }
+
+            // A menu with no music of its own never asks, but the answer should not be a throw.
+            Assert.AreEqual(0, MusicRules.FirstMenuTrack(5, 0));
+            Assert.AreEqual(0, MusicRules.FirstMenuTrack(5, -1));
+        }
+
+        // -----------------------------------------------------------------
         // What the set costs
         // -----------------------------------------------------------------
 

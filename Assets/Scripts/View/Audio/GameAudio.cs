@@ -86,10 +86,17 @@ namespace BitSorter.View
         /// </summary>
         public AudioSource MusicSource => _musicSource;
 
-        /// <summary>Whether the source holds a menu track, and which one.</summary>
+        /// <summary>Whether the source holds a menu track.</summary>
         private bool _onMenu;
 
+        /// <summary>
+        /// The menu track playing, or the last one played -- or, before any has, the session's
+        /// random pick.
+        /// </summary>
         private int _menuTrack;
+
+        /// <summary>Whether any menu track has started yet this session.</summary>
+        private bool _menuHeard;
 
         /// <summary>Whether the menu track has been seen playing, so that its stopping is its end.</summary>
         private bool _menuStarted;
@@ -171,10 +178,13 @@ namespace BitSorter.View
             if (_menu == null) _menu = FindFirstObjectByType<MainMenu>();
 
             // The seed is the only random thing about the music: a different shuffle per session,
-            // so two evenings on the same levels are not the same evening, and everything after it
-            // deterministic.
-            _bag = new MusicBag(ProceduralAudio.MusicTracks, UnityEngine.Random.Range(int.MinValue, int.MaxValue));
+            // so two evenings on the same levels are not the same evening, and which of the menu's
+            // tracks the game opens on. Everything after it is deterministic.
+            int seed = UnityEngine.Random.Range(int.MinValue, int.MaxValue);
+
+            _bag = new MusicBag(ProceduralAudio.MusicTracks, seed);
             _track = _wanted = _bag.Current;
+            _menuTrack = MusicRules.FirstMenuTrack(seed, _menuTracks?.Length ?? 0);
 
             _source = GetComponent<AudioSource>();
             _source.playOnAwake = false;
@@ -539,13 +549,7 @@ namespace BitSorter.View
 
             if (menu)
             {
-                AudioClip clip = _menuTracks[_menuTrack];
-                clip.LoadAudioData();
-
-                _musicSource.clip = clip;
-                _musicSource.loop = false;   // they take turns rather than looping
-                _onMenu = true;
-                _menuStarted = false;
+                PutMenuTrackOn();
             }
             else
             {
@@ -594,17 +598,37 @@ namespace BitSorter.View
         {
             AudioClip ended = _musicSource.clip;
 
-            _menuTrack = (_menuTrack + 1) % _menuTracks.Length;
-
-            AudioClip next = _menuTracks[_menuTrack];
-            next.LoadAudioData();
-
-            _musicSource.clip = next;
+            PutMenuTrackOn();
             _musicSource.Play();
-            _menuStarted = false;
 
-            if (ended != null && ended != next)
+            if (ended != null && ended != _musicSource.clip)
                 ended.UnloadAudioData();
+        }
+
+        /// <summary>
+        /// Puts the menu's next track on the source: the session's random pick the first time, and
+        /// the other one every time after -- when one ends, and every time the menu is opened again.
+        /// </summary>
+        /// <remarks>
+        /// Opening the menu used to start the same track from the top every time, and the other was
+        /// only heard if the menu stayed up until the first had finished. Moving on at every start
+        /// means a player who dips into the menu hears both, and never the same opening twice
+        /// running.
+        /// </remarks>
+        private void PutMenuTrackOn()
+        {
+            if (_menuHeard)
+                _menuTrack = (_menuTrack + 1) % _menuTracks.Length;
+
+            _menuHeard = true;
+
+            AudioClip clip = _menuTracks[_menuTrack];
+            clip.LoadAudioData();
+
+            _musicSource.clip = clip;
+            _musicSource.loop = false;   // they take turns rather than looping
+            _onMenu = true;
+            _menuStarted = false;
         }
 
         /// <summary>
