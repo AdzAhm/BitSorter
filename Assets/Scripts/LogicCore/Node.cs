@@ -63,7 +63,13 @@ namespace BitSorter.LogicCore
         /// True when every input port holds a bit. Vacuously true for a node with no inputs,
         /// which is what lets <see cref="SourceNode"/> fire every tick without special casing.
         /// </summary>
-        public bool IsReadyToEvaluate
+        /// <remarks>
+        /// Overridable for the one node that has to fire with an empty port:
+        /// <see cref="RegisterNode"/> emits the bit it starts with before anything can have
+        /// arrived. Nothing else overrides it, and an override cannot break the order rule --
+        /// readiness may depend on the node's own state, never on another node's.
+        /// </remarks>
+        public virtual bool IsReadyToEvaluate
         {
             get
             {
@@ -82,7 +88,13 @@ namespace BitSorter.LogicCore
         /// Consuming here rather than in subclasses guarantees a node can never fire without
         /// clearing its ports.
         /// </summary>
-        internal void Evaluate(int tick)
+        /// <remarks>
+        /// Overridable alongside <see cref="IsReadyToEvaluate"/>, and for the same one node: a
+        /// <see cref="RegisterNode"/>'s first firing has no input to consume, and consuming an
+        /// empty port throws. Every other node inherits this and therefore cannot fire without
+        /// clearing its ports.
+        /// </remarks>
+        internal virtual void Evaluate(int tick)
         {
             for (int i = 0; i < _inputs.Length; i++)
                 _consumeBuffer[i] = _inputs[i].Consume();
