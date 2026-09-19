@@ -75,7 +75,12 @@ namespace BitSorter.PlayMode.Tests
         private static IEnumerator LoadSceneAtALevel()
         {
             yield return TestScene.Load();
+            yield return LeaveTheMenuForALevel();
+        }
 
+        /// <summary>Closes the main menu onto a level, and waits for the level's music.</summary>
+        private static IEnumerator LeaveTheMenuForALevel()
+        {
             // The second level, not the first, and in the same frame the menu closes. The test save
             // is always fresh, and on a fresh save the guided tutorial starts itself as soon as the
             // menu is gone and the first level is showing -- and the tutorial is not a level file,
@@ -87,6 +92,15 @@ namespace BitSorter.PlayMode.Tests
 
             yield return WaitForTheFade();
         }
+
+        /// <summary>
+        /// Whether a clip is one of the menu's recordings rather than a generated level track.
+        /// </summary>
+        /// <remarks>
+        /// Generated tracks are all named "music" and their number, by ProceduralAudio. Which of the
+        /// menu's tracks is playing is chance, so the tests below ask which kind it is.
+        /// </remarks>
+        private static bool IsMenuTrack(AudioClip clip) => clip != null && !clip.name.StartsWith("music");
 
         private static T Find<T>() where T : Object => Object.FindFirstObjectByType<T>();
 
@@ -136,7 +150,75 @@ namespace BitSorter.PlayMode.Tests
             AudioSource music = MusicSource(Find<GameAudio>());
 
             Assert.IsTrue(Find<MainMenu>().IsOpen, "sanity: the game should open on the menu");
-            Assert.AreEqual("jkjkke-dream", music.clip.name, "the menu is not playing its first track");
+            Assert.IsTrue(IsMenuTrack(music.clip), "the menu is playing " + music.clip?.name + ", not its own music");
+        }
+
+        /// <summary>
+        /// The menu opens on either of its tracks, by chance -- not on the same one every launch.
+        /// </summary>
+        /// <remarks>
+        /// It always opened on the first, and the second only came on if the menu stayed up for all
+        /// two and a half minutes of it, so a player could restart any number of times and never
+        /// hear it. Each launch here seeds Unity's random numbers, which is all GameAudio draws its
+        /// session seed from, so every run of this test sees the same launches.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator TheMenu_DoesNotAlwaysOpenOnTheSameTrack()
+        {
+            var opened = new System.Collections.Generic.HashSet<string>();
+            Random.State saved = Random.state;
+
+            try
+            {
+                for (int launch = 0; launch < 12 && opened.Count < 2; launch++)
+                {
+                    Random.InitState(launch);
+
+                    yield return LoadScene();
+                    yield return null;
+
+                    AudioClip clip = MusicSource(Find<GameAudio>()).clip;
+                    Assert.IsTrue(IsMenuTrack(clip), "sanity: launch " + launch + " should open on the menu's music");
+
+                    opened.Add(clip.name);
+
+                    yield return TestScene.Clear();
+                }
+            }
+            finally
+            {
+                Random.state = saved;
+            }
+
+            Assert.Greater(opened.Count, 1,
+                "twelve launches all opened the menu on " + string.Join(", ", opened));
+        }
+
+        /// <summary>
+        /// Coming back to the menu plays the track it did not play last time, not the same one again
+        /// from the top.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator ComingBackToTheMenu_PlaysItsOtherTrack()
+        {
+            yield return LoadScene();
+            yield return null;
+
+            AudioSource music = MusicSource(Find<GameAudio>());
+            string first = music.clip.name;
+
+            Assert.IsTrue(IsMenuTrack(music.clip), "sanity: the game should open on the menu's music");
+
+            yield return LeaveTheMenuForALevel();
+
+            Assert.IsFalse(IsMenuTrack(music.clip), "sanity: leaving the menu should play a level track");
+
+            Find<MainMenu>().Show(true);
+            yield return WaitForTheFade();
+
+            Assert.IsTrue(IsMenuTrack(music.clip), "opening the menu again did not bring its music back");
+            Assert.AreNotEqual(first, music.clip.name,
+                "the menu came back to the track it had just played, from the top");
         }
 
         /// <summary>
@@ -155,12 +237,12 @@ namespace BitSorter.PlayMode.Tests
             AudioSource music = MusicSource(Find<GameAudio>());
             AudioClip level = music.clip;
 
-            StringAssert.StartsWith("music", level.name, "leaving the menu did not play a level track");
+            Assert.IsFalse(IsMenuTrack(level), "leaving the menu did not play a level track");
 
             menu.Show(true);
             yield return WaitForTheFade();
 
-            Assert.AreEqual("jkjkke-dream", music.clip.name, "opening the menu did not bring its music back");
+            Assert.IsTrue(IsMenuTrack(music.clip), "opening the menu did not bring its music back");
 
             menu.Show(false);
             yield return WaitForTheFade();
