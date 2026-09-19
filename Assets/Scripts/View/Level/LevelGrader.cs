@@ -204,7 +204,8 @@ namespace BitSorter.View
 
             for (int i = 0; i < level.Expectations.Count; i++)
             {
-                RunVerdict verdict = GradeSink(view, level.Expectations[i], sinkNodeIds, level.VectorCount);
+                RunVerdict verdict = GradeSink(
+                    view, level.Expectations[i], sinkNodeIds, level.VectorCount, level.ClockPeriod);
 
                 if (!verdict.IsPass)
                     return verdict;
@@ -229,7 +230,8 @@ namespace BitSorter.View
             SimulationView view,
             LevelExpectation expectation,
             IReadOnlyDictionary<string, int> sinkNodeIds,
-            int vectorCount)
+            int vectorCount,
+            int clockPeriod)
         {
             string sinkId = expectation.SinkId;
 
@@ -259,11 +261,11 @@ namespace BitSorter.View
             // arrival ticks are not graded is untouched.
             if (expectation.HasSilentVectors && expected.Count > 0 && received.Count > expected.Count)
             {
-                int latency = InferLatency(received, expected, vectorCount);
+                int latency = InferLatency(received, expected, vectorCount, clockPeriod);
 
                 for (int i = 0; i < received.Count; i++)
                 {
-                    int vector = received[i].Tick - latency;
+                    int vector = VectorOf(received[i].Tick, latency, clockPeriod);
 
                     if (!ExpectsBitAt(expected, vector))
                     {
@@ -384,7 +386,7 @@ namespace BitSorter.View
                 // index k of one is index k of the other.
                 for (int k = 0; k < expected.Count && k < received.Count; k++)
                 {
-                    int latency = received[k].Tick - expected[k].Vector;
+                    int latency = received[k].Tick - TickOf(expected[k].Vector, level.ClockPeriod);
 
                     if (latency > worst)
                     {
@@ -395,6 +397,28 @@ namespace BitSorter.View
             }
 
             return worst;
+        }
+
+        /// <summary>The tick a vector leaves its sources on.</summary>
+        /// <remarks>
+        /// Vector *v* on tick *v* was true of every level until the clock existed, and it is still
+        /// true of every level with a period of 1. These two are the only places that arithmetic
+        /// lives now.
+        /// </remarks>
+        private static int TickOf(int vector, int clockPeriod) => vector * clockPeriod;
+
+        /// <summary>Which clock cycle a bit arriving on this tick belongs to.</summary>
+        /// <remarks>
+        /// Rounded down, including below zero, so a bit that lands between two cycles is blamed on
+        /// the cycle it is inside rather than the one after it. That only happens on a failure path
+        /// -- a circuit whose bits arrive off the clock has already lost one somewhere.
+        /// </remarks>
+        private static int VectorOf(int tick, int latency, int clockPeriod)
+        {
+            int period = clockPeriod > 0 ? clockPeriod : 1;
+            int offset = tick - latency;
+
+            return offset >= 0 ? offset / period : -((-offset + period - 1) / period);
         }
 
         /// <summary>
@@ -418,24 +442,31 @@ namespace BitSorter.View
         private static int InferLatency(
             IReadOnlyList<SinkNode.Reception> received,
             IReadOnlyList<ExpectedBit> expected,
-            int vectorCount)
+            int vectorCount,
+            int clockPeriod)
         {
             int extra = received.Count - expected.Count;
-            int best = received[0].Tick - expected[0].Vector;
+            int first = TickOf(expected[0].Vector, clockPeriod);
+            int best = received[0].Tick - first;
             int bestMatches = -1;
             int bestInRange = -1;
 
+            // A register puts a bit out after the last vector, so an expectation may run past the
+            // vector count and those cycles are in range too.
+            int last = expected[expected.Count - 1].Vector + 1;
+            int cycles = vectorCount > last ? vectorCount : last;
+
             for (int i = 0; i <= extra && i < received.Count; i++)
             {
-                int latency = received[i].Tick - expected[0].Vector;
+                int latency = received[i].Tick - first;
                 int matches = 0;
                 int inRange = 0;
 
                 for (int k = 0; k < received.Count; k++)
                 {
-                    int vector = received[k].Tick - latency;
+                    int vector = VectorOf(received[k].Tick, latency, clockPeriod);
 
-                    if (vector >= 0 && vector < vectorCount)
+                    if (vector >= 0 && vector < cycles)
                         inRange++;
 
                     if (ExpectsBitAt(expected, vector))

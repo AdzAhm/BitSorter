@@ -254,6 +254,13 @@ namespace BitSorter.View
                     "critical path of the intended solution in ticks");
             }
 
+            if (file.clockPeriod < 0)
+            {
+                return LevelLoadResult.Reject(
+                    $"clockPeriod is {file.clockPeriod}; leave it out for a vector every tick, or " +
+                    "give the ticks between vectors");
+            }
+
             // Only the shape is checkable here. Whether this value is unique across the level set is
             // LevelCatalog's call -- one file has no way to see another.
             if (file.order < 0)
@@ -272,7 +279,8 @@ namespace BitSorter.View
 
             return LevelLoadResult.Accept(new LevelDefinition(
                 file.name.Trim(), hint, tickLimit, vectorCount, fixtures, budget, expectations,
-                maxWireDelay, file.delayBudget, file.maxLatency, file.order, goal));
+                maxWireDelay, file.delayBudget, file.maxLatency, file.order, goal,
+                clockPeriod: file.clockPeriod));
         }
 
         private static bool TryBuildBudget(
@@ -383,10 +391,24 @@ namespace BitSorter.View
 
                 string values = entry.values.Trim();
 
-                if (values.Length != vectorCount)
+                if (values.Length < vectorCount)
                 {
                     error = $"expectation for '{sinkId}' has {values.Length} vectors but the sources " +
                             $"supply {vectorCount}";
+                    return false;
+                }
+
+                // Longer than the vector count is allowed, and it is what a register makes happen: a
+                // sink fed through one receives the bit it started out holding before the first
+                // vector's, so one more bit arrives than there were vectors. Those trailing
+                // characters are the clock cycles after the last input.
+                //
+                // The tail cannot be silent. A '-' is dropped rather than taking a slot, so "silence
+                // after the end" is what an expectation of exactly the vector count already says.
+                if (values.Length > vectorCount && values.IndexOf('-', vectorCount) >= 0)
+                {
+                    error = $"expectation for '{sinkId}' has '-' after the last vector; leave those " +
+                            "characters off instead";
                     return false;
                 }
 
@@ -446,8 +468,12 @@ namespace BitSorter.View
                     case '0': parsed[i] = Bit.Zero; break;
                     case '1': parsed[i] = Bit.One; break;
                     case '-':
-                        error = $"'-' at vector {i}; a source emits every tick and cannot skip one, " +
-                                "so sparse streams are not supported";
+                        // A source can stay quiet on a tick, but a level says so with clockPeriod
+                        // rather than by hand: every source has to keep the same beat, and a gap
+                        // written into one stream would silently put that source out of step with
+                        // the others. The vector count is the length of the stream either way.
+                        error = $"'-' at vector {i}; a stream is the vectors themselves, " +
+                                "and clockPeriod is what spaces them out";
                         return false;
                     default:
                         error = $"'{trimmed[i]}' at vector {i}; expected 0 or 1";

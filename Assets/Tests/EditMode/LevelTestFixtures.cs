@@ -64,6 +64,26 @@ namespace BitSorter.LogicCore.Tests
             }}");
         }
 
+        /// <summary>
+        /// The same four vectors on a clock: one vector every <paramref name="clockPeriod"/> ticks.
+        /// </summary>
+        internal static LevelDefinition FourVectorsOnAClock(
+            string expected, int clockPeriod, int maxLatency = 0)
+        {
+            return Parse($@"{{
+                ""name"": ""Four vectors on a clock"",
+                ""tickLimit"": 100,
+                ""clockPeriod"": {clockPeriod},
+                ""maxLatency"": {maxLatency},
+                ""fixtures"": [
+                    {{ ""id"": ""in"",  ""kind"": ""Source"", ""cell"": {{ ""x"": -3, ""y"": 0 }}, ""stream"": ""0011"" }},
+                    {{ ""id"": ""out"", ""kind"": ""Sink"",   ""cell"": {{ ""x"":  3, ""y"": 0 }} }}
+                ],
+                ""budget"": [ {{ ""kind"": ""Not"", ""count"": 2 }} ],
+                ""expected"": [ {{ ""sink"": ""out"", ""values"": ""{expected}"" }} ]
+            }}");
+        }
+
         /// <summary>Parses a level and fails the test rather than the assertion if it is invalid.</summary>
         internal static LevelDefinition Parse(string json)
         {

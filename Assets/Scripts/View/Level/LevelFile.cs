@@ -64,6 +64,18 @@ namespace BitSorter.View
         public int maxLatency;
 
         /// <summary>
+        /// Ticks between one test vector and the next: the level's clock. Absent or zero means 1,
+        /// a vector every tick, which is every level written before this field.
+        /// </summary>
+        /// <remarks>
+        /// A level with feedback needs one. The shortest loop is two wires, so the state cannot get
+        /// back to the logic before the next vector lands, and the inputs pile up into a collision.
+        /// Spacing the vectors is the clock period, and the rule it teaches is the real one:
+        /// everything must settle inside one period.
+        /// </remarks>
+        public int clockPeriod;
+
+        /// <summary>
         /// Where this level sits in the run. Zero or absent leaves it unplaced, and unplaced levels
         /// sort to the end by file name -- which is how every level behaved before this field.
         /// </summary>

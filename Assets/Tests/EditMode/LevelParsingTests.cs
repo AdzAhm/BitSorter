@@ -358,18 +358,24 @@ namespace BitSorter.LogicCore.Tests
         }
 
         [Test]
-        public void AnExpectationOfTheWrongLength_IsRefused()
+        public void AnExpectationShorterThanTheVectors_IsRefused()
         {
+            // Shorter than the vector count is a level that forgot to say what one of its vectors
+            // produces. Longer is legal and means the cycles after the last vector, which is what a
+            // register puts there.
+            string twoVectors =
+                @"{ ""id"": ""in"", ""kind"": ""Source"", ""cell"": { ""x"": -3, ""y"": 0 }, ""stream"": ""01"" }";
+
             AssertRefused(Parse(
-                Json($"{SourceIn}, {BinOne}", @"{ ""sink"": ""binOne"", ""values"": ""101"" }")));
+                Json($"{twoVectors}, {BinOne}", @"{ ""sink"": ""binOne"", ""values"": ""1"" }")));
         }
 
         [Test]
         public void ADashInASourceStream_IsRefusedAndSaysWhy()
         {
-            // A SourceNode emits every tick from tick 0 with no way to skip one, so sparse streams have
-            // no honest implementation. LogicCore's core decisions say not to add one preemptively, so
-            // the loader refuses rather than emitting something else.
+            // A source can stay quiet on a tick now, but not because a stream said so: clockPeriod
+            // spaces every source out together, and a gap hand-written into one of them would put
+            // that source out of step with the rest without saying anything.
             string sparse =
                 @"{ ""id"": ""in"", ""kind"": ""Source"", ""cell"": { ""x"": -3, ""y"": 0 }, ""stream"": ""1-1"" }";
 
@@ -377,8 +383,8 @@ namespace BitSorter.LogicCore.Tests
                 Json($"{sparse}, {BinOne}", @"{ ""sink"": ""binOne"", ""values"": ""111"" }"));
 
             AssertRefused(result);
-            StringAssert.Contains("cannot skip", result.Error,
-                "the reason has to explain why, or the author will just try it again");
+            StringAssert.Contains("clockPeriod", result.Error,
+                "the reason has to point at the field that does this, or the author will try it again");
         }
 
         [TestCase("2", TestName = "AStrayDigitInAStream_IsRefused")]
@@ -501,6 +507,80 @@ namespace BitSorter.LogicCore.Tests
             Assert.IsNull(result.Level, "a refused level must not hand back a half-built definition");
             Assert.IsNotNull(result.Error, "a refusal needs a reason the author can act on");
             Assert.IsNotEmpty(result.Error);
+        }
+
+        // -----------------------------------------------------------------
+        // The clock
+        // -----------------------------------------------------------------
+
+        [Test]
+        public void ALevelWithoutAClock_RunsAVectorEveryTick()
+        {
+            // Absent means 1, the same way an absent tickLimit or maxWireDelay means its default:
+            // JsonUtility cannot tell a missing key from a zero.
+            LevelDefinition level = ParseDefault().Level;
+
+            Assert.AreEqual(1, level.ClockPeriod);
+            Assert.IsFalse(level.HasClock);
+        }
+
+        [Test]
+        public void AClockPeriod_IsTakenFromTheFile()
+        {
+            string json = Json($"{SourceIn}, {BinOne}, {BinZero}", $"{ExpectOne}, {ExpectZeroEmpty}")
+                .Replace(@"""tickLimit"": 100", @"""tickLimit"": 100, ""clockPeriod"": 3");
+
+            LevelLoadResult result = Parse(json);
+
+            Assert.IsTrue(result.IsValid, result.Error);
+            Assert.AreEqual(3, result.Level.ClockPeriod);
+            Assert.IsTrue(result.Level.HasClock);
+        }
+
+        [Test]
+        public void ANegativeClockPeriod_IsRefused()
+        {
+            string json = Json($"{SourceIn}, {BinOne}, {BinZero}", $"{ExpectOne}, {ExpectZeroEmpty}")
+                .Replace(@"""tickLimit"": 100", @"""tickLimit"": 100, ""clockPeriod"": -2");
+
+            LevelLoadResult result = Parse(json);
+
+            Assert.IsFalse(result.IsValid);
+            StringAssert.Contains("clockPeriod", result.Error);
+        }
+
+        // -----------------------------------------------------------------
+        // Values after the last vector
+        // -----------------------------------------------------------------
+
+        [Test]
+        public void AnExpectationMayRunPastTheLastVector()
+        {
+            // What a register makes happen: the bit it started out holding comes out in front of the
+            // stream, so one more bit arrives than the level has vectors.
+            string expect = @"{ ""sink"": ""binOne"", ""values"": ""10"" }";
+
+            LevelLoadResult result = Parse(Json($"{SourceIn}, {BinOne}, {BinZero}",
+                $"{expect}, {ExpectZeroEmpty}"));
+
+            Assert.IsTrue(result.IsValid, result.Error);
+            Assert.AreEqual(2, result.Level.Expectations[0].Expected.Count,
+                "both cycles are graded, the one past the last vector included");
+        }
+
+        [Test]
+        public void SilenceAfterTheLastVector_IsRefused()
+        {
+            // "-" is dropped rather than taking a slot, so silence after the end is what an
+            // expectation of exactly the vector count already says. Two spellings of one thing is
+            // one thing to get wrong.
+            string expect = @"{ ""sink"": ""binOne"", ""values"": ""1-"" }";
+
+            LevelLoadResult result = Parse(Json($"{SourceIn}, {BinOne}, {BinZero}",
+                $"{expect}, {ExpectZeroEmpty}"));
+
+            Assert.IsFalse(result.IsValid);
+            StringAssert.Contains("after the last vector", result.Error);
         }
     }
 }

@@ -63,7 +63,7 @@ namespace BitSorter.View
                 LevelFixture fixture = level.Fixtures[i];
 
                 Node node = Register(
-                    simulation, cells, nodesByCell, CreateFixture(fixture), fixture.Cell);
+                    simulation, cells, nodesByCell, CreateFixture(fixture, level.ClockPeriod), fixture.Cell);
 
                 fixtureNodeIds[fixture.Id] = node.Id;
             }
@@ -106,12 +106,12 @@ namespace BitSorter.View
             return node;
         }
 
-        private static Node CreateFixture(LevelFixture fixture)
+        private static Node CreateFixture(LevelFixture fixture, int clockPeriod)
         {
             switch (fixture.Kind)
             {
                 case FixtureKind.Source:
-                    return new SourceNode(fixture.Stream) { Name = fixture.Id };
+                    return new SourceNode(OnTheClock(fixture.Stream, clockPeriod)) { Name = fixture.Id };
 
                 case FixtureKind.Sink:
                     // Single-port by construction. The level format has no way to express a wider
@@ -123,6 +123,27 @@ namespace BitSorter.View
                     throw new ArgumentOutOfRangeException(
                         nameof(fixture), fixture.Kind, "Unknown fixture kind.");
             }
+        }
+
+        /// <summary>
+        /// A stream spread onto the level's clock: one bit per cycle, silent ticks in between.
+        /// </summary>
+        /// <remarks>
+        /// The gaps go *between* vectors and never after the last one. A source is exhausted only
+        /// once its whole sequence has played, and the grader waits for that before it will call a
+        /// run settled -- a trailing silence would hold every run open to the tick limit.
+        ///
+        /// A period of 1 gives back the stream unchanged, which is every combinational level.
+        /// </remarks>
+        private static Bit?[] OnTheClock(IReadOnlyList<Bit> stream, int clockPeriod)
+        {
+            int period = clockPeriod > 0 ? clockPeriod : 1;
+            var ticks = new Bit?[stream.Count == 0 ? 0 : (stream.Count - 1) * period + 1];
+
+            for (int vector = 0; vector < stream.Count; vector++)
+                ticks[vector * period] = stream[vector];
+
+            return ticks;
         }
 
         private static bool TryResolveOutput(

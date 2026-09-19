@@ -393,6 +393,47 @@ namespace BitSorter.LogicCore.Tests
             Assert.IsTrue(verdict.IsPass, verdict.ToString());
         }
 
+        // -----------------------------------------------------------------
+        // The clock
+        // -----------------------------------------------------------------
+
+        [Test]
+        public void ALevelOnAClock_StillGradesTheSameValues()
+        {
+            // The vectors are three ticks apart instead of one. Nothing about what the circuit has
+            // to compute changes, and the same pass-through solves it.
+            LevelDefinition level = LevelTestFixtures.FourVectorsOnAClock("0011", clockPeriod: 3);
+
+            RunVerdict verdict = LevelTestFixtures.RunAndGrade(level, PassThroughAtDelay(1));
+
+            Assert.IsTrue(verdict.IsPass, verdict.ToString());
+        }
+
+        [Test]
+        public void OnAClock_LatencyIsMeasuredFromTheVectorsOwnCycle()
+        {
+            // Vector v leaves on tick 3v now, so a two-tick path is a latency of 2 -- not the 3v + 2
+            // that measuring against vector v would give. A ceiling of 2 is exactly satisfiable, and
+            // the level would be unsolvable if the clock leaked into the measurement.
+            LevelDefinition level = LevelTestFixtures.FourVectorsOnAClock("0011", clockPeriod: 3, maxLatency: 2);
+
+            RunVerdict verdict = LevelTestFixtures.RunAndGrade(level, PassThroughAtDelay(1));
+
+            Assert.IsTrue(verdict.IsPass, verdict.ToString());
+        }
+
+        [Test]
+        public void OnAClock_APathOverTheCeiling_StillFails()
+        {
+            LevelDefinition level = LevelTestFixtures.FourVectorsOnAClock("0011", clockPeriod: 3, maxLatency: 2);
+
+            RunVerdict verdict = LevelTestFixtures.RunAndGrade(level, PassThroughAtDelay(4));
+
+            Assert.AreEqual(RunOutcome.TooSlow, verdict.Outcome, verdict.ToString());
+            StringAssert.Contains("4 ticks", verdict.Reason,
+                "the latency belongs in the message, measured in ticks rather than cycles");
+        }
+
         [Test]
         public void ALevelWithNoLatencyCeiling_DoesNotGradeOnTime()
         {

@@ -59,8 +59,10 @@ namespace BitSorter.View
             int order = 0,
             string goal = "",
             bool isGraded = true,
-            IReadOnlyList<LevelSlot> reservedSlots = null)
+            IReadOnlyList<LevelSlot> reservedSlots = null,
+            int clockPeriod = 1)
         {
+            ClockPeriod = clockPeriod > 0 ? clockPeriod : 1;
             ReservedSlots = reservedSlots ?? System.Array.Empty<LevelSlot>();
             IsGraded = isGraded;
             Order = order;
@@ -161,6 +163,24 @@ namespace BitSorter.View
 
         /// <summary>Whether the level grades on time at all.</summary>
         public bool HasLatencyLimit => MaxLatency > 0;
+
+        /// <summary>
+        /// Ticks between one vector and the next: the level's clock. One for every combinational
+        /// level, where a vector arrives every tick.
+        /// </summary>
+        /// <remarks>
+        /// Vector *v* is emitted on tick *v* × this, which is the arithmetic every latency figure
+        /// and every failure message is worked out from. Above 1 it also relaxes balancing exactly
+        /// as a real clock does: two paths into a gate no longer have to arrive together, only
+        /// within one period of each other, because the next vector is a period away.
+        ///
+        /// A level with feedback needs one at least as long as its loop. See
+        /// <see cref="LogicCore.RegisterNode"/> for why that is not a tuning choice.
+        /// </remarks>
+        public int ClockPeriod { get; }
+
+        /// <summary>Whether the level runs on a clock slower than one vector per tick.</summary>
+        public bool HasClock => ClockPeriod > 1;
 
         /// <summary>
         /// Where this level sits in the run, or zero for a level that names no place.
