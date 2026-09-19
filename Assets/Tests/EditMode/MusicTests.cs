@@ -30,13 +30,29 @@ namespace BitSorter.LogicCore.Tests
         /// <summary>A minor pentatonic: A, C, D, E, G, as semitones above A.</summary>
         private static readonly int[] Pentatonic = { 0, 3, 5, 7, 10 };
 
+        private static readonly Dictionary<int, float[]> Rendered = new Dictionary<int, float[]>();
+
+        /// <summary>
+        /// A track's samples, rendered once for the whole fixture. Callers must not write to them.
+        /// </summary>
+        /// <remarks>
+        /// ProceduralAudio caches nothing any more -- what stays resident is GameAudio's decision --
+        /// so without this every test would render every track again, and rendering them is the
+        /// slowest thing in the Edit Mode suite.
+        /// </remarks>
         private static float[] SamplesOf(int track)
         {
-            AudioClip clip = ProceduralAudio.MusicClip(track);
-            var samples = new float[clip.samples * clip.channels];
-            clip.GetData(samples, 0);
+            if (!Rendered.TryGetValue(track, out float[] samples))
+            {
+                samples = ProceduralAudio.MusicSamples(track);
+                Rendered[track] = samples;
+            }
+
             return samples;
         }
+
+        [OneTimeTearDown]
+        public void ReleaseTheRenders() => Rendered.Clear();
 
         private static IEnumerable<int> EveryTrack()
         {
@@ -58,13 +74,13 @@ namespace BitSorter.LogicCore.Tests
         /// </remarks>
         private static float[] AboveTheNotes(int track)
         {
-            AudioClip clip = ProceduralAudio.MusicClip(track);
-            float[] signal = SamplesOf(track);
+            // A copy: the filter works in place, and the render is shared across the fixture.
+            float[] signal = (float[])SamplesOf(track).Clone();
 
             // The pole Qs of an eighth-order Butterworth: 1 / (2 cos((2k - 1) pi / 16)).
             foreach (double q in new[] { 0.5098, 0.6013, 0.9000, 2.5629 })
             {
-                double w0 = 2.0 * System.Math.PI * 8000.0 / clip.frequency;
+                double w0 = 2.0 * System.Math.PI * 8000.0 / ProceduralAudio.MusicSampleRate;
                 double cos = System.Math.Cos(w0);
                 double alpha = System.Math.Sin(w0) / (2.0 * q);
                 double a0 = 1.0 + alpha;
@@ -100,32 +116,56 @@ namespace BitSorter.LogicCore.Tests
         }
 
         [Test]
-        public void EveryTrack_ProducesADistinctClip()
+        public void ATrack_BuildsAMonoClipOfItsWholeLength()
         {
-            var seen = new HashSet<AudioClip>();
-
-            foreach (int track in EveryTrack())
+            // The first and last only: every track shares the builder, and the per-track tests below
+            // read the samples the builder would hand to the clip.
+            foreach (int track in new[] { 0, ProceduralAudio.MusicTracks - 1 })
             {
                 AudioClip clip = ProceduralAudio.MusicClip(track);
 
-                Assert.IsNotNull(clip, "track " + track);
-                Assert.Greater(clip.samples, 0, "track " + track + " has no samples");
-                Assert.AreEqual(1, clip.channels, "track " + track + " should be mono");
-
-                Assert.IsTrue(seen.Add(clip),
-                    "track " + track + " is the same clip object as another");
+                try
+                {
+                    Assert.IsNotNull(clip, "track " + track);
+                    Assert.AreEqual(1, clip.channels, "track " + track + " should be mono");
+                    Assert.AreEqual(ProceduralAudio.MusicSampleRate, clip.frequency, "track " + track);
+                    Assert.AreEqual(SamplesOf(track).Length, clip.samples, "track " + track);
+                }
+                finally
+                {
+                    Object.DestroyImmediate(clip);
+                }
             }
         }
 
+        /// <summary>
+        /// Every clip handed out is a new one, which its caller owns and frees.
+        /// </summary>
+        /// <remarks>
+        /// Tracks used to be cached for the session, and at twice the number of tracks that is more
+        /// heap than the browser build can spare. What stays resident is GameAudio's decision now, and
+        /// it can only make one if nothing here is holding clips behind its back.
+        /// </remarks>
         [Test]
-        public void EveryTrack_IsCachedRatherThanRebuilt()
+        public void EveryClip_IsNewAndBelongsToItsCaller()
         {
-            // Rebuilding a thirty-two second waveform on a level change would hitch the transition,
-            // and a track the player returns to would cost the same again.
-            foreach (int track in EveryTrack())
+            ProceduralAudio.MusicBake bake = ProceduralAudio.BakeMusic(0);
+            bake.Step(int.MaxValue);
+
+            AudioClip first = bake.ToClip();
+            AudioClip second = bake.ToClip();
+
+            try
             {
-                Assert.AreSame(ProceduralAudio.MusicClip(track), ProceduralAudio.MusicClip(track),
-                    "track " + track);
+                Assert.AreNotSame(first, second);
+
+                Object.DestroyImmediate(first);
+                Assert.IsTrue(second != null, "freeing one clip freed another");
+            }
+            finally
+            {
+                if (first != null) Object.DestroyImmediate(first);
+                if (second != null) Object.DestroyImmediate(second);
             }
         }
 
@@ -133,16 +173,68 @@ namespace BitSorter.LogicCore.Tests
         public void AnOutOfRangeTrack_IsClampedRatherThanThrown()
         {
             // Silence with a stack trace behind it is a worse failure than the wrong track.
-            Assert.AreSame(ProceduralAudio.MusicClip(0), ProceduralAudio.MusicClip(-4));
-            Assert.AreSame(ProceduralAudio.MusicClip(ProceduralAudio.MusicTracks - 1),
-                           ProceduralAudio.MusicClip(ProceduralAudio.MusicTracks + 10));
+            Assert.AreEqual(0, ProceduralAudio.BakeMusic(-4).Index);
+            Assert.AreEqual(ProceduralAudio.MusicTracks - 1,
+                            ProceduralAudio.BakeMusic(ProceduralAudio.MusicTracks + 10).Index);
         }
 
         [Test]
-        public void TheMusicCue_IsTheFirstTrack()
+        public void AskingForTheMusicAsACue_IsRefused()
         {
-            // Clip(Cue.Music) still has to answer for any caller that just wants "the music".
-            Assert.AreSame(ProceduralAudio.MusicClip(0), ProceduralAudio.Clip(Cue.Music));
+            // Music is a set of tracks with owners, not one cached clip. A cue-style "the music"
+            // would be a track held for the whole session by nobody.
+            Assert.Throws<System.ArgumentException>(() => ProceduralAudio.Clip(Cue.Music));
+        }
+
+        // -----------------------------------------------------------------
+        // Baking a slice at a time
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// A track baked a slice at a time is the same track, to the last bit.
+        /// </summary>
+        /// <remarks>
+        /// The game bakes the next track a little each frame so a level change never stalls on it.
+        /// That is only safe if where the slices fall changes nothing -- the reverb reads samples
+        /// already written, and a slice boundary in the wrong place would read one not yet there.
+        /// Track 7 is one of the reverberated ones; the slice sizes are deliberately awkward, one of
+        /// them shorter than the reverb's shortest delay.
+        /// </remarks>
+        [Test]
+        public void ASlicedBake_IsTheSameAsOneInOneGo()
+        {
+            foreach (int track in new[] { 0, 7 })
+            {
+                ProceduralAudio.MusicBake bake = ProceduralAudio.BakeMusic(track);
+                int[] slices = { 1, 7, 811, 4093, 22050 };
+                int s = 0;
+
+                while (!bake.Step(slices[s++ % slices.Length])) { }
+
+                float[] sliced = bake.Samples;
+                float[] whole = SamplesOf(track);
+
+                Assert.AreEqual(whole.Length, sliced.Length, "track " + track);
+
+                for (int i = 0; i < whole.Length; i++)
+                {
+                    if (whole[i] != sliced[i])
+                        Assert.Fail($"track {track} differs at sample {i}: {sliced[i]} sliced, {whole[i]} whole");
+                }
+            }
+        }
+
+        [Test]
+        public void AnUnfinishedBake_HandsOutNothing()
+        {
+            ProceduralAudio.MusicBake bake = ProceduralAudio.BakeMusic(0);
+            bake.Step(1000);
+
+            Assert.IsFalse(bake.IsDone);
+            Assert.IsNull(bake.Samples, "half a track read as a whole one");
+            Assert.Throws<System.InvalidOperationException>(() => bake.ToClip());
+            Assert.Greater(bake.Progress, 0f);
+            Assert.Less(bake.Progress, 1f);
         }
 
         // -----------------------------------------------------------------
@@ -155,22 +247,13 @@ namespace BitSorter.LogicCore.Tests
             // Switching between tracks should read as the same music continuing. Two of them running
             // at different lengths would not break anything audibly, but it is the first sign that
             // the set has stopped being variations on one idea.
-            float first = ProceduralAudio.MusicClip(0).length;
+            int first = SamplesOf(0).Length;
 
             foreach (int track in EveryTrack())
             {
-                Assert.AreEqual(first, ProceduralAudio.MusicClip(track).length, 0.01f,
+                Assert.AreEqual(first, SamplesOf(track).Length,
                     "track " + track + " is a different length to track 0");
             }
-        }
-
-        [Test]
-        public void EveryTrack_IsRenderedAtTheSameRate()
-        {
-            int first = ProceduralAudio.MusicClip(0).frequency;
-
-            foreach (int track in EveryTrack())
-                Assert.AreEqual(first, ProceduralAudio.MusicClip(track).frequency, "track " + track);
         }
 
         [Test]
@@ -181,7 +264,7 @@ namespace BitSorter.LogicCore.Tests
             // tracks' top note doubled, about 4.2 kHz -- the mallets' knock is four times its note,
             // which is why that track is written low and tops out at 3.1 kHz. This fails if the
             // rate is ever lowered under what those need.
-            int rate = ProceduralAudio.MusicClip(0).frequency;
+            int rate = ProceduralAudio.MusicSampleRate;
             const float HighestHarmonic = 4200f;
 
             Assert.Greater(rate * 0.5f, HighestHarmonic * 1.5f,
@@ -272,7 +355,7 @@ namespace BitSorter.LogicCore.Tests
             foreach (int track in EveryTrack())
             {
                 float[] residue = AboveTheNotes(track);
-                int rate = ProceduralAudio.MusicClip(track).frequency;
+                int rate = ProceduralAudio.MusicSampleRate;
 
                 float peak = 0f;
                 int at = 0;

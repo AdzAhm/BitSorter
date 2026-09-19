@@ -67,10 +67,15 @@ namespace BitSorter.View
 
         public static AudioClip Clip(Cue cue)
         {
-            // Music is not one clip but a set of them, with its own cache. Clip keeps working for
-            // any caller that just wants "the music" and hands back the first track.
+            // Music is not one clip but a set of tracks, and a track's clip belongs to whoever built
+            // it -- GameAudio keeps two at a time and frees the rest. A cached "the music" here would
+            // be a track held for the whole session by nobody in particular, so asking is a mistake
+            // worth hearing about rather than a clip worth handing back.
             if (cue == Cue.Music)
-                return MusicClip(0);
+            {
+                throw new ArgumentException(
+                    "Music is a set of tracks: build one with MusicClip or BakeMusic.", nameof(cue));
+            }
 
             if (Cache.TryGetValue(cue, out AudioClip cached) && cached != null)
                 return cached;
@@ -133,7 +138,7 @@ namespace BitSorter.View
                         return total;
                     });
 
-                // Music never reaches here: Clip routes it to MusicClip before Build is called.
+                // Music never reaches here: Clip refuses it before Build is called.
                 default:
                     return Make("silence", 0.01f, (t, d) => 0f);
             }
@@ -209,29 +214,145 @@ namespace BitSorter.View
 
 
         /// <summary>
-        /// One background track, built on first use and kept.
+        /// One background track, built now, in full. The caller owns the clip and frees it.
         /// </summary>
         /// <remarks>
-        /// Lazily, and per track: a session that never leaves the first level pays for one clip
-        /// rather than three. An out-of-range index is clamped rather than thrown on, because the
-        /// failure mode of a throw here is silence with a stack trace behind it.
+        /// Nothing is cached here any more. Every track built used to be kept for the session, which
+        /// was affordable at nine tracks and is not at twice that: what is resident is now
+        /// <see cref="GameAudio"/>'s decision, and it keeps two.
+        ///
+        /// An out-of-range index is clamped rather than thrown on, because the failure mode of a
+        /// throw here is silence with a stack trace behind it.
         /// </remarks>
         public static AudioClip MusicClip(int index)
         {
-            index = Mathf.Clamp(index, 0, Tracks.Length - 1);
-
-            if (MusicCache.TryGetValue(index, out AudioClip cached) && cached != null)
-                return cached;
-
-            Track track = Tracks[index];
-            AudioClip clip = Make("music" + index, track.Seconds,
-                                  (t, d) => Sample(track, t, d), MusicSampleRate, track.Tail);
-
-            MusicCache[index] = clip;
-            return clip;
+            MusicBake bake = BakeMusic(index);
+            bake.Step(int.MaxValue);
+            return bake.ToClip();
         }
 
-        private static readonly Dictionary<int, AudioClip> MusicCache = new Dictionary<int, AudioClip>();
+        /// <summary>A track's samples, rendered in full. For tests, and anything that wants to measure.</summary>
+        public static float[] MusicSamples(int index)
+        {
+            MusicBake bake = BakeMusic(index);
+            bake.Step(int.MaxValue);
+            return bake.Samples;
+        }
+
+        /// <summary>
+        /// Starts rendering a track, for the caller to advance a slice at a time.
+        /// </summary>
+        /// <remarks>
+        /// Rendering a track costs a few hundred milliseconds, and doing it in one go on the frame it
+        /// is needed was a visible stall at a level change. Advanced a little each frame while the
+        /// previous track plays, it is ready before it is wanted and costs nothing anyone can see.
+        /// </remarks>
+        public static MusicBake BakeMusic(int index) =>
+            new MusicBake(Mathf.Clamp(index, 0, Tracks.Length - 1));
+
+        /// <summary>
+        /// One background track being rendered, a slice at a time.
+        /// </summary>
+        /// <remarks>
+        /// Every step of the one-shot render survives, in the same order, so the result is the same
+        /// to the last bit however it is sliced: each sample is rendered and clamped, the reverb adds
+        /// what three earlier samples left, and the end is faded once the last sample exists. The
+        /// reverb only ever reads samples already finished, which is what lets it run interleaved
+        /// with the render instead of as a second pass over a finished buffer.
+        /// </remarks>
+        public sealed class MusicBake
+        {
+            private readonly Track _track;
+            private readonly float _seconds;
+            private readonly float[] _samples;
+            private readonly int[] _taps;
+            private int _next;
+
+            internal MusicBake(int index)
+            {
+                Index = index;
+                _track = Tracks[index];
+                _seconds = _track.Seconds;
+                _samples = new float[Mathf.Max(1, Mathf.RoundToInt(_seconds * MusicSampleRate))];
+
+                // Three delay taps fed back into the signal as it is written, so each repeat is
+                // itself repeated and the tail decays smoothly instead of arriving as three distinct
+                // echoes. The delays are deliberately not multiples of each other -- taps that line up
+                // read as a rhythm, which is the one thing this must not add. Total loop gain is
+                // three times the track's tail, so that has to stay well under a third or the tail
+                // grows instead of fading.
+                _taps = new[]
+                {
+                    Mathf.RoundToInt(0.0371f * MusicSampleRate),
+                    Mathf.RoundToInt(0.0533f * MusicSampleRate),
+                    Mathf.RoundToInt(0.0719f * MusicSampleRate),
+                };
+            }
+
+            /// <summary>Which track this is.</summary>
+            public int Index { get; }
+
+            /// <summary>Whether every sample has been rendered.</summary>
+            public bool IsDone => _next >= _samples.Length;
+
+            /// <summary>How far through, 0 to 1.</summary>
+            public float Progress => (float)_next / _samples.Length;
+
+            /// <summary>The finished samples, or null while it is still rendering.</summary>
+            public float[] Samples => IsDone ? _samples : null;
+
+            /// <summary>Renders up to <paramref name="count"/> more samples. True once finished.</summary>
+            public bool Step(int count)
+            {
+                if (IsDone)
+                    return true;
+
+                int end = count >= _samples.Length - _next ? _samples.Length : _next + count;
+                float feedback = _track.Tail;
+
+                for (int i = _next; i < end; i++)
+                {
+                    float t = (float)i / MusicSampleRate;
+
+                    // Clamped rather than normalised: a track that clipped would be a bug in its own
+                    // numbers, and silently rescaling it would hide that while changing the mix.
+                    float sample = Mathf.Clamp(Sample(_track, t, _seconds), -1f, 1f);
+
+                    if (feedback > 0f)
+                    {
+                        float wet = 0f;
+
+                        for (int k = 0; k < _taps.Length; k++)
+                        {
+                            if (i >= _taps[k])
+                                wet += _samples[i - _taps[k]];
+                        }
+
+                        sample = Mathf.Clamp(sample + wet * feedback, -1f, 1f);
+                    }
+
+                    _samples[i] = sample;
+                }
+
+                _next = end;
+
+                if (IsDone)
+                    FadeEnd(_samples);
+
+                return IsDone;
+            }
+
+            /// <summary>The finished track as a clip. The caller owns it.</summary>
+            public AudioClip ToClip()
+            {
+                if (!IsDone)
+                    throw new InvalidOperationException($"Track {Index} is still rendering.");
+
+                AudioClip clip = AudioClip.Create("music" + Index, _samples.Length, 1, MusicSampleRate, false);
+                clip.SetData(_samples, 0);
+                return clip;
+            }
+        }
 
         /// <summary>Seconds per bar: one chord, and one pass of the figure.</summary>
         private const float BarSeconds = 8f;
@@ -260,7 +381,7 @@ namespace BitSorter.View
         /// playback resampling turns it into a sizzle. That is one more reason nothing in a track
         /// may change value in a single sample -- see <see cref="Sample"/>.
         /// </remarks>
-        private const int MusicSampleRate = 22050;
+        public const int MusicSampleRate = 22050;
 
         /// <summary>
         /// How a track's notes are struck. The figures say which notes; this says what plays them.
@@ -639,36 +760,41 @@ namespace BitSorter.View
         /// Renders a waveform. <paramref name="shape"/> is given the time in seconds and the clip's
         /// duration, and returns a sample which is clamped before it is stored.
         /// </summary>
-        private static AudioClip Make(string name, float seconds, Func<float, float, float> shape,
-                                      int rate = SampleRate, float tail = 0f)
+        private static AudioClip Make(string name, float seconds, Func<float, float, float> shape)
         {
-            int count = Mathf.Max(1, Mathf.RoundToInt(seconds * rate));
+            int count = Mathf.Max(1, Mathf.RoundToInt(seconds * SampleRate));
             var samples = new float[count];
 
             for (int i = 0; i < count; i++)
             {
-                float t = (float)i / rate;
+                float t = (float)i / SampleRate;
 
                 // Clamped rather than normalised: a cue that clipped would be a bug in its own
                 // numbers, and silently rescaling it would hide that while changing the mix.
                 samples[i] = Mathf.Clamp(shape(t, seconds), -1f, 1f);
             }
 
-            if (tail > 0f)
-                Reverberate(samples, rate, tail);
+            FadeEnd(samples);
 
-            // A short fade at the very end. Cutting a waveform mid-cycle produces an audible pop that
-            // is easy to mistake for a sound the game meant to make.
+            AudioClip clip = AudioClip.Create(name, count, 1, SampleRate, false);
+            clip.SetData(samples, 0);
+            return clip;
+        }
+
+        /// <summary>
+        /// A short fade at the very end. Cutting a waveform mid-cycle produces an audible pop that is
+        /// easy to mistake for a sound the game meant to make.
+        /// </summary>
+        private static void FadeEnd(float[] samples)
+        {
+            int count = samples.Length;
             int fade = Mathf.Min(220, count / 4);
+
             for (int i = 0; i < fade; i++)
             {
                 float k = (float)i / fade;
                 samples[count - 1 - i] *= k;
             }
-
-            AudioClip clip = AudioClip.Create(name, count, 1, rate, false);
-            clip.SetData(samples, 0);
-            return clip;
         }
 
         /// <summary>Sine plus octave, in at full amplitude within a millisecond.</summary>
@@ -711,44 +837,6 @@ namespace BitSorter.View
             float tine = age < 1.3f ? Sine(age, hz * 3f) * 0.11f * Mathf.Exp(-9f * age) : 0f;
 
             return (body + tine) * attack * ring * 0.62f;
-        }
-
-        /// <summary>
-        /// Adds a reverb tail to a finished buffer.
-        /// </summary>
-        /// <remarks>
-        /// Three delay taps fed back into the signal as it is written, so each repeat is itself
-        /// repeated and the tail decays smoothly instead of arriving as three distinct echoes. The
-        /// delays are deliberately not multiples of each other -- taps that line up read as a
-        /// rhythm, which is the one thing this must not add.
-        ///
-        /// Total loop gain is three times <paramref name="feedback"/>, so it has to stay well under
-        /// a third or the tail grows instead of fading. The tracks using it ask for about 0.16.
-        ///
-        /// Applied to the whole buffer rather than per note, which is why it costs one pass over
-        /// the samples at bake time and nothing at all while the game is running.
-        /// </remarks>
-        private static void Reverberate(float[] samples, int rate, float feedback)
-        {
-            int[] taps =
-            {
-                Mathf.RoundToInt(0.0371f * rate),
-                Mathf.RoundToInt(0.0533f * rate),
-                Mathf.RoundToInt(0.0719f * rate),
-            };
-
-            for (int i = 0; i < samples.Length; i++)
-            {
-                float wet = 0f;
-
-                foreach (int tap in taps)
-                {
-                    if (i >= tap)
-                        wet += samples[i - tap];
-                }
-
-                samples[i] = Mathf.Clamp(samples[i] + wet * feedback, -1f, 1f);
-            }
         }
 
         private static float Sine(float t, float hz) => Mathf.Sin(2f * Mathf.PI * hz * t);

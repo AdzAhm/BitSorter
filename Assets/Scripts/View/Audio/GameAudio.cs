@@ -133,6 +133,16 @@ namespace BitSorter.View
                 _session.LevelLoaded -= OnLevelLoaded;
         }
 
+        /// <summary>
+        /// Frees the track this owns. A clip built at runtime belongs to no scene, so unloading the
+        /// scene would otherwise leave three megabytes behind every time.
+        /// </summary>
+        private void OnDestroy()
+        {
+            if (_musicSource != null && _musicSource.clip != null)
+                Destroy(_musicSource.clip);
+        }
+
         private void OnLevelLoaded(LevelDefinition level)
         {
             string key = _session != null ? _session.LevelName : null;
@@ -291,8 +301,16 @@ namespace BitSorter.View
                     _gain = 0f;
                     _track = _wanted;
 
+                    // The clip this source owned is freed on the way out. Nothing caches tracks any
+                    // more, so a track left behind here would be three megabytes held until the game
+                    // closed.
+                    AudioClip leaving = _musicSource.clip;
+
                     _musicSource.clip = ProceduralAudio.MusicClip(_track);
                     _musicSource.Play();
+
+                    if (leaving != null)
+                        Destroy(leaving);
                 }
             }
             else if (_gain < 1f)
