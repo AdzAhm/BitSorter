@@ -47,13 +47,16 @@ namespace BitSorter.View
         /// </summary>
         /// <remarks>
         /// Woodland Fantasy is CC BY 3.0, which requires the author, the title, the licence and a note
-        /// of any change -- it is played in mono -- wherever the work is used. Dream is CC0 and owed
-        /// nothing, and is credited anyway. Both came from OpenGameArt, where each licence was read
-        /// before either was downloaded; the README's credits say where.
+        /// of any change -- it is converted to mono -- wherever the work is used, and the licence's
+        /// address with every copy. The README links it too, but a browser build is a copy that
+        /// ships without the README. Dream is CC0 and owed nothing, and is credited anyway. Both came
+        /// from OpenGameArt, where each licence was read before either was downloaded; the README's
+        /// credits say where.
         /// </remarks>
         public const string MenuMusicCredit =
             "Menu music: \"Dream\" by jkjkke (CC0)  ·  " +
-            "\"Woodland Fantasy\" by Matthew Pablo, matthewpablo.com (CC BY 3.0, played in mono)";
+            "\"Woodland Fantasy\" by Matthew Pablo, matthewpablo.com " +
+            "(CC BY 3.0, creativecommons.org/licenses/by/3.0; converted to mono)";
 
         [Tooltip("Scales every cue. Zero is silence.")]
         [Range(0f, 1f)]
