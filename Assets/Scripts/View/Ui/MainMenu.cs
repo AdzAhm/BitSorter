@@ -170,6 +170,14 @@ namespace BitSorter.View
             // second hand-written copy of the bindings -- and the only place in the whole game that
             // mentioned M, so the tutorial's card never taught the way back to this screen.
             keys.text = ControlsReference.MenuLine;
+
+            // The menu's music is two imported tracks, and one of them is CC BY: its licence asks
+            // for the credit wherever the work is used, and this is where it is heard.
+            TextMeshProUGUI credit = UiTheme.Label(
+                "music credit", _root, 11f, UiTheme.TextDim * 0.8f, TextAlignmentOptions.Center);
+            UiTheme.Anchor(credit.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
+                new Vector2(0f, 10f), new Vector2(1100f, 16f));
+            credit.text = GameAudio.MenuMusicCredit;
         }
 
         private Button Item(string name, float y, out TextMeshProUGUI label)

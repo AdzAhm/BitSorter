@@ -21,6 +21,24 @@ namespace BitSorter.View
         [SerializeField] private SimulationRunner _runner;
         [SerializeField] private LevelSession _session;
         [SerializeField] private BitRenderer _bits;
+        [SerializeField] private MainMenu _menu;
+
+        [Tooltip("Played while the main menu is showing, one after another. Imported, not generated: " +
+                 "see MenuMusicCredit, which the menu shows.")]
+        [SerializeField] private AudioClip[] _menuTracks = System.Array.Empty<AudioClip>();
+
+        /// <summary>
+        /// The credit the main menu shows for <see cref="_menuTracks"/>. One copy, here beside them.
+        /// </summary>
+        /// <remarks>
+        /// Woodland Fantasy is CC BY 3.0, which requires the author, the title, the licence and a note
+        /// of any change -- it is played in mono -- wherever the work is used. Dream is CC0 and owed
+        /// nothing, and is credited anyway. Both came from OpenGameArt, where each licence was read
+        /// before either was downloaded; the README's credits say where.
+        /// </remarks>
+        public const string MenuMusicCredit =
+            "Menu music: \"Dream\" by jkjkke (CC0)  ·  " +
+            "\"Woodland Fantasy\" by Matthew Pablo, matthewpablo.com (CC BY 3.0, played in mono)";
 
         [Tooltip("Scales every cue. Zero is silence.")]
         [Range(0f, 1f)]
@@ -45,6 +63,29 @@ namespace BitSorter.View
         private AudioClip _ready;
 
         private int _readyTrack = -1;
+
+        /// <summary>
+        /// The level track's clip, whether or not it is the one on the source. Kept while the menu
+        /// plays, so leaving the menu returns to the same track rather than building it again.
+        /// </summary>
+        private AudioClip _levelClip;
+
+        /// <summary>
+        /// The source the music plays on, as opposed to the one firing cues. Read-only to everyone
+        /// else; exposed so a test can ask what is playing, as <see cref="CuesPlayed"/> is.
+        /// </summary>
+        public AudioSource MusicSource => _musicSource;
+
+        /// <summary>Whether the source holds a menu track, and which one.</summary>
+        private bool _onMenu;
+
+        private int _menuTrack;
+
+        /// <summary>Whether the menu track has been seen playing, so that its stopping is its end.</summary>
+        private bool _menuStarted;
+
+        /// <summary>Whether the source has been given anything to play yet.</summary>
+        private bool _begun;
 
         private const string MutedKey = "bitsorter.music.muted";
 
@@ -117,6 +158,7 @@ namespace BitSorter.View
             if (_runner == null) _runner = FindFirstObjectByType<SimulationRunner>();
             if (_session == null) _session = FindFirstObjectByType<LevelSession>();
             if (_bits == null) _bits = FindFirstObjectByType<BitRenderer>();
+            if (_menu == null) _menu = FindFirstObjectByType<MainMenu>();
 
             // The seed is the only random thing about the music: a different shuffle per session,
             // so two evenings on the same levels are not the same evening, and everything after it
@@ -155,10 +197,14 @@ namespace BitSorter.View
         /// Frees the track this owns. A clip built at runtime belongs to no scene, so unloading the
         /// scene would otherwise leave three megabytes behind every time.
         /// </summary>
+        /// <remarks>
+        /// Only the clips built here. The menu tracks are imported assets, which Unity owns, and
+        /// destroying one would break it for the rest of the session.
+        /// </remarks>
         private void OnDestroy()
         {
-            if (_musicSource != null && _musicSource.clip != null)
-                Destroy(_musicSource.clip);
+            if (_levelClip != null)
+                Destroy(_levelClip);
 
             if (_ready != null)
                 Destroy(_ready);
@@ -188,15 +234,15 @@ namespace BitSorter.View
         {
             // Its own source, not PlayOneShot. The loop needs to hold a playback position and be
             // stoppable, and mixing it into the cue source would have every collision duck it.
+            //
+            // Nothing is put on it yet. Whether the first thing heard is a menu track or a level
+            // track depends on whether the main menu is up, and that is only known once every Start
+            // has run -- the menu opens itself in its own. The first DriveMusic decides.
             _musicSource = gameObject.AddComponent<AudioSource>();
-            _musicSource.clip = ProceduralAudio.MusicClip(_track);
-            _musicSource.loop = true;
             _musicSource.playOnAwake = false;
             _musicSource.spatialBlend = 0f;
             _musicSource.volume = ProceduralAudio.VolumeOf(Cue.Music) * _masterVolume;
-
             _musicSource.mute = Muted;
-            _musicSource.Play();
         }
 
         private void Update()
@@ -305,10 +351,12 @@ namespace BitSorter.View
             if (_bag == null)
                 return;
 
-            int next = _wanted != _track ? _wanted : _bag.PeekNext();
+            // The level track still to be built comes first: none yet, at boot under the menu, or
+            // the one a level change is switching to. Otherwise, the one the shuffle deals next.
+            int next = _levelClip == null || _wanted != _track ? _wanted : _bag.PeekNext();
 
-            // A bag of one: the next track is this one, and there is nothing to prepare.
-            if (next == _track)
+            // A bag of one: the next track is this one, already built, and there is nothing to do.
+            if (_levelClip != null && next == _track)
                 return;
 
             if (_ready != null)
@@ -388,28 +436,36 @@ namespace BitSorter.View
             // the player reaching for mute.
             _musicSource.mute = Muted;
 
-            float rate = Time.unscaledDeltaTime / Mathf.Max(0.05f, _switchSeconds);
+            bool menu = MenuWanted;
 
-            if (_wanted != _track)
+            // The first frame starts whatever belongs on screen, at full volume. A fade in from
+            // silence would read as the game being slow to start.
+            if (!_begun)
+            {
+                _begun = true;
+                _gain = 1f;
+                SwapTo(menu);
+                ApplyVolume();
+                return;
+            }
+
+            float rate = Time.unscaledDeltaTime / Mathf.Max(0.05f, _switchSeconds);
+            bool switching = menu != _onMenu || (!menu && _wanted != _track);
+
+            if (switching)
             {
                 _gain -= rate;
 
                 if (_gain <= 0f)
                 {
                     _gain = 0f;
-                    _track = _wanted;
-
-                    // The clip this source owned is freed on the way out. Nothing caches tracks any
-                    // more, so a track left behind here would be three megabytes held until the game
-                    // closed.
-                    AudioClip leaving = _musicSource.clip;
-
-                    _musicSource.clip = TakeClip(_track);
-                    _musicSource.Play();
-
-                    if (leaving != null)
-                        Destroy(leaving);
+                    SwapTo(menu);
                 }
+            }
+            else if (_onMenu && MenuTrackEnded())
+            {
+                NextMenuTrack();
+                return;
             }
             else if (_gain < 1f)
             {
@@ -420,7 +476,106 @@ namespace BitSorter.View
                 return;   // settled; no reason to touch the volume every frame
             }
 
+            ApplyVolume();
+        }
+
+        private void ApplyVolume() =>
             _musicSource.volume = ProceduralAudio.VolumeOf(Cue.Music) * _masterVolume * _gain;
+
+        /// <summary>
+        /// Whether the menu's own music should be playing: the main menu is up, and there is some.
+        /// </summary>
+        /// <remarks>
+        /// Polled, the house pattern, rather than told. Without menu tracks -- a scene built without
+        /// them -- the menu simply plays the level music, as it did before it had any of its own.
+        /// </remarks>
+        private bool MenuWanted =>
+            _menu != null && _menu.IsOpen &&
+            _menuTracks != null && _menuTracks.Length > 0 && _menuTracks[_menuTrack] != null;
+
+        /// <summary>
+        /// Puts the right thing on the source: the current menu track, or the level's track.
+        /// </summary>
+        /// <remarks>
+        /// The level's clip is kept while the menu plays, so going back to the level resumes the
+        /// same track -- the track changes only when the level does. Any other level clip this
+        /// replaces is destroyed: nothing caches tracks, so one left behind would be three megabytes
+        /// held until the game closed. A menu track is an imported asset and is never destroyed;
+        /// leaving it unloads its decoded audio instead, which in a browser is most of its cost.
+        /// </remarks>
+        private void SwapTo(bool menu)
+        {
+            AudioClip leaving = _musicSource.clip;
+            bool leavingMenu = _onMenu;
+
+            if (menu)
+            {
+                AudioClip clip = _menuTracks[_menuTrack];
+                clip.LoadAudioData();
+
+                _musicSource.clip = clip;
+                _musicSource.loop = false;   // they take turns rather than looping
+                _onMenu = true;
+                _menuStarted = false;
+            }
+            else
+            {
+                if (_levelClip == null || _wanted != _track)
+                {
+                    AudioClip previous = _levelClip;
+
+                    _levelClip = TakeClip(_wanted);
+                    _track = _wanted;
+
+                    if (previous != null)
+                        Destroy(previous);
+                }
+
+                _musicSource.clip = _levelClip;
+                _musicSource.loop = true;
+                _onMenu = false;
+            }
+
+            _musicSource.Play();
+
+            if (leavingMenu && leaving != null && leaving != _musicSource.clip)
+                leaving.UnloadAudioData();
+        }
+
+        /// <summary>
+        /// Whether the menu track has played to its end.
+        /// </summary>
+        /// <remarks>
+        /// Stopped only counts once it has been seen playing: a track loaded in the background is
+        /// not playing yet on the frame it is started, and that is not its end.
+        /// </remarks>
+        private bool MenuTrackEnded()
+        {
+            if (_musicSource.isPlaying)
+            {
+                _menuStarted = true;
+                return false;
+            }
+
+            return _menuStarted;
+        }
+
+        /// <summary>The next menu track, straight after the last -- each ends on its own.</summary>
+        private void NextMenuTrack()
+        {
+            AudioClip ended = _musicSource.clip;
+
+            _menuTrack = (_menuTrack + 1) % _menuTracks.Length;
+
+            AudioClip next = _menuTracks[_menuTrack];
+            next.LoadAudioData();
+
+            _musicSource.clip = next;
+            _musicSource.Play();
+            _menuStarted = false;
+
+            if (ended != null && ended != next)
+                ended.UnloadAudioData();
         }
 
         /// <summary>

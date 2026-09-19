@@ -360,3 +360,21 @@ MIT: see [LICENSE](LICENSE). That covers the code, the levels and the docs.
 The TextMesh Pro files Unity bundles under `Assets/TextMesh Pro/` keep their own
 terms: the Unity Companion License, the SIL Open Font License for Liberation Sans,
 and EmojiOne's for its sprites. The details are in `LICENSE`.
+
+### Music credits
+
+Every level track and every sound effect is generated in code
+(`ProceduralAudio`), and all of them are original. The main menu plays two
+recorded tracks by other composers, under their own licences rather than the
+MIT licence above. Both are also credited on the menu itself:
+
+- **"Dream"** by **jkjkke**, from OpenGameArt's
+  ["MainMenu Music"](https://opengameart.org/content/mainmenu-music). Licensed
+  [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/), no rights
+  reserved. `Assets/Audio/Music/jkjkke-dream.mp3`.
+- **"Woodland Fantasy"** by **Matthew Pablo**
+  ([matthewpablo.com](http://www.matthewpablo.com)), from
+  [OpenGameArt](https://opengameart.org/content/woodland-fantasy). Licensed
+  [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/). Changed:
+  converted to mono and re-encoded at a lower quality for the game builds.
+  `Assets/Audio/Music/matthew-pablo-woodland-fantasy.mp3`.

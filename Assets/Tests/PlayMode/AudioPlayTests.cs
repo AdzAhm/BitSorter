@@ -69,11 +69,29 @@ namespace BitSorter.PlayMode.Tests
 
         private static IEnumerator LoadScene() => TestScene.Load();
 
+        /// <summary>
+        /// Loads the game and goes past the main menu, which has music of its own, to a level's.
+        /// </summary>
+        private static IEnumerator LoadSceneAtALevel()
+        {
+            yield return TestScene.Load();
+
+            // The second level, not the first, and in the same frame the menu closes. The test save
+            // is always fresh, and on a fresh save the guided tutorial starts itself as soon as the
+            // menu is gone and the first level is showing -- and the tutorial is not a level file,
+            // so "reload this level" could not find it.
+            LevelSession session = Find<LevelSession>();
+
+            Find<MainMenu>().Show(false);
+            session.LoadLevel(session.AvailableLevels[1]);
+
+            yield return WaitForTheFade();
+        }
+
         private static T Find<T>() where T : Object => Object.FindFirstObjectByType<T>();
 
         /// <summary>The source carrying the loop, as opposed to the one firing cues.</summary>
-        private static AudioSource MusicSource(GameAudio audio) =>
-            audio.GetComponents<AudioSource>().FirstOrDefault(s => s.loop);
+        private static AudioSource MusicSource(GameAudio audio) => audio.MusicSource;
 
         // -----------------------------------------------------------------
         // Initialisation order
@@ -94,7 +112,77 @@ namespace BitSorter.PlayMode.Tests
 
             Assert.IsNotNull(music, "the music source was never built");
             Assert.IsNotNull(music.clip, "the music source has no clip");
-            Assert.IsTrue(music.isPlaying, "the loop is not playing");
+
+            // The menu's first track loads in the background, so it may take a moment to start.
+            float until = Time.unscaledTime + 2f;
+
+            while (!music.isPlaying && Time.unscaledTime < until)
+                yield return null;
+
+            Assert.IsTrue(music.isPlaying, "the music is not playing");
+        }
+
+        // -----------------------------------------------------------------
+        // The menu's own music
+        // -----------------------------------------------------------------
+
+        /// <summary>The game opens on the main menu, and the menu plays its own music.</summary>
+        [UnityTest]
+        public IEnumerator TheMainMenu_PlaysItsOwnMusic()
+        {
+            yield return LoadScene();
+            yield return null;
+
+            AudioSource music = MusicSource(Find<GameAudio>());
+
+            Assert.IsTrue(Find<MainMenu>().IsOpen, "sanity: the game should open on the menu");
+            Assert.AreEqual("jkjkke-dream", music.clip.name, "the menu is not playing its first track");
+        }
+
+        /// <summary>
+        /// Leaving the menu plays the level's track, and going back and forth resumes the same one.
+        /// </summary>
+        /// <remarks>
+        /// The track changes only when the level does. Opening the menu over a level is not a level
+        /// change, so coming back must find the same track -- the same clip, not a new build of it.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator TheMenuAndTheLevel_EachKeepTheirOwnMusic()
+        {
+            yield return LoadSceneAtALevel();
+
+            MainMenu menu = Find<MainMenu>();
+            AudioSource music = MusicSource(Find<GameAudio>());
+            AudioClip level = music.clip;
+
+            StringAssert.StartsWith("music", level.name, "leaving the menu did not play a level track");
+
+            menu.Show(true);
+            yield return WaitForTheFade();
+
+            Assert.AreEqual("jkjkke-dream", music.clip.name, "opening the menu did not bring its music back");
+
+            menu.Show(false);
+            yield return WaitForTheFade();
+
+            Assert.AreSame(level, music.clip, "the menu's visit changed the level's track");
+        }
+
+        /// <summary>The menu credits its music, as the CC BY track's licence requires.</summary>
+        [UnityTest]
+        public IEnumerator TheMenu_CreditsItsMusic()
+        {
+            yield return LoadScene();
+
+            GameObject credit = GameObject.Find("music credit");
+            Assert.IsNotNull(credit, "the menu has no music credit");
+
+            string text = credit.GetComponent<TMPro.TextMeshProUGUI>().text;
+
+            StringAssert.Contains("Woodland Fantasy", text);
+            StringAssert.Contains("Matthew Pablo", text);
+            StringAssert.Contains("CC BY 3.0", text);
+            StringAssert.Contains("jkjkke", text);
         }
 
         // -----------------------------------------------------------------
@@ -213,7 +301,7 @@ namespace BitSorter.PlayMode.Tests
         [UnityTest]
         public IEnumerator ADifferentLevel_ChangesTheTrack()
         {
-            yield return LoadScene();
+            yield return LoadSceneAtALevel();
 
             GameAudio audio = Find<GameAudio>();
             LevelSession session = Find<LevelSession>();
@@ -241,7 +329,7 @@ namespace BitSorter.PlayMode.Tests
         [UnityTest]
         public IEnumerator TheTrackALevelChangeLeaves_IsFreed()
         {
-            yield return LoadScene();
+            yield return LoadSceneAtALevel();
 
             GameAudio audio = Find<GameAudio>();
             LevelSession session = Find<LevelSession>();
@@ -265,7 +353,7 @@ namespace BitSorter.PlayMode.Tests
         {
             // Re-entering the level you are already on re-fires LevelLoaded. Cycling there would
             // change the music every time somebody retried the level they were stuck on.
-            yield return LoadScene();
+            yield return LoadSceneAtALevel();
 
             GameAudio audio = Find<GameAudio>();
             LevelSession session = Find<LevelSession>();
@@ -287,7 +375,7 @@ namespace BitSorter.PlayMode.Tests
             // R resets the simulation without reloading the level, so it should not even reach the
             // rule. Worth pinning: if reset ever starts firing LevelLoaded, the music changing is the
             // symptom nobody would connect back to it.
-            yield return LoadScene();
+            yield return LoadSceneAtALevel();
 
             GameAudio audio = Find<GameAudio>();
             LevelSession session = Find<LevelSession>();

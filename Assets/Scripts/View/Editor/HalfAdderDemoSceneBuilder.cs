@@ -40,6 +40,16 @@ namespace BitSorter.View.EditorTools
 
         private const string ScenePath = ScenesFolder + "/HalfAdderDemo.unity";
         private const string BloomProfilePath = "Assets/Settings/DemoBloomProfile.asset";
+
+        /// <summary>
+        /// The main menu's music, in the order it plays. Imported, free-licence tracks; their
+        /// credit is GameAudio.MenuMusicCredit, and the README says where each came from.
+        /// </summary>
+        private static readonly string[] MenuTrackPaths =
+        {
+            "Assets/Audio/Music/jkjkke-dream.mp3",
+            "Assets/Audio/Music/matthew-pablo-woodland-fantasy.mp3",
+        };
         private const string SquareTexturePath = ArtFolder + "/WhiteSquare.png";
         private const string NodePrefabPath = PrefabsFolder + "/NodeSquare.prefab";
         private const string BitPrefabPath = PrefabsFolder + "/BitSquare.prefab";
@@ -265,6 +275,8 @@ namespace BitSorter.View.EditorTools
             Assign(audio, "_runner", runner);
             Assign(audio, "_session", session);
             Assign(audio, "_bits", bits);
+            Assign(audio, "_menu", mainMenu);
+            AssignArray(audio, "_menuTracks", MenuTracks());
 
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene, ScenePath);
@@ -456,6 +468,41 @@ namespace BitSorter.View.EditorTools
                 return;
 
             property.objectReferenceValue = value;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        /// <summary>
+        /// The menu tracks, loaded from their paths. An error rather than a quiet gap for any that is
+        /// missing: the menu would simply play the level music, and nobody would know why.
+        /// </summary>
+        private static Object[] MenuTracks()
+        {
+            var clips = new Object[MenuTrackPaths.Length];
+
+            for (int i = 0; i < MenuTrackPaths.Length; i++)
+            {
+                clips[i] = AssetDatabase.LoadAssetAtPath<AudioClip>(MenuTrackPaths[i]);
+
+                if (clips[i] == null)
+                    Debug.LogError($"BitSorter: menu track missing at {MenuTrackPaths[i]}.");
+            }
+
+            return clips;
+        }
+
+        /// <summary>The same for an array of object references.</summary>
+        private static void AssignArray(Object target, string fieldName, Object[] values)
+        {
+            SerializedObject serialized = Find(target, fieldName, out SerializedProperty property);
+
+            if (serialized == null)
+                return;
+
+            property.arraySize = values.Length;
+
+            for (int i = 0; i < values.Length; i++)
+                property.GetArrayElementAtIndex(i).objectReferenceValue = values[i];
+
             serialized.ApplyModifiedPropertiesWithoutUndo();
         }
 
