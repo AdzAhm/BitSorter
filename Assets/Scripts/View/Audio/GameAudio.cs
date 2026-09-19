@@ -37,6 +37,9 @@ namespace BitSorter.View
         private AudioSource _source;
         private AudioSource _musicSource;
 
+        /// <summary>The shuffle the level tracks are drawn from. Seeded once, in Awake.</summary>
+        private MusicBag _bag;
+
         /// <summary>Track currently loaded into the source.</summary>
         private int _track;
 
@@ -101,10 +104,11 @@ namespace BitSorter.View
             if (_session == null) _session = FindFirstObjectByType<LevelSession>();
             if (_bits == null) _bits = FindFirstObjectByType<BitRenderer>();
 
-            // A different track per session, so two evenings on the same levels are not the same
-            // evening. Everything after this is deterministic: the cycle order never varies, only
-            // where in it a session begins.
-            _track = _wanted = UnityEngine.Random.Range(0, ProceduralAudio.MusicTracks);
+            // The seed is the only random thing about the music: a different shuffle per session,
+            // so two evenings on the same levels are not the same evening, and everything after it
+            // deterministic.
+            _bag = new MusicBag(ProceduralAudio.MusicTracks, UnityEngine.Random.Range(int.MinValue, int.MaxValue));
+            _track = _wanted = _bag.Current;
 
             _source = GetComponent<AudioSource>();
             _source.playOnAwake = false;
@@ -148,7 +152,7 @@ namespace BitSorter.View
             string key = _session != null ? _session.LevelName : null;
 
             if (MusicRules.ChangesTrack(_playingUnder, key))
-                _wanted = MusicRules.NextTrack(_track, ProceduralAudio.MusicTracks);
+                _wanted = _bag.Advance();
 
             _playingUnder = key;
         }

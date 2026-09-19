@@ -497,66 +497,125 @@ namespace BitSorter.LogicCore.Tests
             Assert.IsTrue(MusicRules.ChangesTrack(TutorialLevel.Key, SandboxLevel.Key));
         }
 
+        // -----------------------------------------------------------------
+        // The shuffle
+        // -----------------------------------------------------------------
+
+        private static readonly int[] Seeds = { 0, 1, 7, 42, -3, 123456789, int.MinValue, int.MaxValue };
+
+        /// <summary>
+        /// Every bag plays every track exactly once before any plays again.
+        /// </summary>
+        /// <remarks>
+        /// A random pick each time would leave some track unheard for an hour. The bag is what makes
+        /// the shuffle fair, so this walks several bags from many seeds, bag by bag.
+        /// </remarks>
         [Test]
-        public void TheCycleVisitsEveryTrackBeforeRepeating()
+        public void EveryBag_PlaysEveryTrackOnce()
         {
             int count = ProceduralAudio.MusicTracks;
-            var seen = new HashSet<int>();
-            int track = 0;
 
-            for (int i = 0; i < count; i++)
+            foreach (int seed in Seeds)
             {
-                seen.Add(track);
-                track = MusicRules.NextTrack(track, count);
-            }
+                var bag = new MusicBag(count, seed);
 
-            Assert.AreEqual(count, seen.Count, "the cycle repeats before it has played every track");
-            Assert.AreEqual(0, track, "the cycle does not return to where it started");
-        }
-
-        [Test]
-        public void TheCycleStartsAnywhereAndStillVisitsEverything()
-        {
-            // The starting track is random per session, so the cycle has to be correct from any of
-            // them, not just from zero.
-            int count = ProceduralAudio.MusicTracks;
-
-            for (int start = 0; start < count; start++)
-            {
-                var seen = new HashSet<int>();
-                int track = start;
-
-                for (int i = 0; i < count; i++)
+                for (int round = 0; round < 5; round++)
                 {
-                    seen.Add(track);
-                    track = MusicRules.NextTrack(track, count);
+                    var seen = new HashSet<int>();
+
+                    for (int i = 0; i < count; i++)
+                    {
+                        int track = i == 0 && round == 0 ? bag.Current : bag.Advance();
+
+                        Assert.GreaterOrEqual(track, 0);
+                        Assert.Less(track, count);
+                        Assert.IsTrue(seen.Add(track),
+                            $"seed {seed}, bag {round}: track {track} came round twice before the rest");
+                    }
                 }
-
-                Assert.AreEqual(count, seen.Count, "starting from " + start);
             }
         }
 
         [Test]
-        public void NextTrack_IsAlwaysAPlayableIndex()
+        public void NoTrack_PlaysTwiceRunning()
         {
-            int count = ProceduralAudio.MusicTracks;
-
-            foreach (int current in new[] { -9, -1, 0, 1, count - 1, count, count + 4, int.MaxValue })
+            // Including across the seam between two bags, which is the one place a bag can do it.
+            foreach (int count in new[] { 2, 3, 10, ProceduralAudio.MusicTracks })
             {
-                int next = MusicRules.NextTrack(current, count);
+                foreach (int seed in Seeds)
+                {
+                    var bag = new MusicBag(count, seed);
+                    int previous = bag.Current;
 
-                Assert.GreaterOrEqual(next, 0, "from " + current);
-                Assert.Less(next, count, "from " + current);
+                    for (int i = 0; i < count * 20; i++)
+                    {
+                        int next = bag.Advance();
+                        Assert.AreNotEqual(previous, next, $"{count} tracks, seed {seed}: track {next} twice running");
+                        previous = next;
+                    }
+                }
             }
         }
 
         [Test]
-        public void NextTrack_SurvivesAnEmptySet()
+        public void PeekNext_IsWhatAdvanceGives()
         {
-            // Nothing should ever call this with no tracks, but returning 0 keeps the music silent
-            // rather than throwing inside a level load.
-            Assert.AreEqual(0, MusicRules.NextTrack(3, 0));
-            Assert.AreEqual(0, MusicRules.NextTrack(3, -1));
+            // GameAudio bakes the peeked track while the current one plays. A peek that disagreed with
+            // the advance would bake the wrong track and stall on the right one.
+            var bag = new MusicBag(ProceduralAudio.MusicTracks, 42);
+
+            for (int i = 0; i < ProceduralAudio.MusicTracks * 4; i++)
+            {
+                int peeked = bag.PeekNext();
+                Assert.AreEqual(peeked, bag.Advance(), $"advance {i} disagreed with its peek");
+            }
+        }
+
+        [Test]
+        public void TheSameSeed_PlaysTheSameOrder()
+        {
+            var a = new MusicBag(ProceduralAudio.MusicTracks, 99);
+            var b = new MusicBag(ProceduralAudio.MusicTracks, 99);
+
+            Assert.AreEqual(a.Current, b.Current);
+
+            for (int i = 0; i < 50; i++)
+                Assert.AreEqual(a.Advance(), b.Advance(), "advance " + i);
+        }
+
+        [Test]
+        public void TheShuffle_ActuallyShuffles()
+        {
+            // The paired test for the one above: two seeds agreeing on every one of fifty tracks
+            // would mean the seed is doing nothing.
+            var a = new MusicBag(ProceduralAudio.MusicTracks, 1);
+            var b = new MusicBag(ProceduralAudio.MusicTracks, 2);
+            int differ = a.Current != b.Current ? 1 : 0;
+
+            for (int i = 0; i < 50; i++)
+            {
+                if (a.Advance() != b.Advance())
+                    differ++;
+            }
+
+            Assert.Greater(differ, 0, "two seeds gave the same order");
+        }
+
+        [Test]
+        public void ABagOfOneOrNone_StillAnswers()
+        {
+            // Nothing should ever build one, but an answer keeps the music silent rather than
+            // throwing inside a level load.
+            var one = new MusicBag(1, 5);
+            Assert.AreEqual(0, one.Current);
+            Assert.AreEqual(0, one.Advance());
+            Assert.AreEqual(0, one.PeekNext());
+
+            var none = new MusicBag(0, 5);
+            Assert.AreEqual(0, none.Current);
+            Assert.AreEqual(0, none.Advance());
+
+            Assert.AreEqual(0, new MusicBag(-3, 5).Advance());
         }
 
         // -----------------------------------------------------------------
