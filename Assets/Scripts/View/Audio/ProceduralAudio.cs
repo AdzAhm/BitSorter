@@ -485,7 +485,7 @@ namespace BitSorter.View
             ///
             /// The knock is the highest partial of any voice relative to its note, so the tracks that
             /// use this are written in the lower register and drop an octave on their alternate pass
-            /// rather than climbing. The highest knock in the set is track 17's, at 3.5 kHz;
+            /// rather than climbing. The highest knock in the set is track 13's, at 3.5 kHz;
             /// <see cref="HighestPartialHz"/> is what holds every track under 4.4.
             /// </remarks>
             Mallet,
@@ -686,36 +686,9 @@ namespace BitSorter.View
                 ring: 2.0f,
                 lift: -12),
 
-            // 2. The plucked one. A shorter ring, so notes are struck rather than rung, and the
-            //    figure falls before it turns back -- the one shape neither of the others has. Its
-            //    progression starts away from the tonic and never quite arrives.
-            new Track(
-                figure: new[] { 12, -1, 10, -1, 7, -1, -1, 5, -1, 3, -1, -1, 5, -1, 7, -1 },
-                roots: new[] { 130.81f, 98.00f, 110.00f, 87.31f },   // C - G - Am - F
-                ring: 3.0f,
-                lift: 12),
-
-            // 3. The off-beat one. Its notes fall between track 0's rather than on them, so the two
-            //    sit against the bar differently despite sharing a tempo. The progression arrives at
-            //    Am only at the very end, and then the loop takes it away again.
-            new Track(
-                figure: new[] { -1, 3, -1, -1, 5, -1, 7, -1, -1, -1, 3, -1, 0, -1, -1, -1 },
-                roots: new[] { 87.31f, 130.81f, 98.00f, 110.00f },   // F - C - G - Am
-                ring: 2.3f,
-                lift: -12),
-
-            // 4. The low one. Four notes, the longest ring of the first six, and written an octave
-            //    below the rest, so it reads as the quietest track in the set without being mixed
-            //    any quieter. The chords barely move: Am, then a step away and back, twice.
-            new Track(
-                figure: new[] { -12, -1, -1, -1, -5, -1, -1, -1, -2, -1, -1, -1, -5, -1, -1, -1 },
-                roots: new[] { 110.00f, 98.00f, 87.31f, 98.00f },   // Am - G - F - G
-                ring: 1.7f,
-                lift: 12),
-
-            // 5. The busiest -- no track has more -- which still means eight notes in eight
+            // 2. The busiest -- no track has more -- which still means eight notes in eight
             //    seconds. They come in pairs, and the ring is the shortest in the set, shared only
-            //    with track 22, so a pair reads as two notes rather than as a chord.
+            //    with track 18, so a pair reads as two notes rather than as a chord.
             new Track(
                 figure: new[] { 0, 3, -1, -1, 7, 5, -1, -1, 10, 7, -1, -1, 3, 0, -1, -1 },
                 roots: new[] { 110.00f, 130.81f, 87.31f, 98.00f },   // Am - C - F - G
@@ -723,7 +696,7 @@ namespace BitSorter.View
                 lift: 12),
 
             // -------------------------------------------------------------------------
-            // 6 to 8: the warm ones.
+            // 3 and 4: the warm ones.
             //
             // Same five notes as everything above -- A, C, D, E, G -- and that is the trick.
             // A minor pentatonic and C major pentatonic are the same pitch collection; only
@@ -732,12 +705,12 @@ namespace BitSorter.View
             // note out of the scale the whole set shares, so a warm track can still follow a
             // sad one without the switch sounding like a key change.
             //
-            // Their figures lean on C, E and G where the first six lean on A and D, they are among
+            // Their figures lean on C, E and G where the plucked three lean on A and D, they are among
             // the sparsest in the set, and they drop an octave on the alternate pass rather than
             // climbing, so they wander downwards and never arrive anywhere.
             // -------------------------------------------------------------------------
 
-            // 6. A C major triad, one note at a time, with nothing else in the bar. Four notes in
+            // 3. A C major triad, one note at a time, with nothing else in the bar. Four notes in
             //    eight seconds, as sparse as anything in the set.
             new Track(
                 figure: new[] { 3, -1, -1, -1, 7, -1, -1, -1, 10, -1, -1, -1, 7, -1, -1, -1 },
@@ -747,7 +720,7 @@ namespace BitSorter.View
                 voice: Voice.Keys,
                 tail: 0.16f),
 
-            // 7. Rises to the octave and comes back down the same way. The chords move under a
+            // 4. Rises to the octave and comes back down the same way. The chords move under a
             //    figure that mostly does not, which is what stops it reading as an exercise.
             new Track(
                 figure: new[] { 7, -1, -1, 10, -1, -1, 12, -1, -1, -1, 10, -1, -1, 7, -1, -1 },
@@ -757,28 +730,16 @@ namespace BitSorter.View
                 voice: Voice.Keys,
                 tail: 0.17f),
 
-            // 8. Falls from the octave to the root and lifts one step at the end, so the loop
-            //    point is the one moment it sounds like it is going somewhere. A long ring, so
-            //    each note is still fading when the next arrives.
-            new Track(
-                figure: new[] { 12, -1, -1, -1, 10, -1, 7, -1, -1, -1, 3, -1, -1, -1, 5, -1 },
-                roots: new[] { 130.81f, 110.00f, 87.31f, 130.81f },   // C - Am - F - C
-                ring: 1.6f,
-                lift: -12,
-                voice: Voice.Keys,
-                tail: 0.15f),
-
-            // -------------------------------------------------------------------------
-            // 9: the mallets.
+            // 5: the mallets.
             //
             // The first track to differ in what plays it rather than in what is played: a struck
             // wooden bar, short and dry, where the tracks before it are plucked or held. Same five
             // notes, same tempo, same four bars, so it crossfades with any of the others.
             // -------------------------------------------------------------------------
 
-            // 9. Eight notes, two of them pairs, climbing to G and stepping back down, with a short
+            // 5. Eight notes, two of them pairs, climbing to G and stepping back down, with a short
             //    ring so the pairs bounce rather than blur. Rooted on A, so it reads minor like the
-            //    first six. Under it, D: the first bass root outside the A, C, E, F and G the others
+            //    plucked ones. Under it, D: the first bass root outside the A, C, E, F and G the others
             //    used, which colours the same five notes without adding a sixth. Written low and
             //    dropping an octave on the alternate pass, which keeps the mallet's knock near 3 kHz.
             new Track(
@@ -789,7 +750,7 @@ namespace BitSorter.View
                 voice: Voice.Mallet),
 
             // -------------------------------------------------------------------------
-            // 10 to 13: crystal.
+            // 6 to 9: crystal.
             //
             // Glass that shimmers, high and sparse, over slow-swelling chords and a long reverb:
             // the floating, cave-like feel of the more recent Minecraft soundtracks. Original
@@ -798,7 +759,7 @@ namespace BitSorter.View
             // without a single note leaving the scale.
             // -------------------------------------------------------------------------
 
-            // 10. The most floating of them: five notes drifting down from the top, one every few
+            // 6. The most floating of them: five notes drifting down from the top, one every few
             //     seconds, over B-flat, F, C and A minor.
             new Track(
                 figure: new[] { 19, -1, -1, 15, -1, -1, -1, 12, -1, -1, 17, -1, -1, -1, 10, -1 },
@@ -810,7 +771,7 @@ namespace BitSorter.View
                 chords: new[] { new[] { -7, 0, 7 }, new[] { -9, -5, 0 }, new[] { -5, -2, 5 }, new[] { -9, -5, -2 } },
                 gain: 0.72f),
 
-            // 11. Deeper, and minor: the figure sits an octave lower and turns back on itself, and
+            // 7. Deeper, and minor: the figure sits an octave lower and turns back on itself, and
             //     the chords move A minor, F, D, G.
             new Track(
                 figure: new[] { 7, -1, -1, -1, 12, -1, 10, -1, -1, -1, 5, -1, -1, 7, -1, -1 },
@@ -821,7 +782,7 @@ namespace BitSorter.View
                 tail: 0.19f,
                 chords: new[] { new[] { -9, -5, -2 }, new[] { -9, -5, 0 }, new[] { -7, -2, 3 }, new[] { -12, -7, -5 } }),
 
-            // 12. Open and bright: four notes, the longest ring of the four, rooted on C.
+            // 8. Open and bright: four notes, the longest ring of the four, rooted on C.
             new Track(
                 figure: new[] { 15, -1, -1, -1, -1, 19, -1, -1, 17, -1, -1, -1, 12, -1, -1, -1 },
                 roots: new[] { 130.81f, 98.00f, 87.31f, 130.81f },   // C - G - F - C
@@ -831,7 +792,7 @@ namespace BitSorter.View
                 tail: 0.2f,
                 chords: new[] { new[] { -5, -2, 5 }, new[] { -12, -7, -5 }, new[] { -9, -5, 0 }, new[] { -5, -2, 5 } }),
 
-            // 13. B-flat twice: the Lydian colour, the most dreamlike sound in the set, and a figure
+            // 9. B-flat twice: the Lydian colour, the most dreamlike sound in the set, and a figure
             //     that climbs to the top and settles back.
             new Track(
                 figure: new[] { 12, -1, 17, -1, -1, -1, 19, -1, -1, 15, -1, -1, -1, 12, -1, -1 },
@@ -843,13 +804,13 @@ namespace BitSorter.View
                 chords: new[] { new[] { -7, 0, 7 }, new[] { -5, -2, 5 }, new[] { -7, 0, 7 }, new[] { -9, -5, 0 } }),
 
             // -------------------------------------------------------------------------
-            // 14 to 16: felt piano.
+            // 10 to 12: felt piano.
             //
             // The gentle, spacious piano of the early Minecraft soundtrack's feel: soft hammers,
             // long rings, room between phrases. Original melodies.
             // -------------------------------------------------------------------------
 
-            // 14. Slow, warm and hymn-like: a simple line over C, G, A minor and F, with a soft
+            // 10. Slow, warm and hymn-like: a simple line over C, G, A minor and F, with a soft
             //     chord under every bar.
             new Track(
                 figure: new[] { 7, -1, -1, -1, 3, -1, 5, -1, -1, -1, 10, -1, 7, -1, -1, -1 },
@@ -860,7 +821,7 @@ namespace BitSorter.View
                 tail: 0.15f,
                 chords: new[] { new[] { -5, -2, 3 }, new[] { -7, -2, 5 }, new[] { -9, -5, 0 }, new[] { -9, 0, 7 } }),
 
-            // 15. Wandering: a low note answered by high ones, wide leaps and no chords at all --
+            // 11. Wandering: a low note answered by high ones, wide leaps and no chords at all --
             //     just the piano in a large room.
             new Track(
                 figure: new[] { -12, -1, -1, 7, -1, -1, 12, -1, -5, -1, -1, 3, -1, -1, 10, -1 },
@@ -870,7 +831,7 @@ namespace BitSorter.View
                 voice: Voice.Piano,
                 tail: 0.12f),
 
-            // 16. The melancholy one: four notes falling, the longest ring in the set.
+            // 12. The melancholy one: four notes falling, the longest ring in the set.
             new Track(
                 figure: new[] { 0, -1, -1, -1, -1, 3, -1, -2, -1, -1, -1, -5, -1, -1, -1, -1 },
                 roots: new[] { 110.00f, 87.31f, 146.83f, 82.41f },   // Am - F - D - Em
@@ -881,10 +842,10 @@ namespace BitSorter.View
                 chords: new[] { new[] { -9, -5, -2 }, new[] { -9, -5, 0 }, new[] { -7, -2, 3 }, new[] { -2, 0, 5 } }),
 
             // -------------------------------------------------------------------------
-            // 17 and 18: more mallets, like track 9.
+            // 13 and 14: more mallets, like track 5.
             // -------------------------------------------------------------------------
 
-            // 17. Bright and major: up the C triad and back, over C, F, G, C.
+            // 13. Bright and major: up the C triad and back, over C, F, G, C.
             new Track(
                 figure: new[] { 3, -1, 7, -1, 10, -1, 7, 12, -1, -1, 10, -1, 7, -1, -1, -1 },
                 roots: new[] { 130.81f, 87.31f, 98.00f, 130.81f },   // C - F - G - C
@@ -892,7 +853,7 @@ namespace BitSorter.View
                 lift: -12,
                 voice: Voice.Mallet),
 
-            // 18. Minor and off the beat: it starts on a rest, and the bass steps down A, G, F, E.
+            // 14. Minor and off the beat: it starts on a rest, and the bass steps down A, G, F, E.
             new Track(
                 figure: new[] { -1, 0, -1, 5, 7, -1, -1, 3, -1, 0, -1, -1, 5, -1, 3, -1 },
                 roots: new[] { 110.00f, 98.00f, 87.31f, 82.41f },   // Am - G - F - Em
@@ -901,10 +862,10 @@ namespace BitSorter.View
                 voice: Voice.Mallet),
 
             // -------------------------------------------------------------------------
-            // 19 and 20: music box.
+            // 15 and 16: music box.
             // -------------------------------------------------------------------------
 
-            // 19. Sweet and major, a little like a lullaby.
+            // 15. Sweet and major, a little like a lullaby.
             new Track(
                 figure: new[] { 15, -1, 12, -1, 10, -1, 12, -1, 15, -1, -1, -1, 17, -1, 15, -1 },
                 roots: new[] { 130.81f, 110.00f, 87.31f, 98.00f },   // C - Am - F - G
@@ -913,7 +874,7 @@ namespace BitSorter.View
                 voice: Voice.MusicBox,
                 tail: 0.1f),
 
-            // 20. Dreamier and minor: leaps up to the top and falls back, like a snow globe
+            // 16. Dreamier and minor: leaps up to the top and falls back, like a snow globe
             //     settling.
             new Track(
                 figure: new[] { 12, -1, -1, 19, -1, 15, -1, -1, 17, -1, -1, 12, -1, 10, -1, -1 },
@@ -924,18 +885,18 @@ namespace BitSorter.View
                 tail: 0.12f),
 
             // -------------------------------------------------------------------------
-            // 21 and 22: light and cozy -- the sunny village of a hundred small games. The busiest
+            // 17 and 18: light and cozy -- the sunny village of a hundred small games. The busiest
             // in the set, still only half the steps filled.
             // -------------------------------------------------------------------------
 
-            // 21. Plucked and cheerful, climbing an octave on the alternate pass for a lift.
+            // 17. Plucked and cheerful, climbing an octave on the alternate pass for a lift.
             new Track(
                 figure: new[] { 3, -1, 7, 10, -1, 7, -1, 3, 5, -1, 7, -1, -1, 3, -1, -1 },
                 roots: new[] { 130.81f, 87.31f, 130.81f, 98.00f },   // C - F - C - G
                 ring: 3.0f,
                 lift: 12),
 
-            // 22. Mallets that bounce: a skipping figure over F, C, G, C.
+            // 18. Mallets that bounce: a skipping figure over F, C, G, C.
             new Track(
                 figure: new[] { 7, 5, -1, 3, -1, -1, 5, 7, -1, 10, -1, -1, 7, -1, 5, -1 },
                 roots: new[] { 87.31f, 130.81f, 98.00f, 130.81f },   // F - C - G - C
@@ -944,7 +905,7 @@ namespace BitSorter.View
                 voice: Voice.Mallet),
 
             // -------------------------------------------------------------------------
-            // 23: cinematic.
+            // 19: cinematic.
             //
             // A voice singing a slow minor line over dark, swelling chords and a low A under
             // almost every bar: the feel of an old city at dusk, from the rooftops.

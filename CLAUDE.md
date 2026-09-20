@@ -491,7 +491,7 @@ failure side.
   They are copyrighted, and Mojang's usage guidelines allow approved tracks in
   videos and streams, not copied into another game. The crystal and felt-piano
   tracks reach for those moods with original melodies; keep it that way.
-- **There are two dozen background tracks and they are one piece of music.**
+- **There are twenty background tracks and they are one piece of music.**
   `ProceduralAudio.MusicTracks` is the count. Same five notes (A, C, D, E, G),
   same tempo, same four-bar shape; what differs is density, ring, register,
   which way the figure moves on its alternate pass, where the chords go, whether
@@ -510,7 +510,15 @@ failure side.
   can follow any other without the switch sounding like a key change. `Voice`
   says what plays a track: plucked, keys, mallets, felt piano, crystal, music
   box or choir; a `Pad` plays the chord layer. Reverb is one pass over the
-  finished buffer, so it costs nothing at runtime. **A new voice declares its
+  finished buffer, so it costs nothing at runtime.
+
+  **The plucked voice is down to three tracks, from six.** The first six were
+  written before the set had any other voice, and six variations on one pluck
+  read as the same piece coming round again rather than as six pieces. What is
+  left is the three that actually differ in gesture -- the original, the sparse
+  one that drops an octave where the original climbs, and the busiest with its
+  paired notes. `MusicTests` states the total, so removing one is a deliberate
+  act rather than a drift. **A new voice declares its
   brightest partial in `TopPartial`**, and `HighestPartialHz` holds every track
   under 4.4 kHz -- a bright voice written high would read as hiss above 8 kHz.
 
@@ -579,7 +587,7 @@ failure side.
   **At most three tracks are held at once** -- the one playing, the next one
   ready, and the buffer the one after is being built in -- about 8.5 MB, in a
   game whose whole browser build is 16 MB. Every track built used to stay for
-  the session; at two dozen tracks that would have been over 60 MB. A clip
+  the session; at twenty tracks that would have been over 50 MB. A clip
   belongs to whoever built it, and `GameAudio` destroys the one it leaves.
 
   **That figure is `ProceduralAudio.MusicResidentBytes` and `MusicTests`

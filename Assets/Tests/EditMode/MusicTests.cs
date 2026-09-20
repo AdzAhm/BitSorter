@@ -111,10 +111,19 @@ namespace BitSorter.LogicCore.Tests
         // The set
         // -----------------------------------------------------------------
 
+        /// <summary>
+        /// How many tracks there are, stated so a track added or removed is a deliberate act.
+        /// </summary>
+        /// <remarks>
+        /// Was twenty-four. Four of the plucked ones went: six tracks on one voice, built before
+        /// the set had any others, read as the same piece coming round again. What is left of that
+        /// voice is the three with different gestures -- the original, the sparse one that drops an
+        /// octave, and the busiest.
+        /// </remarks>
         [Test]
-        public void ThereAreTwentyFourTracks()
+        public void ThereAreTwentyTracks()
         {
-            Assert.AreEqual(24, ProceduralAudio.MusicTracks);
+            Assert.AreEqual(20, ProceduralAudio.MusicTracks);
         }
 
         [Test]
