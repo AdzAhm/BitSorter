@@ -15,7 +15,7 @@ namespace BitSorter.View
     /// balance-the-paths teach, so it lives in the game interface where it cannot be missed. See
     /// <see cref="BitsLostMeter"/>.
     ///
-    /// Reads its own key, the way PlacementController reads 1-6 and WireDelayController reads the
+    /// Reads its own key, the way PlacementController reads 1-7 and WireDelayController reads the
     /// brackets. A component that owns a key reads it.
     /// </remarks>
     public sealed class DiagnosticsPanel : MonoBehaviour
@@ -62,14 +62,20 @@ namespace BitSorter.View
             Keyboard keyboard = Keyboard.current;
 
             if (keyboard != null && keyboard.f3Key.wasPressedThisFrame)
-            {
                 _shown = !_shown;
 
-                if (_root != null)
-                    _root.gameObject.SetActive(_shown);
-            }
+            if (_root == null)
+                return;
 
-            if (!_shown || _root == null || _runner == null || !_runner.IsReady)
+            // Out of the way of a full-screen panel, like every other readout. This did not, so
+            // F3 left it drawn over the level list and the win panel -- and over the clock diagram
+            // in the other corner, which comes up on the same key and did step aside.
+            bool wanted = _shown && UiModal.HudVisible;
+
+            if (_root.gameObject.activeSelf != wanted)
+                _root.gameObject.SetActive(wanted);
+
+            if (!wanted || _runner == null || !_runner.IsReady)
                 return;
 
             SimulationView view = _runner.View;
