@@ -97,6 +97,13 @@ namespace BitSorter.View
             if (level == null || _shown || !StocksARegister(level))
                 return;
 
+            // Free play and the tutorial are not levels in the run, and free play stocks every
+            // part -- including a register -- so without this the card takes the screen the first
+            // time anyone opens the sandbox, and takes the setup panel down with the rest of the
+            // HUD while it is there. A chapter boundary belongs to the chapters.
+            if (LevelCatalog.IsOffCatalogue(_session.LevelName))
+                return;
+
             ProgressStore store = _progress != null ? _progress.Store : null;
 
             if (store == null || store.HasMilestone(Milestone))
