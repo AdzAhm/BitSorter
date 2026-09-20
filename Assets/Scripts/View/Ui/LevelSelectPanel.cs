@@ -118,8 +118,8 @@ namespace BitSorter.View
                 new Vector2(0f, 36f), new Vector2(600f, 20f));
             help.text = "escape to close    Q / E also change level";
 
-            const float rowHeight = 42f;
-            const float gap = 6f;
+            const float rowHeight = RowHeight;
+            const float gap = RowGap;
 
             RectTransform list = UiTheme.Rect("list", _root);
 
@@ -169,6 +169,39 @@ namespace BitSorter.View
 
         /// <summary>Height a chapter heading takes, including the space under it.</summary>
         private const float HeadingHeight = 26f;
+
+        /// <summary>
+        /// A row, and the space under it.
+        /// </summary>
+        /// <remarks>
+        /// Was 42. The two chapter headings and the gap before the second cost sixty-eight pixels,
+        /// and the list is centred on the screen, so it grew up into the LEVELS title as well as
+        /// down. Six pixels off each of nineteen rows buys back more than the headings cost.
+        /// </remarks>
+        private const float RowHeight = 36f;
+
+        /// <inheritdoc cref="RowHeight"/>
+        private const float RowGap = 6f;
+
+        /// <summary>
+        /// How tall the list is, for a run of this many levels split into this many chapters.
+        /// </summary>
+        /// <remarks>
+        /// The list is centred between the panel's title and its help line, and there is no
+        /// scrolling: a list taller than the room between them does not clip, it draws over them.
+        /// Stated as a formula so <see cref="UiThemeTests"/> can ask whether the run still fits
+        /// before anyone sees it not fitting.
+        ///
+        /// Counts the tutorial row and free play's row, which are not levels but are rows.
+        /// </remarks>
+        public static float ListHeight(int levels, int chapters)
+        {
+            float rows = (levels + 2) * (RowHeight + RowGap) - RowGap;
+            float headings = chapters * HeadingHeight;
+            float spacers = TutorialGap + SandboxGap + Mathf.Max(0, chapters - 1) * ChapterGap;
+
+            return rows + headings + spacers;
+        }
 
         /// <summary>
         /// A chapter's name over the first of its levels, and how much room it took.
