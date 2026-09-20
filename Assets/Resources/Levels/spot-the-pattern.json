@@ -1,0 +1,21 @@
+{
+  "name": "Spot the pattern",
+  "order": 150,
+  "goal": "Send a 1 to the bin every time the last three bits were 1, 0, 1 — counting matches that share a bit. Everywhere else, a 0. Three things to tell apart, and two registers to tell them apart with.",
+  "hint": "you are being asked about three bits at once, and only one of them is still arriving. What has to be kept is the answer to a smaller question about the other two.",
+  "tickLimit": 60,
+  "maxWireDelay": 3,
+  "delayBudget": 3,
+  "fixtures": [
+    { "id": "in",  "kind": "Source", "cell": { "x": -4, "y": 0 }, "stream": "1101011" },
+    { "id": "out", "kind": "Sink",   "cell": { "x":  4, "y": 0 } }
+  ],
+  "budget": [
+    { "kind": "Register", "count": 2 },
+    { "kind": "Not", "count": 1 },
+    { "kind": "And", "count": 2 }
+  ],
+  "expected": [
+    { "sink": "out", "values": "0001010" }
+  ]
+}

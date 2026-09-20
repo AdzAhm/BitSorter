@@ -88,6 +88,7 @@ namespace BitSorter.LogicCore.Tests
                 "flip-on-one",
                 "hold-when-told",
                 "count-the-ones",
+                "spot-the-pattern",
             };
 
             IReadOnlyList<KeyValuePair<string, LevelDefinition>> run = LevelsInPlayOrder();
