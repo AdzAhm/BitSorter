@@ -426,6 +426,17 @@ failure side.
   bare grid. Anything shorter than two corners replaces the sprite, as the help
   badge and the clock's pips do with a circle.
 
+  **Generated sprites are `HideAndDontSave`, and the cache checks what it hands
+  out.** `ProceduralSprites` keeps every sprite it draws in a static dictionary,
+  and none of them are assets -- so an unload of unused objects destroyed the
+  textures and left the entries pointing at corpses, and a destroyed sprite on
+  an `Image` is a blank panel rather than an error. It cannot happen in a
+  player, where nothing unloads mid-session; in the editor a WebGL build was
+  enough, and the tests that ran seventeen seconds later failed with a null
+  sprite. The flag stops the sweep; `TryCached` refuses a dead entry anyway,
+  because this is the kind of fault that is only visible once something is
+  already drawn wrong.
+
   **A full-screen panel has the screen to itself**, and its backdrop is still
   `UiTheme.Scrim`, a flat rectangle: a scrim wants no corners at all, not small
   ones. Before the slicing was fixed this was a workaround for the fade, and it
