@@ -557,15 +557,52 @@ namespace BitSorter.LogicCore.Tests
         public void AnExpectationMayRunPastTheLastVector()
         {
             // What a register makes happen: the bit it started out holding comes out in front of the
-            // stream, so one more bit arrives than the level has vectors.
+            // stream, so one more bit arrives than the level has vectors. The budget has to stock
+            // the register -- a tail is the register's doing, and the loader now says so.
+            string expect = @"{ ""sink"": ""binOne"", ""values"": ""10"" }";
+
+            LevelLoadResult result = Parse(Json($"{SourceIn}, {BinOne}, {BinZero}",
+                $"{expect}, {ExpectZeroEmpty}",
+                budget: @"{ ""kind"": ""Register"", ""count"": 1 }"));
+
+            Assert.IsTrue(result.IsValid, result.Error);
+            Assert.AreEqual(2, result.Level.Expectations[0].Expected.Count,
+                "both cycles are graded, the one past the last vector included");
+        }
+
+        /// <summary>
+        /// A tail longer than the registers could shift is refused at load.
+        /// </summary>
+        /// <remarks>
+        /// Only a register puts a bit out after the streams have stopped, and it shifts by one
+        /// clock, so a chain of every register the level stocks is the longest tail that can ever
+        /// arrive. Without this a doubled expectation string loaded happily and failed at run time
+        /// with MissingOutput -- a level file's typo reported to the player as their mistake.
+        /// </remarks>
+        [Test]
+        public void ATailLongerThanTheRegistersCouldShift_IsRefused()
+        {
+            string expect = @"{ ""sink"": ""binOne"", ""values"": ""101"" }";
+
+            LevelLoadResult result = Parse(Json($"{SourceIn}, {BinOne}, {BinZero}",
+                $"{expect}, {ExpectZeroEmpty}",
+                budget: @"{ ""kind"": ""Register"", ""count"": 1 }"));
+
+            Assert.IsFalse(result.IsValid, "one vector and one register cannot produce three bits");
+            StringAssert.Contains("register", result.Error);
+        }
+
+        [Test]
+        public void ATailWithNoRegisterStocked_IsRefused()
+        {
+            // Nothing on a board of gates alone can emit after the sources have stopped.
             string expect = @"{ ""sink"": ""binOne"", ""values"": ""10"" }";
 
             LevelLoadResult result = Parse(Json($"{SourceIn}, {BinOne}, {BinZero}",
                 $"{expect}, {ExpectZeroEmpty}"));
 
-            Assert.IsTrue(result.IsValid, result.Error);
-            Assert.AreEqual(2, result.Level.Expectations[0].Expected.Count,
-                "both cycles are graded, the one past the last vector included");
+            Assert.IsFalse(result.IsValid);
+            StringAssert.Contains("register", result.Error);
         }
 
         [Test]

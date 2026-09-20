@@ -205,7 +205,7 @@ namespace BitSorter.View
             if (!TryBuildBudget(file.budget, out List<LevelBudgetEntry> budget, out string budgetError))
                 return LevelLoadResult.Reject(budgetError);
 
-            if (!TryBuildExpectations(file.expected, fixtures, vectorCount,
+            if (!TryBuildExpectations(file.expected, fixtures, vectorCount, TailRoom(budget),
                     out List<LevelExpectation> expectations, out string expectationError))
             {
                 return LevelLoadResult.Reject(expectationError);
@@ -333,10 +333,41 @@ namespace BitSorter.View
             return true;
         }
 
+        /// <summary>
+        /// How many cycles an expectation may run past the last vector.
+        /// </summary>
+        /// <remarks>
+        /// Only a register can put a bit out after the streams have finished, and it shifts by one
+        /// clock -- so a chain of every register the level stocks is the longest tail that can ever
+        /// be satisfied. Anything past that is asking for a bit nothing could produce, which is a
+        /// typo in a level file rather than a design.
+        ///
+        /// An unlimited count means no bound can be worked out, so none is imposed. No shipped
+        /// level stocks registers that way; free play is built in code and never comes through here.
+        /// </remarks>
+        private static int TailRoom(List<LevelBudgetEntry> budget)
+        {
+            int registers = 0;
+
+            for (int i = 0; i < budget.Count; i++)
+            {
+                if (budget[i].Kind != GateKind.Register)
+                    continue;
+
+                if (budget[i].Count < 0)
+                    return int.MaxValue;
+
+                registers += budget[i].Count;
+            }
+
+            return registers;
+        }
+
         private static bool TryBuildExpectations(
             LevelExpectationFile[] raw,
             List<LevelFixture> fixtures,
             int vectorCount,
+            int tailRoom,
             out List<LevelExpectation> expectations,
             out string error)
         {
@@ -409,6 +440,19 @@ namespace BitSorter.View
                 {
                     error = $"expectation for '{sinkId}' has '-' after the last vector; leave those " +
                             "characters off instead";
+                    return false;
+                }
+
+                // And no longer than the registers could shift it. A tail is a register handing on
+                // what it was holding, so a chain of every register the level stocks is the most
+                // any sink can receive after the streams stop. Longer is a bit nothing on the board
+                // could produce, and without this it loaded happily and failed at run time with
+                // MissingOutput -- a level file's typo reported as the player's mistake.
+                if (tailRoom != int.MaxValue && values.Length > vectorCount + tailRoom)
+                {
+                    error = $"expectation for '{sinkId}' has {values.Length} values for " +
+                            $"{vectorCount} vectors, and the budget stocks {tailRoom} register(s) " +
+                            $"-- at most {vectorCount + tailRoom} can ever arrive";
                     return false;
                 }
 
