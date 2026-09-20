@@ -179,7 +179,12 @@ namespace BitSorter.View
             for (int i = 0; i < sinks.Count; i++)
             {
                 string values = sinks[i].Values;
-                char c = vector < values.Length ? values[vector] : '?';
+
+                // Past the end of this sink's expectation is a cycle it is not asked about, drawn
+                // the same way the source columns draw a cycle with nothing going in. It happens
+                // when one sink is fed through a register and another is not: the first runs a
+                // cycle longer, and the table is as long as the longest.
+                char c = vector < values.Length ? values[vector] : '.';
 
                 // A silent vector is shown as a gap rather than a dash, because a dash next to a
                 // column of noughts reads as a minus sign. A don't-care keeps its 'x'.

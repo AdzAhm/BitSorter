@@ -300,5 +300,60 @@ namespace BitSorter.LogicCore.Tests
 
             return count;
         }
+
+        /// <summary>
+        /// A cycle a sink is not asked about is a gap, the same as a cycle with nothing going in.
+        /// </summary>
+        /// <remarks>
+        /// The table grew a row per clock cycle when registers arrived, and the source columns
+        /// learned to draw the cycles past the end of their streams as '.'. The sink columns did
+        /// not: past the end of an expectation they printed '?', which means nothing to a player
+        /// and appears in the same row as the '.' that means the same thing.
+        ///
+        /// It needs two sinks of different lengths to show, which no shipped level has -- so this
+        /// builds one rather than waiting for a level to be written that trips over it.
+        /// </remarks>
+        [Test]
+        public void ACycleASinkIsNotAskedAbout_IsAGapRatherThanAQuestionMark()
+        {
+            LevelDefinition level = Load("one-clock-late");
+
+            // The same level with a second sink that stops a cycle earlier than the first.
+            var expectations = new System.Collections.Generic.List<LevelExpectation>();
+
+            foreach (LevelExpectation existing in level.Expectations)
+                expectations.Add(existing);
+
+            string shorter = expectations[0].Values.Substring(0, level.VectorCount);
+            var bits = new System.Collections.Generic.List<ExpectedBit>();
+
+            for (int vector = 0; vector < shorter.Length; vector++)
+            {
+                if (shorter[vector] != '-')
+                    bits.Add(new ExpectedBit(shorter[vector] == '1' ? Bit.One : Bit.Zero, vector));
+            }
+
+            expectations.Add(new LevelExpectation("second", shorter, bits));
+
+            var fixtures = new System.Collections.Generic.List<LevelFixture>();
+
+            foreach (LevelFixture fixture in level.Fixtures)
+                fixtures.Add(fixture);
+
+            fixtures.Add(new LevelFixture(
+                "second", FixtureKind.Sink, new Vector2Int(4, 1), System.Array.Empty<Bit>()));
+
+            var widened = new LevelDefinition(
+                level.Name, level.Hint, level.TickLimit, level.VectorCount, fixtures,
+                level.Budget, expectations, level.MaxWireDelay, level.DelayBudget,
+                level.MaxLatency, level.Order, level.Goal, clockPeriod: level.ClockPeriod);
+
+            string[] lines = Lines(TruthTable.Format(widened));
+            string last = lines[lines.Length - 1];
+
+            Assert.IsFalse(last.Contains("?"),
+                $"the shorter sink prints '?' on the cycle it is not asked about: '{last.Trim()}'");
+        }
+
     }
 }
