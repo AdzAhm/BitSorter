@@ -32,6 +32,13 @@ namespace BitSorter.View
         [Tooltip("How far a stalled gate's body dims, on top of losing its colour.")]
         [SerializeField] private float _stallDim = 0.62f;
 
+        [Tooltip("Size of the bit a register holds, drawn inside it.")]
+        [SerializeField] private float _heldBitScale = 0.46f;
+
+        [Tooltip("How long a register's capture flash lasts, and how far it swells.")]
+        [SerializeField] private float _captureSeconds = 0.28f;
+        [SerializeField] private float _captureSwell = 1.8f;
+
         private readonly List<GameObject> _spawned = new List<GameObject>();
 
         /// <summary>Body and glow renderers by node id, so the stall pass can find them.</summary>
@@ -43,6 +50,11 @@ namespace BitSorter.View
         /// and <see cref="NodeShapes.ColourFor"/> would otherwise have to be asked every frame.
         /// </summary>
         private readonly Dictionary<int, Color> _baseColours = new Dictionary<int, Color>();
+
+        /// <summary>The bit drawn inside each register, what it last showed, and its capture flash.</summary>
+        private readonly Dictionary<int, SpriteRenderer> _heldBits = new Dictionary<int, SpriteRenderer>();
+        private readonly Dictionary<int, Bit> _heldValues = new Dictionary<int, Bit>();
+        private readonly Dictionary<int, float> _capturing = new Dictionary<int, float>();
 
         private Transform _container;
         private int _builtRevision = -1;
@@ -68,6 +80,51 @@ namespace BitSorter.View
             }
 
             ApplyStallStates();
+            ApplyHeldBits();
+        }
+
+        /// <summary>
+        /// Draws the bit each register is holding, and flashes it when that bit changes.
+        /// </summary>
+        /// <remarks>
+        /// A register's whole point is the value inside it, and a run is watched rather than read:
+        /// the state of a machine has to be visible on the board while it works, not worked out
+        /// afterwards from what reached the bins.
+        ///
+        /// Polled against a cached copy, the same idiom every other renderer here uses. The flash
+        /// is a swell rather than a brightening, because bloom is already brightest at the middle
+        /// of a node and a brighter disc there would simply wash out.
+        /// </remarks>
+        private void ApplyHeldBits()
+        {
+            SimulationView view = _runner.View;
+
+            for (int id = 0; id < view.NodeCount; id++)
+            {
+                if (!_heldBits.TryGetValue(id, out SpriteRenderer disc) || disc == null)
+                    continue;
+
+                if (!(view.GetNode(id) is RegisterNode register))
+                    continue;
+
+                if (!_heldValues.TryGetValue(id, out Bit shown) || shown != register.State)
+                {
+                    _heldValues[id] = register.State;
+                    _capturing[id] = _captureSeconds;
+                }
+
+                float left = _capturing.TryGetValue(id, out float remaining) ? remaining : 0f;
+
+                if (left > 0f)
+                    _capturing[id] = Mathf.Max(0f, left - Time.deltaTime);
+
+                float swell = _captureSeconds <= 0f ? 1f
+                    : Mathf.Lerp(1f, _captureSwell, left / _captureSeconds);
+
+                disc.color = BitVisuals.ColourFor(register.State);
+                disc.transform.localScale =
+                    Vector3.one * PortGeometry.NodeSize * _heldBitScale * swell;
+            }
         }
 
         /// <summary>
@@ -149,6 +206,9 @@ namespace BitSorter.View
             _bodies.Clear();
             _halos.Clear();
             _baseColours.Clear();
+            _heldBits.Clear();
+            _heldValues.Clear();
+            _capturing.Clear();
 
             SimulationView view = _runner.View;
 
@@ -188,6 +248,9 @@ namespace BitSorter.View
                 _spawned.Add(instance);
                 _bodies[id] = renderer;
 
+                if (node is RegisterNode)
+                    SpawnHeldBit(id, centre);
+
                 SpawnLabel(node, centre, colour);
             }
         }
@@ -209,6 +272,25 @@ namespace BitSorter.View
         /// Placed below the node rather than on it: a label over the body would be washed out by the
         /// glow exactly when the node is most active.
         /// </remarks>
+        /// <summary>The disc inside a register, showing the bit it is holding.</summary>
+        /// <remarks>
+        /// Above the body and below the bits in transit, like a fixture's label: a bit arriving at
+        /// the register must not disappear behind the one already in it.
+        /// </remarks>
+        private void SpawnHeldBit(int id, Vector2 centre)
+        {
+            GameObject held = ViewSprites.Spawn(_nodePrefab, _container, $"Held {id}");
+            held.transform.position = centre;
+            held.transform.localScale = Vector3.one * PortGeometry.NodeSize * _heldBitScale;
+
+            var renderer = held.GetComponent<SpriteRenderer>();
+            renderer.sprite = ProceduralSprites.Circle();
+            renderer.sortingOrder = 1;
+
+            _spawned.Add(held);
+            _heldBits[id] = renderer;
+        }
+
         private void SpawnLabel(Node node, Vector2 centre, Color colour)
         {
             bool isFixture = node is SourceNode || node is SinkNode;

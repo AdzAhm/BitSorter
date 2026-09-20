@@ -263,9 +263,11 @@ namespace BitSorter.View
         /// <summary>A tall box with a triangular notch bitten out of the middle of its left edge.</summary>
         private static bool InFlipFlop(Vector2 p)
         {
-            const float halfWidth = 0.58f;
-            const float halfHeight = 0.94f;
-            const float notch = 0.30f;     // how deep the clock notch cuts, and half how tall it is
+            // Height matched to the other silhouettes, which sit at 0.86 to 0.88: the port stubs are
+            // placed on this shape's faces, so a taller body would push them off its edges.
+            const float halfWidth = 0.54f;
+            const float halfHeight = 0.88f;
+            const float notch = 0.28f;     // how deep the clock notch cuts, and half how tall it is
 
             if (Mathf.Abs(p.x) > halfWidth || Mathf.Abs(p.y) > halfHeight)
                 return false;
