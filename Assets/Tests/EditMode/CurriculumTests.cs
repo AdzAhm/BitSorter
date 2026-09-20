@@ -85,6 +85,7 @@ namespace BitSorter.LogicCore.Tests
                 // Sequential logic: circuits that remember.
                 "one-clock-late",
                 "rising-edge",
+                "flip-on-one",
             };
 
             IReadOnlyList<KeyValuePair<string, LevelDefinition>> run = LevelsInPlayOrder();

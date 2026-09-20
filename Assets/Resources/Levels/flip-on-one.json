@@ -1,0 +1,21 @@
+{
+  "name": "Flip on one",
+  "order": 120,
+  "goal": "Keep a bit and flip it every time a 1 arrives, starting from 0. The bin wants the bit as it stands after each one. Vectors now arrive every second tick: that gap is the clock, and the answer has to be back before the next one lands.",
+  "hint": "whatever you send the register has to come back round to meet the next bit. Count the wires it travels on the way.",
+  "tickLimit": 60,
+  "clockPeriod": 2,
+  "maxWireDelay": 2,
+  "delayBudget": 1,
+  "fixtures": [
+    { "id": "in",  "kind": "Source", "cell": { "x": -3, "y": 0 }, "stream": "1101" },
+    { "id": "out", "kind": "Sink",   "cell": { "x":  3, "y": 0 } }
+  ],
+  "budget": [
+    { "kind": "Register", "count": 1 },
+    { "kind": "Xor", "count": 1 }
+  ],
+  "expected": [
+    { "sink": "out", "values": "1001" }
+  ]
+}
