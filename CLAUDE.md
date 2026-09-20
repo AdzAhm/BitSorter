@@ -398,9 +398,20 @@ failure side.
   frame's input: a tap puts press and release in one frame, the event system
   handles the whole click, and a button that closes its panel would otherwise
   leave nothing under the pointer by the time placement asks.
-- **A full-screen panel has the screen to itself.** Its backdrop is
-  `UiTheme.Scrim`, a flat rectangle; the rounded `Panel_` sprite fades at its
-  edges and left the screen's edges, where the HUD lives, undimmed. The HUD --
+- **A panel's backdrop is nine-sliced, and a full-screen one is not a panel.**
+  `ProceduralSprites.Panel` is a rounded rectangle cut with a ten-texel border,
+  so every `Panel_` keeps ten-pixel corners and a solid middle at any size.
+  Panels used to borrow the AND gate's squircle, which cannot be sliced -- it
+  has no straight edge to repeat and stops short of its own texture -- so
+  `Image.Type.Sliced` stretched the whole sprite and every panel faded out
+  towards its rim. Over the board that left the help panel's title and hint on
+  bare grid. Anything shorter than two corners replaces the sprite, as the help
+  badge and the clock's pips do with a circle.
+
+  **A full-screen panel has the screen to itself**, and its backdrop is still
+  `UiTheme.Scrim`, a flat rectangle: a scrim wants no corners at all, not small
+  ones. Before the slicing was fixed this was a workaround for the fade, and it
+  left the screen's edges, where the HUD lives, undimmed. The HUD --
   banner, run buttons, controls line, parts list, help badge, bits-lost meter --
   hides while `UiModal.HudVisible` is false, or the panels' titles and help
   lines print over it. A panel that opens on a key asks
@@ -544,6 +555,13 @@ failure side.
   saturated thing on the board on purpose. Near-white was tried and was
   wrong the way the stalled-gate glow was wrong — under bloom it blew out
   into a bright slab with the held bit lost inside it.
+
+  **The held bit is measured against the body, in `PortGeometry`, and sits
+  right of centre.** It shipped drawn from a size on `NodeRenderer` while the
+  outline lived in `ProceduralSprites`, with nothing comparing the two: at rest
+  the disc covered the notch, and a capture swelled it wider than the box it
+  was inside, so the state changing read as the register bursting. Offset, it
+  leaves the notch showing and puts the state on the Q side.
 - **The clock is on screen when there is one.** `ClockReadout` draws one pip
   per tick of the period under the banner, lit in turn, and only on levels
   that have a clock. Every other rule of this chapter is visible on the
