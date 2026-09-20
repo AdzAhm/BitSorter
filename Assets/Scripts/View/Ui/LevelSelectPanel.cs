@@ -52,6 +52,13 @@ namespace BitSorter.View
         private RectTransform _root;
         private bool _shown;
 
+        /// <summary>Whether the list is covering the board.</summary>
+        /// <remarks>
+        /// Read by <see cref="GameAudio"/>: the list carries the menu's music, because choosing
+        /// what to play next is the same thing whichever panel it is done in.
+        /// </remarks>
+        public bool IsShowing => _shown;
+
         /// <summary>
         /// The tutorial row's tick. Kept on its own rather than in <see cref="_rows"/>, because a
         /// Row also carries a personal best and the tutorial has none.
@@ -139,7 +146,7 @@ namespace BitSorter.View
             for (int i = 0; i < catalogue.Count; i++)
             {
                 if (i == 0)
-                    y += BuildHeading(list, y, LevelCatalog.CombinationalChapter);
+                    y += BuildHeading(list, y, LevelCatalog.HeadingFor(false));
 
                 // The break is where the first level stocking a register is, which is the same fact
                 // the chapter card fires on, so the two cannot end up in different places.
@@ -147,7 +154,7 @@ namespace BitSorter.View
                 {
                     sequentialStarted = true;
                     y += ChapterGap;
-                    y += BuildHeading(list, y, LevelCatalog.SequentialChapter);
+                    y += BuildHeading(list, y, LevelCatalog.HeadingFor(true));
                 }
 
                 _rows.Add(BuildRow(catalogue[i], list, y, rowHeight));
@@ -207,14 +214,19 @@ namespace BitSorter.View
         /// A chapter's name over the first of its levels, and how much room it took.
         /// </summary>
         /// <remarks>
-        /// Dim and small, in the style of the "the controls" and "free play" notes: it labels the
-        /// run rather than competing with it. The words come from <see cref="LevelCatalog"/>,
-        /// which is also where the chapter card gets its title.
+        /// Bolder and brighter than the "the controls" and "free play" notes, which are asides on a
+        /// single row; a chapter heading has nine and eight rows under it and has to hold them
+        /// together. Still well under a level's own 17pt, so it labels the run rather than
+        /// competing with it. The words come from <see cref="LevelCatalog"/>, which is also where
+        /// the chapter card gets its title.
         /// </remarks>
         private float BuildHeading(RectTransform list, float y, string text)
         {
             TextMeshProUGUI heading = UiTheme.Label(
-                "chapter", list, 12f, UiTheme.TextDim, TextAlignmentOptions.Left);
+                "chapter", list, 14f, UiTheme.Text, TextAlignmentOptions.Left);
+
+            heading.fontStyle = FontStyles.Bold;
+            heading.characterSpacing = 6f;
 
             UiTheme.Anchor(heading.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
                 new Vector2(26f, -y), new Vector2(520f, HeadingHeight));

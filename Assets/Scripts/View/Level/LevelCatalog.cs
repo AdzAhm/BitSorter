@@ -93,6 +93,24 @@ namespace BitSorter.View
         /// <inheritdoc cref="CombinationalChapter"/>
         public const string SequentialChapter = "CIRCUITS THAT REMEMBER";
 
+        /// <summary>What each chapter is called in the subject it is teaching.</summary>
+        /// <remarks>
+        /// The names above say what changes; these say what it is called in a textbook, which is
+        /// what a player looking for the right chapter of their course is searching for. Shown
+        /// beside the heading rather than instead of it, because one of them is the reason to care
+        /// and the other is the word to look up.
+        /// </remarks>
+        public const string CombinationalSubject = "combinational logic";
+
+        /// <inheritdoc cref="CombinationalSubject"/>
+        public const string SequentialSubject = "sequential logic";
+
+        /// <summary>A chapter's heading, as the level list prints it.</summary>
+        public static string HeadingFor(bool sequential) =>
+            sequential
+                ? $"{SequentialChapter}   ({SequentialSubject})"
+                : $"{CombinationalChapter}   ({CombinationalSubject})";
+
         /// <summary>
         /// Whether a level belongs to the sequential half of the run.
         /// </summary>
