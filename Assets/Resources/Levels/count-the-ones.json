@@ -1,0 +1,24 @@
+{
+  "name": "Count the ones",
+  "order": 140,
+  "goal": "Count the 1s that go by, and show the count in binary: LOW is the ones column, HIGH the twos. After four it starts again at zero. Both bins show the count as it stands, starting from zero.",
+  "hint": "the ones column flips on every 1. The twos column only moves when the ones column has run out of room.",
+  "tickLimit": 60,
+  "clockPeriod": 2,
+  "maxWireDelay": 2,
+  "delayBudget": 1,
+  "fixtures": [
+    { "id": "in",   "kind": "Source", "cell": { "x": -4, "y":  0 }, "stream": "111101" },
+    { "id": "high", "kind": "Sink",   "cell": { "x":  4, "y":  1 } },
+    { "id": "low",  "kind": "Sink",   "cell": { "x":  4, "y": -1 } }
+  ],
+  "budget": [
+    { "kind": "Register", "count": 2 },
+    { "kind": "Xor", "count": 2 },
+    { "kind": "And", "count": 1 }
+  ],
+  "expected": [
+    { "sink": "high", "values": "0011000" },
+    { "sink": "low",  "values": "0101001" }
+  ]
+}
