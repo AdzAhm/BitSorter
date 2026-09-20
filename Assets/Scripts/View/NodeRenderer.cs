@@ -32,12 +32,9 @@ namespace BitSorter.View
         [Tooltip("How far a stalled gate's body dims, on top of losing its colour.")]
         [SerializeField] private float _stallDim = 0.62f;
 
-        [Tooltip("Size of the bit a register holds, drawn inside it.")]
-        [SerializeField] private float _heldBitScale = 0.46f;
-
-        [Tooltip("How long a register's capture flash lasts, and how far it swells.")]
+        [Tooltip("How long a register's capture flash lasts. How far it swells is geometry, and " +
+                 "lives in PortGeometry with the body it has to stay inside.")]
         [SerializeField] private float _captureSeconds = 0.28f;
-        [SerializeField] private float _captureSwell = 1.8f;
 
         private readonly List<GameObject> _spawned = new List<GameObject>();
 
@@ -119,11 +116,11 @@ namespace BitSorter.View
                     _capturing[id] = Mathf.Max(0f, left - Time.deltaTime);
 
                 float swell = _captureSeconds <= 0f ? 1f
-                    : Mathf.Lerp(1f, _captureSwell, left / _captureSeconds);
+                    : Mathf.Lerp(1f, PortGeometry.HeldBitSwell, left / _captureSeconds);
 
                 disc.color = BitVisuals.ColourFor(register.State);
-                disc.transform.localScale =
-                    Vector3.one * PortGeometry.NodeSize * _heldBitScale * swell;
+                disc.transform.localScale = Vector3.one *
+                    PortGeometry.ScaleForRadius(PortGeometry.HeldBitRadius * swell);
             }
         }
 
@@ -280,8 +277,9 @@ namespace BitSorter.View
         private void SpawnHeldBit(int id, Vector2 centre)
         {
             GameObject held = ViewSprites.Spawn(_nodePrefab, _container, $"Held {id}");
-            held.transform.position = centre;
-            held.transform.localScale = Vector3.one * PortGeometry.NodeSize * _heldBitScale;
+            held.transform.position = PortGeometry.HeldBitPositionOf(centre);
+            held.transform.localScale =
+                Vector3.one * PortGeometry.ScaleForRadius(PortGeometry.HeldBitRadius);
 
             var renderer = held.GetComponent<SpriteRenderer>();
             renderer.sprite = ProceduralSprites.Circle();

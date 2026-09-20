@@ -34,6 +34,47 @@ namespace BitSorter.View
         /// <summary>How close a click must be to a wire to delete it.</summary>
         public const float WireHitRadius = 0.25f;
 
+        // -----------------------------------------------------------------
+        // The bit a register holds, drawn inside its body
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// A sprite drawn at <see cref="NodeSize"/> spans two shape units, so this converts one of
+        /// them to world space.
+        /// </summary>
+        /// <remarks>
+        /// Every predicate in <see cref="ProceduralSprites"/> works in -1..1 with the origin at the
+        /// centre, which is the space the flip-flop's measurements are written in. Anything placed
+        /// against those measurements has to come back out to world units to be positioned, and
+        /// this is the only factor that does it.
+        /// </remarks>
+        public const float ShapeUnit = NodeSize * 0.5f;
+
+        /// <summary>Where the held bit sits, relative to the register's centre, in shape units.</summary>
+        public const float HeldBitCentre = 0f;
+
+        /// <summary>Radius of the held bit at rest, in shape units.</summary>
+        public const float HeldBitRadius = 0.3956f;   // 0.46 of the node, as it shipped
+
+        /// <summary>
+        /// How far it swells on the clock it captures a new bit. A swell rather than a
+        /// brightening, because bloom is already brightest at the middle of a node.
+        /// </summary>
+        public const float HeldBitSwell = 1.8f;
+
+        /// <summary>The held bit at its largest, which is the size that has to fit.</summary>
+        public const float HeldBitSwollenRadius = HeldBitRadius * HeldBitSwell;
+
+        /// <summary>Where the held bit is drawn, given the register's centre.</summary>
+        public static Vector2 HeldBitPositionOf(Vector2 nodeCentre) =>
+            new Vector2(nodeCentre.x + HeldBitCentre * ShapeUnit, nodeCentre.y);
+
+        /// <summary>
+        /// The local scale that draws <see cref="ProceduralSprites.Circle"/> at a wanted radius.
+        /// </summary>
+        public static float ScaleForRadius(float radius) =>
+            NodeSize * radius / ProceduralSprites.CircleRadius;
+
         /// <summary>
         /// Inputs sit on the left face, outputs on the right. Port 0 of several is the top one.
         /// </summary>

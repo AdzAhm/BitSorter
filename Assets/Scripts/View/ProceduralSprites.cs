@@ -23,11 +23,34 @@ namespace BitSorter.View
 
         private static readonly Dictionary<string, Sprite> Cache = new Dictionary<string, Sprite>();
 
+        /// <summary>Radius of <see cref="Circle"/>, in the -1..1 space every predicate here uses.</summary>
+        /// <remarks>
+        /// Public because anything scaled to a wanted radius has to divide by it, and a second copy
+        /// of the number would silently stop agreeing the first time this shape is retuned.
+        /// </remarks>
+        public const float CircleRadius = 0.86f;
+
+        /// <summary>The flip-flop box, measured. See <see cref="FlipFlop"/>.</summary>
+        /// <remarks>
+        /// Public for the same reason <see cref="CircleRadius"/> is: the register draws the bit it
+        /// is holding inside this outline, and whether that disc clears the notch and stays within
+        /// the edges is arithmetic on these three numbers. <see cref="PortGeometry"/> holds the
+        /// disc's own measurements, so the two can be checked against each other rather than eyed.
+        /// </remarks>
+        public const float FlipFlopHalfWidth = 0.54f;
+
+        /// <inheritdoc cref="FlipFlopHalfWidth"/>
+        public const float FlipFlopHalfHeight = 0.88f;
+
+        /// <summary>How deep the clock notch cuts, and half how tall it is at the edge.</summary>
+        /// <inheritdoc cref="FlipFlopHalfWidth"/>
+        public const float FlipFlopNotch = 0.28f;
+
         // -----------------------------------------------------------------
         // Public shapes
         // -----------------------------------------------------------------
 
-        public static Sprite Circle() => Mask("circle", NodeSize, p => InCircle(p, 0.86f));
+        public static Sprite Circle() => Mask("circle", NodeSize, p => InCircle(p, CircleRadius));
 
         public static Sprite CircleBubble() =>
             Mask("circleBubble", NodeSize, p => InCircle(p, 0.64f) || InBubble(p));
@@ -265,9 +288,9 @@ namespace BitSorter.View
         {
             // Height matched to the other silhouettes, which sit at 0.86 to 0.88: the port stubs are
             // placed on this shape's faces, so a taller body would push them off its edges.
-            const float halfWidth = 0.54f;
-            const float halfHeight = 0.88f;
-            const float notch = 0.28f;     // how deep the clock notch cuts, and half how tall it is
+            const float halfWidth = FlipFlopHalfWidth;
+            const float halfHeight = FlipFlopHalfHeight;
+            const float notch = FlipFlopNotch;
 
             if (Mathf.Abs(p.x) > halfWidth || Mathf.Abs(p.y) > halfHeight)
                 return false;
