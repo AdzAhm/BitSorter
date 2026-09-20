@@ -305,10 +305,10 @@ namespace BitSorter.View
                     return false;
                 }
 
-                if (!TryParseGateKind(entry.kind, out GateKind kind))
+                if (!GatePalette.TryParse(entry.kind, out GateKind kind))
                 {
                     error = $"budget entry {i} has kind '{entry.kind}'; expected one of " +
-                            "Not, And, Or, Xor, Nand, Nor";
+                            string.Join(", ", System.Enum.GetNames(typeof(GateKind)));
                     return false;
                 }
 
@@ -500,23 +500,20 @@ namespace BitSorter.View
             }
         }
 
+        /// <summary>
+        /// Kept only to keep the shape of this file's other parsers. It is
+        /// <see cref="GatePalette.TryParse"/>, which is the one place a kind name becomes a
+        /// <see cref="GateKind"/>.
+        /// </summary>
+        /// <remarks>
+        /// This used to be a second switch listing the six gates, beside the one in GatePalette
+        /// that says in its own remarks that it is the only one. They drifted the moment a seventh
+        /// part existed: the register was placeable, saveable and testable, and the one thing it
+        /// could not be was written into a level file.
+        /// </remarks>
         private static bool TryParseGateKind(string text, out GateKind kind)
         {
-            kind = GateKind.Not;
-
-            if (string.IsNullOrWhiteSpace(text))
-                return false;
-
-            switch (text.Trim().ToLowerInvariant())
-            {
-                case "not": kind = GateKind.Not; return true;
-                case "and": kind = GateKind.And; return true;
-                case "or": kind = GateKind.Or; return true;
-                case "xor": kind = GateKind.Xor; return true;
-                case "nand": kind = GateKind.Nand; return true;
-                case "nor": kind = GateKind.Nor; return true;
-                default: return false;
-            }
+            return GatePalette.TryParse(text, out kind);
         }
 
         private static LevelFixture FindFixture(List<LevelFixture> fixtures, string id)

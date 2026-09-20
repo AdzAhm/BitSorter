@@ -111,6 +111,7 @@ namespace BitSorter.View.EditorTools
             RunControls runControls = host.AddComponent<RunControls>();
             StatusBanner banner = host.AddComponent<StatusBanner>();
             BitsLostMeter bitsLost = host.AddComponent<BitsLostMeter>();
+            ClockReadout clock = host.AddComponent<ClockReadout>();
 
             HintBanner hintBanner = host.AddComponent<HintBanner>();
             TutorialPanel tutorialPanel = host.AddComponent<TutorialPanel>();
@@ -213,6 +214,10 @@ namespace BitSorter.View.EditorTools
             Assign(bitsLost, "_session", session);
             Assign(bitsLost, "_runner", runner);
             Assign(bitsLost, "_canvas", canvas);
+
+            Assign(clock, "_session", session);
+            Assign(clock, "_runner", runner);
+            Assign(clock, "_canvas", canvas);
 
             Assign(diagnostics, "_runner", runner);
             Assign(diagnostics, "_session", session);

@@ -56,24 +56,29 @@ namespace BitSorter.LogicCore.Tests
         // -----------------------------------------------------------------
 
         [Test]
-        public void WiringStraightPast_IsOneBitShort()
+        public void WiringStraightPast_FailsOnTheVeryFirstBit()
         {
-            // Every value is right and in the right order. What is missing is the bit the register
-            // was holding before the run began, which is the entire point of the level.
+            // The stream arrives in the right order and one bit early, so the fault lands on the
+            // first cycle: the bin wanted the 0 the register was holding and got the stream's 1.
+            // Values are graded before counts, which is what makes the message point at the missing
+            // bit rather than at the total.
             var blueprint = new CircuitBlueprint();
             LevelTestFixtures.Wire(blueprint, SourceCell, OutCell);
 
             RunVerdict verdict = LevelTestFixtures.RunAndGrade(_level, blueprint);
 
             Assert.IsFalse(verdict.IsPass, "a straight wire cannot produce the register's own bit");
-            Assert.AreEqual(RunOutcome.MissingOutput, verdict.Outcome, verdict.ToString());
+            Assert.AreEqual(RunOutcome.WrongOutput, verdict.Outcome, verdict.ToString());
+            Assert.AreEqual(0, verdict.Vector, "the first cycle is where the missing bit shows");
         }
 
         [Test]
-        public void TwoRegistersInARow_AreOneBitTooMany()
+        public void TwoRegistersInARow_PushTheStreamAClockTooFar()
         {
-            // The other way to get it wrong: each register adds a bit of its own, so a second one
-            // overshoots by exactly as much as none undershoots.
+            // The other way to get it wrong: each register puts a bit of its own in front, so a
+            // second one delays the stream by one cycle more than the bin wants. The level stocks
+            // one register, so a player can only reach this by way of free play -- it is here
+            // because it pins what a second register does, which is what the next levels build on.
             var blueprint = new CircuitBlueprint();
             blueprint.Place(RegisterCell, GateKind.Register);
             blueprint.Place(new Vector2Int(1, 0), GateKind.Register);
@@ -85,7 +90,7 @@ namespace BitSorter.LogicCore.Tests
             RunVerdict verdict = LevelTestFixtures.RunAndGrade(_level, blueprint);
 
             Assert.IsFalse(verdict.IsPass, "two registers put two of their own bits in front");
-            Assert.AreEqual(RunOutcome.ExtraOutput, verdict.Outcome, verdict.ToString());
+            Assert.AreEqual(RunOutcome.WrongOutput, verdict.Outcome, verdict.ToString());
         }
 
         // -----------------------------------------------------------------

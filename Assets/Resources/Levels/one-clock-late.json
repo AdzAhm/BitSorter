@@ -1,0 +1,18 @@
+{
+  "name": "One clock late",
+  "order": 100,
+  "goal": "A register holds one bit. It hands on what you give it, a clock later, and it starts out holding a 0. Send the stream through one: the bin wants that 0 first, then 1011.",
+  "hint": "the bin takes five bits and the source only sends four. The first one is already waiting somewhere.",
+  "tickLimit": 40,
+  "maxWireDelay": 1,
+  "fixtures": [
+    { "id": "in",  "kind": "Source", "cell": { "x": -3, "y": 0 }, "stream": "1011" },
+    { "id": "out", "kind": "Sink",   "cell": { "x":  3, "y": 0 } }
+  ],
+  "budget": [
+    { "kind": "Register", "count": 1 }
+  ],
+  "expected": [
+    { "sink": "out", "values": "01011" }
+  ]
+}

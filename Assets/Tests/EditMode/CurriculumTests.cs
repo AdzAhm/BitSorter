@@ -50,7 +50,7 @@ namespace BitSorter.LogicCore.Tests
         // -----------------------------------------------------------------
 
         /// <summary>
-        /// The nine levels, in the order they are meant to be played.
+        /// Every level, in the order they are meant to be played.
         /// </summary>
         /// <remarks>
         /// Every other test in this class describes a property of whatever levels happen to exist:
@@ -64,10 +64,11 @@ namespace BitSorter.LogicCore.Tests
         /// changed the run, which is a deliberate act and should have to say so here.
         /// </remarks>
         [Test]
-        public void TheRun_IsTheNineLevelsInTheirTaughtOrder()
+        public void TheRun_IsEveryLevelInItsTaughtOrder()
         {
             string[] expected =
             {
+                // Combinational logic.
                 "route-the-bit",
                 "the-long-way-round",
                 "balance-the-paths",
@@ -77,6 +78,9 @@ namespace BitSorter.LogicCore.Tests
                 "pick-a-lane",
                 "half-adder",
                 "carry-the-one",
+
+                // Sequential logic: circuits that remember.
+                "one-clock-late",
             };
 
             IReadOnlyList<KeyValuePair<string, LevelDefinition>> run = LevelsInPlayOrder();
