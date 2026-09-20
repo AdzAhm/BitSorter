@@ -191,6 +191,16 @@ namespace BitSorter.View
         private const float RowGap = 6f;
 
         /// <summary>
+        /// Where a row's text starts, in from the row's left edge.
+        /// </summary>
+        /// <remarks>
+        /// Shared with the chapter headings above them. The heading used to state its own inset
+        /// from the middle of the list instead, which put it twenty-six pixels left of the names it
+        /// was heading -- a label out of line with the thing it labels.
+        /// </remarks>
+        private const float LabelInset = 52f;
+
+        /// <summary>
         /// How tall the list is, for a run of this many levels split into this many chapters.
         /// </summary>
         /// <remarks>
@@ -228,8 +238,11 @@ namespace BitSorter.View
             heading.fontStyle = FontStyles.Bold;
             heading.characterSpacing = 6f;
 
+            // Same rect a row gets, and the text starts where a row's text starts.
             UiTheme.Anchor(heading.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-                new Vector2(26f, -y), new Vector2(520f, HeadingHeight));
+                new Vector2(0f, -y), new Vector2(520f, HeadingHeight));
+
+            heading.margin = new Vector4(LabelInset, 0f, 0f, 0f);
 
             heading.text = text;
 
@@ -272,7 +285,7 @@ namespace BitSorter.View
             TextMeshProUGUI label = UiTheme.Label(
                 "name", rect, 17f, UiTheme.Accent, TextAlignmentOptions.Left);
             UiTheme.Anchor(label.rectTransform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f),
-                new Vector2(52f, 0f), new Vector2(330f, height));
+                new Vector2(LabelInset, 0f), new Vector2(330f, height));
             label.text = "Tutorial";
 
             TextMeshProUGUI note = UiTheme.Label(
@@ -310,7 +323,7 @@ namespace BitSorter.View
             TextMeshProUGUI label = UiTheme.Label(
                 "name", rect, 17f, UiTheme.Accent, TextAlignmentOptions.Left);
             UiTheme.Anchor(label.rectTransform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f),
-                new Vector2(52f, 0f), new Vector2(330f, height));
+                new Vector2(LabelInset, 0f), new Vector2(330f, height));
             label.text = "Sandbox";
 
             TextMeshProUGUI note = UiTheme.Label(
@@ -356,7 +369,7 @@ namespace BitSorter.View
 
             row.Label = UiTheme.Label("name", rect, 17f, UiTheme.Text, TextAlignmentOptions.Left);
             UiTheme.Anchor(row.Label.rectTransform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f),
-                new Vector2(52f, 0f), new Vector2(330f, height));
+                new Vector2(LabelInset, 0f), new Vector2(330f, height));
             row.Label.text = entry.DisplayName;
 
             row.Best = UiTheme.Label("best", rect, 14f, UiTheme.TextDim, TextAlignmentOptions.Right);
