@@ -420,7 +420,8 @@ namespace BitSorter.View
                 LevelLoadResult parsed = LevelLoader.Parse(assets[i].text, halfExtents);
 
                 entries.Add(parsed.IsValid
-                    ? new LevelEntry(assets[i].name, parsed.Level.Order, parsed.Level.Name)
+                    ? new LevelEntry(assets[i].name, parsed.Level.Order, parsed.Level.Name,
+                        LevelCatalog.IsSequential(parsed.Level))
                     : new LevelEntry(assets[i].name, 0));
             }
 

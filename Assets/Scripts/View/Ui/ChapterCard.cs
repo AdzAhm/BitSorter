@@ -39,7 +39,8 @@ namespace BitSorter.View
         [Tooltip("How dark the board goes behind the card. The tutorial's card uses the same weight.")]
         [SerializeField] private Color _scrimColour = new Color(0f, 0f, 0f, 0.9f);
 
-        private const string Title = "CIRCUITS THAT REMEMBER";
+        /// <summary>From <see cref="LevelCatalog"/>, so the card and the level list agree.</summary>
+        private const string Title = LevelCatalog.SequentialChapter;
 
         private const string Body =
             "Every gate so far has forgotten each bit the moment it used it. " +
@@ -94,7 +95,7 @@ namespace BitSorter.View
         /// </remarks>
         private void OnLevelLoaded(LevelDefinition level)
         {
-            if (level == null || _shown || !StocksARegister(level))
+            if (level == null || _shown || !LevelCatalog.IsSequential(level))
                 return;
 
             // Free play and the tutorial are not levels in the run, and free play stocks every
@@ -110,17 +111,6 @@ namespace BitSorter.View
                 return;
 
             _due = true;
-        }
-
-        private static bool StocksARegister(LevelDefinition level)
-        {
-            for (int i = 0; i < level.Budget.Count; i++)
-            {
-                if (level.Budget[i].Kind == GateKind.Register)
-                    return true;
-            }
-
-            return false;
         }
 
         private void Update()

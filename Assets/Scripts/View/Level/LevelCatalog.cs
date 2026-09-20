@@ -17,15 +17,31 @@ namespace BitSorter.View
         /// </summary>
         public readonly string DisplayName;
 
-        public LevelEntry(string fileName, int order) : this(fileName, order, fileName)
+        /// <summary>
+        /// Whether this level is in the sequential half of the run.
+        /// </summary>
+        /// <remarks>
+        /// Carried here because the catalogue is built where the files are already parsed, and the
+        /// level list is not: without it the list would have to load all seventeen again to find
+        /// out where the chapters divide. <see cref="LevelCatalog.IsSequential"/> is what decides.
+        /// </remarks>
+        public readonly bool IsSequential;
+
+        public LevelEntry(string fileName, int order) : this(fileName, order, fileName, false)
         {
         }
 
         public LevelEntry(string fileName, int order, string displayName)
+            : this(fileName, order, displayName, false)
+        {
+        }
+
+        public LevelEntry(string fileName, int order, string displayName, bool isSequential)
         {
             FileName = fileName;
             Order = order;
             DisplayName = string.IsNullOrWhiteSpace(displayName) ? fileName : displayName;
+            IsSequential = isSequential;
         }
 
         public bool HasOrder => Order > 0;
@@ -64,6 +80,41 @@ namespace BitSorter.View
         /// </remarks>
         public static bool IsOffCatalogue(string key) =>
             key == SandboxLevel.Key || key == TutorialLevel.Key;
+
+        /// <summary>The two halves of the run, named.</summary>
+        /// <remarks>
+        /// The second name is the chapter card's own title, and the card reads it from here, so the
+        /// list and the card cannot end up calling the same boundary two things. The first is the
+        /// pair to it, and comes from the card's own words for what changes: everything before it
+        /// forgets each bit the moment it has used it.
+        /// </remarks>
+        public const string CombinationalChapter = "CIRCUITS THAT FORGET";
+
+        /// <inheritdoc cref="CombinationalChapter"/>
+        public const string SequentialChapter = "CIRCUITS THAT REMEMBER";
+
+        /// <summary>
+        /// Whether a level belongs to the sequential half of the run.
+        /// </summary>
+        /// <remarks>
+        /// Decided by what the level stocks, not by its number, for the reason the chapter card is:
+        /// inserting or reordering levels cannot then put the boundary in the wrong place. Two
+        /// things ask -- the card, to know when to show itself, and the level list, to know where
+        /// to draw the break -- and a second copy of this rule is a second thing to drift.
+        /// </remarks>
+        public static bool IsSequential(LevelDefinition level)
+        {
+            if (level == null)
+                return false;
+
+            for (int i = 0; i < level.Budget.Count; i++)
+            {
+                if (level.Budget[i].Kind == GateKind.Register)
+                    return true;
+            }
+
+            return false;
+        }
 
         /// <summary>
         /// The levels in the order they should be played. <paramref name="error"/> is null when all is

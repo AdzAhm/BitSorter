@@ -121,24 +121,74 @@ namespace BitSorter.View
             const float rowHeight = 42f;
             const float gap = 6f;
 
-            // One row past the catalogue for free play, plus a wider gap before it. Sandbox is not a
-            // level and is not in Catalogue -- it has no file, no order and nothing to complete -- so
-            // it is appended here rather than being allowed to look like a tenth level.
-            float total = (catalogue.Count + 2) * (rowHeight + gap) - gap
-                          + SandboxGap + TutorialGap;
-
             RectTransform list = UiTheme.Rect("list", _root);
-            UiTheme.Anchor(list, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                Vector2.zero, new Vector2(520f, total));
+
+            // Walked down with a cursor rather than multiplied out from a row index. Two headings
+            // and three different gaps sit between the rows now, and index arithmetic that has to
+            // know about all of them is the shape this file had when the sandbox row was added --
+            // every new spacer meant another term in every other row's offset.
+            float y = 0f;
 
             // The tutorial sits above the run, free play below it. Neither is in Catalogue, and the
-            // gaps on either side are what say so: what lies between them is the nine levels.
-            BuildTutorialRow(list, rowHeight);
+            // gaps on either side are what say so: what lies between them is the run.
+            BuildTutorialRow(list, y, rowHeight);
+            y += rowHeight + gap + TutorialGap;
+
+            bool sequentialStarted = false;
 
             for (int i = 0; i < catalogue.Count; i++)
-                _rows.Add(BuildRow(catalogue[i], list, i + 1, rowHeight, gap, TutorialGap));
+            {
+                if (i == 0)
+                    y += BuildHeading(list, y, LevelCatalog.CombinationalChapter);
 
-            BuildSandboxRow(list, catalogue.Count + 1, rowHeight, gap);
+                // The break is where the first level stocking a register is, which is the same fact
+                // the chapter card fires on, so the two cannot end up in different places.
+                if (!sequentialStarted && catalogue[i].IsSequential)
+                {
+                    sequentialStarted = true;
+                    y += ChapterGap;
+                    y += BuildHeading(list, y, LevelCatalog.SequentialChapter);
+                }
+
+                _rows.Add(BuildRow(catalogue[i], list, y, rowHeight));
+                y += rowHeight + gap;
+            }
+
+            y += SandboxGap;
+            BuildSandboxRow(list, y, rowHeight);
+            y += rowHeight;
+
+            // Sized once everything is placed. Rows anchor to the list's top edge, so growing it
+            // downwards afterwards moves nothing.
+            UiTheme.Anchor(list, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                Vector2.zero, new Vector2(520f, y));
+        }
+
+        /// <summary>Extra space before the sequential chapter, on top of the ordinary row gap.</summary>
+        private const float ChapterGap = 16f;
+
+        /// <summary>Height a chapter heading takes, including the space under it.</summary>
+        private const float HeadingHeight = 26f;
+
+        /// <summary>
+        /// A chapter's name over the first of its levels, and how much room it took.
+        /// </summary>
+        /// <remarks>
+        /// Dim and small, in the style of the "the controls" and "free play" notes: it labels the
+        /// run rather than competing with it. The words come from <see cref="LevelCatalog"/>,
+        /// which is also where the chapter card gets its title.
+        /// </remarks>
+        private float BuildHeading(RectTransform list, float y, string text)
+        {
+            TextMeshProUGUI heading = UiTheme.Label(
+                "chapter", list, 12f, UiTheme.TextDim, TextAlignmentOptions.Left);
+
+            UiTheme.Anchor(heading.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
+                new Vector2(26f, -y), new Vector2(520f, HeadingHeight));
+
+            heading.text = text;
+
+            return HeadingHeight;
         }
 
         /// <summary>Extra space between the last level and free play, so the run reads as ending.</summary>
@@ -152,7 +202,7 @@ namespace BitSorter.View
         /// reason free play is not: rows carry a completion tick and a personal best, and the
         /// tutorial has neither.
         /// </summary>
-        private void BuildTutorialRow(RectTransform list, float height)
+        private void BuildTutorialRow(RectTransform list, float y, float height)
         {
             Button button = UiTheme.Button_("Tutorial", list, string.Empty,
                 out TextMeshProUGUI caption);
@@ -160,7 +210,7 @@ namespace BitSorter.View
 
             var rect = button.GetComponent<RectTransform>();
             UiTheme.Anchor(rect, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-                Vector2.zero, new Vector2(520f, height));
+                new Vector2(0f, -y), new Vector2(520f, height));
 
             // Same drawn dot the levels use, in the same place, so "done" reads the same way down
             // the whole list. A glyph would not: the one font this project ships has no tick in it.
@@ -202,7 +252,7 @@ namespace BitSorter.View
         /// Free play, below the run. Deliberately not a <see cref="Row"/>: rows carry a completion
         /// tick and a personal best, and a sandbox has neither and never will.
         /// </summary>
-        private void BuildSandboxRow(RectTransform list, int index, float height, float gap)
+        private void BuildSandboxRow(RectTransform list, float y, float height)
         {
             Button button = UiTheme.Button_("Sandbox", list, string.Empty,
                 out TextMeshProUGUI caption);
@@ -210,8 +260,7 @@ namespace BitSorter.View
 
             var rect = button.GetComponent<RectTransform>();
             UiTheme.Anchor(rect, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-                new Vector2(0f, -index * (height + gap) - SandboxGap - TutorialGap),
-                new Vector2(520f, height));
+                new Vector2(0f, -y), new Vector2(520f, height));
 
             TextMeshProUGUI label = UiTheme.Label(
                 "name", rect, 17f, UiTheme.Accent, TextAlignmentOptions.Left);
@@ -237,8 +286,7 @@ namespace BitSorter.View
             });
         }
 
-        private Row BuildRow(LevelEntry entry, RectTransform list, int index, float height,
-            float gap, float offset = 0f)
+        private Row BuildRow(LevelEntry entry, RectTransform list, float y, float height)
         {
             var row = new Row { FileName = entry.FileName };
 
@@ -248,7 +296,7 @@ namespace BitSorter.View
 
             var rect = row.Button.GetComponent<RectTransform>();
             UiTheme.Anchor(rect, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-                new Vector2(0f, -index * (height + gap) - offset), new Vector2(520f, height));
+                new Vector2(0f, -y), new Vector2(520f, height));
 
             row.Frame = row.Button.GetComponent<Image>();
 

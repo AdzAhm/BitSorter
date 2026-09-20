@@ -488,5 +488,63 @@ namespace BitSorter.LogicCore.Tests
             return cleaned.ToString()
                 .Split(new[] { ' ' }, System.StringSplitOptions.RemoveEmptyEntries);
         }
+
+        /// <summary>
+        /// The run is two chapters, in order, and they do not interleave.
+        /// </summary>
+        /// <remarks>
+        /// Both the chapter card and the level list's headings find the boundary the same way --
+        /// the first level whose parts list stocks a register -- which is only a boundary if every
+        /// level after it stocks one too. A combinational level dropped in among the sequential
+        /// ones would sit under the wrong heading and leave the card firing in the middle of a
+        /// chapter, and nothing else would notice.
+        /// </remarks>
+        [Test]
+        public void TheRun_IsTwoChaptersAndTheyDoNotInterleave()
+        {
+            IReadOnlyList<KeyValuePair<string, LevelDefinition>> run = LevelsInPlayOrder();
+
+            int first = -1;
+
+            for (int i = 0; i < run.Count; i++)
+            {
+                bool sequential = LevelCatalog.IsSequential(run[i].Value);
+
+                if (sequential && first < 0)
+                    first = i;
+
+                if (first >= 0)
+                {
+                    Assert.IsTrue(sequential,
+                        $"{run[i].Key} is combinational but sits after {run[first].Key}, " +
+                        "which starts the sequential chapter");
+                }
+            }
+
+            Assert.Greater(first, 0, "the run should open with combinational levels");
+            Assert.Less(first, run.Count, "the run should reach the sequential chapter");
+        }
+
+        /// <summary>
+        /// A level that stocks no register is not in the sequential chapter, and nor is nothing.
+        /// </summary>
+        [Test]
+        public void IsSequential_AsksWhatTheLevelStocks()
+        {
+            IReadOnlyList<KeyValuePair<string, LevelDefinition>> run = LevelsInPlayOrder();
+
+            Assert.IsFalse(LevelCatalog.IsSequential(null), "nothing is not a chapter");
+
+            foreach (KeyValuePair<string, LevelDefinition> level in run)
+            {
+                bool stocks = false;
+
+                foreach (LevelBudgetEntry budget in level.Value.Budget)
+                    stocks |= budget.Kind == GateKind.Register;
+
+                Assert.AreEqual(stocks, LevelCatalog.IsSequential(level.Value), level.Key);
+            }
+        }
+
     }
 }
