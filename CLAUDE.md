@@ -272,13 +272,21 @@ failure side.
 - Use Plan mode for anything touching more than one file.
 - Every new LogicCore component ships with its Edit Mode tests in the
   same change. No component without a truth-table test.
-- After editing scripts, focus the Unity window yourself so it recompiles,
-  then run EditMode tests before we commit. Don't ask me to click it: Windows
-  hands focus over to `SetForegroundWindow` after an `AttachThreadInput` from
-  the current foreground thread, with `WScript.Shell.AppActivate` as a fallback.
-  An `AssetDatabase.Refresh` plus `CompilationPipeline.RequestScriptCompilation`
-  through the MCP server rebuilds without focus at all; Play Mode is the one
-  thing that genuinely needs the window in front.
+- After editing scripts, recompile and run the tests yourself, and don't ask
+  me to click anything. An `AssetDatabase.Refresh` plus
+  `CompilationPipeline.RequestScriptCompilation` through the MCP server
+  rebuilds with the window in the background, and Play Mode runs unfocused too
+  now that nothing in the suite waits on wall clock. If some future thing does
+  need the window in front, Windows hands focus to `SetForegroundWindow` after
+  an `AttachThreadInput` from the current foreground thread, with
+  `WScript.Shell.AppActivate` as a fallback -- but prefer fixing whatever
+  needed it.
+- **Check the editor is idle before starting a run.** `TestRunnerApi.Execute`
+  during play mode throws `InvalidOperationException: This cannot be used
+  during play mode`, and the exception surfaces as an unhandled log message
+  inside whichever test was running -- so it fails somebody else's test and
+  looks like their bug. Ask `EditorApplication.isPlaying` and `isCompiling`
+  first. This happened once, to a run Ahmad had started.
 - **When Unity stops recompiling, reimport the `.asmdef`.** An editor left
   open for a long session can stop rebuilding entirely: `AssetDatabase
   .Refresh`, `ImportAsset(ForceUpdate)`, `CompilationPipeline
@@ -334,21 +342,26 @@ failure side.
   RunCommand, so Play Mode results cannot be collected that way. Unity writes them
   to `TestResults.xml` under `persistentDataPath` regardless. Read that.
 
-  **Unity must be focused**, or it does not tick and the run never enters play
-  mode -- it sits there reporting nothing.
+  **A run no longer needs the window focused, and nothing here should start
+  waiting on wall clock again.** It used to: play mode in the background renders
+  far fewer frames a second, `GameAudio` builds the next track at 2 ms *a
+  frame*, and `AudioPlayTests.WaitForTheFade` waited five seconds of *wall
+  clock* -- too few frames fit in those five seconds, the track never finished,
+  and seven audio tests failed, every one of them saying the level track never
+  replaced the menu track. Reproducible, so it did not read as a flake, and the
+  messages pointed straight at the music. It cost a bisect on 2026-09-20 before
+  anyone thought to check focus.
 
-  **A background editor also breaks the run in a way that reads as a real bug.**
-  Focus is not only about starting: play mode in the background renders far
-  fewer frames a second, and `GameAudio` builds the next track at 2 ms *a
-  frame* while `AudioPlayTests.WaitForTheFade` waits five seconds of *wall
-  clock*. Too few frames fit in those five seconds, the track is not finished,
-  and the switch never lands -- so seven audio tests fail, every one of them
-  saying the level track never replaced the menu track. It is reproducible, so
-  it does not read as a flake, and the messages point straight at the music
-  system. Bisected once, on 2026-09-20, before it was spotted: the same seven
-  failed on a commit that had been green that morning, and the suite went 47/47
-  the moment the window was focused. **If `AudioPlayTests` is the only fixture
-  failing, check focus before anything else.**
+  The fix was to wait on `GameAudio.IsSettled` instead, which is the cue tests'
+  rule applied to the music: drive the clock, do not wait for it. The suite now
+  passes with the editor behind something else and runs in 42 seconds rather
+  than 102. **A `yield` loop counting seconds is the bug, not the frame rate** --
+  anything here that needs to wait waits on the condition, with a generous cap
+  that fails loudly rather than returning quietly.
+
+  `IsSettled` says the music has stopped moving and nothing more. Keep it that
+  way: a helper that waits for the track a test is about to assert would make
+  every one of those assertions pass by construction.
 
   **Run them from the PlayMode tab, never the Player tab.** The Player tab is a
   different thing wearing the same name: it builds a player for the active target
