@@ -615,6 +615,25 @@ and the serial adder — orders 100 to 170, in tens like the rest. Its card
 (`ChapterCard`) is shown once, on the first level whose parts list holds a
 register, and is a milestone in the save beside the tutorial.
 
+**Where the chapters divide is `LevelCatalog.IsSequential`, and it is the
+only place that knows.** The card fires on it and the level list draws its
+headings from it — `CIRCUITS THAT FORGET` and `CIRCUITS THAT REMEMBER`,
+both constants there, the second being the card's own title. Deciding by
+what a level *stocks* rather than by its number means inserting or
+reordering levels cannot put the boundary in the wrong place, and
+`CurriculumTests` refuses a run whose two chapters interleave — which is
+the only way a level could end up under the wrong heading.
+
+**The banner reserves three lines for the goal and shrinks to what it
+uses.** A goal is centred and wrapping, so before this it overflowed a
+28-pixel box in both directions and printed over the level title; six of
+the seventeen goals are longer than one line. `UiTheme.GoalHeight`
+measures one with the label that will draw it, and is what both the
+banner and `UiThemeTests` ask — a level whose goal will not fit is a
+failing test rather than a smudge on the title. Everything below the
+banner is still placed from the full `BannerHeight`, so a short banner
+leaves a wider gap and never a collision.
+
 **The sandbox is built in code, not authored as JSON.** That is a
 decision, not a shortcut: `LevelLoader.Validate` refuses a level with no
 expectations and refuses a sink nothing grades — both correct for a
