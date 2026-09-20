@@ -177,7 +177,7 @@ namespace BitSorter.View
         /// </summary>
         public static Sprite BoardTile()
         {
-            if (Cache.TryGetValue("board", out Sprite cached))
+            if (TryCached("board", out Sprite cached))
                 return cached;
 
             var texture = NewTexture(TileSize, TextureWrapMode.Repeat);
@@ -222,6 +222,8 @@ namespace BitSorter.View
                 texture, new Rect(0f, 0f, TileSize, TileSize), new Vector2(0.5f, 0.5f),
                 TileSize, 0, SpriteMeshType.FullRect);
 
+            sprite.hideFlags = HideFlags.HideAndDontSave;
+
             Cache["board"] = sprite;
             return sprite;
         }
@@ -230,12 +232,37 @@ namespace BitSorter.View
         // Builders
         // -----------------------------------------------------------------
 
+        /// <summary>
+        /// A cached sprite, if there is still one there to hand out.
+        /// </summary>
+        /// <remarks>
+        /// The cache holds Unity objects, and Unity objects can be destroyed under a plain static
+        /// dictionary. Nothing here is an asset -- every texture is generated at runtime -- so a
+        /// sweep of untracked objects takes them and leaves the entries behind pointing at corpses.
+        /// A destroyed sprite assigned to an Image reads back as no sprite at all, which is a blank
+        /// panel rather than an error.
+        ///
+        /// <see cref="Store"/> marks what it makes as not-to-be-saved, which is what stops the
+        /// sweep taking them in the first place; this is the belt to that pair of braces, because
+        /// one entry surviving its sprite is the failure that cannot be seen until something is
+        /// already drawn wrong. The texture is checked too: it can go on its own, leaving a sprite
+        /// that is technically alive and draws nothing.
+        /// </remarks>
+        private static bool TryCached(string key, out Sprite sprite)
+        {
+            if (Cache.TryGetValue(key, out sprite) && sprite != null && sprite.texture != null)
+                return true;
+
+            sprite = null;
+            return false;
+        }
+
         /// <summary>White sprite whose alpha is the supersampled coverage of a shape.</summary>
         private static Sprite Mask(
             string key, int size, Func<Vector2, bool> inside,
             Vector4 border = default, float pixelsPerUnit = 0f)
         {
-            if (Cache.TryGetValue(key, out Sprite cached))
+            if (TryCached(key, out Sprite cached))
                 return cached;
 
             var pixels = new Color32[size * size];
@@ -270,7 +297,7 @@ namespace BitSorter.View
         /// <summary>White sprite whose alpha comes from a smooth field, no supersampling needed.</summary>
         private static Sprite Field(string key, int size, Func<Vector2, float> alpha)
         {
-            if (Cache.TryGetValue(key, out Sprite cached))
+            if (TryCached(key, out Sprite cached))
                 return cached;
 
             var pixels = new Color32[size * size];
@@ -306,6 +333,8 @@ namespace BitSorter.View
                 texture, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f),
                 pixelsPerUnit > 0f ? pixelsPerUnit : size, 0, SpriteMeshType.FullRect, border);
 
+            sprite.hideFlags = HideFlags.HideAndDontSave;
+
             Cache[key] = sprite;
             return sprite;
         }
@@ -315,6 +344,10 @@ namespace BitSorter.View
             {
                 filterMode = FilterMode.Bilinear,
                 wrapMode = wrap,
+
+                // Generated, not an asset, and referenced only by a static dictionary -- without
+                // this it is swept the first time the editor unloads unused objects.
+                hideFlags = HideFlags.HideAndDontSave,
             };
 
         // -----------------------------------------------------------------
