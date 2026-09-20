@@ -86,6 +86,17 @@ namespace BitSorter.View
             new StepRange(SandboxConfig.MinVectors, SandboxConfig.MaxVectors);
 
         /// <summary>
+        /// Ticks between vectors. One is a vector every tick, as every level was before registers.
+        /// </summary>
+        /// <remarks>
+        /// Worth raising the moment a register's output feeds anything that comes back to it: the
+        /// shortest loop takes two ticks, so on a clock of 1 a state machine loses a bit a cycle
+        /// however carefully it is wired.
+        /// </remarks>
+        public static StepRange Clock() =>
+            new StepRange(SandboxConfig.MinClock, SandboxConfig.MaxClock);
+
+        /// <summary>
         /// The stream with the bit at <paramref name="index"/> inverted.
         /// </summary>
         /// <remarks>

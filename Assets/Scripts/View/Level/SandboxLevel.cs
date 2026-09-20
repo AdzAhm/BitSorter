@@ -67,10 +67,12 @@ namespace BitSorter.View
         /// <summary>What the status banner says: the trouble if there is any, else what free play is.</summary>
         public static string GoalFor(SandboxConfig config) => Warning(config) ?? FreePlay;
 
+        /// <summary>
+        /// Every part there is, taken from the enum rather than written out: free play stocks all
+        /// of them, so a part added later should appear here without anyone remembering to.
+        /// </summary>
         private static readonly GateKind[] EveryKind =
-        {
-            GateKind.Not, GateKind.And, GateKind.Or, GateKind.Xor, GateKind.Nand, GateKind.Nor,
-        };
+            (GateKind[])System.Enum.GetValues(typeof(GateKind));
 
         /// <summary>
         /// How many fixtures fit in one column, which is how many rows the board has.
@@ -159,7 +161,11 @@ namespace BitSorter.View
                 order: 0,
                 goal: GoalFor(config),
                 isGraded: false,
-                reservedSlots: Slots(halfExtents));
+                reservedSlots: Slots(halfExtents),
+                // Free play's own clock. It matters here for the same reason it matters in the
+                // levels: a loop through a register cannot keep up with a vector every tick, so a
+                // state machine built at a clock of 1 destroys bits however carefully it is wired.
+                clockPeriod: config.Clock);
         }
 
         /// <summary>

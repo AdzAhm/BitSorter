@@ -59,6 +59,23 @@ namespace BitSorter.View
         public const int CurrentLayout = 1;
 
         /// <summary>
+        /// Ticks between vectors, as a level's clockPeriod is. Zero means a vector every tick,
+        /// which is what every board saved before registers existed meant.
+        /// </summary>
+        public int clock;
+
+        public const int MinClock = 1;
+
+        /// <summary>
+        /// Four is enough for anything free play can hold: the longest loop worth building on a
+        /// nine-wide board is a register, a couple of gates and the way back.
+        /// </summary>
+        public const int MaxClock = 4;
+
+        /// <summary>The clock as the level wants it: at least 1, whatever the save said.</summary>
+        public int Clock => Clamp(clock <= 0 ? MinClock : clock, MinClock, MaxClock);
+
+        /// <summary>
         /// Brings the config back inside its own rules: counts clamped, and every stream exactly
         /// <see cref="vectors"/> characters of '0' or '1'.
         /// </summary>
@@ -77,6 +94,7 @@ namespace BitSorter.View
         {
             vectors = Clamp(vectors <= 0 ? SandboxLevel.DefaultVectors : vectors, MinVectors, MaxVectors);
             sinks = Clamp(sinks, 0, maxSinks);
+            clock = Clock;
 
             if (sources == null)
                 sources = Array.Empty<string>();
@@ -105,7 +123,10 @@ namespace BitSorter.View
         /// <summary>A copy, so a config can be edited without disturbing the one already built.</summary>
         public SandboxConfig Clone()
         {
-            var copy = new SandboxConfig { sinks = sinks, vectors = vectors, layout = layout };
+            var copy = new SandboxConfig
+            {
+                sinks = sinks, vectors = vectors, layout = layout, clock = clock,
+            };
 
             if (sources != null)
             {

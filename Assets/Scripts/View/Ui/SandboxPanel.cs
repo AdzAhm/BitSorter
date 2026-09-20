@@ -342,6 +342,7 @@ namespace BitSorter.View
 
             y -= 6f;
             y = Stepper(y, "Vectors", _config.vectors, SandboxRules.Vectors(), SetVectors);
+            y = Stepper(y, "Clock", _config.Clock, SandboxRules.Clock(), SetClock);
             y = TableRow(y);
 
             y = Heading(y - 8f, "OUTPUTS");
@@ -694,6 +695,13 @@ namespace BitSorter.View
         private void SetVectors(int count)
         {
             _config.vectors = SandboxRules.Vectors().Clamp(count);
+            Changed();
+        }
+
+        /// <summary>Ticks between vectors: what a loop through a register needs raising.</summary>
+        private void SetClock(int ticks)
+        {
+            _config.clock = SandboxRules.Clock().Clamp(ticks);
             Changed();
         }
 
