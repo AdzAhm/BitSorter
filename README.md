@@ -14,7 +14,8 @@ so every bin gets what it asked for.
 Above is level 8, the half adder: `A` and `B` each feed both gates, XOR produces
 the sum and AND produces the carry. Yellow bits are 1, grey are 0.
 
-Nine levels, from routing a single bit to building a full adder. Built in Unity
+Seventeen levels, from routing a single bit to a state machine that adds two
+numbers a column at a time. Built in Unity
 as a way of working through a computer engineering digital systems course from
 the inside.
 
@@ -42,7 +43,7 @@ installed and nothing is written outside your own user folder.
 Windows will probably warn that it does not recognise the publisher — the build
 is unsigned, which is all that warning means. "More info", then "Run anyway".
 
-[A guided tutorial](#the-tutorial) covers the controls, nine levels teach the
+[A guided tutorial](#the-tutorial) covers the controls, seventeen levels teach the
 ideas in order, and [a sandbox](#the-sandbox) is there for when you would rather
 build something without being marked on it.
 
@@ -120,7 +121,7 @@ scrolled at all. Each appears once, ever, and none of them pause the game.
 
 ### What it teaches
 
-Nine levels, in this order. Each one is a topic from a digital systems course,
+Seventeen levels, in this order. Each one is a topic from a digital systems course,
 arranged so that a mechanic is always taught before it is required.
 
 | | Level | The idea |
@@ -135,16 +136,39 @@ arranged so that a mechanic is always taught before it is required.
 | 8 | Half adder | Two outputs from one circuit: sum and carry |
 | 9 | Carry the one | A full adder, joining two half adders and their carries |
 
+Then the circuits start to remember. A register keeps one bit and hands it on a
+clock later, and because a kept bit has to travel back round to meet the next
+one, these levels space their vectors out on a clock.
+
+| | Level | The idea |
+|---|---|---|
+| 10 | One clock late | The register itself: it starts holding 0, and delays a stream by a clock |
+| 11 | Rising edge | This bit against the one before it — and a register hands its bit on early |
+| 12 | Flip on one | The first loop, and the clock a loop has to close inside |
+| 13 | Hold when told | A register with an enable: load, or keep what you have |
+| 14 | Count the ones | Two bits of state, and the carry between them |
+| 15 | Spot the pattern | A machine watching for 1-0-1, overlaps included, in two registers |
+| 16 | One clock behind | The same answer reported a clock later: Moore against Mealy |
+| 17 | Add as you go | A serial adder, one column per clock, its carry kept in a register |
+
 Deliberately out of scope: assembly, datapaths, memory addressing and number
 representation. Static and dynamic hazards are out too, and cannot be expressed —
 a hazard needs a continuous signal model, and bits here are discrete tokens with
 nowhere for a glitch to live. Unbalanced-path corruption is the lesson that
 replaces it.
 
+Clock skew and hold time are out for the same kind of reason: the clock here is
+the spacing between vectors, global and exact, so nothing can arrive late
+relative to it. What survives is the constraint setup time exists for —
+everything must settle within one clock period — and the sequential levels are
+built on it.
+
 ### The sandbox
 
-Free play, from the main menu or the foot of the level list. Every gate, as many
-as you like, no delay budget, and nothing to pass or fail.
+Free play, from the main menu or the foot of the level list. Every part, as many
+as you like, no delay budget, and nothing to pass or fail. Registers are there
+too, with a clock setting beside the vector count — a state machine needs it,
+since a loop cannot keep up with a vector every tick.
 
 The setup is a panel docked down the right-hand side, beside the board rather
 than over it, and it collapses to a tab when you want the width back. You set up
@@ -253,7 +277,7 @@ Unity 6.3 LTS (6000.3.11f1).
 - **BitSorter → Build Play Scene** regenerates the play scene from code. The
   scene is generated rather than authored, so anything added by hand is discarded
   the next time that runs.
-- Tests: Window → General → Test Runner. Roughly 680 EditMode cases and 46
+- Tests: Window → General → Test Runner. Roughly 760 EditMode cases and 46
   PlayMode at present, the PlayMode ones across nine fixtures — pointer
   arbitration, audio and the menu's music, scene composition, the tutorial's
   opening, the frame a run ends on, free play's setup, full-screen panels and

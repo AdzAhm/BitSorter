@@ -63,9 +63,9 @@ author a level that silently fails to teach its own lesson.
 | 5 | Combinational components (mux, decoder, comparator) | **(a)** | Buildable today |
 | 6 | Adders: half, full, ripple-carry | **(a)** | Half shipped; full verified by `FullAdderTests`. Ripple-carry is board-space limited |
 | 6b | Carry-lookahead | **(b)** | Per-level board size. Reclassified from (c) — the limit is the view layer, not the model |
-| 7 | Latches and flip-flops | **(b)** | `RegisterNode` + initial-state authoring + a palette slot |
-| 7b | Level- vs edge-triggering, setup/hold, clock skew | **(c)** | No clock signal exists — see below |
-| 8 | FSMs (Moore / Mealy), state minimisation | **(b)** | Same three blockers as 7 |
+| 7 | Latches and flip-flops | **(a)** | **Shipped.** `RegisterNode`, a palette slot, and a clock. Initial-state authoring turned out not to be needed |
+| 7b | Level- vs edge-triggering, setup/hold, clock skew | **(c)** | Skew and hold stay out. Setup time survives as `clockPeriod` — see below |
+| 8 | FSMs (Moore / Mealy), state minimisation | **(a)** | **Shipped.** Levels 15 to 17 |
 | 9 | Critical path | **(a)** | **Shipped.** `maxLatency` — see [Q2](#q2-can-a-level-score-on-critical-path-length) |
 | 10 | Pipelining (latency vs throughput) | **(c)** | Every gate is already a register, and throughput is binary rather than graded — see below |
 | 10b | Pipeline stage balancing | **(a)** | The substitute lesson, and the game's core mechanic |
@@ -238,9 +238,26 @@ constraint well before the format does. The realistic target is a 2-bit ripple
 versus 2-bit lookahead comparison at something like 13 × 7, not a textbook 4-bit
 CLA.
 
-### 7. Latches and flip-flops
+### 7. Latches and flip-flops — shipped
 
-**Blocked on three things**, and the roadmap should not pretend it is one:
+**Built as the eight sequential levels**, orders 100 to 170. What follows is the
+analysis as it was written, kept because three of its four claims were right and
+the fourth is the interesting one.
+
+**It missed a blocker, and the missing one shaped the whole chapter.** A state
+machine is a loop; the shortest loop is two wires; a source emits every tick. So
+the next input reaches the logic before the state has come back round, waits in
+its port, and the input after that lands on top of it — a level with feedback and
+a dense source corrupts however carefully it is wired. Sequential levels
+therefore carry a `clockPeriod`, which spaces their vectors out, and the rule the
+player learns from it is the real one: everything settles inside one period, and
+a loop longer than its clock is broken rather than slow.
+
+Of the three blockers below, the second dissolved rather than being built: every
+register starts at 0, so nothing authors initial state, and no level file, save
+or palette entry mentions it. The first and third were ordinary work.
+
+The three as they were written:
 
 1. **`RegisterNode`** — the primitive CLAUDE.md already specifies but has not
    built. Gate-built latches genuinely cannot work here: consume semantics means
@@ -260,9 +277,19 @@ nothing in transit but deliberately permits bits stranded in input ports
 so a feedback loop drains and settles once the sources exhaust rather than
 hanging the run. Sequential levels will not need a new pass rule.
 
-### 8. FSMs and state minimisation
+**That held exactly.** No grading rule changed for the chapter. What did change
+is the arithmetic around it: latency is measured from a vector's own cycle rather
+than its index, and a sink's expected values may run one cycle past the vectors,
+because a register hands on the bit it was holding before the first one arrives.
 
-**Blocked on:** exactly the three above. Nothing additional.
+### 8. FSMs and state minimisation — shipped
+
+**Built**, as Spot the pattern, One clock behind and Add as you go. The analysis
+below held, with one thing worth adding: the 1-0-1 detector's minimal encoding
+has **no feedback at all**, because taking "saw a 1" to mean the previous bit
+makes the low state bit a plain register on the input. A level whose state
+diagram suggests a loop and whose minimal circuit has none is a better lesson in
+minimisation than the budget alone.
 
 Once registers exist, FSMs need no further mechanism — cycles are already legal
 wiring, and the settle behaviour above already handles the drain. Moore and Mealy
@@ -316,18 +343,25 @@ whenever the subject would otherwise be pipeline throughput.
 
 ### Clock-edge phenomena are not expressible.
 
-Setup and hold time, clock skew, and the level-triggered/edge-triggered
-distinction all need a clock as a *signal* — something with its own edges, its own
-arrival time, and a relationship to the data that can be violated. Here the tick
-is the clock, it is global, it is exact, and it is not a wire. Nothing can arrive
-late relative to it, so nothing can violate it. A latch and a flip-flop, once
-`RegisterNode` exists, will be the same object.
+Hold time, clock skew and the level-triggered/edge-triggered distinction all need
+a clock as a *signal* — something with its own edges, its own arrival time, and a
+relationship to the data that can be violated. Here the clock is the spacing
+between vectors: global, exact, and not a wire. Nothing can arrive late relative
+to it in the sense skew means, and a latch and a flip-flop are the same object,
+the register.
 
-The related lesson this game can teach is **latency budgeting**: the reason setup
-time matters is that a stage's logic must finish before the next capture, and here
-that becomes the concrete and gradeable question of whether a path fits within an
-allowed number of ticks. Reach for that whenever the subject would otherwise be
-clock timing.
+**Setup time is the exception, and this section used to deny it.** The reason
+setup matters is that a stage's logic must finish before the next capture, which
+is exactly the rule a `clockPeriod` imposes: a loop must close inside one period,
+and one that does not is broken rather than slow. Hardware would show that as a
+stale capture; here the state comes back after the next input has landed, the
+inputs queue, and two meet in a port. The sequential levels are built on it, and
+each one's clock is set to its intended loop so the constraint bites.
+
+The other related lesson is **latency budgeting**, which grades a path's length
+directly rather than through a loop: whether it fits within an allowed number of
+ticks. Reach for one of those two whenever the subject would otherwise be clock
+timing.
 
 ---
 

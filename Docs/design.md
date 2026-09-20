@@ -47,16 +47,31 @@ Under consume semantics it fails twice, and neither failure is a bug to fix:
    never refilled. The loop runs dry.
 
 So memory is not something a clever player can discover here. It has to be a
-primitive: `RegisterNode`, which emits the bit it holds and stores the one it
-just consumed, plus edges that begin with bits already in transit to break the
-startup deadlock. Together those give full synchronous sequential power with no
-change to the tick loop at all.
+primitive: `RegisterNode`, which emits the bit it starts with and then hands on
+every bit it is given, remembering it. **Built**, with no change to the tick loop
+at all.
 
-**`RegisterNode` is specified and not built.** Flip-flops and FSMs are blocked on
-it, plus a way to author a seeded edge and a seventh `GateKind` for the palette.
-The roadmap classifies them as *blocked on a missing primitive*, not as
-impossible — the distinction matters, because one means "ordinary work" and the
-other means "stop looking".
+It emits *before* it has been given anything, on the first tick of a run, and
+that first bit is what breaks the startup deadlock — a loop then has one bit
+circulating in it from the beginning, and that bit is the machine's state. This
+section used to call instead for "edges that begin with bits already in transit".
+Same arithmetic, worse game: a bit sitting on a wire belongs to nothing the
+player can point at, while a part that starts out holding 0 can be looked at,
+labelled, and drawn with the bit inside it. Seeded edges were never built and are
+not needed.
+
+Every register starts at 0, like a reset, which is why the level format needed no
+way to author initial state — one of the three things flip-flops were said to be
+blocked on dissolved rather than being built. The other two were ordinary work: a
+seventh `GateKind` for the palette, and the node itself.
+
+**The fourth blocker was not on that list.** A state machine is a loop, the
+shortest loop is two wires, and a source emits every tick — so the next input
+arrives before the state is back and the one after it collides. Sequential levels
+therefore run on a clock: `clockPeriod` spaces the vectors out, and everything
+the circuit does has to fit inside one period. That is the constraint setup time
+exists to express, arrived at from the failure side, and it is the one piece of
+clock timing this model can hold.
 
 ---
 
@@ -246,10 +261,13 @@ apply to the hint alone.
   is the player's, which means every timing hazard is one they created and can
   therefore undo. A level can constrain the delay budget; it cannot hand the
   player a pre-broken circuit to repair.
-- **No seeded edges**, which is one of the three things blocking flip-flops.
+- **No seeded edges.** They were once thought to be what flip-flops needed; the
+  register emits its own first bit instead, so nothing authors a wire's contents.
 - **Sinks have exactly one input port.**
-- **Sources are dense.** One bit per tick, no gaps. The loader refuses `-` in a
-  source stream, because `SourceNode` has no way to skip a tick.
+- **A stream is the vectors, not the ticks.** The loader refuses `-` in a source
+  stream: a source *can* stay quiet on a tick now, but the level says so once
+  with `clockPeriod`, which spaces every source out together. A gap written into
+  one stream would put that source out of step with the others silently.
 - **Vectors are global.** Every source stream is the same length, and that length
   is the vector count. A level cannot drop a vector for one sink alone — which is
   precisely the narrow case the `x` expectation character exists for.
@@ -333,14 +351,20 @@ Setup time, hold time, clock skew, and the level-triggered versus edge-triggered
 distinction all need the clock to be a **signal**: something with its own edges,
 its own arrival time, and a relationship to the data that can be violated.
 
-Here the tick *is* the clock. It is global, it is exact, and it is not a wire.
-Nothing can arrive late relative to it, so nothing can violate it. Once
-`RegisterNode` exists, a latch and a flip-flop will be the same object.
+Here the clock is the spacing between vectors. It is global, it is exact, and it
+is not a wire. Nothing can arrive late *relative to it* in the sense skew means,
+and a latch and a flip-flop are the same object — the register.
 
-**The substitute is latency budgeting.** The reason setup time matters is that a
-stage's logic must finish before the next capture; here that becomes the concrete
-and gradeable question of whether a path fits within an allowed number of ticks,
-which is exactly `maxLatency`.
+**Setup time, though, does survive**, and the sequential levels are built on it.
+The reason setup matters is that a stage's logic must finish before the next
+capture, and here that is exactly the rule that a loop must close within one
+`clockPeriod`. A loop that takes longer does not produce a stale value, as
+hardware would; the state comes back after the next input has landed, the inputs
+queue, and two of them meet in a port. Same constraint, failure side again.
+
+**The other substitute is latency budgeting**, which grades a path's length
+directly: whether it fits within an allowed number of ticks, which is
+`maxLatency`.
 
 ### Throughput is not a meaningful score
 

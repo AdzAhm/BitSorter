@@ -32,9 +32,10 @@ just because it is written down here.
 - **There are four kinds of teaching, and they must stay apart.** `goal` states
   the objective, `hint` nudges towards *this level's* answer, and a hint in
   `HintRules` explains a *mechanic*, once ever, the first time the player
-  meets it. Three of them: a gate stalling, a collision, and the fact that a
-  wire's delay can be scrolled at all. They are fired by what happens, not by
-  which level is loaded, and `hintsSeen` in the save remembers them.
+  meets it. Four of them: a gate stalling, a collision, the fact that a
+  wire's delay can be scrolled at all, and what the bit inside a register
+  means. They are fired by what happens, not by which level is loaded, and
+  `hintsSeen` in the save remembers them.
 
   The jobs must stay apart. `balance-the-paths`' hint already covers stalling
   and collision *for that level*, so a first-time hint reaching for the same
@@ -88,6 +89,17 @@ unbalanced-path corruption: two paths of different total delay into one
 gate, where the early bit waits and the next arrival collides with it.
 Reach for that whenever the subject would otherwise be hazards.
 
+**Setup time has an honest substitute; the rest of clock timing does
+not.** The clock here is still not a wire — it is the spacing between
+vectors, global and exact, so skew and hold time have nothing to be
+measured against and a latch and a flip-flop remain the same object. What
+*is* expressible, and is what the sequential levels are built on, is the
+constraint setup time exists to express: **everything must settle within
+one clock period**, and a loop that takes longer is not slow but broken.
+Reach for the period whenever the subject would otherwise be clock
+timing — and note that a level's clock is chosen to be exactly its
+intended loop, so the constraint bites.
+
 **Throughput is not a meaningful score.** A balanced circuit sustains
 exactly one vector per tick whatever its depth. Every gate consumes its
 inputs, emits, and hands the result to an edge of at least one tick, so
@@ -120,11 +132,18 @@ failure side.
   must be evaluatable in any order with the same outcome. Do not add
   anything that breaks this.
 
-- **SourceNode emits one bit per tick from tick 0**, then goes silent.
+- **SourceNode plays a scripted sequence from tick 0**, then goes silent.
   It needs no special casing: a source has no inputs, so the
   "all inputs filled" rule is vacuously true and it fires every tick.
-  If sparse streams are ever needed, make the sequence `Bit?[]` where
-  null means emit nothing. Not needed yet — do not add it preemptively.
+  The sequence is `Bit?[]`, exactly as this entry said it would be if sparse
+  streams were ever needed, and a null is a tick with no bit on it. What
+  needed them is the **clock**: a level spaces its vectors out with
+  `clockPeriod`, `CircuitBuilder` puts the gaps in, and no stream may
+  ask for one by hand — every source has to keep the same beat, and a gap
+  written into one of them would put that source out of step silently.
+  Gaps go between vectors, never after the last: a source is exhausted
+  only once its whole sequence has played, and the grader waits for that
+  before it calls a run settled.
 
 - **Collisions never throw.** A bit delivered to an occupied input port is
   destroyed, not thrown on. If the two values match, the port keeps its
@@ -205,15 +224,49 @@ failure side.
   `LevelLoaded`, so the board `ProgressTracker` restores is the baseline
   rather than a step the player can reverse past.
 
-- **Sequential logic uses stateful RegisterNode primitives plus seedable
-  edges, not gate-built latches.** Consume semantics destroys a value on
-  use, so a cross-coupled NOR latch deadlocks at startup (each gate waits
-  on the other's first output) and stalls after one firing (its external
-  input port is never refilled). Memory cannot emerge from gate feedback
-  here. A RegisterNode — emits the bit it holds, stores the one it just
-  consumed — plus edges that start with bits already in transit gives full
-  synchronous sequential power with no change to the tick loop.
-  **Not yet implemented.**
+- **Sequential logic uses a stateful RegisterNode, not gate-built latches.**
+  Consume semantics destroys a value on use, so a cross-coupled NOR latch
+  deadlocks at startup (each gate waits on the other's first output) and
+  stalls after one firing (its external input port is never refilled).
+  Memory cannot emerge from gate feedback here, which is why the register
+  is a primitive. **Built**, with the tick loop unchanged.
+
+  **It emits before it is given anything**, on the first tick, and hands on
+  every bit it receives in the tick it arrives. That first bit is what
+  breaks the startup deadlock: a loop then has one bit circulating in it
+  from the beginning, and that bit is the machine's state. This entry used
+  to call for "edges that start with bits already in transit" instead —
+  same arithmetic, worse game, because a bit sitting on a wire belongs to
+  nothing the player can point at. Seeded edges were never built and are
+  not needed.
+
+  **Every register starts at 0**, like a reset, and nothing can author it
+  otherwise. A machine that wants to start elsewhere encodes its states so
+  the reset state is the zero one, which keeps the level format, the save
+  file and the palette out of it entirely.
+
+  **A register costs no time of its own, and shifts the stream.** Its *k*-th
+  output is the bit it was given on cycle *k-1*, so it hands that bit on one
+  clock **earlier** than a plain wire would. That is the whole of the
+  arithmetic: a circuit comparing a bit with the one before it balances with
+  no padding at all, and the direct path around a register is the one that
+  needs lengthening.
+
+- **A loop needs a clock, and this is not a tuning choice.** A state machine
+  is a loop, the shortest loop is two wires, and a dense source sends a bit
+  every tick — so the next input lands before the state is back, waits in a
+  port, and the one after it collides. Sequential levels therefore set
+  `clockPeriod`, and the rule the player learns is the real one: everything
+  must settle inside one period. Two consequences:
+
+  **Balancing relaxes exactly as clocked design does.** Two paths into a
+  gate no longer have to arrive together, only within one period of each
+  other, because the next vector is a period away. Skew of a period or more
+  still collides.
+
+  **A loop must close within one period.** Longer and the state comes back
+  late, the inputs queue, and the run corrupts — this game's own way of
+  saying a circuit missed its clock.
 
 ## Working agreement
 - Use Plan mode for anything touching more than one file.
@@ -481,15 +534,39 @@ failure side.
   there were six tracks, and it still said six and 34 MB after three more were
   added -- the set cost half again as much as the only place that explained the
   decision claimed. The number of tracks no longer moves it at all.
+- **A register is drawn as what it is, not as another gate.** Its
+  silhouette is a tall box with the clock's notch cut out of the left edge,
+  and it is the only shape taller than it is wide — aspect ratio is the cue
+  that survives bloom, the same reasoning that made sources a wide capsule.
+  Inside it sits **the bit it is holding**, in that bit's own colour, which
+  swells for a moment when it changes: the state of a machine has to be
+  readable on the board while it runs. The body is the palest, least
+  saturated thing on the board on purpose. Near-white was tried and was
+  wrong the way the stalled-gate glow was wrong — under bloom it blew out
+  into a bright slab with the held bit lost inside it.
+- **The clock is on screen when there is one.** `ClockReadout` draws one pip
+  per tick of the period under the banner, lit in turn, and only on levels
+  that have a clock. Every other rule of this chapter is visible on the
+  board; "a vector every third tick, and your loop has that long" is not,
+  until something collides.
 - **Anything shown to the player is derived, never restated.** The truth
   table comes from the level's own streams and expectations; node labels
   come from `Node.Name`. A second copy of a fact is a second thing to
-  drift.
+  drift. The table draws a row per **clock cycle**, not per vector: a sink
+  fed through a register takes a bit after the streams have run out, and a
+  table that stopped at the vectors disagreed with the level it described.
 
 ## Not yet
 Do not build ahead of me. The logic core, the view layer, the level
-format, the nine levels, the canvas interface, sound, level select,
+format, the seventeen levels, the canvas interface, sound, level select,
 saved progress, analytics, the sandbox and board undo are all in.
+
+**Seventeen: nine combinational, eight sequential.** The sequential
+chapter is the register, the rising edge, the toggle, the enabled
+register, the two-bit counter, the 1-0-1 detector, the Moore reading of it
+and the serial adder — orders 100 to 170, in tens like the rest. Its card
+(`ChapterCard`) is shown once, on the first level whose parts list holds a
+register, and is a milestone in the save beside the tutorial.
 
 **The sandbox is built in code, not authored as JSON.** That is a
 decision, not a shortcut: `LevelLoader.Validate` refuses a level with no
@@ -645,6 +722,17 @@ Syllabus scope note above for why it has only two states.
 Design notes only — not implementation work, and not a backlog. Nothing
 here gets built, scaffolded or prepared for until I explicitly ask for it
 by name. Treat this section as a place to park ideas, not as a to-do list.
+
+- **Flip-flops and FSMs. Shipped**, as the eight sequential levels.
+  `Docs/level-roadmap.md` listed three blockers — the register, a way to
+  author its initial state, and a palette slot — and a fourth one nobody
+  had noticed: a loop cannot keep up with a vector every tick. The clock
+  answers the fourth, and the second dissolved rather than being built,
+  because every register starting at 0 needs no authoring at all.
+
+  What is left of that chapter's ideas: level- versus edge-triggering and
+  clock skew stay out (see Syllabus scope), and a wider board is still
+  what stands between this game and carry-lookahead.
 
 - **NAND-only puzzle.** NAND and NOR are each functionally complete —
   every other gate, including NOT, can be built from either one alone.
