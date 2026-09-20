@@ -117,6 +117,7 @@ namespace BitSorter.View.EditorTools
             TutorialPanel tutorialPanel = host.AddComponent<TutorialPanel>();
             TutorialHighlighter tutorialRings = host.AddComponent<TutorialHighlighter>();
             TutorialCard tutorialCard = host.AddComponent<TutorialCard>();
+            ChapterCard chapterCard = host.AddComponent<ChapterCard>();
 
             DiagnosticsPanel diagnostics = host.AddComponent<DiagnosticsPanel>();
             ProgressTracker progress = host.AddComponent<ProgressTracker>();
@@ -262,6 +263,10 @@ namespace BitSorter.View.EditorTools
             Assign(tutorial, "_winPanel", winPanel);
 
             Assign(tutorialCard, "_canvas", canvas);
+
+            Assign(chapterCard, "_session", session);
+            Assign(chapterCard, "_progress", progress);
+            Assign(chapterCard, "_canvas", canvas);
 
             Assign(levelSelect, "_tutorial", tutorial);
 
