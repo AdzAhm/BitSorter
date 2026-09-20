@@ -86,6 +86,7 @@ namespace BitSorter.LogicCore.Tests
                 "one-clock-late",
                 "rising-edge",
                 "flip-on-one",
+                "hold-when-told",
             };
 
             IReadOnlyList<KeyValuePair<string, LevelDefinition>> run = LevelsInPlayOrder();

@@ -1,0 +1,25 @@
+{
+  "name": "Hold when told",
+  "order": 130,
+  "goal": "Keep one bit. When EN is 1, take the bit on D; when EN is 0, keep what you have. The bin shows what is held each cycle, starting with the 0 it began with.",
+  "hint": "the register takes something every cycle, so the choice has to be made before it: either the new bit, or the one already being kept.",
+  "tickLimit": 80,
+  "clockPeriod": 4,
+  "maxWireDelay": 2,
+  "delayBudget": 1,
+  "fixtures": [
+    { "id": "d",   "kind": "Source", "cell": { "x": -3, "y":  1 }, "stream": "11010" },
+    { "id": "en",  "kind": "Source", "cell": { "x": -3, "y": -1 }, "stream": "10101" },
+    { "id": "out", "kind": "Sink",   "cell": { "x":  3, "y":  0 } }
+  ],
+  "budget": [
+    { "kind": "Register", "count": 1 },
+    { "kind": "Not", "count": 1 },
+    { "kind": "And", "count": 2 },
+    { "kind": "Or", "count": 1 },
+    { "kind": "Xor", "count": 2 }
+  ],
+  "expected": [
+    { "sink": "out", "values": "011000" }
+  ]
+}
