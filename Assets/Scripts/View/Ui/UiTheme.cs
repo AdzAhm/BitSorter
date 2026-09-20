@@ -214,13 +214,30 @@ namespace BitSorter.View
 
         public const float HintHeight = 46f;
 
-        /// <summary>First-time hints, just below the banner.</summary>
+        /// <summary>The clock strip's own row, under the verdict.</summary>
+        /// <remarks>
+        /// The third time this file has had to learn the same lesson. ClockReadout placed itself at
+        /// the bottom of the banner and did not allow for the verdict, which hangs below the banner
+        /// on its own row -- so "CLOCK 2 TICKS" and "FAIL -- vector 0: out wanted 1. Got 0." were
+        /// drawn through each other on every clocked level that failed, and through RUNNING on
+        /// every one that ran. Two things that must not overlap cannot each own half the arithmetic.
+        ///
+        /// Reserved on every level, not only the ones with a clock, because everything below is a
+        /// compile-time constant: a row that appeared and disappeared would move the first-time
+        /// hint under the player mid-level.
+        /// </remarks>
+        public const float ClockRow = Margin + BannerHeight + VerdictHeight + Gap;
+
+        /// <inheritdoc cref="ClockRow"/>
+        public const float ClockHeight = 22f + Gap;
+
+        /// <summary>First-time hints, below the clock strip's row.</summary>
         /// <remarks>
         /// Deliberately the top of the screen and not the toast row. The toast reports refusals and
         /// is coloured for them; a lesson sharing that row would be read as another thing the player
         /// did wrong. The banner is already where text is read, and it leaves the board clear.
         /// </remarks>
-        public const float HintRow = Margin + BannerHeight + VerdictHeight + Gap;
+        public const float HintRow = ClockRow + ClockHeight + Gap;
 
         public const float TutorialHeight = 52f;
 

@@ -77,11 +77,12 @@ namespace BitSorter.View
             _root = panel.GetComponent<RectTransform>();
             panel.raycastTarget = false;   // a readout, never a click target
 
-            // Directly under the banner, which is where the eye already is for what the level is
-            // doing. The banner's own rows are placed the same way, from the row above.
+            // Under the banner and under the verdict, on the row UiTheme reserves for it. Worked
+            // out here instead, it landed on the verdict: both were placed from the banner, and
+            // only one of them knew the other existed.
             UiTheme.Anchor(_root, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-                new Vector2(0f, -(UiTheme.Margin + UiTheme.BannerHeight + UiTheme.Gap)),
-                new Vector2(WidthFor(0), RowHeight + UiTheme.Gap));
+                new Vector2(0f, -UiTheme.ClockRow),
+                new Vector2(WidthFor(0), UiTheme.ClockHeight));
 
             _label = UiTheme.Label("period", _root, 13f, UiTheme.TextDim, TextAlignmentOptions.Left);
             UiTheme.Anchor(_label.rectTransform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f),
