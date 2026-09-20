@@ -241,12 +241,20 @@ namespace BitSorter.View
         }
 
         /// <summary>A filled panel background using the shared rounded silhouette.</summary>
+        /// <remarks>
+        /// <see cref="ProceduralSprites.Panel"/> rather than the AND gate's squircle, which this
+        /// borrowed and could not nine-slice: with no border the whole sprite was stretched across
+        /// the rect, so a panel was solid in the middle and faded out by its edges.
+        ///
+        /// Anything shorter than two corners -- the clock readout's pips -- has to replace the
+        /// sprite, the way the help badge already replaces it with a circle.
+        /// </remarks>
         public static Image Panel_(string name, Transform parent, Color colour)
         {
             RectTransform rect = Rect(name, parent);
 
             var image = rect.gameObject.AddComponent<Image>();
-            image.sprite = ProceduralSprites.RoundedSquare();
+            image.sprite = ProceduralSprites.Panel();
             image.type = Image.Type.Sliced;
             image.color = colour;
 

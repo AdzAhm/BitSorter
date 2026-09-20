@@ -124,6 +124,10 @@ namespace BitSorter.View
                 Image pip = UiTheme.Panel_($"Pip {i}", _pipRow, UiTheme.TextDim * 0.5f);
                 pip.raycastTarget = false;
 
+                // A pip is a beat, not a panel, and at ten pixels it is shorter than two of the
+                // panel sprite's corners -- which would leave nothing between them to slice.
+                pip.sprite = ProceduralSprites.Circle();
+
                 UiTheme.Anchor(pip.rectTransform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f),
                     new Vector2(i * (PipSize + PipGap) + PipSize * 0.5f, 0f),
                     new Vector2(PipSize, PipSize));

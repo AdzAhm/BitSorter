@@ -94,6 +94,46 @@ namespace BitSorter.View
         /// </remarks>
         public static Sprite FlipFlop() => Mask("flipFlop", NodeSize, InFlipFlop);
 
+        // -----------------------------------------------------------------
+        // Interface chrome
+        // -----------------------------------------------------------------
+
+        /// <summary>Side of the panel backdrop's texture, and how much of each edge is a corner.</summary>
+        /// <remarks>
+        /// The corner is in texels, and <see cref="UiPixelsPerUnit"/> makes a texel one interface
+        /// pixel, so a panel's corner is 10 pixels whatever size the panel is. Sized against the
+        /// shortest thing built from this sprite rather than against the largest: two corners have
+        /// to fit inside a 38-pixel toast with a middle left over to stretch.
+        /// </remarks>
+        public const int PanelSize = 32;
+
+        /// <inheritdoc cref="PanelSize"/>
+        public const int PanelCorner = 10;
+
+        /// <summary>
+        /// Must equal the canvas's <c>referencePixelsPerUnit</c>, which the scene builder leaves at
+        /// Unity's default, or a nine-sliced corner is drawn at some other size than it was cut.
+        /// </summary>
+        public const float UiPixelsPerUnit = 100f;
+
+        /// <summary>
+        /// The backdrop behind a panel: a rectangle with rounded corners, nine-sliced.
+        /// </summary>
+        /// <remarks>
+        /// Its own shape rather than <see cref="RoundedSquare"/>, which panels used to borrow from
+        /// the AND gate. Two things were wrong with that. A squircle has no straight edges, so
+        /// there is no middle of an edge to repeat along it -- the thing nine-slicing needs -- and
+        /// it stops 14% short of its own texture, so every panel drawn from it carried a
+        /// transparent margin. Stretched across a 330x380 rect that margin became a fade a hundred
+        /// pixels deep, and the help panel's title and hint ended up on bare board.
+        ///
+        /// A rounded rectangle has flat edges that reach the texture's own edge, so the four corner
+        /// tiles stay 10 pixels across and everything between them is solid.
+        /// </remarks>
+        public static Sprite Panel() => Mask(
+            "panel", PanelSize, p => InRoundedRect(p, PanelCorner / (PanelSize * 0.5f)),
+            new Vector4(PanelCorner, PanelCorner, PanelCorner, PanelCorner), UiPixelsPerUnit);
+
         /// <summary>Soft radial falloff, used behind everything that should appear to glow.</summary>
         public static Sprite Glow() => Field("glow", NodeSize, p =>
         {
@@ -191,7 +231,9 @@ namespace BitSorter.View
         // -----------------------------------------------------------------
 
         /// <summary>White sprite whose alpha is the supersampled coverage of a shape.</summary>
-        private static Sprite Mask(string key, int size, Func<Vector2, bool> inside)
+        private static Sprite Mask(
+            string key, int size, Func<Vector2, bool> inside,
+            Vector4 border = default, float pixelsPerUnit = 0f)
         {
             if (Cache.TryGetValue(key, out Sprite cached))
                 return cached;
@@ -222,7 +264,7 @@ namespace BitSorter.View
                 }
             }
 
-            return Store(key, size, pixels);
+            return Store(key, size, pixels, border, pixelsPerUnit);
         }
 
         /// <summary>White sprite whose alpha comes from a smooth field, no supersampling needed.</summary>
@@ -248,7 +290,13 @@ namespace BitSorter.View
             return Store(key, size, pixels);
         }
 
-        private static Sprite Store(string key, int size, Color32[] pixels)
+        /// <summary>
+        /// Turns a page of pixels into a cached sprite. A zero <paramref name="pixelsPerUnit"/>
+        /// means one sprite to one world unit, which is what every board shape wants.
+        /// </summary>
+        private static Sprite Store(
+            string key, int size, Color32[] pixels,
+            Vector4 border = default, float pixelsPerUnit = 0f)
         {
             var texture = NewTexture(size, TextureWrapMode.Clamp);
             texture.SetPixels32(pixels);
@@ -256,7 +304,7 @@ namespace BitSorter.View
 
             Sprite sprite = Sprite.Create(
                 texture, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f),
-                size, 0, SpriteMeshType.FullRect);
+                pixelsPerUnit > 0f ? pixelsPerUnit : size, 0, SpriteMeshType.FullRect, border);
 
             Cache[key] = sprite;
             return sprite;
@@ -274,6 +322,32 @@ namespace BitSorter.View
         // -----------------------------------------------------------------
 
         private static bool InCircle(Vector2 p, float radius) => p.sqrMagnitude <= radius * radius;
+
+        /// <summary>
+        /// A rectangle filling the whole sprite, with circular corners of this radius.
+        /// </summary>
+        /// <remarks>
+        /// Not a squircle. This one has genuinely flat edges that run out to the sprite's own
+        /// boundary, which is what lets <see cref="Panel"/> be nine-sliced: the middle of each edge
+        /// is a strip that can be repeated along an edge of any length without changing shape.
+        /// </remarks>
+        private static bool InRoundedRect(Vector2 p, float radius)
+        {
+            float x = Mathf.Abs(p.x);
+            float y = Mathf.Abs(p.y);
+
+            if (x > 1f || y > 1f)
+                return false;
+
+            float dx = x - (1f - radius);
+            float dy = y - (1f - radius);
+
+            // Anywhere but the four corner squares is simply inside the rectangle.
+            if (dx <= 0f || dy <= 0f)
+                return true;
+
+            return dx * dx + dy * dy <= radius * radius;
+        }
 
         /// <summary>A squircle: a square with softly rounded corners.</summary>
         private static bool InSquircle(Vector2 p, float half)
