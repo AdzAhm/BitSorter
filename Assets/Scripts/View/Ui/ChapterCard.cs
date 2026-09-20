@@ -95,7 +95,16 @@ namespace BitSorter.View
         /// </remarks>
         private void OnLevelLoaded(LevelDefinition level)
         {
-            if (level == null || _shown || !LevelCatalog.IsSequential(level))
+            if (_shown)
+                return;
+
+            // Whatever loads now is what the card is or is not owed for. Left standing, a card
+            // made due by one level would open over the next one: the flag is set on load and read
+            // a frame or more later, and anything that loads a level while a panel is up -- the
+            // level list is open the whole time it is being chosen from -- puts a load in between.
+            _due = false;
+
+            if (level == null || !LevelCatalog.IsSequential(level))
                 return;
 
             // Free play and the tutorial are not levels in the run, and free play stocks every
