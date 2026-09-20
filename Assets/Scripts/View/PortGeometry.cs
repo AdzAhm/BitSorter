@@ -51,16 +51,28 @@ namespace BitSorter.View
         public const float ShapeUnit = NodeSize * 0.5f;
 
         /// <summary>Where the held bit sits, relative to the register's centre, in shape units.</summary>
-        public const float HeldBitCentre = 0f;
+        /// <remarks>
+        /// Right of centre, not on it. The notch is cut into the left edge and is the only mark
+        /// that separates this box from a gate, so a disc centred on the node sits straight on top
+        /// of it -- which is what shipped, and the notch was invisible on the board. Offset into
+        /// the clear part of the body it leaves the cut showing, and puts the state on the Q side
+        /// where a textbook draws it.
+        /// </remarks>
+        public const float HeldBitCentre = 0.14f;
 
         /// <summary>Radius of the held bit at rest, in shape units.</summary>
-        public const float HeldBitRadius = 0.3956f;   // 0.46 of the node, as it shipped
+        /// <remarks>
+        /// Sized from what has to fit rather than from what looks right in isolation: the swollen
+        /// disc has to clear the notch tip on one side and the right edge on the other, which
+        /// leaves about 0.35 to play with, and the rest follows from the swell.
+        /// </remarks>
+        public const float HeldBitRadius = 0.20f;
 
         /// <summary>
         /// How far it swells on the clock it captures a new bit. A swell rather than a
         /// brightening, because bloom is already brightest at the middle of a node.
         /// </summary>
-        public const float HeldBitSwell = 1.8f;
+        public const float HeldBitSwell = 1.75f;
 
         /// <summary>The held bit at its largest, which is the size that has to fit.</summary>
         public const float HeldBitSwollenRadius = HeldBitRadius * HeldBitSwell;
