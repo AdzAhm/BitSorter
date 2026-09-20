@@ -54,6 +54,23 @@ namespace BitSorter.View
         /// number of times and never hear it. After the first, the menu's tracks take turns;
         /// <see cref="GameAudio"/> keeps the turn.
         /// </remarks>
+        /// <summary>
+        /// Whether the menu's own music should be playing, given which panels are up.
+        /// </summary>
+        /// <remarks>
+        /// The main menu and the level list are both full-screen panels for choosing what to play
+        /// next, and the menu's music belongs to that, not to the main menu specifically -- opening
+        /// the level list over a level used to drop the player into silence-but-for-the-level-track
+        /// while they browsed seventeen rows.
+        ///
+        /// This does not bend "the track changes only when the level does". Neither panel is a
+        /// level change: the level's own clip is kept underneath and resumes when the panel closes,
+        /// which is exactly what the main menu already did. It only widens what counts as being in
+        /// a menu.
+        /// </remarks>
+        public static bool WantsMenuMusic(bool mainMenuOpen, bool levelListOpen) =>
+            mainMenuOpen || levelListOpen;
+
         public static int FirstMenuTrack(int seed, int count)
         {
             if (count <= 1)

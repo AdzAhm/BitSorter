@@ -23,6 +23,9 @@ namespace BitSorter.View
         [SerializeField] private BitRenderer _bits;
         [SerializeField] private MainMenu _menu;
 
+        [Tooltip("The level list, which carries the menu's music too. Found by type when empty.")]
+        [SerializeField] private LevelSelectPanel _levels;
+
         [Tooltip("Played while the main menu is showing, one after another. Imported, not generated: " +
                  "see MenuMusicCredit, which the menu shows.")]
         [SerializeField] private MenuTrack[] _menuTracks = System.Array.Empty<MenuTrack>();
@@ -194,6 +197,7 @@ namespace BitSorter.View
             if (_session == null) _session = FindFirstObjectByType<LevelSession>();
             if (_bits == null) _bits = FindFirstObjectByType<BitRenderer>();
             if (_menu == null) _menu = FindFirstObjectByType<MainMenu>();
+            if (_levels == null) _levels = FindFirstObjectByType<LevelSelectPanel>();
 
             // The seed is the only random thing about the music: a different shuffle per session,
             // so two evenings on the same levels are not the same evening, and which of the menu's
@@ -553,14 +557,17 @@ namespace BitSorter.View
             Mathf.Pow(10f, (ProceduralAudio.MusicLoudnessDb - _menuTracks[_menuTrack].LoudnessDb) / 20f);
 
         /// <summary>
-        /// Whether the menu's own music should be playing: the main menu is up, and there is some.
+        /// Whether the menu's own music should be playing: a menu is up, and there is some.
         /// </summary>
         /// <remarks>
         /// Polled, the house pattern, rather than told. Without menu tracks -- a scene built without
         /// them -- the menu simply plays the level music, as it did before it had any of its own.
+        /// Which panels count is <see cref="MusicRules.WantsMenuMusic"/>'s to say.
         /// </remarks>
         private bool MenuWanted =>
-            _menu != null && _menu.IsOpen &&
+            MusicRules.WantsMenuMusic(
+                _menu != null && _menu.IsOpen,
+                _levels != null && _levels.IsShowing) &&
             _menuTracks != null && _menuTracks.Length > 0 && _menuTracks[_menuTrack].Clip != null;
 
         /// <summary>
