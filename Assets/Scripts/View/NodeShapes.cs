@@ -44,9 +44,11 @@ namespace BitSorter.View
             if (node is NorGate) return new Color(0.90f, 0.88f, 0.48f);      // olive
             if (node is NotGate) return new Color(1.00f, 0.58f, 0.82f);      // pink
 
-            // Near-white, and deliberately the palest thing on the board: what a register is worth
-            // looking at is the bit it holds, which is drawn inside it in that bit's own colour.
-            if (node is RegisterNode) return new Color(0.88f, 0.91f, 0.97f);
+            // A cool slate, and deliberately the least saturated thing on the board: what is worth
+            // looking at is the bit it holds, drawn inside it in that bit's own colour. Near-white
+            // was tried first and was wrong for the reason the stalled-gate glow was wrong -- under
+            // bloom the body blew out into a bright slab with the bit lost inside it.
+            if (node is RegisterNode) return new Color(0.64f, 0.70f, 0.84f);
 
             return new Color(0.62f, 0.64f, 0.70f);
         }
@@ -84,7 +86,7 @@ namespace BitSorter.View
                 case GateKind.Nand: return new Color(0.46f, 0.94f, 0.90f);
                 case GateKind.Nor: return new Color(0.90f, 0.88f, 0.48f);
                 case GateKind.Not: return new Color(1.00f, 0.58f, 0.82f);
-                case GateKind.Register: return new Color(0.88f, 0.91f, 0.97f);
+                case GateKind.Register: return new Color(0.64f, 0.70f, 0.84f);
                 default: return new Color(0.62f, 0.64f, 0.70f);
             }
         }

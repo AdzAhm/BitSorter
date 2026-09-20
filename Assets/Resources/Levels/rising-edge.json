@@ -1,0 +1,21 @@
+{
+  "name": "Rising edge",
+  "order": 110,
+  "goal": "Send a 1 to the bin only where the stream turns from 0 to 1. Everywhere else, a 0.",
+  "hint": "you need this bit and the one before it in the same place at the same time. One of them has further to travel than it looks.",
+  "tickLimit": 40,
+  "maxWireDelay": 3,
+  "delayBudget": 1,
+  "fixtures": [
+    { "id": "in",  "kind": "Source", "cell": { "x": -3, "y": 0 }, "stream": "01101" },
+    { "id": "out", "kind": "Sink",   "cell": { "x":  3, "y": 0 } }
+  ],
+  "budget": [
+    { "kind": "Register", "count": 1 },
+    { "kind": "Not", "count": 1 },
+    { "kind": "And", "count": 1 }
+  ],
+  "expected": [
+    { "sink": "out", "values": "01001" }
+  ]
+}

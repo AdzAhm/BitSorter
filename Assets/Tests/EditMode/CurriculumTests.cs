@@ -20,6 +20,9 @@ namespace BitSorter.LogicCore.Tests
         /// <summary>The level whose whole job is to introduce re-timing a wire.</summary>
         private const string DelayTutorial = "balance-the-paths";
 
+        /// <summary>The level whose whole job is to introduce the register.</summary>
+        private const string RegisterTutorial = "one-clock-late";
+
         private static IReadOnlyList<KeyValuePair<string, LevelDefinition>> LevelsInPlayOrder()
         {
             TextAsset[] assets = Resources.LoadAll<TextAsset>(LevelLoader.ResourcePath);
@@ -81,6 +84,7 @@ namespace BitSorter.LogicCore.Tests
 
                 // Sequential logic: circuits that remember.
                 "one-clock-late",
+                "rising-edge",
             };
 
             IReadOnlyList<KeyValuePair<string, LevelDefinition>> run = LevelsInPlayOrder();
@@ -123,6 +127,72 @@ namespace BitSorter.LogicCore.Tests
                     $"'{level.Key}' (order {level.Value.Order}) budgets delay, but the level that " +
                     $"teaches re-timing is order {tutorialOrder}. Teach the mechanic first.");
             }
+        }
+
+        [Test]
+        public void TheRegisterTutorial_ComesBeforeEveryLevelThatStocksOne()
+        {
+            // The same rule as re-timing, for the part that behaves unlike every other. A register
+            // handed to a player who has not met one is a box that emits a bit nobody sent and lags
+            // everything else by a clock -- indistinguishable, from the outside, from a bug.
+            IReadOnlyList<KeyValuePair<string, LevelDefinition>> run = LevelsInPlayOrder();
+
+            int tutorialOrder = -1;
+            foreach (KeyValuePair<string, LevelDefinition> level in run)
+            {
+                if (level.Key == RegisterTutorial)
+                    tutorialOrder = level.Value.Order;
+            }
+
+            Assert.Greater(tutorialOrder, 0, $"'{RegisterTutorial}' is missing from the run");
+
+            foreach (KeyValuePair<string, LevelDefinition> level in run)
+            {
+                if (level.Key == RegisterTutorial || !StocksARegister(level.Value))
+                    continue;
+
+                Assert.Greater(level.Value.Order, tutorialOrder,
+                    $"'{level.Key}' (order {level.Value.Order}) stocks a register, but the level " +
+                    $"that teaches one is order {tutorialOrder}. Teach the part first.");
+            }
+        }
+
+        [Test]
+        public void TheClock_ArrivesNoEarlierThanTheRegister()
+        {
+            // A clock exists so that a loop has time to come back round, and a loop needs a
+            // register. A level spacing its vectors out before the player has one would be slowing
+            // the game down for no reason they could see.
+            IReadOnlyList<KeyValuePair<string, LevelDefinition>> run = LevelsInPlayOrder();
+
+            int firstRegister = int.MaxValue;
+            int firstClock = int.MaxValue;
+
+            foreach (KeyValuePair<string, LevelDefinition> level in run)
+            {
+                if (StocksARegister(level.Value) && level.Value.Order < firstRegister)
+                    firstRegister = level.Value.Order;
+
+                if (level.Value.HasClock && level.Value.Order < firstClock)
+                    firstClock = level.Value.Order;
+            }
+
+            if (firstClock == int.MaxValue)
+                return;   // no clocked level yet
+
+            Assert.GreaterOrEqual(firstClock, firstRegister,
+                "a level runs on a clock before any level has stocked a register");
+        }
+
+        private static bool StocksARegister(LevelDefinition level)
+        {
+            for (int i = 0; i < level.Budget.Count; i++)
+            {
+                if (level.Budget[i].Kind == GateKind.Register)
+                    return true;
+            }
+
+            return false;
         }
 
         [Test]
