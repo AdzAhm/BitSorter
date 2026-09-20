@@ -53,6 +53,9 @@ namespace BitSorter.View
         private int _titleIndex;
         private int _titleCount;
 
+        /// <summary>The goal the banner was last sized for.</summary>
+        private string _goalShown;
+
         private RunState? _verdictState;
         private string _verdictReason;
         private bool _verdictPaused;
@@ -85,7 +88,10 @@ namespace BitSorter.View
             UiTheme.Anchor(_title.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
                 new Vector2(0f, -10f), new Vector2(UiTheme.BannerTextWidth, 30f));
 
-            _goal = UiTheme.Label("goal", root, 19f, UiTheme.Accent, TextAlignmentOptions.Center);
+            // Top-aligned, not centred: a goal longer than its box has to grow down into the room
+            // below it rather than out of both ends and over the title.
+            _goal = UiTheme.Label(
+                "goal", root, UiTheme.BannerGoalFontSize, UiTheme.Accent, TextAlignmentOptions.Top);
             UiTheme.Anchor(_goal.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
                 new Vector2(0f, -UiTheme.BannerTitleBlock),
                 new Vector2(UiTheme.BannerTextWidth, UiTheme.BannerGoalHeight));
@@ -130,6 +136,8 @@ namespace BitSorter.View
                 _title.text = "LEVEL DID NOT LOAD";
                 _title.color = UiTheme.Bad;
                 _goal.text = _session.LoadError ?? string.Empty;
+                _goalShown = _goal.text;
+                FitToGoal();
                 _verdict.text = string.Empty;
                 ShowToast(false);
 
@@ -159,13 +167,41 @@ namespace BitSorter.View
                 _titleCount = count;
             }
 
-            _goal.text = level.Goal;
+            if (!string.Equals(_goalShown, level.Goal))
+            {
+                _goal.text = level.Goal;
+                _goalShown = level.Goal;
+                FitToGoal();
+            }
 
             ShowVerdict();
             ShowToast(_runner != null && _runner.WasRecentlyRejected(_rejectionSeconds));
 
             if (_toast != null && _runner != null)
                 _toast.text = _runner.LastRejectionReason ?? string.Empty;
+        }
+
+        /// <summary>
+        /// Shrinks the banner to the goal it is showing, within the room UiTheme reserves for it.
+        /// </summary>
+        /// <remarks>
+        /// The reserved height is the worst case, and most goals are one line -- drawn at the full
+        /// height, the banner would be a box with forty empty pixels under most of them, which was
+        /// invisible while panels faded out at their edges and is not now they have real ones.
+        ///
+        /// Only the drawn panel moves. Everything placed below the banner still measures from
+        /// <see cref="UiTheme.BannerHeight"/>, so a short banner leaves a slightly wider gap and
+        /// never a collision.
+        /// </remarks>
+        private void FitToGoal()
+        {
+            if (_root == null)
+                return;
+
+            float wanted = UiTheme.BannerTitleBlock + UiTheme.GoalHeight(_goalShown) + UiTheme.BannerPad;
+
+            _root.sizeDelta = new Vector2(
+                _root.sizeDelta.x, Mathf.Min(wanted, UiTheme.BannerHeight));
         }
 
         private void ShowVerdict()

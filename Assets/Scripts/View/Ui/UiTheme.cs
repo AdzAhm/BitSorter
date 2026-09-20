@@ -162,16 +162,25 @@ namespace BitSorter.View
         public const float BannerTextWidth = 760f;
 
         /// <summary>The title's row: its inset from the top, plus its own height.</summary>
-        public const float BannerTitleBlock = 44f;
+        public const float BannerTitleBlock = 40f;
 
-        /// <summary>Room under the title for the goal.</summary>
-        public const float BannerGoalHeight = 28f;
+        /// <summary>
+        /// Room under the title for the goal: three wrapped lines, which is the longest any level
+        /// has.
+        /// </summary>
+        /// <remarks>
+        /// Reserved, not always drawn. The banner shrinks to whatever its goal actually needs, so a
+        /// one-line goal is not sitting in a box with forty empty pixels under it -- but every row
+        /// below the banner is placed from the full figure, so a long goal can never push one of
+        /// them off its row. <see cref="UiThemeTests"/> refuses a goal that would not fit.
+        /// </remarks>
+        public const float BannerGoalHeight = 66f;
 
         /// <summary>Size the goal is set at, shared with whatever measures it.</summary>
         public const float BannerGoalFontSize = 19f;
 
         /// <summary>Breathing room under the goal.</summary>
-        public const float BannerPad = 20f;
+        public const float BannerPad = 12f;
 
         /// <summary>
         /// Tall enough for the title and the goal, and nothing else.
