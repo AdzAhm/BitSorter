@@ -300,6 +300,7 @@ namespace BitSorter.View.EditorTools
             Assign(audio, "_session", session);
             Assign(audio, "_bits", bits);
             Assign(audio, "_menu", mainMenu);
+            Assign(audio, "_levels", levelSelect);
             AssignMenuTracks(audio);
 
             EditorSceneManager.MarkSceneDirty(scene);
