@@ -115,6 +115,31 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsNull(GameObject.Find("Help badge"), "the help badge is drawn over the level list");
         }
 
+        /// <summary>
+        /// Opening free play does not put the sequential chapter's card on screen.
+        /// </summary>
+        /// <remarks>
+        /// Free play stocks every part there is, registers included, and the card is fired by the
+        /// first level whose parts list holds one. Without a guard it therefore takes the screen
+        /// the first time anyone opens the sandbox -- and, being a full-screen panel, takes the
+        /// setup panel down with the rest of the HUD while it is up.
+        ///
+        /// `LevelCatalog.IsOffCatalogue` is the one place that knows free play and the tutorial are
+        /// not levels in the run, and this is one more thing that has to ask it.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator OpeningFreePlay_DoesNotShowTheChapterCard()
+        {
+            yield return TestScene.Load();
+            yield return OpenFreePlay();
+
+            ChapterCard card = Find<ChapterCard>();
+
+            Assert.IsNotNull(card, "sanity: the scene should have a chapter card");
+            Assert.IsFalse(card.IsShowing, "free play is not a chapter of the run");
+            Assert.IsFalse(UiModal.AnyOpen, "nothing should be covering the board in free play");
+        }
+
         // -----------------------------------------------------------------
         // Helpers
         // -----------------------------------------------------------------
