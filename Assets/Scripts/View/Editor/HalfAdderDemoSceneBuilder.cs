@@ -121,9 +121,8 @@ namespace BitSorter.View.EditorTools
 
             DiagnosticsPanel diagnostics = host.AddComponent<DiagnosticsPanel>();
 
-            // The other bottom corner, behind the same key. Finds what it needs by type, like the
-            // readouts around it, so it has nothing to wire.
-            host.AddComponent<ClockDiagram>();
+            // The other bottom corner, behind the same key.
+            ClockDiagram clockDiagram = host.AddComponent<ClockDiagram>();
             ProgressTracker progress = host.AddComponent<ProgressTracker>();
 
             // Reads the tracker's store only in Update, after every Awake has run, so its place in
@@ -227,6 +226,10 @@ namespace BitSorter.View.EditorTools
             Assign(diagnostics, "_runner", runner);
             Assign(diagnostics, "_session", session);
             Assign(diagnostics, "_canvas", canvas);
+
+            Assign(clockDiagram, "_runner", runner);
+            Assign(clockDiagram, "_session", session);
+            Assign(clockDiagram, "_canvas", canvas);
 
             Assign(progress, "_session", session);
             Assign(progress, "_runner", runner);
