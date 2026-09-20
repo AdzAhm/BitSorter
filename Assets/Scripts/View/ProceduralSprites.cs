@@ -57,6 +57,20 @@ namespace BitSorter.View
 
         public static Sprite Hexagon() => Mask("hexagon", NodeSize, p => InHexagon(p, 0.88f));
 
+        /// <summary>
+        /// The flip-flop box: a tall, narrow rectangle with the clock's notch cut into its left
+        /// edge, where a textbook draws the little triangle.
+        /// </summary>
+        /// <remarks>
+        /// A register is not a gate and must not read as one. Every gate silhouette here is as wide
+        /// as it is tall or wider; this is the only one that is taller than it is wide, which is the
+        /// cue that survives bloom -- the same reasoning that made sources a wide capsule.
+        ///
+        /// The notch is cut out of the outline rather than drawn inside it, because interior detail
+        /// is exactly what the glow eats.
+        /// </remarks>
+        public static Sprite FlipFlop() => Mask("flipFlop", NodeSize, InFlipFlop);
+
         /// <summary>Soft radial falloff, used behind everything that should appear to glow.</summary>
         public static Sprite Glow() => Field("glow", NodeSize, p =>
         {
@@ -244,6 +258,22 @@ namespace BitSorter.View
             float x = Mathf.Abs(p.x) / half;
             float y = Mathf.Abs(p.y) / half;
             return x * x * x * x + y * y * y * y <= 1f;
+        }
+
+        /// <summary>A tall box with a triangular notch bitten out of the middle of its left edge.</summary>
+        private static bool InFlipFlop(Vector2 p)
+        {
+            const float halfWidth = 0.58f;
+            const float halfHeight = 0.94f;
+            const float notch = 0.30f;     // how deep the clock notch cuts, and half how tall it is
+
+            if (Mathf.Abs(p.x) > halfWidth || Mathf.Abs(p.y) > halfHeight)
+                return false;
+
+            // The notch narrows to a point as it goes in, which is the clock triangle in reverse.
+            float depth = p.x + halfWidth;
+
+            return depth >= notch || Mathf.Abs(p.y) >= notch - depth;
         }
 
         /// <summary>Flat left edge tapering to a rounded point on the right, as OR-family gates do.</summary>

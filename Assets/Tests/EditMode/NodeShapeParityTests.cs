@@ -10,16 +10,18 @@ namespace BitSorter.LogicCore.Tests
     /// <remarks>
     /// <see cref="NodeShapes"/> now answers the same question twice: once for a live
     /// <see cref="Node"/>, which is what the board draws, and once for a <see cref="GateKind"/>,
-    /// which is what the palette draws. Two switch statements over the same six cases will drift, and
+    /// which is what the palette draws. Two switch statements over the same cases will drift, and
     /// the drift would be invisible -- an interface quietly promising one shape and delivering
     /// another, with every test still green.
+    ///
+    /// The list of kinds is taken from the enum rather than written out. It used to be written out,
+    /// and when the register was added it was the one part these tests did not cover -- the check
+    /// that exists to catch a part being forgotten, quietly forgetting a part.
     /// </remarks>
     public class NodeShapeParityTests
     {
         private static readonly GateKind[] EveryKind =
-        {
-            GateKind.Not, GateKind.And, GateKind.Or, GateKind.Xor, GateKind.Nand, GateKind.Nor,
-        };
+            (GateKind[])System.Enum.GetValues(typeof(GateKind));
 
         [Test]
         public void EveryPaletteIcon_MatchesTheGateItPlaces()

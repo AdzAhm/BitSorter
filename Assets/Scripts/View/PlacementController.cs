@@ -4,7 +4,7 @@ using UnityEngine.InputSystem;
 namespace BitSorter.View
 {
     /// <summary>
-    /// Mouse-driven placement: number keys 1-6 pick a gate the level stocks, left click places on an
+    /// Mouse-driven placement: number keys 1-7 pick a part the level stocks, left click places on an
     /// empty cell, right click removes whatever occupies a cell. Editing is only allowed while the
     /// level session is in its Editing state.
     /// </summary>
@@ -157,6 +157,7 @@ namespace BitSorter.View
             else if (keyboard.digit4Key.wasPressedThisFrame) kind = GateKind.Xor;
             else if (keyboard.digit5Key.wasPressedThisFrame) kind = GateKind.Nand;
             else if (keyboard.digit6Key.wasPressedThisFrame) kind = GateKind.Nor;
+            else if (keyboard.digit7Key.wasPressedThisFrame) kind = GateKind.Register;
             else
             {
                 kind = default;

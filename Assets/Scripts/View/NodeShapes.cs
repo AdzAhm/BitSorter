@@ -26,6 +26,9 @@ namespace BitSorter.View
             // does not, and no gate is anywhere near this wide.
             if (node is SourceNode) return ProceduralSprites.Capsule();
             if (node is SinkNode) return ProceduralSprites.Hexagon();
+            // Taller than it is wide, and the only shape that is: a register is not a gate, and the
+            // silhouette has to say so before the colour or the label can.
+            if (node is RegisterNode) return ProceduralSprites.FlipFlop();
 
             return ProceduralSprites.RoundedSquare();   // pass-through and anything new
         }
@@ -40,6 +43,10 @@ namespace BitSorter.View
             if (node is NandGate) return new Color(0.46f, 0.94f, 0.90f);     // teal
             if (node is NorGate) return new Color(0.90f, 0.88f, 0.48f);      // olive
             if (node is NotGate) return new Color(1.00f, 0.58f, 0.82f);      // pink
+
+            // Near-white, and deliberately the palest thing on the board: what a register is worth
+            // looking at is the bit it holds, which is drawn inside it in that bit's own colour.
+            if (node is RegisterNode) return new Color(0.88f, 0.91f, 0.97f);
 
             return new Color(0.62f, 0.64f, 0.70f);
         }
@@ -61,6 +68,7 @@ namespace BitSorter.View
                 case GateKind.Xor: return ProceduralSprites.ShieldArc();
                 case GateKind.And: return ProceduralSprites.RoundedSquare();
                 case GateKind.Or: return ProceduralSprites.Shield();
+                case GateKind.Register: return ProceduralSprites.FlipFlop();
                 default: return ProceduralSprites.RoundedSquare();
             }
         }
@@ -76,6 +84,7 @@ namespace BitSorter.View
                 case GateKind.Nand: return new Color(0.46f, 0.94f, 0.90f);
                 case GateKind.Nor: return new Color(0.90f, 0.88f, 0.48f);
                 case GateKind.Not: return new Color(1.00f, 0.58f, 0.82f);
+                case GateKind.Register: return new Color(0.88f, 0.91f, 0.97f);
                 default: return new Color(0.62f, 0.64f, 0.70f);
             }
         }

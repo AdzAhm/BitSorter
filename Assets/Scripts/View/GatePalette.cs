@@ -3,7 +3,11 @@ using BitSorter.LogicCore;
 
 namespace BitSorter.View
 {
-    /// <summary>The gates the player can place, in palette order (number keys 1-6).</summary>
+    /// <summary>The parts the player can place, in palette order (number keys 1-7).</summary>
+    /// <remarks>
+    /// Register is the only one that is not a gate: it remembers, where every other entry computes.
+    /// It is last so the six gates keep the numbers they have always had.
+    /// </remarks>
     public enum GateKind
     {
         Not = 0,
@@ -12,6 +16,7 @@ namespace BitSorter.View
         Xor = 3,
         Nand = 4,
         Nor = 5,
+        Register = 6,
     }
 
     /// <summary>
@@ -20,7 +25,7 @@ namespace BitSorter.View
     /// </summary>
     public static class GatePalette
     {
-        public const int Count = 6;
+        public const int Count = 7;
 
         public static Node Create(GateKind kind)
         {
@@ -32,6 +37,7 @@ namespace BitSorter.View
                 case GateKind.Xor: return new XorGate { Name = "XOR" };
                 case GateKind.Nand: return new NandGate { Name = "NAND" };
                 case GateKind.Nor: return new NorGate { Name = "NOR" };
+                case GateKind.Register: return new RegisterNode { Name = "REG" };
                 default:
                     throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown gate kind.");
             }
@@ -60,12 +66,14 @@ namespace BitSorter.View
                 case "xor": kind = GateKind.Xor; return true;
                 case "nand": kind = GateKind.Nand; return true;
                 case "nor": kind = GateKind.Nor; return true;
+                case "register": kind = GateKind.Register; return true;
                 default: return false;
             }
         }
 
         /// <summary>How many input ports a gate of this kind has.</summary>
-        public static int InputsOf(GateKind kind) => kind == GateKind.Not ? 1 : 2;
+        public static int InputsOf(GateKind kind) =>
+            kind == GateKind.Not || kind == GateKind.Register ? 1 : 2;
 
         public static string Label(GateKind kind)
         {
@@ -77,6 +85,7 @@ namespace BitSorter.View
                 case GateKind.Xor: return "XOR";
                 case GateKind.Nand: return "NAND";
                 case GateKind.Nor: return "NOR";
+                case GateKind.Register: return "REG";
                 default: return kind.ToString();
             }
         }
