@@ -619,12 +619,43 @@ namespace BitSorter.PlayMode.Tests
         /// Long enough for a fade down, a swap and a fade back up -- and for the new track to finish
         /// building first, which GameAudio waits for rather than freezing a frame on.
         /// </summary>
+        /// <summary>
+        /// Waits until the music has stopped reacting to whatever the test just did.
+        /// </summary>
+        /// <remarks>
+        /// This waited five seconds of wall clock, and a track is built at two milliseconds a
+        /// *frame*. An editor in the background renders few enough frames that five seconds never
+        /// finished one, so all seven tests below failed -- reproducibly, which made it read as a
+        /// bug in the music rather than as a test that measured the wrong thing. Waiting on the
+        /// condition is what CLAUDE.md already says about the cue tests: drive the clock, do not
+        /// wait for it.
+        ///
+        /// Two frames first, so a change made on this frame has been seen before the condition is
+        /// asked about; otherwise "settled" is still true from before it.
+        ///
+        /// The cap is wall clock and generous. It is a deadlock guard, not a timing assumption --
+        /// reaching it is a failure with a sentence saying so, where a silent return would leave
+        /// whichever assertion came next to report something misleading.
+        /// </remarks>
         private static IEnumerator WaitForTheFade()
         {
-            float until = Time.unscaledTime + 5f;
+            yield return null;
+            yield return null;
 
-            while (Time.unscaledTime < until)
+            GameAudio audio = Find<GameAudio>();
+
+            if (audio == null)
+                yield break;
+
+            float until = Time.unscaledTime + 60f;
+
+            while (!audio.IsSettled)
+            {
+                if (Time.unscaledTime > until)
+                    Assert.Fail("the music never settled: it is still mid-change after a minute");
+
                 yield return null;
+            }
         }
     }
 }

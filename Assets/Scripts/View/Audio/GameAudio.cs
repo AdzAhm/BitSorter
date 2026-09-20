@@ -470,6 +470,37 @@ namespace BitSorter.View
         /// to say building it on the spot cost "a few milliseconds"; measured, it was 260 to 550,
         /// and the frame it landed on froze.
         /// </remarks>
+        /// <summary>Whether the music is part-way through reacting to a change.</summary>
+        /// <remarks>
+        /// Lifted out of <see cref="DriveMusic"/> so <see cref="IsSettled"/> and the fade itself
+        /// cannot disagree about what counts as a change.
+        /// </remarks>
+        private bool Switching
+        {
+            get
+            {
+                bool menu = MenuWanted;
+                return _begun && (menu != _onMenu || (!menu && _wanted != _track));
+            }
+        }
+
+        /// <summary>
+        /// Whether the music has finished reacting to whatever last changed: nothing is switching
+        /// and the fade is back up.
+        /// </summary>
+        /// <remarks>
+        /// For tests, and deliberately neutral -- it says the system has stopped moving, not that
+        /// any particular track is playing, so a test still has to assert which one and cannot pass
+        /// by having waited for the answer it wanted.
+        ///
+        /// It exists because waiting a fixed number of seconds does not work. A track is built at
+        /// two milliseconds a *frame*, and an editor running in the background renders few enough
+        /// frames that five seconds of wall clock was not enough to finish one -- so seven audio
+        /// tests failed, reproducibly, whenever the window was behind something else. Waiting for
+        /// the condition instead of for the clock is the same lesson the cue tests already learned.
+        /// </remarks>
+        public bool IsSettled => _begun && !Switching && _gain >= 1f;
+
         private void DriveMusic()
         {
             if (_musicSource == null)
@@ -480,7 +511,7 @@ namespace BitSorter.View
             _musicSource.mute = Muted;
 
             bool menu = MenuWanted;
-            bool switching = _begun && (menu != _onMenu || (!menu && _wanted != _track));
+            bool switching = Switching;
 
             // A level track not built yet is waited for, never stalled on. The music already
             // playing carries on at full volume while the build finishes at a faster pace, and the
