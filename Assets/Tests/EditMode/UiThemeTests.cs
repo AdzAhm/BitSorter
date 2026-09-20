@@ -252,5 +252,29 @@ namespace BitSorter.LogicCore.Tests
             }
         }
 
+
+        /// <summary>
+        /// The clock strip is as wide as the beat it has to show.
+        /// </summary>
+        /// <remarks>
+        /// Its width was fixed at the widest period the game uses, which nothing noticed while
+        /// every panel faded out towards its edges -- the empty end of the strip faded with it.
+        /// Once panels got real edges, a two-tick clock sat in a bar half of which was empty.
+        /// </remarks>
+        [Test]
+        public void TheClockStrip_IsAsWideAsItsBeat()
+        {
+            float two = ClockReadout.WidthFor(2);
+            float three = ClockReadout.WidthFor(3);
+            float four = ClockReadout.WidthFor(4);
+
+            Assert.Less(two, three, "a longer period needs a longer strip");
+            Assert.AreEqual(three - two, four - three, 0.0001f, "each pip costs the same");
+
+            Assert.Greater(ClockReadout.WidthFor(1), 0f);
+            Assert.Less(ClockReadout.WidthFor(0), ClockReadout.WidthFor(1),
+                "no beat at all is the narrowest the strip gets");
+        }
+
     }
 }

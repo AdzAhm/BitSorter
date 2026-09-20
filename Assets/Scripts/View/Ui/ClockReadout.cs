@@ -34,6 +34,24 @@ namespace BitSorter.View
         private const float PipGap = 5f;
         private const float RowHeight = 22f;
 
+        /// <summary>Left inset, and where the beat starts after the label.</summary>
+        private const float Inset = 12f;
+        private const float PipRowLeft = 122f;
+
+        /// <summary>
+        /// How wide the strip is for a period, measured from what goes in it.
+        /// </summary>
+        /// <remarks>
+        /// A fixed width was fine while every panel faded out towards its edges, because the empty
+        /// end of the strip faded with it. Now that a panel has a real edge, a two-tick clock in a
+        /// strip sized for four is a bar that is half empty for no reason.
+        /// </remarks>
+        public static float WidthFor(int period)
+        {
+            float beat = period <= 0 ? 0f : period * (PipSize + PipGap) - PipGap;
+            return PipRowLeft + beat + Inset;
+        }
+
         private RectTransform _root;
         private TextMeshProUGUI _label;
         private RectTransform _pipRow;
@@ -63,17 +81,17 @@ namespace BitSorter.View
             // doing. The banner's own rows are placed the same way, from the row above.
             UiTheme.Anchor(_root, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
                 new Vector2(0f, -(UiTheme.Margin + UiTheme.BannerHeight + UiTheme.Gap)),
-                new Vector2(260f, RowHeight + UiTheme.Gap));
+                new Vector2(WidthFor(0), RowHeight + UiTheme.Gap));
 
             _label = UiTheme.Label("period", _root, 13f, UiTheme.TextDim, TextAlignmentOptions.Left);
             UiTheme.Anchor(_label.rectTransform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f),
-                new Vector2(12f, 0f), new Vector2(110f, RowHeight));
+                new Vector2(Inset, 0f), new Vector2(PipRowLeft - Inset * 2f, RowHeight));
 
             var row = new GameObject("Beat", typeof(RectTransform));
             row.transform.SetParent(_root, false);
             _pipRow = row.GetComponent<RectTransform>();
             UiTheme.Anchor(_pipRow, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f),
-                new Vector2(122f, 0f), new Vector2(126f, RowHeight));
+                new Vector2(PipRowLeft, 0f), new Vector2(126f, RowHeight));
 
             _root.gameObject.SetActive(false);
         }
@@ -118,6 +136,8 @@ namespace BitSorter.View
             _litPip = -1;
             _builtPeriod = period;
             _label.text = $"CLOCK  {period} TICKS";
+
+            _root.sizeDelta = new Vector2(WidthFor(period), _root.sizeDelta.y);
 
             for (int i = 0; i < period; i++)
             {
