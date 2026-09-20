@@ -120,6 +120,10 @@ namespace BitSorter.View.EditorTools
             ChapterCard chapterCard = host.AddComponent<ChapterCard>();
 
             DiagnosticsPanel diagnostics = host.AddComponent<DiagnosticsPanel>();
+
+            // The other bottom corner, behind the same key. Finds what it needs by type, like the
+            // readouts around it, so it has nothing to wire.
+            host.AddComponent<ClockDiagram>();
             ProgressTracker progress = host.AddComponent<ProgressTracker>();
 
             // Reads the tracker's store only in Update, after every Awake has run, so its place in

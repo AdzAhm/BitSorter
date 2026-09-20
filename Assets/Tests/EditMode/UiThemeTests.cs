@@ -24,7 +24,7 @@ namespace BitSorter.LogicCore.Tests
         // The two bottom corners
         // -----------------------------------------------------------------
 
-        /// <summary>The right-hand bottom corner, free since the catch readout moved.</summary>
+        /// <summary>The right-hand bottom corner, where diagnostics sits.</summary>
         private static readonly Vector2 RightCorner = new Vector2(1f, 0f);
 
         /// <summary>
@@ -86,7 +86,10 @@ namespace BitSorter.LogicCore.Tests
                     "a right-hand panel has to move left off its own edge to stay on screen");
                 Assert.AreEqual(UiTheme.Margin, rect.anchoredPosition.y);
 
-                UiTheme.AnchorBottomCorner(rect, UiTheme.DiagnosticsCorner, 96f);
+                // The left corner, stated rather than borrowed from whichever readout happens to
+                // be on that side: the readouts have swapped corners once already, and this is a
+                // test of the anchoring, not of where they currently sit.
+                UiTheme.AnchorBottomCorner(rect, new Vector2(0f, 0f), 96f);
 
                 Assert.Greater(rect.anchoredPosition.x, 0f,
                     "a left-hand panel has to move right off its own edge");
@@ -343,6 +346,51 @@ namespace BitSorter.LogicCore.Tests
             Assert.LessOrEqual(needed, room,
                 $"{levels} levels in two chapters need {needed:F0}px and the panel has {room:F0}px " +
                 "between its title and its help line, so the list prints over them");
+        }
+
+
+        /// <summary>
+        /// The clock diagram's wave is high on the tick a vector arrives and low for the rest.
+        /// </summary>
+        /// <remarks>
+        /// The same fact the clock readout lights its first pip on, which is why both ask what the
+        /// tick is within the cycle rather than each deciding what a cycle is. A period of one is
+        /// high throughout -- a square wave that never falls -- which is why the diagram is not
+        /// drawn on a level without a clock.
+        /// </remarks>
+        [Test]
+        public void TheClockWave_IsHighOnTheTickAVectorArrives()
+        {
+            // Tick 0 is before the run starts, and tick 1 is the first tick of the first cycle.
+            Assert.IsTrue(ClockDiagram.IsHigh(0, 3), "the run has not started");
+            Assert.IsTrue(ClockDiagram.IsHigh(1, 3), "the first vector arrives");
+            Assert.IsFalse(ClockDiagram.IsHigh(2, 3));
+            Assert.IsFalse(ClockDiagram.IsHigh(3, 3));
+            Assert.IsTrue(ClockDiagram.IsHigh(4, 3), "the second vector, a period later");
+
+            for (int tick = 0; tick < 8; tick++)
+            {
+                Assert.IsTrue(ClockDiagram.IsHigh(tick, 1),
+                    "a vector every tick is a wave that never falls");
+            }
+        }
+
+        /// <summary>
+        /// The two F3 readouts are in opposite bottom corners.
+        /// </summary>
+        /// <remarks>
+        /// They come up together on the same key, and both are anchored with
+        /// <see cref="UiTheme.AnchorBottomCorner"/> at the same width -- so sharing a corner would
+        /// put them in exactly the same rectangle, which is what the catch readout and diagnostics
+        /// already did once.
+        /// </remarks>
+        [Test]
+        public void TheTwoF3Readouts_TakeDifferentCorners()
+        {
+            Assert.AreNotEqual(UiTheme.DiagnosticsCorner, UiTheme.ClockDiagramCorner);
+
+            Assert.AreEqual(0f, UiTheme.DiagnosticsCorner.y, "both sit on the bottom edge");
+            Assert.AreEqual(0f, UiTheme.ClockDiagramCorner.y, "both sit on the bottom edge");
         }
 
     }

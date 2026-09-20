@@ -44,7 +44,7 @@ namespace BitSorter.View
 
             Image panel = UiTheme.Panel_("Diagnostics", _canvas.transform, UiTheme.Panel);
             _root = panel.GetComponent<RectTransform>();
-            // Bottom left. This was bottom right at the same offset and the same width as free play's
+            // Bottom right. UiTheme owns which corner, because the clock diagram now has the other
             // catch readout, so with F3 open in free play the two drew in exactly the same rectangle.
             // That readout is now part of the setup panel, and this stays on the left regardless.
             UiTheme.AnchorBottomCorner(_root, UiTheme.DiagnosticsCorner, 96f);

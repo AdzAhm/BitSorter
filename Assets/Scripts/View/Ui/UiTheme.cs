@@ -93,13 +93,23 @@ namespace BitSorter.View
         /// </remarks>
         public const float CornerWidth = 230f;
 
-        /// <summary>Diagnostics takes the left corner, which nothing else uses at this height.</summary>
+        /// <summary>
+        /// Diagnostics takes the right corner, and the clock diagram the left.
+        /// </summary>
         /// <remarks>
-        /// The palette is centred on the left edge and stops well above the bottom margin, and the
-        /// controls line and the button row are both centred and narrower than the gap between the
-        /// two corners.
+        /// Both are behind F3 and both are bottom-corner readouts, so they are stated together:
+        /// they are the pair this constant's width exists to keep apart. The right one is clear at
+        /// this height -- free play's setup panel stops 148 from the bottom and a corner readout is
+        /// 96 tall on the margin -- and the palette is centred on the left edge and stops well
+        /// above it, so neither corner is contended.
+        ///
+        /// Diagnostics was on the left. The clock diagram is a picture of the level's beat and
+        /// belongs beside the board's own left edge, where the sources are.
         /// </remarks>
-        public static readonly Vector2 DiagnosticsCorner = new Vector2(0f, 0f);
+        public static readonly Vector2 DiagnosticsCorner = new Vector2(1f, 0f);
+
+        /// <inheritdoc cref="DiagnosticsCorner"/>
+        public static readonly Vector2 ClockDiagramCorner = new Vector2(0f, 0f);
 
         /// <summary>
         /// Puts a readout in one of the two bottom corners, at the shared width.
