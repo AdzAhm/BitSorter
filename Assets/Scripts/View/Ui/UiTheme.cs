@@ -158,6 +158,21 @@ namespace BitSorter.View
         /// </remarks>
         public const float BannerWidth = 780f;
 
+        /// <summary>Width the title and the goal wrap inside, within the banner's own width.</summary>
+        public const float BannerTextWidth = 760f;
+
+        /// <summary>The title's row: its inset from the top, plus its own height.</summary>
+        public const float BannerTitleBlock = 44f;
+
+        /// <summary>Room under the title for the goal.</summary>
+        public const float BannerGoalHeight = 28f;
+
+        /// <summary>Size the goal is set at, shared with whatever measures it.</summary>
+        public const float BannerGoalFontSize = 19f;
+
+        /// <summary>Breathing room under the goal.</summary>
+        public const float BannerPad = 20f;
+
         /// <summary>
         /// Tall enough for the title and the goal, and nothing else.
         /// </summary>
@@ -167,8 +182,11 @@ namespace BitSorter.View
         /// Was 122 while the banner also carried the level's hint. Dropping that line freed thirty
         /// pixels, and because every row below is measured from here, the first-time hint and the
         /// tutorial's instruction strip both moved up with it rather than leaving a hole.
+        ///
+        /// Added up from the three rows above rather than stated, so the goal getting more room
+        /// moves everything below the banner instead of running off the bottom of it.
         /// </remarks>
-        public const float BannerHeight = 92f;
+        public const float BannerHeight = BannerTitleBlock + BannerGoalHeight + BannerPad;
 
         /// <summary>
         /// The verdict line, which hangs below the banner rather than sitting inside it.
@@ -205,6 +223,42 @@ namespace BitSorter.View
         /// for the next thing to do about it.
         /// </remarks>
         public const float TutorialRow = HintRow + HintHeight + Gap;
+
+        /// <summary>
+        /// How tall a goal wraps to in the banner, measured with the label that will draw it.
+        /// </summary>
+        /// <remarks>
+        /// Here rather than inside <see cref="StatusBanner"/> because two things need the answer:
+        /// the banner, to size itself to what it is showing, and a test, to refuse a goal that
+        /// would not fit. Each measuring it for itself is the second copy that drifts -- and the
+        /// test assembly does not reference TextMeshPro, which is the other reason the measuring
+        /// belongs on this side of the line.
+        ///
+        /// The ruler is built once and kept. It is marked not-to-be-saved for the reason the
+        /// generated sprites are, and re-made if something destroys it anyway.
+        /// </remarks>
+        public static float GoalHeight(string goal)
+        {
+            if (string.IsNullOrEmpty(goal))
+                return 0f;
+
+            if (_ruler == null)
+            {
+                var host = new GameObject("UiTheme ruler", typeof(RectTransform))
+                {
+                    hideFlags = HideFlags.HideAndDontSave,
+                };
+
+                _ruler = Label("ruler", host.transform, BannerGoalFontSize, Accent,
+                    TextAlignmentOptions.Top);
+
+                _ruler.textWrappingMode = TextWrappingModes.Normal;
+            }
+
+            return _ruler.GetPreferredValues(goal, BannerTextWidth, 0f).y;
+        }
+
+        private static TextMeshProUGUI _ruler;
 
         /// <summary>A stretched child RectTransform, ready to be anchored by the caller.</summary>
         public static RectTransform Rect(string name, Transform parent)

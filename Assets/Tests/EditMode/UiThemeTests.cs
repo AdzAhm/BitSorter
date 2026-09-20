@@ -276,5 +276,35 @@ namespace BitSorter.LogicCore.Tests
                 "no beat at all is the narrowest the strip gets");
         }
 
+
+        /// <summary>
+        /// Every shipped level's goal fits the room the banner gives it.
+        /// </summary>
+        /// <remarks>
+        /// The goal wraps, and its label is centred in a box with no room to wrap into -- so a goal
+        /// that needs three lines overflows the box in both directions, and the top of it prints
+        /// straight through the title. Seen on Flip on one in a browser build: "Keep a bit and flip
+        /// it every time a 1 arrives" drawn across "FLIP ON ONE 12 / 17".
+        ///
+        /// Measured with the real label rather than counted in characters, because what matters is
+        /// where TextMeshPro actually breaks the lines. <see cref="UiTheme.GoalHeight"/> is the
+        /// same measurement the banner sizes itself from, so the two cannot disagree.
+        /// </remarks>
+        [Test]
+        public void EveryLevelsGoal_FitsTheBannerWithoutClimbingIntoTheTitle()
+        {
+            foreach (TextAsset asset in Resources.LoadAll<TextAsset>(LevelLoader.ResourcePath))
+            {
+                LevelLoadResult parsed = LevelLoader.Parse(asset.text, LevelTestFixtures.Board);
+                Assert.IsTrue(parsed.IsValid, asset.name);
+
+                float needed = UiTheme.GoalHeight(parsed.Level.Goal);
+
+                Assert.LessOrEqual(needed, UiTheme.BannerGoalHeight,
+                    $"{asset.name}'s goal wraps to {needed:F0}px and the banner gives the goal " +
+                    $"{UiTheme.BannerGoalHeight}px, so it prints over the title");
+            }
+        }
+
     }
 }

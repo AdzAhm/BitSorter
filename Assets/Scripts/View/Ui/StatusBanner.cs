@@ -83,16 +83,17 @@ namespace BitSorter.View
 
             _title = UiTheme.Label("title", root, 24f, UiTheme.Text, TextAlignmentOptions.Center);
             UiTheme.Anchor(_title.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-                new Vector2(0f, -10f), new Vector2(760f, 30f));
+                new Vector2(0f, -10f), new Vector2(UiTheme.BannerTextWidth, 30f));
 
             _goal = UiTheme.Label("goal", root, 19f, UiTheme.Accent, TextAlignmentOptions.Center);
             UiTheme.Anchor(_goal.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-                new Vector2(0f, -44f), new Vector2(760f, 28f));
+                new Vector2(0f, -UiTheme.BannerTitleBlock),
+                new Vector2(UiTheme.BannerTextWidth, UiTheme.BannerGoalHeight));
             _goal.textWrappingMode = TextWrappingModes.Normal;
 
             _verdict = UiTheme.Label("verdict", root, 18f, UiTheme.Text, TextAlignmentOptions.Center);
             UiTheme.Anchor(_verdict.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 1f),
-                new Vector2(0f, -6f), new Vector2(760f, 26f));
+                new Vector2(0f, -6f), new Vector2(UiTheme.BannerTextWidth, 26f));
 
             _toastBackground = UiTheme.Panel_("Toast", _canvas.transform, UiTheme.Bad * 0.5f);
             var toastRect = _toastBackground.GetComponent<RectTransform>();
