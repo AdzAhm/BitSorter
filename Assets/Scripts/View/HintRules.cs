@@ -21,6 +21,7 @@ namespace BitSorter.View
         public const string Stalled = "stalled";
         public const string Collision = "collision";
         public const string WireDelay = "wireDelay";
+        public const string Register = "register";
 
         /// <summary>
         /// Consecutive ticks a gate must sit stalled mid-run before it is worth explaining.
@@ -55,6 +56,10 @@ namespace BitSorter.View
                     return "Scroll the wheel over a wire to change the number on it. " +
                            "A bigger number means the bit takes longer to cross.";
 
+                case Register:
+                    return "The disc inside it is the bit it is keeping. It sends that one on and " +
+                           "keeps whatever arrives, so what comes out is always one clock behind.";
+
                 default:
                     return null;
             }
@@ -62,7 +67,7 @@ namespace BitSorter.View
 
         /// <summary>Every hint id, for tests that hold all of them to the same rule.</summary>
         public static IReadOnlyList<string> All { get; } =
-            new[] { Stalled, Collision, WireDelay };
+            new[] { Stalled, Collision, WireDelay, Register };
 
         /// <summary>
         /// Whether a stalled gate has earned an explanation.

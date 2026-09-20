@@ -97,10 +97,34 @@ namespace BitSorter.View
             // Waits for a wire to exist. Firing on an empty board told the player to scroll
             // something that was not there yet -- an instruction they could not follow and would
             // have forgotten by the time they could.
-            TryShow(store, HintRules.WireDelay,
-                _session.Level.HasDelayBudget
-                && _session.State == RunState.Editing
-                && _session.Blueprint.Wires.Count > 0);
+            if (TryShow(store, HintRules.WireDelay,
+                    _session.Level.HasDelayBudget
+                    && _session.State == RunState.Editing
+                    && _session.Blueprint.Wires.Count > 0))
+            {
+                return;
+            }
+
+            // The same shape as the wire-delay hint, and for the same reason: a register's own bit,
+            // and the clock it is always behind by, are not things the board says out loud. It waits
+            // for one to be on the board rather than firing when the level loads, so the sentence
+            // has something to point at while it is being read.
+            TryShow(store, HintRules.Register, HasARegister());
+        }
+
+        /// <summary>Whether the player has put a register on the board.</summary>
+        private bool HasARegister()
+        {
+            System.Collections.Generic.IReadOnlyList<GatePlacement> placements =
+                _session.Blueprint.Placements;
+
+            for (int i = 0; i < placements.Count; i++)
+            {
+                if (placements[i].Kind == GateKind.Register)
+                    return true;
+            }
+
+            return false;
         }
 
         /// <summary>
