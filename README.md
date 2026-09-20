@@ -117,7 +117,7 @@ scrolled at all. Each appears once, ever, and none of them pause the game.
 | `M` | Main menu |
 | `N` | Mute the game |
 | `Q` / `E` | Previous / next level |
-| `F3` | Diagnostics |
+| `F3` | Diagnostics, and the clock's timing diagram on levels that have one |
 
 ### What it teaches
 

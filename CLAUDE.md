@@ -608,7 +608,22 @@ failure side.
   per tick of the period under the banner, lit in turn, and only on levels
   that have a clock. Every other rule of this chapter is visible on the
   board; "a vector every third tick, and your loop has that long" is not,
-  until something collides.
+  until something collides. It sits on `UiTheme.ClockRow`, under the
+  verdict — worked out from the banner instead, it landed on top of the
+  verdict, which is the third time two things in that file each owned half
+  the arithmetic.
+
+  **`ClockDiagram` is the same fact in the course's notation**, behind F3:
+  a square wave over three cycles with a playhead on the current tick, in
+  the bottom-left corner. It is the pair to the readout, not a replacement
+  — the pips explain the beat to someone who has never seen a timing
+  diagram, and this is for someone who has. Behind F3 and absent from the
+  controls line, so it costs a player who does not want it nothing.
+
+  **The two F3 readouts take opposite bottom corners**, and both hide while
+  `UiModal.HudVisible` is false. They come up on one key and are anchored
+  the same way at the same width, so a shared corner would put them in one
+  rectangle — which the catch readout and diagnostics already did once.
 - **Anything shown to the player is derived, never restated.** The truth
   table comes from the level's own streams and expectations; node labels
   come from `Node.Name`. A second copy of a fact is a second thing to
