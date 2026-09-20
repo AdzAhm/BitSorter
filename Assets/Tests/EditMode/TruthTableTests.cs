@@ -35,6 +35,31 @@ namespace BitSorter.LogicCore.Tests
                 "header, rule, then eight rows");
         }
 
+        /// <summary>
+        /// A level whose bin takes a bit after the last vector gets a row for that cycle too.
+        /// </summary>
+        /// <remarks>
+        /// One clock late asks for five bits from a four-bit stream, because the register hands on
+        /// what it was holding first. A table that stopped at the vectors would show four rows and
+        /// quietly disagree with the level it is describing -- which is the one thing these tests
+        /// exist to prevent.
+        /// </remarks>
+        [Test]
+        public void ACycleAfterTheLastVector_StillGetsARow()
+        {
+            LevelDefinition level = Load("one-clock-late");
+            string[] lines = Lines(TruthTable.Format(level));
+
+            Assert.AreEqual(level.VectorCount + 3, lines.Length,
+                "header, rule, one row per vector, and the cycle after them");
+
+            // Nothing goes in on that cycle, so the source column shows the same gap a silent
+            // vector does, and the bin still names the bit it wants.
+            string last = lines[lines.Length - 1];
+            StringAssert.Contains(".", last, "the source has nothing to send on the last cycle");
+            StringAssert.Contains("1", last, "the bin still wants the register's last bit");
+        }
+
         [Test]
         public void TheHeaderNamesEverySourceAndEverySink()
         {
@@ -177,7 +202,18 @@ namespace BitSorter.LogicCore.Tests
                 string table = TruthTable.Format(parsed.Level);
 
                 Assert.IsNotEmpty(table, $"{asset.name} produced no table");
-                Assert.AreEqual(parsed.Level.VectorCount + 2, Lines(table).Length, asset.name);
+
+                // A row per clock cycle rather than per vector, which are the same number until a
+                // level's bin takes a bit after the last vector -- what a register hands on.
+                int cycles = parsed.Level.VectorCount;
+
+                foreach (LevelExpectation expectation in parsed.Level.Expectations)
+                {
+                    if (expectation.Values != null && expectation.Values.Length > cycles)
+                        cycles = expectation.Values.Length;
+                }
+
+                Assert.AreEqual(cycles + 2, Lines(table).Length, asset.name);
             }
         }
 

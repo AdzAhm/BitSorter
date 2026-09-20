@@ -46,8 +46,21 @@ namespace BitSorter.View
             AppendHeader(text, sources, level.Expectations, width);
             AppendRule(text, sources, level.Expectations, width);
 
-            for (int vector = 0; vector < level.VectorCount; vector++)
-                AppendRow(text, sources, level.Expectations, vector, width);
+            // One row per clock cycle, which is one per vector until a register is involved: a sink
+            // fed through one receives the bit it was holding after the last vector has gone in, so
+            // its expected values run a cycle past the streams and that cycle has a row too.
+            int cycles = level.VectorCount;
+
+            for (int i = 0; i < level.Expectations.Count; i++)
+            {
+                int length = level.Expectations[i].Values?.Length ?? 0;
+
+                if (length > cycles)
+                    cycles = length;
+            }
+
+            for (int cycle = 0; cycle < cycles; cycle++)
+                AppendRow(text, sources, level.Expectations, cycle, width);
 
             return text.ToString();
         }
@@ -151,7 +164,13 @@ namespace BitSorter.View
             for (int i = 0; i < sources.Count; i++)
             {
                 LevelFixture source = sources[i];
-                string bit = vector < source.Stream.Count ? ((int)source.Stream[vector]).ToString() : "?";
+
+                // Past the end of the streams is a cycle with nothing going in, not a mistake: the
+                // gap is drawn the same way a silent vector is, since it means the same thing here.
+                string bit = vector < source.Stream.Count
+                    ? ((int)source.Stream[vector]).ToString()
+                    : ".";
+
                 text.Append(Cell(bit, width));
             }
 
