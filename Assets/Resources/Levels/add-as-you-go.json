@@ -1,0 +1,24 @@
+{
+  "name": "Add as you go",
+  "order": 170,
+  "goal": "Add two numbers one column per clock, least significant bit first. SUM takes the answer for each column. The carry from one column has to be waiting when the next arrives.",
+  "hint": "one column at a time needs what the last column left over. That is one bit, and it has somewhere to live.",
+  "tickLimit": 80,
+  "clockPeriod": 3,
+  "maxWireDelay": 2,
+  "delayBudget": 1,
+  "fixtures": [
+    { "id": "a",   "kind": "Source", "cell": { "x": -4, "y":  1 }, "stream": "10110" },
+    { "id": "b",   "kind": "Source", "cell": { "x": -4, "y": -1 }, "stream": "11010" },
+    { "id": "sum", "kind": "Sink",   "cell": { "x":  4, "y":  0 } }
+  ],
+  "budget": [
+    { "kind": "Register", "count": 1 },
+    { "kind": "Xor", "count": 2 },
+    { "kind": "And", "count": 2 },
+    { "kind": "Or", "count": 1 }
+  ],
+  "expected": [
+    { "sink": "sum", "values": "00011" }
+  ]
+}

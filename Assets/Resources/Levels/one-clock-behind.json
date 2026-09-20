@@ -1,0 +1,21 @@
+{
+  "name": "One clock behind",
+  "order": 160,
+  "goal": "The same rising edge as before, reported a clock later: the bin should show what the machine worked out about the previous cycle, starting with the 0 it began with.",
+  "hint": "the gate already knows. What is missing is somewhere for its answer to wait.",
+  "tickLimit": 60,
+  "maxWireDelay": 3,
+  "delayBudget": 1,
+  "fixtures": [
+    { "id": "in",  "kind": "Source", "cell": { "x": -3, "y": 0 }, "stream": "011010" },
+    { "id": "out", "kind": "Sink",   "cell": { "x":  3, "y": 0 } }
+  ],
+  "budget": [
+    { "kind": "Register", "count": 2 },
+    { "kind": "Not", "count": 1 },
+    { "kind": "And", "count": 1 }
+  ],
+  "expected": [
+    { "sink": "out", "values": "0010010" }
+  ]
+}
