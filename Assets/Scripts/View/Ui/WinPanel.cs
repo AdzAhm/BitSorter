@@ -125,6 +125,10 @@ namespace BitSorter.View
             if (_session == null || _root == null)
                 return;
 
+            // Every frame, not only on a state change: the panel that covers this one can open and
+            // close without the run changing at all.
+            Draw();
+
             RunState now = _session.State;
 
             if (now != _state)
@@ -255,13 +259,35 @@ namespace BitSorter.View
         private void Show(bool visible)
         {
             _shown = visible;
+            Draw();
+        }
 
-            if (_root.gameObject.activeSelf != visible)
-                _root.gameObject.SetActive(visible);
+        /// <summary>
+        /// Puts the card on screen when it is both owed and not covered.
+        /// </summary>
+        /// <remarks>
+        /// This card is deliberately not a modal -- it belongs on the board, not over the whole
+        /// screen -- but that settles what it does to other panels, not what they do to it. It used
+        /// to hide from nothing and merely skip coming to the front, which laid a scrim over a live
+        /// panel; and a run that passed while a panel was open activated it behind that scrim at
+        /// whatever sibling index it held, with no BringToFront ever to correct it.
+        ///
+        /// <see cref="IsShowing"/> stays the intent rather than what is drawn, because the tutorial
+        /// director and the music both read it to know the card is still owed. A card that forgot
+        /// itself here would let the tutorial's ending card through early.
+        /// </remarks>
+        private void Draw()
+        {
+            bool wanted = _shown && UiModal.HudVisible;
 
-            // Comes forward, but never in front of a full-screen panel. A run finished behind an
-            // open level list would otherwise punch this through the middle of it.
-            if (visible && !UiModal.AnyOpen)
+            if (_root.gameObject.activeSelf == wanted)
+                return;
+
+            _root.gameObject.SetActive(wanted);
+
+            // Forward as it appears, including when it comes back after the panel that covered it
+            // has closed.
+            if (wanted)
                 UiTheme.BringToFront(_root);
         }
 

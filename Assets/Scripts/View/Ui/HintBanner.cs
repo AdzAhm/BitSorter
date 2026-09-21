@@ -70,12 +70,30 @@ namespace BitSorter.View
             if (!IsShowing)
                 return;
 
+            // Held, not spent, while a full-screen panel has the screen. FirstTimeHints marks a
+            // hint seen the moment it raises one, so a countdown that ran out behind a level list
+            // would not be a hint delayed -- it would be one of the game's four mechanic
+            // explanations that this save never shows again. The producer already refuses to raise
+            // one while a panel is open; this is the other order, a hint already up when the panel
+            // arrives.
+            if (!UiModal.HudVisible)
+            {
+                UiTheme.SetShown(_background, false);
+                return;
+            }
+
+            UiTheme.SetShown(_background, true);
+
             _remaining -= Time.deltaTime;
 
             // Dismissable early, but not by the very click or keypress that triggered it -- placing
             // the last gate is exactly the kind of action that both causes a hint and would
             // otherwise dismiss it in the same frame.
-            if (_seconds - _remaining > _graceSeconds && Dismissed())
+            //
+            // Nor by the press that closed the panel it was waiting behind: by then the grace
+            // period is long past, so the one Escape that dismissed a level list would take the
+            // held hint with it on the very frame it came back.
+            if (_seconds - _remaining > _graceSeconds && !UiModal.OpenOrJustClosed && Dismissed())
                 _remaining = 0f;
 
             if (!IsShowing)

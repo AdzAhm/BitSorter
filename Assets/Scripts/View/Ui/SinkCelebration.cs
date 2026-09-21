@@ -46,6 +46,14 @@ namespace BitSorter.View
             if (_session == null || _runner == null || !_runner.IsReady)
                 return;
 
+            // Out of sight while a full-screen panel has the screen. A scrim dims the board rather
+            // than hiding it, which is the point of a scrim -- but a still board behind one is a
+            // backdrop and glows pulsing at this rate are motion, where the player is reading.
+            // The countdown is deliberately not held: this marks a moment, and a moment the player
+            // spent in a menu has passed.
+            if (_container != null && _container.gameObject.activeSelf != UiModal.HudVisible)
+                _container.gameObject.SetActive(UiModal.HudVisible);
+
             RunState now = _session.State;
 
             if (now != _state)
