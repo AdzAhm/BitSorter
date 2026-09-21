@@ -491,7 +491,7 @@ failure side.
   They are copyrighted, and Mojang's usage guidelines allow approved tracks in
   videos and streams, not copied into another game. The crystal and felt-piano
   tracks reach for those moods with original melodies; keep it that way.
-- **There are twenty background tracks and they are one piece of music.**
+- **There are twenty-two background tracks and they are one piece of music.**
   `ProceduralAudio.MusicTracks` is the count. Same five notes (A, C, D, E, G),
   same tempo, same four-bar shape; what differs is density, ring, register,
   which way the figure moves on its alternate pass, where the chords go, whether
@@ -501,8 +501,12 @@ failure side.
   "negative" -- some tracks are written an octave down, so `semi < 0` would
   silence them.
 
-  **Many moods, one scale.** Most root that collection on A and read as minor;
-  others root it on C, F or B-flat and read as major or floating. A minor
+  **Many moods, one scale, and no one mood more than a third.** Tracks root that
+  collection on A, C, F, B-flat or E: minor, major, open or modal. Eleven of
+  twenty-one used to come home to A -- seven instruments cannot disguise one
+  mood, and the thing that varies most between tracks was varying least, which
+  is audible as the set sounding smaller than it is. Two were re-rooted without
+  a note moving, which is the whole point of the trick below. A minor
   pentatonic and C major pentatonic are the same five pitches -- only the bass
   decides which -- and B-flat or F under them gives the lush major-seventh and
   Lydian colours of the crystal tracks without a sixth note. That is what lets
@@ -511,6 +515,20 @@ failure side.
   says what plays a track: plucked, keys, mallets, felt piano, crystal, music
   box or choir; a `Pad` plays the chord layer. Reverb is one pass over the
   finished buffer, so it costs nothing at runtime.
+
+  **Two tracks are unlike any of the others, and deliberately only two.** One
+  plays a counter-melody -- a second line on a second voice, answering the first
+  in its gaps -- where every other track is one instrument over a bass and
+  sometimes a chord. The other is rooted on E, which gives the same five notes
+  an Em7-with-an-eleventh colour that never resolves, and is the only track that
+  pulses rather than plays. Both earn their place by being the exception; a set
+  of exceptions is just a set.
+
+  A counter-melody obeys every rule the melody does -- same scale, same sixteen
+  steps, same lift -- and `MusicTests` asks it for all of them, `HighestPartialHz`
+  included, because its voice is its own. Sparseness is checked per line with a
+  stated bound on the pair: "half the grid empty" was written when a track could
+  only have one line.
 
   **The plucked voice is down to three tracks, from six.** The first six were
   written before the set had any other voice, and six variations on one pluck
@@ -587,7 +605,7 @@ failure side.
   **At most three tracks are held at once** -- the one playing, the next one
   ready, and the buffer the one after is being built in -- about 8.5 MB, in a
   game whose whole browser build is 16 MB. Every track built used to stay for
-  the session; at twenty tracks that would have been over 50 MB. A clip
+  the session; at twenty-two tracks that would have been over 55 MB. A clip
   belongs to whoever built it, and `GameAudio` destroys the one it leaves.
 
   **That figure is `ProceduralAudio.MusicResidentBytes` and `MusicTests`
