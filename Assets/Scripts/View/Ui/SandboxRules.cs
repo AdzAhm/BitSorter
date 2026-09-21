@@ -134,6 +134,42 @@ namespace BitSorter.View
         public static bool CanFillTable(int sources) =>
             sources >= 1 && sources <= MaxTableSources && VectorsForTable(sources) <= SandboxConfig.MaxVectors;
 
+        /// <summary>
+        /// Whether the streams already are the full table, so filling them would change nothing.
+        /// </summary>
+        /// <remarks>
+        /// A fresh sandbox opens on the two-input table -- it is what most circuits worth trying
+        /// want fed into them -- so the button that fills it in is a no-op until the player edits
+        /// something. Pressing a button and having nothing happen reads as broken, which is what
+        /// it was reported as. Knowing the answer lets the button grey itself out instead, the way
+        /// it already does when a full table would not fit.
+        /// </remarks>
+        public static bool IsTable(IReadOnlyList<string> sources, int vectors)
+        {
+            if (sources == null || !CanFillTable(sources.Count))
+                return false;
+
+            if (vectors != VectorsForTable(sources.Count))
+                return false;
+
+            string[] table = Table(sources.Count);
+
+            for (int i = 0; i < table.Length; i++)
+            {
+                string stream = sources[i];
+
+                // Streams are stored at MaxVectors and the level takes the first few, so only the
+                // vectors actually in play are compared.
+                if (stream == null || stream.Length < vectors)
+                    return false;
+
+                if (stream.Substring(0, vectors) != table[i])
+                    return false;
+            }
+
+            return true;
+        }
+
         /// <summary>How many vectors a full table of this many sources takes.</summary>
         public static int VectorsForTable(int sources) => 1 << sources;
 

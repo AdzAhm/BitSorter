@@ -503,7 +503,11 @@ namespace BitSorter.View
         /// <summary>The two fill buttons, and why the table one is dead when it is.</summary>
         private float TableRow(float y)
         {
-            bool canFill = SandboxRules.CanFillTable(_config.sources.Length);
+            // Off when a full table would not fit, and off when the streams already are one --
+            // a fresh sandbox opens on the two-input table, so the button had nothing to do and
+            // looked broken rather than finished.
+            bool canFill = SandboxRules.CanFillTable(_config.sources.Length)
+                           && !SandboxRules.IsTable(_config.sources, _config.vectors);
 
             Button table = UiTheme.Button_("truth table", _bodyRoot, "Truth table", out TextMeshProUGUI caption);
             UiTheme.Anchor(table.GetComponent<RectTransform>(), new Vector2(0f, 1f), new Vector2(0f, 1f),
