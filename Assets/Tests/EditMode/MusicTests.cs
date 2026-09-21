@@ -116,13 +116,13 @@ namespace BitSorter.LogicCore.Tests
         /// </summary>
         /// <remarks>
         /// Was twenty-four. Four of the plucked ones went -- six tracks on one voice, built before
-        /// the set had any others, read as the same piece coming round again -- and one was added
-        /// back: the only track with two lines playing against each other.
+        /// the set had any others, read as the same piece coming round again -- and two were added
+        /// back: the one with two lines playing against each other, and the one rooted on E.
         /// </remarks>
         [Test]
-        public void ThereAreTwentyOneTracks()
+        public void ThereAreTwentyTwoTracks()
         {
-            Assert.AreEqual(21, ProceduralAudio.MusicTracks);
+            Assert.AreEqual(22, ProceduralAudio.MusicTracks);
         }
 
         [Test]

@@ -780,9 +780,14 @@ namespace BitSorter.View
             // 2. The busiest -- no track has more -- which still means eight notes in eight
             //    seconds. They come in pairs, and the ring is the shortest in the set, shared only
             //    with track 18, so a pair reads as two notes rather than as a chord.
+            //
+            //    Rooted on C rather than A, and not a note of the figure moved to do it. The set
+            //    had eleven tracks of twenty-one coming home to A, which is more of one mood than
+            //    seven different instruments can disguise -- and this one's figure climbs, so the
+            //    bright reading was always the one it wanted.
             new Track(
                 figure: new[] { 0, 3, -1, -1, 7, 5, -1, -1, 10, 7, -1, -1, 3, 0, -1, -1 },
-                roots: new[] { 110.00f, 130.81f, 87.31f, 98.00f },   // Am - C - F - G
+                roots: new[] { 130.81f, 110.00f, 87.31f, 98.00f },   // C - Am - F - G
                 ring: 3.2f,
                 lift: 12),
 
@@ -913,10 +918,11 @@ namespace BitSorter.View
                 chords: new[] { new[] { -5, -2, 3 }, new[] { -7, -2, 5 }, new[] { -9, -5, 0 }, new[] { -9, 0, 7 } }),
 
             // 11. Wandering: a low note answered by high ones, wide leaps and no chords at all --
-            //     just the piano in a large room.
+            //     just the piano in a large room. Rooted on F, where it used to be A: the wide
+            //     leaps read as open rather than as sad, and the set had too much A. Same notes.
             new Track(
                 figure: new[] { -12, -1, -1, 7, -1, -1, 12, -1, -5, -1, -1, 3, -1, -1, 10, -1 },
-                roots: new[] { 110.00f, 82.41f, 87.31f, 98.00f },   // Am - Em - F - G
+                roots: new[] { 87.31f, 82.41f, 130.81f, 98.00f },   // F - Em - C - G
                 ring: 0.7f,
                 lift: -12,
                 voice: Voice.Piano,
@@ -1042,6 +1048,37 @@ namespace BitSorter.View
                 counter: new[] { -1, -5, -1, -1, 0, -1, -1, 3, -1, 5, -1, -1, 0, -1, -5, -1 },
                 counterVoice: Voice.Piano,
                 counterRing: 0.8f),
+
+            // -------------------------------------------------------------------------
+            // 21: neon.
+            //
+            // The darkest thing in the set and the only one that pulses. A low line on every
+            // other step, tight and dry so it reads as a pulse rather than as a tune, with cold
+            // glass stabs answering it high and far apart -- a street at night rather than a
+            // room. The bass walks E, E, C, G, which is the progression this kind of music is
+            // built on.
+            //
+            // **Rooted on E, which nothing else here is.** The five notes are the same five, and
+            // E under them gives Em7-with-an-eleventh: dark, modal, and never resolving, which
+            // is the whole sound. It is also the set's third home after A and C, which is the
+            // other reason it earns its place -- eleven of twenty-one tracks used to come home
+            // to A, and seven instruments cannot disguise one mood.
+            // -------------------------------------------------------------------------
+
+            new Track(
+                figure: new[] { -5, -1, -12, -1, -5, -1, -2, -1, -5, -1, -12, -1, 0, -1, -2, -1 },
+                roots: new[] { 82.41f, 82.41f, 130.81f, 98.00f },   // Em - Em - C - G
+                ring: 3.4f,
+                lift: -12,
+                tail: 0.3f,
+                chords: new[]
+                {
+                    new[] { -5, -2, 5 }, new[] { -5, -2, 5 }, new[] { -9, -5, -2 }, new[] { -2, 0, 5 },
+                },
+                gain: 0.7f,
+                counter: new[] { -1, -1, -1, -1, 19, -1, -1, -1, -1, -1, 15, -1, -1, -1, 17, -1 },
+                counterVoice: Voice.Crystal,
+                counterRing: 0.7f),
         };
 
         /// <summary>
