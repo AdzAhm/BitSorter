@@ -144,15 +144,39 @@ namespace BitSorter.View
 
             _detail.text = detail.ToString();
 
-            // The last level has nowhere to go, so the button says so rather than wrapping silently
-            // back to the tutorial.
-            bool hasNext = _session.LevelIndex >= 0
-                           && _session.LevelIndex < _session.AvailableLevels.Count - 1;
+            int index = _session.LevelIndex;
+            int count = _session.AvailableLevels.Count;
 
-            _next.gameObject.SetActive(hasNext);
-            _nextLabel.text = "NEXT LEVEL";
+            _next.gameObject.SetActive(HasSomewhereToGo(index, count));
+            _nextLabel.text = index < 0 ? "PLAY THE FIRST LEVEL" : "NEXT LEVEL";
 
             Show(true);
+        }
+
+        /// <summary>
+        /// Whether the panel can offer a way onward from a level at this index.
+        /// </summary>
+        /// <remarks>
+        /// The last level of the run has nowhere to go, and says so by having no button rather than
+        /// wrapping silently back to the first.
+        ///
+        /// **A level off the rotation has somewhere to go, and it is the first level.** The guided
+        /// tutorial is deliberately not in `AvailableLevels`, so its index is -1, and an index of -1
+        /// used to fail the same test the last level fails -- leaving KEEP TINKERING as the only
+        /// button on the panel. The closing card normally carries a player onward from there, but it
+        /// only comes to someone who did not press skip; skip, then solve the level anyway, and the
+        /// game had no way forward that was not a keyboard shortcut. Stepping one from -1 lands on
+        /// the first level, which is where that player wants to be.
+        ///
+        /// Static so the three cases can be tested without a scene: off the rotation, mid-run, and
+        /// the last level.
+        /// </remarks>
+        public static bool HasSomewhereToGo(int levelIndex, int levelCount)
+        {
+            if (levelCount <= 0)
+                return false;
+
+            return levelIndex < 0 || levelIndex < levelCount - 1;
         }
 
         /// <summary>

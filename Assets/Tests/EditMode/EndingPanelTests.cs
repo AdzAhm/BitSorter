@@ -157,5 +157,37 @@ namespace BitSorter.LogicCore.Tests
                 EndingPanel.IsTheEnd(catalogue, 0, catalogue[0].FileName, _store),
                 "the first level must never end the game");
         }
+
+        // -----------------------------------------------------------------
+        // The way onward from the solved panel
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// The solved panel offers a way onward from every level except the last.
+        /// </summary>
+        /// <remarks>
+        /// Including from a level that is not in the rotation. The guided tutorial is deliberately
+        /// absent from `AvailableLevels`, so its index is -1 -- and -1 used to fail the same check
+        /// the last level fails, which left KEEP TINKERING as the only button on the panel. The
+        /// closing card normally carries a player on from the tutorial, but it only comes to
+        /// someone who did not press skip. Skip, solve the level anyway, and the only way forward
+        /// was a keyboard shortcut.
+        /// </remarks>
+        [Test]
+        public void TheSolvedPanel_OffersAWayOnwardFromEverythingButTheLast()
+        {
+            Assert.IsTrue(WinPanel.HasSomewhereToGo(-1, 9),
+                "the tutorial is not in the rotation and still has the first level to go to");
+
+            Assert.IsTrue(WinPanel.HasSomewhereToGo(0, 9), "the first level of nine");
+            Assert.IsTrue(WinPanel.HasSomewhereToGo(7, 9), "the second to last");
+
+            Assert.IsFalse(WinPanel.HasSomewhereToGo(8, 9),
+                "the last level wraps to nothing rather than back to the first");
+
+            Assert.IsFalse(WinPanel.HasSomewhereToGo(-1, 0),
+                "with no levels at all there is nowhere to send anyone");
+        }
+
     }
 }
