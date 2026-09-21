@@ -219,6 +219,34 @@ namespace BitSorter.View
             return notes;
         }
 
+        /// <summary>
+        /// The second line a track plays, as semitones above A4. Empty for every track but one.
+        /// </summary>
+        /// <remarks>
+        /// Separate from <see cref="MusicNotes"/> rather than folded into it, because the tests
+        /// that read the melody mean one line: "leaves more silence than it fills" is about a line's
+        /// density and would quietly change meaning if two were summed into it. The scale rule does
+        /// apply to both, and asks for both.
+        /// </remarks>
+        public static IReadOnlyList<int> MusicCounterNotes(int index)
+        {
+            index = Mathf.Clamp(index, 0, Tracks.Length - 1);
+
+            var notes = new List<int>();
+            int[] counter = Tracks[index].Counter;
+
+            if (counter == null)
+                return notes;
+
+            foreach (int semi in counter)
+            {
+                if (semi != Rest)
+                    notes.Add(semi);
+            }
+
+            return notes;
+        }
+
         /// <summary>The chord tones a track strikes under its figure, as semitones above A4.</summary>
         /// <remarks>
         /// Separate from <see cref="MusicNotes"/>, which the sparseness rule counts: a chord is a
@@ -256,6 +284,13 @@ namespace BitSorter.View
 
             foreach (float hz in track.Hz)
                 top = Mathf.Max(top, hz * TopPartial(track.Voice));
+
+            // The second line has its own voice, so its own brightest partial.
+            if (track.CounterHz != null)
+            {
+                foreach (float hz in track.CounterHz)
+                    top = Mathf.Max(top, hz * TopPartial(track.CounterVoice));
+            }
 
             if (track.ChordHz != null)
             {
@@ -583,8 +618,14 @@ namespace BitSorter.View
 
             public Track(int[] figure, float[] roots, float ring, int lift,
                          Voice voice = Voice.Plucked, float tail = 0f, int[][] chords = null,
-                         float gain = 1f)
+                         float gain = 1f, int[] counter = null,
+                         Voice counterVoice = Voice.Plucked, float counterRing = 0f)
             {
+                Counter = counter;
+                CounterVoice = counterVoice;
+                CounterRing = counterRing > 0f ? counterRing : ring;
+                CounterHz = null;
+
                 Figure = figure;
                 Roots = roots;
                 Ring = ring;
@@ -617,18 +658,68 @@ namespace BitSorter.View
                     }
                 }
 
-                Hz = new float[figure.Length * 2];
+                Hz = Pitches(figure, lift);
+
+                if (counter != null)
+                {
+                    if (counter.Length != figure.Length)
+                    {
+                        throw new ArgumentException(
+                            "A counter-melody has one step per step of the figure it plays against.");
+                    }
+
+                    CounterHz = Pitches(counter, lift);
+                }
+            }
+
+            /// <summary>
+            /// A figure's note frequencies, both passes: as written, and lifted.
+            /// </summary>
+            /// <remarks>
+            /// Shared by the melody and the counter-melody so the two cannot disagree about what a
+            /// semitone means or about which pass is the lifted one -- they have to stay in step,
+            /// and the second pass is where a track that lifts would otherwise leave one of them
+            /// behind.
+            /// </remarks>
+            private static float[] Pitches(int[] figure, int lift)
+            {
+                var hz = new float[figure.Length * 2];
 
                 for (int pass = 0; pass < 2; pass++)
                 {
                     for (int s = 0; s < figure.Length; s++)
                     {
                         int semi = figure[s] + (pass == 0 ? 0 : lift);
-                        Hz[pass * figure.Length + s] =
+                        hz[pass * figure.Length + s] =
                             figure[s] == Rest ? 0f : 440f * Mathf.Pow(2f, semi / 12f);
                     }
                 }
+
+                return hz;
             }
+
+            /// <summary>
+            /// A second line, on a second voice, against the first.
+            /// </summary>
+            /// <remarks>
+            /// Null on every track but one. The set is one piece of music played many ways, and two
+            /// instruments at once is a different kind of thing -- worth having once, as the track
+            /// that sounds unlike the rest, and not worth having twenty times.
+            ///
+            /// It is the same five notes, the same sixteen steps and the same lift as the melody it
+            /// plays against: a counter-melody that wandered off the scale would break the rule that
+            /// lets any track follow any other.
+            /// </remarks>
+            public readonly int[] Counter;
+
+            /// <inheritdoc cref="Counter"/>
+            public readonly Voice CounterVoice;
+
+            /// <inheritdoc cref="Counter"/>
+            public readonly float CounterRing;
+
+            /// <inheritdoc cref="Counter"/>
+            public readonly float[] CounterHz;
 
             /// <summary>
             /// Clip length: one pass of the chord cycle.
@@ -920,6 +1011,37 @@ namespace BitSorter.View
                 tail: 0.2f,
                 chords: new[] { new[] { -12, -9, -5 }, new[] { -9, -5, 0 }, new[] { -12, -7, -5 }, new[] { -12, -9, -5 } },
                 gain: 0.72f),
+
+            // -------------------------------------------------------------------------
+            // 20: everything at once.
+            //
+            // The one track with two lines playing against each other. A music box carries the
+            // tune high and sparse while a felt piano answers it low, a bar behind and in the gaps
+            // -- where the music box rests, the piano moves. Chords swell under both and the bass
+            // walks four different roots rather than sitting on one, so it is the busiest thing in
+            // the set without ever having two notes on the same step.
+            //
+            // Same five notes as everything else, and the same sixteen steps. What makes it sound
+            // unlike the rest is not new material but new *layering*: every track before this is
+            // one instrument, a bass and sometimes a chord, and this is two instruments answering
+            // each other over both.
+            // -------------------------------------------------------------------------
+
+            new Track(
+                figure: new[] { 12, -1, -1, 15, -1, -1, 19, -1, -1, -1, 17, -1, -1, 12, -1, -1 },
+                roots: new[] { 110.00f, 87.31f, 130.81f, 98.00f },   // Am - F - C - G
+                ring: 1.1f,
+                lift: -12,
+                voice: Voice.MusicBox,
+                tail: 0.25f,
+                chords: new[]
+                {
+                    new[] { -12, -9, -5 }, new[] { -9, -5, 0 }, new[] { -9, -5, -2 }, new[] { -2, 0, 3 },
+                },
+                gain: 0.66f,
+                counter: new[] { -1, -5, -1, -1, 0, -1, -1, 3, -1, 5, -1, -1, 0, -1, -5, -1 },
+                counterVoice: Voice.Piano,
+                counterRing: 0.8f),
         };
 
         /// <summary>
@@ -946,59 +1068,16 @@ namespace BitSorter.View
         /// </remarks>
         private static float Sample(Track track, float t, float d)
         {
-            int steps = track.Figure.Length;
             int now = Mathf.FloorToInt(t / StepSeconds);
 
-            float voice = 0f;
+            float voice = Line(track.Figure, track.Hz, track.Voice, track.Ring, track, t, now);
 
-            for (int back = 0; back < track.Lookback; back++)
+            // The counter-melody, on its own voice, quieter than the line it answers. Only one
+            // track has one.
+            if (track.Counter != null)
             {
-                int s = now - back;
-
-                if (s < 0)
-                    break;
-
-                int step = s % steps;
-
-                if (track.Figure[step] == Rest)
-                    continue;
-
-                float hz = track.Hz[((s / steps) % 2) * steps + step];
-
-                // Phase measured from the note's own start, so every note begins at a zero crossing.
-                float age = t - s * StepSeconds;
-                float ring = Mathf.Exp(-track.Ring * age);
-
-                switch (track.Voice)
-                {
-                    case Voice.Keys:
-                        voice += Keys(age, hz, ring);
-                        break;
-
-                    case Voice.Mallet:
-                        voice += Mallet(age, hz, ring);
-                        break;
-
-                    case Voice.Piano:
-                        voice += Piano(age, hz, ring);
-                        break;
-
-                    case Voice.Crystal:
-                        voice += Crystal(age, hz, ring);
-                        break;
-
-                    case Voice.MusicBox:
-                        voice += MusicBox(age, hz, ring);
-                        break;
-
-                    case Voice.Choir:
-                        voice += Choir(age, hz, ring);
-                        break;
-
-                    default:
-                        voice += Plucked(age, hz, ring);
-                        break;
-                }
+                voice += Line(track.Counter, track.CounterHz, track.CounterVoice,
+                              track.CounterRing, track, t, now) * 0.62f;
             }
 
             // One bass note a bar, struck and left to fall away. Felt more than heard. The previous
@@ -1028,6 +1107,54 @@ namespace BitSorter.View
             }
 
             return (voice * 0.15f + bass * 0.16f + chords * 0.035f) * track.Gain * Fade(t, d, 2f);
+        }
+
+        /// <summary>
+        /// One line of notes: every note still ringing at <paramref name="t"/>, summed.
+        /// </summary>
+        /// <remarks>
+        /// Lifted out of <see cref="Sample"/> when a track gained the option of a second line. Both
+        /// walk the same lookback, start each note at its own zero crossing and decay at their own
+        /// rate -- shared rather than written twice, because the two have to stay in step and the
+        /// zero-crossing start is the thing that stops a note being a click.
+        /// </remarks>
+        private static float Line(
+            int[] figure, float[] hzTable, Voice voice, float ringRate, Track track, float t, int now)
+        {
+            int steps = figure.Length;
+            float sum = 0f;
+
+            for (int back = 0; back < track.Lookback; back++)
+            {
+                int s = now - back;
+
+                if (s < 0)
+                    break;
+
+                int step = s % steps;
+
+                if (figure[step] == Rest)
+                    continue;
+
+                float hz = hzTable[((s / steps) % 2) * steps + step];
+
+                // Phase measured from the note's own start, so every note begins at a zero crossing.
+                float age = t - s * StepSeconds;
+                float ring = Mathf.Exp(-ringRate * age);
+
+                switch (voice)
+                {
+                    case Voice.Keys: sum += Keys(age, hz, ring); break;
+                    case Voice.Mallet: sum += Mallet(age, hz, ring); break;
+                    case Voice.Piano: sum += Piano(age, hz, ring); break;
+                    case Voice.Crystal: sum += Crystal(age, hz, ring); break;
+                    case Voice.MusicBox: sum += MusicBox(age, hz, ring); break;
+                    case Voice.Choir: sum += Choir(age, hz, ring); break;
+                    default: sum += Plucked(age, hz, ring); break;
+                }
+            }
+
+            return sum;
         }
 
         /// <summary>A bar's chord, <paramref name="age"/> seconds after it was struck.</summary>

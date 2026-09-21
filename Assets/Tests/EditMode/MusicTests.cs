@@ -115,15 +115,14 @@ namespace BitSorter.LogicCore.Tests
         /// How many tracks there are, stated so a track added or removed is a deliberate act.
         /// </summary>
         /// <remarks>
-        /// Was twenty-four. Four of the plucked ones went: six tracks on one voice, built before
-        /// the set had any others, read as the same piece coming round again. What is left of that
-        /// voice is the three with different gestures -- the original, the sparse one that drops an
-        /// octave, and the busiest.
+        /// Was twenty-four. Four of the plucked ones went -- six tracks on one voice, built before
+        /// the set had any others, read as the same piece coming round again -- and one was added
+        /// back: the only track with two lines playing against each other.
         /// </remarks>
         [Test]
-        public void ThereAreTwentyTracks()
+        public void ThereAreTwentyOneTracks()
         {
-            Assert.AreEqual(20, ProceduralAudio.MusicTracks);
+            Assert.AreEqual(21, ProceduralAudio.MusicTracks);
         }
 
         [Test]
@@ -432,7 +431,9 @@ namespace BitSorter.LogicCore.Tests
 
                 Assert.IsNotEmpty(notes, "track " + track + " plays nothing");
 
-                foreach (int semi in notes.Concat(ProceduralAudio.MusicChordNotes(track)))
+                foreach (int semi in notes
+                             .Concat(ProceduralAudio.MusicCounterNotes(track))
+                             .Concat(ProceduralAudio.MusicChordNotes(track)))
                 {
                     int degree = ((semi % 12) + 12) % 12;
 
@@ -455,6 +456,19 @@ namespace BitSorter.LogicCore.Tests
 
                 Assert.LessOrEqual(played, Steps / 2,
                     "track " + track + " fills more than half its steps and is no longer sparse");
+
+                // A counter-melody is a second line, held to the rule on its own. One track has one.
+                int answered = ProceduralAudio.MusicCounterNotes(track).Count;
+
+                Assert.LessOrEqual(answered, Steps / 2,
+                    "track " + track + "'s second line fills more than half its steps");
+
+                // And the pair together still has to leave the ear somewhere to rest. Looser than
+                // one line, because two lines answering each other in each other's gaps is the
+                // point of having them -- but stated, so "sparse" cannot quietly stop meaning
+                // anything the moment a track has two of them.
+                Assert.LessOrEqual(played + answered, Steps * 3 / 4,
+                    "track " + track + " fills three quarters of its steps across both lines");
             }
         }
 
