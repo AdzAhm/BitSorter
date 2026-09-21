@@ -104,13 +104,13 @@ namespace BitSorter.View
             TextMeshProUGUI title = UiTheme.Label(
                 "title", _root, 54f, UiTheme.Accent, TextAlignmentOptions.Center);
             UiTheme.Anchor(title.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                new Vector2(0f, 150f), new Vector2(700f, 70f));
+                new Vector2(0f, 150f + Lift), new Vector2(700f, 70f));
             title.text = "BITSORTER";
 
             TextMeshProUGUI tagline = UiTheme.Label(
                 "tagline", _root, 18f, UiTheme.TextDim, TextAlignmentOptions.Center);
             UiTheme.Anchor(tagline.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                new Vector2(0f, 104f), new Vector2(700f, 26f));
+                new Vector2(0f, 104f + Lift), new Vector2(700f, 26f));
             tagline.text = "bits fall through logic. sort them.";
 
             // A rule under the title. The menu was a title and three buttons floating in black,
@@ -118,7 +118,7 @@ namespace BitSorter.View
             Image rule = UiTheme.Panel_("rule", _root, UiTheme.Accent * 0.4f);
             UiTheme.Anchor(rule.GetComponent<RectTransform>(),
                 new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                new Vector2(0f, 78f), new Vector2(320f, 2f));
+                new Vector2(0f, 78f + Lift), new Vector2(320f, 2f));
 
             Button resume = Item("Continue", 32f, out _continueLabel);
             resume.onClick.AddListener(() => Fire(Continue));
@@ -155,12 +155,12 @@ namespace BitSorter.View
             _nextLine = UiTheme.Label(
                 "next", _root, 15f, UiTheme.Accent, TextAlignmentOptions.Center);
             UiTheme.Anchor(_nextLine.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                new Vector2(0f, -286f), new Vector2(700f, 22f));
+                new Vector2(0f, -286f + Lift), new Vector2(700f, 22f));
 
             _progressLine = UiTheme.Label(
                 "progress", _root, 16f, UiTheme.TextDim, TextAlignmentOptions.Center);
             UiTheme.Anchor(_progressLine.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                new Vector2(0f, -312f), new Vector2(700f, 24f));
+                new Vector2(0f, -312f + Lift), new Vector2(700f, 24f));
 
             TextMeshProUGUI keys = UiTheme.Label(
                 "keys", _root, 13f, UiTheme.TextDim, TextAlignmentOptions.Center);
@@ -180,13 +180,29 @@ namespace BitSorter.View
             credit.text = GameAudio.MenuMusicCredit;
         }
 
+        /// <summary>
+        /// How far the whole menu block sits above the middle of the screen.
+        /// </summary>
+        /// <remarks>
+        /// The block runs from the title's top to the bottom of the progress line, and it grew
+        /// downward twice -- once for Sandbox, once for Data -- while the title stayed where it
+        /// was. That put its middle about seventy units below the screen's, which reads as the menu
+        /// hanging low rather than as anything being wrong.
+        ///
+        /// One number added to every row, rather than each row's offset nudged separately: the rows
+        /// are stated relative to each other on purpose, and re-typing eleven of them is how that
+        /// stops being true. The keys line at the bottom is anchored to the screen's edge instead
+        /// and is not part of the block.
+        /// </remarks>
+        private const float Lift = 70f;
+
         private Button Item(string name, float y, out TextMeshProUGUI label)
         {
             Button button = UiTheme.Button_(name, _root, name.ToUpperInvariant(), out label);
 
             UiTheme.Anchor(button.GetComponent<RectTransform>(),
                 new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                new Vector2(0f, y), new Vector2(240f, UiTheme.ButtonHeight + 6f));
+                new Vector2(0f, y + Lift), new Vector2(240f, UiTheme.ButtonHeight + 6f));
 
             return button;
         }
