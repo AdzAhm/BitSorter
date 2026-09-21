@@ -26,6 +26,38 @@ namespace BitSorter.View
         [Tooltip("Canvas the panel is built under. Found by type when left empty.")]
         [SerializeField] private Canvas _canvas;
 
+        /// <summary>
+        /// The hint, and the room it needs.
+        /// </summary>
+        /// <remarks>
+        /// It was 15pt in <see cref="UiTheme.TextDim"/>, the dimmest colour in the interface, on
+        /// the one line a player went out of their way to ask for. A nudge nobody can read is a
+        /// button not worth pressing -- the same mistake as printing the hint twice, arrived at
+        /// from the other side.
+        ///
+        /// Each row is stated from the one below it, so making the hint taller moves the heading
+        /// and the divider instead of running into them.
+        /// </remarks>
+        private const float HintFontSize = 17f;
+
+        /// <inheritdoc cref="HintFontSize"/>
+        private const float HintBottom = 12f;
+
+        /// <summary>Four wrapped lines at <see cref="HintFontSize"/>, the longest hint shipped.</summary>
+        private const float HintHeight = 92f;
+
+        /// <inheritdoc cref="HintFontSize"/>
+        private const float HeadingHeight = 18f;
+
+        /// <inheritdoc cref="HintFontSize"/>
+        private const float HeadingBottom = HintBottom + HintHeight + 4f;
+
+        /// <inheritdoc cref="HintFontSize"/>
+        private const float DividerBottom = HeadingBottom + HeadingHeight + 6f;
+
+        /// <summary>The title's row at the top, and the gap under it.</summary>
+        private const float TitleRoom = 46f;
+
         private RectTransform _panel;
         private TextMeshProUGUI _table;
         private TextMeshProUGUI _hint;
@@ -194,6 +226,11 @@ namespace BitSorter.View
                 new Vector2(0f, -12f), new Vector2(300f, 24f));
             title.text = "WHAT THE BINS WANT";
 
+            // The hint block, stacked from the bottom edge so each piece is stated in terms of the
+            // one below it. Three numbers that had to stay apart by hand collided the moment the
+            // hint was made readable: a taller hint box ran into the heading, and moving the
+            // heading ran it into the divider.
+
             // Monospaced, or the columns do not line up and the table is worse than no table. The
             // size is shared with the width arithmetic in Fill, which measures characters.
             _table = UiTheme.Label(
@@ -205,15 +242,21 @@ namespace BitSorter.View
             // resizes the panel for a taller table. Before this the hint sat straight under the
             // table in the same weight and read as more rows of it -- two different kinds of thing
             // with nothing between them saying so.
-            _hint = UiTheme.Label("hint", _panel, 15f, UiTheme.TextDim, TextAlignmentOptions.Top);
+            // Bigger and brighter than the panel's other small print. This was 15pt in TextDim --
+            // the dimmest colour in the interface -- on the one line a player went out of their way
+            // to ask for. A nudge nobody can read is a button not worth pressing, which is the same
+            // mistake as printing the hint twice, arrived at from the other side.
+            _hint = UiTheme.Label(
+                "hint", _panel, HintFontSize, UiTheme.Text, TextAlignmentOptions.Top);
             UiTheme.Anchor(_hint.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
-                new Vector2(0f, 12f), new Vector2(300f, 72f));
+                new Vector2(0f, HintBottom), new Vector2(300f, HintHeight));
             _hint.textWrappingMode = TextWrappingModes.Normal;
+            _hint.lineSpacing = 6f;
 
             _hintHeading = UiTheme.Label(
-                "hint heading", _panel, 13f, UiTheme.Text, TextAlignmentOptions.Center);
+                "hint heading", _panel, 13f, UiTheme.TextDim, TextAlignmentOptions.Center);
             UiTheme.Anchor(_hintHeading.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
-                new Vector2(0f, 88f), new Vector2(300f, 18f));
+                new Vector2(0f, HeadingBottom), new Vector2(300f, HeadingHeight));
             _hintHeading.text = "A NUDGE";
 
             Image rule = UiTheme.Panel_("divider", _panel, UiTheme.PanelEdge);
@@ -221,7 +264,7 @@ namespace BitSorter.View
             _divider.sprite = null;   // a plain hairline, not the rounded panel silhouette
             _divider.raycastTarget = false;
             UiTheme.Anchor(rule.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
-                new Vector2(0f, 112f), new Vector2(280f, 1f));
+                new Vector2(0f, DividerBottom), new Vector2(280f, 1f));
         }
 
         // -----------------------------------------------------------------
@@ -259,8 +302,15 @@ namespace BitSorter.View
             // Taller tables need a taller panel. Eight vectors plus a header and rule is ten lines,
             // and the per-line figure tracks the table's font size rather than being guessed. With no
             // table the panel shrinks to the hint rather than keeping the space open.
+            //
+            // The room under the table is worked out from the hint block rather than stated, because
+            // it was stated: two literals that had to be kept above whatever the bottom of the panel
+            // held, and making the hint readable pushed the hint straight through the title on the
+            // one case with no table at all -- free play, which is the only level that has no
+            // expectations to tabulate.
             int lines = hasTable ? level.VectorCount + 2 : 0;
-            float height = (hasTable ? 160f : 130f) + lines * 24f;
+            float below = hasTable ? DividerBottom + 8f : HintBottom + HintHeight + 8f;
+            float height = below + TitleRoom + lines * 24f;
 
             // And wider tables need a wider panel. Columns are as wide as the longest fixture name
             // now that they are no longer truncated, so a level grading "binOne" and "binZero" needs
