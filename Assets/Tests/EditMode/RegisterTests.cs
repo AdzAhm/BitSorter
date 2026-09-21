@@ -301,7 +301,9 @@ namespace BitSorter.LogicCore.Tests
         public void ALoopWithNothingFeedingIt_NeverSettles()
         {
             // A register into an inverter and back is a ring oscillator: it has no input to run out
-            // of, so it runs until the level's tick limit and fails as "something feeds itself".
+            // of, so it runs until the level's tick limit and never settles. The verdict used to
+            // call that "something feeds itself", which stopped being a diagnosis once a whole
+            // chapter asked the player to build loops on purpose.
             var sim = new Simulation();
             var register = sim.Add(new RegisterNode { Name = "reg" });
             var not = sim.Add(new NotGate { Name = "not" });

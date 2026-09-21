@@ -187,7 +187,11 @@ namespace BitSorter.LogicCore.Tests
 
             Assert.AreEqual(RunOutcome.WrongOutput, verdict.Outcome, verdict.ToString());
             Assert.AreEqual(3, verdict.Vector, "the fourth vector is the one that differs");
-            StringAssert.Contains("vector 3", verdict.Reason);
+
+            // Rows are numbered from one and name their inputs: the stream is "0011", so the
+            // fourth row went in as a 1.
+            StringAssert.Contains("row 4", verdict.Reason);
+            StringAssert.Contains("in = 1", verdict.Reason);
         }
 
         [Test]
@@ -289,7 +293,8 @@ namespace BitSorter.LogicCore.Tests
             Assert.IsFalse(verdict.IsPass, "a bit arrived where the level asked for silence");
             Assert.AreEqual(RunOutcome.ExtraOutput, verdict.Outcome, verdict.ToString());
             Assert.AreEqual(1, verdict.Vector, "vector 1 is the one that should have stayed silent");
-            StringAssert.Contains("vector 1", verdict.Reason);
+            StringAssert.Contains("row 2", verdict.Reason);
+            StringAssert.Contains("in = 0", verdict.Reason);
         }
 
         [Test]
@@ -325,7 +330,7 @@ namespace BitSorter.LogicCore.Tests
 
             Assert.AreEqual(RunOutcome.ExtraOutput, verdict.Outcome, verdict.ToString());
             Assert.AreEqual(0, verdict.Vector, "the intruder is vector 0's bit");
-            StringAssert.Contains("vector 0", verdict.Reason);
+            StringAssert.Contains("row 1", verdict.Reason);
         }
 
         [Test]

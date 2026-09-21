@@ -187,8 +187,12 @@ namespace BitSorter.View
         {
             if (!settled)
             {
+                // "Something feeds itself" was true when nothing could legitimately loop. Registers
+                // made loops the point of a whole chapter, so the old wording now accuses the player
+                // of the exact thing the level asked them to build.
                 return RunVerdict.Fail(RunOutcome.NeverSettled,
-                    $"Still running after {level.TickLimit} ticks. Something feeds itself.");
+                    $"Still running after {level.TickLimit} ticks. Either a bit is going round " +
+                    "for ever, or one never reached a bin.");
             }
 
             // Checked before the sequences. A collision usually breaks a sequence too, but "2 bits
@@ -205,7 +209,8 @@ namespace BitSorter.View
             for (int i = 0; i < level.Expectations.Count; i++)
             {
                 RunVerdict verdict = GradeSink(
-                    view, level.Expectations[i], sinkNodeIds, level.VectorCount, level.ClockPeriod);
+                    view, level, level.Expectations[i], sinkNodeIds, level.VectorCount,
+                    level.ClockPeriod);
 
                 if (!verdict.IsPass)
                     return verdict;
@@ -228,6 +233,7 @@ namespace BitSorter.View
 
         private static RunVerdict GradeSink(
             SimulationView view,
+            LevelDefinition level,
             LevelExpectation expectation,
             IReadOnlyDictionary<string, int> sinkNodeIds,
             int vectorCount,
@@ -270,7 +276,8 @@ namespace BitSorter.View
                     if (!ExpectsBitAt(expected, vector))
                     {
                         return RunVerdict.Fail(RunOutcome.ExtraOutput,
-                            $"vector {vector}: {sinkId} should be silent. A bit arrived.",
+                            $"{Row(level, vector)}: {sinkId} should have stayed empty, " +
+                            "but a bit arrived.",
                             vector, sinkId);
                     }
                 }
@@ -283,7 +290,8 @@ namespace BitSorter.View
                 if (k >= received.Count)
                 {
                     return RunVerdict.Fail(RunOutcome.MissingOutput,
-                        $"vector {want.Vector}: {sinkId} wanted {Describe(want)}. Nothing arrived.",
+                        $"{Row(level, want.Vector)}: {sinkId} wanted {Describe(want)}, " +
+                        "but nothing arrived.",
                         want.Vector, sinkId);
                 }
 
@@ -294,7 +302,8 @@ namespace BitSorter.View
                 if (!want.IsAny && got != want.Value)
                 {
                     return RunVerdict.Fail(RunOutcome.WrongOutput,
-                        $"vector {want.Vector}: {sinkId} wanted {(int)want.Value}. Got {(int)got}.",
+                        $"{Row(level, want.Vector)}: {sinkId} wanted {(int)want.Value}, " +
+                        $"but got {(int)got}.",
                         want.Vector, sinkId);
                 }
             }
@@ -397,6 +406,49 @@ namespace BitSorter.View
             }
 
             return worst;
+        }
+
+        /// <summary>
+        /// Names the row that failed, and what went into it: "row 4 (a = 1, b = 0)".
+        /// </summary>
+        /// <remarks>
+        /// This said "vector 3" and nothing else. Two things were wrong with that. The player does
+        /// not think in vectors -- they are looking at the table behind the `?` badge, which has
+        /// rows -- and the number was zero-based, so "vector 3" is the fourth row and the one place
+        /// that could have said so did not.
+        ///
+        /// Worse, it named the case without describing it. What a player needs in order to find the
+        /// fault is which *inputs* produced it, and the level already knows: the streams are right
+        /// there. Naming them turns "something is wrong on vector 3" into "it goes wrong when a is
+        /// 1 and b is 0", which is the difference between a report and a diagnosis.
+        ///
+        /// A row past the end of the streams -- a register's tail -- has no inputs to name, and
+        /// says so rather than printing an empty pair of brackets.
+        /// </remarks>
+        private static string Row(LevelDefinition level, int vector)
+        {
+            string row = $"row {vector + 1}";
+
+            if (level == null)
+                return row;
+
+            var inputs = new System.Text.StringBuilder();
+
+            foreach (LevelFixture fixture in level.Fixtures)
+            {
+                if (fixture.Kind != FixtureKind.Source)
+                    continue;
+
+                if (vector < 0 || vector >= fixture.Stream.Count)
+                    continue;
+
+                if (inputs.Length > 0)
+                    inputs.Append(", ");
+
+                inputs.Append($"{fixture.Id} = {(int)fixture.Stream[vector]}");
+            }
+
+            return inputs.Length > 0 ? $"{row} ({inputs})" : $"{row} (after the last input)";
         }
 
         /// <summary>The tick a vector leaves its sources on.</summary>
