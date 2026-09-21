@@ -100,10 +100,26 @@ namespace BitSorter.View
         private const float TablePadding = 15f;
 
         /// <summary>Never narrower than this, so the hint below still has a column to wrap in.</summary>
-        private const float MinimumWidth = 330f;
+        /// <remarks>
+        /// Stated in <see cref="UiTheme"/>, because it is half of whether this panel and free
+        /// play's setup panel fit on the same column.
+        /// </remarks>
+        private const float MinimumWidth = UiTheme.HelpMinimumWidth;
 
         private Image _badge;
         private bool _shown;
+
+        /// <summary>
+        /// Whether free play's setup panel is docked on this level, and therefore holds the right
+        /// edge that this panel would otherwise take.
+        /// </summary>
+        /// <remarks>
+        /// Asked of the session rather than of <see cref="SandboxPanel"/>, which is the same
+        /// question its own <c>IsOpen</c> asks -- two readouts of one fact, neither owning the
+        /// other.
+        /// </remarks>
+        private bool BesideSetupPanel =>
+            _session != null && _session.LevelName == SandboxLevel.Key;
 
         private void Awake()
         {
@@ -216,7 +232,8 @@ namespace BitSorter.View
             Image background = UiTheme.Panel_("Help", _canvas.transform, UiTheme.Panel);
             _panel = background.GetComponent<RectTransform>();
             UiTheme.Anchor(_panel, new Vector2(1f, 1f), new Vector2(1f, 1f),
-                new Vector2(-UiTheme.Margin, -(UiTheme.Margin + 100f)), new Vector2(330f, 380f));
+                new Vector2(-UiTheme.HelpRight(BesideSetupPanel), -UiTheme.HelpTop),
+                new Vector2(UiTheme.HelpMinimumWidth, 380f));
 
             background.raycastTarget = false;
 
@@ -320,6 +337,8 @@ namespace BitSorter.View
             float width = Mathf.Max(MinimumWidth, tableWidth + 2f * TablePadding);
 
             _panel.sizeDelta = new Vector2(width, height);
+            _panel.anchoredPosition =
+                new Vector2(-UiTheme.HelpRight(BesideSetupPanel), -UiTheme.HelpTop);
             _table.rectTransform.sizeDelta = new Vector2(width - 2f * TablePadding, lines * 24f + 8f);
         }
 

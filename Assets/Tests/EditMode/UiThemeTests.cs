@@ -47,6 +47,48 @@ namespace BitSorter.LogicCore.Tests
         }
 
         /// <summary>
+        /// The help panel starts below the badge that opens it, key hint included.
+        /// </summary>
+        /// <remarks>
+        /// The badge is round and unlabelled, so the "H" hanging under it is what says both that it
+        /// is a button and how to open it without aiming. The panel is brought to front when it
+        /// opens, so a panel starting any higher than the bottom of that block covers the one
+        /// affordance explaining the control the player just used.
+        /// </remarks>
+        [Test]
+        public void TheHelpPanel_StartsBelowTheBadgeAndItsKeyHint()
+        {
+            Assert.GreaterOrEqual(UiTheme.HelpTop,
+                UiTheme.BadgeRow + UiTheme.BadgeSize + UiTheme.BadgeKeyHeight,
+                "the help panel covers the key hint that says how to open it");
+        }
+
+        /// <summary>
+        /// On free play the help panel and the setup panel are two rectangles on one column, and
+        /// they have to take different halves of it.
+        /// </summary>
+        /// <remarks>
+        /// Both dock to the top right. Free play is the one level with no expectations, so the help
+        /// panel shrinks to its hint and sits squarely over the setup panel's title and its
+        /// collapse button -- and because a panel backdrop is never a raycast target, the clicks
+        /// land on the steppers underneath the panel the player can see.
+        ///
+        /// This is the failure the rows above are here to prevent, arrived at horizontally: the
+        /// help panel stated its own inset instead of taking one from here.
+        /// </remarks>
+        [Test]
+        public void OnFreePlay_TheHelpPanelAndTheSetupPanel_DoNotShareTheSameColumn()
+        {
+            // Both measured as insets from the right edge, so a panel's left edge is its inset
+            // plus its width.
+            float setupLeft = UiTheme.Margin + UiTheme.SetupWidth;
+            float helpRight = UiTheme.HelpRight(besideSetupPanel: true);
+
+            Assert.GreaterOrEqual(helpRight, setupLeft,
+                "the help panel is drawn on top of free play's setup panel");
+        }
+
+        /// <summary>
         /// Opposite corners is only enough while each panel is narrower than half the screen.
         /// </summary>
         /// <remarks>

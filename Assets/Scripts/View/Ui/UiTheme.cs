@@ -74,6 +74,25 @@ namespace BitSorter.View
         /// <inheritdoc cref="SetupWidth"/>
         public const float SetupBottom = ToastRow + ToastHeight + Gap;
 
+        /// <summary>
+        /// The help panel, which shares the right-hand column with free play's setup panel.
+        /// </summary>
+        /// <remarks>
+        /// Stated here rather than in the panel, for the reason every other row on this edge is:
+        /// the help panel and the setup panel are two rectangles on one column, and a panel that
+        /// works out its own clearances is how two of them end up in the same place.
+        /// </remarks>
+        public const float HelpTop = Margin + 100f;
+
+        /// <inheritdoc cref="HelpTop"/>
+        public const float HelpMinimumWidth = 330f;
+
+        /// <summary>
+        /// How far in from the right edge the help panel sits, given whether free play's setup
+        /// panel is docked beside it.
+        /// </summary>
+        public static float HelpRight(bool besideSetupPanel) => Margin;
+
         // -----------------------------------------------------------------
         // The bottom corners
         // -----------------------------------------------------------------
