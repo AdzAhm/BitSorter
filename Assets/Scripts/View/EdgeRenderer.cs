@@ -275,9 +275,20 @@ namespace BitSorter.View
         /// path works here; a world-space TextMesh would need a builtin font whose name has changed
         /// between Unity versions.
         /// </summary>
+        /// <remarks>
+        /// **IMGUI draws after the canvas and cannot be covered by it.** Every other piece of the
+        /// HUD hides itself while a full-screen panel is up, and a Canvas element that forgot to
+        /// would still be painted over by the panel's own scrim. These are not on the canvas, so
+        /// nothing catches them: with the level list open they sat on top of it, digits from the
+        /// board scattered across the rows.
+        ///
+        /// Which makes <see cref="UiModal.HudVisible"/> the one thing standing between a wire's
+        /// delay and the middle of the level list. It is the same rule the rest of the HUD follows;
+        /// it just has to be obeyed here by hand.
+        /// </remarks>
         private void OnGUI()
         {
-            if (_camera == null || _labelTexts.Count == 0)
+            if (_camera == null || _labelTexts.Count == 0 || !UiModal.HudVisible)
                 return;
 
             EnsureLabelStyles();
