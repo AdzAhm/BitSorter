@@ -80,9 +80,17 @@ namespace BitSorter.View
         /// <remarks>
         /// Stated here rather than in the panel, for the reason every other row on this edge is:
         /// the help panel and the setup panel are two rectangles on one column, and a panel that
-        /// works out its own clearances is how two of them end up in the same place.
+        /// works out its own clearances is how two of them end up in the same place. This one
+        /// said <c>-(Margin + 100)</c> while the panel docked beside it derived from
+        /// <see cref="SetupTop"/>, and the two disagreed by exactly the amount that hid one
+        /// behind the other.
+        ///
+        /// The same row as the setup panel, and for the same reason: the badge, its key hint and
+        /// the bits-lost meter are above both of them. A panel starting any higher covers the
+        /// "H" that says how to open it, which is the one affordance explaining the control the
+        /// player has just used.
         /// </remarks>
-        public const float HelpTop = Margin + 100f;
+        public const float HelpTop = SetupTop;
 
         /// <inheritdoc cref="HelpTop"/>
         public const float HelpMinimumWidth = 330f;
@@ -91,7 +99,15 @@ namespace BitSorter.View
         /// How far in from the right edge the help panel sits, given whether free play's setup
         /// panel is docked beside it.
         /// </summary>
-        public static float HelpRight(bool besideSetupPanel) => Margin;
+        /// <remarks>
+        /// They share a row, so they have to take different halves of the column: the help panel
+        /// steps left of the setup panel's full width rather than over it. It steps aside whether
+        /// or not the setup panel is collapsed at that moment, because a help panel that moved
+        /// when the setup panel was folded away would be a panel that is never twice in the same
+        /// place.
+        /// </remarks>
+        public static float HelpRight(bool besideSetupPanel) =>
+            besideSetupPanel ? Margin + SetupWidth + Gap : Margin;
 
         // -----------------------------------------------------------------
         // The bottom corners
