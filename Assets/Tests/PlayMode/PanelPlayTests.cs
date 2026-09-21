@@ -177,8 +177,199 @@ namespace BitSorter.PlayMode.Tests
         }
 
         // -----------------------------------------------------------------
+        // What is already on screen when a panel opens
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// A hint up when a full-screen panel opens is held, not spent.
+        /// </summary>
+        /// <remarks>
+        /// A first-time hint is marked seen the moment it is raised, not when it is read:
+        /// FirstTimeHints.TryShow calls MarkHintSeen and only then calls Show. There are four of
+        /// these hints in the whole game and each fires once ever per save, so nine seconds
+        /// running out behind a level list is a mechanic the player is never told about again.
+        ///
+        /// FirstTimeHints already refuses to raise one while a panel is open. Nothing covered the
+        /// other order: a hint already up when the panel opens.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator AHintUpWhenAPanelOpens_IsHeldRatherThanSpent()
+        {
+            yield return TestScene.Load();
+            yield return CloseTheMainMenu();
+
+            HintBanner banner = Find<HintBanner>();
+            banner.Show("Gates fire only when every input is holding a bit.");
+            yield return null;
+
+            Assert.IsTrue(banner.IsShowing, "sanity: the hint should be up");
+            Assert.IsNotNull(GameObject.Find("Hint"), "sanity: the hint should be drawn");
+
+            float before = Remaining(banner);
+
+            var panel = new GameObject("stand-in").AddComponent<EscapeClosedPanel>();
+            panel.Open();
+
+            // Several frames, so a countdown that is still running has time to show it.
+            for (int frame = 0; frame < 5; frame++)
+                yield return null;
+
+            Assert.IsNull(GameObject.Find("Hint"),
+                "the hint is drawn over by the panel rather than stepping aside for it");
+
+            Assert.AreEqual(before, Remaining(banner), 0.0001f,
+                "the hint spent its nine seconds behind a full-screen panel -- it is marked seen, " +
+                "so the player never gets it again");
+
+            Assert.IsTrue(banner.IsShowing,
+                "the hint gave up while it was covered, which is the same loss by another route");
+
+            Object.DestroyImmediate(panel.gameObject);
+        }
+
+        /// <summary>
+        /// The solved card and the bins lighting up both step aside for a full-screen panel.
+        /// </summary>
+        /// <remarks>
+        /// The win panel is deliberately not a modal -- it is a card on the board, not a takeover --
+        /// but that settles what it does to other panels, not what they do to it. It hid from
+        /// nothing: it merely skipped coming to the front, so a scrim at 0.78 went over a live
+        /// panel and the card bled through it. A run that passed while the level list was open was
+        /// worse, activating the card behind the scrim at whatever sibling index it happened to
+        /// hold, with no BringToFront ever to correct it.
+        ///
+        /// The celebration is the same fact on the board rather than on the canvas: glows pulsing
+        /// at 2.6 Hz behind a menu are motion where the player is reading.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator OverASolvedBoard_TheCardAndTheCelebration_StepAsideForAPanel()
+        {
+            yield return TestScene.Load();
+            yield return SkipTheTutorial();
+            yield return CloseTheMainMenu();
+
+            yield return SolveTheFirstLevel();
+
+            WinPanel win = Find<WinPanel>();
+            Assert.IsTrue(win.IsShowing, "sanity: solving the level should show the card");
+            Assert.IsNotNull(GameObject.Find("Win"), "sanity: the card should be drawn");
+            Assert.Greater(LitGlows(), 0, "sanity: the bins should be lit");
+
+            var panel = new GameObject("stand-in").AddComponent<EscapeClosedPanel>();
+            panel.Open();
+            yield return null;
+
+            Assert.IsNull(GameObject.Find("Win"),
+                "the solved card is still drawn under the panel's scrim");
+
+            Assert.AreEqual(0, LitGlows(), "the bins keep pulsing behind the panel");
+
+            // It stepped aside rather than gave up: the director and the music both read IsShowing
+            // to know the card is still owed, and a card that forgot itself here would let the
+            // tutorial's ending card through early.
+            Assert.IsTrue(win.IsShowing,
+                "the card forgot it was owed rather than stepping aside for the panel");
+
+            Object.DestroyImmediate(panel.gameObject);
+            yield return null;
+
+            Assert.IsNotNull(GameObject.Find("Win"), "the card did not come back when the panel closed");
+        }
+
+        // -----------------------------------------------------------------
         // Helpers
         // -----------------------------------------------------------------
+
+        /// <summary>
+        /// Marks the tutorial done on the scratch save, so closing the menu does not launch it.
+        /// </summary>
+        /// <remarks>
+        /// SaveGuard hands every fixture a fresh save, and a fresh save is exactly the condition
+        /// the tutorial offers itself on -- it adopts its own board the moment the menu closes,
+        /// which takes the level out from under anything loaded afterwards.
+        /// </remarks>
+        private static IEnumerator SkipTheTutorial()
+        {
+            Find<ProgressTracker>().Store.MarkMilestone(TutorialLevel.Key);
+            yield return null;
+        }
+
+        /// <summary>How long a hint has left, which is private because nothing but a test needs it.</summary>
+        private static float Remaining(HintBanner banner)
+        {
+            FieldInfo field = typeof(HintBanner).GetField(
+                "_remaining", BindingFlags.Instance | BindingFlags.NonPublic);
+
+            Assert.IsNotNull(field, "HintBanner no longer keeps its countdown in _remaining");
+            return (float)field.GetValue(banner);
+        }
+
+        /// <summary>The celebration glows that are currently drawn.</summary>
+        private static int LitGlows()
+        {
+            GameObject container = GameObject.Find("Sink celebration");
+
+            if (container == null)
+                return 0;
+
+            int lit = 0;
+
+            foreach (SpriteRenderer glow in container.GetComponentsInChildren<SpriteRenderer>())
+            {
+                if (glow.gameObject.activeInHierarchy && glow.enabled)
+                    lit++;
+            }
+
+            return lit;
+        }
+
+        /// <summary>
+        /// Solves route-the-bit the intended way -- in, through a NOT, into binOne -- and lets the
+        /// pass settle.
+        /// </summary>
+        private static IEnumerator SolveTheFirstLevel()
+        {
+            LevelSession session = Find<LevelSession>();
+            SimulationRunner runner = Find<SimulationRunner>();
+
+            Assert.IsTrue(session.LoadLevel("route-the-bit"), "the level did not load");
+            yield return null;
+
+            var middle = new Vector2Int(0, 0);
+            Assert.IsTrue(session.TryPlaceGate(GateKind.Not, middle), "could not place the NOT gate");
+
+            int gate = -1;
+
+            for (int id = 0; id < runner.View.NodeCount; id++)
+            {
+                if (runner.TryCellOf(id, out Vector2Int at) && at == middle)
+                    gate = id;
+            }
+
+            Assert.AreNotEqual(-1, gate, "nothing on the middle cell");
+
+            Assert.IsTrue(session.TryConnect(
+                new PortAddress(runner.FixtureNodeIds["in"], false, 0),
+                new PortAddress(gate, true, 0)), "could not wire the source to the gate");
+
+            Assert.IsTrue(session.TryConnect(
+                new PortAddress(gate, false, 0),
+                new PortAddress(runner.FixtureNodeIds["binOne"], true, 0)),
+                "could not wire the gate to the bin");
+
+            session.Run();
+
+            for (int tick = 0; tick < 100 && !runner.IsIdle(); tick++)
+                runner.StepOneTick();
+
+            Assert.IsTrue(runner.IsIdle(), "the run never came to a standstill");
+
+            // Two frames: one for the session to settle the run, one for the panel to see it.
+            yield return null;
+            yield return null;
+
+            Assert.AreEqual(RunState.Passed, session.State, "sanity: the intended answer should pass");
+        }
 
         /// <summary>
         /// Presses Escape and returns inside the frame that processed it.
