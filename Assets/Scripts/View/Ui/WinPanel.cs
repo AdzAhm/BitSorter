@@ -25,7 +25,36 @@ namespace BitSorter.View
         [Tooltip("Canvas the panel is built under. Found by type when left empty.")]
         [SerializeField] private Canvas _canvas;
 
+        /// <summary>
+        /// The two buttons along the bottom, sized from the panel rather than stated.
+        /// </summary>
+        /// <remarks>
+        /// They were a fixed 160 wide, which fits "NEXT LEVEL" and does not fit "PLAY THE FIRST
+        /// LEVEL" -- the caption the panel grew when it learned to send a player on from the
+        /// tutorial. The label is stretched across its button and does not wrap, so the extra
+        /// characters simply printed out of the button and over the one beside it.
+        ///
+        /// Half the panel each, less the margins, so a caption has as much room as there is.
+        /// </remarks>
+        private const float PanelWidth = 500f;
+
+        /// <inheritdoc cref="PanelWidth"/>
+        private const float ButtonGap = 16f;
+
+        /// <inheritdoc cref="PanelWidth"/>
+        private const float SideMargin = 20f;
+
+        /// <inheritdoc cref="PanelWidth"/>
+        private const float ButtonWidth = (PanelWidth - SideMargin * 2f - ButtonGap) / 2f;
+
+        /// <inheritdoc cref="PanelWidth"/>
+        private const float ButtonOffset = (ButtonWidth + ButtonGap) / 2f;
+
+        /// <inheritdoc cref="PanelWidth"/>
+        private const float ButtonRow = 28f;
+
         private RectTransform _root;
+        private Button _stay;
         private TextMeshProUGUI _title;
         private TextMeshProUGUI _detail;
         private Button _next;
@@ -64,7 +93,7 @@ namespace BitSorter.View
             // line, the record, and a line about beating it. Six lines were overflowing a panel
             // built for three, straight over the buttons.
             UiTheme.Anchor(_root, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                Vector2.zero, new Vector2(500f, 330f));
+                Vector2.zero, new Vector2(PanelWidth, 330f));
 
             _title = UiTheme.Label("title", _root, 32f, UiTheme.Good, TextAlignmentOptions.Center);
             UiTheme.Anchor(_title.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
@@ -78,13 +107,15 @@ namespace BitSorter.View
 
             _next = UiTheme.Button_("Next", _root, "NEXT LEVEL", out _nextLabel);
             UiTheme.Anchor(_next.GetComponent<RectTransform>(), new Vector2(0.5f, 0f),
-                new Vector2(0.5f, 0f), new Vector2(-84f, 28f), new Vector2(160f, UiTheme.ButtonHeight));
+                new Vector2(0.5f, 0f), new Vector2(-ButtonOffset, ButtonRow),
+                new Vector2(ButtonWidth, UiTheme.ButtonHeight));
             _next.onClick.AddListener(NextLevel);
 
-            Button stay = UiTheme.Button_("Stay", _root, "KEEP TINKERING", out TextMeshProUGUI _);
-            UiTheme.Anchor(stay.GetComponent<RectTransform>(), new Vector2(0.5f, 0f),
-                new Vector2(0.5f, 0f), new Vector2(84f, 28f), new Vector2(160f, UiTheme.ButtonHeight));
-            stay.onClick.AddListener(Dismiss);
+            _stay = UiTheme.Button_("Stay", _root, "KEEP TINKERING", out TextMeshProUGUI _);
+            UiTheme.Anchor(_stay.GetComponent<RectTransform>(), new Vector2(0.5f, 0f),
+                new Vector2(0.5f, 0f), new Vector2(ButtonOffset, ButtonRow),
+                new Vector2(ButtonWidth, UiTheme.ButtonHeight));
+            _stay.onClick.AddListener(Dismiss);
 
             _root.gameObject.SetActive(false);
         }
@@ -147,8 +178,15 @@ namespace BitSorter.View
             int index = _session.LevelIndex;
             int count = _session.AvailableLevels.Count;
 
-            _next.gameObject.SetActive(HasSomewhereToGo(index, count));
+            bool onward = HasSomewhereToGo(index, count);
+
+            _next.gameObject.SetActive(onward);
             _nextLabel.text = index < 0 ? "PLAY THE FIRST LEVEL" : "NEXT LEVEL";
+
+            // On the last level there is no pair to balance, so the one button that is left takes
+            // the middle rather than sitting where its other half used to be.
+            _stay.GetComponent<RectTransform>().anchoredPosition =
+                new Vector2(onward ? ButtonOffset : 0f, ButtonRow);
 
             Show(true);
         }
