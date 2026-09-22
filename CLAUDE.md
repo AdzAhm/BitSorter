@@ -758,13 +758,36 @@ the head of the level list — free play's row at the foot is the same idea — 
 once by itself on a save with no `tutorial` milestone. Unlike the sandbox it
 *is* graded, so the last step ends on the ordinary win panel.
 
-**It never blocks input.** Each step is a predicate over board state, so an
+**No step ever blocks input.** Each step is a predicate over board state, so an
 unsatisfied step simply does not advance and every other action stays legal —
 and a step un-finishes by itself when the player deletes what it asked for,
-Ctrl+Z included, with nothing tracking the undo. Gating input would mean
-reaching into `PlacementController`, `WiringController` and `PaletteDragSource`,
-and pointer ownership is derived and never claimed precisely because a claim
-that leaks disables the game with no way back.
+Ctrl+Z included, with nothing tracking the undo.
+
+**The intro is the one exception, and it holds the whole board.** Until the
+player presses START or SKIP nothing on the board takes an edit; after either,
+everything is theirs. That moment is the only one where a free board costs
+something that cannot be got back: the tutorial stocks one NOT and one AND
+decoy, and the step that wants the NOT wants it on one particular cell, so a
+part spent before it is asked for leaves a step that cannot be met and nothing
+in hand to meet it with. A playtester hit exactly that — the instructions asked
+for a gate that was no longer there.
+
+It is refused with a reason, never ignored: a click that does nothing and says
+nothing teaches that the board is broken, and this is the first board anyone
+sees. And it is **one gate, not three controllers**. Every board edit already
+passes through `LevelRules.CanEdit`, which exists to say the board is not
+editable and to say why, so the tutorial is another reason rather than a new
+mechanism — this paragraph used to argue against gating precisely because it
+imagined reaching into `PlacementController`, `WiringController` and
+`PaletteDragSource`, and it does not.
+
+`TutorialDirector.HoldingTheBoard` is **derived from the phase and never set**,
+which is the rule pointer ownership follows and for the same reason: a hold that
+can be claimed is a hold that can leak, and a leaked hold is a board nobody can
+touch with nothing on screen explaining why. There is no state to leak — no
+director, a destroyed one, or any phase but the intro, and the board is free.
+The tests that matter are the two proving both ways out, not the one proving the
+hold.
 
 **It ends on its own card, after the win panel.** The run settles `Passed`, the
 ordinary solved panel appears, and only once it is dismissed does the card take
