@@ -95,6 +95,22 @@ namespace BitSorter.View
         // Building
         // -----------------------------------------------------------------
 
+        /// <summary>Where the button column starts, and how far apart its rows are.</summary>
+        /// <remarks>
+        /// The step is the row height plus the gap, which is what makes the column read as one
+        /// list rather than as buttons that happen to be near each other.
+        /// </remarks>
+        private const float FirstRow = 32f;
+
+        /// <inheritdoc cref="FirstRow"/>
+        private const float RowStep = 54f;
+
+        /// <summary>How the two lines under the column sit against the row that would follow it.</summary>
+        private const float NextLineLead = 6f;
+
+        /// <inheritdoc cref="NextLineLead"/>
+        private const float ProgressLineStep = 26f;
+
         private void Build()
         {
             Image scrim = UiTheme.Scrim("Main menu", _canvas.transform, new Color(0f, 0f, 0f, 0.88f));
@@ -120,47 +136,60 @@ namespace BitSorter.View
                 new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                 new Vector2(0f, 78f + Lift), new Vector2(320f, 2f));
 
-            Button resume = Item("Continue", 32f, out _continueLabel);
-            resume.onClick.AddListener(() => Fire(Continue));
+            // A cursor down the column rather than a y per row. One row is compiled out in a
+            // browser build, and with each row stating its own position the two lines underneath
+            // stayed where they were -- leaving a button-shaped hole in the middle of the menu
+            // that only ever appeared in the shipped web build.
+            float row = FirstRow;
 
-            Button levels = Item("Levels", -22f, out TextMeshProUGUI _);
+            Button resume = Item("Continue", row, out _continueLabel);
+            resume.onClick.AddListener(() => Fire(Continue));
+            row -= RowStep;
+
+            Button levels = Item("Levels", row, out TextMeshProUGUI _);
             levels.onClick.AddListener(() => Fire(OpenLevels));
+            row -= RowStep;
 
             // Below the run, not beside it. Free play is where someone goes once the levels have
             // taught them something, and putting it first would offer a blank board to a player who
             // has not yet been told what a board is for.
-            Button sandbox = Item("Sandbox", -76f, out TextMeshProUGUI _);
+            Button sandbox = Item("Sandbox", row, out TextMeshProUGUI _);
             sandbox.onClick.AddListener(() => Fire(OpenSandbox));
+            row -= RowStep;
 
-            Button sound = Item("Sound", -130f, out _soundLabel);
+            Button sound = Item("Sound", row, out _soundLabel);
             sound.onClick.AddListener(() => Fire(ToggleSound));
+            row -= RowStep;
 
             // The off switch for reporting. In the menu rather than buried, because a setting nobody
             // can find is not a choice -- and the README tells players it is here.
-            Button data = Item("Data", -184f, out _dataLabel);
+            Button data = Item("Data", row, out _dataLabel);
             data.onClick.AddListener(() => Fire(ToggleData));
+            row -= RowStep;
 
             // No Quit in a browser. Application.Quit does nothing there -- a tab is closed by the
             // browser, not by the page -- so the button would sit in the menu doing nothing at all,
             // which is worse than not offering it.
 #if !UNITY_WEBGL || UNITY_EDITOR
-            Button quit = Item("Quit", -238f, out TextMeshProUGUI _);
+            Button quit = Item("Quit", row, out TextMeshProUGUI _);
             quit.onClick.AddListener(() => Fire(Quit));
+            row -= RowStep;
 #endif
 
             // Where Continue actually goes. "CONTINUE" alone tells a returning player nothing about
             // which of nine levels they are about to land on.
-            // These follow the bottom of the button column, which has grown twice -- once for Sandbox
-            // and once for Data. The canvas is 1080 tall, so there is room below -238 for both.
+            //
+            // Measured from wherever the column actually ended, so the pair closes up behind a row
+            // that was not built rather than hanging below the gap it left.
             _nextLine = UiTheme.Label(
                 "next", _root, 15f, UiTheme.Accent, TextAlignmentOptions.Center);
             UiTheme.Anchor(_nextLine.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                new Vector2(0f, -286f + Lift), new Vector2(700f, 22f));
+                new Vector2(0f, row + NextLineLead + Lift), new Vector2(700f, 22f));
 
             _progressLine = UiTheme.Label(
                 "progress", _root, 16f, UiTheme.TextDim, TextAlignmentOptions.Center);
             UiTheme.Anchor(_progressLine.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                new Vector2(0f, -312f + Lift), new Vector2(700f, 24f));
+                new Vector2(0f, row + NextLineLead - ProgressLineStep + Lift), new Vector2(700f, 24f));
 
             TextMeshProUGUI keys = UiTheme.Label(
                 "keys", _root, 13f, UiTheme.TextDim, TextAlignmentOptions.Center);
