@@ -6,6 +6,7 @@ using BitSorter.View;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.TestTools;
+using UnityEngine.UI;
 using Object = UnityEngine.Object;
 
 namespace BitSorter.PlayMode.Tests
@@ -174,6 +175,66 @@ namespace BitSorter.PlayMode.Tests
 
             foreach (string name in HudRoots)
                 Assert.IsNotNull(GameObject.Find(name), $"'{name}' is missing with nothing open");
+        }
+
+        // -----------------------------------------------------------------
+        // What a panel's backdrop may be drawn on
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// The panel sprite is never drawn smaller than its two corners, on the menu or the HUD.
+        /// </summary>
+        /// <remarks>
+        /// It is nine-sliced with ten-pixel corners, and anything shorter than two of them squeezes
+        /// the corners together instead of repeating a middle -- so CLAUDE.md has that anything
+        /// shorter replaces the sprite, as the help badge and the clock's pips do. The menu's rule
+        /// under the title did not: two pixels tall, it drew as a squashed rounded slab, which read
+        /// as a line only because a filled slab is one colour throughout. A panel with a drawn edge
+        /// has an edge and a middle, and the rule vanished into two dots.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator APanelBackdrop_IsNeverSmallerThanItsCorners()
+        {
+            yield return TestScene.Load();
+            yield return null;
+
+            int onTheMenu = PanelsTooSmallForTheirCorners(out string menuReport);
+            Assert.Greater(onTheMenu, 0, "sanity: the main menu draws panels");
+            Assert.IsEmpty(menuReport, "on the main menu");
+
+            yield return CloseTheMainMenu();
+
+            int onTheHud = PanelsTooSmallForTheirCorners(out string hudReport);
+            Assert.Greater(onTheHud, 0, "sanity: the HUD draws panels");
+            Assert.IsEmpty(hudReport, "on the HUD");
+        }
+
+        /// <summary>
+        /// Checks every panel on screen against its corners; returns how many it checked, and names
+        /// any that are too small.
+        /// </summary>
+        private static int PanelsTooSmallForTheirCorners(out string report)
+        {
+            Sprite panel = ProceduralSprites.Panel();
+            var failures = new System.Text.StringBuilder();
+            int checkedPanels = 0;
+
+            foreach (Image image in Object.FindObjectsByType<Image>(FindObjectsSortMode.None))
+            {
+                if (image.sprite != panel || !image.isActiveAndEnabled)
+                    continue;
+
+                checkedPanels++;
+                Vector2 size = image.rectTransform.rect.size;
+                float tall = (panel.border.y + panel.border.w) / image.pixelsPerUnit;
+                float wide = (panel.border.x + panel.border.z) / image.pixelsPerUnit;
+
+                if (size.y < tall || size.x < wide)
+                    failures.Append($"'{image.name}' is {size.x} by {size.y}, and its corners need {wide} by {tall}. ");
+            }
+
+            report = failures.ToString();
+            return checkedPanels;
         }
 
         // -----------------------------------------------------------------
