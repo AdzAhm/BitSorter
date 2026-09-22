@@ -113,7 +113,7 @@ namespace BitSorter.View
                 renderer.color = NodeShapes.ColourFor(node);
 
                 // Behind the node body, in the slot the ordinary node glow already uses.
-                renderer.sortingOrder = -2;
+                renderer.sortingOrder = ViewLayers.Celebration;
 
                 _glows.Add(renderer);
             }

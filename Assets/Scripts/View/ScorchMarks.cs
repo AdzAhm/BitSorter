@@ -106,16 +106,11 @@ namespace BitSorter.View
             renderer.sprite = ProceduralSprites.Glow();
             renderer.color = new Color(_colour.r, _colour.g, _colour.b, 0f);
 
-            // Over the gate, under the bits.
-            //
-            // This was -4, which put it under the node body at 0 -- and a mark sits ON a node's
-            // input port, so the node it marks covered almost all of it. In play it showed as a
-            // few red pixels at the gate's left edge and read as nothing at all. A mark drawn
-            // behind the thing it marks is invisible by construction, not by tuning.
-            //
-            // 2 clears the node body and its port stubs at 1, and stays under bits at 3 and sparks
-            // at 4, so a bit crossing a scorched gate still draws on top of the stain.
-            renderer.sortingOrder = 2;
+            // Over the gate, under the bits. This was -4, which put it under the node body -- and
+            // a mark sits ON a node's input port, so the node it marks covered almost all of it.
+            // In play it showed as a few red pixels at the gate's left edge and read as nothing
+            // at all. A mark drawn behind the thing it marks is invisible by construction.
+            renderer.sortingOrder = ViewLayers.Scorch;
 
             var mark = new Mark { Renderer = renderer, Born = Time.time };
 

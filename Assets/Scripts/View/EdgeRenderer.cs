@@ -126,8 +126,10 @@ namespace BitSorter.View
 
                 // Two lines make a trace: a wide dark casing with a thin bright core over it.
                 // Cheaper and more predictable than a custom shader.
-                Spawn($"Edge {id} casing", from, to, _casingWidth, _casingColour, -2);
-                LineRenderer core = Spawn($"Edge {id} core - {edge}", from, to, _coreWidth, _coreColour, -1);
+                Spawn($"Edge {id} casing", from, to, _casingWidth, _casingColour,
+                    ViewLayers.WireCasing);
+                LineRenderer core = Spawn($"Edge {id} core - {edge}", from, to, _coreWidth,
+                    _coreColour, ViewLayers.WireCore);
 
                 SpawnMarks(id, from, to, edge.Delay);
 

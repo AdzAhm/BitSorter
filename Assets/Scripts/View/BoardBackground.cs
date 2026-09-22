@@ -34,7 +34,7 @@ namespace BitSorter.View
             renderer.drawMode = SpriteDrawMode.Tiled;
             renderer.tileMode = SpriteTileMode.Continuous;
             renderer.color = _tint;
-            renderer.sortingOrder = -10;   // behind the grid dots, which sit at -2
+            renderer.sortingOrder = ViewLayers.Board;
 
             _renderer = renderer;
             _size = ViewSize();

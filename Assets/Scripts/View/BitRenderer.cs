@@ -293,7 +293,7 @@ namespace BitSorter.View
 
             var renderer = instance.GetComponent<SpriteRenderer>();
             renderer.sprite = ProceduralSprites.Dot();
-            renderer.sortingOrder = 5;   // in front of nodes, wires, scorch marks and port stubs
+            renderer.sortingOrder = ViewLayers.Bit;
 
             // Halo is a child, so it inherits the squash and stays centred on the bit.
             var halo = new GameObject("Glow");
@@ -302,7 +302,7 @@ namespace BitSorter.View
 
             var haloRenderer = halo.AddComponent<SpriteRenderer>();
             haloRenderer.sprite = ProceduralSprites.Glow();
-            haloRenderer.sortingOrder = 4;
+            haloRenderer.sortingOrder = ViewLayers.BitGlow;
             _halos[renderer] = haloRenderer;
 
             _trails[renderer] = BuildTrail(instance.transform);
@@ -323,7 +323,7 @@ namespace BitSorter.View
             trail.time = _trailSeconds;
             trail.material = TrailMaterial();
             trail.numCapVertices = 4;
-            trail.sortingOrder = 1;
+            trail.sortingOrder = ViewLayers.NodeDetail;
             trail.minVertexDistance = 0.02f;
             trail.autodestruct = false;
 

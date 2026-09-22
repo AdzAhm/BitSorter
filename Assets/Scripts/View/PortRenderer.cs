@@ -356,10 +356,7 @@ namespace BitSorter.View
             // change, so they are finished here.
             renderer.sprite = isInput ? ProceduralSprites.Ring() : ProceduralSprites.Dot();
             renderer.color = isInput ? _inputColour : _outputColour;
-            // Above the scorch mark, which is drawn at 2 and is four times the width of a stub. A
-            // port that has collided before is exactly the one whose state is worth reading, so the
-            // burn must not bury it.
-            renderer.sortingOrder = 3;
+            renderer.sortingOrder = ViewLayers.Port;
 
             if (isInput)
             {
@@ -383,7 +380,7 @@ namespace BitSorter.View
 
             var renderer = host.AddComponent<SpriteRenderer>();
             renderer.sprite = ProceduralSprites.Glow();
-            renderer.sortingOrder = 1;
+            renderer.sortingOrder = ViewLayers.NodeDetail;
             renderer.color = Color.clear;   // lit only once something is being held
 
             return renderer;

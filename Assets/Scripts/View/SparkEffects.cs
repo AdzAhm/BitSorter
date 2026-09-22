@@ -86,7 +86,7 @@ namespace BitSorter.View
             var renderer = host.GetComponent<ParticleSystemRenderer>();
             renderer.renderMode = ParticleSystemRenderMode.Billboard;
             renderer.material = SparkMaterial();
-            renderer.sortingOrder = 4;   // above bits
+            renderer.sortingOrder = ViewLayers.Spark;
 
             _system.Play();
         }

@@ -226,7 +226,7 @@ namespace BitSorter.View
                 var haloRenderer = halo.GetComponent<SpriteRenderer>();
                 haloRenderer.sprite = ProceduralSprites.Glow();
                 haloRenderer.color = new Color(colour.r, colour.g, colour.b, _glowAlpha);
-                haloRenderer.sortingOrder = -3;
+                haloRenderer.sortingOrder = ViewLayers.NodeGlow;
 
                 _spawned.Add(halo);
                 _halos[id] = haloRenderer;
@@ -240,7 +240,7 @@ namespace BitSorter.View
                 var renderer = instance.GetComponent<SpriteRenderer>();
                 renderer.sprite = NodeShapes.SpriteFor(node);
                 renderer.color = colour;
-                renderer.sortingOrder = 0;
+                renderer.sortingOrder = ViewLayers.NodeBody;
 
                 _spawned.Add(instance);
                 _bodies[id] = renderer;
@@ -283,7 +283,7 @@ namespace BitSorter.View
 
             var renderer = held.GetComponent<SpriteRenderer>();
             renderer.sprite = ProceduralSprites.Circle();
-            renderer.sortingOrder = 1;
+            renderer.sortingOrder = ViewLayers.NodeDetail;
 
             _spawned.Add(held);
             _heldBits[id] = renderer;
@@ -308,7 +308,7 @@ namespace BitSorter.View
 
             // Sits above the board and the wires but below the bits, so a bit landing in a bin is
             // never hidden behind the bin's own name.
-            text.sortingOrder = 1;
+            text.sortingOrder = ViewLayers.NodeDetail;
 
             var rect = host.GetComponent<RectTransform>();
             rect.sizeDelta = new Vector2(PortGeometry.NodeSize * 2.4f, 0.6f);

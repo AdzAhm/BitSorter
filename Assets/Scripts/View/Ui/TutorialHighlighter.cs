@@ -203,7 +203,7 @@ namespace BitSorter.View
 
             // Above the board, the wires and the port stubs, below the bits, so a highlight never
             // hides the thing it is pointing at.
-            ring.sortingOrder = 4;
+            ring.sortingOrder = ViewLayers.TutorialRing;
 
             _worldRings.Add(ring);
             _worldUsed++;

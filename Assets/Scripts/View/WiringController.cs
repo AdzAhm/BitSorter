@@ -234,7 +234,7 @@ namespace BitSorter.View
             _preview.positionCount = 2;
             _preview.widthMultiplier = _previewWidth;
             _preview.numCapVertices = 4;
-            _preview.sortingOrder = 3;   // above everything, it is a cursor
+            _preview.sortingOrder = ViewLayers.WiringPreview;
             _preview.material = new Material(Shader.Find("Sprites/Default") ?? Shader.Find("Unlit/Color"));
             _preview.enabled = false;
         }
