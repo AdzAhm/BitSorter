@@ -308,9 +308,24 @@ namespace BitSorter.View
         /// The ruler is built once and kept. It is marked not-to-be-saved for the reason the
         /// generated sprites are, and re-made if something destroys it anyway.
         /// </remarks>
-        public static float GoalHeight(string goal)
+        public static float GoalHeight(string goal) =>
+            TextHeight(goal, BannerGoalFontSize, BannerTextWidth);
+
+        /// <summary>
+        /// The height a wrapped run of text needs, measured with a real label rather than guessed.
+        /// </summary>
+        /// <remarks>
+        /// One ruler, reused and reconfigured per call. It is HideAndDontSave, so it is neither
+        /// saved into a scene nor swept up as an untracked object -- the same flag every generated
+        /// sprite carries, for the same reason.
+        ///
+        /// Guessing is what this replaces. A box sized by counting the lines somebody expected is
+        /// a box that fits until a level is written with one more, and nothing tells you which
+        /// level did it: the text simply prints past the panel.
+        /// </remarks>
+        public static float TextHeight(string text, float fontSize, float width, float lineSpacing = 0f)
         {
-            if (string.IsNullOrEmpty(goal))
+            if (string.IsNullOrEmpty(text))
                 return 0f;
 
             if (_ruler == null)
@@ -320,13 +335,14 @@ namespace BitSorter.View
                     hideFlags = HideFlags.HideAndDontSave,
                 };
 
-                _ruler = Label("ruler", host.transform, BannerGoalFontSize, Accent,
-                    TextAlignmentOptions.Top);
-
+                _ruler = Label("ruler", host.transform, fontSize, Accent, TextAlignmentOptions.Top);
                 _ruler.textWrappingMode = TextWrappingModes.Normal;
             }
 
-            return _ruler.GetPreferredValues(goal, BannerTextWidth, 0f).y;
+            _ruler.fontSize = fontSize;
+            _ruler.lineSpacing = lineSpacing;
+
+            return _ruler.GetPreferredValues(text, width, 0f).y;
         }
 
         private static TextMeshProUGUI _ruler;

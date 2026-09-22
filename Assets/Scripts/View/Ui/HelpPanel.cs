@@ -38,13 +38,27 @@ namespace BitSorter.View
         /// Each row is stated from the one below it, so making the hint taller moves the heading
         /// and the divider instead of running into them.
         /// </remarks>
-        private const float HintFontSize = 17f;
+        public const float HintFontSize = 17f;
 
         /// <inheritdoc cref="HintFontSize"/>
         private const float HintBottom = 12f;
 
-        /// <summary>Four wrapped lines at <see cref="HintFontSize"/>, the longest hint shipped.</summary>
-        private const float HintHeight = 92f;
+        /// <summary>
+        /// Room for the hint, and the width it wraps in.
+        /// </summary>
+        /// <remarks>
+        /// Public because nothing was checking it. The banner's goal is measured against the box
+        /// that holds it and a level whose goal will not fit is a failing test; the hint had the
+        /// same shape of problem and none of the guard, so a hint one line longer than whoever
+        /// wrote this box expected simply printed past the bottom of the panel.
+        /// </remarks>
+        public const float HintHeight = 92f;
+
+        /// <inheritdoc cref="HintHeight"/>
+        public const float HintWidth = 300f;
+
+        /// <inheritdoc cref="HintHeight"/>
+        public const float HintLineSpacing = 6f;
 
         /// <inheritdoc cref="HintFontSize"/>
         private const float HeadingHeight = 18f;
@@ -266,9 +280,9 @@ namespace BitSorter.View
             _hint = UiTheme.Label(
                 "hint", _panel, HintFontSize, UiTheme.Text, TextAlignmentOptions.Top);
             UiTheme.Anchor(_hint.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
-                new Vector2(0f, HintBottom), new Vector2(300f, HintHeight));
+                new Vector2(0f, HintBottom), new Vector2(HintWidth, HintHeight));
             _hint.textWrappingMode = TextWrappingModes.Normal;
-            _hint.lineSpacing = 6f;
+            _hint.lineSpacing = HintLineSpacing;
 
             _hintHeading = UiTheme.Label(
                 "hint heading", _panel, 13f, UiTheme.TextDim, TextAlignmentOptions.Center);
