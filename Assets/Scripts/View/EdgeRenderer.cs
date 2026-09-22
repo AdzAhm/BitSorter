@@ -224,7 +224,7 @@ namespace BitSorter.View
 
                 // Across the wire, not along it, so a hatch cannot be mistaken for a travelling bit.
                 Spawn($"Edge {edgeId} mark {i}", centre - half, centre + half,
-                    _markWidth, _markColour, -1);
+                    _markWidth, _markColour, ViewLayers.WireCore);
             }
         }
 
