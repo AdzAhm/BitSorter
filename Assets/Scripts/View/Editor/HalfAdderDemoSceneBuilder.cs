@@ -413,14 +413,20 @@ namespace BitSorter.View.EditorTools
 
             var bloom = profile.Add<Bloom>(true);
 
-            // Colours here are LDR, so the threshold has to sit below 1 or nothing would ever
-            // qualify and the effect would appear to do nothing.
+            // At 1, so nothing drawn in LDR can cross it and only a bit in flight -- lifted above
+            // it by BitVisuals.Emission -- blooms in earnest. Everything else reaches it only
+            // through the threshold's soft knee, which is the trace of glow a thing that is not a
+            // bit should have.
+            //
+            // It was 0.62, below every gate colour, when the whole board was LDR; five of the nine
+            // node colours peak at 1.00, the same as a one, so gates bloomed as hard as bits and a
+            // NOT gate rendered as a bright disc with its silhouette gone.
             bloom.threshold.overrideState = true;
-            bloom.threshold.value = 0.62f;
+            bloom.threshold.value = BitVisuals.BloomThreshold;
             bloom.intensity.overrideState = true;
-            bloom.intensity.value = 1.15f;
+            bloom.intensity.value = 1f;
             bloom.scatter.overrideState = true;
-            bloom.scatter.value = 0.72f;
+            bloom.scatter.value = 0.62f;
 
             AssetDatabase.AddObjectToAsset(bloom, profile);
             EditorUtility.SetDirty(profile);

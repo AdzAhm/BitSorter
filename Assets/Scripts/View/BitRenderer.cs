@@ -170,8 +170,13 @@ namespace BitSorter.View
                     Vector2 scale = BitVisuals.ScaleAt(travelled, _bitSize);
                     bitTransform.localScale = new Vector3(scale.x, scale.y, 1f);
 
-                    sprite.color = colour;
-                    Tint(sprite, colour);
+                    // Lifted above the bloom threshold here rather than in the colour itself,
+                    // so the port a bit lands in and the disc inside a register keep the plain
+                    // colour: those sit on a body and would blow it out.
+                    Color emissive = BitVisuals.Emissive(colour);
+
+                    sprite.color = emissive;
+                    Tint(sprite, emissive, colour);
 
                     _next[key] = new Tracked(sprite, bit.TicksRemaining);
                 }
@@ -263,17 +268,24 @@ namespace BitSorter.View
         }
 
         /// <summary>Keeps a bit's glow halo and trail in step with its value colour.</summary>
-        private void Tint(SpriteRenderer sprite, Color colour)
+        /// <remarks>
+        /// Two colours, because the halo and the trail do different jobs. The halo is the bit's
+        /// own light and takes the lifted colour, which is what makes it bloom. The trail says
+        /// where the bit has just been and keeps the plain one: lifted, it bloomed at the same
+        /// strength as the bit itself and drew a bright smear the length of the wire behind every
+        /// bit, which is the thickness a playtester already found too heavy before any of this.
+        /// </remarks>
+        private void Tint(SpriteRenderer sprite, Color emissive, Color plain)
         {
             if (!_halos.TryGetValue(sprite, out SpriteRenderer halo))
                 return;
 
-            halo.color = new Color(colour.r, colour.g, colour.b, _glowAlpha);
+            halo.color = new Color(emissive.r, emissive.g, emissive.b, _glowAlpha);
 
             if (_trails.TryGetValue(sprite, out TrailRenderer trail))
             {
-                trail.startColor = new Color(colour.r, colour.g, colour.b, 0.75f);
-                trail.endColor = new Color(colour.r, colour.g, colour.b, 0f);
+                trail.startColor = new Color(plain.r, plain.g, plain.b, 0.75f);
+                trail.endColor = new Color(plain.r, plain.g, plain.b, 0f);
             }
         }
 
