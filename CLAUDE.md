@@ -413,10 +413,34 @@ failure side.
 
 ## The view layer
 - **The interface is a Canvas, built in code.** `UiTheme` holds the shared
-  colours and builders; each panel constructs its own hierarchy at runtime
-  the way `PlacementGrid` builds its dots. The scene is generated, so an
-  authored hierarchy would be dozens of RectTransforms for the builder to
-  reproduce and get subtly wrong.
+  builders; each panel constructs its own hierarchy at runtime the way
+  `PlacementGrid` builds its dots. The scene is generated, so an authored
+  hierarchy would be dozens of RectTransforms for the builder to reproduce
+  and get subtly wrong.
+- **Every colour comes from `Palette`**, board and interface alike -- no colour
+  literal, and no serialized colour field on a renderer. They used to live
+  wherever each was first needed, and nothing could compare them: the interface
+  took its accents from the node colours on purpose, and the side effect nobody
+  weighed was that every source was `Good`, every sink `Bad` and the NAND gate
+  `Accent`, to the last digit. `Palette.Classic` is the shipped look. **Never
+  change a palette in place** -- derive a new one -- and choose it before the
+  scene loads, because renderers take their colours when they build. The board
+  tile bakes its colours in, so it is cached per palette.
+- **Ambient animation keeps one clock, `ViewTime`; an event counts from its own
+  start.** A collision warning throbs in step across port, wire and bit, stalled
+  gates breathe together and the grid shimmers as one, so those read
+  `ViewTime.Now`. A win, a scorch or a wire just re-timed marks a moment and
+  counts from it -- the win celebration once pulsed on the game clock and a solve
+  could land at the bottom of its swell.
+- **Visual changes are checked against the reference shots.**
+  `BitSorter/Capture Reference Shots` captures seven states (menu, a built board,
+  bits in flight, a collision one tick out, the solved card, the level list,
+  free play) as an Explicit Play Mode fixture, so it runs under `SaveGuard` --
+  driving the real game for a screenshot by hand once marked a level solved on
+  the developer's own save. Frame time is fixed, particle systems are seeded and
+  `ViewTime` is pinned, so **two captures of the same code are identical to the
+  pixel**; a refactor that claims to change nothing is held to that, with no
+  tolerance. It needs the Game view, so not batch mode.
 - **`HalfAdderDemoSceneBuilder` is the only authority on scene contents.**
   Anything added by hand is wiped by `BitSorter/Build Play Scene`.
 - **`PointerGate` arbitrates the mouse.** Every component that reads a
