@@ -72,16 +72,32 @@ namespace BitSorter.PlayMode.Tests
         public void OneTimeCleanup()
         {
             Time.captureDeltaTime = 0f;
+            ViewTime.Pinned = null;
             SaveGuard.Release();
         }
 
+        /// <summary>
+        /// The moment every ambient pulse is shown at: the top of a collision warning's throb, so
+        /// the collision shot shows the warning at its clearest.
+        /// </summary>
+        private static float PinnedMoment => 1f / (4f * PortState.WarningHz);
+
         [SetUp]
-        public void FixTheClock() => Time.captureDeltaTime = FrameSeconds;
+        public void FixTheClock()
+        {
+            Time.captureDeltaTime = FrameSeconds;
+
+            // The game clock at capture depends on how long the scene took to load, so the pulses
+            // that follow it -- the grid's shimmer, a warning's throb -- landed somewhere different
+            // in every run. Pinned, two captures of the same code are the same picture.
+            ViewTime.Pinned = PinnedMoment;
+        }
 
         [TearDown]
         public void ClearTheSave()
         {
             Time.captureDeltaTime = 0f;
+            ViewTime.Pinned = null;
             SaveGuard.Clear();
         }
 
