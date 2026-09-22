@@ -16,10 +16,10 @@ namespace BitSorter.View
         /// colour or the bit appears to change identity on landing, and a serialized field on one
         /// renderer that the other has to copy is exactly the second copy that drifts.
         /// </remarks>
-        public static readonly Color Zero = new Color(0.42f, 0.48f, 0.58f);
+        public static Color Zero => Palette.Current.BitZero;
 
         /// <inheritdoc cref="Zero"/>
-        public static readonly Color One = new Color(1.00f, 0.88f, 0.32f);
+        public static Color One => Palette.Current.BitOne;
 
         /// <summary>The colour a bit of this value is drawn in, wherever it is.</summary>
         public static Color ColourFor(Bit value) => value == Bit.One ? One : Zero;

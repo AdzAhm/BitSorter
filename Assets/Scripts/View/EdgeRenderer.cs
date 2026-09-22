@@ -28,16 +28,9 @@ namespace BitSorter.View
         [SerializeField] private WireDelayController _delay;
         [SerializeField] private SparkEffects _sparks;
         [SerializeField] private float _casingWidth = 0.17f;
-        [SerializeField] private Color _casingColour = new Color(0.10f, 0.13f, 0.17f);
         [SerializeField] private float _coreWidth = 0.065f;
-        [SerializeField] private Color _coreColour = new Color(0.30f, 0.62f, 0.70f);
-        [SerializeField] private Color _hoverColour = new Color(0.62f, 0.92f, 1.00f);
-        [SerializeField] private Color _flashColour = new Color(1.00f, 0.95f, 0.70f);
-        [SerializeField] private Color _markColour = new Color(0.58f, 0.80f, 0.88f);
         [SerializeField] private float _markLength = 0.20f;
         [SerializeField] private float _markWidth = 0.055f;
-        [SerializeField] private Color _labelColour = new Color(0.94f, 0.96f, 1.00f);
-        [SerializeField] private Color _labelBackingColour = new Color(0.03f, 0.04f, 0.06f, 0.85f);
 
         private readonly List<GameObject> _spawned = new List<GameObject>();
 
@@ -136,10 +129,10 @@ namespace BitSorter.View
 
                 // Two lines make a trace: a wide dark casing with a thin bright core over it.
                 // Cheaper and more predictable than a custom shader.
-                Spawn($"Edge {id} casing", from, to, _casingWidth, _casingColour,
+                Spawn($"Edge {id} casing", from, to, _casingWidth, Palette.Current.WireCasing,
                     ViewLayers.WireCasing);
                 LineRenderer core = Spawn($"Edge {id} core - {edge}", from, to, _coreWidth,
-                    _coreColour, ViewLayers.WireCore);
+                    Palette.Current.WireCore, ViewLayers.WireCore);
 
                 SpawnMarks(id, from, to, edge.Delay);
 
@@ -185,7 +178,7 @@ namespace BitSorter.View
 
             var backing = pill.AddComponent<SpriteRenderer>();
             backing.sprite = ProceduralSprites.Dot();
-            backing.color = _labelBackingColour;
+            backing.color = Palette.Current.DelayLabelBacking;
             backing.sortingOrder = ViewLayers.WireLabelBacking;
 
             Vector2 native = backing.sprite.bounds.size;
@@ -199,7 +192,7 @@ namespace BitSorter.View
             text.fontSize = LabelFontSize;
             text.alignment = TextAlignmentOptions.Center;
             text.textWrappingMode = TextWrappingModes.NoWrap;
-            text.color = _labelColour;
+            text.color = Palette.Current.DelayLabel;
             text.sortingOrder = ViewLayers.WireLabel;
             text.rectTransform.sizeDelta = new Vector2(LabelPill.x * 2f, LabelPill.y);
 
@@ -224,7 +217,7 @@ namespace BitSorter.View
 
                 // Across the wire, not along it, so a hatch cannot be mistaken for a travelling bit.
                 Spawn($"Edge {edgeId} mark {i}", centre - half, centre + half,
-                    _markWidth, _markColour, ViewLayers.WireCore);
+                    _markWidth, Palette.Current.WireMark, ViewLayers.WireCore);
             }
         }
 
@@ -255,10 +248,10 @@ namespace BitSorter.View
                     continue;
 
                 int edgeId = _edgeIds[i];
-                Color colour = _coreColour;
+                Color colour = Palette.Current.WireCore;
 
                 if (edgeId == hovered)
-                    colour = _hoverColour;
+                    colour = Palette.Current.WireHover;
 
                 // Outranks hover: what this wire is about to do matters more than what the cursor
                 // happens to be near. Tinting the whole wire rather than the stretch ahead of the
@@ -275,7 +268,7 @@ namespace BitSorter.View
                 // The flash wins over hover: it is the acknowledgement of an action the player just took.
                 float flash = _delay != null ? _delay.FlashStrengthFor(edgeId) : 0f;
                 if (flash > 0f)
-                    colour = Color.Lerp(colour, _flashColour, flash);
+                    colour = Color.Lerp(colour, Palette.Current.WireFlash, flash);
 
                 core.startColor = colour;
                 core.endColor = colour;
@@ -304,7 +297,7 @@ namespace BitSorter.View
                 if (_edgeIds[i] != changed)
                     continue;
 
-                _sparks.Burst(_labelPositions[i], _flashColour);
+                _sparks.Burst(_labelPositions[i], Palette.Current.WireFlash);
                 break;
             }
 

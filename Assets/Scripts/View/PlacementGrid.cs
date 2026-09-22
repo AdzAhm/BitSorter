@@ -28,7 +28,6 @@ namespace BitSorter.View
 
         [SerializeField] private GameObject _dotPrefab;
         [SerializeField] private float _dotSize = 0.14f;
-        [SerializeField] private Color _dotColour = new Color(0.26f, 0.28f, 0.34f);
 
         /// <summary>Serialized, so it is readable from another component's Awake.</summary>
         public float CellSize => _cellSize <= 0f ? 1f : _cellSize;
@@ -65,7 +64,7 @@ namespace BitSorter.View
                     dot.transform.localScale = Vector3.one * _dotSize;
 
                     var renderer = dot.GetComponent<SpriteRenderer>();
-                    renderer.color = _dotColour;
+                    renderer.color = Palette.Current.Grid;
 
                     renderer.sortingOrder = ViewLayers.Grid;
                 }

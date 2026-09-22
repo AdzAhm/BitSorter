@@ -71,6 +71,36 @@ namespace BitSorter.LogicCore.Tests
         {
             Assert.AreSame(ProceduralSprites.Panel(), ProceduralSprites.Panel());
             Assert.AreSame(ProceduralSprites.Circle(), ProceduralSprites.Circle());
+
+            // The board tile is keyed differently from the masks -- on the palette, because it bakes
+            // its colours in -- and a lookup and a store that disagreed on that key would rebuild a
+            // texture on every call without anything on screen looking wrong.
+            Assert.AreSame(ProceduralSprites.BoardTile(), ProceduralSprites.BoardTile(),
+                "the board tile is rebuilt on every call, and every rebuild is a texture nothing frees");
+        }
+
+        /// <summary>
+        /// Two looks get two board tiles, because the tile's colours are baked into its texture.
+        /// </summary>
+        [Test]
+        public void ADifferentPalette_GetsItsOwnBoardTile()
+        {
+            Palette other = Palette.Classic.Derive("test-other", p => p.Ground = Color.magenta);
+
+            try
+            {
+                Sprite classic = ProceduralSprites.BoardTile();
+
+                Palette.Use(other);
+                Sprite derived = ProceduralSprites.BoardTile();
+
+                Assert.AreNotSame(classic, derived,
+                    "a second palette was drawn on the first one's board tile");
+            }
+            finally
+            {
+                Palette.Use(null);
+            }
         }
     }
 }

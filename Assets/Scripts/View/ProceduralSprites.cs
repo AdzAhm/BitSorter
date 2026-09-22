@@ -175,15 +175,19 @@ namespace BitSorter.View
         /// </summary>
         public static Sprite BoardTile()
         {
-            if (TryCached("board", out Sprite cached))
+            // Keyed on the palette, because unlike every mask in this file the tile bakes its
+            // colours in: cached under one key, a second look would be drawn on the first one's board.
+            string key = "board:" + Palette.Current.Name;
+
+            if (TryCached(key, out Sprite cached))
                 return cached;
 
             var texture = NewTexture(TileSize, TextureWrapMode.Repeat);
             var pixels = new Color32[TileSize * TileSize];
 
-            var baseColour = new Color(0.055f, 0.065f, 0.085f);
-            var trace = new Color(0.10f, 0.15f, 0.17f);
-            var pad = new Color(0.13f, 0.20f, 0.22f);
+            Color baseColour = Palette.Current.Ground;
+            Color trace = Palette.Current.GroundTrace;
+            Color pad = Palette.Current.GroundPad;
 
             for (int y = 0; y < TileSize; y++)
             {
@@ -222,7 +226,7 @@ namespace BitSorter.View
 
             sprite.hideFlags = HideFlags.HideAndDontSave;
 
-            Cache["board"] = sprite;
+            Cache[key] = sprite;
             return sprite;
         }
 

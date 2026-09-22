@@ -27,8 +27,6 @@ namespace BitSorter.View
         [Tooltip("Canvas the screen-space rings are built under. Found by type when left empty.")]
         [SerializeField] private Canvas _canvas;
 
-        [SerializeField] private Color _colour = new Color(0.46f, 0.94f, 0.90f);
-
         [Tooltip("Slow, so it reads as guidance rather than as the danger throb on the board.")]
         [SerializeField] private float _pulseHz = 1.4f;
 
@@ -154,7 +152,7 @@ namespace BitSorter.View
         private Color Tinted()
         {
             float alpha = Mathf.Lerp(_minAlpha, _maxAlpha, Pulse());
-            return new Color(_colour.r, _colour.g, _colour.b, alpha);
+            return new Color(Palette.Current.Highlight.r, Palette.Current.Highlight.g, Palette.Current.Highlight.b, alpha);
         }
 
         private Image NextCanvasRing()
@@ -174,7 +172,7 @@ namespace BitSorter.View
                 _canvasRings.RemoveAt(_canvasUsed);
             }
 
-            Image ring = UiTheme.Panel_("Tutorial ring", _canvas.transform, _colour);
+            Image ring = UiTheme.Panel_("Tutorial ring", _canvas.transform, Palette.Current.Highlight);
             ring.sprite = ProceduralSprites.RoundedSquare();
             ring.raycastTarget = false;   // never eat the click the step is asking for
 

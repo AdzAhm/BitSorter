@@ -14,19 +14,18 @@ namespace BitSorter.View
     /// generated too, so an authored hierarchy would be dozens of RectTransforms for the scene builder
     /// to reproduce by hand and get subtly wrong.
     ///
-    /// Colours are taken from the board rather than invented: the panel background is the board's own
-    /// base colour lifted slightly, and the accents are the node palette from
-    /// <see cref="NodeShapes"/>. Anything else would look bolted on.
+    /// Colours come from <see cref="Palette"/>, which the board draws from too, so the interface
+    /// cannot drift away from the board it sits on.
     /// </remarks>
     public static class UiTheme
     {
-        public static readonly Color Panel = new Color(0.075f, 0.085f, 0.11f, 0.92f);
-        public static readonly Color PanelEdge = new Color(0.16f, 0.22f, 0.26f, 1f);
-        public static readonly Color Text = new Color(0.86f, 0.89f, 0.94f);
-        public static readonly Color TextDim = new Color(0.55f, 0.60f, 0.68f);
-        public static readonly Color Accent = new Color(0.46f, 0.94f, 0.90f);
-        public static readonly Color Good = new Color(0.36f, 0.92f, 0.55f);
-        public static readonly Color Bad = new Color(0.98f, 0.44f, 0.44f);
+        public static Color Panel => Palette.Current.Panel;
+        public static Color PanelEdge => Palette.Current.PanelEdge;
+        public static Color Text => Palette.Current.Text;
+        public static Color TextDim => Palette.Current.TextDim;
+        public static Color Accent => Palette.Current.Accent;
+        public static Color Good => Palette.Current.Good;
+        public static Color Bad => Palette.Current.Bad;
 
         public const float Margin = 16f;
         public const float Gap = 8f;

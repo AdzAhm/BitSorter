@@ -34,9 +34,6 @@ namespace BitSorter.View
         [SerializeField] private SimulationRunner _runner;
         [SerializeField] private Camera _camera;
         [SerializeField] private float _previewWidth = 0.07f;
-        [SerializeField] private Color _previewNeutral = new Color(0.70f, 0.72f, 0.80f, 0.85f);
-        [SerializeField] private Color _previewValid = new Color(0.40f, 0.90f, 0.50f, 0.95f);
-        [SerializeField] private Color _previewInvalid = new Color(0.95f, 0.40f, 0.36f, 0.95f);
 
         [Tooltip("Asked before a drag may begin, so a press on a canvas widget starts no wire.")]
         [SerializeField] private PointerGate _pointer;
@@ -152,13 +149,13 @@ namespace BitSorter.View
 
             // Live feedback: the wire turns green only where a release would actually connect.
             PortAddress hovered = FindPort(world);
-            Color colour = _previewNeutral;
+            Color colour = Palette.Current.WirePreview;
 
             if (hovered.IsValid && hovered != _dragFrom)
             {
                 colour = WiringRules.Validate(_runner.View, _dragFrom, hovered).IsValid
-                    ? _previewValid
-                    : _previewInvalid;
+                    ? Palette.Current.WirePreviewValid
+                    : Palette.Current.WirePreviewInvalid;
             }
 
             _preview.startColor = colour;

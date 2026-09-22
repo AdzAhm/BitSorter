@@ -26,9 +26,6 @@ namespace BitSorter.View
     {
         [SerializeField] private SimulationRunner _runner;
 
-        [Tooltip("Colour of the mark. Defaults to the red already used for destruction.")]
-        [SerializeField] private Color _colour = new Color(0.95f, 0.30f, 0.28f);
-
         [SerializeField] private float _size = 1.15f;
         [SerializeField] private float _alpha = 0.5f;
 
@@ -104,7 +101,7 @@ namespace BitSorter.View
             // like Circle under the halo would make it legible. Deliberately not done: the layer
             // fix below is what made it visible at all, and that was judged enough.
             renderer.sprite = ProceduralSprites.Glow();
-            renderer.color = new Color(_colour.r, _colour.g, _colour.b, 0f);
+            renderer.color = new Color(Palette.Current.Scorch.r, Palette.Current.Scorch.g, Palette.Current.Scorch.b, 0f);
 
             // Over the gate, under the bits. This was -4, which put it under the node body -- and
             // a mark sits ON a node's input port, so the node it marks covered almost all of it.
@@ -138,7 +135,7 @@ namespace BitSorter.View
                 float t = _bloomSeconds <= 0f ? 1f : Mathf.Clamp01(age / _bloomSeconds);
 
                 SpriteRenderer renderer = mark.Renderer;
-                renderer.color = new Color(_colour.r, _colour.g, _colour.b, _alpha * t);
+                renderer.color = new Color(Palette.Current.Scorch.r, Palette.Current.Scorch.g, Palette.Current.Scorch.b, _alpha * t);
 
                 // Overshoots and settles, so it lands rather than simply appearing.
                 float scale = _size * (1f + 0.5f * (1f - t) * (1f - t));

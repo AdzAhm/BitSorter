@@ -36,9 +36,6 @@ namespace BitSorter.View
         [Tooltip("Canvas the card is built under. Found by type when left empty.")]
         [SerializeField] private Canvas _canvas;
 
-        [Tooltip("How dark the board goes behind the card. The tutorial's card uses the same weight.")]
-        [SerializeField] private Color _scrimColour = new Color(0f, 0f, 0f, 0.9f);
-
         /// <summary>From <see cref="LevelCatalog"/>, so the card and the level list agree.</summary>
         private const string Title = LevelCatalog.SequentialChapter;
 
@@ -145,7 +142,7 @@ namespace BitSorter.View
 
         private void Build()
         {
-            Image scrim = UiTheme.Scrim("Chapter card", _canvas.transform, _scrimColour);
+            Image scrim = UiTheme.Scrim("Chapter card", _canvas.transform, Palette.Current.CardScrim);
             _root = scrim.GetComponent<RectTransform>();
             UiTheme.Stretch(_root);
 

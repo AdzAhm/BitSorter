@@ -29,9 +29,6 @@ namespace BitSorter.View
         [Tooltip("Canvas the card is built under. Found by type when left empty.")]
         [SerializeField] private Canvas _canvas;
 
-        [Tooltip("How dark the board goes behind the card. EndingPanel uses the same weight.")]
-        [SerializeField] private Color _scrimColour = new Color(0f, 0f, 0f, 0.9f);
-
         private const string Title = "THAT'S THE LOOP";
 
         private const string Body =
@@ -107,7 +104,7 @@ namespace BitSorter.View
 
         private void Build()
         {
-            Image scrim = UiTheme.Scrim("Tutorial card", _canvas.transform, _scrimColour);
+            Image scrim = UiTheme.Scrim("Tutorial card", _canvas.transform, Palette.Current.CardScrim);
             _root = scrim.GetComponent<RectTransform>();
             UiTheme.Stretch(_root);
 

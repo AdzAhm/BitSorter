@@ -31,10 +31,6 @@ namespace BitSorter.View
         [SerializeField] private SimulationRunner _runner;
         [SerializeField] private GameObject _stubPrefab;
 
-        [Tooltip("An input port with nothing in it.")]
-        [SerializeField] private Color _inputColour = new Color(0.62f, 0.66f, 0.76f);
-        [SerializeField] private Color _outputColour = new Color(0.80f, 0.78f, 0.58f);
-
         [SerializeField] private float _flashSeconds = 0.35f;
         [SerializeField] private float _flashScale = 1.9f;
 
@@ -203,7 +199,7 @@ namespace BitSorter.View
         private Color RestingColourOf(InputPort port) =>
             port != null && port.IsOccupied
                 ? BitVisuals.ColourFor(port.Pending.Value)
-                : _inputColour;
+                : Palette.Current.PortInput;
 
         private InputPort PortAt(PortAddress key)
         {
@@ -354,7 +350,7 @@ namespace BitSorter.View
             // Inputs start hollow and are painted properly on the first frame; outputs never
             // change, so they are finished here.
             renderer.sprite = isInput ? ProceduralSprites.Ring() : ProceduralSprites.Dot();
-            renderer.color = isInput ? _inputColour : _outputColour;
+            renderer.color = isInput ? Palette.Current.PortInput : Palette.Current.PortOutput;
             renderer.sortingOrder = ViewLayers.Port;
 
             if (isInput)

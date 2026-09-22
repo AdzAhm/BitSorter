@@ -27,10 +27,10 @@ namespace BitSorter.View
         /// Amber against red is the whole distinction: something is waiting, versus something is
         /// about to be lost that you can currently see.
         /// </remarks>
-        public static readonly Color Waiting = new Color(1.00f, 0.74f, 0.22f);
+        public static Color Waiting => Palette.Current.Waiting;
 
         /// <inheritdoc cref="Waiting"/>
-        public static readonly Color Doomed = new Color(1.00f, 0.28f, 0.24f);
+        public static Color Doomed => Palette.Current.Doomed;
 
         /// <summary>
         /// How to colour an imminent collision, given whether the waiting bit dies with it.
