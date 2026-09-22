@@ -47,18 +47,24 @@ namespace BitSorter.PlayMode.Tests
         private static readonly Vector2Int High = new Vector2Int(0, 1);
         private static readonly Vector2Int Low = new Vector2Int(0, -1);
 
-        /// <summary>Where the pictures go. Outside the repository, beside Unity's own test results.</summary>
-        public static string Folder
+        /// <summary>
+        /// The look asked for, by <see cref="Look.Name"/>. "current" means whatever the game draws
+        /// in now, and names the folder for a capture that is not about a look at all.
+        /// </summary>
+        private static string LookName
         {
             get
             {
-                string look = "current";
 #if UNITY_EDITOR
-                look = UnityEditor.SessionState.GetString("BitSorter.Capture.Look", "current");
+                return UnityEditor.SessionState.GetString("BitSorter.Capture.Look", "current");
+#else
+                return "current";
 #endif
-                return Path.Combine(Application.persistentDataPath, "Captures", look);
             }
         }
+
+        /// <summary>Where the pictures go. Outside the repository, beside Unity's own test results.</summary>
+        public static string Folder => Path.Combine(Application.persistentDataPath, "Captures", LookName);
 
         [OneTimeSetUp]
         public void OneTimeSetup()
@@ -66,6 +72,16 @@ namespace BitSorter.PlayMode.Tests
             SaveGuard.Redirect();
             GameAnalytics.SetReporting(false);
             Directory.CreateDirectory(Folder);
+
+            // Chosen before any scene loads, because renderers take their colours when they build.
+            // A name that matches nothing fails here rather than capturing the game as it is into a
+            // folder that says otherwise.
+            if (LookName != "current")
+            {
+                Look look = Look.Named(LookName);
+                Assert.IsNotNull(look, $"there is no look called '{LookName}'");
+                Look.Use(look);
+            }
         }
 
         [OneTimeTearDown]
@@ -73,7 +89,15 @@ namespace BitSorter.PlayMode.Tests
         {
             Time.captureDeltaTime = 0f;
             ViewTime.Pinned = null;
+            Look.Use(null);
             SaveGuard.Release();
+        }
+
+        /// <summary>The real scene, with the board's bloom set for the look being captured.</summary>
+        private static IEnumerator LoadTheGame()
+        {
+            yield return TestScene.Load();
+            Look.ApplyBloom();
         }
 
         /// <summary>
@@ -117,7 +141,7 @@ namespace BitSorter.PlayMode.Tests
         [UnityTest]
         public IEnumerator Shot01_MainMenu()
         {
-            yield return TestScene.Load();
+            yield return LoadTheGame();
             yield return Frames(30);
 
             Assert.IsTrue(UiModal.AnyOpen, "sanity: the game boots into the main menu");
@@ -258,7 +282,7 @@ namespace BitSorter.PlayMode.Tests
         /// </remarks>
         private static IEnumerator OpenOnTheBoard()
         {
-            yield return TestScene.Load();
+            yield return LoadTheGame();
             FixTheSparks();
 
             Find<ProgressTracker>().Store.MarkMilestone(TutorialLevel.Key);

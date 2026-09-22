@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
@@ -111,6 +112,21 @@ namespace BitSorter.View
             Name = "classic",
             Colours = Palette.Classic,
         };
+
+        /// <summary>Every look there is. Below <see cref="Classic"/>, which it needs initialised first.</summary>
+        public static IReadOnlyList<Look> All { get; } = new[] { Classic };
+
+        /// <summary>The look with this name, or null if there is none.</summary>
+        public static Look Named(string name)
+        {
+            foreach (Look look in All)
+            {
+                if (look.Name == name)
+                    return look;
+            }
+
+            return null;
+        }
 
         /// <summary>
         /// Sets the board's bloom from the current look, on this session's copy of the profile.

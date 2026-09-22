@@ -441,6 +441,12 @@ failure side.
   `ViewTime` is pinned, so **two captures of the same code are identical to the
   pixel**; a refactor that claims to change nothing is held to that, with no
   tolerance. It needs the Game view, so not batch mode.
+
+  **A capture can be of any look**, named in the `BitSorter.Capture.Look`
+  session key (or `-captureLook` on the command line) and saved under a folder
+  of that name. The fixture chooses it before the scene loads and fails on a
+  name that matches nothing, rather than capturing the game as it is into a
+  folder that says otherwise.
 - **`HalfAdderDemoSceneBuilder` is the only authority on scene contents.**
   Anything added by hand is wiped by `BitSorter/Build Play Scene`.
 - **`PointerGate` arbitrates the mouse.** Every component that reads a
