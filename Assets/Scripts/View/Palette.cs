@@ -128,6 +128,19 @@ namespace BitSorter.View
         /// </remarks>
         public static Palette Current => Look.Current.Colours ?? Classic;
 
+        /// <summary>
+        /// The alpha that makes something look <paramref name="opacity"/> opaque.
+        /// </summary>
+        /// <remarks>
+        /// The project renders in linear colour space, so blending happens there, and the eye does
+        /// not see in linear. A black scrim written at 0.88 lets through 12% of the light, which
+        /// the eye reads as about 38% of the brightness -- so it looks 62% opaque, and the board
+        /// shows through a menu meant to cover it. Every alpha in <see cref="Classic"/> is written
+        /// that way and is kept, because Classic is the game as it shipped. A new look states the
+        /// opacity it wants and converts it here, once.
+        /// </remarks>
+        public static float Seen(float opacity) => 1f - Mathf.Pow(1f - Mathf.Clamp01(opacity), 2.2f);
+
         /// <summary>A copy of this palette under a new name, changed by <paramref name="change"/>.</summary>
         public Palette Derive(string name, System.Action<Palette> change)
         {

@@ -85,6 +85,21 @@ namespace BitSorter.View
         /// <inheritdoc cref="BloomIntensity"/>
         public float BloomScatter = 0.62f;
 
+        /// <summary>
+        /// How long a bit's trail is, as a share of the length the scene gives it. A trail says
+        /// which way a bit is going; one as long as the bit's own crossing outshouts the bit.
+        /// </summary>
+        public float TrailLength = 1f;
+
+        /// <summary>How strongly a gate's halo glows, as a share of the scene's glow.</summary>
+        public float GateGlow = 1f;
+
+        /// <summary>
+        /// How strongly a source or a sink glows. Apart from <see cref="GateGlow"/> because the
+        /// fixtures are the level's, and the gates are the player's.
+        /// </summary>
+        public float FixtureGlow = 1f;
+
         private static Look _current;
 
         /// <summary>The look everything is drawn in.</summary>

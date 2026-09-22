@@ -168,9 +168,13 @@ namespace BitSorter.View
                 halo.color = stalled
                     ? new Color(PortState.Waiting.r, PortState.Waiting.g, PortState.Waiting.b,
                         Mathf.Lerp(_stallGlowMin, _stallGlowMax, breath))
-                    : new Color(baseColour.r, baseColour.g, baseColour.b, _glowAlpha);
+                    : new Color(baseColour.r, baseColour.g, baseColour.b, GlowAlpha(node));
             }
         }
+
+        /// <summary>How strongly this node's halo glows at rest, in the current look.</summary>
+        private float GlowAlpha(Node node) =>
+            _glowAlpha * (node is SourceNode || node is SinkNode ? Look.Current.FixtureGlow : Look.Current.GateGlow);
 
         /// <summary>
         /// What a gate looks like while it can do nothing: drained of its colour, then darkened.
@@ -225,7 +229,7 @@ namespace BitSorter.View
 
                 var haloRenderer = halo.GetComponent<SpriteRenderer>();
                 haloRenderer.sprite = ProceduralSprites.Glow();
-                haloRenderer.color = new Color(colour.r, colour.g, colour.b, _glowAlpha);
+                haloRenderer.color = new Color(colour.r, colour.g, colour.b, GlowAlpha(node));
                 haloRenderer.sortingOrder = ViewLayers.NodeGlow;
 
                 _spawned.Add(halo);

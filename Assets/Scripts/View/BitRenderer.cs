@@ -352,7 +352,7 @@ namespace BitSorter.View
             host.transform.SetParent(parent, false);
 
             var trail = host.AddComponent<TrailRenderer>();
-            trail.time = _trailSeconds;
+            trail.time = _trailSeconds * Look.Current.TrailLength;
             trail.material = TrailMaterial();
             trail.numCapVertices = 4;
             trail.sortingOrder = ViewLayers.NodeDetail;
