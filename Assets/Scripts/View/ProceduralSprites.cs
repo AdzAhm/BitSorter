@@ -69,8 +69,6 @@ namespace BitSorter.View
         public static Sprite ShieldArc() =>
             Mask("shieldArc", NodeSize, p => InShield(p, 0.80f) || InLeadingArc(p));
 
-        public static Sprite Diamond() => Mask("diamond", NodeSize, p => Mathf.Abs(p.x) + Mathf.Abs(p.y) <= 0.88f);
-
         /// <summary>
         /// A wide, short stadium for sources. Deliberately the only shape that is much wider than
         /// it is tall: bloom blurs interior detail and rounds off corners, so aspect ratio is the
