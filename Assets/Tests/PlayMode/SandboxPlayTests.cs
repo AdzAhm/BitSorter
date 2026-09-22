@@ -195,6 +195,98 @@ namespace BitSorter.PlayMode.Tests
             }
         }
 
+        /// <summary>
+        /// The setup panel's notes wrap inside the panel instead of running off its edge.
+        /// </summary>
+        /// <remarks>
+        /// The helper that draws them is called Wrapped and never turned wrapping on: every label
+        /// starts out NoWrap, so a note longer than the panel's inner width ran straight past its
+        /// right edge -- seen in the reference screenshots. It also gave every note a fixed box and
+        /// a fixed step down, so a note that did wrap to a third line would have printed over the
+        /// row beneath it.
+        ///
+        /// Four sources, because that is what shows the longest note; a shorter one might happen
+        /// to fit on a line and pass this for the wrong reason.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator TheSetupPanelsNotes_StayInsideThePanel()
+        {
+            yield return TestScene.Load();
+            yield return OpenFreePlay();
+
+            for (int press = 0; press < 6 && Sources() <= SandboxRules.MaxTableSources; press++)
+            {
+                StepButton("Sources", "+").onClick.Invoke();
+                yield return null;
+                yield return null;
+            }
+
+            Assert.Greater(Sources(), SandboxRules.MaxTableSources,
+                "sanity: the source count never passed the table limit, so the long note never showed");
+
+            RectTransform panel = GameObject.Find("Sandbox setup").GetComponent<RectTransform>();
+            var corners = new Vector3[4];
+            panel.GetWorldCorners(corners);
+            float panelRight = corners[2].x;
+
+            bool sawANote = false;
+
+            foreach (TMPro.TextMeshProUGUI note in SetupNoteLabels())
+            {
+                sawANote = true;
+                note.ForceMeshUpdate();
+
+                Bounds drawn = note.textBounds;
+                float textRight = note.transform.TransformPoint(new Vector3(drawn.max.x, 0f, 0f)).x;
+
+                Assert.LessOrEqual(textRight, panelRight + 0.5f,
+                    $"\"{note.text}\" runs {textRight - panelRight:F0}px past the setup panel's right edge");
+
+                Assert.GreaterOrEqual(drawn.min.y, note.rectTransform.rect.yMin - 0.5f,
+                    $"\"{note.text}\" wraps below its own box, onto the row beneath it");
+            }
+
+            Assert.IsTrue(sawANote, "sanity: four sources should show why the table button is off");
+        }
+
+        private static int Sources() => int.Parse(SetupLabel("Sources count").text);
+
+        /// <summary>
+        /// The - or + on one stepper row. Every stepper names its buttons the same, so the row is
+        /// found by sitting at the same height as its caption.
+        /// </summary>
+        private static Button StepButton(string caption, string glyph)
+        {
+            float row = SetupLabel(caption).rectTransform.anchoredPosition.y;
+            GameObject root = GameObject.Find("Sandbox setup");
+
+            foreach (Button button in root.GetComponentsInChildren<Button>())
+            {
+                if (button.name == $"step {glyph}"
+                    && Mathf.Abs(button.GetComponent<RectTransform>().anchoredPosition.y - row) < 0.5f)
+                {
+                    return button;
+                }
+            }
+
+            Assert.Fail($"no '{glyph}' on the {caption} row");
+            return null;
+        }
+
+        private static System.Collections.Generic.List<TMPro.TextMeshProUGUI> SetupNoteLabels()
+        {
+            var notes = new System.Collections.Generic.List<TMPro.TextMeshProUGUI>();
+
+            foreach (TMPro.TextMeshProUGUI label in
+                     GameObject.Find("Sandbox setup").GetComponentsInChildren<TMPro.TextMeshProUGUI>())
+            {
+                if (label.name == "note" && !string.IsNullOrEmpty(label.text))
+                    notes.Add(label);
+            }
+
+            return notes;
+        }
+
         /// <summary>A label inside free play's setup panel, by the name the panel builds it with.</summary>
         private static TMPro.TextMeshProUGUI SetupLabel(string name)
         {
