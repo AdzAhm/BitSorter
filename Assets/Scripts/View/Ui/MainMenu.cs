@@ -132,6 +132,7 @@ namespace BitSorter.View
             // A rule under the title. The menu was a title and three buttons floating in black,
             // which reads as unfinished rather than as spare.
             Image rule = UiTheme.Panel_("rule", _root, UiTheme.Accent * 0.4f);
+            rule.sprite = null;   // two pixels tall: shorter than the panel's corners, so a plain hairline
             UiTheme.Anchor(rule.GetComponent<RectTransform>(),
                 new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                 new Vector2(0f, 78f + Lift), new Vector2(320f, 2f));
