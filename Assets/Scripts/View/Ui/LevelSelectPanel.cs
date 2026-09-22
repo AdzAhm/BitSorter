@@ -38,6 +38,32 @@ namespace BitSorter.View
 
             public TextMeshProUGUI Label;
             public TextMeshProUGUI Best;
+
+            /// <summary>
+            /// What this row was last drawn from, so a frame that changes nothing draws nothing.
+            /// </summary>
+            /// <remarks>
+            /// The same guard the status banner and the parts list keep. This panel refreshes
+            /// every frame it is open and it is the one panel that stays open while it is read,
+            /// so a record rebuilt per frame is rebuilt hundreds of times -- and there is one per
+            /// solved level, which means the waste grows with how much of the game is finished.
+            ///
+            /// Drawn starts false so the first refresh always draws, whatever the fields happen
+            /// to hold.
+            /// </remarks>
+            public bool Drawn;
+
+            /// <inheritdoc cref="Drawn"/>
+            public bool DrawnDone;
+
+            /// <inheritdoc cref="Drawn"/>
+            public bool DrawnHere;
+
+            /// <inheritdoc cref="Drawn"/>
+            public int DrawnGates;
+
+            /// <inheritdoc cref="Drawn"/>
+            public int DrawnTicks;
         }
 
         [SerializeField] private LevelSession _session;
@@ -431,21 +457,28 @@ namespace BitSorter.View
                 bool done = _progress != null && _progress.IsComplete(row.FileName);
                 bool here = row.FileName == current;
 
+                // Asked every frame, which costs nothing: both are dictionary lookups. It is
+                // building the string out of them that had to stop happening.
+                int gates = done && _progress != null ? _progress.BestGates(row.FileName) : 0;
+                int ticks = done && _progress != null ? _progress.BestLatency(row.FileName) : 0;
+
+                if (row.Drawn && done == row.DrawnDone && here == row.DrawnHere
+                    && gates == row.DrawnGates && ticks == row.DrawnTicks)
+                {
+                    continue;
+                }
+
+                row.Drawn = true;
+                row.DrawnDone = done;
+                row.DrawnHere = here;
+                row.DrawnGates = gates;
+                row.DrawnTicks = ticks;
+
                 row.Tick.enabled = done;
 
                 // The record sits beside the name rather than replacing it, so an unsolved level and
                 // a solved one read the same way and the list stays scannable.
-                if (done && _progress != null)
-                {
-                    int gates = _progress.BestGates(row.FileName);
-                    int ticks = _progress.BestLatency(row.FileName);
-
-                    row.Best.text = gates > 0 ? $"{gates}g  {ticks}t" : string.Empty;
-                }
-                else
-                {
-                    row.Best.text = string.Empty;
-                }
+                row.Best.text = gates > 0 ? $"{gates}g  {ticks}t" : string.Empty;
 
                 // Current level highlighted, solved ones dimmed but still selectable -- replaying is
                 // how a player improves a circuit, and nothing here should discourage it.

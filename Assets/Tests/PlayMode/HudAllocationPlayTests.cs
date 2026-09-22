@@ -210,7 +210,13 @@ namespace BitSorter.PlayMode.Tests
             Action frame = FrameOf(list);
             frame();
 
+            // Disabled across the solve, so the panel's own Update cannot draw the new record
+            // before the test looks at it. Solving takes frames, and every one of those frames is
+            // a chance for Unity to do the very redraw being measured -- which would leave the
+            // assertion below measuring a row that was already up to date.
+            list.enabled = false;
             yield return SolveRouteTheBit();
+            list.enabled = true;
 
             Assert.That(() => frame(), Is.AllocatingGCMemory(),
                 "a level was solved and its row was not redrawn -- or the measurement cannot see an " +
