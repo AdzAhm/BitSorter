@@ -394,7 +394,7 @@ namespace BitSorter.View
             RectTransform rect = Rect(name, parent);
 
             var image = rect.gameObject.AddComponent<Image>();
-            image.sprite = ProceduralSprites.Panel();
+            image.sprite = ProceduralSprites.Panel(Look.Current.Panels);
             image.type = Image.Type.Sliced;
             image.color = colour;
 

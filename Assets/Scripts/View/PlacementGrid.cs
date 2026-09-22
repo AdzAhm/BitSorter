@@ -53,6 +53,13 @@ namespace BitSorter.View
             var container = new GameObject("Grid dots");
             container.transform.SetParent(transform, false);
 
+            // A look may leave the cells unmarked and let the board tile's own lines be the grid.
+            // Only the grid's shimmer reads these objects, and it copes with there being none.
+            GridStyle style = Look.Current.Grid;
+
+            if (style == GridStyle.None)
+                return;
+
             for (int x = -_halfColumns; x <= _halfColumns; x++)
             {
                 for (int y = -_halfRows; y <= _halfRows; y++)
@@ -65,6 +72,9 @@ namespace BitSorter.View
 
                     var renderer = dot.GetComponent<SpriteRenderer>();
                     renderer.color = Palette.Current.Grid;
+
+                    if (style == GridStyle.Dots)
+                        renderer.sprite = ProceduralSprites.Dot();
 
                     renderer.sortingOrder = ViewLayers.Grid;
                 }

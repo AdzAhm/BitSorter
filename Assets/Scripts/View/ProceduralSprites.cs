@@ -133,9 +133,47 @@ namespace BitSorter.View
         /// A rounded rectangle has flat edges that reach the texture's own edge, so the four corner
         /// tiles stay 10 pixels across and everything between them is solid.
         /// </remarks>
-        public static Sprite Panel() => Mask(
-            "panel", PanelSize, p => InRoundedRect(p, PanelCorner / (PanelSize * 0.5f)),
-            new Vector4(PanelCorner, PanelCorner, PanelCorner, PanelCorner), UiPixelsPerUnit);
+        public static Sprite Panel(PanelStyle style = PanelStyle.Filled) =>
+            style == PanelStyle.Filled
+                ? Mask("panel", PanelSize, InPanel,
+                    new Vector4(PanelCorner, PanelCorner, PanelCorner, PanelCorner), UiPixelsPerUnit)
+                : BorderedPanel();
+
+        private static bool InPanel(Vector2 p) => InRoundedRect(p, PanelCorner / (PanelSize * 0.5f));
+
+        /// <summary>How wide a bordered panel's edge is, in texels -- drawn at about a canvas pixel and a half.</summary>
+        private const float PanelRimTexels = 1.5f;
+
+        /// <summary>How bright a bordered panel's body is, against its edge at full brightness.</summary>
+        /// <remarks>
+        /// Baked into the one sprite, so one tint draws both: the edge in the tint, the body at this
+        /// fraction of it. Small things tinted with the accent become outlined chips in the same
+        /// stroke.
+        /// </remarks>
+        private const float PanelBody = 0.22f;
+
+        /// <summary>The panel shape with a thin edge drawn round a darker body, nine-sliced as Panel is.</summary>
+        private static Sprite BorderedPanel()
+        {
+            const string key = "panel:Bordered";
+
+            if (TryCached(key, out Sprite cached))
+                return cached;
+
+            float[] coverage = Coverage(PanelSize, InPanel);
+            float[] depth = DepthInside(PanelSize, coverage);
+            var pixels = new Color32[PanelSize * PanelSize];
+
+            for (int i = 0; i < pixels.Length; i++)
+            {
+                float shade = Mathf.Lerp(1f, PanelBody, Mathf.SmoothStep(0f, 1f, depth[i] - PanelRimTexels));
+                byte grey = (byte)Mathf.RoundToInt(255f * shade);
+                pixels[i] = new Color32(grey, grey, grey, (byte)Mathf.RoundToInt(255f * coverage[i]));
+            }
+
+            return Store(key, PanelSize, pixels,
+                new Vector4(PanelCorner, PanelCorner, PanelCorner, PanelCorner), UiPixelsPerUnit);
+        }
 
         /// <summary>Soft radial falloff, used behind everything that should appear to glow.</summary>
         public static Sprite Glow() => Field("glow", NodeSize, p =>
