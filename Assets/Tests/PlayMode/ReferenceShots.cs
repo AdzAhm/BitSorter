@@ -243,6 +243,7 @@ namespace BitSorter.PlayMode.Tests
         private static IEnumerator OpenOnTheBoard()
         {
             yield return TestScene.Load();
+            FixTheSparks();
 
             Find<ProgressTracker>().Store.MarkMilestone(TutorialLevel.Key);
             Find<MainMenu>().Show(false);
@@ -256,6 +257,27 @@ namespace BitSorter.PlayMode.Tests
                 yield return null;
 
             Assert.IsTrue(runner.FixtureNodeIds.ContainsKey("a"), "the level loaded but was never built");
+        }
+
+        /// <summary>
+        /// Gives every particle system the same seed, so a spark flies the same way in every run.
+        /// </summary>
+        /// <remarks>
+        /// A particle system seeds itself afresh each time it plays unless told otherwise, so two
+        /// captures of unchanged code differed by up to 129 levels in every shot with sparks in it.
+        /// Fixing the frame time made everything else repeatable; this makes the sparks repeatable
+        /// too, which is what lets a before-and-after diff mean something. The game keeps its
+        /// random sparks -- only the pictures need to repeat.
+        /// </remarks>
+        private static void FixTheSparks()
+        {
+            foreach (ParticleSystem system in Object.FindObjectsByType<ParticleSystem>(FindObjectsSortMode.None))
+            {
+                // A seed may only be set on a system that is stopped and empty.
+                system.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+                system.useAutoRandomSeed = false;
+                system.randomSeed = 20260922;
+            }
         }
 
         /// <summary>An XOR for the sum and an AND for the carry, each fed by both sources.</summary>
