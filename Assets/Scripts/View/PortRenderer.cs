@@ -35,7 +35,6 @@ namespace BitSorter.View
         [SerializeField] private Color _inputColour = new Color(0.62f, 0.66f, 0.76f);
         [SerializeField] private Color _outputColour = new Color(0.80f, 0.78f, 0.58f);
 
-        [SerializeField] private Color _collisionColour = new Color(1.00f, 0.28f, 0.24f);
         [SerializeField] private float _flashSeconds = 0.35f;
         [SerializeField] private float _flashScale = 1.9f;
 
@@ -296,7 +295,7 @@ namespace BitSorter.View
                 _flashing[key] = remaining;
 
                 float t = remaining / _flashSeconds;
-                stub.color = Color.Lerp(RestingColourOf(port), _collisionColour, t);
+                stub.color = Color.Lerp(RestingColourOf(port), PortState.Doomed, t);
                 stub.transform.localScale =
                     Vector3.one * PortGeometry.StubSize * Mathf.Lerp(1f, _flashScale, t);
             }
