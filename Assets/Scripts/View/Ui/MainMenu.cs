@@ -308,8 +308,6 @@ namespace BitSorter.View
         /// </remarks>
         private void Continue()
         {
-            Show(false);
-
             if (_session == null || !_session.IsLoaded)
                 return;
 
@@ -317,24 +315,33 @@ namespace BitSorter.View
             if (!TryNextUp(out LevelEntry next))
                 return;
 
+            // Closed only once there is somewhere to close onto. The other order dismissed the
+            // menu and then discovered it had nowhere to go, leaving a broken install showing a
+            // board with no level on it and nothing on screen saying why.
+            Show(false);
+
             if (next.FileName != _session.LevelName)
                 _session.LoadLevel(next.FileName);
         }
 
+        /// <inheritdoc cref="Continue"/>
         private void OpenLevels()
         {
-            Show(false);
+            if (_levels == null)
+                return;
 
-            if (_levels != null)
-                _levels.Open();
+            Show(false);
+            _levels.Open();
         }
 
+        /// <inheritdoc cref="Continue"/>
         private void OpenSandbox()
         {
-            Show(false);
+            if (_sandbox == null)
+                return;
 
-            if (_sandbox != null)
-                _sandbox.Open();
+            Show(false);
+            _sandbox.Open();
         }
 
 #if !UNITY_WEBGL || UNITY_EDITOR
