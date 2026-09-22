@@ -44,15 +44,20 @@ namespace BitSorter.View
         private const float HintBottom = 12f;
 
         /// <summary>
-        /// Room for the hint, and the width it wraps in.
+        /// Room for the hint, and the width it wraps in: five wrapped lines at
+        /// <see cref="HintFontSize"/>.
         /// </summary>
         /// <remarks>
-        /// Public because nothing was checking it. The banner's goal is measured against the box
-        /// that holds it and a level whose goal will not fit is a failing test; the hint had the
-        /// same shape of problem and none of the guard, so a hint one line longer than whoever
-        /// wrote this box expected simply printed past the bottom of the panel.
+        /// Reserved rather than fitted, the way the banner reserves room for a goal -- and, like
+        /// the banner's, refused by a test when a level asks for more than it holds. That is the
+        /// half that was missing. This was four lines, sized by counting what the longest hint
+        /// needed at the time and writing the total down, and spot-the-pattern was written later
+        /// and wraps to 101px, so nine pixels of it fell outside the panel with nothing to say so.
+        ///
+        /// Raising it is not the fix; <see cref="HelpPanelTests"/> is. A number chosen by
+        /// measuring today's longest hint is exactly what was here before.
         /// </remarks>
-        public const float HintHeight = 92f;
+        public const float HintHeight = 116f;
 
         /// <inheritdoc cref="HintHeight"/>
         public const float HintWidth = 300f;
