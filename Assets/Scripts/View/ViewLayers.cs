@@ -71,5 +71,18 @@ namespace BitSorter.View
 
         /// <summary>A bit, in front of nodes, wires, scorch marks and port stubs.</summary>
         public const int Bit = 5;
+
+        /// <summary>
+        /// A wire's delay, and the dark pill behind it: above everything else on the board.
+        /// </summary>
+        /// <remarks>
+        /// A number under a glowing bit is unreadable. Still on the board, though, and so under
+        /// every panel on the canvas -- these were drawn with IMGUI once, which paints over the
+        /// canvas, and they printed across the level list and on top of the solved card.
+        /// </remarks>
+        public const int WireLabelBacking = 6;
+
+        /// <inheritdoc cref="WireLabelBacking"/>
+        public const int WireLabel = 7;
     }
 }

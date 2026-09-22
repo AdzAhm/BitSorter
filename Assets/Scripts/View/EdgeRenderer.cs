@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using BitSorter.LogicCore;
 using UnityEngine;
+using TMPro;
 
 namespace BitSorter.View
 {
@@ -36,7 +37,6 @@ namespace BitSorter.View
         [SerializeField] private float _markLength = 0.20f;
         [SerializeField] private float _markWidth = 0.055f;
         [SerializeField] private Color _labelColour = new Color(0.94f, 0.96f, 1.00f);
-        [SerializeField] private Color _labelOutlineColour = new Color(0.02f, 0.03f, 0.05f, 0.95f);
         [SerializeField] private Color _labelBackingColour = new Color(0.03f, 0.04f, 0.06f, 0.85f);
 
         private readonly List<GameObject> _spawned = new List<GameObject>();
@@ -45,19 +45,28 @@ namespace BitSorter.View
         private readonly List<int> _edgeIds = new List<int>();
         private readonly List<LineRenderer> _cores = new List<LineRenderer>();
         private readonly List<Vector2> _labelPositions = new List<Vector2>();
-        private readonly List<string> _labelTexts = new List<string>();
+        private readonly List<TextMeshPro> _labels = new List<TextMeshPro>();
 
         private Transform _container;
         private Material _material;
         private Camera _camera;
-        private GUIStyle _labelStyle;
-        private GUIStyle _labelHoverStyle;
-        private GUIStyle _labelOutlineStyle;
         private int _builtRevision = -1;
         private int _sparkedCount;
 
         /// <summary>Offset of the number from the wire's centreline, so the marks have the middle.</summary>
         private const float LabelOffset = 0.34f;
+
+        /// <summary>The number's size, at rest and under the cursor.</summary>
+        private const float LabelFontSize = 1.5f;
+
+        /// <inheritdoc cref="LabelFontSize"/>
+        private const float LabelHoverFontSize = 1.8f;
+
+        /// <summary>The dark pill behind the number, in world units.</summary>
+        private static readonly Vector2 LabelPill = new Vector2(0.26f, 0.21f);
+
+        /// <summary>Index into <see cref="_labels"/> of the one drawn large, or -1.</summary>
+        private int _hoveredLabel = -1;
 
         private void Awake()
         {
@@ -106,7 +115,8 @@ namespace BitSorter.View
             _edgeIds.Clear();
             _cores.Clear();
             _labelPositions.Clear();
-            _labelTexts.Clear();
+            _labels.Clear();
+            _hoveredLabel = -1;
 
             if (_material == null)
                 _material = WireMaterial();
@@ -136,12 +146,64 @@ namespace BitSorter.View
                 _edgeIds.Add(id);
                 _cores.Add(core);
 
-                // Cached here rather than rebuilt in OnGUI, which runs more than once a frame. Nudged
-                // off the centreline so the number and the division marks do not overlap.
+                // Nudged off the centreline so the number and the division marks do not overlap.
                 Vector2 midpoint = (from + to) * 0.5f;
-                _labelPositions.Add(midpoint + Normal(from, to) * LabelOffset);
-                _labelTexts.Add(edge.Delay.ToString());
+                Vector2 labelAt = midpoint + Normal(from, to) * LabelOffset;
+
+                _labelPositions.Add(labelAt);
+                _labels.Add(SpawnLabel(id, labelAt, edge.Delay));
             }
+        }
+
+        /// <summary>
+        /// A wire's delay as a small number beside it, on the board with the wire it describes.
+        /// </summary>
+        /// <remarks>
+        /// These were drawn with IMGUI, which paints after the canvas -- so nothing on the canvas
+        /// could ever cover them. They broke through twice: across the rows of the level list,
+        /// which was patched by hiding them by hand behind full-screen panels; and on top of the
+        /// solved card, which is not a full-screen panel and so was never covered by the patch.
+        /// Drawn here, they sit under the canvas like everything else on the board, and every
+        /// panel covers them without being told to. The reason IMGUI was chosen -- that world
+        /// text would need a built-in font whose name changes between versions -- stopped
+        /// applying once the board's own labels were TextMeshPro.
+        ///
+        /// Above the bits, as they were before: a number under a glowing bit is unreadable, and
+        /// the dark pill is what keeps it readable over a bright wire.
+        /// </remarks>
+        private TextMeshPro SpawnLabel(int edgeId, Vector2 at, int delay)
+        {
+            var host = new GameObject($"Edge {edgeId} delay");
+            host.transform.SetParent(_container, false);
+            host.transform.position = at;
+            _spawned.Add(host);
+
+            // Children, not components on the host: one renderer per GameObject, and scaling the
+            // pill must not scale the number.
+            var pill = new GameObject("backing");
+            pill.transform.SetParent(host.transform, false);
+
+            var backing = pill.AddComponent<SpriteRenderer>();
+            backing.sprite = ProceduralSprites.Dot();
+            backing.color = _labelBackingColour;
+            backing.sortingOrder = ViewLayers.WireLabelBacking;
+
+            Vector2 native = backing.sprite.bounds.size;
+            pill.transform.localScale = new Vector3(LabelPill.x / native.x, LabelPill.y / native.y, 1f);
+
+            var number = new GameObject("number");
+            number.transform.SetParent(host.transform, false);
+
+            var text = number.AddComponent<TextMeshPro>();
+            text.text = delay.ToString();
+            text.fontSize = LabelFontSize;
+            text.alignment = TextAlignmentOptions.Center;
+            text.textWrappingMode = TextWrappingModes.NoWrap;
+            text.color = _labelColour;
+            text.sortingOrder = ViewLayers.WireLabel;
+            text.rectTransform.sizeDelta = new Vector2(LabelPill.x * 2f, LabelPill.y);
+
+            return text;
         }
 
         /// <summary>
@@ -183,6 +245,8 @@ namespace BitSorter.View
         private void ApplyHighlight()
         {
             int hovered = _delay != null ? _delay.HoveredEdgeId : -1;
+
+            HighlightLabel(hovered);
 
             for (int i = 0; i < _cores.Count; i++)
             {
@@ -273,84 +337,26 @@ namespace BitSorter.View
         }
 
         /// <summary>
-        /// Each wire's delay as a small number beside it. IMGUI because the HUD already proves that
-        /// path works here; a world-space TextMesh would need a builtin font whose name has changed
-        /// between Unity versions.
+        /// Draws the hovered wire's number large, and puts the last one back.
         /// </summary>
         /// <remarks>
-        /// **IMGUI draws after the canvas and cannot be covered by it.** Every other piece of the
-        /// HUD hides itself while a full-screen panel is up, and a Canvas element that forgot to
-        /// would still be painted over by the panel's own scrim. These are not on the canvas, so
-        /// nothing catches them: with the level list open they sat on top of it, digits from the
-        /// board scattered across the rows.
-        ///
-        /// Which makes <see cref="UiModal.HudVisible"/> the one thing standing between a wire's
-        /// delay and the middle of the level list. It is the same rule the rest of the HUD follows;
-        /// it just has to be obeyed here by hand.
+        /// Only on a change. Setting a font size marks the text for a mesh rebuild even when the
+        /// size is the one it already had, and this runs every frame.
         /// </remarks>
-        private void OnGUI()
+        private void HighlightLabel(int hoveredEdgeId)
         {
-            if (_camera == null || _labelTexts.Count == 0 || !UiModal.HudVisible)
+            int index = _edgeIds.IndexOf(hoveredEdgeId);
+
+            if (index == _hoveredLabel)
                 return;
 
-            EnsureLabelStyles();
+            if (_hoveredLabel >= 0 && _hoveredLabel < _labels.Count && _labels[_hoveredLabel] != null)
+                _labels[_hoveredLabel].fontSize = LabelFontSize;
 
-            int hovered = _delay != null ? _delay.HoveredEdgeId : -1;
+            if (index >= 0 && index < _labels.Count && _labels[index] != null)
+                _labels[index].fontSize = LabelHoverFontSize;
 
-            for (int i = 0; i < _labelTexts.Count; i++)
-            {
-                Vector3 screen = _camera.WorldToScreenPoint(_labelPositions[i]);
-                if (screen.z < 0f)
-                    continue;
-
-                // GUI space counts down from the top, the camera counts up from the bottom.
-                float x = screen.x - 14f;
-                float y = Screen.height - screen.y - 10f;
-                var rect = new Rect(x, y, 28f, 20f);
-
-                // A soft dark pill behind the number. Bloom brightens whatever is under these
-                // labels, and plain text on a glowing wire is unreadable.
-                Color previous = GUI.color;
-                GUI.color = _labelBackingColour;
-                GUI.DrawTexture(new Rect(x + 3f, y + 1f, 22f, 18f), ProceduralSprites.Dot().texture);
-                GUI.color = previous;
-
-                // Then an outline, so the digit still reads if the pill lands on a bright spot.
-                string text = _labelTexts[i];
-                for (int o = 0; o < LabelOutlineOffsets.Length; o += 2)
-                {
-                    GUI.Label(
-                        new Rect(x + LabelOutlineOffsets[o], y + LabelOutlineOffsets[o + 1], 28f, 20f),
-                        text, _labelOutlineStyle);
-                }
-
-                bool isHovered = i < _edgeIds.Count && _edgeIds[i] == hovered;
-                GUI.Label(rect, text, isHovered ? _labelHoverStyle : _labelStyle);
-            }
-        }
-
-        /// <summary>Offsets for a cheap four-way text outline, as x,y pairs.</summary>
-        private static readonly float[] LabelOutlineOffsets = { -1f, 0f, 1f, 0f, 0f, -1f, 0f, 1f };
-
-        private void EnsureLabelStyles()
-        {
-            if (_labelStyle != null)
-                return;
-
-            _labelStyle = new GUIStyle(GUI.skin.label)
-            {
-                fontSize = 13,
-                alignment = TextAnchor.MiddleCenter,
-                wordWrap = false,
-            };
-            _labelStyle.normal.textColor = _labelColour;
-
-            // Bigger as well as brighter: on a busy board colour alone is easy to miss.
-            _labelHoverStyle = new GUIStyle(_labelStyle) { fontSize = 17 };
-            _labelHoverStyle.normal.textColor = _hoverColour;
-
-            _labelOutlineStyle = new GUIStyle(_labelStyle);
-            _labelOutlineStyle.normal.textColor = _labelOutlineColour;
+            _hoveredLabel = index;
         }
 
         private static Material WireMaterial()
