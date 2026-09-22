@@ -12,10 +12,12 @@ namespace BitSorter.View
     /// Active Input Handling set to "Input System Package (New)", under which the old API throws
     /// an InvalidOperationException the first time it is read.
     ///
-    /// Keys rather than on-screen buttons, for now. IMGUI's GUI.Button does not consume Input System
-    /// mouse events, so a Run button drawn in the HUD would fire and *also* let the same click reach
-    /// PlacementController and WiringController, which already both act on
-    /// leftButton.wasPressedThisFrame. Real buttons need a canvas and something to claim a click.
+    /// Keys are one of two ways in; the run buttons on the canvas are the other, and both end up
+    /// at the same methods on SimulationRunner. This used to say there were no buttons, because
+    /// IMGUI's GUI.Button does not consume Input System mouse events -- a Run button drawn that way
+    /// fired and *also* let the same click reach PlacementController and WiringController. What it
+    /// said was needed is what was then built: a canvas, and PointerGate to decide who owns a
+    /// click.
     ///
     /// Pause is deliberately independent of the run state: SimulationRunner.ClockRunning is what
     /// decides whether the clock may advance at all, so Space cannot start an editable board ticking.
