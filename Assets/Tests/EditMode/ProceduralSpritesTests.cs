@@ -85,13 +85,14 @@ namespace BitSorter.LogicCore.Tests
         [Test]
         public void ADifferentPalette_GetsItsOwnBoardTile()
         {
-            Palette other = Palette.Classic.Derive("test-other", p => p.Ground = Color.magenta);
+            Palette colours = Palette.Classic.Derive("test-other", p => p.Ground = Color.magenta);
+            Look other = Look.Classic.Derive("test-other", l => l.Colours = colours);
 
             try
             {
                 Sprite classic = ProceduralSprites.BoardTile();
 
-                Palette.Use(other);
+                Look.Use(other);
                 Sprite derived = ProceduralSprites.BoardTile();
 
                 Assert.AreNotSame(classic, derived,
@@ -99,7 +100,7 @@ namespace BitSorter.LogicCore.Tests
             }
             finally
             {
-                Palette.Use(null);
+                Look.Use(null);
             }
         }
     }

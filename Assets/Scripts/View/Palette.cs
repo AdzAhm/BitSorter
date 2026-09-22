@@ -25,8 +25,9 @@ namespace BitSorter.View
     /// **Never change a palette in place.** Every instance is shared, and <see cref="Current"/> is
     /// read by everything that draws. A new look is <see cref="Derive"/>d from an existing one.
     ///
-    /// Chosen before the scene loads. Most renderers take their colours when they build, so a
-    /// palette swapped mid-session would leave anything already on screen in the old one.
+    /// Chosen before the scene loads, as part of a <see cref="Look"/>. Most renderers take their
+    /// colours when they build, so a look swapped mid-session would leave anything already on
+    /// screen in the old one.
     /// </remarks>
     public sealed class Palette
     {
@@ -119,19 +120,13 @@ namespace BitSorter.View
         // Which one
         // -----------------------------------------------------------------
 
-        private static Palette _current;
-
-        /// <summary>The look everything is drawn in.</summary>
+        /// <summary>The colours everything is drawn in: the current <see cref="Look"/>'s.</summary>
         /// <remarks>
-        /// Read through a fallback rather than initialised from <see cref="Classic"/>. Static
-        /// initialisers run in the order they are written, and this sits above Classic: written
-        /// as <c>= Classic</c> it would have been initialised to null, and the first thing drawn
-        /// would have thrown.
+        /// Chosen by choosing a look, never on its own, so a palette cannot be switched without the
+        /// styles that were designed with it. Falls back to <see cref="Classic"/> for the same reason
+        /// Look.Current does: a static initialiser above Classic would have run first and been null.
         /// </remarks>
-        public static Palette Current => _current ?? Classic;
-
-        /// <summary>Makes a palette the current one. Null goes back to <see cref="Classic"/>.</summary>
-        public static void Use(Palette palette) => _current = palette;
+        public static Palette Current => Look.Current.Colours ?? Classic;
 
         /// <summary>A copy of this palette under a new name, changed by <paramref name="change"/>.</summary>
         public Palette Derive(string name, System.Action<Palette> change)
