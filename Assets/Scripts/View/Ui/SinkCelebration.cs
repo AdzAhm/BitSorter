@@ -74,7 +74,7 @@ namespace BitSorter.View
             // Falls away as it goes, so the board settles rather than being left flashing at someone
             // who has stopped looking.
             float fade = Mathf.Clamp01(_remaining / Mathf.Max(0.01f, _seconds));
-            float pulse = 0.5f + 0.5f * Mathf.Sin(Time.time * _rate * Mathf.PI * 2f);
+            float pulse = PulseAt(_seconds - _remaining, _rate);
             float alpha = fade * Mathf.Lerp(0.35f, 0.95f, pulse);
 
             for (int i = 0; i < _glows.Count; i++)
@@ -91,6 +91,20 @@ namespace BitSorter.View
             if (_remaining <= 0f)
                 Stop();
         }
+
+        /// <summary>
+        /// Where the celebration is in its swell, counted from the moment the run passed: 1 then,
+        /// easing down and back on every beat.
+        /// </summary>
+        /// <remarks>
+        /// From its own start rather than from the game clock. It was a sine of Time.time, which
+        /// is what the collision warnings rightly use -- they have to throb in step across port,
+        /// wire and bit -- but a celebration is an event, and on the game clock each one began
+        /// wherever the clock happened to be, trough included. A solve could land dim. Counted
+        /// from the pass, every win starts at its brightest.
+        /// </remarks>
+        public static float PulseAt(float elapsed, float rate) =>
+            0.5f + 0.5f * Mathf.Cos(elapsed * rate * Mathf.PI * 2f);
 
         private void Begin()
         {
