@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
@@ -59,6 +60,42 @@ namespace BitSorter.TestTools
         [MenuItem("BitSorter/Run Tests/Play Mode")]
         public static void PlayMode() => Run(TestMode.PlayMode);
 
+        /// <summary>The fixture that takes the reference screenshots.</summary>
+        private const string ShotsFixture = "BitSorter.PlayMode.Tests.ReferenceShots";
+
+        /// <summary>
+        /// Takes the reference screenshots, into a folder named for the look being captured.
+        /// </summary>
+        /// <remarks>
+        /// The fixture is Explicit, so it is selected here by name; a plain Play Mode run skips it.
+        /// It needs the Game view, so it only works from an editor with a window -- in batch mode
+        /// there is nothing for a screen capture to read.
+        /// </remarks>
+        [MenuItem("BitSorter/Capture Reference Shots")]
+        public static void CaptureReferenceShots() => Run(TestMode.PlayMode, ShotsFixture);
+
+        /// <summary>
+        /// Opens, captures and closes again, for when no editor is running:
+        /// <c>Unity.exe -projectPath ... -executeMethod BitSorter.TestTools.TestRun.CaptureAndQuit
+        /// [-captureLook name]</c>. Not batch mode, for the reason above.
+        /// </summary>
+        public static void CaptureAndQuit()
+        {
+            string[] args = Environment.GetCommandLineArgs();
+
+            for (int i = 0; i < args.Length - 1; i++)
+            {
+                if (args[i] == "-captureLook")
+                    SessionState.SetString("BitSorter.Capture.Look", args[i + 1]);
+            }
+
+            SessionState.SetBool(QuitWhenDoneKey, true);
+            CaptureReferenceShots();
+        }
+
+        /// <summary>Set by <see cref="CaptureAndQuit"/>; the editor exits once the run reports.</summary>
+        private const string QuitWhenDoneKey = "BitSorter.TestRun.QuitWhenDone";
+
         /// <summary>
         /// Whether the editor is in a state where starting a run would throw or compile underneath
         /// itself.
@@ -83,7 +120,7 @@ namespace BitSorter.TestTools
             return false;
         }
 
-        private static void Run(TestMode mode)
+        private static void Run(TestMode mode, string fixture = null)
         {
             if (Busy(out string why))
             {
@@ -91,14 +128,22 @@ namespace BitSorter.TestTools
                 return;
             }
 
-            SessionState.SetString(AskedKey, mode.ToString());
+            SessionState.SetString(AskedKey, fixture == null ? mode.ToString() : $"{mode} {fixture}");
 
             // Written before the run, so a result file left over from last time cannot be mistaken
             // for this run's if the editor dies partway through.
             File.WriteAllText(ResultPath, $"RUNNING {mode}\n");
 
+            var filter = new Filter { testMode = mode };
+
+            // Anchored on the fixture's own full name and not on its tests' -- an Explicit fixture
+            // runs only when the filter names the fixture itself, and a pattern requiring the dot
+            // after it matches every test inside and never the fixture.
+            if (fixture != null)
+                filter.groupNames = new[] { "^" + System.Text.RegularExpressions.Regex.Escape(fixture) };
+
             var api = ScriptableObject.CreateInstance<TestRunnerApi>();
-            api.Execute(new ExecutionSettings(new Filter { testMode = mode }));
+            api.Execute(new ExecutionSettings(filter));
 
             Debug.Log($"[TestRun] started {mode}. Result will be written to {ResultPath}");
         }
@@ -153,6 +198,12 @@ namespace BitSorter.TestTools
 
                 File.WriteAllText(ResultPath, report.ToString());
                 SessionState.SetString(AskedKey, string.Empty);
+
+                if (SessionState.GetBool(QuitWhenDoneKey, false))
+                {
+                    SessionState.SetBool(QuitWhenDoneKey, false);
+                    EditorApplication.delayCall += () => EditorApplication.Exit(result.FailCount == 0 ? 0 : 1);
+                }
 
                 Debug.Log($"[TestRun] finished: {result.PassCount} passed, {result.FailCount} failed.");
             }
