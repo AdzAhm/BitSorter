@@ -145,7 +145,7 @@ namespace BitSorter.View
         private void ApplyStallStates()
         {
             SimulationView view = _runner.View;
-            float breath = PortState.Pulse(Time.time, _stallPulseHz);
+            float breath = PortState.Pulse(ViewTime.Now, _stallPulseHz);
 
             for (int id = 0; id < view.NodeCount; id++)
             {

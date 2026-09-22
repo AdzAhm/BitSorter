@@ -149,7 +149,7 @@ namespace BitSorter.View
             ring.gameObject.SetActive(true);
         }
 
-        private float Pulse() => PortState.Pulse(Time.time, _pulseHz);
+        private float Pulse() => PortState.Pulse(ViewTime.Now, _pulseHz);
 
         private Color Tinted()
         {

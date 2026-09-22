@@ -156,7 +156,7 @@ namespace BitSorter.View
                     if (bit.TicksRemaining == 1 && PortState.WillCollide(edge, out bool heldBitDies))
                     {
                         colour = Color.Lerp(colour, PortState.WarningColour(heldBitDies),
-                            PortState.Pulse(Time.time, PortState.WarningHz));
+                            PortState.Pulse(ViewTime.Now, PortState.WarningHz));
                     }
 
                     Transform bitTransform = sprite.transform;

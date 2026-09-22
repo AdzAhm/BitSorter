@@ -269,7 +269,7 @@ namespace BitSorter.View
                 if (edge != null && PortState.WillCollide(edge, out bool heldBitDies))
                 {
                     colour = Color.Lerp(colour, PortState.WarningColour(heldBitDies),
-                        PortState.Pulse(Time.time, PortState.WarningHz));
+                        PortState.Pulse(ViewTime.Now, PortState.WarningHz));
                 }
 
                 // The flash wins over hover: it is the acknowledgement of an action the player just took.

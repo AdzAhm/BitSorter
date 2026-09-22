@@ -180,7 +180,7 @@ namespace BitSorter.View
             {
                 // A throb rather than a blink, so it reads as urgency without competing with the
                 // flash a real collision produces.
-                float pulse = PortState.Pulse(Time.time, PortState.WarningHz);
+                float pulse = PortState.Pulse(ViewTime.Now, PortState.WarningHz);
 
                 colour = Color.Lerp(colour, PortState.WarningColour(heldBitDies), pulse);
                 scale *= Mathf.Lerp(1f, _warningScale, pulse);

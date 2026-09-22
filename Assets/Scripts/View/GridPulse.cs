@@ -102,7 +102,7 @@ namespace BitSorter.View
 
             bool running = _runner != null && _runner.IsReady && !_runner.IsIdle();
             float quiet = running ? _runningDepth : 1f;
-            float t = Time.time * _speed;
+            float t = ViewTime.Now * _speed;
 
             for (int i = 0; i < _dots.Count; i++)
             {
