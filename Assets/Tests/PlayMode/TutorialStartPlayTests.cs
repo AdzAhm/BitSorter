@@ -79,6 +79,97 @@ namespace BitSorter.PlayMode.Tests
         }
 
         // -----------------------------------------------------------------
+        // The board is the tutorial's until the player says otherwise
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// The board does not take edits while the tutorial is still asking whether to start.
+        /// </summary>
+        /// <remarks>
+        /// Reported from play: a player spent the parts before being asked for them, and the
+        /// instructions then asked for a gate that was no longer there. The tutorial stocks one
+        /// NOT and one AND decoy, and the step that wants the NOT wants it on one particular
+        /// cell -- so a NOT put down anywhere else, or the decoy dropped on that cell, leaves a
+        /// step that cannot be satisfied and nothing in hand to satisfy it with. Recovering means
+        /// right-clicking the part back, which the step text mentions only once the player has
+        /// already got there.
+        ///
+        /// So the intro holds the board: START or SKIP, and after either the board is the
+        /// player's again. Refused rather than ignored, because a click that does nothing and
+        /// says nothing teaches that the board is broken.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator WhileTheIntroIsUp_TheBoardRefusesEdits()
+        {
+            yield return LoadScene();
+
+            TutorialDirector director = Find<TutorialDirector>();
+            LevelSession session = Find<LevelSession>();
+
+            yield return BeginTutorial(director);
+
+            Assert.IsFalse(session.TryPlaceGate(TutorialLevel.Decoy, TutorialLevel.GateCell),
+                "the decoy went onto the gate's own cell before the tutorial had started, which " +
+                "spends the only one and blocks the cell the NOT has to go on");
+
+            Assert.IsFalse(session.TryPlaceGate(TutorialLevel.Part, new Vector2Int(1, 1)),
+                "the NOT was spent on the wrong cell before the tutorial had started, and there " +
+                "is only one of it");
+
+            Assert.IsTrue(session.Blueprint.IsEmpty, "the board took an edit it should have refused");
+        }
+
+        /// <summary>
+        /// Pressing START hands the board back, so the tutorial can be followed.
+        /// </summary>
+        /// <remarks>
+        /// The pair to the test above, and the more important half: a hold that is never released
+        /// is a game that cannot be played. Both ways out are exercised -- START here, SKIP below
+        /// -- because the whole risk of holding the board is holding it forever.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator OnceStarted_TheBoardIsThePlayersAgain()
+        {
+            yield return LoadScene();
+
+            TutorialDirector director = Find<TutorialDirector>();
+            LevelSession session = Find<LevelSession>();
+
+            yield return BeginTutorial(director);
+            yield return PressStart();
+
+            Assert.IsTrue(session.TryPlaceGate(TutorialLevel.Part, TutorialLevel.GateCell),
+                "the tutorial kept the board after the player pressed START");
+        }
+
+        /// <summary>Skipping hands the board back too, which is what skipping means.</summary>
+        [UnityTest]
+        public IEnumerator OnceSkipped_TheBoardIsThePlayersAgain()
+        {
+            yield return LoadScene();
+
+            TutorialDirector director = Find<TutorialDirector>();
+            LevelSession session = Find<LevelSession>();
+
+            yield return BeginTutorial(director);
+
+            Find<TutorialPanel>().Skip();
+            yield return null;
+            yield return null;
+
+            Assert.IsTrue(session.TryPlaceGate(TutorialLevel.Part, TutorialLevel.GateCell),
+                "the tutorial kept the board after the player skipped it");
+        }
+
+        /// <summary>Presses the intro's START and lets the director move on to the steps.</summary>
+        private static IEnumerator PressStart()
+        {
+            Find<TutorialPanel>().Next();
+            yield return null;
+            yield return null;
+        }
+
+        // -----------------------------------------------------------------
         // Nothing is free
         // -----------------------------------------------------------------
 
