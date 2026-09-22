@@ -395,19 +395,36 @@ namespace BitSorter.View
         }
 
         /// <summary>A line of text that may be longer than the panel is wide.</summary>
+        /// <summary>A note that wraps inside the panel, and the row after it starts below it.</summary>
+        /// <remarks>
+        /// Wrapping is turned on here because nothing else would: every label starts out NoWrap,
+        /// so this helper was called Wrapped while its longest note ran five pixels past the panel's
+        /// right edge. The height is measured from the text instead of assumed, so a
+        /// note that takes three lines pushes the next row down rather than printing over it.
+        /// </remarks>
         private float Wrapped(float y, string text, Color colour)
         {
             TextMeshProUGUI label = UiTheme.Label(
-                "note", _bodyRoot, 12f, colour, TextAlignmentOptions.TopLeft);
+                "note", _bodyRoot, NoteFontSize, colour, TextAlignmentOptions.TopLeft);
+
+            label.textWrappingMode = TextWrappingModes.Normal;
+
+            float height = Mathf.Ceil(UiTheme.TextHeight(text, NoteFontSize, Inner));
 
             UiTheme.Anchor(label.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f),
-                new Vector2(0f, y), new Vector2(Inner, 34f));
+                new Vector2(0f, y), new Vector2(Inner, height));
 
             label.text = text;
             _body.Add(label.gameObject);
 
-            return y - 40f;
+            return y - (height + NoteGap);
         }
+
+        /// <summary>Size of the panel's notes, shared with the measurement that sizes their boxes.</summary>
+        private const float NoteFontSize = 12f;
+
+        /// <summary>Space between a note and the row after it.</summary>
+        private const float NoteGap = 6f;
 
         /// <summary>The vector numbers, over the columns the bits below them sit in.</summary>
         private float Columns(float y)
