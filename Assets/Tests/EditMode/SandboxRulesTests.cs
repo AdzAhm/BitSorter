@@ -357,5 +357,38 @@ namespace BitSorter.LogicCore.Tests
 
             return caught;
         }
-    }
+
+        // -----------------------------------------------------------------
+        // Why the table button is off
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// Every way the truth-table button can be off has its own reason, and the button is on
+        /// exactly when there is none.
+        /// </summary>
+        /// <remarks>
+        /// The reason and the button's state used to be worked out separately, and a fresh
+        /// sandbox -- already the full two-input table -- was told it needed fewer sources.
+        /// </remarks>
+        [Test]
+        public void WhyNoTable_GivesTheRealReason_AndNoneWhenTheButtonIsOn()
+        {
+            string[] table2 = SandboxRules.Table(2);
+
+            StringAssert.Contains("source",
+                SandboxRules.WhyNoTable(new string[0], 4), "no sources at all");
+
+            StringAssert.Contains($"{SandboxRules.MaxTableSources} sources or fewer",
+                SandboxRules.WhyNoTable(new[] { "0", "0", "0", "0" }, 8), "one source too many");
+
+            string fresh = SandboxRules.WhyNoTable(table2, SandboxRules.VectorsForTable(2));
+            Assert.IsNotNull(fresh, "a fresh sandbox is already the table, so the button is off");
+            StringAssert.DoesNotContain("sources or fewer", fresh,
+                "two sources is within the limit -- the reason is that the table is already there");
+            StringAssert.Contains("already", fresh);
+
+            Assert.IsNull(SandboxRules.WhyNoTable(new[] { "0000", "0000" }, 4),
+                "two sources that are not yet the table can be filled, so there is nothing to explain");
+        }
+}
 }

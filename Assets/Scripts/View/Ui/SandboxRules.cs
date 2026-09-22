@@ -130,6 +130,33 @@ namespace BitSorter.View
         /// </remarks>
         public const int MaxTableSources = 3;
 
+        /// <summary>
+        /// Why the truth-table button is off, or null when it is on.
+        /// </summary>
+        /// <remarks>
+        /// One answer for both the button's state and the words beside it, so the two cannot
+        /// disagree. They did: the button was off whenever a table would not fit *or* the streams
+        /// already were one, and the note only knew about the first. A fresh sandbox opens in the
+        /// second, so every new free-play session told the player that a table "needs 3 sources
+        /// or fewer" while showing them two -- a false reason, which is worse than none, because
+        /// it sends somebody looking for a problem that is not there.
+        /// </remarks>
+        public static string WhyNoTable(IReadOnlyList<string> sources, int vectors)
+        {
+            int count = sources?.Count ?? 0;
+
+            if (count == 0)
+                return "A table needs a source.";
+
+            if (!CanFillTable(count))
+                return $"A table of every combination needs {MaxTableSources} sources or fewer.";
+
+            if (IsTable(sources, vectors))
+                return "These streams are already every combination.";
+
+            return null;
+        }
+
         /// <summary>Whether every combination of this many sources fits in the vectors there are.</summary>
         public static bool CanFillTable(int sources) =>
             sources >= 1 && sources <= MaxTableSources && VectorsForTable(sources) <= SandboxConfig.MaxVectors;

@@ -506,8 +506,8 @@ namespace BitSorter.View
             // Off when a full table would not fit, and off when the streams already are one --
             // a fresh sandbox opens on the two-input table, so the button had nothing to do and
             // looked broken rather than finished.
-            bool canFill = SandboxRules.CanFillTable(_config.sources.Length)
-                           && !SandboxRules.IsTable(_config.sources, _config.vectors);
+            string whyNot = SandboxRules.WhyNoTable(_config.sources, _config.vectors);
+            bool canFill = whyNot == null;
 
             Button table = UiTheme.Button_("truth table", _bodyRoot, "Truth table", out TextMeshProUGUI caption);
             UiTheme.Anchor(table.GetComponent<RectTransform>(), new Vector2(0f, 1f), new Vector2(0f, 1f),
@@ -533,13 +533,7 @@ namespace BitSorter.View
             // Said rather than left to be guessed: a dead button with no reason beside it reads as a
             // broken one.
             if (!canFill)
-            {
-                y = Wrapped(y,
-                    _config.sources.Length == 0
-                        ? "A table needs a source."
-                        : $"A table of every combination needs {SandboxRules.MaxTableSources} sources or fewer.",
-                    UiTheme.TextDim);
-            }
+                y = Wrapped(y, whyNot, UiTheme.TextDim);
 
             return y;
         }
