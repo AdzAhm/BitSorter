@@ -442,6 +442,13 @@ failure side.
   pixel**; a refactor that claims to change nothing is held to that, with no
   tolerance. It needs the Game view, so not batch mode.
 
+  **One known exception, not yet fixed:** in `03-running` two bits overlap
+  where the half adder's wires cross, both at the same sorting order, and Unity
+  leaves the order of equal sorts undefined. About one capture in three differs
+  there, in a patch some forty pixels wide and by at most 29 levels. A
+  difference anywhere else is real, and one there is proven noise only by
+  capturing again and getting the other result.
+
   **A capture can be of any look**, named in the `BitSorter.Capture.Look`
   session key (or `-captureLook` on the command line) and saved under a folder
   of that name. The fixture chooses it before the scene loads and fails on a
