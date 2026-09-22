@@ -67,6 +67,20 @@ namespace BitSorter.PlayMode.Tests
 
         private static T Find<T>() where T : Object => Object.FindFirstObjectByType<T>();
 
+        /// <summary>
+        /// Closes the menu the game boots into, so the director's own Update runs.
+        /// </summary>
+        /// <remarks>
+        /// It stands down while anything full-screen is open rather than talking over it, so a
+        /// START or SKIP press is recorded and never consumed until the menu is gone.
+        /// </remarks>
+        private static IEnumerator CloseTheMainMenu()
+        {
+            Find<MainMenu>().Show(false);
+            yield return null;
+            yield return null;
+        }
+
         /// <summary>Starts the tutorial and lets the director settle on its first step.</summary>
         private static IEnumerator BeginTutorial(TutorialDirector director)
         {
@@ -131,6 +145,7 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator OnceStarted_TheBoardIsThePlayersAgain()
         {
             yield return LoadScene();
+            yield return CloseTheMainMenu();
 
             TutorialDirector director = Find<TutorialDirector>();
             LevelSession session = Find<LevelSession>();
@@ -147,6 +162,7 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator OnceSkipped_TheBoardIsThePlayersAgain()
         {
             yield return LoadScene();
+            yield return CloseTheMainMenu();
 
             TutorialDirector director = Find<TutorialDirector>();
             LevelSession session = Find<LevelSession>();

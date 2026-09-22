@@ -65,7 +65,13 @@ namespace BitSorter.View
         public bool IsLoaded => Level != null && _runner != null;
 
         /// <summary>The gate both editing controllers check before acting on a click.</summary>
-        public bool CanEdit => IsLoaded && State == RunState.Editing;
+        /// <remarks>
+        /// The tutorial's intro holds the board, so the parts list greys out and a drag from it is
+        /// refused while it is up -- the same answer the placement rules give, arrived at before
+        /// the player has aimed at anything.
+        /// </remarks>
+        public bool CanEdit =>
+            IsLoaded && State == RunState.Editing && !TutorialDirector.HoldingTheBoard;
 
         /// <summary>Whether there is an edit to step back through, and the board is editable.</summary>
         /// <remarks>

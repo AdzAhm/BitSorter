@@ -60,6 +60,33 @@ namespace BitSorter.View
         /// <summary>Whether the tutorial is running right now.</summary>
         public bool IsRunning => _phase != Phase.Idle;
 
+        /// <summary>The director in the scene, so the board rules can ask it a question cheaply.</summary>
+        private static TutorialDirector _live;
+
+        /// <summary>
+        /// Whether the tutorial is still asking whether to start, and is holding the board until
+        /// it gets an answer.
+        /// </summary>
+        /// <remarks>
+        /// True only during the intro. Once the player has pressed START or SKIP the board is
+        /// theirs, and every step after that leaves every action legal -- an unsatisfied step
+        /// simply does not advance, and a step un-satisfies itself when the player deletes what it
+        /// asked for.
+        ///
+        /// The intro is the one moment where a free board costs the player something they cannot
+        /// get back. The tutorial stocks one NOT and one AND decoy, and the step that wants the
+        /// NOT wants it on one cell; a part spent before it is asked for leaves a step that cannot
+        /// be met. Reported from play as the instructions asking for a gate that was no longer
+        /// there.
+        ///
+        /// Derived from the phase and never set, which is the rule pointer ownership follows and
+        /// for the same reason: a hold that can be claimed is a hold that can leak, and a leaked
+        /// hold is a board nobody can touch with nothing on screen explaining why. There is no
+        /// state here to leak. No director in the scene, a destroyed one, or any phase but the
+        /// intro, and the board is free.
+        /// </remarks>
+        public static bool HoldingTheBoard => _live != null && _live._phase == Phase.Intro;
+
         /// <summary>
         /// How many steps the board currently satisfies, counting from the top.
         /// </summary>
@@ -94,12 +121,20 @@ namespace BitSorter.View
 
         private void OnEnable()
         {
+            _live = this;
+
             if (_session != null)
                 _session.LevelLoaded += OnLevelLoaded;
         }
 
         private void OnDisable()
         {
+            // Only if it is still this one. A scene reload builds the next director before the
+            // last one is disabled, and clearing unconditionally would drop the live reference
+            // the moment the old one went away.
+            if (_live == this)
+                _live = null;
+
             if (_session != null)
                 _session.LevelLoaded -= OnLevelLoaded;
         }

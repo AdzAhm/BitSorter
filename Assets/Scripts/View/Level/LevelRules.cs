@@ -91,8 +91,29 @@ namespace BitSorter.View
         /// The shared gate every edit passes through first. Editing a running graph would mean adding
         /// and removing nodes mid-stream, so it is refused rather than queued.
         /// </summary>
-        public static LevelVerdict CanEdit(RunState state)
+        public static LevelVerdict CanEdit(RunState state) =>
+            CanEdit(state, TutorialDirector.HoldingTheBoard);
+
+        /// <inheritdoc cref="CanEdit(RunState)"/>
+        /// <param name="tutorialHolding">
+        /// Whether the tutorial's intro is up, waiting to be started or skipped.
+        /// </param>
+        /// <remarks>
+        /// Refused with a reason rather than ignored. A click that does nothing and says nothing
+        /// teaches that the board is broken, and the tutorial's is the first board anyone sees.
+        ///
+        /// Taken as an argument so the rule stays a pure function of what it is told, testable
+        /// without a scene; the parameterless overload is what the game calls, and it asks the
+        /// director.
+        /// </remarks>
+        public static LevelVerdict CanEdit(RunState state, bool tutorialHolding)
         {
+            if (tutorialHolding)
+            {
+                return LevelVerdict.Reject(LevelOutcome.NotEditing,
+                    "Press START to begin the tutorial, or SKIP to go your own way.");
+            }
+
             if (state == RunState.Editing)
                 return LevelVerdict.Accept();
 
