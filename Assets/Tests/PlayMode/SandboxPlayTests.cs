@@ -156,6 +156,78 @@ namespace BitSorter.PlayMode.Tests
             return Bit.Zero;
         }
 
+        /// <summary>
+        /// When the truth-table button is off, the reason printed beside it is the real one.
+        /// </summary>
+        /// <remarks>
+        /// The button is off in two situations -- too many sources for a full table to fit, or
+        /// streams that already are one -- and a fresh sandbox opens in the second. The note only
+        /// knew about the first, so every fresh free-play session told the player that a table
+        /// "needs 3 sources or fewer" while showing them two. Seen in the reference screenshots.
+        ///
+        /// A false reason is worse than none: it sends somebody looking for a problem that is not
+        /// there. Checked for truth rather than wording, so the sentence can be rewritten freely.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator TheTableButtonsReason_IsTheRealOne()
+        {
+            yield return TestScene.Load();
+            yield return OpenFreePlay();
+
+            Button table = FindButton("truth table");
+            Assert.IsNotNull(table, "no truth table button in the setup panel");
+            Assert.IsFalse(table.interactable,
+                "sanity: a fresh sandbox opens on the full two-input table, so the button is off");
+
+            int sources = int.Parse(SetupLabel("Sources count").text);
+            string[] notes = SetupNotes();
+
+            Assert.IsNotEmpty(notes, "the table button is off and nothing says why");
+
+            foreach (string note in notes)
+            {
+                if (note.Contains("sources or fewer"))
+                {
+                    Assert.Greater(sources, SandboxRules.MaxTableSources,
+                        $"the panel says \"{note}\" while showing {sources} sources -- the button is " +
+                        "off because the streams are already every combination, not because of the count");
+                }
+            }
+        }
+
+        /// <summary>A label inside free play's setup panel, by the name the panel builds it with.</summary>
+        private static TMPro.TextMeshProUGUI SetupLabel(string name)
+        {
+            GameObject root = GameObject.Find("Sandbox setup");
+            Assert.IsNotNull(root, "the setup panel is not on screen");
+
+            foreach (TMPro.TextMeshProUGUI label in root.GetComponentsInChildren<TMPro.TextMeshProUGUI>())
+            {
+                if (label.name == name)
+                    return label;
+            }
+
+            Assert.Fail($"no label '{name}' in the setup panel");
+            return null;
+        }
+
+        /// <summary>Every explanatory note the setup panel is currently showing.</summary>
+        private static string[] SetupNotes()
+        {
+            GameObject root = GameObject.Find("Sandbox setup");
+            Assert.IsNotNull(root, "the setup panel is not on screen");
+
+            var notes = new System.Collections.Generic.List<string>();
+
+            foreach (TMPro.TextMeshProUGUI label in root.GetComponentsInChildren<TMPro.TextMeshProUGUI>())
+            {
+                if (label.name == "note" && !string.IsNullOrEmpty(label.text))
+                    notes.Add(label.text);
+            }
+
+            return notes.ToArray();
+        }
+
         private static Button FindButton(string name)
         {
             GameObject found = GameObject.Find(name);
