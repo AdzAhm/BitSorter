@@ -126,6 +126,12 @@ namespace BitSorter.View
 
                     long key = Key(edge.Id, bit.Serial);
 
+                    // Worked out before the bit is rented, not after: a recycled object has to
+                    // be standing where it belongs before its trail is cleared, or the trail draws
+                    // the jump from wherever the last bit died.
+                    float travelled = Travelled(bit, fraction);
+                    Vector2 at = Vector2.Lerp(from, to, travelled);
+
                     SpriteRenderer sprite;
 
                     if (_live.TryGetValue(key, out Tracked already))
@@ -138,7 +144,7 @@ namespace BitSorter.View
                         // This serial was not on the wire last frame, so the node feeding this edge
                         // has just consumed its inputs and fired. One lookup, because the key names
                         // the bit rather than its position.
-                        sprite = Rent();
+                        sprite = Rent(at);
                         OnNodeFired(edge, from);
                     }
 
@@ -153,10 +159,8 @@ namespace BitSorter.View
                             PortState.Pulse(Time.time, PortState.WarningHz));
                     }
 
-                    float travelled = Travelled(bit, fraction);
-
                     Transform bitTransform = sprite.transform;
-                    bitTransform.position = Vector2.Lerp(from, to, travelled);
+                    bitTransform.position = at;
 
                     // Face along the wire so the arrival squash compresses in the travel direction.
                     Vector2 direction = to - from;
@@ -273,15 +277,30 @@ namespace BitSorter.View
             }
         }
 
-        private SpriteRenderer Rent()
+        /// <summary>
+        /// A bit sprite, standing at <paramref name="at"/> before it is shown.
+        /// </summary>
+        /// <remarks>
+        /// The position is taken rather than left to the caller, because the order is the whole
+        /// point. A TrailRenderer emits along whatever path its transform takes, so a pooled bit
+        /// that is shown where the last one died and moved afterwards draws a line between the
+        /// two -- and clearing the trail before that move does nothing about it. Placed first,
+        /// shown second, cleared third.
+        ///
+        /// It was clear-then-move, and in play that was a thin diagonal across the board every
+        /// time a gate fired, in the colour of whichever bit had just been recycled. A fresh
+        /// sprite had the same fault from the other end: it appeared at the container's origin
+        /// and streaked from there to its wire.
+        /// </remarks>
+        private SpriteRenderer Rent(Vector2 at)
         {
             if (_pool.Count > 0)
             {
                 SpriteRenderer pooled = _pool.Pop();
+
+                pooled.transform.position = at;
                 pooled.gameObject.SetActive(true);
 
-                // Mandatory on reuse. A TrailRenderer keeps its points across a reposition, so a
-                // recycled bit would draw a streak from wherever the previous one died.
                 if (_trails.TryGetValue(pooled, out TrailRenderer trail))
                     trail.Clear();
 
@@ -289,6 +308,7 @@ namespace BitSorter.View
             }
 
             GameObject instance = ViewSprites.Spawn(_bitPrefab, _container, "Bit");
+            instance.transform.position = at;
             instance.transform.localScale = Vector3.one * _bitSize;
 
             var renderer = instance.GetComponent<SpriteRenderer>();
