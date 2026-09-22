@@ -15,22 +15,24 @@ namespace BitSorter.View
     {
         public static Sprite SpriteFor(Node node)
         {
-            if (node is NotGate) return ProceduralSprites.CircleBubble();
-            if (node is NandGate) return ProceduralSprites.RoundedSquareBubble();
-            if (node is NorGate) return ProceduralSprites.ShieldBubble();
-            if (node is XorGate) return ProceduralSprites.ShieldArc();
-            if (node is AndGate) return ProceduralSprites.RoundedSquare();
-            if (node is OrGate) return ProceduralSprites.Shield();
+            BodyStyle style = Look.Current.Bodies;
+
+            if (node is NotGate) return ProceduralSprites.CircleBubble(style);
+            if (node is NandGate) return ProceduralSprites.RoundedSquareBubble(style);
+            if (node is NorGate) return ProceduralSprites.ShieldBubble(style);
+            if (node is XorGate) return ProceduralSprites.ShieldArc(style);
+            if (node is AndGate) return ProceduralSprites.RoundedSquare(style);
+            if (node is OrGate) return ProceduralSprites.Shield(style);
             // A wide capsule, not a diamond: under bloom a diamond and NOT's circle both blurred
             // into the same round blob. Aspect ratio survives the glow where silhouette detail
             // does not, and no gate is anywhere near this wide.
-            if (node is SourceNode) return ProceduralSprites.Capsule();
-            if (node is SinkNode) return ProceduralSprites.Hexagon();
+            if (node is SourceNode) return ProceduralSprites.Capsule(style);
+            if (node is SinkNode) return ProceduralSprites.Hexagon(style);
             // Taller than it is wide, and the only shape that is: a register is not a gate, and the
             // silhouette has to say so before the colour or the label can.
-            if (node is RegisterNode) return ProceduralSprites.FlipFlop();
+            if (node is RegisterNode) return ProceduralSprites.FlipFlop(style);
 
-            return ProceduralSprites.RoundedSquare();   // pass-through and anything new
+            return ProceduralSprites.RoundedSquare(style);   // pass-through and anything new
         }
 
         public static Color ColourFor(Node node)
@@ -64,16 +66,18 @@ namespace BitSorter.View
         /// </remarks>
         public static Sprite SpriteFor(GateKind kind)
         {
+            BodyStyle style = Look.Current.Bodies;
+
             switch (kind)
             {
-                case GateKind.Not: return ProceduralSprites.CircleBubble();
-                case GateKind.Nand: return ProceduralSprites.RoundedSquareBubble();
-                case GateKind.Nor: return ProceduralSprites.ShieldBubble();
-                case GateKind.Xor: return ProceduralSprites.ShieldArc();
-                case GateKind.And: return ProceduralSprites.RoundedSquare();
-                case GateKind.Or: return ProceduralSprites.Shield();
-                case GateKind.Register: return ProceduralSprites.FlipFlop();
-                default: return ProceduralSprites.RoundedSquare();
+                case GateKind.Not: return ProceduralSprites.CircleBubble(style);
+                case GateKind.Nand: return ProceduralSprites.RoundedSquareBubble(style);
+                case GateKind.Nor: return ProceduralSprites.ShieldBubble(style);
+                case GateKind.Xor: return ProceduralSprites.ShieldArc(style);
+                case GateKind.And: return ProceduralSprites.RoundedSquare(style);
+                case GateKind.Or: return ProceduralSprites.Shield(style);
+                case GateKind.Register: return ProceduralSprites.FlipFlop(style);
+                default: return ProceduralSprites.RoundedSquare(style);
             }
         }
 

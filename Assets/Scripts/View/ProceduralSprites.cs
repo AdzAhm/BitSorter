@@ -52,31 +52,35 @@ namespace BitSorter.View
 
         public static Sprite Circle() => Mask("circle", NodeSize, p => InCircle(p, CircleRadius));
 
-        public static Sprite CircleBubble() =>
-            Mask("circleBubble", NodeSize, p => InCircle(p, 0.64f) || InBubble(p));
+        public static Sprite CircleBubble(BodyStyle style = BodyStyle.Filled) =>
+            Body("circleBubble", style, p => InCircle(p, 0.64f) || InBubble(p));
 
-        public static Sprite RoundedSquare() => Mask("roundedSquare", NodeSize, p => InSquircle(p, 0.86f));
+        public static Sprite RoundedSquare(BodyStyle style = BodyStyle.Filled) =>
+            Body("roundedSquare", style, p => InSquircle(p, 0.86f));
 
-        public static Sprite RoundedSquareBubble() =>
-            Mask("roundedSquareBubble", NodeSize, p => InSquircle(p, 0.64f) || InBubble(p));
+        public static Sprite RoundedSquareBubble(BodyStyle style = BodyStyle.Filled) =>
+            Body("roundedSquareBubble", style, p => InSquircle(p, 0.64f) || InBubble(p));
 
-        public static Sprite Shield() => Mask("shield", NodeSize, p => InShield(p, 0.86f));
+        public static Sprite Shield(BodyStyle style = BodyStyle.Filled) =>
+            Body("shield", style, p => InShield(p, 0.86f));
 
-        public static Sprite ShieldBubble() =>
-            Mask("shieldBubble", NodeSize, p => InShield(p, 0.64f) || InBubble(p));
+        public static Sprite ShieldBubble(BodyStyle style = BodyStyle.Filled) =>
+            Body("shieldBubble", style, p => InShield(p, 0.64f) || InBubble(p));
 
         /// <summary>A shield with the extra leading arc that distinguishes XOR from OR.</summary>
-        public static Sprite ShieldArc() =>
-            Mask("shieldArc", NodeSize, p => InShield(p, 0.80f) || InLeadingArc(p));
+        public static Sprite ShieldArc(BodyStyle style = BodyStyle.Filled) =>
+            Body("shieldArc", style, p => InShield(p, 0.80f) || InLeadingArc(p));
 
         /// <summary>
         /// A wide, short stadium for sources. Deliberately the only shape that is much wider than
         /// it is tall: bloom blurs interior detail and rounds off corners, so aspect ratio is the
         /// one cue that survives it. A diamond read too close to NOT's circle once both glowed.
         /// </summary>
-        public static Sprite Capsule() => Mask("capsule", NodeSize, p => InCapsule(p, 0.94f, 0.40f));
+        public static Sprite Capsule(BodyStyle style = BodyStyle.Filled) =>
+            Body("capsule", style, p => InCapsule(p, 0.94f, 0.40f));
 
-        public static Sprite Hexagon() => Mask("hexagon", NodeSize, p => InHexagon(p, 0.88f));
+        public static Sprite Hexagon(BodyStyle style = BodyStyle.Filled) =>
+            Body("hexagon", style, p => InHexagon(p, 0.88f));
 
         /// <summary>
         /// The flip-flop box: a tall, narrow rectangle with the clock's notch cut into its left
@@ -90,7 +94,8 @@ namespace BitSorter.View
         /// The notch is cut out of the outline rather than drawn inside it, because interior detail
         /// is exactly what the glow eats.
         /// </remarks>
-        public static Sprite FlipFlop() => Mask("flipFlop", NodeSize, InFlipFlop);
+        public static Sprite FlipFlop(BodyStyle style = BodyStyle.Filled) =>
+            Body("flipFlop", style, InFlipFlop);
 
         // -----------------------------------------------------------------
         // Interface chrome
@@ -260,6 +265,206 @@ namespace BitSorter.View
         }
 
         /// <summary>White sprite whose alpha is the supersampled coverage of a shape.</summary>
+        /// <summary>A gate body in a style. Filled is exactly <see cref="Mask"/>, under its old key.</summary>
+        /// <remarks>
+        /// Filled goes through the untouched mask path and cache key, so the shipped look cannot
+        /// change by a pixel however the other styles are drawn -- and the reference screenshots
+        /// hold it to that.
+        /// </remarks>
+        private static Sprite Body(string key, BodyStyle style, Func<Vector2, bool> inside) =>
+            style == BodyStyle.Filled
+                ? Mask(key, NodeSize, inside)
+                : Styled(key + ":" + style, style, inside);
+
+        /// <summary>Width of an outline, and of the rim a glass body brightens, in texels.</summary>
+        /// <remarks>
+        /// Out of <see cref="NodeSize"/>, so an outline is about a twentieth of the body: a few
+        /// pixels on screen, drawn rather than hairline.
+        /// </remarks>
+        private const float OutlineTexels = 7f;
+
+        /// <inheritdoc cref="OutlineTexels"/>
+        private const float GlassRimTexels = 14f;
+
+        /// <summary>How far in from the edge a raised body's bevel reaches, in texels.</summary>
+        private const float BevelTexels = 12f;
+
+        /// <summary>How much of a body an outline or glass style leaves showing inside the edge.</summary>
+        private const float OutlineFill = 0.16f;
+
+        /// <inheritdoc cref="OutlineFill"/>
+        private const float GlassFill = 0.30f;
+
+        /// <summary>
+        /// A body drawn from its distance to its own edge: an outline, a glass rim, or a bevel.
+        /// </summary>
+        /// <remarks>
+        /// All three styles are one idea. Every texel knows how far it is from the edge of the
+        /// shape; an outline is solid near the edge and faint beyond it, glass fades from a bright
+        /// rim to a see-through middle, and a raised body is shaded by which way its edge faces a
+        /// light from the top left. The silhouette is exactly the filled one -- coverage is computed
+        /// the same way -- so the shape rule survives every style: what separates gates is still
+        /// their outline, never their fill.
+        /// </remarks>
+        private static Sprite Styled(string key, BodyStyle style, Func<Vector2, bool> inside)
+        {
+            if (TryCached(key, out Sprite cached))
+                return cached;
+
+            int size = NodeSize;
+            float[] coverage = Coverage(size, inside);
+            float[] depth = DepthInside(size, coverage);
+            var pixels = new Color32[size * size];
+
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    int i = y * size + x;
+                    float cover = coverage[i];
+                    float d = depth[i];
+
+                    float alpha = cover;
+                    float shade = 1f;
+
+                    switch (style)
+                    {
+                        case BodyStyle.Outline:
+                            // A soft inner edge, a texel and a half wide, so the stroke is not jagged.
+                            alpha = cover * Mathf.Lerp(1f, OutlineFill,
+                                Mathf.SmoothStep(0f, 1f, (d - (OutlineTexels - 1f)) / 1.5f));
+                            break;
+
+                        case BodyStyle.Glass:
+                            alpha = cover * Mathf.Lerp(1f, GlassFill, Mathf.SmoothStep(0f, 1f, d / GlassRimTexels));
+                            break;
+
+                        case BodyStyle.Raised:
+                            shade = RaisedShade(depth, size, x, y, d);
+                            break;
+                    }
+
+                    byte grey = (byte)Mathf.RoundToInt(255f * Mathf.Clamp01(shade));
+                    pixels[i] = new Color32(grey, grey, grey, (byte)Mathf.RoundToInt(255f * Mathf.Clamp01(alpha)));
+                }
+            }
+
+            return Store(key, size, pixels);
+        }
+
+        /// <summary>
+        /// Brightness of a raised body at one texel: flat in the middle, lit on edges facing the top
+        /// left and shadowed on edges facing away.
+        /// </summary>
+        private static float RaisedShade(float[] depth, int size, int x, int y, float d)
+        {
+            const float Flat = 0.80f;
+            const float Relief = 0.24f;
+
+            if (d >= BevelTexels)
+                return Flat;
+
+            // Depth rises inward, so its gradient points into the body and the surface faces the
+            // other way. Central differences, clamped at the texture's edge.
+            float gx = depth[y * size + Mathf.Min(x + 1, size - 1)] - depth[y * size + Mathf.Max(x - 1, 0)];
+            float gy = depth[Mathf.Min(y + 1, size - 1) * size + x] - depth[Mathf.Max(y - 1, 0) * size + x];
+
+            var facing = new Vector2(-gx, -gy);
+            if (facing.sqrMagnitude < 1e-6f)
+                return Flat;
+
+            // Texture y runs up, so the top left is (-1, +1).
+            float lit = Vector2.Dot(facing.normalized, new Vector2(-0.7071f, 0.7071f));
+            float nearEdge = 1f - d / BevelTexels;
+
+            return Flat + Relief * lit * nearEdge;
+        }
+
+        /// <summary>How much of each texel a shape covers, 0 to 1, supersampled like <see cref="Mask"/>.</summary>
+        private static float[] Coverage(int size, Func<Vector2, bool> inside)
+        {
+            var coverage = new float[size * size];
+            const int grid = SuperSamples * SuperSamples;
+
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    int hits = 0;
+
+                    for (int sy = 0; sy < SuperSamples; sy++)
+                    {
+                        for (int sx = 0; sx < SuperSamples; sx++)
+                        {
+                            float fx = (x + (sx + 0.5f) / SuperSamples) / size * 2f - 1f;
+                            float fy = (y + (sy + 0.5f) / SuperSamples) / size * 2f - 1f;
+
+                            if (inside(new Vector2(fx, fy)))
+                                hits++;
+                        }
+                    }
+
+                    coverage[y * size + x] = (float)hits / grid;
+                }
+            }
+
+            return coverage;
+        }
+
+        /// <summary>
+        /// For every texel inside the shape, how far it is from the nearest texel outside it, in
+        /// texels. Zero outside.
+        /// </summary>
+        /// <remarks>
+        /// A two-pass chamfer transform: one sweep forward and one back, each taking the smallest of
+        /// its neighbours' distances plus the step to them. Off the texture counts as outside, so a
+        /// shape touching the border is measured to it.
+        /// </remarks>
+        public static float[] DepthInside(int size, float[] coverage)
+        {
+            const float Far = 1e6f;
+            const float Diagonal = 1.41421356f;
+            var depth = new float[size * size];
+
+            for (int i = 0; i < depth.Length; i++)
+                depth[i] = coverage[i] >= 0.5f ? Far : 0f;
+
+            float At(int x, int y) =>
+                x < 0 || y < 0 || x >= size || y >= size ? 0f : depth[y * size + x];
+
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    int i = y * size + x;
+                    if (depth[i] == 0f)
+                        continue;
+
+                    depth[i] = Mathf.Min(depth[i],
+                        Mathf.Min(At(x - 1, y) + 1f,
+                        Mathf.Min(At(x, y - 1) + 1f,
+                        Mathf.Min(At(x - 1, y - 1) + Diagonal, At(x + 1, y - 1) + Diagonal))));
+                }
+            }
+
+            for (int y = size - 1; y >= 0; y--)
+            {
+                for (int x = size - 1; x >= 0; x--)
+                {
+                    int i = y * size + x;
+                    if (depth[i] == 0f)
+                        continue;
+
+                    depth[i] = Mathf.Min(depth[i],
+                        Mathf.Min(At(x + 1, y) + 1f,
+                        Mathf.Min(At(x, y + 1) + 1f,
+                        Mathf.Min(At(x + 1, y + 1) + Diagonal, At(x - 1, y + 1) + Diagonal))));
+                }
+            }
+
+            return depth;
+        }
+
         private static Sprite Mask(
             string key, int size, Func<Vector2, bool> inside,
             Vector4 border = default, float pixelsPerUnit = 0f)
