@@ -153,24 +153,18 @@ namespace BitSorter.View
 
             IReadOnlyList<ControlGroup> groups = ControlsReference.Groups;
 
-            float leftY = ColumnTop;
-            float rightY = ColumnTop;
+            // Each column walks down from ColumnTop; rows are placed by their middles, above and
+            // below the middle of the card.
+            var leftColumn = new UiColumn();
+            var rightColumn = new UiColumn();
 
             for (int i = 0; i < groups.Count; i++)
             {
                 bool left = i == 0;
-                float x = left ? -175f : 175f;
-                float y = left ? leftY : rightY;
-
-                y = BuildGroup(groups[i], x, y, columnWidth, RowHeight, HeadingGap);
-
-                if (left)
-                    leftY = y;
-                else
-                    rightY = y;
+                BuildGroup(groups[i], left ? -175f : 175f, left ? leftColumn : rightColumn, columnWidth);
             }
 
-            return Mathf.Min(leftY, rightY);
+            return ColumnTop - Mathf.Max(leftColumn.Next, rightColumn.Next);
         }
 
         /// <summary>Where the columns begin, measured from the middle of the card.</summary>
@@ -220,33 +214,28 @@ namespace BitSorter.View
             }
         }
 
-        /// <summary>Lays one group out downward from <paramref name="y"/> and returns the new y.</summary>
-        private float BuildGroup(ControlGroup group, float x, float y, float width, float rowHeight,
-            float headingGap)
+        /// <summary>Lays one group out down <paramref name="column"/>: its heading, then its controls.</summary>
+        private void BuildGroup(ControlGroup group, float x, UiColumn column, float width)
         {
             TextMeshProUGUI heading = UiTheme.Label(
                 group.Name, Root, 15f, UiTheme.Accent, TextAlignmentOptions.Left);
             UiTheme.Anchor(heading.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                new Vector2(x, y), new Vector2(width, rowHeight));
+                new Vector2(x, ColumnTop - column.Take(RowHeight)), new Vector2(width, RowHeight));
 
             // UiTheme.Label's first argument names the GameObject, not the text. Without this the
             // three headings drew as empty rows and the grouping the card exists for was invisible.
             heading.text = group.Name;
-
-            y -= rowHeight;
 
             foreach (ControlEntry entry in group.Entries)
             {
                 TextMeshProUGUI row = UiTheme.Label(
                     entry.Text, Root, 16f, UiTheme.Text, TextAlignmentOptions.Left);
                 UiTheme.Anchor(row.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                    new Vector2(x, y), new Vector2(width, rowHeight));
+                    new Vector2(x, ColumnTop - column.Take(RowHeight)), new Vector2(width, RowHeight));
                 row.text = entry.Text;
-
-                y -= rowHeight;
             }
 
-            return y - headingGap;
+            column.Space(HeadingGap);
         }
 
         // -----------------------------------------------------------------
