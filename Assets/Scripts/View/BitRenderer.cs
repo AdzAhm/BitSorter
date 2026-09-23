@@ -97,6 +97,8 @@ namespace BitSorter.View
             // rebuild, and the pooled sprites must not be caught in that.
             _container = new GameObject("Bits").transform;
             _container.SetParent(transform, false);
+
+            ProceduralSprites.WarmBits();
         }
 
         private void LateUpdate()

@@ -238,6 +238,25 @@ namespace BitSorter.View
             : Mask("held:0", NodeSize, p =>
                 InCircle(p, CircleRadius) && ZeroDistance(p / CoinDigit) * CoinDigit > CoinStroke * 0.5f);
 
+        /// <summary>
+        /// Builds every sprite a bit can be drawn as in the current look, so none is built mid-run.
+        /// </summary>
+        /// <remarks>
+        /// Each is otherwise built the first time it is drawn, which is always mid-run -- and a held
+        /// bit's supersampled disc took 65-80 ms in the editor. Called as the board is set up, where
+        /// a load already costs a moment and nothing on it is moving.
+        /// </remarks>
+        public static void WarmBits()
+        {
+            if (Look.Current.Bits != BitStyle.Digit)
+                return;
+
+            BitGlyph(Bit.Zero);
+            BitGlyph(Bit.One);
+            HeldBit(Bit.Zero);
+            HeldBit(Bit.One);
+        }
+
         /// <summary>How large the digit cut into a held bit is, against the stroked one.</summary>
         private const float CoinDigit = 0.6f;
 
