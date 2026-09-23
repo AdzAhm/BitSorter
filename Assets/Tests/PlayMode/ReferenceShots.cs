@@ -5,6 +5,7 @@ using BitSorter.LogicCore;
 using BitSorter.View;
 using UnityEngine;
 using UnityEngine.TestTools;
+using UnityEngine.UI;
 using Object = UnityEngine.Object;
 
 namespace BitSorter.PlayMode.Tests
@@ -269,9 +270,162 @@ namespace BitSorter.PlayMode.Tests
             yield return Capture("07-freeplay");
         }
 
+        /// <summary>The help panel, open over a built board: the hint and the level's truth table.</summary>
+        [UnityTest]
+        public IEnumerator Shot08_Help()
+        {
+            yield return OpenOnTheBoard();
+            yield return BuildTheHalfAdder(wireEverything: true);
+
+            Press("Help badge");
+            yield return Frames(30);
+
+            Assert.IsTrue(IsUp("Help"), "sanity: the help panel should be open");
+
+            yield return Capture("08-help");
+        }
+
+        /// <summary>The chapter card, on the first level whose parts list holds a register.</summary>
+        [UnityTest]
+        public IEnumerator Shot09_ChapterCard()
+        {
+            yield return OpenOnTheBoard();
+            yield return LoadAndBuild(FirstRegisterLevel);
+            yield return Frames(30);
+
+            Assert.IsTrue(Find<ChapterCard>().IsShowing, "sanity: the chapter card should be up");
+
+            yield return Capture("09-chapter");
+        }
+
+        /// <summary>A clocked level being built: the register in the parts list, and the clock's pips.</summary>
+        [UnityTest]
+        public IEnumerator Shot10_Clocked()
+        {
+            yield return OpenOnTheBoard();
+            Find<ProgressTracker>().Store.MarkMilestone(ChapterCard.Milestone);
+
+            yield return LoadAndBuild(ClockedLevel);
+            yield return Frames(30);
+
+            Assert.IsFalse(Find<ChapterCard>().IsShowing, "sanity: the chapter card should have been seen");
+            Assert.IsTrue(IsUp("Clock"), "sanity: a clocked level shows its clock");
+
+            yield return Capture("10-clocked");
+        }
+
+        /// <summary>The tutorial's intro strip, holding the board until START or SKIP.</summary>
+        /// <remarks>
+        /// On a save with no tutorial milestone, closing the menu starts the tutorial by itself --
+        /// which is the way almost every player first meets it.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator Shot11_TutorialIntro()
+        {
+            yield return LoadTheGame();
+            FixTheSparks();
+            Find<MainMenu>().Show(false);
+
+            for (int frame = 0; frame < 120 && !TutorialDirector.HoldingTheBoard; frame++)
+                yield return null;
+
+            Assert.IsTrue(TutorialDirector.HoldingTheBoard, "sanity: the tutorial should be on its intro");
+
+            yield return Frames(30);
+            yield return Capture("11-tutorial");
+        }
+
+        /// <summary>The card the tutorial ends on: every control, in two columns.</summary>
+        [UnityTest]
+        public IEnumerator Shot12_TutorialCard()
+        {
+            yield return OpenOnTheBoard();
+
+            Find<TutorialCard>().Show(true);
+            yield return Frames(30);
+
+            Assert.IsTrue(Find<TutorialCard>().IsShowing, "sanity: the tutorial's card should be up");
+
+            yield return Capture("12-tutorial-card");
+        }
+
+        /// <summary>
+        /// A first-time hint, on the row under the banner, raised by what the board did.
+        /// </summary>
+        /// <remarks>
+        /// The board from the collision shot: an AND fed on one input only, so its first bit waits
+        /// for a partner that never comes and the bits behind it pile up. Whichever lesson that
+        /// raises first -- a stall or a collision -- is the one pictured; both are drawn the same way.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator Shot13_FirstTimeHint()
+        {
+            yield return OpenOnTheBoard();
+
+            LevelSession session = Find<LevelSession>();
+            SimulationRunner runner = Find<SimulationRunner>();
+
+            Assert.IsTrue(session.TryPlaceGate(GateKind.And, Low), "could not place the AND");
+            int and = NodeOn(runner, Low);
+            Wire(session, runner.FixtureNodeIds["a"], and, 0);
+            Wire(session, and, runner.FixtureNodeIds["carry"], 0);
+
+            session.Run();
+
+            HintBanner hint = Find<HintBanner>();
+
+            for (int frame = 0; frame < 3000 && !hint.IsShowing; frame++)
+                yield return null;
+
+            Assert.IsTrue(hint.IsShowing, "no first-time hint came up");
+
+            yield return Frames(30);
+            yield return Capture("13-hint");
+        }
+
         // -----------------------------------------------------------------
         // Staging
         // -----------------------------------------------------------------
+
+        /// <summary>The first level with a register in its parts list, where the chapter card fires.</summary>
+        private const string FirstRegisterLevel = "one-clock-late";
+
+        /// <summary>The first level with a clock -- a register alone needs none; a loop does.</summary>
+        private const string ClockedLevel = "flip-on-one";
+
+        /// <summary>Loads a level and waits until the board has been built from it.</summary>
+        private static IEnumerator LoadAndBuild(string level)
+        {
+            LevelSession session = Find<LevelSession>();
+            SimulationRunner runner = Find<SimulationRunner>();
+            int before = runner.GraphRevision;
+
+            Assert.IsTrue(session.LoadLevel(level), $"{level} did not load");
+
+            for (int frame = 0; frame < 60 && runner.GraphRevision == before; frame++)
+                yield return null;
+
+            Assert.AreNotEqual(before, runner.GraphRevision, $"{level} loaded but was never built");
+        }
+
+        /// <summary>Clicks a button on the canvas by its object's name.</summary>
+        private static void Press(string name)
+        {
+            GameObject target = GameObject.Find(name);
+            Assert.IsNotNull(target, $"sanity: there is no '{name}' on screen to press");
+
+            Button button = target.GetComponent<Button>();
+            Assert.IsNotNull(button, $"sanity: '{name}' is not a button");
+
+            button.onClick.Invoke();
+        }
+
+        /// <summary>Whether a piece of interface with this name is on screen.</summary>
+        private static bool IsUp(string name)
+        {
+            GameObject target = GameObject.Find(name);
+            return target != null && target.activeInHierarchy;
+        }
 
         /// <summary>
         /// Past the menu and onto <see cref="Level"/>, with the tutorial marked as done.
