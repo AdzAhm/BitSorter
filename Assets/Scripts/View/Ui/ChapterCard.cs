@@ -25,7 +25,7 @@ namespace BitSorter.View
     /// first machine is explained; a card that taught a mechanic would be a third voice saying what
     /// the goal and the first-time hint already say.
     /// </remarks>
-    public sealed class ChapterCard : MonoBehaviour
+    public sealed class ChapterCard : FullScreenPanel
     {
         /// <summary>The save's record that this card has been shown.</summary>
         public const string Milestone = "chapter.sequential";
@@ -46,11 +46,7 @@ namespace BitSorter.View
             "one, so vectors stop arriving every tick and start arriving on a beat -- and " +
             "everything your circuit does has to fit inside it.";
 
-        private RectTransform _root;
-        private bool _shown;
         private bool _due;
-
-        public bool IsShowing => _shown;
 
         private void Awake()
         {
@@ -65,12 +61,12 @@ namespace BitSorter.View
                 _session.LevelLoaded += OnLevelLoaded;
         }
 
-        private void OnDisable()
+        protected override void OnDisable()
         {
             if (_session != null)
                 _session.LevelLoaded -= OnLevelLoaded;
 
-            UiModal.Closed(this);
+            base.OnDisable();
         }
 
         private void Start()
@@ -92,7 +88,7 @@ namespace BitSorter.View
         /// </remarks>
         private void OnLevelLoaded(LevelDefinition level)
         {
-            if (_shown)
+            if (IsShowing)
                 return;
 
             // Whatever loads now is what the card is or is not owed for. Left standing, a card
@@ -121,14 +117,14 @@ namespace BitSorter.View
 
         private void Update()
         {
-            if (_due && !_shown && !UiModal.AnyOpen)
+            if (_due && !IsShowing && !UiModal.AnyOpen)
             {
                 _due = false;
                 Show(true);
                 return;
             }
 
-            if (!_shown)
+            if (!IsShowing)
                 return;
 
             Keyboard keyboard = Keyboard.current;
@@ -143,23 +139,23 @@ namespace BitSorter.View
         private void Build()
         {
             Image scrim = UiTheme.Scrim("Chapter card", _canvas.transform, Palette.Current.CardScrim);
-            _root = scrim.GetComponent<RectTransform>();
-            UiTheme.Stretch(_root);
+            Root = scrim.GetComponent<RectTransform>();
+            UiTheme.Stretch(Root);
 
             TextMeshProUGUI title = UiTheme.Label(
-                "title", _root, 40f, UiTheme.Accent, TextAlignmentOptions.Center);
+                "title", Root, 40f, UiTheme.Accent, TextAlignmentOptions.Center);
             UiTheme.Anchor(title.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                 new Vector2(0f, 120f), new Vector2(760f, 56f));
             title.text = Title;
 
             TextMeshProUGUI body = UiTheme.Label(
-                "body", _root, 19f, UiTheme.Text, TextAlignmentOptions.Center);
+                "body", Root, 19f, UiTheme.Text, TextAlignmentOptions.Center);
             UiTheme.Anchor(body.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                 new Vector2(0f, 10f), new Vector2(620f, 150f));
             body.textWrappingMode = TextWrappingModes.Normal;
             body.text = Body;
 
-            Button go = UiTheme.Button_("Go on", _root, "GO ON", out TextMeshProUGUI _);
+            Button go = UiTheme.Button_("Go on", Root, "GO ON", out TextMeshProUGUI _);
             UiTheme.Anchor(go.GetComponent<RectTransform>(), new Vector2(0.5f, 0.5f),
                 new Vector2(0.5f, 0.5f), new Vector2(0f, -120f),
                 new Vector2(260f, UiTheme.ButtonHeight + 6f));
@@ -167,25 +163,14 @@ namespace BitSorter.View
             go.onClick.AddListener(Dismiss);
         }
 
-        private void Show(bool visible)
-        {
-            _shown = visible;
-
-            if (_root != null)
-                _root.gameObject.SetActive(visible);
-
-            if (visible)
-                UiModal.Opened(this);
-            else
-                UiModal.Closed(this);
-        }
+        private void Show(bool visible) => SetShowing(visible);
 
         /// <summary>
         /// Takes the card down and records it, so it is shown once ever rather than once a session.
         /// </summary>
         private void Dismiss()
         {
-            if (!_shown)
+            if (!IsShowing)
                 return;
 
             Show(false);

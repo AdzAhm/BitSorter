@@ -24,7 +24,7 @@ namespace BitSorter.View
     /// Registers with <see cref="UiModal"/> while it is up, so the board holds still behind it and
     /// Q cannot change level under a panel nobody can see through.
     /// </remarks>
-    public sealed class TutorialCard : MonoBehaviour
+    public sealed class TutorialCard : FullScreenPanel
     {
         [Tooltip("Canvas the card is built under. Found by type when left empty.")]
         [SerializeField] private Canvas _canvas;
@@ -35,8 +35,6 @@ namespace BitSorter.View
             "You picked a part, placed it, wired it up and ran it. " +
             "That is every level in this game.\n\nHere is everything else you can do.";
 
-        private RectTransform _root;
-        private bool _shown;
 
         /// <summary>Set when the player presses the button that ends the tutorial.</summary>
         /// <remarks>
@@ -44,8 +42,6 @@ namespace BitSorter.View
         /// flag cleared on a timer depends on the EventSystem beating the director to the frame.
         /// </remarks>
         private bool _finishPressed;
-
-        public bool IsShowing => _shown;
 
         public bool ConsumeFinish()
         {
@@ -58,8 +54,6 @@ namespace BitSorter.View
         {
             if (_canvas == null) _canvas = FindFirstObjectByType<Canvas>();
         }
-
-        private void OnDisable() => UiModal.Closed(this);
 
         private void Start()
         {
@@ -89,7 +83,7 @@ namespace BitSorter.View
         /// </remarks>
         private void Update()
         {
-            if (!_shown)
+            if (!IsShowing)
                 return;
 
             Keyboard keyboard = Keyboard.current;
@@ -105,17 +99,17 @@ namespace BitSorter.View
         private void Build()
         {
             Image scrim = UiTheme.Scrim("Tutorial card", _canvas.transform, Palette.Current.CardScrim);
-            _root = scrim.GetComponent<RectTransform>();
-            UiTheme.Stretch(_root);
+            Root = scrim.GetComponent<RectTransform>();
+            UiTheme.Stretch(Root);
 
             TextMeshProUGUI title = UiTheme.Label(
-                "title", _root, 44f, UiTheme.Good, TextAlignmentOptions.Center);
+                "title", Root, 44f, UiTheme.Good, TextAlignmentOptions.Center);
             UiTheme.Anchor(title.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                 new Vector2(0f, 250f), new Vector2(760f, 58f));
             title.text = Title;
 
             TextMeshProUGUI body = UiTheme.Label(
-                "body", _root, 19f, UiTheme.Text, TextAlignmentOptions.Center);
+                "body", Root, 19f, UiTheme.Text, TextAlignmentOptions.Center);
             UiTheme.Anchor(body.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                 new Vector2(0f, 170f), new Vector2(660f, 80f));
             body.textWrappingMode = TextWrappingModes.Normal;
@@ -132,7 +126,7 @@ namespace BitSorter.View
             // binding cannot collide here at all.
             float buttonY = columnsBottom - ButtonGap - buttonHeight * 0.5f;
 
-            Button play = UiTheme.Button_("Play", _root, "PLAY THE FIRST LEVEL",
+            Button play = UiTheme.Button_("Play", Root, "PLAY THE FIRST LEVEL",
                 out TextMeshProUGUI _);
             UiTheme.Anchor(play.GetComponent<RectTransform>(), new Vector2(0.5f, 0.5f),
                 new Vector2(0.5f, 0.5f), new Vector2(0f, buttonY),
@@ -231,7 +225,7 @@ namespace BitSorter.View
             float headingGap)
         {
             TextMeshProUGUI heading = UiTheme.Label(
-                group.Name, _root, 15f, UiTheme.Accent, TextAlignmentOptions.Left);
+                group.Name, Root, 15f, UiTheme.Accent, TextAlignmentOptions.Left);
             UiTheme.Anchor(heading.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                 new Vector2(x, y), new Vector2(width, rowHeight));
 
@@ -244,7 +238,7 @@ namespace BitSorter.View
             foreach (ControlEntry entry in group.Entries)
             {
                 TextMeshProUGUI row = UiTheme.Label(
-                    entry.Text, _root, 16f, UiTheme.Text, TextAlignmentOptions.Left);
+                    entry.Text, Root, 16f, UiTheme.Text, TextAlignmentOptions.Left);
                 UiTheme.Anchor(row.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                     new Vector2(x, y), new Vector2(width, rowHeight));
                 row.text = entry.Text;
@@ -275,24 +269,15 @@ namespace BitSorter.View
 
         public void Show(bool visible)
         {
-            if (_root == null)
+            // Not before it is built: an empty card registered as open would hide the HUD over a
+            // board with nothing in front of it.
+            if (Root == null)
                 return;
 
-            _shown = visible;
-
-            if (_root.gameObject.activeSelf != visible)
-                _root.gameObject.SetActive(visible);
-
-            if (visible)
-            {
-                UiTheme.BringToFront(_root);
-                UiModal.Opened(this);
-            }
-            else
-            {
-                _finishPressed = false;   // a press nobody took belongs to a card that is gone
-                UiModal.Closed(this);
-            }
+            SetShowing(visible);
         }
+
+        /// <summary>A press nobody took belongs to a card that is gone.</summary>
+        protected override void OnHidden() => _finishPressed = false;
     }
 }

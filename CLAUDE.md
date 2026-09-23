@@ -510,6 +510,13 @@ failure side.
   lines print over it. A panel that opens on a key asks
   `UiModal.OpenOrJustClosed`, so the press that closed one panel cannot open
   another in the same frame.
+
+  **A full-screen panel derives from `FullScreenPanel`**, which does the four
+  things showing one always takes: activate it, bring it to the front, and tell
+  `UiModal` when it opens and when it closes -- disabling included. Five panels
+  each wrote those out, and they had drifted: the chapter card never brought
+  itself to the front. What differs between them goes in `OnShown` and
+  `OnHidden`.
 - **The board is framed in what the interface leaves free.** `CameraFraming
   .Fit` centres it between the pixels taken on the left and the right, and
   `CameraFit` reads those from the parts list and free play's setup panel.

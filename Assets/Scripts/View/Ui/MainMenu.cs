@@ -18,7 +18,7 @@ namespace BitSorter.View
     /// Shown at startup. Until something is chosen the board is covered, and <see cref="UiModal"/>
     /// keeps the keyboard quiet as well -- otherwise Q behind the menu would change level under it.
     /// </remarks>
-    public sealed class MainMenu : MonoBehaviour
+    public sealed class MainMenu : FullScreenPanel
     {
         [SerializeField] private LevelSession _session;
         [SerializeField] private ProgressTracker _progress;
@@ -31,14 +31,12 @@ namespace BitSorter.View
         [Tooltip("Open the menu on startup. Off is useful when working on a level.")]
         [SerializeField] private bool _openOnStart = true;
 
-        private RectTransform _root;
         private TextMeshProUGUI _progressLine;
         private TextMeshProUGUI _continueLabel;
         private TextMeshProUGUI _soundLabel;
         private TextMeshProUGUI _dataLabel;
         private TextMeshProUGUI _nextLine;
         private GameAudio _audio;
-        private bool _shown;
 
         /// <summary>
         /// Held rather than built per call: <see cref="Refresh"/> runs every frame the menu is up, and
@@ -47,7 +45,7 @@ namespace BitSorter.View
         private Predicate<string> _isComplete;
 
         /// <summary>Whether the menu is covering the board.</summary>
-        public bool IsOpen => _shown;
+        public bool IsOpen => IsShowing;
 
         private void Awake()
         {
@@ -68,8 +66,6 @@ namespace BitSorter.View
             Show(_openOnStart);
         }
 
-        private void OnDisable() => UiModal.Closed(this);
-
         private void Update()
         {
             Keyboard keyboard = Keyboard.current;
@@ -81,12 +77,12 @@ namespace BitSorter.View
             // level list stacked the menu under it, which is how this read in play: two full-screen
             // panels at once, one of them unreachable.
             if (keyboard != null && keyboard.mKey.wasPressedThisFrame
-                && (_shown || !UiModal.OpenOrJustClosed))
+                && (IsShowing || !UiModal.OpenOrJustClosed))
             {
-                Show(!_shown);
+                Show(!IsShowing);
             }
 
-            if (_shown)
+            if (IsShowing)
                 Refresh();
         }
 
@@ -113,24 +109,24 @@ namespace BitSorter.View
         private void Build()
         {
             Image scrim = UiTheme.Scrim("Main menu", _canvas.transform, Palette.Current.MenuScrim);
-            _root = scrim.GetComponent<RectTransform>();
-            UiTheme.Stretch(_root);
+            Root = scrim.GetComponent<RectTransform>();
+            UiTheme.Stretch(Root);
 
             TextMeshProUGUI title = UiTheme.Label(
-                "title", _root, 54f, UiTheme.Accent, TextAlignmentOptions.Center);
+                "title", Root, 54f, UiTheme.Accent, TextAlignmentOptions.Center);
             UiTheme.Anchor(title.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                 new Vector2(0f, 150f + Lift), new Vector2(700f, 70f));
             title.text = "BITSORTER";
 
             TextMeshProUGUI tagline = UiTheme.Label(
-                "tagline", _root, 18f, UiTheme.TextDim, TextAlignmentOptions.Center);
+                "tagline", Root, 18f, UiTheme.TextDim, TextAlignmentOptions.Center);
             UiTheme.Anchor(tagline.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                 new Vector2(0f, 104f + Lift), new Vector2(700f, 26f));
             tagline.text = "bits fall through logic. sort them.";
 
             // A rule under the title. The menu was a title and three buttons floating in black,
             // which reads as unfinished rather than as spare.
-            Image rule = UiTheme.Panel_("rule", _root, UiTheme.Accent * 0.4f);
+            Image rule = UiTheme.Panel_("rule", Root, UiTheme.Accent * 0.4f);
             rule.sprite = null;   // two pixels tall: shorter than the panel's corners, so a plain hairline
             UiTheme.Anchor(rule.GetComponent<RectTransform>(),
                 new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
@@ -182,17 +178,17 @@ namespace BitSorter.View
             // Measured from wherever the column actually ended, so the pair closes up behind a row
             // that was not built rather than hanging below the gap it left.
             _nextLine = UiTheme.Label(
-                "next", _root, 15f, UiTheme.Accent, TextAlignmentOptions.Center);
+                "next", Root, 15f, UiTheme.Accent, TextAlignmentOptions.Center);
             UiTheme.Anchor(_nextLine.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                 new Vector2(0f, row + NextLineLead + Lift), new Vector2(700f, 22f));
 
             _progressLine = UiTheme.Label(
-                "progress", _root, 16f, UiTheme.TextDim, TextAlignmentOptions.Center);
+                "progress", Root, 16f, UiTheme.TextDim, TextAlignmentOptions.Center);
             UiTheme.Anchor(_progressLine.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                 new Vector2(0f, row + NextLineLead - ProgressLineStep + Lift), new Vector2(700f, 24f));
 
             TextMeshProUGUI keys = UiTheme.Label(
-                "keys", _root, 13f, UiTheme.TextDim, TextAlignmentOptions.Center);
+                "keys", Root, 13f, UiTheme.TextDim, TextAlignmentOptions.Center);
             UiTheme.Anchor(keys.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
                 new Vector2(0f, 30f), new Vector2(900f, 20f));
             // From ControlsReference, not spelled out here. This was a literal, which made it a
@@ -203,7 +199,7 @@ namespace BitSorter.View
             // The menu's music is two imported tracks, and one of them is CC BY: its licence asks
             // for the credit wherever the work is used, and this is where it is heard.
             TextMeshProUGUI credit = UiTheme.Label(
-                "music credit", _root, 11f, UiTheme.TextDim * 0.8f, TextAlignmentOptions.Center);
+                "music credit", Root, 11f, UiTheme.TextDim * 0.8f, TextAlignmentOptions.Center);
             UiTheme.Anchor(credit.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
                 new Vector2(0f, 10f), new Vector2(1100f, 16f));
             credit.text = GameAudio.MenuMusicCredit;
@@ -227,7 +223,7 @@ namespace BitSorter.View
 
         private Button Item(string name, float y, out TextMeshProUGUI label)
         {
-            Button button = UiTheme.Button_(name, _root, name.ToUpperInvariant(), out label);
+            Button button = UiTheme.Button_(name, Root, name.ToUpperInvariant(), out label);
 
             UiTheme.Anchor(button.GetComponent<RectTransform>(),
                 new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
@@ -361,24 +357,9 @@ namespace BitSorter.View
         // Showing
         // -----------------------------------------------------------------
 
-        public void Show(bool visible)
-        {
-            _shown = visible;
+        public void Show(bool visible) => SetShowing(visible);
 
-            if (_root != null && _root.gameObject.activeSelf != visible)
-                _root.gameObject.SetActive(visible);
-
-            if (visible)
-            {
-                UiTheme.BringToFront(_root);
-                UiModal.Opened(this);
-                Refresh();
-            }
-            else
-            {
-                UiModal.Closed(this);
-            }
-        }
+        protected override void OnShown() => Refresh();
 
         private void Fire(System.Action action)
         {

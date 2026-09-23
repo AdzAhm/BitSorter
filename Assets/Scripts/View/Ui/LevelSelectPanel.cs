@@ -18,8 +18,12 @@ namespace BitSorter.View
     ///
     /// Built once, then refreshed. The list of levels cannot change while the game runs, so only the
     /// completion marks and which row is current need updating.
+    ///
+    /// <see cref="GameAudio"/> reads <see cref="FullScreenPanel.IsShowing"/>: the list carries the
+    /// menu's music, because choosing what to play next is the same thing whichever panel it is
+    /// done in.
     /// </remarks>
-    public sealed class LevelSelectPanel : MonoBehaviour
+    public sealed class LevelSelectPanel : FullScreenPanel
     {
         private sealed class Row
         {
@@ -76,16 +80,7 @@ namespace BitSorter.View
         [SerializeField] private Canvas _canvas;
 
         private readonly List<Row> _rows = new List<Row>();
-        private RectTransform _root;
         private ScrollRect _scroll;
-        private bool _shown;
-
-        /// <summary>Whether the list is covering the board.</summary>
-        /// <remarks>
-        /// Read by <see cref="GameAudio"/>: the list carries the menu's music, because choosing
-        /// what to play next is the same thing whichever panel it is done in.
-        /// </remarks>
-        public bool IsShowing => _shown;
 
         /// <summary>
         /// The tutorial row's tick. Kept on its own rather than in <see cref="_rows"/>, because a
@@ -118,12 +113,12 @@ namespace BitSorter.View
             // Escape closes this whatever else is open, but only opens it when nothing else is --
             // otherwise it would stack the list on top of the main menu.
             if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame
-                && (_shown || !UiModal.OpenOrJustClosed))
+                && (IsShowing || !UiModal.OpenOrJustClosed))
             {
-                Show(!_shown);
+                Show(!IsShowing);
             }
 
-            if (_shown)
+            if (IsShowing)
                 Refresh();
         }
 
@@ -138,17 +133,17 @@ namespace BitSorter.View
             // A full-screen scrim, so the board behind reads as suspended rather than still live, and
             // so a stray click cannot reach it.
             Image scrim = UiTheme.Scrim("Level select", _canvas.transform, Palette.Current.ListScrim);
-            _root = scrim.GetComponent<RectTransform>();
-            UiTheme.Stretch(_root);
+            Root = scrim.GetComponent<RectTransform>();
+            UiTheme.Stretch(Root);
 
             TextMeshProUGUI title = UiTheme.Label(
-                "title", _root, 26f, UiTheme.Text, TextAlignmentOptions.Center);
+                "title", Root, 26f, UiTheme.Text, TextAlignmentOptions.Center);
             UiTheme.Anchor(title.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
                 new Vector2(0f, -TitleTop), new Vector2(600f, TitleHeight));
             title.text = "LEVELS";
 
             TextMeshProUGUI help = UiTheme.Label(
-                "help", _root, 13f, UiTheme.TextDim, TextAlignmentOptions.Center);
+                "help", Root, 13f, UiTheme.TextDim, TextAlignmentOptions.Center);
             UiTheme.Anchor(help.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
                 new Vector2(0f, HelpBottom), new Vector2(600f, HelpHeight));
             help.text = "escape to close    Q / E also change level";
@@ -209,7 +204,7 @@ namespace BitSorter.View
         /// </remarks>
         private RectTransform BuildScroll()
         {
-            RectTransform viewport = UiTheme.Rect("viewport", _root);
+            RectTransform viewport = UiTheme.Rect("viewport", Root);
             viewport.anchorMin = new Vector2(0.5f, 0f);
             viewport.anchorMax = new Vector2(0.5f, 1f);
             viewport.pivot = new Vector2(0.5f, 0.5f);
@@ -243,7 +238,7 @@ namespace BitSorter.View
         /// <summary>A thin bar beside the rows, shown only while the list is taller than its room.</summary>
         private Scrollbar BuildScrollbar()
         {
-            RectTransform track = UiTheme.Rect("scrollbar", _root);
+            RectTransform track = UiTheme.Rect("scrollbar", Root);
             track.anchorMin = new Vector2(0.5f, 0f);
             track.anchorMax = new Vector2(0.5f, 1f);
             track.pivot = new Vector2(0.5f, 0.5f);
@@ -579,27 +574,13 @@ namespace BitSorter.View
         /// <summary>Opens the list. Used by the main menu's Levels item as well as by Escape.</summary>
         public void Open() => Show(true);
 
-        private void Show(bool visible)
+        private void Show(bool visible) => SetShowing(visible);
+
+        protected override void OnShown()
         {
-            _shown = visible;
-
-            if (_root != null && _root.gameObject.activeSelf != visible)
-                _root.gameObject.SetActive(visible);
-
-            if (visible)
-            {
-                UiTheme.BringToFront(_root);
-                UiModal.Opened(this);
-                Refresh();
-                RevealCurrent();
-            }
-            else
-            {
-                UiModal.Closed(this);
-            }
+            Refresh();
+            RevealCurrent();
         }
-
-        private void OnDisable() => UiModal.Closed(this);
 
         private void Refresh()
         {

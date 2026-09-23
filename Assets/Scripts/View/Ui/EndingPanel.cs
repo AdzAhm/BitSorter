@@ -22,7 +22,7 @@ namespace BitSorter.View
     /// player's own bests is the same kind of fact as the gate count already on the win panel,
     /// measured against nothing but itself. No rank, no par, no grade.
     /// </remarks>
-    public sealed class EndingPanel : MonoBehaviour
+    public sealed class EndingPanel : FullScreenPanel
     {
         [SerializeField] private LevelSession _session;
         [SerializeField] private ProgressTracker _progress;
@@ -31,11 +31,9 @@ namespace BitSorter.View
         [Tooltip("Canvas the panel is built under. Found by type when left empty.")]
         [SerializeField] private Canvas _canvas;
 
-        private RectTransform _root;
         private TextMeshProUGUI _detail;
 
         private RunState _state = RunState.Editing;
-        private bool _shown;
 
         /// <summary>
         /// Whether finishing this run should end the game rather than show the ordinary win panel.
@@ -97,8 +95,6 @@ namespace BitSorter.View
             if (_canvas == null) _canvas = FindFirstObjectByType<Canvas>();
         }
 
-        private void OnDisable() => UiModal.Closed(this);
-
         private void Start()
         {
             if (_canvas == null)
@@ -110,7 +106,7 @@ namespace BitSorter.View
 
         private void Update()
         {
-            if (_session == null || _root == null)
+            if (_session == null || Root == null)
                 return;
 
             RunState now = _session.State;
@@ -119,7 +115,7 @@ namespace BitSorter.View
             {
                 if (now == RunState.Passed && IsTheEnd(_session, _progress))
                     Present();
-                else if (_shown)
+                else if (IsShowing)
                     Show(false);
 
                 _state = now;
@@ -130,7 +126,7 @@ namespace BitSorter.View
             // this is registered as a modal.
             Keyboard keyboard = Keyboard.current;
 
-            if (_shown && keyboard != null && keyboard.escapeKey.wasPressedThisFrame)
+            if (IsShowing && keyboard != null && keyboard.escapeKey.wasPressedThisFrame)
                 Dismiss();
         }
 
@@ -141,28 +137,28 @@ namespace BitSorter.View
         private void Build()
         {
             Image scrim = UiTheme.Scrim("Ending", _canvas.transform, Palette.Current.CardScrim);
-            _root = scrim.GetComponent<RectTransform>();
-            UiTheme.Stretch(_root);
+            Root = scrim.GetComponent<RectTransform>();
+            UiTheme.Stretch(Root);
 
             TextMeshProUGUI title = UiTheme.Label(
-                "title", _root, 44f, UiTheme.Good, TextAlignmentOptions.Center);
+                "title", Root, 44f, UiTheme.Good, TextAlignmentOptions.Center);
             UiTheme.Anchor(title.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                 new Vector2(0f, 150f), new Vector2(760f, 58f));
             title.text = "EVERY BIN FED";
 
-            _detail = UiTheme.Label("detail", _root, 19f, UiTheme.Text, TextAlignmentOptions.Top);
+            _detail = UiTheme.Label("detail", Root, 19f, UiTheme.Text, TextAlignmentOptions.Top);
             UiTheme.Anchor(_detail.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                 new Vector2(0f, 10f), new Vector2(640f, 220f));
             _detail.alignment = TextAlignmentOptions.Center;
             _detail.textWrappingMode = TextWrappingModes.Normal;
 
-            Button menu = UiTheme.Button_("Menu", _root, "MAIN MENU", out TextMeshProUGUI _);
+            Button menu = UiTheme.Button_("Menu", Root, "MAIN MENU", out TextMeshProUGUI _);
             UiTheme.Anchor(menu.GetComponent<RectTransform>(), new Vector2(0.5f, 0.5f),
                 new Vector2(0.5f, 0.5f), new Vector2(-90f, -150f),
                 new Vector2(170f, UiTheme.ButtonHeight + 4f));
             menu.onClick.AddListener(ToMenu);
 
-            Button stay = UiTheme.Button_("Stay", _root, "KEEP TINKERING", out TextMeshProUGUI _);
+            Button stay = UiTheme.Button_("Stay", Root, "KEEP TINKERING", out TextMeshProUGUI _);
             UiTheme.Anchor(stay.GetComponent<RectTransform>(), new Vector2(0.5f, 0.5f),
                 new Vector2(0.5f, 0.5f), new Vector2(90f, -150f),
                 new Vector2(170f, UiTheme.ButtonHeight + 4f));
@@ -214,23 +210,7 @@ namespace BitSorter.View
         // Showing
         // -----------------------------------------------------------------
 
-        private void Show(bool visible)
-        {
-            _shown = visible;
-
-            if (_root != null && _root.gameObject.activeSelf != visible)
-                _root.gameObject.SetActive(visible);
-
-            if (visible)
-            {
-                UiTheme.BringToFront(_root);
-                UiModal.Opened(this);
-            }
-            else
-            {
-                UiModal.Closed(this);
-            }
-        }
+        private void Show(bool visible) => SetShowing(visible);
 
         private void ToMenu()
         {
