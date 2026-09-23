@@ -25,8 +25,13 @@ namespace BitSorter.View
         public bool IsShowing { get; private set; }
 
         /// <summary>Shows or hides the panel, and keeps <see cref="UiModal"/> told.</summary>
+        /// <remarks>
+        /// A panel that appears fades in (<see cref="UiFade"/>), taking clicks from its first
+        /// frame; one asked to show while it is already up does not start again from nothing.
+        /// </remarks>
         protected void SetShowing(bool visible)
         {
+            bool appearing = visible && !IsShowing;
             IsShowing = visible;
 
             if (Root != null && Root.gameObject.activeSelf != visible)
@@ -35,6 +40,10 @@ namespace BitSorter.View
             if (visible)
             {
                 UiTheme.BringToFront(Root);
+
+                if (appearing)
+                    UiFade.In(Root);
+
                 UiModal.Opened(this);
                 OnShown();
             }

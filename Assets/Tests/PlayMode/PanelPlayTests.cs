@@ -311,6 +311,81 @@ namespace BitSorter.PlayMode.Tests
             button.GetComponentInChildren<TMPro.TextMeshProUGUI>();
 
         // -----------------------------------------------------------------
+        // A panel coming in
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// A full-screen panel fades in, and takes a click while it is still fading.
+        /// </summary>
+        /// <remarks>
+        /// The promise that matters is the second one. The panel covers the board from its first
+        /// frame, so if it refused clicks while it faded a press would reach nothing at all -- a
+        /// click the player made and the game ignored, with nothing on screen to say why.
+        ///
+        /// Frame time is fixed for the length of the test, so one frame is a known step into the
+        /// fade however fast the editor is rendering: in the background it renders few frames a
+        /// second, and a single real frame could carry the whole fade.
+        ///
+        /// One frame is let through before the raycast because Unity only hit-tests a graphic its
+        /// canvas has drawn at least once -- true of every panel, faded or not.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator AFadingPanel_TakesAClickWhileItFades()
+        {
+            yield return TestScene.Load();
+            yield return CloseTheMainMenu();
+
+            try
+            {
+                Time.captureDeltaTime = 1f / 120f;
+
+                Find<LevelSelectPanel>().Open();
+
+                // The panel builds itself on the canvas, not under its own component.
+                Transform list = GameObject.Find("Level select").transform;
+                Assert.IsTrue(list.TryGetComponent(out UiFade fade), "the level list appeared without fading in");
+                Assert.AreEqual(0f, fade.Alpha, "a panel appearing should start from nothing");
+
+                yield return null;
+
+                Assert.Less(fade.Alpha, 1f, "sanity: one fixed frame in, the panel should still be fading");
+
+                Button row = FirstLevelRow(list);
+                var pointer = new UnityEngine.EventSystems.PointerEventData(UnityEngine.EventSystems.EventSystem.current)
+                {
+                    position = RectTransformUtility.WorldToScreenPoint(null, row.transform.position),
+                };
+                var hits = new System.Collections.Generic.List<UnityEngine.EventSystems.RaycastResult>();
+                UnityEngine.EventSystems.EventSystem.current.RaycastAll(pointer, hits);
+
+                Assert.IsNotEmpty(hits, "a click on a fading panel reached nothing");
+                Assert.IsTrue(hits[0].gameObject.transform.IsChildOf(row.transform),
+                    $"a click on a fading level row landed on {hits[0].gameObject.name} instead");
+
+                for (int frame = 0; frame < 240 && UiFade.AnyMoving; frame++)
+                    yield return null;
+
+                Assert.AreEqual(1f, fade.Alpha, "the panel never finished fading in");
+            }
+            finally
+            {
+                Time.captureDeltaTime = 0f;
+            }
+        }
+
+        private static Button FirstLevelRow(Transform list)
+        {
+            foreach (Button button in list.GetComponentsInChildren<Button>())
+            {
+                if (button.name.StartsWith("Level "))
+                    return button;
+            }
+
+            Assert.Fail("sanity: the level list has no level rows");
+            return null;
+        }
+
+        // -----------------------------------------------------------------
         // What is already on screen when a panel opens
         // -----------------------------------------------------------------
 

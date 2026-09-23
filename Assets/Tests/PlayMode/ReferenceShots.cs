@@ -633,6 +633,13 @@ namespace BitSorter.PlayMode.Tests
         /// </remarks>
         private static IEnumerator Capture(string name)
         {
+            // A panel still fading in is a picture of a moment, not of the panel. Waited on, not
+            // counted in frames, with a cap that fails rather than capturing it half-drawn.
+            for (int frame = 0; frame < 240 && UiFade.AnyMoving; frame++)
+                yield return null;
+
+            Assert.IsFalse(UiFade.AnyMoving, $"'{name}' was about to be captured with a panel still fading in");
+
             string path = Path.Combine(Folder, name + ".png");
 
             if (File.Exists(path))

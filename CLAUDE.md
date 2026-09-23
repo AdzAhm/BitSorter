@@ -556,6 +556,14 @@ failure side.
   each wrote those out, and they had drifted: the chapter card never brought
   itself to the front. What differs between them goes in `OnShown` and
   `OnHidden`.
+
+  **A panel fades in, and takes clicks while it does.** `UiFade` moves a
+  `CanvasGroup`'s alpha and nothing else, so a panel is clickable from the first
+  frame it is drawn -- one that refused clicks while fading would cover the board
+  and swallow them. Hiding is instant: a panel lingering after it was closed is
+  what a stuck one looks like. It counts on `Time.deltaTime`, like the bits-lost
+  punch, so captures stay repeatable, and a capture waits on `UiFade.AnyMoving`
+  rather than on a number of frames.
 - **The board is framed in what the interface leaves free.** `CameraFraming
   .Fit` centres it between the pixels taken on the left and the right, and
   `CameraFit` reads those from the parts list and free play's setup panel.
