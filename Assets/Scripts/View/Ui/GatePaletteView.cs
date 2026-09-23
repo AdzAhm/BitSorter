@@ -216,8 +216,7 @@ namespace BitSorter.View
         {
             var row = new Row { Kind = entry.Kind };
 
-            row.Button = UiTheme.Button_($"Part {entry.Kind}", _root, string.Empty, out TextMeshProUGUI caption);
-            Destroy(caption.gameObject);   // this row draws its own contents
+            row.Button = UiTheme.RowButton($"Part {entry.Kind}", _root);   // this row draws its own contents
 
             var rect = row.Button.GetComponent<RectTransform>();
             UiTheme.Anchor(rect, new Vector2(0f, 1f), new Vector2(0f, 1f),
@@ -289,7 +288,7 @@ namespace BitSorter.View
             row.Icon.color = NodeShapes.ColourFor(row.Kind) * (left > 0 ? 1f : 0.45f);
 
             bool selected = _placement != null && _placement.Selected == row.Kind;
-            row.Frame.color = selected ? UiTheme.Accent * 0.55f : UiTheme.PanelEdge;
+            row.Frame.color = UiTheme.SelectedFill(selected);
 
             // Editing only. During a run the parts list is a readout, not a control.
             row.Button.interactable = _session.CanEdit;

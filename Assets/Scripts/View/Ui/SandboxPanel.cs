@@ -284,13 +284,12 @@ namespace BitSorter.View
         /// </remarks>
         private void BuildTab()
         {
-            Button tab = UiTheme.Button_("Setup tab", _canvas.transform, "« SETUP", out TextMeshProUGUI label);
+            Button tab = UiTheme.Button_("Setup tab", _canvas.transform, "« SETUP", out TextMeshProUGUI _, UiType.Caption);
             _tab = tab.GetComponent<RectTransform>();
 
             UiTheme.Anchor(_tab, new Vector2(1f, 1f), new Vector2(1f, 1f),
                 new Vector2(-UiTheme.Margin, -UiRows.Panels.Offset), new Vector2(96f, 28f));
 
-            label.fontSize = UiTheme.SizeOf(UiType.Caption);
             tab.onClick.AddListener(() => { Expand(true); UiTheme.Defocus(); });
         }
 
@@ -476,8 +475,7 @@ namespace BitSorter.View
             UiTheme.Anchor(button.GetComponent<RectTransform>(), new Vector2(0f, 1f), new Vector2(0f, 1f),
                 new Vector2(x, y), new Vector2(24f, 24f));
 
-            button.interactable = enabled;
-            label.color = enabled ? UiTheme.Text : UiTheme.TextDim;
+            UiTheme.SetEnabled(button, label, enabled);
             button.onClick.AddListener(() => { go(); UiTheme.Defocus(); });
 
             _body.Add(button.gameObject);
@@ -529,22 +527,21 @@ namespace BitSorter.View
             string whyNot = SandboxRules.WhyNoTable(_config.sources, _config.vectors);
             bool canFill = whyNot == null;
 
-            Button table = UiTheme.Button_("truth table", _bodyRoot, "Truth table", out TextMeshProUGUI caption);
+            Button table = UiTheme.Button_(
+                "truth table", _bodyRoot, "Truth table", out TextMeshProUGUI caption, UiType.Caption);
             UiTheme.Anchor(table.GetComponent<RectTransform>(), new Vector2(0f, 1f), new Vector2(0f, 1f),
                 new Vector2(0f, y), new Vector2(Inner * 0.58f, 26f));
 
-            caption.fontSize = UiTheme.SizeOf(UiType.Caption);
-            caption.color = canFill ? UiTheme.Text : UiTheme.TextDim;
-            table.interactable = canFill;
+            UiTheme.SetEnabled(table, caption, canFill);
             table.onClick.AddListener(() => { FillTable(); UiTheme.Defocus(); });
             _body.Add(table.gameObject);
 
-            Button zeros = UiTheme.Button_("all zero", _bodyRoot, "All 0", out TextMeshProUGUI zeroCaption);
+            Button zeros = UiTheme.Button_(
+                "all zero", _bodyRoot, "All 0", out TextMeshProUGUI zeroCaption, UiType.Caption);
             UiTheme.Anchor(zeros.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(1f, 1f),
                 new Vector2(0f, y), new Vector2(Inner * 0.38f, 26f));
 
-            zeroCaption.fontSize = UiTheme.SizeOf(UiType.Caption);
-            zeros.interactable = _config.sources.Length > 0;
+            UiTheme.SetEnabled(zeros, zeroCaption, _config.sources.Length > 0);
             zeros.onClick.AddListener(() => { FillZeros(); UiTheme.Defocus(); });
             _body.Add(zeros.gameObject);
 
@@ -599,16 +596,15 @@ namespace BitSorter.View
                 int speed = SandboxRules.Speeds[i];
 
                 Button button = UiTheme.Button_(
-                    $"speed {speed}", _bodyRoot, $"{speed}x", out TextMeshProUGUI label);
+                    $"speed {speed}", _bodyRoot, $"{speed}x", out TextMeshProUGUI label, UiType.Caption);
 
                 UiTheme.Anchor(button.GetComponent<RectTransform>(), new Vector2(0f, 1f), new Vector2(0f, 1f),
                     new Vector2(i * 52f, y), new Vector2(46f, 26f));
 
                 bool chosen = speed == _speed;
 
-                label.fontSize = UiTheme.SizeOf(UiType.Caption);
                 label.color = chosen ? UiTheme.Text : UiTheme.TextDim;
-                button.GetComponent<Image>().color = chosen ? UiTheme.Accent * 0.55f : UiTheme.PanelEdge;
+                button.GetComponent<Image>().color = UiTheme.SelectedFill(chosen);
 
                 button.onClick.AddListener(() => { SetSpeed(speed); UiTheme.Defocus(); });
                 _body.Add(button.gameObject);

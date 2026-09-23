@@ -449,9 +449,7 @@ namespace BitSorter.View
         /// </summary>
         private void BuildTutorialRow(RectTransform list, float y, float height)
         {
-            Button button = UiTheme.Button_("Tutorial", list, string.Empty,
-                out TextMeshProUGUI caption);
-            Destroy(caption.gameObject);
+            Button button = UiTheme.RowButton("Tutorial", list);
 
             var rect = button.GetComponent<RectTransform>();
             UiTheme.Anchor(rect, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
@@ -498,9 +496,7 @@ namespace BitSorter.View
         /// </summary>
         private void BuildSandboxRow(RectTransform list, float y, float height)
         {
-            Button button = UiTheme.Button_("Sandbox", list, string.Empty,
-                out TextMeshProUGUI caption);
-            Destroy(caption.gameObject);
+            Button button = UiTheme.RowButton("Sandbox", list);
 
             var rect = button.GetComponent<RectTransform>();
             UiTheme.Anchor(rect, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
@@ -533,9 +529,7 @@ namespace BitSorter.View
         {
             var row = new Row { FileName = entry.FileName };
 
-            row.Button = UiTheme.Button_($"Level {entry.FileName}", list, string.Empty,
-                out TextMeshProUGUI caption);
-            Destroy(caption.gameObject);
+            row.Button = UiTheme.RowButton($"Level {entry.FileName}", list);
 
             var rect = row.Button.GetComponent<RectTransform>();
             UiTheme.Anchor(rect, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
@@ -628,7 +622,7 @@ namespace BitSorter.View
 
                 // Current level highlighted, solved ones dimmed but still selectable -- replaying is
                 // how a player improves a circuit, and nothing here should discourage it.
-                row.Frame.color = here ? UiTheme.Accent * 0.55f : UiTheme.PanelEdge;
+                row.Frame.color = UiTheme.SelectedFill(here);
                 row.Label.color = here ? UiTheme.Text : (done ? UiTheme.TextDim : UiTheme.Text);
             }
         }

@@ -373,14 +373,39 @@ namespace BitSorter.View
         }
 
         /// <summary>
-        /// A button with a label. The click handler is the caller's to attach.
+        /// A button with a caption, set as <paramref name="captionType"/>. The click handler is the
+        /// caller's to attach.
         /// </summary>
         /// <remarks>
+        /// The caption's size is asked for here rather than changed afterwards, which is what free
+        /// play's small buttons did -- made at full size, then shrunk.
+        /// </remarks>
+        public static Button Button_(
+            string name, Transform parent, string caption, out TextMeshProUGUI label,
+            UiType captionType = UiType.Body)
+        {
+            Button button = RowButton(name, parent);
+
+            label = Label(name + " label", button.transform, captionType, Text, TextAlignmentOptions.Center);
+            Stretch(label.rectTransform);
+            label.text = caption;
+
+            return button;
+        }
+
+        /// <summary>
+        /// A button with no caption, for a row that lays out its own contents: a level in the list,
+        /// a part in the parts list.
+        /// </summary>
+        /// <remarks>
+        /// Those rows used to make an ordinary button and destroy its caption straight away, four
+        /// times over.
+        ///
         /// Navigation is switched off deliberately. A selected Button consumes Space and Enter, and
         /// this game binds both -- Space pauses and Enter runs -- so a button that kept focus after a
         /// click would swallow the very keys the player expects to work next.
         /// </remarks>
-        public static Button Button_(string name, Transform parent, string caption, out TextMeshProUGUI label)
+        public static Button RowButton(string name, Transform parent)
         {
             Image background = Panel_(name, parent, PanelEdge);
 
@@ -398,11 +423,33 @@ namespace BitSorter.View
             colours.disabledColor = new Color(0.5f, 0.5f, 0.5f, 0.4f);
             button.colors = colours;
 
-            label = Label(name + " label", background.transform, UiType.Body, Text, TextAlignmentOptions.Center);
-            Stretch(label.rectTransform);
-            label.text = caption;
-
             return button;
+        }
+
+        /// <summary>
+        /// A button's fill when it is the one chosen -- the part in hand, the level being played, the
+        /// speed in use -- and when it is not.
+        /// </summary>
+        /// <remarks>
+        /// Written out in the parts list, the level list and free play's speed row, each with its own
+        /// copy of the same two colours.
+        /// </remarks>
+        public static Color SelectedFill(bool selected) => selected ? Accent * 0.55f : PanelEdge;
+
+        /// <summary>
+        /// Makes a button usable or not, and dims its caption to match.
+        /// </summary>
+        /// <remarks>
+        /// A button's disabled tint reaches only its background, so a dead button kept a bright
+        /// caption unless whoever disabled it remembered to dim that too -- free play's steppers and
+        /// its truth-table button did, and its "All 0" button did not.
+        /// </remarks>
+        public static void SetEnabled(Button button, TextMeshProUGUI label, bool enabled)
+        {
+            button.interactable = enabled;
+
+            if (label != null)
+                label.color = enabled ? Text : TextDim;
         }
 
         /// <summary>
