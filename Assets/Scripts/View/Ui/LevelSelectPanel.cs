@@ -137,13 +137,13 @@ namespace BitSorter.View
             UiTheme.Stretch(Root);
 
             TextMeshProUGUI title = UiTheme.Label(
-                "title", Root, 26f, UiTheme.Text, TextAlignmentOptions.Center);
+                "title", Root, UiType.Heading, UiTheme.Text, TextAlignmentOptions.Center);
             UiTheme.Anchor(title.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
                 new Vector2(0f, -TitleTop), new Vector2(600f, TitleHeight));
             title.text = "LEVELS";
 
             TextMeshProUGUI help = UiTheme.Label(
-                "help", Root, 13f, UiTheme.TextDim, TextAlignmentOptions.Center);
+                "help", Root, UiType.Caption, UiTheme.TextDim, TextAlignmentOptions.Center);
             UiTheme.Anchor(help.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
                 new Vector2(0f, HelpBottom), new Vector2(600f, HelpHeight));
             help.text = "escape to close    Q / E also change level";
@@ -422,7 +422,7 @@ namespace BitSorter.View
         private void BuildHeading(RectTransform list, float y, string text)
         {
             TextMeshProUGUI heading = UiTheme.Label(
-                "chapter", list, 14f, UiTheme.Text, TextAlignmentOptions.Left);
+                "chapter", list, UiType.Caption, UiTheme.Text, TextAlignmentOptions.Left);
 
             heading.fontStyle = FontStyles.Bold;
             heading.characterSpacing = 6f;
@@ -470,13 +470,13 @@ namespace BitSorter.View
             _tutorialTick.enabled = false;
 
             TextMeshProUGUI label = UiTheme.Label(
-                "name", rect, 17f, UiTheme.Accent, TextAlignmentOptions.Left);
+                "name", rect, UiType.Body, UiTheme.Accent, TextAlignmentOptions.Left);
             UiTheme.Anchor(label.rectTransform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f),
                 new Vector2(LabelInset, 0f), new Vector2(330f, height));
             label.text = "Tutorial";
 
             TextMeshProUGUI note = UiTheme.Label(
-                "note", rect, 13f, UiTheme.TextDim, TextAlignmentOptions.Right);
+                "note", rect, UiType.Caption, UiTheme.TextDim, TextAlignmentOptions.Right);
             UiTheme.Anchor(note.rectTransform, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f),
                 new Vector2(-16f, 0f), new Vector2(200f, height));
             note.text = "the controls";
@@ -507,13 +507,13 @@ namespace BitSorter.View
                 new Vector2(0f, -y), new Vector2(520f, height));
 
             TextMeshProUGUI label = UiTheme.Label(
-                "name", rect, 17f, UiTheme.Accent, TextAlignmentOptions.Left);
+                "name", rect, UiType.Body, UiTheme.Accent, TextAlignmentOptions.Left);
             UiTheme.Anchor(label.rectTransform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f),
                 new Vector2(LabelInset, 0f), new Vector2(330f, height));
             label.text = "Sandbox";
 
             TextMeshProUGUI note = UiTheme.Label(
-                "note", rect, 13f, UiTheme.TextDim, TextAlignmentOptions.Right);
+                "note", rect, UiType.Caption, UiTheme.TextDim, TextAlignmentOptions.Right);
             UiTheme.Anchor(note.rectTransform, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f),
                 new Vector2(-16f, 0f), new Vector2(200f, height));
             note.text = "free play";
@@ -552,12 +552,12 @@ namespace BitSorter.View
             row.Tick.color = UiTheme.Good;
             row.Tick.raycastTarget = false;
 
-            row.Label = UiTheme.Label("name", rect, 17f, UiTheme.Text, TextAlignmentOptions.Left);
+            row.Label = UiTheme.Label("name", rect, UiType.Body, UiTheme.Text, TextAlignmentOptions.Left);
             UiTheme.Anchor(row.Label.rectTransform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f),
                 new Vector2(LabelInset, 0f), new Vector2(330f, height));
             row.Label.text = entry.DisplayName;
 
-            row.Best = UiTheme.Label("best", rect, 14f, UiTheme.TextDim, TextAlignmentOptions.Right);
+            row.Best = UiTheme.Label("best", rect, UiType.Caption, UiTheme.TextDim, TextAlignmentOptions.Right);
             UiTheme.Anchor(row.Best.rectTransform, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f),
                 new Vector2(-16f, 0f), new Vector2(130f, height));
 

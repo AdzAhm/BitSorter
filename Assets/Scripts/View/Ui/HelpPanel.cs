@@ -37,14 +37,14 @@ namespace BitSorter.View
         /// Each row is stated from the one below it, so making the hint taller moves the heading
         /// and the divider instead of running into them.
         /// </remarks>
-        public const float HintFontSize = 17f;
+        public const UiType HintType = UiType.Body;
 
-        /// <inheritdoc cref="HintFontSize"/>
+        /// <inheritdoc cref="HintType"/>
         private const float HintBottom = 12f;
 
         /// <summary>
         /// Room for the hint, and the width it wraps in: five wrapped lines at
-        /// <see cref="HintFontSize"/>.
+        /// <see cref="HintType"/>.
         /// </summary>
         /// <remarks>
         /// Reserved rather than fitted, the way the banner reserves room for a goal -- and, like
@@ -64,13 +64,13 @@ namespace BitSorter.View
         /// <inheritdoc cref="HintHeight"/>
         public const float HintLineSpacing = 6f;
 
-        /// <inheritdoc cref="HintFontSize"/>
+        /// <inheritdoc cref="HintType"/>
         private const float HeadingHeight = 18f;
 
-        /// <inheritdoc cref="HintFontSize"/>
+        /// <inheritdoc cref="HintType"/>
         private const float HeadingBottom = HintBottom + HintHeight + 4f;
 
-        /// <inheritdoc cref="HintFontSize"/>
+        /// <inheritdoc cref="HintType"/>
         private const float DividerBottom = HeadingBottom + HeadingHeight + 6f;
 
         /// <summary>The title's row at the top, and the gap under it.</summary>
@@ -110,9 +110,9 @@ namespace BitSorter.View
         /// character advances by exactly 18 * 0.62. Stated as arithmetic on those two numbers
         /// rather than as the product, so changing the font size cannot leave this behind.
         /// </remarks>
-        private const float TableFontSize = 18f;
+        private const UiType TableType = UiType.Body;
         private const float TableMonospace = 0.62f;
-        private const float TableCharacterWidth = TableFontSize * TableMonospace;
+        private static float TableCharacterWidth => UiTheme.SizeOf(TableType) * TableMonospace;
 
         /// <summary>Gap between the table and the panel edge, on each side.</summary>
         private const float TablePadding = 15f;
@@ -230,14 +230,14 @@ namespace BitSorter.View
             });
 
             TextMeshProUGUI mark = UiTheme.Label(
-                "mark", rect, 22f, Color.white, TextAlignmentOptions.Center);
+                "mark", rect, UiType.Numeral, Color.white, TextAlignmentOptions.Center);
             UiTheme.Stretch(mark.rectTransform);
             mark.text = BadgeGlyph;
 
             // The badge is round and unlabelled, which is not obviously a button. The key beside it
             // says both that it opens something and how to open it without aiming at all.
             TextMeshProUGUI key = UiTheme.Label(
-                "key", rect, 12f, UiTheme.TextDim, TextAlignmentOptions.Center);
+                "key", rect, UiType.Micro, UiTheme.TextDim, TextAlignmentOptions.Center);
             UiTheme.Anchor(key.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 1f),
                 new Vector2(0f, -4f), new Vector2(60f, UiRows.BadgeKey.Height - 4f));
             key.text = "H";
@@ -254,7 +254,7 @@ namespace BitSorter.View
             background.raycastTarget = false;
 
             TextMeshProUGUI title = UiTheme.Label(
-                "title", _panel, 17f, UiTheme.Text, TextAlignmentOptions.Center);
+                "title", _panel, UiType.Body, UiTheme.Text, TextAlignmentOptions.Center);
             UiTheme.Anchor(title.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
                 new Vector2(0f, -12f), new Vector2(300f, 24f));
             title.text = "WHAT THE BINS WANT";
@@ -267,7 +267,7 @@ namespace BitSorter.View
             // Monospaced, or the columns do not line up and the table is worse than no table. The
             // size is shared with the width arithmetic in Fill, which measures characters.
             _table = UiTheme.Label(
-                "table", _panel, TableFontSize, UiTheme.Accent, TextAlignmentOptions.Top);
+                "table", _panel, TableType, UiTheme.Accent, TextAlignmentOptions.Top);
             UiTheme.Anchor(_table.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
                 new Vector2(0f, -44f), new Vector2(300f, 260f));
 
@@ -280,14 +280,14 @@ namespace BitSorter.View
             // to ask for. A nudge nobody can read is a button not worth pressing, which is the same
             // mistake as printing the hint twice, arrived at from the other side.
             _hint = UiTheme.Label(
-                "hint", _panel, HintFontSize, UiTheme.Text, TextAlignmentOptions.Top);
+                "hint", _panel, HintType, UiTheme.Text, TextAlignmentOptions.Top);
             UiTheme.Anchor(_hint.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
                 new Vector2(0f, HintBottom), new Vector2(HintWidth, HintHeight));
             _hint.textWrappingMode = TextWrappingModes.Normal;
             _hint.lineSpacing = HintLineSpacing;
 
             _hintHeading = UiTheme.Label(
-                "hint heading", _panel, 13f, UiTheme.TextDim, TextAlignmentOptions.Center);
+                "hint heading", _panel, UiType.Caption, UiTheme.TextDim, TextAlignmentOptions.Center);
             UiTheme.Anchor(_hintHeading.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
                 new Vector2(0f, HeadingBottom), new Vector2(300f, HeadingHeight));
             _hintHeading.text = "A NUDGE";

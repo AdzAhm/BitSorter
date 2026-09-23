@@ -111,7 +111,7 @@ namespace BitSorter.View
             // block, so its position and the toast's come from the same arithmetic. When each owned
             // half of it, they landed on the same line and drew over each other.
             TextMeshProUGUI line = UiTheme.Label(
-                "controls", _canvas.transform, 18f, UiTheme.TextDim, TextAlignmentOptions.Center);
+                "controls", _canvas.transform, UiType.Label, UiTheme.TextDim, TextAlignmentOptions.Center);
 
             UiTheme.Anchor(line.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
                 new Vector2(0f, UiRows.Controls.Offset),

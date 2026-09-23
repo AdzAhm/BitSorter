@@ -103,13 +103,13 @@ namespace BitSorter.View
             UiTheme.Stretch(Root);
 
             TextMeshProUGUI title = UiTheme.Label(
-                "title", Root, 44f, UiTheme.Good, TextAlignmentOptions.Center);
+                "title", Root, UiType.Title, UiTheme.Good, TextAlignmentOptions.Center);
             UiTheme.Anchor(title.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                 new Vector2(0f, 250f), new Vector2(760f, 58f));
             title.text = Title;
 
             TextMeshProUGUI body = UiTheme.Label(
-                "body", Root, 19f, UiTheme.Text, TextAlignmentOptions.Center);
+                "body", Root, UiType.Body, UiTheme.Text, TextAlignmentOptions.Center);
             UiTheme.Anchor(body.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                 new Vector2(0f, 170f), new Vector2(660f, 80f));
             body.textWrappingMode = TextWrappingModes.Normal;
@@ -218,7 +218,7 @@ namespace BitSorter.View
         private void BuildGroup(ControlGroup group, float x, UiColumn column, float width)
         {
             TextMeshProUGUI heading = UiTheme.Label(
-                group.Name, Root, 15f, UiTheme.Accent, TextAlignmentOptions.Left);
+                group.Name, Root, UiType.Label, UiTheme.Accent, TextAlignmentOptions.Left);
             UiTheme.Anchor(heading.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                 new Vector2(x, ColumnTop - column.Take(RowHeight)), new Vector2(width, RowHeight));
 
@@ -229,7 +229,7 @@ namespace BitSorter.View
             foreach (ControlEntry entry in group.Entries)
             {
                 TextMeshProUGUI row = UiTheme.Label(
-                    entry.Text, Root, 16f, UiTheme.Text, TextAlignmentOptions.Left);
+                    entry.Text, Root, UiType.Label, UiTheme.Text, TextAlignmentOptions.Left);
                 UiTheme.Anchor(row.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                     new Vector2(x, ColumnTop - column.Take(RowHeight)), new Vector2(width, RowHeight));
                 row.text = entry.Text;

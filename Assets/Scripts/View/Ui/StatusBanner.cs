@@ -84,20 +84,20 @@ namespace BitSorter.View
 
             panel.raycastTarget = false;   // the banner is a readout, never a click target
 
-            _title = UiTheme.Label("title", root, 24f, UiTheme.Text, TextAlignmentOptions.Center);
+            _title = UiTheme.Label("title", root, UiType.Heading, UiTheme.Text, TextAlignmentOptions.Center);
             UiTheme.Anchor(_title.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
                 new Vector2(0f, -10f), new Vector2(UiTheme.BannerTextWidth, 30f));
 
             // Top-aligned, not centred: a goal longer than its box has to grow down into the room
             // below it rather than out of both ends and over the title.
             _goal = UiTheme.Label(
-                "goal", root, UiTheme.BannerGoalFontSize, UiTheme.Accent, TextAlignmentOptions.Top);
+                "goal", root, UiTheme.BannerGoalType, UiTheme.Accent, TextAlignmentOptions.Top);
             UiTheme.Anchor(_goal.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
                 new Vector2(0f, -UiTheme.BannerTitleBlock),
                 new Vector2(UiTheme.BannerTextWidth, UiTheme.BannerGoalHeight));
             _goal.textWrappingMode = TextWrappingModes.Normal;
 
-            _verdict = UiTheme.Label("verdict", root, 18f, UiTheme.Text, TextAlignmentOptions.Center);
+            _verdict = UiTheme.Label("verdict", root, UiType.Body, UiTheme.Text, TextAlignmentOptions.Center);
             UiTheme.Anchor(_verdict.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 1f),
                 new Vector2(0f, -UiTheme.VerdictGap), new Vector2(UiTheme.BannerTextWidth, UiTheme.VerdictLineHeight));
 
@@ -112,7 +112,7 @@ namespace BitSorter.View
                 new Vector2(520f, UiRows.Toast.Height));
             _toastBackground.raycastTarget = false;
 
-            _toast = UiTheme.Label("toast text", toastRect, 16f, UiTheme.Text, TextAlignmentOptions.Center);
+            _toast = UiTheme.Label("toast text", toastRect, UiType.Label, UiTheme.Text, TextAlignmentOptions.Center);
             UiTheme.Stretch(_toast.rectTransform, 6f);
         }
 

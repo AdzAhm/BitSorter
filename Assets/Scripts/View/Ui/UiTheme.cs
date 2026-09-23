@@ -168,8 +168,8 @@ namespace BitSorter.View
         /// </remarks>
         public const float BannerGoalHeight = 66f;
 
-        /// <summary>Size the goal is set at, shared with whatever measures it.</summary>
-        public const float BannerGoalFontSize = 19f;
+        /// <summary>What the goal is set as, shared with whatever measures it.</summary>
+        public const UiType BannerGoalType = UiType.Body;
 
         /// <summary>Breathing room under the goal.</summary>
         public const float BannerPad = 12f;
@@ -224,7 +224,7 @@ namespace BitSorter.View
         /// generated sprites are, and re-made if something destroys it anyway.
         /// </remarks>
         public static float GoalHeight(string goal) =>
-            TextHeight(goal, BannerGoalFontSize, BannerTextWidth);
+            TextHeight(goal, BannerGoalType, BannerTextWidth);
 
         /// <summary>
         /// The height a wrapped run of text needs, measured with a real label rather than guessed.
@@ -238,7 +238,7 @@ namespace BitSorter.View
         /// a box that fits until a level is written with one more, and nothing tells you which
         /// level did it: the text simply prints past the panel.
         /// </remarks>
-        public static float TextHeight(string text, float fontSize, float width, float lineSpacing = 0f)
+        public static float TextHeight(string text, UiType type, float width, float lineSpacing = 0f)
         {
             if (string.IsNullOrEmpty(text))
                 return 0f;
@@ -250,11 +250,11 @@ namespace BitSorter.View
                     hideFlags = HideFlags.HideAndDontSave,
                 };
 
-                _ruler = Label("ruler", host.transform, fontSize, Accent, TextAlignmentOptions.Top);
+                _ruler = Label("ruler", host.transform, type, Accent, TextAlignmentOptions.Top);
                 _ruler.textWrappingMode = TextWrappingModes.Normal;
             }
 
-            _ruler.fontSize = fontSize;
+            _ruler.fontSize = SizeOf(type);
             _ruler.lineSpacing = lineSpacing;
 
             return _ruler.GetPreferredValues(text, width, 0f).y;
@@ -334,18 +334,36 @@ namespace BitSorter.View
             return image;
         }
 
+        /// <summary>How large each kind of text is drawn. See <see cref="UiType"/>.</summary>
+        public static float SizeOf(UiType type)
+        {
+            switch (type)
+            {
+                case UiType.Micro: return 12f;
+                case UiType.Caption: return 13f;
+                case UiType.Label: return 15f;
+                case UiType.Body: return 18f;
+                case UiType.Numeral: return 22f;
+                case UiType.Heading: return 26f;
+                case UiType.Title: return 40f;
+                case UiType.Display: return 54f;
+                default: return 18f;
+            }
+        }
+
         /// <summary>
-        /// A text element. Wrapping is off by default because every label here is one short line and
-        /// a wrapped label silently changes a panel's height.
+        /// A text element, as large as <paramref name="type"/> says. Wrapping is off by default
+        /// because every label here is one short line and a wrapped label silently changes a
+        /// panel's height.
         /// </summary>
         public static TextMeshProUGUI Label(
-            string name, Transform parent, float size, Color colour,
+            string name, Transform parent, UiType type, Color colour,
             TextAlignmentOptions alignment = TextAlignmentOptions.Left)
         {
             RectTransform rect = Rect(name, parent);
 
             var text = rect.gameObject.AddComponent<TextMeshProUGUI>();
-            text.fontSize = size;
+            text.fontSize = SizeOf(type);
             text.color = colour;
             text.alignment = alignment;
             text.textWrappingMode = TextWrappingModes.NoWrap;
@@ -380,7 +398,7 @@ namespace BitSorter.View
             colours.disabledColor = new Color(0.5f, 0.5f, 0.5f, 0.4f);
             button.colors = colours;
 
-            label = Label(name + " label", background.transform, 18f, Text, TextAlignmentOptions.Center);
+            label = Label(name + " label", background.transform, UiType.Body, Text, TextAlignmentOptions.Center);
             Stretch(label.rectTransform);
             label.text = caption;
 

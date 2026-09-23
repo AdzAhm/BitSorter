@@ -29,7 +29,7 @@ namespace BitSorter.LogicCore.Tests
 
                 float needed = UiTheme.TextHeight(
                     parsed.Level.Hint,
-                    HelpPanel.HintFontSize,
+                    HelpPanel.HintType,
                     HelpPanel.HintWidth,
                     HelpPanel.HintLineSpacing);
 
@@ -48,7 +48,7 @@ namespace BitSorter.LogicCore.Tests
             LevelDefinition level = SandboxLevel.Build(new SandboxConfig(), LevelTestFixtures.Board);
 
             float needed = UiTheme.TextHeight(
-                level.Hint, HelpPanel.HintFontSize, HelpPanel.HintWidth, HelpPanel.HintLineSpacing);
+                level.Hint, HelpPanel.HintType, HelpPanel.HintWidth, HelpPanel.HintLineSpacing);
 
             Assert.LessOrEqual(needed, HelpPanel.HintHeight,
                 $"free play's hint wraps to {needed:F0}px against {HelpPanel.HintHeight}px");

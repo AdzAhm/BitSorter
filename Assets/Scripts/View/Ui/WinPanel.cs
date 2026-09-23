@@ -94,11 +94,11 @@ namespace BitSorter.View
             UiTheme.Anchor(_root, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                 Vector2.zero, new Vector2(PanelWidth, 330f));
 
-            _title = UiTheme.Label("title", _root, 32f, UiTheme.Good, TextAlignmentOptions.Center);
+            _title = UiTheme.Label("title", _root, UiType.Heading, UiTheme.Good, TextAlignmentOptions.Center);
             UiTheme.Anchor(_title.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
                 new Vector2(0f, -26f), new Vector2(460f, 42f));
 
-            _detail = UiTheme.Label("detail", _root, 17f, UiTheme.Text, TextAlignmentOptions.Top);
+            _detail = UiTheme.Label("detail", _root, UiType.Body, UiTheme.Text, TextAlignmentOptions.Top);
             UiTheme.Anchor(_detail.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
                 new Vector2(0f, -80f), new Vector2(440f, 150f));
             _detail.alignment = TextAlignmentOptions.Center;

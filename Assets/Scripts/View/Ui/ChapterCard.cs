@@ -143,13 +143,13 @@ namespace BitSorter.View
             UiTheme.Stretch(Root);
 
             TextMeshProUGUI title = UiTheme.Label(
-                "title", Root, 40f, UiTheme.Accent, TextAlignmentOptions.Center);
+                "title", Root, UiType.Title, UiTheme.Accent, TextAlignmentOptions.Center);
             UiTheme.Anchor(title.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                 new Vector2(0f, 120f), new Vector2(760f, 56f));
             title.text = Title;
 
             TextMeshProUGUI body = UiTheme.Label(
-                "body", Root, 19f, UiTheme.Text, TextAlignmentOptions.Center);
+                "body", Root, UiType.Body, UiTheme.Text, TextAlignmentOptions.Center);
             UiTheme.Anchor(body.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                 new Vector2(0f, 10f), new Vector2(620f, 150f));
             body.textWrappingMode = TextWrappingModes.Normal;

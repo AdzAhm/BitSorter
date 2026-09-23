@@ -113,13 +113,13 @@ namespace BitSorter.View
             UiTheme.Stretch(Root);
 
             TextMeshProUGUI title = UiTheme.Label(
-                "title", Root, 54f, UiTheme.Accent, TextAlignmentOptions.Center);
+                "title", Root, UiType.Display, UiTheme.Accent, TextAlignmentOptions.Center);
             UiTheme.Anchor(title.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                 new Vector2(0f, 150f + Lift), new Vector2(700f, 70f));
             title.text = "BITSORTER";
 
             TextMeshProUGUI tagline = UiTheme.Label(
-                "tagline", Root, 18f, UiTheme.TextDim, TextAlignmentOptions.Center);
+                "tagline", Root, UiType.Body, UiTheme.TextDim, TextAlignmentOptions.Center);
             UiTheme.Anchor(tagline.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                 new Vector2(0f, 104f + Lift), new Vector2(700f, 26f));
             tagline.text = "bits fall through logic. sort them.";
@@ -178,17 +178,17 @@ namespace BitSorter.View
             // Measured from wherever the column actually ended, so the pair closes up behind a row
             // that was not built rather than hanging below the gap it left.
             _nextLine = UiTheme.Label(
-                "next", Root, 15f, UiTheme.Accent, TextAlignmentOptions.Center);
+                "next", Root, UiType.Label, UiTheme.Accent, TextAlignmentOptions.Center);
             UiTheme.Anchor(_nextLine.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                 new Vector2(0f, row + NextLineLead + Lift), new Vector2(700f, 22f));
 
             _progressLine = UiTheme.Label(
-                "progress", Root, 16f, UiTheme.TextDim, TextAlignmentOptions.Center);
+                "progress", Root, UiType.Label, UiTheme.TextDim, TextAlignmentOptions.Center);
             UiTheme.Anchor(_progressLine.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                 new Vector2(0f, row + NextLineLead - ProgressLineStep + Lift), new Vector2(700f, 24f));
 
             TextMeshProUGUI keys = UiTheme.Label(
-                "keys", Root, 13f, UiTheme.TextDim, TextAlignmentOptions.Center);
+                "keys", Root, UiType.Caption, UiTheme.TextDim, TextAlignmentOptions.Center);
             UiTheme.Anchor(keys.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
                 new Vector2(0f, 30f), new Vector2(900f, 20f));
             // From ControlsReference, not spelled out here. This was a literal, which made it a
@@ -199,7 +199,7 @@ namespace BitSorter.View
             // The menu's music is two imported tracks, and one of them is CC BY: its licence asks
             // for the credit wherever the work is used, and this is where it is heard.
             TextMeshProUGUI credit = UiTheme.Label(
-                "music credit", Root, 11f, UiTheme.TextDim * 0.8f, TextAlignmentOptions.Center);
+                "music credit", Root, UiType.Micro, UiTheme.TextDim * 0.8f, TextAlignmentOptions.Center);
             UiTheme.Anchor(credit.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
                 new Vector2(0f, 10f), new Vector2(1100f, 16f));
             credit.text = GameAudio.MenuMusicCredit;

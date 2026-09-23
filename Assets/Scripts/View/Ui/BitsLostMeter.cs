@@ -62,7 +62,7 @@ namespace BitSorter.View
 
             _background.raycastTarget = false;
 
-            _label = UiTheme.Label("count", _root, 22f, Color.white, TextAlignmentOptions.Center);
+            _label = UiTheme.Label("count", _root, UiType.Numeral, Color.white, TextAlignmentOptions.Center);
             UiTheme.Stretch(_label.rectTransform);
 
             _root.gameObject.SetActive(false);

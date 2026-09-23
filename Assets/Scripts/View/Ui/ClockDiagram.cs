@@ -84,7 +84,7 @@ namespace BitSorter.View
             panel.raycastTarget = false;
 
             TextMeshProUGUI caption = UiTheme.Label(
-                "caption", _root, 12f, UiTheme.TextDim, TextAlignmentOptions.TopLeft);
+                "caption", _root, UiType.Micro, UiTheme.TextDim, TextAlignmentOptions.TopLeft);
             UiTheme.Anchor(caption.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f),
                 new Vector2(Inset, -6f), new Vector2(200f, 16f));
             caption.text = "CLOCK";

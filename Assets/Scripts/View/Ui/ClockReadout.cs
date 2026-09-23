@@ -84,7 +84,7 @@ namespace BitSorter.View
                 new Vector2(0f, -UiRows.Clock.Offset),
                 new Vector2(WidthFor(0), UiRows.Clock.Height));
 
-            _label = UiTheme.Label("period", _root, 13f, UiTheme.TextDim, TextAlignmentOptions.Left);
+            _label = UiTheme.Label("period", _root, UiType.Caption, UiTheme.TextDim, TextAlignmentOptions.Left);
             UiTheme.Anchor(_label.rectTransform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f),
                 new Vector2(Inset, 0f), new Vector2(PipRowLeft - Inset * 2f, RowHeight));
 

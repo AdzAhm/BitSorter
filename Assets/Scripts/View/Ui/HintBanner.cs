@@ -57,7 +57,7 @@ namespace BitSorter.View
 
             _background.raycastTarget = false;
 
-            _text = UiTheme.Label("hint text", rect, 16f, UiTheme.Text, TextAlignmentOptions.Center);
+            _text = UiTheme.Label("hint text", rect, UiType.Label, UiTheme.Text, TextAlignmentOptions.Center);
             UiTheme.Stretch(_text.rectTransform, 10f);
             _text.textWrappingMode = TextWrappingModes.Normal;
             _text.raycastTarget = false;

@@ -51,7 +51,7 @@ namespace BitSorter.View
 
             panel.raycastTarget = false;
 
-            _text = UiTheme.Label("numbers", _root, 14f, UiTheme.TextDim, TextAlignmentOptions.TopLeft);
+            _text = UiTheme.Label("numbers", _root, UiType.Caption, UiTheme.TextDim, TextAlignmentOptions.TopLeft);
             UiTheme.Stretch(_text.rectTransform, 10f);
 
             _root.gameObject.SetActive(false);

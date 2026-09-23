@@ -468,6 +468,13 @@ failure side.
   more constant and one more test for that one pair. A component reads its row
   and never works out its own clearance; `UiStackTests` checks that every row
   came out of a stack.
+- **Text is sized by what it is for, never by a number.** `UiTheme.Label` takes a
+  `UiType` -- Micro, Caption, Label, Body, Numeral, Heading, Title, Display --
+  and `UiTheme.SizeOf` is the one place those become sizes. Seventeen sizes from
+  10 to 54 had grown a label at a time, so full-screen titles alone came in three
+  and two things of one kind drifted a point apart. Nothing is under twelve:
+  the music credit, the one line a licence requires be shown, was eleven.
+  `UiTypeTests` refuses a size set by number.
 - **`HalfAdderDemoSceneBuilder` is the only authority on scene contents.**
   Anything added by hand is wiped by `BitSorter/Build Play Scene`.
 - **`PointerGate` arbitrates the mouse.** Every component that reads a

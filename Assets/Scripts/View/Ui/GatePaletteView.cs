@@ -205,7 +205,7 @@ namespace BitSorter.View
             for (int i = 0; i < level.Budget.Count; i++)
                 _rows.Add(BuildRow(level.Budget[i], i, rowHeight));
 
-            _delay = UiTheme.Label("delay", _root, 13f, UiTheme.TextDim, TextAlignmentOptions.Left);
+            _delay = UiTheme.Label("delay", _root, UiType.Caption, UiTheme.TextDim, TextAlignmentOptions.Left);
             _drawnSpent = -1;
             _drawnDelayBudget = -1;
             UiTheme.Anchor(_delay.rectTransform, new Vector2(0f, 0f), new Vector2(0f, 0f),
@@ -238,12 +238,12 @@ namespace BitSorter.View
             row.Icon.raycastTarget = false;
 
             TextMeshProUGUI label = UiTheme.Label(
-                "name", rect, 15f, UiTheme.Text, TextAlignmentOptions.Left);
+                "name", rect, UiType.Label, UiTheme.Text, TextAlignmentOptions.Left);
             UiTheme.Anchor(label.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f),
                 new Vector2(height, -UiTheme.Gap), new Vector2(_root.sizeDelta.x - height - UiTheme.Gap, 22f));
             label.text = GatePalette.Label(entry.Kind);
 
-            row.Count = UiTheme.Label("count", rect, 13f, UiTheme.TextDim, TextAlignmentOptions.Left);
+            row.Count = UiTheme.Label("count", rect, UiType.Caption, UiTheme.TextDim, TextAlignmentOptions.Left);
             UiTheme.Anchor(row.Count.rectTransform, new Vector2(0f, 0f), new Vector2(0f, 0f),
                 new Vector2(height, UiTheme.Gap), new Vector2(_root.sizeDelta.x - height - UiTheme.Gap, 20f));
 

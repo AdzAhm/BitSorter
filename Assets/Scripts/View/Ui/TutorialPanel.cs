@@ -85,7 +85,7 @@ namespace BitSorter.View
 
             background.raycastTarget = false;
 
-            _text = UiTheme.Label("tutorial text", _root, 17f, UiTheme.Text,
+            _text = UiTheme.Label("tutorial text", _root, UiType.Body, UiTheme.Text,
                 TextAlignmentOptions.Left);
             UiTheme.Anchor(_text.rectTransform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f),
                 new Vector2(14f, 0f), new Vector2(UiTheme.BannerWidth - 210f, UiTheme.TutorialHeight - 12f));
