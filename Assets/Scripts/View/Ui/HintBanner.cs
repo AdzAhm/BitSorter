@@ -48,7 +48,7 @@ namespace BitSorter.View
             if (_canvas == null)
                 return;
 
-            _background = UiTheme.Panel_("Hint", _canvas.transform, UiTheme.Accent * 0.5f);
+            _background = UiTheme.Panel_("Hint", _canvas.transform, Palette.Current.HintBackdrop);
             var rect = _background.GetComponent<RectTransform>();
 
             UiTheme.Anchor(rect, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),

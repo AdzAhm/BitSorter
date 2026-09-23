@@ -126,7 +126,7 @@ namespace BitSorter.View
 
             // A rule under the title. The menu was a title and three buttons floating in black,
             // which reads as unfinished rather than as spare.
-            Image rule = UiTheme.Panel_("rule", Root, UiTheme.Accent * 0.4f);
+            Image rule = UiTheme.Panel_("rule", Root, Palette.Current.Rule);
             rule.sprite = null;   // two pixels tall: shorter than the panel's corners, so a plain hairline
             UiTheme.Anchor(rule.GetComponent<RectTransform>(),
                 new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
@@ -199,7 +199,7 @@ namespace BitSorter.View
             // The menu's music is two imported tracks, and one of them is CC BY: its licence asks
             // for the credit wherever the work is used, and this is where it is heard.
             TextMeshProUGUI credit = UiTheme.Label(
-                "music credit", Root, UiType.Micro, UiTheme.TextDim * 0.8f, TextAlignmentOptions.Center);
+                "music credit", Root, UiType.Micro, Palette.Current.Credit, TextAlignmentOptions.Center);
             UiTheme.Anchor(credit.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
                 new Vector2(0f, 10f), new Vector2(1100f, 16f));
             credit.text = GameAudio.MenuMusicCredit;

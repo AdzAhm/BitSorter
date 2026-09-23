@@ -206,7 +206,7 @@ namespace BitSorter.View
 
         private void BuildBadge()
         {
-            _badge = UiTheme.Panel_("Help badge", _canvas.transform, UiTheme.Accent * 0.5f);
+            _badge = UiTheme.Panel_("Help badge", _canvas.transform, Palette.Current.BadgeBackdrop);
             var rect = _badge.GetComponent<RectTransform>();
 
             // Top right, clear of the status banner and above the bits-lost meter's corner.

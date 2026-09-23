@@ -52,7 +52,7 @@ namespace BitSorter.View
             if (_canvas == null)
                 return;
 
-            _background = UiTheme.Panel_("Bits lost", _canvas.transform, UiTheme.Bad * 0.75f);
+            _background = UiTheme.Panel_("Bits lost", _canvas.transform, Palette.Current.MeterBackdrop);
             _root = _background.GetComponent<RectTransform>();
 
             // Under the board's right shoulder: in the eye's path while watching bits move, without
@@ -124,7 +124,7 @@ namespace BitSorter.View
 
             // Flashes towards white at the peak and settles back to the sink red used everywhere else
             // for a destroyed bit, so the colour means the same thing here as it does on the board.
-            _background.color = Color.Lerp(UiTheme.Bad * 0.75f, Color.white, _punch * 0.6f);
+            _background.color = Color.Lerp(Palette.Current.MeterBackdrop, Color.white, _punch * 0.6f);
         }
     }
 }

@@ -116,6 +116,33 @@ namespace BitSorter.View
         /// </summary>
         public Color MenuScrim, ListScrim, CardScrim;
 
+        /// <summary>
+        /// A button or row that is the chosen one: the part in hand, the level being played, the
+        /// speed in use.
+        /// </summary>
+        /// <remarks>
+        /// This and the colours below were each a colour multiplied down where it was used --
+        /// <c>Accent * 0.55f</c> -- which darkens it and makes it see-through at once. On a filled
+        /// panel that reads as a dim highlight; on a panel with a drawn edge it made the chosen row
+        /// darker than the rows beside it. Named, a look can say what chosen looks like.
+        /// </remarks>
+        public Color Selected;
+
+        /// <summary>The backdrop of a first-time hint, and of the help badge.</summary>
+        public Color HintBackdrop, BadgeBackdrop;
+
+        /// <summary>The backdrop of a refusal, and of the bits-lost meter.</summary>
+        public Color ToastBackdrop, MeterBackdrop;
+
+        /// <summary>The rule under the menu's title.</summary>
+        public Color Rule;
+
+        /// <summary>
+        /// The music credit under the main menu -- the one line a licence requires be shown, so not
+        /// something to fade into the background.
+        /// </summary>
+        public Color Credit;
+
         // -----------------------------------------------------------------
         // Which one
         // -----------------------------------------------------------------
@@ -154,7 +181,7 @@ namespace BitSorter.View
         /// The colours the game shipped with through 2.0, exactly -- the values the scene and the
         /// code held, gathered without changing one.
         /// </summary>
-        public static Palette Classic { get; } = new Palette
+        public static Palette Classic { get; } = WithDerivedStates(new Palette
         {
             Name = "classic",
 
@@ -207,6 +234,22 @@ namespace BitSorter.View
             MenuScrim = new Color(0f, 0f, 0f, 0.88f),
             ListScrim = new Color(0f, 0f, 0f, 0.78f),
             CardScrim = new Color(0f, 0f, 0f, 0.9f),
-        };
+        });
+
+        /// <summary>
+        /// Classic's named states, worked out from its colours exactly as they used to be where they
+        /// were drawn, so naming them changed nothing on screen.
+        /// </summary>
+        private static Palette WithDerivedStates(Palette p)
+        {
+            p.Selected = p.Accent * 0.55f;
+            p.HintBackdrop = p.Accent * 0.5f;
+            p.BadgeBackdrop = p.Accent * 0.5f;
+            p.ToastBackdrop = p.Bad * 0.5f;
+            p.MeterBackdrop = p.Bad * 0.75f;
+            p.Rule = p.Accent * 0.4f;
+            p.Credit = p.TextDim * 0.8f;
+            return p;
+        }
     }
 }

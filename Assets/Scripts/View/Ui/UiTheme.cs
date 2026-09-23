@@ -434,7 +434,7 @@ namespace BitSorter.View
         /// Written out in the parts list, the level list and free play's speed row, each with its own
         /// copy of the same two colours.
         /// </remarks>
-        public static Color SelectedFill(bool selected) => selected ? Accent * 0.55f : PanelEdge;
+        public static Color SelectedFill(bool selected) => selected ? Palette.Current.Selected : PanelEdge;
 
         /// <summary>
         /// Makes a button usable or not, and dims its caption to match.

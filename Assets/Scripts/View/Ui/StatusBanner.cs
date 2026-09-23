@@ -101,7 +101,7 @@ namespace BitSorter.View
             UiTheme.Anchor(_verdict.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 1f),
                 new Vector2(0f, -UiTheme.VerdictGap), new Vector2(UiTheme.BannerTextWidth, UiTheme.VerdictLineHeight));
 
-            _toastBackground = UiTheme.Panel_("Toast", _canvas.transform, UiTheme.Bad * 0.5f);
+            _toastBackground = UiTheme.Panel_("Toast", _canvas.transform, Palette.Current.ToastBackdrop);
             var toastRect = _toastBackground.GetComponent<RectTransform>();
 
             // On its own row above the controls line, from the shared arithmetic in UiTheme. These
