@@ -24,9 +24,13 @@ namespace BitSorter.LogicCore.Tests
             File.ReadAllText(Path.Combine(Application.dataPath, Template, file));
 
         /// <summary>The declarations of one CSS rule, found by its selector.</summary>
+        /// <remarks>
+        /// To the last brace on the line, not the first: a template value such as
+        /// <c>{{{ BACKGROUND_COLOR }}}</c> has braces of its own. Every rule in the file is one line.
+        /// </remarks>
         private static string Rule(string css, string selector)
         {
-            Match match = Regex.Match(css, Regex.Escape(selector) + @"\s*\{([^}]*)\}");
+            Match match = Regex.Match(css, Regex.Escape(selector) + @"\s*\{(.*)\}");
             Assert.IsTrue(match.Success, $"sanity: style.css has no rule for {selector}");
             return match.Groups[1].Value;
         }
@@ -59,6 +63,20 @@ namespace BitSorter.LogicCore.Tests
                 "the canvas is fixed at its authored width, so a window narrower than that cannot hold it");
             StringAssert.Contains("addEventListener(\"resize\"", page,
                 "the canvas is never sized again when the window changes");
+        }
+
+        /// <summary>
+        /// The render is not allowed to scale with a high-density screen without limit.
+        /// </summary>
+        /// <remarks>
+        /// The canvas grows with the window, and it renders at its size times the screen's pixel
+        /// ratio: at 1920 CSS pixels and a ratio of 2 that is 3840x2400, with bloom, every frame.
+        /// </remarks>
+        [Test]
+        public void TheRenderResolution_IsCappedOnHighDensityScreens()
+        {
+            StringAssert.Contains("config.devicePixelRatio = Math.min(", Read("index.html"),
+                "the render follows the screen's pixel ratio without a limit");
         }
     }
 }

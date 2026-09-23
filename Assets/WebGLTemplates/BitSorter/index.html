@@ -117,6 +117,12 @@
       // Nothing errors; the game simply forgets. Unity's own comment below says the autosync is
       // not on by default, which is exactly the trap.
       config.autoSyncPersistentDataPath = true;
+
+      // The canvas renders at its CSS size times the screen's pixel ratio, and the canvas now grows
+      // with the window -- up to 1920 CSS pixels wide, which at a ratio of 2 is a 3840x2400 render
+      // with bloom on top of it, every frame. 1.5 keeps text sharp on a high-density screen at
+      // just over half those pixels. On an ordinary screen the ratio is 1 and this changes nothing.
+      config.devicePixelRatio = Math.min(window.devicePixelRatio || 1, 1.5);
       // This autosyncing is currently not the default behavior to avoid regressing
       // existing user projects that might rely on the earlier manual
       // JS_FileSystem_Sync() behavior, but in future Unity version, this will be
