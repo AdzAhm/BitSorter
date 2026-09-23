@@ -153,6 +153,65 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
+        /// Under a look that draws bits as digits, every bit in flight wears one, upright.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator ABitInFlight_WearsItsDigit_Upright()
+        {
+            Assume.That(Look.Current.Bits, Is.EqualTo(BitStyle.Digit),
+                "this needs a look that draws bits as digits");
+
+            yield return TestScene.Load();
+            Find<MainMenu>().Show(false);
+            yield return null;
+
+            LevelSession session = Find<LevelSession>();
+            SimulationRunner runner = Find<SimulationRunner>();
+
+            Assert.IsTrue(session.LoadLevel(Level), "the level did not load");
+
+            for (int frame = 0; frame < 30 && !runner.FixtureNodeIds.ContainsKey("a"); frame++)
+                yield return null;
+
+            BuildTheHalfAdder(session, runner);
+            session.Run();
+
+            Transform container = Find<BitRenderer>().transform.Find("Bits");
+            Sprite zero = ProceduralSprites.BitGlyph(Bit.Zero);
+            Sprite one = ProceduralSprites.BitGlyph(Bit.One);
+            int zeros = 0;
+            int ones = 0;
+
+            for (int frame = 0; frame < 240; frame++)
+            {
+                yield return null;
+
+                foreach (Transform bit in container)
+                {
+                    if (!bit.gameObject.activeInHierarchy)
+                        continue;
+
+                    Sprite drawn = bit.GetComponent<SpriteRenderer>().sprite;
+
+                    Assert.IsTrue(drawn == zero || drawn == one,
+                        $"a bit in flight is drawn as {drawn.name}, not as a digit");
+                    Assert.Less(Quaternion.Angle(Quaternion.identity, bit.rotation), 0.01f,
+                        "a digit turned to face its wire, and a turned digit is not a digit");
+
+                    if (drawn == zero)
+                        zeros++;
+                    else
+                        ones++;
+                }
+            }
+
+            // Half adder streams carry both values, so a renderer drawing one digit for every bit
+            // would fail here rather than pass.
+            Assert.Greater(zeros, 0, "no bit was ever drawn as a 0");
+            Assert.Greater(ones, 0, "no bit was ever drawn as a 1");
+        }
+
+        /// <summary>
         /// Two bits that meet are never drawn at the same depth, and never swap order mid-flight.
         /// </summary>
         /// <remarks>

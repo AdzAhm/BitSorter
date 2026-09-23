@@ -106,5 +106,27 @@ namespace BitSorter.View
 
             return new Vector2(size * along, size * across);
         }
+
+        /// <summary>
+        /// A scale from <see cref="ScaleAt"/>, laid onto the screen's axes for a bit that does not
+        /// turn to face its wire.
+        /// </summary>
+        /// <remarks>
+        /// A digit has to stay upright, and an upright sprite can only be squashed along x and y.
+        /// Each axis takes the along-the-wire scale in proportion to how much of the wire runs that
+        /// way, so a level or plumb wire squashes exactly as a turned dot does, and a diagonal one
+        /// shrinks the digit evenly rather than shearing it.
+        /// </remarks>
+        public static Vector2 Upright(Vector2 scale, Vector2 direction)
+        {
+            if (direction.sqrMagnitude < 1e-6f)
+                return scale;
+
+            Vector2 d = direction.normalized;
+            float xx = d.x * d.x;
+            float yy = d.y * d.y;
+
+            return new Vector2(scale.x * xx + scale.y * yy, scale.y * xx + scale.x * yy);
+        }
     }
 }

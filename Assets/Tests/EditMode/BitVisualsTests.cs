@@ -66,5 +66,29 @@ namespace BitSorter.LogicCore.Tests
                 Assert.Greater(scale.y, 0f, $"non-positive y scale at {p}");
             }
         }
+
+        /// <summary>
+        /// A digit cannot turn to face its wire, so its squash is laid onto the screen's axes --
+        /// exactly as a turned dot's on a level or plumb wire, and evenly on a diagonal one.
+        /// </summary>
+        [Test]
+        public void AnUprightBit_SquashesAsATurnedOneWould_OnAStraightWire()
+        {
+            Vector2 arriving = BitVisuals.ScaleAt(1f, Size);
+
+            Vector2 level = BitVisuals.Upright(arriving, Vector2.left * 2f);
+            Assert.AreEqual(arriving.x, level.x, 1e-5f, "along a level wire is x");
+            Assert.AreEqual(arriving.y, level.y, 1e-5f, "across a level wire is y");
+
+            Vector2 plumb = BitVisuals.Upright(arriving, Vector2.down * 3f);
+            Assert.AreEqual(arriving.y, plumb.x, 1e-5f, "across a plumb wire is x");
+            Assert.AreEqual(arriving.x, plumb.y, 1e-5f, "along a plumb wire is y");
+
+            Vector2 diagonal = BitVisuals.Upright(arriving, new Vector2(1f, -1f));
+            Assert.AreEqual(diagonal.x, diagonal.y, 1e-5f, "a diagonal wire should squash a digit evenly");
+
+            Assert.AreEqual(arriving, BitVisuals.Upright(arriving, Vector2.zero),
+                "a wire with no length gives no direction to squash along");
+        }
     }
 }

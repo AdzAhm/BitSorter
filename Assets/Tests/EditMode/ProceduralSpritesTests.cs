@@ -138,6 +138,86 @@ namespace BitSorter.LogicCore.Tests
             }
         }
 
+        /// <summary>
+        /// A bit's digit is a stroke, not a filled square: most of its sprite is clear, a 0 is
+        /// hollow through its middle where a 1 is solid, and both are taller than they are wide.
+        /// </summary>
+        /// <remarks>
+        /// The first digits were drawn with <see cref="Mathf.SmoothStep"/> as if it were the
+        /// shader's smoothstep, and every bit on the board came out a square -- which nothing
+        /// but a screenshot would have noticed.
+        ///
+        /// Taller than wide because the round socket a bit travels towards is as wide as it is
+        /// tall, and a 0 must not read as an empty socket that has come loose.
+        /// </remarks>
+        [Test]
+        public void ABitsDigit_IsAStroke_AndSaysWhichValueItIs()
+        {
+            Sprite zero = ProceduralSprites.BitGlyph(Bit.Zero);
+            Sprite one = ProceduralSprites.BitGlyph(Bit.One);
+
+            Assert.AreNotSame(zero, one, "a 0 and a 1 are drawn alike");
+            Assert.AreSame(zero, ProceduralSprites.BitGlyph(Bit.Zero), "a digit is rebuilt on every call");
+
+            Assert.Less(Covered(zero), 0.35f, "a 0 covers most of its sprite");
+            Assert.Less(Covered(one), 0.35f, "a 1 covers most of its sprite");
+
+            Assert.Less(AlphaAtCentre(zero), 0.1f, "a 0 should be hollow through its middle");
+            Assert.Greater(AlphaAtCentre(one), 0.9f, "a 1 should be solid through its middle");
+
+            foreach (Sprite digit in new[] { zero, one })
+            {
+                RectInt box = Extent(digit);
+                Assert.Greater(box.height, box.width * 1.3f,
+                    $"{digit.name}: a digit should be clearly taller than it is wide");
+            }
+        }
+
+        private static float Covered(Sprite sprite)
+        {
+            Color32[] pixels = sprite.texture.GetPixels32();
+            int covered = 0;
+
+            foreach (Color32 pixel in pixels)
+            {
+                if (pixel.a > 127)
+                    covered++;
+            }
+
+            return covered / (float)pixels.Length;
+        }
+
+        private static float AlphaAtCentre(Sprite sprite)
+        {
+            Texture2D texture = sprite.texture;
+            return texture.GetPixel(texture.width / 2, texture.height / 2).a;
+        }
+
+        /// <summary>The smallest box holding every texel more than half covered.</summary>
+        private static RectInt Extent(Sprite sprite)
+        {
+            Texture2D texture = sprite.texture;
+            Color32[] pixels = texture.GetPixels32();
+            int size = texture.width;
+            int minX = size, minY = size, maxX = -1, maxY = -1;
+
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    if (pixels[y * size + x].a <= 127)
+                        continue;
+
+                    minX = Mathf.Min(minX, x);
+                    maxX = Mathf.Max(maxX, x);
+                    minY = Mathf.Min(minY, y);
+                    maxY = Mathf.Max(maxY, y);
+                }
+            }
+
+            return new RectInt(minX, minY, maxX - minX + 1, maxY - minY + 1);
+        }
+
         /// <summary>How many texels wide the tile's middle line is, a quarter of the way up.</summary>
         private static int LineTexels(Sprite tile)
         {

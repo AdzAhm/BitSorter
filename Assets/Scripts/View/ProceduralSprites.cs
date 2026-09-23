@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using BitSorter.LogicCore;
 using UnityEngine;
 
 namespace BitSorter.View
@@ -188,6 +189,55 @@ namespace BitSorter.View
             float d = p.magnitude;
             return 1f - Mathf.SmoothStep(0.35f, 1f, d);
         });
+
+        /// <summary>How many texels across a digit is drawn: finer than a dot, because it has a shape to keep.</summary>
+        private const int DigitSize = 128;
+
+        /// <summary>How wide a digit's stroke is, and how soft its edge, on the sprite's -1..1 square.</summary>
+        private const float DigitStroke = 0.24f;
+        private const float DigitSoftness = 0.05f;
+
+        /// <summary>
+        /// A bit's value drawn as its digit, in a neon stroke: a tall rounded 0, and a 1 with a flag
+        /// and a foot.
+        /// </summary>
+        /// <remarks>
+        /// Stroked rather than filled, like a neon sign, so it keeps its shape when it blooms --
+        /// a filled glyph blooms into a blob, and a stroke into a glowing letter. The 1 has a foot
+        /// so it cannot be read as a bar or an l, and so it carries about as much light as the 0.
+        ///
+        /// Taller than it is wide, both of them, so a digit is never mistaken for the round
+        /// socket it is travelling towards.
+        /// </remarks>
+        public static Sprite BitGlyph(Bit value) => value == Bit.One
+            ? Field("digit:1", DigitSize, p => Stroked(Mathf.Min(
+                Segment(p, new Vector2(0.06f, -0.8f), new Vector2(0.06f, 0.8f)),
+                Mathf.Min(
+                    Segment(p, new Vector2(0.06f, 0.8f), new Vector2(-0.3f, 0.5f)),
+                    Segment(p, new Vector2(-0.3f, -0.8f), new Vector2(0.42f, -0.8f))))))
+            : Field("digit:0", DigitSize, p => Stroked(
+                Mathf.Abs(Segment(p, new Vector2(0f, -0.34f), new Vector2(0f, 0.34f)) - 0.46f)));
+
+        /// <summary>How much of a stroke covers a point this far from the line it is drawn along.</summary>
+        /// <remarks>
+        /// Not <see cref="Mathf.SmoothStep"/>, which is not the shader smoothstep its name suggests:
+        /// it eases between its first two arguments, so a stroke drawn with it covered the whole
+        /// sprite and every digit came out a square.
+        /// </remarks>
+        private static float Stroked(float distance)
+        {
+            float t = Mathf.InverseLerp(
+                DigitStroke * 0.5f - DigitSoftness, DigitStroke * 0.5f + DigitSoftness, distance);
+            return 1f - t * t * (3f - 2f * t);
+        }
+
+        /// <summary>How far <paramref name="p"/> is from the segment between <paramref name="a"/> and <paramref name="b"/>.</summary>
+        private static float Segment(Vector2 p, Vector2 a, Vector2 b)
+        {
+            Vector2 ab = b - a;
+            float t = Mathf.Clamp01(Vector2.Dot(p - a, ab) / ab.sqrMagnitude);
+            return (p - (a + ab * t)).magnitude;
+        }
 
         /// <summary>
         /// An open ring, for an input port with nothing in it.

@@ -50,6 +50,19 @@ namespace BitSorter.View
         Bordered,
     }
 
+    /// <summary>What a bit in flight is drawn as.</summary>
+    public enum BitStyle
+    {
+        /// <summary>A glowing dot, told apart from the other value by its colour alone.</summary>
+        Dot,
+
+        /// <summary>
+        /// Its own digit, 0 or 1, upright whichever way the wire runs: told apart by its shape,
+        /// which bloom and colour blindness leave alone.
+        /// </summary>
+        Digit,
+    }
+
     /// <summary>
     /// A whole visual direction: its <see cref="Palette"/>, and the choices that are not colours --
     /// how gate bodies are filled, how the grid is marked, how panels are drawn, how hard the board
@@ -82,6 +95,22 @@ namespace BitSorter.View
 
         /// <summary>How panels are drawn.</summary>
         public PanelStyle Panels = PanelStyle.Filled;
+
+        /// <summary>What a bit in flight is drawn as.</summary>
+        public BitStyle Bits = BitStyle.Dot;
+
+        /// <summary>How large a bit in flight is, as a share of the scene's size.</summary>
+        public float BitScale = 1f;
+
+        /// <summary>
+        /// How strongly the halo behind a bit glows, as a share of the scene's glow. A digit needs
+        /// less than a dot: behind a stroke, a halo as bright as the stroke hides the shape it
+        /// surrounds, and the bloom already gives it all the glow it needs.
+        /// </summary>
+        public float BitGlow = 1f;
+
+        /// <summary>How wide a bit's trail is, as a share of the scene's width.</summary>
+        public float TrailWidth = 1f;
 
         /// <summary>
         /// How strongly the board blooms, and how far the glow spreads. The threshold is not here:

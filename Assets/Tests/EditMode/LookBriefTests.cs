@@ -195,6 +195,24 @@ namespace BitSorter.LogicCore.Tests
         }
 
         /// <summary>
+        /// A 0 and a 1 in flight differ by their shape, not only their colour.
+        /// </summary>
+        /// <remarks>
+        /// Neon Board shipped with a magenta 1 and an indigo 0 -- neighbours on the wheel, and
+        /// under bloom the 0 lifted to a bright violet. A playtester could not tell them apart,
+        /// which is the reason the gates were told apart by shape in the first place.
+        /// </remarks>
+        [Test]
+        public void AZeroAndAOne_DifferByShape()
+        {
+            foreach (Look look in NewLooks())
+            {
+                Assert.AreEqual(BitStyle.Digit, look.Bits,
+                    $"{look.Name}: a bit in flight says its value by colour alone");
+            }
+        }
+
+        /// <summary>
         /// Every kind of button can be read, the solid one included.
         /// </summary>
         /// <remarks>

@@ -443,6 +443,15 @@ failure side.
   for next, and the only solid button, so an outlined look tells it apart by shape
   as well as colour. Quiet is quieter by its edge, never its caption: a dim
   caption is how a button says it cannot be pressed.
+
+  **A bit says its value by its shape.** In Neon Board a bit in flight is its own
+  digit (`BitStyle.Digit`), stroked like a neon tube and kept upright on every
+  wire, with its arrival squash laid onto the screen's axes by
+  `BitVisuals.Upright`. Colour could not carry it: a magenta 1 and an indigo 0 are
+  neighbours, bloom lifted the 0 to a bright violet, and a playtester could not
+  tell them apart. A digit wants a quieter halo and a narrower trail than a dot,
+  which are the look's `BitGlow` and `TrailWidth`. A bit *held* -- in a socket,
+  or inside a register -- is still a disc told apart by colour alone.
 - **Ambient animation keeps one clock, `ViewTime`; an event counts from its own
   start.** A collision warning throbs in step across port, wire and bit, stalled
   gates breathe together and the grid shimmers as one, so those read

@@ -32,6 +32,10 @@ namespace BitSorter.View
         ///
         /// The AND is a deeper green than round two's lime: lime is simply the most luminous hue, and
         /// it made the AND the loudest gate on any board it was on.
+        ///
+        /// A bit is its own digit. Magenta and indigo are neighbours, and under bloom the indigo 0
+        /// lifted to a bright violet -- a playtester could not tell a 0 from a 1 by colour, which is
+        /// the reason the gates were told apart by shape in the first place.
         /// </remarks>
         public static Look NeonBoard { get; } = Look.Classic.Derive("neon-board", look =>
         {
@@ -112,6 +116,10 @@ namespace BitSorter.View
             });
 
             look.Bodies = BodyStyle.LitGlass;
+            look.Bits = BitStyle.Digit;
+            look.BitScale = 1.3f;
+            look.BitGlow = 0.35f;
+            look.TrailWidth = 0.5f;
             look.Grid = GridStyle.Dots;
             look.Panels = PanelStyle.Bordered;
             look.BoardUnits = 4f;

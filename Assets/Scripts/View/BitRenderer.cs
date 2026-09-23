@@ -163,12 +163,26 @@ namespace BitSorter.View
                     Transform bitTransform = sprite.transform;
                     bitTransform.position = at;
 
-                    // Face along the wire so the arrival squash compresses in the travel direction.
                     Vector2 direction = to - from;
-                    if (direction.sqrMagnitude > 1e-6f)
-                        bitTransform.right = direction.normalized;
+                    Vector2 scale = BitVisuals.ScaleAt(travelled, _bitSize * Look.Current.BitScale);
 
-                    Vector2 scale = BitVisuals.ScaleAt(travelled, _bitSize);
+                    if (Look.Current.Bits == BitStyle.Digit)
+                    {
+                        // A digit stays upright, so the squash is laid onto the screen's axes
+                        // instead of turning the bit to face the wire.
+                        Sprite glyph = ProceduralSprites.BitGlyph(bit.Value);
+                        if (!ReferenceEquals(sprite.sprite, glyph))
+                            sprite.sprite = glyph;
+
+                        bitTransform.rotation = Quaternion.identity;
+                        scale = BitVisuals.Upright(scale, direction);
+                    }
+                    else if (direction.sqrMagnitude > 1e-6f)
+                    {
+                        // Face along the wire so the arrival squash compresses in the travel direction.
+                        bitTransform.right = direction.normalized;
+                    }
+
                     bitTransform.localScale = new Vector3(scale.x, scale.y, 1f);
 
                     // Lifted above the bloom threshold here rather than in the colour itself,
@@ -324,7 +338,7 @@ namespace BitSorter.View
             if (!_halos.TryGetValue(sprite, out SpriteRenderer halo))
                 return;
 
-            halo.color = new Color(emissive.r, emissive.g, emissive.b, _glowAlpha);
+            halo.color = new Color(emissive.r, emissive.g, emissive.b, _glowAlpha * Look.Current.BitGlow);
 
             if (_trails.TryGetValue(sprite, out TrailRenderer trail))
             {
@@ -404,7 +418,7 @@ namespace BitSorter.View
             trail.autodestruct = false;
 
             // Trail geometry is world-space, so the parent's arrival squash does not distort it.
-            trail.widthMultiplier = _bitSize * 0.85f;
+            trail.widthMultiplier = _bitSize * 0.85f * Look.Current.TrailWidth;
             trail.widthCurve = new AnimationCurve(new Keyframe(0f, 1f), new Keyframe(1f, 0f));
 
             return trail;
