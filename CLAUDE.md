@@ -422,10 +422,20 @@ failure side.
   wherever each was first needed, and nothing could compare them: the interface
   took its accents from the node colours on purpose, and the side effect nobody
   weighed was that every source was `Good`, every sink `Bad` and the NAND gate
-  `Accent`, to the last digit. `Palette.Classic` is the shipped look. **Never
-  change a palette in place** -- derive a new one -- and choose it before the
-  scene loads, because renderers take their colours when they build. The board
-  tile bakes its colours in, so it is cached per palette.
+  `Accent`, to the last digit. **Never change a palette in place** -- derive a
+  new one -- and choose it before the scene loads, because renderers take their
+  colours when they build. The board tile bakes its colours in, so it is cached
+  per palette.
+
+  **The game is drawn in `Looks.NeonBoard`**, `Look.Default`, chosen out of three
+  directions rendered side by side. `Look.Classic` is 2.0's look, kept so a change
+  that claims to touch no look can be held to Classic's reference shots, pixel
+  for pixel. A look's bloom lives in the scene's volume profile, which holds
+  Classic's values, so `LookBoot` puts the current look's on every scene as it
+  loads. `LookBriefTests` holds every look but Classic to the brief it was drawn
+  against: no state colour on the board, a 1 in a colour of its own, a 0 that
+  glows in its own colour rather than white or the wire's, panels that cover,
+  text at 4.5:1, and a chosen button that stands out.
 - **Ambient animation keeps one clock, `ViewTime`; an event counts from its own
   start.** A collision warning throbs in step across port, wire and bit, stalled
   gates breathe together and the grid shimmers as one, so those read

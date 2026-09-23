@@ -215,7 +215,8 @@ namespace BitSorter.PlayMode.Tests
         /// </summary>
         private static int PanelsTooSmallForTheirCorners(out string report)
         {
-            Sprite panel = ProceduralSprites.Panel();
+            // The sprite Panel_ draws with in the current look, filled or bordered.
+            Sprite panel = ProceduralSprites.Panel(Look.Current.Panels);
             var failures = new System.Text.StringBuilder();
             int checkedPanels = 0;
 

@@ -60,9 +60,11 @@ namespace BitSorter.View
     /// and nothing else. <see cref="Palette.Current"/> reads through <see cref="Current"/>, so
     /// nothing that draws a colour needs to know a look exists.
     ///
-    /// <see cref="Classic"/> is the game as it shipped, and every choice here defaults to what it
-    /// already did; the reference screenshots hold it to that pixel for pixel. Chosen before the
-    /// scene loads, and never changed in place -- derive a new one.
+    /// <see cref="Default"/> is what the game is drawn in: Neon Board, chosen out of three
+    /// directions rendered side by side. <see cref="Classic"/> is the game as 2.0 shipped it, and
+    /// every choice here defaults to what it did, so Classic is still one line to draw and the
+    /// reference screenshots can hold a change that claims to touch no look to that, pixel for
+    /// pixel. Chosen before the scene loads, and never changed in place -- derive a new one.
     /// </remarks>
     public sealed class Look
     {
@@ -125,11 +127,14 @@ namespace BitSorter.View
         /// <summary>The look everything is drawn in.</summary>
         /// <remarks>
         /// Read through a fallback for the reason <see cref="Palette.Current"/> used to be: a
-        /// static initialiser written above <see cref="Classic"/> would run first and be null.
+        /// static initialiser would run before the look it names had been built, and be null.
         /// </remarks>
-        public static Look Current => _current ?? Classic;
+        public static Look Current => _current ?? Default;
 
-        /// <summary>Makes a look the current one. Null goes back to <see cref="Classic"/>.</summary>
+        /// <summary>The look the game is drawn in unless something chooses another.</summary>
+        public static Look Default => Looks.NeonBoard;
+
+        /// <summary>Makes a look the current one. Null goes back to <see cref="Default"/>.</summary>
         public static void Use(Look look) => _current = look;
 
         /// <summary>A copy of this look under a new name, changed by <paramref name="change"/>.</summary>
@@ -141,15 +146,22 @@ namespace BitSorter.View
             return copy;
         }
 
-        /// <summary>The game as it shipped.</summary>
+        /// <summary>The game as 2.0 shipped it.</summary>
         public static Look Classic { get; } = new Look
         {
             Name = "classic",
             Colours = Palette.Classic,
         };
 
-        /// <summary>Every look there is. Below <see cref="Classic"/>, which it needs initialised first.</summary>
-        public static IReadOnlyList<Look> All { get; } = new[] { Classic };
+        private static Look[] _all;
+
+        /// <summary>Every look there is.</summary>
+        /// <remarks>
+        /// Built on first use rather than in a static initialiser: <see cref="Looks"/> derives its
+        /// looks from <see cref="Classic"/>, so whichever class was touched first would find the
+        /// other half built and read a null out of it.
+        /// </remarks>
+        public static IReadOnlyList<Look> All => _all ??= new[] { Classic, Looks.NeonBoard };
 
         /// <summary>The look with this name, or null if there is none.</summary>
         public static Look Named(string name)
@@ -168,8 +180,8 @@ namespace BitSorter.View
         /// </summary>
         /// <remarks>
         /// <see cref="Volume.profile"/> hands back an instance for the session rather than the
-        /// asset, so the look never writes into the project. Classic's values are the asset's own,
-        /// so for the shipped game this changes nothing.
+        /// asset, so the look never writes into the project. The asset holds Classic's values;
+        /// every scene the game loads has the current look's put on it by <see cref="LookBoot"/>.
         /// </remarks>
         public static void ApplyBloom()
         {

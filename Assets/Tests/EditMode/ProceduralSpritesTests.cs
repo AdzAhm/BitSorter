@@ -115,6 +115,9 @@ namespace BitSorter.LogicCore.Tests
 
             try
             {
+                // Classic's tile, named rather than taken as whatever is current: the game's own look
+                // spreads its tile too.
+                Look.Use(Look.Classic);
                 Sprite shipped = ProceduralSprites.BoardTile();
 
                 Look.Use(wide);
