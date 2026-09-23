@@ -167,7 +167,9 @@ namespace BitSorter.View
         {
             bool holding = port.IsOccupied;
 
-            stub.sprite = holding ? ProceduralSprites.Dot() : ProceduralSprites.Ring();
+            stub.sprite = !holding ? ProceduralSprites.Ring()
+                : Look.Current.Bits == BitStyle.Digit ? ProceduralSprites.HeldBit(port.Pending.Value)
+                : ProceduralSprites.Dot();
 
             Color colour = RestingColourOf(port);
             float scale = holding ? _heldScale : 1f;

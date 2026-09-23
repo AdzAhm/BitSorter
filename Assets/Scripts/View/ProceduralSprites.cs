@@ -210,13 +210,46 @@ namespace BitSorter.View
         /// socket it is travelling towards.
         /// </remarks>
         public static Sprite BitGlyph(Bit value) => value == Bit.One
-            ? Field("digit:1", DigitSize, p => Stroked(Mathf.Min(
-                Segment(p, new Vector2(0.06f, -0.8f), new Vector2(0.06f, 0.8f)),
-                Mathf.Min(
-                    Segment(p, new Vector2(0.06f, 0.8f), new Vector2(-0.3f, 0.5f)),
-                    Segment(p, new Vector2(-0.3f, -0.8f), new Vector2(0.42f, -0.8f))))))
-            : Field("digit:0", DigitSize, p => Stroked(
-                Mathf.Abs(Segment(p, new Vector2(0f, -0.34f), new Vector2(0f, 0.34f)) - 0.46f)));
+            ? Field("digit:1", DigitSize, p => Stroked(OneDistance(p)))
+            : Field("digit:0", DigitSize, p => Stroked(ZeroDistance(p)));
+
+        /// <summary>
+        /// A bit that is being held -- in a socket, or inside a register -- as a disc with its
+        /// digit cut out of it, like a stamped coin.
+        /// </summary>
+        /// <remarks>
+        /// A disc and not the stroked digit a bit in flight is, because a socket already has a
+        /// meaning for hollow: a ring is an empty socket, and a stroked 0 in one would read as
+        /// nothing there. The disc says full; the cut says which value.
+        ///
+        /// The disc is exactly <see cref="Circle"/>'s, so the register's held bit keeps the
+        /// geometry <see cref="PortGeometry"/> pins to that sprite.
+        /// </remarks>
+        public static Sprite HeldBit(Bit value) => value == Bit.One
+            ? Mask("held:1", NodeSize, p =>
+                InCircle(p, CircleRadius) && OneDistance(p / CoinDigit) * CoinDigit > CoinStroke * 0.5f)
+            : Mask("held:0", NodeSize, p =>
+                InCircle(p, CircleRadius) && ZeroDistance(p / CoinDigit) * CoinDigit > CoinStroke * 0.5f);
+
+        /// <summary>How large the digit cut into a held bit is, against the stroked one.</summary>
+        private const float CoinDigit = 0.6f;
+
+        /// <summary>
+        /// How wide the cut is, on the sprite's -1..1 square. Heavier than the stroked digit's, in
+        /// proportion: a socket is small, and a cut much finer than this closes up at its size.
+        /// </summary>
+        private const float CoinStroke = 0.24f;
+
+        /// <summary>How far a point is from the line a 1 is drawn along: a bar, a flag and a foot.</summary>
+        private static float OneDistance(Vector2 p) => Mathf.Min(
+            Segment(p, new Vector2(0.06f, -0.8f), new Vector2(0.06f, 0.8f)),
+            Mathf.Min(
+                Segment(p, new Vector2(0.06f, 0.8f), new Vector2(-0.3f, 0.5f)),
+                Segment(p, new Vector2(-0.3f, -0.8f), new Vector2(0.42f, -0.8f))));
+
+        /// <summary>How far a point is from the line a 0 is drawn along: a tall rounded loop.</summary>
+        private static float ZeroDistance(Vector2 p) =>
+            Mathf.Abs(Segment(p, new Vector2(0f, -0.34f), new Vector2(0f, 0.34f)) - 0.46f);
 
         /// <summary>How much of a stroke covers a point this far from the line it is drawn along.</summary>
         /// <remarks>

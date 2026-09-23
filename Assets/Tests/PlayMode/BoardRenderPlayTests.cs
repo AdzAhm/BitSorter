@@ -212,6 +212,69 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
+        /// A register shows the bit it is keeping by its shape, and changes it when the bit does.
+        /// </summary>
+        /// <remarks>
+        /// The register's bit is a machine's state -- the thing a sequential level is about -- and
+        /// was a disc told apart by colour alone. The sprite is swapped where the state is noticed
+        /// to change, so a register that never swapped it would hold its first digit forever: the
+        /// run below watches it take a 1 after starting on a 0.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator ARegister_ShowsTheBitItIsKeeping_ByItsShape()
+        {
+            Assume.That(Look.Current.Bits, Is.EqualTo(BitStyle.Digit),
+                "this needs a look that draws bits as digits");
+
+            yield return TestScene.Load();
+            Find<MainMenu>().Show(false);
+            yield return null;
+
+            LevelSession session = Find<LevelSession>();
+            SimulationRunner runner = Find<SimulationRunner>();
+
+            Assert.IsTrue(session.LoadLevel("one-clock-late"), "the level did not load");
+
+            for (int frame = 0; frame < 30 && !runner.FixtureNodeIds.ContainsKey("in"); frame++)
+                yield return null;
+
+            var middle = new Vector2Int(0, 0);
+            Assert.IsTrue(session.TryPlaceGate(GateKind.Register, middle), "could not place the register");
+            int register = NodeOn(runner, middle);
+            Wire(session, runner.FixtureNodeIds["in"], 0, register, 0);
+            Wire(session, register, 0, runner.FixtureNodeIds["out"], 0);
+
+            yield return null;
+            yield return null;
+
+            Assert.AreSame(ProceduralSprites.HeldBit(Bit.Zero), HeldBitOf(register).sprite,
+                "a register starts holding a 0, and does not show one");
+
+            // Run rebuilds the board, so the register and its drawing are found again after it.
+            session.Run();
+            yield return null;
+            register = NodeOn(runner, middle);
+
+            bool HoldsOne() => runner.View.GetNode(register) is RegisterNode node && node.State == Bit.One;
+
+            for (int frame = 0; frame < 2000 && !HoldsOne(); frame++)
+                yield return null;
+
+            Assert.IsTrue(HoldsOne(), "sanity: the register never took a 1");
+            yield return null;
+
+            Assert.AreSame(ProceduralSprites.HeldBit(Bit.One), HeldBitOf(register).sprite,
+                "the register took a 1 and still shows the 0 it started with");
+        }
+
+        private static SpriteRenderer HeldBitOf(int register)
+        {
+            GameObject held = GameObject.Find($"Held {register}");
+            Assert.IsNotNull(held, $"sanity: register {register} has no held bit drawn");
+            return held.GetComponent<SpriteRenderer>();
+        }
+
+        /// <summary>
         /// Two bits that meet are never drawn at the same depth, and never swap order mid-flight.
         /// </summary>
         /// <remarks>

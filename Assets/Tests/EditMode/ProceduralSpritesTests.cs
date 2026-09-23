@@ -173,6 +173,39 @@ namespace BitSorter.LogicCore.Tests
             }
         }
 
+        /// <summary>
+        /// A held bit is a filled disc with its digit cut out: full, not hollow, and exactly the
+        /// register's disc, so the geometry pinned to that disc does not move.
+        /// </summary>
+        /// <remarks>
+        /// Hollow already means something in a socket -- an empty one is a ring -- so the held bit
+        /// stays filled and says its value in the cut. A 0's cut is a loop, which leaves the middle
+        /// standing; a 1's is a bar, which takes the middle out.
+        /// </remarks>
+        [Test]
+        public void AHeldBit_IsAFullDisc_WithItsDigitCutOut()
+        {
+            Sprite zero = ProceduralSprites.HeldBit(Bit.Zero);
+            Sprite one = ProceduralSprites.HeldBit(Bit.One);
+            Sprite disc = ProceduralSprites.Circle();
+
+            Assert.AreNotSame(zero, one, "a held 0 and a held 1 are drawn alike");
+
+            Assert.Greater(AlphaAtCentre(zero), 0.9f, "a 0's loop should leave the middle of the disc");
+            Assert.Less(AlphaAtCentre(one), 0.1f, "a 1's bar should cut through the middle of the disc");
+
+            foreach (Sprite held in new[] { zero, one })
+            {
+                Assert.Greater(Covered(held), Covered(disc) * 0.6f,
+                    $"{held.name}: a held bit should read as full, and most of its disc is cut away");
+
+                RectInt heldBox = Extent(held);
+                RectInt discBox = Extent(disc);
+                Assert.AreEqual(discBox.width, heldBox.width, $"{held.name}: not the register's disc");
+                Assert.AreEqual(discBox.height, heldBox.height, $"{held.name}: not the register's disc");
+            }
+        }
+
         private static float Covered(Sprite sprite)
         {
             Color32[] pixels = sprite.texture.GetPixels32();

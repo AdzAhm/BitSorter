@@ -108,6 +108,11 @@ namespace BitSorter.View
                 {
                     _heldValues[id] = register.State;
                     _capturing[id] = _captureSeconds;
+
+                    // The state of a machine, so it says its value by its shape as a bit in
+                    // flight does -- not by its colour alone.
+                    if (Look.Current.Bits == BitStyle.Digit)
+                        disc.sprite = ProceduralSprites.HeldBit(register.State);
                 }
 
                 float left = _capturing.TryGetValue(id, out float remaining) ? remaining : 0f;

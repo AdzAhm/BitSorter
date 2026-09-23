@@ -451,7 +451,10 @@ failure side.
   neighbours, bloom lifted the 0 to a bright violet, and a playtester could not
   tell them apart. A digit wants a quieter halo and a narrower trail than a dot,
   which are the look's `BitGlow` and `TrailWidth`. A bit *held* -- in a socket,
-  or inside a register -- is still a disc told apart by colour alone.
+  or inside a register -- is a disc with its digit cut out of it
+  (`ProceduralSprites.HeldBit`), not the stroked digit: hollow already means an
+  empty socket, so a held bit stays filled and says its value in the cut. The
+  disc is exactly the register's circle, so `PortGeometry` did not move.
 - **Ambient animation keeps one clock, `ViewTime`; an event counts from its own
   start.** A collision warning throbs in step across port, wire and bit, stalled
   gates breathe together and the grid shimmers as one, so those read
