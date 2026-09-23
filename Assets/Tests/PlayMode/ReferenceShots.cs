@@ -407,6 +407,55 @@ namespace BitSorter.PlayMode.Tests
             yield return Capture("13-hint");
         }
 
+        /// <summary>
+        /// A register holding a 1 mid-run, with the 0 it started with on its way out: the one
+        /// shot of a machine's state.
+        /// </summary>
+        /// <remarks>
+        /// Added when bits started saying their value by shape. None of the other shots has a
+        /// register in it, so nothing pictured the bit a sequential level is about -- and a change
+        /// that made it unreadable would have passed every capture.
+        ///
+        /// Its first-time hint is marked seen, so the banner does not cover the board it explains.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator Shot14_RegisterHolding()
+        {
+            yield return OpenOnTheBoard();
+
+            ProgressStore store = Find<ProgressTracker>().Store;
+            store.MarkMilestone(ChapterCard.Milestone);
+            store.MarkHintSeen(HintRules.Register);
+
+            yield return LoadAndBuild(FirstRegisterLevel);
+
+            LevelSession session = Find<LevelSession>();
+            SimulationRunner runner = Find<SimulationRunner>();
+            var middle = new Vector2Int(0, 0);
+
+            Assert.IsTrue(session.TryPlaceGate(GateKind.Register, middle), "could not place the register");
+            int register = NodeOn(runner, middle);
+            Wire(session, runner.FixtureNodeIds["in"], register, 0);
+            Wire(session, register, runner.FixtureNodeIds["out"], 0);
+
+            session.Run();
+
+            for (int frame = 0; frame < 2000 && !Holds(runner, register, Bit.One); frame++)
+                yield return null;
+
+            Assert.IsTrue(Holds(runner, register, Bit.One), "the register never took a 1");
+
+            yield return HalfATick();
+
+            Assert.IsTrue(Holds(runner, register, Bit.One), "the register let go of its 1 within half a tick");
+            Assert.Greater(BitsInFlight(), 0, "the register shot has nothing in flight beside it");
+
+            yield return Capture("14-register");
+        }
+
+        private static bool Holds(SimulationRunner runner, int id, Bit value) =>
+            runner.View.GetNode(id) is RegisterNode register && register.State == value;
+
         // -----------------------------------------------------------------
         // Staging
         // -----------------------------------------------------------------
