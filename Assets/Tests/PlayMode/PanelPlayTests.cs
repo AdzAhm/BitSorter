@@ -277,6 +277,39 @@ namespace BitSorter.PlayMode.Tests
             }
         }
 
+        /// <summary>
+        /// A button on the run row that cannot be pressed looks it: its caption dims with it.
+        /// </summary>
+        /// <remarks>
+        /// The row switched buttons off with <c>interactable</c> alone, which tints the background
+        /// and leaves the caption bright -- so UNDO with nothing to undo, and RUN in the middle of a
+        /// run, still read as buttons to press. <see cref="UiTheme.SetEnabled"/> exists for exactly
+        /// this and the row never called it.
+        ///
+        /// RESET is the pair: always live on a loaded level, so a caption dimmed regardless would
+        /// fail here rather than pass.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator ADeadButtonOnTheRunRow_DimsItsCaption()
+        {
+            yield return TestScene.Load();
+            yield return CloseTheMainMenu();
+
+            Transform row = GameObject.Find("Run controls").transform;
+            Button undo = row.Find("Undo").GetComponent<Button>();
+            Button reset = row.Find("Reset").GetComponent<Button>();
+
+            Assume.That(undo.interactable, Is.False, "a board nothing has been done to has nothing to undo");
+            Assume.That(reset.interactable, Is.True, "a loaded level can always be reset");
+
+            Assert.AreEqual(UiTheme.TextDim, CaptionOf(undo).color,
+                "UNDO cannot be pressed, and its caption says it can");
+            Assert.AreEqual(UiTheme.Text, CaptionOf(reset).color, "RESET can be pressed, and is dimmed");
+        }
+
+        private static TMPro.TextMeshProUGUI CaptionOf(Button button) =>
+            button.GetComponentInChildren<TMPro.TextMeshProUGUI>();
+
         // -----------------------------------------------------------------
         // What is already on screen when a panel opens
         // -----------------------------------------------------------------
