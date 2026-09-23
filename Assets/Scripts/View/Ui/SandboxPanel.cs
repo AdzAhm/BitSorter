@@ -322,42 +322,44 @@ namespace BitSorter.View
                 return;
 
             int capacity = SandboxLevel.Capacity(Extents());
-            float y = 0f;
+            var column = new UiColumn();
 
             // The same sentence the status banner carries. The panel no longer covers the banner, but
             // the moment a count reaches zero is the moment it needs saying next to the count.
             string warning = SandboxLevel.Warning(_config);
 
             if (warning != null)
-                y = Wrapped(y, warning, UiTheme.Bad);
+                Wrapped(column, warning, UiTheme.Bad);
 
-            y = Heading(y, "INPUTS");
-            y = Stepper(y, "Sources", _config.sources.Length, SandboxRules.Sources(capacity), SetSources);
+            Heading(column, "INPUTS");
+            Stepper(column, "Sources", _config.sources.Length, SandboxRules.Sources(capacity), SetSources);
 
             if (_config.sources.Length > 0)
-                y = Columns(y);
+                Columns(column);
 
             for (int i = 0; i < _config.sources.Length; i++)
-                y = StreamRow(y, i);
+                StreamRow(column, i);
 
-            y -= 6f;
-            y = Stepper(y, "Vectors", _config.vectors, SandboxRules.Vectors(), SetVectors);
-            y = Stepper(y, "Clock", _config.Clock, SandboxRules.Clock(), SetClock);
-            y = TableRow(y);
+            column.Space(6f);
+            Stepper(column, "Vectors", _config.vectors, SandboxRules.Vectors(), SetVectors);
+            Stepper(column, "Clock", _config.Clock, SandboxRules.Clock(), SetClock);
+            TableRow(column);
 
-            y = Heading(y - 8f, "OUTPUTS");
-            y = Stepper(y, "Sinks", _config.sinks, SandboxRules.Sinks(capacity), SetSinks);
+            column.Space(8f);
+            Heading(column, "OUTPUTS");
+            Stepper(column, "Sinks", _config.sinks, SandboxRules.Sinks(capacity), SetSinks);
 
             if (_config.sinks > 0)
-                y = Columns(y);
+                Columns(column);
 
             for (int i = 0; i < _config.sinks; i++)
-                y = CaughtRowFor(y, i);
+                CaughtRowFor(column, i);
 
-            y = Heading(y - 8f, "SPEED");
-            SpeedRow(y);
+            column.Space(8f);
+            Heading(column, "SPEED");
+            SpeedRow(column);
 
-            Fit(y - 26f);
+            Fit(column.Next);
         }
 
         /// <summary>
@@ -369,9 +371,10 @@ namespace BitSorter.View
         /// <see cref="UiRows.PanelFloor"/> is the floor: below it are the refusal toast and the
         /// run buttons.
         /// </remarks>
-        private void Fit(float bottom)
+        /// <param name="used">How far down the body its rows reach.</param>
+        private void Fit(float used)
         {
-            float wanted = BodyTop - bottom + Pad;
+            float wanted = BodyTop + used + Pad;
             float room = CanvasHeight() - UiRows.Panels.Offset - UiRows.PanelFloor;
 
             _root.sizeDelta = new Vector2(UiTheme.SetupWidth, Mathf.Min(wanted, room));
@@ -380,18 +383,18 @@ namespace BitSorter.View
         private float CanvasHeight() =>
             _canvas != null && _canvas.transform is RectTransform rect ? rect.rect.height : 1080f;
 
-        private float Heading(float y, string caption)
+        private void Heading(UiColumn column, string caption)
         {
+            float top = column.Take(18f, 4f);
+
             TextMeshProUGUI label = UiTheme.Label(
                 caption, _bodyRoot, 12f, UiTheme.Accent * 0.85f, TextAlignmentOptions.Left);
 
             UiTheme.Anchor(label.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f),
-                new Vector2(0f, y), new Vector2(Inner, 18f));
+                new Vector2(0f, -top), new Vector2(Inner, 18f));
 
             label.text = caption;
             _body.Add(label.gameObject);
-
-            return y - 22f;
         }
 
         /// <summary>A line of text that may be longer than the panel is wide.</summary>
@@ -402,7 +405,7 @@ namespace BitSorter.View
         /// right edge. The height is measured from the text instead of assumed, so a
         /// note that takes three lines pushes the next row down rather than printing over it.
         /// </remarks>
-        private float Wrapped(float y, string text, Color colour)
+        private void Wrapped(UiColumn column, string text, Color colour)
         {
             TextMeshProUGUI label = UiTheme.Label(
                 "note", _bodyRoot, NoteFontSize, colour, TextAlignmentOptions.TopLeft);
@@ -410,14 +413,13 @@ namespace BitSorter.View
             label.textWrappingMode = TextWrappingModes.Normal;
 
             float height = Mathf.Ceil(UiTheme.TextHeight(text, NoteFontSize, Inner));
+            float top = column.Take(height, NoteGap);
 
             UiTheme.Anchor(label.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f),
-                new Vector2(0f, y), new Vector2(Inner, height));
+                new Vector2(0f, -top), new Vector2(Inner, height));
 
             label.text = text;
             _body.Add(label.gameObject);
-
-            return y - (height + NoteGap);
         }
 
         /// <summary>Size of the panel's notes, shared with the measurement that sizes their boxes.</summary>
@@ -427,26 +429,28 @@ namespace BitSorter.View
         private const float NoteGap = 6f;
 
         /// <summary>The vector numbers, over the columns the bits below them sit in.</summary>
-        private float Columns(float y)
+        private void Columns(UiColumn column)
         {
+            float top = column.Take(14f, 2f);
+
             for (int v = 0; v < _config.vectors; v++)
             {
                 TextMeshProUGUI label = UiTheme.Label(
                     $"column {v}", _bodyRoot, 10f, UiTheme.TextDim, TextAlignmentOptions.Center);
 
                 UiTheme.Anchor(label.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f),
-                    new Vector2(NameWidth + v * CellPitch, y), new Vector2(CellWidth, 14f));
+                    new Vector2(NameWidth + v * CellPitch, -top), new Vector2(CellWidth, 14f));
 
                 label.text = (v + 1).ToString();
                 _body.Add(label.gameObject);
             }
-
-            return y - 16f;
         }
 
-        private float Stepper(
-            float y, string caption, int value, StepRange range, System.Action<int> set)
+        private void Stepper(
+            UiColumn column, string caption, int value, StepRange range, System.Action<int> set)
         {
+            float y = -column.Take(StepHeight, 4f);
+
             TextMeshProUGUI label = UiTheme.Label(
                 caption, _bodyRoot, 14f, UiTheme.Text, TextAlignmentOptions.Left);
             UiTheme.Anchor(label.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f),
@@ -464,8 +468,6 @@ namespace BitSorter.View
             _body.Add(count.gameObject);
 
             Step(y, Inner - 24f, "+", range.CanIncrease(value), () => set(value + 1));
-
-            return y - (StepHeight + 4f);
         }
 
         private void Step(float y, float x, string glyph, bool enabled, UnityEngine.Events.UnityAction go)
@@ -482,8 +484,10 @@ namespace BitSorter.View
             _body.Add(button.gameObject);
         }
 
-        private float StreamRow(float y, int index)
+        private void StreamRow(UiColumn column, int index)
         {
+            float y = -column.Take(RowHeight, 3f);
+
             TextMeshProUGUI id = UiTheme.Label(
                 $"source {index}", _bodyRoot, 14f, UiTheme.TextDim, TextAlignmentOptions.Left);
             UiTheme.Anchor(id.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f),
@@ -513,13 +517,13 @@ namespace BitSorter.View
                 bit.onClick.AddListener(() => { Flip(index, vector); Defocus(); });
                 _body.Add(bit.gameObject);
             }
-
-            return y - (RowHeight + 3f);
         }
 
         /// <summary>The two fill buttons, and why the table one is dead when it is.</summary>
-        private float TableRow(float y)
+        private void TableRow(UiColumn column)
         {
+            float y = -column.Take(26f, 4f);
+
             // Off when a full table would not fit, and off when the streams already are one --
             // a fresh sandbox opens on the two-input table, so the button had nothing to do and
             // looked broken rather than finished.
@@ -545,18 +549,15 @@ namespace BitSorter.View
             zeros.onClick.AddListener(() => { FillZeros(); Defocus(); });
             _body.Add(zeros.gameObject);
 
-            y -= 30f;
-
             // Said rather than left to be guessed: a dead button with no reason beside it reads as a
             // broken one.
             if (!canFill)
-                y = Wrapped(y, whyNot, UiTheme.TextDim);
-
-            return y;
+                Wrapped(column, whyNot, UiTheme.TextDim);
         }
 
-        private float CaughtRowFor(float y, int index)
+        private void CaughtRowFor(UiColumn column, int index)
         {
+            float y = -column.Take(RowHeight, 3f);
             string id = SandboxLevel.SinkId(index);
 
             TextMeshProUGUI name = UiTheme.Label(
@@ -588,12 +589,12 @@ namespace BitSorter.View
             _body.Add(row.Extra.gameObject);
 
             _caught.Add(row);
-
-            return y - (RowHeight + 3f);
         }
 
-        private void SpeedRow(float y)
+        private void SpeedRow(UiColumn column)
         {
+            float y = -column.Take(26f);
+
             for (int i = 0; i < SandboxRules.Speeds.Length; i++)
             {
                 int speed = SandboxRules.Speeds[i];

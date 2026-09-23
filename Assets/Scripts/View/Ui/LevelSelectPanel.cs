@@ -160,41 +160,38 @@ namespace BitSorter.View
             // and three different gaps sit between the rows now, and index arithmetic that has to
             // know about all of them is the shape this file had when the sandbox row was added --
             // every new spacer meant another term in every other row's offset.
-            float y = 0f;
+            var column = new UiColumn();
 
             // The tutorial sits above the run, free play below it. Neither is in Catalogue, and the
             // gaps on either side are what say so: what lies between them is the run.
-            BuildTutorialRow(list, y, rowHeight);
-            y += rowHeight + gap + TutorialGap;
+            BuildTutorialRow(list, column.Take(rowHeight, gap + TutorialGap), rowHeight);
 
             bool sequentialStarted = false;
 
             for (int i = 0; i < catalogue.Count; i++)
             {
                 if (i == 0)
-                    y += BuildHeading(list, y, LevelCatalog.HeadingFor(false));
+                    BuildHeading(list, column.Take(HeadingHeight), LevelCatalog.HeadingFor(false));
 
                 // The break is where the first level stocking a register is, which is the same fact
                 // the chapter card fires on, so the two cannot end up in different places.
                 if (!sequentialStarted && catalogue[i].IsSequential)
                 {
                     sequentialStarted = true;
-                    y += ChapterGap;
-                    y += BuildHeading(list, y, LevelCatalog.HeadingFor(true));
+                    column.Space(ChapterGap);
+                    BuildHeading(list, column.Take(HeadingHeight), LevelCatalog.HeadingFor(true));
                 }
 
-                _rows.Add(BuildRow(catalogue[i], list, y, rowHeight));
-                y += rowHeight + gap;
+                _rows.Add(BuildRow(catalogue[i], list, column.Take(rowHeight, gap), rowHeight));
             }
 
-            y += SandboxGap;
-            BuildSandboxRow(list, y, rowHeight);
-            y += rowHeight;
+            column.Space(SandboxGap);
+            BuildSandboxRow(list, column.Take(rowHeight), rowHeight);
 
             // Sized once everything is placed. Rows anchor to the list's top edge, so growing it
             // downwards afterwards moves nothing.
             UiTheme.Anchor(list, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                Vector2.zero, new Vector2(520f, y));
+                Vector2.zero, new Vector2(520f, column.Next));
         }
 
         /// <summary>Extra space before the sequential chapter, on top of the ordinary row gap.</summary>
@@ -247,7 +244,7 @@ namespace BitSorter.View
         }
 
         /// <summary>
-        /// A chapter's name over the first of its levels, and how much room it took.
+        /// A chapter's name over the first of its levels, <see cref="HeadingHeight"/> tall.
         /// </summary>
         /// <remarks>
         /// Bolder and brighter than the "the controls" and "free play" notes, which are asides on a
@@ -256,7 +253,7 @@ namespace BitSorter.View
         /// competing with it. The words come from <see cref="LevelCatalog"/>, which is also where
         /// the chapter card gets its title.
         /// </remarks>
-        private float BuildHeading(RectTransform list, float y, string text)
+        private void BuildHeading(RectTransform list, float y, string text)
         {
             TextMeshProUGUI heading = UiTheme.Label(
                 "chapter", list, 14f, UiTheme.Text, TextAlignmentOptions.Left);
@@ -271,8 +268,6 @@ namespace BitSorter.View
             heading.margin = new Vector4(LabelInset, 0f, 0f, 0f);
 
             heading.text = text;
-
-            return HeadingHeight;
         }
 
         /// <summary>Extra space between the last level and free play, so the run reads as ending.</summary>
