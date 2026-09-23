@@ -38,6 +38,9 @@ namespace BitSorter.View
         private Button _redo;
         private Button _clear;
         private TextMeshProUGUI _runLabel;
+        private TextMeshProUGUI _resetLabel;
+        private TextMeshProUGUI _undoLabel;
+        private TextMeshProUGUI _redoLabel;
         private TextMeshProUGUI _clearLabel;
         private RectTransform _root;
         private TextMeshProUGUI _controlsLine;
@@ -69,15 +72,15 @@ namespace BitSorter.View
             UiTheme.Anchor(_run.GetComponent<RectTransform>(), new Vector2(0f, 0f), new Vector2(0f, 0f),
                 Vector2.zero, new Vector2(150f, UiTheme.ButtonHeight));
 
-            _reset = UiTheme.Button_("Reset", root, "RESET", out TextMeshProUGUI _);
+            _reset = UiTheme.Button_("Reset", root, "RESET", out _resetLabel);
             UiTheme.Anchor(_reset.GetComponent<RectTransform>(), new Vector2(0f, 0f), new Vector2(0f, 0f),
                 new Vector2(158f, 0f), new Vector2(110f, UiTheme.ButtonHeight));
 
-            _undo = UiTheme.Button_("Undo", root, "UNDO", out TextMeshProUGUI _);
+            _undo = UiTheme.Button_("Undo", root, "UNDO", out _undoLabel);
             UiTheme.Anchor(_undo.GetComponent<RectTransform>(), new Vector2(0f, 0f), new Vector2(0f, 0f),
                 new Vector2(276f, 0f), new Vector2(76f, UiTheme.ButtonHeight));
 
-            _redo = UiTheme.Button_("Redo", root, "REDO", out TextMeshProUGUI _);
+            _redo = UiTheme.Button_("Redo", root, "REDO", out _redoLabel);
             UiTheme.Anchor(_redo.GetComponent<RectTransform>(), new Vector2(0f, 0f), new Vector2(0f, 0f),
                 new Vector2(356f, 0f), new Vector2(76f, UiTheme.ButtonHeight));
 
@@ -143,13 +146,15 @@ namespace BitSorter.View
                            _session.State == RunState.Finished;
             _runLabel.text = settled ? "RUN AGAIN" : "RUN";
 
-            _run.interactable = _session.IsLoaded && _session.State != RunState.Running;
-            _reset.interactable = _session.IsLoaded;
+            // Through SetEnabled, so a dead button's caption dims with it. interactable alone tints
+            // only the background, and UNDO with nothing to undo still read as a button to press.
+            UiTheme.SetEnabled(_run, _runLabel, _session.IsLoaded && _session.State != RunState.Running);
+            UiTheme.SetEnabled(_reset, _resetLabel, _session.IsLoaded);
 
             // Dead when there is nothing to step through, which is how the player finds out the
             // history is empty without pressing anything.
-            _undo.interactable = _session.CanUndo;
-            _redo.interactable = _session.CanRedo;
+            UiTheme.SetEnabled(_undo, _undoLabel, _session.CanUndo);
+            UiTheme.SetEnabled(_redo, _redoLabel, _session.CanRedo);
 
             UpdateClear();
         }
@@ -181,11 +186,15 @@ namespace BitSorter.View
             if (!pending && _confirmUntil != 0f)
                 _confirmUntil = 0f;
 
-            _clearLabel.text = pending ? "SURE?" : "CLEAR ALL";
-            _clearLabel.color = pending ? UiTheme.Bad : UiTheme.Text;
-
             // Nothing to clear on an untouched board, and nothing to clear mid-run.
-            _clear.interactable = _session.IsLoaded && _session.CanEdit && !_session.Blueprint.IsEmpty;
+            bool clearable = _session.IsLoaded && _session.CanEdit && !_session.Blueprint.IsEmpty;
+
+            // SetEnabled's rule with a third state, written out rather than called and then
+            // overridden: two colours set in one frame would rebuild the caption every frame the
+            // question stands.
+            _clearLabel.text = pending ? "SURE?" : "CLEAR ALL";
+            _clearLabel.color = !clearable ? UiTheme.TextDim : pending ? UiTheme.Bad : UiTheme.Text;
+            _clear.interactable = clearable;
         }
 
         /// <summary>First press arms, second press within the window clears.</summary>
