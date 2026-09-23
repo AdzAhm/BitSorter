@@ -47,7 +47,15 @@ namespace BitSorter.View
         private int _sparkedCount;
 
         /// <summary>Offset of the number from the wire's centreline, so the marks have the middle.</summary>
-        private const float LabelOffset = 0.34f;
+        /// <remarks>
+        /// Grown with the bits, so a larger bit passes beside its wire's number rather than under
+        /// it. Where a digit passed under it, every 0 on the board went by with a 1 printed over
+        /// its head.
+        /// </remarks>
+        private static float LabelOffset => LabelClearance * Look.Current.BitScale;
+
+        /// <inheritdoc cref="LabelOffset"/>
+        private const float LabelClearance = 0.34f;
 
         /// <summary>The number's size, at rest and under the cursor.</summary>
         private const float LabelFontSize = 1.5f;
