@@ -172,8 +172,10 @@ namespace BitSorter.View
                 _canvasRings.RemoveAt(_canvasUsed);
             }
 
+            // An outline, not a shape: it is drawn over its target, so a filled one hides the very
+            // thing the step is pointing at -- it used to, and RUN's caption went with it.
             Image ring = UiTheme.Panel_("Tutorial ring", _canvas.transform, Palette.Current.Highlight);
-            ring.sprite = ProceduralSprites.RoundedSquare();
+            ring.sprite = ProceduralSprites.PanelRing();
             ring.raycastTarget = false;   // never eat the click the step is asking for
 
             // Centred, so sizeDelta is the ring's actual size and PointAt can place it over its

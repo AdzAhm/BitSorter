@@ -160,6 +160,40 @@ namespace BitSorter.View
         /// </remarks>
         private const float PanelBody = 0.22f;
 
+        /// <summary>How wide a ring round something on the interface is, in texels.</summary>
+        /// <remarks>Heavier than a bordered panel's edge: it is pointing at something, not framing it.</remarks>
+        private const float PanelRingTexels = 3f;
+
+        /// <summary>
+        /// The panel shape as an outline and nothing else, nine-sliced as <see cref="Panel"/> is: a
+        /// ring to draw round something on the interface without covering it.
+        /// </summary>
+        /// <remarks>
+        /// The tutorial's rings on the interface used the AND gate's filled squircle, stretched over
+        /// the target and drawn on top of it -- so the ring round RUN, on the step asking for RUN,
+        /// was a pale slab with the caption lost underneath.
+        /// </remarks>
+        public static Sprite PanelRing()
+        {
+            const string key = "panel:ring";
+
+            if (TryCached(key, out Sprite cached))
+                return cached;
+
+            float[] coverage = Coverage(PanelSize, InPanel);
+            float[] depth = DepthInside(PanelSize, coverage);
+            var pixels = new Color32[PanelSize * PanelSize];
+
+            for (int i = 0; i < pixels.Length; i++)
+            {
+                float rim = 1f - Mathf.SmoothStep(0f, 1f, depth[i] - PanelRingTexels);
+                pixels[i] = new Color32(255, 255, 255, (byte)Mathf.RoundToInt(255f * coverage[i] * rim));
+            }
+
+            return Store(key, PanelSize, pixels,
+                new Vector4(PanelCorner, PanelCorner, PanelCorner, PanelCorner), UiPixelsPerUnit);
+        }
+
         /// <summary>The panel shape with a thin edge drawn round a darker body, nine-sliced as Panel is.</summary>
         private static Sprite BorderedPanel()
         {
