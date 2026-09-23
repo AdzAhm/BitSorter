@@ -38,7 +38,7 @@ namespace BitSorter.View
 
             _renderer = renderer;
             _size = ViewSize();
-            renderer.size = _size;
+            renderer.size = WholeTiles(_size);
         }
 
         /// <summary>
@@ -57,7 +57,27 @@ namespace BitSorter.View
                 return;
 
             _size = wanted;
-            _renderer.size = wanted;
+            _renderer.size = WholeTiles(wanted);
+        }
+
+        /// <summary>
+        /// The size to draw the backdrop at: at least what the view needs, grown until each half of
+        /// it is a whole number of tiles.
+        /// </summary>
+        /// <remarks>
+        /// A tiled sprite repeats from its renderer's bottom-left corner, not from its centre. Sized
+        /// straight to the view, that corner landed wherever the view's size put it, and the tile's
+        /// lines ran off the cells -- by 1.2 units vertically at 1920 by 1080, unnoticed while they
+        /// were half a unit apart. With whole tiles either side of the centre, the corner is a whole
+        /// number of tiles from it, and the tile's edges and middle lines fall on the cells.
+        /// </remarks>
+        private Vector2 WholeTiles(Vector2 wanted)
+        {
+            Vector2 tile = _renderer.sprite.bounds.size;
+
+            return new Vector2(
+                Mathf.Ceil(wanted.x / (2f * tile.x)) * 2f * tile.x,
+                Mathf.Ceil(wanted.y / (2f * tile.y)) * 2f * tile.y);
         }
 
         private Vector2 ViewSize()
@@ -67,9 +87,8 @@ namespace BitSorter.View
 
             float height = _camera.orthographicSize * 2f + _padding;
 
-            // The tile stays centred on the board, so its pattern keeps lining up with the grid, and
-            // grows instead to cover a camera that has moved sideways to frame the board clear of
-            // the interface.
+            // Centred on the board, so WholeTiles can keep its pattern on the cells, and grown instead
+            // to cover a camera that has moved sideways to frame the board clear of the interface.
             float shift = Mathf.Abs(_camera.transform.position.x) * 2f;
 
             return new Vector2(height * _camera.aspect + _padding + shift, height);
