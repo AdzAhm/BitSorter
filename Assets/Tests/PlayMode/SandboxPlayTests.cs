@@ -107,7 +107,12 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsNotNull(GameObject.Find("Help badge"), "sanity: the help badge should be showing");
 
             Find<LevelSelectPanel>().Open();
-            yield return null;
+
+            // The HUD stays under a panel while it fades in over it, and steps aside once covered.
+            for (int frame = 0; frame < 600 && UiFade.AnyMoving; frame++)
+                yield return null;
+
+            Assert.IsFalse(UiFade.AnyMoving, "the level list never finished fading in");
             yield return null;
 
             Assert.IsTrue(UiModal.AnyOpen, "sanity: the level list should count as open");

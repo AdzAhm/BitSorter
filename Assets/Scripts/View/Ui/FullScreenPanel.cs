@@ -24,6 +24,26 @@ namespace BitSorter.View
         /// <summary>Whether the panel is up.</summary>
         public bool IsShowing { get; private set; }
 
+        private UiFade _fade;
+
+        /// <summary>Whether the HUD was on screen when this panel began to come in over it.</summary>
+        private bool _overTheHud;
+
+        /// <summary>
+        /// Whether the HUD beneath this panel should step aside: once the panel has faded in over
+        /// it, or at once if the HUD was already hidden when the panel opened.
+        /// </summary>
+        /// <remarks>
+        /// The HUD used to vanish in the frame a panel opened, while the panel was still almost
+        /// transparent, so for a moment the board showed bare with nothing over it. Now the panel
+        /// covers the HUD as it fades in, and the HUD goes once it is covered.
+        ///
+        /// "Already hidden" includes a panel that closed earlier in the same frame: the main menu
+        /// closes itself and then opens the level list, and between the two nothing is open -- so
+        /// asked naively, the HUD would flash up under the list for the length of its fade.
+        /// </remarks>
+        public bool CoversTheHud => IsShowing && !(_overTheHud && _fade != null && _fade.IsMoving);
+
         /// <summary>Shows or hides the panel, and keeps <see cref="UiModal"/> told.</summary>
         /// <remarks>
         /// A panel that appears fades in (<see cref="UiFade"/>), taking clicks from its first
@@ -42,7 +62,10 @@ namespace BitSorter.View
                 UiTheme.BringToFront(Root);
 
                 if (appearing)
-                    UiFade.In(Root);
+                {
+                    _overTheHud = !UiModal.OpenOrJustClosed;
+                    _fade = UiFade.In(Root);
+                }
 
                 UiModal.Opened(this);
                 OnShown();

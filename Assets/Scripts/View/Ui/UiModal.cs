@@ -38,8 +38,25 @@ namespace BitSorter.View
         /// Not while a full-screen panel is up. They used to stay lit beside one, and the panels'
         /// own titles and help lines printed straight over the banner and the buttons. The one rule,
         /// asked by each HUD piece, so they cannot disagree about when to step aside.
+        ///
+        /// "Up" is <see cref="FullScreenPanel.CoversTheHud"/>: a panel fading in over the HUD
+        /// covers it before the HUD goes, rather than leaving the board bare for a moment.
         /// </remarks>
-        public static bool HudVisible => !AnyOpen;
+        public static bool HudVisible
+        {
+            get
+            {
+                Prune();
+
+                foreach (Object panel in Open)
+                {
+                    if (!(panel is FullScreenPanel screen) || screen.CoversTheHud)
+                        return false;
+                }
+
+                return true;
+            }
+        }
 
         /// <summary>
         /// Whether anything is covering the board, or was until earlier in this frame.

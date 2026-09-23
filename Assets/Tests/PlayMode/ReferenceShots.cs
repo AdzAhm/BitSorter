@@ -635,10 +635,18 @@ namespace BitSorter.PlayMode.Tests
         {
             // A panel still fading in is a picture of a moment, not of the panel. Waited on, not
             // counted in frames, with a cap that fails rather than capturing it half-drawn.
+            bool fading = UiFade.AnyMoving;
+
             for (int frame = 0; frame < 240 && UiFade.AnyMoving; frame++)
                 yield return null;
 
             Assert.IsFalse(UiFade.AnyMoving, $"'{name}' was about to be captured with a panel still fading in");
+
+            // The HUD under a panel steps aside in the update after the panel has covered it. Only
+            // when there was a fade to wait for: an extra frame on every shot would move every
+            // animation in every shot, and the shots are compared pixel for pixel.
+            if (fading)
+                yield return null;
 
             string path = Path.Combine(Folder, name + ".png");
 

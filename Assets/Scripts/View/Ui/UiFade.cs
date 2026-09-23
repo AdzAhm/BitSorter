@@ -56,13 +56,15 @@ namespace BitSorter.View
         /// <summary>How far through its fade this piece of interface is drawn, 0 to 1.</summary>
         public float Alpha => _group != null ? _group.alpha : 1f;
 
-        private bool IsMoving => _elapsed < Seconds;
+        /// <summary>Whether this fade is still coming in.</summary>
+        public bool IsMoving => _elapsed < Seconds;
 
         /// <summary>Fades <paramref name="target"/> in from nothing, starting now.</summary>
-        public static void In(Component target)
+        /// <returns>The fade, or null for no target.</returns>
+        public static UiFade In(Component target)
         {
             if (target == null)
-                return;
+                return null;
 
             // TryGetComponent rather than GetComponent and a null check: in the editor a missing
             // component comes back as a stand-in object that is not null to the ?? operator.
@@ -70,6 +72,7 @@ namespace BitSorter.View
                 fade = target.gameObject.AddComponent<UiFade>();
 
             fade.Restart();
+            return fade;
         }
 
         private void Restart()

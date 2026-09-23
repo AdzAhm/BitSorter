@@ -160,10 +160,102 @@ namespace BitSorter.PlayMode.Tests
         {
             yield return TestScene.Load();
 
+            // Up means faded in: the HUD stays under a panel until the panel covers it, and each
+            // piece of it steps aside in its own next update.
+            yield return UntilNoFadeIsMoving();
+            yield return null;
+
             Assert.IsTrue(UiModal.AnyOpen, "sanity: the game boots into the main menu");
 
             foreach (string name in HudRoots)
                 Assert.IsNull(GameObject.Find(name), $"'{name}' is drawn beside the main menu");
+        }
+
+        /// <summary>
+        /// A panel opened over the board fades in over the HUD, and the HUD goes once it is covered.
+        /// </summary>
+        /// <remarks>
+        /// The HUD used to vanish in the frame the panel opened, while the panel was still almost
+        /// transparent, so the board showed bare for a moment. Frame time is fixed so one frame is a
+        /// known step into the fade however fast the editor renders.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator APanelFadingIn_CoversTheHudBeforeTheHudGoes()
+        {
+            yield return TestScene.Load();
+            yield return CloseTheMainMenu();
+
+            try
+            {
+                Time.captureDeltaTime = 1f / 120f;
+
+                Find<LevelSelectPanel>().Open();
+                yield return null;
+
+                Assert.IsTrue(UiFade.AnyMoving, "sanity: the level list should still be fading in");
+                Assert.IsNotNull(GameObject.Find("Run controls"),
+                    "the HUD went while the panel was still fading in, leaving the board bare");
+
+                yield return UntilNoFadeIsMoving();
+                yield return null;
+
+                Assert.IsNull(GameObject.Find("Run controls"), "the HUD stayed up once the panel covered it");
+            }
+            finally
+            {
+                Time.captureDeltaTime = 0f;
+            }
+        }
+
+        /// <summary>
+        /// Going from one panel to another never brings the HUD back between them.
+        /// </summary>
+        /// <remarks>
+        /// The main menu closes itself and then opens the level list, so for a moment nothing is
+        /// open. A panel that took that moment for the HUD being up would fade in over a HUD that
+        /// had flashed back on.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator FromTheMenuToTheLevelList_TheHudNeverComesBack()
+        {
+            yield return TestScene.Load();
+            yield return UntilNoFadeIsMoving();
+
+            try
+            {
+                Time.captureDeltaTime = 1f / 120f;
+
+                PressLevelsOnTheMenu();
+
+                for (int frame = 0; frame < 40; frame++)
+                {
+                    yield return null;
+
+                    foreach (string name in HudRoots)
+                        Assert.IsNull(GameObject.Find(name), $"'{name}' came back between the menu and the level list");
+                }
+
+                Assert.IsTrue(Find<LevelSelectPanel>().IsShowing, "sanity: the level list should be up");
+            }
+            finally
+            {
+                Time.captureDeltaTime = 0f;
+            }
+        }
+
+        private static IEnumerator UntilNoFadeIsMoving()
+        {
+            for (int frame = 0; frame < 600 && UiFade.AnyMoving; frame++)
+                yield return null;
+
+            Assert.IsFalse(UiFade.AnyMoving, "a panel never finished fading in");
+        }
+
+        private static void PressLevelsOnTheMenu()
+        {
+            GameObject levels = GameObject.Find("Levels");
+            Assert.IsNotNull(levels, "sanity: the main menu has no LEVELS button");
+            levels.GetComponent<Button>().onClick.Invoke();
         }
 
         /// <summary>The positive control: the same lookups find the HUD once nothing is open.</summary>

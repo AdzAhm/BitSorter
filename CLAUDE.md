@@ -564,6 +564,15 @@ failure side.
   what a stuck one looks like. It counts on `Time.deltaTime`, like the bits-lost
   punch, so captures stay repeatable, and a capture waits on `UiFade.AnyMoving`
   rather than on a number of frames.
+
+  **The HUD stays under a panel until the panel has covered it.** "A panel is up"
+  for `UiModal.HudVisible` is `FullScreenPanel.CoversTheHud`: faded in, or at once
+  if the HUD was already hidden when it opened. It used to vanish in the frame the
+  panel opened, while the panel was still nearly transparent, and the board
+  showed bare for a moment. "Already hidden" counts a panel closed earlier in the
+  same frame, because the menu closes itself before opening the level list and
+  the HUD would otherwise flash up between them. A test that asserts the HUD has
+  gone waits for the fade, then one frame for each piece to step aside.
 - **The board is framed in what the interface leaves free.** `CameraFraming
   .Fit` centres it between the pixels taken on the left and the right, and
   `CameraFit` reads those from the parts list and free play's setup panel.
