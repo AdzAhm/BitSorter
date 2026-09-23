@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using BitSorter.LogicCore;
 using UnityEngine;
-using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using TMPro;
 
@@ -264,7 +263,7 @@ namespace BitSorter.View
             Button collapse = UiTheme.Button_("collapse", _root, "»", out TextMeshProUGUI _);
             UiTheme.Anchor(collapse.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(1f, 1f),
                 new Vector2(-Pad, -8f), new Vector2(26f, 24f));
-            collapse.onClick.AddListener(() => { Expand(false); Defocus(); });
+            collapse.onClick.AddListener(() => { Expand(false); UiTheme.Defocus(); });
 
             _bodyRoot = UiTheme.Rect("body", _root);
             UiTheme.Anchor(_bodyRoot, new Vector2(0f, 1f), new Vector2(0f, 1f),
@@ -292,7 +291,7 @@ namespace BitSorter.View
                 new Vector2(-UiTheme.Margin, -UiRows.Panels.Offset), new Vector2(96f, 28f));
 
             label.fontSize = 13f;
-            tab.onClick.AddListener(() => { Expand(true); Defocus(); });
+            tab.onClick.AddListener(() => { Expand(true); UiTheme.Defocus(); });
         }
 
         private void Expand(bool expanded)
@@ -479,7 +478,7 @@ namespace BitSorter.View
 
             button.interactable = enabled;
             label.color = enabled ? UiTheme.Text : UiTheme.TextDim;
-            button.onClick.AddListener(() => { go(); Defocus(); });
+            button.onClick.AddListener(() => { go(); UiTheme.Defocus(); });
 
             _body.Add(button.gameObject);
         }
@@ -514,7 +513,7 @@ namespace BitSorter.View
                 // the board, so the stream looks like what it will emit.
                 label.color = one ? UiTheme.Accent : UiTheme.TextDim;
 
-                bit.onClick.AddListener(() => { Flip(index, vector); Defocus(); });
+                bit.onClick.AddListener(() => { Flip(index, vector); UiTheme.Defocus(); });
                 _body.Add(bit.gameObject);
             }
         }
@@ -537,7 +536,7 @@ namespace BitSorter.View
             caption.fontSize = 13f;
             caption.color = canFill ? UiTheme.Text : UiTheme.TextDim;
             table.interactable = canFill;
-            table.onClick.AddListener(() => { FillTable(); Defocus(); });
+            table.onClick.AddListener(() => { FillTable(); UiTheme.Defocus(); });
             _body.Add(table.gameObject);
 
             Button zeros = UiTheme.Button_("all zero", _bodyRoot, "All 0", out TextMeshProUGUI zeroCaption);
@@ -546,7 +545,7 @@ namespace BitSorter.View
 
             zeroCaption.fontSize = 13f;
             zeros.interactable = _config.sources.Length > 0;
-            zeros.onClick.AddListener(() => { FillZeros(); Defocus(); });
+            zeros.onClick.AddListener(() => { FillZeros(); UiTheme.Defocus(); });
             _body.Add(zeros.gameObject);
 
             // Said rather than left to be guessed: a dead button with no reason beside it reads as a
@@ -611,7 +610,7 @@ namespace BitSorter.View
                 label.color = chosen ? UiTheme.Text : UiTheme.TextDim;
                 button.GetComponent<Image>().color = chosen ? UiTheme.Accent * 0.55f : UiTheme.PanelEdge;
 
-                button.onClick.AddListener(() => { SetSpeed(speed); Defocus(); });
+                button.onClick.AddListener(() => { SetSpeed(speed); UiTheme.Defocus(); });
                 _body.Add(button.gameObject);
             }
         }
@@ -790,13 +789,6 @@ namespace BitSorter.View
             _session.Reconfigure(SandboxLevel.Build(_config, Extents()));
 
             Rebuild();
-        }
-
-        private static void Defocus()
-        {
-            // Or the clicked button keeps focus and swallows Space and Enter, which run the board.
-            if (EventSystem.current != null)
-                EventSystem.current.SetSelectedGameObject(null);
         }
     }
 }

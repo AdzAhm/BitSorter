@@ -1,5 +1,4 @@
 using UnityEngine;
-using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
 using TMPro;
@@ -222,20 +221,11 @@ namespace BitSorter.View
         /// </remarks>
         private void ResetBoard() => _session.ResetBoard();
 
-        /// <summary>
-        /// Runs an action and immediately drops focus.
-        /// </summary>
-        /// <remarks>
-        /// Without the deselect, the clicked Button keeps focus and swallows Space and Enter -- both
-        /// of which this game binds. Pressing Space to pause would re-activate Run instead, which is
-        /// the single most confusing thing a first canvas can do.
-        /// </remarks>
+        /// <summary>Runs an action and drops focus: see <see cref="UiTheme.Defocus"/>.</summary>
         private void Fire(System.Action action)
         {
             action();
-
-            if (EventSystem.current != null)
-                EventSystem.current.SetSelectedGameObject(null);
+            UiTheme.Defocus();
         }
     }
 }

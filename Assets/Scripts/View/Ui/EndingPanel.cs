@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
 using TMPro;
@@ -240,20 +239,14 @@ namespace BitSorter.View
             if (_menu != null)
                 _menu.Show(true);
 
-            Deselect();
+            UiTheme.Defocus();
         }
 
         /// <summary>Leaves the solved board exactly as it was, the way the win panel does.</summary>
         private void Dismiss()
         {
             Show(false);
-            Deselect();
-        }
-
-        private static void Deselect()
-        {
-            if (EventSystem.current != null)
-                EventSystem.current.SetSelectedGameObject(null);
+            UiTheme.Defocus();
         }
     }
 }

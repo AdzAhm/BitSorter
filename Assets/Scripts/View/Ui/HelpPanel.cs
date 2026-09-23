@@ -1,5 +1,4 @@
 using UnityEngine;
-using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
 using TMPro;
@@ -227,9 +226,7 @@ namespace BitSorter.View
             button.onClick.AddListener(() =>
             {
                 Show(!_shown);
-
-                if (EventSystem.current != null)
-                    EventSystem.current.SetSelectedGameObject(null);
+                UiTheme.Defocus();
             });
 
             TextMeshProUGUI mark = UiTheme.Label(

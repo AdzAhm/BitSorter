@@ -48,5 +48,32 @@ namespace BitSorter.LogicCore.Tests
                 "these draw with OnGUI, which paints over every panel on the canvas and cannot be " +
                 "covered by any of them: " + string.Join(", ", offenders));
         }
+
+        /// <summary>
+        /// Only <see cref="UiTheme.Defocus"/> takes keyboard focus off a button.
+        /// </summary>
+        /// <remarks>
+        /// It was written out twelve times under four names, each with its own copy of the reason
+        /// or none. A button that keeps focus swallows Space and Enter, which run the board, so the
+        /// thirteenth copy is the one that gets written without knowing why and then "tidied" away.
+        /// Read from the source, because a call is not something reflection can see.
+        /// </remarks>
+        [Test]
+        public void OnlyUiTheme_DropsFocus()
+        {
+            string root = System.IO.Path.Combine(Application.dataPath, "Scripts", "View");
+
+            string[] offenders = System.IO.Directory
+                .GetFiles(root, "*.cs", System.IO.SearchOption.AllDirectories)
+                .Where(path => System.IO.Path.GetFileName(path) != "UiTheme.cs")
+                .Where(path => System.IO.File.ReadAllText(path).Contains("SetSelectedGameObject("))
+                .Select(System.IO.Path.GetFileName)
+                .OrderBy(name => name)
+                .ToArray();
+
+            Assert.IsEmpty(offenders,
+                "these clear the selection themselves rather than through UiTheme.Defocus: " +
+                string.Join(", ", offenders));
+        }
     }
 }

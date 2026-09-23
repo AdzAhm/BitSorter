@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
 using TMPro;
@@ -384,9 +383,7 @@ namespace BitSorter.View
         private void Fire(System.Action action)
         {
             action();
-
-            if (EventSystem.current != null)
-                EventSystem.current.SetSelectedGameObject(null);
+            UiTheme.Defocus();
         }
     }
 }

@@ -270,9 +270,7 @@ namespace BitSorter.View
         public void Finish()
         {
             _finishPressed = true;
-
-            if (EventSystem.current != null)
-                EventSystem.current.SetSelectedGameObject(null);
+            UiTheme.Defocus();
         }
 
         public void Show(bool visible)

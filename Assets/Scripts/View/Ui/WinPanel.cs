@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using TMPro;
 
@@ -295,7 +294,7 @@ namespace BitSorter.View
         {
             Show(false);
             _session.CycleLevel(1);
-            Deselect();
+            UiTheme.Defocus();
         }
 
         /// <summary>
@@ -308,13 +307,7 @@ namespace BitSorter.View
         private void Dismiss()
         {
             Show(false);
-            Deselect();
-        }
-
-        private static void Deselect()
-        {
-            if (EventSystem.current != null)
-                EventSystem.current.SetSelectedGameObject(null);
+            UiTheme.Defocus();
         }
     }
 }

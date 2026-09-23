@@ -493,8 +493,7 @@ namespace BitSorter.View
                 if (_tutorial != null)
                     _tutorial.Begin();
 
-                if (EventSystem.current != null)
-                    EventSystem.current.SetSelectedGameObject(null);
+                UiTheme.Defocus();
             });
         }
 
@@ -531,8 +530,7 @@ namespace BitSorter.View
                 if (_sandbox != null)
                     _sandbox.Open();
 
-                if (EventSystem.current != null)
-                    EventSystem.current.SetSelectedGameObject(null);
+                UiTheme.Defocus();
             });
         }
 
@@ -659,9 +657,7 @@ namespace BitSorter.View
             _session.LoadLevel(fileName);
             Show(false);
 
-            // Drop focus, or the clicked row keeps it and swallows Space and Enter.
-            if (EventSystem.current != null)
-                EventSystem.current.SetSelectedGameObject(null);
+            UiTheme.Defocus();
         }
     }
 }

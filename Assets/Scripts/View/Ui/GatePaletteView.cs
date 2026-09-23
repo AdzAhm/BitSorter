@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using TMPro;
 
@@ -264,10 +263,7 @@ namespace BitSorter.View
             if (_placement != null)
                 _placement.TrySelect(kind);
 
-            // Drop focus straight away. A Button that keeps it consumes Space and Enter, and this
-            // game binds both -- the player would press Space expecting a pause and re-click Run.
-            if (EventSystem.current != null)
-                EventSystem.current.SetSelectedGameObject(null);
+            UiTheme.Defocus();
         }
 
         private void Refresh(Row row)

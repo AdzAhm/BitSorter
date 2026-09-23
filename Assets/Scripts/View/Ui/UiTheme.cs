@@ -289,6 +289,23 @@ namespace BitSorter.View
             return image;
         }
 
+        /// <summary>
+        /// Takes keyboard focus off whatever button was just clicked.
+        /// </summary>
+        /// <remarks>
+        /// A Button that keeps focus consumes Space and Enter, and this game binds both to the run:
+        /// press Space to pause after clicking RUN, and the focused button clicks itself again
+        /// instead. Every button that is not a text field calls this once it has done its work.
+        ///
+        /// Written out twelve times under four names -- Fire, Deselect, Defocus, and nothing -- before
+        /// it was one call. Twelve copies of a reason is eleven places the reason can be left out.
+        /// </remarks>
+        public static void Defocus()
+        {
+            if (UnityEngine.EventSystems.EventSystem.current != null)
+                UnityEngine.EventSystems.EventSystem.current.SetSelectedGameObject(null);
+        }
+
         /// <summary>Shows or hides a piece of interface, touching it only when that changes.</summary>
         public static void SetShown(Component part, bool shown)
         {

@@ -139,20 +139,14 @@ namespace BitSorter.View
         public void Skip()
         {
             _skipPressed = true;
-            Deselect();
+            UiTheme.Defocus();
         }
 
         /// <inheritdoc cref="Skip"/>
         public void Next()
         {
             _nextPressed = true;
-            Deselect();
-        }
-
-        private static void Deselect()
-        {
-            if (EventSystem.current != null)
-                EventSystem.current.SetSelectedGameObject(null);
+            UiTheme.Defocus();
         }
 
         /// <summary>Puts a line up, optionally offering a continue button.</summary>
