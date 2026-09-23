@@ -4,6 +4,7 @@ using NUnit.Framework;
 using BitSorter.LogicCore;
 using BitSorter.View;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.TestTools;
 using UnityEngine.UI;
 using Object = UnityEngine.Object;
@@ -35,9 +36,14 @@ namespace BitSorter.PlayMode.Tests
     ///
     /// Needs a Game view, so it runs in the editor proper and not in batch mode, where there is
     /// no view for a screen capture to read.
+    ///
+    /// An <see cref="InputTestFixture"/>, so the real mouse and keyboard are not in the picture.
+    /// The game reads whatever pointer there is, and so did the capture: a click on the Game view
+    /// during a run put a refusal toast into two shots, and a pointer resting over the help badge
+    /// tinted it in two more -- both from someone using the editor while it ran.
     /// </remarks>
     [TestFixture, Explicit("Captures reference screenshots. Run on purpose, never as part of the suite.")]
-    public class ReferenceShots
+    public class ReferenceShots : InputTestFixture
     {
         /// <summary>Game time per frame while capturing.</summary>
         private const float FrameSeconds = 1f / 120f;
@@ -106,6 +112,24 @@ namespace BitSorter.PlayMode.Tests
         /// the collision shot shows the warning at its clearest.
         /// </summary>
         private static float PinnedMoment => 1f / (4f * PortState.WarningHz);
+
+        /// <summary>A keyboard and a mouse of the fixture's own, the mouse parked off the screen.</summary>
+        /// <remarks>
+        /// Off the screen rather than at the origin a new mouse starts at, which is the corner of
+        /// the Game view and on the board: a part in hand draws its ghost under the pointer.
+        /// </remarks>
+        public override void Setup()
+        {
+            base.Setup();
+
+            // As PanelPlayTests explains: InputTestFixture turns on a read-value cache and its
+            // self-check, which the game itself never runs with.
+            InputSystem.settings.SetInternalFeatureFlag("USE_READ_VALUE_CACHING", false);
+
+            InputSystem.AddDevice<Keyboard>();
+            Mouse mouse = InputSystem.AddDevice<Mouse>();
+            Set(mouse.position, new Vector2(-1000f, -1000f));
+        }
 
         [SetUp]
         public void FixTheClock()

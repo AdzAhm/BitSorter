@@ -465,8 +465,10 @@ failure side.
   tutorial's intro and its closing card, a first-time hint) as an Explicit Play
   Mode fixture, so it runs under `SaveGuard` --
   driving the real game for a screenshot by hand once marked a level solved on
-  the developer's own save. Frame time is fixed, particle systems are seeded and
-  `ViewTime` is pinned, so **two captures of the same code are identical to the
+  the developer's own save. Frame time is fixed, particle systems are seeded,
+  `ViewTime` is pinned and the real mouse and keyboard are swapped for the
+  fixture's own -- a click on the Game view mid-capture once put a refusal toast
+  into two shots -- so **two captures of the same code are identical to the
   pixel**; a refactor that claims to change nothing is held to that, with no
   tolerance. It needs the Game view, so not batch mode.
 
