@@ -78,5 +78,22 @@ namespace BitSorter.LogicCore.Tests
             StringAssert.Contains("config.devicePixelRatio = Math.min(", Read("index.html"),
                 "the render follows the screen's pixel ratio without a limit");
         }
+
+        /// <summary>
+        /// The page around the game is the game's own dark, not the browser's white.
+        /// </summary>
+        /// <remarks>
+        /// It was left to the browser, which paints white. That was barely seen while the canvas
+        /// was a fixed size in a larger window; with the game centred in whatever room it has,
+        /// the white became a frame round a near-black board.
+        /// </remarks>
+        [Test]
+        public void ThePageAroundTheGame_IsDark()
+        {
+            string page = Rule(Read("TemplateData/style.css"), "html, body");
+
+            StringAssert.Contains("background: {{{ BACKGROUND_COLOR }}}", page,
+                "the page around the game is left to the browser, which paints it white");
+        }
     }
 }
