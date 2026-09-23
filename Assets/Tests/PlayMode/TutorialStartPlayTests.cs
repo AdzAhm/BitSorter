@@ -4,6 +4,7 @@ using BitSorter.View;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
+using UnityEngine.UI;
 
 namespace BitSorter.PlayMode.Tests
 {
@@ -183,6 +184,52 @@ namespace BitSorter.PlayMode.Tests
             Find<TutorialPanel>().Next();
             yield return null;
             yield return null;
+        }
+
+        // -----------------------------------------------------------------
+        // What the tutorial points at stays readable
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// A ring round a parts-list row or a button goes round it, and leaves the thing itself
+        /// showing.
+        /// </summary>
+        /// <remarks>
+        /// Found in the browser build. The ring on the step that asks for RUN was the AND gate's
+        /// filled squircle, stretched over the button at up to 95% opacity and drawn after it, so on
+        /// top of it: a pale slab with the caption lost underneath, on the one button the step was
+        /// asking the player to press. Board rings were always hollow; only the interface's were
+        /// not.
+        ///
+        /// The first step after START rings the NOT in the parts list, so it is the first moment a
+        /// ring is on the interface.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator ARingOnTheInterface_LeavesWhatItPointsAtShowing()
+        {
+            yield return LoadScene();
+            yield return CloseTheMainMenu();
+            yield return BeginTutorial(Find<TutorialDirector>());
+            yield return PressStart();
+
+            int rings = 0;
+
+            foreach (Image ring in Object.FindObjectsByType<Image>(FindObjectsSortMode.None))
+            {
+                if (ring.name != "Tutorial ring" || !ring.gameObject.activeInHierarchy)
+                    continue;
+
+                rings++;
+
+                Rect area = ring.sprite.textureRect;
+                Color middle = ring.sprite.texture.GetPixel(
+                    (int)(area.x + area.width * 0.5f), (int)(area.y + area.height * 0.5f));
+
+                Assert.Less(middle.a, 0.05f,
+                    "a tutorial ring is filled in, and covers the part or button it points at");
+            }
+
+            Assert.Greater(rings, 0, "sanity: the first step should ring the NOT in the parts list");
         }
 
         // -----------------------------------------------------------------
