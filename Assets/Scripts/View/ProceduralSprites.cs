@@ -24,6 +24,13 @@ namespace BitSorter.View
 
         private static readonly Dictionary<string, Sprite> Cache = new Dictionary<string, Sprite>();
 
+        /// <summary>How many sprites have been drawn since the domain loaded.</summary>
+        /// <remarks>
+        /// For telling when a sprite is built, which is the part that costs: asking for one that is
+        /// already cached leaves this where it was.
+        /// </remarks>
+        public static int BuiltCount { get; private set; }
+
         /// <summary>Radius of <see cref="Circle"/>, in the -1..1 space every predicate here uses.</summary>
         /// <remarks>
         /// Public because anything scaled to a wanted radius has to divide by it, and a second copy
@@ -365,6 +372,7 @@ namespace BitSorter.View
             sprite.hideFlags = HideFlags.HideAndDontSave;
 
             Cache[key] = sprite;
+            BuiltCount++;
             return sprite;
         }
 
@@ -715,6 +723,7 @@ namespace BitSorter.View
             sprite.hideFlags = HideFlags.HideAndDontSave;
 
             Cache[key] = sprite;
+            BuiltCount++;
             return sprite;
         }
 

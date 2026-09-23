@@ -212,6 +212,49 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
+        /// Every sprite a bit can be drawn as is built with the board, not the first time one is
+        /// drawn.
+        /// </summary>
+        /// <remarks>
+        /// The first time is mid-run: the frame a run starts, the frame a gate first stalls, the
+        /// frame a register first takes a bit. A held bit's disc is supersampled, and building one
+        /// took 65-80 ms in the editor, so the game froze at exactly the moment the board was
+        /// showing something happen.
+        ///
+        /// The cache outlives a test, so whatever an earlier test left is destroyed first -- the
+        /// cache rebuilds a destroyed sprite rather than handing it back -- and the board's own
+        /// load is what has to build them.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator EverySpriteABitCanWear_IsBuiltWithTheBoard()
+        {
+            Assume.That(Look.Current.Bits, Is.EqualTo(BitStyle.Digit),
+                "this needs a look that draws bits as digits");
+
+            foreach (Sprite sprite in BitSprites())
+            {
+                Object.DestroyImmediate(sprite.texture);
+                Object.DestroyImmediate(sprite);
+            }
+
+            yield return TestScene.Load();
+            Find<MainMenu>().Show(false);
+            yield return null;
+
+            int before = ProceduralSprites.BuiltCount;
+            BitSprites();
+
+            Assert.AreEqual(before, ProceduralSprites.BuiltCount,
+                "a bit's sprite was left to be built the first time one is drawn, which is mid-run");
+        }
+
+        private static Sprite[] BitSprites() => new[]
+        {
+            ProceduralSprites.BitGlyph(Bit.Zero), ProceduralSprites.BitGlyph(Bit.One),
+            ProceduralSprites.HeldBit(Bit.Zero), ProceduralSprites.HeldBit(Bit.One),
+        };
+
+        /// <summary>
         /// A register shows the bit it is keeping by its shape, and changes it when the bit does.
         /// </summary>
         /// <remarks>
