@@ -462,11 +462,11 @@ failure side.
   counts from it -- the win celebration once pulsed on the game clock and a solve
   could land at the bottom of its swell.
 - **Visual changes are checked against the reference shots.**
-  `BitSorter/Capture Reference Shots` captures fourteen states (menu, a built
+  `BitSorter/Capture Reference Shots` captures fifteen states (menu, a built
   board, bits in flight, a collision one tick out, the solved card, the level
   list, free play, the help panel, the chapter card, a clocked level, the
   tutorial's intro and its closing card, a first-time hint, a register holding a
-  bit) as an Explicit Play
+  bit, the tutorial ringing a button) as an Explicit Play
   Mode fixture, so it runs under `SaveGuard` --
   driving the real game for a screenshot by hand once marked a level solved on
   the developer's own save. Frame time is fixed, particle systems are seeded,

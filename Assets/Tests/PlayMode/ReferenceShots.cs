@@ -456,6 +456,49 @@ namespace BitSorter.PlayMode.Tests
         private static bool Holds(SimulationRunner runner, int id, Bit value) =>
             runner.View.GetNode(id) is RegisterNode register && register.State == value;
 
+        /// <summary>
+        /// The tutorial pointing at a button: the step that asks for RUN, with its ring round it.
+        /// </summary>
+        /// <remarks>
+        /// Added after a ring on the interface turned out to be a filled slab drawn over RUN, its
+        /// caption lost underneath, on exactly the step that asks for it -- and no shot had a
+        /// tutorial ring on the interface in it, so all fourteen passed.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator Shot15_TutorialRingOnAButton()
+        {
+            yield return LoadTheGame();
+            FixTheSparks();
+            Find<MainMenu>().Show(false);
+
+            for (int frame = 0; frame < 120 && !TutorialDirector.HoldingTheBoard; frame++)
+                yield return null;
+
+            Assert.IsTrue(TutorialDirector.HoldingTheBoard, "sanity: the tutorial should be on its intro");
+
+            Find<TutorialPanel>().Next();
+            yield return Frames(2);
+
+            LevelSession session = Find<LevelSession>();
+            SimulationRunner runner = Find<SimulationRunner>();
+
+            Assert.IsTrue(Find<PlacementController>().TrySelect(TutorialLevel.Part), "could not pick up the NOT");
+            Assert.IsTrue(session.TryPlaceGate(TutorialLevel.Part, TutorialLevel.GateCell), "could not place the NOT");
+
+            int gate = NodeOn(runner, TutorialLevel.GateCell);
+            Wire(session, runner.FixtureNodeIds[TutorialLevel.SourceId], gate, 0);
+            Wire(session, gate, runner.FixtureNodeIds[TutorialLevel.SinkId], 0);
+
+            // The step that asks for RUN, with a ring on the interface round the button.
+            for (int frame = 0; frame < 120 && !IsUp("Tutorial ring"); frame++)
+                yield return null;
+
+            Assert.IsTrue(IsUp("Tutorial ring"), "no ring went up on the interface");
+
+            yield return Frames(30);
+            yield return Capture("15-tutorial-ring");
+        }
+
         // -----------------------------------------------------------------
         // Staging
         // -----------------------------------------------------------------
