@@ -61,6 +61,19 @@
         updateBannerVisibility();
       }
 
+      var aspect = {{{ WIDTH }}} / {{{ HEIGHT }}};
+      var footerHeight = 38;
+      var smallestWidth = Math.round({{{ WIDTH }}} * 2 / 3);
+      var largestWidth = 1920;
+
+      function fitToWindow() {
+        var room = Math.min(window.innerWidth, (window.innerHeight - footerHeight) * aspect);
+        var width = Math.floor(Math.max(smallestWidth, Math.min(largestWidth, room)));
+
+        canvas.style.width = width + "px";
+        canvas.style.height = Math.floor(width / aspect) + "px";
+      }
+
       var buildUrl = "Build";
       var loaderUrl = buildUrl + "/{{{ LOADER_FILENAME }}}";
       var config = {
@@ -133,9 +146,23 @@
 #endif
 
       } else {
-        // Desktop style: Render the game canvas in a window that can be maximized to fullscreen:
-        canvas.style.width = "{{{ WIDTH }}}px";
-        canvas.style.height = "{{{ HEIGHT }}}px";
+        // Desktop style: the game at the largest size the window has room for.
+        //
+        // This was a fixed {{{ WIDTH }}}x{{{ HEIGHT }}} canvas centred with left: 50% and a
+        // translate(-50%), Unity's stock layout -- and in a window narrower than the canvas the
+        // translate pushed its left edge off the page, where no scrollbar reaches. The left edge is
+        // where the parts list is, so a player in a narrow window could not pick up a gate at all.
+        //
+        // Now the canvas keeps its shape and fills the room left above the footer, recomputed when
+        // the window changes. The interface is laid out for 1920x1080 and scales with the canvas,
+        // so size is legibility: at the authored {{{ WIDTH }}}x{{{ HEIGHT }}} its smallest print is
+        // already about 6 CSS pixels, and at two thirds of that even body text is. It shrinks no
+        // further than that and the page scrolls instead. The container is centred by auto margins
+        // (style.css), which fall to zero when it is larger than the window -- so what does not fit
+        // is always scrolled to, never cut off. It grows up to 1920 wide, where the interface is
+        // drawn at the size it was written for; past that a larger canvas only costs the GPU.
+        fitToWindow();
+        window.addEventListener("resize", fitToWindow);
       }
 
 #if BACKGROUND_FILENAME
