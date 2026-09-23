@@ -709,7 +709,8 @@ failure side.
   near that Nyquist limit, and it halves what each long uncompressed clip costs.
   **At most three tracks are held at once** -- the one playing, the next one
   ready, and the buffer the one after is being built in -- about 8.5 MB, in a
-  game whose whole browser build is 16 MB. Every track built used to stay for
+  game whose whole browser build downloads about 21 MB (measured 2026-09-23; it
+  said 16 here, written before the menu's recordings). Every track built used to stay for
   the session; at twenty-two tracks that would have been over 55 MB. A clip
   belongs to whoever built it, and `GameAudio` destroys the one it leaves.
 
