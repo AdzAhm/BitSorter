@@ -130,7 +130,8 @@ namespace BitSorter.View
                     // be standing where it belongs before its trail is cleared, or the trail draws
                     // the jump from wherever the last bit died.
                     float travelled = Travelled(bit, fraction);
-                    Vector2 at = Vector2.Lerp(from, to, travelled);
+                    Vector3 at = Vector2.Lerp(from, to, travelled);
+                    at.z = DepthOf(edge.Id, bit.Serial);
 
                     SpriteRenderer sprite;
 
@@ -214,6 +215,49 @@ namespace BitSorter.View
         /// </summary>
         private static long Key(int edgeId, int serial) =>
             ((long)edgeId << 32) | (uint)serial;
+
+        /// <summary>
+        /// How far behind the board's own depth one bit is drawn: a hair's breadth, fixed by which
+        /// bit it is, so no two bits that can meet are ever drawn at the same depth.
+        /// </summary>
+        /// <remarks>
+        /// Every bit draws its dot, its halo and its trail at one sorting order each, and those
+        /// orders are shared -- with every other bit, and the halo's with the sparks, the trail's
+        /// with node labels and socket glows. For an orthographic camera Unity breaks a tie in
+        /// sorting order by depth, and every bit was at depth zero, so where two bits overlapped
+        /// Unity was free to draw either on top, and it did not always choose the same way. At the
+        /// crossing in the middle of the half adder about one reference capture in three drew the
+        /// two bits' trails the other way round; forcing that one order reproduced the odd capture
+        /// to the pixel. Two bits leaving one output meet the same way, on the output itself.
+        ///
+        /// The depth comes from the bit's identity, <c>(Edge.Id, Serial)</c>, never from how far it
+        /// has left to travel, so a bit keeps one place in the order for its whole flight and two
+        /// bits cannot swap halfway through a crossing.
+        ///
+        /// Which order is a choice, and this one is the order Unity had been choosing: every bit
+        /// behind depth zero -- its halo under the sparks, its trail under the labels and sockets --
+        /// and the lower wire and the earlier bit in front. Forced, it reproduced the usual reference
+        /// capture to the pixel, so fixing the order took nothing away that the board used to show.
+        /// A bit's dot is still over everything, because its sorting order is; depth only settles a
+        /// tie.
+        ///
+        /// Only a serial's low bits are used, which is enough: the bits sharing a wire at one moment
+        /// are consecutive serials, one per tick of its delay. Edge ids count only the wires on the
+        /// board, because every graph is built fresh from it, so a board of a hundred wires puts its
+        /// deepest bit a quarter of a unit back. The camera is orthographic, so depth changes
+        /// nothing about where or how large a bit is drawn.
+        /// </remarks>
+        public static float DepthOf(int edgeId, int serial) =>
+            (1 + edgeId * SerialsPerEdge + (serial & (SerialsPerEdge - 1))) * DepthStep;
+
+        /// <summary>How many consecutive serials on one wire get their own depth before they repeat.</summary>
+        private const int SerialsPerEdge = 256;
+
+        /// <summary>
+        /// The depth between two neighbours in the order. Far above the precision a sort works to
+        /// at the camera's distance, and far short of the camera's far plane.
+        /// </summary>
+        private const float DepthStep = 1e-5f;
 
         private static int EdgeOf(long key) => (int)(key >> 32);
 
@@ -304,7 +348,7 @@ namespace BitSorter.View
         /// sprite had the same fault from the other end: it appeared at the container's origin
         /// and streaked from there to its wire.
         /// </remarks>
-        private SpriteRenderer Rent(Vector2 at)
+        private SpriteRenderer Rent(Vector3 at)
         {
             if (_pool.Count > 0)
             {
