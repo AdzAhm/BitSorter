@@ -456,6 +456,16 @@ failure side.
   of that name. The fixture chooses it before the scene loads and fails on a
   name that matches nothing, rather than capturing the game as it is into a
   folder that says otherwise.
+- **Where a piece of the HUD sits is `UiRows`, worked out once.** Three
+  `UiStack`s -- along the top, along the bottom, down the right -- each place a
+  row clear of the one before, so no two rows of one stack can overlap. They
+  replaced a dozen constants each written as "the row before, plus its height,
+  plus a gap", which held until somebody forgot: the toast went over the
+  controls line, the verdict over the first-time hint, the clock over the
+  verdict, the help panel over the setup panel -- and each was fixed with one
+  more constant and one more test for that one pair. A component reads its row
+  and never works out its own clearance; `UiStackTests` checks that every row
+  came out of a stack.
 - **`HalfAdderDemoSceneBuilder` is the only authority on scene contents.**
   Anything added by hand is wiped by `BitSorter/Build Play Scene`.
 - **`PointerGate` arbitrates the mouse.** Every component that reads a
@@ -673,7 +683,7 @@ failure side.
   per tick of the period under the banner, lit in turn, and only on levels
   that have a clock. Every other rule of this chapter is visible on the
   board; "a vector every third tick, and your loop has that long" is not,
-  until something collides. It sits on `UiTheme.ClockRow`, under the
+  until something collides. It sits on `UiRows.Clock`, under the
   verdict — worked out from the banner instead, it landed on top of the
   verdict, which is the third time two things in that file each owned half
   the arithmetic.
@@ -724,7 +734,7 @@ the seventeen goals are longer than one line. `UiTheme.GoalHeight`
 measures one with the label that will draw it, and is what both the
 banner and `UiThemeTests` ask — a level whose goal will not fit is a
 failing test rather than a smudge on the title. Everything below the
-banner is still placed from the full `BannerHeight`, so a short banner
+banner is still placed from its full row, `UiRows.Banner`, so a short banner
 leaves a wider gap and never a collision.
 
 **The sandbox is built in code, not authored as JSON.** That is a

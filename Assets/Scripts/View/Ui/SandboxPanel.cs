@@ -252,7 +252,7 @@ namespace BitSorter.View
             // the height of what is in it -- see Fit -- rather than the whole edge, which left a
             // column of empty panel down the side of the board.
             UiTheme.Anchor(_root, new Vector2(1f, 1f), new Vector2(1f, 1f),
-                new Vector2(-UiTheme.Margin, -UiTheme.SetupTop),
+                new Vector2(-UiTheme.Margin, -UiRows.Panels.Offset),
                 new Vector2(UiTheme.SetupWidth, 300f));
 
             TextMeshProUGUI title = UiTheme.Label(
@@ -289,7 +289,7 @@ namespace BitSorter.View
             _tab = tab.GetComponent<RectTransform>();
 
             UiTheme.Anchor(_tab, new Vector2(1f, 1f), new Vector2(1f, 1f),
-                new Vector2(-UiTheme.Margin, -UiTheme.SetupTop), new Vector2(96f, 28f));
+                new Vector2(-UiTheme.Margin, -UiRows.Panels.Offset), new Vector2(96f, 28f));
 
             label.fontSize = 13f;
             tab.onClick.AddListener(() => { Expand(true); Defocus(); });
@@ -366,13 +366,13 @@ namespace BitSorter.View
         /// <remarks>
         /// The counts decide how many rows there are, so the height cannot be a constant, and a
         /// panel stretched down the whole edge is a column of empty background beside the board.
-        /// <see cref="UiTheme.SetupBottom"/> is the floor: below it are the refusal toast and the
+        /// <see cref="UiRows.PanelFloor"/> is the floor: below it are the refusal toast and the
         /// run buttons.
         /// </remarks>
         private void Fit(float bottom)
         {
             float wanted = BodyTop - bottom + Pad;
-            float room = CanvasHeight() - UiTheme.SetupTop - UiTheme.SetupBottom;
+            float room = CanvasHeight() - UiRows.Panels.Offset - UiRows.PanelFloor;
 
             _root.sizeDelta = new Vector2(UiTheme.SetupWidth, Mathf.Min(wanted, room));
         }

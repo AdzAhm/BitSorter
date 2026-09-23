@@ -64,7 +64,7 @@ namespace BitSorter.View
             RectTransform root = UiTheme.Rect("Run controls", _canvas.transform);
             _root = root;
             UiTheme.Anchor(root, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
-                new Vector2(0f, UiTheme.ButtonRow), new Vector2(600f, UiTheme.ButtonHeight));
+                new Vector2(0f, UiRows.Buttons.Offset), new Vector2(600f, UiRows.Buttons.Height));
 
             _run = UiTheme.Button_("Run", root, "RUN", out _runLabel);
             UiTheme.Anchor(_run.GetComponent<RectTransform>(), new Vector2(0f, 0f), new Vector2(0f, 0f),
@@ -115,8 +115,8 @@ namespace BitSorter.View
                 "controls", _canvas.transform, 18f, UiTheme.TextDim, TextAlignmentOptions.Center);
 
             UiTheme.Anchor(line.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
-                new Vector2(0f, UiTheme.ControlsRow),
-                new Vector2(1000f, UiTheme.ControlsHeight));
+                new Vector2(0f, UiRows.Controls.Offset),
+                new Vector2(1000f, UiRows.Controls.Height));
 
             // From ControlsReference, not spelled out here. The tutorial's card lists the same
             // controls, and two copies would disagree the first time a binding changed.

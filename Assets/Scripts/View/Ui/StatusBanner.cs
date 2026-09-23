@@ -79,8 +79,8 @@ namespace BitSorter.View
             // up needing a lean-in. Each row below is placed from the one above rather than from a
             // fixed offset, so a future size change moves the stack instead of overlapping it.
             UiTheme.Anchor(root, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-                new Vector2(0f, -UiTheme.Margin),
-                new Vector2(UiTheme.BannerWidth, UiTheme.BannerHeight));
+                new Vector2(0f, -UiRows.Banner.Offset),
+                new Vector2(UiTheme.BannerWidth, UiRows.Banner.Height));
 
             panel.raycastTarget = false;   // the banner is a readout, never a click target
 
@@ -99,7 +99,7 @@ namespace BitSorter.View
 
             _verdict = UiTheme.Label("verdict", root, 18f, UiTheme.Text, TextAlignmentOptions.Center);
             UiTheme.Anchor(_verdict.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 1f),
-                new Vector2(0f, -6f), new Vector2(UiTheme.BannerTextWidth, 26f));
+                new Vector2(0f, -UiTheme.VerdictGap), new Vector2(UiTheme.BannerTextWidth, UiTheme.VerdictLineHeight));
 
             _toastBackground = UiTheme.Panel_("Toast", _canvas.transform, UiTheme.Bad * 0.5f);
             var toastRect = _toastBackground.GetComponent<RectTransform>();
@@ -108,8 +108,8 @@ namespace BitSorter.View
             // two used to be positioned independently and overlapped: "no port there" drew straight
             // over "drag a port to wire", at exactly the moment the player most needed to read both.
             UiTheme.Anchor(toastRect, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
-                new Vector2(0f, UiTheme.ToastRow),
-                new Vector2(520f, UiTheme.ToastHeight));
+                new Vector2(0f, UiRows.Toast.Offset),
+                new Vector2(520f, UiRows.Toast.Height));
             _toastBackground.raycastTarget = false;
 
             _toast = UiTheme.Label("toast text", toastRect, 16f, UiTheme.Text, TextAlignmentOptions.Center);
@@ -190,7 +190,7 @@ namespace BitSorter.View
         /// invisible while panels faded out at their edges and is not now they have real ones.
         ///
         /// Only the drawn panel moves. Everything placed below the banner still measures from
-        /// <see cref="UiTheme.BannerHeight"/>, so a short banner leaves a slightly wider gap and
+        /// <see cref="UiRows.Banner"/>, so a short banner leaves a slightly wider gap and
         /// never a collision.
         /// </remarks>
         private void FitToGoal()
@@ -201,7 +201,7 @@ namespace BitSorter.View
             float wanted = UiTheme.BannerTitleBlock + UiTheme.GoalHeight(_goalShown) + UiTheme.BannerPad;
 
             _root.sizeDelta = new Vector2(
-                _root.sizeDelta.x, Mathf.Min(wanted, UiTheme.BannerHeight));
+                _root.sizeDelta.x, Mathf.Min(wanted, UiRows.Banner.Height));
         }
 
         private void ShowVerdict()

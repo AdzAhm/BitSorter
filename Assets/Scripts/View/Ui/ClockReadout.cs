@@ -81,8 +81,8 @@ namespace BitSorter.View
             // out here instead, it landed on the verdict: both were placed from the banner, and
             // only one of them knew the other existed.
             UiTheme.Anchor(_root, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-                new Vector2(0f, -UiTheme.ClockRow),
-                new Vector2(WidthFor(0), UiTheme.ClockHeight));
+                new Vector2(0f, -UiRows.Clock.Offset),
+                new Vector2(WidthFor(0), UiRows.Clock.Height));
 
             _label = UiTheme.Label("period", _root, 13f, UiTheme.TextDim, TextAlignmentOptions.Left);
             UiTheme.Anchor(_label.rectTransform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f),

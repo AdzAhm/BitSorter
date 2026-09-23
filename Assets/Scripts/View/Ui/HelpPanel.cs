@@ -212,8 +212,8 @@ namespace BitSorter.View
 
             // Top right, clear of the status banner and above the bits-lost meter's corner.
             UiTheme.Anchor(rect, new Vector2(1f, 1f), new Vector2(1f, 1f),
-                new Vector2(-UiTheme.Margin, -UiTheme.BadgeRow),
-                new Vector2(UiTheme.BadgeSize, UiTheme.BadgeSize));
+                new Vector2(-UiTheme.Margin, -UiRows.Badge.Offset),
+                new Vector2(UiTheme.BadgeSize, UiRows.Badge.Height));
 
             _badge.sprite = ProceduralSprites.Circle();
 
@@ -242,7 +242,7 @@ namespace BitSorter.View
             TextMeshProUGUI key = UiTheme.Label(
                 "key", rect, 12f, UiTheme.TextDim, TextAlignmentOptions.Center);
             UiTheme.Anchor(key.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 1f),
-                new Vector2(0f, -4f), new Vector2(60f, UiTheme.BadgeKeyHeight - 4f));
+                new Vector2(0f, -4f), new Vector2(60f, UiRows.BadgeKey.Height - 4f));
             key.text = "H";
         }
 
@@ -251,7 +251,7 @@ namespace BitSorter.View
             Image background = UiTheme.Panel_("Help", _canvas.transform, UiTheme.Panel);
             _panel = background.GetComponent<RectTransform>();
             UiTheme.Anchor(_panel, new Vector2(1f, 1f), new Vector2(1f, 1f),
-                new Vector2(-UiTheme.HelpRight(BesideSetupPanel), -UiTheme.HelpTop),
+                new Vector2(-UiTheme.HelpRight(BesideSetupPanel), -UiRows.Panels.Offset),
                 new Vector2(UiTheme.HelpMinimumWidth, 380f));
 
             background.raycastTarget = false;
@@ -357,7 +357,7 @@ namespace BitSorter.View
 
             _panel.sizeDelta = new Vector2(width, height);
             _panel.anchoredPosition =
-                new Vector2(-UiTheme.HelpRight(BesideSetupPanel), -UiTheme.HelpTop);
+                new Vector2(-UiTheme.HelpRight(BesideSetupPanel), -UiRows.Panels.Offset);
             _table.rectTransform.sizeDelta = new Vector2(width - 2f * TablePadding, lines * 24f + 8f);
         }
 

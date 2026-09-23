@@ -5,8 +5,9 @@ using UnityEngine;
 namespace BitSorter.LogicCore.Tests
 {
     /// <summary>
-    /// <see cref="UiTheme"/>'s shared layout arithmetic: the rows along the bottom of the board,
-    /// the stack under the banner, and the two bottom corners.
+    /// <see cref="UiTheme"/>'s shared layout arithmetic: the right-hand column and the two bottom
+    /// corners. The rows along the top, the bottom and down the right are <see cref="UiRows"/>, and
+    /// <see cref="UiStackTests"/> holds them apart.
     /// </summary>
     /// <remarks>
     /// These are the numbers that decide whether two panels draw on top of each other, and the
@@ -26,42 +27,6 @@ namespace BitSorter.LogicCore.Tests
 
         /// <summary>The right-hand bottom corner, where diagnostics sits.</summary>
         private static readonly Vector2 RightCorner = new Vector2(1f, 0f);
-
-        /// <summary>
-        /// Free play's setup panel clears the interface above and below it.
-        /// </summary>
-        /// <remarks>
-        /// It is docked down the right edge, where the bits-lost meter and the help badge are
-        /// already, and it reaches down towards the refusal toast. Panels that must not overlap
-        /// cannot each own half the arithmetic, which is the lesson the rows below this one are here
-        /// to keep.
-        /// </remarks>
-        [Test]
-        public void TheSetupPanel_ClearsTheRowsAboveAndBelowIt()
-        {
-            Assert.GreaterOrEqual(UiTheme.SetupTop, UiTheme.BadgeRow + UiTheme.BadgeSize,
-                "the setup panel starts over the help badge");
-
-            Assert.GreaterOrEqual(UiTheme.SetupBottom, UiTheme.ToastRow + UiTheme.ToastHeight,
-                "the setup panel reaches down over the refusal toast");
-        }
-
-        /// <summary>
-        /// The help panel starts below the badge that opens it, key hint included.
-        /// </summary>
-        /// <remarks>
-        /// The badge is round and unlabelled, so the "H" hanging under it is what says both that it
-        /// is a button and how to open it without aiming. The panel is brought to front when it
-        /// opens, so a panel starting any higher than the bottom of that block covers the one
-        /// affordance explaining the control the player just used.
-        /// </remarks>
-        [Test]
-        public void TheHelpPanel_StartsBelowTheBadgeAndItsKeyHint()
-        {
-            Assert.GreaterOrEqual(UiTheme.HelpTop,
-                UiTheme.BadgeRow + UiTheme.BadgeSize + UiTheme.BadgeKeyHeight,
-                "the help panel covers the key hint that says how to open it");
-        }
 
         /// <summary>
         /// On free play the help panel and the setup panel are two rectangles on one column, and
@@ -141,47 +106,6 @@ namespace BitSorter.LogicCore.Tests
             {
                 Object.DestroyImmediate(host);
             }
-        }
-
-        // -----------------------------------------------------------------
-        // The rows along the bottom
-        // -----------------------------------------------------------------
-
-        /// <summary>
-        /// Each row along the bottom clears the one below it.
-        /// </summary>
-        /// <remarks>
-        /// The toast used to draw over the controls line, at the moment the player most needed to
-        /// read both. The rows have been defined in terms of each other ever since; this is the
-        /// assertion that says so.
-        /// </remarks>
-        [Test]
-        public void TheBottomRows_DoNotOverlap()
-        {
-            Assert.GreaterOrEqual(UiTheme.ControlsRow, UiTheme.ButtonRow + UiTheme.ButtonHeight,
-                "the controls line overlaps the button row");
-
-            Assert.GreaterOrEqual(UiTheme.ToastRow, UiTheme.ControlsRow + UiTheme.ControlsHeight,
-                "the refusal toast overlaps the controls line");
-        }
-
-        /// <summary>
-        /// The stack under the banner clears the verdict line that hangs below it.
-        /// </summary>
-        /// <remarks>
-        /// The verdict is anchored outside the banner, so every row below has to allow for it.
-        /// Nothing did: the first-time hint began twenty-four units inside the verdict, and both
-        /// are on screen at once whenever a run settles with a gate still stalled.
-        /// </remarks>
-        [Test]
-        public void TheTopStack_DoesNotOverlap()
-        {
-            Assert.GreaterOrEqual(
-                UiTheme.HintRow, UiTheme.Margin + UiTheme.BannerHeight + UiTheme.VerdictHeight,
-                "the first-time hint overlaps the verdict line hanging below the banner");
-
-            Assert.GreaterOrEqual(UiTheme.TutorialRow, UiTheme.HintRow + UiTheme.HintHeight,
-                "the tutorial's instruction strip overlaps the first-time hint");
         }
 
         // -----------------------------------------------------------------

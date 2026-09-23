@@ -80,8 +80,8 @@ namespace BitSorter.View
             _root = background.GetComponent<RectTransform>();
 
             UiTheme.Anchor(_root, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-                new Vector2(0f, -UiTheme.TutorialRow),
-                new Vector2(UiTheme.BannerWidth, UiTheme.TutorialHeight));
+                new Vector2(0f, -UiRows.Tutorial.Offset),
+                new Vector2(UiTheme.BannerWidth, UiRows.Tutorial.Height));
 
             background.raycastTarget = false;
 

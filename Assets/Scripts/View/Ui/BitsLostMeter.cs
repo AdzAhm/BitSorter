@@ -58,7 +58,7 @@ namespace BitSorter.View
             // Under the board's right shoulder: in the eye's path while watching bits move, without
             // covering the wires whose timing the player is trying to read.
             UiTheme.Anchor(_root, new Vector2(1f, 1f), new Vector2(1f, 1f),
-                new Vector2(-UiTheme.Margin, -UiTheme.Margin), new Vector2(200f, 46f));
+                new Vector2(-UiTheme.Margin, -UiRows.BitsLost.Offset), new Vector2(200f, UiRows.BitsLost.Height));
 
             _background.raycastTarget = false;
 

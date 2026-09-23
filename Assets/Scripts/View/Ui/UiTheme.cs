@@ -45,53 +45,29 @@ namespace BitSorter.View
         // The right column
         // -----------------------------------------------------------------
 
-        /// <summary>The help badge, below the bits-lost meter on the top right.</summary>
+        /// <summary>The bits-lost meter's height. Where it sits is <see cref="UiRows.BitsLost"/>.</summary>
+        public const float BitsLostHeight = 46f;
+
+        /// <summary>The help badge's size. Where it sits is <see cref="UiRows.Badge"/>.</summary>
         public const float BadgeSize = 38f;
 
-        /// <inheritdoc cref="BadgeSize"/>
-        public const float BadgeRow = Margin + 56f;
-
-        /// <summary>The key hint hanging under the badge, which is part of the badge's block.</summary>
+        /// <summary>The key hint hanging under the badge. Where it sits is <see cref="UiRows.BadgeKey"/>.</summary>
         public const float BadgeKeyHeight = 20f;
 
         /// <summary>
-        /// Free play's setup panel, docked down the right edge.
+        /// Free play's setup panel's width. It runs from <see cref="UiRows.Panels"/> down to
+        /// <see cref="UiRows.PanelFloor"/>.
         /// </summary>
         /// <remarks>
-        /// Stated here with the rows it has to clear, for the reason the bottom rows are: it sits
-        /// under the bits-lost meter and the help badge and over the refusal toast, and a panel
-        /// working out its own clearances is how two of them end up in one rectangle.
-        ///
         /// Wide enough for eight bit cells beside a sink's name, which is what makes a caught bit
         /// line up under the vector that produced it.
         /// </remarks>
         public const float SetupWidth = 300f;
 
-        /// <inheritdoc cref="SetupWidth"/>
-        public const float SetupTop = BadgeRow + BadgeSize + BadgeKeyHeight + Gap;
-
-        /// <inheritdoc cref="SetupWidth"/>
-        public const float SetupBottom = ToastRow + ToastHeight + Gap;
-
         /// <summary>
-        /// The help panel, which shares the right-hand column with free play's setup panel.
+        /// The help panel's narrowest. It starts on <see cref="UiRows.Panels"/>, beside the setup
+        /// panel on free play.
         /// </summary>
-        /// <remarks>
-        /// Stated here rather than in the panel, for the reason every other row on this edge is:
-        /// the help panel and the setup panel are two rectangles on one column, and a panel that
-        /// works out its own clearances is how two of them end up in the same place. This one
-        /// said <c>-(Margin + 100)</c> while the panel docked beside it derived from
-        /// <see cref="SetupTop"/>, and the two disagreed by exactly the amount that hid one
-        /// behind the other.
-        ///
-        /// The same row as the setup panel, and for the same reason: the badge, its key hint and
-        /// the bits-lost meter are above both of them. A panel starting any higher covers the
-        /// "H" that says how to open it, which is the one affordance explaining the control the
-        /// player has just used.
-        /// </remarks>
-        public const float HelpTop = SetupTop;
-
-        /// <inheritdoc cref="HelpTop"/>
         public const float HelpMinimumWidth = 330f;
 
         /// <summary>
@@ -162,44 +138,16 @@ namespace BitSorter.View
         }
 
         // -----------------------------------------------------------------
-        // The bottom strip
+        // The rows' heights. Where each row sits is UiRows.
         // -----------------------------------------------------------------
 
-        /// <summary>
-        /// Where each row along the bottom edge sits, measured upward from it.
-        /// </summary>
-        /// <remarks>
-        /// Stated here rather than worked out separately in each component, because they were: the
-        /// refusal toast and the controls line were positioned independently, both landed on roughly
-        /// the same row, and "no port there" drew straight over "drag a port to wire". Two panels
-        /// that must not overlap cannot each own half the arithmetic.
-        ///
-        /// Each row is defined in terms of the one below it, so raising a font size moves everything
-        /// above it instead of quietly eating the gap.
-        /// </remarks>
+        /// <summary>The keyboard reference along the bottom.</summary>
         public const float ControlsHeight = 26f;
 
+        /// <summary>The refusal toast.</summary>
         public const float ToastHeight = 38f;
 
-        /// <summary>Run and Reset, sitting on the bottom margin.</summary>
-        public const float ButtonRow = Margin;
-
-        /// <summary>The keyboard reference, just above the buttons.</summary>
-        public const float ControlsRow = ButtonRow + ButtonHeight + Gap;
-
-        /// <summary>Refusals, clear of the controls line with a gap of its own.</summary>
-        public const float ToastRow = ControlsRow + ControlsHeight + Gap;
-
-        // -----------------------------------------------------------------
-        // The top stack
-        // -----------------------------------------------------------------
-
-        /// <summary>The status banner, on the top margin.</summary>
-        /// <remarks>
-        /// Shared for the same reason the rows above are: a first-time hint sits directly under the
-        /// banner, and two panels that must not overlap cannot each own half the arithmetic. Growing
-        /// the banner now pushes the hint down instead of drawing one over the other.
-        /// </remarks>
+        /// <summary>The status banner's width; the rows under it share it.</summary>
         public const float BannerWidth = 780f;
 
         /// <summary>Width the title and the goal wrap inside, within the banner's own width.</summary>
@@ -242,57 +190,25 @@ namespace BitSorter.View
         public const float BannerHeight = BannerTitleBlock + BannerGoalHeight + BannerPad;
 
         /// <summary>
-        /// The verdict line, which hangs below the banner rather than sitting inside it.
+        /// How far below the drawn banner the verdict hangs, and how tall its line is.
         /// </summary>
         /// <remarks>
-        /// `StatusBanner` anchors it to the banner's bottom edge, six pixels clear, so it is outside
-        /// the panel and every row below has to allow for it. Nothing did: the verdict occupied
-        /// 114-140 and the first-time hint began at 116, a twenty-four pixel overlap that appeared
-        /// exactly when both were up -- the stall hint fires when a run settles with a gate still
-        /// stalled, which is the same moment the verdict turns to FAIL.
-        ///
-        /// The same mistake the toast row already fixed once, in the same file. Two things that must
-        /// not overlap cannot each own half the arithmetic.
+        /// Shared between `StatusBanner`, which hangs the verdict off the banner it draws, and
+        /// <see cref="UiRows.Verdict"/>, which reserves the room it can reach.
         /// </remarks>
-        public const float VerdictHeight = 6f + 26f;
+        public const float VerdictGap = 6f;
 
-        public const float HintHeight = 46f;
+        /// <inheritdoc cref="VerdictGap"/>
+        public const float VerdictLineHeight = 26f;
 
-        /// <summary>The clock strip's own row, under the verdict.</summary>
-        /// <remarks>
-        /// The third time this file has had to learn the same lesson. ClockReadout placed itself at
-        /// the bottom of the banner and did not allow for the verdict, which hangs below the banner
-        /// on its own row -- so "CLOCK 2 TICKS" and "FAIL -- vector 0: out wanted 1. Got 0." were
-        /// drawn through each other on every clocked level that failed, and through RUNNING on
-        /// every one that ran. Two things that must not overlap cannot each own half the arithmetic.
-        ///
-        /// Reserved on every level, not only the ones with a clock, because everything below is a
-        /// compile-time constant: a row that appeared and disappeared would move the first-time
-        /// hint under the player mid-level.
-        /// </remarks>
-        public const float ClockRow = Margin + BannerHeight + VerdictHeight + Gap;
-
-        /// <inheritdoc cref="ClockRow"/>
+        /// <summary>The clock strip, its own gap below it included.</summary>
         public const float ClockHeight = 22f + Gap;
 
-        /// <summary>First-time hints, below the clock strip's row.</summary>
-        /// <remarks>
-        /// Deliberately the top of the screen and not the toast row. The toast reports refusals and
-        /// is coloured for them; a lesson sharing that row would be read as another thing the player
-        /// did wrong. The banner is already where text is read, and it leaves the board clear.
-        /// </remarks>
-        public const float HintRow = ClockRow + ClockHeight + Gap;
+        /// <summary>A first-time hint.</summary>
+        public const float HintHeight = 46f;
 
+        /// <summary>The tutorial's instruction strip.</summary>
         public const float TutorialHeight = 52f;
-
-        /// <summary>The tutorial's instruction line, below the hint line.</summary>
-        /// <remarks>
-        /// Stacked from <see cref="HintRow"/> rather than from a fresh offset, so a hint and a
-        /// tutorial step that happen to be up at once sit one under the other instead of on top of
-        /// each other. Both can be: a hint fires on what the board did, and the tutorial is asking
-        /// for the next thing to do about it.
-        /// </remarks>
-        public const float TutorialRow = HintRow + HintHeight + Gap;
 
         /// <summary>
         /// How tall a goal wraps to in the banner, measured with the label that will draw it.
