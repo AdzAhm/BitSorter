@@ -57,6 +57,16 @@ namespace BitSorter.View
         /// </remarks>
         private bool _winSeen;
 
+        /// <summary>Whether the tutorial's run has passed since it last began.</summary>
+        /// <remarks>
+        /// Kept rather than read off the session when the board is left: by the time the level
+        /// switch says so, the session is already on the next level, and its state is that level's.
+        /// </remarks>
+        private bool _solved;
+
+        /// <summary>Whether the tutorial has run at all this session.</summary>
+        private bool _begunThisSession;
+
         /// <summary>Whether the tutorial is running right now.</summary>
         public bool IsRunning => _phase != Phase.Idle;
 
@@ -140,16 +150,21 @@ namespace BitSorter.View
         }
 
         /// <summary>
-        /// Leaving the tutorial's board ends the tutorial, whatever it was in the middle of.
+        /// Leaving the tutorial's board ends the tutorial, whatever it was in the middle of -- and
+        /// leaving it once its run has passed is finishing it.
         /// </summary>
         /// <remarks>
         /// The player can always reach the level list, so they can always walk away. Highlights that
         /// outlived the board would point at cells belonging to a level that never asked for them.
+        ///
+        /// The solved card offers PLAY THE FIRST LEVEL, which leaves the board without the ending
+        /// card ever coming up. Recorded as walking away, that left a save with no milestone on an
+        /// empty first-level board -- a first-time player -- and the tutorial started again.
         /// </remarks>
         private void OnLevelLoaded(LevelDefinition level)
         {
             if (_phase != Phase.Idle && _session.LevelName != TutorialLevel.Key)
-                Stop(record: false);
+                Stop(record: _solved);
         }
 
         /// <summary>Adopts the tutorial board and starts from the top. Used by the level list.</summary>
@@ -160,6 +175,8 @@ namespace BitSorter.View
 
             _session.Adopt(TutorialLevel.Build(_runner.HalfExtents), TutorialLevel.Key);
             _phase = Phase.Intro;
+            _solved = false;
+            _begunThisSession = true;
 
             // Anything pressed before this moment belonged to a tutorial that is over.
             if (_panel != null)
@@ -178,6 +195,9 @@ namespace BitSorter.View
                 _winSeen = false;
             else if (WinShowing)
                 _winSeen = true;
+
+            if (_phase != Phase.Idle && _session.State == RunState.Passed && _session.LevelName == TutorialLevel.Key)
+                _solved = true;
 
             if (_phase == Phase.Idle)
             {
@@ -267,10 +287,13 @@ namespace BitSorter.View
         /// open on boot and holds <see cref="UiModal"/>, so a tutorial that began there would run
         /// its first step behind it -- which is exactly how the first-time hints were silently
         /// swallowed until it was found.
+        ///
+        /// Once a session at most. Someone who walked away from it to the first level is not
+        /// arriving there for the first time, and offering it again put them straight back in it.
         /// </remarks>
         private void OfferOnAFreshSave()
         {
-            if (!_menuHasClosed || UiModal.AnyOpen)
+            if (_begunThisSession || !_menuHasClosed || UiModal.AnyOpen)
                 return;
 
             ProgressStore store = _progress != null ? _progress.Store : null;

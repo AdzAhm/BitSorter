@@ -901,6 +901,13 @@ columns from `ControlsReference.Groups`, and one button into the first level.
 Skipping is the small quiet button on the instruction strip and just stops, so
 finishing and skipping do not look alike.
 
+**Leaving it once its run has passed is finishing it, and it offers itself once
+a session.** The solved card's PLAY THE FIRST LEVEL leaves the board before the
+ending card comes up. Recorded as walking away, that left no milestone on an
+empty first-level board -- a first-time player, to the auto-start -- and a
+playtester who had just finished the tutorial was put straight back in it.
+Opening the first level from the list mid-tutorial looped the same way.
+
 **Nothing outside the run may count itself as a level.** `LevelCatalog.
 IsOffCatalogue` is the one place that knows free play and the tutorial are not
 levels in the run, and `ProgressTracker` and `GameAnalytics` both ask it. The
