@@ -134,8 +134,12 @@ namespace BitSorter.PlayMode.Tests
             for (int frame = 0; frame < 5; frame++)
                 yield return null;
 
-            SpriteRenderer board = Find<BoardBackground>().GetComponentInChildren<SpriteRenderer>();
+            // By name: the backdrop shares its host with every other board renderer, so the first
+            // SpriteRenderer under it is whichever happened to be built first.
+            Transform host = Find<BoardBackground>().transform.Find("Board");
+            SpriteRenderer board = host != null ? host.GetComponent<SpriteRenderer>() : null;
             Assert.IsNotNull(board, "sanity: the backdrop is in the scene");
+            Assert.AreEqual(SpriteDrawMode.Tiled, board.drawMode, "sanity: this is the tiled backdrop");
 
             Vector2 tile = board.sprite.bounds.size;
             Vector2 corner = (Vector2)board.transform.position - board.size * 0.5f;
