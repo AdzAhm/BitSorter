@@ -135,8 +135,38 @@ namespace BitSorter.LogicCore.Tests
 
             foreach (UiRow row in UiRows.Bottom.Rows)
             {
+                // The solved card sits between the right-hand panels, not under them; the test
+                // below holds it to that.
+                if (row.Name == UiRows.SolvedCard.Name)
+                    continue;
+
                 Assert.GreaterOrEqual(UiRows.PanelFloor, row.End,
                     $"a panel down the right reaches down over the {row.Name}");
+            }
+        }
+
+        /// <summary>
+        /// The solved card is narrow enough to sit beside the right-hand panels rather than under
+        /// them, at every screen shape the game is played at.
+        /// </summary>
+        /// <remarks>
+        /// It is the one row along the bottom the panels are allowed to reach down beside -- a card
+        /// that pushed their floor up would shorten the help panel on every level. That is only
+        /// safe while the card stops short of them: the help panel, at its narrowest, in from the
+        /// right edge by the margin. The canvas is 1920x1080 scaled to match width and height
+        /// equally, so its width in canvas units is sqrt(1920 * 1080 * aspect); the browser build
+        /// holds the game at 16:10, and a desktop window is usually 16:9.
+        /// </remarks>
+        [Test]
+        public void TheSolvedCard_StopsShortOfTheRightHandPanels()
+        {
+            foreach (float aspect in new[] { 16f / 10f, 16f / 9f })
+            {
+                float halfCanvas = (float)System.Math.Sqrt(1920.0 * 1080.0 * aspect) * 0.5f;
+                float panelsFromCentre = halfCanvas - UiTheme.Margin - UiTheme.HelpMinimumWidth;
+
+                Assert.LessOrEqual(UiTheme.SolvedCardWidth * 0.5f + UiTheme.Gap, panelsFromCentre,
+                    $"at {aspect:F2} the solved card reaches under the help panel");
             }
         }
 

@@ -24,37 +24,39 @@ namespace BitSorter.View
         [Tooltip("Canvas the panel is built under. Found by type when left empty.")]
         [SerializeField] private Canvas _canvas;
 
+        // A strip in three columns: SOLVED and the level's name; what the circuit cost; and the
+        // buttons, stacked. See UiTheme.SolvedCardWidth for why it is a strip and where it sits.
+
+        private const float Padding = 18f;
+        private const float ColumnGap = 16f;
+        private const float ButtonGap = 8f;
+
+        /// <summary>The left column: SOLVED, and the level's name under it.</summary>
+        public const float NameWidth = 190f;
+
+        /// <summary>Room for the level's name under SOLVED: two lines.</summary>
+        public const float NameHeight = 44f;
+
         /// <summary>
-        /// The two buttons along the bottom, sized from the panel rather than stated.
+        /// The buttons' column. Wide enough for "PLAY THE FIRST LEVEL", which a fixed 160 once was
+        /// not -- the caption printed out of its button and over the one beside it.
         /// </summary>
-        /// <remarks>
-        /// They were a fixed 160 wide, which fits "NEXT LEVEL" and does not fit "PLAY THE FIRST
-        /// LEVEL" -- the caption the panel grew when it learned to send a player on from the
-        /// tutorial. The label is stretched across its button and does not wrap, so the extra
-        /// characters simply printed out of the button and over the one beside it.
-        ///
-        /// Half the panel each, less the margins, so a caption has as much room as there is.
-        /// </remarks>
-        private const float PanelWidth = 500f;
+        private const float ButtonWidth = 230f;
 
-        /// <inheritdoc cref="PanelWidth"/>
-        private const float ButtonGap = 16f;
+        /// <summary>How the cost of the circuit is set: smaller than a card's body, to fit a strip.</summary>
+        public const UiType DetailType = UiType.Label;
 
-        /// <inheritdoc cref="PanelWidth"/>
-        private const float SideMargin = 20f;
+        /// <summary>The middle column, for what the circuit cost.</summary>
+        public const float DetailWidth =
+            UiTheme.SolvedCardWidth - 2f * Padding - NameWidth - ButtonWidth - 2f * ColumnGap;
 
-        /// <inheritdoc cref="PanelWidth"/>
-        private const float ButtonWidth = (PanelWidth - SideMargin * 2f - ButtonGap) / 2f;
-
-        /// <inheritdoc cref="PanelWidth"/>
-        private const float ButtonOffset = (ButtonWidth + ButtonGap) / 2f;
-
-        /// <inheritdoc cref="PanelWidth"/>
-        private const float ButtonRow = 28f;
+        /// <summary>Room for what the circuit cost, top to bottom inside the card.</summary>
+        public const float DetailHeight = UiTheme.SolvedCardHeight - 2f * 12f;
 
         private RectTransform _root;
         private Button _stay;
         private TextMeshProUGUI _title;
+        private TextMeshProUGUI _name;
         private TextMeshProUGUI _detail;
         private Button _next;
         private TextMeshProUGUI _nextLabel;
@@ -68,7 +70,7 @@ namespace BitSorter.View
         /// <remarks>
         /// Exposed for the tutorial, which shows its own ending card and must wait for this one to
         /// be gone first. It cannot ask <see cref="UiModal"/>, because this panel deliberately never
-        /// registers there -- it is a card in the middle of the board, not a full-screen takeover,
+        /// registers there -- it is a strip at the foot of the board, not a full-screen takeover,
         /// and the board behind it stays live so the player can keep editing.
         /// </remarks>
         public bool IsShowing => _shown;
@@ -101,31 +103,33 @@ namespace BitSorter.View
 
             Image panel = UiTheme.Panel_("Win", _canvas.transform, UiTheme.Panel);
             _root = panel.GetComponent<RectTransform>();
-            // Sized for the most it ever has to say: name, gate breakdown, delay spend, a blank
-            // line, the record, and a line about beating it. Six lines were overflowing a panel
-            // built for three, straight over the buttons.
-            UiTheme.Anchor(_root, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                Vector2.zero, new Vector2(PanelWidth, 330f));
+            UiTheme.Anchor(_root, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
+                new Vector2(0f, UiRows.SolvedCard.Offset),
+                new Vector2(UiTheme.SolvedCardWidth, UiRows.SolvedCard.Height));
 
-            _title = UiTheme.Label("title", _root, UiType.Heading, UiTheme.Good, TextAlignmentOptions.Center);
-            UiTheme.Anchor(_title.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-                new Vector2(0f, -26f), new Vector2(460f, 42f));
+            _title = UiTheme.Label("title", _root, UiType.Heading, UiTheme.Good, TextAlignmentOptions.TopLeft);
+            UiTheme.Anchor(_title.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f),
+                new Vector2(Padding, -12f), new Vector2(NameWidth, 34f));
 
-            _detail = UiTheme.Label("detail", _root, UiType.Body, UiTheme.Text, TextAlignmentOptions.Top);
-            UiTheme.Anchor(_detail.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-                new Vector2(0f, -80f), new Vector2(440f, 150f));
-            _detail.alignment = TextAlignmentOptions.Center;
+            _name = UiTheme.Label("name", _root, DetailType, UiTheme.Text, TextAlignmentOptions.TopLeft);
+            UiTheme.Anchor(_name.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f),
+                new Vector2(Padding, -50f), new Vector2(NameWidth, NameHeight));
+            _name.textWrappingMode = TextWrappingModes.Normal;
+
+            _detail = UiTheme.Label("detail", _root, DetailType, UiTheme.Text, TextAlignmentOptions.TopLeft);
+            UiTheme.Anchor(_detail.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f),
+                new Vector2(Padding + NameWidth + ColumnGap, -12f), new Vector2(DetailWidth, DetailHeight));
             _detail.textWrappingMode = TextWrappingModes.Normal;
 
             _next = UiTheme.Button_("Next", _root, "NEXT LEVEL", out _nextLabel, role: ButtonRole.Primary);
-            UiTheme.Anchor(_next.GetComponent<RectTransform>(), new Vector2(0.5f, 0f),
-                new Vector2(0.5f, 0f), new Vector2(-ButtonOffset, ButtonRow),
+            UiTheme.Anchor(_next.GetComponent<RectTransform>(), new Vector2(1f, 0.5f),
+                new Vector2(1f, 0.5f), new Vector2(-Padding, 0f),
                 new Vector2(ButtonWidth, UiTheme.ButtonHeight));
             _next.onClick.AddListener(NextLevel);
 
             _stay = UiTheme.Button_("Stay", _root, "KEEP TINKERING", out TextMeshProUGUI _, role: ButtonRole.Quiet);
-            UiTheme.Anchor(_stay.GetComponent<RectTransform>(), new Vector2(0.5f, 0f),
-                new Vector2(0.5f, 0f), new Vector2(ButtonOffset, ButtonRow),
+            UiTheme.Anchor(_stay.GetComponent<RectTransform>(), new Vector2(1f, 0.5f),
+                new Vector2(1f, 0.5f), new Vector2(-Padding, 0f),
                 new Vector2(ButtonWidth, UiTheme.ButtonHeight));
             _stay.onClick.AddListener(Dismiss);
 
@@ -189,8 +193,9 @@ namespace BitSorter.View
             string built = parts.Count > 0 ? string.Join(", ", parts.ToArray()) : "no gates at all";
             string plural = gates == 1 ? "gate" : "gates";
 
+            _name.text = level.Name;
+
             var detail = new System.Text.StringBuilder();
-            detail.AppendLine(level.Name);
             detail.Append($"{gates} {plural}  -  {built}");
 
             if (level.HasDelayBudget)
@@ -212,12 +217,13 @@ namespace BitSorter.View
             UiTheme.SetShown(_stay, !toTheTutorialsEnd);
             _nextLabel.text = toTheTutorialsEnd ? "CONTINUE" : index < 0 ? "PLAY THE FIRST LEVEL" : "NEXT LEVEL";
 
-            // One button left takes the middle rather than sitting where its other half used to be:
-            // on the last level, and at the end of the tutorial.
-            _next.GetComponent<RectTransform>().anchoredPosition =
-                new Vector2(toTheTutorialsEnd ? 0f : -ButtonOffset, ButtonRow);
-            _stay.GetComponent<RectTransform>().anchoredPosition =
-                new Vector2(onward ? ButtonOffset : 0f, ButtonRow);
+            // Stacked, the way on above KEEP TINKERING. One button left takes the middle rather than
+            // sitting where its pair used to be: on the last level, and at the end of the tutorial.
+            bool both = onward && !toTheTutorialsEnd;
+            float half = (UiTheme.ButtonHeight + ButtonGap) * 0.5f;
+
+            _next.GetComponent<RectTransform>().anchoredPosition = new Vector2(-Padding, both ? half : 0f);
+            _stay.GetComponent<RectTransform>().anchoredPosition = new Vector2(-Padding, both ? -half : 0f);
 
             Show(true);
         }
@@ -273,7 +279,7 @@ namespace BitSorter.View
             if (bestGates <= 0 && bestLatency <= 0)
                 return;
 
-            detail.Append($"\n\nbest so far   {bestGates} gates   {bestLatency} ticks");
+            detail.Append($"\nbest so far   {bestGates} gates   {bestLatency} ticks");
 
             if (_progress.BeatGateRecord && _progress.BeatLatencyRecord)
                 detail.Append("\nsmaller and faster than last time");

@@ -83,6 +83,17 @@ namespace BitSorter.View
         /// </remarks>
         public static UiRow Toast { get; }
 
+        /// <summary>
+        /// The solved card, above the refusal toast: the one row along the bottom the right-hand
+        /// panels may reach down beside.
+        /// </summary>
+        /// <remarks>
+        /// It is centred and narrower than the room the right-hand panels leave, so the two meet only
+        /// in height -- and a card that pushed <see cref="PanelFloor"/> up with it would shorten the
+        /// help and setup panels on every level, card or no card.
+        /// </remarks>
+        public static UiRow SolvedCard { get; }
+
         // -----------------------------------------------------------------
         // Down the right edge
         // -----------------------------------------------------------------
@@ -125,9 +136,10 @@ namespace BitSorter.View
 
         /// <summary>
         /// How far above the bottom edge a panel down the right may reach: clear of the refusal
-        /// toast, the highest row along the bottom.
+        /// toast, the highest full-width row along the bottom. Not of <see cref="SolvedCard"/>,
+        /// which sits between the panels rather than under them.
         /// </summary>
-        public static float PanelFloor => Bottom.Next;
+        public static float PanelFloor { get; }
 
         /// <summary>Every stack, for whatever checks them.</summary>
         public static UiStack[] All => new[] { Top, Bottom, Right };
@@ -145,6 +157,8 @@ namespace BitSorter.View
             Buttons = Bottom.Add("run buttons", UiTheme.ButtonHeight);
             Controls = Bottom.Add("controls line", UiTheme.ControlsHeight);
             Toast = Bottom.Add("refusal toast", UiTheme.ToastHeight);
+            PanelFloor = Bottom.Next;
+            SolvedCard = Bottom.Add("solved card", UiTheme.SolvedCardHeight);
 
             Right = new UiStack("right", UiTheme.Margin, UiTheme.Gap);
             BitsLost = Right.Add("bits-lost meter", UiTheme.BitsLostHeight);

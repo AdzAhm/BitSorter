@@ -147,6 +147,20 @@ namespace BitSorter.View
         /// <summary>The refusal toast.</summary>
         public const float ToastHeight = 38f;
 
+        /// <summary>
+        /// The solved card: a strip across the foot of the board, on <see cref="UiRows.SolvedCard"/>.
+        /// </summary>
+        /// <remarks>
+        /// It was a 500x330 panel in the middle of the screen, which is where every circuit is, so
+        /// the card congratulating a circuit hid it. Fixtures stand in the two edge columns and
+        /// circuits gather in the middle rows; a low, wide strip over the centre of the bottom row
+        /// covers the part of the board a circuit uses least.
+        /// </remarks>
+        public const float SolvedCardWidth = 760f;
+
+        /// <inheritdoc cref="SolvedCardWidth"/>
+        public const float SolvedCardHeight = 118f;
+
         /// <summary>The status banner's width; the rows under it share it.</summary>
         public const float BannerWidth = 780f;
 

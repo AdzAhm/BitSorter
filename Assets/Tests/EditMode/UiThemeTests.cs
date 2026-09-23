@@ -277,6 +277,40 @@ namespace BitSorter.LogicCore.Tests
 
 
         /// <summary>
+        /// The solved card has room for every level's name and for the most a circuit's cost can
+        /// say.
+        /// </summary>
+        /// <remarks>
+        /// A strip, so the room is tight by design, and measured with the real label for the reason
+        /// the goal is: where TextMeshProUGUI breaks the lines is what decides whether the last one
+        /// prints below the card. The worst case is the longest breakdown the parts lists allow,
+        /// a delay budget, a record, and a line about beating it.
+        /// </remarks>
+        [Test]
+        public void TheSolvedCard_HoldsEveryNameAndTheLongestCost()
+        {
+            foreach (TextAsset asset in Resources.LoadAll<TextAsset>(LevelLoader.ResourcePath))
+            {
+                LevelLoadResult parsed = LevelLoader.Parse(asset.text, LevelTestFixtures.Board);
+                Assert.IsTrue(parsed.IsValid, asset.name);
+
+                float needed = UiTheme.TextHeight(parsed.Level.Name, WinPanel.DetailType, WinPanel.NameWidth);
+                Assert.LessOrEqual(needed, WinPanel.NameHeight,
+                    $"{asset.name}'s name needs {needed:F0}px under SOLVED and has {WinPanel.NameHeight}px");
+            }
+
+            const string worst =
+                "12 gates  -  4 XOR, 3 NAND, 3 NOT, 2 NOR\n" +
+                "12 of 12 delay spent\n" +
+                "best so far   12 gates   24 ticks\n" +
+                "smaller and faster than last time";
+
+            float cost = UiTheme.TextHeight(worst, WinPanel.DetailType, WinPanel.DetailWidth);
+            Assert.LessOrEqual(cost, WinPanel.DetailHeight,
+                $"the longest cost needs {cost:F0}px and the card has {WinPanel.DetailHeight}px");
+        }
+
+        /// <summary>
         /// At the reference resolution the whole run shows in the level list at once, with no
         /// scrolling.
         /// </summary>
