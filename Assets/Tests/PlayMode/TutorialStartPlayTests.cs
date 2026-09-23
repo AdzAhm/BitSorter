@@ -191,18 +191,21 @@ namespace BitSorter.PlayMode.Tests
         // -----------------------------------------------------------------
 
         /// <summary>
-        /// Finishing the tutorial from the solved card leads into the first level, and counts as
-        /// finishing it.
+        /// Finishing the tutorial leads from the solved card to its ending card, and from there
+        /// into the first level -- counted as finished, and never started again.
         /// </summary>
         /// <remarks>
-        /// Reported from play. The solved card offers PLAY THE FIRST LEVEL, which loads the first
+        /// Reported from play. The solved card offered PLAY THE FIRST LEVEL, which loaded the first
         /// level -- and the director, seeing its board left, stopped without recording the
         /// milestone. On the next frame the save still had no tutorial milestone and the board was
         /// the first level's, empty, which is exactly a first-time player, so the tutorial started
         /// again. The only way into the first level was SKIP.
+        ///
+        /// The solved card now says CONTINUE and leads to the ending card, which the old button
+        /// skipped; the ending card's own button is the way into the first level.
         /// </remarks>
         [UnityTest]
-        public IEnumerator FinishingTheTutorial_FromTheSolvedCard_LeadsIntoTheFirstLevel()
+        public IEnumerator FinishingTheTutorial_LeadsThroughItsEndingCard_IntoTheFirstLevel()
         {
             yield return LoadScene();
             yield return CloseTheMainMenu();
@@ -213,6 +216,16 @@ namespace BitSorter.PlayMode.Tests
             yield return BeginTutorial(director);
             yield return PressStart();
             yield return SolveTheTutorial(session, Find<SimulationRunner>());
+
+            Assert.IsFalse(IsShowingButton("KEEP TINKERING"),
+                "the tutorial's solved card offers KEEP TINKERING, which leads to the same card as CONTINUE");
+            PressShowing("CONTINUE");
+
+            TutorialCard card = Find<TutorialCard>();
+            for (int frame = 0; frame < 60 && !card.IsShowing; frame++)
+                yield return null;
+
+            Assert.IsTrue(card.IsShowing, "the solved card's CONTINUE did not lead to the tutorial's ending card");
 
             PressShowing("PLAY THE FIRST LEVEL");
 
@@ -225,6 +238,40 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsFalse(director.IsRunning, "the tutorial started again straight after it was finished");
             Assert.IsTrue(Find<ProgressTracker>().Store.HasMilestone(TutorialLevel.Key),
                 "finishing the tutorial from the solved card did not count as finishing it");
+        }
+
+        /// <summary>
+        /// A player who skipped the tutorial and solved its board anyway is offered the first level.
+        /// </summary>
+        /// <remarks>
+        /// Skipping stops the tutorial, so there is no ending card to lead to: the solved card's
+        /// way on has to be the first level itself, or the only way forward is a keyboard shortcut.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator SkippedThenSolved_TheSolvedCardLeadsIntoTheFirstLevel()
+        {
+            yield return LoadScene();
+            yield return CloseTheMainMenu();
+
+            TutorialDirector director = Find<TutorialDirector>();
+            LevelSession session = Find<LevelSession>();
+
+            yield return BeginTutorial(director);
+            Find<TutorialPanel>().Skip();
+            yield return null;
+            yield return null;
+
+            Assert.IsFalse(director.IsRunning, "sanity: SKIP should have stopped the tutorial");
+
+            yield return SolveTheTutorial(session, Find<SimulationRunner>());
+
+            PressShowing("PLAY THE FIRST LEVEL");
+
+            yield return null;
+            yield return null;
+
+            Assert.AreEqual(session.AvailableLevels[0], session.LevelName,
+                "a skipped-then-solved tutorial's solved card did not lead into the first level");
         }
 
         /// <summary>
@@ -298,6 +345,19 @@ namespace BitSorter.PlayMode.Tests
                 yield return null;
 
             Assert.IsTrue(win.IsShowing, "sanity: the solved card never came up");
+        }
+
+        private static bool IsShowingButton(string caption)
+        {
+            foreach (Button button in Object.FindObjectsByType<Button>(FindObjectsSortMode.None))
+            {
+                TMPro.TextMeshProUGUI label = button.GetComponentInChildren<TMPro.TextMeshProUGUI>();
+
+                if (button.isActiveAndEnabled && label != null && label.text == caption)
+                    return true;
+            }
+
+            return false;
         }
 
         /// <summary>Presses the button on screen whose caption reads <paramref name="caption"/>.</summary>

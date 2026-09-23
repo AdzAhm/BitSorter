@@ -73,6 +73,19 @@ namespace BitSorter.View
         /// </remarks>
         public bool IsShowing => _shown;
 
+        /// <summary>
+        /// Whether this run's solved card has been put up, whether or not it is still up.
+        /// </summary>
+        /// <remarks>
+        /// Set where the card is presented, so nobody reading it has to have caught the card on
+        /// screen. The tutorial's ending waits for this card to have had its turn, and it used to
+        /// watch for it: "seen showing, then gone". Whether it saw the showing depended on which of
+        /// the two updated first, and a card dismissed in the frame it appeared was never seen at
+        /// all -- which left the ending waiting for a card that had already come and gone.
+        /// Cleared when the run changes.
+        /// </remarks>
+        public bool PresentedThisRun { get; private set; }
+
         private void Awake()
         {
             if (_session == null) _session = FindFirstObjectByType<LevelSession>();
@@ -135,9 +148,16 @@ namespace BitSorter.View
                 // The last level with everything else already solved belongs to EndingPanel. The
                 // condition lives there so the two cannot disagree and show both or neither.
                 if (now == RunState.Passed && !EndingPanel.IsTheEnd(_session, _progress))
+                {
                     Present();
-                else if (_shown)
-                    Show(false);   // reset or a new run takes the panel away
+                }
+                else
+                {
+                    PresentedThisRun = false;
+
+                    if (_shown)
+                        Show(false);   // reset or a new run takes the panel away
+                }
 
                 _state = now;
             }
@@ -146,6 +166,8 @@ namespace BitSorter.View
         /// <summary>Fills in what the solved circuit cost and shows the panel.</summary>
         private void Present()
         {
+            PresentedThisRun = true;
+
             LevelDefinition level = _session.Level;
 
             _title.text = "SOLVED";
@@ -181,13 +203,19 @@ namespace BitSorter.View
             int index = _session.LevelIndex;
             int count = _session.AvailableLevels.Count;
 
-            bool onward = HasSomewhereToGo(index, count);
+            // The tutorial ends on its own card, after this one: one way on, to it, and nothing to
+            // tinker with first -- KEEP TINKERING would have led to the same card.
+            bool toTheTutorialsEnd = TutorialDirector.EndsOnItsCard;
+            bool onward = toTheTutorialsEnd || HasSomewhereToGo(index, count);
 
-            _next.gameObject.SetActive(onward);
-            _nextLabel.text = index < 0 ? "PLAY THE FIRST LEVEL" : "NEXT LEVEL";
+            UiTheme.SetShown(_next, onward);
+            UiTheme.SetShown(_stay, !toTheTutorialsEnd);
+            _nextLabel.text = toTheTutorialsEnd ? "CONTINUE" : index < 0 ? "PLAY THE FIRST LEVEL" : "NEXT LEVEL";
 
-            // On the last level there is no pair to balance, so the one button that is left takes
-            // the middle rather than sitting where its other half used to be.
+            // One button left takes the middle rather than sitting where its other half used to be:
+            // on the last level, and at the end of the tutorial.
+            _next.GetComponent<RectTransform>().anchoredPosition =
+                new Vector2(toTheTutorialsEnd ? 0f : -ButtonOffset, ButtonRow);
             _stay.GetComponent<RectTransform>().anchoredPosition =
                 new Vector2(onward ? ButtonOffset : 0f, ButtonRow);
 
@@ -292,6 +320,14 @@ namespace BitSorter.View
 
         private void NextLevel()
         {
+            // At the end of the tutorial the way on is its ending card, which comes up once this
+            // one has gone.
+            if (TutorialDirector.EndsOnItsCard)
+            {
+                Dismiss();
+                return;
+            }
+
             Show(false);
             _session.CycleLevel(1);
             UiTheme.Defocus();

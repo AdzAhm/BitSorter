@@ -911,12 +911,20 @@ columns from `ControlsReference.Groups`, and one button into the first level.
 Skipping is the small quiet button on the instruction strip and just stops, so
 finishing and skipping do not look alike.
 
+**The solved card leads to the ending card, not past it.** While the tutorial is
+running its steps, the solved card's one button is CONTINUE, which dismisses it so
+the ending card comes up (`TutorialDirector.EndsOnItsCard`, derived from the phase
+like `HoldingTheBoard`). It used to offer PLAY THE FIRST LEVEL, which loaded the
+level and skipped the card. A player who skipped the tutorial and solved its
+board anyway gets no ending card, so for them the solved card still offers the
+first level.
+
 **Leaving it once its run has passed is finishing it, and it offers itself once
-a session.** The solved card's PLAY THE FIRST LEVEL leaves the board before the
-ending card comes up. Recorded as walking away, that left no milestone on an
-empty first-level board -- a first-time player, to the auto-start -- and a
-playtester who had just finished the tutorial was put straight back in it.
-Opening the first level from the list mid-tutorial looped the same way.
+a session.** Recorded as walking away, leaving a solved tutorial left no
+milestone on an empty first-level board -- a first-time player, to the
+auto-start -- and a playtester who had just finished the tutorial was put
+straight back in it. Opening the first level from the list mid-tutorial looped
+the same way.
 
 **Nothing outside the run may count itself as a level.** `LevelCatalog.
 IsOffCatalogue` is the one place that knows free play and the tutorial are not
@@ -934,12 +942,14 @@ every load, so the tutorial stocks a decoy first — otherwise the "pick a part"
 step is already complete before the player touches anything. The main menu holds
 `UiModal` at boot, so auto-launch waits for it to have been closed rather than
 firing on startup. And `WinPanel` never registers with `UiModal`, so the director
-watches its `IsShowing` instead, and puts the card up only once it has **seen**
-the panel showing and then seen it gone. This paragraph used to say it worked
-because the scene builder adds the director after `WinPanel`. Unity makes no such
-promise — the order components are added in is not the order they update in — so
-"not showing" on the frame a run passes could just mean the panel had not updated
-yet.
+asks the panel itself: the card goes up once `WinPanel.PresentedThisRun` and the
+panel is no longer showing. "Not showing" alone cannot say the panel has had its
+turn -- on the frame a run passes it may simply not have updated yet, and Unity
+makes no promise about which updates first. This used to be the director
+*watching* for the panel, "seen showing, then gone", which depended on that same
+order: a card dismissed in the frame it appeared was never seen, and the ending
+waited for a card that had already come and gone. `PresentedThisRun` is set in
+the call that presents the card, so there is nothing to catch.
 
 **Analytics is the one thing that sends data anywhere.** `GameAnalytics`
 reports exactly two events, `levelStarted` and `levelSolved`, each

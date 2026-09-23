@@ -181,14 +181,16 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsFalse(card.IsShowing,
                 "the ending card must not share the screen with the solved panel");
 
-            Button stay = StayButton();
-            Assert.IsNotNull(stay, "could not find the solved panel's KEEP TINKERING button");
+            // At the end of the tutorial the solved panel's one way on is CONTINUE, which
+            // dismisses it; KEEP TINKERING would have led to the same card, so it is not offered.
+            Button onward = WayOnButton();
+            Assert.IsNotNull(onward, "could not find the solved panel's CONTINUE button");
 
-            stay.onClick.Invoke();
+            onward.onClick.Invoke();
             yield return null;
             yield return null;
 
-            Assert.IsFalse(win.IsShowing, "KEEP TINKERING should have dismissed the solved panel");
+            Assert.IsFalse(win.IsShowing, "CONTINUE should have dismissed the solved panel");
             Assert.IsTrue(card.IsShowing,
                 "with the solved panel dismissed, the ending card should have come up");
         }
@@ -238,14 +240,14 @@ namespace BitSorter.PlayMode.Tests
             update.Invoke(session, null);
         }
 
-        /// <summary>KEEP TINKERING, found by the names WinPanel builds it with.</summary>
-        private static Button StayButton()
+        /// <summary>The solved panel's way on, found by the names WinPanel builds it with.</summary>
+        private static Button WayOnButton()
         {
             foreach (Button button in Object.FindObjectsByType<Button>(FindObjectsSortMode.None))
             {
                 Transform parent = button.transform.parent;
 
-                if (button.name == "Stay" && parent != null && parent.name == "Win")
+                if (button.name == "Next" && parent != null && parent.name == "Win")
                     return button;
             }
 

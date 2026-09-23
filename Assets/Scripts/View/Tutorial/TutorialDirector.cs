@@ -46,17 +46,6 @@ namespace BitSorter.View
         private Phase _phase = Phase.Idle;
         private bool _menuHasClosed;
 
-        /// <summary>
-        /// Whether the solved panel has been seen on screen since the run passed.
-        /// </summary>
-        /// <remarks>
-        /// The ending waits for the solved panel to have had its turn, and "not showing" cannot say
-        /// that by itself: on the frame a run passes, the panel may simply not have updated yet, and
-        /// whether it has depends on an Update order Unity does not define. So the card waits until
-        /// the panel has been seen, and then until it is gone.
-        /// </remarks>
-        private bool _winSeen;
-
         /// <summary>Whether the tutorial's run has passed since it last began.</summary>
         /// <remarks>
         /// Kept rather than read off the session when the board is left: by the time the level
@@ -96,6 +85,20 @@ namespace BitSorter.View
         /// intro, and the board is free.
         /// </remarks>
         public static bool HoldingTheBoard => _live != null && _live._phase == Phase.Intro;
+
+        /// <summary>
+        /// Whether the tutorial will put up its own ending once the solved card is dismissed.
+        /// </summary>
+        /// <remarks>
+        /// The solved card asks, so it can lead there rather than past it: it used to offer PLAY
+        /// THE FIRST LEVEL, which loaded the level and skipped the ending card -- the controls, and
+        /// the one moment the tutorial says it is over. Only while the tutorial is running its
+        /// steps: a player who skipped it and solved the board anyway gets no ending card, and for
+        /// them the solved card's own way on is the first level.
+        ///
+        /// Derived from the phase and never set, like <see cref="HoldingTheBoard"/>.
+        /// </remarks>
+        public static bool EndsOnItsCard => _live != null && _live._phase == Phase.Steps;
 
         /// <summary>
         /// How many steps the board currently satisfies, counting from the top.
@@ -190,11 +193,6 @@ namespace BitSorter.View
 
             if (!_menuHasClosed && !UiModal.AnyOpen)
                 _menuHasClosed = true;
-
-            if (_session.State != RunState.Passed)
-                _winSeen = false;
-            else if (WinShowing)
-                _winSeen = true;
 
             if (_phase != Phase.Idle && _session.State == RunState.Passed && _session.LevelName == TutorialLevel.Key)
                 _solved = true;
@@ -314,12 +312,19 @@ namespace BitSorter.View
             BoardFacts facts = Gather();
             int index = TutorialScript.CurrentStep(facts);
 
-            if (index >= TutorialScript.Count)
+            // A passed run finishes the tutorial whatever the checklist says. "Pick up the NOT"
+            // only holds while the NOT is the part in hand, so a player who picked up the decoy
+            // after placing it would pass with a step still open -- and the solved card, which now
+            // leads to the ending, would have led nowhere.
+            if (index >= TutorialScript.Count || facts.Passed)
             {
                 // The run has passed. The ordinary solved panel goes first, and the ending waits
                 // until it has been shown and dismissed rather than sharing the screen with it. The
-                // guard above already holds everything back while the panel is up.
-                if (_winPanel != null && !_winSeen)
+                // guard above already holds everything back while the panel is up; this is the
+                // other half, "not yet presented", which the panel says itself (PresentedThisRun) --
+                // "not showing" alone cannot, because on the frame a run passes the panel may simply
+                // not have updated yet.
+                if (_winPanel != null && !_winPanel.PresentedThisRun)
                 {
                     Hide();
                     return;
