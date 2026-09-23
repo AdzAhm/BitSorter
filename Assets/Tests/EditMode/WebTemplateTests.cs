@@ -1,0 +1,64 @@
+using System.IO;
+using System.Text.RegularExpressions;
+using NUnit.Framework;
+using UnityEngine;
+
+namespace BitSorter.LogicCore.Tests
+{
+    /// <summary>
+    /// The page the browser build is served in keeps the whole game within reach at any window size.
+    /// </summary>
+    /// <remarks>
+    /// Read from the template's own source, because nothing in Unity lays the page out: a layout
+    /// fault here is only visible in a browser, in a window of the wrong size. One was found that
+    /// way. The template centred a fixed 960x600 canvas with Unity's stock left: 50% and
+    /// translate(-50%), and in a window narrower than the canvas the translate pushed its left edge
+    /// off the page, where no scrollbar reaches -- the edge the parts list lives on, so a player in
+    /// a narrow window could not pick up a gate.
+    /// </remarks>
+    public class WebTemplateTests
+    {
+        private const string Template = "WebGLTemplates/BitSorter";
+
+        private static string Read(string file) =>
+            File.ReadAllText(Path.Combine(Application.dataPath, Template, file));
+
+        /// <summary>The declarations of one CSS rule, found by its selector.</summary>
+        private static string Rule(string css, string selector)
+        {
+            Match match = Regex.Match(css, Regex.Escape(selector) + @"\s*\{([^}]*)\}");
+            Assert.IsTrue(match.Success, $"sanity: style.css has no rule for {selector}");
+            return match.Groups[1].Value;
+        }
+
+        /// <summary>
+        /// The game is never placed by a translate, which is how it was pushed off the page.
+        /// </summary>
+        /// <remarks>
+        /// A negative offset is the one kind of overflow a page cannot scroll to. Auto margins
+        /// centre a container just as well and fall to zero when it is wider than the window.
+        /// </remarks>
+        [Test]
+        public void TheGame_IsNeverPushedOffThePage()
+        {
+            string desktop = Rule(Read("TemplateData/style.css"), "#unity-container.unity-desktop");
+
+            StringAssert.DoesNotContain("translate", desktop,
+                "the game is centred by a translate, which pushes its left edge off a narrow window");
+        }
+
+        /// <summary>
+        /// The canvas is sized from the window, not fixed at the size the build was authored at.
+        /// </summary>
+        [Test]
+        public void TheCanvas_IsNotAFixedSize()
+        {
+            string page = Read("index.html");
+
+            StringAssert.DoesNotContain("canvas.style.width = \"{{{ WIDTH }}}px\"", page,
+                "the canvas is fixed at its authored width, so a window narrower than that cannot hold it");
+            StringAssert.Contains("addEventListener(\"resize\"", page,
+                "the canvas is never sized again when the window changes");
+        }
+    }
+}
