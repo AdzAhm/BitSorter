@@ -74,5 +74,48 @@ namespace BitSorter.PlayMode.Tests
             Assert.GreaterOrEqual(columnLeftOnScreen, paletteRight,
                 "the parts list covers the board's leftmost column, where four levels keep a source");
         }
+
+        /// <summary>
+        /// Opening the help panel keeps the rightmost column -- the bins -- clear of it.
+        /// </summary>
+        /// <remarks>
+        /// The help panel was the one thing down the right the board was not framed around, so
+        /// opening it to read a level's truth table covered the bins the table describes. Carry the
+        /// one, for the widest table: five fixtures' columns.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator TheRightmostColumn_IsClearOfTheOpenHelpPanel()
+        {
+            yield return TestScene.Load();
+
+            Find<MainMenu>().Show(false);
+            yield return null;
+
+            Assert.IsTrue(Find<LevelSession>().LoadLevel("carry-the-one"), "the level did not load");
+
+            for (int frame = 0; frame < 4; frame++)
+                yield return null;
+
+            GameObject badge = GameObject.Find("Help badge");
+            Assert.IsNotNull(badge, "sanity: no help badge on screen");
+            badge.GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+
+            for (int frame = 0; frame < 4; frame++)
+                yield return null;
+
+            GameObject help = GameObject.Find("Help");
+            Assert.IsNotNull(help, "sanity: the help panel did not open");
+
+            var corners = new Vector3[4];
+            help.GetComponent<RectTransform>().GetWorldCorners(corners);
+            float helpLeft = corners[0].x;
+
+            PlacementGrid grid = Find<PlacementGrid>();
+            float columnRight = (grid.HalfExtents.x + 0.5f) * grid.CellSize;
+            float columnRightOnScreen = Camera.main.WorldToScreenPoint(new Vector3(columnRight, 0f, 0f)).x;
+
+            Assert.LessOrEqual(columnRightOnScreen, helpLeft,
+                "the open help panel covers the board's rightmost column, where the bins are");
+        }
     }
 }
