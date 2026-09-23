@@ -113,9 +113,51 @@ namespace BitSorter.PlayMode.Tests
                 "wherever the last one died");
         }
 
+        /// <summary>
+        /// The board tile's lines pass through the placement grid's cells.
+        /// </summary>
+        /// <remarks>
+        /// A tiled sprite repeats from its renderer's bottom-left corner, not from its centre, and
+        /// the backdrop is sized to the view -- so the pattern's phase was whatever the view's size
+        /// made it. BoardBackground said the tile "stays centred on the board, so its pattern keeps
+        /// lining up with the grid", and at 1920 by 1080 its lines ran 1.2 units off the cells
+        /// vertically: hidden while they were half a unit apart, obvious once a look spaced them a
+        /// cell apart and put a pad on every cell.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator TheBoardTile_LinesUpWithTheCells()
+        {
+            yield return TestScene.Load();
+            Find<MainMenu>().Show(false);
+
+            // Long enough for the camera to frame the board and the backdrop to follow it.
+            for (int frame = 0; frame < 5; frame++)
+                yield return null;
+
+            SpriteRenderer board = Find<BoardBackground>().GetComponentInChildren<SpriteRenderer>();
+            Assert.IsNotNull(board, "sanity: the backdrop is in the scene");
+
+            Vector2 tile = board.sprite.bounds.size;
+            Vector2 corner = (Vector2)board.transform.position - board.size * 0.5f;
+
+            Assert.Less(OffTheTile(corner.x, tile.x), 1e-3f,
+                $"the backdrop starts tiling at x = {corner.x:F3}, which is not a whole number of " +
+                $"{tile.x}-unit tiles from the board's centre, so its lines miss the cells");
+            Assert.Less(OffTheTile(corner.y, tile.y), 1e-3f,
+                $"the backdrop starts tiling at y = {corner.y:F3}, which is not a whole number of " +
+                $"{tile.y}-unit tiles from the board's centre, so its lines miss the cells");
+        }
+
         // -----------------------------------------------------------------
         // Helpers
         // -----------------------------------------------------------------
+
+        /// <summary>How far a position is from the nearest whole number of tiles.</summary>
+        private static float OffTheTile(float position, float tile)
+        {
+            float into = Mathf.Repeat(position, tile);
+            return Mathf.Min(into, tile - into);
+        }
 
         /// <summary>The biggest step between two consecutive points of a trail.</summary>
         private static float LongestGap(TrailRenderer trail)
