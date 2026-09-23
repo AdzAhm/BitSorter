@@ -19,6 +19,12 @@ namespace BitSorter.View
 
         /// <summary>Lit from the top left, so the body reads as a raised part with edges.</summary>
         Raised,
+
+        /// <summary>
+        /// Glass lit from the top left: its rim bright on the side facing the light and falling
+        /// away on the far side, so a glowing part still reads as an object with a shape.
+        /// </summary>
+        LitGlass,
     }
 
     /// <summary>What marks the placement grid's cells.</summary>
@@ -99,6 +105,20 @@ namespace BitSorter.View
         /// fixtures are the level's, and the gates are the player's.
         /// </summary>
         public float FixtureGlow = 1f;
+
+        /// <summary>
+        /// How many world units the board tile covers before it repeats. Its lines run along the
+        /// tile's edges and through its middle, so at 1 they are half a unit apart -- a quarter of
+        /// a cell -- and at 4 they are a cell apart and cross on every cell's centre.
+        /// </summary>
+        public float BoardUnits = 1f;
+
+        /// <summary>How wide the board tile's lines are, as a share of the shipped width.</summary>
+        /// <remarks>Held in world units, so a tile that covers more of the board does not thicken them.</remarks>
+        public float BoardLineWidth = 1f;
+
+        /// <summary>How large a placement grid mark is, as a share of the scene's size.</summary>
+        public float GridMarkSize = 1f;
 
         private static Look _current;
 

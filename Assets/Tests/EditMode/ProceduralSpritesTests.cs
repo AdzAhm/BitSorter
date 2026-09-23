@@ -103,5 +103,55 @@ namespace BitSorter.LogicCore.Tests
                 Look.Use(null);
             }
         }
+
+        /// <summary>
+        /// A board tile spread over more of the board covers that many world units, at the shipped
+        /// tile's sharpness, with its lines no wider on the board than the shipped ones.
+        /// </summary>
+        [Test]
+        public void ALargerBoardTile_CoversMoreOfTheBoard_AtTheSameSharpness()
+        {
+            Look wide = Look.Classic.Derive("test-wide", l => l.BoardUnits = 4f);
+
+            try
+            {
+                Sprite shipped = ProceduralSprites.BoardTile();
+
+                Look.Use(wide);
+                Sprite spread = ProceduralSprites.BoardTile();
+
+                Assert.AreNotSame(shipped, spread, "the wider tile was drawn on the shipped tile's key");
+                Assert.AreEqual(1f, shipped.bounds.size.x, 1e-4f, "the shipped tile covers one unit");
+                Assert.AreEqual(4f, spread.bounds.size.x, 1e-4f, "the wider tile should cover four");
+                Assert.AreEqual(shipped.pixelsPerUnit, spread.pixelsPerUnit, 1e-4f,
+                    "a wider tile should keep the same texels per world unit");
+
+                Assert.AreEqual(LineTexels(shipped), LineTexels(spread),
+                    "a line should be as wide on the board whatever the tile covers");
+            }
+            finally
+            {
+                Look.Use(null);
+            }
+        }
+
+        /// <summary>How many texels wide the tile's middle line is, a quarter of the way up.</summary>
+        private static int LineTexels(Sprite tile)
+        {
+            Texture2D texture = tile.texture;
+            int size = texture.width;
+            Color32[] pixels = texture.GetPixels32();
+            Color32 ground = pixels[(size / 4) * size + size / 4];
+            int row = size / 4;
+            int wide = 0;
+
+            for (int x = size / 4; x < size * 3 / 4; x++)
+            {
+                if (!pixels[row * size + x].Equals(ground))
+                    wide++;
+            }
+
+            return wide;
+        }
     }
 }

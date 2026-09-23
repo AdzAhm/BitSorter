@@ -18,6 +18,9 @@ namespace BitSorter.LogicCore.Tests
             Assert.AreEqual(1f, classic.TrailLength);
             Assert.AreEqual(1f, classic.GateGlow);
             Assert.AreEqual(1f, classic.FixtureGlow);
+            Assert.AreEqual(1f, classic.BoardUnits);
+            Assert.AreEqual(1f, classic.BoardLineWidth);
+            Assert.AreEqual(1f, classic.GridMarkSize);
             Assert.AreSame(Palette.Classic, classic.Colours);
         }
 

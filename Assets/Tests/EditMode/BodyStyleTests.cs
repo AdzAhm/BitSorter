@@ -10,7 +10,8 @@ namespace BitSorter.LogicCore.Tests
     /// </summary>
     public class BodyStyleTests
     {
-        private static readonly BodyStyle[] Styles = { BodyStyle.Outline, BodyStyle.Glass, BodyStyle.Raised };
+        private static readonly BodyStyle[] Styles =
+            { BodyStyle.Outline, BodyStyle.Glass, BodyStyle.Raised, BodyStyle.LitGlass };
 
         /// <summary>Every shape a node's body can take.</summary>
         private static readonly Func<BodyStyle, Sprite>[] Bodies =
@@ -91,6 +92,28 @@ namespace BitSorter.LogicCore.Tests
 
             Assert.Greater(pixels[row * size + left].r, pixels[row * size + right].r,
                 "the edge facing the light should be brighter than the edge facing away from it");
+        }
+
+        /// <summary>
+        /// Lit glass has a rim brighter on the side facing the light than on the side facing away,
+        /// and the same see-through middle as glass.
+        /// </summary>
+        [Test]
+        public void LitGlass_IsBrighterOnTheLitRim()
+        {
+            Sprite sprite = ProceduralSprites.RoundedSquare(BodyStyle.LitGlass);
+            int size = sprite.texture.width;
+            Color32[] pixels = sprite.texture.GetPixels32();
+            int row = size / 2;
+
+            int left = FirstFullyCovered(ProceduralSprites.RoundedSquare().texture.GetPixels32(), size, row) + 2;
+            int right = size - 1 - left;
+
+            Assert.Greater(pixels[row * size + left].r, pixels[row * size + right].r,
+                "the rim facing the light should be brighter than the rim facing away from it");
+
+            byte glassMiddle = ProceduralSprites.RoundedSquare(BodyStyle.Glass).texture.GetPixels32()[row * size + size / 2].a;
+            Assert.AreEqual(glassMiddle, pixels[row * size + size / 2].a, "the middle should be as see-through as glass");
         }
 
         /// <summary>The distance field measures each inside texel to the nearest outside one.</summary>

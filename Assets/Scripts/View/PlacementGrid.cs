@@ -68,7 +68,7 @@ namespace BitSorter.View
 
                     GameObject dot = ViewSprites.Spawn(_dotPrefab, container.transform, $"Cell {x},{y}");
                     dot.transform.position = CellToWorld(cell);
-                    dot.transform.localScale = Vector3.one * _dotSize;
+                    dot.transform.localScale = Vector3.one * (_dotSize * Look.Current.GridMarkSize);
 
                     var renderer = dot.GetComponent<SpriteRenderer>();
                     renderer.color = Palette.Current.Grid;

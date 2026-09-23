@@ -220,43 +220,55 @@ namespace BitSorter.View
         {
             // Keyed on the palette, because unlike every mask in this file the tile bakes its
             // colours in: cached under one key, a second look would be drawn on the first one's board.
-            string key = "board:" + Palette.Current.Name;
+            // A look that changes the tile's shape adds that to the key too.
+            Look look = Look.Current;
+            float units = look.BoardUnits > 0f ? look.BoardUnits : 1f;
+            bool shipped = units == 1f && look.BoardLineWidth == 1f;
+            string key = "board:" + Palette.Current.Name + (shipped ? "" : $":{units}:{look.BoardLineWidth}");
 
             if (TryCached(key, out Sprite cached))
                 return cached;
 
-            var texture = NewTexture(TileSize, TextureWrapMode.Repeat);
-            var pixels = new Color32[TileSize * TileSize];
+            // The same texels per world unit whatever the tile covers, so a larger tile is no
+            // blurrier than the shipped one.
+            int size = TileSize * Mathf.Max(1, Mathf.CeilToInt(units));
+
+            var texture = NewTexture(size, TextureWrapMode.Repeat);
+            var pixels = new Color32[size * size];
 
             Color baseColour = Palette.Current.Ground;
             Color trace = Palette.Current.GroundTrace;
             Color pad = Palette.Current.GroundPad;
 
-            for (int y = 0; y < TileSize; y++)
+            // Every size below is in world units, divided down to the tile's own 0..1.
+            float thin = 0.012f * look.BoardLineWidth / units;
+            float centrePad = 0.055f / units;
+            float cornerPad = 0.05f / units;
+
+            for (int y = 0; y < size; y++)
             {
-                for (int x = 0; x < TileSize; x++)
+                for (int x = 0; x < size; x++)
                 {
-                    float u = (x + 0.5f) / TileSize;
-                    float v = (y + 0.5f) / TileSize;
+                    float u = (x + 0.5f) / size;
+                    float v = (y + 0.5f) / size;
                     Color colour = baseColour;
 
                     // Lines on the tile edges and through the middle. Edge lines meet their
                     // neighbour's, so the tiling seam is invisible.
-                    const float thin = 0.012f;
                     if (u < thin || u > 1f - thin || v < thin || v > 1f - thin) colour = trace;
                     if (Mathf.Abs(u - 0.5f) < thin || Mathf.Abs(v - 0.5f) < thin) colour = trace;
 
                     // Pads where the traces cross.
                     float toCentre = new Vector2(u - 0.5f, v - 0.5f).magnitude;
-                    if (toCentre < 0.055f) colour = pad;
+                    if (toCentre < centrePad) colour = pad;
 
                     float toCorner = Mathf.Min(
                         new Vector2(u, v).magnitude,
                         Mathf.Min(new Vector2(u - 1f, v).magnitude,
                             Mathf.Min(new Vector2(u, v - 1f).magnitude, new Vector2(u - 1f, v - 1f).magnitude)));
-                    if (toCorner < 0.05f) colour = pad;
+                    if (toCorner < cornerPad) colour = pad;
 
-                    pixels[y * TileSize + x] = colour;
+                    pixels[y * size + x] = colour;
                 }
             }
 
@@ -264,8 +276,8 @@ namespace BitSorter.View
             texture.Apply();
 
             Sprite sprite = Sprite.Create(
-                texture, new Rect(0f, 0f, TileSize, TileSize), new Vector2(0.5f, 0.5f),
-                TileSize, 0, SpriteMeshType.FullRect);
+                texture, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f),
+                size / units, 0, SpriteMeshType.FullRect);
 
             sprite.hideFlags = HideFlags.HideAndDontSave;
 
@@ -380,6 +392,11 @@ namespace BitSorter.View
                         case BodyStyle.Raised:
                             shade = RaisedShade(depth, size, x, y, d);
                             break;
+
+                        case BodyStyle.LitGlass:
+                            alpha = cover * Mathf.Lerp(1f, GlassFill, Mathf.SmoothStep(0f, 1f, d / GlassRimTexels));
+                            shade = LitGlassShade(depth, size, x, y, d);
+                            break;
                     }
 
                     byte grey = (byte)Mathf.RoundToInt(255f * Mathf.Clamp01(shade));
@@ -402,6 +419,39 @@ namespace BitSorter.View
             if (d >= BevelTexels)
                 return Flat;
 
+            if (!FacingTheLight(depth, size, x, y, out float lit))
+                return Flat;
+
+            float nearEdge = 1f - d / BevelTexels;
+
+            return Flat + Relief * lit * nearEdge;
+        }
+
+        /// <summary>
+        /// Brightness of a lit glass body at one texel: its rim at full brightness where it faces
+        /// the light and at about half where it faces away, and its see-through middle a little
+        /// below full.
+        /// </summary>
+        private static float LitGlassShade(float[] depth, int size, int x, int y, float d)
+        {
+            const float Middle = 0.85f;
+            const float Shadowed = 0.5f;
+
+            float rim = 1f - Mathf.SmoothStep(0f, 1f, d / GlassRimTexels);
+
+            if (rim <= 0f || !FacingTheLight(depth, size, x, y, out float lit))
+                return Middle;
+
+            float edge = Mathf.Lerp(Shadowed, 1f, lit * 0.5f + 0.5f);
+            return Mathf.Lerp(Middle, edge, rim);
+        }
+
+        /// <summary>
+        /// How squarely the surface at one texel faces a light from the top left: 1 facing it, -1
+        /// facing away. False where the surface has no direction, deep in a flat middle.
+        /// </summary>
+        private static bool FacingTheLight(float[] depth, int size, int x, int y, out float lit)
+        {
             // Depth rises inward, so its gradient points into the body and the surface faces the
             // other way. Central differences, clamped at the texture's edge.
             float gx = depth[y * size + Mathf.Min(x + 1, size - 1)] - depth[y * size + Mathf.Max(x - 1, 0)];
@@ -409,13 +459,14 @@ namespace BitSorter.View
 
             var facing = new Vector2(-gx, -gy);
             if (facing.sqrMagnitude < 1e-6f)
-                return Flat;
+            {
+                lit = 0f;
+                return false;
+            }
 
             // Texture y runs up, so the top left is (-1, +1).
-            float lit = Vector2.Dot(facing.normalized, new Vector2(-0.7071f, 0.7071f));
-            float nearEdge = 1f - d / BevelTexels;
-
-            return Flat + Relief * lit * nearEdge;
+            lit = Vector2.Dot(facing.normalized, new Vector2(-0.7071f, 0.7071f));
+            return true;
         }
 
         /// <summary>How much of each texel a shape covers, 0 to 1, supersampled like <see cref="Mask"/>.</summary>
