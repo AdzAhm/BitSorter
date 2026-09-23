@@ -152,9 +152,172 @@ namespace BitSorter.PlayMode.Tests
                 $"{tile.y}-unit tiles from the board's centre, so its lines miss the cells");
         }
 
+        /// <summary>
+        /// Two bits that meet are never drawn at the same depth, and never swap order mid-flight.
+        /// </summary>
+        /// <remarks>
+        /// Every bit draws its dot, halo and trail at one sorting order each, shared with every
+        /// other bit, and all at depth zero -- so where two bits overlapped, Unity was free to draw
+        /// either one's pieces on top. It did not choose the same way every time. At the crossing in
+        /// the middle of the half adder about one reference capture in three drew the two bits'
+        /// trails the other way round, and forcing that one order reproduced the odd capture to the
+        /// pixel. In play the same freedom is a flicker wherever bits cross.
+        ///
+        /// A sort key is the sorting layer, the order, then depth; the first two are the same for
+        /// every bit by design, so depth is what has to differ. And it has to keep its sign for as
+        /// long as both bits are in flight, or the flicker is back, one swap per crossing.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator TwoBitsThatMeet_AreNeverDrawnAtTheSameDepth()
+        {
+            yield return TestScene.Load();
+            Find<MainMenu>().Show(false);
+            yield return null;
+
+            LevelSession session = Find<LevelSession>();
+            SimulationRunner runner = Find<SimulationRunner>();
+
+            Assert.IsTrue(session.LoadLevel(Level), "the level did not load");
+
+            for (int frame = 0; frame < 30 && !runner.FixtureNodeIds.ContainsKey("a"); frame++)
+                yield return null;
+
+            BuildTheHalfAdder(session, runner);
+            session.Run();
+
+            Transform container = Find<BitRenderer>().transform.Find("Bits");
+            Assert.IsNotNull(container, "sanity: the bits have a container");
+
+            var order = new Dictionary<long, bool>();
+            var wasLive = new HashSet<int>();
+            var isLive = new HashSet<int>();
+            var bits = new List<Transform>();
+            int meetings = 0;
+
+            for (int frame = 0; frame < 240; frame++)
+            {
+                yield return null;
+
+                bits.Clear();
+                isLive.Clear();
+
+                foreach (Transform child in container)
+                {
+                    if (!child.gameObject.activeInHierarchy)
+                        continue;
+
+                    bits.Add(child);
+                    isLive.Add(child.GetInstanceID());
+                }
+
+                // A sprite that was not live last frame is carrying a new bit, so any order recorded
+                // for it belonged to the bit before.
+                foreach (Transform bit in bits)
+                {
+                    if (!wasLive.Contains(bit.GetInstanceID()))
+                        Forget(order, bit.GetInstanceID());
+                }
+
+                for (int i = 0; i < bits.Count; i++)
+                {
+                    for (int j = i + 1; j < bits.Count; j++)
+                    {
+                        if (!Meet(bits[i], bits[j]))
+                            continue;
+
+                        meetings++;
+
+                        foreach ((string piece, float a, float b) in Depths(bits[i], bits[j]))
+                        {
+                            Assert.AreNotEqual(a, b,
+                                $"two bits meeting at {bits[i].position.x:F2}, {bits[i].position.y:F2} " +
+                                $"draw their {piece}s at the same depth ({a}), so which is on top is " +
+                                "Unity's choice, and it does not always make the same one");
+                        }
+
+                        // Which of the two is in front, stated for the pair's own order rather than
+                        // for this frame's list, so the same answer means the same thing next frame.
+                        int first = bits[i].GetInstanceID();
+                        int second = bits[j].GetInstanceID();
+                        long pair = Pair(first, second);
+                        bool inFront = first < second
+                            ? bits[i].position.z < bits[j].position.z
+                            : bits[j].position.z < bits[i].position.z;
+
+                        if (order.TryGetValue(pair, out bool was))
+                            Assert.AreEqual(was, inFront, "two bits swapped order while both were in flight");
+                        else
+                            order[pair] = inFront;
+                    }
+                }
+
+                (wasLive, isLive) = (isLive, wasLive);
+            }
+
+            Assert.Greater(meetings, 0,
+                "sanity: no two bits overlapped, so nothing here was tested -- the half adder's " +
+                "crossing is where they are expected to meet");
+        }
+
         // -----------------------------------------------------------------
         // Helpers
         // -----------------------------------------------------------------
+
+        /// <summary>Whether two bits overlap anywhere they draw: dot, halo or trail.</summary>
+        private static bool Meet(Transform a, Transform b)
+        {
+            Rect first = Footprint(a);
+            Rect second = Footprint(b);
+            return first.Overlaps(second);
+        }
+
+        /// <summary>Everything a bit draws, flattened onto the board.</summary>
+        private static Rect Footprint(Transform bit)
+        {
+            Bounds bounds = bit.GetComponent<SpriteRenderer>().bounds;
+
+            foreach (Renderer piece in bit.GetComponentsInChildren<Renderer>())
+            {
+                if (piece is TrailRenderer trail && trail.positionCount < 2)
+                    continue;   // an empty trail draws nothing, wherever its bounds say it is
+
+                bounds.Encapsulate(piece.bounds);
+            }
+
+            return Rect.MinMaxRect(bounds.min.x, bounds.min.y, bounds.max.x, bounds.max.y);
+        }
+
+        /// <summary>The depth each of two bits draws each piece at: dot, halo and trail.</summary>
+        private static IEnumerable<(string, float, float)> Depths(Transform a, Transform b)
+        {
+            yield return ("dot", a.position.z, b.position.z);
+            yield return ("halo", a.Find("Glow").position.z, b.Find("Glow").position.z);
+
+            TrailRenderer first = a.GetComponentInChildren<TrailRenderer>();
+            TrailRenderer second = b.GetComponentInChildren<TrailRenderer>();
+
+            if (first.positionCount > 1 && second.positionCount > 1)
+                yield return ("trail", first.GetPosition(0).z, second.GetPosition(0).z);
+        }
+
+        /// <summary>Two sprites, in either order.</summary>
+        private static long Pair(int first, int second) =>
+            first < second ? ((long)first << 32) | (uint)second : ((long)second << 32) | (uint)first;
+
+        /// <summary>Drops every recorded order involving one sprite.</summary>
+        private static void Forget(Dictionary<long, bool> order, int sprite)
+        {
+            var stale = new List<long>();
+
+            foreach (long pair in order.Keys)
+            {
+                if ((int)(pair >> 32) == sprite || (int)pair == sprite)
+                    stale.Add(pair);
+            }
+
+            foreach (long pair in stale)
+                order.Remove(pair);
+        }
 
         /// <summary>How far a position is from the nearest whole number of tiles.</summary>
         private static float OffTheTile(float position, float tile)
