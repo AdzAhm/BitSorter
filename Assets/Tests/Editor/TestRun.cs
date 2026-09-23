@@ -5,6 +5,7 @@ using System.Text;
 using UnityEditor;
 using UnityEditor.TestTools.TestRunner.Api;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace BitSorter.TestTools
 {
@@ -100,7 +101,7 @@ namespace BitSorter.TestTools
         /// Whether the editor is in a state where starting a run would throw or compile underneath
         /// itself.
         /// </summary>
-        private static bool Busy(out string why)
+        private static bool Busy(TestMode mode, out string why)
         {
             if (EditorApplication.isPlaying)
             {
@@ -116,15 +117,41 @@ namespace BitSorter.TestTools
                 return true;
             }
 
+            // A Play Mode run starts by swapping the open scenes out, and Unity asks first about any
+            // with unsaved changes -- in a modal prompt that stops the editor until somebody answers
+            // it, which nothing driving the editor from outside can do. It has happened: one run left
+            // the test runner's own temporary scene open and modified, and the next sat on "Scene(s)
+            // Have Been Modified" for half an hour with nothing in the results file but RUNNING.
+            // Refusing here says so at once, and leaves the choice to discard to a person.
+            if (mode == TestMode.PlayMode)
+            {
+                for (int i = 0; i < SceneManager.sceneCount; i++)
+                {
+                    Scene scene = SceneManager.GetSceneAt(i);
+
+                    if (scene.isDirty)
+                    {
+                        string name = string.IsNullOrEmpty(scene.name) ? "Untitled" : scene.name;
+                        why = $"the scene '{name}' has unsaved changes -- a Play Mode run would stop " +
+                              "on Unity's prompt to save it, which nothing here can answer";
+                        return true;
+                    }
+                }
+            }
+
             why = null;
             return false;
         }
 
         private static void Run(TestMode mode, string fixture = null)
         {
-            if (Busy(out string why))
+            if (Busy(mode, out string why))
             {
                 Debug.LogError($"[TestRun] refused: {why}.");
+
+                // In the results file as well as the console, so whatever is waiting on the file
+                // hears about the refusal instead of waiting on the last run's answer.
+                File.WriteAllText(ResultPath, "REFUSED\n" + why + "\n");
                 return;
             }
 
