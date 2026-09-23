@@ -163,16 +163,26 @@ namespace BitSorter.View
             }
         }
 
+        /// <summary>How large a held bit's disc is drawn, against the dot it replaced.</summary>
+        /// <remarks>
+        /// The dot faded out from its middle, so it looked about half its sprite across; the disc is
+        /// solid out to its edge. At the dot's size it read half again as large, and swelling in a
+        /// collision warning it spilled over the gate's edge. Any smaller and the digit cut into it
+        /// stops reading at a socket's size.
+        /// </remarks>
+        private const float HeldDiscShare = 0.8f;
+
         private void Paint(SpriteRenderer stub, InputPort port, PortAddress key)
         {
             bool holding = port.IsOccupied;
+            bool digits = Look.Current.Bits == BitStyle.Digit;
 
             stub.sprite = !holding ? ProceduralSprites.Ring()
-                : Look.Current.Bits == BitStyle.Digit ? ProceduralSprites.HeldBit(port.Pending.Value)
+                : digits ? ProceduralSprites.HeldBit(port.Pending.Value)
                 : ProceduralSprites.Dot();
 
             Color colour = RestingColourOf(port);
-            float scale = holding ? _heldScale : 1f;
+            float scale = !holding ? 1f : digits ? _heldScale * HeldDiscShare : _heldScale;
 
             if (_doomed.TryGetValue(key, out bool heldBitDies))
             {
