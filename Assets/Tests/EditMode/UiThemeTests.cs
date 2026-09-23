@@ -277,18 +277,18 @@ namespace BitSorter.LogicCore.Tests
 
 
         /// <summary>
-        /// The whole run fits in the level list without drawing over its title or its help line.
+        /// At the reference resolution the whole run shows in the level list at once, with no
+        /// scrolling.
         /// </summary>
         /// <remarks>
-        /// The list is centred on the screen and does not scroll, so a list too tall does not clip
-        /// -- it grows out of both ends and prints over the LEVELS title above it. That is exactly
-        /// what the two chapter headings did the first time they were added, and it is invisible
-        /// from the script: the rows are laid out one under another and every one of them is fine.
-        ///
-        /// Checked at the reference resolution, which is the shape the canvas scaler matches.
+        /// A list too tall for its room scrolls now; before it had a scroll view it grew out of both
+        /// ends and printed over the LEVELS title, which is what the two chapter headings did the
+        /// first time they were added. Scrolling makes that safe, not good: the reference shape is
+        /// the one most players first meet the list at, and there the run should be one picture --
+        /// both chapters, and where the player is in them.
         /// </remarks>
         [Test]
-        public void TheWholeRun_FitsTheLevelListBetweenItsTitleAndItsHelpLine()
+        public void TheWholeRun_ShowsWithoutScrollingAtTheReferenceResolution()
         {
             int levels = 0;
 
@@ -300,18 +300,12 @@ namespace BitSorter.LogicCore.Tests
 
             Assert.Greater(levels, 0, "sanity: there are levels to list");
 
-            // The title sits 48 from the top and is 34 tall; the help line 36 from the bottom and
-            // 20 tall. Both are stated in LevelSelectPanel, which is where they are drawn.
-            const float titleBottom = 48f + 34f;
-            const float helpTop = 36f + 20f;
-            const float breathing = 12f;
-
-            float room = UiTheme.ReferenceResolution.y - titleBottom - helpTop - breathing * 2f;
+            float room = LevelSelectPanel.ListRoom(UiTheme.ReferenceResolution.y);
             float needed = LevelSelectPanel.ListHeight(levels, 2);
 
             Assert.LessOrEqual(needed, room,
-                $"{levels} levels in two chapters need {needed:F0}px and the panel has {room:F0}px " +
-                "between its title and its help line, so the list prints over them");
+                $"{levels} levels in two chapters need {needed:F0}px and the list has {room:F0}px " +
+                "between its title and its help line, so at the reference resolution it scrolls");
         }
 
 

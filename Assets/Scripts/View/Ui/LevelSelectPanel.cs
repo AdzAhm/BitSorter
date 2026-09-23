@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.UI;
 using UnityEngine.UI;
 using TMPro;
 
@@ -76,6 +77,7 @@ namespace BitSorter.View
 
         private readonly List<Row> _rows = new List<Row>();
         private RectTransform _root;
+        private ScrollRect _scroll;
         private bool _shown;
 
         /// <summary>Whether the list is covering the board.</summary>
@@ -142,19 +144,19 @@ namespace BitSorter.View
             TextMeshProUGUI title = UiTheme.Label(
                 "title", _root, 26f, UiTheme.Text, TextAlignmentOptions.Center);
             UiTheme.Anchor(title.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-                new Vector2(0f, -48f), new Vector2(600f, 34f));
+                new Vector2(0f, -TitleTop), new Vector2(600f, TitleHeight));
             title.text = "LEVELS";
 
             TextMeshProUGUI help = UiTheme.Label(
                 "help", _root, 13f, UiTheme.TextDim, TextAlignmentOptions.Center);
             UiTheme.Anchor(help.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
-                new Vector2(0f, 36f), new Vector2(600f, 20f));
+                new Vector2(0f, HelpBottom), new Vector2(600f, HelpHeight));
             help.text = "escape to close    Q / E also change level";
 
             const float rowHeight = RowHeight;
             const float gap = RowGap;
 
-            RectTransform list = UiTheme.Rect("list", _root);
+            RectTransform list = BuildScroll();
 
             // Walked down with a cursor rather than multiplied out from a row index. Two headings
             // and three different gaps sit between the rows now, and index arithmetic that has to
@@ -191,8 +193,178 @@ namespace BitSorter.View
             // Sized once everything is placed. Rows anchor to the list's top edge, so growing it
             // downwards afterwards moves nothing.
             UiTheme.Anchor(list, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                Vector2.zero, new Vector2(520f, column.Next));
+                Vector2.zero, new Vector2(ListWidth, column.Next));
         }
+
+        /// <summary>
+        /// The room between the title and the help line, which the rows scroll inside, and the list
+        /// the rows are built into.
+        /// </summary>
+        /// <remarks>
+        /// There was no scrolling, and the list was centred on the screen, so a list taller than the
+        /// room between the title and the help line did not clip: it drew over both of them. It had
+        /// thirty pixels to spare with seventeen levels, and the two chapter headings had already
+        /// overrun it once. Now a list that fits sits in the middle of that room, and one that does
+        /// not scrolls, with a scrollbar that only shows when there is anything to scroll.
+        /// </remarks>
+        private RectTransform BuildScroll()
+        {
+            RectTransform viewport = UiTheme.Rect("viewport", _root);
+            viewport.anchorMin = new Vector2(0.5f, 0f);
+            viewport.anchorMax = new Vector2(0.5f, 1f);
+            viewport.pivot = new Vector2(0.5f, 0.5f);
+            viewport.offsetMin = new Vector2(-ListWidth * 0.5f, ListBottom);
+            viewport.offsetMax = new Vector2(ListWidth * 0.5f, -ListTop);
+
+            viewport.gameObject.AddComponent<RectMask2D>();
+
+            // Clear, and a raycast target, so the wheel scrolls over the gaps between rows as well as
+            // over the rows themselves.
+            Image catcher = viewport.gameObject.AddComponent<Image>();
+            catcher.color = Color.clear;
+
+            RectTransform list = UiTheme.Rect("list", viewport);
+
+            _scroll = viewport.gameObject.AddComponent<ScrollRect>();
+            _scroll.viewport = viewport;
+            _scroll.content = list;
+            _scroll.horizontal = false;
+            _scroll.vertical = true;
+            _scroll.movementType = ScrollRect.MovementType.Clamped;
+            _scroll.inertia = false;
+            _scroll.scrollSensitivity = (RowHeight + RowGap) / WheelUnitsPerNotch();
+
+            _scroll.verticalScrollbar = BuildScrollbar();
+            _scroll.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.AutoHide;
+
+            return list;
+        }
+
+        /// <summary>A thin bar beside the rows, shown only while the list is taller than its room.</summary>
+        private Scrollbar BuildScrollbar()
+        {
+            RectTransform track = UiTheme.Rect("scrollbar", _root);
+            track.anchorMin = new Vector2(0.5f, 0f);
+            track.anchorMax = new Vector2(0.5f, 1f);
+            track.pivot = new Vector2(0.5f, 0.5f);
+            track.offsetMin = new Vector2(ListWidth * 0.5f + ScrollbarGap, ListBottom);
+            track.offsetMax = new Vector2(ListWidth * 0.5f + ScrollbarGap + ScrollbarWidth, -ListTop);
+
+            Image trackImage = track.gameObject.AddComponent<Image>();
+            trackImage.color = UiTheme.PanelEdge;
+
+            RectTransform handle = UiTheme.Rect("handle", track);
+            UiTheme.Stretch(handle);
+
+            Image handleImage = handle.gameObject.AddComponent<Image>();
+            handleImage.color = UiTheme.TextDim;
+
+            Scrollbar bar = track.gameObject.AddComponent<Scrollbar>();
+            bar.handleRect = handle;
+            bar.targetGraphic = handleImage;
+            bar.direction = Scrollbar.Direction.BottomToTop;
+
+            var navigation = bar.navigation;
+            navigation.mode = Navigation.Mode.None;
+            bar.navigation = navigation;
+
+            return bar;
+        }
+
+        /// <summary>
+        /// What one notch of the mouse wheel is worth to the interface, so a notch moves one row.
+        /// </summary>
+        /// <remarks>
+        /// The Input System's UI module scales a notch to its own figure, six by default, and a scroll
+        /// view multiplies whatever it is handed. Read from the module rather than written down here,
+        /// so the two cannot disagree.
+        /// </remarks>
+        private static float WheelUnitsPerNotch()
+        {
+            if (EventSystem.current != null
+                && EventSystem.current.currentInputModule is InputSystemUIInputModule module
+                && module.scrollDeltaPerTick > 0.01f)
+            {
+                return module.scrollDeltaPerTick;
+            }
+
+            return 6f;
+        }
+
+        /// <summary>
+        /// Scrolls just far enough that the current level's row is in view, if the list scrolls at all.
+        /// </summary>
+        /// <remarks>
+        /// The list opens where the player is. Opening on the top of a scrolled list every time
+        /// would hide the row that says where they are, which is the first thing they look for.
+        /// </remarks>
+        private void RevealCurrent()
+        {
+            if (_scroll == null)
+                return;
+
+            float view = _scroll.viewport.rect.height;
+            float overflow = _scroll.content.rect.height - view;
+
+            if (overflow <= 0f)
+                return;
+
+            RectTransform current = null;
+
+            foreach (Row row in _rows)
+            {
+                if (row.FileName == _session.LevelName)
+                    current = row.Button.GetComponent<RectTransform>();
+            }
+
+            if (current == null)
+                return;
+
+            // Distances down from the list's top edge, which is where every row is anchored.
+            float scrolled = (1f - _scroll.verticalNormalizedPosition) * overflow;
+            float top = -current.anchoredPosition.y;
+            float bottom = top + current.rect.height;
+
+            if (top < scrolled)
+                scrolled = top;
+            else if (bottom > scrolled + view)
+                scrolled = bottom - view;
+
+            _scroll.verticalNormalizedPosition = 1f - Mathf.Clamp(scrolled, 0f, overflow) / overflow;
+        }
+
+        /// <summary>The list's width, which every row takes.</summary>
+        private const float ListWidth = 520f;
+
+        /// <summary>The title: how far below the top edge, and how tall.</summary>
+        private const float TitleTop = 48f;
+
+        /// <inheritdoc cref="TitleTop"/>
+        private const float TitleHeight = 34f;
+
+        /// <summary>The help line: how far above the bottom edge, and how tall.</summary>
+        private const float HelpBottom = 36f;
+
+        /// <inheritdoc cref="HelpBottom"/>
+        private const float HelpHeight = 20f;
+
+        /// <summary>Clear space between the rows and the title above them or the help line below.</summary>
+        private const float Breathing = 12f;
+
+        /// <summary>Where the room the rows scroll in begins, below the top edge.</summary>
+        private const float ListTop = TitleTop + TitleHeight + Breathing;
+
+        /// <summary>Where it ends, above the bottom edge.</summary>
+        private const float ListBottom = HelpBottom + HelpHeight + Breathing;
+
+        /// <summary>The scrollbar: how far right of the rows, and how wide.</summary>
+        private const float ScrollbarGap = 10f;
+
+        /// <inheritdoc cref="ScrollbarGap"/>
+        private const float ScrollbarWidth = 6f;
+
+        /// <summary>How tall the room the rows scroll in is, on a canvas this tall.</summary>
+        public static float ListRoom(float canvasHeight) => canvasHeight - ListTop - ListBottom;
 
         /// <summary>Extra space before the sequential chapter, on top of the ordinary row gap.</summary>
         private const float ChapterGap = 16f;
@@ -227,10 +399,9 @@ namespace BitSorter.View
         /// How tall the list is, for a run of this many levels split into this many chapters.
         /// </summary>
         /// <remarks>
-        /// The list is centred between the panel's title and its help line, and there is no
-        /// scrolling: a list taller than the room between them does not clip, it draws over them.
-        /// Stated as a formula so <see cref="UiThemeTests"/> can ask whether the run still fits
-        /// before anyone sees it not fitting.
+        /// A list taller than <see cref="ListRoom"/> scrolls. Stated as a formula so
+        /// <see cref="UiThemeTests"/> can ask whether the whole run still shows at once at the
+        /// reference resolution, where most players first meet it.
         ///
         /// Counts the tutorial row and free play's row, which are not levels but are rows.
         /// </remarks>
@@ -422,6 +593,7 @@ namespace BitSorter.View
                 UiTheme.BringToFront(_root);
                 UiModal.Opened(this);
                 Refresh();
+                RevealCurrent();
             }
             else
             {
