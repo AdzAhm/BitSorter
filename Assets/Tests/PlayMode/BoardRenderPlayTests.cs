@@ -37,7 +37,15 @@ namespace BitSorter.PlayMode.Tests
         }
 
         [TearDown]
-        public void ClearTheSave() => SaveGuard.Clear();
+        public void ClearTheSave()
+        {
+            SaveGuard.Clear();
+
+            // A test that fixes the frame time puts it back itself, and this is for the one that
+            // failed before it got there: a fixed frame time leaking into the next fixture would
+            // change what every wait in it means.
+            Time.captureDeltaTime = 0f;
+        }
 
         [UnityTearDown]
         public IEnumerator ClearTheScene()
@@ -209,6 +217,108 @@ namespace BitSorter.PlayMode.Tests
             // would fail here rather than pass.
             Assert.Greater(zeros, 0, "no bit was ever drawn as a 0");
             Assert.Greater(ones, 0, "no bit was ever drawn as a 1");
+        }
+
+        /// <summary>
+        /// A collision that will take the waiting bit too crosses that bit out; one that will not,
+        /// does not.
+        /// </summary>
+        /// <remarks>
+        /// The two warnings were amber and red and nothing else, which a red-green colour-blind
+        /// player cannot tell apart. An AND fed only from A: its first 0 waits, the next 0 arrives
+        /// as a matching collision that takes only the arrival, and the 1 after it arrives against
+        /// the waiting 0 and takes both. Both cases have to be seen, or a mark that never showed --
+        /// or always did -- would pass half of this.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator AWaitingBitThatWillDie_IsCrossedOut_AndOnlyThen()
+        {
+            yield return TestScene.Load();
+            Find<MainMenu>().Show(false);
+            yield return null;
+
+            LevelSession session = Find<LevelSession>();
+            SimulationRunner runner = Find<SimulationRunner>();
+
+            Assert.IsTrue(session.LoadLevel(Level), "the level did not load");
+
+            for (int frame = 0; frame < 30 && !runner.FixtureNodeIds.ContainsKey("a"); frame++)
+                yield return null;
+
+            var low = new Vector2Int(0, -1);
+            Assert.IsTrue(session.TryPlaceGate(GateKind.And, low), "could not place the AND");
+            int and = NodeOn(runner, low);
+            Wire(session, runner.FixtureNodeIds["a"], 0, and, 0);
+            Wire(session, and, 0, runner.FixtureNodeIds["carry"], 0);
+
+            session.Run();
+
+            // Paused, so the only ticks are the ones stepped below: a tick of the runner's own
+            // landing between the renderer drawing and this checking would make the two disagree.
+            runner.SetPaused(true);
+            yield return null;
+            and = NodeOn(runner, low);
+
+            PortRenderer ports = Find<PortRenderer>();
+            var port = new PortAddress(and, true, 0);
+            bool sawOnlyTheArrival = false;
+            bool sawBoth = false;
+
+            // A port mid-flash is showing the collision that just happened, which outranks the
+            // warning of the next one -- cross included. Ticks are half a second apart in play and
+            // the flash is over well within one, so each step waits the flash out, on a fixed frame
+            // time so the wait is the same however fast the editor is rendering.
+            Time.captureDeltaTime = 1f / 60f;
+
+            for (int tick = 0; tick < 12 && !(sawOnlyTheArrival && sawBoth); tick++)
+            {
+                runner.StepOneTick();
+                yield return null;
+
+                for (int frame = 0; frame < 240 && ports.IsFlashing(port); frame++)
+                    yield return null;
+
+                Assert.IsFalse(ports.IsFlashing(port), "a collision's flash never ended");
+                yield return null;
+
+                Edge edge = IncomingEdge(runner, and);
+                if (edge == null || !PortState.WillCollide(edge, out bool heldBitDies))
+                {
+                    Assert.IsFalse(ports.IsMarkedDoomed(port), "a waiting bit is crossed out with nothing coming");
+                    continue;
+                }
+
+                if (heldBitDies)
+                {
+                    sawBoth = true;
+                    Assert.IsTrue(ports.IsMarkedDoomed(port),
+                        "the waiting bit will die with the arrival and is not crossed out");
+                }
+                else
+                {
+                    sawOnlyTheArrival = true;
+                    Assert.IsFalse(ports.IsMarkedDoomed(port),
+                        "the waiting bit survives this collision and is crossed out anyway");
+                }
+            }
+
+            Time.captureDeltaTime = 0f;
+
+            Assert.IsTrue(sawOnlyTheArrival, "sanity: no collision that takes only the arrival was seen");
+            Assert.IsTrue(sawBoth, "sanity: no collision that takes the waiting bit too was seen");
+        }
+
+        private static Edge IncomingEdge(SimulationRunner runner, int node)
+        {
+            for (int id = 0; id < runner.View.EdgeCount; id++)
+            {
+                Edge edge = runner.View.GetEdge(id);
+
+                if (edge != null && edge.Target.Owner.Id == node)
+                    return edge;
+            }
+
+            return null;
         }
 
         /// <summary>

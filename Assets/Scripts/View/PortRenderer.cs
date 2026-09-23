@@ -57,6 +57,10 @@ namespace BitSorter.View
         /// <summary>Seconds of flash still owed to a port, keyed the same way.</summary>
         private readonly Dictionary<PortAddress, float> _flashing = new Dictionary<PortAddress, float>();
 
+        /// <summary>The cross over each input port's waiting bit, shown when a collision will take it.</summary>
+        private readonly Dictionary<PortAddress, SpriteRenderer> _doomMarks =
+            new Dictionary<PortAddress, SpriteRenderer>();
+
         /// <summary>Which collisions have already been shown, so one is not flashed twice.</summary>
         private readonly CollisionWatch _collisions = new CollisionWatch();
         private readonly List<PortAddress> _active = new List<PortAddress>();
@@ -202,6 +206,11 @@ namespace BitSorter.View
             // is precisely the gate that has gone dim because that bit is stuck there.
             if (_inputGlows.TryGetValue(key, out SpriteRenderer glow) && glow != null)
                 glow.color = new Color(colour.r, colour.g, colour.b, holding ? _heldGlowAlpha : 0f);
+
+            // The waiting bit crossed out when the collision coming will take it too: the one
+            // difference between the two warnings, said on the bit it is about and not by hue.
+            bool takesTheHeldBit = holding && _doomed.TryGetValue(key, out bool dies) && dies;
+            ShowDoomMark(key, takesTheHeldBit);
         }
 
         /// <summary>
@@ -257,6 +266,10 @@ namespace BitSorter.View
                         continue;
 
                     _flashing[key] = _flashSeconds;
+
+                    // The collision it warned of has happened; the flash says so from here, and a
+                    // port mid-flash is skipped by the resting pass that would otherwise clear it.
+                    ShowDoomMark(key, false);
                 }
             }
         }
@@ -327,6 +340,7 @@ namespace BitSorter.View
             _spawned.Clear();
             _inputStubs.Clear();
             _inputGlows.Clear();
+            _doomMarks.Clear();   // children of the stubs, destroyed with them
             _flashing.Clear();   // stub references are about to be replaced
             _collisions.Clear();
             _doomed.Clear();
@@ -370,6 +384,7 @@ namespace BitSorter.View
                 var key = new PortAddress(nodeId, true, index);
                 _inputStubs[key] = renderer;
                 _inputGlows[key] = SpawnGlow(stub.transform);
+                _doomMarks[key] = SpawnDoomMark(stub.transform);
             }
 
             _spawned.Add(stub);
@@ -379,6 +394,38 @@ namespace BitSorter.View
         /// The halo behind one input socket. A child, so it follows the stub's swell when a
         /// collision is coming and needs no position of its own.
         /// </summary>
+        private SpriteRenderer SpawnDoomMark(Transform stub)
+        {
+            var host = new GameObject("Doom mark");
+            host.transform.SetParent(stub, false);
+            host.transform.localScale = Vector3.one * DoomMarkShare;
+
+            var renderer = host.AddComponent<SpriteRenderer>();
+            renderer.sprite = ProceduralSprites.DoomMark();
+            renderer.sortingOrder = ViewLayers.PortMark;
+            renderer.color = Palette.Current.Text;
+            renderer.enabled = false;
+
+            return renderer;
+        }
+
+        /// <summary>How large the cross is, against the port it sits on.</summary>
+        private const float DoomMarkShare = 0.9f;
+
+        private void ShowDoomMark(PortAddress key, bool shown)
+        {
+            if (_doomMarks.TryGetValue(key, out SpriteRenderer mark) && mark != null && mark.enabled != shown)
+                mark.enabled = shown;
+        }
+
+        /// <summary>Whether this input port is showing the flash of a collision that just happened.</summary>
+        /// <remarks>For the tests: a port mid-flash outranks its warning, cross included.</remarks>
+        public bool IsFlashing(PortAddress key) => _flashing.ContainsKey(key);
+
+        /// <summary>Whether the cross is up on this input port. For the tests.</summary>
+        public bool IsMarkedDoomed(PortAddress key) =>
+            _doomMarks.TryGetValue(key, out SpriteRenderer mark) && mark != null && mark.enabled;
+
         private SpriteRenderer SpawnGlow(Transform stub)
         {
             var host = new GameObject("Socket glow");

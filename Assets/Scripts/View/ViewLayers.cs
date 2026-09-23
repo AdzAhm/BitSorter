@@ -60,6 +60,16 @@ namespace BitSorter.View
         /// <summary>The wire being dragged. Above everything, because it is a cursor.</summary>
         public const int WiringPreview = 3;
 
+        /// <summary>
+        /// The cross on a waiting bit that an imminent collision will take with it, over its port.
+        /// </summary>
+        /// <remarks>
+        /// Shares its order with a bit's glow, and never its depth: a port sits at depth zero and
+        /// every bit at a small positive one (<see cref="BitRenderer.DepthOf"/>), so which is in
+        /// front is decided the same way every time rather than left to chance.
+        /// </remarks>
+        public const int PortMark = 4;
+
         /// <summary>Sparks, a bit's own glow, and the tutorial's rings.</summary>
         public const int Spark = 4;
 

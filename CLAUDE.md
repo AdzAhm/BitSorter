@@ -462,11 +462,11 @@ failure side.
   counts from it -- the win celebration once pulsed on the game clock and a solve
   could land at the bottom of its swell.
 - **Visual changes are checked against the reference shots.**
-  `BitSorter/Capture Reference Shots` captures fifteen states (menu, a built
-  board, bits in flight, a collision one tick out, the solved card, the level
-  list, free play, the help panel, the chapter card, a clocked level, the
-  tutorial's intro and its closing card, a first-time hint, a register holding a
-  bit, the tutorial ringing a button) as an Explicit Play
+  `BitSorter/Capture Reference Shots` captures sixteen states (menu, a built
+  board, bits in flight, a collision one tick out and one that takes both bits,
+  the solved card, the level list, free play, the help panel, the chapter card, a
+  clocked level, the tutorial's intro and its closing card, a first-time hint, a
+  register holding a bit, the tutorial ringing a button) as an Explicit Play
   Mode fixture, so it runs under `SaveGuard` --
   driving the real game for a screenshot by hand once marked a level solved on
   the developer's own save. Frame time is fixed, particle systems are seeded,
@@ -1050,7 +1050,11 @@ by name. Treat this section as a place to park ideas, not as a to-do list.
   blew out into one bright blob with the sockets lost inside it, which is
   backwards, because the sockets are what carry the meaning. A collision
   one tick away throbs on the port, the wire and the bit at once, amber
-  when only the arrival dies and red when the waiting bit dies too.
+  when only the arrival dies and red when the waiting bit dies too -- and
+  then the waiting bit is **crossed out**, because amber and red are the
+  pair a red-green colour-blind player cannot separate. The cross says the
+  one thing that differs, on the bit it is about, by shape. Not a faster
+  throb: the warning already pulses above three times a second.
 
   **The aftermath flash fires once per collision, and every collision gets
   one.** Both halves of that were wrong. It was armed from "the port's last

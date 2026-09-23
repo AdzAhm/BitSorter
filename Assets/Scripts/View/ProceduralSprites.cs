@@ -291,6 +291,20 @@ namespace BitSorter.View
             HeldBit(Bit.One);
         }
 
+        /// <summary>
+        /// A cross, stroked like the digits: laid over a waiting bit that an imminent collision
+        /// will destroy along with the one arriving.
+        /// </summary>
+        /// <remarks>
+        /// The two outcomes of a collision one tick out were told apart by hue alone -- amber when
+        /// only the arrival dies, red when the waiting bit dies too -- and amber and red are the
+        /// pair a red-green colour-blind player cannot separate. The difference between the two is
+        /// whether the waiting bit survives, so the cue says exactly that, on that bit, by shape.
+        /// </remarks>
+        public static Sprite DoomMark() => Field("doom mark", DigitSize, p => Stroked(Mathf.Min(
+            Segment(p, new Vector2(-0.62f, -0.62f), new Vector2(0.62f, 0.62f)),
+            Segment(p, new Vector2(-0.62f, 0.62f), new Vector2(0.62f, -0.62f)))));
+
         /// <summary>How large the digit cut into a held bit is, against the stroked one.</summary>
         private const float CoinDigit = 0.6f;
 

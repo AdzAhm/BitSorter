@@ -499,6 +499,70 @@ namespace BitSorter.PlayMode.Tests
             yield return Capture("15-tutorial-ring");
         }
 
+        /// <summary>
+        /// A collision one tick out that will take the waiting bit too: red, and the waiting bit
+        /// crossed out.
+        /// </summary>
+        /// <remarks>
+        /// The pair to the collision shot, which is the other outcome. The two were told apart by
+        /// amber and red alone until the cross; this is the shot that shows it. The same board: an
+        /// AND fed from A, whose 0 waits while a 1 comes up behind it.
+        ///
+        /// Waits for the flash of the collision before it to end, rather than for half a tick: a
+        /// port mid-flash outranks its warning, and the flash is longer than half a tick.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator Shot16_CollisionThatTakesBoth()
+        {
+            yield return OpenOnTheBoard();
+
+            LevelSession session = Find<LevelSession>();
+            SimulationRunner runner = Find<SimulationRunner>();
+
+            Assert.IsTrue(session.TryPlaceGate(GateKind.And, Low), "could not place the AND");
+            int and = NodeOn(runner, Low);
+            Wire(session, runner.FixtureNodeIds["a"], and, 0);
+            Wire(session, and, runner.FixtureNodeIds["carry"], 0);
+
+            session.Run();
+
+            for (int frame = 0; frame < 2000 && !AnyCollisionTakesBoth(runner); frame++)
+                yield return null;
+
+            Assert.IsTrue(AnyCollisionTakesBoth(runner), "no collision coming takes the waiting bit too");
+
+            PortRenderer ports = Find<PortRenderer>();
+            var port = new PortAddress(NodeOn(runner, Low), true, 0);
+
+            // One frame first: the tick that brought this collision up also ended the one before,
+            // and whether the port has started that one's flash yet depends on which of it and the
+            // runner updated first this frame. "Not flashing" before then means "not yet".
+            yield return null;
+
+            for (int frame = 0; frame < 240 && ports.IsFlashing(port); frame++)
+                yield return null;
+
+            yield return Frames(2);
+
+            Assert.IsTrue(AnyCollisionTakesBoth(runner), "the warning was over before the last collision's flash");
+            Assert.IsTrue(ports.IsMarkedDoomed(port), "the waiting bit is not crossed out");
+
+            yield return Capture("16-collision-both");
+        }
+
+        private static bool AnyCollisionTakesBoth(SimulationRunner runner)
+        {
+            for (int id = 0; id < runner.View.EdgeCount; id++)
+            {
+                Edge edge = runner.View.GetEdge(id);
+
+                if (edge != null && PortState.WillCollide(edge, out bool heldBitDies) && heldBitDies)
+                    return true;
+            }
+
+            return false;
+        }
+
         // -----------------------------------------------------------------
         // Staging
         // -----------------------------------------------------------------
