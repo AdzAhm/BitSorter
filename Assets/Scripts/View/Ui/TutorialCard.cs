@@ -127,7 +127,7 @@ namespace BitSorter.View
             float buttonY = columnsBottom - ButtonGap - buttonHeight * 0.5f;
 
             Button play = UiTheme.Button_("Play", Root, "PLAY THE FIRST LEVEL",
-                out TextMeshProUGUI _);
+                out TextMeshProUGUI _, role: ButtonRole.Primary);
             UiTheme.Anchor(play.GetComponent<RectTransform>(), new Vector2(0.5f, 0.5f),
                 new Vector2(0.5f, 0.5f), new Vector2(0f, buttonY),
                 new Vector2(300f, buttonHeight));

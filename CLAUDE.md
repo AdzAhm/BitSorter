@@ -435,7 +435,14 @@ failure side.
   loads. `LookBriefTests` holds every look but Classic to the brief it was drawn
   against: no state colour on the board, a 1 in a colour of its own, a 0 that
   glows in its own colour rather than white or the wire's, panels that cover,
-  text at 4.5:1, and a chosen button that stands out.
+  text at 4.5:1 on every kind of button as well as every panel, and a chosen
+  button that stands out.
+
+  **A button says what it is for** -- `ButtonRole`, and `UiTheme.FillOf` is the
+  one place a role becomes a colour. The primary is the one thing a screen asks
+  for next, and the only solid button, so an outlined look tells it apart by shape
+  as well as colour. Quiet is quieter by its edge, never its caption: a dim
+  caption is how a button says it cannot be pressed.
 - **Ambient animation keeps one clock, `ViewTime`; an event counts from its own
   start.** A collision warning throbs in step across port, wire and bit, stalled
   gates breathe together and the grid shimmers as one, so those read

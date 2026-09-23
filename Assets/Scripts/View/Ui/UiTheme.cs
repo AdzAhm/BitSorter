@@ -373,8 +373,8 @@ namespace BitSorter.View
         }
 
         /// <summary>
-        /// A button with a caption, set as <paramref name="captionType"/>. The click handler is the
-        /// caller's to attach.
+        /// A button with a caption, set as <paramref name="captionType"/> and drawn as its
+        /// <paramref name="role"/> says. The click handler is the caller's to attach.
         /// </summary>
         /// <remarks>
         /// The caption's size is asked for here rather than changed afterwards, which is what free
@@ -382,9 +382,17 @@ namespace BitSorter.View
         /// </remarks>
         public static Button Button_(
             string name, Transform parent, string caption, out TextMeshProUGUI label,
-            UiType captionType = UiType.Body)
+            UiType captionType = UiType.Body, ButtonRole role = ButtonRole.Secondary)
         {
             Button button = RowButton(name, parent);
+
+            var background = (Image)button.targetGraphic;
+            background.color = FillOf(role);
+
+            // Solid whatever the look's panels are: in an outlined look the one button a screen is
+            // asking for is told apart by its shape, not only by its colour.
+            if (role == ButtonRole.Primary)
+                background.sprite = ProceduralSprites.Panel(PanelStyle.Filled);
 
             label = Label(name + " label", button.transform, captionType, Text, TextAlignmentOptions.Center);
             Stretch(label.rectTransform);
@@ -435,6 +443,18 @@ namespace BitSorter.View
         /// copy of the same two colours.
         /// </remarks>
         public static Color SelectedFill(bool selected) => selected ? Palette.Current.Selected : PanelEdge;
+
+        /// <summary>A button's colour by what it is for.</summary>
+        public static Color FillOf(ButtonRole role)
+        {
+            switch (role)
+            {
+                case ButtonRole.Primary: return Palette.Current.ButtonPrimary;
+                case ButtonRole.Quiet: return Palette.Current.ButtonQuiet;
+                case ButtonRole.Destructive: return Palette.Current.ButtonDestructive;
+                default: return PanelEdge;
+            }
+        }
 
         /// <summary>
         /// Makes a button usable or not, and dims its caption to match.

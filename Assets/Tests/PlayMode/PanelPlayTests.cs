@@ -239,6 +239,45 @@ namespace BitSorter.PlayMode.Tests
         }
 
         // -----------------------------------------------------------------
+        // What a button is for
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// The run row asks for RUN: it is the one solid button on the row, and CLEAR ALL is drawn
+        /// as the one that throws work away.
+        /// </summary>
+        /// <remarks>
+        /// Against the game's own look, whose panels are outlined. Under Classic every panel is
+        /// solid and every button the same colour, so a row that had lost its roles would pass.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator TheRunRow_DrawsEachButtonAsWhatItIsFor()
+        {
+            yield return TestScene.Load();
+            yield return CloseTheMainMenu();
+
+            Assume.That(Look.Current.Panels, Is.EqualTo(PanelStyle.Bordered),
+                "this needs a look whose panels are outlined");
+
+            Transform row = GameObject.Find("Run controls").transform;
+            Sprite solid = ProceduralSprites.Panel(PanelStyle.Filled);
+
+            foreach (string name in new[] { "Run", "Reset", "Undo", "Redo", "Clear" })
+            {
+                Image background = row.Find(name).GetComponent<Image>();
+                bool primary = name == "Run";
+
+                Assert.AreEqual(primary, background.sprite == solid,
+                    primary ? "RUN is not drawn solid" : $"{name} is drawn solid, like the primary button");
+
+                ButtonRole role = primary ? ButtonRole.Primary
+                    : name == "Clear" ? ButtonRole.Destructive
+                    : ButtonRole.Secondary;
+                Assert.AreEqual(UiTheme.FillOf(role), background.color, $"{name} is not drawn as {role}");
+            }
+        }
+
+        // -----------------------------------------------------------------
         // What is already on screen when a panel opens
         // -----------------------------------------------------------------
 

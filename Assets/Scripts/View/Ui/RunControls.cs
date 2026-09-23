@@ -65,7 +65,7 @@ namespace BitSorter.View
             UiTheme.Anchor(root, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
                 new Vector2(0f, UiRows.Buttons.Offset), new Vector2(600f, UiRows.Buttons.Height));
 
-            _run = UiTheme.Button_("Run", root, "RUN", out _runLabel);
+            _run = UiTheme.Button_("Run", root, "RUN", out _runLabel, role: ButtonRole.Primary);
             UiTheme.Anchor(_run.GetComponent<RectTransform>(), new Vector2(0f, 0f), new Vector2(0f, 0f),
                 Vector2.zero, new Vector2(150f, UiTheme.ButtonHeight));
 
@@ -81,7 +81,7 @@ namespace BitSorter.View
             UiTheme.Anchor(_redo.GetComponent<RectTransform>(), new Vector2(0f, 0f), new Vector2(0f, 0f),
                 new Vector2(356f, 0f), new Vector2(76f, UiTheme.ButtonHeight));
 
-            _clear = UiTheme.Button_("Clear", root, "CLEAR ALL", out _clearLabel);
+            _clear = UiTheme.Button_("Clear", root, "CLEAR ALL", out _clearLabel, role: ButtonRole.Destructive);
             UiTheme.Anchor(_clear.GetComponent<RectTransform>(), new Vector2(1f, 0f), new Vector2(1f, 0f),
                 Vector2.zero, new Vector2(150f, UiTheme.ButtonHeight));
 

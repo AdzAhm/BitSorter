@@ -155,7 +155,7 @@ namespace BitSorter.View
             body.textWrappingMode = TextWrappingModes.Normal;
             body.text = Body;
 
-            Button go = UiTheme.Button_("Go on", Root, "GO ON", out TextMeshProUGUI _);
+            Button go = UiTheme.Button_("Go on", Root, "GO ON", out TextMeshProUGUI _, role: ButtonRole.Primary);
             UiTheme.Anchor(go.GetComponent<RectTransform>(), new Vector2(0.5f, 0.5f),
                 new Vector2(0.5f, 0.5f), new Vector2(0f, -120f),
                 new Vector2(260f, UiTheme.ButtonHeight + 6f));

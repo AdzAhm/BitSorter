@@ -101,6 +101,14 @@ namespace BitSorter.View
                 p.MeterBackdrop = Hex(0xFF5A6E);
                 p.Rule = Hex(0x7A2E66);
                 p.Credit = Hex(0x8FA3C8);
+
+                // The primary button is solid, so its colour is the whole button and has to hold
+                // text: a deep magenta rather than the accent itself, at better than 5:1 under
+                // white. Quiet is the ordinary edge taken most of the way down, and destructive
+                // wears the colour of loss.
+                p.ButtonPrimary = Hex(0xA82A7C);
+                p.ButtonQuiet = Hex(0x3E3380);
+                p.ButtonDestructive = Hex(0xFF5A6E);
             });
 
             look.Bodies = BodyStyle.LitGlass;

@@ -152,13 +152,13 @@ namespace BitSorter.View
             _detail.alignment = TextAlignmentOptions.Center;
             _detail.textWrappingMode = TextWrappingModes.Normal;
 
-            Button menu = UiTheme.Button_("Menu", Root, "MAIN MENU", out TextMeshProUGUI _);
+            Button menu = UiTheme.Button_("Menu", Root, "MAIN MENU", out TextMeshProUGUI _, role: ButtonRole.Primary);
             UiTheme.Anchor(menu.GetComponent<RectTransform>(), new Vector2(0.5f, 0.5f),
                 new Vector2(0.5f, 0.5f), new Vector2(-90f, -150f),
                 new Vector2(170f, UiTheme.ButtonHeight + 4f));
             menu.onClick.AddListener(ToMenu);
 
-            Button stay = UiTheme.Button_("Stay", Root, "KEEP TINKERING", out TextMeshProUGUI _);
+            Button stay = UiTheme.Button_("Stay", Root, "KEEP TINKERING", out TextMeshProUGUI _, role: ButtonRole.Quiet);
             UiTheme.Anchor(stay.GetComponent<RectTransform>(), new Vector2(0.5f, 0.5f),
                 new Vector2(0.5f, 0.5f), new Vector2(90f, -150f),
                 new Vector2(170f, UiTheme.ButtonHeight + 4f));

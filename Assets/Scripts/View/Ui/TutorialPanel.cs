@@ -92,8 +92,8 @@ namespace BitSorter.View
             _text.textWrappingMode = TextWrappingModes.Normal;
             _text.raycastTarget = false;
 
-            _next = Corner("Next", "NEXT", 1f);
-            _skip = Corner("Skip", "SKIP", 2f);
+            _next = Corner("Next", "NEXT", 1f, ButtonRole.Primary);
+            _skip = Corner("Skip", "SKIP", 2f, ButtonRole.Quiet);
 
             // Attached here and not in OnEnable, which runs before Start and so before these
             // buttons exist -- the listener was silently never added, and every press did nothing.
@@ -106,12 +106,12 @@ namespace BitSorter.View
         }
 
         /// <summary>A small button on the right-hand end, counted in from the edge.</summary>
-        private Button Corner(string name, string caption, float slot)
+        private Button Corner(string name, string caption, float slot, ButtonRole role)
         {
             const float width = 88f;
             const float height = 30f;
 
-            Button button = UiTheme.Button_(name, _root, caption, out TextMeshProUGUI label);
+            Button button = UiTheme.Button_(name, _root, caption, out TextMeshProUGUI label, role: role);
 
             UiTheme.Anchor(button.GetComponent<RectTransform>(),
                 new Vector2(1f, 0.5f), new Vector2(1f, 0.5f),

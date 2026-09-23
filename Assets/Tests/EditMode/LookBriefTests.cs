@@ -194,6 +194,55 @@ namespace BitSorter.LogicCore.Tests
             }
         }
 
+        /// <summary>
+        /// Every kind of button can be read, the solid one included.
+        /// </summary>
+        /// <remarks>
+        /// The primary button is drawn solid, so its colour is the whole of what its caption sits on
+        /// -- a bright one would make the loudest button on the screen the hardest to read.
+        /// </remarks>
+        [Test]
+        public void EveryKindOfButton_CanBeRead()
+        {
+            foreach (Look look in NewLooks())
+            {
+                Palette p = look.Colours;
+
+                Assert.GreaterOrEqual(p.ButtonPrimary.a, 0.99f, $"{look.Name}: the primary button is see-through");
+                Assert.GreaterOrEqual(Contrast(p.Text, p.ButtonPrimary), 4.5f,
+                    $"{look.Name}: the primary button's caption");
+
+                Assert.GreaterOrEqual(Contrast(p.Text, Body(look, p.ButtonQuiet, p.Ground)), 4.5f,
+                    $"{look.Name}: a quiet button's caption");
+                Assert.GreaterOrEqual(Contrast(p.Text, Body(look, p.ButtonDestructive, p.Ground)), 4.5f,
+                    $"{look.Name}: a destructive button's caption");
+            }
+        }
+
+        /// <summary>
+        /// A quiet button is quieter than an ordinary one, and a destructive one does not pass for
+        /// either.
+        /// </summary>
+        /// <remarks>
+        /// Quieter by its edge and not by its caption: a dim caption is how a button says it cannot
+        /// be pressed, and KEEP TINKERING is always there to press.
+        /// </remarks>
+        [Test]
+        public void ButtonsDifferByWhatTheyAreFor()
+        {
+            foreach (Look look in NewLooks())
+            {
+                Palette p = look.Colours;
+
+                Assert.Less(Luminance(p.ButtonQuiet), Luminance(p.PanelEdge) * 0.5f,
+                    $"{look.Name}: a quiet button is as loud as an ordinary one");
+                Assert.Greater(Distance(p.ButtonDestructive, p.PanelEdge), 0.3f,
+                    $"{look.Name}: CLEAR ALL is drawn like UNDO");
+                Assert.Greater(Distance(p.ButtonPrimary, p.PanelEdge), 0.3f,
+                    $"{look.Name}: the primary button is drawn in the ordinary colour");
+            }
+        }
+
         /// <summary>What a panel's middle looks like over the ground.</summary>
         private static Color Body(Look look, Color tint, Color ground)
         {

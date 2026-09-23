@@ -143,6 +143,12 @@ namespace BitSorter.View
         /// </summary>
         public Color Credit;
 
+        /// <summary>
+        /// A button's colour by what it is for. See <see cref="ButtonRole"/>; an ordinary button is
+        /// <see cref="PanelEdge"/>.
+        /// </summary>
+        public Color ButtonPrimary, ButtonQuiet, ButtonDestructive;
+
         // -----------------------------------------------------------------
         // Which one
         // -----------------------------------------------------------------
@@ -249,6 +255,11 @@ namespace BitSorter.View
             p.MeterBackdrop = p.Bad * 0.75f;
             p.Rule = p.Accent * 0.4f;
             p.Credit = p.TextDim * 0.8f;
+
+            // Classic drew every button alike, and still does.
+            p.ButtonPrimary = p.PanelEdge;
+            p.ButtonQuiet = p.PanelEdge;
+            p.ButtonDestructive = p.PanelEdge;
             return p;
         }
     }

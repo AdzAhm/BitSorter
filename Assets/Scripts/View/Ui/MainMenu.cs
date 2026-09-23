@@ -138,7 +138,7 @@ namespace BitSorter.View
             // that only ever appeared in the shipped web build.
             float row = FirstRow;
 
-            Button resume = Item("Continue", row, out _continueLabel);
+            Button resume = Item("Continue", row, out _continueLabel, ButtonRole.Primary);
             resume.onClick.AddListener(() => Fire(Continue));
             row -= RowStep;
 
@@ -221,9 +221,10 @@ namespace BitSorter.View
         /// </remarks>
         private const float Lift = 70f;
 
-        private Button Item(string name, float y, out TextMeshProUGUI label)
+        private Button Item(string name, float y, out TextMeshProUGUI label,
+            ButtonRole role = ButtonRole.Secondary)
         {
-            Button button = UiTheme.Button_(name, Root, name.ToUpperInvariant(), out label);
+            Button button = UiTheme.Button_(name, Root, name.ToUpperInvariant(), out label, role: role);
 
             UiTheme.Anchor(button.GetComponent<RectTransform>(),
                 new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),

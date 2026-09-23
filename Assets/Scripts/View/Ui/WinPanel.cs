@@ -104,13 +104,13 @@ namespace BitSorter.View
             _detail.alignment = TextAlignmentOptions.Center;
             _detail.textWrappingMode = TextWrappingModes.Normal;
 
-            _next = UiTheme.Button_("Next", _root, "NEXT LEVEL", out _nextLabel);
+            _next = UiTheme.Button_("Next", _root, "NEXT LEVEL", out _nextLabel, role: ButtonRole.Primary);
             UiTheme.Anchor(_next.GetComponent<RectTransform>(), new Vector2(0.5f, 0f),
                 new Vector2(0.5f, 0f), new Vector2(-ButtonOffset, ButtonRow),
                 new Vector2(ButtonWidth, UiTheme.ButtonHeight));
             _next.onClick.AddListener(NextLevel);
 
-            _stay = UiTheme.Button_("Stay", _root, "KEEP TINKERING", out TextMeshProUGUI _);
+            _stay = UiTheme.Button_("Stay", _root, "KEEP TINKERING", out TextMeshProUGUI _, role: ButtonRole.Quiet);
             UiTheme.Anchor(_stay.GetComponent<RectTransform>(), new Vector2(0.5f, 0f),
                 new Vector2(0.5f, 0f), new Vector2(ButtonOffset, ButtonRow),
                 new Vector2(ButtonWidth, UiTheme.ButtonHeight));
