@@ -187,6 +187,137 @@ namespace BitSorter.PlayMode.Tests
         }
 
         // -----------------------------------------------------------------
+        // Leaving the tutorial
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// Finishing the tutorial from the solved card leads into the first level, and counts as
+        /// finishing it.
+        /// </summary>
+        /// <remarks>
+        /// Reported from play. The solved card offers PLAY THE FIRST LEVEL, which loads the first
+        /// level -- and the director, seeing its board left, stopped without recording the
+        /// milestone. On the next frame the save still had no tutorial milestone and the board was
+        /// the first level's, empty, which is exactly a first-time player, so the tutorial started
+        /// again. The only way into the first level was SKIP.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator FinishingTheTutorial_FromTheSolvedCard_LeadsIntoTheFirstLevel()
+        {
+            yield return LoadScene();
+            yield return CloseTheMainMenu();
+
+            TutorialDirector director = Find<TutorialDirector>();
+            LevelSession session = Find<LevelSession>();
+
+            yield return BeginTutorial(director);
+            yield return PressStart();
+            yield return SolveTheTutorial(session, Find<SimulationRunner>());
+
+            PressShowing("PLAY THE FIRST LEVEL");
+
+            yield return null;
+            yield return null;
+            yield return null;
+
+            Assert.AreEqual(session.AvailableLevels[0], session.LevelName,
+                "the solved card's button did not leave the player in the first level");
+            Assert.IsFalse(director.IsRunning, "the tutorial started again straight after it was finished");
+            Assert.IsTrue(Find<ProgressTracker>().Store.HasMilestone(TutorialLevel.Key),
+                "finishing the tutorial from the solved card did not count as finishing it");
+        }
+
+        /// <summary>
+        /// Walking away from the tutorial to the first level does not start it again.
+        /// </summary>
+        /// <remarks>
+        /// The same loop from the other side: open the level list mid-tutorial, choose the first
+        /// level, and the empty first-level board on a save with no milestone looked like somebody
+        /// arriving for the first time. The tutorial is offered by itself once, not every time the
+        /// player comes back to where it is offered.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator LeavingTheTutorialForTheFirstLevel_DoesNotStartItAgain()
+        {
+            yield return LoadScene();
+            yield return CloseTheMainMenu();
+
+            TutorialDirector director = Find<TutorialDirector>();
+            LevelSession session = Find<LevelSession>();
+
+            yield return BeginTutorial(director);
+            yield return PressStart();
+
+            string first = session.AvailableLevels[0];
+            Assert.IsTrue(session.LoadLevel(first), "sanity: the first level did not load");
+
+            yield return null;
+            yield return null;
+            yield return null;
+
+            Assert.AreEqual(first, session.LevelName, "the player was taken away from the level they chose");
+            Assert.IsFalse(director.IsRunning, "walking away from the tutorial to the first level started it again");
+        }
+
+        /// <summary>Builds the tutorial's circuit and runs it until the solved card is up.</summary>
+        private static IEnumerator SolveTheTutorial(LevelSession session, SimulationRunner runner)
+        {
+            Assert.IsTrue(session.TryPlaceGate(TutorialLevel.Part, TutorialLevel.GateCell), "could not place the NOT");
+
+            int gate = -1;
+            for (int id = 0; id < runner.View.NodeCount; id++)
+            {
+                if (runner.TryCellOf(id, out Vector2Int cell) && cell == TutorialLevel.GateCell)
+                    gate = id;
+            }
+
+            Assert.AreNotEqual(-1, gate, "sanity: the NOT is not on its cell");
+
+            Assert.IsTrue(session.TryConnect(
+                    new PortAddress(runner.FixtureNodeIds[TutorialLevel.SourceId], false, 0),
+                    new PortAddress(gate, true, 0)), "could not wire the source to the NOT");
+            Assert.IsTrue(session.TryConnect(
+                    new PortAddress(gate, false, 0),
+                    new PortAddress(runner.FixtureNodeIds[TutorialLevel.SinkId], true, 0)),
+                "could not wire the NOT to the bin");
+
+            yield return null;
+            session.Run();
+
+            // Driven, not waited for.
+            for (int tick = 0; tick < 60 && session.State != RunState.Passed; tick++)
+            {
+                runner.StepOneTick();
+                yield return null;
+            }
+
+            Assert.AreEqual(RunState.Passed, session.State, "sanity: the tutorial's circuit did not pass");
+
+            WinPanel win = Find<WinPanel>();
+            for (int frame = 0; frame < 60 && !win.IsShowing; frame++)
+                yield return null;
+
+            Assert.IsTrue(win.IsShowing, "sanity: the solved card never came up");
+        }
+
+        /// <summary>Presses the button on screen whose caption reads <paramref name="caption"/>.</summary>
+        private static void PressShowing(string caption)
+        {
+            foreach (Button button in Object.FindObjectsByType<Button>(FindObjectsSortMode.None))
+            {
+                TMPro.TextMeshProUGUI label = button.GetComponentInChildren<TMPro.TextMeshProUGUI>();
+
+                if (button.isActiveAndEnabled && label != null && label.text == caption)
+                {
+                    button.onClick.Invoke();
+                    return;
+                }
+            }
+
+            Assert.Fail($"sanity: there is no '{caption}' button on screen");
+        }
+
+        // -----------------------------------------------------------------
         // What the tutorial points at stays readable
         // -----------------------------------------------------------------
 
