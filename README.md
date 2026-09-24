@@ -101,22 +101,22 @@ scrolled at all. Each appears once, ever, and none of them pause the game.
 | Action | Effect |
 | --- | --- |
 | Click a gate in the palette, then click the board | Place it |
-| `1` – `6` | Pick a gate: NOT, AND, OR, XOR, NAND, NOR |
+| `1` – `7` | Pick a part: NOT, AND, OR, XOR, NAND, NOR, register |
 | Drag from one port to another | Wire them |
 | Right click | Delete a gate or a wire |
 | Scroll on a wire, or `[` / `]` | Change its delay |
 | `Ctrl`+`Z`, or the UNDO button | Undo the last edit |
 | `Ctrl`+`Y` / `Ctrl`+`Shift`+`Z` | Redo it |
 | `Enter`, or the RUN button | Run |
-| `R` | Reset the board back to editing |
+| `R`, or the RESET button | Reset the board back to editing |
 | `Shift`+`R` | Clear everything you built |
 | `Space` | Pause a run |
 | `→` while paused | Step one tick |
 | `H`, or the `?` button | This level's truth table and a hint |
-| `Esc` | Level list, and the way into the sandbox |
-| `M` | Main menu |
+| `Esc` | Closes whatever is on top; otherwise the level list, and the way into the sandbox |
+| `M`, or the MENU button | Main menu |
 | `N` | Mute the game |
-| `Q` / `E` | Previous / next level |
+| `Q` / `E` | Previous / next level — they stop at the first and the last |
 | `F3` | Diagnostics, and the clock's timing diagram on levels that have one |
 
 ### What it teaches
@@ -277,14 +277,15 @@ Unity 6.3 LTS (6000.3.11f1).
 - **BitSorter → Build Play Scene** regenerates the play scene from code. The
   scene is generated rather than authored, so anything added by hand is discarded
   the next time that runs.
-- Tests: Window → General → Test Runner. Roughly 760 EditMode cases and 46
-  PlayMode at present, the PlayMode ones across nine fixtures — pointer
-  arbitration, audio and the menu's music, scene composition, the tutorial's
-  opening, the frame a run ends on, free play's setup, full-screen panels and
-  the keys that open them, framing the board clear of the interface, and the
-  HUD allocating nothing on a quiet frame. Those need a live
-  scene, and Unity has to be focused or the run never enters play mode. If
-  you ever script that run, read the results from `TestResults.xml` in the save
+- Tests: Window → General → Test Runner, or **BitSorter → Run Tests**. Roughly
+  850 EditMode cases and 86 PlayMode at present, the PlayMode ones across eleven
+  fixtures — pointer arbitration, audio and the menu's music, scene composition,
+  the tutorial's opening, the frame a run ends on, free play's setup, full-screen
+  panels and the keys that open and close them, framing the board clear of the
+  interface, what the board draws while a run moves, the level list, and the HUD
+  allocating nothing on a quiet frame. Those need a live scene, but not a focused
+  window: nothing in the suite waits on wall-clock time any more. If you ever
+  script that run, read the results from `TestResults.xml` in the save
   directory rather than from a `TestRunnerApi` callback, which does not survive
   the domain reload that entering play mode causes.
 - To compile without the editor at all, Bee leaves the exact compiler invocation

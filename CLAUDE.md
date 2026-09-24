@@ -314,11 +314,13 @@ failure side.
   therefore over UI at every coordinate. A test leaking into another test is worse
   than either failing: the red lands in the fixture that is still correct.
 
-  **They also touch the player's own files.** `SaveGuard` moves the real
-  `progress.json` aside and puts it back, and every fixture turns analytics off in
-  `OneTimeSetUp` and restores it after -- `GameAnalytics.Boot` runs on
-  AfterSceneLoad and would otherwise post real `levelStarted` events from a test
-  run, into the one measurement the game collects.
+  **They would also touch the player's own files.** `SaveGuard.Redirect` points
+  the save and the PlayerPrefs settings at scratch copies before the scene loads
+  (see "Never move the player's save" below), and every fixture then turns
+  analytics off -- `GameAnalytics.Boot` runs on AfterSceneLoad and would otherwise
+  post real `levelStarted` events from a test run, into the one measurement the
+  game collects. This paragraph used to say `SaveGuard` moved the real file aside
+  and put it back, the design the paragraph below explains was replaced.
 
   **Drive the clock, do not wait for it.** `SimulationRunner.StepOneTick` advances
   exactly one tick. The first version of the cue tests called `Run()` and waited
@@ -354,8 +356,8 @@ failure side.
 
   The fix was to wait on `GameAudio.IsSettled` instead, which is the cue tests'
   rule applied to the music: drive the clock, do not wait for it. The suite now
-  passes with the editor behind something else and runs in 42 seconds rather
-  than 102. **A `yield` loop counting seconds is the bug, not the frame rate** --
+  passes with the editor behind something else, and on the day ran in 42 seconds
+  rather than 102 (twice the tests later, about 85). **A `yield` loop counting seconds is the bug, not the frame rate** --
   anything here that needs to wait waits on the condition, with a generous cap
   that fails loudly rather than returning quietly.
 
@@ -848,7 +850,7 @@ taught level and both fatal to free play — and `CurriculumTests` then
 demands a hint and a goal from every file in `Resources/Levels`. Building
 it in `SandboxLevel` leaves all of those rules exactly as strict as they
 were rather than carving an exception through them. It also means the
-sandbox is not in `LevelCatalog`, so it is not a tenth level: it has no
+sandbox is not in `LevelCatalog`, so it is not a level in the run: it has no
 order, no completion tick and no personal best, and it is reached by an
 explicit entry in the main menu and at the foot of the level list.
 
@@ -904,9 +906,9 @@ as they were rather than gaining an exception, and a level file cannot author
 wires. It reaches the board through `LevelSession.Adopt`, so `ProgressTracker`
 persistence works with neither side knowing the other exists.
 
-It is **not in `LevelCatalog`**: it cannot disturb the nine-level run that
-`CurriculumTests` pins, and it never appears in `AvailableLevels`, so Q and E do
-not cycle into it and the banner still counts to nine. It is reached by a row at
+It is **not in `LevelCatalog`**: it cannot disturb the run whose order
+`CurriculumTests` pins, and it never appears in `AvailableLevels`, so Q and E
+never step into it and the banner counts the seventeen levels without it. It is reached by a row at
 the head of the level list — free play's row at the foot is the same idea — and
 once by itself on a save with no `tutorial` milestone. Unlike the sandbox it
 *is* graded, so the last step ends on the ordinary win panel.
