@@ -67,6 +67,23 @@ namespace BitSorter.LogicCore.Tests
             Assert.AreNotEqual(spent.Reason, forbidden.Reason);
         }
 
+        /// <summary>
+        /// A spent budget of one reads as English.
+        /// </summary>
+        /// <remarks>
+        /// Most levels stock one of a part, and the refusal said "No NOT left. All 1 are placed."
+        /// </remarks>
+        [Test]
+        public void ASpentBudgetOfOne_DoesNotSayAllOneArePlaced()
+        {
+            _blueprint.Place(LevelTestFixtures.MiddleCell, GateKind.Not);
+
+            LevelVerdict verdict = Place(GateKind.Not, new Vector2Int(1, 1));
+
+            AssertRefused(verdict, LevelOutcome.BudgetSpent);
+            StringAssert.DoesNotContain("All 1 ", verdict.Reason);
+        }
+
         [Test]
         public void RemovingAPlacedGate_ReturnsItToTheBudget()
         {
@@ -119,7 +136,28 @@ namespace BitSorter.LogicCore.Tests
             LevelVerdict verdict = Remove(LevelTestFixtures.SourceCell);
 
             AssertRefused(verdict, LevelOutcome.Fixed);
-            StringAssert.Contains("in", verdict.Reason, "the reason should name the fixture");
+            StringAssert.Contains("IN", verdict.Reason, "the reason should name the fixture");
+        }
+
+        /// <summary>
+        /// A fixture is named in a refusal the way the board labels it, not by its id in the file.
+        /// </summary>
+        /// <remarks>
+        /// The board draws a fixture's name in capitals, and the refusals quoted the raw id --
+        /// 'binOne', say, beside a bin labelled BINONE. Asserted on the routing level's source, whose
+        /// id is "in" and whose label is IN.
+        /// </remarks>
+        [Test]
+        public void AFixtureInARefusal_IsNamedAsTheBoardLabelsIt()
+        {
+            LevelVerdict placing = Place(GateKind.Not, LevelTestFixtures.SourceCell);
+            LevelVerdict removing = Remove(LevelTestFixtures.SourceCell);
+
+            foreach (LevelVerdict verdict in new[] { placing, removing })
+            {
+                StringAssert.Contains("IN", verdict.Reason, "the fixture is not named as the board labels it");
+                StringAssert.DoesNotContain("'in'", verdict.Reason, "the fixture is named by its id in the file");
+            }
         }
 
         [Test]
