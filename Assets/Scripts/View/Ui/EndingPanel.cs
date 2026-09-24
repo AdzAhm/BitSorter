@@ -126,7 +126,7 @@ namespace BitSorter.View
             // this is registered as a modal.
             Keyboard keyboard = Keyboard.current;
 
-            if (IsShowing && keyboard != null && keyboard.escapeKey.wasPressedThisFrame)
+            if (IsShowing && keyboard != null && keyboard.escapeKey.wasPressedThisFrame && !OpenedThisFrame)
                 Dismiss();
         }
 

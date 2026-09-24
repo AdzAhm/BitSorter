@@ -111,9 +111,10 @@ namespace BitSorter.View
             Keyboard keyboard = Keyboard.current;
 
             // Escape closes this whatever else is open, but only opens it when nothing else is --
-            // otherwise it would stack the list on top of the main menu.
+            // otherwise it would stack the list on top of the main menu. Nor while the solved card
+            // is up: Escape closes what is on top, and that card is not a modal, so it says so itself.
             if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame
-                && (IsShowing || !UiModal.OpenOrJustClosed))
+                && (IsShowing || (!UiModal.OpenOrJustClosed && !WinPanel.HoldsEscape)))
             {
                 Show(!IsShowing);
             }

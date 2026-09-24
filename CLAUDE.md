@@ -562,6 +562,15 @@ failure side.
   `AnyOpen`, and the Enter that dismissed the chapter card could also run an
   empty board, whenever the card happened to update first.
 
+  **Escape closes what is on top**, and on a board that is the solved card
+  when it is up. That card is not a modal, so the level list cannot hear
+  about it from `UiModal` and asks `WinPanel.HoldsEscape`, which stays true
+  for the rest of the frame once Escape has taken the card down. And **a
+  panel never answers a key on the frame it opened**
+  (`FullScreenPanel.OpenedThisFrame`): the Escape that takes down the
+  tutorial's solved card raises the tutorial's own card in the same frame,
+  and that card closes on Escape.
+
   **A full-screen panel derives from `FullScreenPanel`**, which does the four
   things showing one always takes: activate it, bring it to the front, and tell
   `UiModal` when it opens and when it closes -- disabling included. Five panels

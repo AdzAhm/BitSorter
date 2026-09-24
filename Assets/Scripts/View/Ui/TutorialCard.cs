@@ -88,7 +88,7 @@ namespace BitSorter.View
 
             Keyboard keyboard = Keyboard.current;
 
-            if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame)
+            if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame && !OpenedThisFrame)
                 Finish();
         }
 

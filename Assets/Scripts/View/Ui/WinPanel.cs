@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.UI;
 using TMPro;
 
@@ -88,8 +89,36 @@ namespace BitSorter.View
         /// </remarks>
         public bool PresentedThisRun { get; private set; }
 
+        /// <summary>
+        /// Whether Escape is this card's this frame, so the level list stands aside for it.
+        /// </summary>
+        /// <remarks>
+        /// Escape closes whatever is on top, and on a board with nothing open that is this card --
+        /// every other card took Escape and this one took nothing. The level list opens on the same
+        /// key, and this card is not a modal, so the list cannot learn it is covered from
+        /// <see cref="UiModal"/>. It asks here instead, and the answer holds for the whole frame
+        /// either way round: true while the card is drawn with nothing over it, and still true after
+        /// Escape has taken it down. Whichever of the two Unity updates first, one press closes the
+        /// card and opens nothing.
+        /// </remarks>
+        public static bool HoldsEscape => _live != null && _live.HoldsEscapeNow;
+
+        private static WinPanel _live;
+
+        private bool HoldsEscapeNow =>
+            _escapedOn == Time.frameCount || (IsDrawn && !UiModal.OpenOrJustClosed);
+
+        private bool IsDrawn => _root != null && _root.gameObject.activeSelf;
+
+        /// <summary>The frame Escape took the card down on, or -1.</summary>
+        private int _escapedOn = -1;
+
         private void Awake()
         {
+            // Here and in OnDestroy rather than OnEnable and OnDisable: a test that calls Update by
+            // hand disables the component, and the card has not gone anywhere.
+            _live = this;
+
             if (_session == null) _session = FindFirstObjectByType<LevelSession>();
             if (_runner == null) _runner = FindFirstObjectByType<SimulationRunner>();
             if (_progress == null) _progress = FindFirstObjectByType<ProgressTracker>();
@@ -144,6 +173,19 @@ namespace BitSorter.View
             // Every frame, not only on a state change: the panel that covers this one can open and
             // close without the run changing at all.
             Draw();
+
+            // After Draw, so a panel that closed on this same Escape has already been taken into
+            // account -- HoldsEscapeNow refuses the frame a panel closed on, whatever order the two
+            // ran in, so the Escape that closed the level list over this card does not close the
+            // card as well.
+            Keyboard keyboard = Keyboard.current;
+
+            if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame
+                && _escapedOn != Time.frameCount && HoldsEscapeNow)
+            {
+                _escapedOn = Time.frameCount;
+                Dismiss();
+            }
 
             RunState now = _session.State;
 
@@ -350,6 +392,12 @@ namespace BitSorter.View
         {
             Show(false);
             UiTheme.Defocus();
+        }
+
+        private void OnDestroy()
+        {
+            if (_live == this)
+                _live = null;
         }
     }
 }

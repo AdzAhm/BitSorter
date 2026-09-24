@@ -65,6 +65,7 @@ namespace BitSorter.View
                 {
                     _overTheHud = !UiModal.OpenOrJustClosed;
                     _fade = UiFade.In(Root);
+                    _openedOn = Time.frameCount;
                 }
 
                 UiModal.Opened(this);
@@ -76,6 +77,20 @@ namespace BitSorter.View
                 OnHidden();
             }
         }
+
+        /// <summary>
+        /// Whether the panel came up this frame. A panel does not answer a key on the frame it
+        /// opened: the key was pressed before it was there, at something else.
+        /// </summary>
+        /// <remarks>
+        /// Escape takes down the solved card, and at the end of the tutorial that brings the
+        /// tutorial's own card up in the same frame -- a card that closes on Escape. Whenever it
+        /// updated after the director that raised it, the one press would finish the tutorial on a
+        /// card nobody saw.
+        /// </remarks>
+        protected bool OpenedThisFrame => _openedOn == Time.frameCount;
+
+        private int _openedOn = -1;
 
         /// <summary>Called once the panel is up and in front, for anything it redraws on opening.</summary>
         protected virtual void OnShown() { }

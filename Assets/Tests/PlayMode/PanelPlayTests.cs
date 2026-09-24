@@ -181,6 +181,115 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
+        /// Escape over the solved card closes the card and opens nothing, whichever of the card and
+        /// the level list Unity updates first.
+        /// </summary>
+        /// <remarks>
+        /// Escape closes what is on top. Every card took it except the solved card, where it opened
+        /// the level list over the card instead. The card is not a modal, so the list cannot hear
+        /// about it from UiModal; both orders are run because each fails a different way if the two
+        /// disagree about whose press it was.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator AnEscapeOverTheSolvedCard_ClosesIt_WhenTheListLooksFirst() =>
+            EscapeOverTheSolvedCard(listFirst: true);
+
+        /// <inheritdoc cref="AnEscapeOverTheSolvedCard_ClosesIt_WhenTheListLooksFirst"/>
+        [UnityTest]
+        public IEnumerator AnEscapeOverTheSolvedCard_ClosesIt_WhenTheCardLooksFirst() =>
+            EscapeOverTheSolvedCard(listFirst: false);
+
+        private IEnumerator EscapeOverTheSolvedCard(bool listFirst)
+        {
+            yield return TestScene.Load();
+            yield return SkipTheTutorial();
+            yield return CloseTheMainMenu();
+            yield return SolveTheFirstLevel();
+
+            WinPanel win = Find<WinPanel>();
+            LevelSelectPanel levels = Find<LevelSelectPanel>();
+            Assert.IsTrue(win.IsShowing, "sanity: solving the level should show the card");
+            Assert.IsNotNull(GameObject.Find("Win"), "sanity: the card should be drawn");
+
+            levels.enabled = false;   // both Updates are called by hand below
+            win.enabled = false;
+
+            yield return PressEscape();
+
+            if (listFirst)
+            {
+                FrameOf(levels)();
+                FrameOf(win)();
+            }
+            else
+            {
+                FrameOf(win)();
+                FrameOf(levels)();
+            }
+
+            Assert.IsFalse(win.IsShowing, "Escape did not close the solved card");
+            Assert.IsFalse(levels.IsShowing, "one Escape closed the solved card and opened the level list as well");
+
+            Release(_keyboard.escapeKey);
+            levels.enabled = true;
+            win.enabled = true;
+        }
+
+        /// <summary>
+        /// A card does not answer the key that was pressed before it was there.
+        /// </summary>
+        /// <remarks>
+        /// Escape takes down the solved card, and at the end of the tutorial that raises the
+        /// tutorial's own card in the same frame -- a card that finishes on Escape. Opened and then
+        /// updated in that frame, it used to take the same press and finish the tutorial unseen.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator ACardOpenedThisFrame_DoesNotTakeThisFramesEscape()
+        {
+            yield return TestScene.Load();
+            yield return SkipTheTutorial();
+            yield return CloseTheMainMenu();
+
+            TutorialCard card = Find<TutorialCard>();
+            card.enabled = false;
+
+            yield return PressEscape();
+
+            card.Show(true);
+            FrameOf(card)();
+
+            // Finishing is a flag the director collects, so that is what is read, not the card.
+            Assert.IsFalse(card.ConsumeFinish(), "the card took the Escape that was pressed before it opened");
+
+            Release(_keyboard.escapeKey);
+            card.enabled = true;
+            card.Show(false);
+        }
+
+        /// <summary>The positive control: a card that was already up does take Escape.</summary>
+        [UnityTest]
+        public IEnumerator ACardAlreadyUp_TakesEscape()
+        {
+            yield return TestScene.Load();
+            yield return SkipTheTutorial();
+            yield return CloseTheMainMenu();
+
+            TutorialCard card = Find<TutorialCard>();
+            card.enabled = false;
+            card.Show(true);
+            yield return null;
+
+            yield return PressEscape();
+            FrameOf(card)();
+
+            Assert.IsTrue(card.ConsumeFinish(), "Escape did not finish a card that was already up");
+
+            Release(_keyboard.escapeKey);
+            card.enabled = true;
+            card.Show(false);
+        }
+
+        /// <summary>
         /// The positive control: with nothing to close, Escape does open the list.
         /// </summary>
         /// <remarks>
