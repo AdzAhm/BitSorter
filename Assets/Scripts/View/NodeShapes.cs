@@ -50,8 +50,9 @@ namespace BitSorter.View
 
             // A cool slate, and deliberately the least saturated thing on the board: what is worth
             // looking at is the bit it holds, drawn inside it in that bit's own colour. Near-white
-            // was tried first and was wrong for the reason the stalled-gate glow was wrong -- under
-            // bloom the body blew out into a bright slab with the bit lost inside it.
+            // was tried first and was wrong for the reason the stalled-gate glow was wrong -- a
+            // bright slab with the bit lost inside it, the largest bright area on the node
+            // outshouting the small thing inside it that carries the meaning.
             if (node is RegisterNode) return p.Register;
 
             return p.OtherNode;

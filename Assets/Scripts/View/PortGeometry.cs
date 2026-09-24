@@ -70,7 +70,8 @@ namespace BitSorter.View
 
         /// <summary>
         /// How far it swells on the clock it captures a new bit. A swell rather than a
-        /// brightening, because bloom is already brightest at the middle of a node.
+        /// brightening: a plain colour made brighter only moves towards white, which erases which
+        /// value it was, where a change of size keeps both the colour and the digit.
         /// </summary>
         public const float HeldBitSwell = 1.75f;
 

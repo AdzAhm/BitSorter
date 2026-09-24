@@ -438,6 +438,16 @@ failure side.
   text at 4.5:1 on every kind of button as well as every panel, and a chosen
   button that stands out.
 
+  **Bloom reaches a bit in flight and nothing else**, in every look. The
+  threshold is 1 and only a travelling bit is lifted over it
+  (`BitVisuals.Emission`); gates, fixtures, held bits and the interface are all
+  drawn in plain colour. Several rules below were first written when bloom
+  reached the gates too, and gave it as their reason. They were rendered again
+  under Neon Board on 2026-09-24 -- a stalled gate drawn both ways, bloom on and
+  off -- and bloom changed no pixel of either. The rules stood anyway, each for a
+  reason that does not need bloom, and those are the reasons written below. A
+  rule whose only stated reason is bloom is worth suspecting.
+
   **A button says what it is for** -- `ButtonRole`, and `UiTheme.FillOf` is the
   one place a role becomes a colour. The primary is the one thing a screen asks
   for next, and the only solid button, so an outlined look tells it apart by shape
@@ -732,17 +742,26 @@ failure side.
   round front -- the symbol a student reads in every lecture. They were a rounded
   square, a shape the game had made up. As wide as tall like every gate, so the
   aspect-ratio rule below still holds; square back corners and a round front keep
-  it apart from the OR family's pointed front under bloom.
+  it apart from the OR family's pointed front at a glance.
 - **A register is drawn as what it is, not as another gate.** Its
   silhouette is a tall box with the clock's notch cut out of the left edge,
   and it is the only shape taller than it is wide — aspect ratio is the cue
-  that survives bloom, the same reasoning that made sources a wide capsule.
-  Inside it sits **the bit it is holding**, in that bit's own colour, which
-  swells for a moment when it changes: the state of a machine has to be
+  that reads before colour does, the same reasoning that made sources a wide
+  capsule. Inside it sits **the bit it is holding**, in that bit's own colour,
+  which swells for a moment when it changes: the state of a machine has to be
   readable on the board while it runs. The body is the palest, least
   saturated thing on the board on purpose. Near-white was tried and was
-  wrong the way the stalled-gate glow was wrong — under bloom it blew out
-  into a bright slab with the held bit lost inside it.
+  wrong the way the stalled-gate glow was wrong — a bright slab with the held
+  bit lost inside it. That was blamed on bloom, which no longer reaches a
+  body; the rule stands for the stall's reason below, that the largest bright
+  area on a node outshouts the small thing inside it that carries the meaning.
+
+  **The capture is a swell, not a brightening**, and that too was first
+  argued from bloom -- "bloom is already brightest at the middle of a node" --
+  which stopped being true once held bits were drawn in plain colour. It
+  stands because a plain colour made brighter can only move towards white,
+  the one direction that erases which value it was, where a change of size
+  keeps the colour and the digit and does not depend on colour at all.
 
   **The held bit is measured against the body, in `PortGeometry`, and sits
   right of centre.** It shipped drawn from a size on `NodeRenderer` while the
@@ -1051,9 +1070,13 @@ by name. Treat this section as a place to park ideas, not as a to-do list.
   Now an empty input socket is a hollow ring and a full one is a filled
   disc in that bit's own colour, carrying the glow it had on the wire. A
   stalled gate drains and dims with a slow amber breath — **darker, not
-  brighter**: the first attempt raised its glow and under bloom the gate
-  blew out into one bright blob with the sockets lost inside it, which is
-  backwards, because the sockets are what carry the meaning. A collision
+  brighter**: the first attempt raised its glow and the gate became one
+  bright blob with the sockets lost inside it, which is backwards, because
+  the sockets are what carry the meaning. That was put down to bloom, and
+  re-rendered on 2026-09-24 with bloom off the brighter gate was still the
+  blob: the halo and the body are the two largest things on a gate and the
+  held bit the smallest, so dimming the first two is the only way to let the
+  held bit stand out against them. A collision
   one tick away throbs on the port, the wire and the bit at once, amber
   when only the arrival dies and red when the waiting bit dies too -- and
   then the waiting bit is **crossed out**, because amber and red are the

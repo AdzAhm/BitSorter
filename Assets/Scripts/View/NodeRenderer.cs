@@ -89,8 +89,10 @@ namespace BitSorter.View
         /// afterwards from what reached the bins.
         ///
         /// Polled against a cached copy, the same idiom every other renderer here uses. The flash
-        /// is a swell rather than a brightening, because bloom is already brightest at the middle
-        /// of a node and a brighter disc there would simply wash out.
+        /// is a swell rather than a brightening. That was first argued from bloom, which no longer
+        /// reaches a held bit -- it is drawn in plain colour -- but it stands: a plain colour made
+        /// brighter can only move towards white, which erases which value it was, and a change of
+        /// size keeps the colour and the digit and does not depend on colour at all.
         /// </remarks>
         private void ApplyHeldBits()
         {
@@ -138,11 +140,15 @@ namespace BitSorter.View
         /// bloom is chosen to preserve -- so the glow was free to mean something that changes.
         ///
         /// A stalled gate goes **darker**, not brighter, and this is the whole trick. The first
-        /// attempt raised the glow to an urgent amber, and under bloom the gate blew out into a
-        /// single bright blob with its ports somewhere inside it -- inverting the hierarchy, since
-        /// the sockets are what actually say what is being held. Dimming instead lets the held bit
-        /// become the brightest thing on the gate, which is both legible and true: the gate really
-        /// has gone dormant, and the bit really is the only thing happening on it.
+        /// attempt raised the glow to an urgent amber, and the gate became a single bright blob with
+        /// its ports somewhere inside it -- inverting the hierarchy, since the sockets are what
+        /// actually say what is being held. Dimming instead lets the held bit stand out against the
+        /// gate, which is both legible and true: the gate really has gone dormant, and the bit
+        /// really is the only thing happening on it.
+        ///
+        /// The blob was blamed on bloom, which no longer reaches a gate at all. Rendered again with
+        /// bloom off, the brighter version was the same blob: the halo and the body are the largest
+        /// things on a gate and the held bit the smallest, and that is the reason that holds.
         ///
         /// The amber is left as a slow low breath, enough to separate "waiting" from "idle"
         /// without competing with anything.
