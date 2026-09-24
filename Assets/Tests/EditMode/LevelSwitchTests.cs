@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using BitSorter.View;
 using NUnit.Framework;
 using UnityEngine;
@@ -82,7 +83,7 @@ namespace BitSorter.LogicCore.Tests
         }
 
         [Test]
-        public void CyclingThroughEveryLevelAndBack_LeavesTheBoardEmpty()
+        public void CyclingToTheLastLevelAndBack_LeavesTheBoardEmpty()
         {
             int count = _session.AvailableLevels.Count;
             Assert.Greater(count, 1, "a switch needs at least two levels to switch between");
@@ -92,11 +93,39 @@ namespace BitSorter.LogicCore.Tests
 
             _session.Blueprint.Place(LevelTestFixtures.MiddleCell, GateKind.Not);
 
-            for (int i = 0; i < count; i++)
-                Assert.IsTrue(_session.CycleLevel(1), $"cycle step {i}");
+            for (int i = 1; i < count; i++)
+                Assert.IsTrue(_session.CycleLevel(1), $"forward step {i}");
 
-            Assert.AreEqual(first, _session.LevelName, "a full cycle should return to where it began");
+            for (int i = 1; i < count; i++)
+                Assert.IsTrue(_session.CycleLevel(-1), $"back step {i}");
+
+            Assert.AreEqual(first, _session.LevelName, "walking to the end and back should return to where it began");
             Assert.IsTrue(_session.Blueprint.IsEmpty, "coming back must not restore the old board");
+        }
+
+        /// <summary>
+        /// Q on the first level and E on the last go nowhere, and the board the player was building
+        /// is still there.
+        /// </summary>
+        /// <remarks>
+        /// Asked for: Q on the first level used to wrap to the last, a chapter the player had not
+        /// reached. A step that goes nowhere loads nothing, so it cannot clear the board either.
+        /// </remarks>
+        [Test]
+        public void CyclingPastEitherEnd_GoesNowhere_AndKeepsTheBoard()
+        {
+            IReadOnlyList<string> all = _session.AvailableLevels;
+
+            Assert.IsTrue(_session.LoadLevel(all[0]));
+            _session.Blueprint.Place(LevelTestFixtures.MiddleCell, GateKind.Not);
+
+            Assert.IsFalse(_session.CycleLevel(-1), "Q on the first level went somewhere");
+            Assert.AreEqual(0, _session.LevelIndex, "Q on the first level left it");
+            Assert.IsFalse(_session.Blueprint.IsEmpty, "a step that went nowhere cleared the board anyway");
+
+            Assert.IsTrue(_session.LoadLevel(all[all.Count - 1]));
+            Assert.IsFalse(_session.CycleLevel(1), "E on the last level went somewhere");
+            Assert.AreEqual(all.Count - 1, _session.LevelIndex, "E on the last level left it");
         }
 
         // -----------------------------------------------------------------

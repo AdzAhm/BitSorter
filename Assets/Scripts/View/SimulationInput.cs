@@ -91,17 +91,40 @@ namespace BitSorter.View
             // the scene recreates the component with its default, and an inspector edit made during
             // Play is reverted when Play exits. Page Up/Down were the original binding but are absent
             // on compact keyboards; Tab/Shift+Tab and [ / ] were already taken by other controls.
+            //
             if (keyboard.eKey.wasPressedThisFrame)
-                _session.CycleLevel(1);
+                StepLevel(1, "This is the last level.");
 
             if (keyboard.qKey.wasPressedThisFrame)
-                _session.CycleLevel(-1);
+                StepLevel(-1, "This is the first level.");
 
             if (keyboard.spaceKey.wasPressedThisFrame)
                 _runner.TogglePause();
 
             if (keyboard.rightArrowKey.wasPressedThisFrame && _runner.IsPaused)
                 _runner.StepOneTick();
+        }
+
+        /// <summary>
+        /// Q or E: one level along, or a toast saying this is the end of the run.
+        /// </summary>
+        /// <remarks>
+        /// Neither end wraps any more, and a key that does nothing and says nothing reads as a broken
+        /// key. The toast is decided by where the player is, not by the load failing, so a level that
+        /// failed to load for some other reason is not blamed on the run ending. From the tutorial
+        /// or free play -- off the run, index -1 -- there is always somewhere to step to.
+        /// </remarks>
+        private void StepLevel(int step, string atTheEnd)
+        {
+            int current = _session.LevelIndex;
+
+            if (current >= 0 && LevelSession.NextIndex(current, step, _session.AvailableLevels.Count) < 0)
+            {
+                _runner.RejectEdit(atTheEnd);
+                return;
+            }
+
+            _session.CycleLevel(step);
         }
     }
 }

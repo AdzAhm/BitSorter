@@ -354,8 +354,10 @@ namespace BitSorter.View
         }
 
         /// <summary>
-        /// Loads the next level file along, wrapping at the end. Discards whatever was on the board.
+        /// Loads the next level file along, or does nothing past either end of the run. Discards
+        /// whatever was on the board.
         /// </summary>
+        /// <returns>False when there was nowhere to go, so the caller can say so.</returns>
         /// <remarks>
         /// Deliberately keys off the files present rather than a list written down anywhere, so adding
         /// a level to Resources/Levels puts it in the rotation with no other change. Q and E use this;
@@ -372,17 +374,21 @@ namespace BitSorter.View
             if (all.Count == 0 || step == 0)
                 return false;
 
-            return LoadLevel(all[NextIndex(LevelIndex, step, all.Count)]);
+            int next = NextIndex(LevelIndex, step, all.Count);
+            return next >= 0 && LoadLevel(all[next]);
         }
 
         /// <summary>
-        /// Where a step of <paramref name="step"/> lands from <paramref name="current"/>, wrapping in
-        /// both directions. A negative <paramref name="current"/> means the level is not in the list.
+        /// Where a step of <paramref name="step"/> lands from <paramref name="current"/>, or -1 past
+        /// either end of the run. A negative <paramref name="current"/> means the level is not in
+        /// the list.
         /// </summary>
         /// <remarks>
-        /// Pulled out and made static so the wrap can be tested directly. C# gives a negative result
-        /// for a negative left operand of %, so stepping back from the first entry lands on -1 and
-        /// throws unless the remainder is nudged positive -- the whole reason this is not inline.
+        /// It used to wrap, so Q on the first level went to the last -- into a chapter the player
+        /// had not reached, from the level that teaches what a board is. It stops at both ends: E on
+        /// the last level wrapping to the first would be the same surprise the other way round, and
+        /// the solved card already treats the last level as having nowhere to go
+        /// (<see cref="WinPanel.HasSomewhereToGo"/>).
         /// </remarks>
         public static int NextIndex(int current, int step, int count)
         {
@@ -393,7 +399,8 @@ namespace BitSorter.View
             if (current < 0)
                 return step > 0 ? 0 : count - 1;
 
-            return ((current + step) % count + count) % count;
+            int next = current + step;
+            return next < 0 || next >= count ? -1 : next;
         }
 
         /// <summary>

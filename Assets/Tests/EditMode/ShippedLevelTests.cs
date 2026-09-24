@@ -50,14 +50,14 @@ namespace BitSorter.LogicCore.Tests
         }
 
         [TestCase(0, 1, 3, ExpectedResult = 1, TestName = "CyclingForward_Advances")]
-        [TestCase(2, 1, 3, ExpectedResult = 0, TestName = "CyclingPastTheEnd_WrapsToTheStart")]
-        [TestCase(0, -1, 3, ExpectedResult = 2, TestName = "CyclingBackFromTheFirst_WrapsToTheEnd")]
+        [TestCase(2, 1, 3, ExpectedResult = -1, TestName = "CyclingPastTheLast_GoesNowhere")]
+        [TestCase(0, -1, 3, ExpectedResult = -1, TestName = "CyclingBackFromTheFirst_GoesNowhere")]
         [TestCase(1, -1, 3, ExpectedResult = 0, TestName = "CyclingBack_Retreats")]
         [TestCase(-1, 1, 3, ExpectedResult = 0, TestName = "AnUnknownLevel_StartsAtTheFirst")]
         [TestCase(-1, -1, 3, ExpectedResult = 2, TestName = "AnUnknownLevelSteppingBack_StartsAtTheLast")]
-        [TestCase(0, 1, 1, ExpectedResult = 0, TestName = "ASingleLevel_StaysPut")]
+        [TestCase(0, 1, 1, ExpectedResult = -1, TestName = "ASingleLevel_GoesNowhere")]
         [TestCase(0, 1, 0, ExpectedResult = -1, TestName = "NoLevelsAtAll_GoesNowhere")]
-        public int CyclingWrapsInBothDirections(int current, int step, int count) =>
+        public int CyclingStopsAtBothEnds(int current, int step, int count) =>
             LevelSession.NextIndex(current, step, count);
 
         [Test]
