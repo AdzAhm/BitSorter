@@ -330,8 +330,11 @@ failure side.
   one. Assertions about absence need a paired test proving the thing is possible.
 
   **Never move the player's save.** `SaveGuard` points `ProgressStore.Redirected`
-  at a scratch file and the real `progress.json` is not opened, copied, moved or
-  deleted by any test. Two earlier designs moved it aside and moved it back, and
+  at a scratch file and the real `progress.json` is not written, moved or deleted
+  by any test -- it is only read, for a dated safety copy beside it whenever it has
+  changed since the last one. That copy was meant to be once a session, but its
+  flag is a static that every Play Mode run resets, and 210 identical copies had
+  piled up before anyone looked. Two earlier designs moved it aside and moved it back, and
   both made the player's data depend on a run finishing cleanly: the first
   destroyed a save outright — after an interrupted run the stash held the real
   file and the live path held test debris, and the "clean up the stale stash"
