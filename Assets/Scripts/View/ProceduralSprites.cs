@@ -66,9 +66,6 @@ namespace BitSorter.View
         public static Sprite RoundedSquare(BodyStyle style = BodyStyle.Filled) =>
             Body("roundedSquare", style, p => InSquircle(p, 0.86f));
 
-        public static Sprite RoundedSquareBubble(BodyStyle style = BodyStyle.Filled) =>
-            Body("roundedSquareBubble", style, p => InSquircle(p, 0.64f) || InBubble(p));
-
         /// <summary>
         /// The AND gate as a course draws it: a D -- a flat back, straight top and bottom, and a
         /// semicircular front.

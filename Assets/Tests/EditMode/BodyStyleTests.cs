@@ -17,8 +17,7 @@ namespace BitSorter.LogicCore.Tests
         private static readonly Func<BodyStyle, Sprite>[] Bodies =
         {
             ProceduralSprites.CircleBubble, ProceduralSprites.RoundedSquare,
-            ProceduralSprites.RoundedSquareBubble, ProceduralSprites.DShape,
-            ProceduralSprites.DShapeBubble, ProceduralSprites.Shield,
+            ProceduralSprites.DShape, ProceduralSprites.DShapeBubble, ProceduralSprites.Shield,
             ProceduralSprites.ShieldBubble, ProceduralSprites.ShieldArc,
             ProceduralSprites.Capsule, ProceduralSprites.Hexagon, ProceduralSprites.FlipFlop,
         };
