@@ -99,7 +99,7 @@ namespace BitSorter.PlayMode.Tests
             LevelSelectPanel levels = Find<LevelSelectPanel>();
             levels.enabled = false;   // its Update is called by hand below
 
-            var panel = new GameObject("Escape-closed panel").AddComponent<EscapeClosedPanel>();
+            var panel = new GameObject("Escape-closed panel").AddComponent<KeyClosedPanel>();
             panel.Open();
 
             yield return PressEscape();
@@ -115,6 +115,68 @@ namespace BitSorter.PlayMode.Tests
 
             Release(_keyboard.escapeKey);
             levels.enabled = true;
+        }
+
+        /// <summary>
+        /// The Enter that closes a panel does not also run the board under it.
+        /// </summary>
+        /// <remarks>
+        /// The board's keys stood aside only while a panel was open, so "closed a moment ago" read
+        /// the same as "never open". The chapter card closes on Enter, Enter is the run key, and the
+        /// card sits on a level the player has not built anything on yet: whenever the card updated
+        /// first, one press dismissed it and ran an empty board. The level list was taught this
+        /// rule for Escape; the board was not.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator AnEnterThatClosesAPanel_DoesNotAlsoRunTheBoard()
+        {
+            yield return TestScene.Load();
+            yield return SkipTheTutorial();
+            yield return CloseTheMainMenu();
+
+            LevelSession session = Find<LevelSession>();
+            SimulationInput keys = Find<SimulationInput>();
+            keys.enabled = false;   // its Update is called by hand below
+
+            Assert.AreNotEqual(RunState.Running, session.State, "sanity: nothing should be running yet");
+
+            var panel = new GameObject("Enter-closed panel").AddComponent<KeyClosedPanel>();
+            panel.ClosesOn = Key.Enter;
+            panel.Open();
+
+            yield return PressKey(_keyboard.enterKey);
+
+            // The order that goes wrong: the panel looks first, so the board finds nothing open.
+            panel.Tick();
+            FrameOf(keys)();
+
+            Assert.IsFalse(panel.IsOpen, "sanity: Enter should have closed the stand-in panel");
+            Assert.AreNotEqual(RunState.Running, session.State,
+                "one Enter closed a panel and ran the board under it as well");
+
+            Release(_keyboard.enterKey);
+            keys.enabled = true;
+        }
+
+        /// <summary>The positive control: with nothing open, Enter does run the board.</summary>
+        [UnityTest]
+        public IEnumerator AnEnterWithNothingOpen_StillRunsTheBoard()
+        {
+            yield return TestScene.Load();
+            yield return SkipTheTutorial();
+            yield return CloseTheMainMenu();
+
+            LevelSession session = Find<LevelSession>();
+            SimulationInput keys = Find<SimulationInput>();
+            keys.enabled = false;
+
+            yield return PressKey(_keyboard.enterKey);
+            FrameOf(keys)();
+
+            Assert.AreEqual(RunState.Running, session.State, "Enter with nothing open should run the board");
+
+            Release(_keyboard.enterKey);
+            keys.enabled = true;
         }
 
         /// <summary>
@@ -508,7 +570,7 @@ namespace BitSorter.PlayMode.Tests
 
             float before = Remaining(banner);
 
-            var panel = new GameObject("stand-in").AddComponent<EscapeClosedPanel>();
+            var panel = new GameObject("stand-in").AddComponent<KeyClosedPanel>();
             panel.Open();
 
             // Several frames, so a countdown that is still running has time to show it.
@@ -556,7 +618,7 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsNotNull(GameObject.Find("Win"), "sanity: the card should be drawn");
             Assert.Greater(LitGlows(), 0, "sanity: the bins should be lit");
 
-            var panel = new GameObject("stand-in").AddComponent<EscapeClosedPanel>();
+            var panel = new GameObject("stand-in").AddComponent<KeyClosedPanel>();
             panel.Open();
             yield return null;
 
@@ -680,12 +742,15 @@ namespace BitSorter.PlayMode.Tests
         /// input update at the start of a frame. The coroutine resumes after that frame's Updates,
         /// which is still "this frame" as far as wasPressedThisFrame is concerned.
         /// </remarks>
-        private IEnumerator PressEscape()
+        private IEnumerator PressEscape() => PressKey(_keyboard.escapeKey);
+
+        /// <summary>Presses a key and returns inside the frame that processed it, as above.</summary>
+        private IEnumerator PressKey(UnityEngine.InputSystem.Controls.KeyControl key)
         {
-            Press(_keyboard.escapeKey, queueEventOnly: true);
+            Press(key, queueEventOnly: true);
             yield return null;
 
-            Assert.IsTrue(_keyboard.escapeKey.wasPressedThisFrame, "sanity: Escape is this frame's press");
+            Assert.IsTrue(key.wasPressedThisFrame, $"sanity: {key.name} is this frame's press");
         }
 
         /// <summary>A component's own Update, callable without Unity.</summary>
@@ -701,15 +766,18 @@ namespace BitSorter.PlayMode.Tests
     }
 
     /// <summary>
-    /// A full-screen panel that closes on Escape, driven by hand.
+    /// A full-screen panel that closes on a key -- Escape unless told otherwise -- driven by hand.
     /// </summary>
     /// <remarks>
     /// Its check is <see cref="Tick"/> rather than Update so Unity never runs it: the test decides
     /// when it looks at the key.
     /// </remarks>
-    internal sealed class EscapeClosedPanel : MonoBehaviour
+    internal sealed class KeyClosedPanel : MonoBehaviour
     {
         public bool IsOpen { get; private set; }
+
+        /// <summary>The key that closes it. The chapter card closes on Enter as well as Escape.</summary>
+        public Key ClosesOn = Key.Escape;
 
         public void Open()
         {
@@ -721,7 +789,7 @@ namespace BitSorter.PlayMode.Tests
         {
             Keyboard keyboard = Keyboard.current;
 
-            if (!IsOpen || keyboard == null || !keyboard.escapeKey.wasPressedThisFrame)
+            if (!IsOpen || keyboard == null || !keyboard[ClosesOn].wasPressedThisFrame)
                 return;
 
             IsOpen = false;
