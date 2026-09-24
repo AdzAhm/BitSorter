@@ -129,6 +129,38 @@ namespace BitSorter.PlayMode.Tests
                 "a scrollbar shows beside a list with nothing to scroll");
         }
 
+        /// <summary>
+        /// The list has a CLOSE button, clear of its title, and it closes the list.
+        /// </summary>
+        /// <remarks>
+        /// Escape was the only way out, stated in dim caption-sized text at the foot of the screen,
+        /// so a list opened with the mouse from the main menu had no way back the mouse could reach.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator TheList_HasACloseButton_ThatClosesIt()
+        {
+            yield return TestScene.Load();
+            Find<MainMenu>().Show(false);
+            yield return null;
+
+            LevelSelectPanel levels = Find<LevelSelectPanel>();
+            levels.Open();
+            yield return null;
+
+            Transform panel = LevelListRoot();
+            var close = panel.Find("Close") as RectTransform;
+            Assert.IsNotNull(close, "the level list has no close button");
+            Assert.IsTrue(close.gameObject.activeInHierarchy, "the close button is not drawn");
+            Assert.IsFalse(Overlaps(panel.Find("title") as RectTransform, close),
+                "the close button sits over the LEVELS title");
+
+            close.GetComponent<Button>().onClick.Invoke();
+            yield return null;
+
+            Assert.IsFalse(levels.IsShowing, "the close button did not close the level list");
+            Assert.IsFalse(UiModal.AnyOpen, "something is still covering the board after closing the list");
+        }
+
         // -----------------------------------------------------------------
         // Helpers
         // -----------------------------------------------------------------

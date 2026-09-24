@@ -148,6 +148,14 @@ namespace BitSorter.View
                 new Vector2(0f, HelpBottom), new Vector2(600f, HelpHeight));
             help.text = "escape to close    Q / E also change level";
 
+            // A button as well as the key. The only other way out was the help line above, dim
+            // caption-sized text at the foot of the screen saying which key to press -- a list
+            // opened with the mouse, from the main menu, had no way back that the mouse could reach.
+            Button close = UiTheme.Button_("Close", Root, "CLOSE", out TextMeshProUGUI _, UiType.Label, ButtonRole.Quiet);
+            UiTheme.Anchor(close.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(1f, 1f),
+                new Vector2(-UiTheme.Margin, -UiTheme.Margin), new Vector2(CloseWidth, UiTheme.ButtonHeight));
+            close.onClick.AddListener(() => { Show(false); UiTheme.Defocus(); });
+
             const float rowHeight = RowHeight;
             const float gap = RowGap;
 
@@ -330,6 +338,9 @@ namespace BitSorter.View
 
         /// <summary>The list's width, which every row takes.</summary>
         private const float ListWidth = 520f;
+
+        /// <summary>The close button, in the top-right corner, clear of the title and the list.</summary>
+        private const float CloseWidth = 120f;
 
         /// <summary>The title: how far below the top edge, and how tall.</summary>
         private const float TitleTop = 48f;
