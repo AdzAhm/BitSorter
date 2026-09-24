@@ -114,10 +114,15 @@ namespace BitSorter.View
 
         public static IReadOnlyList<ControlEntry> All { get; } = new[]
         {
+            // The number keys and redo are bound (PlacementController, SimulationInput) and were
+            // named nowhere in the game -- only in the README. The card is where the rest are
+            // listed, so they go there and not on the crowded line.
+            new ControlEntry("1 to 7 to pick a part", false, ControlKind.Building),
             new ControlEntry("drag a port to wire", true, ControlKind.Building),
             new ControlEntry("right click to delete", true, ControlKind.Building),
             new ControlEntry("scroll a wire to re-time", true, ControlKind.Building),
             new ControlEntry("ctrl+Z to undo", true, ControlKind.Building),
+            new ControlEntry("ctrl+Y to redo", false, ControlKind.Building),
             new ControlEntry("shift+R to clear", true, ControlKind.Building),
 
             new ControlEntry("Enter to run", false, ControlKind.Running),

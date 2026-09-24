@@ -283,6 +283,28 @@ namespace BitSorter.LogicCore.Tests
                 "the timing diagram is only worth naming on a clocked level, not on every board");
         }
 
+        /// <summary>
+        /// The card names the keys that pick a part and redo, which the game binds.
+        /// </summary>
+        /// <remarks>
+        /// Both were bound and named only in the README -- a player finds out the number keys pick
+        /// parts by accident or not at all.
+        /// </remarks>
+        [Test]
+        public void TheCard_NamesThePartKeysAndRedo()
+        {
+            var named = new System.Text.StringBuilder();
+
+            foreach (ControlGroup group in ControlsReference.Groups)
+            {
+                foreach (ControlEntry entry in group.Entries)
+                    named.AppendLine(entry.Text);
+            }
+
+            StringAssert.Contains("1 to 7", named.ToString(), "the card does not say the number keys pick a part");
+            StringAssert.Contains("redo", named.ToString(), "the card does not say how to redo");
+        }
+
         [Test]
         public void EveryGroupHasSomethingInIt()
         {
