@@ -311,6 +311,28 @@ namespace BitSorter.LogicCore.Tests
         }
 
         /// <summary>
+        /// The controls line fits its box on one line, and the box fits the narrowest screen.
+        /// </summary>
+        /// <remarks>
+        /// The line never wraps, so running long means running out of its box sideways, and nothing
+        /// measured it: the box was a thousand wide and the text had grown to within forty pixels of
+        /// that before M was added to it. The canvas is widest at the reference 16:9 and narrowest
+        /// at 4:3, where the scaler (matching width and height equally) makes it
+        /// sqrt(1920 x 1080 x 4/3) wide.
+        /// </remarks>
+        [Test]
+        public void TheControlsLine_FitsItsBox_AndTheBoxFitsANarrowScreen()
+        {
+            float needed = UiTheme.TextWidth(ControlsReference.Line, UiTheme.ControlsType);
+            Assert.LessOrEqual(needed, UiTheme.ControlsWidth,
+                $"the controls line needs {needed:F0}px and its box is {UiTheme.ControlsWidth}px");
+
+            float narrowest = Mathf.Sqrt(1920f * 1080f * 4f / 3f);
+            Assert.LessOrEqual(UiTheme.ControlsWidth + 2f * UiTheme.Margin, narrowest,
+                $"the controls line's box is wider than a 4:3 screen ({narrowest:F0}px)");
+        }
+
+        /// <summary>
         /// At the reference resolution the whole run shows in the level list at once, with no
         /// scrolling.
         /// </summary>

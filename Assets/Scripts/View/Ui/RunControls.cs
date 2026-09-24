@@ -114,11 +114,11 @@ namespace BitSorter.View
             // block, so its position and the toast's come from the same arithmetic. When each owned
             // half of it, they landed on the same line and drew over each other.
             TextMeshProUGUI line = UiTheme.Label(
-                "controls", _canvas.transform, UiType.Label, UiTheme.TextDim, TextAlignmentOptions.Center);
+                "controls", _canvas.transform, UiTheme.ControlsType, UiTheme.TextDim, TextAlignmentOptions.Center);
 
             UiTheme.Anchor(line.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
                 new Vector2(0f, UiRows.Controls.Offset),
-                new Vector2(1000f, UiRows.Controls.Height));
+                new Vector2(UiTheme.ControlsWidth, UiRows.Controls.Height));
 
             // From ControlsReference, not spelled out here. The tutorial's card lists the same
             // controls, and two copies would disagree the first time a binding changed.

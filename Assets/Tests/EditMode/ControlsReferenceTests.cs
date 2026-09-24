@@ -240,6 +240,21 @@ namespace BitSorter.LogicCore.Tests
                 "tutorial is never told how to reach it");
         }
 
+        /// <summary>
+        /// The line along the bottom of the board names the way back to the main menu.
+        /// </summary>
+        /// <remarks>
+        /// M was kept off it for room, which left it named in two places: the menu itself, which a
+        /// player has to be on already, and the card at the end of the tutorial, which a player who
+        /// skipped the tutorial never sees. The line is the one reference on screen at every level.
+        /// </remarks>
+        [Test]
+        public void TheStatusLine_NamesTheWayBackToTheMainMenu()
+        {
+            StringAssert.Contains("main menu", ControlsReference.Line,
+                "the controls line does not say how to get back to the main menu");
+        }
+
         [Test]
         public void EveryGroupHasSomethingInIt()
         {

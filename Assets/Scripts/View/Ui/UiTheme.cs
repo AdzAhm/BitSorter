@@ -144,6 +144,20 @@ namespace BitSorter.View
         /// <summary>The keyboard reference along the bottom.</summary>
         public const float ControlsHeight = 26f;
 
+        /// <summary>
+        /// How wide the keyboard reference's box is. The line never wraps, so this is the width it
+        /// has to fit, measured by a test rather than assumed.
+        /// </summary>
+        /// <remarks>
+        /// It was a thousand, set when the line was shorter; by the time it carried eight controls
+        /// the text ran to within forty pixels of it with nothing checking. Narrower than the
+        /// narrowest canvas the game is framed for: 4:3, which the scaler makes 1663 wide.
+        /// </remarks>
+        public const float ControlsWidth = 1200f;
+
+        /// <summary>How the keyboard reference is set.</summary>
+        public const UiType ControlsType = UiType.Label;
+
         /// <summary>The refusal toast.</summary>
         public const float ToastHeight = 38f;
 
@@ -252,11 +266,19 @@ namespace BitSorter.View
         /// a box that fits until a level is written with one more, and nothing tells you which
         /// level did it: the text simply prints past the panel.
         /// </remarks>
-        public static float TextHeight(string text, UiType type, float width, float lineSpacing = 0f)
-        {
-            if (string.IsNullOrEmpty(text))
-                return 0f;
+        public static float TextHeight(string text, UiType type, float width, float lineSpacing = 0f) =>
+            string.IsNullOrEmpty(text) ? 0f : Ruler(type, lineSpacing).GetPreferredValues(text, width, 0f).y;
 
+        /// <summary>
+        /// The width a run of text needs on one line, measured with the same ruler as
+        /// <see cref="TextHeight"/>. For the labels that never wrap, where running long means
+        /// running out of the box sideways.
+        /// </summary>
+        public static float TextWidth(string text, UiType type) =>
+            string.IsNullOrEmpty(text) ? 0f : Ruler(type, 0f).GetPreferredValues(text, float.PositiveInfinity, 0f).x;
+
+        private static TextMeshProUGUI Ruler(UiType type, float lineSpacing)
+        {
             if (_ruler == null)
             {
                 var host = new GameObject("UiTheme ruler", typeof(RectTransform))
@@ -270,8 +292,7 @@ namespace BitSorter.View
 
             _ruler.fontSize = SizeOf(type);
             _ruler.lineSpacing = lineSpacing;
-
-            return _ruler.GetPreferredValues(text, width, 0f).y;
+            return _ruler;
         }
 
         private static TextMeshProUGUI _ruler;

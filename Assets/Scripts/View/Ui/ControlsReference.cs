@@ -119,10 +119,11 @@ namespace BitSorter.View
             new ControlEntry("Q and E to change level", false, ControlKind.Everything),
             new ControlEntry("N to mute", true, ControlKind.Everything, onMenu: true),
 
-            // Deliberately not on the status line. That row already carries eight entries across a
-            // thousand pixels; the menu is where this one is worth saying, and the card is where it
-            // was missing entirely.
-            new ControlEntry("M for the main menu", false, ControlKind.Everything, onMenu: true),
+            // On the status line as well, though that row is the crowded one. It was left off it once,
+            // and then the only places M was named were the menu itself -- which a player has to
+            // be on already -- and the card at the end of the tutorial, which a player who skipped
+            // it never sees. A way back to the front door that is never mentioned is a dead end.
+            new ControlEntry("M for the main menu", true, ControlKind.Everything, onMenu: true),
         };
 
         /// <summary>The groups in the order the card lays them out.</summary>
