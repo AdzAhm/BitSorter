@@ -50,7 +50,11 @@ namespace BitSorter.View
             // because the pointer gate sees the interface, but keys would otherwise carry straight
             // through -- Q behind the main menu changing level under it, space starting the clock on
             // a board nobody can see.
-            if (UiModal.AnyOpen)
+            //
+            // And the frame one closed on, for the reason the level list asks the same: the chapter
+            // card closes on Enter, which is also the run key, and whichever of the two Unity updated
+            // first decided whether that one press ran an empty board as well.
+            if (UiModal.OpenOrJustClosed)
                 return;
 
             // Ctrl+Z and Ctrl+Y, with Ctrl+Shift+Z as the redo binding a lot of people reach for

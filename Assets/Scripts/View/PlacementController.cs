@@ -141,8 +141,8 @@ namespace BitSorter.View
 
         private void ReadPalette(Keyboard keyboard)
         {
-            // A panel over the board owns the keyboard too.
-            if (UiModal.AnyOpen)
+            // A panel over the board owns the keyboard too, including on the frame it closes.
+            if (UiModal.OpenOrJustClosed)
                 return;
 
             if (TryReadKind(keyboard, out GateKind kind))

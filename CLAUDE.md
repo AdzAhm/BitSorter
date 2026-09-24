@@ -556,9 +556,11 @@ failure side.
   left the screen's edges, where the HUD lives, undimmed. The HUD --
   banner, run buttons, controls line, parts list, help badge, bits-lost meter --
   hides while `UiModal.HudVisible` is false, or the panels' titles and help
-  lines print over it. A panel that opens on a key asks
+  lines print over it. Anything that acts on a key asks
   `UiModal.OpenOrJustClosed`, so the press that closed one panel cannot open
-  another in the same frame.
+  another in the same frame -- nor reach the board: the board's keys asked
+  `AnyOpen`, and the Enter that dismissed the chapter card could also run an
+  empty board, whenever the card happened to update first.
 
   **A full-screen panel derives from `FullScreenPanel`**, which does the four
   things showing one always takes: activate it, bring it to the front, and tell

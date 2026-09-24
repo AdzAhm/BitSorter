@@ -17,12 +17,14 @@ namespace BitSorter.View
     /// keyboard silently dead, with no error and nothing the player could do. Unity reports a
     /// destroyed object as null, so a panel that vanishes closes itself.
     ///
-    /// **A panel that opens on a key asks <see cref="OpenOrJustClosed"/>, not
-    /// <see cref="AnyOpen"/>.** Two panels reading one key in one frame each see what the other has
+    /// **Anything that acts on a key asks <see cref="OpenOrJustClosed"/>, not
+    /// <see cref="AnyOpen"/>.** Two readers of one key in one frame each see what the other has
     /// done so far, and Unity does not define which updates first. The sandbox's setup closed on
     /// Escape and the level list opened on Escape when nothing was open, so whenever the setup went
     /// first a single press did both. Treating "closed earlier this frame" as still open means the
-    /// press that closed one panel can never also open another, whichever order they run in.
+    /// press that closed one panel can never also open another, whichever order they run in -- nor
+    /// reach the board: the chapter card closes on Enter, and the board's keys used to ask
+    /// AnyOpen, so the same press could run an empty board as well.
     /// </remarks>
     public static class UiModal
     {
