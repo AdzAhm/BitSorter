@@ -255,6 +255,34 @@ namespace BitSorter.LogicCore.Tests
                 "the controls line does not say how to get back to the main menu");
         }
 
+        /// <summary>
+        /// The timing diagram's key is a control like the rest: on the card, and named by F3.
+        /// </summary>
+        /// <remarks>
+        /// It was behind F3 and named nowhere. The clock strip draws this entry's own text, so the
+        /// strip and the card say the same thing.
+        /// </remarks>
+        [Test]
+        public void TheTimingDiagram_IsNamedOnTheCard()
+        {
+            StringAssert.StartsWith("F3", ControlsReference.TimingDiagram.Text);
+
+            bool onTheCard = false;
+
+            foreach (ControlGroup group in ControlsReference.Groups)
+            {
+                foreach (ControlEntry entry in group.Entries)
+                {
+                    if (entry.Text == ControlsReference.TimingDiagram.Text)
+                        onTheCard = true;
+                }
+            }
+
+            Assert.IsTrue(onTheCard, "the tutorial's card does not name the timing diagram's key");
+            Assert.IsFalse(ControlsReference.TimingDiagram.OnStatusLine,
+                "the timing diagram is only worth naming on a clocked level, not on every board");
+        }
+
         [Test]
         public void EveryGroupHasSomethingInIt()
         {

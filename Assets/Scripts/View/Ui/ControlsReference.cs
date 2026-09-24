@@ -101,6 +101,17 @@ namespace BitSorter.View
         /// <summary>Separator on the status line. Wide, because it is the only thing dividing them.</summary>
         public const string LineSeparator = "     ";
 
+        /// <summary>
+        /// The key for the timing diagram, which the clock strip names on every level with a clock.
+        /// </summary>
+        /// <remarks>
+        /// Kept off the controls line: it is only worth anything on a level with a clock, and the
+        /// strip that says so is on screen exactly then. It used to be named nowhere at all, though
+        /// its own remarks call it the notation the course uses.
+        /// </remarks>
+        public static readonly ControlEntry TimingDiagram =
+            new ControlEntry("F3 for the timing diagram", false, ControlKind.Running);
+
         public static IReadOnlyList<ControlEntry> All { get; } = new[]
         {
             new ControlEntry("drag a port to wire", true, ControlKind.Building),
@@ -113,6 +124,7 @@ namespace BitSorter.View
             new ControlEntry("R to reset the board", false, ControlKind.Running),
             new ControlEntry("Space to pause a run", false, ControlKind.Running),
             new ControlEntry("right arrow to step one tick", false, ControlKind.Running),
+            TimingDiagram,
 
             new ControlEntry("H for help", true, ControlKind.Everything, onMenu: true),
             new ControlEntry("ESC for levels", true, ControlKind.Everything, onMenu: true),

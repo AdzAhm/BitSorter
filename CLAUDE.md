@@ -785,7 +785,10 @@ failure side.
   the bottom-left corner. It is the pair to the readout, not a replacement
   — the pips explain the beat to someone who has never seen a timing
   diagram, and this is for someone who has. Behind F3 and absent from the
-  controls line, so it costs a player who does not want it nothing.
+  controls line, so it costs a player who does not want it nothing -- but
+  named, quietly, at the end of the clock strip, which is on screen exactly
+  on the levels where it means anything, and on the tutorial's card. It was
+  once named nowhere, which is not "costs nothing" but "does not exist".
 
   **The two F3 readouts take opposite bottom corners**, and both hide while
   `UiModal.HudVisible` is false. They come up on one key and are anchored
