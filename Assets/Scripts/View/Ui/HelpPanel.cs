@@ -358,6 +358,28 @@ namespace BitSorter.View
             _table.rectTransform.sizeDelta = new Vector2(width - 2f * TablePadding, lines * 24f + 8f);
         }
 
+        private readonly Vector3[] _edgeCorners = new Vector3[4];
+
+        /// <summary>
+        /// The open panel's left edge in screen pixels, or zero while it is shut.
+        /// </summary>
+        /// <remarks>
+        /// Read by <see cref="CameraFit"/>, which frames the board clear of it. Measured whenever
+        /// the panel is open, drawn or not, by the setup panel's rule: stepping aside for a
+        /// full-screen panel must not re-frame the board behind it.
+        /// </remarks>
+        public float ScreenLeftEdge
+        {
+            get
+            {
+                if (_panel == null || !_shown)
+                    return 0f;
+
+                _panel.GetWorldCorners(_edgeCorners);
+                return _edgeCorners[0].x;
+            }
+        }
+
         private void Show(bool visible)
         {
             _shown = visible;

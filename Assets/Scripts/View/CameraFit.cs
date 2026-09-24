@@ -34,6 +34,9 @@ namespace BitSorter.View
         [Tooltip("Free play's setup panel, docked on the right. Absent on a scene without one.")]
         [SerializeField] private SandboxPanel _sandbox;
 
+        [Tooltip("The help panel, on the right while it is open.")]
+        [SerializeField] private HelpPanel _help;
+
         [Tooltip("World units of clearance around the outermost cells.")]
         [SerializeField] private float _margin = 1.4f;
 
@@ -55,6 +58,7 @@ namespace BitSorter.View
             if (_grid == null) _grid = FindFirstObjectByType<PlacementGrid>();
             if (_palette == null) _palette = FindFirstObjectByType<GatePaletteView>();
             if (_sandbox == null) _sandbox = FindFirstObjectByType<SandboxPanel>();
+            if (_help == null) _help = FindFirstObjectByType<HelpPanel>();
         }
 
         private void OnEnable() => Apply(LeftInset(), RightInset());
@@ -102,9 +106,17 @@ namespace BitSorter.View
         }
 
         /// <summary>Pixels free play's setup panel takes along the right edge, gap included.</summary>
+        /// <remarks>
+        /// Whichever right-hand panel reaches further in: the setup panel in free play, and the
+        /// help panel while it is open. The help panel used to be left out, so opening it to read a
+        /// level's truth table put the level's bins -- the thing the table describes -- under it.
+        /// </remarks>
         private float RightInset()
         {
-            float edge = _sandbox != null ? _sandbox.ScreenLeftEdge : 0f;
+            float setup = _sandbox != null ? _sandbox.ScreenLeftEdge : 0f;
+            float help = _help != null ? _help.ScreenLeftEdge : 0f;
+            float edge = setup <= 0f ? help : help <= 0f ? setup : Mathf.Min(setup, help);
+
             return edge > 0f ? Screen.width - edge + _insetGap : 0f;
         }
 

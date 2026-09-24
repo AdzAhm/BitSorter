@@ -153,10 +153,12 @@ namespace BitSorter.View.EditorTools
             CameraFit fit = camera.gameObject.AddComponent<CameraFit>();
             Assign(fit, "_grid", grid);
 
-            // The two things that cover the screen's edges. The board is framed between them, so a
-            // source in the outermost column is not left under the parts list or the setup panel.
+            // The things that cover the screen's edges. The board is framed between them, so a
+            // source in the outermost column is not left under the parts list, the setup panel or
+            // the open help panel.
             Assign(fit, "_palette", palette);
             Assign(fit, "_sandbox", sandbox);
+            Assign(fit, "_help", help);
             Assign(bits, "_sparks", sparks);
             Assign(scorch, "_runner", runner);
 
