@@ -107,9 +107,9 @@ namespace BitSorter.View
         /// <summary>The help badge.</summary>
         /// <remarks>
         /// Ten below the meter rather than the usual eight, which is where it has always been: this
-        /// stack was brought in to move no pixel. Neither figure clears the meter's punch, which
-        /// scales it from its top-right corner -- at its peak it reaches sixteen pixels further down,
-        /// over the top of the badge for a moment.
+        /// stack was brought in to move no pixel. The meter's pop used to scale the whole meter from
+        /// its top-right corner and reached sixteen pixels further down, over the top of the badge
+        /// for a moment; it now scales only the count, inside a box that keeps to its row.
         /// </remarks>
         public static UiRow Badge { get; }
 

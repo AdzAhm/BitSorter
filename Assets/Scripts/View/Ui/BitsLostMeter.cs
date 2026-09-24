@@ -113,6 +113,11 @@ namespace BitSorter.View
         /// Scale only, and it snaps to full size on the increment rather than easing into it. The
         /// count itself is never interpolated: 2, 4, 6, 8 has to read as four discrete events, and a
         /// number lerping through 3, 5, 7 would destroy the one signal the player is reading.
+        ///
+        /// **The number pops, not the box.** Scaling the whole meter from its top-right corner took
+        /// the backdrop sixteen pixels below its own row at the peak, over the help badge ten below
+        /// it. Scaled about its middle, the count grows inside a box that stays in its row whatever
+        /// the punch scale is set to, and the backdrop's flash still marks the moment.
         /// </remarks>
         private void Animate()
         {
@@ -120,7 +125,7 @@ namespace BitSorter.View
                 _punch = Mathf.Max(0f, _punch - Time.deltaTime / _punchSeconds);
 
             float scale = 1f + _punch * _punchScale;
-            _root.localScale = new Vector3(scale, scale, 1f);
+            _label.rectTransform.localScale = new Vector3(scale, scale, 1f);
 
             // Flashes towards white at the peak and settles back to the sink red used everywhere else
             // for a destroyed bit, so the colour means the same thing here as it does on the board.
