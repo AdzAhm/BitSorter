@@ -69,6 +69,24 @@ namespace BitSorter.View
         public static Sprite RoundedSquareBubble(BodyStyle style = BodyStyle.Filled) =>
             Body("roundedSquareBubble", style, p => InSquircle(p, 0.64f) || InBubble(p));
 
+        /// <summary>
+        /// The AND gate as a course draws it: a D -- a flat back, straight top and bottom, and a
+        /// semicircular front.
+        /// </summary>
+        /// <remarks>
+        /// It was a rounded square, a shape that named no gate anyone would recognise from their
+        /// lecture notes; the textbook symbol is the one a student is learning to read. As wide as
+        /// it is tall, like every other gate, so aspect ratio still marks out the source and the
+        /// register. Its back corners are square and its front is round, which is what separates
+        /// it from the OR family's pointed front even once bloom has softened the edges.
+        /// </remarks>
+        public static Sprite DShape(BodyStyle style = BodyStyle.Filled) =>
+            Body("dShape", style, p => InD(p, 0.86f));
+
+        /// <summary>NAND: the AND gate's D with the inverting bubble at its output.</summary>
+        public static Sprite DShapeBubble(BodyStyle style = BodyStyle.Filled) =>
+            Body("dShapeBubble", style, p => InD(p, 0.64f) || InBubble(p));
+
         public static Sprite Shield(BodyStyle style = BodyStyle.Filled) =>
             Body("shield", style, p => InShield(p, 0.86f));
 
@@ -861,6 +879,17 @@ namespace BitSorter.View
             float depth = p.x + halfWidth;
 
             return depth >= notch || Mathf.Abs(p.y) >= notch - depth;
+        }
+
+        /// <summary>
+        /// The D: a square back half, and a front half that is a semicircle of the same height.
+        /// </summary>
+        private static bool InD(Vector2 p, float half)
+        {
+            if (p.x < -half || p.x > half || Mathf.Abs(p.y) > half)
+                return false;
+
+            return p.x <= 0f || p.sqrMagnitude <= half * half;
         }
 
         /// <summary>Flat left edge tapering to a rounded point on the right, as OR-family gates do.</summary>

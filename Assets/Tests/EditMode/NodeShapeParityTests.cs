@@ -65,6 +65,47 @@ namespace BitSorter.LogicCore.Tests
             }
         }
 
+        /// <summary>
+        /// The AND gate is the textbook D -- square at the back, round at the front -- and NAND is
+        /// the same D with its bubble.
+        /// </summary>
+        /// <remarks>
+        /// Asked for by name: a student reads these symbols in every lecture, and a rounded square
+        /// was a shape the game had made up. Checked at the corners, where the D differs from both
+        /// the square it replaced and the OR family's pointed front.
+        /// </remarks>
+        [Test]
+        public void TheAndGate_IsTheTextbookD()
+        {
+            // The gates draw these, in whatever style the look fills bodies with.
+            Assert.AreSame(ProceduralSprites.DShape(Look.Current.Bodies), NodeShapes.SpriteFor(GateKind.And),
+                "the AND gate is not drawn as the D");
+            Assert.AreSame(ProceduralSprites.DShapeBubble(Look.Current.Bodies), NodeShapes.SpriteFor(GateKind.Nand),
+                "the NAND gate is not drawn as the D with a bubble");
+
+            // The silhouettes, read off the filled bodies: a glass style thins the middle, never the edge.
+            Sprite and = ProceduralSprites.DShape(BodyStyle.Filled);
+            Sprite nand = ProceduralSprites.DShapeBubble(BodyStyle.Filled);
+
+            Assert.Greater(AlphaAt(and, -0.8f, 0.8f), 0.5f, "the AND's back corners should be square");
+            Assert.Greater(AlphaAt(and, -0.8f, -0.8f), 0.5f, "the AND's back corners should be square");
+            Assert.Less(AlphaAt(and, 0.8f, 0.8f), 0.5f, "the AND's front should be round, not square");
+            Assert.Less(AlphaAt(and, 0.8f, -0.8f), 0.5f, "the AND's front should be round, not square");
+            Assert.Greater(AlphaAt(and, 0.84f, 0f), 0.5f, "the AND's round front should reach its full width");
+
+            Assert.Greater(AlphaAt(nand, -0.6f, 0.6f), 0.5f, "the NAND's back corners should be square");
+            Assert.Greater(AlphaAt(nand, 0.9f, 0f), 0.5f, "the NAND has no bubble at its output");
+        }
+
+        /// <summary>A sprite's coverage at a point in the -1..1 space its shape was drawn in.</summary>
+        private static float AlphaAt(Sprite sprite, float x, float y)
+        {
+            Texture2D texture = sprite.texture;
+            int px = Mathf.Clamp((int)((x + 1f) * 0.5f * texture.width), 0, texture.width - 1);
+            int py = Mathf.Clamp((int)((y + 1f) * 0.5f * texture.height), 0, texture.height - 1);
+            return texture.GetPixel(px, py).a;
+        }
+
         [Test]
         public void EveryKindHasASprite()
         {

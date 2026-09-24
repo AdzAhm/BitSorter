@@ -18,10 +18,10 @@ namespace BitSorter.View
             BodyStyle style = Look.Current.Bodies;
 
             if (node is NotGate) return ProceduralSprites.CircleBubble(style);
-            if (node is NandGate) return ProceduralSprites.RoundedSquareBubble(style);
+            if (node is NandGate) return ProceduralSprites.DShapeBubble(style);
             if (node is NorGate) return ProceduralSprites.ShieldBubble(style);
             if (node is XorGate) return ProceduralSprites.ShieldArc(style);
-            if (node is AndGate) return ProceduralSprites.RoundedSquare(style);
+            if (node is AndGate) return ProceduralSprites.DShape(style);
             if (node is OrGate) return ProceduralSprites.Shield(style);
             // A wide capsule, not a diamond: under bloom a diamond and NOT's circle both blurred
             // into the same round blob. Aspect ratio survives the glow where silhouette detail
@@ -71,10 +71,10 @@ namespace BitSorter.View
             switch (kind)
             {
                 case GateKind.Not: return ProceduralSprites.CircleBubble(style);
-                case GateKind.Nand: return ProceduralSprites.RoundedSquareBubble(style);
+                case GateKind.Nand: return ProceduralSprites.DShapeBubble(style);
                 case GateKind.Nor: return ProceduralSprites.ShieldBubble(style);
                 case GateKind.Xor: return ProceduralSprites.ShieldArc(style);
-                case GateKind.And: return ProceduralSprites.RoundedSquare(style);
+                case GateKind.And: return ProceduralSprites.DShape(style);
                 case GateKind.Or: return ProceduralSprites.Shield(style);
                 case GateKind.Register: return ProceduralSprites.FlipFlop(style);
                 default: return ProceduralSprites.RoundedSquare(style);

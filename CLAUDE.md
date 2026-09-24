@@ -728,6 +728,11 @@ failure side.
   there were six tracks, and it still said six and 34 MB after three more were
   added -- the set cost half again as much as the only place that explained the
   decision claimed. The number of tracks no longer moves it at all.
+- **AND and NAND are the textbook D.** A flat back, straight top and bottom, a
+  round front -- the symbol a student reads in every lecture. They were a rounded
+  square, a shape the game had made up. As wide as tall like every gate, so the
+  aspect-ratio rule below still holds; square back corners and a round front keep
+  it apart from the OR family's pointed front under bloom.
 - **A register is drawn as what it is, not as another gate.** Its
   silhouette is a tall box with the clock's notch cut out of the left edge,
   and it is the only shape taller than it is wide — aspect ratio is the cue
