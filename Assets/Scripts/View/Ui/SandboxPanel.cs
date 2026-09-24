@@ -94,6 +94,9 @@ namespace BitSorter.View
         private const float RowHeight = 24f;
         private const float StepHeight = 28f;
 
+        /// <summary>The collapse button in the top-right corner, beside the title.</summary>
+        private const float CollapseWidth = 72f;
+
         /// <summary>Where the rows start, below the title and the collapse button.</summary>
         private const float BodyTop = 36f;
 
@@ -260,9 +263,11 @@ namespace BitSorter.View
                 new Vector2(Pad, -10f), new Vector2(160f, 20f));
             title.text = "SETUP";
 
-            Button collapse = UiTheme.Button_("collapse", _root, "»", out TextMeshProUGUI _);
+            // Says what it does. It was a bare », which named nothing -- while the tab it leaves
+            // behind was labelled, so the state it produced was clearer than the button producing it.
+            Button collapse = UiTheme.Button_("collapse", _root, "HIDE »", out TextMeshProUGUI _, UiType.Caption);
             UiTheme.Anchor(collapse.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(1f, 1f),
-                new Vector2(-Pad, -8f), new Vector2(26f, 24f));
+                new Vector2(-Pad, -8f), new Vector2(CollapseWidth, 24f));
             collapse.onClick.AddListener(() => { Expand(false); UiTheme.Defocus(); });
 
             _bodyRoot = UiTheme.Rect("body", _root);

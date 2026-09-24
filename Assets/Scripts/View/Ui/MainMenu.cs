@@ -63,8 +63,43 @@ namespace BitSorter.View
                 return;
 
             Build();
+            BuildHudButton();
             Show(_openOnStart);
         }
+
+        /// <summary>
+        /// The way back to this menu from the board, for the mouse: a quiet button in the top-left
+        /// corner, drawn with the rest of the HUD.
+        /// </summary>
+        /// <remarks>
+        /// There was none. M reached the menu and Escape the level list, and nothing on screen was
+        /// a button to either, so a player who plays with the mouse had no way off a level they did
+        /// not want -- free play worst of all, whose setup panel offers only to collapse. The menu is
+        /// the front door to everything else, levels and free play included, so one button here is
+        /// the way out of every board.
+        ///
+        /// Top left, because it is the one corner nothing else uses: the banner is centred, the
+        /// parts list hangs from the left edge's middle, and the right is the meter, the badge and
+        /// the panels.
+        /// </remarks>
+        private void BuildHudButton()
+        {
+            Button button = UiTheme.Button_(
+                HudButtonName, _canvas.transform, "MENU", out TextMeshProUGUI _, UiType.Label, ButtonRole.Quiet);
+
+            _hudButton = button.GetComponent<RectTransform>();
+            UiTheme.Anchor(_hudButton, new Vector2(0f, 1f), new Vector2(0f, 1f),
+                new Vector2(UiTheme.Margin, -UiTheme.Margin), new Vector2(HudButtonWidth, UiTheme.ButtonHeight));
+
+            button.onClick.AddListener(() => { Show(true); UiTheme.Defocus(); });
+        }
+
+        /// <summary>The HUD's menu button's object name, which the HUD tests look for.</summary>
+        public const string HudButtonName = "Menu button";
+
+        private const float HudButtonWidth = 110f;
+
+        private RectTransform _hudButton;
 
         private void Update()
         {
@@ -81,6 +116,10 @@ namespace BitSorter.View
             {
                 Show(!IsShowing);
             }
+
+            // Part of the HUD, so it steps aside for any full-screen panel -- this menu included.
+            if (_hudButton != null)
+                UiTheme.SetShown(_hudButton, UiModal.HudVisible);
 
             if (IsShowing)
                 Refresh();

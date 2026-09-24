@@ -29,7 +29,8 @@ namespace BitSorter.PlayMode.Tests
     public class PanelPlayTests : InputTestFixture
     {
         /// <summary>The HUD pieces that must not show through a full-screen panel.</summary>
-        private static readonly string[] HudRoots = { "Status", "Run controls", "Palette", "Help badge" };
+        private static readonly string[] HudRoots =
+            { "Status", "Run controls", "Palette", "Help badge", MainMenu.HudButtonName };
 
         private Keyboard _keyboard;
 
@@ -318,6 +319,34 @@ namespace BitSorter.PlayMode.Tests
             GameObject levels = GameObject.Find("Levels");
             Assert.IsNotNull(levels, "sanity: the main menu has no LEVELS button");
             levels.GetComponent<Button>().onClick.Invoke();
+        }
+
+        /// <summary>
+        /// The board has a button back to the main menu, and it works.
+        /// </summary>
+        /// <remarks>
+        /// There was no button to the menu or the level list anywhere on a board, only keys, so a
+        /// player using the mouse could not leave a level -- free play least of all, whose setup panel
+        /// offers nothing but collapsing. The menu is the way to everything else.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator TheMenuButtonOnTheBoard_OpensTheMainMenu()
+        {
+            yield return TestScene.Load();
+            yield return SkipTheTutorial();
+            yield return CloseTheMainMenu();
+            yield return UntilNoFadeIsMoving();
+
+            MainMenu menu = Find<MainMenu>();
+            Assert.IsFalse(menu.IsOpen, "sanity: the menu should be closed");
+
+            GameObject button = GameObject.Find(MainMenu.HudButtonName);
+            Assert.IsNotNull(button, "there is no menu button on the board");
+
+            button.GetComponent<Button>().onClick.Invoke();
+            yield return null;
+
+            Assert.IsTrue(menu.IsOpen, "the board's menu button did not open the main menu");
         }
 
         /// <summary>The positive control: the same lookups find the HUD once nothing is open.</summary>

@@ -121,6 +121,34 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
+        /// Free play has a way out the mouse can reach, and the setup panel's collapse button says
+        /// what it does.
+        /// </summary>
+        /// <remarks>
+        /// The setup panel offered collapse and expand and nothing else, and collapse was a bare »,
+        /// while the tab it left behind said « SETUP -- the state was labelled and the button that
+        /// made it was not. The way out is the board's MENU button, shared with every level.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator FreePlay_HasAWayOut_AndItsCollapseButtonSaysWhatItDoes()
+        {
+            yield return TestScene.Load();
+            yield return OpenFreePlay();
+
+            Assert.IsNotNull(FindButton(MainMenu.HudButtonName), "free play has no menu button to leave by");
+
+            GameObject root = GameObject.Find("Sandbox setup");
+            Assert.IsNotNull(root, "sanity: the setup panel should be showing");
+
+            Transform collapse = root.transform.Find("collapse");
+            Assert.IsNotNull(collapse, "sanity: the setup panel has no collapse button");
+
+            string caption = collapse.GetComponentInChildren<TMPro.TextMeshProUGUI>().text;
+            Assert.IsTrue(System.Text.RegularExpressions.Regex.IsMatch(caption, "[A-Za-z]{3,}"),
+                $"the collapse button says '{caption}', which is a glyph rather than a word");
+        }
+
+        /// <summary>
         /// Opening free play does not put the sequential chapter's card on screen.
         /// </summary>
         /// <remarks>
