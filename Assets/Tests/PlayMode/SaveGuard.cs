@@ -119,11 +119,29 @@ namespace BitSorter.PlayMode.Tests
                 return;
 
             _archived = true;
+            Archive(Real, System.DateTime.Now.ToString("yyyyMMdd-HHmmss"));
+        }
 
-            string copy = Real + ".archive-" + System.DateTime.Now.ToString("yyyyMMdd-HHmmss");
+        /// <summary>
+        /// Copies <paramref name="save"/> beside itself, stamped, and returns the copy's path -- or
+        /// null when there was nothing to copy.
+        /// </summary>
+        /// <remarks>
+        /// Takes the file and the stamp rather than reading the clock and the real path, so a test
+        /// can run it against a scratch folder and a second "session" of its own choosing.
+        /// </remarks>
+        internal static string Archive(string save, string stamp)
+        {
+            if (!File.Exists(save))
+                return null;
 
-            if (!File.Exists(copy))
-                File.Copy(Real, copy);
+            string copy = save + ".archive-" + stamp;
+
+            if (File.Exists(copy))
+                return null;
+
+            File.Copy(save, copy);
+            return copy;
         }
     }
 }
