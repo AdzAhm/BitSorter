@@ -75,8 +75,12 @@ namespace BitSorter.LogicCore.Tests
         [Test]
         public void TheRenderResolution_IsCappedOnHighDensityScreens()
         {
-            StringAssert.Contains("config.devicePixelRatio = Math.min(", Read("index.html"),
+            string page = Read("index.html");
+
+            StringAssert.Contains("Math.min(window.devicePixelRatio || 1, 1.5)", page,
                 "the render follows the screen's pixel ratio without a limit");
+            StringAssert.Contains("config.devicePixelRatio = cappedPixelRatio()", page,
+                "the capped ratio is not what the game starts with");
         }
 
         /// <summary>

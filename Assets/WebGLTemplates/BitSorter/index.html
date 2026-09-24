@@ -117,16 +117,23 @@
       // Nothing errors; the game simply forgets. Unity's own comment below says the autosync is
       // not on by default, which is exactly the trap.
       config.autoSyncPersistentDataPath = true;
+      // This autosyncing is currently not the default behavior to avoid regressing
+      // existing user projects that might rely on the earlier manual
+      // JS_FileSystem_Sync() behavior, but in future Unity version, this will be
+      // expected to change.
 
       // The canvas renders at its CSS size times the screen's pixel ratio, and the canvas now grows
       // with the window -- up to 1920 CSS pixels wide, which at a ratio of 2 is a 3840x2400 render
       // with bloom on top of it, every frame. 1.5 keeps text sharp on a high-density screen at
       // just over half those pixels. On an ordinary screen the ratio is 1 and this changes nothing.
-      config.devicePixelRatio = Math.min(window.devicePixelRatio || 1, 1.5);
-      // This autosyncing is currently not the default behavior to avoid regressing
-      // existing user projects that might rely on the earlier manual
-      // JS_FileSystem_Sync() behavior, but in future Unity version, this will be
-      // expected to change.
+      //
+      // A value in the config replaces Unity's own live read of the window's ratio, so it is kept
+      // current once the game has loaded -- see followPixelRatio below.
+      function cappedPixelRatio() {
+        return Math.min(window.devicePixelRatio || 1, 1.5);
+      }
+
+      config.devicePixelRatio = cappedPixelRatio();
 
       if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
         // Mobile device style: fill the whole browser client area with the game canvas:
@@ -183,6 +190,20 @@
           document.querySelector("#unity-progress-bar-full").style.width = 100 * progress + "%";
               }).then((unityInstance) => {
                 document.querySelector("#unity-loading-bar").style.display = "none";
+
+                // The cap above was read once, and it replaces Unity's own live read of the window's
+                // ratio -- so a page zoomed, or a window moved to a sharper screen, went on rendering
+                // at the ratio the game loaded at. Unity reads Module.devicePixelRatio each time it
+                // sizes the canvas, so keeping that current is the whole fix. The media query
+                // matches the ratio in force and fires once when it stops matching, whether the
+                // cause was a zoom or a change of screen that left the window's size alone.
+                function followPixelRatio() {
+                  unityInstance.Module.devicePixelRatio = cappedPixelRatio();
+                  window.matchMedia("(resolution: " + window.devicePixelRatio + "dppx)")
+                    .addEventListener("change", followPixelRatio, { once: true });
+                }
+
+                followPixelRatio();
 #if SHOW_DIAGNOSTICS
                 document.getElementById("diagnostics-icon").onclick = () => {
                   unityDiagnostics.openDiagnosticsDiv(unityInstance.GetMetricsInfo);
