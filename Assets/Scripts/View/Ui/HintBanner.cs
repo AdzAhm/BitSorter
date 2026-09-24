@@ -31,6 +31,15 @@ namespace BitSorter.View
         [Tooltip("Ignore dismissal input for this long, so the click that caused it does not eat it.")]
         [SerializeField] private float _graceSeconds = 0.35f;
 
+        /// <summary>How a hint is set, shared with the test that holds every hint to the banner.</summary>
+        public const UiType TextType = UiType.Label;
+
+        /// <summary>The text's inset from the banner's edges.</summary>
+        public const float TextInset = 10f;
+
+        /// <summary>The width a hint wraps in.</summary>
+        public const float TextWidth = UiTheme.BannerWidth - 2f * TextInset;
+
         private Image _background;
         private TextMeshProUGUI _text;
         private float _remaining;
@@ -57,8 +66,8 @@ namespace BitSorter.View
 
             _background.raycastTarget = false;
 
-            _text = UiTheme.Label("hint text", rect, UiType.Label, UiTheme.Text, TextAlignmentOptions.Center);
-            UiTheme.Stretch(_text.rectTransform, 10f);
+            _text = UiTheme.Label("hint text", rect, TextType, UiTheme.Text, TextAlignmentOptions.Center);
+            UiTheme.Stretch(_text.rectTransform, TextInset);
             _text.textWrappingMode = TextWrappingModes.Normal;
             _text.raycastTarget = false;
 

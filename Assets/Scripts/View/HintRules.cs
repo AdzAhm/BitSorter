@@ -45,8 +45,10 @@ namespace BitSorter.View
             switch (id)
             {
                 case Stalled:
-                    return "Gates fire only when every input is holding a bit. " +
-                           "That one is short of at least one, so it will sit there.";
+                    // Says what the dimming means: the gate going dark is the one visible sign, and
+                    // a stall hint that did not name it left the two unconnected.
+                    return "A gate fires only when every input is holding a bit. " +
+                           "That one is still waiting on another, so it sits there, dimmed.";
 
                 case Collision:
                     return "An input port holds one bit at a time. A second bit arriving has " +

@@ -208,6 +208,27 @@ namespace BitSorter.LogicCore.Tests
             }
         }
 
+        /// <summary>
+        /// Every first-time hint fits inside the banner that shows it.
+        /// </summary>
+        /// <remarks>
+        /// The goals are measured against the status banner and the level hints against the help
+        /// panel; these were measured against nothing, in a strip 46 pixels tall. A hint one line
+        /// longer would print over the rows above and below it, and it is the one text the player
+        /// sees once ever.
+        /// </remarks>
+        [Test]
+        public void EveryHint_FitsItsBanner()
+        {
+            foreach (string id in HintRules.All)
+            {
+                float needed = UiTheme.TextHeight(HintRules.TextFor(id), HintBanner.TextType, HintBanner.TextWidth);
+
+                Assert.LessOrEqual(needed, UiTheme.HintHeight,
+                    $"'{id}' wraps to {needed:F0}px and its banner is {UiTheme.HintHeight}px");
+            }
+        }
+
         [Test]
         public void AnUnknownId_HasNoText()
         {

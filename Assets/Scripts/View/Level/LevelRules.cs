@@ -117,10 +117,12 @@ namespace BitSorter.View
             if (state == RunState.Editing)
                 return LevelVerdict.Accept();
 
+            // Names the button as well as the key: a player using the mouse is told a key and has
+            // to go looking for which button it is.
             return LevelVerdict.Reject(LevelOutcome.NotEditing,
                 state == RunState.Running
-                    ? "Press R to reset before editing."
-                    : "Press R to reset and edit.");
+                    ? "A running board can't be edited. RESET, or R, stops it."
+                    : "RESET, or R, to edit the board again.");
         }
 
         /// <summary>Whether a gate of this kind may go on this cell.</summary>
@@ -268,7 +270,7 @@ namespace BitSorter.View
             if (targetDelay > level.MaxWireDelay)
             {
                 return level.MaxWireDelay <= 1
-                    ? LevelVerdict.Reject(LevelOutcome.DelayAtMaximum, "Wiring is fixed on this level.")
+                    ? LevelVerdict.Reject(LevelOutcome.DelayAtMaximum, "Wire delays are fixed on this level.")
                     : LevelVerdict.Reject(LevelOutcome.DelayAtMaximum,
                         $"This level caps wires at {level.MaxWireDelay} ticks.");
             }

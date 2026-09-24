@@ -93,7 +93,7 @@ namespace BitSorter.View
             Node inputNode = NodeAt(view, inputEnd);
 
             if (outputNode == null || inputNode == null)
-                return WiringVerdict.Reject(WiringOutcome.MissingNode, "That node is gone.");
+                return WiringVerdict.Reject(WiringOutcome.MissingNode, "That part is gone.");
 
             if (outputEnd.Index < 0 || outputEnd.Index >= outputNode.OutputCount ||
                 inputEnd.Index < 0 || inputEnd.Index >= inputNode.InputCount)
