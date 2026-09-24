@@ -308,6 +308,93 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsTrue(sawBoth, "sanity: no collision that takes the waiting bit too was seen");
         }
 
+        /// <summary>
+        /// The bits-lost meter's pop stays inside its own row, clear of the help badge below it.
+        /// </summary>
+        /// <remarks>
+        /// The pop scaled the whole meter from its top-right corner, so at its peak the backdrop
+        /// reached sixteen pixels further down than its row -- over the top of the badge, whose row
+        /// starts ten below. <see cref="UiRows"/> had it written down as a known overlap. Sampled on
+        /// every frame of every pop, on a fixed frame time, and paired with proof that a pop was
+        /// running while it was sampled, or a meter that never popped would pass.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator TheBitsLostPop_StaysClearOfTheHelpBadge()
+        {
+            yield return TestScene.Load();
+            Find<MainMenu>().Show(false);
+            yield return null;
+
+            LevelSession session = Find<LevelSession>();
+            SimulationRunner runner = Find<SimulationRunner>();
+
+            Assert.IsTrue(session.LoadLevel(Level), "the level did not load");
+
+            for (int frame = 0; frame < 30 && !runner.FixtureNodeIds.ContainsKey("a"); frame++)
+                yield return null;
+
+            // An AND fed only from A: its first bit waits, and every one after it collides.
+            var low = new Vector2Int(0, -1);
+            Assert.IsTrue(session.TryPlaceGate(GateKind.And, low), "could not place the AND");
+            int and = NodeOn(runner, low);
+            Wire(session, runner.FixtureNodeIds["a"], 0, and, 0);
+            Wire(session, and, 0, runner.FixtureNodeIds["carry"], 0);
+
+            session.Run();
+            runner.SetPaused(true);
+            yield return null;
+
+            GameObject badge = GameObject.Find("Help badge");
+            Assert.IsNotNull(badge, "sanity: no help badge on screen");
+            float badgeTop = TopOf(badge.GetComponent<RectTransform>());
+
+            Time.captureDeltaTime = 1f / 60f;
+
+            bool sawAPop = false;
+            float lowest = float.PositiveInfinity;
+
+            for (int tick = 0; tick < 8; tick++)
+            {
+                int before = runner.View.CorruptedCount;
+                runner.StepOneTick();
+
+                for (int frame = 0; frame < 30; frame++)
+                {
+                    yield return null;
+
+                    GameObject meter = GameObject.Find("Bits lost");
+                    if (meter == null)
+                        continue;
+
+                    var backdrop = meter.GetComponent<UnityEngine.UI.Image>();
+                    if (runner.View.CorruptedCount > before && backdrop.color != Palette.Current.MeterBackdrop)
+                        sawAPop = true;
+
+                    lowest = Mathf.Min(lowest, BottomOf(meter.GetComponent<RectTransform>()));
+                }
+            }
+
+            Time.captureDeltaTime = 0f;
+
+            Assert.IsTrue(sawAPop, "sanity: the meter never popped, so there was nothing to measure");
+            Assert.GreaterOrEqual(lowest, badgeTop,
+                $"the bits-lost pop reached {badgeTop - lowest:F1}px over the top of the help badge");
+        }
+
+        private static float TopOf(RectTransform rect)
+        {
+            var corners = new Vector3[4];
+            rect.GetWorldCorners(corners);
+            return corners[1].y;
+        }
+
+        private static float BottomOf(RectTransform rect)
+        {
+            var corners = new Vector3[4];
+            rect.GetWorldCorners(corners);
+            return corners[0].y;
+        }
+
         private static Edge IncomingEdge(SimulationRunner runner, int node)
         {
             for (int id = 0; id < runner.View.EdgeCount; id++)
