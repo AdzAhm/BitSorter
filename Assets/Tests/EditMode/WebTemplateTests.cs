@@ -80,6 +80,24 @@ namespace BitSorter.LogicCore.Tests
         }
 
         /// <summary>
+        /// The capped ratio follows the screen after the game has loaded, as Unity's own did.
+        /// </summary>
+        /// <remarks>
+        /// The cap was read once, into the config, when the page loaded. Unity's default reads the
+        /// window's ratio every time it sizes the canvas; the config's value replaces it for good, so
+        /// zooming the page or moving the window to a sharper screen left the game rendering at the
+        /// ratio it happened to load at. Seen in a smoke build: the window at 1.25, the canvas's
+        /// backing store at 1. Unity reads <c>Module.devicePixelRatio</c> live -- setting it on the
+        /// loaded instance resized the render within a frame -- so the page has to keep it current.
+        /// </remarks>
+        [Test]
+        public void TheCappedRatio_FollowsTheScreenAfterLoading()
+        {
+            StringAssert.Contains("unityInstance.Module.devicePixelRatio =", Read("index.html"),
+                "the capped ratio is read once at load, and a zoom or a move to another screen is never seen");
+        }
+
+        /// <summary>
         /// The page around the game is the game's own dark, not the browser's white.
         /// </summary>
         /// <remarks>
