@@ -141,7 +141,7 @@ namespace BitSorter.View
 
             LevelFixture fixedNode = level.FixtureAt(cell);
             if (fixedNode != null)
-                return LevelVerdict.Reject(LevelOutcome.CellTaken, $"'{fixedNode.Id}' is there.");
+                return LevelVerdict.Reject(LevelOutcome.CellTaken, $"{BoardLabel(fixedNode)} is on that cell.");
 
             if (blueprint.HasPlacementAt(cell))
                 return LevelVerdict.Reject(LevelOutcome.CellTaken, "That cell is taken.");
@@ -172,11 +172,23 @@ namespace BitSorter.View
             if (placed >= budgeted)
             {
                 return LevelVerdict.Reject(LevelOutcome.BudgetSpent,
-                    $"No {label} left. All {budgeted} are placed.");
+                    budgeted == 1
+                        ? $"No {label} left. The only one is placed."
+                        : $"No {label} left. All {budgeted} are placed.");
             }
 
             return LevelVerdict.Accept();
         }
+
+        /// <summary>
+        /// A fixture's name as the board draws it, which is how a refusal should name it.
+        /// </summary>
+        /// <remarks>
+        /// The board labels a fixture with its node's name in capitals (NodeRenderer), and the node's
+        /// name is the fixture's id. Refusals quoted the id as written in the level file -- 'binOne'
+        /// beside a bin labelled BINONE -- so the player was shown two names for one thing.
+        /// </remarks>
+        private static string BoardLabel(LevelFixture fixture) => fixture.Id.ToUpperInvariant();
 
         /// <summary>
         /// Whether whatever occupies this cell may be removed.
@@ -201,7 +213,7 @@ namespace BitSorter.View
             if (fixedNode != null)
             {
                 return LevelVerdict.Reject(LevelOutcome.Fixed,
-                    $"'{fixedNode.Id}' is fixed. It cannot be moved or removed.");
+                    $"{BoardLabel(fixedNode)} is part of the level. It cannot be moved or removed.");
             }
 
             if (!blueprint.HasPlacementAt(cell))
