@@ -40,8 +40,9 @@ namespace BitSorter.View
         /// </summary>
         /// <remarks>
         /// A third rendering, and it needs its own flag for the reason the first one does: the menu
-        /// is a front door, so its line names the panels and the sound and nothing about building a
-        /// circuit -- there is no board behind it to build on.
+        /// is a front door, and its line names only what a key does on the menu itself -- which is
+        /// the sound, and nothing else. It named H, Escape and M as well, and with the menu open the
+        /// first two do nothing and M closes it; the menu's buttons are the way on from there.
         ///
         /// It exists at all because the menu used to draw a literal of its own. Two hand-written
         /// copies of the bindings is the drift this whole type was extracted to stop, and the copy
@@ -131,16 +132,21 @@ namespace BitSorter.View
             new ControlEntry("right arrow to step one tick", false, ControlKind.Running),
             TimingDiagram,
 
-            new ControlEntry("H for help", true, ControlKind.Everything, onMenu: true),
-            new ControlEntry("ESC for levels", true, ControlKind.Everything, onMenu: true),
+            // H and Escape are off the menu's line: with the menu open neither does anything -- the
+            // level list will not stack on the menu, and H is held back the same way.
+            new ControlEntry("H for help", true, ControlKind.Everything),
+            new ControlEntry("ESC for levels", true, ControlKind.Everything),
             new ControlEntry("Q and E to change level", false, ControlKind.Everything),
             new ControlEntry("N to mute", true, ControlKind.Everything, onMenu: true),
 
-            // On the status line as well, though that row is the crowded one. It was left off it once,
-            // and then the only places M was named were the menu itself -- which a player has to
-            // be on already -- and the card at the end of the tutorial, which a player who skipped
-            // it never sees. A way back to the front door that is never mentioned is a dead end.
-            new ControlEntry("M for the main menu", true, ControlKind.Everything, onMenu: true),
+            // On the status line, though that row is the crowded one. It was left off it once, and
+            // then the only places M was named were the menu itself -- which a player has to be on
+            // already -- and the card at the end of the tutorial, which a player who skipped it
+            // never sees. A way back to the front door that is never mentioned is a dead end.
+            //
+            // And off the menu's own line, now that the board names it: at the foot of the main
+            // menu, "M for the main menu" offered the screen the player was on, and M there closes it.
+            new ControlEntry("M for the main menu", true, ControlKind.Everything),
         };
 
         /// <summary>The groups in the order the card lays them out.</summary>
