@@ -574,10 +574,12 @@ failure side.
   top does it open the main menu**; M opens and closes the list, and only
   opens it with nothing open, so it never stacks on the menu.
 
-  On a board, what is on top may be the solved card. That card is not a
-  modal, so the main menu cannot hear about it from `UiModal` and asks
-  `WinPanel.HoldsEscape`, which stays true for the rest of the frame once
-  Escape has taken the card down. And **a panel never answers a key on the
+  On a board, what is on top may be the solved card, a first-time hint or
+  the open help panel. None of them is a modal, so the main menu cannot hear
+  about them from `UiModal` and asks each one's `HoldsEscape`, which stays
+  true for the rest of the frame once Escape has taken it down -- one press,
+  one thing, whichever updates first. A new thing that sits on the board and
+  closes on Escape needs the same, or the press also opens the menu. And **a panel never answers a key on the
   frame it opened** (`FullScreenPanel.OpenedThisFrame`): the Escape that
   takes down the tutorial's solved card raises the tutorial's own card in
   the same frame, and that card closes on Escape; the Escape that leaves
@@ -920,9 +922,22 @@ persistence works with neither side knowing the other exists.
 
 It is **not in `LevelCatalog`**: it cannot disturb the run whose order
 `CurriculumTests` pins, and it never appears in `AvailableLevels`, so Q and E
-never step into it and the banner counts the seventeen levels without it. It is reached by a row at
-the head of the level list — free play's row at the foot is the same idea — and
-once by itself on a save with no `tutorial` milestone. Unlike the sandbox it
+never step into it and the banner counts the seventeen levels without it. It is
+reached by a row at the head of the level list — free play's row at the foot is
+the same idea — and once by itself on a save with no `tutorial` milestone.
+
+**Off the run is before its start.** From the tutorial E goes to the first
+level and Q goes nowhere; from free play neither key goes anywhere, because
+free play is not one of the levels. Q used to start at the far end from any
+board off the run, so it went to level 17 from the tutorial -- one step before
+the first level, where the fix for Q wrapping stopped. A fresh save starts in
+the tutorial, so that was most players' first Q. Found in a playtest,
+2026-09-26.
+
+**The main menu's CONTINUE goes back to the tutorial** when it is running,
+rather than to the furthest unsolved level, which is where it goes from
+everywhere else. Escape opens the menu and is the key a new player presses
+first; leaving the tutorial for level 1 lost it for the session. Unlike the sandbox it
 *is* graded, so the last step ends on the ordinary win panel.
 
 **No step ever blocks input.** Each step is a predicate over board state, so an

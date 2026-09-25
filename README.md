@@ -124,7 +124,7 @@ until you reset your progress — and none of them pause the game.
 | `Esc`, or the MENU button | The main menu. `Esc` closes whatever is on top first |
 | `M` | The level list, and the way into the sandbox |
 | `N` | Mute the game |
-| `Q` / `E` | Previous / next level — they stop at the first and the last |
+| `Q` / `E` | Previous / next level — they stop at the first and the last. From the tutorial, `E` goes to level 1 |
 | `F3` | Diagnostics, and the clock's timing diagram on levels that have one |
 
 ### What it teaches
