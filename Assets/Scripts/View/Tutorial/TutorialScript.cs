@@ -167,8 +167,12 @@ namespace BitSorter.View
 
             switch (Steps[index].Id)
             {
+                // Or already on its square. A drag from the parts list places a part without
+                // selecting it, and clicking the decoy after placing the NOT changes what is in hand;
+                // either way the NOT on its square has plainly been picked up, and asking for it again
+                // would hold the wiring back behind a step already done.
                 case SelectId:
-                    return facts.Selected == TutorialLevel.Part;
+                    return facts.Selected == TutorialLevel.Part || facts.GateOnCell;
 
                 case PlaceId:
                     return facts.GateOnCell;
