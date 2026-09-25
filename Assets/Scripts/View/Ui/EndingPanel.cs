@@ -146,7 +146,7 @@ namespace BitSorter.View
                 new Vector2(0f, 150f), new Vector2(760f, 58f));
             title.text = "EVERY BIN FED";
 
-            _detail = UiTheme.Label("detail", Root, UiType.Body, UiTheme.Text, TextAlignmentOptions.Top);
+            _detail = UiTheme.Label("detail", Root, UiType.Lead, UiTheme.Text, TextAlignmentOptions.Top);
             UiTheme.Anchor(_detail.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                 new Vector2(0f, 10f), new Vector2(640f, 220f));
             _detail.alignment = TextAlignmentOptions.Center;

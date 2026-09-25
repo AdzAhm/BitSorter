@@ -333,6 +333,26 @@ namespace BitSorter.LogicCore.Tests
         }
 
         /// <summary>
+        /// A full-screen card's paragraph fits the box it is set in.
+        /// </summary>
+        /// <remarks>
+        /// The cards' paragraphs went up a step, to <see cref="UiType.Lead"/>, after a playtest said
+        /// the chapter card read as small print. A paragraph that outgrows its box does not clip: it
+        /// prints over the title above it or the button below.
+        /// </remarks>
+        [Test]
+        public void EveryCardsParagraph_FitsItsBox()
+        {
+            float chapter = UiTheme.TextHeight(ChapterCard.Body, ChapterCard.BodyType, ChapterCard.BodyWidth);
+            Assert.LessOrEqual(chapter, ChapterCard.BodyHeight,
+                $"the chapter card's paragraph needs {chapter:F0}px and has {ChapterCard.BodyHeight}px");
+
+            float tutorial = UiTheme.TextHeight(TutorialCard.Body, TutorialCard.BodyType, TutorialCard.BodyWidth);
+            Assert.LessOrEqual(tutorial, TutorialCard.BodyHeight,
+                $"the tutorial card's paragraph needs {tutorial:F0}px and has {TutorialCard.BodyHeight}px");
+        }
+
+        /// <summary>
         /// At the reference resolution the whole run shows in the level list at once, with no
         /// scrolling.
         /// </summary>

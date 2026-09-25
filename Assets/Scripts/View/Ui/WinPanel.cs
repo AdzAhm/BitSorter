@@ -44,8 +44,12 @@ namespace BitSorter.View
         /// </summary>
         private const float ButtonWidth = 230f;
 
-        /// <summary>How the cost of the circuit is set: smaller than a card's body, to fit a strip.</summary>
-        public const UiType DetailType = UiType.Label;
+        /// <summary>How the level's name and the cost of the circuit are set.</summary>
+        /// <remarks>
+        /// Body, as text meant to be read. It was Label, a step smaller so it would fit a strip, and
+        /// a playtest (2026-09-25) found it too small; the card is wider instead.
+        /// </remarks>
+        public const UiType DetailType = UiType.Body;
 
         /// <summary>The middle column, for what the circuit cost.</summary>
         public const float DetailWidth =

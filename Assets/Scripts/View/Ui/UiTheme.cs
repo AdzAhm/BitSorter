@@ -170,7 +170,7 @@ namespace BitSorter.View
         /// circuits gather in the middle rows; a low, wide strip over the centre of the bottom row
         /// covers the part of the board a circuit uses least.
         /// </remarks>
-        public const float SolvedCardWidth = 760f;
+        public const float SolvedCardWidth = 860f;
 
         /// <inheritdoc cref="SolvedCardWidth"/>
         public const float SolvedCardHeight = 118f;
@@ -378,6 +378,7 @@ namespace BitSorter.View
                 case UiType.Caption: return 13f;
                 case UiType.Label: return 15f;
                 case UiType.Body: return 18f;
+                case UiType.Lead: return 21f;
                 case UiType.Numeral: return 22f;
                 case UiType.Heading: return 26f;
                 case UiType.Title: return 40f;

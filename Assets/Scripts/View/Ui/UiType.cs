@@ -24,8 +24,17 @@ namespace BitSorter.View
         /// <summary>Secondary text: a part's name, a count, a hint, the controls line.</summary>
         Label,
 
-        /// <summary>Text meant to be read: a goal, a level's name, a card's body, a button.</summary>
+        /// <summary>Text meant to be read: a goal, a level's name, a button, the solved card.</summary>
         Body,
+        /// <summary>
+        /// A full-screen card's paragraphs: the chapter card, the tutorial's closing card, the ending.
+        /// </summary>
+        /// <remarks>
+        /// A step above <see cref="Body"/> because those cards have the whole screen and say one
+        /// thing: at Body's size a card with nothing else on it read as small print (playtest,
+        /// 2026-09-25).
+        /// </remarks>
+        Lead,
 
         /// <summary>A single value read at a glance: the bits lost, the help badge's mark.</summary>
         Numeral,

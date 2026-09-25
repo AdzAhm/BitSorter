@@ -39,12 +39,22 @@ namespace BitSorter.View
         /// <summary>From <see cref="LevelCatalog"/>, so the card and the level list agree.</summary>
         private const string Title = LevelCatalog.SequentialChapter;
 
-        private const string Body =
+        /// <summary>The card's paragraphs, and the box they are set in -- a test measures one against the other.</summary>
+        public const string Body =
             "Every gate so far has forgotten each bit the moment it used it. " +
             "From here you have a part that keeps one.\n\n" +
             "That changes the clock as well. A kept bit has to travel back round to meet the next " +
             "one, so vectors stop arriving every tick and start arriving on a beat -- and " +
             "everything your circuit does has to fit inside it.";
+
+        /// <inheritdoc cref="Body"/>
+        public const UiType BodyType = UiType.Lead;
+
+        /// <inheritdoc cref="Body"/>
+        public const float BodyWidth = 700f;
+
+        /// <inheritdoc cref="Body"/>
+        public const float BodyHeight = 200f;
 
         private bool _due;
 
@@ -145,19 +155,19 @@ namespace BitSorter.View
             TextMeshProUGUI title = UiTheme.Label(
                 "title", Root, UiType.Title, UiTheme.Accent, TextAlignmentOptions.Center);
             UiTheme.Anchor(title.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                new Vector2(0f, 120f), new Vector2(760f, 56f));
+                new Vector2(0f, 150f), new Vector2(760f, 56f));
             title.text = Title;
 
             TextMeshProUGUI body = UiTheme.Label(
-                "body", Root, UiType.Body, UiTheme.Text, TextAlignmentOptions.Center);
+                "body", Root, BodyType, UiTheme.Text, TextAlignmentOptions.Center);
             UiTheme.Anchor(body.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                new Vector2(0f, 10f), new Vector2(620f, 150f));
+                new Vector2(0f, 10f), new Vector2(BodyWidth, BodyHeight));
             body.textWrappingMode = TextWrappingModes.Normal;
             body.text = Body;
 
             Button go = UiTheme.Button_("Go on", Root, "GO ON", out TextMeshProUGUI _, role: ButtonRole.Primary);
             UiTheme.Anchor(go.GetComponent<RectTransform>(), new Vector2(0.5f, 0.5f),
-                new Vector2(0.5f, 0.5f), new Vector2(0f, -120f),
+                new Vector2(0.5f, 0.5f), new Vector2(0f, -150f),
                 new Vector2(260f, UiTheme.ButtonHeight + 6f));
 
             go.onClick.AddListener(Dismiss);

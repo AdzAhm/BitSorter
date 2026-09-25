@@ -31,7 +31,8 @@ namespace BitSorter.View
 
         private const string Title = "THAT'S THE LOOP";
 
-        private const string Body =
+        /// <summary>The card's paragraph, and the box it is set in -- a test measures one against the other.</summary>
+        public const string Body =
             "You picked a part, placed it, wired it up and ran it. " +
             "That is every level in this game.\n\nHere is everything else you can do.";
 
@@ -105,13 +106,13 @@ namespace BitSorter.View
             TextMeshProUGUI title = UiTheme.Label(
                 "title", Root, UiType.Title, UiTheme.Good, TextAlignmentOptions.Center);
             UiTheme.Anchor(title.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                new Vector2(0f, 250f), new Vector2(760f, 58f));
+                new Vector2(0f, 270f), new Vector2(760f, 58f));
             title.text = Title;
 
             TextMeshProUGUI body = UiTheme.Label(
-                "body", Root, UiType.Body, UiTheme.Text, TextAlignmentOptions.Center);
+                "body", Root, BodyType, UiTheme.Text, TextAlignmentOptions.Center);
             UiTheme.Anchor(body.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                new Vector2(0f, 170f), new Vector2(660f, 80f));
+                new Vector2(0f, 180f), new Vector2(BodyWidth, BodyHeight));
             body.textWrappingMode = TextWrappingModes.Normal;
             body.text = Body;
 
@@ -169,6 +170,15 @@ namespace BitSorter.View
 
         /// <summary>Where the columns begin, measured from the middle of the card.</summary>
         private const float ColumnTop = 90f;
+
+        /// <inheritdoc cref="Body"/>
+        public const UiType BodyType = UiType.Lead;
+
+        /// <inheritdoc cref="Body"/>
+        public const float BodyWidth = 760f;
+
+        /// <inheritdoc cref="Body"/>
+        public const float BodyHeight = 100f;
 
         /// <summary>Height of one heading or one control row.</summary>
         private const float RowHeight = 26f;
