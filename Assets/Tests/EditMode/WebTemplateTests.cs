@@ -102,6 +102,21 @@ namespace BitSorter.LogicCore.Tests
         }
 
         /// <summary>
+        /// Following the pixel ratio never throws on a browser without media-query listeners.
+        /// </summary>
+        /// <remarks>
+        /// It runs inside the loader's success handler, and a throw there reaches the handler's
+        /// .catch, which puts up an alert over a game that loaded perfectly well. Safari before 14 has
+        /// no addEventListener on a media query.
+        /// </remarks>
+        [Test]
+        public void FollowingThePixelRatio_AsksBeforeListening()
+        {
+            StringAssert.Contains("if (query.addEventListener)", Read("index.html"),
+                "the page calls a media query's addEventListener without asking whether it has one");
+        }
+
+        /// <summary>
         /// The page writes text into itself as text, never as markup.
         /// </summary>
         /// <remarks>

@@ -198,13 +198,23 @@
                 // sizes the canvas, so keeping that current is the whole fix. The media query
                 // matches the ratio in force and fires once when it stops matching, whether the
                 // cause was a zoom or a change of screen that left the window's size alone.
+                //
+                // Safari before 14 has no addEventListener on a media query, and a throw in here would
+                // reach the .catch below and put up an alert over the game. There, a resize -- which
+                // zooming raises -- keeps it current instead.
                 function followPixelRatio() {
                   unityInstance.Module.devicePixelRatio = cappedPixelRatio();
-                  window.matchMedia("(resolution: " + window.devicePixelRatio + "dppx)")
-                    .addEventListener("change", followPixelRatio, { once: true });
+
+                  var query = window.matchMedia("(resolution: " + window.devicePixelRatio + "dppx)");
+
+                  if (query.addEventListener)
+                    query.addEventListener("change", followPixelRatio, { once: true });
                 }
 
                 followPixelRatio();
+                window.addEventListener("resize", function () {
+                  unityInstance.Module.devicePixelRatio = cappedPixelRatio();
+                });
 #if SHOW_DIAGNOSTICS
                 document.getElementById("diagnostics-icon").onclick = () => {
                   unityDiagnostics.openDiagnosticsDiv(unityInstance.GetMetricsInfo);
