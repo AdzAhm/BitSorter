@@ -98,6 +98,42 @@ namespace BitSorter.PlayMode.Tests
         // -----------------------------------------------------------------
 
         /// <summary>
+        /// CONTINUE on the main menu, opened in the middle of the tutorial, goes back to the
+        /// tutorial rather than past it to the first level.
+        /// </summary>
+        /// <remarks>
+        /// Continue goes to the furthest unsolved level, which is right for a player who wandered
+        /// off the run and wrong for one in the middle of learning to play: it left the tutorial
+        /// for the first level, and the tutorial -- offered once a session -- was gone until the
+        /// next launch. Escape is the main menu's key now, and the key a new player presses first.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator ContinueFromTheMenuMidTutorial_GoesBackToTheTutorial()
+        {
+            yield return LoadScene();
+
+            TutorialDirector director = Find<TutorialDirector>();
+            LevelSession session = Find<LevelSession>();
+            MainMenu menu = Find<MainMenu>();
+
+            yield return CloseTheMainMenu();
+            yield return BeginTutorial(director);
+            Assert.IsTrue(director.IsRunning, "sanity: the tutorial should be running");
+
+            menu.Show(true);
+            yield return null;
+
+            GameObject.Find("Continue").GetComponent<Button>().onClick.Invoke();
+            yield return null;
+            yield return null;
+
+            Assert.IsFalse(menu.IsOpen, "CONTINUE did not close the menu");
+            Assert.AreEqual(TutorialLevel.Key, session.LevelName,
+                "CONTINUE mid-tutorial left the tutorial for a level");
+            Assert.IsTrue(director.IsRunning, "the tutorial stopped when the menu was continued from");
+        }
+
+        /// <summary>
         /// The board does not take edits while the tutorial is still asking whether to start.
         /// </summary>
         /// <remarks>
