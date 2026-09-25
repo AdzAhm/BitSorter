@@ -45,16 +45,6 @@ namespace BitSorter.View
         }
 
         /// <summary>
-        /// Which of the main menu's tracks a session opens on: either, by chance.
-        /// </summary>
-        /// <remarks>
-        /// From the session's own seed, so that seed stays the only random thing about the music.
-        /// The menu always used to open on its first track, and the second came on only once the
-        /// first had played to its end -- two and a half minutes -- so a player could restart any
-        /// number of times and never hear it. After the first, the menu's tracks take turns;
-        /// <see cref="GameAudio"/> keeps the turn.
-        /// </remarks>
-        /// <summary>
         /// Whether the menu's own music should be playing, given which panels are up.
         /// </summary>
         /// <remarks>
@@ -71,6 +61,16 @@ namespace BitSorter.View
         public static bool WantsMenuMusic(bool mainMenuOpen, bool levelListOpen) =>
             mainMenuOpen || levelListOpen;
 
+        /// <summary>
+        /// Which of the main menu's tracks a session opens on: either, by chance.
+        /// </summary>
+        /// <remarks>
+        /// From the session's own seed, so that seed stays the only random thing about the music.
+        /// The menu always used to open on its first track, and the second came on only once the
+        /// first had played to its end -- two and a half minutes -- so a player could restart any
+        /// number of times and never hear it. After the first, the menu's tracks take turns;
+        /// <see cref="GameAudio"/> keeps the turn.
+        /// </remarks>
         public static int FirstMenuTrack(int seed, int count)
         {
             if (count <= 1)
