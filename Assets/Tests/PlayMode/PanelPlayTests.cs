@@ -878,6 +878,81 @@ namespace BitSorter.PlayMode.Tests
         // -----------------------------------------------------------------
 
         /// <summary>
+        /// Escape over a first-time hint dismisses the hint and opens nothing, whichever of the hint
+        /// and the main menu Unity updates first.
+        /// </summary>
+        /// <remarks>
+        /// Escape closes what is on top, and a hint is on top of the board. It dismissed the hint
+        /// and opened the level list in the same press -- the main menu, once the keys swapped,
+        /// which takes the whole screen. The hint is not a modal, so the menu cannot hear about it
+        /// from UiModal; the solved card had the same gap and closed it the same way.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator AnEscapeOverAHint_DismissesItAndOpensNothing_WhenTheMenuLooksFirst() =>
+            EscapeOverAHint(menuFirst: true);
+
+        /// <inheritdoc cref="AnEscapeOverAHint_DismissesItAndOpensNothing_WhenTheMenuLooksFirst"/>
+        [UnityTest]
+        public IEnumerator AnEscapeOverAHint_DismissesItAndOpensNothing_WhenTheHintLooksFirst() =>
+            EscapeOverAHint(menuFirst: false);
+
+        private IEnumerator EscapeOverAHint(bool menuFirst)
+        {
+            yield return TestScene.Load();
+            yield return SkipTheTutorial();
+            yield return CloseTheMainMenu();
+
+            HintBanner banner = Find<HintBanner>();
+            MainMenu menu = Find<MainMenu>();
+
+            banner.Show("Gates fire only when every input is holding a bit.");
+
+            // Past the moment in which the press that raised a hint cannot dismiss it. Waited on,
+            // not timed: a frame cap that fails loudly, never a number of seconds.
+            for (int frame = 0; frame < 600 && !PastGrace(banner); frame++)
+                yield return null;
+
+            Assert.IsTrue(PastGrace(banner), "sanity: the hint never got past its grace period");
+            Assert.IsTrue(banner.IsShowing, "sanity: the hint should still be up");
+
+            HoldUpdate(menu);
+            HoldUpdate(banner);
+
+            yield return PressEscape();
+
+            if (menuFirst)
+            {
+                FrameOf(menu)();
+                FrameOf(banner)();
+            }
+            else
+            {
+                FrameOf(banner)();
+                FrameOf(menu)();
+            }
+
+            Assert.IsFalse(banner.IsShowing, "Escape did not dismiss the hint");
+            Assert.IsFalse(menu.IsOpen, "one Escape dismissed the hint and opened the main menu as well");
+
+            Release(_keyboard.escapeKey);
+            menu.enabled = true;
+            banner.enabled = true;
+        }
+
+        /// <summary>Whether a hint has been up long enough for a press to dismiss it.</summary>
+        private static bool PastGrace(HintBanner banner)
+        {
+            float Private(string name)
+            {
+                FieldInfo field = typeof(HintBanner).GetField(name, BindingFlags.Instance | BindingFlags.NonPublic);
+                Assert.IsNotNull(field, $"HintBanner no longer has {name}");
+                return (float)field.GetValue(banner);
+            }
+
+            return Private("_seconds") - Private("_remaining") > Private("_graceSeconds");
+        }
+
+        /// <summary>
         /// A hint up when a full-screen panel opens is held, not spent.
         /// </summary>
         /// <remarks>
