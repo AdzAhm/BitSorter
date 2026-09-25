@@ -921,6 +921,15 @@ unsatisfied step simply does not advance and every other action stays legal —
 and a step un-finishes by itself when the player deletes what it asked for,
 Ctrl+Z included, with nothing tracking the undo.
 
+**A part on the wrong square is named, and so is the way off.** Not refused --
+nothing is -- but the step's own line would ask for a click the board then
+refuses, so `TutorialScript.CorrectionText` says instead which part is where it
+should not be and to right-click it: the decoy on the NOT's square, the NOT on
+another square, or both. Found in a playtest, 2026-09-25, and the sweep after it
+found the other side: the first step, "the NOT is in hand", is also met by the NOT
+already on its square, because a drag from the parts list places a part without
+selecting it.
+
 **The intro is the one exception, and it holds the whole board.** Until the
 player presses START or SKIP nothing on the board takes an edit; after either,
 everything is theirs. That moment is the only one where a free board costs
