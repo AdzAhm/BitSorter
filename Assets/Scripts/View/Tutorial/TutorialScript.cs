@@ -240,30 +240,45 @@ namespace BitSorter.View
             if (facts.GateOnCell)
                 return null;
 
-            string wanted = GatePalette.Label(TutorialLevel.Part);
-
             bool wrongOnCell = facts.PartOnCell != null && facts.PartOnCell != TutorialLevel.Part;
-            string wrong = wrongOnCell ? GatePalette.Label(facts.PartOnCell.Value) : null;
 
-            if (wrongOnCell && facts.PartElsewhere)
+            if (!wrongOnCell && !facts.PartElsewhere)
+                return null;
+
+            // Built once per case and kept: the director asks every frame, and a line made by string
+            // formatting each time was a new string, and garbage, on every frame it was up.
+            int key = (wrongOnCell ? (int)facts.PartOnCell.Value + 1 : 0) * 2 + (facts.PartElsewhere ? 1 : 0);
+
+            if (!Corrections.TryGetValue(key, out string line))
+            {
+                line = BuildCorrection(wrongOnCell ? facts.PartOnCell.Value : (GateKind?)null, facts.PartElsewhere);
+                Corrections[key] = line;
+            }
+
+            return line;
+        }
+
+        private static readonly Dictionary<int, string> Corrections = new Dictionary<int, string>();
+
+        private static string BuildCorrection(GateKind? wrongOnCell, bool partElsewhere)
+        {
+            string wanted = GatePalette.Label(TutorialLevel.Part);
+            string wrong = wrongOnCell != null ? GatePalette.Label(wrongOnCell.Value) : null;
+
+            if (wrong != null && partElsewhere)
             {
                 return $"The {wrong} is on the {wanted}'s square, and the {wanted} is on another. " +
                        $"Right click both to take them off, then put the {wanted} on the highlighted square.";
             }
 
-            if (wrongOnCell)
+            if (wrong != null)
             {
                 return $"That square is for the {wanted}, and the {wrong} is on it. " +
                        $"Right click the {wrong} to take it off, then put the {wanted} there.";
             }
 
-            if (facts.PartElsewhere)
-            {
-                return $"The {wanted} went on another square. " +
-                       "Right click it to take it back, then put it on the highlighted one.";
-            }
-
-            return null;
+            return $"The {wanted} went on another square. " +
+                   "Right click it to take it back, then put it on the highlighted one.";
         }
 
         /// <summary>
