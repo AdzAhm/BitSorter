@@ -71,8 +71,19 @@ namespace BitSorter.View
         /// </remarks>
         public readonly bool RunFailed;
 
+        /// <summary>
+        /// Whatever part stands on the square the tutorial's part belongs on, or null.
+        /// </summary>
+        /// <remarks>
+        /// <see cref="GateOnCell"/> says whether the right part is there; this says what is, so a
+        /// wrong one can be named. The decoy on that square blocks the step twice over: it is not the
+        /// part the step wants, and it refuses the click that would put the right one down.
+        /// </remarks>
+        public readonly GateKind? PartOnCell;
+
         public BoardFacts(GateKind selected, bool gateOnCell, bool sourceWiredToGate,
-            bool gateWiredToBin, bool running, bool passed, bool runFailed = false)
+            bool gateWiredToBin, bool running, bool passed, bool runFailed = false,
+            GateKind? partOnCell = null)
         {
             Selected = selected;
             GateOnCell = gateOnCell;
@@ -81,6 +92,7 @@ namespace BitSorter.View
             Running = running;
             Passed = passed;
             RunFailed = runFailed;
+            PartOnCell = partOnCell;
         }
     }
 
@@ -194,6 +206,29 @@ namespace BitSorter.View
             facts.RunFailed && !facts.Running && !facts.Passed
                 ? "That did not reach the bin. Press RESET to put the board back and try again."
                 : null;
+
+        /// <summary>
+        /// What to say when the wrong part is on the square the tutorial's part belongs on, or null.
+        /// </summary>
+        /// <remarks>
+        /// From a playtest: the decoy went on the highlighted square, the NOT was picked up, and the
+        /// strip went on saying "click the highlighted square to put it down" -- a square that
+        /// refuses the click, because something is already on it. The step is right not to accept
+        /// the decoy; the player needs to be told that it is the problem, and how to take it off.
+        /// It outranks the step's own text from the first step on, since picking up the NOT does not
+        /// help while the square it goes on is taken.
+        /// </remarks>
+        public static string CorrectionText(BoardFacts facts)
+        {
+            if (facts.GateOnCell || facts.PartOnCell == null || facts.PartOnCell == TutorialLevel.Part)
+                return null;
+
+            string wrong = GatePalette.Label(facts.PartOnCell.Value);
+            string wanted = GatePalette.Label(TutorialLevel.Part);
+
+            return $"That square is for the {wanted}, and the {wrong} is on it. " +
+                   $"Right click the {wrong} to take it off, then put the {wanted} there.";
+        }
 
         /// <summary>
         /// The first step that is not finished, or <see cref="Count"/> when they all are.

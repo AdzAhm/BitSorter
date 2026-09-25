@@ -68,6 +68,12 @@ namespace BitSorter.LogicCore.Tests
             foreach (TutorialStep step in TutorialScript.Steps)
                 lines.Add(new Line("TutorialScript." + step.Id, step.Text));
 
+            // The lines said in place of a step, which are on the same strip.
+            lines.Add(new Line("TutorialScript.RecoveryText", TutorialScript.RecoveryText(new BoardFacts(
+                TutorialLevel.Part, true, true, true, false, false, runFailed: true))));
+            lines.Add(new Line("TutorialScript.CorrectionText", TutorialScript.CorrectionText(new BoardFacts(
+                TutorialLevel.Part, false, false, false, false, false, partOnCell: TutorialLevel.Decoy))));
+
             foreach (ControlEntry control in ControlsReference.All)
                 lines.Add(new Line("ControlsReference", control.Text));
 

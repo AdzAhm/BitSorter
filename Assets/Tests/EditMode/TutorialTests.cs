@@ -161,6 +161,36 @@ namespace BitSorter.LogicCore.Tests
             Assert.IsNotNull(TutorialScript.RecoveryText(failed), "and told what to press");
         }
 
+        // -----------------------------------------------------------------
+        // The wrong part on the square
+        // -----------------------------------------------------------------
+
+        [Test]
+        public void Normally_ThereIsNoCorrectionLine()
+        {
+            Assert.IsNull(TutorialScript.CorrectionText(Facts()), "nothing on the square");
+            Assert.IsNull(TutorialScript.CorrectionText(Wired()), "the right part on the square");
+        }
+
+        /// <summary>
+        /// The decoy on the NOT's square is named, and so is the way to take it off -- whichever
+        /// part is in hand.
+        /// </summary>
+        [TestCase(GateKind.And, TestName = "TheDecoyOnTheSquare_IsNamed_WithTheDecoyInHand")]
+        [TestCase(GateKind.Not, TestName = "TheDecoyOnTheSquare_IsNamed_WithTheNotInHand")]
+        public void TheDecoyOnTheSquare_IsNamed(GateKind inHand)
+        {
+            var facts = new BoardFacts(inHand, false, false, false, false, false,
+                partOnCell: TutorialLevel.Decoy);
+
+            string line = TutorialScript.CorrectionText(facts);
+
+            Assert.IsNotNull(line, "the decoy on the square went unremarked");
+            StringAssert.Contains(GatePalette.Label(TutorialLevel.Decoy), line, "the wrong part is not named");
+            StringAssert.Contains(GatePalette.Label(TutorialLevel.Part), line, "the right part is not named");
+            StringAssert.Contains("Right click", line, "the way to take it off is not said");
+        }
+
         [Test]
         public void TheRecoveryLineGoesAwayOnceRunningAgain()
         {

@@ -341,11 +341,19 @@ namespace BitSorter.View
             // own text would claim the circuit works while the board says otherwise.
             string recovery = TutorialScript.RecoveryText(facts);
 
-            _panel.Show(recovery ?? step.Text);
+            // And the wrong part on the square the step points at says so, with the ring kept on
+            // that square: the step's own line would ask for a click the square refuses.
+            string correction = TutorialScript.CorrectionText(facts);
+
+            _panel.Show(correction ?? recovery ?? step.Text);
 
             _highlighter.Begin();
 
-            if (recovery == null)
+            if (correction != null)
+            {
+                Point(TutorialTarget.BoardCell);
+            }
+            else if (recovery == null)
             {
                 Point(step.From);
                 Point(step.To);
@@ -480,6 +488,10 @@ namespace BitSorter.View
                 && TryFixture(TutorialLevel.SinkId, out int binId)
                 && IsWired(gateId, binId);
 
+            GateKind? onCell = _session.Blueprint.TryGetPlacement(TutorialLevel.GateCell, out GateKind placed)
+                ? placed
+                : (GateKind?)null;
+
             return new BoardFacts(
                 selected: _placement != null ? _placement.Selected : default,
                 gateOnCell: gate,
@@ -487,7 +499,8 @@ namespace BitSorter.View
                 gateWiredToBin: binWired,
                 running: _session.State == RunState.Running,
                 passed: _session.State == RunState.Passed,
-                runFailed: _session.State == RunState.Failed);
+                runFailed: _session.State == RunState.Failed,
+                partOnCell: onCell);
         }
 
         /// <summary>

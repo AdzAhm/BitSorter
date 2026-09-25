@@ -440,7 +440,17 @@ namespace BitSorter.LogicCore.Tests
         {
             const int Run = 4;
 
-            foreach (TutorialStep step in TutorialScript.Steps)
+            // The lines said instead of a step count too: they are tutorial text on the same strip.
+            var lines = new List<TutorialStep>(TutorialScript.Steps)
+            {
+                new TutorialStep("recovery", TutorialScript.RecoveryText(new BoardFacts(
+                    TutorialLevel.Part, true, true, true, false, false, runFailed: true)), TutorialTarget.None),
+                new TutorialStep("correction", TutorialScript.CorrectionText(new BoardFacts(
+                    TutorialLevel.Part, false, false, false, false, false, partOnCell: TutorialLevel.Decoy)),
+                    TutorialTarget.None),
+            };
+
+            foreach (TutorialStep step in lines)
             {
                 string[] stepWords = Words(step.Text);
 
