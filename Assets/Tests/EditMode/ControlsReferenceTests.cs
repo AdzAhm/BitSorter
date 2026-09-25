@@ -161,6 +161,25 @@ namespace BitSorter.LogicCore.Tests
                 "the main menu's footer offers the main menu, and M there closes it");
         }
 
+        /// <summary>
+        /// The main menu's footer names only keys that do something while the menu is open.
+        /// </summary>
+        /// <remarks>
+        /// It said "H for help" and "ESC for levels" as well, and with the menu open neither does
+        /// anything: the level list opens on Escape only when nothing else is open, so that it can
+        /// never stack on the menu, and the help panel's H is held back the same way. Only N, which
+        /// mutes from anywhere, did what the line said. The menu's own buttons are the way on.
+        /// </remarks>
+        [Test]
+        public void TheMenuLine_NamesOnlyKeysThatWorkOnTheMenu()
+        {
+            foreach (string dead in new[] { "H for help", "ESC for levels" })
+            {
+                StringAssert.DoesNotContain(dead, ControlsReference.MenuLine,
+                    $"the main menu's footer says '{dead}', and that key does nothing while the menu is open");
+            }
+        }
+
         [Test]
         public void TheMenuLineIsAShortlist_NotEverything()
         {
