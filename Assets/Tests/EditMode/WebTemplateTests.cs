@@ -102,6 +102,22 @@ namespace BitSorter.LogicCore.Tests
         }
 
         /// <summary>
+        /// The page writes text into itself as text, never as markup.
+        /// </summary>
+        /// <remarks>
+        /// Unity's stock template put its warning messages into the page with innerHTML. The
+        /// messages come from Unity itself, so nothing hostile was known to reach it -- but markup
+        /// built from a string is how a page ends up running something it did not mean to, and
+        /// textContent costs nothing.
+        /// </remarks>
+        [Test]
+        public void ThePage_WritesTextAsText_NeverAsMarkup()
+        {
+            StringAssert.DoesNotContain("innerHTML", Read("index.html"),
+                "the page builds markup from a string");
+        }
+
+        /// <summary>
         /// The page around the game is the game's own dark, not the browser's white.
         /// </summary>
         /// <remarks>

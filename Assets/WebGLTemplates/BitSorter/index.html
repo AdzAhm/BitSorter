@@ -48,7 +48,8 @@
           warningBanner.style.display = warningBanner.children.length ? 'block' : 'none';
         }
         var div = document.createElement('div');
-        div.innerHTML = msg;
+        // As text, never as markup: nothing a message says can become part of the page.
+        div.textContent = msg;
         warningBanner.appendChild(div);
         if (type == 'error') div.style = 'background: red; padding: 10px;';
         else {
@@ -234,7 +235,7 @@
                 // multiple Unity builds on a single web page.
                 var quit = document.createElement("button");
                 quit.style = "margin-left: 5px; background-color: lightgray; border: none; padding: 5px; cursor: pointer";
-                quit.innerHTML = "Unload";
+                quit.textContent = "Unload";
                 document.querySelector("#unity-build-title").appendChild(quit);
                 quit.onclick = () => {
                   // Quit Unity application execution
