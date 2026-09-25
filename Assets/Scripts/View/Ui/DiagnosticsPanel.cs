@@ -61,7 +61,9 @@ namespace BitSorter.View
         {
             Keyboard keyboard = Keyboard.current;
 
-            if (keyboard != null && keyboard.f3Key.wasPressedThisFrame)
+            // Not behind a full-screen panel, where every board key stands aside: pressed on the
+            // main menu it did nothing visible, and the readout appeared once the menu closed.
+            if (keyboard != null && keyboard.f3Key.wasPressedThisFrame && !UiModal.OpenOrJustClosed)
                 _shown = !_shown;
 
             if (_root == null)
