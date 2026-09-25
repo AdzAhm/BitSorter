@@ -44,6 +44,9 @@ installed and nothing is written outside your own user folder.
 Windows will probably warn that it does not recognise the publisher — the build
 is unsigned, which is all that warning means. "More info", then "Run anyway".
 
+The bottom-right corner of the main menu says which version you are running,
+which is worth including if you report a bug.
+
 [A guided tutorial](#the-tutorial) covers the controls, seventeen levels teach the
 ideas in order, and [a sandbox](#the-sandbox) is there for when you would rather
 build something without being marked on it.
@@ -98,7 +101,8 @@ says which one, and how to take it off.
 
 Past that, single-line hints appear the first time you meet something that wants
 explaining: a gate stalling, a collision, the fact that a wire's delay can be
-scrolled at all, and what the bit inside a register means. Each appears once, ever, and none of them pause the game.
+scrolled at all, and what the bit inside a register means. Each appears once —
+until you reset your progress — and none of them pause the game.
 
 ### Controls
 
@@ -206,17 +210,24 @@ circuit, the part in your hand or what Ctrl+Z will undo.
 ### Your progress
 
 Solved levels, the circuits you built, and your best gate count and tick count
-save automatically, per level. On Windows they go to a file:
+save automatically, per level, along with which hints you have seen, whether you
+have been through the tutorial, and the sandbox's setup. On Windows they go to a
+file:
 
 ```text
 %USERPROFILE%\AppData\LocalLow\ZADZ\BitSorter\progress.json
 ```
 
-Delete that file to start over. In a browser the same data lives in the browser's
-own storage for the address you played at, so clearing site data is the
-equivalent. Progress does not travel between the desktop build and a browser, and
-because it is keyed to the address, the two browser links above each keep their
-own.
+**To start over:** main menu → **Settings** → **Reset progress**. It asks first,
+and nothing is forgotten unless you answer yes. After a reset the game is as it
+was on first launch: the first level, an empty board, the tutorial offering
+itself again and the sandbox back on its default setup. Sound and data settings
+are not progress, so they stay as they are.
+
+In a browser the same data lives in the browser's own storage for the address
+you played at. Progress does not travel between the desktop build and a browser,
+and because it is keyed to the address, the two browser links above each keep
+their own.
 
 If the file is ever damaged, say by a crash part way through saving, the game
 starts fresh rather than refusing to open, and keeps a copy of the damaged file
@@ -282,16 +293,23 @@ Unity 6.3 LTS (6000.3.11f1).
   scene is generated rather than authored, so anything added by hand is discarded
   the next time that runs.
 - Tests: Window → General → Test Runner, or **BitSorter → Run Tests**. Roughly
-  850 EditMode cases and 86 PlayMode at present, the PlayMode ones across eleven
-  fixtures — pointer arbitration, audio and the menu's music, scene composition,
-  the tutorial's opening, the frame a run ends on, free play's setup, full-screen
-  panels and the keys that open and close them, framing the board clear of the
-  interface, what the board draws while a run moves, the level list, and the HUD
-  allocating nothing on a quiet frame. Those need a live scene, but not a focused
-  window: nothing in the suite waits on wall-clock time any more. If you ever
-  script that run, read the results from `TestResults.xml` in the save
-  directory rather than from a `TestRunnerApi` callback, which does not survive
-  the domain reload that entering play mode causes.
+  860 EditMode cases and 100 PlayMode at present, the PlayMode ones across
+  thirteen fixtures — pointer arbitration, audio and the menu's music, scene
+  composition, the tutorial's opening, the frame a run ends on, free play's setup,
+  full-screen panels and the keys that open and close them, framing the board
+  clear of the interface, what the board draws while a run moves, the level list,
+  the HUD allocating nothing on a quiet frame, the settings and their reset, and
+  the guard that keeps every test off your own save file. Those need a live
+  scene, but not a focused window: nothing in the suite waits on wall-clock time
+  any more. If you ever script that run, read the results from
+  `TestResults.xml` in the save directory rather than from a `TestRunnerApi`
+  callback, which does not survive the domain reload that entering play mode
+  causes.
+- **BitSorter → Capture Reference Shots** screenshots seventeen states of the
+  real game — menu, board, a run, both kinds of collision, the cards, free play,
+  settings — into the save directory. Two captures of the same code are identical
+  to the pixel, so a change that claims to leave the look alone can be held to it.
+  It needs the Game view.
 - To compile without the editor at all, Bee leaves the exact compiler invocation
   in `Library/Bee/artifacts/*/BitSorter.*.rsp`; redirect `-out` and run it
   through `Editor/Data/DotNetSdkRoslyn/csc.dll`. Two things to watch: gate on
@@ -321,7 +339,8 @@ into it.
 Assets/Scripts/LogicCore/   pure C#, no UnityEngine reference
 Assets/Scripts/View/        Unity rendering, input and interface
 Assets/Resources/Levels/    one JSON file per level
-Assets/Tests/EditMode/      NUnit tests
+Assets/Tests/EditMode/      NUnit tests, no scene
+Assets/Tests/PlayMode/      tests against the real scene, on a scratch save
 ```
 
 `LogicCore` is its own assembly with `noEngineReferences: true`, so a stray
@@ -374,10 +393,10 @@ an unbalanced one fails outright, so there is nothing in between to rank.
 
 ### Not built
 
-- `RegisterNode` for sequential logic. Memory cannot emerge from gate feedback
-  under consume semantics — a cross-coupled NOR latch deadlocks at startup and
-  stalls after one firing — so registers have to be a primitive rather than
-  something the player builds. A deliberate decision, not an oversight.
+- Latches built from gates. Memory cannot emerge from gate feedback under consume
+  semantics — a cross-coupled NOR latch deadlocks at startup and stalls after one
+  firing — so the register is a primitive (`RegisterNode`) rather than something
+  the player builds. A deliberate decision, not an oversight.
 - Anything that ranks a player against other people or an authored ideal. Star
   ratings, par scores and leaderboards are out by design.
 
