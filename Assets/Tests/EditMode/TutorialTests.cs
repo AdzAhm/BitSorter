@@ -221,6 +221,23 @@ namespace BitSorter.LogicCore.Tests
             StringAssert.Contains("Right click", line, "the way to take it back is not said");
         }
 
+        /// <summary>
+        /// The correction line is the same string each time it is asked for, not a new one.
+        /// </summary>
+        /// <remarks>
+        /// The director asks every frame while the tutorial runs, and the line was built by string
+        /// formatting -- a new string, and garbage, on every frame it was up.
+        /// </remarks>
+        [Test]
+        public void TheCorrectionLine_IsBuiltOnce_NotEveryFrame()
+        {
+            var facts = new BoardFacts(TutorialLevel.Part, false, false, false, false, false,
+                partOnCell: TutorialLevel.Decoy);
+
+            Assert.AreSame(TutorialScript.CorrectionText(facts), TutorialScript.CorrectionText(facts),
+                "asking twice built the line twice");
+        }
+
         [Test]
         public void BothWrong_IsSaidAsBoth()
         {
