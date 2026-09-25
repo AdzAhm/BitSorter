@@ -73,6 +73,11 @@ namespace BitSorter.LogicCore.Tests
                 TutorialLevel.Part, true, true, true, false, false, runFailed: true))));
             lines.Add(new Line("TutorialScript.CorrectionText", TutorialScript.CorrectionText(new BoardFacts(
                 TutorialLevel.Part, false, false, false, false, false, partOnCell: TutorialLevel.Decoy))));
+            lines.Add(new Line("TutorialScript.CorrectionText elsewhere", TutorialScript.CorrectionText(new BoardFacts(
+                TutorialLevel.Decoy, false, false, false, false, false, partElsewhere: true))));
+            lines.Add(new Line("TutorialScript.CorrectionText both", TutorialScript.CorrectionText(new BoardFacts(
+                TutorialLevel.Decoy, false, false, false, false, false,
+                partOnCell: TutorialLevel.Decoy, partElsewhere: true))));
 
             foreach (ControlEntry control in ControlsReference.All)
                 lines.Add(new Line("ControlsReference", control.Text));

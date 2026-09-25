@@ -81,9 +81,16 @@ namespace BitSorter.View
         /// </remarks>
         public readonly GateKind? PartOnCell;
 
+        /// <summary>The tutorial's part is on the board, on some square other than its own.</summary>
+        /// <remarks>
+        /// There is only one, so once it is elsewhere no step that asks for it to be picked up or
+        /// put down can be met until it is taken back.
+        /// </remarks>
+        public readonly bool PartElsewhere;
+
         public BoardFacts(GateKind selected, bool gateOnCell, bool sourceWiredToGate,
             bool gateWiredToBin, bool running, bool passed, bool runFailed = false,
-            GateKind? partOnCell = null)
+            GateKind? partOnCell = null, bool partElsewhere = false)
         {
             Selected = selected;
             GateOnCell = gateOnCell;
@@ -93,6 +100,7 @@ namespace BitSorter.View
             Passed = passed;
             RunFailed = runFailed;
             PartOnCell = partOnCell;
+            PartElsewhere = partElsewhere;
         }
     }
 
@@ -212,7 +220,8 @@ namespace BitSorter.View
                 : null;
 
         /// <summary>
-        /// What to say when the wrong part is on the square the tutorial's part belongs on, or null.
+        /// What to say when a part is on the wrong square -- the decoy on the NOT's, or the NOT on
+        /// another -- or null.
         /// </summary>
         /// <remarks>
         /// From a playtest: the decoy went on the highlighted square, the NOT was picked up, and the
@@ -221,17 +230,40 @@ namespace BitSorter.View
         /// the decoy; the player needs to be told that it is the problem, and how to take it off.
         /// It outranks the step's own text from the first step on, since picking up the NOT does not
         /// help while the square it goes on is taken.
+        ///
+        /// The NOT put down on another square is the same trouble from the other side, found in the
+        /// sweep after that playtest: there is one NOT, so every step's own line asks for a part the
+        /// player no longer has.
         /// </remarks>
         public static string CorrectionText(BoardFacts facts)
         {
-            if (facts.GateOnCell || facts.PartOnCell == null || facts.PartOnCell == TutorialLevel.Part)
+            if (facts.GateOnCell)
                 return null;
 
-            string wrong = GatePalette.Label(facts.PartOnCell.Value);
             string wanted = GatePalette.Label(TutorialLevel.Part);
 
-            return $"That square is for the {wanted}, and the {wrong} is on it. " +
-                   $"Right click the {wrong} to take it off, then put the {wanted} there.";
+            bool wrongOnCell = facts.PartOnCell != null && facts.PartOnCell != TutorialLevel.Part;
+            string wrong = wrongOnCell ? GatePalette.Label(facts.PartOnCell.Value) : null;
+
+            if (wrongOnCell && facts.PartElsewhere)
+            {
+                return $"The {wrong} is on the {wanted}'s square, and the {wanted} is on another. " +
+                       $"Right click both to take them off, then put the {wanted} on the highlighted square.";
+            }
+
+            if (wrongOnCell)
+            {
+                return $"That square is for the {wanted}, and the {wrong} is on it. " +
+                       $"Right click the {wrong} to take it off, then put the {wanted} there.";
+            }
+
+            if (facts.PartElsewhere)
+            {
+                return $"The {wanted} went on another square. " +
+                       "Right click it to take it back, then put it on the highlighted one.";
+            }
+
+            return null;
         }
 
         /// <summary>

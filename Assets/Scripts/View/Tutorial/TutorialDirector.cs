@@ -492,6 +492,9 @@ namespace BitSorter.View
                 ? placed
                 : (GateKind?)null;
 
+            // One NOT is stocked, so one on the board that is not on its square is on another.
+            bool elsewhere = _session.Blueprint.CountOf(TutorialLevel.Part) > 0 && onCell != TutorialLevel.Part;
+
             return new BoardFacts(
                 selected: _placement != null ? _placement.Selected : default,
                 gateOnCell: gate,
@@ -500,7 +503,8 @@ namespace BitSorter.View
                 running: _session.State == RunState.Running,
                 passed: _session.State == RunState.Passed,
                 runFailed: _session.State == RunState.Failed,
-                partOnCell: onCell);
+                partOnCell: onCell,
+                partElsewhere: elsewhere);
         }
 
         /// <summary>

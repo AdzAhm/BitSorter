@@ -448,6 +448,12 @@ namespace BitSorter.LogicCore.Tests
                 new TutorialStep("correction", TutorialScript.CorrectionText(new BoardFacts(
                     TutorialLevel.Part, false, false, false, false, false, partOnCell: TutorialLevel.Decoy)),
                     TutorialTarget.None),
+                new TutorialStep("correction elsewhere", TutorialScript.CorrectionText(new BoardFacts(
+                    TutorialLevel.Decoy, false, false, false, false, false, partElsewhere: true)),
+                    TutorialTarget.None),
+                new TutorialStep("correction both", TutorialScript.CorrectionText(new BoardFacts(
+                    TutorialLevel.Decoy, false, false, false, false, false,
+                    partOnCell: TutorialLevel.Decoy, partElsewhere: true)), TutorialTarget.None),
             };
 
             foreach (TutorialStep step in lines)

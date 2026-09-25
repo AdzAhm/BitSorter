@@ -209,6 +209,31 @@ namespace BitSorter.LogicCore.Tests
         }
 
         [Test]
+        public void TheNotOnAnotherSquare_IsNamed_AndSoIsTheWayBack()
+        {
+            var facts = new BoardFacts(TutorialLevel.Decoy, false, false, false, false, false,
+                partElsewhere: true);
+
+            string line = TutorialScript.CorrectionText(facts);
+
+            Assert.IsNotNull(line, "the NOT on another square went unremarked");
+            StringAssert.Contains(GatePalette.Label(TutorialLevel.Part), line, "the NOT is not named");
+            StringAssert.Contains("Right click", line, "the way to take it back is not said");
+        }
+
+        [Test]
+        public void BothWrong_IsSaidAsBoth()
+        {
+            var facts = new BoardFacts(TutorialLevel.Decoy, false, false, false, false, false,
+                partOnCell: TutorialLevel.Decoy, partElsewhere: true);
+
+            string line = TutorialScript.CorrectionText(facts);
+
+            StringAssert.Contains(GatePalette.Label(TutorialLevel.Decoy), line, "the decoy is not named");
+            StringAssert.Contains("both", line, "only one of the two misplaced parts is mentioned");
+        }
+
+        [Test]
         public void TheRecoveryLineGoesAwayOnceRunningAgain()
         {
             BoardFacts rerunning = Facts(TutorialLevel.Part, true, true, true,
