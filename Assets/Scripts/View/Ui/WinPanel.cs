@@ -94,13 +94,13 @@ namespace BitSorter.View
         public bool PresentedThisRun { get; private set; }
 
         /// <summary>
-        /// Whether Escape is this card's this frame, so the level list stands aside for it.
+        /// Whether Escape is this card's this frame, so the main menu stands aside for it.
         /// </summary>
         /// <remarks>
         /// Escape closes whatever is on top, and on a board with nothing open that is this card --
-        /// every other card took Escape and this one took nothing. The level list opens on the same
-        /// key, and this card is not a modal, so the list cannot learn it is covered from
-        /// <see cref="UiModal"/>. It asks here instead, and the answer holds for the whole frame
+        /// every other card took Escape and this one took nothing. The main menu opens on the same
+        /// key -- the level list did, until M and Escape swapped -- and this card is not a modal, so
+        /// the menu cannot learn it is covered from <see cref="UiModal"/>. It asks here instead, and the answer holds for the whole frame
         /// either way round: true while the card is drawn with nothing over it, and still true after
         /// Escape has taken it down. Whichever of the two Unity updates first, one press closes the
         /// card and opens nothing.

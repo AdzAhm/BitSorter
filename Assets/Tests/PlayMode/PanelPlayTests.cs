@@ -97,8 +97,9 @@ namespace BitSorter.PlayMode.Tests
 
             Assert.IsFalse(UiModal.AnyOpen, "sanity: nothing should be open once the menu is closed");
 
-            LevelSelectPanel levels = Find<LevelSelectPanel>();
-            levels.enabled = false;   // its Update is called by hand below
+            // The main menu is what Escape opens now; it was the level list until the keys swapped.
+            MainMenu menu = Find<MainMenu>();
+            menu.enabled = false;   // its Update is called by hand below
 
             var panel = new GameObject("Escape-closed panel").AddComponent<KeyClosedPanel>();
             panel.Open();
@@ -106,16 +107,16 @@ namespace BitSorter.PlayMode.Tests
             yield return PressEscape();
 
             // The order Unity is free to choose, fixed to the one that went wrong: the panel that
-            // closes looks first, so the level list finds nothing open.
+            // closes looks first, so the menu finds nothing open.
             panel.Tick();
-            FrameOf(levels)();
+            FrameOf(menu)();
 
             Assert.IsFalse(panel.IsOpen, "sanity: Escape should have closed the stand-in panel");
             Assert.IsFalse(UiModal.AnyOpen,
-                "one Escape closed a panel and opened the level list as well");
+                "one Escape closed a panel and opened the main menu as well");
 
             Release(_keyboard.escapeKey);
-            levels.enabled = true;
+            menu.enabled = true;
         }
 
         /// <summary>
@@ -182,24 +183,24 @@ namespace BitSorter.PlayMode.Tests
 
         /// <summary>
         /// Escape over the solved card closes the card and opens nothing, whichever of the card and
-        /// the level list Unity updates first.
+        /// the main menu Unity updates first.
         /// </summary>
         /// <remarks>
         /// Escape closes what is on top. Every card took it except the solved card, where it opened
-        /// the level list over the card instead. The card is not a modal, so the list cannot hear
-        /// about it from UiModal; both orders are run because each fails a different way if the two
-        /// disagree about whose press it was.
+        /// the level list over the card instead -- the main menu now, since the keys swapped. The
+        /// card is not a modal, so the menu cannot hear about it from UiModal; both orders are run
+        /// because each fails a different way if the two disagree about whose press it was.
         /// </remarks>
         [UnityTest]
-        public IEnumerator AnEscapeOverTheSolvedCard_ClosesIt_WhenTheListLooksFirst() =>
-            EscapeOverTheSolvedCard(listFirst: true);
+        public IEnumerator AnEscapeOverTheSolvedCard_ClosesIt_WhenTheMenuLooksFirst() =>
+            EscapeOverTheSolvedCard(menuFirst: true);
 
-        /// <inheritdoc cref="AnEscapeOverTheSolvedCard_ClosesIt_WhenTheListLooksFirst"/>
+        /// <inheritdoc cref="AnEscapeOverTheSolvedCard_ClosesIt_WhenTheMenuLooksFirst"/>
         [UnityTest]
         public IEnumerator AnEscapeOverTheSolvedCard_ClosesIt_WhenTheCardLooksFirst() =>
-            EscapeOverTheSolvedCard(listFirst: false);
+            EscapeOverTheSolvedCard(menuFirst: false);
 
-        private IEnumerator EscapeOverTheSolvedCard(bool listFirst)
+        private IEnumerator EscapeOverTheSolvedCard(bool menuFirst)
         {
             yield return TestScene.Load();
             yield return SkipTheTutorial();
@@ -207,31 +208,31 @@ namespace BitSorter.PlayMode.Tests
             yield return SolveTheFirstLevel();
 
             WinPanel win = Find<WinPanel>();
-            LevelSelectPanel levels = Find<LevelSelectPanel>();
+            MainMenu menu = Find<MainMenu>();
             Assert.IsTrue(win.IsShowing, "sanity: solving the level should show the card");
             Assert.IsNotNull(GameObject.Find("Win"), "sanity: the card should be drawn");
 
-            levels.enabled = false;   // both Updates are called by hand below
+            menu.enabled = false;   // both Updates are called by hand below
             win.enabled = false;
 
             yield return PressEscape();
 
-            if (listFirst)
+            if (menuFirst)
             {
-                FrameOf(levels)();
+                FrameOf(menu)();
                 FrameOf(win)();
             }
             else
             {
                 FrameOf(win)();
-                FrameOf(levels)();
+                FrameOf(menu)();
             }
 
             Assert.IsFalse(win.IsShowing, "Escape did not close the solved card");
-            Assert.IsFalse(levels.IsShowing, "one Escape closed the solved card and opened the level list as well");
+            Assert.IsFalse(menu.IsOpen, "one Escape closed the solved card and opened the main menu as well");
 
             Release(_keyboard.escapeKey);
-            levels.enabled = true;
+            menu.enabled = true;
             win.enabled = true;
         }
 
@@ -290,28 +291,201 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
-        /// The positive control: with nothing to close, Escape does open the list.
+        /// The positive control: with nothing to close, Escape does open the main menu.
         /// </summary>
         /// <remarks>
-        /// Without this the test above could pass by the level list never reacting to a hand-made
-        /// Escape at all.
+        /// Without this the tests above could pass by the menu never reacting to a hand-made Escape
+        /// at all.
         /// </remarks>
         [UnityTest]
-        public IEnumerator AnEscapeWithNothingOpen_StillOpensTheLevelList()
+        public IEnumerator AnEscapeWithNothingOpen_OpensTheMainMenu()
+        {
+            yield return TestScene.Load();
+            yield return CloseTheMainMenu();
+
+            MainMenu menu = Find<MainMenu>();
+            menu.enabled = false;
+
+            yield return PressEscape();
+            FrameOf(menu)();
+
+            Assert.IsTrue(menu.IsOpen, "Escape with nothing open should open the main menu");
+
+            Release(_keyboard.escapeKey);
+            menu.enabled = true;
+        }
+
+        /// <summary>Escape on the main menu closes it, back to the board -- what M used to do.</summary>
+        [UnityTest]
+        public IEnumerator AnEscapeOnTheMainMenu_ClosesIt()
+        {
+            yield return TestScene.Load();
+
+            MainMenu menu = Find<MainMenu>();
+            Assert.IsTrue(menu.IsOpen, "sanity: the game boots into the main menu");
+            yield return null;   // not the frame it opened on
+
+            HoldUpdate(menu);
+            yield return PressEscape();
+            FrameOf(menu)();
+
+            Assert.IsFalse(menu.IsOpen, "Escape on the main menu did not close it");
+
+            Release(_keyboard.escapeKey);
+            menu.enabled = true;
+        }
+
+        /// <summary>M with nothing open opens the level list, and M on the list closes it again.</summary>
+        [UnityTest]
+        public IEnumerator M_OpensAndClosesTheLevelList()
         {
             yield return TestScene.Load();
             yield return CloseTheMainMenu();
 
             LevelSelectPanel levels = Find<LevelSelectPanel>();
-            levels.enabled = false;
+            HoldUpdate(levels);
 
-            yield return PressEscape();
+            yield return PressKey(_keyboard.mKey);
+            FrameOf(levels)();
+            Assert.IsTrue(levels.IsShowing, "M with nothing open should open the level list");
+            Release(_keyboard.mKey);
+            yield return null;
+
+            yield return PressKey(_keyboard.mKey);
+            FrameOf(levels)();
+            Assert.IsFalse(levels.IsShowing, "M on the level list should close it");
+
+            Release(_keyboard.mKey);
+            levels.enabled = true;
+        }
+
+        /// <summary>M does not open the main menu any more, and does not stack the list on it.</summary>
+        [UnityTest]
+        public IEnumerator M_OnTheMainMenu_OpensNothing()
+        {
+            yield return TestScene.Load();
+            yield return null;
+
+            MainMenu menu = Find<MainMenu>();
+            LevelSelectPanel levels = Find<LevelSelectPanel>();
+            Assert.IsTrue(menu.IsOpen, "sanity: the game boots into the main menu");
+
+            HoldUpdate(menu);
+            HoldUpdate(levels);
+
+            yield return PressKey(_keyboard.mKey);
+            FrameOf(menu)();
             FrameOf(levels)();
 
-            Assert.IsTrue(UiModal.AnyOpen, "Escape with nothing open should open the level list");
+            Assert.IsTrue(menu.IsOpen, "M closed the main menu, which is Escape's job now");
+            Assert.IsFalse(levels.IsShowing, "M stacked the level list on top of the main menu");
+
+            Release(_keyboard.mKey);
+            menu.enabled = true;
+            levels.enabled = true;
+        }
+
+        /// <summary>
+        /// The Escape that closes the level list does not open the main menu behind it, whichever
+        /// of the two Unity updates first.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator AnEscapeThatClosesTheLevelList_OpensNothing_WhenTheMenuLooksFirst() =>
+            EscapeOutOfTheList(menuFirst: true);
+
+        /// <inheritdoc cref="AnEscapeThatClosesTheLevelList_OpensNothing_WhenTheMenuLooksFirst"/>
+        [UnityTest]
+        public IEnumerator AnEscapeThatClosesTheLevelList_OpensNothing_WhenTheListLooksFirst() =>
+            EscapeOutOfTheList(menuFirst: false);
+
+        private IEnumerator EscapeOutOfTheList(bool menuFirst)
+        {
+            yield return TestScene.Load();
+            yield return CloseTheMainMenu();
+
+            MainMenu menu = Find<MainMenu>();
+            LevelSelectPanel levels = Find<LevelSelectPanel>();
+            levels.Open();
+            yield return null;
+            yield return null;
+            Assert.IsTrue(levels.IsShowing, "sanity: the list should be open");
+
+            HoldUpdate(menu);
+            HoldUpdate(levels);
+
+            yield return PressEscape();
+
+            if (menuFirst)
+            {
+                FrameOf(menu)();
+                FrameOf(levels)();
+            }
+            else
+            {
+                FrameOf(levels)();
+                FrameOf(menu)();
+            }
+
+            Assert.IsFalse(levels.IsShowing, "Escape did not close the level list");
+            Assert.IsFalse(menu.IsOpen, "one Escape closed the level list and opened the main menu as well");
 
             Release(_keyboard.escapeKey);
+            menu.enabled = true;
             levels.enabled = true;
+        }
+
+        /// <summary>
+        /// The Escape that leaves Settings lands on the main menu and leaves it up, whichever of the
+        /// two Unity updates first.
+        /// </summary>
+        /// <remarks>
+        /// Settings goes back to the menu on Escape, and the menu closes on Escape: whenever the
+        /// menu looked after Settings had reopened it, the one press went back and straight out
+        /// again, onto the board. The menu ignores Escape on the frame it opened.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator AnEscapeOutOfSettings_LeavesTheMenuUp_WhenTheMenuLooksFirst() =>
+            EscapeOutOfSettings(menuFirst: true);
+
+        /// <inheritdoc cref="AnEscapeOutOfSettings_LeavesTheMenuUp_WhenTheMenuLooksFirst"/>
+        [UnityTest]
+        public IEnumerator AnEscapeOutOfSettings_LeavesTheMenuUp_WhenSettingsLooksFirst() =>
+            EscapeOutOfSettings(menuFirst: false);
+
+        private IEnumerator EscapeOutOfSettings(bool menuFirst)
+        {
+            yield return TestScene.Load();
+
+            MainMenu menu = Find<MainMenu>();
+            SettingsPanel settings = Find<SettingsPanel>();
+
+            GameObject.Find("Settings").GetComponent<Button>().onClick.Invoke();
+            yield return null;
+            yield return null;
+            Assert.IsTrue(settings.IsOpen, "sanity: the Settings row should open the settings");
+
+            HoldUpdate(menu);
+            HoldUpdate(settings);
+
+            yield return PressEscape();
+
+            if (menuFirst)
+            {
+                FrameOf(menu)();
+                FrameOf(settings)();
+            }
+            else
+            {
+                FrameOf(settings)();
+                FrameOf(menu)();
+            }
+
+            Assert.IsFalse(settings.IsOpen, "Escape did not leave the settings");
+            Assert.IsTrue(menu.IsOpen, "one Escape left the settings and closed the main menu as well");
+
+            Release(_keyboard.escapeKey);
+            menu.enabled = true;
+            settings.enabled = true;
         }
 
         // -----------------------------------------------------------------
@@ -911,6 +1085,24 @@ namespace BitSorter.PlayMode.Tests
             yield return null;
 
             Assert.IsTrue(key.wasPressedThisFrame, $"sanity: {key.name} is this frame's press");
+        }
+
+        /// <summary>
+        /// Takes a component's Update out of Unity's hands, so the test calls it in the order it
+        /// chooses -- and keeps a panel that is up registered as up.
+        /// </summary>
+        /// <remarks>
+        /// Switching a full-screen panel off tells <see cref="UiModal"/> it has closed, which is
+        /// right for the game and wrong here: the panel is still on screen, only its Update is being
+        /// driven by hand. Without this, M over the main menu was tested against a menu the rest of
+        /// the game had been told was gone, and an Escape out of Settings passed for the wrong reason.
+        /// </remarks>
+        private static void HoldUpdate(MonoBehaviour component)
+        {
+            component.enabled = false;
+
+            if (component is FullScreenPanel panel && panel.IsShowing)
+                UiModal.Opened(panel);
         }
 
         /// <summary>A component's own Update, callable without Unity.</summary>

@@ -122,7 +122,7 @@ namespace BitSorter.View
             }
 
             // Escape as well as the buttons. A full-screen panel that only a mouse can dismiss is
-            // one bad click away from feeling stuck, and level select cannot answer Escape while
+            // one bad click away from feeling stuck, and the main menu cannot answer Escape while
             // this is registered as a modal.
             Keyboard keyboard = Keyboard.current;
 

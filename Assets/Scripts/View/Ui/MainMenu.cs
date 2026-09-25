@@ -70,8 +70,8 @@ namespace BitSorter.View
         /// corner, drawn with the rest of the HUD.
         /// </summary>
         /// <remarks>
-        /// There was none. M reached the menu and Escape the level list, and nothing on screen was
-        /// a button to either, so a player who plays with the mouse had no way off a level they did
+        /// There was none. A key reached the menu and another the level list, and nothing on screen
+        /// was a button to either, so a player who plays with the mouse had no way off a level they did
         /// not want -- free play worst of all, whose setup panel offers only to collapse. The menu is
         /// the front door to everything else, levels and free play included, so one button here is
         /// the way out of every board.
@@ -103,16 +103,22 @@ namespace BitSorter.View
         {
             Keyboard keyboard = Keyboard.current;
 
-            // M, not Escape. Escape belongs to level select, and a key that closed one panel and
-            // opened another depending on what was showing would be unpredictable.
+            // Escape: it closes whatever is on top, and with nothing on top it is the way here -- the
+            // pause-menu key players reach for first. It was M, and Escape opened the level list;
+            // swapped after a playtest, 2026-09-26.
             //
-            // Closes whatever else is open, but only opens when nothing is -- otherwise M behind the
-            // level list stacked the menu under it, which is how this read in play: two full-screen
-            // panels at once, one of them unreachable.
-            if (keyboard != null && keyboard.mKey.wasPressedThisFrame
-                && (IsShowing || !UiModal.OpenOrJustClosed))
+            // Opens only when nothing else is open or has just closed, so the Escape that closes a
+            // panel does not open this behind it -- M behind the level list once stacked the menu
+            // under it, two full-screen panels at once, one of them unreachable. Nor while the
+            // solved card is up: it is on top and takes Escape itself, and it is not a modal, so it
+            // says so. And not on the frame this opened: the Escape that leaves Settings opens this
+            // in the same frame, and must not close it again.
+            if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame && !OpenedThisFrame)
             {
-                Show(!IsShowing);
+                if (IsShowing)
+                    Show(false);
+                else if (!UiModal.OpenOrJustClosed && !WinPanel.HoldsEscape)
+                    Show(true);
             }
 
             // Part of the HUD, so it steps aside for any full-screen panel -- this menu included.

@@ -72,7 +72,7 @@ namespace BitSorter.View
         /// The same answer <see cref="EndingPanel"/> gives, for the same reason it gives it: a
         /// full-screen panel only a mouse can dismiss is one bad click away from feeling stuck. It
         /// matters more here than there, because this card registers with <see cref="UiModal"/> --
-        /// so while it is up, Escape does not reach the level list, M does not reach the main menu,
+        /// so while it is up, Escape does not reach the main menu, M does not reach the level list,
         /// and <see cref="SimulationInput"/> reads nothing at all. The button was the only way out
         /// of the whole game.
         ///

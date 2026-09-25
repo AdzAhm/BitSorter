@@ -9,7 +9,7 @@ using TMPro;
 namespace BitSorter.View
 {
     /// <summary>
-    /// The level list, on Escape: every level in play order, with a tick against the ones solved.
+    /// The level list, on M: every level in play order, with a tick against the ones solved.
     /// </summary>
     /// <remarks>
     /// An overlay rather than a second scene. <see cref="LevelSession.LoadLevel"/> already switches
@@ -110,13 +110,20 @@ namespace BitSorter.View
         {
             Keyboard keyboard = Keyboard.current;
 
-            // Escape closes this whatever else is open, but only opens it when nothing else is --
-            // otherwise it would stack the list on top of the main menu. Nor while the solved card
-            // is up: Escape closes what is on top, and that card is not a modal, so it says so itself.
-            if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame
-                && (IsShowing || (!UiModal.OpenOrJustClosed && !WinPanel.HoldsEscape)))
+            // M opens and closes the list. It was Escape, which now belongs to the main menu; swapped
+            // after a playtest, 2026-09-26. Opens only when nothing else is open, or it would stack
+            // the list on top of the main menu.
+            //
+            // Escape still closes it, because Escape closes whatever is on top -- but no longer
+            // opens it.
+            if (keyboard != null && keyboard.mKey.wasPressedThisFrame
+                && (IsShowing || !UiModal.OpenOrJustClosed))
             {
                 Show(!IsShowing);
+            }
+            else if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame && IsShowing && !OpenedThisFrame)
+            {
+                Show(false);
             }
 
             if (IsShowing)
@@ -147,7 +154,7 @@ namespace BitSorter.View
                 "help", Root, UiType.Caption, UiTheme.TextDim, TextAlignmentOptions.Center);
             UiTheme.Anchor(help.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
                 new Vector2(0f, HelpBottom), new Vector2(600f, HelpHeight));
-            help.text = "escape to close    Q / E also change level";
+            help.text = "M or escape to close    Q / E also change level";
 
             // A button as well as the key. The only other way out was the help line above, dim
             // caption-sized text at the foot of the screen saying which key to press -- a list
@@ -577,7 +584,7 @@ namespace BitSorter.View
         // Showing
         // -----------------------------------------------------------------
 
-        /// <summary>Opens the list. Used by the main menu's Levels item as well as by Escape.</summary>
+        /// <summary>Opens the list. Used by the main menu's Levels item as well as by M.</summary>
         public void Open() => Show(true);
 
         private void Show(bool visible) => SetShowing(visible);

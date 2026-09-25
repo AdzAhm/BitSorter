@@ -121,8 +121,8 @@ until you reset your progress — and none of them pause the game.
 | `Space` | Pause a run |
 | `→` while paused | Step one tick |
 | `H`, or the `?` button | This level's truth table and a hint |
-| `Esc` | Closes whatever is on top; otherwise the level list, and the way into the sandbox |
-| `M`, or the MENU button | Main menu |
+| `Esc`, or the MENU button | The main menu. `Esc` closes whatever is on top first |
+| `M` | The level list, and the way into the sandbox |
 | `N` | Mute the game |
 | `Q` / `E` | Previous / next level — they stop at the first and the last |
 | `F3` | Diagnostics, and the clock's timing diagram on levels that have one |

@@ -634,7 +634,7 @@ namespace BitSorter.PlayMode.Tests
         /// next run threw MissingReferenceException out of Update on the frame it tried to point at
         /// anything, every frame, until the player skipped.
         ///
-        /// A reachable path: start the tutorial, press Escape, pick a level from the list, then come
+        /// A reachable path: start the tutorial, press M, pick a level from the list, then come
         /// back to the tutorial from the head of that same list.
         ///
         /// No explicit assertion is needed for the exception itself -- an unhandled one in Update is

@@ -150,30 +150,32 @@ namespace BitSorter.LogicCore.Tests
         /// The main menu's own line does not offer the main menu.
         /// </summary>
         /// <remarks>
-        /// It said "M for the main menu" at the foot of the main menu, where M does the opposite: it
-        /// closes the menu. M went on that line when it was the only place M was named anywhere; the
-        /// controls line on every board names it now, which is where it means what it says.
+        /// It said "M for the main menu" at the foot of the main menu, where M did the opposite: it
+        /// closed the menu. It went on that line when it was the only place the key was named
+        /// anywhere; the controls line on every board names it now, which is where it means what it
+        /// says. The key is Escape now, and on the menu Escape closes it just the same.
         /// </remarks>
         [Test]
         public void TheMenuLine_DoesNotOfferTheMenuItIsOn()
         {
             StringAssert.DoesNotContain("main menu", ControlsReference.MenuLine,
-                "the main menu's footer offers the main menu, and M there closes it");
+                "the main menu's footer offers the main menu, and Escape there closes it");
         }
 
         /// <summary>
         /// The main menu's footer names only keys that do something while the menu is open.
         /// </summary>
         /// <remarks>
-        /// It said "H for help" and "ESC for levels" as well, and with the menu open neither does
-        /// anything: the level list opens on Escape only when nothing else is open, so that it can
-        /// never stack on the menu, and the help panel's H is held back the same way. Only N, which
+        /// It said "H for help" and "ESC for levels" as well, and with the menu open neither did
+        /// anything: the level list opens on its key only when nothing else is open, so that it can
+        /// never stack on the menu, and the help panel's H is held back the same way. That key is M
+        /// now. Only N, which
         /// mutes from anywhere, did what the line said. The menu's own buttons are the way on.
         /// </remarks>
         [Test]
         public void TheMenuLine_NamesOnlyKeysThatWorkOnTheMenu()
         {
-            foreach (string dead in new[] { "H for help", "ESC for levels" })
+            foreach (string dead in new[] { "H for help", "M for levels" })
             {
                 StringAssert.DoesNotContain(dead, ControlsReference.MenuLine,
                     $"the main menu's footer says '{dead}', and that key does nothing while the menu is open");
@@ -247,8 +249,8 @@ namespace BitSorter.LogicCore.Tests
         /// </summary>
         /// <remarks>
         /// The card is handed to a player who has just finished the tutorial, as the complete
-        /// reference -- that is what it is for. The main menu is reachable by M and by nothing else
-        /// except finishing the last level, so a card that does not mention it teaches that there is
+        /// reference -- that is what it is for. The main menu is reachable by its key and the MENU
+        /// button and by nothing else except finishing the last level, so a card that does not mention it teaches that there is
         /// no way back to the front door.
         ///
         /// M was bound in MainMenu.Update and written into a literal keys line in MainMenu.Build,
@@ -287,6 +289,23 @@ namespace BitSorter.LogicCore.Tests
         {
             StringAssert.Contains("main menu", ControlsReference.Line,
                 "the controls line does not say how to get back to the main menu");
+        }
+
+        /// <summary>
+        /// Escape is the main menu and M is the level list, and the line says so.
+        /// </summary>
+        /// <remarks>
+        /// Swapped after a playtest, 2026-09-26: Escape is the key players reach for to get to a
+        /// menu. The bindings live in MainMenu and LevelSelectPanel and the words live here, so this
+        /// pins the words to the swap.
+        /// </remarks>
+        [Test]
+        public void TheStatusLine_NamesEscapeForTheMenu_AndMForTheLevels()
+        {
+            StringAssert.Contains("ESC for the main menu", ControlsReference.Line);
+            StringAssert.Contains("M for levels", ControlsReference.Line);
+            StringAssert.DoesNotContain("ESC for levels", ControlsReference.Line);
+            StringAssert.DoesNotContain("M for the main menu", ControlsReference.Line);
         }
 
         /// <summary>
