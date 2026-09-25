@@ -110,14 +110,14 @@ namespace BitSorter.View
             // Opens only when nothing else is open or has just closed, so the Escape that closes a
             // panel does not open this behind it -- M behind the level list once stacked the menu
             // under it, two full-screen panels at once, one of them unreachable. Nor while the
-            // solved card is up: it is on top and takes Escape itself, and it is not a modal, so it
-            // says so. And not on the frame this opened: the Escape that leaves Settings opens this
-            // in the same frame, and must not close it again.
+            // solved card or a hint is up: each is on top and takes Escape itself, and neither is a
+            // modal, so each says so. And not on the frame this opened: the Escape that leaves
+            // Settings opens this in the same frame, and must not close it again.
             if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame && !OpenedThisFrame)
             {
                 if (IsShowing)
                     Show(false);
-                else if (!UiModal.OpenOrJustClosed && !WinPanel.HoldsEscape)
+                else if (!UiModal.OpenOrJustClosed && !WinPanel.HoldsEscape && !HintBanner.HoldsEscape)
                     Show(true);
             }
 

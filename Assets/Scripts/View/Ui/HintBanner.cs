@@ -47,9 +47,47 @@ namespace BitSorter.View
         /// <summary>Whether a hint is on screen. Kept so hints queue rather than cut each other off.</summary>
         public bool IsShowing => _remaining > 0f;
 
+        /// <summary>
+        /// Whether Escape is this hint's this frame, so the main menu stands aside for it.
+        /// </summary>
+        /// <remarks>
+        /// Escape closes what is on top, and a hint is on top of the board. One press dismissed the
+        /// hint and opened the level list -- the main menu, once the keys swapped -- because the
+        /// hint is not a modal and the menu could not know it was there. The solved card had the
+        /// same gap and closes it the same way: true while a press would dismiss the hint, and
+        /// still true for the rest of the frame once Escape has, so one press does one thing
+        /// whichever of the two Unity updates first.
+        /// </remarks>
+        public static bool HoldsEscape => _live != null && _live.HoldsEscapeNow;
+
+        private static HintBanner _live;
+
+        private bool HoldsEscapeNow => _escapedOn == Time.frameCount || Dismissable;
+
+        /// <summary>The frame Escape dismissed the hint on, or -1.</summary>
+        private int _escapedOn = -1;
+
+        /// <summary>
+        /// Whether a press now would dismiss the hint: it is up and drawn, it has been up longer
+        /// than the moment that raised it, and no panel has just closed over it.
+        /// </summary>
+        private bool Dismissable =>
+            IsShowing && _background != null && UiModal.HudVisible
+            && _seconds - _remaining > _graceSeconds && !UiModal.OpenOrJustClosed;
+
         private void Awake()
         {
             if (_canvas == null) _canvas = FindFirstObjectByType<Canvas>();
+
+            // Here and in OnDestroy rather than OnEnable and OnDisable, as the solved card does: a
+            // test that calls Update by hand disables the component, and the hint has not gone.
+            _live = this;
+        }
+
+        private void OnDestroy()
+        {
+            if (_live == this)
+                _live = null;
         }
 
         private void Start()
@@ -102,8 +140,15 @@ namespace BitSorter.View
             // Nor by the press that closed the panel it was waiting behind: by then the grace
             // period is long past, so the one Escape that dismissed a level list would take the
             // held hint with it on the very frame it came back.
-            if (_seconds - _remaining > _graceSeconds && !UiModal.OpenOrJustClosed && Dismissed())
+            if (Dismissable && Dismissed())
+            {
+                Keyboard keyboard = Keyboard.current;
+
+                if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame)
+                    _escapedOn = Time.frameCount;
+
                 _remaining = 0f;
+            }
 
             if (!IsShowing)
                 Hide();
