@@ -186,6 +186,49 @@ namespace BitSorter.PlayMode.Tests
             yield return null;
         }
 
+        /// <summary>
+        /// The decoy put down on the NOT's square is named, and so is the way to take it off.
+        /// </summary>
+        /// <remarks>
+        /// Reported from a playtest, 2026-09-25: the AND went on the highlighted square, the NOT was
+        /// picked up, and the strip went on saying "click the highlighted square to put it down" --
+        /// a square that refuses the click, because the AND is on it. The step correctly does not
+        /// accept the decoy; nothing said that the decoy was the problem.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator TheDecoyOnTheNotsSquare_IsNamed_AndSoIsTheWayOff()
+        {
+            yield return LoadScene();
+            yield return CloseTheMainMenu();
+
+            TutorialDirector director = Find<TutorialDirector>();
+            LevelSession session = Find<LevelSession>();
+
+            yield return BeginTutorial(director);
+            yield return PressStart();
+
+            Assert.IsTrue(session.TryPlaceGate(TutorialLevel.Decoy, TutorialLevel.GateCell),
+                "sanity: the decoy could not be put on the NOT's square");
+            Assert.IsTrue(Find<PlacementController>().TrySelect(TutorialLevel.Part), "sanity: could not pick up the NOT");
+
+            yield return null;
+            yield return null;
+
+            string shown = TutorialText();
+
+            StringAssert.Contains(GatePalette.Label(TutorialLevel.Decoy), shown,
+                "the strip does not say the decoy is on the square");
+            StringAssert.Contains("Right click", shown, "the strip does not say how to take it off");
+        }
+
+        /// <summary>What the instruction strip is saying.</summary>
+        private static string TutorialText()
+        {
+            GameObject label = GameObject.Find("tutorial text");
+            Assert.IsNotNull(label, "sanity: the tutorial's instruction strip is not showing");
+            return label.GetComponent<TMPro.TextMeshProUGUI>().text;
+        }
+
         // -----------------------------------------------------------------
         // Leaving the tutorial
         // -----------------------------------------------------------------
