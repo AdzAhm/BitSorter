@@ -242,7 +242,19 @@ namespace BitSorter.View
             UiTheme.Anchor(credit.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
                 new Vector2(0f, 10f), new Vector2(1100f, 16f));
             credit.text = GameAudio.MenuMusicCredit;
+
+            // Which build this is, in the corner, as small as the credit: someone reporting a bug
+            // should be able to say which version they saw it in. Read from the build rather than
+            // written here, so it cannot say one version while being another.
+            TextMeshProUGUI version = UiTheme.Label(
+                "version", Root, UiType.Micro, Palette.Current.Credit, TextAlignmentOptions.Right);
+            UiTheme.Anchor(version.rectTransform, new Vector2(1f, 0f), new Vector2(1f, 0f),
+                new Vector2(-UiTheme.Margin, 10f), new Vector2(120f, 16f));
+            version.text = VersionText;
         }
+
+        /// <summary>The version the corner of the menu shows: the build's own, as "v3.0.0".</summary>
+        public static string VersionText => "v" + Application.version;
 
         /// <summary>
         /// How far the whole menu block sits above the middle of the screen.

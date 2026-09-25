@@ -458,6 +458,28 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsTrue(menu.IsOpen, "the board's menu button did not open the main menu");
         }
 
+        /// <summary>
+        /// The main menu says which version this is, and it is the build's own number.
+        /// </summary>
+        /// <remarks>
+        /// Asked for so that a bug report can say which version it came from. Read from
+        /// <c>Application.version</c>, never written into the menu, so a release cannot forget it.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator TheMainMenu_SaysWhichVersionThisIs()
+        {
+            yield return TestScene.Load();
+            yield return null;
+
+            Assert.IsTrue(Find<MainMenu>().IsOpen, "sanity: the game boots into the main menu");
+
+            GameObject label = GameObject.Find("version");
+            Assert.IsNotNull(label, "the main menu shows no version");
+
+            string shown = label.GetComponent<TMPro.TextMeshProUGUI>().text;
+            Assert.AreEqual("v" + Application.version, shown, "the menu shows a version that is not this build's");
+        }
+
         /// <summary>The positive control: the same lookups find the HUD once nothing is open.</summary>
         [UnityTest]
         public IEnumerator WithNothingOpen_TheHudIsDrawn()
