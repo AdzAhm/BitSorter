@@ -97,6 +97,23 @@ namespace BitSorter.LogicCore.Tests
             Assert.AreEqual(TutorialScript.Count, TutorialScript.CurrentStep(f), "and done");
         }
 
+        /// <summary>
+        /// The NOT on its square has been picked up, however it got there.
+        /// </summary>
+        /// <remarks>
+        /// Found in the sweep after a playtest, 2026-09-25. Dragging the NOT from the parts list onto
+        /// its square places it without selecting it, and placing it and then clicking the decoy
+        /// leaves the decoy in hand. Either way the tutorial went back to "click the NOT gate to pick
+        /// one up" with the NOT already sitting on its square -- asking for a step already done, and
+        /// holding back the wiring behind it.
+        /// </remarks>
+        [Test]
+        public void TheNotOnItsSquare_CountsAsPickedUp_WhateverIsInHand()
+        {
+            Assert.AreEqual(2, TutorialScript.CurrentStep(Facts(TutorialLevel.Decoy, gate: true)),
+                "with the NOT on its square and the decoy in hand, the tutorial asks for the NOT again");
+        }
+
         [Test]
         public void SelectingSomethingElse_DoesNotAdvance()
         {
