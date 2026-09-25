@@ -146,6 +146,21 @@ namespace BitSorter.LogicCore.Tests
             }
         }
 
+        /// <summary>
+        /// The main menu's own line does not offer the main menu.
+        /// </summary>
+        /// <remarks>
+        /// It said "M for the main menu" at the foot of the main menu, where M does the opposite: it
+        /// closes the menu. M went on that line when it was the only place M was named anywhere; the
+        /// controls line on every board names it now, which is where it means what it says.
+        /// </remarks>
+        [Test]
+        public void TheMenuLine_DoesNotOfferTheMenuItIsOn()
+        {
+            StringAssert.DoesNotContain("main menu", ControlsReference.MenuLine,
+                "the main menu's footer offers the main menu, and M there closes it");
+        }
+
         [Test]
         public void TheMenuLineIsAShortlist_NotEverything()
         {
