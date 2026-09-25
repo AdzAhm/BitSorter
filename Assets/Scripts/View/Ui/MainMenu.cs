@@ -309,7 +309,9 @@ namespace BitSorter.View
             // Named from the same walk Continue itself uses, so the label cannot promise one level
             // and the button open another. Asked only once the run is known to have a frontier left:
             // an empty catalogue has no next level, and used to throw here rather than say so.
-            if (MenuRules.AllSolved(done, total))
+            if (TutorialDirector.Running)
+                _nextLine.text = "next up: the rest of the tutorial";
+            else if (MenuRules.AllSolved(done, total))
                 _nextLine.text = "all solved -- replay anything you like";
             else if (TryNextUp(out LevelEntry next))
                 _nextLine.text = $"next up: {next.DisplayName}";
@@ -339,12 +341,22 @@ namespace BitSorter.View
         /// Furthest unsolved rather than last played, because the two differ exactly when it matters:
         /// a player who wandered into a late level from the list and closed the game should come back
         /// to the run, not to wherever they were browsing. Everything solved means the last level, so
-        /// the button always goes somewhere.
+        /// the button always goes somewhere. The one exception is the tutorial, which it goes back to.
         /// </remarks>
         private void Continue()
         {
             if (_session == null || !_session.IsLoaded)
                 return;
+
+            // Back to the tutorial rather than past it. Someone in the middle of learning to play
+            // is not a player who wandered off the run, and the tutorial is offered once a session:
+            // leaving it for the first level lost it until the next launch. Escape is this menu's
+            // key, and the one a new player presses first.
+            if (TutorialDirector.Running)
+            {
+                Show(false);
+                return;
+            }
 
             // The empty-catalogue guard lives in the walk now, so both callers get it.
             if (!TryNextUp(out LevelEntry next))

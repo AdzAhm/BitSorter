@@ -59,6 +59,9 @@ namespace BitSorter.View
         /// <summary>Whether the tutorial is running right now.</summary>
         public bool IsRunning => _phase != Phase.Idle;
 
+        /// <summary>Whether the tutorial in the scene is running, for the main menu to ask cheaply.</summary>
+        public static bool Running => _live != null && _live.IsRunning;
+
         /// <summary>The director in the scene, so the board rules can ask it a question cheaply.</summary>
         private static TutorialDirector _live;
 
