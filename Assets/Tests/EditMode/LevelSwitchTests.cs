@@ -128,6 +128,47 @@ namespace BitSorter.LogicCore.Tests
             Assert.AreEqual(all.Count - 1, _session.LevelIndex, "E on the last level left it");
         }
 
+        /// <summary>
+        /// The tutorial comes before the first level, so E goes to the first level and Q goes
+        /// nowhere.
+        /// </summary>
+        /// <remarks>
+        /// Found in a playtest, 2026-09-26: Q still went to the last level from the tutorial. The
+        /// fix for the first level stopped the run wrapping, but a board that is not in the run has
+        /// no index, and an unknown index still started Q at the far end. A fresh save starts in
+        /// the tutorial, so the first press of Q most players make was the one that went to 17.
+        /// </remarks>
+        [Test]
+        public void FromTheTutorial_QGoesNowhere_AndEGoesToTheFirstLevel()
+        {
+            Assert.IsTrue(_session.Adopt(TutorialLevel.Build(LevelTestFixtures.Board), TutorialLevel.Key));
+
+            Assert.IsFalse(_session.CycleLevel(-1), "Q in the tutorial went somewhere");
+            Assert.AreEqual(TutorialLevel.Key, _session.LevelName, "Q in the tutorial left it");
+
+            Assert.IsTrue(_session.CycleLevel(1), "E in the tutorial went nowhere");
+            Assert.AreEqual(_session.AvailableLevels[0], _session.LevelName,
+                "E in the tutorial should go to the first level, which it comes before");
+        }
+
+        /// <summary>
+        /// Free play is not one of the levels, so neither Q nor E steps out of it into one.
+        /// </summary>
+        /// <remarks>
+        /// Q from free play went to the last level too -- a chapter the player may never have
+        /// reached, which is the surprise the first-level fix was for.
+        /// </remarks>
+        [Test]
+        public void FromFreePlay_NeitherQNorEGoesAnywhere()
+        {
+            Vector2Int board = LevelTestFixtures.Board;
+            Assert.IsTrue(_session.Adopt(SandboxLevel.Build(SandboxLevel.Default(board), board), SandboxLevel.Key));
+
+            Assert.IsFalse(_session.CycleLevel(-1), "Q in free play went somewhere");
+            Assert.IsFalse(_session.CycleLevel(1), "E in free play went somewhere");
+            Assert.AreEqual(SandboxLevel.Key, _session.LevelName, "a step left free play");
+        }
+
         // -----------------------------------------------------------------
         // What the palette is told
         // -----------------------------------------------------------------

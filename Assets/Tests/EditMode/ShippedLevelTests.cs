@@ -53,8 +53,8 @@ namespace BitSorter.LogicCore.Tests
         [TestCase(2, 1, 3, ExpectedResult = -1, TestName = "CyclingPastTheLast_GoesNowhere")]
         [TestCase(0, -1, 3, ExpectedResult = -1, TestName = "CyclingBackFromTheFirst_GoesNowhere")]
         [TestCase(1, -1, 3, ExpectedResult = 0, TestName = "CyclingBack_Retreats")]
-        [TestCase(-1, 1, 3, ExpectedResult = 0, TestName = "AnUnknownLevel_StartsAtTheFirst")]
-        [TestCase(-1, -1, 3, ExpectedResult = 2, TestName = "AnUnknownLevelSteppingBack_StartsAtTheLast")]
+        [TestCase(-1, 1, 3, ExpectedResult = 0, TestName = "OffTheRun_EStartsAtTheFirst")]
+        [TestCase(-1, -1, 3, ExpectedResult = -1, TestName = "OffTheRun_QGoesNowhere")]
         [TestCase(0, 1, 1, ExpectedResult = -1, TestName = "ASingleLevel_GoesNowhere")]
         [TestCase(0, 1, 0, ExpectedResult = -1, TestName = "NoLevelsAtAll_GoesNowhere")]
         public int CyclingStopsAtBothEnds(int current, int step, int count) =>
