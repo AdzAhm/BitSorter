@@ -12,7 +12,8 @@ A puzzle game about building digital circuits. Sources emit a stream of 0s and
 so every bin gets what it asked for.
 
 Above is level 8, the half adder: `A` and `B` each feed both gates, XOR produces
-the sum and AND produces the carry. Yellow bits are 1, grey are 0.
+the sum and AND produces the carry. Every bit is drawn as the digit it carries: a
+magenta 1, an indigo 0.
 
 Seventeen levels, from routing a single bit to a state machine that adds two
 numbers a column at a time. Built in Unity
@@ -24,7 +25,7 @@ the inside.
 | Where | |
 | --- | --- |
 | **In a browser** | [Unity Play](https://play.unity.com/en/games/c22f4580-98a3-4fcd-a844-e9d731257c83/bitsorter), or [GitHub Pages](https://adzahm.github.io/BitSorter/) |
-| **Windows** | [Download the latest release](https://github.com/AdzAhm/BitSorter/releases/latest) — 37 MB zip |
+| **Windows** | [Download the latest release](https://github.com/AdzAhm/BitSorter/releases/latest) — 39 MB zip |
 
 The two browser links are the same build, hosted twice so neither one going down
 takes the game with it. Nothing to install, and no account needed for either.
@@ -71,13 +72,15 @@ An unbalanced circuit does not run slower. It loses bits.
 ### Reading the board
 
 Every input port is drawn on the gate itself: a hollow ring when it is empty, a
-filled disc in the bit's own colour when it is holding one. A gate holding a bit
+filled disc with the bit's digit cut out of it when it is holding one. A gate holding a bit
 it cannot use yet — waiting on its other input — dims and breathes slowly amber.
 A paused board therefore says which gates are stuck, and which port is the reason.
 
 When a bit is waiting and another is one tick from arriving on the same wire, the
 port, the wire and the incoming bit all pulse together: amber when only the
-arrival will be destroyed, red when the waiting bit dies with it. That warning is
+arrival will be destroyed, red when the waiting bit dies with it — and then the
+waiting bit is crossed out as well, so the difference does not rest on telling
+amber from red. That warning is
 exact rather than a guess. Delivery happens before evaluation, so nothing can
 empty the port in between — if it is lit, the collision is already unavoidable.
 
@@ -90,11 +93,12 @@ actually do the thing rather than for you to click Next.
 It never takes the controls away. Every other action stays legal throughout, and
 a step quietly un-finishes itself if you delete what it asked for — undo
 included. Skippable at any point, and replayable from the level list afterwards.
-On a fresh save it runs once by itself.
+On a fresh save it runs once by itself. Put a part on the wrong square and it
+says which one, and how to take it off.
 
 Past that, single-line hints appear the first time you meet something that wants
-explaining: a gate stalling, a collision, and the fact that a wire's delay can be
-scrolled at all. Each appears once, ever, and none of them pause the game.
+explaining: a gate stalling, a collision, the fact that a wire's delay can be
+scrolled at all, and what the bit inside a register means. Each appears once, ever, and none of them pause the game.
 
 ### Controls
 
