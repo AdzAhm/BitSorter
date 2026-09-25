@@ -138,6 +138,9 @@ namespace BitSorter.View
 
             if (_session != null)
                 _session.LevelLoaded += OnLevelLoaded;
+
+            if (_progress != null)
+                _progress.ProgressReset += OnProgressReset;
         }
 
         private void OnDisable()
@@ -150,6 +153,23 @@ namespace BitSorter.View
 
             if (_session != null)
                 _session.LevelLoaded -= OnLevelLoaded;
+
+            if (_progress != null)
+                _progress.ProgressReset -= OnProgressReset;
+        }
+
+        /// <summary>
+        /// A reset save is a new player's, so the tutorial offers itself again.
+        /// </summary>
+        /// <remarks>
+        /// The milestone went with the rest of the save; this is the other half, the once-a-session
+        /// rule. Someone who reset from the menu has asked to start from nothing, and "nothing"
+        /// includes being shown how to play.
+        /// </remarks>
+        private void OnProgressReset()
+        {
+            _begunThisSession = false;
+            _solved = false;
         }
 
         /// <summary>

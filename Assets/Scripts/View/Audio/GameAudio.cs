@@ -26,6 +26,9 @@ namespace BitSorter.View
         [Tooltip("The level list, which carries the menu's music too. Found by type when empty.")]
         [SerializeField] private LevelSelectPanel _levels;
 
+        [Tooltip("The settings, which carry the menu's music too. Found by type when empty.")]
+        [SerializeField] private SettingsPanel _settings;
+
         [Tooltip("Played while the main menu is showing, one after another. Imported, not generated: " +
                  "see MenuMusicCredit, which the menu shows.")]
         [SerializeField] private MenuTrack[] _menuTracks = System.Array.Empty<MenuTrack>();
@@ -198,6 +201,7 @@ namespace BitSorter.View
             if (_bits == null) _bits = FindFirstObjectByType<BitRenderer>();
             if (_menu == null) _menu = FindFirstObjectByType<MainMenu>();
             if (_levels == null) _levels = FindFirstObjectByType<LevelSelectPanel>();
+            if (_settings == null) _settings = FindFirstObjectByType<SettingsPanel>();
 
             // The seed is the only random thing about the music: a different shuffle per session,
             // so two evenings on the same levels are not the same evening, and which of the menu's
@@ -598,7 +602,8 @@ namespace BitSorter.View
         private bool MenuWanted =>
             MusicRules.WantsMenuMusic(
                 _menu != null && _menu.IsOpen,
-                _levels != null && _levels.IsShowing) &&
+                _levels != null && _levels.IsShowing,
+                _settings != null && _settings.IsShowing) &&
             _menuTracks != null && _menuTracks.Length > 0 && _menuTracks[_menuTrack].Clip != null;
 
         /// <summary>

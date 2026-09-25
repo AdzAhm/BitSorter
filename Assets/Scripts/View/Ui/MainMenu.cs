@@ -24,6 +24,7 @@ namespace BitSorter.View
         [SerializeField] private ProgressTracker _progress;
         [SerializeField] private LevelSelectPanel _levels;
         [SerializeField] private SandboxPanel _sandbox;
+        [SerializeField] private SettingsPanel _settings;
 
         [Tooltip("Canvas the menu is built under. Found by type when left empty.")]
         [SerializeField] private Canvas _canvas;
@@ -33,10 +34,7 @@ namespace BitSorter.View
 
         private TextMeshProUGUI _progressLine;
         private TextMeshProUGUI _continueLabel;
-        private TextMeshProUGUI _soundLabel;
-        private TextMeshProUGUI _dataLabel;
         private TextMeshProUGUI _nextLine;
-        private GameAudio _audio;
 
         /// <summary>
         /// Held rather than built per call: <see cref="Refresh"/> runs every frame the menu is up, and
@@ -53,7 +51,7 @@ namespace BitSorter.View
             if (_progress == null) _progress = FindFirstObjectByType<ProgressTracker>();
             if (_levels == null) _levels = FindFirstObjectByType<LevelSelectPanel>();
             if (_sandbox == null) _sandbox = FindFirstObjectByType<SandboxPanel>();
-            if (_audio == null) _audio = FindFirstObjectByType<GameAudio>();
+            if (_settings == null) _settings = FindFirstObjectByType<SettingsPanel>();
             if (_canvas == null) _canvas = FindFirstObjectByType<Canvas>();
         }
 
@@ -192,14 +190,11 @@ namespace BitSorter.View
             sandbox.onClick.AddListener(() => Fire(OpenSandbox));
             row -= RowStep;
 
-            Button sound = Item("Sound", row, out _soundLabel);
-            sound.onClick.AddListener(() => Fire(ToggleSound));
-            row -= RowStep;
-
-            // The off switch for reporting. In the menu rather than buried, because a setting nobody
-            // can find is not a choice -- and the README tells players it is here.
-            Button data = Item("Data", row, out _dataLabel);
-            data.onClick.AddListener(() => Fire(ToggleData));
+            // Sound and the off switch for reporting live here, one click down, beside starting
+            // over. They were rows of this menu, which could say ON or OFF and nothing else -- the
+            // data switch never said what it switched. The README tells players where it is.
+            Button settings = Item("Settings", row, out TextMeshProUGUI _);
+            settings.onClick.AddListener(() => Fire(OpenSettings));
             row -= RowStep;
 
             // No Quit in a browser. Application.Quit does nothing there -- a tab is closed by the
@@ -263,14 +258,15 @@ namespace BitSorter.View
         /// The block runs from the title's top to the bottom of the progress line, and it grew
         /// downward twice -- once for Sandbox, once for Data -- while the title stayed where it
         /// was. That put its middle about seventy units below the screen's, which reads as the menu
-        /// hanging low rather than as anything being wrong.
+        /// hanging low rather than as anything being wrong. Sound and Data then became one Settings
+        /// row, which took a row's height off the block and half of it off this.
         ///
         /// One number added to every row, rather than each row's offset nudged separately: the rows
         /// are stated relative to each other on purpose, and re-typing eleven of them is how that
         /// stops being true. The keys line at the bottom is anchored to the screen's edge instead
         /// and is not part of the block.
         /// </remarks>
-        private const float Lift = 70f;
+        private const float Lift = 43f;
 
         private Button Item(string name, float y, out TextMeshProUGUI label,
             ButtonRole role = ButtonRole.Secondary)
@@ -302,8 +298,6 @@ namespace BitSorter.View
             bool fresh = done == 0 && _session.LevelIndex == 0;
 
             _continueLabel.text = fresh ? "START" : "CONTINUE";
-            _soundLabel.text = GameAudio.Muted ? "SOUND  OFF" : "SOUND  ON";
-            _dataLabel.text = GameAnalytics.Reporting ? "DATA  ON" : "DATA  OFF";
 
             // Named from the same walk Continue itself uses, so the label cannot promise one level
             // and the button open another. Asked only once the run is known to have a frontier left:
@@ -322,20 +316,6 @@ namespace BitSorter.View
 
         private Predicate<string> IsComplete =>
             _isComplete ?? (_isComplete = name => _progress != null && _progress.IsComplete(name));
-
-        private void ToggleSound()
-        {
-            if (_audio != null)
-                _audio.ToggleMute();
-
-            Refresh();
-        }
-
-        private void ToggleData()
-        {
-            GameAnalytics.SetReporting(!GameAnalytics.Reporting);
-            Refresh();
-        }
 
         // The same predicate Continue walks with, so the count and the frontier can never disagree
         // about what is solved.
@@ -390,6 +370,16 @@ namespace BitSorter.View
 
             Show(false);
             _sandbox.Open();
+        }
+
+        /// <inheritdoc cref="Continue"/>
+        private void OpenSettings()
+        {
+            if (_settings == null)
+                return;
+
+            Show(false);
+            _settings.Open();
         }
 
 #if !UNITY_WEBGL || UNITY_EDITOR

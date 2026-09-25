@@ -33,7 +33,7 @@ namespace BitSorter.View
         /// Whether an event about <paramref name="levelName"/> may be reported at all.
         /// </summary>
         /// <param name="levelName">The level's file name, or a key that is not a level.</param>
-        /// <param name="reporting">The player's choice, from the main menu's Data item.</param>
+        /// <param name="reporting">The player's choice, from the DATA switch in Settings.</param>
         /// <param name="unavailable">Initialisation failed, so there is nowhere to send anything.</param>
         /// <param name="alreadySentThisSession">This event, for this level, has gone once already.</param>
         /// <remarks>

@@ -171,8 +171,8 @@ Three things to know before trusting the numbers:
   warning in the player log. The events being in the build is not enough.
 - **The project must stay linked.** Collection depends on the `cloudProjectId` in
   `ProjectSettings.asset`. Unlinking the project silently stops reporting.
-- **Reporting is on by default and the player can turn it off**, from the main
-  menu's Data item. `GameAnalytics` sets Unity's consent state rather than calling
+- **Reporting is on by default and the player can turn it off**, from Settings on
+  the main menu. `GameAnalytics` sets Unity's consent state rather than calling
   the deprecated `StartDataCollection`, so denying really stops collection instead
   of hiding it. The two flows cannot be mixed: once consent is set this way, the
   SDK throws if the old calls are used, which is why none remain.

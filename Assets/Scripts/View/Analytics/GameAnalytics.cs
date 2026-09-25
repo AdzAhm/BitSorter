@@ -50,7 +50,7 @@ namespace BitSorter.View
             private set => Preferences.SetInt(ConsentKey, value ? 1 : 0);
         }
 
-        /// <summary>Turns reporting on or off and tells the SDK, for the main menu's Data item.</summary>
+        /// <summary>Turns reporting on or off and tells the SDK, for the DATA switch in Settings.</summary>
         /// <remarks>
         /// Takes effect immediately in both directions. Granting mid-session starts collection --
         /// the SDK begins on the grant, not only at startup -- and denying stops it.

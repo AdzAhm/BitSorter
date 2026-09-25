@@ -566,6 +566,17 @@ namespace BitSorter.LogicCore.Tests
             Assert.IsTrue(MusicRules.ChangesTrack(TutorialLevel.Key, SandboxLevel.Key));
         }
 
+        [Test]
+        public void TheMenusMusic_PlaysUnderEveryScreenOffTheMenu()
+        {
+            // Settings is reached only from the main menu and goes back to it. Leaving it out faded
+            // the music to the level's track and back again on the way through.
+            Assert.IsTrue(MusicRules.WantsMenuMusic(true, false, false), "the main menu");
+            Assert.IsTrue(MusicRules.WantsMenuMusic(false, true, false), "the level list");
+            Assert.IsTrue(MusicRules.WantsMenuMusic(false, false, true), "the settings");
+            Assert.IsFalse(MusicRules.WantsMenuMusic(false, false, false), "the board");
+        }
+
         // -----------------------------------------------------------------
         // The shuffle
         // -----------------------------------------------------------------

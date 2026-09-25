@@ -51,6 +51,21 @@ namespace BitSorter.View
         /// </remarks>
         public event Action<string> LevelSolved;
 
+        /// <summary>
+        /// Raised once <see cref="ResetProgress"/> has emptied the save, for anything that keeps its
+        /// own copy of something the save said.
+        /// </summary>
+        /// <remarks>
+        /// Most of the game asks the store every time and needs no telling. What this is for is the
+        /// memory the store cannot reach: the tutorial remembering it has already run this session,
+        /// and free play holding its setup. Left alone, a reset would bring back neither the
+        /// tutorial nor the opening setup until the game was restarted.
+        /// </remarks>
+        public event Action ProgressReset;
+
+        /// <summary>Whether a reset is under way, during which boards are neither saved nor restored.</summary>
+        private bool _resetting;
+
         private void Awake()
         {
             if (_session == null) _session = FindFirstObjectByType<LevelSession>();
@@ -112,12 +127,56 @@ namespace BitSorter.View
         }
 
         // -----------------------------------------------------------------
+        // Starting over
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// Forgets everything the save holds and puts the game back where a new player starts: the
+        /// first level, on an empty board, with the tutorial waiting.
+        /// </summary>
+        /// <remarks>
+        /// The level is switched first and the save emptied after, so that anything written on the
+        /// way out of the old level -- its board, or the tutorial recording itself finished -- is
+        /// emptied with the rest. The switch still restores the first level's saved board on the way
+        /// in, so boards are neither saved nor restored until the reset is over; the one on screen is
+        /// the empty board the switch starts from.
+        ///
+        /// Sound and data settings are not progress and live in PlayerPrefs, so they stay as they are.
+        /// </remarks>
+        /// <returns>False if there is no save to reset, which only happens before Awake.</returns>
+        public bool ResetProgress()
+        {
+            if (_store == null)
+                return false;
+
+            _resetting = true;
+
+            try
+            {
+                if (_session != null && _session.AvailableLevels.Count > 0)
+                    _session.LoadLevel(_session.AvailableLevels[0]);
+
+                _store.Clear();
+            }
+            finally
+            {
+                _resetting = false;
+            }
+
+            BeatGateRecord = false;
+            BeatLatencyRecord = false;
+
+            ProgressReset?.Invoke();
+            return true;
+        }
+
+        // -----------------------------------------------------------------
         // Boards
         // -----------------------------------------------------------------
 
         private void SaveBoard(string levelName)
         {
-            if (_store == null || string.IsNullOrEmpty(levelName))
+            if (_store == null || _resetting || string.IsNullOrEmpty(levelName))
                 return;
 
             // The tutorial always starts empty. Its steps are predicates over the board, so a
@@ -132,7 +191,7 @@ namespace BitSorter.View
 
         private void RestoreBoard(LevelDefinition level)
         {
-            if (_store == null || level == null)
+            if (_store == null || _resetting || level == null)
                 return;
 
             // The tutorial always starts from an empty board -- see SaveBoard. Guarded on the way in

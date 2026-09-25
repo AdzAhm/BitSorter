@@ -477,11 +477,12 @@ failure side.
   counts from it -- the win celebration once pulsed on the game clock and a solve
   could land at the bottom of its swell.
 - **Visual changes are checked against the reference shots.**
-  `BitSorter/Capture Reference Shots` captures sixteen states (menu, a built
+  `BitSorter/Capture Reference Shots` captures seventeen states (menu, a built
   board, bits in flight, a collision one tick out and one that takes both bits,
   the solved card, the level list, free play, the help panel, the chapter card, a
   clocked level, the tutorial's intro and its closing card, a first-time hint, a
-  register holding a bit, the tutorial ringing a button) as an Explicit Play
+  register holding a bit, the tutorial ringing a button, the settings asking
+  whether to reset) as an Explicit Play
   Mode fixture, so it runs under `SaveGuard` --
   driving the real game for a screenshot by hand once marked a level solved on
   the developer's own save. Frame time is fixed, particle systems are seeded,
@@ -818,7 +819,8 @@ failure side.
 ## Not yet
 Do not build ahead of me. The logic core, the view layer, the level
 format, the seventeen levels, the canvas interface, sound, level select,
-saved progress, analytics, the sandbox and board undo are all in.
+saved progress, analytics, the sandbox, board undo and the settings screen
+are all in.
 
 **Seventeen: nine combinational, eight sequential.** The sequential
 chapter is the register, the rising edge, the toggle, the enabled
@@ -1003,6 +1005,29 @@ order: a card dismissed in the frame it appeared was never seen, and the ending
 waited for a card that had already come and gone. `PresentedThisRun` is set in
 the call that presents the card, so there is nothing to catch.
 
+**Settings is sound, the data switch, and starting over.** `SettingsPanel` is
+reached only from the main menu and goes back to it, and it plays the menu's
+music. Sound and Data were rows of the menu until it existed.
+
+**A reset asks first, and a double-click cannot answer.** RESET PROGRESS puts
+its question where the button was, exactly the button's height, with CANCEL
+and YES, RESET below it; Enter answers nothing and Escape backs out of the
+question before the screen.
+
+**A reset switches level first and empties the save after.**
+`ProgressTracker.ResetProgress` loads the first level, then clears the store,
+so whatever is written on the way out of the old level -- its board, or the
+tutorial recording itself finished -- is emptied with the rest. Boards are
+neither saved nor restored while it runs, or the first level would come back
+with its old circuit. Sound and data live in PlayerPrefs, not the save, and
+stay as they were.
+
+**An empty file is not a new player.** The tutorial remembers it has run this
+session and free play holds its setup in memory, and neither reads the save
+again. `ProgressTracker.ProgressReset` is for anything that keeps its own copy
+of something the save said; without it a reset brought back neither the
+tutorial nor the opening setup until a restart.
+
 **Analytics is the one thing that sends data anywhere.** `GameAnalytics`
 reports exactly two events, `levelStarted` and `levelSolved`, each
 carrying the level's file name, to answer one question: which level
@@ -1023,8 +1048,10 @@ with. Solves are deduplicated too, or a level solved twice in one session would
 report more solves than starts. `AnalyticsRules.ShouldReport` takes the answer;
 `GameAnalytics` keeps the set, cleared on boot and never persisted.
 
-**Reporting is on by default and the player can turn it off**, from the
-main menu's Data item. Consent goes through `EndUserConsent`, not the
+**Reporting is on by default and the player can turn it off**, from
+Settings on the main menu -- the PRIVACY section's DATA switch. It was a row
+of the main menu itself until Settings existed; one click down, it gained a
+line saying what it switches, which the row never had room for. Consent goes through `EndUserConsent`, not the
 deprecated `StartDataCollection`; the two flows cannot be mixed, so no
 call to the old one may come back. The consent framework does not persist
 anything, so the answer lives in `PlayerPrefs` beside the mute setting and

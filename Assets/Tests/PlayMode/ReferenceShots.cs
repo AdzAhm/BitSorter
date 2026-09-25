@@ -550,6 +550,27 @@ namespace BitSorter.PlayMode.Tests
             yield return Capture("16-collision-both");
         }
 
+        /// <summary>
+        /// The settings, asking whether to reset: all three sections, and the one question in the
+        /// game whose answer cannot be taken back.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator Shot17_SettingsAsking()
+        {
+            yield return LoadTheGame();
+            yield return Frames(2);
+
+            GameObject.Find("Settings").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            yield return Frames(2);
+
+            GameObject.Find(SettingsPanel.ResetButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            yield return Frames(30);
+
+            Assert.IsTrue(Find<SettingsPanel>().Confirming, "sanity: the settings should be asking");
+
+            yield return Capture("17-settings");
+        }
+
         private static bool AnyCollisionTakesBoth(SimulationRunner runner)
         {
             for (int id = 0; id < runner.View.EdgeCount; id++)

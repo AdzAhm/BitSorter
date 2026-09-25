@@ -254,7 +254,7 @@ your IP address. That set is Unity's, not mine, and
 tick counts, your personal bests, or any account, name or email. There is no
 login, and the game asks for nothing.
 
-**To turn it off:** main menu → **Data**. It toggles between `DATA ON` and
+**To turn it off:** main menu → **Settings** → **Data**. It toggles between `DATA ON` and
 `DATA OFF`, takes effect immediately, and is remembered on that machine. Turning
 it off stops collection rather than merely hiding it — the game tells Unity's
 consent framework that consent is denied, and nothing is queued or sent while it

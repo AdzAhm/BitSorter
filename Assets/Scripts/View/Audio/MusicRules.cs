@@ -57,9 +57,13 @@ namespace BitSorter.View
         /// level change: the level's own clip is kept underneath and resumes when the panel closes,
         /// which is exactly what the main menu already did. It only widens what counts as being in
         /// a menu.
+        ///
+        /// Settings counts for the same reason, and more plainly: it is reached only from the main
+        /// menu and goes back to it, and without it here the music faded to the level's track and
+        /// back again on the way through.
         /// </remarks>
-        public static bool WantsMenuMusic(bool mainMenuOpen, bool levelListOpen) =>
-            mainMenuOpen || levelListOpen;
+        public static bool WantsMenuMusic(bool mainMenuOpen, bool levelListOpen, bool settingsOpen) =>
+            mainMenuOpen || levelListOpen || settingsOpen;
 
         /// <summary>
         /// Which of the main menu's tracks a session opens on: either, by chance.

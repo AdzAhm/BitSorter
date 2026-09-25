@@ -74,7 +74,7 @@ namespace BitSorter.LogicCore.Tests
         [Test]
         public void NothingIsReported_WhenThePlayerHasTurnedItOff()
         {
-            // The main menu's Data item. Checked here as well as at the consent framework, so a
+            // The DATA switch in Settings. Checked here as well as at the consent framework, so a
             // player who said no does not even accumulate a queue waiting for an upload.
             Assert.IsFalse(AnalyticsRules.ShouldReport(RealLevel, reporting: false, unavailable: false));
         }
