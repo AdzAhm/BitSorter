@@ -508,6 +508,109 @@ namespace BitSorter.View
                 label.color = enabled ? Text : TextDim;
         }
 
+        /// <summary>How tall a slider's track is drawn; its handle and hit area are taller.</summary>
+        public const float SliderTrack = 6f;
+
+        /// <summary>A slider's handle, across.</summary>
+        public const float SliderHandle = 20f;
+
+        /// <summary>
+        /// A horizontal slider over whole numbers from <paramref name="min"/> to
+        /// <paramref name="max"/>: a thin track, the filled part of it, and a round handle.
+        /// </summary>
+        /// <remarks>
+        /// Built in code like every other control. The track is drawn thin but the whole height of
+        /// the slider takes the click -- a clear backing catches it, the way the level list's
+        /// viewport catches the wheel -- so it is as easy to hit as a button of that height.
+        ///
+        /// Navigation is off for the reason it is off on buttons: a selected slider answers the
+        /// arrow keys, and the right arrow steps a paused run.
+        /// </remarks>
+        public static Slider Slider_(string name, Transform parent, int min, int max)
+        {
+            RectTransform root = Rect(name, parent);
+
+            Image catcher = root.gameObject.AddComponent<Image>();
+            catcher.color = Color.clear;
+
+            // The track, the fill and the handle all span the same stretch, half a handle in from
+            // either end: the fill always ends exactly under the handle's middle, and at nothing no
+            // stub of track shows beyond it. The handle overhangs the ends by half itself, and the
+            // hit area covers that overhang.
+            float half = SliderHandle * 0.5f;
+
+            Image track = Panel_("track", root, PanelEdge);
+            track.sprite = null;   // thinner than a panel's corners, so a plain bar
+            track.raycastTarget = false;
+            HorizontalBar(track.rectTransform, half, SliderTrack);
+
+            RectTransform fillArea = Rect("fill area", root);
+            HorizontalBar(fillArea, half, SliderTrack);
+
+            Image fill = Panel_("fill", fillArea, Accent);
+            fill.sprite = null;
+            fill.raycastTarget = false;
+            Stretch(fill.rectTransform);
+
+            // A band exactly a handle tall, so the handle is as tall as it is wide and stays round
+            // whatever height the row gives the slider.
+            RectTransform handleArea = Rect("handle area", root);
+            HorizontalBar(handleArea, half, SliderHandle);
+
+            Image handle = Panel_("handle", handleArea, Text);
+            handle.sprite = ProceduralSprites.Circle();
+            handle.type = Image.Type.Simple;
+            handle.raycastTarget = false;
+
+            var slider = root.gameObject.AddComponent<Slider>();
+            slider.fillRect = fill.rectTransform;
+            slider.handleRect = handle.rectTransform;
+            slider.targetGraphic = handle;
+            slider.direction = Slider.Direction.LeftToRight;
+            slider.wholeNumbers = true;
+            slider.minValue = min;
+            slider.maxValue = max;
+            slider.transition = Selectable.Transition.None;   // SetEnabled draws the states
+
+            // The slider anchors the handle to its value down the whole band; this makes it a handle
+            // wide as well as a handle tall.
+            handle.rectTransform.sizeDelta = new Vector2(SliderHandle, 0f);
+
+            var navigation = slider.navigation;
+            navigation.mode = Navigation.Mode.None;
+            slider.navigation = navigation;
+
+            return slider;
+        }
+
+        /// <summary>
+        /// A band <paramref name="height"/> tall across the middle of its parent, stopping
+        /// <paramref name="inset"/> short of either end.
+        /// </summary>
+        private static void HorizontalBar(RectTransform rect, float inset, float height)
+        {
+            rect.anchorMin = new Vector2(0f, 0.5f);
+            rect.anchorMax = new Vector2(1f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.offsetMin = new Vector2(inset, -height * 0.5f);
+            rect.offsetMax = new Vector2(-inset, height * 0.5f);
+        }
+
+        /// <summary>
+        /// Makes a slider usable or not. Not usable is greyed out: the filled part and the handle
+        /// both go to the dim text colour, so nothing about it still reads as live.
+        /// </summary>
+        public static void SetEnabled(Slider slider, bool enabled)
+        {
+            slider.interactable = enabled;
+
+            if (slider.fillRect != null && slider.fillRect.TryGetComponent(out Image fill))
+                fill.color = enabled ? Accent : TextDim;
+
+            if (slider.handleRect != null && slider.handleRect.TryGetComponent(out Image handle))
+                handle.color = enabled ? Text : TextDim;
+        }
+
         /// <summary>
         /// Puts a panel in front of its siblings.
         /// </summary>

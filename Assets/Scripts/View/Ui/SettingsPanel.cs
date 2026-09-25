@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
@@ -6,8 +7,8 @@ using TMPro;
 namespace BitSorter.View
 {
     /// <summary>
-    /// The settings: sound, reporting, and starting over. Reached from the main menu, and goes back
-    /// to it.
+    /// The settings: sound and its volume, fullscreen on a desktop build, reporting, and starting
+    /// over. Reached from the main menu, and goes back to it.
     /// </summary>
     /// <remarks>
     /// A section is a heading, a line saying what the setting does, and the control. Sound and data
@@ -32,6 +33,13 @@ namespace BitSorter.View
 
         private TextMeshProUGUI _soundLabel;
         private TextMeshProUGUI _dataLabel;
+        private TextMeshProUGUI _fullscreenLabel;
+        private Slider _volume;
+        private TextMeshProUGUI _volumeLabel;
+        private TextMeshProUGUI _volumeValue;
+
+        /// <summary>The volume the readout last said, so it is rewritten only when it changes.</summary>
+        private int _shownVolume = -1;
         private TextMeshProUGUI _status;
         private RectTransform _resetButton;
         private RectTransform _question;
@@ -44,6 +52,12 @@ namespace BitSorter.View
 
         /// <summary>The buttons' object names, which the tests look for.</summary>
         public const string SoundButton = "Sound setting";
+
+        /// <inheritdoc cref="SoundButton"/>
+        public const string VolumeSlider = "Volume setting";
+
+        /// <inheritdoc cref="SoundButton"/>
+        public const string FullscreenButton = "Fullscreen setting";
 
         /// <inheritdoc cref="SoundButton"/>
         public const string DataButton = "Data setting";
@@ -60,17 +74,29 @@ namespace BitSorter.View
         /// <inheritdoc cref="SoundButton"/>
         public const string BackButton = "Settings back";
 
-        /// <summary>The section headings, in order down the screen.</summary>
-        public static readonly string[] Headings = { "AUDIO", "PRIVACY", "PROGRESS" };
+        public const string AudioHeading = "AUDIO";
+        public const string DisplayHeading = "DISPLAY";
+        public const string PrivacyHeading = "PRIVACY";
+        public const string ProgressHeading = "PROGRESS";
 
-        /// <summary>What each section says it does, beside its heading's index.</summary>
-        public static readonly string[] Descriptions =
-        {
-            "Music and sound effects, together. N does the same from anywhere.",
-            "Reports which levels people get stuck on. The README lists exactly what is sent.",
+        /// <summary>The section headings this build shows, in order down the screen.</summary>
+        /// <remarks>DISPLAY only where <see cref="DisplayRules.Offered"/> says the switch works.</remarks>
+        public static IReadOnlyList<string> Headings => DisplayRules.Offered ? WithDisplay : WithoutDisplay;
+
+        private static readonly string[] WithDisplay = { AudioHeading, DisplayHeading, PrivacyHeading, ProgressHeading };
+        private static readonly string[] WithoutDisplay = { AudioHeading, PrivacyHeading, ProgressHeading };
+
+        public const string AudioText =
+            "Music and sound effects, together. N switches the sound on and off from anywhere.";
+
+        public const string DisplayText = "Fill the screen, or play in a window. Alt+Enter does the same.";
+
+        public const string PrivacyText =
+            "Reports which levels people get stuck on. The README lists exactly what is sent.";
+
+        public const string ProgressText =
             "Forget every solved level, saved board, personal best and hint already shown, and " +
-            "start again from the tutorial. Sound and data settings stay as they are.",
-        };
+            "start again from the tutorial. Sound, display and data settings stay as they are.";
 
         /// <summary>The question RESET PROGRESS asks.</summary>
         public const string Question = "Reset all progress? This cannot be undone.";
@@ -144,6 +170,13 @@ namespace BitSorter.View
         private const float StatusHeight = 24f;
         private const float BackWidth = 120f;
 
+        /// <summary>The volume row: as tall as a stepper needs to be to hit, with a caption each side.</summary>
+        private const float VolumeHeight = 32f;
+        private const float VolumeGap = 10f;
+        private const float VolumeLabelWidth = 110f;
+        private const float VolumeSliderWidth = 300f;
+        private const float VolumeValueWidth = 70f;
+
         private void Build()
         {
             Image scrim = UiTheme.Scrim("Settings", _canvas.transform, Palette.Current.MenuScrim);
@@ -160,17 +193,27 @@ namespace BitSorter.View
             Place(title.rectTransform, column.Take(TitleHeight, TitleGap), ColumnWidth, TitleHeight);
             title.text = "SETTINGS";
 
-            Section(block, column, 0);
+            Section(block, column, AudioHeading, AudioText);
             Button sound = Control(block, column, SoundButton, out _soundLabel, ButtonRole.Secondary);
             sound.onClick.AddListener(() => Fire(ToggleSound));
+            column.Space(VolumeGap);
+            BuildVolume(block, column);
             column.Space(SectionGap);
 
-            Section(block, column, 1);
+            if (DisplayRules.Offered)
+            {
+                Section(block, column, DisplayHeading, DisplayText);
+                Button fullscreen = Control(block, column, FullscreenButton, out _fullscreenLabel, ButtonRole.Secondary);
+                fullscreen.onClick.AddListener(() => Fire(ToggleFullscreen));
+                column.Space(SectionGap);
+            }
+
+            Section(block, column, PrivacyHeading, PrivacyText);
             Button data = Control(block, column, DataButton, out _dataLabel, ButtonRole.Secondary);
             data.onClick.AddListener(() => Fire(ToggleData));
             column.Space(SectionGap);
 
-            Section(block, column, 2);
+            Section(block, column, ProgressHeading, ProgressText);
             BuildReset(block, column);
 
             UiTheme.Anchor(block, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
@@ -190,25 +233,24 @@ namespace BitSorter.View
         }
 
         /// <summary>A heading with a rule under it, then the line saying what the section is for.</summary>
-        private static void Section(RectTransform block, UiColumn column, int index)
+        private static void Section(RectTransform block, UiColumn column, string title, string text)
         {
             float top = column.Take(HeadingHeight, HeadingRuleGap);
 
             // A size up from the level list's chapter headings: those label a run of rows, these
-            // label a screen's worth of sections, and there are only three of them.
+            // label a screen's worth of sections, and there are only a handful of them.
             TextMeshProUGUI heading = UiTheme.Label(
                 "heading", block, UiType.Label, UiTheme.Text, TextAlignmentOptions.BottomLeft);
             heading.fontStyle = FontStyles.Bold;
             heading.characterSpacing = 6f;
             Place(heading.rectTransform, top, ColumnWidth, HeadingHeight);
-            heading.text = Headings[index];
+            heading.text = title;
 
             // Two pixels: shorter than a panel's corners, so a plain hairline like the menu's.
             Image rule = UiTheme.Panel_("rule", block, Palette.Current.Rule);
             rule.sprite = null;
             Place(rule.rectTransform, column.Take(2f, HeadingGap), ColumnWidth, 2f);
 
-            string text = Descriptions[index];
             float height = DescriptionHeight(text);
 
             TextMeshProUGUI description = UiTheme.Label(
@@ -229,6 +271,41 @@ namespace BitSorter.View
             PlaceLeft(button.GetComponent<RectTransform>(), column.Take(UiTheme.ButtonHeight),
                 0f, ButtonWidth, UiTheme.ButtonHeight);
             return button;
+        }
+
+        /// <summary>
+        /// The volume, under the switch it depends on: a caption, the slider, and what it is set to.
+        /// </summary>
+        /// <remarks>
+        /// Applied at every step of a drag, so the player hears it change, and written out once when
+        /// the drag lets go. Greyed out and locked while the sound is off, because a volume for
+        /// silence is a control that visibly does nothing -- see <see cref="Refresh"/>.
+        /// </remarks>
+        private void BuildVolume(RectTransform block, UiColumn column)
+        {
+            float top = column.Take(VolumeHeight);
+
+            _volumeLabel = UiTheme.Label(
+                "volume label", block, UiType.Label, UiTheme.Text, TextAlignmentOptions.MidlineLeft);
+            PlaceLeft(_volumeLabel.rectTransform, top, 0f, VolumeLabelWidth, VolumeHeight);
+            _volumeLabel.text = "VOLUME";
+
+            _volume = UiTheme.Slider_(VolumeSlider, block, 0, 100);
+            PlaceLeft(_volume.GetComponent<RectTransform>(), top, VolumeLabelWidth, VolumeSliderWidth, VolumeHeight);
+            _volume.SetValueWithoutNotify(GameAudio.Volume);
+            _volume.onValueChanged.AddListener(OnVolume);
+            _volume.gameObject.AddComponent<PointerRelease>().Released += GameAudio.KeepVolume;
+
+            _volumeValue = UiTheme.Label(
+                "volume value", block, UiType.Label, UiTheme.Text, TextAlignmentOptions.MidlineRight);
+            PlaceLeft(_volumeValue.rectTransform, top, VolumeLabelWidth + VolumeSliderWidth,
+                VolumeValueWidth, VolumeHeight);
+        }
+
+        private void OnVolume(float value)
+        {
+            if (_audio != null)
+                _audio.SetVolume(Mathf.RoundToInt(value), keep: false);
         }
 
         /// <summary>
@@ -298,8 +375,30 @@ namespace BitSorter.View
         /// </summary>
         private void Refresh()
         {
-            _soundLabel.text = GameAudio.Muted ? "SOUND  OFF" : "SOUND  ON";
+            bool sound = !GameAudio.Muted;
+
+            _soundLabel.text = sound ? "SOUND  ON" : "SOUND  OFF";
             _dataLabel.text = GameAnalytics.Reporting ? "DATA  ON" : "DATA  OFF";
+
+            if (_fullscreenLabel != null)
+                _fullscreenLabel.text = Screen.fullScreen ? "FULLSCREEN  ON" : "FULLSCREEN  OFF";
+
+            // Greyed out and locked with the sound off, and live again the moment it is back on --
+            // N included, which is why this is asked every frame rather than on the button's click.
+            UiTheme.SetEnabled(_volume, sound);
+            _volumeLabel.color = sound ? UiTheme.Text : UiTheme.TextDim;
+            _volumeValue.color = sound ? UiTheme.Text : UiTheme.TextDim;
+
+            int volume = GameAudio.Volume;
+
+            if (volume != _shownVolume)
+            {
+                _shownVolume = volume;
+                _volumeValue.text = volume + "%";
+
+                if (Mathf.RoundToInt(_volume.value) != volume)
+                    _volume.SetValueWithoutNotify(volume);
+            }
         }
 
         private void ToggleSound()
@@ -309,6 +408,30 @@ namespace BitSorter.View
         }
 
         private static void ToggleData() => GameAnalytics.SetReporting(!GameAnalytics.Reporting);
+
+        /// <summary>
+        /// Fullscreen at the display's own size, or back to a window the size the game opens at.
+        /// </summary>
+        /// <remarks>
+        /// Unity remembers the choice for the next launch itself. Changing the mode alone kept the
+        /// fullscreen resolution on the way out -- a window the size of the display, title bar off
+        /// the top -- so the size is always given with it (<see cref="DisplayRules.WindowedSize"/>).
+        /// </remarks>
+        private static void ToggleFullscreen()
+        {
+            int width = Display.main.systemWidth;
+            int height = Display.main.systemHeight;
+
+            if (Screen.fullScreen)
+            {
+                Vector2Int window = DisplayRules.WindowedSize(width, height);
+                Screen.SetResolution(window.x, window.y, FullScreenMode.Windowed);
+            }
+            else
+            {
+                Screen.SetResolution(width, height, FullScreenMode.FullScreenWindow);
+            }
+        }
 
         // -----------------------------------------------------------------
         // Starting over
@@ -369,8 +492,14 @@ namespace BitSorter.View
 
             SetConfirming(false);
             _status.text = string.Empty;
+            _shownVolume = -1;
             Refresh();
         }
+
+        /// <summary>
+        /// A drag keeps its volume when it lets go; this keeps one that was somehow left staged.
+        /// </summary>
+        protected override void OnHidden() => GameAudio.KeepVolume();
 
         private static void Fire(System.Action action)
         {

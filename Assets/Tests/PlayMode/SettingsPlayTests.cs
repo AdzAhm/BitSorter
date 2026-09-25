@@ -171,6 +171,93 @@ namespace BitSorter.PlayMode.Tests
             Assert.AreEqual(before, GameAudio.Muted, "the sound setting did not switch the sound back");
         }
 
+        /// <summary>The volume sits under the sound switch, which it depends on.</summary>
+        [UnityTest]
+        public IEnumerator TheVolume_SitsUnderTheSoundSwitch()
+        {
+            yield return TestScene.Load();
+            yield return OpenSettings();
+
+            Rect sound = ScreenRect(OnScreen(SettingsPanel.SoundButton));
+            Rect volume = ScreenRect(VolumeSlider());
+
+            Assert.LessOrEqual(volume.yMax, sound.yMin, "the volume is not under the sound switch");
+            Assert.Less(Mathf.Abs(volume.center.x - sound.center.x), 400f, "the volume is not beside it either");
+        }
+
+        /// <summary>
+        /// With the sound off the volume is greyed out and cannot be moved; with it back on, it can.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator WithTheSoundOff_TheVolumeIsGreyedOutAndLocked()
+        {
+            yield return TestScene.Load();
+            yield return OpenSettings();
+
+            Slider volume = VolumeSlider();
+            Assert.IsFalse(GameAudio.Muted, "sanity: a fresh machine starts with the sound on");
+            Assert.IsTrue(volume.interactable, "the volume is locked with the sound on");
+
+            yield return Click(SettingsPanel.SoundButton);
+
+            Assert.IsTrue(GameAudio.Muted, "sanity: the sound switch should have turned the sound off");
+            Assert.IsFalse(volume.interactable, "the volume can still be moved with the sound off");
+            Assert.AreEqual(UiTheme.TextDim, volume.handleRect.GetComponent<Image>().color,
+                "the volume's handle is not greyed out with the sound off");
+
+            yield return Click(SettingsPanel.SoundButton);
+
+            Assert.IsFalse(GameAudio.Muted);
+            Assert.IsTrue(volume.interactable, "the volume stayed locked once the sound was back on");
+            Assert.AreEqual(UiTheme.Text, volume.handleRect.GetComponent<Image>().color,
+                "the volume's handle stayed grey once the sound was back on");
+        }
+
+        /// <summary>
+        /// Moving the volume scales the music at once, and remembers where it was put.
+        /// </summary>
+        /// <remarks>
+        /// Both readings are taken in the same frame, so the menu music's own fade cannot move
+        /// between them: half the volume is half the music, whatever the music is doing.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator TheVolume_ScalesTheMusic()
+        {
+            yield return TestScene.Load();
+            yield return OpenSettings();
+
+            Slider volume = VolumeSlider();
+            AudioSource music = Find<GameAudio>().MusicSource;
+
+            volume.value = 100;
+            float full = music.volume;
+            Assert.Greater(full, 0f, "sanity: the music should be playing at some volume");
+
+            volume.value = 50;
+            Assert.AreEqual(50, GameAudio.Volume, "the slider did not set the volume");
+            Assert.AreEqual(full * 0.5f, music.volume, 1e-4f, "half the volume is not half the music");
+
+            volume.value = GameAudio.DefaultVolume;   // the fixture shares its scratch preferences
+        }
+
+        /// <summary>A desktop build, and the editor, offer the fullscreen switch under DISPLAY.</summary>
+        [UnityTest]
+        public IEnumerator TheDisplaySection_OffersFullscreen()
+        {
+            yield return TestScene.Load();
+            yield return OpenSettings();
+
+            Button fullscreen = OnScreen(SettingsPanel.FullscreenButton);
+            StringAssert.StartsWith("FULLSCREEN", fullscreen.GetComponentInChildren<TextMeshProUGUI>().text);
+        }
+
+        private static Slider VolumeSlider()
+        {
+            GameObject found = GameObject.Find(SettingsPanel.VolumeSlider);
+            Assert.IsNotNull(found, "no volume slider on screen");
+            return found.GetComponent<Slider>();
+        }
+
         /// <summary>
         /// Each section's line fits its box. The box is measured from the text, so this guards the
         /// measuring being bypassed rather than any one line's length.

@@ -44,6 +44,9 @@ installed and nothing is written outside your own user folder.
 Windows will probably warn that it does not recognise the publisher — the build
 is unsigned, which is all that warning means. "More info", then "Run anyway".
 
+**Settings**, on the main menu, has the sound and its volume, fullscreen on
+Windows (`Alt`+`Enter` works too), the data switch, and a way to start over.
+
 The bottom-right corner of the main menu says which version you are running,
 which is worth including if you report a bug.
 

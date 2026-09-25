@@ -188,6 +188,44 @@ namespace BitSorter.View
         /// </remarks>
         public void SetMuted(bool muted) => Muted = muted;
 
+        private const string VolumeKey = "bitsorter.volume";
+
+        /// <summary>The volume a machine starts at: all of the game's own mix.</summary>
+        public const int DefaultVolume = 100;
+
+        /// <summary>The player's volume, 0 to 100 percent, over the music and every cue alike.</summary>
+        /// <remarks>
+        /// One volume for everything, for the reason there is one mute: every cue says something the
+        /// screen also says, so there is nothing to gain from balancing the two. It scales the
+        /// game's own mix rather than replacing it, so 100 is exactly how the game sounded before
+        /// there was a slider. Kept in <see cref="Preferences"/> beside the mute, and like the mute
+        /// it describes this machine's speakers, not the player's progress -- a reset keeps it.
+        /// </remarks>
+        public static int Volume => Mathf.Clamp(Preferences.GetInt(VolumeKey, DefaultVolume), 0, 100);
+
+        /// <summary>
+        /// Sets the volume and applies it at once. <paramref name="keep"/> writes it out; a drag
+        /// passes false for every step and keeps it once, on release.
+        /// </summary>
+        public void SetVolume(int percent, bool keep)
+        {
+            percent = Mathf.Clamp(percent, 0, 100);
+
+            if (keep)
+                Preferences.SetInt(VolumeKey, percent);
+            else
+                Preferences.Stage(VolumeKey, percent);
+
+            if (_musicSource != null)
+                ApplyVolume();
+        }
+
+        /// <summary>Writes out a volume staged during a drag.</summary>
+        public static void KeepVolume() => Preferences.Save();
+
+        /// <summary>The scale every sound is played at: the game's own mix, times the player's volume.</summary>
+        private float Master => _masterVolume * Volume / 100f;
+
         private int _tick = -1;
         private int _gatesFired;
         private int _binsLanded;
@@ -287,7 +325,7 @@ namespace BitSorter.View
             _musicSource = gameObject.AddComponent<AudioSource>();
             _musicSource.playOnAwake = false;
             _musicSource.spatialBlend = 0f;
-            _musicSource.volume = ProceduralAudio.VolumeOf(Cue.Music) * _masterVolume;
+            _musicSource.volume = ProceduralAudio.VolumeOf(Cue.Music) * Master;
             _musicSource.mute = Muted;
         }
 
@@ -576,7 +614,7 @@ namespace BitSorter.View
         }
 
         private void ApplyVolume() =>
-            _musicSource.volume = ProceduralAudio.VolumeOf(Cue.Music) * _masterVolume * _gain *
+            _musicSource.volume = ProceduralAudio.VolumeOf(Cue.Music) * Master * _gain *
                                   (_onMenu ? MenuTrackGain : 1f);
 
         /// <summary>
@@ -719,10 +757,12 @@ namespace BitSorter.View
 
         private void Play(Cue cue)
         {
-            if (Muted || _source == null || _masterVolume <= 0f)
+            float master = Master;
+
+            if (Muted || _source == null || master <= 0f)
                 return;
 
-            _source.PlayOneShot(ProceduralAudio.Clip(cue), ProceduralAudio.VolumeOf(cue) * _masterVolume);
+            _source.PlayOneShot(ProceduralAudio.Clip(cue), ProceduralAudio.VolumeOf(cue) * master);
             CuesPlayed++;
         }
     }

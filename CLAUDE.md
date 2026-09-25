@@ -750,6 +750,15 @@ failure side.
   PlayerPrefs key still says music, deliberately: renaming it would reset the
   preference of anyone who had already turned the sound off.
 
+  **One volume under it, for everything, for the same reason** --
+  `GameAudio.Volume`, in Settings, asked for after a playtest on 2026-09-26.
+  It scales the game's own mix, so 100% is exactly how the game sounded before
+  it existed, and it is greyed out and locked while the sound is off: a volume
+  for silence is a control that visibly does nothing. A drag applies every
+  step at once and writes once, on release (`Preferences.Stage`,
+  `PointerRelease`), because `Preferences.SetInt` writes the whole of
+  PlayerPrefs out each time -- to the browser's storage, in a web build.
+
   Music is rendered at half the sample rate the cues are. Nothing in it comes
   near that Nyquist limit, and it halves what each long uncompressed clip costs.
   **At most three tracks are held at once** -- the one playing, the next one
@@ -1027,9 +1036,18 @@ order: a card dismissed in the frame it appeared was never seen, and the ending
 waited for a card that had already come and gone. `PresentedThisRun` is set in
 the call that presents the card, so there is nothing to catch.
 
-**Settings is sound, the data switch, and starting over.** `SettingsPanel` is
-reached only from the main menu and goes back to it, and it plays the menu's
-music. Sound and Data were rows of the menu until it existed.
+**Settings is sound and its volume, fullscreen, the data switch, and starting
+over.** `SettingsPanel` is reached only from the main menu and goes back to it,
+and it plays the menu's music. Sound and Data were rows of the menu until it
+existed.
+
+**Fullscreen is a desktop build's alone** (`DisplayRules.Offered`): in a
+browser the page has its own button, and fullscreen there is the browser's to
+grant. Leaving it sets the window the game opens at, never the mode alone --
+the mode alone kept the fullscreen resolution, a window the size of the display
+with its title bar off the top. `DisplayRules.PreferredWindow` restates the
+player settings' default size, and `DisplayRulesTests` reads the project file
+to hold the two together. Unity remembers the choice between launches itself.
 
 **A reset asks first, and a double-click cannot answer.** RESET PROGRESS puts
 its question where the button was, exactly the button's height, with CANCEL

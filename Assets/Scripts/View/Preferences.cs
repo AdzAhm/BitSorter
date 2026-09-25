@@ -69,5 +69,35 @@ namespace BitSorter.View
             PlayerPrefs.SetInt(key, value);
             PlayerPrefs.Save();
         }
+
+        /// <summary>
+        /// Stores a value without writing it out, for a setting that changes many times in one
+        /// gesture.
+        /// </summary>
+        /// <remarks>
+        /// A volume slider moves through dozens of values in one drag, and <see cref="SetInt"/>
+        /// writes the whole of PlayerPrefs out every time -- to the registry on Windows, and to the
+        /// browser's storage in a web build. The value is live at once and read back like any
+        /// other; <see cref="Save"/> writes it when the gesture ends.
+        /// </remarks>
+        public static void Stage(string key, int value)
+        {
+            Dictionary<string, int> scratch = Redirected;
+
+            if (scratch != null)
+            {
+                scratch[key] = value;
+                return;
+            }
+
+            PlayerPrefs.SetInt(key, value);
+        }
+
+        /// <summary>Writes out anything staged. Nothing to write while redirected.</summary>
+        public static void Save()
+        {
+            if (Redirected == null)
+                PlayerPrefs.Save();
+        }
     }
 }

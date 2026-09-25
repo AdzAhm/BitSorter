@@ -142,5 +142,53 @@ namespace BitSorter.LogicCore.Tests
             Assert.AreEqual(before, PlayerPrefs.GetInt(realKey, -1),
                 "flipping the mute in a test changed the machine's real setting");
         }
+
+        /// <summary>
+        /// A staged value is live at once, read back like any other, and never reaches PlayerPrefs
+        /// while redirected -- nor does the save that follows it.
+        /// </summary>
+        [Test]
+        public void AStagedWrite_IsReadBack_AndNeverReachesPlayerPrefs()
+        {
+            Preferences.Stage(ScratchKey, 7);
+
+            Assert.AreEqual(7, Preferences.GetInt(ScratchKey, 0), "a staged value should read back at once");
+            Assert.DoesNotThrow(Preferences.Save);
+            Assert.IsFalse(PlayerPrefs.HasKey(ScratchKey), "a redirected stage reached the machine's real settings");
+        }
+
+        /// <summary>
+        /// The volume starts at all of the game's own mix, and never goes below nothing or above it.
+        /// </summary>
+        /// <remarks>
+        /// 100 is how the game sounded before there was a slider, so a machine that has never
+        /// touched it hears no change. Kept or staged, an out-of-range value lands at the nearer end.
+        /// </remarks>
+        [Test]
+        public void TheVolume_StartsFull_AndStaysBetweenSilenceAndFull()
+        {
+            Assert.AreEqual(100, GameAudio.DefaultVolume, "full volume is how the game sounded before the slider");
+            Assert.AreEqual(GameAudio.DefaultVolume, GameAudio.Volume, "a fresh machine should start at full volume");
+
+            var host = new GameObject("volume test");
+
+            try
+            {
+                GameAudio audio = host.AddComponent<GameAudio>();
+
+                audio.SetVolume(250, keep: true);
+                Assert.AreEqual(100, GameAudio.Volume, "the volume went above full");
+
+                audio.SetVolume(-5, keep: false);
+                Assert.AreEqual(0, GameAudio.Volume, "the volume went below silence");
+
+                audio.SetVolume(40, keep: false);
+                Assert.AreEqual(40, GameAudio.Volume, "a staged volume did not read back");
+            }
+            finally
+            {
+                Object.DestroyImmediate(host);
+            }
+        }
     }
 }
