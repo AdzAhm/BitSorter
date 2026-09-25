@@ -27,7 +27,12 @@ namespace BitSorter.View
     {
         [SerializeField] private SimulationRunner _runner;
         [SerializeField] private GameObject _bitPrefab;
-        [SerializeField] private float _bitSize = 0.42f;
+        [SerializeField] private float _bitSize = DefaultBitSize;
+
+        /// <summary>
+        /// A bit's size on the board before the look scales it, which the wire's number keeps clear of.
+        /// </summary>
+        public const float DefaultBitSize = 0.42f;
 
         [SerializeField] private SparkEffects _sparks;
         [SerializeField] private float _glowScale = 2.4f;

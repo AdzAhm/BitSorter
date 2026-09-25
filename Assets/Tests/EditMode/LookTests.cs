@@ -24,6 +24,38 @@ namespace BitSorter.LogicCore.Tests
             Assert.AreSame(Palette.Classic, classic.Colours);
         }
 
+        /// <summary>
+        /// In every look, a wire's delay number sits clear of the bits passing along that wire.
+        /// </summary>
+        /// <remarks>
+        /// Where a digit passed under the number, every 0 went by with a 1 printed over its head.
+        /// The number was made a third larger after a playtest said it was too small, and its
+        /// distance from the wire is now worked out from the bit and the pill; this holds that
+        /// working to its purpose. Measured against the bit's box on a straight wire -- a digit's
+        /// ink is narrower than its box, which is the slack a diagonal wire uses.
+        /// </remarks>
+        [Test]
+        public void EveryLook_KeepsAWiresNumberClearOfItsBits()
+        {
+            try
+            {
+                foreach (Look look in Look.All)
+                {
+                    Look.Use(look);
+
+                    float halfABit = BitRenderer.DefaultBitSize * look.BitScale * 0.5f;
+
+                    Assert.Greater(EdgeRenderer.LabelInnerEdge, halfABit,
+                        $"in {look.Name} the wire's number starts {EdgeRenderer.LabelInnerEdge:F3} from the " +
+                        $"wire and a bit reaches {halfABit:F3}, so the bits pass under the number");
+                }
+            }
+            finally
+            {
+                Look.Use(null);
+            }
+        }
+
         /// <summary>Every look can be found by its name, and no two share one.</summary>
         [Test]
         public void EveryLook_IsNamedOnce()

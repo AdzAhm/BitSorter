@@ -51,20 +51,36 @@ namespace BitSorter.View
         /// Grown with the bits, so a larger bit passes beside its wire's number rather than under
         /// it. Where a digit passed under it, every 0 on the board went by with a 1 printed over
         /// its head.
+        ///
+        /// Worked out from the bit and the pill rather than stated: half a bit, a gap, half the pill.
+        /// It was a constant times the bit's scale, which held only while the pill stayed the size
+        /// it was tuned against -- grown a third, it would have touched the bits in Classic.
         /// </remarks>
-        private static float LabelOffset => LabelClearance * Look.Current.BitScale;
+        private static float LabelOffset =>
+            BitRenderer.DefaultBitSize * Look.Current.BitScale * 0.5f + LabelGap + LabelPill.y * 0.5f;
 
-        /// <inheritdoc cref="LabelOffset"/>
-        private const float LabelClearance = 0.34f;
+        /// <summary>Clear space between a passing bit and the number's pill.</summary>
+        private const float LabelGap = 0.03f;
+
+        /// <summary>
+        /// How far from the wire's centreline the number's pill begins, for the test that keeps it
+        /// clear of the bits.
+        /// </summary>
+        public static float LabelInnerEdge => LabelOffset - LabelPill.y * 0.5f;
 
         /// <summary>The number's size, at rest and under the cursor.</summary>
-        private const float LabelFontSize = 1.5f;
+        /// <remarks>
+        /// A third larger than it was: in a playtest, 2026-09-25, the numbers read as "a bit smaller
+        /// than expected" -- they are the only thing on the board that says what scrolling a wire
+        /// did, so they should be read at a glance.
+        /// </remarks>
+        private const float LabelFontSize = 2.0f;
 
         /// <inheritdoc cref="LabelFontSize"/>
-        private const float LabelHoverFontSize = 1.8f;
+        private const float LabelHoverFontSize = 2.4f;
 
-        /// <summary>The dark pill behind the number, in world units.</summary>
-        private static readonly Vector2 LabelPill = new Vector2(0.26f, 0.21f);
+        /// <summary>The dark pill behind the number, in world units, grown with the number.</summary>
+        private static readonly Vector2 LabelPill = new Vector2(0.35f, 0.28f);
 
         /// <summary>Index into <see cref="_labels"/> of the one drawn large, or -1.</summary>
         private int _hoveredLabel = -1;
