@@ -953,6 +953,109 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
+        /// F3 pressed behind a full-screen panel toggles nothing; pressed on the board it toggles both
+        /// readouts.
+        /// </summary>
+        /// <remarks>
+        /// A panel over the board owns the keyboard -- every board key asks UiModal first -- and F3
+        /// was the one that did not. Pressed on the main menu it did nothing visible, and the
+        /// diagram and diagnostics then appeared from nowhere when the menu closed. The second half
+        /// is the positive control, so the first cannot pass by F3 never being read at all.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator F3BehindAFullScreenPanel_TogglesNothing()
+        {
+            yield return TestScene.Load();
+            yield return SkipTheTutorial();
+            yield return null;
+
+            Assert.IsTrue(Find<MainMenu>().IsOpen, "sanity: the game boots into the main menu");
+
+            ClockDiagram diagram = Find<ClockDiagram>();
+            DiagnosticsPanel diagnostics = Find<DiagnosticsPanel>();
+
+            yield return PressKey(_keyboard.f3Key);
+            Release(_keyboard.f3Key);
+            yield return null;
+
+            Assert.IsFalse(Shown(diagram), "F3 behind the main menu switched the timing diagram on");
+            Assert.IsFalse(Shown(diagnostics), "F3 behind the main menu switched diagnostics on");
+
+            yield return CloseTheMainMenu();
+
+            yield return PressKey(_keyboard.f3Key);
+            Release(_keyboard.f3Key);
+            yield return null;
+
+            Assert.IsTrue(Shown(diagram), "F3 on the board did not switch the timing diagram on");
+            Assert.IsTrue(Shown(diagnostics), "F3 on the board did not switch diagnostics on");
+        }
+
+        /// <summary>Whether a toggled readout is switched on, which is private to it.</summary>
+        private static bool Shown(MonoBehaviour readout)
+        {
+            FieldInfo field = readout.GetType().GetField("_shown", BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.IsNotNull(field, $"{readout.GetType().Name} no longer keeps its state in _shown");
+            return (bool)field.GetValue(readout);
+        }
+
+        /// <summary>
+        /// Escape with the help panel open closes the help and opens nothing, whichever of the two
+        /// Unity updates first.
+        /// </summary>
+        /// <remarks>
+        /// Escape closes what is on top, and the open help panel is on top of the board. Once
+        /// Escape became the main menu's key, pressing it to put the help away covered the whole
+        /// screen with the menu instead.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator AnEscapeWithTheHelpOpen_ClosesItAndOpensNothing_WhenTheMenuLooksFirst() =>
+            EscapeOverTheHelp(menuFirst: true);
+
+        /// <inheritdoc cref="AnEscapeWithTheHelpOpen_ClosesItAndOpensNothing_WhenTheMenuLooksFirst"/>
+        [UnityTest]
+        public IEnumerator AnEscapeWithTheHelpOpen_ClosesItAndOpensNothing_WhenTheHelpLooksFirst() =>
+            EscapeOverTheHelp(menuFirst: false);
+
+        private IEnumerator EscapeOverTheHelp(bool menuFirst)
+        {
+            yield return TestScene.Load();
+            yield return SkipTheTutorial();
+            yield return CloseTheMainMenu();
+
+            HelpPanel help = Find<HelpPanel>();
+            MainMenu menu = Find<MainMenu>();
+
+            yield return PressKey(_keyboard.hKey);
+            Release(_keyboard.hKey);
+            yield return null;
+            Assert.IsTrue(Shown(help), "sanity: H should open the help panel");
+
+            HoldUpdate(menu);
+            HoldUpdate(help);
+
+            yield return PressEscape();
+
+            if (menuFirst)
+            {
+                FrameOf(menu)();
+                FrameOf(help)();
+            }
+            else
+            {
+                FrameOf(help)();
+                FrameOf(menu)();
+            }
+
+            Assert.IsFalse(Shown(help), "Escape did not close the help panel");
+            Assert.IsFalse(menu.IsOpen, "one Escape closed the help and opened the main menu as well");
+
+            Release(_keyboard.escapeKey);
+            menu.enabled = true;
+            help.enabled = true;
+        }
+
+        /// <summary>
         /// A hint up when a full-screen panel opens is held, not spent.
         /// </summary>
         /// <remarks>
