@@ -115,20 +115,33 @@ namespace BitSorter.View
         /// <remarks>
         /// Neither end wraps any more, and a key that does nothing and says nothing reads as a broken
         /// key. The toast is decided by where the player is, not by the load failing, so a level that
-        /// failed to load for some other reason is not blamed on the run ending. From the tutorial
-        /// or free play -- off the run, index -1 -- there is always somewhere to step to.
+        /// failed to load for some other reason is not blamed on the run ending. The tutorial comes
+        /// before the first level, so Q there says so; free play is not one of the levels, so
+        /// neither key leaves it.
         /// </remarks>
         private void StepLevel(int step, string atTheEnd)
         {
+            if (_session.LevelName == SandboxLevel.Key)
+            {
+                _runner.RejectEdit(NotALevel);
+                return;
+            }
+
             int current = _session.LevelIndex;
 
-            if (current >= 0 && LevelSession.NextIndex(current, step, _session.AvailableLevels.Count) < 0)
+            if (LevelSession.NextIndex(current, step, _session.AvailableLevels.Count) < 0)
             {
-                _runner.RejectEdit(atTheEnd);
+                _runner.RejectEdit(current < 0 ? BeforeTheFirst : atTheEnd);
                 return;
             }
 
             _session.CycleLevel(step);
         }
+
+        /// <summary>What Q says in the tutorial, which comes before the first level.</summary>
+        public const string BeforeTheFirst = "The tutorial comes before the first level.";
+
+        /// <summary>What Q and E say in free play, which is not one of the levels.</summary>
+        public const string NotALevel = "Free play is not one of the levels.";
     }
 }

@@ -374,6 +374,11 @@ namespace BitSorter.View
             if (all.Count == 0 || step == 0)
                 return false;
 
+            // Free play is not one of the levels and has no place in the run to step from. From
+            // there Q went to the last level -- a chapter the player may never have reached.
+            if (_levelName == SandboxLevel.Key)
+                return false;
+
             int next = NextIndex(LevelIndex, step, all.Count);
             return next >= 0 && LoadLevel(all[next]);
         }
@@ -381,7 +386,7 @@ namespace BitSorter.View
         /// <summary>
         /// Where a step of <paramref name="step"/> lands from <paramref name="current"/>, or -1 past
         /// either end of the run. A negative <paramref name="current"/> means the level is not in
-        /// the list.
+        /// the list, and counts as before its first level.
         /// </summary>
         /// <remarks>
         /// It used to wrap, so Q on the first level went to the last -- into a chapter the player
@@ -389,15 +394,20 @@ namespace BitSorter.View
         /// the last level wrapping to the first would be the same surprise the other way round, and
         /// the solved card already treats the last level as having nowhere to go
         /// (<see cref="WinPanel.HasSomewhereToGo"/>).
+        ///
+        /// Off the run is before the start of it, because the board that is off the run and reached
+        /// by Q and E is the tutorial, which comes before the first level: E goes to the first
+        /// level and Q goes nowhere. Q used to start at the far end, so the fix above held on the
+        /// first level and not one step earlier -- and a fresh save starts in the tutorial, so that
+        /// was where most players first pressed Q. Free play is refused before it gets here.
         /// </remarks>
         public static int NextIndex(int current, int step, int count)
         {
             if (count <= 0)
                 return -1;
 
-            // An unrecognised current level starts the walk at one end rather than nowhere.
             if (current < 0)
-                return step > 0 ? 0 : count - 1;
+                return step > 0 ? 0 : -1;
 
             int next = current + step;
             return next < 0 || next >= count ? -1 : next;
