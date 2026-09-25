@@ -221,6 +221,47 @@ namespace BitSorter.PlayMode.Tests
             StringAssert.Contains("Right click", shown, "the strip does not say how to take it off");
         }
 
+        /// <summary>
+        /// The NOT put down on the wrong square is named, and so is the way to take it back.
+        /// </summary>
+        /// <remarks>
+        /// The sibling of the decoy case, found in the sweep after that playtest. There is one NOT,
+        /// so once it is on another square the strip's "click the highlighted square to put it
+        /// down" asks for a part the player no longer has, and the click is refused.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator TheNotOnTheWrongSquare_IsNamed_AndSoIsTheWayBack()
+        {
+            yield return LoadScene();
+            yield return CloseTheMainMenu();
+
+            TutorialDirector director = Find<TutorialDirector>();
+            LevelSession session = Find<LevelSession>();
+
+            yield return BeginTutorial(director);
+            yield return PressStart();
+
+            Vector2Int elsewhere = TutorialLevel.GateCell + Vector2Int.up;
+            Assert.IsTrue(session.TryPlaceGate(TutorialLevel.Part, elsewhere),
+                "sanity: the NOT could not be put on another square");
+
+            yield return null;
+            yield return null;
+
+            string shown = TutorialText();
+
+            // Every step's own line assumes the NOT is still to be put down, so none of them fits.
+            foreach (TutorialStep step in TutorialScript.Steps)
+            {
+                Assert.AreNotEqual(step.Text, shown,
+                    $"the strip still says step '{step.Id}', with the only NOT on the wrong square");
+            }
+
+            StringAssert.Contains(GatePalette.Label(TutorialLevel.Part), shown,
+                "the strip does not name the NOT that is on the wrong square");
+            StringAssert.Contains("Right click", shown, "the strip does not say how to take it back");
+        }
+
         /// <summary>What the instruction strip is saying.</summary>
         private static string TutorialText()
         {
