@@ -1,10 +1,12 @@
 # The `LevelLoaded` pipeline
 
-**Status: written up, not built.** This is the design note asked for before
-committing to the work. Nothing here is implemented.
+**Status: written up, not built** -- still true at 3.0.2. This is the design note
+asked for before committing to the work. Nothing here is implemented, and the
+table below was brought up to date on 2026-09-26: a tenth subscriber has joined
+since it was written, which is the drift this note warns about.
 
 `LevelSession.LevelLoaded` started as a notification — "a new level is on the
-board, redraw yourself" — and has become an initialisation pipeline with nine
+board, redraw yourself" — and has become an initialisation pipeline with ten
 stages, an order that matters, and no declaration of what that order is. Two
 shipped bugs came out of it. This is what it does today, what it needs, and what
 fixing it would look like.
@@ -13,7 +15,7 @@ fixing it would look like.
 
 ## What it is now
 
-Nine subscribers, all subscribing in `OnEnable`:
+Ten subscribers, all subscribing in `OnEnable`:
 
 | # | Component | Handler | What it does on load |
 |---|---|---|---|
@@ -26,6 +28,7 @@ Nine subscribers, all subscribing in `OnEnable`:
 | 7 | `TutorialDirector` | `OnLevelLoaded` | Stops the tutorial if the board is no longer its own |
 | 8 | `GameAudio` | `OnLevelLoaded` | Advances the music track if the level actually changed |
 | 9 | `GameAnalytics` | `OnLevelLoaded` | Reports `levelStarted` |
+| 10 | `ChapterCard` | `OnLevelLoaded` | Decides whether the chapter card is owed on this level |
 
 ### The order is real, and it is an accident
 
@@ -73,7 +76,7 @@ read as tutorial bugs when neither was.
 
 `LevelSession` loads the first level in `Start`. Subscribers subscribe in
 `OnEnable`, which runs before every `Start`. So the first `LevelLoaded` of a
-session can reach a component that has not built its own UI yet. Each of the nine
+session can reach a component that has not built its own UI yet. Each of the ten
 handles that differently:
 
 - `GameAudio` is safe because `MusicRules.ChangesTrack` returns false when nothing
@@ -140,7 +143,7 @@ listens or when.
 ### Cheaper alternative, if the above is too much
 
 Keep one event. Write the required order down in `HalfAdderDemoSceneBuilder` as a
-comment block, and extend the PlayMode test to assert all nine subscribers appear
+comment block, and extend the PlayMode test to assert all ten subscribers appear
 in that order rather than the three pairs it pins today. That does not stop the
 order being an accident — it just makes changing it fail loudly. Perhaps a
 quarter of the work, and most of the protection.

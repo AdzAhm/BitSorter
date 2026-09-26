@@ -236,8 +236,8 @@ sets compression headers correctly, so it works with or without the fallback.
 and agreement to their content terms.
 
 Unity Play enforces an upload size limit that has changed over time — check the
-current figure when you upload. For reference this build is around 14 MB of
-compressed payload, which is small by their standards.
+current figure when you upload. For reference the 3.0.1 build is about 20 MB of
+compressed payload (19.6 MB zipped), which is small by their standards.
 
 ## GitHub Pages
 
@@ -303,7 +303,7 @@ check out cleanly on the machine it was authored on.
 ### Why it is force-pushed every time
 
 `gh-pages` is an orphan branch, rebuilt from nothing on each publish and
-force-pushed. A 14 MB WebGL build barely deltas against the previous one, so
+force-pushed. A 20 MB WebGL build barely deltas against the previous one, so
 appending commits would add most of a build to the repository on every republish.
 Replacing the branch keeps it at one commit forever.
 
@@ -391,7 +391,7 @@ BitSorter-1.0.0-Windows.zip
 
 **This is the opposite of what itch.io wants**, above, where `index.html` has to be
 at the archive root with no containing folder. Same project, two archives, opposite
-rule. Around 37 MB compressed, from 100 MB on disk.
+rule. Around 39 MB compressed, from 102 MB on disk (3.0.1).
 
 `Build/` is gitignored, so the zip can sit next to the build without any risk of
 being committed.

@@ -736,9 +736,9 @@ to being clever.** Those are different, and the gap is where the feeling lives.
 
 **Four of the five below are built.** Debris, the ending and board idle life all
 shipped in the polish pass, along with a tone pass over every string the game says
-in its own voice. Chapter cards were not built and the narrator stays parked. The
-entries are kept because the reasoning behind them is still the reasoning behind
-what shipped.
+in its own voice; the chapter card came with the sequential chapter. The narrator
+stays parked. The entries are kept because the reasoning behind them is still the
+reasoning behind what shipped.
 
 Two things worth recording from doing it:
 
@@ -759,9 +759,12 @@ Two things worth recording from doing it:
   count. This is the cheapest of the five and probably the most valuable: it turns
   the one number the game already tracks into a place on the board.
 
-- **Chapter cards between syllabus sections. Not built.** Nine levels arrive as a flat list.
-  A card at the boundaries — combinational logic ends, sequential begins — would
-  give the run a shape it currently has none of.
+- **Chapter cards between syllabus sections. Built, at the one boundary there is.**
+  Nine levels arrived as a flat list. Now seventeen are two chapters, and
+  `ChapterCard` — *Circuits that remember* — is shown once, on the first level whose
+  parts list holds a register, where combinational logic ends and sequential
+  begins. The level list draws the same two chapters under headings. Where the
+  boundary falls is `LevelCatalog.IsSequential`, and nothing else decides it.
 
 - **An ending. Built.** Solving Carry the One did exactly what solving the tutorial
   does. `EndingPanel` now replaces the win panel on the last level once everything

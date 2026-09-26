@@ -481,6 +481,18 @@ moving, nothing can become ready. *(`f8bd10c`)*
 on board size. It had framed a tooling gap as a property of the model.
 *(`becb5d4`)*
 
+**Escape opened the level list and M the main menu.** A playtest swapped them:
+Escape is the key players reach for to get to a menu. Escape still closes
+whatever is on top first -- and three things over the board close on it without
+being modals, which is why they now join one list the menu asks, and a test
+refuses a fourth that does not. *(`954c7bd`, `40b4739`)*
+
+**Mute was one switch for the whole game, on principle.** Every cue says
+something the screen also says, so silence costs no information and a second
+switch seemed like states for nothing. True of information, not of taste: a
+playtest asked for the music and the effects to be switched apart. The one switch
+stays, over the two. *(3.0.2)*
+
 ---
 
 ## 8. How it is tested
@@ -500,6 +512,12 @@ on board size. It had framed a tooling gap as a property of the model.
 - **`CurriculumTests` checks the run as a whole**: that hints give nothing away,
   that every level states a goal, and that a mechanic is taught before it is
   required.
+- **The look is held to eighteen reference screenshots**, captured from the real
+  game on a fixed frame time with every ambient pulse pinned and every particle
+  seeded, so two captures of the same code are identical to the pixel and a change
+  that claims to leave the look alone can be held to it. That promise failed about
+  one capture in a dozen until an animation that stopped updating was made to end
+  on its final value rather than its last frame. *(`6815c1a`)*
 - **Edit Mode cannot see the input layer at all**, because it never calls `Awake`
   and never runs `Update`. A pointer-arbitration bug once passed 353 Edit Mode
   tests while being plainly broken in play, which is why a PlayMode assembly
