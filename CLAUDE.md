@@ -492,6 +492,18 @@ failure side.
   pixel**; a refactor that claims to change nothing is held to that, with no
   tolerance. It needs the Game view, so not batch mode.
 
+  **An animation that ends must end on its final value, not on its last
+  frame.** That promise failed about one capture in a dozen until 2026-09-26:
+  a scorch mark grew in over a quarter second and was then left at whatever
+  the last frame *before* the deadline had made it. At the capture's 1/120 the
+  30th frame lands on the deadline exactly, float rounding in the game clock
+  decided whether it counted, and the clock's absolute value differs between
+  runs because scene loading takes a variable number of frames -- so shot 13
+  came out a few levels fainter around the scorch, now and then. Anything
+  timed that stops updating must take its finished value on the first frame
+  past the deadline (`ScorchMarks.Animate`), or count down to exactly zero
+  as the port flash and the bits-lost pop do.
+
   **Two things that can overlap at one sorting order need different depths.**
   Unity breaks a tie in sorting order by depth, and leaves a tie in depth to
   chance. Every bit used to sit at depth zero, so where the half adder's wires
