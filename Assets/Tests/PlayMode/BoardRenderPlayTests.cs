@@ -318,6 +318,84 @@ namespace BitSorter.PlayMode.Tests
         /// every frame of every pop, on a fixed frame time, and paired with proof that a pop was
         /// running while it was sampled, or a meter that never popped would pass.
         /// </remarks>
+        /// <summary>
+        /// A scorch mark ends at its full strength and size, whatever the frame rate.
+        /// </summary>
+        /// <remarks>
+        /// It grew in over a quarter of a second and was then left alone -- at whatever the last
+        /// frame before the deadline had made it, not at its finished look. At 30 frames a second a
+        /// mark settled fainter than at 144. And where the capture's frame lands exactly on the
+        /// deadline, float rounding in the game clock decided whether that frame counted: reference
+        /// shot 13 came out a few levels fainter around the scorch in one capture in about a dozen,
+        /// found 2026-09-26. Frames here straddle the deadline, as a slow machine's would.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator AScorchMark_SettlesOnItsFinishedLook_WhateverTheFrameRate()
+        {
+            yield return TestScene.Load();
+            Find<MainMenu>().Show(false);
+            yield return null;
+
+            LevelSession session = Find<LevelSession>();
+            SimulationRunner runner = Find<SimulationRunner>();
+
+            Assert.IsTrue(session.LoadLevel(Level), "the level did not load");
+
+            for (int frame = 0; frame < 30 && !runner.FixtureNodeIds.ContainsKey("a"); frame++)
+                yield return null;
+
+            // An AND fed only from A: its first bit waits, and the next one collides with it.
+            var low = new Vector2Int(0, -1);
+            Assert.IsTrue(session.TryPlaceGate(GateKind.And, low), "could not place the AND");
+            int and = NodeOn(runner, low);
+            Wire(session, runner.FixtureNodeIds["a"], 0, and, 0);
+            Wire(session, and, 0, runner.FixtureNodeIds["carry"], 0);
+
+            session.Run();
+            runner.SetPaused(true);
+            yield return null;
+
+            Time.captureDeltaTime = 0.1f;
+
+            for (int tick = 0; tick < 6 && runner.View.CorruptedCount == 0; tick++)
+            {
+                runner.StepOneTick();
+                yield return null;
+            }
+
+            // Well past the quarter second the mark grows over.
+            for (int frame = 0; frame < 10; frame++)
+                yield return null;
+
+            Time.captureDeltaTime = 0f;
+
+            Assert.Greater(runner.View.CorruptedCount, 0, "sanity: nothing collided, so nothing was scorched");
+
+            GameObject marks = GameObject.Find("Scorch marks");
+            Assert.IsNotNull(marks, "sanity: no scorch marks on the board");
+            Assert.Greater(marks.transform.childCount, 0, "sanity: a collision left no scorch mark");
+
+            ScorchMarks scorch = Find<ScorchMarks>();
+            float alpha = Configured(scorch, "_alpha");
+            float size = Configured(scorch, "_size");
+
+            Transform mark = marks.transform.GetChild(0);
+            Assert.AreEqual(alpha, mark.GetComponent<SpriteRenderer>().color.a, 1e-5f,
+                "the mark stopped short of its full strength -- it kept what the last frame before " +
+                "the deadline gave it");
+            Assert.AreEqual(size, mark.localScale.x, 1e-5f, "the mark stopped short of its settled size");
+        }
+
+        /// <summary>A serialized setting of a component, which is private because only a test needs it.</summary>
+        private static float Configured(Object component, string field)
+        {
+            System.Reflection.FieldInfo info = component.GetType().GetField(
+                field, System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+
+            Assert.IsNotNull(info, $"{component.GetType().Name} no longer has {field}");
+            return (float)info.GetValue(component);
+        }
+
         [UnityTest]
         public IEnumerator TheBitsLostPop_StaysClearOfTheHelpBadge()
         {
