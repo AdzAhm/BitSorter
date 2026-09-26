@@ -159,7 +159,30 @@ namespace BitSorter.View
         public const UiType ControlsType = UiType.Label;
 
         /// <summary>The refusal toast.</summary>
-        public const float ToastHeight = 38f;
+        public const float ToastHeight = 42f;
+
+        /// <summary>
+        /// The type a refusal is set in. Body, like the goal above the board: a refusal is read at
+        /// the moment an action did not happen, and at Label it was the smallest thing that said so.
+        /// </summary>
+        public const UiType ToastType = UiType.Body;
+
+        /// <summary>The toast is never narrower than this, so a short refusal is not a sliver.</summary>
+        public const float ToastMinimumWidth = 520f;
+
+        /// <summary>Room each side of a refusal inside its toast.</summary>
+        public const float ToastPadding = 20f;
+
+        /// <summary>
+        /// How wide the toast is drawn for <paramref name="refusal"/>: its text and padding, and never
+        /// less than <see cref="ToastMinimumWidth"/>.
+        /// </summary>
+        /// <remarks>
+        /// Measured rather than fixed, so no refusal runs out of its box: the longest, the tutorial
+        /// asking for START or SKIP, needs about 530 at Body and the toast was 520 wide.
+        /// </remarks>
+        public static float ToastWidth(string refusal) =>
+            Mathf.Max(ToastMinimumWidth, Mathf.Ceil(TextWidth(refusal, ToastType)) + 2f * ToastPadding);
 
         /// <summary>
         /// The solved card: a strip across the foot of the board, on <see cref="UiRows.SolvedCard"/>.

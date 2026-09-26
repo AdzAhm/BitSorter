@@ -131,7 +131,7 @@ until you reset your progress — and none of them pause the game.
 | `M` | The level list, and the way into the sandbox |
 | `N` | Mute the game; the volume is in Settings |
 | `Alt`+`Enter` | Fullscreen, on Windows; also in Settings |
-| `Q` / `E` | Previous / next level — they stop at the first and the last. From the tutorial, `E` goes to level 1 |
+| `Q` / `E` | Previous / next level — they stop at the first and the last. From the tutorial, `E` goes to level 1; free play is not a level, so they point to `M` there |
 | `F2` | Diagnostics, and the clock's timing diagram on levels that have one. Not F3, which a browser keeps for find-in-page |
 
 ### What it teaches

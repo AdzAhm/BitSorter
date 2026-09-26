@@ -46,6 +46,9 @@ namespace BitSorter.View
         private Image _toastBackground;
         private TextMeshProUGUI _toast;
 
+        /// <summary>The refusal the toast was last fitted to, so it is measured once per refusal.</summary>
+        private string _toastShown;
+
         // What the title and the verdict were last drawn from. Both are formatted strings, and
         // formatting them every frame handed TextMeshPro text equal to what it already had while
         // leaving garbage behind each time. They are redrawn only when one of these changes.
@@ -109,10 +112,10 @@ namespace BitSorter.View
             // over "drag a port to wire", at exactly the moment the player most needed to read both.
             UiTheme.Anchor(toastRect, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
                 new Vector2(0f, UiRows.Toast.Offset),
-                new Vector2(520f, UiRows.Toast.Height));
+                new Vector2(UiTheme.ToastMinimumWidth, UiRows.Toast.Height));
             _toastBackground.raycastTarget = false;
 
-            _toast = UiTheme.Label("toast text", toastRect, UiType.Label, UiTheme.Text, TextAlignmentOptions.Center);
+            _toast = UiTheme.Label("toast text", toastRect, UiTheme.ToastType, UiTheme.Text, TextAlignmentOptions.Center);
             UiTheme.Stretch(_toast.rectTransform, 6f);
         }
 
@@ -178,7 +181,19 @@ namespace BitSorter.View
             ShowToast(_runner != null && _runner.WasRecentlyRejected(_rejectionSeconds));
 
             if (_toast != null && _runner != null)
-                _toast.text = _runner.LastRejectionReason ?? string.Empty;
+            {
+                string refusal = _runner.LastRejectionReason ?? string.Empty;
+
+                // Fitted once per refusal, not every frame: the text is only ever replaced whole.
+                if (!ReferenceEquals(refusal, _toastShown))
+                {
+                    _toastShown = refusal;
+                    _toast.text = refusal;
+
+                    RectTransform toastRect = _toastBackground.rectTransform;
+                    toastRect.sizeDelta = new Vector2(UiTheme.ToastWidth(refusal), toastRect.sizeDelta.y);
+                }
+            }
         }
 
         /// <summary>

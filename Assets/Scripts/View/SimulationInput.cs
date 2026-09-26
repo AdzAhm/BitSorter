@@ -141,7 +141,10 @@ namespace BitSorter.View
         /// <summary>What Q says in the tutorial, which comes before the first level.</summary>
         public const string BeforeTheFirst = "The tutorial comes before the first level.";
 
-        /// <summary>What Q and E say in free play, which is not one of the levels.</summary>
-        public const string NotALevel = "Free play is not one of the levels.";
+        /// <summary>
+        /// What Q and E say in free play, which is not one of the levels -- and the key that goes to
+        /// them, since stepping to one is what the player was trying to do.
+        /// </summary>
+        public const string NotALevel = "Free play is not one of the levels. M for the level list.";
     }
 }

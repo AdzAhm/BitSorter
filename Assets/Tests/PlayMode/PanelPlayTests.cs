@@ -1056,6 +1056,44 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
+        /// The refusal toast grows to fit a long refusal, and keeps its width for a short one.
+        /// </summary>
+        /// <remarks>
+        /// It was a fixed 520 wide with its text at Label. Set larger after a playtest, the longest
+        /// refusal -- the tutorial asking for START or SKIP -- needs about 530, so the box is
+        /// measured to the text instead of guessed at.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator TheRefusalToast_FitsItsRefusal()
+        {
+            yield return TestScene.Load();
+            yield return CloseTheMainMenu();
+
+            SimulationRunner runner = Find<SimulationRunner>();
+
+            runner.RejectEdit("A refusal written to be longer than any the game says, so the toast has to grow.");
+            yield return null;
+            yield return null;
+
+            GameObject toast = GameObject.Find("Toast");
+            Assert.IsNotNull(toast, "a refusal put no toast on screen");
+
+            var text = toast.GetComponentInChildren<TMPro.TextMeshProUGUI>();
+            float box = toast.GetComponent<RectTransform>().rect.width;
+
+            Assert.LessOrEqual(text.preferredWidth, text.rectTransform.rect.width + 0.5f,
+                $"the refusal needs {text.preferredWidth:F0}px and the toast gives it {text.rectTransform.rect.width:F0}px");
+            Assert.Greater(box, UiTheme.ToastMinimumWidth, "sanity: a refusal this long should have made the toast grow");
+
+            runner.RejectEdit("Off the board.");
+            yield return null;
+            yield return null;
+
+            Assert.AreEqual(UiTheme.ToastMinimumWidth, toast.GetComponent<RectTransform>().rect.width, 0.5f,
+                "a short refusal left the toast at the long one's width");
+        }
+
+        /// <summary>
         /// A hint up when a full-screen panel opens is held, not spent.
         /// </summary>
         /// <remarks>
