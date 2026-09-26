@@ -278,15 +278,15 @@ namespace BitSorter.View
             _blockHeight = column.Next;
 
             // Where the level list keeps its CLOSE, so the two screens off the menu leave the same way.
-            Button back = UiTheme.Button_(BackButton, Root, "BACK", out TextMeshProUGUI _, UiType.Label, ButtonRole.Quiet);
+            Button back = UiTheme.Button_(BackButton, Root, "BACK", out TextMeshProUGUI _, UiType.Body, ButtonRole.Quiet);
             UiTheme.Anchor(back.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(1f, 1f),
                 new Vector2(-UiTheme.Margin, -UiTheme.Margin), new Vector2(BackWidth, UiTheme.ButtonHeight));
             back.onClick.AddListener(() => Fire(Back));
 
             TextMeshProUGUI help = UiTheme.Label(
-                "help", Root, UiType.Caption, UiTheme.TextDim, TextAlignmentOptions.Center);
+                "help", Root, UiTheme.HelpLineType, UiTheme.TextDim, TextAlignmentOptions.Center);
             UiTheme.Anchor(help.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
-                new Vector2(0f, 36f), new Vector2(600f, 20f));
+                new Vector2(0f, 36f), new Vector2(600f, UiTheme.HelpLineHeight));
             help.text = "escape to go back";
         }
 

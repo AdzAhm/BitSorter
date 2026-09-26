@@ -151,15 +151,15 @@ namespace BitSorter.View
             title.text = "LEVELS";
 
             TextMeshProUGUI help = UiTheme.Label(
-                "help", Root, UiType.Caption, UiTheme.TextDim, TextAlignmentOptions.Center);
+                "help", Root, UiTheme.HelpLineType, UiTheme.TextDim, TextAlignmentOptions.Center);
             UiTheme.Anchor(help.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
-                new Vector2(0f, HelpBottom), new Vector2(600f, HelpHeight));
+                new Vector2(0f, HelpBottom), new Vector2(720f, HelpHeight));
             help.text = "M or escape to close    Q / E also change level";
 
             // A button as well as the key. The only other way out was the help line above, dim
             // caption-sized text at the foot of the screen saying which key to press -- a list
             // opened with the mouse, from the main menu, had no way back that the mouse could reach.
-            Button close = UiTheme.Button_("Close", Root, "CLOSE", out TextMeshProUGUI _, UiType.Label, ButtonRole.Quiet);
+            Button close = UiTheme.Button_("Close", Root, "CLOSE", out TextMeshProUGUI _, UiType.Body, ButtonRole.Quiet);
             UiTheme.Anchor(close.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(1f, 1f),
                 new Vector2(-UiTheme.Margin, -UiTheme.Margin), new Vector2(CloseWidth, UiTheme.ButtonHeight));
             close.onClick.AddListener(() => { Show(false); UiTheme.Defocus(); });
@@ -360,7 +360,7 @@ namespace BitSorter.View
         private const float HelpBottom = 36f;
 
         /// <inheritdoc cref="HelpBottom"/>
-        private const float HelpHeight = 20f;
+        private const float HelpHeight = UiTheme.HelpLineHeight;
 
         /// <summary>Clear space between the rows and the title above them or the help line below.</summary>
         private const float Breathing = 12f;
@@ -433,15 +433,15 @@ namespace BitSorter.View
         /// </summary>
         /// <remarks>
         /// Bolder and brighter than the "the controls" and "free play" notes, which are asides on a
-        /// single row; a chapter heading has nine and eight rows under it and has to hold them
-        /// together. Still well under a level's own 17pt, so it labels the run rather than
-        /// competing with it. The words come from <see cref="LevelCatalog"/>, which is also where
+        /// single row, and never smaller than them; a chapter heading has nine and eight rows under
+        /// it and has to hold them together. Still under a level's own name, at Body, so it labels
+        /// the run rather than competing with it. The words come from <see cref="LevelCatalog"/>, which is also where
         /// the chapter card gets its title.
         /// </remarks>
         private void BuildHeading(RectTransform list, float y, string text)
         {
             TextMeshProUGUI heading = UiTheme.Label(
-                "chapter", list, UiType.Caption, UiTheme.Text, TextAlignmentOptions.Left);
+                "chapter", list, UiType.Label, UiTheme.Text, TextAlignmentOptions.Left);
 
             heading.fontStyle = FontStyles.Bold;
             heading.characterSpacing = 6f;
@@ -493,7 +493,7 @@ namespace BitSorter.View
             label.text = "Tutorial";
 
             TextMeshProUGUI note = UiTheme.Label(
-                "note", rect, UiType.Caption, UiTheme.TextDim, TextAlignmentOptions.Right);
+                "note", rect, UiTheme.HelpLineType, UiTheme.TextDim, TextAlignmentOptions.Right);
             UiTheme.Anchor(note.rectTransform, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f),
                 new Vector2(-16f, 0f), new Vector2(200f, height));
             note.text = "the controls";
@@ -528,7 +528,7 @@ namespace BitSorter.View
             label.text = "Sandbox";
 
             TextMeshProUGUI note = UiTheme.Label(
-                "note", rect, UiType.Caption, UiTheme.TextDim, TextAlignmentOptions.Right);
+                "note", rect, UiTheme.HelpLineType, UiTheme.TextDim, TextAlignmentOptions.Right);
             UiTheme.Anchor(note.rectTransform, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f),
                 new Vector2(-16f, 0f), new Vector2(200f, height));
             note.text = "free play";
@@ -570,7 +570,7 @@ namespace BitSorter.View
                 new Vector2(LabelInset, 0f), new Vector2(330f, height));
             row.Label.text = entry.DisplayName;
 
-            row.Best = UiTheme.Label("best", rect, UiType.Caption, UiTheme.TextDim, TextAlignmentOptions.Right);
+            row.Best = UiTheme.Label("best", rect, UiTheme.HelpLineType, UiTheme.TextDim, TextAlignmentOptions.Right);
             UiTheme.Anchor(row.Best.rectTransform, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f),
                 new Vector2(-16f, 0f), new Vector2(130f, height));
 

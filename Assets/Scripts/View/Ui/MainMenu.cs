@@ -83,7 +83,7 @@ namespace BitSorter.View
         private void BuildHudButton()
         {
             Button button = UiTheme.Button_(
-                HudButtonName, _canvas.transform, "MENU", out TextMeshProUGUI _, UiType.Label, ButtonRole.Quiet);
+                HudButtonName, _canvas.transform, "MENU", out TextMeshProUGUI _, UiType.Body, ButtonRole.Quiet);
 
             _hudButton = button.GetComponent<RectTransform>();
             UiTheme.Anchor(_hudButton, new Vector2(0f, 1f), new Vector2(0f, 1f),

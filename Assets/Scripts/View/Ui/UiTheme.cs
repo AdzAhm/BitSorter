@@ -158,6 +158,15 @@ namespace BitSorter.View
         /// <summary>How the keyboard reference is set.</summary>
         public const UiType ControlsType = UiType.Label;
 
+        /// <summary>
+        /// The line at the foot of a full-screen screen saying how to leave it, and the asides on a
+        /// level list row. Label, a step up from Caption, after a playtest found them hard to read.
+        /// </summary>
+        public const UiType HelpLineType = UiType.Label;
+
+        /// <summary>How tall a help line's box is at <see cref="HelpLineType"/>.</summary>
+        public const float HelpLineHeight = 22f;
+
         /// <summary>The refusal toast.</summary>
         public const float ToastHeight = 42f;
 

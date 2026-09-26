@@ -95,10 +95,10 @@ namespace BitSorter.View
         private const float StepHeight = 28f;
 
         /// <summary>The collapse button in the top-right corner, beside the title.</summary>
-        private const float CollapseWidth = 72f;
+        private const float CollapseWidth = 88f;
 
         /// <summary>Where the rows start, below the title and the collapse button.</summary>
-        private const float BodyTop = 36f;
+        private const float BodyTop = 40f;
 
         private void Awake()
         {
@@ -287,9 +287,9 @@ namespace BitSorter.View
 
             // Says what it does. It was a bare », which named nothing -- while the tab it leaves
             // behind was labelled, so the state it produced was clearer than the button producing it.
-            Button collapse = UiTheme.Button_("collapse", _root, "HIDE »", out TextMeshProUGUI _, UiType.Caption);
+            Button collapse = UiTheme.Button_("collapse", _root, "HIDE »", out TextMeshProUGUI _);
             UiTheme.Anchor(collapse.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(1f, 1f),
-                new Vector2(-Pad, -8f), new Vector2(CollapseWidth, 24f));
+                new Vector2(-Pad, -8f), new Vector2(CollapseWidth, 28f));
             collapse.onClick.AddListener(() => { Expand(false); UiTheme.Defocus(); });
 
             _bodyRoot = UiTheme.Rect("body", _root);
@@ -311,11 +311,11 @@ namespace BitSorter.View
         /// </remarks>
         private void BuildTab()
         {
-            Button tab = UiTheme.Button_("Setup tab", _canvas.transform, "« SETUP", out TextMeshProUGUI _, UiType.Caption);
+            Button tab = UiTheme.Button_("Setup tab", _canvas.transform, "« SETUP", out TextMeshProUGUI _);
             _tab = tab.GetComponent<RectTransform>();
 
             UiTheme.Anchor(_tab, new Vector2(1f, 1f), new Vector2(1f, 1f),
-                new Vector2(-UiTheme.Margin, -UiRows.Panels.Offset), new Vector2(96f, 28f));
+                new Vector2(-UiTheme.Margin, -UiRows.Panels.Offset), new Vector2(110f, 28f));
 
             tab.onClick.AddListener(() => { Expand(true); UiTheme.Defocus(); });
         }

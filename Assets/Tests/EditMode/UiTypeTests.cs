@@ -64,5 +64,31 @@ namespace BitSorter.LogicCore.Tests
             Assert.IsEmpty(offenders,
                 "these set a font size by number rather than through UiType: " + string.Join(", ", offenders));
         }
+
+        /// <summary>
+        /// No button's caption is set smaller than <see cref="UiType.Body"/>.
+        /// </summary>
+        /// <remarks>
+        /// BACK, CLOSE, MENU and free play's HIDE and SETUP were captioned at Label and Caption. The
+        /// interface scales to the window, so in a small one those captions came out a few real
+        /// pixels tall, where the font's distance-field letters lose their shape -- reported from a
+        /// playtest as "weird looking letters", 2026-09-26.
+        /// </remarks>
+        [Test]
+        public void NoButtonCaption_IsSmallerThanBody()
+        {
+            string root = Path.Combine(Application.dataPath, "Scripts", "View");
+            var small = new Regex(@"Button_\([^;]*?UiType\.(Micro|Caption|Label)", RegexOptions.Singleline);
+
+            string[] offenders = Directory.GetFiles(root, "*.cs", SearchOption.AllDirectories)
+                .Where(path => small.IsMatch(File.ReadAllText(path)))
+                .Select(Path.GetFileName)
+                .OrderBy(name => name)
+                .ToArray();
+
+            Assert.IsEmpty(offenders,
+                "these caption a button below Body, which a small window draws too small to read: " +
+                string.Join(", ", offenders));
+        }
     }
 }

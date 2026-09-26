@@ -161,9 +161,9 @@ namespace BitSorter.View
             // In the corner, clear of the column the roll rises through. Centred at the foot, the way
             // Settings says how to leave it, every line of the roll passed through it on the way up.
             TextMeshProUGUI help = UiTheme.Label(
-                "help", Root, UiType.Caption, UiTheme.TextDim, TextAlignmentOptions.Right);
+                "help", Root, UiTheme.HelpLineType, UiTheme.TextDim, TextAlignmentOptions.Right);
             UiTheme.Anchor(help.rectTransform, new Vector2(1f, 0f), new Vector2(1f, 0f),
-                new Vector2(-UiTheme.Margin, 16f), new Vector2(HelpWidth, 20f));
+                new Vector2(-UiTheme.Margin, 16f), new Vector2(HelpWidth, UiTheme.HelpLineHeight));
             help.text = HelpText;
         }
 
