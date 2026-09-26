@@ -33,6 +33,10 @@ namespace BitSorter.View
         private GameAudio _audio;
 
         private TextMeshProUGUI _soundLabel;
+        private Button _musicButton;
+        private TextMeshProUGUI _musicLabel;
+        private Button _effectsButton;
+        private TextMeshProUGUI _effectsLabel;
         private TextMeshProUGUI _dataLabel;
         private TextMeshProUGUI _fullscreenLabel;
         private Slider _volume;
@@ -53,6 +57,12 @@ namespace BitSorter.View
 
         /// <summary>The buttons' object names, which the tests look for.</summary>
         public const string SoundButton = "Sound setting";
+
+        /// <inheritdoc cref="SoundButton"/>
+        public const string MusicButton = "Music setting";
+
+        /// <inheritdoc cref="SoundButton"/>
+        public const string EffectsButton = "Effects setting";
 
         /// <inheritdoc cref="SoundButton"/>
         public const string VolumeSlider = "Volume setting";
@@ -95,7 +105,7 @@ namespace BitSorter.View
             { AudioHeading, PrivacyHeading, ProgressHeading, AboutHeading };
 
         public const string AudioText =
-            "Music and sound effects, together. N switches the sound on and off from anywhere.";
+            "SOUND switches everything, as N does from anywhere. MUSIC and EFFECTS switch one each.";
 
         public const string DisplayText = "Fill the screen, or play in a window. Alt+Enter does the same.";
 
@@ -242,8 +252,18 @@ namespace BitSorter.View
             title.text = "SETTINGS";
 
             Section(block, column, AudioHeading, AudioText);
-            Button sound = Control(block, column, SoundButton, out _soundLabel, ButtonRole.Secondary);
+            // The sound switch first, and the two it governs beside it: greyed out and locked while it
+            // is off, as the volume is, so the row reads as one switch over two.
+            float switches = column.Take(UiTheme.ButtonHeight);
+
+            Button sound = Switch(block, switches, 0, SoundButton, out _soundLabel);
             sound.onClick.AddListener(() => Fire(ToggleSound));
+
+            _musicButton = Switch(block, switches, 1, MusicButton, out _musicLabel);
+            _musicButton.onClick.AddListener(() => Fire(ToggleMusic));
+
+            _effectsButton = Switch(block, switches, 2, EffectsButton, out _effectsLabel);
+            _effectsButton.onClick.AddListener(() => Fire(ToggleEffects));
             column.Space(VolumeGap);
             BuildVolume(block, column);
             column.Space(SectionGap);
@@ -325,6 +345,21 @@ namespace BitSorter.View
         /// <summary>How tall a description is once wrapped to the column: measured, never counted.</summary>
         public static float DescriptionHeight(string text) =>
             Mathf.Ceil(UiTheme.TextHeight(text, DescriptionType, ColumnWidth));
+
+        /// <summary>How wide each of the three sound switches is, and the gap between them.</summary>
+        private const float SwitchWidth = 190f;
+
+        /// <inheritdoc cref="SwitchWidth"/>
+        private const float SwitchGap = 15f;
+
+        /// <summary>The <paramref name="index"/>th switch along a row that starts <paramref name="top"/> down.</summary>
+        private static Button Switch(RectTransform block, float top, int index, string name, out TextMeshProUGUI label)
+        {
+            Button button = UiTheme.Button_(name, block, string.Empty, out label, UiType.Body, ButtonRole.Secondary);
+            PlaceLeft(button.GetComponent<RectTransform>(), top, index * (SwitchWidth + SwitchGap),
+                SwitchWidth, UiTheme.ButtonHeight);
+            return button;
+        }
 
         private static Button Control(
             RectTransform block, UiColumn column, string name, out TextMeshProUGUI label, ButtonRole role)
@@ -440,6 +475,13 @@ namespace BitSorter.View
             bool sound = !GameAudio.Muted;
 
             _soundLabel.text = sound ? "SOUND  ON" : "SOUND  OFF";
+            _musicLabel.text = GameAudio.MusicOn ? "MUSIC  ON" : "MUSIC  OFF";
+            _effectsLabel.text = GameAudio.EffectsOn ? "EFFECTS  ON" : "EFFECTS  OFF";
+
+            // Each keeps saying what it is set to while greyed out, so turning the sound back on
+            // brings back exactly what the player had.
+            UiTheme.SetEnabled(_musicButton, _musicLabel, sound);
+            UiTheme.SetEnabled(_effectsButton, _effectsLabel, sound);
             _dataLabel.text = GameAnalytics.Reporting ? "DATA  ON" : "DATA  OFF";
 
             if (_fullscreenLabel != null)
@@ -461,6 +503,18 @@ namespace BitSorter.View
                 if (Mathf.RoundToInt(_volume.value) != volume)
                     _volume.SetValueWithoutNotify(volume);
             }
+        }
+
+        private void ToggleMusic()
+        {
+            if (_audio != null)
+                _audio.SetMusic(!GameAudio.MusicOn);
+        }
+
+        private void ToggleEffects()
+        {
+            if (_audio != null)
+                _audio.SetEffects(!GameAudio.EffectsOn);
         }
 
         private void ToggleSound()

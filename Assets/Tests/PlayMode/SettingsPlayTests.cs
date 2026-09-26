@@ -214,6 +214,44 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
+        /// MUSIC and EFFECTS each switch their own setting, and are greyed out and locked while the
+        /// sound is off -- still saying what they are set to.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator TheMusicAndEffectsSwitches_WorkUnderTheSoundSwitch()
+        {
+            yield return TestScene.Load();
+            yield return OpenSettings();
+
+            Assert.IsTrue(GameAudio.MusicOn && GameAudio.EffectsOn, "sanity: a fresh machine has both on");
+
+            yield return Click(SettingsPanel.MusicButton);
+            Assert.IsFalse(GameAudio.MusicOn, "MUSIC did not switch the music off");
+            Assert.IsTrue(GameAudio.EffectsOn, "MUSIC switched the effects as well");
+
+            yield return Click(SettingsPanel.EffectsButton);
+            Assert.IsFalse(GameAudio.EffectsOn, "EFFECTS did not switch the effects off");
+
+            yield return Click(SettingsPanel.SoundButton);
+            Assert.IsTrue(GameAudio.Muted, "sanity: SOUND should have switched everything off");
+
+            Button music = OnScreen(SettingsPanel.MusicButton);
+            Button effects = OnScreen(SettingsPanel.EffectsButton);
+            Assert.IsFalse(music.interactable, "MUSIC can still be pressed with the sound off");
+            Assert.IsFalse(effects.interactable, "EFFECTS can still be pressed with the sound off");
+            StringAssert.Contains("OFF", music.GetComponentInChildren<TextMeshProUGUI>().text,
+                "a greyed-out MUSIC stopped saying what it is set to");
+
+            yield return Click(SettingsPanel.SoundButton);
+            Assert.IsTrue(music.interactable && effects.interactable, "the switches stayed locked with the sound back on");
+
+            // Put back: the fixture shares its scratch preferences between tests.
+            yield return Click(SettingsPanel.MusicButton);
+            yield return Click(SettingsPanel.EffectsButton);
+            Assert.IsTrue(GameAudio.MusicOn && GameAudio.EffectsOn, "sanity: both should be back on");
+        }
+
+        /// <summary>
         /// Moving the volume scales the music at once, and remembers where it was put.
         /// </summary>
         /// <remarks>

@@ -156,11 +156,11 @@ namespace BitSorter.View
         /// speakers, not the player's circuits, and someone who copies a save to another computer
         /// should not carry a mute across with it.
         ///
-        /// One switch for the whole game rather than one for music and one for effects. Every cue
-        /// has something on screen that says the same thing -- the scorch mark and the bits-lost
-        /// meter for a collision, the win panel for a pass, the bits themselves for a gate firing
-        /// or a landing -- so silence costs the player no information, and a second setting would
-        /// be two switches and four states for a game with five cues and one loop.
+        /// The switch for the whole game, which N reaches from anywhere. Music and effects each
+        /// have their own switch under it (<see cref="MusicOn"/>, <see cref="EffectsOn"/>), asked for
+        /// in a playtest, 2026-09-26 -- this used to argue that one switch was enough, because
+        /// every cue says something the screen also says. That holds for information, not for
+        /// taste: somebody can want the music gone and the clicks kept, or the other way round.
         ///
         /// This used to silence only the music while the clock carried on ticking twice a second,
         /// which is the one sound somebody reaching for mute most wants gone.
@@ -188,6 +188,37 @@ namespace BitSorter.View
         /// one at a time and <see cref="Play"/> simply declines to fire them.
         /// </remarks>
         public void SetMuted(bool muted) => Muted = muted;
+
+        private const string MusicKey = "bitsorter.music.on";
+        private const string EffectsKey = "bitsorter.effects.on";
+
+        /// <summary>Whether the music plays when the sound is on. On unless the player switches it off.</summary>
+        /// <remarks>
+        /// Under <see cref="Muted"/>, not beside it: the sound switch silences everything whatever
+        /// this says, and switching the sound back on brings the music back only if this is on.
+        /// Kept in <see cref="Preferences"/> with the mute, and a reset keeps it.
+        /// </remarks>
+        public static bool MusicOn
+        {
+            get => Preferences.GetInt(MusicKey, 1) != 0;
+            private set => Preferences.SetInt(MusicKey, value ? 1 : 0);
+        }
+
+        /// <summary>Whether the sound effects play when the sound is on. See <see cref="MusicOn"/>.</summary>
+        public static bool EffectsOn
+        {
+            get => Preferences.GetInt(EffectsKey, 1) != 0;
+            private set => Preferences.SetInt(EffectsKey, value ? 1 : 0);
+        }
+
+        /// <summary>Switches the music, and remembers it. Applied by the next frame's DriveMusic.</summary>
+        public void SetMusic(bool on) => MusicOn = on;
+
+        /// <summary>Switches the sound effects, and remembers it.</summary>
+        public void SetEffects(bool on) => EffectsOn = on;
+
+        /// <summary>Whether the music source should be silent: the sound off, or the music.</summary>
+        private static bool MusicSilent => Muted || !MusicOn;
 
         private const string VolumeKey = "bitsorter.volume";
 
@@ -328,7 +359,7 @@ namespace BitSorter.View
             _musicSource.playOnAwake = false;
             _musicSource.spatialBlend = 0f;
             _musicSource.volume = ProceduralAudio.VolumeOf(Cue.Music) * Master;
-            _musicSource.mute = Muted;
+            _musicSource.mute = MusicSilent;
         }
 
         private void Update()
@@ -551,8 +582,8 @@ namespace BitSorter.View
                 return;
 
             // Ahead of the fade, and ahead of its early-out: a settled track still has to notice
-            // the player reaching for mute.
-            _musicSource.mute = Muted;
+            // the player reaching for mute, or for the music switch.
+            _musicSource.mute = MusicSilent;
 
             bool menu = MenuWanted;
             bool switching = Switching;
@@ -761,7 +792,7 @@ namespace BitSorter.View
         {
             float master = Master;
 
-            if (Muted || _source == null || master <= 0f)
+            if (Muted || !EffectsOn || _source == null || master <= 0f)
                 return;
 
             _source.PlayOneShot(ProceduralAudio.Clip(cue), ProceduralAudio.VolumeOf(cue) * master);

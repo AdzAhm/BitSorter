@@ -503,6 +503,69 @@ namespace BitSorter.PlayMode.Tests
             Assert.Greater(cues, 0, "three ticks of a running board produced no cue at all");
         }
 
+        /// <summary>
+        /// Music off silences the music and leaves the effects: the board still clicks and chimes.
+        /// </summary>
+        /// <remarks>
+        /// Asked for in a playtest, 2026-09-26: the music and the effects each switched on their own,
+        /// under the switch for the whole game. Each test here proves the other half still sounds,
+        /// so neither can pass by silencing everything.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator MusicOff_SilencesTheMusic_AndLeavesTheEffects()
+        {
+            yield return LoadScene();
+
+            GameAudio audio = Find<GameAudio>();
+            LevelSession session = Find<LevelSession>();
+            SimulationRunner runner = Find<SimulationRunner>();
+
+            audio.SetMusic(false);
+            yield return null;
+
+            try
+            {
+                Assert.IsTrue(MusicSource(audio).mute, "the music is still playing with the music off");
+
+                int cues = -1;
+                yield return CuesFrom(audio, session, runner, n => cues = n);
+
+                Assert.Greater(cues, 0, "switching the music off silenced the effects as well");
+            }
+            finally
+            {
+                audio.SetMusic(true);
+            }
+        }
+
+        /// <summary>Effects off silences the effects and leaves the music playing.</summary>
+        [UnityTest]
+        public IEnumerator EffectsOff_SilencesTheEffects_AndLeavesTheMusic()
+        {
+            yield return LoadScene();
+
+            GameAudio audio = Find<GameAudio>();
+            LevelSession session = Find<LevelSession>();
+            SimulationRunner runner = Find<SimulationRunner>();
+
+            audio.SetEffects(false);
+            yield return null;
+
+            try
+            {
+                Assert.IsFalse(MusicSource(audio).mute, "switching the effects off silenced the music as well");
+
+                int cues = -1;
+                yield return CuesFrom(audio, session, runner, n => cues = n);
+
+                Assert.AreEqual(0, cues, "effects were played with the effects off");
+            }
+            finally
+            {
+                audio.SetEffects(true);
+            }
+        }
+
         [UnityTest]
         public IEnumerator TheMuteSettingIsRemembered()
         {

@@ -116,6 +116,8 @@ namespace BitSorter.LogicCore.Tests
         {
             Assert.IsTrue(GameAnalytics.Reporting, "reporting is on unless the player turns it off");
             Assert.IsFalse(GameAudio.Muted, "the game starts unmuted");
+            Assert.IsTrue(GameAudio.MusicOn, "the music starts on");
+            Assert.IsTrue(GameAudio.EffectsOn, "the effects start on");
         }
 
         /// <summary>

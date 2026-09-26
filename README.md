@@ -46,9 +46,9 @@ installed and nothing is written outside your own user folder.
 Windows will probably warn that it does not recognise the publisher — the build
 is unsigned, which is all that warning means. "More info", then "Run anyway".
 
-**Settings**, on the main menu, has the sound and its volume, fullscreen on
-Windows (`Alt`+`Enter` works too), the data switch, a way to start over, and the
-credits.
+**Settings**, on the main menu, has the sound -- one switch for everything, and
+one each for the music and the effects -- and its volume, fullscreen on Windows
+(`Alt`+`Enter` works too), the data switch, a way to start over, and the credits.
 
 The bottom-right corner of the main menu says which version you are running,
 which is worth including if you report a bug.
@@ -228,8 +228,8 @@ file:
 **To start over:** main menu → **Settings** → **Reset progress**. It asks first,
 and nothing is forgotten unless you answer yes. After a reset the game is as it
 was on first launch: the first level, an empty board, the tutorial offering
-itself again and the sandbox back on its default setup. Sound, volume, display
-and data settings are not progress, so they stay as they are.
+itself again and the sandbox back on its default setup. Sound, music, effects,
+volume, display and data settings are not progress, so they stay as they are.
 
 In a browser the same data lives in the browser's own storage for the address
 you played at. Progress does not travel between the desktop build and a browser,

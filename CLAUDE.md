@@ -757,13 +757,17 @@ failure side.
   change arrives before its track is built, the music already playing carries on
   while the build finishes at 8 ms a frame, and the switch comes a moment late.
 
-  **Mute is one switch for the whole game**, music and cues alike. Every cue has
-  something on screen saying the same thing, so silence costs no information,
-  and a second setting would be four states to reason about for five cues and
-  one loop. It used to silence only the music while the clock carried on
-  ticking, which is the sound somebody reaching for mute most wants gone. The
-  PlayerPrefs key still says music, deliberately: renaming it would reset the
-  preference of anyone who had already turned the sound off.
+  **Sound is one switch for the whole game, and music and effects each have
+  one under it.** The sound switch -- N, or SOUND in Settings -- silences music
+  and cues alike; it used to silence only the music while the clock carried on
+  ticking, which is the sound somebody reaching for mute most wants gone.
+  `GameAudio.MusicOn` and `EffectsOn` switch one each and are greyed out while
+  the sound is off, still showing what they are set to. This paragraph used to
+  argue that one switch was enough, since every cue says something the screen
+  also says -- true of information, not of taste, and a playtest asked for the
+  two (2026-09-26). The PlayerPrefs key for the sound switch still says music,
+  deliberately: renaming it would reset the preference of anyone who had
+  already turned the sound off.
 
   **One volume under it, for everything, for the same reason** --
   `GameAudio.Volume`, in Settings, asked for after a playtest on 2026-09-26.
