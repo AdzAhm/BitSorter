@@ -42,7 +42,18 @@ function Invoke-Git {
 
     if ($In) { $all = @('-C', $In) + $Arguments } else { $all = $Arguments }
 
+    # Git's exit code is its answer. What it writes to stderr is commentary: a push that worked
+    # still reports "To https://..." there. When this script is run with its errors redirected
+    # (`& .\Tools\publish-pages.ps1 2>&1`), Windows PowerShell turns each of those lines into an
+    # error record, and under the script's Stop the first one ended it -- after the push had gone
+    # through, so a publish that worked was reported as a failure, at both 3.0.1 and 3.0.2. Here
+    # those records are only passed on, and the exit code below decides. In a console, the way
+    # the Unity menu opens it, nothing changes: git writes straight to the window, progress meter
+    # and any credential prompt included.
+    $ErrorActionPreference = 'Continue'
+
     & git @all
+
     if ($LASTEXITCODE -ne 0) {
         throw "git $($Arguments -join ' ') failed with exit code $LASTEXITCODE"
     }
@@ -113,12 +124,12 @@ if ($newestAsset -and $newestAsset.LastWriteTime -gt $buildTime) {
 # Label the deploy with the source it came from
 # ---------------------------------------------------------------------
 
-$remoteUrl = & git -C $repoRoot remote get-url origin
-if ($LASTEXITCODE -ne 0) { throw "Could not read the origin remote of $repoRoot." }
-$remoteUrl = $remoteUrl.Trim()
+# Through Invoke-Git like every other call, so a warning git prints on the way cannot end the
+# script either. What each returns is git's stdout alone.
+$remoteUrl = "$(Invoke-Git -Arguments @('remote', 'get-url', 'origin') -In $repoRoot)".Trim()
 
-$sourceCommit = (& git -C $repoRoot rev-parse --short HEAD).Trim()
-$dirty = & git -C $repoRoot status --porcelain
+$sourceCommit = "$(Invoke-Git -Arguments @('rev-parse', '--short', 'HEAD') -In $repoRoot)".Trim()
+$dirty = Invoke-Git -Arguments @('status', '--porcelain') -In $repoRoot
 
 if ([string]::IsNullOrWhiteSpace($dirty)) {
     $sourceLabel = $sourceCommit
@@ -166,7 +177,7 @@ try {
     Invoke-Git -Arguments @('add', '-A') -In $tempRepo
     Invoke-Git -Arguments @('commit', '-m', $commitMessage, '--quiet') -In $tempRepo
 
-    $published = (& git -C $tempRepo rev-list --count HEAD).Trim()
+    $published = "$(Invoke-Git -Arguments @('rev-list', '--count', 'HEAD') -In $tempRepo)".Trim()
     if ($published -ne '1') {
         throw "Expected a single parentless commit on $Branch, found $published."
     }
@@ -174,7 +185,7 @@ try {
     Write-Host "Pushing $Branch to origin (force)..." -ForegroundColor Cyan
     Invoke-Git -Arguments @('push', '--force', 'origin', $Branch) -In $tempRepo
 
-    $fileCount = (& git -C $tempRepo ls-files | Measure-Object -Line).Lines
+    $fileCount = (Invoke-Git -Arguments @('ls-files') -In $tempRepo | Measure-Object -Line).Lines
 
     Write-Host ""
     Write-Host "Pushed $fileCount files to $Branch." -ForegroundColor Green
