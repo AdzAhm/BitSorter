@@ -813,17 +813,18 @@ failure side.
   verdict, which is the third time two things in that file each owned half
   the arithmetic.
 
-  **`ClockDiagram` is the same fact in the course's notation**, behind F3:
+  **`ClockDiagram` is the same fact in the course's notation**, behind F2 --
+  F3 until a playtest found that in a browser F3 opens find-in-page:
   a square wave over three cycles with a playhead on the current tick, in
   the bottom-left corner. It is the pair to the readout, not a replacement
   — the pips explain the beat to someone who has never seen a timing
-  diagram, and this is for someone who has. Behind F3 and absent from the
+  diagram, and this is for someone who has. Behind F2 and absent from the
   controls line, so it costs a player who does not want it nothing -- but
   named, quietly, at the end of the clock strip, which is on screen exactly
   on the levels where it means anything, and on the tutorial's card. It was
   once named nowhere, which is not "costs nothing" but "does not exist".
 
-  **The two F3 readouts take opposite bottom corners**, and both hide while
+  **The two F2 readouts take opposite bottom corners**, and both hide while
   `UiModal.HudVisible` is false. They come up on one key and are anchored
   the same way at the same width, so a shared corner would put them in one
   rectangle — which the catch readout and diagnostics already did once.

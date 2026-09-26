@@ -412,7 +412,7 @@ namespace BitSorter.LogicCore.Tests
         }
 
         /// <summary>
-        /// The two F3 readouts are in opposite bottom corners.
+        /// The two F2 readouts are in opposite bottom corners.
         /// </summary>
         /// <remarks>
         /// They come up together on the same key, and both are anchored with
@@ -421,7 +421,7 @@ namespace BitSorter.LogicCore.Tests
         /// already did once.
         /// </remarks>
         [Test]
-        public void TheTwoF3Readouts_TakeDifferentCorners()
+        public void TheTwoF2Readouts_TakeDifferentCorners()
         {
             Assert.AreNotEqual(UiTheme.DiagnosticsCorner, UiTheme.ClockDiagramCorner);
 

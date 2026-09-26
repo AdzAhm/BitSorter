@@ -48,7 +48,7 @@ namespace BitSorter.View
         /// </remarks>
         public static float WidthFor(int period) => KeyLeft(period) + KeyWidth() + Inset;
 
-        /// <summary>Where the F3 key's caption starts, after the beat.</summary>
+        /// <summary>Where the F2 key's caption starts, after the beat.</summary>
         private static float KeyLeft(int period)
         {
             float beat = period <= 0 ? 0f : period * (PipSize + PipGap) - PipGap;
@@ -59,7 +59,7 @@ namespace BitSorter.View
         /// How wide the caption naming the timing diagram is, measured.
         /// </summary>
         /// <remarks>
-        /// The diagram was behind F3 and named nowhere. This strip is on screen exactly on the
+        /// The diagram was behind F2 and named nowhere. This strip is on screen exactly on the
         /// levels where the diagram means anything, so it says so here, quietly, at the end of the
         /// beat -- and nowhere else costs a player who never wants it anything.
         /// </remarks>

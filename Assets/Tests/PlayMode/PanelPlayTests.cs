@@ -953,17 +953,17 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
-        /// F3 pressed behind a full-screen panel toggles nothing; pressed on the board it toggles both
+        /// F2 pressed behind a full-screen panel toggles nothing; pressed on the board it toggles both
         /// readouts.
         /// </summary>
         /// <remarks>
-        /// A panel over the board owns the keyboard -- every board key asks UiModal first -- and F3
+        /// A panel over the board owns the keyboard -- every board key asks UiModal first -- and F2
         /// was the one that did not. Pressed on the main menu it did nothing visible, and the
         /// diagram and diagnostics then appeared from nowhere when the menu closed. The second half
-        /// is the positive control, so the first cannot pass by F3 never being read at all.
+        /// is the positive control, so the first cannot pass by F2 never being read at all.
         /// </remarks>
         [UnityTest]
-        public IEnumerator F3BehindAFullScreenPanel_TogglesNothing()
+        public IEnumerator F2BehindAFullScreenPanel_TogglesNothing()
         {
             yield return TestScene.Load();
             yield return SkipTheTutorial();
@@ -974,21 +974,21 @@ namespace BitSorter.PlayMode.Tests
             ClockDiagram diagram = Find<ClockDiagram>();
             DiagnosticsPanel diagnostics = Find<DiagnosticsPanel>();
 
-            yield return PressKey(_keyboard.f3Key);
-            Release(_keyboard.f3Key);
+            yield return PressKey(_keyboard.f2Key);
+            Release(_keyboard.f2Key);
             yield return null;
 
-            Assert.IsFalse(Shown(diagram), "F3 behind the main menu switched the timing diagram on");
-            Assert.IsFalse(Shown(diagnostics), "F3 behind the main menu switched diagnostics on");
+            Assert.IsFalse(Shown(diagram), "F2 behind the main menu switched the timing diagram on");
+            Assert.IsFalse(Shown(diagnostics), "F2 behind the main menu switched diagnostics on");
 
             yield return CloseTheMainMenu();
 
-            yield return PressKey(_keyboard.f3Key);
-            Release(_keyboard.f3Key);
+            yield return PressKey(_keyboard.f2Key);
+            Release(_keyboard.f2Key);
             yield return null;
 
-            Assert.IsTrue(Shown(diagram), "F3 on the board did not switch the timing diagram on");
-            Assert.IsTrue(Shown(diagnostics), "F3 on the board did not switch diagnostics on");
+            Assert.IsTrue(Shown(diagram), "F2 on the board did not switch the timing diagram on");
+            Assert.IsTrue(Shown(diagnostics), "F2 on the board did not switch diagnostics on");
         }
 
         /// <summary>Whether a toggled readout is switched on, which is private to it.</summary>

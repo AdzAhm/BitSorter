@@ -109,9 +109,13 @@ namespace BitSorter.View
         /// Kept off the controls line: it is only worth anything on a level with a clock, and the
         /// strip that says so is on screen exactly then. It used to be named nowhere at all, though
         /// its own remarks call it the notation the course uses.
+        ///
+        /// F2, not F3: in a browser F3 opens the page's find bar, which is what pressing it did in
+        /// a playtest, 2026-09-26. F2 is the one function key browsers leave alone -- F1 is their
+        /// help, F5 reloads, F6 and F10 to F12 are taken.
         /// </remarks>
         public static readonly ControlEntry TimingDiagram =
-            new ControlEntry("F3 for the timing diagram", false, ControlKind.Running);
+            new ControlEntry("F2 for the timing diagram", false, ControlKind.Running);
 
         public static IReadOnlyList<ControlEntry> All { get; } = new[]
         {

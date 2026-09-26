@@ -8,7 +8,7 @@ namespace BitSorter.View
 {
     /// <summary>
     /// The level's clock drawn the way a textbook draws one: a square wave, with a playhead on the
-    /// tick the run is at. Behind F3, in the bottom left corner.
+    /// tick the run is at. Behind F2, in the bottom left corner.
     /// </summary>
     /// <remarks>
     /// The pair to <see cref="ClockReadout"/> rather than a replacement for it. The readout is a
@@ -101,7 +101,7 @@ namespace BitSorter.View
 
             // Not behind a full-screen panel, where every board key stands aside: pressed on the
             // main menu it did nothing visible, and the readout appeared once the menu closed.
-            if (keyboard != null && keyboard.f3Key.wasPressedThisFrame && !UiModal.OpenOrJustClosed)
+            if (keyboard != null && keyboard.f2Key.wasPressedThisFrame && !UiModal.OpenOrJustClosed)
                 _shown = !_shown;
 
             LevelDefinition level = _session != null && _session.IsLoaded ? _session.Level : null;

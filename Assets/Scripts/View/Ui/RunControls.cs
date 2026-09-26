@@ -103,7 +103,7 @@ namespace BitSorter.View
         /// <remarks>
         /// Permanent rather than behind the diagnostics key, because these are the only way to do
         /// several things -- there is no button for drawing a wire, deleting one, or re-timing it.
-        /// Hiding them would leave a player who never presses F3 unable to finish a delay level.
+        /// Hiding them would leave a player who never presses F2 unable to finish a delay level.
         ///
         /// Buttons cover run and reset, and the palette covers selection, so those are left out. What
         /// remains is exactly what the interface cannot yet express.

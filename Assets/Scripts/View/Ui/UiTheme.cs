@@ -95,7 +95,7 @@ namespace BitSorter.View
         /// One corner is in use: diagnostics, on the left. Free play's catch readout held the right
         /// one until it moved into the setup panel, where it sits under the streams that produced it
         /// -- and the pair is what this constant is for. The two once anchored bottom-right at the
-        /// same offset with the same width, each stating its own numbers, so in free play with F3
+        /// same offset with the same width, each stating its own numbers, so in free play with F2
         /// open they occupied exactly the same rectangle.
         ///
         /// Narrow enough that a second corner readout could return without colliding with this one,
@@ -107,7 +107,7 @@ namespace BitSorter.View
         /// Diagnostics takes the right corner, and the clock diagram the left.
         /// </summary>
         /// <remarks>
-        /// Both are behind F3 and both are bottom-corner readouts, so they are stated together:
+        /// Both are behind F2 and both are bottom-corner readouts, so they are stated together:
         /// they are the pair this constant's width exists to keep apart. The right one is clear at
         /// this height -- free play's setup panel stops 148 from the bottom and a corner readout is
         /// 96 tall on the margin -- and the palette is centred on the left edge and stops well

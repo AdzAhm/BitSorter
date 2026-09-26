@@ -309,16 +309,16 @@ namespace BitSorter.LogicCore.Tests
         }
 
         /// <summary>
-        /// The timing diagram's key is a control like the rest: on the card, and named by F3.
+        /// The timing diagram's key is a control like the rest: on the card, and named by F2.
         /// </summary>
         /// <remarks>
-        /// It was behind F3 and named nowhere. The clock strip draws this entry's own text, so the
+        /// It was behind F2 and named nowhere. The clock strip draws this entry's own text, so the
         /// strip and the card say the same thing.
         /// </remarks>
         [Test]
         public void TheTimingDiagram_IsNamedOnTheCard()
         {
-            StringAssert.StartsWith("F3", ControlsReference.TimingDiagram.Text);
+            StringAssert.StartsWith("F2", ControlsReference.TimingDiagram.Text);
 
             bool onTheCard = false;
 
