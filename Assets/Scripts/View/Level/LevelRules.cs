@@ -190,7 +190,13 @@ namespace BitSorter.View
         /// name is the fixture's id. Refusals quoted the id as written in the level file -- 'binOne'
         /// beside a bin labelled BINONE -- so the player was shown two names for one thing.
         /// </remarks>
-        private static string BoardLabel(LevelFixture fixture) => fixture.Id.ToUpperInvariant();
+        private static string BoardLabel(LevelFixture fixture) => BoardLabel(fixture.Id);
+
+        /// <summary>
+        /// A fixture's name as the board labels it -- "IN", "SUM" -- for anything that names one to
+        /// the player: refusals here, and the verdicts in <see cref="LevelGrader"/>.
+        /// </summary>
+        public static string BoardLabel(string fixtureId) => fixtureId.ToUpperInvariant();
 
         /// <summary>
         /// Whether whatever occupies this cell may be removed.

@@ -43,6 +43,15 @@ namespace BitSorter.View
         private TextMeshProUGUI _title;
         private TextMeshProUGUI _goal;
         private TextMeshProUGUI _verdict;
+        /// <summary>What a verdict is set in, on its one line under the banner.</summary>
+        public const UiType VerdictType = UiType.Body;
+
+        /// <summary>What goes before a verdict's reason.</summary>
+        public const string PassPrefix = "PASS -- ";
+
+        /// <inheritdoc cref="PassPrefix"/>
+        public const string FailPrefix = "FAIL -- ";
+
         private Image _toastBackground;
         private TextMeshProUGUI _toast;
 
@@ -100,7 +109,7 @@ namespace BitSorter.View
                 new Vector2(UiTheme.BannerTextWidth, UiTheme.BannerGoalHeight));
             _goal.textWrappingMode = TextWrappingModes.Normal;
 
-            _verdict = UiTheme.Label("verdict", root, UiType.Body, UiTheme.Text, TextAlignmentOptions.Center);
+            _verdict = UiTheme.Label("verdict", root, VerdictType, UiTheme.Text, TextAlignmentOptions.Center);
             UiTheme.Anchor(_verdict.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 1f),
                 new Vector2(0f, -UiTheme.VerdictGap), new Vector2(UiTheme.BannerTextWidth, UiTheme.VerdictLineHeight));
 
@@ -236,12 +245,12 @@ namespace BitSorter.View
             {
                 case RunState.Passed:
                     _verdict.color = UiTheme.Good;
-                    _verdict.text = "PASS -- " + reason;
+                    _verdict.text = PassPrefix + reason;
                     break;
 
                 case RunState.Failed:
                     _verdict.color = UiTheme.Bad;
-                    _verdict.text = "FAIL -- " + reason;
+                    _verdict.text = FailPrefix + reason;
                     break;
 
                 case RunState.Running:

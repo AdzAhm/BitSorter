@@ -190,20 +190,14 @@ namespace BitSorter.View
                 // "Something feeds itself" was true when nothing could legitimately loop. Registers
                 // made loops the point of a whole chapter, so the old wording now accuses the player
                 // of the exact thing the level asked them to build.
-                return RunVerdict.Fail(RunOutcome.NeverSettled,
-                    $"Still running after {level.TickLimit} ticks. Either a bit is going round " +
-                    "for ever, or one never reached a bin.");
+                return RunVerdict.Fail(RunOutcome.NeverSettled, Words.NeverSettled(level.TickLimit));
             }
 
             // Checked before the sequences. A collision usually breaks a sequence too, but "2 bits
             // destroyed" tells the player far more than "expected 1, received nothing" does.
             if (view.CorruptedCount > 0)
             {
-                int destroyed = view.CorruptedCount;
-
-                return RunVerdict.Fail(RunOutcome.Corrupted,
-                    $"{destroyed} {(destroyed == 1 ? "bit" : "bits")} destroyed. " +
-                    "Two arrivals met at one port.");
+                return RunVerdict.Fail(RunOutcome.Corrupted, Words.Destroyed(view.CorruptedCount));
             }
 
             for (int i = 0; i < level.Expectations.Count; i++)
@@ -227,8 +221,7 @@ namespace BitSorter.View
                     return timing;
             }
 
-            return RunVerdict.Pass(
-                $"Every vector correct. {level.VectorCount} of {level.VectorCount}.");
+            return RunVerdict.Pass(Words.Passed(level.VectorCount));
         }
 
         private static RunVerdict GradeSink(
@@ -276,9 +269,7 @@ namespace BitSorter.View
                     if (!ExpectsBitAt(expected, vector))
                     {
                         return RunVerdict.Fail(RunOutcome.ExtraOutput,
-                            $"{Row(level, vector)}: {sinkId} should have stayed empty, " +
-                            "but a bit arrived.",
-                            vector, sinkId);
+                            Words.ShouldStayEmpty(Row(level, vector), sinkId), vector, sinkId);
                     }
                 }
             }
@@ -290,8 +281,7 @@ namespace BitSorter.View
                 if (k >= received.Count)
                 {
                     return RunVerdict.Fail(RunOutcome.MissingOutput,
-                        $"{Row(level, want.Vector)}: {sinkId} wanted {Describe(want)}, " +
-                        "but nothing arrived.",
+                        Words.NothingArrived(Row(level, want.Vector), sinkId, Describe(want)),
                         want.Vector, sinkId);
                 }
 
@@ -302,8 +292,7 @@ namespace BitSorter.View
                 if (!want.IsAny && got != want.Value)
                 {
                     return RunVerdict.Fail(RunOutcome.WrongOutput,
-                        $"{Row(level, want.Vector)}: {sinkId} wanted {(int)want.Value}, " +
-                        $"but got {(int)got}.",
+                        Words.Wrong(Row(level, want.Vector), sinkId, (int)want.Value, (int)got),
                         want.Vector, sinkId);
                 }
             }
@@ -312,15 +301,12 @@ namespace BitSorter.View
                 return RunVerdict.Pass(null);
 
             int extra = received.Count - expected.Count;
-            string bits = extra == 1 ? "bit" : "bits";
 
             // An empty bin gets its own wording. This is the branch that catches wiring one source
             // into every bin to see which one sticks.
             return expected.Count == 0
-                ? RunVerdict.Fail(RunOutcome.ExtraOutput,
-                    $"{sinkId} should be empty. {extra} {bits} arrived.", -1, sinkId)
-                : RunVerdict.Fail(RunOutcome.ExtraOutput,
-                    $"{sinkId} took {extra} {bits} too many.", -1, sinkId);
+                ? RunVerdict.Fail(RunOutcome.ExtraOutput, Words.EmptyBinFilled(sinkId, extra), -1, sinkId)
+                : RunVerdict.Fail(RunOutcome.ExtraOutput, Words.TooMany(sinkId, extra), -1, sinkId);
         }
 
         /// <summary>
@@ -341,9 +327,7 @@ namespace BitSorter.View
                 return RunVerdict.Pass(null);
 
             return RunVerdict.Fail(RunOutcome.TooSlow,
-                $"Right answer, too slow. {worstSink} took {worst} ticks and this level allows " +
-                $"{level.MaxLatency}. The critical path is too long.",
-                -1, worstSink);
+                Words.TooSlow(worstSink, worst, level.MaxLatency), -1, worstSink);
         }
 
         /// <summary>
@@ -409,7 +393,50 @@ namespace BitSorter.View
         }
 
         /// <summary>
-        /// Names the row that failed, and what went into it: "row 4 (a = 1, b = 0)".
+        /// What every verdict says, apart from the grading, so a test can hold each one to the single
+        /// line the banner gives it.
+        /// </summary>
+        /// <remarks>
+        /// Rewritten after a playtest found them unclear, 2026-09-26. "out wanted 1" read as a verb
+        /// and named the bin by its file id; now a bin is named as the board labels it and
+        /// "should get" says what was wanted. Two messages ran past the banner's line on a real
+        /// board, and <c>VerdictWordsTests</c> measures every verdict every shipped level can give.
+        /// </remarks>
+        public static class Words
+        {
+            public static string NeverSettled(int tickLimit) =>
+                $"Still running after {tickLimit} ticks: a bit is looping, or one never reached a bin.";
+
+            public static string Destroyed(int count) =>
+                $"{count} {Bits(count)} destroyed -- a bit reached a port that was still holding one.";
+
+            public static string Passed(int rows) =>
+                $"Every row of the table is right: {rows} of {rows}.";
+
+            public static string ShouldStayEmpty(string row, string sinkId) =>
+                $"{row}: {LevelRules.BoardLabel(sinkId)} should stay empty, but a bit arrived.";
+
+            public static string NothingArrived(string row, string sinkId, string wanted) =>
+                $"{row}: {LevelRules.BoardLabel(sinkId)} should get {wanted}, but nothing arrived.";
+
+            public static string Wrong(string row, string sinkId, int wanted, int got) =>
+                $"{row}: {LevelRules.BoardLabel(sinkId)} should get {wanted}, but got {got}.";
+
+            public static string EmptyBinFilled(string sinkId, int extra) =>
+                $"{LevelRules.BoardLabel(sinkId)} should stay empty, but {extra} {Bits(extra)} arrived.";
+
+            public static string TooMany(string sinkId, int extra) =>
+                $"{LevelRules.BoardLabel(sinkId)} got {extra} {Bits(extra)} more than it should.";
+
+            public static string TooSlow(string sinkId, int ticks, int allowed) =>
+                $"Too slow: the critical path to {LevelRules.BoardLabel(sinkId)} takes {ticks} ticks, " +
+                $"and this level allows {allowed}.";
+
+            private static string Bits(int count) => count == 1 ? "bit" : "bits";
+        }
+
+        /// <summary>
+        /// Names the row that failed, and what went into it: "Row 4 (A = 1, B = 0)".
         /// </summary>
         /// <remarks>
         /// This said "vector 3" and nothing else. Two things were wrong with that. The player does
@@ -425,9 +452,9 @@ namespace BitSorter.View
         /// A row past the end of the streams -- a register's tail -- has no inputs to name, and
         /// says so rather than printing an empty pair of brackets.
         /// </remarks>
-        private static string Row(LevelDefinition level, int vector)
+        public static string Row(LevelDefinition level, int vector)
         {
-            string row = $"row {vector + 1}";
+            string row = $"Row {vector + 1}";
 
             if (level == null)
                 return row;
@@ -445,7 +472,7 @@ namespace BitSorter.View
                 if (inputs.Length > 0)
                     inputs.Append(", ");
 
-                inputs.Append($"{fixture.Id} = {(int)fixture.Stream[vector]}");
+                inputs.Append($"{LevelRules.BoardLabel(fixture.Id)} = {(int)fixture.Stream[vector]}");
             }
 
             return inputs.Length > 0 ? $"{row} ({inputs})" : $"{row} (after the last input)";
