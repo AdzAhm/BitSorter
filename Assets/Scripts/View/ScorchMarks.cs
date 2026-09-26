@@ -36,6 +36,9 @@ namespace BitSorter.View
         {
             public SpriteRenderer Renderer;
             public float Born;
+
+            /// <summary>Whether the mark has been given its finished look and needs nothing more.</summary>
+            public bool Settled;
         }
 
         private readonly Dictionary<InputPort, Mark> _marks = new Dictionary<InputPort, Mark>();
@@ -121,18 +124,25 @@ namespace BitSorter.View
         /// <remarks>
         /// Stops touching a mark once it has settled, so a board full of them costs nothing per
         /// frame beyond the loop itself.
+        ///
+        /// Settled means given its finished look -- full strength, settled size -- on the first
+        /// frame past the deadline. It used to stop at the last frame before the deadline instead,
+        /// so a mark kept whatever that frame had made it: fainter at a low frame rate, and, where a
+        /// frame landed on the deadline exactly, fainter or not by float rounding in the game clock,
+        /// which is how one reference capture in a dozen came out different.
         /// </remarks>
         private void Animate()
         {
             for (int i = 0; i < _order.Count; i++)
             {
                 Mark mark = _order[i];
-                float age = Time.time - mark.Born;
 
-                if (age > _bloomSeconds)
+                if (mark.Settled)
                     continue;
 
-                float t = _bloomSeconds <= 0f ? 1f : Mathf.Clamp01(age / _bloomSeconds);
+                float age = Time.time - mark.Born;
+                bool done = _bloomSeconds <= 0f || age >= _bloomSeconds;
+                float t = done ? 1f : Mathf.Clamp01(age / _bloomSeconds);
 
                 SpriteRenderer renderer = mark.Renderer;
                 renderer.color = new Color(Palette.Current.Scorch.r, Palette.Current.Scorch.g, Palette.Current.Scorch.b, _alpha * t);
@@ -140,6 +150,12 @@ namespace BitSorter.View
                 // Overshoots and settles, so it lands rather than simply appearing.
                 float scale = _size * (1f + 0.5f * (1f - t) * (1f - t));
                 renderer.transform.localScale = new Vector3(scale, scale, 1f);
+
+                if (done)
+                {
+                    mark.Settled = true;
+                    _order[i] = mark;
+                }
             }
         }
 
