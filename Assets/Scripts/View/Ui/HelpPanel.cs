@@ -18,7 +18,7 @@ namespace BitSorter.View
     /// the player does not need, and because a hint that is always visible stops being something you
     /// choose to read.
     /// </remarks>
-    public sealed class HelpPanel : MonoBehaviour
+    public sealed class HelpPanel : MonoBehaviour, IHoldsEscape
     {
         [SerializeField] private LevelSession _session;
 
@@ -144,16 +144,10 @@ namespace BitSorter.View
             if (_session == null) _session = FindFirstObjectByType<LevelSession>();
             if (_canvas == null) _canvas = FindFirstObjectByType<Canvas>();
 
-            // Here and in OnDestroy rather than OnEnable and OnDisable, as the solved card does: a
-            // test that calls Update by hand disables the component, and the panel has not gone.
-            _live = this;
+            UiEscape.Join(this);
         }
 
-        private void OnDestroy()
-        {
-            if (_live == this)
-                _live = null;
-        }
+        private void OnDestroy() => UiEscape.Leave(this);
 
         /// <summary>
         /// Whether Escape is this panel's this frame, so the main menu stands aside for it.
@@ -161,15 +155,11 @@ namespace BitSorter.View
         /// <remarks>
         /// Escape closes what is on top, and the open help is on top of the board. Once Escape was
         /// the main menu's key, pressing it to put the help away covered the screen with the menu
-        /// instead. The panel is not a modal, so it says so itself, the way the solved card and the
-        /// hint do: true while it is open with nothing over it, and still true for the rest of the
-        /// frame once Escape has closed it.
+        /// instead. The panel is not a modal, so it joins <see cref="UiEscape"/>, as the solved card
+        /// and the hint do: true while it is open with nothing over it, and still true for the rest
+        /// of the frame once Escape has closed it.
         /// </remarks>
-        public static bool HoldsEscape => _live != null && _live.HoldsEscapeNow;
-
-        private static HelpPanel _live;
-
-        private bool HoldsEscapeNow =>
+        public bool HoldsEscapeNow =>
             _escapedOn == Time.frameCount || (_shown && UiModal.HudVisible && !UiModal.OpenOrJustClosed);
 
         /// <summary>The frame Escape closed the panel on, or -1.</summary>

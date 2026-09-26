@@ -588,10 +588,13 @@ failure side.
 
   On a board, what is on top may be the solved card, a first-time hint or
   the open help panel. None of them is a modal, so the main menu cannot hear
-  about them from `UiModal` and asks each one's `HoldsEscape`, which stays
-  true for the rest of the frame once Escape has taken it down -- one press,
-  one thing, whichever updates first. A new thing that sits on the board and
-  closes on Escape needs the same, or the press also opens the menu. And **a panel never answers a key on the
+  about them from `UiModal`: each implements `IHoldsEscape` and joins
+  `UiEscape`, and the menu asks `UiEscape.AnyHolds`. A holder answers true
+  while a press would close it and for the rest of the frame once Escape has
+  -- one press, one thing, whichever updates first. `UiEscapeTests` scans the
+  view scripts and refuses one that reads Escape without being a full-screen
+  panel, the main menu, or a member of the list; each of the three was found
+  by one press closing it and opening the menu as well. And **a panel never answers a key on the
   frame it opened** (`FullScreenPanel.OpenedThisFrame`): the Escape that
   takes down the tutorial's solved card raises the tutorial's own card in
   the same frame, and that card closes on Escape; the Escape that leaves

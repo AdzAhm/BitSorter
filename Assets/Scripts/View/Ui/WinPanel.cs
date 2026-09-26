@@ -16,7 +16,7 @@ namespace BitSorter.View
     /// meaningful ones. Throughput is not among them, because a balanced circuit always manages one
     /// vector per tick and an unbalanced one fails outright.
     /// </remarks>
-    public sealed class WinPanel : MonoBehaviour
+    public sealed class WinPanel : MonoBehaviour, IHoldsEscape
     {
         [SerializeField] private LevelSession _session;
         [SerializeField] private SimulationRunner _runner;
@@ -98,18 +98,13 @@ namespace BitSorter.View
         /// </summary>
         /// <remarks>
         /// Escape closes whatever is on top, and on a board with nothing open that is this card --
-        /// every other card took Escape and this one took nothing. The main menu opens on the same
-        /// key -- the level list did, until M and Escape swapped -- and this card is not a modal, so
-        /// the menu cannot learn it is covered from <see cref="UiModal"/>. It asks here instead,
-        /// and the answer holds for the whole frame either way round: true while the card is drawn
-        /// with nothing over it, and still true after Escape has taken it down. Whichever of the
-        /// two Unity updates first, one press closes the card and opens nothing.
+        /// every other card took Escape and this one took nothing. The card is not a modal, so the
+        /// menu cannot learn it is covered from <see cref="UiModal"/>; it asks
+        /// <see cref="UiEscape"/>, which this card joins. True while the card is drawn with nothing
+        /// over it, and still true after Escape has taken it down, so whichever of the two Unity
+        /// updates first, one press closes the card and opens nothing.
         /// </remarks>
-        public static bool HoldsEscape => _live != null && _live.HoldsEscapeNow;
-
-        private static WinPanel _live;
-
-        private bool HoldsEscapeNow =>
+        public bool HoldsEscapeNow =>
             _escapedOn == Time.frameCount || (IsDrawn && !UiModal.OpenOrJustClosed);
 
         private bool IsDrawn => _root != null && _root.gameObject.activeSelf;
@@ -119,9 +114,7 @@ namespace BitSorter.View
 
         private void Awake()
         {
-            // Here and in OnDestroy rather than OnEnable and OnDisable: a test that calls Update by
-            // hand disables the component, and the card has not gone anywhere.
-            _live = this;
+            UiEscape.Join(this);
 
             if (_session == null) _session = FindFirstObjectByType<LevelSession>();
             if (_runner == null) _runner = FindFirstObjectByType<SimulationRunner>();
@@ -398,10 +391,6 @@ namespace BitSorter.View
             UiTheme.Defocus();
         }
 
-        private void OnDestroy()
-        {
-            if (_live == this)
-                _live = null;
-        }
+        private void OnDestroy() => UiEscape.Leave(this);
     }
 }

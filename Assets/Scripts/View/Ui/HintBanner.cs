@@ -20,7 +20,7 @@ namespace BitSorter.View
     /// It never pauses the game. The moment being explained is happening on the board right now, and
     /// stopping the board to talk about it would turn a hint into a cutscene.
     /// </remarks>
-    public sealed class HintBanner : MonoBehaviour
+    public sealed class HintBanner : MonoBehaviour, IHoldsEscape
     {
         [Tooltip("Canvas the line is built under. Found by type when left empty.")]
         [SerializeField] private Canvas _canvas;
@@ -53,16 +53,12 @@ namespace BitSorter.View
         /// <remarks>
         /// Escape closes what is on top, and a hint is on top of the board. One press dismissed the
         /// hint and opened the level list -- the main menu, once the keys swapped -- because the
-        /// hint is not a modal and the menu could not know it was there. The solved card had the
-        /// same gap and closes it the same way: true while a press would dismiss the hint, and
-        /// still true for the rest of the frame once Escape has, so one press does one thing
-        /// whichever of the two Unity updates first.
+        /// hint is not a modal and the menu could not know it was there. It joins
+        /// <see cref="UiEscape"/> as the solved card does: true while a press would dismiss the
+        /// hint, and still true for the rest of the frame once Escape has, so one press does one
+        /// thing whichever of the two Unity updates first.
         /// </remarks>
-        public static bool HoldsEscape => _live != null && _live.HoldsEscapeNow;
-
-        private static HintBanner _live;
-
-        private bool HoldsEscapeNow => _escapedOn == Time.frameCount || Dismissable;
+        public bool HoldsEscapeNow => _escapedOn == Time.frameCount || Dismissable;
 
         /// <summary>The frame Escape dismissed the hint on, or -1.</summary>
         private int _escapedOn = -1;
@@ -79,16 +75,10 @@ namespace BitSorter.View
         {
             if (_canvas == null) _canvas = FindFirstObjectByType<Canvas>();
 
-            // Here and in OnDestroy rather than OnEnable and OnDisable, as the solved card does: a
-            // test that calls Update by hand disables the component, and the hint has not gone.
-            _live = this;
+            UiEscape.Join(this);
         }
 
-        private void OnDestroy()
-        {
-            if (_live == this)
-                _live = null;
-        }
+        private void OnDestroy() => UiEscape.Leave(this);
 
         private void Start()
         {
