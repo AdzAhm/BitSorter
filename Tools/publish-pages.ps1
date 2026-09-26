@@ -6,7 +6,7 @@
     Build the player first with BitSorter -> Build WebGL Player, then run this.
 
     The branch is rebuilt from nothing on every run and force-pushed, so its
-    history never grows. That is deliberate: a 14 MB WebGL build barely deltas
+    history never grows. That is deliberate: a 20 MB WebGL build barely deltas
     against the previous one, so appending commits would add roughly the whole
     build to the repository every time. Nobody needs last week's binaries.
 

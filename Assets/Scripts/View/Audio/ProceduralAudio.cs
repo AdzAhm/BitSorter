@@ -465,7 +465,7 @@ namespace BitSorter.View
         ///
         /// What it buys is memory: these clips are held as uncompressed floats and they are long. A
         /// 32-second track is 2.8 MB here against 5.6 at the cue rate, and GameAudio holds at most
-        /// three at once, in a game whose entire browser build is 16 MB. Every track built used to
+        /// three at once, in a game whose entire browser build is about 21 MB. Every track built used to
         /// stay for the session; at two dozen tracks that would have been over 60 MB.
         ///
         /// Those numbers are <see cref="MusicResidentBytes"/>, and MusicTests asserts against it rather

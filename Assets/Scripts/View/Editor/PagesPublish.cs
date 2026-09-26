@@ -20,7 +20,7 @@ namespace BitSorter.View.Editor
     /// into the Unity console. A push has to authenticate, and if the credential
     /// helper ever decides to prompt, a redirected process would sit there waiting on
     /// stdin with the editor frozen behind it and nothing on screen to explain why.
-    /// A real window shows the prompt, and the upload progress of a 14 MB build.
+    /// A real window shows the prompt, and the upload progress of a 20 MB build.
     ///
     /// It also means the publish is runnable without Unity open, which matters when
     /// the thing being fixed is the page rather than the game.

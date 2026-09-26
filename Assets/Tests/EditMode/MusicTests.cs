@@ -775,7 +775,7 @@ namespace BitSorter.LogicCore.Tests
 
             Assert.Less(bytes, ceiling,
                 $"the music held at once now costs {bytes / (float)megabyte:0.0} MiB of heap against " +
-                $"a {ceiling / megabyte} MiB ceiling, in a game whose whole browser build is 16 MB. " +
+                $"a {ceiling / megabyte} MiB ceiling, in a game whose whole browser build is about 21 MB. " +
                 "Shorten the tracks or lower MusicSampleRate -- and update the figure in its " +
                 "remarks, which is where this number is explained.");
         }
