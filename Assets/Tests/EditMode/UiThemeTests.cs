@@ -347,6 +347,14 @@ namespace BitSorter.LogicCore.Tests
             Assert.LessOrEqual(chapter, ChapterCard.BodyHeight,
                 $"the chapter card's paragraph needs {chapter:F0}px and has {ChapterCard.BodyHeight}px");
 
+            foreach (ControlEntry control in ControlsReference.All)
+            {
+                float width = UiTheme.TextWidth(control.Text, TutorialCard.ControlType);
+                Assert.LessOrEqual(width, TutorialCard.ColumnWidth,
+                    $"'{control.Text}' needs {width:F0}px on the tutorial's card and its column has " +
+                    $"{TutorialCard.ColumnWidth}px -- it would run into the other column");
+            }
+
             float tutorial = UiTheme.TextHeight(TutorialCard.Body, TutorialCard.BodyType, TutorialCard.BodyWidth);
             Assert.LessOrEqual(tutorial, TutorialCard.BodyHeight,
                 $"the tutorial card's paragraph needs {tutorial:F0}px and has {TutorialCard.BodyHeight}px");

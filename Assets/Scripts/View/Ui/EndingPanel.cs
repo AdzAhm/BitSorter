@@ -148,7 +148,7 @@ namespace BitSorter.View
 
             _detail = UiTheme.Label("detail", Root, UiType.Lead, UiTheme.Text, TextAlignmentOptions.Top);
             UiTheme.Anchor(_detail.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                new Vector2(0f, 10f), new Vector2(640f, 220f));
+                new Vector2(0f, 10f), new Vector2(720f, 220f));
             _detail.alignment = TextAlignmentOptions.Center;
             _detail.textWrappingMode = TextWrappingModes.Normal;
 

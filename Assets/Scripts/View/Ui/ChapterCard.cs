@@ -51,10 +51,10 @@ namespace BitSorter.View
         public const UiType BodyType = UiType.Lead;
 
         /// <inheritdoc cref="Body"/>
-        public const float BodyWidth = 700f;
+        public const float BodyWidth = 820f;
 
         /// <inheritdoc cref="Body"/>
-        public const float BodyHeight = 200f;
+        public const float BodyHeight = 220f;
 
         private bool _due;
 

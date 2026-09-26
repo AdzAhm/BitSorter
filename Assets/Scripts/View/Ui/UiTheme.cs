@@ -378,8 +378,8 @@ namespace BitSorter.View
                 case UiType.Caption: return 13f;
                 case UiType.Label: return 15f;
                 case UiType.Body: return 18f;
-                case UiType.Lead: return 21f;
                 case UiType.Numeral: return 22f;
+                case UiType.Lead: return 24f;
                 case UiType.Heading: return 26f;
                 case UiType.Title: return 40f;
                 case UiType.Display: return 54f;

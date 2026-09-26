@@ -150,8 +150,6 @@ namespace BitSorter.View
         /// </remarks>
         private float BuildColumns()
         {
-            const float columnWidth = 330f;
-
             IReadOnlyList<ControlGroup> groups = ControlsReference.Groups;
 
             // Each column walks down from ColumnTop; rows are placed by their middles, above and
@@ -162,7 +160,7 @@ namespace BitSorter.View
             for (int i = 0; i < groups.Count; i++)
             {
                 bool left = i == 0;
-                BuildGroup(groups[i], left ? -175f : 175f, left ? leftColumn : rightColumn, columnWidth);
+                BuildGroup(groups[i], left ? -175f : 175f, left ? leftColumn : rightColumn, ColumnWidth);
             }
 
             return ColumnTop - Mathf.Max(leftColumn.Next, rightColumn.Next);
@@ -175,13 +173,26 @@ namespace BitSorter.View
         public const UiType BodyType = UiType.Lead;
 
         /// <inheritdoc cref="Body"/>
-        public const float BodyWidth = 760f;
+        public const float BodyWidth = 920f;
 
         /// <inheritdoc cref="Body"/>
-        public const float BodyHeight = 100f;
+        public const float BodyHeight = 114f;
+
+        /// <summary>How wide each of the two columns of controls is.</summary>
+        public const float ColumnWidth = 330f;
+
+        /// <summary>
+        /// The type the controls and their headings are set in: the size of the card's buttons.
+        /// </summary>
+        /// <remarks>
+        /// It was Label, three steps under the paragraph above it, and in a window smaller than the
+        /// reference screen the list was the hardest thing on the card to read -- while being the
+        /// part the card exists to hand over. Asked for larger after a playtest, 2026-09-26.
+        /// </remarks>
+        public const UiType ControlType = UiType.Body;
 
         /// <summary>Height of one heading or one control row.</summary>
-        private const float RowHeight = 26f;
+        private const float RowHeight = 30f;
 
         /// <summary>Extra space after a group, so the headings separate the blocks.</summary>
         private const float HeadingGap = 12f;
@@ -228,7 +239,8 @@ namespace BitSorter.View
         private void BuildGroup(ControlGroup group, float x, UiColumn column, float width)
         {
             TextMeshProUGUI heading = UiTheme.Label(
-                group.Name, Root, UiType.Label, UiTheme.Accent, TextAlignmentOptions.Left);
+                group.Name, Root, ControlType, UiTheme.Accent, TextAlignmentOptions.Left);
+            heading.fontStyle = FontStyles.Bold;
             UiTheme.Anchor(heading.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                 new Vector2(x, ColumnTop - column.Take(RowHeight)), new Vector2(width, RowHeight));
 
@@ -239,7 +251,7 @@ namespace BitSorter.View
             foreach (ControlEntry entry in group.Entries)
             {
                 TextMeshProUGUI row = UiTheme.Label(
-                    entry.Text, Root, UiType.Label, UiTheme.Text, TextAlignmentOptions.Left);
+                    entry.Text, Root, ControlType, UiTheme.Text, TextAlignmentOptions.Left);
                 UiTheme.Anchor(row.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                     new Vector2(x, ColumnTop - column.Take(RowHeight)), new Vector2(width, RowHeight));
                 row.text = entry.Text;

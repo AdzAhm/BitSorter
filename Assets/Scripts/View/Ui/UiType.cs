@@ -26,18 +26,20 @@ namespace BitSorter.View
 
         /// <summary>Text meant to be read: a goal, a level's name, a button, the solved card.</summary>
         Body,
+        /// <summary>A single value read at a glance: the bits lost, the help badge's mark.</summary>
+        Numeral,
+
         /// <summary>
         /// A full-screen card's paragraphs: the chapter card, the tutorial's closing card, the ending.
         /// </summary>
         /// <remarks>
-        /// A step above <see cref="Body"/> because those cards have the whole screen and say one
-        /// thing: at Body's size a card with nothing else on it read as small print (playtest,
-        /// 2026-09-25).
+        /// Above <see cref="Body"/> because those cards have the whole screen and say one thing: at
+        /// Body's size a card with nothing else on it read as small print (playtest, 2026-09-25).
+        /// Then above <see cref="Numeral"/> as well, when a window smaller than the reference screen
+        /// still made them hard to read (playtest, 2026-09-26) -- the order here is the order of
+        /// sizes, so it moved rather than breaking it.
         /// </remarks>
         Lead,
-
-        /// <summary>A single value read at a glance: the bits lost, the help badge's mark.</summary>
-        Numeral,
 
         /// <summary>A panel's title: the level's name on the banner, LEVELS, SOLVED.</summary>
         Heading,
