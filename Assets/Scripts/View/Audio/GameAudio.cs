@@ -29,6 +29,9 @@ namespace BitSorter.View
         [Tooltip("The settings, which carry the menu's music too. Found by type when empty.")]
         [SerializeField] private SettingsPanel _settings;
 
+        [Tooltip("The credits, reached from the settings, which carry it too. Found by type when empty.")]
+        [SerializeField] private CreditsPanel _credits;
+
         [Tooltip("Played while the main menu is showing, one after another. Imported, not generated: " +
                  "see MenuMusicCredit, which the menu shows.")]
         [SerializeField] private MenuTrack[] _menuTracks = System.Array.Empty<MenuTrack>();
@@ -49,7 +52,7 @@ namespace BitSorter.View
         }
 
         /// <summary>
-        /// The credit the main menu shows for <see cref="_menuTracks"/>. One copy, here beside them.
+        /// The credit the main menu shows for <see cref="_menuTracks"/>, from <see cref="Credits"/>.
         /// </summary>
         /// <remarks>
         /// Woodland Fantasy is CC BY 3.0, which requires the author, the title, the licence and a note
@@ -57,12 +60,10 @@ namespace BitSorter.View
         /// address with every copy. The README links it too, but a browser build is a copy that
         /// ships without the README. Dream is CC0 and owed nothing, and is credited anyway. Both came
         /// from OpenGameArt, where each licence was read before either was downloaded; the README's
-        /// credits say where.
+        /// credits say where. The facts live in <see cref="Credits.MenuMusic"/>, which the credits
+        /// roll reads as well, so the two cannot disagree.
         /// </remarks>
-        public const string MenuMusicCredit =
-            "Menu music: \"Dream\" by jkjkke (CC0)  ·  " +
-            "\"Woodland Fantasy\" by Matthew Pablo, matthewpablo.com " +
-            "(CC BY 3.0, creativecommons.org/licenses/by/3.0; converted to mono)";
+        public static string MenuMusicCredit => Credits.MenuMusicLine;
 
         [Tooltip("Scales every cue. Zero is silence.")]
         [Range(0f, 1f)]
@@ -240,6 +241,7 @@ namespace BitSorter.View
             if (_menu == null) _menu = FindFirstObjectByType<MainMenu>();
             if (_levels == null) _levels = FindFirstObjectByType<LevelSelectPanel>();
             if (_settings == null) _settings = FindFirstObjectByType<SettingsPanel>();
+            if (_credits == null) _credits = FindFirstObjectByType<CreditsPanel>();
 
             // The seed is the only random thing about the music: a different shuffle per session,
             // so two evenings on the same levels are not the same evening, and which of the menu's
@@ -641,7 +643,7 @@ namespace BitSorter.View
             MusicRules.WantsMenuMusic(
                 _menu != null && _menu.IsOpen,
                 _levels != null && _levels.IsShowing,
-                _settings != null && _settings.IsShowing) &&
+                (_settings != null && _settings.IsShowing) || (_credits != null && _credits.IsShowing)) &&
             _menuTracks != null && _menuTracks.Length > 0 && _menuTracks[_menuTrack].Clip != null;
 
         /// <summary>

@@ -45,7 +45,8 @@ Windows will probably warn that it does not recognise the publisher — the buil
 is unsigned, which is all that warning means. "More info", then "Run anyway".
 
 **Settings**, on the main menu, has the sound and its volume, fullscreen on
-Windows (`Alt`+`Enter` works too), the data switch, and a way to start over.
+Windows (`Alt`+`Enter` works too), the data switch, a way to start over, and the
+credits.
 
 The bottom-right corner of the main menu says which version you are running,
 which is worth including if you report a bug.
@@ -296,21 +297,22 @@ Unity 6.3 LTS (6000.3.11f1).
   scene is generated rather than authored, so anything added by hand is discarded
   the next time that runs.
 - Tests: Window → General → Test Runner, or **BitSorter → Run Tests**. Roughly
-  860 EditMode cases and 100 PlayMode at present, the PlayMode ones across
+  890 EditMode cases and 125 PlayMode at present, the PlayMode ones across
   thirteen fixtures — pointer arbitration, audio and the menu's music, scene
   composition, the tutorial's opening, the frame a run ends on, free play's setup,
   full-screen panels and the keys that open and close them, framing the board
   clear of the interface, what the board draws while a run moves, the level list,
-  the HUD allocating nothing on a quiet frame, the settings and their reset, and
+  the HUD allocating nothing on a quiet frame, the settings, their reset and the
+  credits, and
   the guard that keeps every test off your own save file. Those need a live
   scene, but not a focused window: nothing in the suite waits on wall-clock time
   any more. If you ever script that run, read the results from
   `TestResults.xml` in the save directory rather than from a `TestRunnerApi`
   callback, which does not survive the domain reload that entering play mode
   causes.
-- **BitSorter → Capture Reference Shots** screenshots seventeen states of the
+- **BitSorter → Capture Reference Shots** screenshots eighteen states of the
   real game — menu, board, a run, both kinds of collision, the cards, free play,
-  settings — into the save directory. Two captures of the same code are identical
+  settings, the credits — into the save directory. Two captures of the same code are identical
   to the pixel, so a change that claims to leave the look alone can be held to it.
   It needs the Game view.
 - To compile without the editor at all, Bee leaves the exact compiler invocation
@@ -420,7 +422,8 @@ and EmojiOne's for its sprites. The details are in `LICENSE`.
 Every level track and every sound effect is generated in code
 (`ProceduralAudio`), and all of them are original. The main menu plays two
 recorded tracks by other composers, under their own licences rather than the
-MIT licence above. Both are also credited on the menu itself:
+MIT licence above. Both are also credited on the menu itself, and in the credits
+under Settings:
 
 - **"Dream"** by **jkjkke**, from OpenGameArt's
   ["MainMenu Music"](https://opengameart.org/content/mainmenu-music). Licensed

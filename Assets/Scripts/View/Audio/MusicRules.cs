@@ -60,8 +60,10 @@ namespace BitSorter.View
         ///
         /// Settings counts for the same reason, and more plainly: it is reached only from the main
         /// menu and goes back to it, and without it here the music faded to the level's track and
-        /// back again on the way through.
+        /// back again on the way through. The credits are reached only from Settings, and count as
+        /// part of it.
         /// </remarks>
+        /// <param name="settingsOpen">Settings, or the credits reached from it.</param>
         public static bool WantsMenuMusic(bool mainMenuOpen, bool levelListOpen, bool settingsOpen) =>
             mainMenuOpen || levelListOpen || settingsOpen;
 

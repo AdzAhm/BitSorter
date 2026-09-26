@@ -571,6 +571,37 @@ namespace BitSorter.PlayMode.Tests
             yield return Capture("17-settings");
         }
 
+        /// <summary>
+        /// The credits, part-way up: the title near the top of the screen and the roles under it.
+        /// </summary>
+        /// <remarks>
+        /// Fourteen seconds of fixed frame time, so the same roll every capture: the roll counts on
+        /// <see cref="Time.deltaTime"/> and nothing else. Taken in tenth-of-a-second steps rather
+        /// than the capture's own, which is the same fourteen seconds in a twelfth of the frames --
+        /// at the capture's own step this one shot took four minutes in a background editor.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator Shot18_Credits()
+        {
+            yield return LoadTheGame();
+            yield return Frames(2);
+
+            GameObject.Find("Settings").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            yield return Frames(2);
+
+            GameObject.Find(SettingsPanel.CreditsButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+
+            const float step = 0.1f;
+            Time.captureDeltaTime = step;
+            yield return Frames(Mathf.RoundToInt(14f / step));
+            Time.captureDeltaTime = FrameSeconds;
+            yield return Frames(2);
+
+            Assert.IsTrue(Find<CreditsPanel>().IsOpen, "sanity: the credits should be rolling");
+
+            yield return Capture("18-credits");
+        }
+
         private static bool AnyCollisionTakesBoth(SimulationRunner runner)
         {
             for (int id = 0; id < runner.View.EdgeCount; id++)

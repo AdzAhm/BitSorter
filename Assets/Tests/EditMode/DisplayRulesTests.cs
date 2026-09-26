@@ -68,6 +68,23 @@ namespace BitSorter.LogicCore.Tests
             Assert.AreEqual(int.Parse(height.Groups[1].Value), DisplayRules.PreferredWindow.y);
         }
 
+        /// <summary>
+        /// Settings says Alt+Enter switches fullscreen too, which is Unity's own switch and only
+        /// true while the player settings allow it.
+        /// </summary>
+        [Test]
+        public void AltEnter_IsAllowed_BecauseSettingsSaysItIs()
+        {
+            StringAssert.Contains("Alt+Enter", SettingsPanel.DisplayText, "sanity: the promise this test holds");
+
+            string path = Path.Combine(Application.dataPath, "..", "ProjectSettings", "ProjectSettings.asset");
+            Match allowed = Regex.Match(File.ReadAllText(path), @"^\s*allowFullscreenSwitch:\s*(\d)", RegexOptions.Multiline);
+
+            Assert.IsTrue(allowed.Success, "the project settings no longer say whether Alt+Enter is allowed");
+            Assert.AreEqual("1", allowed.Groups[1].Value,
+                "Alt+Enter is switched off in the player settings, and Settings still tells players it works");
+        }
+
         [Test]
         public void TheSwitchIsOffered_InTheEditorAndOnTheDesktop()
         {

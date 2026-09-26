@@ -140,6 +140,7 @@ namespace BitSorter.View.EditorTools
             SinkCelebration celebration = host.AddComponent<SinkCelebration>();
             MainMenu mainMenu = host.AddComponent<MainMenu>();
             SettingsPanel settings = host.AddComponent<SettingsPanel>();
+            CreditsPanel credits = host.AddComponent<CreditsPanel>();
             EndingPanel ending = host.AddComponent<EndingPanel>();
 
             SandboxPanel sandbox = host.AddComponent<SandboxPanel>();
@@ -302,7 +303,11 @@ namespace BitSorter.View.EditorTools
 
             Assign(settings, "_progress", progress);
             Assign(settings, "_menu", mainMenu);
+            Assign(settings, "_credits", credits);
             Assign(settings, "_canvas", canvas);
+
+            Assign(credits, "_settings", settings);
+            Assign(credits, "_canvas", canvas);
 
             Assign(audio, "_runner", runner);
             Assign(audio, "_session", session);
@@ -310,6 +315,7 @@ namespace BitSorter.View.EditorTools
             Assign(audio, "_menu", mainMenu);
             Assign(audio, "_levels", levelSelect);
             Assign(audio, "_settings", settings);
+            Assign(audio, "_credits", credits);
             AssignMenuTracks(audio);
 
             EditorSceneManager.MarkSceneDirty(scene);

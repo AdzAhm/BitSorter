@@ -82,6 +82,27 @@ namespace BitSorter.LogicCore.Tests
             foreach (ControlEntry control in ControlsReference.All)
                 lines.Add(new Line("ControlsReference", control.Text));
 
+            // Settings, whose words are constants rather than literals inside its builder.
+            lines.Add(new Line("SettingsPanel.AudioText", SettingsPanel.AudioText));
+            lines.Add(new Line("SettingsPanel.DisplayText", SettingsPanel.DisplayText));
+            lines.Add(new Line("SettingsPanel.PrivacyText", SettingsPanel.PrivacyText));
+            lines.Add(new Line("SettingsPanel.ProgressText", SettingsPanel.ProgressText));
+            lines.Add(new Line("SettingsPanel.Question", SettingsPanel.Question));
+            lines.Add(new Line("SettingsPanel.Done", SettingsPanel.Done));
+
+            // What Q and E say where they cannot go.
+            lines.Add(new Line("SimulationInput.BeforeTheFirst", SimulationInput.BeforeTheFirst));
+            lines.Add(new Line("SimulationInput.NotALevel", SimulationInput.NotALevel));
+
+            lines.Add(new Line("CreditsPanel.HelpText", CreditsPanel.HelpText));
+
+            // The credits. Gaps are the roll's own spacing and carry no text on purpose.
+            foreach (Credits.Line line in Credits.Roll(MainMenu.Tagline, "v0.0.0"))
+            {
+                if (line.Kind != Credits.Kind.Gap)
+                    lines.Add(new Line("Credits." + line.Kind, line.Text));
+            }
+
             return lines;
         }
 

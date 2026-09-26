@@ -251,6 +251,152 @@ namespace BitSorter.PlayMode.Tests
             StringAssert.StartsWith("FULLSCREEN", fullscreen.GetComponentInChildren<TextMeshProUGUI>().text);
         }
 
+        // -----------------------------------------------------------------
+        // Credits
+        // -----------------------------------------------------------------
+
+        private static IEnumerator OpenCredits()
+        {
+            yield return OpenSettings();
+            yield return Click(SettingsPanel.CreditsButton);
+
+            Assert.IsTrue(Find<CreditsPanel>().IsOpen, "CREDITS did not open the credits");
+            Assert.IsFalse(Find<SettingsPanel>().IsOpen, "the settings stayed up under the credits");
+        }
+
+        /// <summary>CREDITS, under everything else in Settings, opens a roll that rises.</summary>
+        [UnityTest]
+        public IEnumerator Credits_OpenFromSettings_AndRollUpward()
+        {
+            yield return TestScene.Load();
+            yield return OpenCredits();
+
+            CreditsPanel credits = Find<CreditsPanel>();
+            float start = credits.Risen;
+
+            for (int frame = 0; frame < 300 && credits.Risen <= start; frame++)
+                yield return null;
+
+            Assert.Greater(credits.Risen, start, "the credits did not roll");
+        }
+
+        /// <summary>The CREDITS button is below every other setting.</summary>
+        [UnityTest]
+        public IEnumerator TheCreditsButton_IsBelowEverySetting()
+        {
+            yield return TestScene.Load();
+            yield return OpenSettings();
+
+            Rect credits = ScreenRect(OnScreen(SettingsPanel.CreditsButton));
+
+            foreach (string name in new[] { SettingsPanel.SoundButton, SettingsPanel.DataButton, SettingsPanel.ResetButton })
+                Assert.LessOrEqual(credits.yMax, ScreenRect(OnScreen(name)).yMin, $"CREDITS is not below {name}");
+        }
+
+        /// <summary>Any key goes back from the credits to the settings.</summary>
+        [UnityTest]
+        public IEnumerator AnyKey_GoesBackFromTheCreditsToTheSettings()
+        {
+            yield return TestScene.Load();
+            yield return OpenCredits();
+            yield return null;
+
+            PressAndRelease(_keyboard.kKey);
+            yield return null;
+            yield return null;
+
+            Assert.IsFalse(Find<CreditsPanel>().IsOpen, "a key did not close the credits");
+            Assert.IsTrue(Find<SettingsPanel>().IsOpen, "a key left the credits for somewhere other than the settings");
+        }
+
+        /// <summary>
+        /// Escape goes back to the settings too, and no further: the settings do not take the same
+        /// press to go back to the menu.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator Escape_GoesBackFromTheCreditsToTheSettings_AndNoFurther()
+        {
+            yield return TestScene.Load();
+            yield return OpenCredits();
+            yield return null;
+
+            PressAndRelease(_keyboard.escapeKey);
+            yield return null;
+            yield return null;
+
+            Assert.IsFalse(Find<CreditsPanel>().IsOpen, "Escape did not close the credits");
+            Assert.IsTrue(Find<SettingsPanel>().IsOpen, "one Escape went through the settings as well");
+            Assert.IsFalse(Find<MainMenu>().IsOpen, "one Escape went all the way back to the menu");
+        }
+
+        /// <summary>
+        /// The line saying how to leave the credits sits clear of the column the roll rises through.
+        /// </summary>
+        /// <remarks>
+        /// Centred at the foot of the screen, every line of the roll passed through it on the way up.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator TheCreditsHelpLine_IsClearOfTheRoll()
+        {
+            yield return TestScene.Load();
+            yield return OpenCredits();
+            yield return null;
+
+            GameObject roll = GameObject.Find("Credits/roll");
+            GameObject help = GameObject.Find("Credits/help");
+            Assert.IsNotNull(roll, "sanity: the roll should be on screen");
+            Assert.IsNotNull(help, "the credits do not say how to leave them");
+
+            Assert.GreaterOrEqual(ScreenRect(help.GetComponent<RectTransform>()).xMin,
+                ScreenRect(roll.GetComponent<RectTransform>()).xMax,
+                "the help line sits in the column the roll rises through");
+        }
+
+        /// <summary>A click anywhere goes back from the credits to the settings.</summary>
+        [UnityTest]
+        public IEnumerator AClick_GoesBackFromTheCreditsToTheSettings()
+        {
+            yield return TestScene.Load();
+            yield return OpenCredits();
+            yield return null;
+
+            Mouse mouse = Mouse.current;
+            Assert.IsNotNull(mouse, "sanity: the fixture adds a mouse");
+
+            PressAndRelease(mouse.leftButton);
+            yield return null;
+            yield return null;
+
+            Assert.IsFalse(Find<CreditsPanel>().IsOpen, "a click did not close the credits");
+            Assert.IsTrue(Find<SettingsPanel>().IsOpen, "a click left the credits for somewhere other than the settings");
+        }
+
+        /// <summary>
+        /// The sections fit between the BACK button and the help line, whatever the window gives
+        /// them.
+        /// </summary>
+        /// <remarks>
+        /// The canvas scales halfway between width and height, so a wide or short window has less
+        /// than 1080 to give, and Settings has no scroll. It shrinks to fit rather than running under
+        /// the BACK button and off the bottom.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator TheSections_FitBetweenTheBackButtonAndTheHelpLine()
+        {
+            yield return TestScene.Load();
+            yield return OpenSettings();
+            yield return null;
+
+            Transform root = GameObject.Find("Settings").transform;
+            Rect title = ScreenRect(root.Find("sections/title").GetComponent<RectTransform>());
+            Rect help = ScreenRect(root.Find("help").GetComponent<RectTransform>());
+            Rect back = ScreenRect(OnScreen(SettingsPanel.BackButton));
+            Rect credits = ScreenRect(OnScreen(SettingsPanel.CreditsButton));
+
+            Assert.LessOrEqual(title.yMax, back.yMin + 1f, "the sections run up under the BACK button");
+            Assert.GreaterOrEqual(credits.yMin, help.yMax - 1f, "the sections run down over the help line");
+        }
+
         private static Slider VolumeSlider()
         {
             GameObject found = GameObject.Find(SettingsPanel.VolumeSlider);

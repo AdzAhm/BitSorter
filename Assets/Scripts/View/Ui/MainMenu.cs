@@ -166,7 +166,7 @@ namespace BitSorter.View
                 "tagline", Root, UiType.Body, UiTheme.TextDim, TextAlignmentOptions.Center);
             UiTheme.Anchor(tagline.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                 new Vector2(0f, 104f + Lift), new Vector2(700f, 26f));
-            tagline.text = "bits fall through logic. sort them.";
+            tagline.text = Tagline;
 
             // A rule under the title. The menu was a title and three buttons floating in black,
             // which reads as unfinished rather than as spare.
@@ -254,6 +254,9 @@ namespace BitSorter.View
                 new Vector2(-UiTheme.Margin, 10f), new Vector2(120f, 16f));
             version.text = VersionText;
         }
+
+        /// <summary>The line under the title, here and at the top of the credits.</summary>
+        public const string Tagline = "bits fall through logic. sort them.";
 
         /// <summary>The version the corner of the menu shows: the build's own, as "v3.0.0".</summary>
         public static string VersionText => "v" + Application.version;

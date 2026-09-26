@@ -25,6 +25,7 @@ namespace BitSorter.View
     {
         [SerializeField] private ProgressTracker _progress;
         [SerializeField] private MainMenu _menu;
+        [SerializeField] private CreditsPanel _credits;
 
         [Tooltip("Canvas the panel is built under. Found by type when left empty.")]
         [SerializeField] private Canvas _canvas;
@@ -74,17 +75,24 @@ namespace BitSorter.View
         /// <inheritdoc cref="SoundButton"/>
         public const string BackButton = "Settings back";
 
+        /// <inheritdoc cref="SoundButton"/>
+        public const string CreditsButton = "Credits";
+
         public const string AudioHeading = "AUDIO";
         public const string DisplayHeading = "DISPLAY";
         public const string PrivacyHeading = "PRIVACY";
         public const string ProgressHeading = "PROGRESS";
+        public const string AboutHeading = "ABOUT";
 
         /// <summary>The section headings this build shows, in order down the screen.</summary>
         /// <remarks>DISPLAY only where <see cref="DisplayRules.Offered"/> says the switch works.</remarks>
         public static IReadOnlyList<string> Headings => DisplayRules.Offered ? WithDisplay : WithoutDisplay;
 
-        private static readonly string[] WithDisplay = { AudioHeading, DisplayHeading, PrivacyHeading, ProgressHeading };
-        private static readonly string[] WithoutDisplay = { AudioHeading, PrivacyHeading, ProgressHeading };
+        private static readonly string[] WithDisplay =
+            { AudioHeading, DisplayHeading, PrivacyHeading, ProgressHeading, AboutHeading };
+
+        private static readonly string[] WithoutDisplay =
+            { AudioHeading, PrivacyHeading, ProgressHeading, AboutHeading };
 
         public const string AudioText =
             "Music and sound effects, together. N switches the sound on and off from anywhere.";
@@ -94,9 +102,12 @@ namespace BitSorter.View
         public const string PrivacyText =
             "Reports which levels people get stuck on. The README lists exactly what is sent.";
 
-        public const string ProgressText =
+        /// <remarks>Names only the settings this build has: a browser build has no DISPLAY section.</remarks>
+        public static string ProgressText =>
             "Forget every solved level, saved board, personal best and hint already shown, and " +
-            "start again from the tutorial. Sound, display and data settings stay as they are.";
+            "start again from the tutorial. " +
+            (DisplayRules.Offered ? "Sound, display and data settings" : "Sound and data settings") +
+            " stay as they are.";
 
         /// <summary>The question RESET PROGRESS asks.</summary>
         public const string Question = "Reset all progress? This cannot be undone.";
@@ -108,6 +119,7 @@ namespace BitSorter.View
         {
             if (_progress == null) _progress = FindFirstObjectByType<ProgressTracker>();
             if (_menu == null) _menu = FindFirstObjectByType<MainMenu>();
+            if (_credits == null) _credits = FindFirstObjectByType<CreditsPanel>();
             if (_audio == null) _audio = FindFirstObjectByType<GameAudio>();
             if (_canvas == null) _canvas = FindFirstObjectByType<Canvas>();
         }
@@ -126,6 +138,7 @@ namespace BitSorter.View
             if (!IsShowing)
                 return;
 
+            Fit();
             Refresh();
 
             Keyboard keyboard = Keyboard.current;
@@ -142,6 +155,41 @@ namespace BitSorter.View
         // -----------------------------------------------------------------
         // Building
         // -----------------------------------------------------------------
+
+        /// <summary>
+        /// Room kept clear above and below the sections: the BACK button at the top, the help line
+        /// at the bottom.
+        /// </summary>
+        public const float FitMargin = 70f;
+
+        private RectTransform _block;
+        private float _blockHeight;
+
+        /// <summary>
+        /// The scale the sections are drawn at: whole, unless the window is too short for them.
+        /// </summary>
+        /// <remarks>
+        /// The canvas scales halfway between the screen's width and its height, so a wide or short
+        /// window has less height to give than the 1080 the sections are laid out against -- a
+        /// browser tab 1920 by 800 has about 930. Settings has no scroll, and past that height it
+        /// would run under the BACK button and off the bottom, so it shrinks to fit instead.
+        /// </remarks>
+        public static float FitScale(float room, float needed) =>
+            needed <= 0f || room <= 0f || room >= needed ? 1f : room / needed;
+
+        /// <summary>The scale the sections are drawn at now, for the tests.</summary>
+        public float SectionsScale => _block != null ? _block.localScale.x : 1f;
+
+        private void Fit()
+        {
+            if (_block == null || Root == null)
+                return;
+
+            float scale = FitScale(Root.rect.height - 2f * FitMargin, _blockHeight);
+
+            if (!Mathf.Approximately(_block.localScale.x, scale))
+                _block.localScale = new Vector3(scale, scale, 1f);
+        }
 
         /// <summary>How wide the column of sections is.</summary>
         public const float ColumnWidth = 600f;
@@ -215,9 +263,19 @@ namespace BitSorter.View
 
             Section(block, column, ProgressHeading, ProgressText);
             BuildReset(block, column);
+            column.Space(SectionGap);
+
+            // Last, below everything that changes how the game behaves.
+            Section(block, column, AboutHeading, null);
+            Button credits = Control(block, column, CreditsButton, out TextMeshProUGUI creditsLabel, ButtonRole.Quiet);
+            creditsLabel.text = "CREDITS";
+            credits.onClick.AddListener(() => Fire(OpenCredits));
 
             UiTheme.Anchor(block, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                 Vector2.zero, new Vector2(ColumnWidth, column.Next));
+
+            _block = block;
+            _blockHeight = column.Next;
 
             // Where the level list keeps its CLOSE, so the two screens off the menu leave the same way.
             Button back = UiTheme.Button_(BackButton, Root, "BACK", out TextMeshProUGUI _, UiType.Label, ButtonRole.Quiet);
@@ -250,6 +308,10 @@ namespace BitSorter.View
             Image rule = UiTheme.Panel_("rule", block, Palette.Current.Rule);
             rule.sprite = null;
             Place(rule.rectTransform, column.Take(2f, HeadingGap), ColumnWidth, 2f);
+
+            // A section can be a heading over a single button that says what it does.
+            if (string.IsNullOrEmpty(text))
+                return;
 
             float height = DescriptionHeight(text);
 
@@ -416,11 +478,15 @@ namespace BitSorter.View
         /// Unity remembers the choice for the next launch itself. Changing the mode alone kept the
         /// fullscreen resolution on the way out -- a window the size of the display, title bar off
         /// the top -- so the size is always given with it (<see cref="DisplayRules.WindowedSize"/>).
+        ///
+        /// Measured on the display the window is on, not the main one: on a second monitor of a
+        /// different size, the main display's size filled that monitor wrongly.
         /// </remarks>
         private static void ToggleFullscreen()
         {
-            int width = Display.main.systemWidth;
-            int height = Display.main.systemHeight;
+            DisplayInfo display = Screen.mainWindowDisplayInfo;
+            int width = display.width > 0 ? display.width : Display.main.systemWidth;
+            int height = display.height > 0 ? display.height : Display.main.systemHeight;
 
             if (Screen.fullScreen)
             {
@@ -470,6 +536,16 @@ namespace BitSorter.View
         /// <summary>Opens the settings. Used by the main menu's Settings item.</summary>
         public void Open() => Show(true);
 
+        /// <summary>The credits roll, which comes back here.</summary>
+        private void OpenCredits()
+        {
+            if (_credits == null)
+                return;
+
+            Show(false);
+            _credits.Open();
+        }
+
         /// <summary>Back to the main menu, which is the only way here.</summary>
         private void Back()
         {
@@ -493,6 +569,7 @@ namespace BitSorter.View
             SetConfirming(false);
             _status.text = string.Empty;
             _shownVolume = -1;
+            Fit();
             Refresh();
         }
 

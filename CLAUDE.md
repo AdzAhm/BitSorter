@@ -477,12 +477,12 @@ failure side.
   counts from it -- the win celebration once pulsed on the game clock and a solve
   could land at the bottom of its swell.
 - **Visual changes are checked against the reference shots.**
-  `BitSorter/Capture Reference Shots` captures seventeen states (menu, a built
+  `BitSorter/Capture Reference Shots` captures eighteen states (menu, a built
   board, bits in flight, a collision one tick out and one that takes both bits,
   the solved card, the level list, free play, the help panel, the chapter card, a
   clocked level, the tutorial's intro and its closing card, a first-time hint, a
   register holding a bit, the tutorial ringing a button, the settings asking
-  whether to reset) as an Explicit Play
+  whether to reset, the credits part-way up) as an Explicit Play
   Mode fixture, so it runs under `SaveGuard` --
   driving the real game for a screenshot by hand once marked a level solved on
   the developer's own save. Frame time is fixed, particle systems are seeded,
@@ -1036,10 +1036,26 @@ order: a card dismissed in the frame it appeared was never seen, and the ending
 waited for a card that had already come and gone. `PresentedThisRun` is set in
 the call that presents the card, so there is nothing to catch.
 
-**Settings is sound and its volume, fullscreen, the data switch, and starting
-over.** `SettingsPanel` is reached only from the main menu and goes back to it,
-and it plays the menu's music. Sound and Data were rows of the menu until it
-existed.
+**Settings is sound and its volume, fullscreen, the data switch, starting over,
+and the credits.** `SettingsPanel` is reached only from the main menu and goes
+back to it, and it plays the menu's music. Sound and Data were rows of the menu
+until it existed.
+
+**It shrinks to fit a short window** (`SettingsPanel.FitScale`). The canvas
+scales halfway between width and height, so a wide window gives less than the
+1080 the sections are laid out against -- a browser tab 1920 by 800 gives about
+930 -- and Settings has no scroll. Past that it ran under BACK and off the
+bottom.
+
+**The credits are `Credits`, and the roll is `CreditsPanel`.** Every role is
+Ahmad Zoabi's, the company is ZADZ, the playtesters are thanked without names,
+and the roll ends on what the game is built with -- all as asked, 2026-09-26,
+and nothing else is credited. The menu's music line and the roll both read the
+tracks from `Credits.MenuMusic`, so the CC BY terms cannot say one thing on the
+menu and another in the credits; `CreditsTests` pins the menu line to the
+letter it had when it was a literal. The roll rises at `CreditsPanel.Speed` and
+comes to rest on its farewell rather than rolling off into an empty screen, and
+any key or click goes back to Settings.
 
 **Fullscreen is a desktop build's alone** (`DisplayRules.Offered`): in a
 browser the page has its own button, and fullscreen there is the browser's to
