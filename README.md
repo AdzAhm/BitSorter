@@ -36,7 +36,9 @@ takes the game with it. Nothing to install, and no account needed for either.
 
 **In a browser**, use either link above. Progress is saved by the browser itself,
 so it survives a reload but is per-browser and per-device — and a private window
-or blocked third-party storage will make the game forget between sessions.
+or blocked third-party storage will make the game forget between sessions. In
+the browser's fullscreen, the first `Esc` leaves fullscreen — the browser keeps
+that key for itself — so the MENU button is the way to the menu there.
 
 **On Windows**, unzip the release anywhere and run `BitSorter.exe`. Nothing is
 installed and nothing is written outside your own user folder.
@@ -79,16 +81,16 @@ An unbalanced circuit does not run slower. It loses bits.
 ### Reading the board
 
 Every input port is drawn on the gate itself: a hollow ring when it is empty, a
-filled disc with the bit's digit cut out of it when it is holding one. A gate holding a bit
-it cannot use yet — waiting on its other input — dims and breathes slowly amber.
+filled disc with the bit's digit cut out of it when it is holding one. A gate
+holding a bit it cannot use yet — waiting on its other input — dims and breathes
+slowly amber.
 A paused board therefore says which gates are stuck, and which port is the reason.
 
 When a bit is waiting and another is one tick from arriving on the same wire, the
 port, the wire and the incoming bit all pulse together: amber when only the
 arrival will be destroyed, red when the waiting bit dies with it — and then the
 waiting bit is crossed out as well, so the difference does not rest on telling
-amber from red. That warning is
-exact rather than a guess. Delivery happens before evaluation, so nothing can
+amber from red. That warning is exact rather than a guess. Delivery happens before evaluation, so nothing can
 empty the port in between — if it is lit, the collision is already unavoidable.
 
 ### The tutorial
@@ -127,7 +129,8 @@ until you reset your progress — and none of them pause the game.
 | `H`, or the `?` button | This level's truth table and a hint |
 | `Esc`, or the MENU button | The main menu. `Esc` closes whatever is on top first |
 | `M` | The level list, and the way into the sandbox |
-| `N` | Mute the game |
+| `N` | Mute the game; the volume is in Settings |
+| `Alt`+`Enter` | Fullscreen, on Windows; also in Settings |
 | `Q` / `E` | Previous / next level — they stop at the first and the last. From the tutorial, `E` goes to level 1 |
 | `F3` | Diagnostics, and the clock's timing diagram on levels that have one |
 
@@ -225,8 +228,8 @@ file:
 **To start over:** main menu → **Settings** → **Reset progress**. It asks first,
 and nothing is forgotten unless you answer yes. After a reset the game is as it
 was on first launch: the first level, an empty board, the tutorial offering
-itself again and the sandbox back on its default setup. Sound and data settings
-are not progress, so they stay as they are.
+itself again and the sandbox back on its default setup. Sound, volume, display
+and data settings are not progress, so they stay as they are.
 
 In a browser the same data lives in the browser's own storage for the address
 you played at. Progress does not travel between the desktop build and a browser,
@@ -269,11 +272,11 @@ your IP address. That set is Unity's, not mine, and
 tick counts, your personal bests, or any account, name or email. There is no
 login, and the game asks for nothing.
 
-**To turn it off:** main menu → **Settings** → **Data**. It toggles between `DATA ON` and
-`DATA OFF`, takes effect immediately, and is remembered on that machine. Turning
-it off stops collection rather than merely hiding it — the game tells Unity's
-consent framework that consent is denied, and nothing is queued or sent while it
-is off.
+**To turn it off:** main menu → **Settings** → **Data**. It toggles between
+`DATA ON` and `DATA OFF`, takes effect immediately, and is remembered on that
+machine. Turning it off stops collection rather than merely hiding it — the game
+tells Unity's consent framework that consent is denied, and nothing is queued or
+sent while it is off.
 
 Reporting is on unless you turn it off, so if you would rather it never ran at
 all, that is the first thing to change.
