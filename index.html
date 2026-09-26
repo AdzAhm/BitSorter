@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>BitSorter</title>
+    <link rel="shortcut icon" href="TemplateData/favicon.ico">
+    <link rel="stylesheet" href="TemplateData/style.css">
+  </head>
+  <body>
+    <div id="unity-container" class="unity-desktop">
+      <canvas id="unity-canvas" width=960 height=600 tabindex="-1"></canvas>
+      <div id="unity-loading-bar">
+        <div id="unity-logo"></div>
+        <div id="unity-progress-bar-empty">
+          <div id="unity-progress-bar-full"></div>
+        </div>
+      </div>
+      <div id="unity-warning"> </div>
+      <div id="unity-footer">
+        <div id="unity-logo-title-footer"></div>
+        <div id="unity-fullscreen-button"></div>
+        <div id="unity-build-title">BitSorter</div>
+      </div>
+    </div>
+    <script>
+      var canvas = document.querySelector("#unity-canvas");
+
+      // Shows a temporary message banner/ribbon for a few seconds, or
+      // a permanent error message on top of the canvas if type=='error'.
+      // If type=='warning', a yellow highlight color is used.
+      // Modify or remove this function to customize the visually presented
+      // way that non-critical warnings and error messages are presented to the
+      // user.
+      function unityShowBanner(msg, type) {
+        var warningBanner = document.querySelector("#unity-warning");
+        function updateBannerVisibility() {
+          warningBanner.style.display = warningBanner.children.length ? 'block' : 'none';
+        }
+        var div = document.createElement('div');
+        // As text, never as markup: nothing a message says can become part of the page.
+        div.textContent = msg;
+        warningBanner.appendChild(div);
+        if (type == 'error') div.style = 'background: red; padding: 10px;';
+        else {
+          if (type == 'warning') div.style = 'background: yellow; padding: 10px;';
+          setTimeout(function() {
+            warningBanner.removeChild(div);
+            updateBannerVisibility();
+          }, 5000);
+        }
+        updateBannerVisibility();
+      }
+
+      var aspect = 960 / 600;
+      var footerHeight = 38;
+      var smallestWidth = Math.round(960 * 2 / 3);
+      var largestWidth = 1920;
+
+      function fitToWindow() {
+        var room = Math.min(window.innerWidth, (window.innerHeight - footerHeight) * aspect);
+        var width = Math.floor(Math.max(smallestWidth, Math.min(largestWidth, room)));
+
+        canvas.style.width = width + "px";
+        canvas.style.height = Math.floor(width / aspect) + "px";
+      }
+
+      var buildUrl = "Build";
+      var loaderUrl = buildUrl + "/WebGL.loader.js";
+      var config = {
+        arguments: [],
+        dataUrl: buildUrl + "/WebGL.data.unityweb",
+        frameworkUrl: buildUrl + "/WebGL.framework.js.unityweb",
+        codeUrl: buildUrl + "/WebGL.wasm.unityweb",
+        streamingAssetsUrl: "StreamingAssets",
+        companyName: "ZADZ",
+        productName: "BitSorter",
+        productVersion: "3.0.2",
+        showBanner: unityShowBanner,
+        // errorHandler: function(err, url, line) {
+        //    alert("error " + err + " occurred at line " + line);
+        //    // Return 'true' if you handled this error and don't want Unity
+        //    // to process it further, 'false' otherwise.
+        //    return true;
+        // },
+      };
+
+      // By default, Unity keeps WebGL canvas render target size matched with
+      // the DOM size of the canvas element (scaled by window.devicePixelRatio)
+      // Set this to false if you want to decouple this synchronization from
+      // happening inside the engine, and you would instead like to size up
+      // the canvas DOM size and WebGL render target sizes yourself.
+      // config.matchWebGLToCanvasSize = false;
+
+      // THE REASON THIS TEMPLATE EXISTS.
+      //
+      // Without this line, writes to Application.persistentDataPath land in an in-memory
+      // filesystem that is never flushed to IndexedDB, so everything BitSorter saves -- solved
+      // levels, saved boards, personal bests -- is silently discarded when the tab is closed.
+      // Nothing errors; the game simply forgets. Unity's own comment below says the autosync is
+      // not on by default, which is exactly the trap.
+      config.autoSyncPersistentDataPath = true;
+      // This autosyncing is currently not the default behavior to avoid regressing
+      // existing user projects that might rely on the earlier manual
+      // JS_FileSystem_Sync() behavior, but in future Unity version, this will be
+      // expected to change.
+
+      // The canvas renders at its CSS size times the screen's pixel ratio, and the canvas now grows
+      // with the window -- up to 1920 CSS pixels wide, which at a ratio of 2 is a 3840x2400 render
+      // with bloom on top of it, every frame. 1.5 keeps text sharp on a high-density screen at
+      // just over half those pixels. On an ordinary screen the ratio is 1 and this changes nothing.
+      //
+      // A value in the config replaces Unity's own live read of the window's ratio, so it is kept
+      // current once the game has loaded -- see followPixelRatio below.
+      function cappedPixelRatio() {
+        return Math.min(window.devicePixelRatio || 1, 1.5);
+      }
+
+      config.devicePixelRatio = cappedPixelRatio();
+
+      if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+        // Mobile device style: fill the whole browser client area with the game canvas:
+
+        var meta = document.createElement('meta');
+        meta.name = 'viewport';
+        meta.content = 'width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes';
+        document.getElementsByTagName('head')[0].appendChild(meta);
+        document.querySelector("#unity-container").className = "unity-mobile";
+        canvas.className = "unity-mobile";
+
+        // To lower canvas resolution on mobile devices to gain some
+        // performance, uncomment the following line:
+        // config.devicePixelRatio = 1;
+
+
+      } else {
+        // Desktop style: the game at the largest size the window has room for.
+        //
+        // This was a fixed 960x600 canvas centred with left: 50% and a
+        // translate(-50%), Unity's stock layout -- and in a window narrower than the canvas the
+        // translate pushed its left edge off the page, where no scrollbar reaches. The left edge is
+        // where the parts list is, so a player in a narrow window could not pick up a gate at all.
+        //
+        // Now the canvas keeps its shape and fills the room left above the footer, recomputed when
+        // the window changes. The interface is laid out for 1920x1080 and scales with the canvas,
+        // so size is legibility: at the authored 960x600 its smallest print is
+        // already about 6 CSS pixels, and at two thirds of that even body text is. It shrinks no
+        // further than that and the page scrolls instead. The container is centred by auto margins
+        // (style.css), which fall to zero when it is larger than the window -- so what does not fit
+        // is always scrolled to, never cut off. It grows up to 1920 wide, where the interface is
+        // drawn at the size it was written for; past that a larger canvas only costs the GPU.
+        fitToWindow();
+        window.addEventListener("resize", fitToWindow);
+      }
+
+      document.querySelector("#unity-loading-bar").style.display = "block";
+
+      var script = document.createElement("script");
+      script.src = loaderUrl;
+      script.onload = () => {
+        createUnityInstance(canvas, config, (progress) => {
+          document.querySelector("#unity-progress-bar-full").style.width = 100 * progress + "%";
+              }).then((unityInstance) => {
+                document.querySelector("#unity-loading-bar").style.display = "none";
+
+                // The cap above was read once, and it replaces Unity's own live read of the window's
+                // ratio -- so a page zoomed, or a window moved to a sharper screen, went on rendering
+                // at the ratio the game loaded at. Unity reads Module.devicePixelRatio each time it
+                // sizes the canvas, so keeping that current is the whole fix. The media query
+                // matches the ratio in force and fires once when it stops matching, whether the
+                // cause was a zoom or a change of screen that left the window's size alone.
+                //
+                // Safari before 14 has no addEventListener on a media query, and a throw in here would
+                // reach the .catch below and put up an alert over the game. There, a resize -- which
+                // zooming raises -- keeps it current instead.
+                function followPixelRatio() {
+                  unityInstance.Module.devicePixelRatio = cappedPixelRatio();
+
+                  var query = window.matchMedia("(resolution: " + window.devicePixelRatio + "dppx)");
+
+                  if (query.addEventListener)
+                    query.addEventListener("change", followPixelRatio, { once: true });
+                }
+
+                followPixelRatio();
+                window.addEventListener("resize", function () {
+                  unityInstance.Module.devicePixelRatio = cappedPixelRatio();
+                });
+                document.querySelector("#unity-fullscreen-button").onclick = () => {
+                  unityInstance.SetFullscreen(1);
+                };
+
+              }).catch((message) => {
+                alert(message);
+              });
+            };
+
+      document.body.appendChild(script);
+
+    </script>
+  </body>
+</html>
