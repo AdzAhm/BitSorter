@@ -1,0 +1,23 @@
+{
+  "name": "Odd one out",
+  "order": 63,
+  "goal": "The bin gets a 1 when an odd number of A, B, C and D are 1 -- and every bit has to reach it within 3 ticks.",
+  "hint": "three gates in a line is one way to wire it. It is not the only way, or the quickest.",
+  "tickLimit": 60,
+  "maxWireDelay": 3,
+  "delayBudget": 3,
+  "maxLatency": 3,
+  "fixtures": [
+    { "id": "a",   "kind": "Source", "cell": { "x": -4, "y":  2 }, "stream": "0000000011111111" },
+    { "id": "b",   "kind": "Source", "cell": { "x": -4, "y":  1 }, "stream": "0000111100001111" },
+    { "id": "c",   "kind": "Source", "cell": { "x": -4, "y": -1 }, "stream": "0011001100110011" },
+    { "id": "d",   "kind": "Source", "cell": { "x": -4, "y": -2 }, "stream": "0101010101010101" },
+    { "id": "odd", "kind": "Sink",   "cell": { "x":  4, "y":  0 } }
+  ],
+  "budget": [
+    { "kind": "Xor", "count": 3 }
+  ],
+  "expected": [
+    { "sink": "odd", "values": "0110100110010110" }
+  ]
+}
