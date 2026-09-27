@@ -141,28 +141,31 @@ namespace BitSorter.View
         // The rows' heights. Where each row sits is UiRows.
         // -----------------------------------------------------------------
 
-        /// <summary>The keyboard reference along the bottom.</summary>
+        /// <summary>
+        /// The controls row along the bottom: the keys over the run buttons, and the upper line of
+        /// each block of controls beside them.
+        /// </summary>
         public const float ControlsHeight = 26f;
 
-        /// <summary>
-        /// How wide the keyboard reference's box is. The line never wraps, so this is the width it
-        /// has to fit, measured by a test rather than assumed.
-        /// </summary>
+        /// <summary>How the board's controls are set, and the main menu's line.</summary>
         /// <remarks>
-        /// It was a thousand, set when the line was shorter; by the time it carried eight controls
-        /// the text ran to within forty pixels of it with nothing checking. Then 1200, until the
-        /// line went up to Body and ran to 1343. Narrower than the narrowest canvas the game is
-        /// framed for: 4:3, which the scaler makes 1663 wide.
-        /// </remarks>
-        public const float ControlsWidth = 1400f;
-
-        /// <summary>How the keyboard reference is set, on the board and on the main menu.</summary>
-        /// <remarks>
-        /// Body, up from Label after a playtest asked for it larger (2026-09-27). It is the line a
-        /// new player reads to find out what the mouse does, and it sits along the bottom edge in
-        /// the dim colour, which is two reasons to be small already.
+        /// Body, up from Label after a playtest asked for it larger (2026-09-27). It is what a new
+        /// player reads to find out what the mouse does, and it sits along the bottom edge in the
+        /// dim colour, which is two reasons to be small already.
         /// </remarks>
         public const UiType ControlsType = UiType.Body;
+
+        /// <summary>
+        /// A key written under the button it matches, in a corner: H under the help badge, ESC under
+        /// MENU.
+        /// </summary>
+        /// <remarks>
+        /// Label, up from Micro, with the rest of the board's controls after the same playtest.
+        /// </remarks>
+        public const UiType KeyCaptionType = UiType.Label;
+
+        /// <inheritdoc cref="KeyCaptionType"/>
+        public const float KeyCaptionHeight = 18f;
 
         /// <summary>
         /// The line at the foot of a full-screen screen saying how to leave it.

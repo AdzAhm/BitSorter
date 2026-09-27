@@ -16,21 +16,89 @@ namespace BitSorter.View
         Everything,
     }
 
+    /// <summary>Where on the board a control is shown, if anywhere.</summary>
+    /// <remarks>
+    /// Beside the thing it works, as near as it will go. The board's controls were one line along the
+    /// bottom, in list order, so "ctrl+Z to undo" sat far from UNDO and a player had to read the whole
+    /// line to find the key for the button under their hand (playtest, 2026-09-27). Now a key that
+    /// works a button is shown over that button, the main menu's key under MENU and the help key
+    /// under the help badge; what works nothing on screen -- the mouse, and keys with no button --
+    /// sits in two short blocks either side of the buttons.
+    /// </remarks>
+    public enum ControlSpot
+    {
+        /// <summary>Nowhere on the board: the tutorial's card only.</summary>
+        None,
+
+        /// <summary>Left of the run buttons: the upper line, level with the keys over them.</summary>
+        LeftUpper,
+
+        /// <summary>Left of the run buttons: the lower line, level with the buttons.</summary>
+        LeftLower,
+
+        /// <summary>Right of the run buttons, upper.</summary>
+        RightUpper,
+
+        /// <summary>Right of the run buttons, lower.</summary>
+        RightLower,
+
+        /// <summary>Its key, over RUN.</summary>
+        RunButton,
+
+        /// <summary>Its key, over RESET.</summary>
+        ResetButton,
+
+        /// <summary>Its key, over UNDO.</summary>
+        UndoButton,
+
+        /// <summary>Its key, over REDO.</summary>
+        RedoButton,
+
+        /// <summary>Its key, over CLEAR ALL.</summary>
+        ClearButton,
+
+        /// <summary>Its key, under the MENU button in the top-left corner.</summary>
+        MenuButton,
+
+        /// <summary>Its key, under the help badge in the top-right corner.</summary>
+        HelpBadge,
+    }
+
     /// <summary>One control the player can use, and where it is worth saying so.</summary>
     public readonly struct ControlEntry
     {
         /// <summary>The whole phrase, input and effect together: "ctrl+Z to undo".</summary>
         public readonly string Text;
 
-        /// <summary>
-        /// Whether it also earns a place on the one-line strip along the bottom of the board.
-        /// </summary>
+        /// <summary>Where on the board it is shown, if it is.</summary>
         /// <remarks>
-        /// Not everything does. That line is a single row a thousand pixels wide and it is on screen
-        /// permanently, so it carries the controls a player reaches for mid-build; the rest are
-        /// listed once, on the tutorial's card, where there is room for them.
+        /// Not everything is. The board's controls are on screen permanently, so they carry what a
+        /// player reaches for mid-build; the rest are listed once, on the tutorial's card, where there
+        /// is room for them.
         /// </remarks>
-        public readonly bool OnStatusLine;
+        public readonly ControlSpot Spot;
+
+        /// <summary>Whether the board shows it anywhere.</summary>
+        public bool OnBoard => Spot != ControlSpot.None;
+
+        /// <summary>
+        /// The key alone, for a spot that shows only the key: "ctrl+Z" from "ctrl+Z to undo". The
+        /// phrase's first word, so the key over a button cannot say one thing and the card another.
+        /// </summary>
+        public string Key
+        {
+            get
+            {
+                int space = Text.IndexOf(' ');
+                return space < 0 ? Text : Text.Substring(0, space);
+            }
+        }
+
+        /// <summary>
+        /// Whether its spot shows the key alone, on a button the words are already written on,
+        /// rather than the whole phrase.
+        /// </summary>
+        public bool ShowsKeyOnly => Spot >= ControlSpot.RunButton;
 
         /// <summary>Which heading it sits under on the card.</summary>
         public readonly ControlKind Kind;
@@ -50,10 +118,10 @@ namespace BitSorter.View
         /// </remarks>
         public readonly bool OnMenu;
 
-        public ControlEntry(string text, bool onStatusLine, ControlKind kind, bool onMenu = false)
+        public ControlEntry(string text, ControlSpot spot, ControlKind kind, bool onMenu = false)
         {
             Text = text;
-            OnStatusLine = onStatusLine;
+            Spot = spot;
             Kind = kind;
             OnMenu = onMenu;
         }
@@ -99,14 +167,14 @@ namespace BitSorter.View
     /// </remarks>
     public static class ControlsReference
     {
-        /// <summary>Separator on the status line. Wide, because it is the only thing dividing them.</summary>
+        /// <summary>Between the phrases of one block. Wide, because it is the only thing dividing them.</summary>
         public const string LineSeparator = "     ";
 
         /// <summary>
         /// The key for the timing diagram, which the clock strip names on every level with a clock.
         /// </summary>
         /// <remarks>
-        /// Kept off the controls line: it is only worth anything on a level with a clock, and the
+        /// Kept off the board's controls: it is only worth anything on a level with a clock, and the
         /// strip that says so is on screen exactly then. It used to be named nowhere at all, though
         /// its own remarks call it the notation the course uses.
         ///
@@ -115,35 +183,35 @@ namespace BitSorter.View
         /// help, F5 reloads, F6 and F10 to F12 are taken.
         /// </remarks>
         public static readonly ControlEntry TimingDiagram =
-            new ControlEntry("F2 for the timing diagram", false, ControlKind.Running);
+            new ControlEntry("F2 for the timing diagram", ControlSpot.None, ControlKind.Running);
 
         public static IReadOnlyList<ControlEntry> All { get; } = new[]
         {
             // The number keys and redo are bound (PlacementController, SimulationInput) and were
-            // named nowhere in the game -- only in the README. The card is where the rest are
-            // listed, so they go there and not on the crowded line.
-            new ControlEntry("1 to 7 to pick a part", false, ControlKind.Building),
-            new ControlEntry("drag a port to wire", true, ControlKind.Building),
-            new ControlEntry("right click to delete", true, ControlKind.Building),
-            new ControlEntry("scroll a wire to re-time", true, ControlKind.Building),
-            new ControlEntry("ctrl+Z to undo", true, ControlKind.Building),
-            new ControlEntry("ctrl+Y to redo", false, ControlKind.Building),
-            new ControlEntry("shift+R to clear", true, ControlKind.Building),
+            // named nowhere in the game -- only in the README. The number keys are on the card; redo
+            // has a button now, so its key is over it with the others.
+            new ControlEntry("1 to 7 to pick a part", ControlSpot.None, ControlKind.Building),
+            new ControlEntry("drag a port to wire", ControlSpot.LeftUpper, ControlKind.Building),
+            new ControlEntry("right click to delete", ControlSpot.LeftUpper, ControlKind.Building),
+            new ControlEntry("scroll a wire to re-time", ControlSpot.LeftLower, ControlKind.Building),
+            new ControlEntry("ctrl+Z to undo", ControlSpot.UndoButton, ControlKind.Building),
+            new ControlEntry("ctrl+Y to redo", ControlSpot.RedoButton, ControlKind.Building),
+            new ControlEntry("shift+R to clear", ControlSpot.ClearButton, ControlKind.Building),
 
-            new ControlEntry("Enter to run", false, ControlKind.Running),
-            new ControlEntry("R to reset the board", false, ControlKind.Running),
-            new ControlEntry("Space to pause a run", false, ControlKind.Running),
-            new ControlEntry("right arrow to step one tick", false, ControlKind.Running),
+            new ControlEntry("Enter to run", ControlSpot.RunButton, ControlKind.Running),
+            new ControlEntry("R to reset the board", ControlSpot.ResetButton, ControlKind.Running),
+            new ControlEntry("Space to pause a run", ControlSpot.None, ControlKind.Running),
+            new ControlEntry("right arrow to step one tick", ControlSpot.None, ControlKind.Running),
             TimingDiagram,
 
             // H and M are off the menu's line: with the menu open neither does anything -- the level
             // list will not stack on the menu, and H is held back the same way.
-            new ControlEntry("H for help", true, ControlKind.Everything),
-            new ControlEntry("M for levels", true, ControlKind.Everything),
-            new ControlEntry("Q and E to change level", false, ControlKind.Everything),
-            new ControlEntry("N to mute", true, ControlKind.Everything, onMenu: true),
+            new ControlEntry("H for help", ControlSpot.HelpBadge, ControlKind.Everything),
+            new ControlEntry("M for levels", ControlSpot.RightUpper, ControlKind.Everything),
+            new ControlEntry("Q and E to change level", ControlSpot.None, ControlKind.Everything),
+            new ControlEntry("N to mute", ControlSpot.RightLower, ControlKind.Everything, onMenu: true),
 
-            // On the status line, though that row is the crowded one. It was left off it once, and
+            // On the board, under MENU. It was left off the board once, and
             // then the only places the key was named were the menu itself -- which a player has to
             // be on already -- and the card at the end of the tutorial, which a player who skipped it
             // never sees. A way back to the front door that is never mentioned is a dead end.
@@ -151,7 +219,7 @@ namespace BitSorter.View
             // And off the menu's own line, now that the board names it: at the foot of the main
             // menu it offered the screen the player was on, and the key there closes it. It was M
             // until a playtest swapped M and Escape, 2026-09-26.
-            new ControlEntry("ESC for the main menu", true, ControlKind.Everything),
+            new ControlEntry("ESC for the main menu", ControlSpot.MenuButton, ControlKind.Everything),
         };
 
         /// <summary>The groups in the order the card lays them out.</summary>
@@ -169,8 +237,23 @@ namespace BitSorter.View
         /// </remarks>
         public static string MenuLine => Joined(entry => entry.OnMenu);
 
-        /// <summary>The one-line strip along the bottom of the board.</summary>
-        public static string Line => Joined(entry => entry.OnStatusLine);
+        /// <summary>
+        /// What one spot on the board shows: for a block beside the buttons, its phrases on one line;
+        /// for a spot on a button, the key alone. Empty where nothing is shown.
+        /// </summary>
+        public static string At(ControlSpot spot)
+        {
+            if (spot == ControlSpot.None)
+                return string.Empty;
+
+            foreach (ControlEntry entry in All)
+            {
+                if (entry.Spot == spot && entry.ShowsKeyOnly)
+                    return entry.Key;
+            }
+
+            return Joined(entry => entry.Spot == spot);
+        }
 
         /// <summary>Every entry the predicate accepts, in list order, on one line.</summary>
         private static string Joined(System.Predicate<ControlEntry> wanted)

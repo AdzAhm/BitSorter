@@ -90,6 +90,15 @@ namespace BitSorter.View
                 new Vector2(UiTheme.Margin, -UiTheme.Margin), new Vector2(HudButtonWidth, UiTheme.ButtonHeight));
 
             button.onClick.AddListener(() => { Show(true); UiTheme.Defocus(); });
+
+            // Its key under it, as the help badge has its own: the controls say what works what,
+            // as near as they can to it. Takes no click, or it would press the button.
+            TextMeshProUGUI key = UiTheme.Label(
+                "key", _hudButton, UiTheme.KeyCaptionType, UiTheme.TextDim, TextAlignmentOptions.Center);
+            key.raycastTarget = false;
+            UiTheme.Anchor(key.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 1f),
+                new Vector2(0f, -4f), new Vector2(HudButtonWidth, UiTheme.KeyCaptionHeight));
+            key.text = ControlsReference.At(ControlSpot.MenuButton);
         }
 
         /// <summary>The HUD's menu button's object name, which the HUD tests look for.</summary>

@@ -5,7 +5,7 @@ using BitSorter.View;
 namespace BitSorter.LogicCore.Tests
 {
     /// <summary>
-    /// <see cref="ControlsReference"/>: the controls line and the tutorial's card come from one
+    /// <see cref="ControlsReference"/>: the board's controls and the tutorial's card come from one
     /// list, so adding a binding reaches both with no second edit.
     /// </summary>
     /// <remarks>
@@ -72,38 +72,84 @@ namespace BitSorter.LogicCore.Tests
             }
         }
 
+        /// <summary>The four blocks either side of the run buttons.</summary>
+        private static readonly ControlSpot[] Blocks =
+        {
+            ControlSpot.LeftUpper, ControlSpot.LeftLower, ControlSpot.RightUpper, ControlSpot.RightLower,
+        };
+
+        /// <summary>The spots that show one key alone, on or under the thing it works.</summary>
+        private static readonly ControlSpot[] KeySpots =
+        {
+            ControlSpot.RunButton, ControlSpot.ResetButton, ControlSpot.UndoButton, ControlSpot.RedoButton,
+            ControlSpot.ClearButton, ControlSpot.MenuButton, ControlSpot.HelpBadge,
+        };
+
+        private static string[] Pieces(string shown) =>
+            shown.Split(new[] { ControlsReference.LineSeparator }, StringSplitOptions.RemoveEmptyEntries);
+
         [Test]
-        public void EveryStatusLineControl_ReachesTheLine()
+        public void EveryBoardControl_IsShownAtItsSpot()
         {
             foreach (ControlEntry entry in ControlsReference.All)
             {
-                if (!entry.OnStatusLine)
+                if (!entry.OnBoard)
                     continue;
 
-                StringAssert.Contains(entry.Text, ControlsReference.Line,
-                    $"'{entry.Text}' is flagged for the status line but never reaches it");
+                string shown = ControlsReference.At(entry.Spot);
+
+                if (entry.ShowsKeyOnly)
+                    Assert.AreEqual(entry.Key, shown, $"'{entry.Text}' should show its key at {entry.Spot}");
+                else
+                    CollectionAssert.Contains(Pieces(shown), entry.Text, $"'{entry.Text}' never reaches {entry.Spot}");
             }
         }
 
         [Test]
-        public void TheLineSaysNothingThatIsNotInTheList()
+        public void TheBoardSaysNothingThatIsNotInTheList()
         {
-            string[] shown = ControlsReference.Line.Split(
-                new[] { ControlsReference.LineSeparator }, StringSplitOptions.RemoveEmptyEntries);
-
-            foreach (string piece in shown)
+            foreach (ControlSpot spot in Blocks)
             {
-                bool known = false;
-
-                foreach (ControlEntry entry in ControlsReference.All)
+                foreach (string piece in Pieces(ControlsReference.At(spot)))
                 {
-                    if (entry.Text == piece.Trim())
-                        known = true;
-                }
+                    bool known = false;
 
-                Assert.IsTrue(known,
-                    $"the status line shows '{piece.Trim()}', which is not in ControlsReference.All");
+                    foreach (ControlEntry entry in ControlsReference.All)
+                    {
+                        if (entry.Text == piece.Trim() && entry.Spot == spot)
+                            known = true;
+                    }
+
+                    Assert.IsTrue(known, $"{spot} shows '{piece.Trim()}', which the list does not put there");
+                }
             }
+        }
+
+        /// <summary>
+        /// Each key sits over the button that does what its phrase says, so a key cannot end up
+        /// over the wrong button. Each spot holds one key.
+        /// </summary>
+        [TestCase(ControlSpot.RunButton, "to run")]
+        [TestCase(ControlSpot.ResetButton, "to reset")]
+        [TestCase(ControlSpot.UndoButton, "to undo")]
+        [TestCase(ControlSpot.RedoButton, "to redo")]
+        [TestCase(ControlSpot.ClearButton, "to clear")]
+        [TestCase(ControlSpot.MenuButton, "main menu")]
+        [TestCase(ControlSpot.HelpBadge, "for help")]
+        public void EachKey_IsOnTheThingItWorks(ControlSpot spot, string does)
+        {
+            int held = 0;
+
+            foreach (ControlEntry entry in ControlsReference.All)
+            {
+                if (entry.Spot != spot)
+                    continue;
+
+                held++;
+                StringAssert.Contains(does, entry.Text, $"{spot} holds '{entry.Text}'");
+            }
+
+            Assert.AreEqual(1, held, $"{spot} should hold exactly one key");
         }
 
         // -----------------------------------------------------------------
@@ -152,7 +198,7 @@ namespace BitSorter.LogicCore.Tests
         /// <remarks>
         /// It said "M for the main menu" at the foot of the main menu, where M did the opposite: it
         /// closed the menu. It went on that line when it was the only place the key was named
-        /// anywhere; the controls line on every board names it now, which is where it means what it
+        /// anywhere; every board names it now, under MENU, which is where it means what it
         /// says. The key is Escape now, and on the menu Escape closes it just the same.
         /// </remarks>
         [Test]
@@ -212,12 +258,12 @@ namespace BitSorter.LogicCore.Tests
         public void AddingAControl_MovesBothRenderings()
         {
             int total = ControlsReference.All.Count;
-            int onLine = 0;
+            int onBoard = 0;
 
             foreach (ControlEntry entry in ControlsReference.All)
             {
-                if (entry.OnStatusLine)
-                    onLine++;
+                if (entry.OnBoard)
+                    onBoard++;
             }
 
             int onMenu = 0;
@@ -228,8 +274,16 @@ namespace BitSorter.LogicCore.Tests
                     onMenu++;
             }
 
-            int lineCount = ControlsReference.Line.Split(
-                new[] { ControlsReference.LineSeparator }, StringSplitOptions.RemoveEmptyEntries).Length;
+            int boardCount = 0;
+
+            foreach (ControlSpot spot in Blocks)
+                boardCount += Pieces(ControlsReference.At(spot)).Length;
+
+            foreach (ControlSpot spot in KeySpots)
+            {
+                if (!string.IsNullOrEmpty(ControlsReference.At(spot)))
+                    boardCount++;
+            }
 
             int menuCount = ControlsReference.MenuLine.Split(
                 new[] { ControlsReference.LineSeparator }, StringSplitOptions.RemoveEmptyEntries).Length;
@@ -239,7 +293,7 @@ namespace BitSorter.LogicCore.Tests
             foreach (ControlGroup group in ControlsReference.Groups)
                 grouped += group.Entries.Count;
 
-            Assert.AreEqual(onLine, lineCount, "the status line is not the flagged entries");
+            Assert.AreEqual(onBoard, boardCount, "the board does not show the entries placed on it");
             Assert.AreEqual(onMenu, menuCount, "the menu line is not the flagged entries");
             Assert.AreEqual(total, grouped, "the card's columns are not the whole list");
         }
@@ -277,22 +331,23 @@ namespace BitSorter.LogicCore.Tests
         }
 
         /// <summary>
-        /// The line along the bottom of the board names the way back to the main menu.
+        /// The board names the way back to the main menu: its key, under the MENU button.
         /// </summary>
         /// <remarks>
-        /// M was kept off it for room, which left it named in two places: the menu itself, which a
-        /// player has to be on already, and the card at the end of the tutorial, which a player who
-        /// skipped the tutorial never sees. The line is the one reference on screen at every level.
+        /// M was kept off the old line for room, which left it named in two places: the menu itself,
+        /// which a player has to be on already, and the card at the end of the tutorial, which a
+        /// player who skipped the tutorial never sees. The board is the one reference on screen at
+        /// every level.
         /// </remarks>
         [Test]
-        public void TheStatusLine_NamesTheWayBackToTheMainMenu()
+        public void TheBoard_NamesTheWayBackToTheMainMenu()
         {
-            StringAssert.Contains("main menu", ControlsReference.Line,
-                "the controls line does not say how to get back to the main menu");
+            Assert.AreEqual("ESC", ControlsReference.At(ControlSpot.MenuButton),
+                "the MENU button does not say which key opens the main menu");
         }
 
         /// <summary>
-        /// Escape is the main menu and M is the level list, and the line says so.
+        /// Escape is the main menu and M is the level list, and the board says so.
         /// </summary>
         /// <remarks>
         /// Swapped after a playtest, 2026-09-26: Escape is the key players reach for to get to a
@@ -300,12 +355,22 @@ namespace BitSorter.LogicCore.Tests
         /// pins the words to the swap.
         /// </remarks>
         [Test]
-        public void TheStatusLine_NamesEscapeForTheMenu_AndMForTheLevels()
+        public void TheBoard_NamesEscapeForTheMenu_AndMForTheLevels()
         {
-            StringAssert.Contains("ESC for the main menu", ControlsReference.Line);
-            StringAssert.Contains("M for levels", ControlsReference.Line);
-            StringAssert.DoesNotContain("ESC for levels", ControlsReference.Line);
-            StringAssert.DoesNotContain("M for the main menu", ControlsReference.Line);
+            var blocks = new System.Text.StringBuilder();
+
+            foreach (ControlSpot spot in Blocks)
+                blocks.AppendLine(ControlsReference.At(spot));
+
+            StringAssert.Contains("M for levels", blocks.ToString());
+            StringAssert.DoesNotContain("ESC for levels", blocks.ToString());
+            StringAssert.DoesNotContain("M for the main menu", blocks.ToString());
+
+            foreach (ControlEntry entry in ControlsReference.All)
+            {
+                if (entry.Spot == ControlSpot.MenuButton)
+                    Assert.AreEqual("ESC for the main menu", entry.Text);
+            }
         }
 
         /// <summary>
@@ -332,7 +397,7 @@ namespace BitSorter.LogicCore.Tests
             }
 
             Assert.IsTrue(onTheCard, "the tutorial's card does not name the timing diagram's key");
-            Assert.IsFalse(ControlsReference.TimingDiagram.OnStatusLine,
+            Assert.IsFalse(ControlsReference.TimingDiagram.OnBoard,
                 "the timing diagram is only worth naming on a clocked level, not on every board");
         }
 
@@ -367,20 +432,20 @@ namespace BitSorter.LogicCore.Tests
         }
 
         [Test]
-        public void TheStatusLineIsAShortlist_NotEverything()
+        public void TheBoardIsAShortlist_NotEverything()
         {
-            // Not a style preference: the line is one row on screen permanently, and putting all
-            // thirteen on it is what the OnStatusLine flag exists to prevent.
-            int onLine = 0;
+            // Not a style preference: the board's controls are on screen permanently, and putting
+            // every one of them there is what a spot of None exists to prevent.
+            int onBoard = 0;
 
             foreach (ControlEntry entry in ControlsReference.All)
             {
-                if (entry.OnStatusLine)
-                    onLine++;
+                if (entry.OnBoard)
+                    onBoard++;
             }
 
-            Assert.Less(onLine, ControlsReference.All.Count,
-                "if the line carries everything, the flag has stopped meaning anything");
+            Assert.Less(onBoard, ControlsReference.All.Count,
+                "if the board carries everything, the spots have stopped meaning anything");
         }
     }
 }

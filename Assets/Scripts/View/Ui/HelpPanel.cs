@@ -334,10 +334,11 @@ namespace BitSorter.View
             // The badge is round and unlabelled, which is not obviously a button. The key beside it
             // says both that it opens something and how to open it without aiming at all.
             TextMeshProUGUI key = UiTheme.Label(
-                "key", rect, UiType.Micro, UiTheme.TextDim, TextAlignmentOptions.Center);
+                "key", rect, UiTheme.KeyCaptionType, UiTheme.TextDim, TextAlignmentOptions.Center);
+            key.raycastTarget = false;
             UiTheme.Anchor(key.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 1f),
-                new Vector2(0f, -4f), new Vector2(60f, UiRows.BadgeKey.Height - 4f));
-            key.text = "H";
+                new Vector2(0f, -4f), new Vector2(60f, UiRows.BadgeKey.Height - 2f));
+            key.text = ControlsReference.At(ControlSpot.HelpBadge);
         }
 
         private void BuildPanel()

@@ -43,7 +43,6 @@ namespace BitSorter.View
         private TextMeshProUGUI _redoLabel;
         private TextMeshProUGUI _clearLabel;
         private RectTransform _root;
-        private TextMeshProUGUI _controlsLine;
 
         /// <summary>When the pending CLEAR ALL confirmation lapses, or zero when none is pending.</summary>
         private float _confirmUntil;
@@ -66,7 +65,7 @@ namespace BitSorter.View
             RectTransform root = UiTheme.Rect("Run controls", _canvas.transform);
             _root = root;
             UiTheme.Anchor(root, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
-                new Vector2(0f, UiRows.Buttons.Offset), new Vector2(600f, UiRows.Buttons.Height));
+                new Vector2(0f, UiRows.Buttons.Offset), new Vector2(RowWidth, UiRows.Buttons.Height));
 
             _run = UiTheme.Button_("Run", root, "RUN", out _runLabel, role: ButtonRole.Primary);
             UiTheme.Anchor(_run.GetComponent<RectTransform>(), new Vector2(0f, 0f), new Vector2(0f, 0f),
@@ -78,11 +77,11 @@ namespace BitSorter.View
 
             _undo = UiTheme.Button_("Undo", root, "UNDO", out _undoLabel);
             UiTheme.Anchor(_undo.GetComponent<RectTransform>(), new Vector2(0f, 0f), new Vector2(0f, 0f),
-                new Vector2(276f, 0f), new Vector2(76f, UiTheme.ButtonHeight));
+                new Vector2(276f, 0f), new Vector2(SmallButtonWidth, UiTheme.ButtonHeight));
 
             _redo = UiTheme.Button_("Redo", root, "REDO", out _redoLabel);
             UiTheme.Anchor(_redo.GetComponent<RectTransform>(), new Vector2(0f, 0f), new Vector2(0f, 0f),
-                new Vector2(356f, 0f), new Vector2(76f, UiTheme.ButtonHeight));
+                new Vector2(356f, 0f), new Vector2(SmallButtonWidth, UiTheme.ButtonHeight));
 
             _clear = UiTheme.Button_("Clear", root, "CLEAR ALL", out _clearLabel, role: ButtonRole.Destructive);
             UiTheme.Anchor(_clear.GetComponent<RectTransform>(), new Vector2(1f, 0f), new Vector2(1f, 0f),
@@ -94,36 +93,102 @@ namespace BitSorter.View
             _redo.onClick.AddListener(() => Fire(Redo));
             _clear.onClick.AddListener(() => Fire(AskToClear));
 
-            BuildControlsLine();
+            BuildTips();
         }
 
         /// <summary>
-        /// The actions that have no button.
+        /// The board's controls, each as near as it will go to what it works: a button's key over
+        /// the button, and what works nothing on screen in two blocks either side of the row.
         /// </summary>
         /// <remarks>
-        /// Permanent rather than behind the diagnostics key, because these are the only way to do
-        /// several things -- there is no button for drawing a wire, deleting one, or re-timing it.
+        /// Permanent rather than behind the diagnostics key, because some are the only way to do
+        /// what they do -- there is no button for drawing a wire, deleting one, or re-timing it.
         /// Hiding them would leave a player who never presses F2 unable to finish a delay level.
         ///
-        /// Buttons cover run and reset, and the palette covers selection, so those are left out. What
-        /// remains is exactly what the interface cannot yet express.
+        /// They were one line along the bottom, in list order, and a playtester had to read the
+        /// whole of it to find the key for the button under their hand (2026-09-27). The words all
+        /// come from <see cref="ControlsReference"/>, which says where each goes; the tutorial's
+        /// card lists the same controls, and two copies would disagree the first time a binding
+        /// changed.
+        ///
+        /// None of them takes a click. A key over a button would otherwise press it, and a block
+        /// beside the row would stop a click reaching the board behind it.
         /// </remarks>
-        private void BuildControlsLine()
+        private void BuildTips()
         {
-            // Parented to the canvas and placed on a shared row rather than hung off the button
-            // block, so its position and the toast's come from the same arithmetic. When each owned
-            // half of it, they landed on the same line and drew over each other.
-            TextMeshProUGUI line = UiTheme.Label(
-                "controls", _canvas.transform, UiTheme.ControlsType, UiTheme.TextDim, TextAlignmentOptions.Center);
+            KeyOver(_run, ControlSpot.RunButton);
+            KeyOver(_reset, ControlSpot.ResetButton);
+            KeyOver(_undo, ControlSpot.UndoButton);
+            KeyOver(_redo, ControlSpot.RedoButton);
+            KeyOver(_clear, ControlSpot.ClearButton);
 
-            UiTheme.Anchor(line.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
-                new Vector2(0f, UiRows.Controls.Offset),
-                new Vector2(UiTheme.ControlsWidth, UiRows.Controls.Height));
+            Beside(ControlSpot.LeftUpper, left: true, upper: true);
+            Beside(ControlSpot.LeftLower, left: true, upper: false);
+            Beside(ControlSpot.RightUpper, left: false, upper: true);
+            Beside(ControlSpot.RightLower, left: false, upper: false);
+        }
 
-            // From ControlsReference, not spelled out here. The tutorial's card lists the same
-            // controls, and two copies would disagree the first time a binding changed.
-            line.text = ControlsReference.Line;
-            _controlsLine = line;
+        /// <summary>
+        /// How far the upper line sits above the row of buttons: the controls row, which is where
+        /// the whole line used to be, so the toast above it still clears it.
+        /// </summary>
+        private static float UpperRise => UiRows.Controls.Offset - UiRows.Buttons.Offset;
+
+        /// <summary>Between the row of buttons and a block beside it.</summary>
+        public const float BlockGap = 28f;
+
+        /// <summary>The widest a block beside the buttons may be; measured by a test, never wrapped.</summary>
+        public const float BlockWidth = 360f;
+
+        /// <summary>How wide the row of buttons is, which the blocks sit either side of.</summary>
+        public const float RowWidth = 600f;
+
+        /// <summary>UNDO and REDO, the narrowest buttons on the row, which the keys over them must fit.</summary>
+        public const float SmallButtonWidth = 76f;
+
+        /// <summary>A button's key, just over it, in the controls row.</summary>
+        private void KeyOver(Button button, ControlSpot spot)
+        {
+            string key = ControlsReference.At(spot);
+
+            if (button == null || string.IsNullOrEmpty(key))
+                return;
+
+            var rect = button.GetComponent<RectTransform>();
+
+            TextMeshProUGUI label = UiTheme.Label(
+                "key", rect, UiTheme.ControlsType, UiTheme.TextDim, TextAlignmentOptions.Bottom);
+            label.raycastTarget = false;
+
+            UiTheme.Anchor(label.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 0f),
+                new Vector2(0f, UpperRise - UiRows.Buttons.Height), new Vector2(rect.sizeDelta.x + 16f,
+                    UiRows.Controls.Height));
+
+            label.text = key;
+        }
+
+        /// <summary>One line of a block beside the row: upper, level with the keys, or lower, level with the buttons.</summary>
+        private void Beside(ControlSpot spot, bool left, bool upper)
+        {
+            string text = ControlsReference.At(spot);
+
+            if (string.IsNullOrEmpty(text))
+                return;
+
+            TextMeshProUGUI label = UiTheme.Label(
+                $"controls {spot}", _root, UiTheme.ControlsType, UiTheme.TextDim,
+                left
+                    ? (upper ? TextAlignmentOptions.BottomRight : TextAlignmentOptions.MidlineRight)
+                    : (upper ? TextAlignmentOptions.BottomLeft : TextAlignmentOptions.MidlineLeft));
+            label.raycastTarget = false;
+
+            float x = left ? 0f : 1f;
+
+            UiTheme.Anchor(label.rectTransform, new Vector2(x, 0f), new Vector2(1f - x, 0f),
+                new Vector2(left ? -BlockGap : BlockGap, upper ? UpperRise : 0f),
+                new Vector2(BlockWidth, upper ? UiRows.Controls.Height : UiRows.Buttons.Height));
+
+            label.text = text;
         }
 
         private void Update()
@@ -133,8 +198,7 @@ namespace BitSorter.View
 
             // Out of the way of a full-screen panel: its help line sits on this row.
             bool shown = UiModal.HudVisible;
-            UiTheme.SetShown(_root, shown);
-            UiTheme.SetShown(_controlsLine, shown);
+            UiTheme.SetShown(_root, shown);   // the keys and the blocks beside the row go with it
 
             if (!shown)
                 return;

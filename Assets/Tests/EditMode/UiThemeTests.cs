@@ -311,25 +311,61 @@ namespace BitSorter.LogicCore.Tests
         }
 
         /// <summary>
-        /// The controls line fits its box on one line, and the box fits the narrowest screen.
+        /// Each block of controls beside the run buttons fits its box on one line, and the blocks
+        /// fit the narrowest screen.
         /// </summary>
         /// <remarks>
-        /// The line never wraps, so running long means running out of its box sideways, and nothing
-        /// measured it: the box was a thousand wide and the text had grown to within forty pixels of
-        /// that before M was added to it. The canvas is widest at the reference 16:9 and narrowest
-        /// at 4:3, where the scaler (matching width and height equally) makes it
-        /// sqrt(1920 x 1080 x 4/3) wide.
+        /// A block never wraps, so running long means running out of its box sideways; the old
+        /// single line did exactly that before anything measured it. The canvas is widest at the
+        /// reference 16:9 and narrowest at 4:3, where the scaler (matching width and height equally)
+        /// makes it sqrt(1920 x 1080 x 4/3) wide.
+        ///
+        /// At 16:9 the blocks also stay clear of the bottom corners, where F2 draws its two readouts;
+        /// at 4:3 there is no room for both, and F2 is a key a player presses on purpose.
         /// </remarks>
         [Test]
-        public void TheControlsLine_FitsItsBox_AndTheBoxFitsANarrowScreen()
+        public void TheControlsBesideTheButtons_FitTheirBoxes_AndANarrowScreen()
         {
-            float needed = UiTheme.TextWidth(ControlsReference.Line, UiTheme.ControlsType);
-            Assert.LessOrEqual(needed, UiTheme.ControlsWidth,
-                $"the controls line needs {needed:F0}px and its box is {UiTheme.ControlsWidth}px");
+            float widest = 0f;
+
+            foreach (ControlSpot spot in new[]
+                     {
+                         ControlSpot.LeftUpper, ControlSpot.LeftLower, ControlSpot.RightUpper, ControlSpot.RightLower,
+                     })
+            {
+                float needed = UiTheme.TextWidth(ControlsReference.At(spot), UiTheme.ControlsType);
+                widest = Mathf.Max(widest, needed);
+
+                Assert.LessOrEqual(needed, RunControls.BlockWidth,
+                    $"{spot} needs {needed:F0}px and its box is {RunControls.BlockWidth}px");
+            }
+
+            // From the middle of the screen out to a block's far end.
+            float reach = RunControls.RowWidth * 0.5f + RunControls.BlockGap + widest;
 
             float narrowest = Mathf.Sqrt(1920f * 1080f * 4f / 3f);
-            Assert.LessOrEqual(UiTheme.ControlsWidth + 2f * UiTheme.Margin, narrowest,
-                $"the controls line's box is wider than a 4:3 screen ({narrowest:F0}px)");
+            Assert.LessOrEqual(reach + UiTheme.Margin, narrowest * 0.5f,
+                $"the controls beside the buttons run off a 4:3 screen ({narrowest:F0}px)");
+
+            Assert.LessOrEqual(reach, 1920f * 0.5f - UiTheme.Margin - UiTheme.CornerWidth,
+                "at 16:9 the controls beside the buttons run under the F2 readouts in the corners");
+        }
+
+        /// <summary>A key over a button is no wider than the narrowest of them.</summary>
+        [Test]
+        public void EveryKeyOverAButton_FitsOverIt()
+        {
+            foreach (ControlSpot spot in new[]
+                     {
+                         ControlSpot.RunButton, ControlSpot.ResetButton, ControlSpot.UndoButton,
+                         ControlSpot.RedoButton, ControlSpot.ClearButton,
+                     })
+            {
+                float needed = UiTheme.TextWidth(ControlsReference.At(spot), UiTheme.ControlsType);
+
+                Assert.LessOrEqual(needed, RunControls.SmallButtonWidth,
+                    $"the key over {spot} needs {needed:F0}px, wider than the narrowest button");
+            }
         }
 
         /// <summary>

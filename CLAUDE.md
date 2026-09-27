@@ -552,6 +552,16 @@ failure side.
   more constant and one more test for that one pair. A component reads its row
   and never works out its own clearance; `UiStackTests` checks that every row
   came out of a stack.
+- **A control is shown beside the thing it works.** `ControlsReference` gives
+  each control a `ControlSpot`: a button's key goes over the button (Enter over
+  RUN, ctrl+Z over UNDO), ESC under MENU and H under the help badge, and what
+  works nothing on screen -- the mouse, M, N -- in two short blocks either side
+  of the run buttons, an upper line and a lower. They were one line along the
+  bottom in list order, and a playtester had to read all of it to find the key
+  for the button under their hand (2026-09-27). The key is the phrase's first
+  word, so a button and the tutorial's card cannot disagree; none of them takes
+  a click, or a key would press its button and a block would stop clicks
+  reaching the board.
 - **Text is sized by what it is for, never by a number.** `UiTheme.Label` takes a
   `UiType` -- Micro, Caption, Label, Body, Numeral, Lead, Heading, Title, Display --
   and `UiTheme.SizeOf` is the one place those become sizes. Seventeen sizes from
@@ -596,7 +606,8 @@ failure side.
   `UiTheme.Scrim`, a flat rectangle: a scrim wants no corners at all, not small
   ones. Before the slicing was fixed this was a workaround for the fade, and it
   left the screen's edges, where the HUD lives, undimmed. The HUD --
-  banner, run buttons, controls line, parts list, help badge, bits-lost meter --
+  banner, run buttons and the controls beside them, parts list, help badge,
+  bits-lost meter --
   hides while `UiModal.HudVisible` is false, or the panels' titles and help
   lines print over it. Anything that acts on a key asks
   `UiModal.OpenOrJustClosed`, so the press that closed one panel cannot open
@@ -862,7 +873,7 @@ failure side.
   the bottom-left corner. It is the pair to the readout, not a replacement
   — the pips explain the beat to someone who has never seen a timing
   diagram, and this is for someone who has. Behind F2 and absent from the
-  controls line, so it costs a player who does not want it nothing -- but
+  board's controls, so it costs a player who does not want it nothing -- but
   named, quietly, at the end of the clock strip, which is on screen exactly
   on the levels where it means anything, and on the tutorial's card. It was
   once named nowhere, which is not "costs nothing" but "does not exist".
