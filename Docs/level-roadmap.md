@@ -62,7 +62,7 @@ author a level that silently fails to teach its own lesson.
 | 4 | Propagation delay | **(a)** | Shipped: `balance-the-paths` |
 | 5 | Combinational components (mux, decoder, comparator) | **(a)** | **Shipped:** `pick-a-lane` (2:1 mux), `one-of-four` (decoder), `highest-wins` (priority encoder), `which-is-bigger` (comparator), and the 4:1 mux as `four-lanes`, on an 11 × 7 board |
 | 6 | Adders: half, full, ripple-carry | **(a)** | **Shipped:** `half-adder`, `carry-the-one`, a 2-bit ripple-carry as `pass-it-on` -- seven gates, since bit 0 needs no carry in -- and a 3-bit one as `carry-it-further`, on 13 × 7 |
-| 6b | Carry-lookahead | **(b)** | Per-level board size. Reclassified from (c) — the limit is the view layer, not the model |
+| 6b | Carry-lookahead | **(b)** | Board size shipped (a level names its own, up to 13 × 7). Lookahead itself waits for sub-circuit blocks: by hand it only beats ripple at a width too many gates to wire |
 | 7 | Latches and flip-flops | **(a)** | **Shipped.** `RegisterNode`, a palette slot, and a clock. Initial-state authoring turned out not to be needed |
 | 7b | Level- vs edge-triggering, setup/hold, clock skew | **(c)** | Skew and hold stay out. Setup time survives as `clockPeriod` — see below |
 | 8 | FSMs (Moore / Mealy), state minimisation | **(a)** | **Shipped.** `spot-the-pattern`, `one-clock-behind` and `add-as-you-go` |
@@ -187,7 +187,26 @@ teaching anything.
 
 ### 6b. Carry-lookahead
 
-**Blocked on:** a per-level board size. Reclassified from (c) — see below.
+**The board-size blocker is gone; the gate count is not.** A level names its own
+board now -- `board: { columns, rows }`, odd sizes from 9 × 5 up to 13 × 7, fitted
+to the screen with no pan -- and `four-lanes` (11 × 7) and `carry-it-further`
+(13 × 7, a 3-bit ripple) are built on it. What it did not unblock is the
+comparison this entry was for, because with two-input gates lookahead does not
+win until the adder is wide:
+
+- **2 bits: a tie.** Both put the carry out three gate levels in.
+- **3 bits: four levels against five.** A real difference, but the lookahead
+  carry needs the generate and propagate terms of every column below it, which is
+  most of the gates on the board for one tick.
+- **4 bits** is where the lesson is plain, and a 4-bit lookahead by hand is about
+  25 gates.
+
+So it waits for sub-circuit blocks, where a full adder is one part and the
+comparison is a handful of blocks rather than a wall of wires. What follows is the
+analysis as it was written before board size shipped; the list of costs is done,
+and the caveat at the end was wrong about two bits.
+
+**Was blocked on:** a per-level board size. Reclassified from (c) — see below.
 
 A 2-bit ripple-carry adder is a half adder and a full adder: 7 gates, 4 sources,
 3 sinks, which fits -- it shipped as `pass-it-on`. The lookahead version of the same width
@@ -232,7 +251,8 @@ Items 1–2 are an hour with tests. Items 3–4 are the real cost — runtime-re
 view geometry — and CLAUDE.md's warning about verifying the saved scene file
 applies to both. Call it a focused half-day, entirely in the view layer.
 
-**One honest caveat.** Even with a bigger board, a 4-bit lookahead is ~25–30 gates
+**One honest caveat** (overtaken: see the top of this entry -- at two bits lookahead
+only ties). Even with a bigger board, a 4-bit lookahead is ~25–30 gates
 plus 8 sources, and legibility of hand-drawn wires on a 2D grid becomes the binding
 constraint well before the format does. The realistic target is a 2-bit ripple
 versus 2-bit lookahead comparison at something like 13 × 7, not a textbook 4-bit
@@ -872,8 +892,8 @@ path never makes it longer than the critical path. So correct balancing costs
 zero latency, and a `maxLatency` set to the intended solution's critical path is
 exactly satisfiable. That property is what makes ripple-carry versus lookahead
 gradeable here at all — the ripple version fails a latency gate because its carry
-chain is genuinely deep, not because it was balanced badly. Whether the two fit on
-a 9 × 5 board is the separate problem noted under 6b.
+chain is genuinely deep, not because it was balanced badly. Fitting the two on a
+board is no longer the problem; how many gates the lookahead takes is -- see 6b.
 
 ### Q3: Can a level require a specific gate set only?
 

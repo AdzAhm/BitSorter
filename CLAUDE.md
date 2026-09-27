@@ -667,6 +667,21 @@ failure side.
   Fitting to the whole screen put the outermost column under the parts list,
   where four shipped levels keep a source — in Carry the one, source B sat
   under the AND with "DELAY 0 of 5" across its label.
+
+  **A level may name its own board, and the level wins.** `board: { columns,
+  rows }` in the file, odd both ways because the grid is centred on the
+  origin, from 9 by 5 up to 13 by 7 (`LevelLoader.MinColumns` to
+  `MaxColumns`, and rows likewise); a file without one gets the scene's 9 by
+  5, and so does every level written before the field. `LevelSession` resizes
+  the grid before it raises `LevelLoaded`, so everything that hears about a
+  level already sees its board, and `PlacementGrid.Resized` is what `CameraFit`
+  and `GridPulse` refit on. **There is no pan and no zoom**: the whole board is
+  always on screen, fitted in width between the interface on either side and
+  in height down to the names under the bottom row. That is why the cap
+  exists -- a bigger board would only mean smaller cells, and 13 by 7 is the
+  largest drawn and seen still readable with free play's setup panel open.
+  A 9 by 5 board renders exactly as it did before boards could change size,
+  which the reference shots confirmed to the pixel.
 - **Nothing may depend on the order components update in.** Unity leaves it
   undefined for scripts with no execution order. When one component needs a
   fact to be true by the time another can see something, produce that fact in
