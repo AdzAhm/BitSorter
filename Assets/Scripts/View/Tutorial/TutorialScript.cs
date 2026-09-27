@@ -211,12 +211,15 @@ namespace BitSorter.View
         /// <remarks>
         /// A failed run puts the player back on "press RUN" -- correctly, since Run rebuilds first
         /// and works straight after a failure -- but the step's own text would then claim the
-        /// circuit works while the board says otherwise. This says what to press, and nothing about
+        /// circuit works while the board says otherwise. This says what to do, and nothing about
         /// why the run failed: that is the collision hint's subject, on the level where it matters.
+        ///
+        /// It said to press RESET first, when a finished run could not be edited without it. It can
+        /// now: the first edit puts the board back.
         /// </remarks>
         public static string RecoveryText(BoardFacts facts) =>
             facts.RunFailed && !facts.Running && !facts.Passed
-                ? "That did not reach the bin. Press RESET to put the board back and try again."
+                ? "That did not reach the bin. Fix the wiring, then press RUN again."
                 : null;
 
         /// <summary>

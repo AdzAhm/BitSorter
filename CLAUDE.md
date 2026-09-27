@@ -232,6 +232,22 @@ failure side.
   `LevelLoaded`, so the board `ProgressTracker` restores is the baseline
   rather than a step the player can reverse past.
 
+- **A finished run is left by editing it.** Once a run passes, fails or
+  finishes, the board keeps showing how it went -- the verdict, the scorch
+  marks, the stranded bits -- and the first edit puts it back to editing at
+  tick 0 (`LevelSession.LeaveTheFinishedRun`, called after validation, so a
+  refused edit leaves all of it standing). RESET still does that without an
+  edit, and RUN still runs straight after a verdict. Every edit used to be
+  refused until RESET, and playtesters took the board for locked (2026-09-27).
+
+  **Except for two frames.** In the frame a run ends and the next, an edit is
+  judged as though the run were still going (`EditState`). Everything that
+  notices a pass -- the solved card, the tutorial, the celebration, the chime
+  -- watches `State` in its own Update, in no defined order, and the wiring
+  controller updates before all of them; an edit in either frame could end the
+  run before some had looked, and the solved card would never come up. From
+  the second frame on, each has had a whole Update with the verdict in place.
+
 - **Sequential logic uses a stateful RegisterNode, not gate-built latches.**
   Consume semantics destroys a value on use, so a cross-coupled NOR latch
   deadlocks at startup (each gate waits on the other's first output) and

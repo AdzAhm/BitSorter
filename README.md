@@ -122,7 +122,7 @@ until you reset your progress — and none of them pause the game.
 | `Ctrl`+`Z`, or the UNDO button | Undo the last edit |
 | `Ctrl`+`Y` / `Ctrl`+`Shift`+`Z` | Redo it |
 | `Enter`, or the RUN button | Run |
-| `R`, or the RESET button | Reset the board back to editing |
+| `R`, or the RESET button | Stop a run, or clear what a finished one left on the board. There is no need to press it before editing: after a run, the first edit puts the board back by itself |
 | `Shift`+`R` | Clear everything you built |
 | `Space` | Pause a run |
 | `→` while paused | Step one tick |

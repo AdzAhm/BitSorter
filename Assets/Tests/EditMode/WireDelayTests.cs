@@ -169,12 +169,19 @@ namespace BitSorter.LogicCore.Tests
                 LevelRules.CanSetDelay(_uncapped, _blueprint, RunState.Editing, 9, 10).Outcome);
         }
 
-        [TestCase(RunState.Running)]
+        [Test]
+        public void ReTiming_IsRefusedWhileRunning()
+        {
+            AssertRefused(Set(1, 2, RunState.Running), LevelOutcome.NotEditing);
+        }
+
+        /// <summary>A finished run takes a re-timing like any other edit; the edit ends the run.</summary>
         [TestCase(RunState.Passed)]
         [TestCase(RunState.Failed)]
-        public void ReTiming_IsRefusedWhileNotEditing(RunState state)
+        [TestCase(RunState.Finished)]
+        public void ReTiming_IsAllowedOnceARunHasFinished(RunState state)
         {
-            AssertRefused(Set(1, 2, state), LevelOutcome.NotEditing);
+            Assert.IsTrue(Set(1, 2, state).IsValid);
         }
 
         [Test]

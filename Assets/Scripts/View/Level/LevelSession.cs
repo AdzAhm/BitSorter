@@ -69,9 +69,39 @@ namespace BitSorter.View
         /// The tutorial's intro holds the board, so the parts list greys out and a drag from it is
         /// refused while it is up -- the same answer the placement rules give, arrived at before
         /// the player has aimed at anything.
+        ///
+        /// True once a run has finished, as well as while editing: the edit itself puts the board
+        /// back to editing (<see cref="LeaveTheFinishedRun"/>).
         /// </remarks>
         public bool CanEdit =>
-            IsLoaded && State == RunState.Editing && !TutorialDirector.HoldingTheBoard;
+            IsLoaded && EditState != RunState.Running && !TutorialDirector.HoldingTheBoard;
+
+        /// <summary>Whether a run has finished and the board is still showing how it went.</summary>
+        public bool RunIsOver =>
+            State == RunState.Passed || State == RunState.Failed || State == RunState.Finished;
+
+        /// <summary>The frame the last run finished on, or -1.</summary>
+        private int _endedOnFrame = -1;
+
+        /// <summary>
+        /// The state an edit is judged against: <see cref="State"/>, except that a run which has
+        /// only just finished still counts as running.
+        /// </summary>
+        /// <remarks>
+        /// An edit to a finished run ends it, which takes the verdict off the board. The win panel,
+        /// the tutorial, the celebration and the chime each notice a pass by watching
+        /// <see cref="State"/> in their own Update, and Unity does not say what order those run in
+        /// -- so a run ended by an edit in the frame it passed could be over before some of them had
+        /// looked, and the solved card would never come up. The next frame is not safe either: the
+        /// wiring controller updates before everything else, so a drag let go then acts before the
+        /// panels that were behind the session in the frame before. From the second frame on, each
+        /// of them has had a whole Update with the verdict in place.
+        ///
+        /// Treated as running rather than ignored, because that is what the player saw: their click
+        /// landed on a board that was still running on their screen.
+        /// </remarks>
+        private RunState EditState =>
+            RunIsOver && Time.frameCount - _endedOnFrame <= 1 ? RunState.Running : State;
 
         /// <summary>Whether there is an edit to step back through, and the board is editable.</summary>
         /// <remarks>
@@ -521,8 +551,32 @@ namespace BitSorter.View
             State = RunState.Editing;
         }
 
+        /// <summary>
+        /// Puts the board back to editing if a run has finished on it, just before an edit that is
+        /// going ahead.
+        /// </summary>
+        /// <remarks>
+        /// What RESET does, minus the rebuild, which the edit does itself straight after. Called
+        /// after validation, like <see cref="Record"/>, so a refused edit leaves the verdict and
+        /// everything the run left on the board -- the scorch marks, the stranded bits -- where
+        /// they were. Those stay until the player changes something, because they are how a failed
+        /// run says where it went wrong.
+        /// </remarks>
+        private void LeaveTheFinishedRun()
+        {
+            if (!RunIsOver)
+                return;
+
+            _runner.SetPaused(false);
+            _runner.ClockRunning = false;
+
+            Verdict = default;
+            State = RunState.Editing;
+        }
+
         private void Settle(bool settled)
         {
+            _endedOnFrame = Time.frameCount;
             _runner.ClockRunning = false;
 
             // Free play is not graded at all rather than graded and ignored. Asking the grader for a
@@ -553,7 +607,7 @@ namespace BitSorter.View
         /// </summary>
         public bool RefuseIfNotEditing()
         {
-            LevelVerdict gate = LevelRules.CanEdit(State);
+            LevelVerdict gate = LevelRules.CanEdit(EditState);
 
             if (gate.IsValid)
                 return false;
@@ -602,6 +656,7 @@ namespace BitSorter.View
             if (!step(_blueprint.Snapshot(), out BlueprintSnapshot restored))
                 return false;
 
+            LeaveTheFinishedRun();
             _blueprint.Restore(restored);
             _runner.Rebuild(Level, _blueprint);
             return true;
@@ -622,7 +677,7 @@ namespace BitSorter.View
                 return false;
 
             LevelVerdict verdict = LevelRules.CanPlace(
-                Level, _blueprint, State, kind, cell, _runner.HalfExtents);
+                Level, _blueprint, EditState, kind, cell, _runner.HalfExtents);
 
             if (!verdict.IsValid)
             {
@@ -630,6 +685,7 @@ namespace BitSorter.View
                 return false;
             }
 
+            LeaveTheFinishedRun();
             Record(BoardEdit.Structural);
             _blueprint.Place(cell, kind);
             _runner.Rebuild(Level, _blueprint);
@@ -651,7 +707,7 @@ namespace BitSorter.View
             if (!IsLoaded)
                 return false;
 
-            LevelVerdict verdict = LevelRules.CanRemove(Level, _blueprint, State, cell);
+            LevelVerdict verdict = LevelRules.CanRemove(Level, _blueprint, EditState, cell);
 
             if (!verdict.IsValid)
             {
@@ -659,6 +715,7 @@ namespace BitSorter.View
                 return verdict.Outcome != LevelOutcome.NothingThere;
             }
 
+            LeaveTheFinishedRun();
             Record(BoardEdit.Structural);
             _blueprint.RemoveAt(cell);
             _runner.Rebuild(Level, _blueprint);
@@ -675,7 +732,7 @@ namespace BitSorter.View
             if (!IsLoaded)
                 return false;
 
-            LevelVerdict gate = LevelRules.CanEdit(State);
+            LevelVerdict gate = LevelRules.CanEdit(EditState);
 
             if (!gate.IsValid)
             {
@@ -699,6 +756,7 @@ namespace BitSorter.View
                 return false;   // a node vanished between the drag starting and ending
             }
 
+            LeaveTheFinishedRun();
             Record(BoardEdit.Structural);
             _blueprint.AddWire(new BlueprintWire(source, target, delay));
             _runner.Rebuild(Level, _blueprint);
@@ -714,7 +772,7 @@ namespace BitSorter.View
             if (!IsLoaded)
                 return false;
 
-            LevelVerdict gate = LevelRules.CanEdit(State);
+            LevelVerdict gate = LevelRules.CanEdit(EditState);
 
             if (!gate.IsValid)
             {
@@ -730,6 +788,7 @@ namespace BitSorter.View
             if (!TryWireIndex(edge, out int index))
                 return false;
 
+            LeaveTheFinishedRun();
             Record(BoardEdit.Structural);
             _blueprint.RemoveWireAt(index);
             _runner.Rebuild(Level, _blueprint);
@@ -761,7 +820,7 @@ namespace BitSorter.View
             int current = _blueprint.Wires[index].Delay;
             int target = current + delta;
 
-            LevelVerdict verdict = LevelRules.CanSetDelay(Level, _blueprint, State, current, target);
+            LevelVerdict verdict = LevelRules.CanSetDelay(Level, _blueprint, EditState, current, target);
 
             if (!verdict.IsValid)
             {
@@ -770,6 +829,7 @@ namespace BitSorter.View
             }
 
             // Keyed on the wire, so a run of scroll notches on one wire is a single undo step.
+            LeaveTheFinishedRun();
             Record(BoardEdit.WireDelay(index));
             _blueprint.SetDelayAt(index, target);
             _runner.Rebuild(Level, _blueprint);

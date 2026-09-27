@@ -185,13 +185,13 @@ namespace BitSorter.LogicCore.Tests
         // Run state
         // -----------------------------------------------------------------
 
-        [TestCase(RunState.Running)]
-        [TestCase(RunState.Passed)]
-        [TestCase(RunState.Failed)]
-        public void EveryEdit_IsRefusedWhileNotEditing(RunState state)
+        [Test]
+        public void EveryEdit_IsRefusedWhileRunning()
         {
             // Editing a running graph would mean adding and removing nodes mid-stream, so it is refused
-            // rather than queued.
+            // rather than queued. A finished run is another matter: see AFinishedRun_TakesAnEdit.
+            const RunState state = RunState.Running;
+
             AssertRefused(Place(GateKind.Not, LevelTestFixtures.MiddleCell, state), LevelOutcome.NotEditing);
             AssertRefused(Remove(LevelTestFixtures.MiddleCell, state), LevelOutcome.NotEditing);
             AssertRefused(LevelRules.CanEdit(state), LevelOutcome.NotEditing);

@@ -114,15 +114,17 @@ namespace BitSorter.View
                     "Press START to begin the tutorial, or SKIP to go your own way.");
             }
 
-            if (state == RunState.Editing)
+            // A finished run is editable, and the edit is what ends it: LevelSession puts the board
+            // back to editing before applying it. It used to be refused until RESET, and
+            // playtesters took the board for locked (2026-09-27). Only a board still running
+            // refuses, since editing it would add and remove nodes mid-stream.
+            if (state != RunState.Running)
                 return LevelVerdict.Accept();
 
             // Names the button as well as the key: a player using the mouse is told a key and has
             // to go looking for which button it is.
             return LevelVerdict.Reject(LevelOutcome.NotEditing,
-                state == RunState.Running
-                    ? "A running board can't be edited. RESET, or R, stops it."
-                    : "RESET, or R, to edit the board again.");
+                "A running board can't be edited. RESET, or R, stops it.");
         }
 
         /// <summary>Whether a gate of this kind may go on this cell.</summary>
