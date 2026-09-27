@@ -85,6 +85,7 @@ namespace BitSorter.LogicCore.Tests
                 "dont-care",
                 "nothing-but-nand",
                 "the-slow-lane",
+                "one-of-four",
                 "pick-a-lane",
                 "half-adder",
                 "carry-the-one",

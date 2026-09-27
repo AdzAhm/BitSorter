@@ -1,0 +1,27 @@
+{
+  "name": "One of four",
+  "order": 67,
+  "goal": "Each row of the table lights exactly one bin: D0 for A B = 00, D1 for 01, D2 for 10, D3 for 11. The other three get a 0.",
+  "hint": "every bin is one row of the table. Three of them need an input flipped first.",
+  "tickLimit": 40,
+  "maxWireDelay": 2,
+  "delayBudget": 2,
+  "fixtures": [
+    { "id": "a",  "kind": "Source", "cell": { "x": -4, "y":  1 }, "stream": "0011" },
+    { "id": "b",  "kind": "Source", "cell": { "x": -4, "y": -1 }, "stream": "0101" },
+    { "id": "d0", "kind": "Sink",   "cell": { "x":  4, "y":  2 } },
+    { "id": "d1", "kind": "Sink",   "cell": { "x":  4, "y":  1 } },
+    { "id": "d2", "kind": "Sink",   "cell": { "x":  4, "y": -1 } },
+    { "id": "d3", "kind": "Sink",   "cell": { "x":  4, "y": -2 } }
+  ],
+  "budget": [
+    { "kind": "Not", "count": 2 },
+    { "kind": "And", "count": 4 }
+  ],
+  "expected": [
+    { "sink": "d0", "values": "1000" },
+    { "sink": "d1", "values": "0100" },
+    { "sink": "d2", "values": "0010" },
+    { "sink": "d3", "values": "0001" }
+  ]
+}
