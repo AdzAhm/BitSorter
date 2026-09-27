@@ -246,6 +246,22 @@ namespace BitSorter.LogicCore.Tests
         // -----------------------------------------------------------------
 
         /// <summary>
+        /// Free play is built on its own 13 by 7 board, which holds seven sources and seven sinks.
+        /// </summary>
+        [Test]
+        public void FreePlaysOwnBoard_HoldsSevenOfEach()
+        {
+            Assert.AreEqual(new Vector2Int(6, 3), SandboxLevel.Board);
+            Assert.AreEqual(7, SandboxLevel.Capacity(SandboxLevel.Board));
+
+            LevelDefinition level = SandboxLevel.Build(Config(7, 7, 4), SandboxLevel.Board);
+
+            Assert.AreEqual(SandboxLevel.Board, level.BoardHalfExtents, "the level does not name free play's board");
+            Assert.AreEqual(7, CountOf(level, FixtureKind.Source));
+            Assert.AreEqual(7, CountOf(level, FixtureKind.Sink));
+        }
+
+        /// <summary>
         /// Free play's longest input has played its last bit well inside the tick limit, leaving
         /// at least as long again for the bits to cross the board.
         /// </summary>
