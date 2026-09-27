@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using NUnit.Framework;
 using BitSorter.View;
 using UnityEngine;
@@ -37,6 +38,90 @@ namespace BitSorter.LogicCore.Tests
                     $"{asset.name}'s hint wraps to {needed:F0}px and the panel gives the hint " +
                     $"{HelpPanel.HintHeight}px, so it prints past the bottom of the panel");
             }
+        }
+
+        /// <summary>
+        /// The canvas height a browser tab 1920 by 800 gives: the canvas scales halfway between the
+        /// window's width and its height, so a wide, short window has less height than 1080.
+        /// </summary>
+        private const float ShortCanvas = 929f;
+
+        private static IEnumerable<KeyValuePair<string, LevelDefinition>> EveryLevel()
+        {
+            foreach (TextAsset asset in Resources.LoadAll<TextAsset>(LevelLoader.ResourcePath))
+            {
+                LevelLoadResult parsed = LevelLoader.Parse(asset.text, LevelTestFixtures.Board);
+                Assert.IsTrue(parsed.IsValid, asset.name);
+                yield return new KeyValuePair<string, LevelDefinition>(asset.name, parsed.Level);
+            }
+
+            yield return new KeyValuePair<string, LevelDefinition>(
+                "free play", SandboxLevel.Build(new SandboxConfig(), LevelTestFixtures.Board));
+        }
+
+        /// <summary>
+        /// At the size the interface is laid out for, the panel is never shrunk: a level that needs
+        /// shrinking there is a level to shorten, not one to squeeze.
+        /// </summary>
+        [Test]
+        public void EveryLevelsPanel_FitsAboveTheRunButtons_AtFullSize()
+        {
+            float room = HelpPanel.Room(UiTheme.ReferenceResolution.y);
+
+            foreach (KeyValuePair<string, LevelDefinition> level in EveryLevel())
+            {
+                Assert.LessOrEqual(HelpPanel.HeightFor(level.Value), room,
+                    $"{level.Key}'s help panel is {HelpPanel.HeightFor(level.Value):F0}px tall and " +
+                    $"the 1080 canvas leaves {room:F0}px between the badge and the run buttons");
+            }
+        }
+
+        /// <summary>
+        /// In a short window the panel shrinks to fit, and never so far that the table stops being
+        /// something to read. Sixteen-row tables are the ones this is about.
+        /// </summary>
+        [Test]
+        public void EveryLevelsPanel_StaysReadable_InAShortWindow()
+        {
+            float room = HelpPanel.Room(ShortCanvas);
+
+            foreach (KeyValuePair<string, LevelDefinition> level in EveryLevel())
+            {
+                float scale = SettingsPanel.FitScale(room, HelpPanel.HeightFor(level.Value));
+
+                Assert.GreaterOrEqual(scale, 0.9f,
+                    $"{level.Key}'s help panel would be drawn at {scale:P0} in a 1920 x 800 window");
+            }
+        }
+
+        [Test]
+        public void EveryLevelsTabs_FitInsideItsPanel()
+        {
+            int tabbed = 0;
+
+            foreach (KeyValuePair<string, LevelDefinition> level in EveryLevel())
+            {
+                float row = HelpPanel.TabRowWidth(level.Value);
+
+                if (row <= 0f)
+                    continue;
+
+                tabbed++;
+                float inside = HelpPanel.WidthFor(level.Value) - 2f * HelpPanel.ContentPadding;
+
+                Assert.LessOrEqual(row, inside,
+                    $"{level.Key}'s tabs are {row:F0}px across and the panel has {inside:F0}px inside it");
+            }
+
+            Assert.Greater(tabbed, 0, "sanity: no level has tabs");
+        }
+
+        [Test]
+        public void OnlyALevelWithAMap_HasTabs()
+        {
+            Assert.AreEqual(0f, HelpPanel.TabRowWidth(LevelLoader.Load("route-the-bit", LevelTestFixtures.Board).Level));
+            Assert.AreEqual(0f, HelpPanel.TabRowWidth(LevelLoader.Load("flip-on-one", LevelTestFixtures.Board).Level));
+            Assert.Greater(HelpPanel.TabRowWidth(LevelLoader.Load("half-adder", LevelTestFixtures.Board).Level), 0f);
         }
 
         /// <summary>

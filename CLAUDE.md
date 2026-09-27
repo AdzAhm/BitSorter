@@ -853,6 +853,28 @@ failure side.
   drift. The table draws a row per **clock cycle**, not per vector: a sink
   fed through a register takes a bit after the streams have run out, and a
   table that stopped at the vectors disagreed with the level it described.
+- **The Karnaugh map is the table again, laid out for minimising.**
+  `KarnaughMap` derives it from the same streams and expectations, rows and
+  columns in Gray order. An `x` is either an `x` in the file or a
+  combination no row tests, because to the grader both are free. It is
+  offered only on a combinational level of two to four inputs that tests
+  each combination once, and it draws no groups: the groups are the answer.
+
+  **One map per bin, one tab each** -- TABLE, then S1, S0, COUT. Stacked, three
+  four-input maps are 23 lines, too tall for the room above the run buttons;
+  one map is at most six lines, and `KarnaughMapTests` holds every map to no
+  more lines than its level's table. So the panel is sized to the table, and
+  switching tabs never resizes it. That matters because `CameraFit` frames the
+  board around the open panel. The choice between table and map lasts the
+  session and lives on the panel, not in a static: every Play Mode fixture shares
+  one play session, and a static would carry "map" into every fixture after the
+  one that pressed the tab.
+
+  **The help panel shrinks to fit a short window**, as Settings does and as the
+  setup panel beside it already stops at `UiRows.PanelFloor`. A browser tab 1920
+  by 800 gives the canvas about 930 of height, and a sixteen-row table needs all
+  of the room that leaves. `HelpPanelTests` holds every level to fitting unscaled
+  at 1080 and to at least 90% at 930.
 
 ## Not yet
 Do not build ahead of me. The logic core, the view layer, the level

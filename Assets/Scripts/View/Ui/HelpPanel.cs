@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
@@ -76,9 +77,73 @@ namespace BitSorter.View
         /// <summary>The title's row at the top, and the gap under it.</summary>
         private const float TitleRoom = 46f;
 
+        /// <summary>How tall one line of the table or the map is allowed.</summary>
+        private const float LineHeight = 24f;
+
+        /// <summary>
+        /// The row of tabs under the title -- TABLE, then a map for each bin -- on a level that has a
+        /// Karnaugh map, and the room it takes.
+        /// </summary>
+        /// <remarks>
+        /// One tab per bin rather than one K-MAP tab showing every map: stacked, three four-input
+        /// maps are 23 lines and would not fit above the run buttons. See <see cref="KarnaughMap"/>.
+        ///
+        /// Captioned at <see cref="UiType.Body"/> like every other button, and padded no more than
+        /// they need, because One of four's row -- TABLE and four bins -- has to fit the panel's
+        /// narrowest width.
+        /// </remarks>
+        private const float TabHeight = 26f;
+
+        /// <inheritdoc cref="TabHeight"/>
+        private const float TabGap = 6f;
+
+        /// <inheritdoc cref="TabHeight"/>
+        private const float TabPad = 8f;
+
+        /// <inheritdoc cref="TabHeight"/>
+        private const float TabMinimumWidth = 36f;
+
+        /// <inheritdoc cref="TabHeight"/>
+        private const float TabRoom = TabHeight + 10f;
+
+        /// <summary>The small print before the map tabs, so a tab named OUT reads as OUT's map.</summary>
+        private const string MapCaption = "K-MAP";
+
+        /// <inheritdoc cref="MapCaption"/>
+        private const UiType MapCaptionType = UiType.Micro;
+
         private RectTransform _panel;
         private TextMeshProUGUI _table;
         private TextMeshProUGUI _hint;
+
+        private RectTransform _tabs;
+        private Button _tableTab;
+        private TextMeshProUGUI _mapCaption;
+        private readonly List<Button> _mapTabs = new List<Button>();
+
+        /// <summary>The level the panel is showing, for the tabs to redraw from.</summary>
+        private LevelDefinition _level;
+
+        /// <summary>
+        /// Whether the map is showing rather than the table, and which bin's.
+        /// </summary>
+        /// <remarks>
+        /// Kept for the session and never saved: a player who reads maps keeps reading them from one
+        /// level to the next, and the next level's first bin is where that starts, since bins are
+        /// named per level.
+        ///
+        /// On the panel and not static, though a static would read as "for the session" too. Every
+        /// Play Mode fixture runs inside one play session, and a static set by the fixture that
+        /// presses a map tab would still say "map" in every fixture after it. The panel lives as long
+        /// as the scene, which is the session for a player and one fixture for a test.
+        /// </remarks>
+        private bool _showMap;
+
+        /// <inheritdoc cref="_showMap"/>
+        private int _mapBin;
+
+        /// <summary>The canvas height the panel was last fitted to, so a resized window refits it.</summary>
+        private float _fittedTo = -1f;
 
         /// <summary>The rule and heading that mark where the table stops and the nudge starts.</summary>
         /// <remarks>
@@ -206,6 +271,9 @@ namespace BitSorter.View
             UiTheme.SetShown(_badge, hud);
             UiTheme.SetShown(_panel, _shown && hud);
 
+            if (!Mathf.Approximately(CanvasHeight(), _fittedTo))
+                Fit();
+
             Keyboard keyboard = Keyboard.current;
 
             // H as well as the button. A player mid-wire should not have to find a target. Suppressed
@@ -224,6 +292,7 @@ namespace BitSorter.View
 
         private void OnLevelLoaded(LevelDefinition level)
         {
+            _mapBin = 0;   // bins are named per level, so a new one starts on its first
             Fill(level);
             Show(false);   // a new level starts closed, whatever the last one was left as
         }
@@ -287,6 +356,18 @@ namespace BitSorter.View
                 new Vector2(0f, -12f), new Vector2(300f, 24f));
             title.text = "WHAT THE BINS WANT";
 
+            // The tabs, under the title and left-aligned with the table. Only the TABLE tab and the
+            // caption are built here; the map tabs are the level's bins, so Fill makes them.
+            _tabs = UiTheme.Rect("Help tabs", _panel);
+            UiTheme.Anchor(_tabs, new Vector2(0f, 1f), new Vector2(0f, 1f),
+                new Vector2(TablePadding, -TitleRoom + 2f), new Vector2(0f, TabHeight));
+
+            _tableTab = Tab("Help table tab", "TABLE", () => { _showMap = false; ShowContents(); });
+
+            _mapCaption = UiTheme.Label(
+                "Help map caption", _tabs, MapCaptionType, UiTheme.TextDim, TextAlignmentOptions.Center);
+            _mapCaption.text = MapCaption;
+
             // The hint block, stacked from the bottom edge so each piece is stated in terms of the
             // one below it. Three numbers that had to stay apart by hand collided the moment the
             // hint was made readable: a taller hint box ran into the heading, and moving the
@@ -337,18 +418,9 @@ namespace BitSorter.View
             if (_table == null)
                 return;
 
-            string table = TruthTable.Format(level);
-            bool hasTable = !string.IsNullOrEmpty(table);
+            _level = level;
 
-            // Empty for a level that grades nothing -- free play has no expectations, so there is no
-            // table to draw. Rendering the wrapper anyway left a blank block sized for a table that
-            // was never coming, which reads as something having failed to load.
-            //
-            // mspace rather than a monospaced font: the project ships one font, and forcing an
-            // advance width is enough to make columns line up without adding another asset.
-            _table.text = hasTable
-                ? $"<mspace={TableMonospace}em>{table}</mspace>"
-                : string.Empty;
+            bool hasTable = !string.IsNullOrEmpty(TruthTable.Format(level));
 
             _hint.text = level != null ? level.Hint : string.Empty;
 
@@ -360,31 +432,253 @@ namespace BitSorter.View
             if (_hintHeading != null)
                 _hintHeading.gameObject.SetActive(hasTable);
 
-            // Taller tables need a taller panel. Eight vectors plus a header and rule is ten lines,
-            // and the per-line figure tracks the table's font size rather than being guessed. With no
-            // table the panel shrinks to the hint rather than keeping the space open.
-            //
-            // The room under the table is worked out from the hint block rather than stated, because
-            // it was stated: two literals that had to be kept above whatever the bottom of the panel
-            // held, and making the hint readable pushed the hint straight through the title on the
-            // one case with no table at all -- free play, which is the only level that has no
-            // expectations to tabulate.
-            int lines = hasTable ? level.VectorCount + 2 : 0;
-            float below = hasTable ? DividerBottom + 8f : HintBottom + HintHeight + 8f;
-            float height = below + TitleRoom + lines * 24f;
+            BuildMapTabs(level);
 
-            // And wider tables need a wider panel. Columns are as wide as the longest fixture name
-            // now that they are no longer truncated, so a level grading "binOne" and "binZero" needs
-            // more room than one grading "out". Measured off the finished table rather than
-            // recomputed from the level, so the panel cannot disagree with the text inside it.
-            float tableWidth = TruthTable.WidestLine(table) * TableCharacterWidth;
-            float width = Mathf.Max(MinimumWidth, tableWidth + 2f * TablePadding);
+            // One size for the table and every map, so switching tabs never resizes the panel --
+            // and a resized panel would re-frame the board, since CameraFit fits it into what the
+            // panel leaves.
+            float width = WidthFor(level);
+            float lines = ContentLines(level);
+            float tabs = TabRoomFor(level);
 
-            _panel.sizeDelta = new Vector2(width, height);
+            _panel.sizeDelta = new Vector2(width, HeightFor(level));
             _panel.anchoredPosition =
                 new Vector2(-UiTheme.HelpRight(BesideSetupPanel), -UiRows.Panels.Offset);
-            _table.rectTransform.sizeDelta = new Vector2(width - 2f * TablePadding, lines * 24f + 8f);
+            _table.rectTransform.anchoredPosition = new Vector2(0f, -44f - tabs);
+            _table.rectTransform.sizeDelta = new Vector2(width - 2f * TablePadding, lines * LineHeight + 8f);
+
+            ShowContents();
+            Fit();
         }
+
+        /// <summary>
+        /// Puts the chosen tab's text in the panel -- the table, or one bin's map -- and marks the
+        /// tab. Never resizes: the size was chosen in <see cref="Fill"/> to hold all of them.
+        /// </summary>
+        private void ShowContents()
+        {
+            IReadOnlyList<string> bins = KarnaughMap.Bins(_level);
+            bool map = _showMap && bins.Count > 0;
+
+            if (_mapBin >= bins.Count)
+                _mapBin = 0;
+
+            string text = map ? KarnaughMap.Format(_level, bins[_mapBin]) : TruthTable.Format(_level);
+
+            // Empty for a level that grades nothing -- free play has no expectations, so there is no
+            // table to draw. Rendering the wrapper anyway left a blank block sized for a table that
+            // was never coming, which reads as something having failed to load.
+            //
+            // mspace rather than a monospaced font: the project ships one font, and forcing an
+            // advance width is enough to make columns line up without adding another asset.
+            _table.text = string.IsNullOrEmpty(text)
+                ? string.Empty
+                : $"<mspace={TableMonospace}em>{text}</mspace>";
+
+            // The chosen tab in the selected fill, the others quiet. Captions stay bright on all of
+            // them: a dim caption is how a button says it cannot be pressed.
+            SetTabFill(_tableTab, !map);
+
+            for (int i = 0; i < _mapTabs.Count; i++)
+                SetTabFill(_mapTabs[i], map && i == _mapBin);
+        }
+
+        private static void SetTabFill(Button tab, bool chosen)
+        {
+            if (tab != null)
+                ((Image)tab.targetGraphic).color =
+                    chosen ? UiTheme.SelectedFill(true) : UiTheme.FillOf(ButtonRole.Quiet);
+        }
+
+        /// <summary>
+        /// One tab per bin with a map, after the TABLE tab and the caption; none, and the row
+        /// hidden, on a level with no map.
+        /// </summary>
+        /// <remarks>
+        /// Rebuilt on every fill, which is a level load or a free-play edit -- never a frame. Hidden
+        /// before it is destroyed, because destruction waits for the end of the frame and a test
+        /// that looks a tab up by name in the same frame would otherwise find the old one.
+        /// </remarks>
+        private void BuildMapTabs(LevelDefinition level)
+        {
+            foreach (Button old in _mapTabs)
+            {
+                old.gameObject.SetActive(false);
+                Destroy(old.gameObject);
+            }
+
+            _mapTabs.Clear();
+
+            IReadOnlyList<string> bins = KarnaughMap.Bins(level);
+            _tabs.gameObject.SetActive(bins.Count > 0);
+
+            if (bins.Count == 0)
+                return;
+
+            float x = TabWidth("TABLE") + TabGap;
+
+            float captionWidth = CaptionWidth();
+            UiTheme.Anchor(_mapCaption.rectTransform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f),
+                new Vector2(x, 0f), new Vector2(captionWidth, TabHeight));
+            x += captionWidth + TabGap;
+
+            for (int i = 0; i < bins.Count; i++)
+            {
+                int bin = i;
+                string caption = LevelRules.BoardLabel(bins[i]);
+
+                Button tab = Tab($"Help map tab {bins[i]}", caption, () =>
+                {
+                    _showMap = true;
+                    _mapBin = bin;
+                    ShowContents();
+                });
+
+                ((RectTransform)tab.transform).anchoredPosition = new Vector2(x, 0f);
+                x += TabWidth(caption) + TabGap;
+
+                _mapTabs.Add(tab);
+            }
+        }
+
+        /// <summary>One tab on the row, sized to its caption and placed by the caller.</summary>
+        private Button Tab(string name, string caption, System.Action chosen)
+        {
+            Button tab = UiTheme.Button_(name, _tabs, caption, out TextMeshProUGUI _, UiType.Body,
+                ButtonRole.Quiet);
+
+            UiTheme.Anchor((RectTransform)tab.transform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f),
+                Vector2.zero, new Vector2(TabWidth(caption), TabHeight));
+
+            tab.onClick.AddListener(() =>
+            {
+                chosen();
+                UiTheme.Defocus();
+            });
+
+            return tab;
+        }
+
+        private static float TabWidth(string caption) =>
+            Mathf.Max(TabMinimumWidth, UiTheme.TextWidth(caption, UiType.Body) + 2f * TabPad);
+
+        private static float CaptionWidth() => UiTheme.TextWidth(MapCaption, MapCaptionType) + 2f;
+
+        // -----------------------------------------------------------------
+        // Size, worked out from the level so a test can hold every level to it
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// How tall the panel is on this level, before any fitting to a short window.
+        /// </summary>
+        /// <remarks>
+        /// Taller tables need a taller panel. Eight vectors plus a header and rule is ten lines, and
+        /// the per-line figure tracks the table's font size rather than being guessed. With no table
+        /// the panel shrinks to the hint rather than keeping the space open.
+        ///
+        /// The room under the table is worked out from the hint block rather than stated, because it
+        /// was stated: two literals that had to be kept above whatever the bottom of the panel held,
+        /// and making the hint readable pushed the hint straight through the title on the one case
+        /// with no table at all -- free play, which is the only level that has no expectations to
+        /// tabulate.
+        /// </remarks>
+        public static float HeightFor(LevelDefinition level)
+        {
+            bool hasTable = !string.IsNullOrEmpty(TruthTable.Format(level));
+            float below = hasTable ? DividerBottom + 8f : HintBottom + HintHeight + 8f;
+
+            return below + TitleRoom + TabRoomFor(level) + ContentLines(level) * LineHeight;
+        }
+
+        /// <summary>
+        /// How wide the panel is on this level: the widest line of the table or of any of its maps.
+        /// </summary>
+        /// <remarks>
+        /// Wider tables need a wider panel. Columns are as wide as the longest fixture name now that
+        /// they are no longer truncated, so a level grading "binOne" and "binZero" needs more room
+        /// than one grading "out". Measured off the finished text rather than recomputed from the
+        /// level, so the panel cannot disagree with what is inside it.
+        /// </remarks>
+        public static float WidthFor(LevelDefinition level)
+        {
+            int widest = TruthTable.WidestLine(TruthTable.Format(level));
+
+            foreach (string bin in KarnaughMap.Bins(level))
+                widest = Mathf.Max(widest, TruthTable.WidestLine(KarnaughMap.Format(level, bin)));
+
+            return Mathf.Max(MinimumWidth, widest * TableCharacterWidth + 2f * TablePadding);
+        }
+
+        /// <summary>How wide this level's row of tabs is, or zero when it has none.</summary>
+        public static float TabRowWidth(LevelDefinition level)
+        {
+            IReadOnlyList<string> bins = KarnaughMap.Bins(level);
+
+            if (bins.Count == 0)
+                return 0f;
+
+            float width = TabWidth("TABLE") + TabGap + CaptionWidth();
+
+            for (int i = 0; i < bins.Count; i++)
+                width += TabGap + TabWidth(LevelRules.BoardLabel(bins[i]));
+
+            return width;
+        }
+
+        /// <summary>The room the tabs take inside the panel on each side, for the width test.</summary>
+        public const float ContentPadding = TablePadding;
+
+        /// <summary>
+        /// The height a canvas this tall leaves between the help badge and the run buttons.
+        /// </summary>
+        public static float Room(float canvasHeight) =>
+            canvasHeight - UiRows.Panels.Offset - UiRows.PanelFloor;
+
+        /// <summary>
+        /// Lines of table or map, whichever is longer. It is always the table -- no map is taller,
+        /// and <c>KarnaughMapTests</c> holds every level to that -- but the panel asks rather than
+        /// assumes.
+        /// </summary>
+        private static int ContentLines(LevelDefinition level)
+        {
+            if (string.IsNullOrEmpty(TruthTable.Format(level)))
+                return 0;
+
+            return Mathf.Max(level.VectorCount + 2, KarnaughMap.LineCount(level));
+        }
+
+        private static float TabRoomFor(LevelDefinition level) =>
+            KarnaughMap.Applies(level) ? TabRoom : 0f;
+
+        /// <summary>
+        /// Shrinks the panel to fit a short window, and puts it back at full size in a tall one.
+        /// </summary>
+        /// <remarks>
+        /// The canvas scales halfway between the window's width and its height, so a wide, short
+        /// window -- a browser tab 1920 by 800 -- has about 930 of height to give rather than 1080.
+        /// A sixteen-row table needs about 640 of the 640 that leaves, before the tabs, and ran into
+        /// the run buttons. Free play's setup panel, in the same column, already stops at the same
+        /// floor. Scaled rather than cut short, as Settings is, and from the top right corner it is
+        /// pinned by, so it stays where it was.
+        /// </remarks>
+        private void Fit()
+        {
+            if (_panel == null)
+                return;
+
+            _fittedTo = CanvasHeight();
+
+            float scale = SettingsPanel.FitScale(Room(_fittedTo), _panel.sizeDelta.y);
+
+            if (!Mathf.Approximately(_panel.localScale.x, scale))
+                _panel.localScale = new Vector3(scale, scale, 1f);
+        }
+
+        private float CanvasHeight() =>
+            _canvas != null && _canvas.transform is RectTransform rect ? rect.rect.height : 1080f;
+
+        /// <summary>The scale the panel is drawn at now, for the tests.</summary>
+        public float PanelScale => _panel != null ? _panel.localScale.x : 1f;
 
         private readonly Vector3[] _edgeCorners = new Vector3[4];
 
