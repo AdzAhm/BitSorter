@@ -602,6 +602,25 @@ namespace BitSorter.PlayMode.Tests
             yield return Capture("18-credits");
         }
 
+        /// <summary>The help panel's K-map: the half adder's SUM map, the same panel as shot 8's table.</summary>
+        [UnityTest]
+        public IEnumerator Shot19_HelpKMap()
+        {
+            yield return OpenOnTheBoard();
+            yield return BuildTheHalfAdder(wireEverything: true);
+
+            Press("Help badge");
+            yield return Frames(30);
+
+            Press("Help map tab sum");
+            yield return Frames(30);
+
+            Assert.IsTrue(IsUp("Help"), "sanity: the help panel should be open");
+            Assert.IsTrue(IsUp("Help map tab sum"), "sanity: the half adder should have a map for SUM");
+
+            yield return Capture("19-help-kmap");
+        }
+
         private static bool AnyCollisionTakesBoth(SimulationRunner runner)
         {
             for (int id = 0; id < runner.View.EdgeCount; id++)
