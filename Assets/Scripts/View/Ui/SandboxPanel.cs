@@ -218,13 +218,13 @@ namespace BitSorter.View
                 ? _progress.Store.BoardFor(SandboxLevel.Key)
                 : null;
 
-            SandboxLevel.MigrateLegacyBoard(board, Extents());
+            SandboxLevel.Migrate(board);
 
             return board?.sandbox;
         }
 
-        private Vector2Int Extents() =>
-            _runner != null ? _runner.DefaultHalfExtents : new Vector2Int(4, 2);
+        /// <summary>Free play's own board, whatever the scene's is.</summary>
+        private static Vector2Int Extents() => SandboxLevel.Board;
 
         private void Adopt()
         {

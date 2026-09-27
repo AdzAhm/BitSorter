@@ -48,15 +48,18 @@ namespace BitSorter.View
         /// </summary>
         /// <remarks>
         /// Zero is what JsonUtility reads for a save written before the field existed, and those
-        /// saves centred their fixtures in the column. <see cref="SandboxLevel.MigrateLegacyBoard"/>
-        /// moves such a board onto the fixed slots and raises this to <see cref="CurrentLayout"/>.
+        /// saves centred their fixtures in the column; one is fixed slots on the 9 by 5 board; two
+        /// is fixed slots on free play's 13 by 7. <see cref="SandboxLevel.Migrate"/> moves an older
+        /// board up a step at a time and raises this to <see cref="CurrentLayout"/>.
         /// Everything that makes a new config sets it, because a new board mistaken for an old one
         /// would have its wires moved somewhere they were never drawn.
         /// </remarks>
         public int layout;
 
-        /// <summary>Fixtures in fixed slots, counted from the top of the column.</summary>
-        public const int CurrentLayout = 1;
+        /// <summary>
+        /// Fixtures in fixed slots, counted from the top of the column, on the 13 by 7 board.
+        /// </summary>
+        public const int CurrentLayout = 2;
 
         /// <summary>
         /// Ticks between vectors, as a level's clockPeriod is. Zero means a vector every tick,
@@ -67,10 +70,11 @@ namespace BitSorter.View
         public const int MinClock = 1;
 
         /// <summary>
-        /// Four is enough for anything free play can hold: the longest loop worth building on a
-        /// nine-wide board is a register, a couple of gates and the way back.
+        /// Six is enough for anything free play can hold: the longest loop worth building on its
+        /// thirteen-wide board is a register, up to five gates and the way back. It was four on the
+        /// nine-wide board, which had room for a couple.
         /// </summary>
-        public const int MaxClock = 4;
+        public const int MaxClock = 6;
 
         /// <summary>The clock as the level wants it: at least 1, whatever the save said.</summary>
         public int Clock => Clamp(clock <= 0 ? MinClock : clock, MinClock, MaxClock);

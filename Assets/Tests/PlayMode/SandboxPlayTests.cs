@@ -51,6 +51,46 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
+        /// Free play is on its own 13 by 7 board, framed whole between the parts list and the setup
+        /// panel -- the corner fixtures and the names under the bottom row included.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator FreePlay_IsOnTheWideBoard_FramedClearOfBothPanels()
+        {
+            yield return TestScene.Load();
+            yield return OpenFreePlay();
+
+            for (int frame = 0; frame < 4; frame++)
+                yield return null;
+
+            PlacementGrid grid = Find<PlacementGrid>();
+            Assert.AreEqual(SandboxLevel.Board, grid.HalfExtents, "free play is not on its own board");
+
+            var corners = new Vector3[4];
+            GameObject.Find("Palette").GetComponent<RectTransform>().GetWorldCorners(corners);
+            float paletteRight = corners[2].x;
+
+            GameObject setup = GameObject.Find("Sandbox setup");
+            Assert.IsNotNull(setup, "sanity: the setup panel should be showing");
+            setup.GetComponent<RectTransform>().GetWorldCorners(corners);
+            float setupLeft = corners[0].x;
+
+            Camera view = Camera.main;
+            float half = grid.CellSize * 0.5f;
+            Vector2Int extents = SandboxLevel.Board;
+
+            Vector3 topLeft = view.WorldToScreenPoint(
+                new Vector3(-extents.x * grid.CellSize - half, extents.y * grid.CellSize, 0f));
+            Vector3 bottomRight = view.WorldToScreenPoint(
+                new Vector3(extents.x * grid.CellSize + half, -extents.y * grid.CellSize - NodeRenderer.LabelReach, 0f));
+
+            Assert.GreaterOrEqual(topLeft.x, paletteRight, "the sources' column runs under the parts list");
+            Assert.LessOrEqual(bottomRight.x, setupLeft, "the bins' column runs under the setup panel");
+            Assert.GreaterOrEqual(bottomRight.y, 0f, "the bottom row's names run off the screen");
+            Assert.LessOrEqual(topLeft.y, Screen.height, "the top row runs off the screen");
+        }
+
+        /// <summary>
         /// Flipping one input bit leaves the circuit's undo history and the part in hand alone.
         /// </summary>
         /// <remarks>

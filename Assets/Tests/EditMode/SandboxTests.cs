@@ -242,8 +242,24 @@ namespace BitSorter.LogicCore.Tests
         }
 
         // -----------------------------------------------------------------
-        // Boards saved while fixtures were centred
+        // Boards saved on an older layout
         // -----------------------------------------------------------------
+
+        /// <summary>
+        /// Free play's longest input has played its last bit well inside the tick limit, leaving
+        /// at least as long again for the bits to cross the board.
+        /// </summary>
+        /// <remarks>
+        /// Free play has no limit of its own and falls back to the loader's. Raising the clock or
+        /// the vector count past this would end a slow, honest circuit's run as though it hung.
+        /// </remarks>
+        [Test]
+        public void TheLongestInput_LeavesHalfTheTickLimitToCrossTheBoard()
+        {
+            int lastEmission = (SandboxConfig.MaxVectors - 1) * SandboxConfig.MaxClock;
+
+            Assert.LessOrEqual(lastEmission * 2, LevelLoader.DefaultTickLimit);
+        }
 
         [Test]
         public void ANewSetup_IsOnTheCurrentLayout()
@@ -256,7 +272,7 @@ namespace BitSorter.LogicCore.Tests
         }
 
         [Test]
-        public void AnOldBoard_KeepsItsWiresOnTheSameFixtures()
+        public void ACentredBoard_ArrivesOnTheWideBoard_WiredToTheSameFixtures()
         {
             // Two of each on five rows were centred one row down: A and OUT 1 on row 1, B and
             // OUT 2 on row 0.
@@ -265,7 +281,7 @@ namespace BitSorter.LogicCore.Tests
                 Wire(0, 0, 4, 0),     // the gate into OUT 2
                 Wire(-4, 1, 4, 1));   // A straight into OUT 1
 
-            Assert.IsTrue(SandboxLevel.MigrateLegacyBoard(board, Board));
+            Assert.IsTrue(SandboxLevel.Migrate(board));
 
             AssertRestoresAs(board,
                 ("B", "gate"),
@@ -274,7 +290,7 @@ namespace BitSorter.LogicCore.Tests
         }
 
         [Test]
-        public void AnOldBoard_MovesEachColumnByItsOwnCount()
+        public void ACentredBoard_MovesEachColumnByItsOwnCount()
         {
             // One source was centred two rows down and three sinks one row down, so the two columns
             // moved by different amounts.
@@ -283,7 +299,7 @@ namespace BitSorter.LogicCore.Tests
                 Wire(0, 0, 4, -1),     // the gate into OUT 3
                 Wire(-4, 0, 4, 1));    // A straight into OUT 1
 
-            Assert.IsTrue(SandboxLevel.MigrateLegacyBoard(board, Board));
+            Assert.IsTrue(SandboxLevel.Migrate(board));
 
             AssertRestoresAs(board,
                 ("A", "gate"),
@@ -291,17 +307,43 @@ namespace BitSorter.LogicCore.Tests
                 ("A", "OUT 1"));
         }
 
+        /// <summary>
+        /// A board saved on the standard board's fixed slots -- everything 3.0 wrote -- moves to the
+        /// same slots on the wide board, a wire parked on a counted-away slot included.
+        /// </summary>
+        [Test]
+        public void AStandardBoard_MovesToTheWideBoard()
+        {
+            SandboxConfig config = Config(2, 2, 4, "0011", "0101");
+            config.layout = 1;
+
+            SavedBoard board = LegacyBoard(config,
+                Wire(-4, 2, 0, 0),     // A, slot 0, into the gate
+                Wire(0, 0, 4, 1),      // the gate into OUT 2, slot 1
+                Wire(0, 0, 4, -2));    // the gate into slot 4, counted away
+
+            Assert.IsTrue(SandboxLevel.Migrate(board));
+            Assert.AreEqual(SandboxConfig.CurrentLayout, board.sandbox.layout);
+
+            Assert.AreEqual(new Vector2Int(-6, 3), new Vector2Int(board.wires[0].fromX, board.wires[0].fromY), "A's slot");
+            Assert.AreEqual(new Vector2Int(6, 2), new Vector2Int(board.wires[1].toX, board.wires[1].toY), "OUT 2's slot");
+            Assert.AreEqual(new Vector2Int(6, -1), new Vector2Int(board.wires[2].toX, board.wires[2].toY),
+                "a wire on a counted-away slot follows the slot");
+            Assert.AreEqual(new Vector2Int(0, 0), new Vector2Int(board.wires[0].toX, board.wires[0].toY),
+                "the gate keeps its cell");
+        }
+
         [Test]
         public void ABoardOnTheCurrentLayout_IsLeftAlone()
         {
-            SandboxConfig config = SandboxLevel.Default(Board);
-            SavedBoard board = LegacyBoard(config, Wire(-4, 2, 0, 0));
+            SandboxConfig config = SandboxLevel.Default(SandboxLevel.Board);
+            SavedBoard board = LegacyBoard(config, Wire(-6, 3, 0, 0));
 
-            Assert.IsFalse(SandboxLevel.MigrateLegacyBoard(board, Board));
-            Assert.AreEqual(2, board.wires[0].fromY, "a current board was moved");
+            Assert.IsFalse(SandboxLevel.Migrate(board));
+            Assert.AreEqual(3, board.wires[0].fromY, "a current board was moved");
 
-            Assert.IsFalse(SandboxLevel.MigrateLegacyBoard(null, Board));
-            Assert.IsFalse(SandboxLevel.MigrateLegacyBoard(new SavedBoard(), Board));
+            Assert.IsFalse(SandboxLevel.Migrate(null));
+            Assert.IsFalse(SandboxLevel.Migrate(new SavedBoard()));
         }
 
         [Test]
@@ -309,11 +351,12 @@ namespace BitSorter.LogicCore.Tests
         {
             SavedBoard board = LegacyBoard(Config(2, 2, 4), Wire(-4, 0, 4, 0));
 
-            Assert.IsTrue(SandboxLevel.MigrateLegacyBoard(board, Board));
-            Assert.IsFalse(SandboxLevel.MigrateLegacyBoard(board, Board));
+            Assert.IsTrue(SandboxLevel.Migrate(board));
+            Assert.IsFalse(SandboxLevel.Migrate(board));
 
             Assert.AreEqual(SandboxConfig.CurrentLayout, board.sandbox.layout);
-            Assert.AreEqual(1, board.wires[0].fromY, "B moved on from its new slot");
+            Assert.AreEqual(new Vector2Int(-6, 2), new Vector2Int(board.wires[0].fromX, board.wires[0].fromY),
+                "B moved on from its new slot");
         }
 
         /// <summary>A saved sandbox board with a NOT gate in the middle and the given wires.</summary>
@@ -340,10 +383,10 @@ namespace BitSorter.LogicCore.Tests
         /// </summary>
         private static void AssertRestoresAs(SavedBoard board, params (string from, string to)[] expected)
         {
-            LevelDefinition level = SandboxLevel.Build(board.sandbox, Board);
+            LevelDefinition level = SandboxLevel.Build(board.sandbox, SandboxLevel.Board);
             var blueprint = new CircuitBlueprint();
 
-            Assert.AreEqual(0, BoardSerializer.Restore(board, level, blueprint, Board),
+            Assert.AreEqual(0, BoardSerializer.Restore(board, level, blueprint, SandboxLevel.Board),
                 "the restore dropped part of the circuit");
             Assert.AreEqual(expected.Length, blueprint.Wires.Count);
 

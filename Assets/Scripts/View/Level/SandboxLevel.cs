@@ -84,6 +84,18 @@ namespace BitSorter.View
         /// </remarks>
         public static int Capacity(Vector2Int halfExtents) => halfExtents.y * 2 + 1;
 
+        /// <summary>Free play's board: 13 by 7, the largest a level may name.</summary>
+        /// <remarks>
+        /// Wider than a taught level's because free play is where a circuit bigger than any level
+        /// gets built, and taller so a column holds seven fixtures rather than five. Fixed rather
+        /// than a setting: a board that changed size under a saved circuit would need the circuit
+        /// moving every time.
+        /// </remarks>
+        public static readonly Vector2Int Board = new Vector2Int(6, 3);
+
+        /// <summary>The 9 by 5 board free play was played on until 4.0.0, which layouts 0 and 1 were saved on.</summary>
+        public static readonly Vector2Int StandardBoard = new Vector2Int(4, 2);
+
         /// <summary>The config free play opens with the first time anyone visits it.</summary>
         public static SandboxConfig Default(Vector2Int halfExtents)
         {
@@ -165,7 +177,8 @@ namespace BitSorter.View
                 // Free play's own clock. It matters here for the same reason it matters in the
                 // levels: a loop through a register cannot keep up with a vector every tick, so a
                 // state machine built at a clock of 1 destroys bits however carefully it is wired.
-                clockPeriod: config.Clock);
+                clockPeriod: config.Clock,
+                boardHalfExtents: halfExtents);
         }
 
         /// <summary>
@@ -209,8 +222,78 @@ namespace BitSorter.View
             new Vector2Int(x, halfExtents.y - index);
 
         /// <summary>
-        /// Moves a board saved while fixtures were centred onto the slots they have now. True if the
-        /// board needed it.
+        /// Brings a saved free-play board up to the current layout, a step at a time. True if it
+        /// needed anything.
+        /// </summary>
+        /// <remarks>
+        /// Layout 0 centred its fixtures on the 9 by 5 board; layout 1 gave them fixed slots on it;
+        /// layout 2 is those slots on the 13 by 7 board. Each step moves wire ends from where the
+        /// fixtures were to where they are, so a circuit wired to A is still wired to A, and a board
+        /// saved by any earlier version arrives on the current one.
+        /// </remarks>
+        public static bool Migrate(SavedBoard board)
+        {
+            SandboxConfig config = board?.sandbox;
+
+            if (config == null || config.layout >= SandboxConfig.CurrentLayout)
+                return false;
+
+            if (config.layout < 1)
+                MigrateLegacyBoard(board, StandardBoard);
+
+            if (config.layout < 2)
+                MoveToTheWideBoard(board);
+
+            config.layout = SandboxConfig.CurrentLayout;
+            return true;
+        }
+
+        /// <summary>
+        /// Layout 1 to 2: each slot on the 9 by 5 board's edge columns to the same slot on the
+        /// 13 by 7 board's.
+        /// </summary>
+        /// <remarks>
+        /// Every slot, not only those in use: a fixture counted away leaves its wires ending on its
+        /// slot, and they come back with it -- on the slot it has now. Gates keep their cells, which
+        /// are all inside the wider board, and the old edge columns become ordinary cells.
+        /// </remarks>
+        private static void MoveToTheWideBoard(SavedBoard board)
+        {
+            if (board.wires == null)
+                return;
+
+            int slots = Capacity(StandardBoard);
+            var sources = new Dictionary<Vector2Int, Vector2Int>(slots);
+            var sinks = new Dictionary<Vector2Int, Vector2Int>(slots);
+
+            for (int i = 0; i < slots; i++)
+            {
+                sources[Cell(-StandardBoard.x, i, StandardBoard)] = Cell(-Board.x, i, Board);
+                sinks[Cell(StandardBoard.x, i, StandardBoard)] = Cell(Board.x, i, Board);
+            }
+
+            foreach (SavedWire wire in board.wires)
+            {
+                if (wire == null)
+                    continue;
+
+                if (sources.TryGetValue(new Vector2Int(wire.fromX, wire.fromY), out Vector2Int from))
+                {
+                    wire.fromX = from.x;
+                    wire.fromY = from.y;
+                }
+
+                if (sinks.TryGetValue(new Vector2Int(wire.toX, wire.toY), out Vector2Int to))
+                {
+                    wire.toX = to.x;
+                    wire.toY = to.y;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Layout 0 to 1: moves a board saved while fixtures were centred onto fixed slots. True if
+        /// the board needed it.
         /// </summary>
         /// <remarks>
         /// Wire ends are moved from each fixture's old cell to its new one, by index, so a circuit
@@ -226,7 +309,7 @@ namespace BitSorter.View
         {
             SandboxConfig config = board?.sandbox;
 
-            if (config == null || config.layout >= SandboxConfig.CurrentLayout)
+            if (config == null || config.layout >= 1)
                 return false;
 
             int capacity = Capacity(halfExtents);
@@ -258,7 +341,7 @@ namespace BitSorter.View
                 }
             }
 
-            config.layout = SandboxConfig.CurrentLayout;
+            config.layout = 1;
             return true;
         }
 

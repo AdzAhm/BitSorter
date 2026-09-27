@@ -47,15 +47,17 @@ namespace BitSorter.View
     public static class LevelLoader
     {
         /// <summary>
-        /// Used when a file omits tickLimit. Generous: the board is 9 by 5 cells, so no honestly built
-        /// circuit comes near it. It exists only to stop an oscillator -- a gate fed by its own output,
-        /// which WiringRules deliberately allows -- from hanging a run forever.
+        /// Used when a file omits tickLimit. Generous: the largest board is 13 by 7 cells, and free
+        /// play's longest input -- eight vectors at a clock of six -- has played its last bit by tick
+        /// 42, so no honestly built circuit comes near it. It exists only to stop an oscillator -- a
+        /// gate fed by its own output, which WiringRules deliberately allows -- from hanging a run
+        /// forever.
         /// </summary>
         /// <remarks>
         /// Worth setting per level rather than leaning on this. The limit is spent in real time at the
         /// runner's tick interval, so it is also how long a player stares at a circuit that is never
         /// going to finish: 100 ticks at the default half-second tick is nearly a minute. Every shipped
-        /// level sets its own, at 40 or 60; free play and the tutorial are what fall back to this. R
+        /// level sets its own, at 40, 60 or 80; free play and the tutorial are what fall back to this. R
         /// interrupts a run at any point, so this is a backstop rather than the only way out.
         /// </remarks>
         public const int DefaultTickLimit = 100;
