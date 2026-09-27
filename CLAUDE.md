@@ -913,14 +913,20 @@ failure side.
 
 ## Not yet
 Do not build ahead of me. The logic core, the view layer, the level
-format, the seventeen levels, the canvas interface, sound, level select,
-saved progress, analytics, the sandbox, board undo and the settings screen
-are all in.
+format, the twenty-three levels, the canvas interface, sound, level select,
+saved progress, analytics, the sandbox, board undo, the settings screen and
+the K-map view are all in.
 
-**Seventeen: nine combinational, eight sequential.** The sequential
-chapter is the register, the rising edge, the toggle, the enabled
+**Twenty-three: fifteen combinational, eight sequential.** The
+combinational chapter runs in three stretches: logic and timing (Route the
+bit to Odd one out, with the K-map pair Four corners and Don't care in the
+middle), building blocks (One of four, Pick a lane, Highest wins, Which is
+bigger), and arithmetic (Half adder, Carry the one, Pass it on). The
+sequential chapter is the register, the rising edge, the toggle, the enabled
 register, the two-bit counter, the 1-0-1 detector, the Moore reading of it
-and the serial adder — orders 100 to 170, in tens like the rest. Its card
+and the serial adder — orders 100 to 170. Orders are not all tens: each
+level's `order` is authored, and levels inserted between two others take a
+number between theirs (Balance the paths is 25, Don't care 35). Its card
 (`ChapterCard`) is shown once, on the first level whose parts list holds a
 register, and is a milestone in the save beside the tutorial.
 
@@ -943,8 +949,8 @@ fitting at 1080; a shorter window still scrolls, both columns together.
 
 **The banner reserves three lines for the goal and shrinks to what it
 uses.** A goal is centred and wrapping, so before this it overflowed a
-28-pixel box in both directions and printed over the level title; six of
-the seventeen goals are longer than one line. `UiTheme.GoalHeight`
+28-pixel box in both directions and printed over the level title;
+thirteen of the twenty-three goals are longer than one line. `UiTheme.GoalHeight`
 measures one with the label that will draw it, and is what both the
 banner and `UiThemeTests` ask — a level whose goal will not fit is a
 failing test rather than a smudge on the title. Everything below the
@@ -1016,14 +1022,14 @@ persistence works with neither side knowing the other exists.
 
 It is **not in `LevelCatalog`**: it cannot disturb the run whose order
 `CurriculumTests` pins, and it never appears in `AvailableLevels`, so Q and E
-never step into it and the banner counts the seventeen levels without it. It is
+never step into it and the banner counts the levels of the run without it. It is
 reached by a row of the level list, above free play's and apart from the run,
 and once by itself on a save with no `tutorial` milestone.
 
 **Off the run is before its start.** From the tutorial E goes to the first
 level and Q goes nowhere; from free play neither key goes anywhere, because
 free play is not one of the levels. Q used to start at the far end from any
-board off the run, so it went to level 17 from the tutorial -- one step before
+board off the run, so it went to the last level (then 17) from the tutorial -- one step before
 the first level, where the fix for Q wrapping stopped. A fresh save starts in
 the tutorial, so that was most players' first Q. Found in a playtest,
 2026-09-26.
@@ -1236,7 +1242,7 @@ by name. Treat this section as a place to park ideas, not as a to-do list.
   every other gate, including NOT, can be built from either one alone.
   A level that hands the player nothing but NANDs and asks for XOR.
 
-  **Shipped** as `nothing-but-nand.json`, level 5. This entry went on reading
+  **Shipped** as `nothing-but-nand.json`, after the K-map levels. This entry went on reading
   as an unbuilt idea after the level existed.
 
 - **Unbalanced path delays.** Feeding a second-stage gate along paths of

@@ -11,11 +11,11 @@ A puzzle game about building digital circuits. Sources emit a stream of 0s and
 1s, bins want particular values, and you have a box of gates. Wire them together
 so every bin gets what it asked for.
 
-Above is level 8, the half adder: `A` and `B` each feed both gates, XOR produces
+Above is the half adder: `A` and `B` each feed both gates, XOR produces
 the sum and AND produces the carry. Every bit is drawn as the digit it carries: a
 magenta 1, an indigo 0.
 
-Seventeen levels, from routing a single bit to a state machine that adds two
+Twenty-three levels, from routing a single bit to a state machine that adds two
 numbers a column at a time. Built in Unity
 as a way of working through a computer engineering digital systems course from
 the inside.
@@ -53,7 +53,7 @@ one each for the music and the effects -- and its volume, fullscreen on Windows
 The bottom-right corner of the main menu says which version you are running,
 which is worth including if you report a bug.
 
-[A guided tutorial](#the-tutorial) covers the controls, seventeen levels teach the
+[A guided tutorial](#the-tutorial) covers the controls, twenty-three levels teach the
 ideas in order, and [a sandbox](#the-sandbox) is there for when you would rather
 build something without being marked on it.
 
@@ -126,7 +126,7 @@ until you reset your progress — and none of them pause the game.
 | `Shift`+`R` | Clear everything you built |
 | `Space` | Pause a run |
 | `→` while paused | Step one tick |
-| `H`, or the `?` button | This level's truth table and a hint |
+| `H`, or the `?` button | This level's truth table, its Karnaugh map for each bin where it has one, and a hint |
 | `Esc`, or the MENU button | The main menu. `Esc` closes whatever is on top first |
 | `M` | The level list, and the way into the sandbox |
 | `N` | Mute the game; the volume is in Settings |
@@ -136,7 +136,7 @@ until you reset your progress — and none of them pause the game.
 
 ### What it teaches
 
-Seventeen levels, in this order. Each one is a topic from a digital systems course,
+Twenty-three levels, in this order. Each one is a topic from a digital systems course,
 arranged so that a mechanic is always taught before it is required.
 
 | | Level | The idea |
@@ -145,11 +145,17 @@ arranged so that a mechanic is always taught before it is required.
 | 2 | The long way round | Boolean algebra and De Morgan — build a NAND without one |
 | 3 | Balance the paths | Propagation delay, and the collision an unbalanced path causes |
 | 4 | Four corners | K-map minimisation. Two different minimal covers both pass |
-| 5 | Nothing but NAND | Functional completeness — XOR out of NANDs alone |
-| 6 | The slow lane | Delay arithmetic across a deep circuit |
-| 7 | Pick a lane | A multiplexer, and fan-out to two places at once |
-| 8 | Half adder | Two outputs from one circuit: sum and carry |
-| 9 | Carry the one | A full adder, joining two half adders and their carries |
+| 5 | Don't care | K-map minimisation with don't-cares: six rows that never happen make the circuit smaller |
+| 6 | Nothing but NAND | Functional completeness — XOR out of NANDs alone |
+| 7 | The slow lane | Delay arithmetic across a deep circuit |
+| 8 | Odd one out | Parity and the critical path: three gates in a chain are too slow; as a tree they are not |
+| 9 | One of four | A decoder: each output is one row of the table |
+| 10 | Pick a lane | A multiplexer, and fan-out to two places at once |
+| 11 | Highest wins | A priority encoder, with a valid output, and the first answer that doesn't matter on every row |
+| 12 | Which is bigger | A 1-bit comparator: less, equal, greater |
+| 13 | Half adder | Two outputs from one circuit: sum and carry |
+| 14 | Carry the one | A full adder, joining two half adders and their carries |
+| 15 | Pass it on | A 2-bit ripple-carry adder: the carry travels from one column to the next |
 
 Then the circuits start to remember. A register keeps one bit and hands it on a
 clock later, and because a kept bit has to travel back round to meet the next
@@ -157,14 +163,14 @@ one, these levels space their vectors out on a clock.
 
 | | Level | The idea |
 |---|---|---|
-| 10 | One clock late | The register itself: it starts holding 0, and delays a stream by a clock |
-| 11 | Rising edge | This bit against the one before it — and a register hands its bit on early |
-| 12 | Flip on one | The first loop, and the clock a loop has to close inside |
-| 13 | Hold when told | A register with an enable: load, or keep what you have |
-| 14 | Count the ones | Two bits of state, and the carry between them |
-| 15 | Spot the pattern | A machine watching for 1-0-1, overlaps included, in two registers |
-| 16 | One clock behind | The same answer reported a clock later: Moore against Mealy |
-| 17 | Add as you go | A serial adder, one column per clock, its carry kept in a register |
+| 16 | One clock late | The register itself: it starts holding 0, and delays a stream by a clock |
+| 17 | Rising edge | This bit against the one before it — and a register hands its bit on early |
+| 18 | Flip on one | The first loop, and the clock a loop has to close inside |
+| 19 | Hold when told | A register with an enable: load, or keep what you have |
+| 20 | Count the ones | Two bits of state, and the carry between them |
+| 21 | Spot the pattern | A machine watching for 1-0-1, overlaps included, in two registers |
+| 22 | One clock behind | The same answer reported a clock later: Moore against Mealy |
+| 23 | Add as you go | A serial adder, one column per clock, its carry kept in a register |
 
 Deliberately out of scope: assembly, datapaths, memory addressing and number
 representation. Static and dynamic hazards are out too, and cannot be expressed —

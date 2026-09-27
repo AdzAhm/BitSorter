@@ -57,16 +57,16 @@ author a level that silently fails to teach its own lesson.
 |---|---|---|---|
 | 1 | Boolean algebra, De Morgan | **(a)** | Buildable today |
 | 2 | K-map minimisation, fully specified | **(a)** | Buildable today |
-| 2b | K-map minimisation with don't-cares | **(a)** | **Shipped.** `x` in an expectation — see [Q1](#q1-can-a-test-vector-express-a-dont-care-output) |
+| 2b | K-map minimisation with don't-cares | **(a)** | **Shipped** as `dont-care`, which leaves its six impossible rows out of the streams. `x` in an expectation has its first real user in `highest-wins` — see [Q1](#q1-can-a-test-vector-express-a-dont-care-output) |
 | 3 | Functional completeness (NAND-only / NOR-only) | **(a)** | Buildable today, no schema change — see [Q3](#q3-can-a-level-require-a-specific-gate-set-only) |
 | 4 | Propagation delay | **(a)** | Shipped: `balance-the-paths` |
-| 5 | Combinational components (mux, decoder, comparator) | **(a)** | Buildable today |
-| 6 | Adders: half, full, ripple-carry | **(a)** | Half shipped; full verified by `FullAdderTests`. Ripple-carry is board-space limited |
+| 5 | Combinational components (mux, decoder, comparator) | **(a)** | **Shipped:** `pick-a-lane` (2:1 mux), `one-of-four` (decoder), `highest-wins` (priority encoder), `which-is-bigger` (comparator). The 4:1 mux waits for a wider board |
+| 6 | Adders: half, full, ripple-carry | **(a)** | **Shipped:** `half-adder`, `carry-the-one`, and a 2-bit ripple-carry as `pass-it-on` -- seven gates, since bit 0 needs no carry in |
 | 6b | Carry-lookahead | **(b)** | Per-level board size. Reclassified from (c) — the limit is the view layer, not the model |
 | 7 | Latches and flip-flops | **(a)** | **Shipped.** `RegisterNode`, a palette slot, and a clock. Initial-state authoring turned out not to be needed |
 | 7b | Level- vs edge-triggering, setup/hold, clock skew | **(c)** | Skew and hold stay out. Setup time survives as `clockPeriod` — see below |
-| 8 | FSMs (Moore / Mealy), state minimisation | **(a)** | **Shipped.** Levels 15 to 17 |
-| 9 | Critical path | **(a)** | **Shipped.** `maxLatency` — see [Q2](#q2-can-a-level-score-on-critical-path-length) |
+| 8 | FSMs (Moore / Mealy), state minimisation | **(a)** | **Shipped.** `spot-the-pattern`, `one-clock-behind` and `add-as-you-go` |
+| 9 | Critical path | **(a)** | **Shipped.** `maxLatency` — see [Q2](#q2-can-a-level-score-on-critical-path-length). `odd-one-out` teaches it by shape: a chain of XORs is too slow, a tree is not |
 | 10 | Pipelining (latency vs throughput) | **(c)** | Every gate is already a register, and throughput is binary rather than graded — see below |
 | 10b | Pipeline stage balancing | **(a)** | The substitute lesson, and the game's core mechanic |
 
@@ -165,7 +165,7 @@ costs 4, so there is exactly one mistake's worth of slack.
 
 ### 10b. Pipeline stage balancing
 
-Not a new level so much as the name for what levels 1–6 have been teaching. Worth
+Not a new level so much as the name for what the combinational levels have been teaching. Worth
 one explicit level late in the sequence that says so: a deliberately deep circuit
 where the player has to reason about stage latency as a quantity rather than
 fixing imbalances reactively, and where the parts list is generous but the
@@ -189,8 +189,8 @@ teaching anything.
 
 **Blocked on:** a per-level board size. Reclassified from (c) — see below.
 
-A 2-bit ripple-carry adder is two full adders: 10 gates, 4 sources, 3 sinks — 17
-of 45 cells, which fits but is dense. The lookahead version of the same width
+A 2-bit ripple-carry adder is a half adder and a full adder: 7 gates, 4 sources,
+3 sinks, which fits -- it shipped as `pass-it-on`. The lookahead version of the same width
 needs the generate and propagate terms plus a carry tree, and does not fit. Since
 the lesson exists only in the *comparison* between the two, this needs a bigger
 board than 9 × 5.
@@ -693,7 +693,7 @@ forgetting it must wait a tick for the first half adder. Documented and proven t
 corrupt rather than mis-compute at
 [FullAdderTests.cs:76-103](../Assets/Tests/EditMode/FullAdderTests.cs#L76-L103).
 
-### On `x`, which none of these use
+### On `x`
 
 Worth recording, because it corrects an assumption in [Q1](#q1-can-a-test-vector-express-a-dont-care-output).
 
@@ -708,8 +708,11 @@ on a vector and sink B's is not, sink B needs `x` for that vector. None of the s
 above is that shape — the multi-output ones, half and full adder, are fully
 specified on every row.
 
-So `x` is built, tested and correct, but its first real user will be a multi-output
-level with asymmetric don't-cares. Worth knowing before designing one that needs it.
+That shape arrived with `highest-wins`, the priority encoder: with every input off,
+V is 0 and the number on Y1 Y0 means nothing, so those two bins are `x` on that row
+while V is still graded on it. `dont-care` uses the other convention and leaves its
+impossible rows out of the streams. `CurriculumTests` keeps every level that leaves
+an answer free, either way, after `dont-care`.
 
 ### How these get built
 
@@ -760,7 +763,7 @@ Two things worth recording from doing it:
   the one number the game already tracks into a place on the board.
 
 - **Chapter cards between syllabus sections. Built, at the one boundary there is.**
-  Nine levels arrived as a flat list. Now seventeen are two chapters, and
+  Nine levels arrived as a flat list. Now the run is two chapters, and
   `ChapterCard` — *Circuits that remember* — is shown once, on the first level whose
   parts list holds a register, where combinational logic ends and sequential
   begins. The level list draws the same two chapters as two columns. Where the

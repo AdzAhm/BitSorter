@@ -22,7 +22,7 @@ namespace BitSorter.View
         /// </summary>
         /// <remarks>
         /// Carried here because the catalogue is built where the files are already parsed, and the
-        /// level list is not: without it the list would have to load all seventeen again to find
+        /// level list is not: without it the list would have to load every level again to find
         /// out where the chapters divide. <see cref="LevelCatalog.IsSequential"/> is what decides.
         /// </remarks>
         public readonly bool IsSequential;
