@@ -90,7 +90,7 @@ namespace BitSorter.View
         /// <summary>One vector column. Eight of them fill the panel beside the name.</summary>
         private const float CellPitch = (Inner - NameWidth) / SandboxConfig.MaxVectors;
 
-        private const float CellWidth = CellPitch - 2f;
+        private const float CellWidth = CellPitch - 4f;
         private const float RowHeight = 24f;
         private const float StepHeight = 28f;
 
@@ -280,7 +280,7 @@ namespace BitSorter.View
                 new Vector2(UiTheme.SetupWidth, 300f));
 
             TextMeshProUGUI title = UiTheme.Label(
-                "title", _root, UiType.Label, UiTheme.TextDim, TextAlignmentOptions.Left);
+                "title", _root, UiType.Body, UiTheme.TextDim, TextAlignmentOptions.Left);
             UiTheme.Anchor(title.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f),
                 new Vector2(Pad, -10f), new Vector2(160f, 20f));
             title.text = "SETUP";
@@ -410,19 +410,22 @@ namespace BitSorter.View
 
         private void Heading(UiColumn column, string caption)
         {
-            float top = column.Take(18f, 4f);
+            float top = column.Take(HeadingHeight, 4f);
 
+            // Set as Settings sets its headings -- small, bold and spaced -- rather than in Micro, the
+            // smallest type there is: a playtester could not read the panel (2026-09-27).
             TextMeshProUGUI label = UiTheme.Label(
-                caption, _bodyRoot, UiType.Micro, UiTheme.Accent * 0.85f, TextAlignmentOptions.Left);
+                caption, _bodyRoot, UiType.Label, UiTheme.Accent, TextAlignmentOptions.Left);
+            label.fontStyle = FontStyles.Bold;
+            label.characterSpacing = 4f;
 
             UiTheme.Anchor(label.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f),
-                new Vector2(0f, -top), new Vector2(Inner, 18f));
+                new Vector2(0f, -top), new Vector2(Inner, HeadingHeight));
 
             label.text = caption;
             _body.Add(label.gameObject);
         }
 
-        /// <summary>A line of text that may be longer than the panel is wide.</summary>
         /// <summary>A note that wraps inside the panel, and the row after it starts below it.</summary>
         /// <remarks>
         /// Wrapping is turned on here because nothing else would: every label starts out NoWrap,
@@ -448,7 +451,14 @@ namespace BitSorter.View
         }
 
         /// <summary>Size of the panel's notes, shared with the measurement that sizes their boxes.</summary>
-        private const UiType NoteType = UiType.Micro;
+        /// <remarks>Label, up from Micro, with the rest of the panel's small print (2026-09-27).</remarks>
+        private const UiType NoteType = UiType.Label;
+
+        /// <summary>A section's heading: INPUTS, OUTPUTS, SPEED.</summary>
+        private const float HeadingHeight = 22f;
+
+        /// <summary>The row of vector numbers over the bits.</summary>
+        private const float ColumnsHeight = 18f;
 
         /// <summary>Space between a note and the row after it.</summary>
         private const float NoteGap = 6f;
@@ -456,15 +466,15 @@ namespace BitSorter.View
         /// <summary>The vector numbers, over the columns the bits below them sit in.</summary>
         private void Columns(UiColumn column)
         {
-            float top = column.Take(14f, 2f);
+            float top = column.Take(ColumnsHeight, 2f);
 
             for (int v = 0; v < _config.vectors; v++)
             {
                 TextMeshProUGUI label = UiTheme.Label(
-                    $"column {v}", _bodyRoot, UiType.Micro, UiTheme.TextDim, TextAlignmentOptions.Center);
+                    $"column {v}", _bodyRoot, UiType.Label, UiTheme.TextDim, TextAlignmentOptions.Center);
 
                 UiTheme.Anchor(label.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f),
-                    new Vector2(NameWidth + v * CellPitch, -top), new Vector2(CellWidth, 14f));
+                    new Vector2(NameWidth + v * CellPitch, -top), new Vector2(CellWidth, ColumnsHeight));
 
                 label.text = (v + 1).ToString();
                 _body.Add(label.gameObject);
@@ -555,7 +565,7 @@ namespace BitSorter.View
             bool canFill = whyNot == null;
 
             Button table = UiTheme.Button_(
-                "truth table", _bodyRoot, "Truth table", out TextMeshProUGUI caption, UiType.Caption);
+                "truth table", _bodyRoot, "Truth table", out TextMeshProUGUI caption, UiType.Body);
             UiTheme.Anchor(table.GetComponent<RectTransform>(), new Vector2(0f, 1f), new Vector2(0f, 1f),
                 new Vector2(0f, y), new Vector2(Inner * 0.58f, 26f));
 
@@ -564,7 +574,7 @@ namespace BitSorter.View
             _body.Add(table.gameObject);
 
             Button zeros = UiTheme.Button_(
-                "all zero", _bodyRoot, "All 0", out TextMeshProUGUI zeroCaption, UiType.Caption);
+                "all zero", _bodyRoot, "All 0", out TextMeshProUGUI zeroCaption, UiType.Body);
             UiTheme.Anchor(zeros.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(1f, 1f),
                 new Vector2(0f, y), new Vector2(Inner * 0.38f, 26f));
 
@@ -584,7 +594,7 @@ namespace BitSorter.View
             string id = SandboxLevel.SinkId(index);
 
             TextMeshProUGUI name = UiTheme.Label(
-                $"sink {index}", _bodyRoot, UiType.Caption, UiTheme.TextDim, TextAlignmentOptions.Left);
+                $"sink {index}", _bodyRoot, UiType.Label, UiTheme.TextDim, TextAlignmentOptions.Left);
             UiTheme.Anchor(name.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f),
                 new Vector2(0f, y), new Vector2(NameWidth, RowHeight));
             name.text = id;
@@ -606,7 +616,7 @@ namespace BitSorter.View
 
             // Sits past the last column, where it is only ever drawn over empty panel.
             row.Extra = UiTheme.Label(
-                $"extra {index}", _bodyRoot, UiType.Micro, UiTheme.Bad, TextAlignmentOptions.Left);
+                $"extra {index}", _bodyRoot, UiType.Label, UiTheme.Bad, TextAlignmentOptions.Left);
             UiTheme.Anchor(row.Extra.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f),
                 new Vector2(NameWidth + _config.vectors * CellPitch + 2f, y), new Vector2(34f, RowHeight));
             _body.Add(row.Extra.gameObject);
@@ -623,7 +633,7 @@ namespace BitSorter.View
                 int speed = SandboxRules.Speeds[i];
 
                 Button button = UiTheme.Button_(
-                    $"speed {speed}", _bodyRoot, $"{speed}x", out TextMeshProUGUI label, UiType.Caption);
+                    $"speed {speed}", _bodyRoot, $"{speed}x", out TextMeshProUGUI label, UiType.Body);
 
                 UiTheme.Anchor(button.GetComponent<RectTransform>(), new Vector2(0f, 1f), new Vector2(0f, 1f),
                     new Vector2(i * 52f, y), new Vector2(46f, 26f));
