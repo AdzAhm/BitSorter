@@ -139,6 +139,44 @@ namespace BitSorter.PlayMode.Tests
             Assert.LessOrEqual(topLeft.y, Screen.height, "the top row runs off the screen");
         }
 
+        /// <summary>
+        /// The top row of a seven-row board is clear of the banner, so a part placed on it is not
+        /// drawn under the level's title.
+        /// </summary>
+        /// <remarks>
+        /// A seven-row board on a wide screen is fitted by its height, and the height was measured
+        /// against the whole screen. In Four lanes the top row came out under the banner: the AND
+        /// on it was cut off at the top, along with the delays on the wires beside it.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator TheTopRow_OfASevenRowBoard_IsClearOfTheBanner()
+        {
+            yield return TestScene.Load();
+            Find<MainMenu>().Show(false);
+            yield return null;
+
+            Assert.IsTrue(Find<LevelSession>().LoadLevel("four-lanes"), "the level did not load");
+
+            for (int frame = 0; frame < 4; frame++)
+                yield return null;
+
+            PlacementGrid grid = Find<PlacementGrid>();
+            Assert.AreEqual(new Vector2Int(5, 3), grid.HalfExtents, "sanity: not on Four lanes' own board");
+
+            GameObject banner = GameObject.Find("Status");
+            Assert.IsNotNull(banner, "sanity: no banner on screen");
+
+            var corners = new Vector3[4];
+            banner.GetComponent<RectTransform>().GetWorldCorners(corners);
+            float bannerBottom = corners[0].y;
+
+            // The top of a part on the top row: the row's centre, and half a part above it.
+            float rowTop = grid.HalfExtents.y * grid.CellSize + PortGeometry.NodeSize * 0.5f;
+            float rowTopOnScreen = Camera.main.WorldToScreenPoint(new Vector3(0f, rowTop, 0f)).y;
+
+            Assert.LessOrEqual(rowTopOnScreen, bannerBottom, "the board's top row runs under the banner");
+        }
+
         [UnityTest]
         public IEnumerator TheLeftmostColumn_IsClearOfThePartsList()
         {
