@@ -57,14 +57,16 @@ namespace BitSorter.PlayMode.Tests
             Find<MainMenu>().Show(false);
             yield return null;
 
-            // The last level, so the row that has to be revealed is at the far end of the list.
+            // The level whose row sits lowest, so the row that has to be revealed is at the far end
+            // of the list: the last of the longer chapter, since each chapter is a column.
             LevelSession session = Find<LevelSession>();
-            string last = session.Catalogue[session.Catalogue.Count - 1].FileName;
+            string last = LowestLevel(session.Catalogue);
             Assert.IsTrue(session.LoadLevel(last), "the level did not load");
             yield return null;
 
+            // Shorter than it once needed to be: a column per chapter halved the list's height.
             Transform panel = LevelListRoot();
-            panel.GetComponentInParent<CanvasScaler>().referenceResolution = new Vector2(1920f, 420f);
+            panel.GetComponentInParent<CanvasScaler>().referenceResolution = new Vector2(1920f, 240f);
             yield return null;
 
             Find<LevelSelectPanel>().Open();
@@ -93,12 +95,13 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsTrue(Inside(current, scroll.viewport),
                 "the list opened with the current level scrolled out of view");
 
-            // And it scrolls back to the top, where the tutorial row is.
+            // And it scrolls back to the top, where the first level is.
             scroll.verticalNormalizedPosition = 1f;
             yield return null;
 
-            Assert.IsTrue(Inside(scroll.content.Find("Tutorial") as RectTransform, scroll.viewport),
-                "scrolled to the top, the first row is still out of view");
+            string first = session.Catalogue[0].FileName;
+            Assert.IsTrue(Inside(scroll.content.Find($"Level {first}") as RectTransform, scroll.viewport),
+                "scrolled to the top, the first level is still out of view");
         }
 
         /// <summary>
@@ -164,6 +167,29 @@ namespace BitSorter.PlayMode.Tests
         // -----------------------------------------------------------------
         // Helpers
         // -----------------------------------------------------------------
+
+        /// <summary>The last level of whichever chapter is longer, whose row is lowest in its column.</summary>
+        private static string LowestLevel(System.Collections.Generic.IReadOnlyList<LevelEntry> catalogue)
+        {
+            int sequential = 0;
+            string lastCombinational = null;
+            string lastSequential = null;
+
+            foreach (LevelEntry entry in catalogue)
+            {
+                if (entry.IsSequential)
+                {
+                    sequential++;
+                    lastSequential = entry.FileName;
+                }
+                else
+                {
+                    lastCombinational = entry.FileName;
+                }
+            }
+
+            return sequential * 2 > catalogue.Count ? lastSequential : lastCombinational;
+        }
 
         /// <summary>The level list's full-screen root, found whether or not it is showing.</summary>
         private static Transform LevelListRoot()

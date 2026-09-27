@@ -374,22 +374,42 @@ namespace BitSorter.LogicCore.Tests
         [Test]
         public void TheWholeRun_ShowsWithoutScrollingAtTheReferenceResolution()
         {
-            int levels = 0;
+            int combinational = 0;
+            int sequential = 0;
 
             foreach (TextAsset asset in Resources.LoadAll<TextAsset>(LevelLoader.ResourcePath))
             {
-                if (asset != null)
-                    levels++;
+                LevelLoadResult parsed = LevelLoader.Parse(asset.text, LevelTestFixtures.Board);
+                Assert.IsTrue(parsed.IsValid, asset.name);
+
+                if (LevelCatalog.IsSequential(parsed.Level))
+                    sequential++;
+                else
+                    combinational++;
             }
 
-            Assert.Greater(levels, 0, "sanity: there are levels to list");
+            Assert.Greater(combinational + sequential, 0, "sanity: there are levels to list");
 
             float room = LevelSelectPanel.ListRoom(UiTheme.ReferenceResolution.y);
-            float needed = LevelSelectPanel.ListHeight(levels, 2);
+            float needed = LevelSelectPanel.ListHeight(combinational, sequential);
 
             Assert.LessOrEqual(needed, room,
-                $"{levels} levels in two chapters need {needed:F0}px and the list has {room:F0}px " +
-                "between its title and its help line, so at the reference resolution it scrolls");
+                $"{combinational} combinational and {sequential} sequential levels need {needed:F0}px " +
+                $"and the list has {room:F0}px between its title and its help line, so at the " +
+                "reference resolution it scrolls");
+        }
+
+        /// <summary>
+        /// The run 4.0.0 is planned to reach -- twenty-one combinational levels and nine sequential
+        /// -- still shows at once, so the two-column list is not already too short for it.
+        /// </summary>
+        [Test]
+        public void ThePlannedRun_ShowsWithoutScrollingAtTheReferenceResolution()
+        {
+            float room = LevelSelectPanel.ListRoom(UiTheme.ReferenceResolution.y);
+
+            Assert.LessOrEqual(LevelSelectPanel.ListHeight(21, 9), room,
+                "thirty levels would scroll at the reference resolution");
         }
 
 

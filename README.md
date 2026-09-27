@@ -95,7 +95,7 @@ empty the port in between — if it is lit, the collision is already unavoidable
 
 ### The tutorial
 
-A short guided level at the head of the level list, which walks through picking a
+A short guided level, reached from the level list, which walks through picking a
 part, placing it, wiring it up and running it. Six steps, each waiting for you to
 actually do the thing rather than for you to click Next.
 
@@ -180,7 +180,7 @@ built on it.
 
 ### The sandbox
 
-Free play, from the main menu or the foot of the level list. Every part, as many
+Free play, from the main menu or the last row of the level list. Every part, as many
 as you like, no delay budget, and nothing to pass or fail. Registers are there
 too, with a clock setting beside the vector count — a state machine needs it,
 since a loop cannot keep up with a vector every tick.

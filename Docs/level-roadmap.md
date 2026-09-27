@@ -763,7 +763,7 @@ Two things worth recording from doing it:
   Nine levels arrived as a flat list. Now seventeen are two chapters, and
   `ChapterCard` — *Circuits that remember* — is shown once, on the first level whose
   parts list holds a register, where combinational logic ends and sequential
-  begins. The level list draws the same two chapters under headings. Where the
+  begins. The level list draws the same two chapters as two columns. Where the
   boundary falls is `LevelCatalog.IsSequential`, and nothing else decides it.
 
 - **An ending. Built.** Solving Carry the One did exactly what solving the tutorial

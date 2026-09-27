@@ -891,12 +891,20 @@ register, and is a milestone in the save beside the tutorial.
 
 **Where the chapters divide is `LevelCatalog.IsSequential`, and it is the
 only place that knows.** The card fires on it and the level list draws its
-headings from it — `CIRCUITS THAT FORGET` and `CIRCUITS THAT REMEMBER`,
-both constants there, the second being the card's own title. Deciding by
-what a level *stocks* rather than by its number means inserting or
-reordering levels cannot put the boundary in the wrong place, and
+two columns from it — `CIRCUITS THAT FORGET` on the left and `CIRCUITS THAT
+REMEMBER` on the right, both constants there, the second being the card's own
+title. Deciding by what a level *stocks* rather than by its number means
+inserting or reordering levels cannot put the boundary in the wrong place, and
 `CurriculumTests` refuses a run whose two chapters interleave — which is
 the only way a level could end up under the wrong heading.
+
+**The whole run shows at once at the reference resolution**, which is why the
+list is two columns, a chapter each. One column held every level until the
+eighteenth, and past that it scrolled: the run is meant to be one picture, both
+chapters and where the player is in them. The tutorial's row and free play's
+sit under the sequential chapter, the shorter one, apart from the run.
+`UiThemeTests` holds the real run and the thirty 4.0.0 is planned to reach to
+fitting at 1080; a shorter window still scrolls, both columns together.
 
 **The banner reserves three lines for the goal and shrinks to what it
 uses.** A goal is centred and wrapping, so before this it overflowed a
@@ -917,7 +925,7 @@ it in `SandboxLevel` leaves all of those rules exactly as strict as they
 were rather than carving an exception through them. It also means the
 sandbox is not in `LevelCatalog`, so it is not a level in the run: it has no
 order, no completion tick and no personal best, and it is reached by an
-explicit entry in the main menu and at the foot of the level list.
+explicit entry in the main menu and by the last row of the level list.
 
 Free play is ungraded via `RunState.Finished`, which is deliberately not
 `Passed` — every "did they win" check names `Passed`, so none of them
@@ -974,8 +982,8 @@ persistence works with neither side knowing the other exists.
 It is **not in `LevelCatalog`**: it cannot disturb the run whose order
 `CurriculumTests` pins, and it never appears in `AvailableLevels`, so Q and E
 never step into it and the banner counts the seventeen levels without it. It is
-reached by a row at the head of the level list — free play's row at the foot is
-the same idea — and once by itself on a save with no `tutorial` milestone.
+reached by a row of the level list, above free play's and apart from the run,
+and once by itself on a save with no `tutorial` milestone.
 
 **Off the run is before its start.** From the tutorial E goes to the first
 level and Q goes nowhere; from free play neither key goes anywhere, because
