@@ -87,6 +87,7 @@ namespace BitSorter.LogicCore.Tests
                 "the-slow-lane",
                 "one-of-four",
                 "pick-a-lane",
+                "highest-wins",
                 "which-is-bigger",
                 "half-adder",
                 "carry-the-one",
