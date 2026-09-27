@@ -50,6 +50,59 @@ namespace BitSorter.LogicCore.Tests
 
         private static LevelLoadResult Parse(string json) => LevelLoader.Parse(json, Board);
 
+        // -----------------------------------------------------------------
+        // A level's own board
+        // -----------------------------------------------------------------
+
+        /// <summary>A level with a source at <paramref name="x"/> and, if given, its own board.</summary>
+        private static LevelLoadResult OnABoard(string board, int x)
+        {
+            string boardField = board == null ? string.Empty : $@" ""board"": {board},";
+
+            return Parse("{" +
+                         $@" ""name"": ""Board"", ""tickLimit"": 100,{boardField}" +
+                         $@" ""fixtures"": [ {{ ""id"": ""in"", ""kind"": ""Source"", ""cell"": {{ ""x"": {-x}, ""y"": 0 }}, ""stream"": ""0"" }}," +
+                         @" { ""id"": ""out"", ""kind"": ""Sink"", ""cell"": { ""x"": 1, ""y"": 0 } } ]," +
+                         @" ""budget"": [ { ""kind"": ""Not"", ""count"": 1 } ]," +
+                         @" ""expected"": [ { ""sink"": ""out"", ""values"": ""1"" } ] }");
+        }
+
+        [Test]
+        public void ALevelsOwnBoard_Wins()
+        {
+            LevelLoadResult wide = OnABoard(@"{ ""columns"": 13, ""rows"": 7 }", 6);
+
+            Assert.IsTrue(wide.IsValid, wide.Error);
+            Assert.AreEqual(new Vector2Int(6, 3), wide.Level.BoardHalfExtents);
+
+            AssertRefused(OnABoard(@"{ ""columns"": 13, ""rows"": 7 }", 7));
+        }
+
+        [Test]
+        public void WithoutABoard_TheFallbackIsTheBoard()
+        {
+            LevelLoadResult plain = OnABoard(null, 4);
+
+            Assert.IsTrue(plain.IsValid, plain.Error);
+            Assert.AreEqual(Board, plain.Level.BoardHalfExtents);
+
+            AssertRefused(OnABoard(null, 5));
+        }
+
+        [TestCase(10, 7, "odd")]
+        [TestCase(13, 6, "odd")]
+        [TestCase(15, 7, "from 9 by 5")]
+        [TestCase(13, 9, "from 9 by 5")]
+        [TestCase(7, 5, "from 9 by 5")]
+        [TestCase(13, 0, "give both")]
+        public void ABoardOfTheWrongSize_IsRefusedWithAReason(int columns, int rows, string reason)
+        {
+            LevelLoadResult result = OnABoard($@"{{ ""columns"": {columns}, ""rows"": {rows} }}", 3);
+
+            Assert.IsFalse(result.IsValid, "should have been refused");
+            StringAssert.Contains(reason, result.Error);
+        }
+
         private static LevelLoadResult ParseDefault() =>
             Parse(Json($"{SourceIn}, {BinOne}, {BinZero}", $"{ExpectOne}, {ExpectZeroEmpty}"));
 

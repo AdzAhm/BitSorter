@@ -86,6 +86,17 @@ namespace BitSorter.View
         /// </remarks>
         public int order;
 
+        /// <summary>
+        /// The board this level is played on, in cells: <c>"board": { "columns": 11, "rows": 7 }</c>.
+        /// Absent, or zero, is the 9 by 5 board every level had before this field.
+        /// </summary>
+        /// <remarks>
+        /// Odd both ways, because the grid is centred on the origin, and from 9 by 5 up to 13 by 7:
+        /// past that a cell is drawn too small to read on one screen, and the board is never
+        /// panned or zoomed.
+        /// </remarks>
+        public LevelBoardFile board;
+
         public LevelFixtureFile[] fixtures;
         public LevelBudgetFile[] budget;
         public LevelExpectationFile[] expected;
@@ -130,6 +141,14 @@ namespace BitSorter.View
     }
 
     /// <summary>A grid cell in the JSON's own coordinates, converted to Vector2Int on validation.</summary>
+    /// <summary>A level's own board size, in cells. See <see cref="LevelFile.board"/>.</summary>
+    [Serializable]
+    public sealed class LevelBoardFile
+    {
+        public int columns;
+        public int rows;
+    }
+
     [Serializable]
     public struct LevelCellFile
     {

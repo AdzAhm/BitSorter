@@ -60,8 +60,10 @@ namespace BitSorter.View
             string goal = "",
             bool isGraded = true,
             IReadOnlyList<LevelSlot> reservedSlots = null,
-            int clockPeriod = 1)
+            int clockPeriod = 1,
+            Vector2Int boardHalfExtents = default)
         {
+            BoardHalfExtents = boardHalfExtents;
             ClockPeriod = clockPeriod > 0 ? clockPeriod : 1;
             ReservedSlots = reservedSlots ?? System.Array.Empty<LevelSlot>();
             IsGraded = isGraded;
@@ -181,6 +183,21 @@ namespace BitSorter.View
 
         /// <summary>Whether the level runs on a clock slower than one vector per tick.</summary>
         public bool HasClock => ClockPeriod > 1;
+
+        /// <summary>
+        /// Cells either side of the origin on this level's board: (4, 2) for the standard 9 by 5,
+        /// (6, 3) for 13 by 7. Zero for a definition built without saying, which the session
+        /// reads as "the scene's own board".
+        /// </summary>
+        /// <remarks>
+        /// Part of the level rather than the scene since levels could name their own size
+        /// (<see cref="LevelFile.board"/>). The session resizes the grid to it before anything
+        /// hears the level has loaded, so nothing sees a board the wrong size.
+        /// </remarks>
+        public Vector2Int BoardHalfExtents { get; }
+
+        /// <summary>Whether the definition says what board it is played on.</summary>
+        public bool HasBoard => BoardHalfExtents.x > 0 && BoardHalfExtents.y > 0;
 
         /// <summary>
         /// Where this level sits in the run, or zero for a level that names no place.

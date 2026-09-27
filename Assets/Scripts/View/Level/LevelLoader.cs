@@ -124,6 +124,11 @@ namespace BitSorter.View
             if (file == null)
                 return LevelLoadResult.Reject("the file did not deserialize to a level");
 
+            // The level's own board wins; the one passed in is only the board of a level that
+            // does not say, which is every level written before a level could.
+            if (!TryBoard(file.board, halfExtents, out halfExtents, out string boardError))
+                return LevelLoadResult.Reject(boardError);
+
             if (string.IsNullOrWhiteSpace(file.name))
                 return LevelLoadResult.Reject("no name");
 
@@ -280,7 +285,59 @@ namespace BitSorter.View
             return LevelLoadResult.Accept(new LevelDefinition(
                 file.name.Trim(), hint, tickLimit, vectorCount, fixtures, budget, expectations,
                 maxWireDelay, file.delayBudget, file.maxLatency, file.order, goal,
-                clockPeriod: file.clockPeriod));
+                clockPeriod: file.clockPeriod, boardHalfExtents: halfExtents));
+        }
+
+        /// <summary>The smallest board a level may name: the standard one.</summary>
+        public const int MinColumns = 9;
+
+        /// <inheritdoc cref="MinColumns"/>
+        public const int MinRows = 5;
+
+        /// <summary>
+        /// The largest board a level may name. Past it a cell is drawn too small to read, since the
+        /// board is fitted to the screen and never panned.
+        /// </summary>
+        public const int MaxColumns = 13;
+
+        /// <inheritdoc cref="MaxColumns"/>
+        public const int MaxRows = 7;
+
+        /// <summary>
+        /// The board a level is played on: its own, if it names one, or the fallback.
+        /// </summary>
+        private static bool TryBoard(
+            LevelBoardFile board, Vector2Int fallback, out Vector2Int halfExtents, out string error)
+        {
+            halfExtents = fallback;
+            error = null;
+
+            if (board == null || (board.columns == 0 && board.rows == 0))
+                return true;
+
+            if (board.columns <= 0 || board.rows <= 0)
+            {
+                error = $"board is {board.columns} by {board.rows}; give both columns and rows, or leave it out";
+                return false;
+            }
+
+            if (board.columns % 2 == 0 || board.rows % 2 == 0)
+            {
+                error = $"board is {board.columns} by {board.rows}; both must be odd, because the grid is " +
+                        "centred on the middle cell";
+                return false;
+            }
+
+            if (board.columns < MinColumns || board.columns > MaxColumns ||
+                board.rows < MinRows || board.rows > MaxRows)
+            {
+                error = $"board is {board.columns} by {board.rows}; it may be from {MinColumns} by {MinRows} " +
+                        $"to {MaxColumns} by {MaxRows}";
+                return false;
+            }
+
+            halfExtents = new Vector2Int((board.columns - 1) / 2, (board.rows - 1) / 2);
+            return true;
         }
 
         private static bool TryBuildBudget(
