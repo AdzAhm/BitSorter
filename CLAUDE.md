@@ -29,6 +29,14 @@ just because it is written down here.
   said which output each produced.
 - A mechanic is taught before it is required. `CurriculumTests` enforces
   that the delay tutorial precedes every level that budgets delay.
+- **A don't-care is written one of two ways** (`Docs/level-roadmap.md`, "On
+  `x`"). A combination that can never happen is left out of the streams, which
+  is why `dont-care` has ten rows and not sixteen. An answer that matters to one
+  bin and not another is an `x` in that bin's expectation, since vectors are
+  shared by every bin and one bin cannot drop a vector alone. Both show as `x`
+  on the K-map. `dont-care` teaches the idea, and
+  `TheDontCareLevel_ComesBeforeEveryLevelThatLeavesAnAnswerFree` keeps every
+  level that uses it after it.
 - **There are four kinds of teaching, and they must stay apart.** `goal` states
   the objective, `hint` nudges towards *this level's* answer, and a hint in
   `HintRules` explains a *mechanic*, once ever, the first time the player

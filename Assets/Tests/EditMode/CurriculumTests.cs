@@ -23,6 +23,12 @@ namespace BitSorter.LogicCore.Tests
         /// <summary>The level whose whole job is to introduce the register.</summary>
         private const string RegisterTutorial = "one-clock-late";
 
+        /// <summary>
+        /// The level whose whole job is to introduce the don't-care: an answer the level leaves
+        /// free.
+        /// </summary>
+        private const string DontCareTutorial = "dont-care";
+
         private static IReadOnlyList<KeyValuePair<string, LevelDefinition>> LevelsInPlayOrder()
         {
             TextAsset[] assets = Resources.LoadAll<TextAsset>(LevelLoader.ResourcePath);
@@ -76,6 +82,7 @@ namespace BitSorter.LogicCore.Tests
                 "the-long-way-round",
                 "balance-the-paths",
                 "four-corners",
+                "dont-care",
                 "nothing-but-nand",
                 "the-slow-lane",
                 "pick-a-lane",
@@ -133,6 +140,86 @@ namespace BitSorter.LogicCore.Tests
                     $"'{level.Key}' (order {level.Value.Order}) budgets delay, but the level that " +
                     $"teaches re-timing is order {tutorialOrder}. Teach the mechanic first.");
             }
+        }
+
+        /// <summary>
+        /// A level that leaves some answer free comes after the level that says free answers exist.
+        /// </summary>
+        /// <remarks>
+        /// Two ways to leave an answer free, one convention for each (Docs/level-roadmap.md, "On
+        /// x"). A combination that can never happen is left out of the streams, which is how
+        /// dont-care has ten rows. An answer that matters to one bin and not another is an 'x' in
+        /// that bin's expectation, because vectors are shared by every bin and one bin cannot drop
+        /// a vector on its own. The player sees the same thing either way, an x on the map.
+        ///
+        /// "Left out" is judged only where it can be: a combinational level of two to four inputs,
+        /// where the streams could have listed every combination and did not. A sequential level's
+        /// streams are a sequence, not a table, and leave combinations out as a matter of course.
+        /// </remarks>
+        [Test]
+        public void TheDontCareLevel_ComesBeforeEveryLevelThatLeavesAnAnswerFree()
+        {
+            IReadOnlyList<KeyValuePair<string, LevelDefinition>> run = LevelsInPlayOrder();
+
+            int tutorialOrder = -1;
+            foreach (KeyValuePair<string, LevelDefinition> level in run)
+            {
+                if (level.Key != DontCareTutorial)
+                    continue;
+
+                tutorialOrder = level.Value.Order;
+                Assert.IsTrue(LeavesAnAnswerFree(level.Value),
+                    "sanity: the don't-care level should itself leave answers free");
+            }
+
+            Assert.Greater(tutorialOrder, 0, $"'{DontCareTutorial}' is missing from the run");
+
+            foreach (KeyValuePair<string, LevelDefinition> level in run)
+            {
+                if (level.Key == DontCareTutorial || !LeavesAnAnswerFree(level.Value))
+                    continue;
+
+                Assert.Greater(level.Value.Order, tutorialOrder,
+                    $"'{level.Key}' (order {level.Value.Order}) leaves an answer free, but the level " +
+                    $"that teaches don't-cares is order {tutorialOrder}. Teach the idea first.");
+            }
+        }
+
+        private static bool LeavesAnAnswerFree(LevelDefinition level)
+        {
+            foreach (LevelExpectation expectation in level.Expectations)
+            {
+                if (expectation.Values.IndexOf('x') >= 0)
+                    return true;
+            }
+
+            if (LevelCatalog.IsSequential(level) || level.HasClock)
+                return false;
+
+            var sources = new List<LevelFixture>();
+
+            foreach (LevelFixture fixture in level.Fixtures)
+            {
+                if (fixture.Kind == FixtureKind.Source)
+                    sources.Add(fixture);
+            }
+
+            if (sources.Count < 2 || sources.Count > 4)
+                return false;
+
+            var combinations = new HashSet<int>();
+
+            for (int vector = 0; vector < level.VectorCount; vector++)
+            {
+                int combination = 0;
+
+                foreach (LevelFixture source in sources)
+                    combination = (combination << 1) | (int)source.Stream[vector];
+
+                combinations.Add(combination);
+            }
+
+            return combinations.Count < 1 << sources.Count;
         }
 
         [Test]

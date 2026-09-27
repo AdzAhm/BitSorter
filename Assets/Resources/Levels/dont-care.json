@@ -1,0 +1,23 @@
+{
+  "name": "Don't care",
+  "order": 35,
+  "goal": "Match the truth table -- press ? or H to see it. Only ten of the sixteen input combinations ever happen, so the other six can be whatever makes the circuit smallest.",
+  "hint": "a group on the map may reach into squares the table never tests.",
+  "tickLimit": 40,
+  "maxWireDelay": 3,
+  "delayBudget": 3,
+  "fixtures": [
+    { "id": "a",   "kind": "Source", "cell": { "x": -4, "y":  2 }, "stream": "0000000011" },
+    { "id": "b",   "kind": "Source", "cell": { "x": -4, "y":  1 }, "stream": "0000111100" },
+    { "id": "c",   "kind": "Source", "cell": { "x": -4, "y": -1 }, "stream": "0011001100" },
+    { "id": "d",   "kind": "Source", "cell": { "x": -4, "y": -2 }, "stream": "0101010101" },
+    { "id": "out", "kind": "Sink",   "cell": { "x":  4, "y":  0 } }
+  ],
+  "budget": [
+    { "kind": "And", "count": 2 },
+    { "kind": "Or",  "count": 2 }
+  ],
+  "expected": [
+    { "sink": "out", "values": "0000011111" }
+  ]
+}
