@@ -1,0 +1,28 @@
+{
+  "name": "Four lanes",
+  "order": 72,
+  "goal": "s1 s0 is a number from 0 to 3. Make the bin receive d0, d1, d2 or d3 to match it.",
+  "hint": "You have chosen between two before. Choose within each pair first, then between the pairs.",
+  "tickLimit": 60,
+  "maxWireDelay": 4,
+  "delayBudget": 10,
+  "maxLatency": 6,
+  "board": { "columns": 11, "rows": 7 },
+  "fixtures": [
+    { "id": "d0",  "kind": "Source", "cell": { "x": -5, "y":  3 }, "stream": "10010101" },
+    { "id": "d1",  "kind": "Source", "cell": { "x": -5, "y":  2 }, "stream": "01100101" },
+    { "id": "d2",  "kind": "Source", "cell": { "x": -5, "y":  1 }, "stream": "01011001" },
+    { "id": "d3",  "kind": "Source", "cell": { "x": -5, "y":  0 }, "stream": "01010110" },
+    { "id": "s1",  "kind": "Source", "cell": { "x": -5, "y": -1 }, "stream": "00001111" },
+    { "id": "s0",  "kind": "Source", "cell": { "x": -5, "y": -2 }, "stream": "00110011" },
+    { "id": "out", "kind": "Sink",   "cell": { "x":  5, "y":  0 } }
+  ],
+  "budget": [
+    { "kind": "Not", "count": 2 },
+    { "kind": "And", "count": 6 },
+    { "kind": "Or",  "count": 3 }
+  ],
+  "expected": [
+    { "sink": "out", "values": "10101010" }
+  ]
+}

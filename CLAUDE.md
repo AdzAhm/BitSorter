@@ -915,15 +915,18 @@ failure side.
 
 ## Not yet
 Do not build ahead of me. The logic core, the view layer, the level
-format, the twenty-three levels, the canvas interface, sound, level select,
+format, the twenty-five levels, the canvas interface, sound, level select,
 saved progress, analytics, the sandbox, board undo, the settings screen and
 the K-map view are all in.
 
-**Twenty-three: fifteen combinational, eight sequential.** The
+**Twenty-five: seventeen combinational, eight sequential.** The
 combinational chapter runs in three stretches: logic and timing (Route the
 bit to Odd one out, with the K-map pair Four corners and Don't care in the
-middle), building blocks (One of four, Pick a lane, Highest wins, Which is
-bigger), and arithmetic (Half adder, Carry the one, Pass it on). The
+middle), building blocks (One of four, Pick a lane, Four lanes, Highest wins,
+Which is bigger), and arithmetic (Half adder, Carry the one, Pass it on,
+Carry it further). Four lanes and Carry it further are the two on a board
+bigger than 9 by 5 -- 11 by 7 and 13 by 7 -- because a 4:1 mux and a 3-bit
+adder do not fit a smaller one. The
 sequential chapter is the register, the rising edge, the toggle, the enabled
 register, the two-bit counter, the 1-0-1 detector, the Moore reading of it
 and the serial adder — orders 100 to 170. Orders are not all tens: each
@@ -952,7 +955,7 @@ fitting at 1080; a shorter window still scrolls, both columns together.
 **The banner reserves three lines for the goal and shrinks to what it
 uses.** A goal is centred and wrapping, so before this it overflowed a
 28-pixel box in both directions and printed over the level title;
-thirteen of the twenty-three goals are longer than one line. `UiTheme.GoalHeight`
+fourteen of the twenty-five goals are longer than one line. `UiTheme.GoalHeight`
 measures one with the label that will draw it, and is what both the
 banner and `UiThemeTests` ask — a level whose goal will not fit is a
 failing test rather than a smudge on the title. Everything below the

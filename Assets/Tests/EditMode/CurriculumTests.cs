@@ -88,11 +88,13 @@ namespace BitSorter.LogicCore.Tests
                 "odd-one-out",
                 "one-of-four",
                 "pick-a-lane",
+                "four-lanes",
                 "highest-wins",
                 "which-is-bigger",
                 "half-adder",
                 "carry-the-one",
                 "pass-it-on",
+                "carry-it-further",
 
                 // Sequential logic: circuits that remember.
                 "one-clock-late",

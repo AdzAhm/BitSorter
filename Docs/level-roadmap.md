@@ -60,8 +60,8 @@ author a level that silently fails to teach its own lesson.
 | 2b | K-map minimisation with don't-cares | **(a)** | **Shipped** as `dont-care`, which leaves its six impossible rows out of the streams. `x` in an expectation has its first real user in `highest-wins` — see [Q1](#q1-can-a-test-vector-express-a-dont-care-output) |
 | 3 | Functional completeness (NAND-only / NOR-only) | **(a)** | Buildable today, no schema change — see [Q3](#q3-can-a-level-require-a-specific-gate-set-only) |
 | 4 | Propagation delay | **(a)** | Shipped: `balance-the-paths` |
-| 5 | Combinational components (mux, decoder, comparator) | **(a)** | **Shipped:** `pick-a-lane` (2:1 mux), `one-of-four` (decoder), `highest-wins` (priority encoder), `which-is-bigger` (comparator). The 4:1 mux waits for a wider board |
-| 6 | Adders: half, full, ripple-carry | **(a)** | **Shipped:** `half-adder`, `carry-the-one`, and a 2-bit ripple-carry as `pass-it-on` -- seven gates, since bit 0 needs no carry in |
+| 5 | Combinational components (mux, decoder, comparator) | **(a)** | **Shipped:** `pick-a-lane` (2:1 mux), `one-of-four` (decoder), `highest-wins` (priority encoder), `which-is-bigger` (comparator), and the 4:1 mux as `four-lanes`, on an 11 × 7 board |
+| 6 | Adders: half, full, ripple-carry | **(a)** | **Shipped:** `half-adder`, `carry-the-one`, a 2-bit ripple-carry as `pass-it-on` -- seven gates, since bit 0 needs no carry in -- and a 3-bit one as `carry-it-further`, on 13 × 7 |
 | 6b | Carry-lookahead | **(b)** | Per-level board size. Reclassified from (c) — the limit is the view layer, not the model |
 | 7 | Latches and flip-flops | **(a)** | **Shipped.** `RegisterNode`, a palette slot, and a clock. Initial-state authoring turned out not to be needed |
 | 7b | Level- vs edge-triggering, setup/hold, clock skew | **(c)** | Skew and hold stay out. Setup time survives as `clockPeriod` — see below |

@@ -1,0 +1,34 @@
+{
+  "name": "Carry it further",
+  "order": 97,
+  "goal": "Add two 3-bit numbers, A2 A1 A0 and B2 B1 B0. S2 S1 S0 get the sum, and COUT the carry out of the top bit.",
+  "hint": "The carry reaches each column later than the one before. Whatever meets it there has to wait for it.",
+  "tickLimit": 60,
+  "maxWireDelay": 4,
+  "delayBudget": 9,
+  "maxLatency": 6,
+  "board": { "columns": 13, "rows": 7 },
+  "fixtures": [
+    { "id": "a2",   "kind": "Source", "cell": { "x": -6, "y": -1 }, "stream": "0000000001111111" },
+    { "id": "a1",   "kind": "Source", "cell": { "x": -6, "y":  1 }, "stream": "0000011110011111" },
+    { "id": "a0",   "kind": "Source", "cell": { "x": -6, "y":  3 }, "stream": "0111100110100111" },
+    { "id": "b2",   "kind": "Source", "cell": { "x": -6, "y": -2 }, "stream": "1001100011001011" },
+    { "id": "b1",   "kind": "Source", "cell": { "x": -6, "y":  0 }, "stream": "0001101011011001" },
+    { "id": "b0",   "kind": "Source", "cell": { "x": -6, "y":  2 }, "stream": "0010101111100111" },
+    { "id": "s2",   "kind": "Sink",   "cell": { "x":  6, "y": -1 } },
+    { "id": "s1",   "kind": "Sink",   "cell": { "x":  6, "y":  1 } },
+    { "id": "s0",   "kind": "Sink",   "cell": { "x":  6, "y":  3 } },
+    { "id": "cout", "kind": "Sink",   "cell": { "x":  6, "y": -3 } }
+  ],
+  "budget": [
+    { "kind": "Xor", "count": 5 },
+    { "kind": "And", "count": 5 },
+    { "kind": "Or",  "count": 2 }
+  ],
+  "expected": [
+    { "sink": "s2",   "values": "1001001100101011" },
+    { "sink": "s1",   "values": "0011010011100001" },
+    { "sink": "s0",   "values": "0101001001000000" },
+    { "sink": "cout", "values": "0000100011011111" }
+  ]
+}
