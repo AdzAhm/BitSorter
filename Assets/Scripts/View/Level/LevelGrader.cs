@@ -451,6 +451,11 @@ namespace BitSorter.View
         ///
         /// A row past the end of the streams -- a register's tail -- has no inputs to name, and
         /// says so rather than printing an empty pair of brackets.
+        ///
+        /// Past four inputs the row is written as one word, the way the table writes it: "Row 12
+        /// (A2 A1 A0 B2 B1 B0 = 101100)". One by one, five inputs ran the verdict past the line
+        /// under the banner (766 pixels of 760) and six to 832; as one word six take 705. Four
+        /// fit either way, so they keep naming each input, which says more.
         /// </remarks>
         public static string Row(LevelDefinition level, int vector)
         {
@@ -459,7 +464,8 @@ namespace BitSorter.View
             if (level == null)
                 return row;
 
-            var inputs = new System.Text.StringBuilder();
+            var labels = new List<string>();
+            var bits = new System.Text.StringBuilder();
 
             foreach (LevelFixture fixture in level.Fixtures)
             {
@@ -469,13 +475,42 @@ namespace BitSorter.View
                 if (vector < 0 || vector >= fixture.Stream.Count)
                     continue;
 
-                if (inputs.Length > 0)
-                    inputs.Append(", ");
-
-                inputs.Append($"{LevelRules.BoardLabel(fixture.Id)} = {(int)fixture.Stream[vector]}");
+                labels.Add(LevelRules.BoardLabel(fixture.Id));
+                bits.Append((int)fixture.Stream[vector]);
             }
 
-            return inputs.Length > 0 ? $"{row} ({inputs})" : $"{row} (after the last input)";
+            if (labels.Count == 0)
+                return $"{row} (after the last input)";
+
+            if (labels.Count > MostInputsNamedOneByOne)
+                return $"{row} ({string.Join(AllOneLetter(labels) ? string.Empty : " ", labels)} = {bits})";
+
+            var inputs = new System.Text.StringBuilder();
+
+            for (int i = 0; i < labels.Count; i++)
+            {
+                if (i > 0)
+                    inputs.Append(", ");
+
+                inputs.Append($"{labels[i]} = {bits[i]}");
+            }
+
+            return $"{row} ({inputs})";
+        }
+
+        /// <summary>How many inputs a row still names one by one; past this they are one word.</summary>
+        public const int MostInputsNamedOneByOne = 4;
+
+        /// <summary>Names run together as one word only when each is one letter, or they blur.</summary>
+        private static bool AllOneLetter(List<string> labels)
+        {
+            foreach (string label in labels)
+            {
+                if (label.Length != 1)
+                    return false;
+            }
+
+            return true;
         }
 
         /// <summary>The tick a vector leaves its sources on.</summary>

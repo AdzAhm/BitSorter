@@ -82,6 +82,64 @@ namespace BitSorter.LogicCore.Tests
                 string.Join("\n  ", tooLong));
         }
 
+        /// <summary>A level with these sources, each emitting the given bits, into one bin.</summary>
+        private static LevelDefinition Inputs(params (string id, string stream)[] sources)
+        {
+            var fixtures = new System.Text.StringBuilder();
+            int y = 3;
+
+            foreach (var source in sources)
+            {
+                fixtures.Append($@"{{ ""id"": ""{source.id}"", ""kind"": ""Source"", ""cell"": {{ ""x"": -6, ""y"": {y--} }}, ""stream"": ""{source.stream}"" }},");
+            }
+
+            string zeros = new string('0', sources[0].stream.Length);
+
+            return LevelLoader.Parse($@"{{
+                ""name"": ""Inputs"", ""tickLimit"": 100,
+                ""fixtures"": [ {fixtures} {{ ""id"": ""out"", ""kind"": ""Sink"", ""cell"": {{ ""x"": 6, ""y"": 0 }} }} ],
+                ""budget"": [ {{ ""kind"": ""And"", ""count"": 1 }} ],
+                ""expected"": [ {{ ""sink"": ""out"", ""values"": ""{zeros}"" }} ]
+            }}", new Vector2Int(6, 3)).Level;
+        }
+
+        [Test]
+        public void UpToFourInputs_AreNamedOneByOne()
+        {
+            Assert.AreEqual("Row 2 (A = 1, B = 0, C = 1)",
+                LevelGrader.Row(Inputs(("a", "01"), ("b", "00"), ("c", "01")), 1));
+
+            Assert.AreEqual("Row 2 (A1 = 1, A0 = 0, B1 = 1, B0 = 1)",
+                LevelGrader.Row(Inputs(("a1", "01"), ("a0", "00"), ("b1", "01"), ("b0", "01")), 1));
+        }
+
+        /// <summary>Past four, the inputs are one word, the way the table's row reads.</summary>
+        [Test]
+        public void MoreThanFourInputs_AreOneWord()
+        {
+            Assert.AreEqual("Row 2 (ABCDE = 10110)",
+                LevelGrader.Row(Inputs(("a", "01"), ("b", "00"), ("c", "01"), ("d", "01"), ("e", "00")), 1));
+
+            Assert.AreEqual("Row 2 (A2 A1 A0 B2 B1 B0 = 101100)",
+                LevelGrader.Row(Inputs(("a2", "01"), ("a1", "00"), ("a0", "01"), ("b2", "01"), ("b1", "00"), ("b0", "00")), 1));
+        }
+
+        /// <summary>
+        /// Six two-letter inputs as one word fit the line, where one by one they ran past it: the
+        /// reason the form exists.
+        /// </summary>
+        [Test]
+        public void SixInputs_FitTheLine()
+        {
+            LevelDefinition level = Inputs(
+                ("a2", "1"), ("a1", "1"), ("a0", "1"), ("b2", "1"), ("b1", "1"), ("b0", "1"));
+
+            string line = StatusBanner.FailPrefix +
+                          LevelGrader.Words.NothingArrived(LevelGrader.Row(level, 0), "cout", "a bit");
+
+            Assert.LessOrEqual(UiTheme.TextWidth(line, StatusBanner.VerdictType), UiTheme.BannerTextWidth, line);
+        }
+
         /// <summary>A bin and an input are named as the board labels them, and a wrong bit says what was wanted.</summary>
         [Test]
         public void AVerdict_NamesThingsAsTheBoardDoes()
