@@ -322,6 +322,56 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsTrue(sawANote, "sanity: four sources should show why the table button is off");
         }
 
+        /// <summary>
+        /// The fullest setup free play allows -- every source and sink its board holds, and every
+        /// vector -- keeps every row inside the panel.
+        /// </summary>
+        /// <remarks>
+        /// The panel is as tall as its rows, but stops at <see cref="UiRows.PanelFloor"/>, so rows
+        /// past that were drawn on below its background, over the board. Free play's board went
+        /// from five rows to seven, and seven sources and seven sinks came to more than the room.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator TheFullestSetup_StaysInsideThePanel()
+        {
+            yield return TestScene.Load();
+            yield return OpenFreePlay();
+
+            int capacity = SandboxLevel.Capacity(SandboxLevel.Board);
+
+            foreach (string caption in new[] { "Sources", "Sinks", "Vectors" })
+            {
+                for (int press = 0; press < 12; press++)
+                {
+                    Button plus = StepButton(caption, "+");
+
+                    if (!plus.interactable)
+                        break;
+
+                    plus.onClick.Invoke();
+                    yield return null;
+                }
+            }
+
+            yield return null;
+
+            Assert.AreEqual(capacity, Sources(), "sanity: the sources did not reach the board's capacity");
+            Assert.AreEqual(capacity, int.Parse(SetupLabel("Sinks count").text), "sanity: nor did the sinks");
+
+            RectTransform panel = GameObject.Find("Sandbox setup").GetComponent<RectTransform>();
+            var corners = new Vector3[4];
+            panel.GetWorldCorners(corners);
+            float panelBottom = corners[0].y;
+
+            foreach (RectTransform part in panel.GetComponentsInChildren<RectTransform>())
+            {
+                part.GetWorldCorners(corners);
+
+                Assert.GreaterOrEqual(corners[0].y, panelBottom - 0.5f,
+                    $"'{part.name}' reaches {panelBottom - corners[0].y:F0}px below the setup panel");
+            }
+        }
+
         private static int Sources() => int.Parse(SetupLabel("Sources count").text);
 
         /// <summary>
