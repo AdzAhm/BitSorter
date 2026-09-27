@@ -212,6 +212,19 @@ namespace BitSorter.LogicCore.Tests
             Assert.IsTrue(LevelRules.CanEdit(RunState.Editing).IsValid);
         }
 
+        /// <summary>
+        /// A run that has ended takes an edit: the edit is what puts the board back to editing, with
+        /// no RESET first.
+        /// </summary>
+        [TestCase(RunState.Passed)]
+        [TestCase(RunState.Failed)]
+        [TestCase(RunState.Finished)]
+        public void AFinishedRun_TakesAnEdit(RunState state)
+        {
+            Assert.IsTrue(LevelRules.CanEdit(state, false).IsValid, "the gate");
+            Assert.IsTrue(Place(GateKind.Not, LevelTestFixtures.MiddleCell, state).IsValid, "placing");
+        }
+
         private static void AssertRefused(LevelVerdict verdict, LevelOutcome expected)
         {
             Assert.IsFalse(verdict.IsValid, "expected a refusal");

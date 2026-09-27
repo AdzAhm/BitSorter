@@ -196,6 +196,142 @@ namespace BitSorter.PlayMode.Tests
         }
 
         // -----------------------------------------------------------------
+        // After a run: straight back to editing
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// Boots past the menu and the tutorial onto <see cref="Level"/>, and wires its source
+        /// straight into the ONE bin -- a 0 where a 1 is wanted, so a run fails -- or, with
+        /// <paramref name="solve"/>, through a NOT so it passes.
+        /// </summary>
+        private static IEnumerator OnTheLevel(bool solve)
+        {
+            yield return TestScene.Load();
+
+            Find<ProgressTracker>().Store.MarkMilestone(TutorialLevel.Key);
+            Find<MainMenu>().Show(false);
+            yield return null;
+
+            LevelSession session = Find<LevelSession>();
+            SimulationRunner runner = Find<SimulationRunner>();
+
+            Assert.IsTrue(session.LoadLevel(Level), "the level did not load");
+            yield return null;
+
+            if (solve)
+            {
+                Assert.IsTrue(session.TryPlaceGate(GateKind.Not, Middle), "could not place the NOT gate");
+                Wire(session, runner.FixtureNodeIds["in"], NodeOn(runner, Middle));
+                Wire(session, NodeOn(runner, Middle), runner.FixtureNodeIds["binOne"]);
+            }
+            else
+            {
+                Wire(session, runner.FixtureNodeIds["in"], runner.FixtureNodeIds["binOne"]);
+            }
+        }
+
+        /// <summary>
+        /// A finished run takes an edit, and the edit is what puts the board back to editing. Nobody
+        /// has to press RESET first -- which playtesters did not know to do, and which read as the
+        /// board having locked up (2026-09-27).
+        /// </summary>
+        [UnityTest]
+        public IEnumerator AfterARunEnds_AnEdit_PutsTheBoardBackToEditing()
+        {
+            yield return OnTheLevel(solve: false);
+
+            LevelSession session = Find<LevelSession>();
+            SimulationRunner runner = Find<SimulationRunner>();
+
+            session.Run();
+            RunToAStandstill(runner);
+            yield return null;   // the session's own frame settles the run
+
+            Assert.AreEqual(RunState.Failed, session.State, "sanity: a 0 in the ONE bin should fail");
+
+            // Every panel that watches the run has had its frame to see the verdict.
+            yield return null;
+            yield return null;
+
+            Assert.IsTrue(session.CanEdit, "a finished run should be editable without pressing RESET");
+            Assert.IsTrue(session.TryPlaceGate(GateKind.Not, Middle), "the edit was refused");
+
+            Assert.AreEqual(RunState.Editing, session.State, "the edit should have ended the finished run");
+            Assert.AreEqual(0, runner.View.CurrentTick, "the board should be back at tick 0");
+            Assert.IsFalse(runner.ClockRunning, "editing holds the clock at tick 0");
+        }
+
+        /// <summary>
+        /// For the frame a run ends and the one after, an edit is still refused as though the run
+        /// were going.
+        /// </summary>
+        /// <remarks>
+        /// The win panel, the tutorial, the celebration and the chime each notice a pass by watching
+        /// the state in their own Update, and Unity does not say which order those run in. An edit
+        /// that ended the run in the frame it passed -- or in the next, from a controller like the
+        /// wiring one that updates before everything else -- could put the board back to editing
+        /// before some of them had looked, and the solved card would never come up. The player's
+        /// click in that frame was aimed at a board that was still running on their screen.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator AnEditInTheFrameARunEnds_OrTheNext_IsStillRefused()
+        {
+            yield return OnTheLevel(solve: false);
+
+            LevelSession session = Find<LevelSession>();
+            SimulationRunner runner = Find<SimulationRunner>();
+
+            session.enabled = false;
+            session.Run();
+            RunToAStandstill(runner);
+
+            SessionFrame(session);   // the frame the run ends
+            Assert.AreEqual(RunState.Failed, session.State, "sanity: the run should have ended");
+
+            Assert.IsFalse(session.TryPlaceGate(GateKind.Not, Middle), "an edit in the frame the run ended");
+            Assert.AreEqual(RunState.Failed, session.State, "a refused edit must leave the verdict standing");
+
+            yield return null;
+            Assert.IsFalse(session.TryPlaceGate(GateKind.Not, Middle), "an edit in the frame after");
+
+            yield return null;
+            Assert.IsTrue(session.TryPlaceGate(GateKind.Not, Middle),
+                "two frames on, every watcher has seen the verdict and the edit should go ahead");
+            Assert.AreEqual(RunState.Editing, session.State);
+
+            session.enabled = true;
+        }
+
+        /// <summary>An edit after a pass puts the solved card away, as a reset or a new run does.</summary>
+        [UnityTest]
+        public IEnumerator AnEditAfterAPass_PutsTheSolvedCardAway()
+        {
+            yield return OnTheLevel(solve: true);
+
+            LevelSession session = Find<LevelSession>();
+            SimulationRunner runner = Find<SimulationRunner>();
+            WinPanel win = Find<WinPanel>();
+
+            session.Run();
+            RunToAStandstill(runner);
+
+            for (int frame = 0; frame < 3; frame++)
+                yield return null;
+
+            Assert.AreEqual(RunState.Passed, session.State, "sanity: the NOT should pass");
+            Assert.IsTrue(win.IsShowing, "sanity: the solved card should be up");
+
+            // TryRemoveAt answers whether the click was handled, and a refusal is handled too, so the
+            // gate's absence is what says the edit went ahead.
+            session.TryRemoveAt(Middle);
+            yield return null;
+
+            Assert.AreEqual(0, session.PlacedCountOf(GateKind.Not), "the edit was refused");
+            Assert.AreEqual(RunState.Editing, session.State);
+            Assert.IsFalse(win.IsShowing, "the solved card stayed up over a board that is being edited");
+        }
+
+        // -----------------------------------------------------------------
         // Helpers
         // -----------------------------------------------------------------
 
