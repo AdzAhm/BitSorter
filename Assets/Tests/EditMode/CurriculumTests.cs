@@ -92,6 +92,7 @@ namespace BitSorter.LogicCore.Tests
                 "which-is-bigger",
                 "half-adder",
                 "carry-the-one",
+                "pass-it-on",
 
                 // Sequential logic: circuits that remember.
                 "one-clock-late",
