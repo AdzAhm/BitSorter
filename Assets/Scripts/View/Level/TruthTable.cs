@@ -39,12 +39,11 @@ namespace BitSorter.View
             if (sources.Count == 0 || level.Expectations.Count == 0)
                 return string.Empty;
 
-            int width = ColumnWidth(sources, level.Expectations);
-
             var text = new StringBuilder();
 
-            AppendHeader(text, sources, level.Expectations, width);
-            AppendRule(text, sources, level.Expectations, width);
+            string header = Header(sources, level.Expectations);
+            text.Append(header).Append('\n');   // explicit, so the table reads the same on every platform
+            AppendRule(text, header);
 
             // One row per clock cycle, which is one per vector until a register is involved: a sink
             // fed through one receives the bit it was holding after the last vector has gone in, so
@@ -60,7 +59,7 @@ namespace BitSorter.View
             }
 
             for (int cycle = 0; cycle < cycles; cycle++)
-                AppendRow(text, sources, level.Expectations, cycle, width);
+                AppendRow(text, sources, level.Expectations, cycle);
 
             return text.ToString();
         }
@@ -95,71 +94,56 @@ namespace BitSorter.View
         }
 
         /// <summary>
-        /// How many characters every column is padded to: the longest name in this table, never
-        /// fewer than three.
+        /// How many characters a column is: its own name's length.
         /// </summary>
         /// <remarks>
-        /// Derived rather than fixed, because a fixed width has to truncate and truncation
-        /// collides. It was three, and route-the-bit grades `binOne` and `binZero` -- both of which
-        /// came out as "bin", on the one level whose lesson is that the other bin must stay empty.
+        /// Each column its own, not every column the longest name in the table. They were all padded
+        /// to one width, so on the half adder -- whose longest name is "carry" -- "a" and "b" sat six
+        /// characters apart with nothing under their headings but a lone dash, and a playtester took
+        /// the table for broken (2026-09-27).
         ///
-        /// There is no cap. A level with a very long fixture id gets a wide table, which is visible
-        /// and self-explanatory and tells the author to shorten the id; two columns with the same
-        /// heading is neither. Every shipped level's longest name is seven characters.
+        /// Never truncated: a fixed width has to truncate and truncation collides. It was three, and
+        /// route-the-bit grades `binOne` and `binZero` -- both of which came out as "bin", on the one
+        /// level whose lesson is that the other bin must stay empty. A level with a very long fixture
+        /// id gets a wide column, which is visible and tells the author to shorten the id.
         /// </remarks>
-        private static int ColumnWidth(
-            List<LevelFixture> sources, IReadOnlyList<LevelExpectation> sinks)
+        private static int ColumnWidth(string name) => name.Length > 1 ? name.Length : 1;
+
+        /// <summary>Between two columns, and around the bar between inputs and outputs.</summary>
+        private const string Gap = "  ";
+
+        private static string Header(List<LevelFixture> sources, IReadOnlyList<LevelExpectation> sinks)
         {
-            int width = 3;
+            var text = new StringBuilder();
 
             for (int i = 0; i < sources.Count; i++)
-            {
-                if (sources[i].Id.Length > width)
-                    width = sources[i].Id.Length;
-            }
+                text.Append(i > 0 ? Gap : string.Empty).Append(sources[i].Id);
+
+            text.Append(Gap).Append('|');
 
             for (int i = 0; i < sinks.Count; i++)
-            {
-                if (sinks[i].SinkId.Length > width)
-                    width = sinks[i].SinkId.Length;
-            }
+                text.Append(Gap).Append(sinks[i].SinkId);
 
-            return width;
+            return text.ToString();
         }
 
-        private static void AppendHeader(
-            StringBuilder text, List<LevelFixture> sources, IReadOnlyList<LevelExpectation> sinks,
-            int width)
+        /// <summary>
+        /// A solid rule under the header, crossing the bar with a plus: a line, where it was a dash
+        /// under each column that read as a row of minus signs.
+        /// </summary>
+        private static void AppendRule(StringBuilder text, string header)
         {
-            for (int i = 0; i < sources.Count; i++)
-                text.Append(Cell(sources[i].Id, width));
+            int bar = header.IndexOf('|');
 
-            text.Append(" |");
-
-            for (int i = 0; i < sinks.Count; i++)
-                text.Append(Cell(sinks[i].SinkId, width));
-
-            text.Append('\n');   // explicit, so the table reads the same on every platform
-        }
-
-        private static void AppendRule(
-            StringBuilder text, List<LevelFixture> sources, IReadOnlyList<LevelExpectation> sinks,
-            int width)
-        {
-            for (int i = 0; i < sources.Count; i++)
-                text.Append(Cell("-", width));
-
-            text.Append(" +");
-
-            for (int i = 0; i < sinks.Count; i++)
-                text.Append(Cell("-", width));
+            for (int i = 0; i < header.Length; i++)
+                text.Append(i == bar ? '+' : '-');
 
             text.Append('\n');   // explicit, so the table reads the same on every platform
         }
 
         private static void AppendRow(
             StringBuilder text, List<LevelFixture> sources,
-            IReadOnlyList<LevelExpectation> sinks, int vector, int width)
+            IReadOnlyList<LevelExpectation> sinks, int vector)
         {
             for (int i = 0; i < sources.Count; i++)
             {
@@ -171,10 +155,10 @@ namespace BitSorter.View
                     ? ((int)source.Stream[vector]).ToString()
                     : ".";
 
-                text.Append(Cell(bit, width));
+                text.Append(i > 0 ? Gap : string.Empty).Append(Cell(bit, ColumnWidth(source.Id)));
             }
 
-            text.Append(" |");
+            text.Append(Gap).Append('|');
 
             for (int i = 0; i < sinks.Count; i++)
             {
@@ -188,23 +172,25 @@ namespace BitSorter.View
 
                 // A silent vector is shown as a gap rather than a dash, because a dash next to a
                 // column of noughts reads as a minus sign. A don't-care keeps its 'x'.
-                text.Append(Cell(c == '-' ? "." : c.ToString(), width));
+                text.Append(Gap).Append(Cell(c == '-' ? "." : c.ToString(), ColumnWidth(sinks[i].SinkId)));
             }
 
             text.Append('\n');   // explicit, so the table reads the same on every platform
         }
 
         /// <summary>
-        /// One column, padded to <paramref name="width"/> so the table lines up in a monospaced
-        /// block. Never truncates: the width is chosen to fit.
+        /// One value, centred under its column's heading so the table lines up in a monospaced
+        /// block. An odd width leaves the value dead centre; an even one puts it just left of it.
         /// </summary>
         /// <remarks>
-        /// This used to truncate to three characters, on the grounds that three is enough to tell
-        /// "sum" from "cout". It is, and it is not enough to tell "binOne" from "binZero" -- see
-        /// <see cref="ColumnWidth"/>. A heading has to be the name the level's goal uses, because
-        /// that is the string the player is reading everywhere else.
+        /// Centred rather than right-aligned. Right-aligned, a digit under "carry" sat under its
+        /// last letter, away from the heading's middle, where the eye looks for it.
         /// </remarks>
-        private static string Cell(string content, int width) =>
-            " " + content.PadLeft(width);
+        private static string Cell(string content, int width)
+        {
+            int left = (width - content.Length) / 2;
+
+            return content.PadLeft(content.Length + left).PadRight(width);
+        }
     }
 }
