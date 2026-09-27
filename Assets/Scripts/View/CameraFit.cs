@@ -37,6 +37,9 @@ namespace BitSorter.View
         [Tooltip("The help panel, on the right while it is open.")]
         [SerializeField] private HelpPanel _help;
 
+        [Tooltip("The level's banner, over the middle of the top edge.")]
+        [SerializeField] private StatusBanner _banner;
+
         [Tooltip("World units of clearance around the outermost cells.")]
         [SerializeField] private float _margin = 1.4f;
 
@@ -49,6 +52,7 @@ namespace BitSorter.View
         private int _height;
         private float _left = -1f;
         private float _right = -1f;
+        private float _top = -1f;
 
         private void Awake()
         {
@@ -59,6 +63,7 @@ namespace BitSorter.View
             if (_palette == null) _palette = FindFirstObjectByType<GatePaletteView>();
             if (_sandbox == null) _sandbox = FindFirstObjectByType<SandboxPanel>();
             if (_help == null) _help = FindFirstObjectByType<HelpPanel>();
+            if (_banner == null) _banner = FindFirstObjectByType<StatusBanner>();
         }
 
         private void OnEnable()
@@ -66,7 +71,7 @@ namespace BitSorter.View
             if (_grid != null)
                 _grid.Resized += Refit;
 
-            Apply(LeftInset(), RightInset());
+            Apply(LeftInset(), RightInset(), TopInset());
         }
 
         private void OnDisable()
@@ -76,25 +81,27 @@ namespace BitSorter.View
         }
 
         /// <summary>The board changed size, from the call that changed it: frame the new one now.</summary>
-        private void Refit() => Apply(LeftInset(), RightInset());
+        private void Refit() => Apply(LeftInset(), RightInset(), TopInset());
 
         private void Update()
         {
             float left = LeftInset();
             float right = RightInset();
+            float top = TopInset();
 
             // Only on an actual change. The alternative is re-framing every frame forever to discover
             // nothing moved.
             if (Screen.width == _width && Screen.height == _height &&
-                Mathf.Approximately(left, _left) && Mathf.Approximately(right, _right))
+                Mathf.Approximately(left, _left) && Mathf.Approximately(right, _right) &&
+                Mathf.Approximately(top, _top))
             {
                 return;
             }
 
-            Apply(left, right);
+            Apply(left, right, top);
         }
 
-        private void Apply(float left, float right)
+        private void Apply(float left, float right, float top)
         {
             if (_camera == null || !_camera.orthographic)
                 return;
@@ -103,9 +110,11 @@ namespace BitSorter.View
             _height = Screen.height;
             _left = left;
             _right = right;
+            _top = top;
 
             Framing framing = CameraFraming.Fit(
-                RequiredHalfWidth(), RequiredHalfHeight(), _authoredSize, _width, _height, left, right);
+                RequiredHalfWidth(), RequiredHalfHeight(), RequiredTop(), _authoredSize,
+                _width, _height, left, right, top);
 
             _camera.orthographicSize = framing.OrthographicSize;
 
@@ -135,10 +144,21 @@ namespace BitSorter.View
             return edge > 0f ? Screen.width - edge + _insetGap : 0f;
         }
 
-        /// <summary>Half the world width the board needs, including its margin.</summary>
+        /// <summary>Pixels the banner takes along the top edge.</summary>
+        /// <remarks>
+        /// No gap added, unlike the sides: a part's outline is drawn inside its square with room to
+        /// spare, so its square meeting the banner still leaves space between the two -- and a gap
+        /// here would shrink every level whose goal runs to two lines, for nothing on screen.
+        /// </remarks>
+        private float TopInset()
+        {
+            float edge = _banner != null ? _banner.ScreenBottomEdge : 0f;
+            return edge > 0f ? Screen.height - edge : 0f;
+        }
+
         /// <summary>
-        /// The bottom row and the names under it -- the lower half is the taller, since nothing
-        /// hangs above the top row.
+        /// The bottom row and the names under it. Nothing hangs above the top row, so the lower
+        /// half is the taller -- but the banner hangs over it, which is <see cref="RequiredTop"/>.
         /// </summary>
         private float RequiredHalfHeight()
         {
@@ -151,6 +171,16 @@ namespace BitSorter.View
         /// <summary>World units of clearance below the bottom row's names.</summary>
         private const float VerticalMargin = 0.2f;
 
+        /// <summary>How far above the centre a part on the top row reaches.</summary>
+        private float RequiredTop()
+        {
+            if (_grid == null)
+                return 0f;
+
+            return _grid.HalfExtents.y * _grid.CellSize + PortGeometry.NodeSize * 0.5f;
+        }
+
+        /// <summary>Half the world width the board needs, including its margin.</summary>
         private float RequiredHalfWidth()
         {
             if (_grid == null)

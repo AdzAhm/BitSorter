@@ -57,6 +57,61 @@ namespace BitSorter.LogicCore.Tests
             Assert.AreEqual(without.OrthographicSize, withHeight.OrthographicSize, 1e-5f);
         }
 
+        /// <summary>
+        /// A seven-row board on a wide screen shows its top row below a banner covering the top of
+        /// the screen, where fitted by its height alone it reached under it.
+        /// </summary>
+        [Test]
+        public void ATallBoard_ClearsTheBanner()
+        {
+            const float halfHeight = 3 * 2f + NodeRenderer.LabelReach + 0.2f;
+            const float top = 3 * 2f + PortGeometry.NodeSize * 0.5f;
+            const float banner = 88f;
+            const float height = 1080f;
+
+            Framing byHeight = CameraFraming.Fit(HalfWidth, halfHeight, Authored, 2560f, height, 0f, 0f);
+            Assert.Greater(top, byHeight.OrthographicSize * (1f - 2f * banner / height),
+                "sanity: fitted by its height alone, the top row reaches under the banner");
+
+            Framing framing = CameraFraming.Fit(HalfWidth, halfHeight, top, Authored, 2560f, height, 0f, 0f, banner);
+
+            // Where the top of the row lands, in pixels down from the top of the screen.
+            float fromTheTop = (framing.OrthographicSize - top) * height / (2f * framing.OrthographicSize);
+            Assert.GreaterOrEqual(fromTheTop, banner - 1e-2f, "the top row is under the banner");
+        }
+
+        /// <summary>
+        /// Five rows already clear a banner of one or two lines, so the banner changes nothing for
+        /// them -- every level on the standard board frames exactly as it did.
+        /// </summary>
+        [Test]
+        public void TheStandardBoard_IsNotMadeSmallerByTheBanner()
+        {
+            const float halfHeight = 2 * 2f + NodeRenderer.LabelReach + 0.2f;
+            const float top = 2 * 2f + PortGeometry.NodeSize * 0.5f;
+
+            foreach (float banner in new[] { 88f, 109f })
+            {
+                Framing without = CameraFraming.Fit(HalfWidth, halfHeight, Authored, 1920f, 1080f, 180f, 0f);
+                Framing with = CameraFraming.Fit(HalfWidth, halfHeight, top, Authored, 1920f, 1080f, 180f, 0f, banner);
+
+                Assert.AreEqual(without.OrthographicSize, with.OrthographicSize, 1e-5f, $"a banner {banner}px deep");
+                Assert.AreEqual(without.CameraX, with.CameraX, 1e-5f, $"a banner {banner}px deep");
+            }
+        }
+
+        /// <summary>A banner covering most of the screen is ignored, as side insets that leave no room are.</summary>
+        [Test]
+        public void ABannerThatLeavesNoRoom_IsIgnored()
+        {
+            const float top = 3 * 2f + PortGeometry.NodeSize * 0.5f;
+
+            Framing framing = CameraFraming.Fit(HalfWidth, 0f, top, Authored, 2560f, 1080f, 0f, 0f, 500f);
+            Framing plain = CameraFraming.Fit(HalfWidth, 0f, Authored, 2560f, 1080f, 0f, 0f);
+
+            Assert.AreEqual(plain.OrthographicSize, framing.OrthographicSize, 1e-4f);
+        }
+
         [Test]
         public void AWideScreen_KeepsTheAuthoredFraming()
         {

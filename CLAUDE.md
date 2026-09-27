@@ -677,7 +677,10 @@ failure side.
   level already sees its board, and `PlacementGrid.Resized` is what `CameraFit`
   and `GridPulse` refit on. **There is no pan and no zoom**: the whole board is
   always on screen, fitted in width between the interface on either side and
-  in height down to the names under the bottom row. That is why the cap
+  in height down to the names under the bottom row -- and with the top row
+  clear of the banner, which a seven-row board fitted by height alone reached
+  under (`CameraFit.TopInset`, the drawn banner rather than its reserved row,
+  so a short goal costs no board). That is why the cap
   exists -- a bigger board would only mean smaller cells, and 13 by 7 is the
   largest drawn and seen still readable with free play's setup panel open.
   A 9 by 5 board renders exactly as it did before boards could change size,

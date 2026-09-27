@@ -72,6 +72,33 @@ namespace BitSorter.View
         private string _verdictReason;
         private bool _verdictPaused;
 
+        private readonly Vector3[] _corners = new Vector3[4];
+
+        /// <summary>
+        /// The banner's bottom edge, in screen pixels up from the bottom of the screen, or zero
+        /// before it is built.
+        /// </summary>
+        /// <remarks>
+        /// Read by <see cref="CameraFit"/>, which keeps the board's top row below it. The drawn
+        /// panel, not its reserved row: the banner shrinks to the goal it shows, and a board framed
+        /// against the tallest goal any level has would be smaller on every level for the sake of
+        /// three of them.
+        ///
+        /// Measured whether or not the banner is showing, for the reason the parts list gives: a
+        /// board that re-framed every time a full-screen panel opened would jump about behind it.
+        /// </remarks>
+        public float ScreenBottomEdge
+        {
+            get
+            {
+                if (_root == null)
+                    return 0f;
+
+                _root.GetWorldCorners(_corners);
+                return _corners[0].y;
+            }
+        }
+
         private void Awake()
         {
             if (_session == null) _session = FindFirstObjectByType<LevelSession>();

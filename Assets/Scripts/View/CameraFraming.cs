@@ -58,7 +58,27 @@ namespace BitSorter.View
         public static Framing Fit(
             float boardHalfWidth, float boardHalfHeight, float authoredSize,
             float screenWidth, float screenHeight,
-            float leftInset, float rightInset)
+            float leftInset, float rightInset) =>
+            Fit(boardHalfWidth, boardHalfHeight, 0f, authoredSize,
+                screenWidth, screenHeight, leftInset, rightInset, 0f);
+
+        /// <inheritdoc cref="Fit(float, float, float, float, float, float, float)"/>
+        /// <param name="boardTop">
+        /// How far above the board's centre its top row reaches, in world units: the top of a part
+        /// placed there.
+        /// </param>
+        /// <param name="topInset">Pixels covered along the top edge.</param>
+        /// <remarks>
+        /// The banner sits over the middle of the top edge, and a seven-row board fitted only by its
+        /// height put its top row under it -- in Four lanes the AND there was cut off at the top.
+        /// The camera stays centred on the board, so clearing the banner means showing more, never
+        /// moving: the room above the centre is the size less the inset's share of it. The standard
+        /// five rows clear a one- or two-line banner already, so for them this changes nothing.
+        /// </remarks>
+        public static Framing Fit(
+            float boardHalfWidth, float boardHalfHeight, float boardTop, float authoredSize,
+            float screenWidth, float screenHeight,
+            float leftInset, float rightInset, float topInset)
         {
             if (screenWidth <= 0f || screenHeight <= 0f)
                 return new Framing(authoredSize, 0f);
@@ -84,6 +104,14 @@ namespace BitSorter.View
 
             if (boardHalfHeight > size)
                 size = boardHalfHeight;
+
+            // size * (1 - 2 * top / height) world units show above the centre and below the inset.
+            // An inset that would leave under a quarter of the screen is ignored, as the side ones
+            // are: a board shrunk to nothing to clear it is the worse answer.
+            float belowTheTop = 1f - 2f * (topInset < 0f ? 0f : topInset) / screenHeight;
+
+            if (boardTop > 0f && belowTheTop >= 0.25f && boardTop / belowTheTop > size)
+                size = boardTop / belowTheTop;
 
             // The board's centre belongs at the centre of the free span, which is
             // (left - right) / 2 pixels right of the screen's centre. Moving the camera the other

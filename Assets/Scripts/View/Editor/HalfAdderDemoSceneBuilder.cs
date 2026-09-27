@@ -162,6 +162,9 @@ namespace BitSorter.View.EditorTools
             Assign(fit, "_palette", palette);
             Assign(fit, "_sandbox", sandbox);
             Assign(fit, "_help", help);
+
+            // And the banner over the top edge, which a seven-row board's top row would reach.
+            Assign(fit, "_banner", banner);
             Assign(bits, "_sparks", sparks);
             Assign(scorch, "_runner", runner);
 
