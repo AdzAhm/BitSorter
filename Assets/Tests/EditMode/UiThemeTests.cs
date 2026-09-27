@@ -351,6 +351,27 @@ namespace BitSorter.LogicCore.Tests
                 "at 16:9 the controls beside the buttons run under the F2 readouts in the corners");
         }
 
+        /// <summary>
+        /// The upper lines beside the buttons are short enough to stop clear of the board's edge
+        /// columns, whose bottom-row names sit level with them.
+        /// </summary>
+        /// <remarks>
+        /// Two phrases on the left upper line reached the name of a bottom-left source: "B1drag a
+        /// port to wire" on Pass it on. At 16:9, with the parts list, that name ends about 315
+        /// pixels in, and a line of this width ends no nearer than 960 - 300 - 28 - 200 = 432.
+        /// </remarks>
+        [Test]
+        public void TheUpperLinesBesideTheButtons_StayClearOfTheEdgeColumns()
+        {
+            foreach (ControlSpot spot in new[] { ControlSpot.LeftUpper, ControlSpot.RightUpper })
+            {
+                float needed = UiTheme.TextWidth(ControlsReference.At(spot), UiTheme.ControlsType);
+
+                Assert.LessOrEqual(needed, RunControls.UpperLineWidth,
+                    $"{spot} needs {needed:F0}px; past {RunControls.UpperLineWidth}px it reaches the names under the edge columns");
+            }
+        }
+
         /// <summary>A key over a button is no wider than the narrowest of them.</summary>
         [Test]
         public void EveryKeyOverAButton_FitsOverIt()

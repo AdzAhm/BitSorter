@@ -140,6 +140,12 @@ namespace BitSorter.View
         /// <summary>The widest a block beside the buttons may be; measured by a test, never wrapped.</summary>
         public const float BlockWidth = 360f;
 
+        /// <summary>
+        /// The widest an upper line may be. It is level with the names under the board's bottom
+        /// row, which sit in the edge columns, so it stays clear of them by staying short.
+        /// </summary>
+        public const float UpperLineWidth = 200f;
+
         /// <summary>How wide the row of buttons is, which the blocks sit either side of.</summary>
         public const float RowWidth = 600f;
 
