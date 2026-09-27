@@ -1027,8 +1027,9 @@ its wires in the blueprint, built by nothing, and they return with it.
 **Free play is on its own 13 by 7 board** (`SandboxLevel.Board`), the
 largest a level may name, so a column holds seven fixtures and there is room
 for a circuit bigger than any level's. Boards saved on an older layout are
-brought up a step at a time by `SandboxLevel.Migrate`, which
-`SandboxConfig.layout` gates: 0 centred its fixtures on the 9 by 5 board
+brought up a step at a time by `SandboxLevel.Migrate` -- which the store runs
+on every free-play board as it reads the file, so a board opened later in the
+session arrives migrated too -- gated by `SandboxConfig.layout`: 0 centred its fixtures on the 9 by 5 board
 (a missing `layout` reads as zero), 1 gave them fixed slots on it, and 2 is
 those slots on 13 by 7. Every step moves wire ends slot for slot, counted-away
 slots included, so a circuit wired to A is still wired to A.

@@ -45,6 +45,34 @@ namespace BitSorter.View
         /// <see cref="hintsSeen"/> either, whose ids are held to hint rules by tests.
         /// </remarks>
         public string[] milestones;
+
+        /// <summary>Free play's boards, each under its own name, and which one is open.</summary>
+        /// <remarks>
+        /// Kept apart from <see cref="boards"/>, where free play's one board sat until 4.0.0 under
+        /// the key <c>"sandbox"</c>. <see cref="ProgressStore.Load"/> moves a board found there into
+        /// this list, so a file written by 4.0.0 or later never has one in both places.
+        /// </remarks>
+        public FreePlayFile freePlay;
+    }
+
+    /// <summary>Free play's named boards, as the save file holds them.</summary>
+    [Serializable]
+    public sealed class FreePlayFile
+    {
+        /// <summary>Which of <see cref="saves"/> is open.</summary>
+        public int active;
+
+        public FreePlaySave[] saves;
+    }
+
+    /// <summary>One named free-play board, its setup included.</summary>
+    [Serializable]
+    public sealed class FreePlaySave
+    {
+        public string name;
+
+        /// <summary>The board, carrying its <see cref="SavedBoard.sandbox"/> setup as it always has.</summary>
+        public SavedBoard board;
     }
 
     /// <summary>
@@ -75,6 +103,12 @@ namespace BitSorter.View
         private readonly HashSet<string> _hintsSeen = new HashSet<string>(StringComparer.Ordinal);
 
         private readonly HashSet<string> _milestones = new HashSet<string>(StringComparer.Ordinal);
+
+        /// <summary>Free play's boards, in the order the player made them.</summary>
+        private readonly List<FreePlaySave> _freePlay = new List<FreePlaySave>();
+
+        /// <summary>Which of <see cref="_freePlay"/> is open; meaningless while there are none.</summary>
+        private int _activeFreePlay;
 
         public ProgressStore(string path)
         {
@@ -180,6 +214,8 @@ namespace BitSorter.View
             _boards.Clear();
             _hintsSeen.Clear();
             _milestones.Clear();
+            _freePlay.Clear();
+            _activeFreePlay = 0;
 
             string source = null;
 
@@ -240,6 +276,8 @@ namespace BitSorter.View
                             _milestones.Add(id);
                     }
                 }
+
+                LoadFreePlay(file.freePlay);
             }
             catch (Exception exception)
             {
@@ -315,6 +353,11 @@ namespace BitSorter.View
                     boards = new SavedBoard[_boards.Count],
                     hintsSeen = new string[_hintsSeen.Count],
                     milestones = new string[_milestones.Count],
+                    freePlay = new FreePlayFile
+                    {
+                        active = _activeFreePlay,
+                        saves = _freePlay.ToArray(),
+                    },
                 };
 
                 _completed.CopyTo(file.completed);
@@ -347,6 +390,8 @@ namespace BitSorter.View
             _boards.Clear();
             _hintsSeen.Clear();
             _milestones.Clear();
+            _freePlay.Clear();
+            _activeFreePlay = 0;
             Save();
         }
 
@@ -355,10 +400,40 @@ namespace BitSorter.View
         // -----------------------------------------------------------------
 
         /// <summary>What was left on a level's board, or null if it has never been touched.</summary>
-        public SavedBoard BoardFor(string level) =>
-            !string.IsNullOrEmpty(level) && _boards.TryGetValue(level, out SavedBoard board)
-                ? board
-                : null;
+        /// <remarks>
+        /// Free play's key means the open board, whichever of the player's that is. Everything that
+        /// saves and restores boards -- <see cref="ProgressTracker"/>, the setup panel -- goes on
+        /// asking for one board by one key, and only the store knows there are several.
+        /// </remarks>
+        public SavedBoard BoardFor(string level)
+        {
+            if (string.IsNullOrEmpty(level))
+                return null;
+
+            if (level == SandboxLevel.Key)
+                return _freePlay.Count > 0 ? _freePlay[_activeFreePlay].board : null;
+
+            return _boards.TryGetValue(level, out SavedBoard board) ? board : null;
+        }
+
+        /// <summary>Puts a board in its place: the open free-play board, or the level's.</summary>
+        private void Put(string level, SavedBoard board)
+        {
+            if (level != SandboxLevel.Key)
+            {
+                _boards[level] = board;
+                return;
+            }
+
+            // Free play saved before any board of its own was made: that is the first one.
+            if (_freePlay.Count == 0)
+            {
+                _freePlay.Add(new FreePlaySave { name = BoardNames.First });
+                _activeFreePlay = 0;
+            }
+
+            _freePlay[_activeFreePlay].board = board;
+        }
 
         /// <summary>Remembers what is on a level's board, keeping any record already set.</summary>
         public void SaveBoard(string level, SavedBoard board)
@@ -404,7 +479,7 @@ namespace BitSorter.View
             }
 
             board.level = level;
-            _boards[level] = board;
+            Put(level, board);
 
             return true;
         }
@@ -437,7 +512,7 @@ namespace BitSorter.View
             if (board == null)
             {
                 board = new SavedBoard { level = level };
-                _boards[level] = board;
+                Put(level, board);
             }
 
             // A first solve sets both records without being a personal best -- there was nothing to
@@ -459,6 +534,185 @@ namespace BitSorter.View
             Save();
 
             return gatesBeaten || latencyBeaten;
+        }
+
+        // -----------------------------------------------------------------
+        // Free play's boards
+        // -----------------------------------------------------------------
+
+        /// <summary>How many boards free play has.</summary>
+        public int FreePlayCount => _freePlay.Count;
+
+        /// <summary>Which board is open. Zero while there are none.</summary>
+        public int ActiveFreePlay => _activeFreePlay;
+
+        /// <summary>A board's name, or null for an index with no board.</summary>
+        public string FreePlayName(int index) =>
+            index >= 0 && index < _freePlay.Count ? _freePlay[index].name : null;
+
+        /// <summary>A board's saved state, or null for an index with no board.</summary>
+        public SavedBoard FreePlayBoard(int index) =>
+            index >= 0 && index < _freePlay.Count ? _freePlay[index].board : null;
+
+        /// <summary>Every board's name, in order.</summary>
+        public string[] FreePlayNames()
+        {
+            var names = new string[_freePlay.Count];
+
+            for (int i = 0; i < names.Length; i++)
+                names[i] = _freePlay[i].name;
+
+            return names;
+        }
+
+        /// <summary>Every name but one, for asking whether that one may be renamed to something.</summary>
+        public string[] FreePlayNamesExcept(int index)
+        {
+            var names = new List<string>(_freePlay.Count);
+
+            for (int i = 0; i < _freePlay.Count; i++)
+            {
+                if (i != index)
+                    names.Add(_freePlay[i].name);
+            }
+
+            return names.ToArray();
+        }
+
+        /// <summary>Opens another board, and writes the file. False for an index with no board.</summary>
+        /// <remarks>
+        /// Only the choice: nothing is loaded here. The open board is saved under free play's key
+        /// when free play is left, and that key means whichever board is open -- so the switch has
+        /// to come after that save and before the next restore. <see cref="LevelSession.Adopt"/>
+        /// runs it there.
+        /// </remarks>
+        public bool SelectFreePlay(int index)
+        {
+            if (index < 0 || index >= _freePlay.Count)
+                return false;
+
+            _activeFreePlay = index;
+            Save();
+            return true;
+        }
+
+        /// <summary>
+        /// Adds a board under the given name and writes the file. Its index, or -1 if free play is
+        /// full or the name cannot be used.
+        /// </summary>
+        /// <remarks>Does not open it; see <see cref="SelectFreePlay"/> for why that is separate.</remarks>
+        public int AddFreePlay(string name, SavedBoard board)
+        {
+            if (board == null || _freePlay.Count >= BoardNames.MaxBoards ||
+                BoardNames.Refusal(name, FreePlayNames()) != null)
+            {
+                return -1;
+            }
+
+            board.level = SandboxLevel.Key;
+            _freePlay.Add(new FreePlaySave { name = BoardNames.Clean(name), board = board });
+            Save();
+
+            return _freePlay.Count - 1;
+        }
+
+        /// <summary>Renames a board and writes the file, or says why it cannot.</summary>
+        public bool RenameFreePlay(int index, string name, out string refusal)
+        {
+            refusal = index >= 0 && index < _freePlay.Count
+                ? BoardNames.Refusal(name, FreePlayNamesExcept(index))
+                : "There is no such board.";
+
+            if (refusal != null)
+                return false;
+
+            _freePlay[index].name = BoardNames.Clean(name);
+            Save();
+            return true;
+        }
+
+        /// <summary>
+        /// Removes a board and writes the file; the last one is emptied instead, keeping its name.
+        /// </summary>
+        /// <remarks>
+        /// Free play always has a board to open, so the last cannot go -- but a delete that did
+        /// nothing would say the button is broken. Emptied, it is a fresh board under the name the
+        /// player gave it.
+        ///
+        /// Removing the open board opens the one that took its place in the list, or the one before
+        /// it at the end. Whoever called this loads that one.
+        /// </remarks>
+        public bool DeleteFreePlay(int index)
+        {
+            if (index < 0 || index >= _freePlay.Count)
+                return false;
+
+            if (_freePlay.Count == 1)
+            {
+                _freePlay[0].board = new SavedBoard
+                {
+                    level = SandboxLevel.Key,
+                    sandbox = SandboxLevel.Default(SandboxLevel.Board),
+                };
+            }
+            else
+            {
+                _freePlay.RemoveAt(index);
+
+                if (_activeFreePlay > index || _activeFreePlay >= _freePlay.Count)
+                    _activeFreePlay--;
+            }
+
+            Save();
+            return true;
+        }
+
+        /// <summary>
+        /// Reads free play's boards, bringing a file from before they had names up to date.
+        /// </summary>
+        /// <remarks>
+        /// Up to 3.0.2 free play had one board, kept among the levels' boards under
+        /// <c>"sandbox"</c>. It becomes the first named board and leaves that list, so the next save
+        /// writes it in one place only. A file with named boards already is left as it is, and a
+        /// stray board under the old key beside them is dropped: a file only ever has that from a
+        /// hand edit, and the named ones are the player's.
+        ///
+        /// Every board is moved to free play's current layout here, not when it is opened, so a
+        /// board switched to later in the session arrives on the right slots too.
+        /// </remarks>
+        private void LoadFreePlay(FreePlayFile file)
+        {
+            if (file?.saves != null)
+            {
+                foreach (FreePlaySave save in file.saves)
+                {
+                    if (save?.board == null || _freePlay.Count >= BoardNames.MaxBoards)
+                        continue;
+
+                    // A name the rules would refuse -- empty, too long, or a second copy of one
+                    // already read -- is renamed rather than dropped: the board is what matters.
+                    string name = BoardNames.Refusal(save.name, FreePlayNames()) == null
+                        ? BoardNames.Clean(save.name)
+                        : _freePlay.Count == 0 ? BoardNames.First : BoardNames.NextDefault(FreePlayNames());
+
+                    save.board.level = SandboxLevel.Key;
+                    _freePlay.Add(new FreePlaySave { name = name, board = save.board });
+                }
+            }
+
+            if (_boards.TryGetValue(SandboxLevel.Key, out SavedBoard single))
+            {
+                _boards.Remove(SandboxLevel.Key);
+
+                if (_freePlay.Count == 0)
+                    _freePlay.Add(new FreePlaySave { name = BoardNames.First, board = single });
+            }
+
+            int active = file?.active ?? 0;
+            _activeFreePlay = active >= 0 && active < _freePlay.Count ? active : 0;
+
+            foreach (FreePlaySave save in _freePlay)
+                SandboxLevel.Migrate(save.board);
         }
     }
 }
