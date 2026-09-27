@@ -7,8 +7,8 @@ using UnityEngine;
 namespace BitSorter.LogicCore.Tests
 {
     /// <summary>
-    /// <see cref="Credits"/>: who made the game and what it borrows, and that the menu and the roll
-    /// say the same thing.
+    /// <see cref="Credits"/>: who made the game and what it borrows, and that everything borrowed is
+    /// credited as its licence asks.
     /// </summary>
     public class CreditsTests
     {
@@ -23,23 +23,41 @@ namespace BitSorter.LogicCore.Tests
         }
 
         /// <summary>
-        /// The menu's music line is exactly what it was before it was built from the credits.
+        /// Every borrowed track is credited as prominently as the game's own maker: its title is set
+        /// as a name, the same kind of line the maker's name is, under a heading of its own.
         /// </summary>
         /// <remarks>
-        /// It is the one line a licence requires be shown, and it used to be a literal. Pinned to
-        /// the letter, so building it from <see cref="Credits.MenuMusic"/> cannot have dropped the
-        /// licence's address or the note that the track was changed.
+        /// The roll is the only place the game credits the menu's music, since the line along the
+        /// foot of the main menu went. CC BY 3.0 asks that a credit given in a list of credits be at
+        /// least as prominent as the others in it, and this is that rule, checked.
         /// </remarks>
         [Test]
-        public void TheMenusMusicLine_IsWhatItWas()
+        public void EveryMenuTrack_IsCreditedAsProminentlyAsTheMaker()
         {
-            Assert.AreEqual(
-                "Menu music: \"Dream\" by jkjkke (CC0)  ·  " +
-                "\"Woodland Fantasy\" by Matthew Pablo, matthewpablo.com " +
-                "(CC BY 3.0, creativecommons.org/licenses/by/3.0; converted to mono)",
-                Credits.MenuMusicLine);
+            IReadOnlyList<Credits.Line> roll = Credits.Roll(MainMenu.Tagline, "v9.9.9");
 
-            Assert.AreEqual(Credits.MenuMusicLine, GameAudio.MenuMusicCredit, "the menu reads its credit from elsewhere");
+            bool headed = false;
+
+            foreach (Credits.Line line in roll)
+            {
+                if (line.Kind == Credits.Kind.Role && line.Text == "MAIN MENU MUSIC")
+                    headed = true;
+            }
+
+            Assert.IsTrue(headed, "the menu's music has no heading of its own on the roll");
+
+            foreach (Credits.Track track in Credits.MenuMusic)
+            {
+                bool named = false;
+
+                foreach (Credits.Line line in roll)
+                {
+                    if (line.Kind == Credits.Kind.Name && line.Text.Contains(track.Title))
+                        named = true;
+                }
+
+                Assert.IsTrue(named, $"\"{track.Title}\" is on the roll in smaller print than the maker's name");
+            }
         }
 
         [Test]

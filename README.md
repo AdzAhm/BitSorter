@@ -425,8 +425,8 @@ and EmojiOne's for its sprites. The details are in `LICENSE`.
 Every level track and every sound effect is generated in code
 (`ProceduralAudio`), and all of them are original. The main menu plays two
 recorded tracks by other composers, under their own licences rather than the
-MIT licence above. Both are also credited on the menu itself, and in the credits
-under Settings:
+MIT licence above. Both are also credited in the game, in the credits under
+Settings:
 
 - **"Dream"** by **jkjkke**, from OpenGameArt's
   ["MainMenu Music"](https://opengameart.org/content/mainmenu-music). Licensed

@@ -33,7 +33,7 @@ namespace BitSorter.View
         [SerializeField] private CreditsPanel _credits;
 
         [Tooltip("Played while the main menu is showing, one after another. Imported, not generated: " +
-                 "see MenuMusicCredit, which the menu shows.")]
+                 "see Credits.MenuMusic, which the credits roll shows.")]
         [SerializeField] private MenuTrack[] _menuTracks = System.Array.Empty<MenuTrack>();
 
         /// <summary>One of the main menu's recordings, and how loud it is.</summary>
@@ -50,20 +50,6 @@ namespace BitSorter.View
             public AudioClip Clip;
             public float LoudnessDb;
         }
-
-        /// <summary>
-        /// The credit the main menu shows for <see cref="_menuTracks"/>, from <see cref="Credits"/>.
-        /// </summary>
-        /// <remarks>
-        /// Woodland Fantasy is CC BY 3.0, which requires the author, the title, the licence and a note
-        /// of any change -- it is converted to mono -- wherever the work is used, and the licence's
-        /// address with every copy. The README links it too, but a browser build is a copy that
-        /// ships without the README. Dream is CC0 and owed nothing, and is credited anyway. Both came
-        /// from OpenGameArt, where each licence was read before either was downloaded; the README's
-        /// credits say where. The facts live in <see cref="Credits.MenuMusic"/>, which the credits
-        /// roll reads as well, so the two cannot disagree.
-        /// </remarks>
-        public static string MenuMusicCredit => Credits.MenuMusicLine;
 
         [Tooltip("Scales every cue. Zero is silence.")]
         [Range(0f, 1f)]

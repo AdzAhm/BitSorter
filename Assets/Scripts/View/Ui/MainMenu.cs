@@ -227,26 +227,27 @@ namespace BitSorter.View
             UiTheme.Anchor(_progressLine.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                 new Vector2(0f, row + NextLineLead - ProgressLineStep + Lift), new Vector2(700f, 24f));
 
+            // Set as the board's own controls line is, since it is the same kind of line. It was a
+            // Caption, the smallest text on the menu but the version, and a playtest asked for it
+            // larger.
             TextMeshProUGUI keys = UiTheme.Label(
-                "keys", Root, UiType.Caption, UiTheme.TextDim, TextAlignmentOptions.Center);
+                "keys", Root, UiTheme.ControlsType, UiTheme.TextDim, TextAlignmentOptions.Center);
             UiTheme.Anchor(keys.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
-                new Vector2(0f, 30f), new Vector2(900f, 20f));
+                new Vector2(0f, 24f), new Vector2(900f, UiTheme.ControlsHeight));
             // From ControlsReference, not spelled out here. This was a literal, which made it a
             // second hand-written copy of the bindings -- and the only place in the whole game that
             // mentioned M, so the tutorial's card never taught the way back to this screen.
             keys.text = ControlsReference.MenuLine;
 
-            // The menu's music is two imported tracks, and one of them is CC BY: its licence asks
-            // for the credit wherever the work is used, and this is where it is heard.
-            TextMeshProUGUI credit = UiTheme.Label(
-                "music credit", Root, UiType.Micro, Palette.Current.Credit, TextAlignmentOptions.Center);
-            UiTheme.Anchor(credit.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
-                new Vector2(0f, 10f), new Vector2(1100f, 16f));
-            credit.text = GameAudio.MenuMusicCredit;
+            // No music credit here. One of the menu's two tracks is CC BY, and it was credited on a
+            // line along the foot of this screen; the credits roll carries the whole attribution --
+            // title, author, licence, its address and the change made -- under its own heading, as
+            // prominent as every other credit, which is what the licence asks. A playtest found the
+            // line clutter at the one moment the screen should be quiet (2026-09-27).
 
-            // Which build this is, in the corner, as small as the credit: someone reporting a bug
-            // should be able to say which version they saw it in. Read from the build rather than
-            // written here, so it cannot say one version while being another.
+            // Which build this is, in the corner, as small as anything on the screen: someone
+            // reporting a bug should be able to say which version they saw it in. Read from the
+            // build rather than written here, so it cannot say one version while being another.
             TextMeshProUGUI version = UiTheme.Label(
                 "version", Root, UiType.Micro, Palette.Current.Credit, TextAlignmentOptions.Right);
             UiTheme.Anchor(version.rectTransform, new Vector2(1f, 0f), new Vector2(1f, 0f),

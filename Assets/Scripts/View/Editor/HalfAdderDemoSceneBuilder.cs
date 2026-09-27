@@ -43,7 +43,8 @@ namespace BitSorter.View.EditorTools
 
         /// <summary>
         /// The main menu's music, and how loud each recording is. Imported, free-licence tracks;
-        /// their credit is GameAudio.MenuMusicCredit, and the README says where each came from.
+        /// their credit is Credits.MenuMusic, on the credits roll, and the README says where each
+        /// came from.
         /// </summary>
         /// <remarks>
         /// The loudness is the file's RMS in dBFS once imported -- mixed down to mono and normalised

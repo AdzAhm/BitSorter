@@ -651,8 +651,8 @@ failure side.
   under free licences: "Dream" by jkjkke (CC0) and "Woodland Fantasy" by Matthew
   Pablo (CC BY 3.0), in `Assets/Audio/Music/`. **Any imported audio needs its
   licence read on its source page before download, an entry in the README's
-  Music credits, and -- for CC BY -- the in-game credit**, which is
-  `GameAudio.MenuMusicCredit` on the main menu. Woodland Fantasy's author's own
+  Music credits, and -- for CC BY -- the in-game credit**, which is the credits
+  roll, read from `Credits.MenuMusic`. Woodland Fantasy's author's own
   attribution page is gone, so the credit follows the CC BY 3.0 terms: author,
   title, licence, the change made (converted to mono), and the licence's address
   -- a browser build is a copy that ships without the README, which is the only
@@ -1108,10 +1108,13 @@ bottom.
 **The credits are `Credits`, and the roll is `CreditsPanel`.** Every role is
 Ahmad Zoabi's, the company is ZADZ, the playtesters are thanked without names,
 and the roll ends on what the game is built with -- all as asked, 2026-09-26,
-and nothing else is credited. The menu's music line and the roll both read the
-tracks from `Credits.MenuMusic`, so the CC BY terms cannot say one thing on the
-menu and another in the credits; `CreditsTests` pins the menu line to the
-letter it had when it was a literal. The roll rises at `CreditsPanel.Speed` and
+and nothing else is credited. **The roll is the only place the menu's music is
+credited**: a line along the foot of the main menu credited it too, until a
+playtest asked for it gone (2026-09-27). CC BY 3.0 asks that a credit in a list
+of credits be at least as prominent as the others, so each track's title is set
+as a name, the same kind of line as the maker's, under its own heading --
+`CreditsTests` holds it there, and to every term the licence asks for. The roll
+rises at `CreditsPanel.Speed` and
 comes to rest on its farewell rather than rolling off into an empty screen, and
 any key or click goes back to Settings.
 

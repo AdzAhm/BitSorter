@@ -78,39 +78,30 @@ namespace BitSorter.View
                     return terms.ToString();
                 }
             }
-
-            /// <summary>The whole credit on one line: title, author, and terms in brackets.</summary>
-            public string OneLine => $"\"{Title}\" {ByLine} ({Terms})";
         }
 
         /// <summary>
         /// The main menu's two recorded tracks. Everything else the game plays is generated in code.
         /// </summary>
+        /// <remarks>
+        /// Woodland Fantasy is CC BY 3.0, which requires the author, the title, the licence and a
+        /// note of any change -- it is converted to mono -- wherever the work is used, and the
+        /// licence's address with every copy. The README links it too, but a browser build is a copy
+        /// that ships without the README. Dream is CC0 and owed nothing, and is credited anyway.
+        /// Both came from OpenGameArt, where each licence was read before either was downloaded; the
+        /// README's credits say where.
+        ///
+        /// The credits roll is where the game credits them, under a heading of their own and as
+        /// prominent as any other credit on it -- which is the licence's own rule for a credit in a
+        /// list of credits. They were also on a line along the foot of the main menu until a
+        /// playtest asked for it gone (2026-09-27).
+        /// </remarks>
         public static readonly Track[] MenuMusic =
         {
             new Track("Dream", "jkjkke", null, "CC0", null, null),
             new Track("Woodland Fantasy", "Matthew Pablo", "matthewpablo.com",
                 "CC BY 3.0", "creativecommons.org/licenses/by/3.0", "converted to mono"),
         };
-
-        /// <summary>The menu music's credit as one line, for the foot of the main menu.</summary>
-        public static string MenuMusicLine
-        {
-            get
-            {
-                var line = new StringBuilder("Menu music: ");
-
-                for (int i = 0; i < MenuMusic.Length; i++)
-                {
-                    if (i > 0)
-                        line.Append("  ·  ");
-
-                    line.Append(MenuMusic[i].OneLine);
-                }
-
-                return line.ToString();
-            }
-        }
 
         /// <summary>The thanks to the people who played it early. By role, not by name, as asked.</summary>
         public const string PlaytesterThanks = "Every playtester who found a problem before anyone else could";

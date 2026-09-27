@@ -388,16 +388,40 @@ namespace BitSorter.PlayMode.Tests
             }
         }
 
-        /// <summary>The menu credits its music, as the CC BY track's licence requires.</summary>
+        /// <summary>
+        /// The game credits the menu's music on its credits roll, as the CC BY track's licence
+        /// requires -- and only there, since the line along the foot of the main menu was taken off
+        /// after a playtest (2026-09-27).
+        /// </summary>
+        /// <remarks>
+        /// Read off the roll the game actually builds, not off <see cref="Credits"/>: an Edit Mode
+        /// test already holds the list to the licence's terms, and this is the half that says the
+        /// list reaches the screen.
+        /// </remarks>
         [UnityTest]
-        public IEnumerator TheMenu_CreditsItsMusic()
+        public IEnumerator TheCreditsRoll_CreditsTheMenuMusic()
         {
             yield return LoadScene();
 
-            GameObject credit = GameObject.Find("music credit");
-            Assert.IsNotNull(credit, "the menu has no music credit");
+            Assert.IsNull(GameObject.Find("music credit"), "the main menu still has its music credit line");
 
-            string text = credit.GetComponent<TMPro.TextMeshProUGUI>().text;
+            Transform roll = null;
+
+            foreach (RectTransform rect in Resources.FindObjectsOfTypeAll<RectTransform>())
+            {
+                // Settings' button is named Credits too; the panel is the one with the roll in it.
+                if (rect.name == "Credits" && rect.gameObject.scene.IsValid() && rect.Find("roll") != null)
+                    roll = rect;
+            }
+
+            Assert.IsNotNull(roll, "the credits roll was not built");
+
+            var lines = new System.Text.StringBuilder();
+
+            foreach (TMPro.TextMeshProUGUI label in roll.GetComponentsInChildren<TMPro.TextMeshProUGUI>(true))
+                lines.AppendLine(label.text);
+
+            string text = lines.ToString();
 
             StringAssert.Contains("Woodland Fantasy", text);
             StringAssert.Contains("Matthew Pablo", text);
