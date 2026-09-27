@@ -556,7 +556,9 @@ failure side.
   each control a `ControlSpot`: a button's key goes over the button (Enter over
   RUN, ctrl+Z over UNDO), ESC under MENU and H under the help badge, and what
   works nothing on screen -- the mouse, M, N -- in two short blocks either side
-  of the run buttons, an upper line and a lower. They were one line along the
+  of the run buttons, an upper line and a lower. An upper line holds one short
+  phrase: it is level with the names under the board's bottom row, and two
+  phrases reached a bottom-left source's name. They were one line along the
   bottom in list order, and a playtester had to read all of it to find the key
   for the button under their hand (2026-09-27). The key is the phrase's first
   word, so a button and the tutorial's card cannot disagree; none of them takes

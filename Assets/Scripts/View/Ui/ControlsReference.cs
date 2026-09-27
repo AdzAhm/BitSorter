@@ -31,6 +31,11 @@ namespace BitSorter.View
         None,
 
         /// <summary>Left of the run buttons: the upper line, level with the keys over them.</summary>
+        /// <remarks>
+        /// The upper lines are level with the names under the board's bottom row, so each holds one
+        /// short phrase and stops well short of the edge columns. Two phrases there reached the
+        /// name of a bottom-left source -- "B1drag a port to wire" on Pass it on (2026-09-27).
+        /// </remarks>
         LeftUpper,
 
         /// <summary>Left of the run buttons: the lower line, level with the buttons.</summary>
@@ -192,8 +197,8 @@ namespace BitSorter.View
             // has a button now, so its key is over it with the others.
             new ControlEntry("1 to 7 to pick a part", ControlSpot.None, ControlKind.Building),
             new ControlEntry("drag a port to wire", ControlSpot.LeftUpper, ControlKind.Building),
-            new ControlEntry("right click to delete", ControlSpot.LeftUpper, ControlKind.Building),
-            new ControlEntry("scroll a wire to re-time", ControlSpot.LeftLower, ControlKind.Building),
+            new ControlEntry("right click to delete", ControlSpot.LeftLower, ControlKind.Building),
+            new ControlEntry("scroll a wire to re-time", ControlSpot.RightUpper, ControlKind.Building),
             new ControlEntry("ctrl+Z to undo", ControlSpot.UndoButton, ControlKind.Building),
             new ControlEntry("ctrl+Y to redo", ControlSpot.RedoButton, ControlKind.Building),
             new ControlEntry("shift+R to clear", ControlSpot.ClearButton, ControlKind.Building),
@@ -207,7 +212,7 @@ namespace BitSorter.View
             // H and M are off the menu's line: with the menu open neither does anything -- the level
             // list will not stack on the menu, and H is held back the same way.
             new ControlEntry("H for help", ControlSpot.HelpBadge, ControlKind.Everything),
-            new ControlEntry("M for levels", ControlSpot.RightUpper, ControlKind.Everything),
+            new ControlEntry("M for levels", ControlSpot.RightLower, ControlKind.Everything),
             new ControlEntry("Q and E to change level", ControlSpot.None, ControlKind.Everything),
             new ControlEntry("N to mute", ControlSpot.RightLower, ControlKind.Everything, onMenu: true),
 
