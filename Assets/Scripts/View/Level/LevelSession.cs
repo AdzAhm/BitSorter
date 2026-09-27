@@ -259,7 +259,9 @@ namespace BitSorter.View
         /// </summary>
         public bool LoadLevel(string levelName)
         {
-            Vector2Int halfExtents = _runner != null ? _runner.HalfExtents : new Vector2Int(4, 2);
+            // The scene's own board, never the one in play: that is the last level's, and a level
+            // that names no board of its own is played on the scene's.
+            Vector2Int halfExtents = _runner != null ? _runner.DefaultHalfExtents : new Vector2Int(4, 2);
 
             LevelLoadResult result = LevelLoader.Load(levelName, halfExtents);
 
@@ -286,6 +288,11 @@ namespace BitSorter.View
             _levelName = levelName;
             Level = result.Level;
             LoadError = null;
+
+            // Before the rebuild and before LevelLoaded, so nothing sees the level on a board the
+            // wrong size.
+            if (_runner != null)
+                _runner.ResizeBoard(Level.BoardHalfExtents);
 
             _blueprint.Clear();
 
@@ -334,6 +341,9 @@ namespace BitSorter.View
             _levelName = key;
             Level = level;
             LoadError = null;
+
+            if (_runner != null)
+                _runner.ResizeBoard(Level.BoardHalfExtents);
 
             _blueprint.Clear();
 
@@ -460,7 +470,7 @@ namespace BitSorter.View
         /// </remarks>
         private IReadOnlyList<LevelEntry> DiscoverCatalogue()
         {
-            Vector2Int halfExtents = _runner != null ? _runner.HalfExtents : new Vector2Int(4, 2);
+            Vector2Int halfExtents = _runner != null ? _runner.DefaultHalfExtents : new Vector2Int(4, 2);
 
             TextAsset[] assets = Resources.LoadAll<TextAsset>(LevelLoader.ResourcePath);
             var entries = new List<LevelEntry>(assets.Length);

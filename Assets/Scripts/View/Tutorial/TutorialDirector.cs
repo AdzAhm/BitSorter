@@ -199,7 +199,7 @@ namespace BitSorter.View
             if (_session == null || _runner == null)
                 return;
 
-            _session.Adopt(TutorialLevel.Build(_runner.HalfExtents), TutorialLevel.Key);
+            _session.Adopt(TutorialLevel.Build(_runner.DefaultHalfExtents), TutorialLevel.Key);
             _phase = Phase.Intro;
             _solved = false;
             _begunThisSession = true;

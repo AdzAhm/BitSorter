@@ -57,6 +57,29 @@ namespace BitSorter.View
         /// component order. A first-frame Update is late enough to be certain and early enough that
         /// nobody sees the difference.
         /// </remarks>
+        /// <summary>
+        /// The board changed size: the dots collected are gone, and the new ones are collected on
+        /// the next frame.
+        /// </summary>
+        private void Forget()
+        {
+            _ready = false;
+            _dots.Clear();
+            _phases.Clear();
+        }
+
+        private void OnEnable()
+        {
+            if (_grid != null)
+                _grid.Resized += Forget;
+        }
+
+        private void OnDisable()
+        {
+            if (_grid != null)
+                _grid.Resized -= Forget;
+        }
+
         private void Collect()
         {
             _ready = true;

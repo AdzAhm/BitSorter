@@ -29,6 +29,34 @@ namespace BitSorter.LogicCore.Tests
                 "16:10 is narrower than the authored framing, so the width decides");
         }
 
+        /// <summary>
+        /// A seven-row board on a screen wide enough that its width never binds is still framed
+        /// tall enough to show its bottom row's names.
+        /// </summary>
+        [Test]
+        public void ATallBoard_OnAWideScreen_IsFramedTallEnough()
+        {
+            const float halfHeight = 3 * 2f + NodeRenderer.LabelReach + 0.2f;
+
+            Framing framing = CameraFraming.Fit(HalfWidth, halfHeight, Authored, 2560f, 1080f, 0f, 0f);
+
+            Assert.AreEqual(halfHeight, framing.OrthographicSize, 1e-4f);
+        }
+
+        /// <summary>The standard five rows fit the authored framing, so the height changes nothing for them.</summary>
+        [Test]
+        public void TheStandardBoard_IsNotMadeSmallerByItsHeight()
+        {
+            const float halfHeight = 2 * 2f + NodeRenderer.LabelReach + 0.2f;
+
+            Assert.Less(halfHeight, Authored, "sanity: five rows fit the authored framing");
+
+            Framing withHeight = CameraFraming.Fit(HalfWidth, halfHeight, Authored, 2400f, Height, 0f, 0f);
+            Framing without = CameraFraming.Fit(HalfWidth, Authored, 2400f, Height, 0f, 0f);
+
+            Assert.AreEqual(without.OrthographicSize, withHeight.OrthographicSize, 1e-5f);
+        }
+
         [Test]
         public void AWideScreen_KeepsTheAuthoredFraming()
         {

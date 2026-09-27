@@ -166,6 +166,17 @@ namespace BitSorter.View
         public Vector2Int HalfExtents =>
             _grid != null ? _grid.HalfExtents : new Vector2Int(4, 2);
 
+        /// <summary>The scene's own board, which a level that does not name one is played on.</summary>
+        public Vector2Int DefaultHalfExtents =>
+            _grid != null ? _grid.DefaultHalfExtents : new Vector2Int(4, 2);
+
+        /// <summary>Sizes the board for a level: its own, or the scene's when it names none.</summary>
+        public void ResizeBoard(Vector2Int halfExtents)
+        {
+            if (_grid != null)
+                _grid.Resize(halfExtents);
+        }
+
         // -----------------------------------------------------------------
         // Rejected edits
         // -----------------------------------------------------------------

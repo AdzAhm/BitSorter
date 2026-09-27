@@ -224,7 +224,7 @@ namespace BitSorter.View
         }
 
         private Vector2Int Extents() =>
-            _runner != null ? _runner.HalfExtents : new Vector2Int(4, 2);
+            _runner != null ? _runner.DefaultHalfExtents : new Vector2Int(4, 2);
 
         private void Adopt()
         {

@@ -304,6 +304,18 @@ namespace BitSorter.View
             _heldBits[id] = renderer;
         }
 
+        /// <summary>How far below its fixture's centre a fixture's name sits.</summary>
+        public const float LabelDrop = PortGeometry.NodeSize * 0.78f;
+
+        /// <summary>How tall a fixture's name is, in world units.</summary>
+        public const float LabelHeight = 0.6f;
+
+        /// <summary>
+        /// How far below its fixture's centre the bottom of a fixture's name reaches, which the
+        /// camera frames a tall board by.
+        /// </summary>
+        public const float LabelReach = LabelDrop + LabelHeight * 0.5f;
+
         private void SpawnLabel(Node node, Vector2 centre, Color colour)
         {
             bool isFixture = node is SourceNode || node is SinkNode;
@@ -313,7 +325,7 @@ namespace BitSorter.View
 
             var host = new GameObject($"Label {node.Name}");
             host.transform.SetParent(_container, false);
-            host.transform.position = centre + new Vector2(0f, -PortGeometry.NodeSize * 0.78f);
+            host.transform.position = centre + new Vector2(0f, -LabelDrop);
 
             var text = host.AddComponent<TMPro.TextMeshPro>();
             text.text = node.Name.ToUpperInvariant();
@@ -326,7 +338,7 @@ namespace BitSorter.View
             text.sortingOrder = ViewLayers.NodeDetail;
 
             var rect = host.GetComponent<RectTransform>();
-            rect.sizeDelta = new Vector2(PortGeometry.NodeSize * 2.4f, 0.6f);
+            rect.sizeDelta = new Vector2(PortGeometry.NodeSize * 2.4f, LabelHeight);
 
             _spawned.Add(host);
         }

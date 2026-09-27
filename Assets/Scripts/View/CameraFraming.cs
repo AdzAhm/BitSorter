@@ -43,6 +43,21 @@ namespace BitSorter.View
         public static Framing Fit(
             float boardHalfWidth, float authoredSize,
             float screenWidth, float screenHeight,
+            float leftInset, float rightInset) =>
+            Fit(boardHalfWidth, 0f, authoredSize, screenWidth, screenHeight, leftInset, rightInset);
+
+        /// <inheritdoc cref="Fit(float, float, float, float, float, float)"/>
+        /// <param name="boardHalfHeight">
+        /// Half the height the board needs, the names under its bottom row included, in world units.
+        /// </param>
+        /// <remarks>
+        /// A board of seven rows is taller than the authored framing shows, and on a screen wide
+        /// enough that the width never binds it would run off the top and bottom. The standard five
+        /// rows fit the authored framing, so for them this changes nothing.
+        /// </remarks>
+        public static Framing Fit(
+            float boardHalfWidth, float boardHalfHeight, float authoredSize,
+            float screenWidth, float screenHeight,
             float leftInset, float rightInset)
         {
             if (screenWidth <= 0f || screenHeight <= 0f)
@@ -66,6 +81,9 @@ namespace BitSorter.View
             // One world unit is 2 * size / screenHeight pixels wide, which gives the smallest size.
             float needed = boardHalfWidth * screenHeight / available;
             float size = needed > authoredSize ? needed : authoredSize;
+
+            if (boardHalfHeight > size)
+                size = boardHalfHeight;
 
             // The board's centre belongs at the centre of the free span, which is
             // (left - right) / 2 pixels right of the screen's centre. Moving the camera the other

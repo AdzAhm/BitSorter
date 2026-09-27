@@ -61,7 +61,22 @@ namespace BitSorter.View
             if (_help == null) _help = FindFirstObjectByType<HelpPanel>();
         }
 
-        private void OnEnable() => Apply(LeftInset(), RightInset());
+        private void OnEnable()
+        {
+            if (_grid != null)
+                _grid.Resized += Refit;
+
+            Apply(LeftInset(), RightInset());
+        }
+
+        private void OnDisable()
+        {
+            if (_grid != null)
+                _grid.Resized -= Refit;
+        }
+
+        /// <summary>The board changed size, from the call that changed it: frame the new one now.</summary>
+        private void Refit() => Apply(LeftInset(), RightInset());
 
         private void Update()
         {
@@ -90,7 +105,7 @@ namespace BitSorter.View
             _right = right;
 
             Framing framing = CameraFraming.Fit(
-                RequiredHalfWidth(), _authoredSize, _width, _height, left, right);
+                RequiredHalfWidth(), RequiredHalfHeight(), _authoredSize, _width, _height, left, right);
 
             _camera.orthographicSize = framing.OrthographicSize;
 
@@ -121,6 +136,21 @@ namespace BitSorter.View
         }
 
         /// <summary>Half the world width the board needs, including its margin.</summary>
+        /// <summary>
+        /// The bottom row and the names under it -- the lower half is the taller, since nothing
+        /// hangs above the top row.
+        /// </summary>
+        private float RequiredHalfHeight()
+        {
+            if (_grid == null)
+                return 0f;
+
+            return _grid.HalfExtents.y * _grid.CellSize + NodeRenderer.LabelReach + VerticalMargin;
+        }
+
+        /// <summary>World units of clearance below the bottom row's names.</summary>
+        private const float VerticalMargin = 0.2f;
+
         private float RequiredHalfWidth()
         {
             if (_grid == null)
