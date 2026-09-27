@@ -1,0 +1,26 @@
+{
+  "name": "Which is bigger",
+  "order": 78,
+  "goal": "Compare A with B. LT gets 1 when A is less than B, GT when it is greater, and EQ when they are equal.",
+  "hint": "two of the bins can be read off the inputs. The third can be read off the other two.",
+  "tickLimit": 40,
+  "maxWireDelay": 2,
+  "delayBudget": 2,
+  "fixtures": [
+    { "id": "a",  "kind": "Source", "cell": { "x": -4, "y":  1 }, "stream": "0011" },
+    { "id": "b",  "kind": "Source", "cell": { "x": -4, "y": -1 }, "stream": "0101" },
+    { "id": "lt", "kind": "Sink",   "cell": { "x":  4, "y":  2 } },
+    { "id": "eq", "kind": "Sink",   "cell": { "x":  4, "y":  0 } },
+    { "id": "gt", "kind": "Sink",   "cell": { "x":  4, "y": -2 } }
+  ],
+  "budget": [
+    { "kind": "Not", "count": 2 },
+    { "kind": "And", "count": 2 },
+    { "kind": "Nor", "count": 1 }
+  ],
+  "expected": [
+    { "sink": "lt", "values": "0100" },
+    { "sink": "eq", "values": "1001" },
+    { "sink": "gt", "values": "0010" }
+  ]
+}
