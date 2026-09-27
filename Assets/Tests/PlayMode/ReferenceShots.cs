@@ -621,6 +621,30 @@ namespace BitSorter.PlayMode.Tests
             yield return Capture("19-help-kmap");
         }
 
+        /// <summary>
+        /// Four lanes built: the 4:1 mux as a tree of three, on the 11 by 7 board, with the waiting
+        /// select lines' delays on their wires.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator Shot20_FourLanes()
+        {
+            yield return OpenOnTheBoard();
+
+            // Every shot starts from a fresh save, where the first wire given a delay raises the
+            // first-time hint about scrolling one -- over the board this shot is of. Shot 13 is the
+            // picture of a first-time hint.
+            Find<ProgressTracker>().Store.MarkHintSeen(HintRules.WireDelay);
+
+            yield return LoadAndBuild("four-lanes");
+            yield return BuildFourLanes();
+            yield return Frames(30);
+
+            Assert.AreEqual(new Vector2Int(5, 3), Find<PlacementGrid>().HalfExtents, "sanity: not on the level's own board");
+            Assert.AreEqual(21, Find<LevelSession>().Blueprint.Wires.Count, "sanity: the tree is not fully wired");
+
+            yield return Capture("20-four-lanes");
+        }
+
         private static bool AnyCollisionTakesBoth(SimulationRunner runner)
         {
             for (int id = 0; id < runner.View.EdgeCount; id++)
@@ -723,6 +747,67 @@ namespace BitSorter.PlayMode.Tests
                 system.useAutoRandomSeed = false;
                 system.randomSeed = 20260922;
             }
+        }
+
+        /// <summary>
+        /// low = d0 s0' + d1 s0, high = d2 s0' + d3 s0, out = low s1' + high s1 -- the circuit
+        /// FourLanesLevelTests solves the level with.
+        /// </summary>
+        private static IEnumerator BuildFourLanes()
+        {
+            LevelSession session = Find<LevelSession>();
+            SimulationRunner runner = Find<SimulationRunner>();
+
+            var notS1 = new Vector2Int(-3, -1);
+            var notS0 = new Vector2Int(-3, -2);
+            var andD0 = new Vector2Int(-1, 3);
+            var andD1 = new Vector2Int(-1, 2);
+            var andD2 = new Vector2Int(-1, 1);
+            var andD3 = new Vector2Int(-1, 0);
+            var orLow = new Vector2Int(1, 2);
+            var orHigh = new Vector2Int(1, 0);
+            var andLow = new Vector2Int(3, 2);
+            var andHigh = new Vector2Int(3, -1);
+            var orOut = new Vector2Int(4, 0);
+
+            foreach (Vector2Int cell in new[] { notS1, notS0 })
+                Assert.IsTrue(session.TryPlaceGate(GateKind.Not, cell), $"could not place a NOT on {cell}");
+
+            foreach (Vector2Int cell in new[] { andD0, andD1, andD2, andD3, andLow, andHigh })
+                Assert.IsTrue(session.TryPlaceGate(GateKind.And, cell), $"could not place an AND on {cell}");
+
+            foreach (Vector2Int cell in new[] { orLow, orHigh, orOut })
+                Assert.IsTrue(session.TryPlaceGate(GateKind.Or, cell), $"could not place an OR on {cell}");
+
+            int Fixture(string id) => runner.FixtureNodeIds[id];
+            int On(Vector2Int cell) => NodeOn(runner, cell);
+
+            Wire(session, Fixture("s0"), On(notS0), 0);
+            Wire(session, Fixture("d0"), On(andD0), 0, delay: 2);
+            Wire(session, On(notS0), On(andD0), 1);
+            Wire(session, Fixture("d2"), On(andD2), 0, delay: 2);
+            Wire(session, On(notS0), On(andD2), 1);
+            Wire(session, Fixture("d1"), On(andD1), 0);
+            Wire(session, Fixture("s0"), On(andD1), 1);
+            Wire(session, Fixture("d3"), On(andD3), 0);
+            Wire(session, Fixture("s0"), On(andD3), 1);
+
+            Wire(session, On(andD0), On(orLow), 0);
+            Wire(session, On(andD1), On(orLow), 1, delay: 2);
+            Wire(session, On(andD2), On(orHigh), 0);
+            Wire(session, On(andD3), On(orHigh), 1, delay: 2);
+
+            Wire(session, Fixture("s1"), On(notS1), 0);
+            Wire(session, On(orLow), On(andLow), 0);
+            Wire(session, On(notS1), On(andLow), 1, delay: 3);
+            Wire(session, On(orHigh), On(andHigh), 0);
+            Wire(session, Fixture("s1"), On(andHigh), 1, delay: 4);
+
+            Wire(session, On(andLow), On(orOut), 0);
+            Wire(session, On(andHigh), On(orOut), 1);
+            Wire(session, On(orOut), Fixture("out"), 0);
+
+            yield return null;
         }
 
         /// <summary>An XOR for the sum and an AND for the carry, each fed by both sources.</summary>
@@ -887,10 +972,10 @@ namespace BitSorter.PlayMode.Tests
             return -1;
         }
 
-        private static void Wire(LevelSession session, int from, int to, int toPort)
+        private static void Wire(LevelSession session, int from, int to, int toPort, int delay = 1)
         {
             Assert.IsTrue(
-                session.TryConnect(new PortAddress(from, false, 0), new PortAddress(to, true, toPort)),
+                session.TryConnect(new PortAddress(from, false, 0), new PortAddress(to, true, toPort), delay),
                 $"could not wire {from} to {to}");
         }
     }
