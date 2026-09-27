@@ -27,12 +27,21 @@ namespace BitSorter.View
         /// <summary>
         /// The roles on the roll. Every one is <see cref="Maker"/>'s.
         /// </summary>
+        /// <remarks>
+        /// Four were added on 2026-09-27, as asked, each for work the game shows: what it teaches and
+        /// in what order, the simulator every level runs on, the goals, hints and tutorial, and how
+        /// its screens read and respond.
+        /// </remarks>
         public static readonly string[] Roles =
         {
             "GAME DESIGN",
+            "CURRICULUM DESIGN",
             "PROGRAMMING",
+            "SIMULATION ENGINEERING",
             "LEVEL DESIGN",
+            "WRITING",
             "ART AND INTERFACE",
+            "USER EXPERIENCE",
             "SOUND DESIGN",
             "LEVEL MUSIC",
             "PRODUCTION",
