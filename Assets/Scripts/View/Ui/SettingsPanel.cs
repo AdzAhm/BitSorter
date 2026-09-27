@@ -204,8 +204,17 @@ namespace BitSorter.View
         /// <summary>How wide the column of sections is.</summary>
         public const float ColumnWidth = 600f;
 
-        /// <summary>The type a section's description is set in.</summary>
-        public const UiType DescriptionType = UiType.Label;
+        /// <summary>The type a section's description is set in, and its colour.</summary>
+        /// <remarks>
+        /// Body in the text colour. It was Label in the dim colour, the smallest and faintest text on
+        /// the screen -- and the screen shrinks to fit a short window, so in a browser tab it came out
+        /// about eleven pixels tall and a playtester could not read it (2026-09-27). The headings stay
+        /// small, bold and spaced, which is what marks them as headings rather than their size.
+        /// </remarks>
+        public const UiType DescriptionType = UiType.Body;
+
+        /// <inheritdoc cref="DescriptionType"/>
+        private static Color DescriptionColour => UiTheme.Text;
 
         private const float TitleHeight = 56f;
         private const float TitleGap = 28f;
@@ -304,7 +313,7 @@ namespace BitSorter.View
             back.onClick.AddListener(() => Fire(Back));
 
             TextMeshProUGUI help = UiTheme.Label(
-                "help", Root, UiTheme.HelpLineType, UiTheme.TextDim, TextAlignmentOptions.Center);
+                "help", Root, UiTheme.HelpLineType, UiTheme.HelpLineColour, TextAlignmentOptions.Center);
             UiTheme.Anchor(help.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
                 new Vector2(0f, 36f), new Vector2(600f, UiTheme.HelpLineHeight));
             help.text = "escape to go back";
@@ -336,7 +345,7 @@ namespace BitSorter.View
             float height = DescriptionHeight(text);
 
             TextMeshProUGUI description = UiTheme.Label(
-                "description", block, DescriptionType, UiTheme.TextDim, TextAlignmentOptions.TopLeft);
+                "description", block, DescriptionType, DescriptionColour, TextAlignmentOptions.TopLeft);
             description.textWrappingMode = TextWrappingModes.Normal;
             Place(description.rectTransform, column.Take(height, DescriptionGap), ColumnWidth, height);
             description.text = text;
@@ -383,7 +392,7 @@ namespace BitSorter.View
             float top = column.Take(VolumeHeight);
 
             _volumeLabel = UiTheme.Label(
-                "volume label", block, UiType.Label, UiTheme.Text, TextAlignmentOptions.MidlineLeft);
+                "volume label", block, UiType.Body, UiTheme.Text, TextAlignmentOptions.MidlineLeft);
             PlaceLeft(_volumeLabel.rectTransform, top, 0f, VolumeLabelWidth, VolumeHeight);
             _volumeLabel.text = "VOLUME";
 
@@ -394,7 +403,7 @@ namespace BitSorter.View
             _volume.gameObject.AddComponent<PointerRelease>().Released += GameAudio.KeepVolume;
 
             _volumeValue = UiTheme.Label(
-                "volume value", block, UiType.Label, UiTheme.Text, TextAlignmentOptions.MidlineRight);
+                "volume value", block, UiType.Body, UiTheme.Text, TextAlignmentOptions.MidlineRight);
             PlaceLeft(_volumeValue.rectTransform, top, VolumeLabelWidth + VolumeSliderWidth,
                 VolumeValueWidth, VolumeHeight);
         }
@@ -446,7 +455,7 @@ namespace BitSorter.View
             column.Take(groupHeight, QuestionGap);
 
             _status = UiTheme.Label(
-                "status", block, UiType.Label, UiTheme.Good, TextAlignmentOptions.MidlineLeft);
+                "status", block, UiType.Body, UiTheme.Good, TextAlignmentOptions.MidlineLeft);
             Place(_status.rectTransform, column.Take(StatusHeight), ColumnWidth, StatusHeight);
 
             _question.gameObject.SetActive(false);

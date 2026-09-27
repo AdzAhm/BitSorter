@@ -151,7 +151,7 @@ namespace BitSorter.View
             title.text = "LEVELS";
 
             TextMeshProUGUI help = UiTheme.Label(
-                "help", Root, UiTheme.HelpLineType, UiTheme.TextDim, TextAlignmentOptions.Center);
+                "help", Root, UiTheme.HelpLineType, UiTheme.HelpLineColour, TextAlignmentOptions.Center);
             UiTheme.Anchor(help.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
                 new Vector2(0f, HelpBottom), new Vector2(720f, HelpHeight));
             help.text = "M or escape to close    Q / E also change level";
@@ -514,7 +514,7 @@ namespace BitSorter.View
             label.text = "Tutorial";
 
             TextMeshProUGUI note = UiTheme.Label(
-                "note", rect, UiTheme.HelpLineType, UiTheme.TextDim, TextAlignmentOptions.Right);
+                "note", rect, UiTheme.RowNoteType, UiTheme.TextDim, TextAlignmentOptions.Right);
             UiTheme.Anchor(note.rectTransform, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f),
                 new Vector2(-16f, 0f), new Vector2(200f, height));
             note.text = "the controls";
@@ -549,7 +549,7 @@ namespace BitSorter.View
             label.text = "Sandbox";
 
             TextMeshProUGUI note = UiTheme.Label(
-                "note", rect, UiTheme.HelpLineType, UiTheme.TextDim, TextAlignmentOptions.Right);
+                "note", rect, UiTheme.RowNoteType, UiTheme.TextDim, TextAlignmentOptions.Right);
             UiTheme.Anchor(note.rectTransform, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f),
                 new Vector2(-16f, 0f), new Vector2(200f, height));
             note.text = "free play";
@@ -591,7 +591,7 @@ namespace BitSorter.View
                 new Vector2(LabelInset, 0f), new Vector2(330f, height));
             row.Label.text = entry.DisplayName;
 
-            row.Best = UiTheme.Label("best", rect, UiTheme.HelpLineType, UiTheme.TextDim, TextAlignmentOptions.Right);
+            row.Best = UiTheme.Label("best", rect, UiTheme.RowNoteType, UiTheme.TextDim, TextAlignmentOptions.Right);
             UiTheme.Anchor(row.Best.rectTransform, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f),
                 new Vector2(-16f, 0f), new Vector2(130f, height));
 

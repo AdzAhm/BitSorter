@@ -161,14 +161,19 @@ namespace BitSorter.View
             // In the corner, clear of the column the roll rises through. Centred at the foot, the way
             // Settings says how to leave it, every line of the roll passed through it on the way up.
             TextMeshProUGUI help = UiTheme.Label(
-                "help", Root, UiTheme.HelpLineType, UiTheme.TextDim, TextAlignmentOptions.Right);
+                "help", Root, UiTheme.HelpLineType, UiTheme.HelpLineColour, TextAlignmentOptions.Right);
             UiTheme.Anchor(help.rectTransform, new Vector2(1f, 0f), new Vector2(1f, 0f),
                 new Vector2(-UiTheme.Margin, 16f), new Vector2(HelpWidth, UiTheme.HelpLineHeight));
             help.text = HelpText;
         }
 
         /// <summary>The line in the corner saying how to leave the roll.</summary>
-        public const string HelpText = "any key to go back";
+        /// <remarks>
+        /// With its verb. "any key to go back" matched the terse "escape to go back" on Settings, but
+        /// a key is a thing you press and "any key" is not one, so the line read as missing a word --
+        /// a playtest said so (2026-09-27).
+        /// </remarks>
+        public const string HelpText = "press any key to go back";
 
         /// <summary>How wide that line's box is, in the corner beside the roll's column.</summary>
         public const float HelpWidth = 240f;

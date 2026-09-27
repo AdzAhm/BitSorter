@@ -150,22 +150,43 @@ namespace BitSorter.View
         /// </summary>
         /// <remarks>
         /// It was a thousand, set when the line was shorter; by the time it carried eight controls
-        /// the text ran to within forty pixels of it with nothing checking. Narrower than the
-        /// narrowest canvas the game is framed for: 4:3, which the scaler makes 1663 wide.
+        /// the text ran to within forty pixels of it with nothing checking. Then 1200, until the
+        /// line went up to Body and ran to 1343. Narrower than the narrowest canvas the game is
+        /// framed for: 4:3, which the scaler makes 1663 wide.
         /// </remarks>
-        public const float ControlsWidth = 1200f;
+        public const float ControlsWidth = 1400f;
 
-        /// <summary>How the keyboard reference is set.</summary>
-        public const UiType ControlsType = UiType.Label;
+        /// <summary>How the keyboard reference is set, on the board and on the main menu.</summary>
+        /// <remarks>
+        /// Body, up from Label after a playtest asked for it larger (2026-09-27). It is the line a
+        /// new player reads to find out what the mouse does, and it sits along the bottom edge in
+        /// the dim colour, which is two reasons to be small already.
+        /// </remarks>
+        public const UiType ControlsType = UiType.Body;
 
         /// <summary>
-        /// The line at the foot of a full-screen screen saying how to leave it, and the asides on a
-        /// level list row. Label, a step up from Caption, after a playtest found them hard to read.
+        /// The line at the foot of a full-screen screen saying how to leave it.
         /// </summary>
-        public const UiType HelpLineType = UiType.Label;
+        /// <remarks>
+        /// Caption, then Label after a playtest found it hard to read, and Body in the text colour
+        /// since a second playtest (2026-09-27) asked for it bigger and clearer again: at Label in the
+        /// dim colour, on a screen scaled down to a browser tab, it was the hardest thing on the
+        /// screen to read. The level list's row notes were set the same way and were not what was
+        /// asked about; they are <see cref="RowNoteType"/>.
+        /// </remarks>
+        public const UiType HelpLineType = UiType.Body;
+
+        /// <inheritdoc cref="HelpLineType"/>
+        public static Color HelpLineColour => Text;
 
         /// <summary>How tall a help line's box is at <see cref="HelpLineType"/>.</summary>
-        public const float HelpLineHeight = 22f;
+        public const float HelpLineHeight = 26f;
+
+        /// <summary>
+        /// The asides on a level list row -- "the controls", "free play", a personal best. Label, a
+        /// step up from Caption after a playtest found them hard to read.
+        /// </summary>
+        public const UiType RowNoteType = UiType.Label;
 
         /// <summary>The refusal toast.</summary>
         public const float ToastHeight = 42f;
