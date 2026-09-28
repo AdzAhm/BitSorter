@@ -150,6 +150,30 @@ namespace BitSorter.LogicCore.Tests
         }
 
         /// <summary>
+        /// The level that teaches re-timing says in its goal how a wire is lengthened.
+        /// </summary>
+        /// <remarks>
+        /// From a playtest, 2026-09-28: a player took a long while to find that a wire could be
+        /// re-timed at all. The first-time hint says so too, and the tutorial asks for it, but the
+        /// goal is the one line on screen for the whole of the level where it is first needed.
+        /// </remarks>
+        [Test]
+        public void TheDelayTutorial_SaysInItsGoalHowAWireIsLengthened()
+        {
+            foreach (KeyValuePair<string, LevelDefinition> level in LevelsInPlayOrder())
+            {
+                if (level.Key != DelayTutorial)
+                    continue;
+
+                StringAssert.Contains("scroll", level.Value.Goal.ToLowerInvariant(),
+                    $"'{DelayTutorial}' asks for paths to be balanced without saying how a wire is lengthened");
+                return;
+            }
+
+            Assert.Fail($"'{DelayTutorial}' is missing from the run");
+        }
+
+        /// <summary>
         /// A level that leaves some answer free comes after the level that says free answers exist.
         /// </summary>
         /// <remarks>
