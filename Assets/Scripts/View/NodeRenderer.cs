@@ -267,23 +267,6 @@ namespace BitSorter.View
             }
         }
 
-        /// <summary>
-        /// Writes a fixture's name under it, so "A", "s" or "SUM" in a level's goal names something
-        /// the player can actually point at.
-        /// </summary>
-        /// <remarks>
-        /// Sources and sinks only. Every goal in the game refers to them by name -- "make the bin
-        /// receive A when s is 0" is unreadable on a board of unlabelled shapes -- whereas a gate's
-        /// silhouette already says what it is, and stamping "AND" across it would compete with the
-        /// one cue <see cref="NodeShapes"/> deliberately relies on.
-        ///
-        /// The text comes from <see cref="Node.Name"/>, which the circuit builder already sets from
-        /// the fixture id, so the label and the goal are quoting the same string. There is no second
-        /// place for a name to be written down and drift.
-        ///
-        /// Placed below the node rather than on it: a label over the body would be washed out by the
-        /// glow exactly when the node is most active.
-        /// </remarks>
         /// <summary>The disc inside a register, showing the bit it is holding.</summary>
         /// <remarks>
         /// Above the body and below the bits in transit, like a fixture's label: a bit arriving at
@@ -316,6 +299,23 @@ namespace BitSorter.View
         /// </summary>
         public const float LabelReach = LabelDrop + LabelHeight * 0.5f;
 
+        /// <summary>
+        /// Writes a fixture's name under it, so "A", "s" or "SUM" in a level's goal names something
+        /// the player can actually point at.
+        /// </summary>
+        /// <remarks>
+        /// Sources and sinks only. Every goal in the game refers to them by name -- "make the bin
+        /// receive A when s is 0" is unreadable on a board of unlabelled shapes -- whereas a gate's
+        /// silhouette already says what it is, and stamping "AND" across it would compete with the
+        /// one cue <see cref="NodeShapes"/> deliberately relies on.
+        ///
+        /// The text comes from <see cref="Node.Name"/>, which the circuit builder already sets from
+        /// the fixture id, so the label and the goal are quoting the same string. There is no second
+        /// place for a name to be written down and drift.
+        ///
+        /// Placed below the node rather than on it: a label over the body would be washed out by the
+        /// glow exactly when the node is most active.
+        /// </remarks>
         private void SpawnLabel(Node node, Vector2 centre, Color colour)
         {
             bool isFixture = node is SourceNode || node is SinkNode;
