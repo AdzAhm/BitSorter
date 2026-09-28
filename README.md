@@ -448,6 +448,12 @@ The TextMesh Pro files Unity bundles under `Assets/TextMesh Pro/` keep their own
 terms: the Unity Companion License, the SIL Open Font License for Liberation Sans,
 and EmojiOne's for its sprites. The details are in `LICENSE`.
 
+The game's font is **IBM Plex Sans**, © IBM Corp., from
+[github.com/IBM/plex](https://github.com/IBM/plex), under the
+[SIL Open Font License 1.1](Assets/Fonts/IBMPlexSans/LICENSE.txt), which travels
+with it in `Assets/Fonts/IBMPlexSans/`. Liberation Sans stays on as the fallback for
+any character Plex does not have.
+
 ### Music credits
 
 Every level track and every sound effect is generated in code

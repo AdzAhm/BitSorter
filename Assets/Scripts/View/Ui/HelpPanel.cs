@@ -470,8 +470,8 @@ namespace BitSorter.View
             // table to draw. Rendering the wrapper anyway left a blank block sized for a table that
             // was never coming, which reads as something having failed to load.
             //
-            // mspace rather than a monospaced font: the project ships one font, and forcing an
-            // advance width is enough to make columns line up without adding another asset.
+            // mspace rather than a monospaced font: forcing an advance width is enough to make
+            // columns line up in the game's own font, without adding another asset.
             _table.text = string.IsNullOrEmpty(text)
                 ? string.Empty
                 : $"<mspace={TableMonospace}em>{text}</mspace>";

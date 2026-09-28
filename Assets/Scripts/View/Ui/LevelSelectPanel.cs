@@ -34,10 +34,10 @@ namespace BitSorter.View
             /// A drawn dot, not a text glyph.
             /// </summary>
             /// <remarks>
-            /// This was a tick character, and LiberationSans -- the only font the project ships --
-            /// has no U+2713. TMP fell back to nothing and logged a warning for every row on every
-            /// refresh, which is several a second with the panel open. A generated sprite has no
-            /// font to be missing from.
+            /// This was a tick character, and LiberationSans -- then the only font the project
+            /// shipped -- has no U+2713; nor does IBM Plex Sans, the game's font now. TMP fell back to
+            /// nothing and logged a warning for every row on every refresh, which is several a second
+            /// with the panel open. A generated sprite has no font to be missing from.
             /// </remarks>
             public Image Tick;
 
