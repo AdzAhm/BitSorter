@@ -305,6 +305,12 @@ failure side.
   saying a circuit missed its clock.
 
 ## Working agreement
+- **The loop below, with its exact calls, is the `unity-test-loop` skill**
+  (`.claude/skills/unity-test-loop/`): compile, check the DLL, Edit Mode, Play
+  Mode, capture and diff, rebuild the scene, commit. Its scripts are the shot
+  differ and a hunk stager. This section says why; the skill says how. **One
+  editor serves every session on this machine**, and a compile during another
+  session's test run kills it (2026-09-28), so agree who drives first.
 - Use Plan mode for anything touching more than one file.
 - Every new LogicCore component ships with its Edit Mode tests in the
   same change. No component without a truth-table test.
