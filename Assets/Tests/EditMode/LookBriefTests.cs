@@ -213,24 +213,28 @@ namespace BitSorter.LogicCore.Tests
         }
 
         /// <summary>
-        /// A 0 kept on a part stands out from the pale body it is drawn on.
+        /// A 0 above a source stands out from the plate it sits on.
         /// </summary>
         /// <remarks>
-        /// A bit that sits still is drawn on the register's body -- inside a register, and on the
-        /// plate above a source showing what it sends next. On the bare board an indigo 0 is about
-        /// 2:1 against the ground, and the source's first disc, drawn without a plate, was hard to
-        /// find. A 1 is told from the body by its hue, which <see cref="AOne_HasAColourOfItsOwn"/>
-        /// holds it to.
+        /// A source's next bit is drawn on a solid plate in the register's colour. On the bare board
+        /// an indigo 0 is about 2:1 against the ground, and the first disc, drawn without a plate,
+        /// was hard to find. A 1 is told from the plate by its hue, which
+        /// <see cref="AOne_HasAColourOfItsOwn"/> holds it to.
+        ///
+        /// Not a test of a 0 inside a register, which it once claimed to be. A register's body is
+        /// drawn in the look's own style -- glass, in Neon Board -- and the middle where its held bit
+        /// sits is mostly see-through, so a comparison with the palette colour would pass whatever
+        /// the glass let through.
         /// </remarks>
         [Test]
-        public void AKeptZero_StandsOutFromWhatItSitsOn()
+        public void AZeroAboveASource_StandsOutFromItsPlate()
         {
             foreach (Look look in NewLooks())
             {
                 Palette p = look.Colours;
 
                 Assert.GreaterOrEqual(Contrast(p.BitZero, p.Register), 3f,
-                    $"{look.Name}: a 0 inside a register, or above a source, is lost on its body");
+                    $"{look.Name}: a 0 above a source is lost on the plate it sits on");
             }
         }
 

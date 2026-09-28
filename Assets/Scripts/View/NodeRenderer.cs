@@ -95,12 +95,12 @@ namespace BitSorter.View
         /// <remarks>
         /// A playtester asked to see what a source was about to send (2026-09-28): a stream is a row
         /// of bits in a file, and on the board the only way to learn it was to run it and watch.
-        /// Drawn as the register's held bit is -- the same disc, digit and colour, on a plate of the
-        /// register's pale body -- because both are a value sitting on a part rather than one
-        /// travelling. The plate is not decoration: the first version drew the disc straight onto
-        /// the board, where an indigo 0 is about 2:1 against the ground and was hard to find. While
-        /// the board is being built it shows the first bit, and as a run goes it steps along the
-        /// stream.
+        /// Drawn as the register's held bit is -- the same disc, digit and colour -- because both are
+        /// a value sitting on a part rather than one travelling, and on a solid plate in the
+        /// register's colour. The plate is not decoration: the first version drew the disc straight
+        /// onto the board, where an indigo 0 is about 2:1 against the ground and was hard to find.
+        /// While the board is being built it shows the first bit, and as a run goes it steps along
+        /// the stream.
         ///
         /// Redrawn only when the value changes, the idiom every renderer here uses; the lookup it
         /// makes each frame walks at most the silent ticks of one clock period.
