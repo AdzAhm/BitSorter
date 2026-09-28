@@ -12,7 +12,8 @@ namespace BitSorter.View
     /// <remarks>
     /// A readout and nothing else. It decides *how* a hint is shown and for how long; whether there
     /// is a hint to show at all belongs to <see cref="FirstTimeHints"/>, and whether it has been
-    /// shown before belongs to <see cref="ProgressStore"/>.
+    /// shown before belongs to <see cref="ProgressStore"/>. A hint is either timed (<see cref="Show"/>)
+    /// or held (<see cref="Hold"/>) until whoever raised it takes it down.
     ///
     /// Never a raycast target, so the board and every button underneath keep working while it is up.
     /// A lesson that ate a click on Run would be a lesson in the wrong thing.
@@ -45,7 +46,12 @@ namespace BitSorter.View
         private float _remaining;
 
         /// <summary>Whether a hint is on screen. Kept so hints queue rather than cut each other off.</summary>
-        public bool IsShowing => _remaining > 0f;
+        public bool IsShowing => _remaining > 0f || IsHolding;
+
+        /// <summary>
+        /// Whether the hint up is held: no countdown, no dismissing it, until <see cref="Hide"/>.
+        /// </summary>
+        public bool IsHolding { get; private set; }
 
         /// <summary>
         /// Whether Escape is this hint's this frame, so the main menu stands aside for it.
@@ -68,7 +74,7 @@ namespace BitSorter.View
         /// than the moment that raised it, and no panel has just closed over it.
         /// </summary>
         private bool Dismissable =>
-            IsShowing && _background != null && UiModal.HudVisible
+            IsShowing && !IsHolding && _background != null && UiModal.HudVisible
             && _seconds - _remaining > _graceSeconds && !UiModal.OpenOrJustClosed;
 
         private void Awake()
@@ -120,6 +126,11 @@ namespace BitSorter.View
             }
 
             UiTheme.SetShown(_background, true);
+
+            // A held hint has no time to spend and cannot be dismissed. Escape therefore passes
+            // straight through it to the main menu, and the hint is still there on the way back.
+            if (IsHolding)
+                return;
 
             _remaining -= Time.deltaTime;
 
@@ -174,6 +185,7 @@ namespace BitSorter.View
         }
 
         /// <summary>Puts a hint up. Ignores anything empty, so a missing id shows no empty bar.</summary>
+        /// <remarks>Replaces a held hint, if one is up; its owner raises it again when it wants it back.</remarks>
         public void Show(string message)
         {
             if (_background == null || string.IsNullOrWhiteSpace(message))
@@ -181,6 +193,24 @@ namespace BitSorter.View
 
             _text.text = message;
             _remaining = _seconds;
+            IsHolding = false;
+
+            _background.gameObject.SetActive(true);
+            UiTheme.BringToFront(_background.rectTransform);
+        }
+
+        /// <summary>
+        /// Puts a hint up to stay: it does not run out and a click does not take it down. Only
+        /// <see cref="Hide"/> does, or a <see cref="Show"/> over it.
+        /// </summary>
+        public void Hold(string message)
+        {
+            if (_background == null || string.IsNullOrWhiteSpace(message))
+                return;
+
+            _text.text = message;
+            _remaining = 0f;
+            IsHolding = true;
 
             _background.gameObject.SetActive(true);
             UiTheme.BringToFront(_background.rectTransform);
@@ -190,6 +220,7 @@ namespace BitSorter.View
         public void Hide()
         {
             _remaining = 0f;
+            IsHolding = false;
 
             if (_background != null && _background.gameObject.activeSelf)
                 _background.gameObject.SetActive(false);

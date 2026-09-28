@@ -45,6 +45,16 @@ just because it is written down here.
   means. They are fired by what happens, not by which level is loaded, and
   `hintsSeen` in the save remembers them.
 
+  **The wire-delay hint is the one that stays.** It is up until the player
+  lengthens a wire, and only then counts as seen, where every other one is
+  marked as it goes up and then timed. It explains a verb rather than something
+  that just happened, and it comes up as the first wire goes in -- the middle of
+  wiring -- so the click that began the next wire took it down unread, and the
+  save never offered it again; a playtester took a long while to find re-timing
+  (2026-09-28). A collision or a stall still cuts in over it and it comes back
+  after them, and leaving the level leaves it for the next one that budgets
+  delay. `balance-the-paths`' goal says it as well, and the tutorial asks for it.
+
   The jobs must stay apart. `balance-the-paths`' hint already covers stalling
   and collision *for that level*, so a first-time hint reaching for the same
   words would be a second copy the player also has to read twice.

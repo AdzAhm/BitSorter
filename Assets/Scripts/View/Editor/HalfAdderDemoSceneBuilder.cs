@@ -264,6 +264,7 @@ namespace BitSorter.View.EditorTools
             Assign(hints, "_runner", runner);
             Assign(hints, "_progress", progress);
             Assign(hints, "_banner", hintBanner);
+            Assign(hints, "_wireDelay", wireDelay);
 
             Assign(tutorialPanel, "_canvas", canvas);
             Assign(tutorialRings, "_canvas", canvas);

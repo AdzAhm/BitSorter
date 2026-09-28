@@ -15,6 +15,14 @@ namespace BitSorter.View
     /// Everything is polled, like every other readout in this project. The three triggers live in
     /// three different places -- the graph, the corruption count and the level's budget -- and a
     /// component that subscribed would need all three to announce themselves.
+    ///
+    /// **The wire-delay hint is held, and seen only once a wire has been lengthened.** Every other
+    /// hint is marked seen as it goes up and then timed. That one explains a verb, not something
+    /// that just happened, and it comes up as the first wire goes in -- the middle of wiring -- so
+    /// the click that began the next wire took it down unread, and the save never offered it
+    /// again. A playtester took a long while to find re-timing (2026-09-28). A collision or a stall
+    /// still cuts in over it, and it comes back after them; leaving the level leaves it for the
+    /// next level that budgets delay.
     /// </remarks>
     public sealed class FirstTimeHints : MonoBehaviour
     {
@@ -22,11 +30,15 @@ namespace BitSorter.View
         [SerializeField] private SimulationRunner _runner;
         [SerializeField] private ProgressTracker _progress;
         [SerializeField] private HintBanner _banner;
+        [SerializeField] private WireDelayController _wireDelay;
 
         [Tooltip("Consecutive ticks a gate must sit stalled mid-run. See HintRules.StallTicks.")]
         [SerializeField] private int _stallTicks = HintRules.StallTicks;
 
         private readonly StallClock _stalls = new StallClock();
+
+        /// <summary><see cref="WireDelayController.ChangeCount"/> as of the last frame.</summary>
+        private int _delayChangesSeen;
 
         private void Awake()
         {
@@ -34,6 +46,7 @@ namespace BitSorter.View
             if (_runner == null) _runner = FindFirstObjectByType<SimulationRunner>();
             if (_progress == null) _progress = FindFirstObjectByType<ProgressTracker>();
             if (_banner == null) _banner = FindFirstObjectByType<HintBanner>();
+            if (_wireDelay == null) _wireDelay = FindFirstObjectByType<WireDelayController>();
         }
 
         private void OnEnable()
@@ -74,9 +87,21 @@ namespace BitSorter.View
             // restart its clock the moment the hint came down.
             int longestStall = _stalls.Observe(_runner.View, _runner.View.CurrentTick);
 
+            // A wire re-timed where delay is budgeted is the wire-delay hint learned, whether or not
+            // it was on screen. Only there: the tutorial asks for a scroll too, and it marks no hint.
+            if (WireRetimed() && _session.Level.HasDelayBudget)
+            {
+                store.MarkHintSeen(HintRules.WireDelay);
+
+                if (_banner.IsHolding)
+                    _banner.Hide();
+            }
+
             // One at a time. A second hint arriving mid-sentence would cut the first one off, and
-            // whichever lost the race would be marked seen without having been read.
-            if (_banner.IsShowing || UiModal.AnyOpen)
+            // whichever lost the race would be marked seen without having been read. A held hint
+            // is the exception, since it is not marked until it has done its job: the two below may
+            // cut in over it, and it is raised again once they have gone.
+            if ((_banner.IsShowing && !_banner.IsHolding) || UiModal.AnyOpen)
                 return;
 
             // Collision first: it is the most alarming of the three, and the only one where the
@@ -90,16 +115,21 @@ namespace BitSorter.View
                 return;
             }
 
+            if (_banner.IsHolding)
+                return;
+
             // Not an event but a verb the player has no way to discover: nothing on screen says a
             // wire can be scrolled. Offered on the first board that budgets delay, while there is
-            // still a board to try it on.
+            // still a board to try it on, and held there until a wire is lengthened.
             //
             // Waits for a wire to exist. Firing on an empty board told the player to scroll
             // something that was not there yet -- an instruction they could not follow and would
-            // have forgotten by the time they could.
-            if (TryShow(store, HintRules.WireDelay,
+            // have forgotten by the time they could. And for the board to take the scroll: not
+            // mid-run, but after one has finished as well as before, since an edit leaves a finished
+            // run -- which is when it comes back after a collision has cut in.
+            if (TryHold(store, HintRules.WireDelay,
                     _session.Level.HasDelayBudget
-                    && _session.State == RunState.Editing
+                    && _session.CanEdit
                     && _session.Blueprint.Wires.Count > 0))
             {
                 return;
@@ -110,6 +140,16 @@ namespace BitSorter.View
             // for one to be on the board rather than firing when the level loads, so the sentence
             // has something to point at while it is being read.
             TryShow(store, HintRules.Register, HasARegister());
+        }
+
+        /// <summary>Whether a wire's delay has changed since the last frame, by the wheel or the keys.</summary>
+        private bool WireRetimed()
+        {
+            int count = _wireDelay != null ? _wireDelay.ChangeCount : 0;
+            bool changed = count != _delayChangesSeen;
+
+            _delayChangesSeen = count;
+            return changed;
         }
 
         /// <summary>Whether the player has put a register on the board.</summary>
@@ -141,6 +181,19 @@ namespace BitSorter.View
                 return false;
 
             _banner.Show(HintRules.TextFor(id));
+            return true;
+        }
+
+        /// <summary>
+        /// Holds a hint up if it is due and has not been seen, without marking it: whoever decides
+        /// it has done its job marks it. Returns whether it went up.
+        /// </summary>
+        private bool TryHold(ProgressStore store, string id, bool due)
+        {
+            if (!due || store.HasSeenHint(id))
+                return false;
+
+            _banner.Hold(HintRules.TextFor(id));
             return true;
         }
     }
