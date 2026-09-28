@@ -346,6 +346,15 @@ namespace BitSorter.View
                 _ruler.textWrappingMode = TextWrappingModes.Normal;
             }
 
+            // The font every label is drawn in, asked for each time rather than kept from when the
+            // ruler was built. It was kept, and when the game changed font the ruler went on
+            // measuring in the old one until the editor next reloaded -- two goals and a hint that
+            // no longer fit passed every fitting test in the meantime.
+            TMP_FontAsset font = TMP_Settings.defaultFontAsset;
+
+            if (font != null && _ruler.font != font)
+                _ruler.font = font;
+
             _ruler.fontSize = SizeOf(type);
             _ruler.lineSpacing = lineSpacing;
             return _ruler;
