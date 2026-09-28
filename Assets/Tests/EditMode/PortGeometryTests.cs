@@ -123,6 +123,30 @@ namespace BitSorter.LogicCore.Tests
         }
 
         /// <summary>
+        /// The plate under the held bit shows round it, clears the notch, and stays inside the body.
+        /// </summary>
+        /// <remarks>
+        /// Measured at rest only, because it never swells: a capture swells the bit, over the plate.
+        /// A plate no wider than the bit would leave the bit's edge on the see-through glass it was
+        /// put there to cover.
+        /// </remarks>
+        [Test]
+        public void ThePlateUnderTheHeldBit_ShowsRoundIt_AndClearsTheNotchAndTheEdges()
+        {
+            float tip = -ProceduralSprites.FlipFlopHalfWidth + ProceduralSprites.FlipFlopNotch;
+            float leftmost = PortGeometry.HeldBitCentre - PortGeometry.HeldBitPlateRadius;
+            float rightmost = PortGeometry.HeldBitCentre + PortGeometry.HeldBitPlateRadius;
+
+            Assert.Greater(PortGeometry.HeldBitPlateRadius, PortGeometry.HeldBitRadius,
+                "the held bit covers its plate, so nothing shows where it ends");
+            Assert.Greater(leftmost, tip, "the plate is drawn over the clock notch");
+            Assert.Less(rightmost, ProceduralSprites.FlipFlopHalfWidth,
+                "the plate reaches out through the right edge of the register");
+            Assert.Less(PortGeometry.HeldBitPlateRadius, ProceduralSprites.FlipFlopHalfHeight,
+                "the plate reaches out through the top and bottom of the register");
+        }
+
+        /// <summary>
         /// A source's next bit sits above its capsule, clear of it, and inside the square the source
         /// occupies -- so nothing laid out around a node has to allow for it.
         /// </summary>

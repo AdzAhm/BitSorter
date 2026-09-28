@@ -95,9 +95,9 @@ namespace BitSorter.View
         /// <remarks>
         /// A playtester asked to see what a source was about to send (2026-09-28): a stream is a row
         /// of bits in a file, and on the board the only way to learn it was to run it and watch.
-        /// Drawn as the register's held bit is -- the same disc, digit and colour -- because both are
-        /// a value sitting on a part rather than one travelling, and on a solid plate in the
-        /// register's colour. The plate is not decoration: the first version drew the disc straight
+        /// Drawn as the register's held bit is -- the same disc, digit and colour, on the same kind of
+        /// solid plate in the register's colour -- because both are a value sitting on a part rather
+        /// than one travelling. The plate is not decoration: the first version drew the disc straight
         /// onto the board, where an indigo 0 is about 2:1 against the ground and was hard to find.
         /// While the board is being built it shows the first bit, and as a run goes it steps along
         /// the stream.
@@ -144,7 +144,7 @@ namespace BitSorter.View
         /// The disc above a source, showing the bit it will send next, on its plate.
         /// </summary>
         /// <remarks>
-        /// The plate is on the body's layer and the disc on the detail's, as a register's body and
+        /// The plate is on the body's layer and the disc on the detail's, as a register's plate and
         /// its held bit are, so the disc is always the one drawn on top.
         /// </remarks>
         private void SpawnNextBit(int id, Vector2 centre)
@@ -372,7 +372,7 @@ namespace BitSorter.View
                 _bodies[id] = renderer;
 
                 if (node is RegisterNode)
-                    SpawnHeldBit(id, centre);
+                    SpawnHeldBit(id, centre, colour);
 
                 if (node is SourceNode)
                     SpawnNextBit(id, centre);
@@ -381,15 +381,46 @@ namespace BitSorter.View
             }
         }
 
-        /// <summary>The disc inside a register, showing the bit it is holding.</summary>
+        /// <summary>
+        /// How far towards the camera a register's plate is drawn from its body, in world units.
+        /// </summary>
+        /// <remarks>
+        /// The plate is on the body's layer and lies over the body, and Unity breaks a tie in sorting
+        /// order by depth and leaves a tie in depth to chance. Towards the camera is in front. The
+        /// camera is orthographic, so this changes nothing about where or how large it is drawn.
+        /// </remarks>
+        private const float PlateLift = 0.001f;
+
+        /// <summary>The disc inside a register, showing the bit it is holding, on its plate.</summary>
         /// <remarks>
         /// Above the body and below the bits in transit, like a fixture's label: a bit arriving at
         /// the register must not disappear behind the one already in it.
+        ///
+        /// The plate is the body's own colour, solid, and is what the bit is seen against. Neon
+        /// Board draws the body as glass, see-through in the middle where the bit sits, and a 0 was
+        /// about 2.5:1 against what showed through it (measured 2026-09-28). It does not swell with a
+        /// capture -- the bit swells over it -- so a capture is still a swell and not a brightening.
+        /// Where the body is already solid, as in Classic, the plate is the same colour on the same
+        /// colour.
         /// </remarks>
-        private void SpawnHeldBit(int id, Vector2 centre)
+        private void SpawnHeldBit(int id, Vector2 centre, Color colour)
         {
+            Vector2 at = PortGeometry.HeldBitPositionOf(centre);
+
+            GameObject plate = ViewSprites.Spawn(_nodePrefab, _container, $"Held plate {id}");
+            plate.transform.position = new Vector3(at.x, at.y, -PlateLift);
+            plate.transform.localScale =
+                Vector3.one * PortGeometry.ScaleForRadius(PortGeometry.HeldBitPlateRadius);
+
+            var plateRenderer = plate.GetComponent<SpriteRenderer>();
+            plateRenderer.sprite = ProceduralSprites.Circle();
+            plateRenderer.color = colour;
+            plateRenderer.sortingOrder = ViewLayers.NodeBody;
+
+            _spawned.Add(plate);
+
             GameObject held = ViewSprites.Spawn(_nodePrefab, _container, $"Held {id}");
-            held.transform.position = PortGeometry.HeldBitPositionOf(centre);
+            held.transform.position = at;
             held.transform.localScale =
                 Vector3.one * PortGeometry.ScaleForRadius(PortGeometry.HeldBitRadius);
 

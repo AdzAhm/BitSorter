@@ -902,18 +902,27 @@ failure side.
   the disc covered the notch, and a capture swelled it wider than the box it
   was inside, so the state changing read as the register bursting. Offset, it
   leaves the notch showing and puts the state on the Q side.
+
+  **The held bit sits on a solid plate in the register's colour**
+  (`PortGeometry.HeldBitPlateRadius`). Neon Board draws the body as glass,
+  see-through in the middle, so a held 0 was seen against a fraction of the
+  body's colour over its halo and the ground: 2.5:1, measured on the rendered
+  board on 2026-09-28, while the two palette colours promised better than 6:1.
+  On the plate it is 6.2:1. `BoardRenderPlayTests` holds it to 3:1 by rendering
+  the board with the held bit and without it, because a comparison of colours
+  cannot see what a sprite's alpha lets through. The plate does not swell --
+  the bit swells over it -- so it clears the notch and the edges at rest; and
+  where the body is solid already, as in Classic, it is the same colour on the
+  same colour.
 - **A source shows the bit it will send next**, in a disc above its capsule:
-  the register's held bit, the same disc, digit and colour, on a solid plate in
-  the register's colour, because both are a value sitting on a part rather than
-  one in flight. A stream was a row of bits in a file, and on the board the
-  only way to read it was to run it and watch; a playtester asked for it
-  (2026-09-28). **The plate is what makes a 0 visible**: the first disc was
-  drawn on the bare board, where Neon Board's indigo 0 is about 2:1 against the
-  ground, and `LookBriefTests` holds a 0 to 3:1 against the plate. That says
-  nothing about a 0 *inside* a register: Neon Board draws the register's body
-  as glass, mostly see-through in the middle where the held bit sits, so what
-  is behind that bit is darker than the plate, and a review estimated it at
-  under 3:1. `SourceNode.NextBit` skips the clock's silent ticks -- what comes
+  the register's held bit, the same disc, digit and colour, on the same kind of
+  solid plate in the register's colour, because both are a value sitting on a
+  part rather than one in flight. A stream was a row of bits in a file, and on
+  the board the only way to read it was to run it and watch; a playtester asked
+  for it (2026-09-28). **The plate is what makes a 0 visible**: the first disc
+  was drawn on the bare board, where Neon Board's indigo 0 is about 2:1 against
+  the ground, and `LookBriefTests` holds a 0 to 3:1 against the plate's colour.
+  `SourceNode.NextBit` skips the clock's silent ticks -- what comes
   next is the next bit, not the next tick -- and disc and plate go once the
   source has sent its last. Both sit inside the square the source occupies
   (`PortGeometry.NextBitPlateRadius`), so nothing framed around a node, the

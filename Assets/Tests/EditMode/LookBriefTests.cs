@@ -222,9 +222,10 @@ namespace BitSorter.LogicCore.Tests
         /// <see cref="AOne_HasAColourOfItsOwn"/> holds it to.
         ///
         /// Not a test of a 0 inside a register, which it once claimed to be. A register's body is
-        /// drawn in the look's own style -- glass, in Neon Board -- and the middle where its held bit
-        /// sits is mostly see-through, so a comparison with the palette colour would pass whatever
-        /// the glass let through.
+        /// drawn in the look's own style -- glass, in Neon Board -- and a comparison of colours
+        /// passed while the 0 was about 2.5:1 against what the glass let through. Its held bit now
+        /// sits on a plate as well, and <c>BoardRenderPlayTests</c> measures that one on the rendered
+        /// board rather than here.
         /// </remarks>
         [Test]
         public void AZeroAboveASource_StandsOutFromItsPlate()

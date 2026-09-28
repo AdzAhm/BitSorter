@@ -78,6 +78,21 @@ namespace BitSorter.View
         /// <summary>The held bit at its largest, which is the size that has to fit.</summary>
         public const float HeldBitSwollenRadius = HeldBitRadius * HeldBitSwell;
 
+        /// <summary>
+        /// How much of a plate shows round the bit sitting on it, in shape units -- the same for a
+        /// register's held bit and a source's next one.
+        /// </summary>
+        public const float PlateRim = 0.05f;
+
+        /// <summary>Radius of the solid plate a register's held bit sits on, in shape units.</summary>
+        /// <remarks>
+        /// Neon Board draws a register's body as glass, see-through in the middle, and a 0 there was
+        /// about 2.5:1 against what showed through (measured 2026-09-28). The plate is the body's
+        /// colour made solid under the bit. It keeps its size through a capture -- the bit swells
+        /// over it -- so it is measured at rest, and has only the notch and the edges to clear.
+        /// </remarks>
+        public const float HeldBitPlateRadius = HeldBitRadius + PlateRim;
+
         /// <summary>Where the held bit is drawn, given the register's centre.</summary>
         public static Vector2 HeldBitPositionOf(Vector2 nodeCentre) =>
             new Vector2(nodeCentre.x + HeldBitCentre * ShapeUnit, nodeCentre.y);
@@ -100,9 +115,9 @@ namespace BitSorter.View
         /// <summary>Radius of a source's next bit on its plate, in shape units.</summary>
         /// <remarks>
         /// The rim the plate leaves around it is what shows where the disc ends, as the register's
-        /// pale body does for its held bit. A 0 on the bare board did not stand out from it.
+        /// plate does for its held bit. A 0 on the bare board did not stand out from it.
         /// </remarks>
-        public const float NextBitRadius = NextBitPlateRadius - 0.05f;
+        public const float NextBitRadius = NextBitPlateRadius - PlateRim;
 
         /// <summary>Space between the top of a source's capsule and its plate, in shape units.</summary>
         public const float NextBitGap = 0.05f;
