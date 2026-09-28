@@ -1,0 +1,30 @@
+name: Level idea
+description: A topic or a puzzle that would make a good level.
+labels: ["level"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Levels teach a digital-systems topic: boolean algebra, K-maps, functional
+        completeness, propagation delay, combinational components, adders, flip-flops,
+        state machines, critical path and pipelining. Assembly, datapaths, memory
+        addressing and number representation are out of scope.
+  - type: input
+    id: topic
+    attributes:
+      label: Topic
+      placeholder: "A 2-to-4 decoder with an enable"
+    validations:
+      required: true
+  - type: textarea
+    id: puzzle
+    attributes:
+      label: The puzzle
+      description: What the player is asked to build, which parts they get, and what makes it interesting.
+    validations:
+      required: true
+  - type: textarea
+    id: where
+    attributes:
+      label: Where it fits
+      description: Which levels it should come after, and what it assumes the player already knows.

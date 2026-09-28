@@ -1,0 +1,28 @@
+name: Feature request
+description: Something the game or the simulator could do that it doesn't.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Two kinds of change need a conversation before any code: anything about what data
+        the game sends, and anything that ranks players against each other or a par score.
+        Both change a promise made to players; see CONTRIBUTING.md.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What's the problem or the missing piece?
+      description: What were you trying to do, and what got in the way?
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like to happen?
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Anything else
+      description: Screenshots, a course topic it would help with, or how another simulator does it.

@@ -1,0 +1,41 @@
+name: Bug report
+description: Something in the game doesn't work the way it should.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time. One thing first: a circuit whose answers are right can
+        still fail if its paths are unbalanced -- bits arriving at a gate on different ticks
+        collide. That's the timing lesson, not a grading bug, and the verdict names the gate.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: It's in the bottom-right corner of the main menu.
+      placeholder: "4.0.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Where were you playing?
+      options:
+        - Windows build
+        - Browser (say which one below)
+        - The Unity editor
+    validations:
+      required: true
+  - type: input
+    id: level
+    attributes:
+      label: Level
+      description: Which level, or free play.
+      placeholder: "Balance the paths"
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead. A screenshot of the board helps a lot.
+    validations:
+      required: true

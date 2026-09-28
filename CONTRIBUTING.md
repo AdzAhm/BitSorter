@@ -11,14 +11,21 @@ This file is the practical guide. The reasoning behind the design lives in
 mistakes that led to them) in [CLAUDE.md](CLAUDE.md). You do not need to read
 either before reporting a bug. Skim both before changing code.
 
-## Reporting a bug
+## Issues
 
-Open an issue with:
+Everything starts as an issue: a bug, an idea, a level, a question. Open one from
+the [Issues tab](https://github.com/AdzAhm/BitSorter/issues/new/choose) and pick a
+form. Each form asks for what is needed and applies the right label for you:
 
-- **The version.** It is in the bottom-right corner of the main menu.
-- **Where you were playing:** the Windows build or a browser, and which browser.
-- **The level**, and what was on the board. A screenshot is usually enough.
-- **What you did, what you expected, and what happened instead.**
+- **Bug report**: something doesn't work the way it should.
+- **Feature request**: something the game or the simulator could do that it doesn't.
+- **Level idea**: a topic or a puzzle that would make a good level.
+
+A blank issue is fine for anything else. Search first: if someone has already
+reported it, a comment there with what you saw is worth more than a second issue.
+
+For a bug, the version (bottom-right corner of the main menu), where you were
+playing, the level, and a screenshot of the board are usually all it takes.
 
 Two things that are not bugs, so you do not spend time on them:
 
@@ -27,6 +34,30 @@ Two things that are not bugs, so you do not spend time on them:
   That is the timing lesson, not a grading error. The verdict names the gate.
 - **Throughput and scores.** Nothing ranks you against anyone or against a par
   score, on purpose. See "The line on scoring" in the design notes.
+
+### Labels
+
+Labels say what an issue or pull request is about, so it can be found and picked
+up. The forms add the first one; more are added as it is looked at.
+
+| Label | Used for |
+|---|---|
+| `bug` | Something isn't working. |
+| `enhancement` | A new feature or an improvement to an existing one. |
+| `level` | A level idea, or a new or changed level. |
+| `simulator` | The logic core: ticks, gates, timing and grading. |
+| `interface` | What the player sees and clicks: the board, panels and controls. |
+| `accessibility` | A barrier for people with disabilities: contrast, colour, text size, input. |
+| `browser` | Happens only in the browser (WebGL) build. |
+| `playtest` | Found by watching someone play. |
+| `documentation` | The README, this file, the design notes or code comments. |
+| `good first issue` | Small and well described: a good place to start. |
+| `help wanted` | Nobody is on it yet, and help is welcome. |
+| `question` | Needs an answer before anything can be done. |
+| `duplicate`, `invalid`, `wontfix` | Closed without a change, and why. |
+
+If you want to work on an issue, say so in a comment first, so two people do not
+build the same thing.
 
 ## Suggesting or writing a level
 
@@ -67,7 +98,9 @@ because bits are discrete tokens with nowhere for a glitch to live.
 
 1. Install **Unity 6.3 LTS (6000.3.11f1)** from Unity Hub. Other versions may
    upgrade the project in ways that are hard to review.
-2. Clone the repository and open the folder in Unity Hub.
+2. Clone the repository, or your fork of it (see
+   [Forking and pull requests](#forking-and-pull-requests)), and open the folder in
+   Unity Hub.
 3. Run **BitSorter → Build Play Scene** once. The scene is generated from code,
    so this is how you get a scene that matches the code you have.
 4. Press Play.
@@ -110,16 +143,50 @@ not the Player tab, which builds a whole player first.
 CI runs the simulator's own tests on every push without Unity; locally that is
 `dotnet test Tools/ci/LogicCore.Tests/LogicCore.Tests.csproj`.
 
-## Commits and pull requests
+## Forking and pull requests
 
-- One change per commit, with a short message in the style of the history:
-  `feat: ...`, `fix: ...`, `test: ...`, `docs: ...`, `chore: ...`.
-- Keep unrelated changes apart: a fix, a re-saved scene and a HUD tweak are three
-  commits.
-- If your change makes a paragraph in `CLAUDE.md`, the README or the design notes
-  untrue, correct it in the same change.
-- Open pull requests against `main`. Describe what changed and how you checked
-  it, and attach screenshots for anything visible.
+You do not need write access to contribute. The usual GitHub flow:
+
+1. **Fork** the repository with the Fork button at the top of its GitHub page. That
+   makes your own copy under your account.
+2. **Clone your fork** and add the original as `upstream`, so you can stay up to
+   date with it:
+
+   ```bash
+   git clone https://github.com/<you>/BitSorter.git
+   cd BitSorter
+   git remote add upstream https://github.com/AdzAhm/BitSorter.git
+   ```
+
+3. **Make a branch** for your change, from an up-to-date `main`. One branch per
+   change keeps each pull request about one thing:
+
+   ```bash
+   git fetch upstream
+   git switch -c fix-collision-warning upstream/main
+   ```
+
+4. **Commit** as you go. One change per commit, with a short message in the style
+   of the history: `feat: ...`, `fix: ...`, `test: ...`, `docs: ...`, `chore: ...`.
+   Keep unrelated changes apart: a fix, a re-saved scene and a HUD tweak are three
+   commits. If your change makes a paragraph in `CLAUDE.md`, the README or the design
+   notes untrue, correct it in the same change.
+5. **Push the branch to your fork** and open a pull request against `main` on
+   `AdzAhm/BitSorter`. GitHub offers the button as soon as the branch is pushed:
+
+   ```bash
+   git push -u origin fix-collision-warning
+   ```
+
+6. **Fill in the template.** It asks what the change does, which issue it closes
+   ("Closes #12" closes it when the pull request is merged), how you tested it, and
+   for screenshots of anything visible.
+7. **Review.** Expect questions and small requests; push more commits to the same
+   branch to answer them. CI runs the simulator's tests on every push.
+
+If `main` moves on while you work, bring your branch up to date with
+`git fetch upstream` then `git rebase upstream/main`, and push again with
+`git push --force-with-lease`.
 
 Two kinds of change need an issue and a yes first, because they change a promise
 made to players: anything about what data the game sends (see "What it

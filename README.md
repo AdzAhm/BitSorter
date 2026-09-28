@@ -30,6 +30,10 @@ the inside.
 The two browser links are the same build, hosted twice so neither one going down
 takes the game with it. Nothing to install, and no account needed for either.
 
+**Want to help?** Bug reports, level ideas and code are all welcome.
+[CONTRIBUTING.md](CONTRIBUTING.md) explains how to open an issue, fork the
+project and send a pull request.
+
 ---
 
 ## Playing
@@ -429,9 +433,10 @@ an unbalanced one fails outright, so there is nothing in between to rank.
 ## Contributing
 
 Bug reports, level ideas, new levels and code are all welcome.
-[CONTRIBUTING.md](CONTRIBUTING.md) covers how to report a bug usefully, the level
-file format and what a new level needs, setting up the project, the rules the
-code keeps, and how tests and commits are done here.
+[CONTRIBUTING.md](CONTRIBUTING.md) covers opening an issue (there are forms for
+bugs, features and level ideas), what each label means, the level file format and
+what a new level needs, setting up the project, the rules the code keeps, tests,
+and forking the repository and sending a pull request.
 
 ---
 
