@@ -55,6 +55,28 @@ namespace BitSorter.LogicCore
         /// </summary>
         public bool IsExhausted => _next >= _sequence.Length;
 
+        /// <summary>
+        /// The next bit this source will send, or null once it has sent its last.
+        /// </summary>
+        /// <remarks>
+        /// Skips the silent ticks a clock puts between vectors: what is coming next is the next bit,
+        /// not the next tick. Read by the board, which draws it above the source so a player can see
+        /// what is about to leave before it does. Asking changes nothing.
+        /// </remarks>
+        public Bit? NextBit
+        {
+            get
+            {
+                for (int i = _next; i < _sequence.Length; i++)
+                {
+                    if (_sequence[i].HasValue)
+                        return _sequence[i];
+                }
+
+                return null;
+            }
+        }
+
         protected override void OnEvaluate(Bit[] inputs, int tick)
         {
             if (_next >= _sequence.Length)
