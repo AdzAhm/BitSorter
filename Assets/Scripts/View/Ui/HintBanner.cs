@@ -132,7 +132,7 @@ namespace BitSorter.View
             // held hint with it on the very frame it came back.
             if (Dismissable && Dismissed())
             {
-                Keyboard keyboard = Keyboard.current;
+                Keyboard keyboard = UiText.Keyboard;
 
                 if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame)
                     _escapedOn = Time.frameCount;
@@ -167,7 +167,7 @@ namespace BitSorter.View
                 return true;
             }
 
-            Keyboard keyboard = Keyboard.current;
+            Keyboard keyboard = UiText.Keyboard;
 
             return keyboard != null
                    && (keyboard.escapeKey.wasPressedThisFrame || keyboard.spaceKey.wasPressedThisFrame);

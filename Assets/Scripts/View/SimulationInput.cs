@@ -42,7 +42,7 @@ namespace BitSorter.View
                 return;
 
             // Null whenever no keyboard is connected, so this must be checked every frame.
-            Keyboard keyboard = Keyboard.current;
+            Keyboard keyboard = UiText.Keyboard;
             if (keyboard == null)
                 return;
 

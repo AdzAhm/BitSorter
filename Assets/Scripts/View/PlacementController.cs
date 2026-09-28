@@ -80,7 +80,7 @@ namespace BitSorter.View
 
         private void Update()
         {
-            Keyboard keyboard = Keyboard.current;
+            Keyboard keyboard = UiText.Keyboard;
             if (keyboard != null)
                 ReadPalette(keyboard);
 

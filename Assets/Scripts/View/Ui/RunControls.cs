@@ -239,7 +239,7 @@ namespace BitSorter.View
         /// </remarks>
         private void UpdateClear()
         {
-            Keyboard keyboard = Keyboard.current;
+            Keyboard keyboard = UiText.Keyboard;
 
             bool shortcut = keyboard != null
                             && !UiModal.OpenOrJustClosed

@@ -108,7 +108,7 @@ namespace BitSorter.View
             Edge hovered = _runner.NearestEdge(world);
             HoveredEdgeId = hovered != null ? hovered.Id : -1;
 
-            int steps = ReadSteps(mouse, Keyboard.current);
+            int steps = ReadSteps(mouse, UiText.Keyboard);
 
             if (steps == 0 || HoveredEdgeId < 0)
                 return;

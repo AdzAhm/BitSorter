@@ -137,7 +137,7 @@ namespace BitSorter.View
             if (!IsShowing)
                 return;
 
-            Keyboard keyboard = Keyboard.current;
+            Keyboard keyboard = UiText.Keyboard;
 
             if (keyboard != null &&
                 (keyboard.escapeKey.wasPressedThisFrame || keyboard.enterKey.wasPressedThisFrame))

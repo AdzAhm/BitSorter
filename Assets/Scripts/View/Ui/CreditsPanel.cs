@@ -88,7 +88,7 @@ namespace BitSorter.View
 
         private static bool AnyPress()
         {
-            Keyboard keyboard = Keyboard.current;
+            Keyboard keyboard = UiText.Keyboard;
 
             if (keyboard != null && keyboard.anyKey.wasPressedThisFrame)
                 return true;

@@ -274,7 +274,7 @@ namespace BitSorter.View
             if (!Mathf.Approximately(CanvasHeight(), _fittedTo))
                 Fit();
 
-            Keyboard keyboard = Keyboard.current;
+            Keyboard keyboard = UiText.Keyboard;
 
             // H as well as the button. A player mid-wire should not have to find a target. Suppressed
             // while a full-screen panel is up, where the help would open behind it.

@@ -351,7 +351,7 @@ namespace BitSorter.View
         private void Update()
         {
             // Before the readiness check: muting should work on the menu, where there is no graph.
-            Keyboard keyboard = Keyboard.current;
+            Keyboard keyboard = UiText.Keyboard;
 
             if (keyboard != null && keyboard.nKey.wasPressedThisFrame)
                 ToggleMute();

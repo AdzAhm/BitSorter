@@ -108,7 +108,7 @@ namespace BitSorter.View
 
         private void Update()
         {
-            Keyboard keyboard = Keyboard.current;
+            Keyboard keyboard = UiText.Keyboard;
 
             // M opens and closes the list. It was Escape, which now belongs to the main menu; swapped
             // after a playtest, 2026-09-26. Opens only when nothing else is open, or it would stack

@@ -110,7 +110,7 @@ namespace BitSorter.View
 
         private void Update()
         {
-            Keyboard keyboard = Keyboard.current;
+            Keyboard keyboard = UiText.Keyboard;
 
             // Escape: it closes whatever is on top, and with nothing on top it is the way here -- the
             // pause-menu key players reach for first. It was M, and Escape opened the level list;

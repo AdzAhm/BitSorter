@@ -97,7 +97,7 @@ namespace BitSorter.View
 
         private void Update()
         {
-            Keyboard keyboard = Keyboard.current;
+            Keyboard keyboard = UiText.Keyboard;
 
             // Not behind a full-screen panel, where every board key stands aside: pressed on the
             // main menu it did nothing visible, and the readout appeared once the menu closed.

@@ -175,7 +175,7 @@ namespace BitSorter.View
             // account -- HoldsEscapeNow refuses the frame a panel closed on, whatever order the two
             // ran in, so the Escape that closed the level list over this card does not close the
             // card as well.
-            Keyboard keyboard = Keyboard.current;
+            Keyboard keyboard = UiText.Keyboard;
 
             if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame
                 && _escapedOn != Time.frameCount && HoldsEscapeNow)

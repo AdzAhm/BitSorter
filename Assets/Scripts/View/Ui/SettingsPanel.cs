@@ -151,7 +151,7 @@ namespace BitSorter.View
             Fit();
             Refresh();
 
-            Keyboard keyboard = Keyboard.current;
+            Keyboard keyboard = UiText.Keyboard;
 
             if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame && !OpenedThisFrame)
             {
