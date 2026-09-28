@@ -83,6 +83,7 @@ namespace BitSorter.LogicCore.Tests
         {
             ControlSpot.RunButton, ControlSpot.ResetButton, ControlSpot.UndoButton, ControlSpot.RedoButton,
             ControlSpot.ClearButton, ControlSpot.MenuButton, ControlSpot.HelpBadge,
+            ControlSpot.LevelBefore, ControlSpot.LevelAfter,
         };
 
         private static string[] Pieces(string shown) =>
@@ -136,6 +137,8 @@ namespace BitSorter.LogicCore.Tests
         [TestCase(ControlSpot.ClearButton, "to clear")]
         [TestCase(ControlSpot.MenuButton, "main menu")]
         [TestCase(ControlSpot.HelpBadge, "for help")]
+        [TestCase(ControlSpot.LevelBefore, "level before")]
+        [TestCase(ControlSpot.LevelAfter, "level after")]
         public void EachKey_IsOnTheThingItWorks(ControlSpot spot, string does)
         {
             int held = 0;
@@ -150,6 +153,28 @@ namespace BitSorter.LogicCore.Tests
             }
 
             Assert.AreEqual(1, held, $"{spot} should hold exactly one key");
+        }
+
+        /// <summary>
+        /// The banner's level counter names the keys that step through the run -- and only the
+        /// ones that go somewhere.
+        /// </summary>
+        [Test]
+        public void TheLevelCounter_NamesQAndE_WhereTheyGoSomewhere()
+        {
+            string before = ControlsReference.At(ControlSpot.LevelBefore);
+            string after = ControlsReference.At(ControlSpot.LevelAfter);
+
+            Assert.AreEqual("Q", before);
+            Assert.AreEqual("E", after);
+
+            string middle = StatusBanner.Counter(13, 25);
+            StringAssert.Contains(before + " ", middle);
+            StringAssert.Contains(" " + after, middle);
+            StringAssert.Contains("14 / 25", middle);
+
+            StringAssert.DoesNotContain(before + " ", StatusBanner.Counter(0, 25), "Q offered on the first level");
+            StringAssert.DoesNotContain(" " + after, StatusBanner.Counter(24, 25), "E offered on the last level");
         }
 
         // -----------------------------------------------------------------

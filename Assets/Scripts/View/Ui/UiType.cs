@@ -26,6 +26,17 @@ namespace BitSorter.View
 
         /// <summary>Text meant to be read: a goal, a level's name, a button, the solved card.</summary>
         Body,
+
+        /// <summary>
+        /// An instruction beside the thing it works: the controls either side of the run buttons.
+        /// </summary>
+        /// <remarks>
+        /// A step above <see cref="Body"/> after a playtest found the board's controls unclear and
+        /// asked for them bigger (2026-09-28). They are the one text on the board a player has to
+        /// find while their hands are busy, so they are drawn larger than what they sit beside.
+        /// </remarks>
+        Prompt,
+
         /// <summary>A single value read at a glance: the bits lost, the help badge's mark.</summary>
         Numeral,
 

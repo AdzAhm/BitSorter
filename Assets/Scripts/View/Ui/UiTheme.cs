@@ -149,11 +149,42 @@ namespace BitSorter.View
 
         /// <summary>How the board's controls are set, and the main menu's line.</summary>
         /// <remarks>
-        /// Body, up from Label after a playtest asked for it larger (2026-09-27). It is what a new
-        /// player reads to find out what the mouse does, and it sits along the bottom edge in the
-        /// dim colour, which is two reasons to be small already.
+        /// Body, up from Label after a playtest asked for it larger (2026-09-27), and
+        /// <see cref="UiType.Prompt"/> since a second playtest still found the controls unclear and
+        /// small (2026-09-28). It is what a new player reads to find out what the mouse does, so it
+        /// is set in the text colour now rather than the dim one.
         /// </remarks>
-        public const UiType ControlsType = UiType.Body;
+        public const UiType ControlsType = UiType.Prompt;
+
+        /// <summary>A key over the button it presses, drawn as a key: its name in a small outlined cap.</summary>
+        /// <remarks>
+        /// The keys over the run buttons were dim words -- "Enter", "shift+R" -- in the same style as
+        /// the sentences beside them, so they read as more small print rather than as keys to press.
+        /// A cap says "key" by its shape before it is read.
+        /// </remarks>
+        public const UiType KeyCapType = UiType.Body;
+
+        /// <summary>Room either side of a key's name inside its cap.</summary>
+        public const float KeyCapPad = 8f;
+
+        /// <summary>How wide a key's cap is drawn.</summary>
+        public static float KeyCapWidth(string key) => TextWidth(key, KeyCapType) + 2f * KeyCapPad;
+
+        /// <summary>A key drawn as a key: its name in a cap, looking like a quiet button that takes no click.</summary>
+        public static RectTransform KeyCap(string name, Transform parent, string key)
+        {
+            Image cap = Panel_(name, parent, FillOf(ButtonRole.Quiet));
+            cap.raycastTarget = false;
+
+            TextMeshProUGUI label = Label("key", cap.transform, KeyCapType, Text, TextAlignmentOptions.Center);
+            label.raycastTarget = false;
+            Stretch(label.rectTransform);
+            label.text = key;
+
+            RectTransform rect = cap.rectTransform;
+            rect.sizeDelta = new Vector2(KeyCapWidth(key), ControlsHeight);
+            return rect;
+        }
 
         /// <summary>
         /// A key written under the button it matches, in a corner: H under the help badge, ESC under
@@ -462,6 +493,7 @@ namespace BitSorter.View
                 case UiType.Caption: return 13f;
                 case UiType.Label: return 15f;
                 case UiType.Body: return 18f;
+                case UiType.Prompt: return 20f;
                 case UiType.Numeral: return 22f;
                 case UiType.Lead: return 24f;
                 case UiType.Heading: return 26f;

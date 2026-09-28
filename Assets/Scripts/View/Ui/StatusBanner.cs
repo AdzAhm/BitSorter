@@ -198,7 +198,7 @@ namespace BitSorter.View
             if (level != _titleLevel || index != _titleIndex || count != _titleCount)
             {
                 _title.text = count > 1 && index >= 0
-                    ? $"{level.Name.ToUpperInvariant()}   {index + 1} / {count}"
+                    ? $"{level.Name.ToUpperInvariant()}   {Counter(index, count)}"
                     : level.Name.ToUpperInvariant();
 
                 _titleLevel = level;
@@ -230,6 +230,26 @@ namespace BitSorter.View
                     toastRect.sizeDelta = new Vector2(UiTheme.ToastWidth(refusal), toastRect.sizeDelta.y);
                 }
             }
+        }
+
+        /// <summary>
+        /// Where the level sits in the run, with the keys that step through it on either side:
+        /// "Q ‹ 14 / 25 › E".
+        /// </summary>
+        /// <remarks>
+        /// Q and E were named on the tutorial's card and the level list and nowhere a player looks
+        /// while playing, and a playtester never found them (2026-09-28). The counter is what they
+        /// change, so they sit beside it -- smaller and dimmer than the name, and only where they go
+        /// somewhere: there is no level before the first, or after the last.
+        /// </remarks>
+        public static string Counter(int index, int count)
+        {
+            string dim = ColorUtility.ToHtmlStringRGB(UiTheme.TextDim);
+            string before = index > 0 ? $"{ControlsReference.At(ControlSpot.LevelBefore)} ‹ " : string.Empty;
+            string after = index < count - 1 ? $" › {ControlsReference.At(ControlSpot.LevelAfter)}" : string.Empty;
+
+            return $"<size=80%><color=#{dim}>{before}</color></size>{index + 1} / {count}" +
+                   $"<size=80%><color=#{dim}>{after}</color></size>";
         }
 
         /// <summary>

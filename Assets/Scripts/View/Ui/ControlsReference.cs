@@ -67,6 +67,17 @@ namespace BitSorter.View
 
         /// <summary>Its key, under the help badge in the top-right corner.</summary>
         HelpBadge,
+
+        /// <summary>Its key, before the level counter on the banner: the key for the level before.</summary>
+        /// <remarks>
+        /// Q and E were named on the tutorial's card and the level list's help line and nowhere on
+        /// the board, and a playtester found neither (2026-09-28). The counter they change is the
+        /// thing they sit beside.
+        /// </remarks>
+        LevelBefore,
+
+        /// <summary>Its key, after the level counter on the banner: the key for the level after.</summary>
+        LevelAfter,
     }
 
     /// <summary>One control the player can use, and where it is worth saying so.</summary>
@@ -196,9 +207,12 @@ namespace BitSorter.View
             // named nowhere in the game -- only in the README. The number keys are on the card; redo
             // has a button now, so its key is over it with the others.
             new ControlEntry("1 to 7 to pick a part", ControlSpot.None, ControlKind.Building),
+            // Said in full after a playtest found the controls unclear (2026-09-28): "right click to
+            // delete" did not say what, and "re-time" named an idea the player had not met yet. The
+            // wire's delay sentence takes a lower line, which has the room.
             new ControlEntry("drag a port to wire", ControlSpot.LeftUpper, ControlKind.Building),
-            new ControlEntry("right click to delete", ControlSpot.LeftLower, ControlKind.Building),
-            new ControlEntry("scroll a wire to re-time", ControlSpot.RightUpper, ControlKind.Building),
+            new ControlEntry("right click a part or wire to remove it", ControlSpot.LeftLower, ControlKind.Building),
+            new ControlEntry("scroll a wire to change its delay", ControlSpot.RightLower, ControlKind.Building),
             new ControlEntry("ctrl+Z to undo", ControlSpot.UndoButton, ControlKind.Building),
             new ControlEntry("ctrl+Y to redo", ControlSpot.RedoButton, ControlKind.Building),
             new ControlEntry("shift+R to clear", ControlSpot.ClearButton, ControlKind.Building),
@@ -212,9 +226,14 @@ namespace BitSorter.View
             // H and M are off the menu's line: with the menu open neither does anything -- the level
             // list will not stack on the menu, and H is held back the same way.
             new ControlEntry("H for help", ControlSpot.HelpBadge, ControlKind.Everything),
-            new ControlEntry("M for levels", ControlSpot.RightLower, ControlKind.Everything),
-            new ControlEntry("Q and E to change level", ControlSpot.None, ControlKind.Everything),
-            new ControlEntry("N to mute", ControlSpot.RightLower, ControlKind.Everything, onMenu: true),
+            new ControlEntry("M for levels", ControlSpot.RightUpper, ControlKind.Everything),
+            new ControlEntry("Q for the level before", ControlSpot.LevelBefore, ControlKind.Everything),
+            new ControlEntry("E for the level after", ControlSpot.LevelAfter, ControlKind.Everything),
+
+            // Off the board since the controls there grew (2026-09-28): the upper line beside M has
+            // room for one short phrase. Named on the main menu's own line, in Settings and on the
+            // tutorial's card.
+            new ControlEntry("N to mute", ControlSpot.None, ControlKind.Everything, onMenu: true),
 
             // On the board, under MENU. It was left off the board once, and
             // then the only places the key was named were the menu itself -- which a player has to

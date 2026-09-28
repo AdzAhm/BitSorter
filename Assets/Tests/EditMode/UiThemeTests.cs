@@ -382,10 +382,10 @@ namespace BitSorter.LogicCore.Tests
                          ControlSpot.RedoButton, ControlSpot.ClearButton,
                      })
             {
-                float needed = UiTheme.TextWidth(ControlsReference.At(spot), UiTheme.ControlsType);
+                float needed = UiTheme.KeyCapWidth(ControlsReference.At(spot));
 
                 Assert.LessOrEqual(needed, RunControls.SmallButtonWidth,
-                    $"the key over {spot} needs {needed:F0}px, wider than the narrowest button");
+                    $"the key over {spot} needs a {needed:F0}px cap, wider than the narrowest button");
             }
         }
 

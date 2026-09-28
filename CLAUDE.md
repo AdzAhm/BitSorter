@@ -565,8 +565,18 @@ failure side.
   word, so a button and the tutorial's card cannot disagree; none of them takes
   a click, or a key would press its button and a block would stop clicks
   reaching the board.
+
+  **A key over a button is drawn as a key** (`UiTheme.KeyCap`), and the phrases
+  are set in `UiType.Prompt` in the text colour, since a second playtest still
+  found the controls unclear and small (2026-09-28). The phrases say what they
+  do in full -- "right click a part or wire to remove it", "scroll a wire to
+  change its delay" -- which is why the delay sentence takes a lower line and N
+  left the board: the upper line beside M has room for one phrase. **Q and E sit
+  beside the level counter on the banner** (`StatusBanner.Counter`), each only
+  where it goes somewhere; they were named on the tutorial's card and the level
+  list and nowhere a player looks while playing.
 - **Text is sized by what it is for, never by a number.** `UiTheme.Label` takes a
-  `UiType` -- Micro, Caption, Label, Body, Numeral, Lead, Heading, Title, Display --
+  `UiType` -- Micro, Caption, Label, Body, Prompt, Numeral, Lead, Heading, Title, Display --
   and `UiTheme.SizeOf` is the one place those become sizes. Seventeen sizes from
   10 to 54 had grown a label at a time, so full-screen titles alone came in three
   and two things of one kind drifted a point apart. Nothing is under twelve:

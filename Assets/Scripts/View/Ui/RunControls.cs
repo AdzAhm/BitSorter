@@ -161,16 +161,10 @@ namespace BitSorter.View
                 return;
 
             var rect = button.GetComponent<RectTransform>();
+            RectTransform cap = UiTheme.KeyCap("key", rect, key);
 
-            TextMeshProUGUI label = UiTheme.Label(
-                "key", rect, UiTheme.ControlsType, UiTheme.TextDim, TextAlignmentOptions.Bottom);
-            label.raycastTarget = false;
-
-            UiTheme.Anchor(label.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 0f),
-                new Vector2(0f, UpperRise - UiRows.Buttons.Height), new Vector2(rect.sizeDelta.x + 16f,
-                    UiRows.Controls.Height));
-
-            label.text = key;
+            UiTheme.Anchor(cap, new Vector2(0.5f, 1f), new Vector2(0.5f, 0f),
+                new Vector2(0f, UpperRise - UiRows.Buttons.Height), cap.sizeDelta);
         }
 
         /// <summary>One line of a block beside the row: upper, level with the keys, or lower, level with the buttons.</summary>
@@ -182,7 +176,7 @@ namespace BitSorter.View
                 return;
 
             TextMeshProUGUI label = UiTheme.Label(
-                $"controls {spot}", _root, UiTheme.ControlsType, UiTheme.TextDim,
+                $"controls {spot}", _root, UiTheme.ControlsType, UiTheme.Text,
                 left
                     ? (upper ? TextAlignmentOptions.BottomRight : TextAlignmentOptions.MidlineRight)
                     : (upper ? TextAlignmentOptions.BottomLeft : TextAlignmentOptions.MidlineLeft));
