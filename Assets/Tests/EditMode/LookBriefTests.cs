@@ -213,6 +213,28 @@ namespace BitSorter.LogicCore.Tests
         }
 
         /// <summary>
+        /// A 0 kept on a part stands out from the pale body it is drawn on.
+        /// </summary>
+        /// <remarks>
+        /// A bit that sits still is drawn on the register's body -- inside a register, and on the
+        /// plate above a source showing what it sends next. On the bare board an indigo 0 is about
+        /// 2:1 against the ground, and the source's first disc, drawn without a plate, was hard to
+        /// find. A 1 is told from the body by its hue, which <see cref="AOne_HasAColourOfItsOwn"/>
+        /// holds it to.
+        /// </remarks>
+        [Test]
+        public void AKeptZero_StandsOutFromWhatItSitsOn()
+        {
+            foreach (Look look in NewLooks())
+            {
+                Palette p = look.Colours;
+
+                Assert.GreaterOrEqual(Contrast(p.BitZero, p.Register), 3f,
+                    $"{look.Name}: a 0 inside a register, or above a source, is lost on its body");
+            }
+        }
+
+        /// <summary>
         /// Every kind of button can be read, the solid one included.
         /// </summary>
         /// <remarks>

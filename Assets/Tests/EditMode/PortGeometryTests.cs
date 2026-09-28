@@ -132,11 +132,13 @@ namespace BitSorter.LogicCore.Tests
         [Test]
         public void TheNextBitAboveASource_ClearsTheCapsule_AndStaysInsideTheNode()
         {
-            float bottom = PortGeometry.NextBitCentre - PortGeometry.NextBitRadius;
-            float top = PortGeometry.NextBitCentre + PortGeometry.NextBitRadius;
+            float bottom = PortGeometry.NextBitCentre - PortGeometry.NextBitPlateRadius;
+            float top = PortGeometry.NextBitCentre + PortGeometry.NextBitPlateRadius;
 
-            Assert.Greater(bottom, ProceduralSprites.CapsuleHalfHeight, "the disc overlaps the capsule");
-            Assert.LessOrEqual(top, 1f, "the disc reaches past the square the source occupies");
+            Assert.Greater(bottom, ProceduralSprites.CapsuleHalfHeight, "the plate overlaps the capsule");
+            Assert.LessOrEqual(top, 1f, "the plate reaches past the square the source occupies");
+            Assert.Less(PortGeometry.NextBitRadius, PortGeometry.NextBitPlateRadius,
+                "the disc covers its plate, so nothing shows where it ends");
 
             Vector2 at = PortGeometry.NextBitPositionOf(Centre);
             Assert.AreEqual(Centre.x, at.x, 0.0001f, "the disc is not centred over the source");

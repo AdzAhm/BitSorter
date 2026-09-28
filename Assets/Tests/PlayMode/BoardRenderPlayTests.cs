@@ -253,6 +253,7 @@ namespace BitSorter.PlayMode.Tests
             IReadOnlyList<Bit> stream = session.Level.FixtureById("a").Stream;
 
             Assert.AreEqual(stream[0], nodes.ShownNextBit(a), "the board does not show A's first bit before the run");
+            Assert.IsTrue(nodes.ShowsNextBitPlate(a), "A's next bit is not on its plate");
 
             BuildTheHalfAdder(session, runner);
             session.Run();
@@ -276,6 +277,8 @@ namespace BitSorter.PlayMode.Tests
 
             Assert.IsTrue(sawZero && sawOne, "sanity: A's stream should have shown both values on the way");
             Assert.IsNull(nodes.ShownNextBit(runner.FixtureNodeIds["a"]), "a spent source still shows a bit");
+            Assert.IsFalse(nodes.ShowsNextBitPlate(runner.FixtureNodeIds["a"]),
+                "a spent source still shows the plate its bit sat on");
         }
 
         /// <summary>

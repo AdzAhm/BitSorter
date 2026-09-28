@@ -86,15 +86,26 @@ namespace BitSorter.View
         // The bit a source will send next, drawn above it
         // -----------------------------------------------------------------
 
-        /// <summary>Radius of a source's next bit, in shape units: the register's held bit at rest.</summary>
+        /// <summary>
+        /// Radius of the pale plate a source's next bit sits on, in shape units -- the outermost
+        /// thing drawn, and so the size that has to fit.
+        /// </summary>
         /// <remarks>
-        /// The same disc as the register's, so a bit waiting to leave and a bit being kept read as
-        /// the same kind of thing: a value sitting on a part, not a bit in flight.
+        /// The largest that fits between the capsule and the top of the square the source occupies.
+        /// On a 13 by 7 board a cell is small, and a disc at the register's size was a few pixels
+        /// across with its digit barely there.
         /// </remarks>
-        public const float NextBitRadius = HeldBitRadius;
+        public const float NextBitPlateRadius = 0.27f;
 
-        /// <summary>Space between the top of a source's capsule and its next bit, in shape units.</summary>
-        public const float NextBitGap = 0.07f;
+        /// <summary>Radius of a source's next bit on its plate, in shape units.</summary>
+        /// <remarks>
+        /// The rim the plate leaves around it is what shows where the disc ends, as the register's
+        /// pale body does for its held bit. A 0 on the bare board did not stand out from it.
+        /// </remarks>
+        public const float NextBitRadius = NextBitPlateRadius - 0.05f;
+
+        /// <summary>Space between the top of a source's capsule and its plate, in shape units.</summary>
+        public const float NextBitGap = 0.05f;
 
         /// <summary>How far above a source's centre its next bit sits, in shape units.</summary>
         /// <remarks>
@@ -102,7 +113,8 @@ namespace BitSorter.View
         /// still inside the square the source occupies, so nothing laid out around a node, the
         /// banner's clearance of the top row included, has to know it is there.
         /// </remarks>
-        public const float NextBitCentre = ProceduralSprites.CapsuleHalfHeight + NextBitGap + NextBitRadius;
+        public const float NextBitCentre =
+            ProceduralSprites.CapsuleHalfHeight + NextBitGap + NextBitPlateRadius;
 
         /// <summary>Where a source's next bit is drawn, given the source's centre.</summary>
         public static Vector2 NextBitPositionOf(Vector2 nodeCentre) =>

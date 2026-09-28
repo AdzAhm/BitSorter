@@ -53,8 +53,12 @@ namespace BitSorter.View
         private readonly Dictionary<int, Bit> _heldValues = new Dictionary<int, Bit>();
         private readonly Dictionary<int, float> _capturing = new Dictionary<int, float>();
 
-        /// <summary>The disc above each source showing what it sends next, and what it last showed.</summary>
+        /// <summary>
+        /// The disc above each source showing what it sends next, the plate it sits on, and what it
+        /// last showed.
+        /// </summary>
         private readonly Dictionary<int, SpriteRenderer> _nextBits = new Dictionary<int, SpriteRenderer>();
+        private readonly Dictionary<int, SpriteRenderer> _nextPlates = new Dictionary<int, SpriteRenderer>();
         private readonly Dictionary<int, Bit> _nextValues = new Dictionary<int, Bit>();
 
         private Transform _container;
@@ -91,9 +95,12 @@ namespace BitSorter.View
         /// <remarks>
         /// A playtester asked to see what a source was about to send (2026-09-28): a stream is a row
         /// of bits in a file, and on the board the only way to learn it was to run it and watch.
-        /// Drawn as the register's held bit is -- the same disc, digit and colour -- because both are
-        /// a value sitting on a part rather than one travelling. While the board is being built it
-        /// shows the first bit, and as a run goes it steps along the stream.
+        /// Drawn as the register's held bit is -- the same disc, digit and colour, on a plate of the
+        /// register's pale body -- because both are a value sitting on a part rather than one
+        /// travelling. The plate is not decoration: the first version drew the disc straight onto
+        /// the board, where an indigo 0 is about 2:1 against the ground and was hard to find. While
+        /// the board is being built it shows the first bit, and as a run goes it steps along the
+        /// stream.
         ///
         /// Redrawn only when the value changes, the idiom every renderer here uses; the lookup it
         /// makes each frame walks at most the silent ticks of one clock period.
@@ -112,7 +119,12 @@ namespace BitSorter.View
                 Bit? next = source.NextBit;
 
                 if (disc.enabled != next.HasValue)
+                {
                     disc.enabled = next.HasValue;
+
+                    if (_nextPlates.TryGetValue(pair.Key, out SpriteRenderer plate) && plate != null)
+                        plate.enabled = next.HasValue;
+                }
 
                 if (!next.HasValue)
                     continue;
@@ -128,11 +140,32 @@ namespace BitSorter.View
             }
         }
 
-        /// <summary>The disc above a source, showing the bit it will send next.</summary>
+        /// <summary>
+        /// The disc above a source, showing the bit it will send next, on its plate.
+        /// </summary>
+        /// <remarks>
+        /// The plate is on the body's layer and the disc on the detail's, as a register's body and
+        /// its held bit are, so the disc is always the one drawn on top.
+        /// </remarks>
         private void SpawnNextBit(int id, Vector2 centre)
         {
+            Vector2 at = PortGeometry.NextBitPositionOf(centre);
+
+            GameObject plate = ViewSprites.Spawn(_nodePrefab, _container, $"Next plate {id}");
+            plate.transform.position = at;
+            plate.transform.localScale =
+                Vector3.one * PortGeometry.ScaleForRadius(PortGeometry.NextBitPlateRadius);
+
+            var plateRenderer = plate.GetComponent<SpriteRenderer>();
+            plateRenderer.sprite = ProceduralSprites.Circle();
+            plateRenderer.color = Palette.Current.Register;
+            plateRenderer.sortingOrder = ViewLayers.NodeBody;
+
+            _spawned.Add(plate);
+            _nextPlates[id] = plateRenderer;
+
             GameObject next = ViewSprites.Spawn(_nodePrefab, _container, $"Next {id}");
-            next.transform.position = PortGeometry.NextBitPositionOf(centre);
+            next.transform.position = at;
             next.transform.localScale =
                 Vector3.one * PortGeometry.ScaleForRadius(PortGeometry.NextBitRadius);
 
@@ -150,6 +183,10 @@ namespace BitSorter.View
                 && _nextValues.TryGetValue(nodeId, out Bit value)
                 ? value
                 : (Bit?)null;
+
+        /// <summary>Whether the plate under a source's next bit is drawn: for the tests.</summary>
+        public bool ShowsNextBitPlate(int nodeId) =>
+            _nextPlates.TryGetValue(nodeId, out SpriteRenderer plate) && plate != null && plate.enabled;
 
         /// <summary>
         /// Draws the bit each register is holding, and flashes it when that bit changes.
@@ -293,6 +330,7 @@ namespace BitSorter.View
             _heldValues.Clear();
             _capturing.Clear();
             _nextBits.Clear();
+            _nextPlates.Clear();
             _nextValues.Clear();
 
             SimulationView view = _runner.View;
