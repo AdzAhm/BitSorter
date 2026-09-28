@@ -11,7 +11,8 @@ namespace BitSorter.LogicCore.Tests
     /// </summary>
     /// <remarks>
     /// What typing does to the keys is tested where there is a field to type in: the naming
-    /// panel's Play Mode tests type N and Q into one and check nothing mutes or changes level.
+    /// panel's Play Mode tests type N into one and check nothing mutes, and Escape and check the
+    /// main menu does not open.
     /// </remarks>
     public class UiTextTests
     {
