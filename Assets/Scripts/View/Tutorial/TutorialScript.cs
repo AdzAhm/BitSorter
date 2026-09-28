@@ -15,6 +15,7 @@ namespace BitSorter.View
         SinkPort,
         RunButton,
         Bin,
+        Wire,
     }
 
     /// <summary>One instruction, what it highlights, and nothing else.</summary>
@@ -88,9 +89,12 @@ namespace BitSorter.View
         /// </remarks>
         public readonly bool PartElsewhere;
 
+        /// <summary>Some wire on the board is longer than the one tick every wire starts at.</summary>
+        public readonly bool WireLengthened;
+
         public BoardFacts(GateKind selected, bool gateOnCell, bool sourceWiredToGate,
             bool gateWiredToBin, bool running, bool passed, bool runFailed = false,
-            GateKind? partOnCell = null, bool partElsewhere = false)
+            GateKind? partOnCell = null, bool partElsewhere = false, bool wireLengthened = false)
         {
             Selected = selected;
             GateOnCell = gateOnCell;
@@ -101,19 +105,20 @@ namespace BitSorter.View
             RunFailed = runFailed;
             PartOnCell = partOnCell;
             PartElsewhere = partElsewhere;
+            WireLengthened = wireLengthened;
         }
     }
 
     /// <summary>
-    /// The six steps, in order, and what finishes each one.
+    /// The seven steps, in order, and what finishes each one.
     /// </summary>
     /// <remarks>
     /// These teach **which input does what**, and stop there. A level's goal says what you are
     /// trying to do, its hint how to solve that level, and a first-time hint explains why the board
-    /// just behaved as it did. So a step here may say that a wire can be scrolled -- that is an
-    /// input -- but must not say what a longer wire does to arrival order, because that is the
-    /// wireDelay hint's job on the level where it starts to matter. Finishing the tutorial marks no
-    /// hint as seen.
+    /// just behaved as it did. So a step here asks for a wire to be scrolled -- that is an input --
+    /// but must not say what a longer wire does to arrival order, because that is the wireDelay
+    /// hint's job on the level where it starts to matter. Finishing the tutorial marks no hint as
+    /// seen.
     ///
     /// Nothing here blocks anything. A step that is not satisfied simply does not advance, and every
     /// other action stays as legal as it was. Refusing input would mean reaching into
@@ -127,6 +132,7 @@ namespace BitSorter.View
         public const string PlaceId = "place";
         public const string WireInId = "wireIn";
         public const string WireOutId = "wireOut";
+        public const string DelayId = "delay";
         public const string RunId = "run";
         public const string WatchId = "watch";
 
@@ -150,6 +156,15 @@ namespace BitSorter.View
                 "Now wire the gate's right port to the bin. " +
                 "Right click a wire to remove it.",
                 TutorialTarget.GateOutput, TutorialTarget.SinkPort),
+
+            // The one input nothing on the board shows until it is used. Found in a playtest,
+            // 2026-09-28: re-timing a wire was never introduced, and a player took a long while to
+            // find it. Names the number and the gesture, and stops there -- what a longer wire does
+            // to arrival order is the wireDelay hint's, on the level where it matters.
+            new TutorialStep(DelayId,
+                "The number on each wire is its delay. " +
+                "Scroll up over the highlighted wire to raise it.",
+                TutorialTarget.Wire),
 
             new TutorialStep(RunId,
                 "That is a working circuit. Press RUN to send a bit through it.",
@@ -190,6 +205,12 @@ namespace BitSorter.View
 
                 case WireOutId:
                     return facts.GateWiredToBin;
+
+                // Or already past it. RUN is on screen and works, and a player who presses it before
+                // scrolling has chosen to go on: holding the strip on this step through the run would
+                // leave "follow the bit" unsaid while the bit went by.
+                case DelayId:
+                    return facts.WireLengthened || facts.Running || facts.Passed;
 
                 // Passed counts as well as Running. A run is over in a couple of seconds and the
                 // director may not look until after it has settled, which would otherwise leave the

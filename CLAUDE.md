@@ -51,10 +51,12 @@ just because it is written down here.
   `CurriculumTests` refuses any four-word run shared between the two.
 
   The fourth is the **guided tutorial**, which teaches *which input does what*
-  and nothing else. It may say a wire can be scrolled — that is an input — but
-  not what a longer wire does to arrival order, which is `wireDelay`'s job on
-  the level where it matters. Finishing it marks no hint as seen, and
-  `CurriculumTests` holds tutorial text to the same four-word rule.
+  and nothing else. It asks for a wire to be scrolled -- that is an input, and
+  the one nothing on the board shows until it is used; a playtester took a long
+  while to find it (2026-09-28) -- but does not say what a longer wire does to
+  arrival order, which is `wireDelay`'s job on the level where it matters.
+  Finishing it marks no hint as seen, and `CurriculumTests` holds tutorial text
+  to the same four-word rule.
 
   **The level's `hint` is shown in one place: the help panel, behind the `?`
   badge.** It used to be on the status banner *as well*, so the same sentence was
@@ -1187,7 +1189,7 @@ never reached the code that records a solve, and without the guard the tutorial
 marked itself complete, took a personal best and reported itself to analytics.
 The board rule is narrower still — free play keeps its board on purpose, and only
 the tutorial must always start empty, guarded on save *and* on restore because a
-restored circuit would satisfy all six steps the instant it loaded.
+restored circuit would satisfy every step the instant it loaded.
 
 Traps worth knowing, all found in play mode and none visible from the script.
 `PlacementController` puts the selection on a level's **first** budget row on

@@ -489,11 +489,18 @@ namespace BitSorter.PlayMode.Tests
             Wire(session, runner.FixtureNodeIds[TutorialLevel.SourceId], gate, 0);
             Wire(session, gate, runner.FixtureNodeIds[TutorialLevel.SinkId], 0);
 
+            // Past the step that asks for a longer wire, whose ring is on the board, not the
+            // interface: the wire from A into the NOT, scrolled up once at its middle.
+            int source = runner.FixtureNodeIds[TutorialLevel.SourceId];
+            Vector2 middle = (PortGeometry.PositionOf(runner.PositionOf(source), false, 0, 1)
+                              + PortGeometry.PositionOf(runner.PositionOf(gate), true, 0, 1)) * 0.5f;
+            Assert.IsTrue(session.TryChangeWireDelay(middle, 1), "could not lengthen the wire");
+
             // The step that asks for RUN, with a ring on the interface round the button.
-            for (int frame = 0; frame < 120 && !IsUp("Tutorial ring"); frame++)
+            for (int frame = 0; frame < 120 && !RingOnTheInterface(); frame++)
                 yield return null;
 
-            Assert.IsTrue(IsUp("Tutorial ring"), "no ring went up on the interface");
+            Assert.IsTrue(RingOnTheInterface(), "no ring went up on the interface");
 
             yield return Frames(30);
             yield return Capture("15-tutorial-ring");
@@ -742,6 +749,21 @@ namespace BitSorter.PlayMode.Tests
         {
             GameObject target = GameObject.Find(name);
             return target != null && target.activeInHierarchy;
+        }
+
+        /// <summary>
+        /// Whether the tutorial has a ring up on the interface -- round a button or a parts-list
+        /// row -- rather than on the board, where its rings share the name.
+        /// </summary>
+        private static bool RingOnTheInterface()
+        {
+            foreach (Image ring in Object.FindObjectsByType<Image>(FindObjectsSortMode.None))
+            {
+                if (ring.name == "Tutorial ring" && ring.gameObject.activeInHierarchy)
+                    return true;
+            }
+
+            return false;
         }
 
         /// <summary>

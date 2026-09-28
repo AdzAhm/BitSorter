@@ -21,7 +21,7 @@ namespace BitSorter.PlayMode.Tests
     /// It happened twice from two unrelated directions. `PlacementController` puts the selection on
     /// a level's first budget row on every load, which completed "pick up the NOT gate" before the
     /// player touched anything; the fix was to stock a decoy first. And `ProgressTracker` restores a
-    /// saved board, which would have satisfied all six steps the instant the level loaded; the fix
+    /// saved board, which would have satisfied every step the instant the level loaded; the fix
     /// was to refuse to save or restore a board for the tutorial at all.
     ///
     /// Edit Mode can check `TutorialScript.CurrentStep` against a hand-built `BoardFacts` and does.
@@ -429,6 +429,33 @@ namespace BitSorter.PlayMode.Tests
         /// <summary>Builds the tutorial's circuit and runs it until the solved card is up.</summary>
         private static IEnumerator SolveTheTutorial(LevelSession session, SimulationRunner runner)
         {
+            WireTheTutorial(session, runner);
+
+            yield return null;
+            session.Run();
+
+            // Driven, not waited for.
+            for (int tick = 0; tick < 60 && session.State != RunState.Passed; tick++)
+            {
+                runner.StepOneTick();
+                yield return null;
+            }
+
+            Assert.AreEqual(RunState.Passed, session.State, "sanity: the tutorial's circuit did not pass");
+
+            WinPanel win = Find<WinPanel>();
+            for (int frame = 0; frame < 60 && !win.IsShowing; frame++)
+                yield return null;
+
+            Assert.IsTrue(win.IsShowing, "sanity: the solved card never came up");
+        }
+
+        /// <summary>
+        /// Puts the NOT on its square and wires A into it and it into the bin, through the calls a
+        /// click and a drag make. Returns the NOT's node id.
+        /// </summary>
+        private static int WireTheTutorial(LevelSession session, SimulationRunner runner)
+        {
             Assert.IsTrue(session.TryPlaceGate(TutorialLevel.Part, TutorialLevel.GateCell), "could not place the NOT");
 
             int gate = -1;
@@ -448,23 +475,83 @@ namespace BitSorter.PlayMode.Tests
                     new PortAddress(runner.FixtureNodeIds[TutorialLevel.SinkId], true, 0)),
                 "could not wire the NOT to the bin");
 
-            yield return null;
-            session.Run();
+            return gate;
+        }
 
-            // Driven, not waited for.
-            for (int tick = 0; tick < 60 && session.State != RunState.Passed; tick++)
+        /// <summary>
+        /// Once both wires are in, the tutorial asks for one to be lengthened, rings it, and moves on
+        /// when a scroll over it does.
+        /// </summary>
+        /// <remarks>
+        /// From a playtest, 2026-09-28: re-timing a wire was never introduced. The step is worth
+        /// nothing unless the scroll it asks for is allowed on the tutorial's board -- whose longest
+        /// wire was 1, which refuses every scroll up -- so the scroll goes through the call the wheel
+        /// makes, at the point the ring is drawn on.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator OnceWired_TheTutorialAsksForALongerWire_AndMovesOnWhenItGetsOne()
+        {
+            yield return LoadScene();
+            yield return CloseTheMainMenu();
+
+            TutorialDirector director = Find<TutorialDirector>();
+            LevelSession session = Find<LevelSession>();
+            SimulationRunner runner = Find<SimulationRunner>();
+
+            yield return BeginTutorial(director);
+            yield return PressStart();
+
+            int gate = WireTheTutorial(session, runner);
+            yield return null;
+            yield return null;
+
+            int delayStep = StepIndex(TutorialScript.DelayId);
+
+            Assert.AreEqual(delayStep, director.CurrentStep,
+                "with both wires in, the tutorial did not ask for a wire to be lengthened");
+            Assert.AreEqual(TutorialScript.Steps[delayStep].Text, TutorialText(),
+                "the strip does not say the step that asks for a longer wire");
+
+            int source = runner.FixtureNodeIds[TutorialLevel.SourceId];
+            Vector2 middle = (PortGeometry.PositionOf(runner.PositionOf(source), false, 0, 1)
+                              + PortGeometry.PositionOf(runner.PositionOf(gate), true, 0, 1)) * 0.5f;
+
+            Assert.IsTrue(RingNear(middle), "no ring on the middle of the wire from A into the NOT");
+
+            Assert.IsTrue(session.TryChangeWireDelay(middle, 1),
+                "a scroll up over the ringed wire was refused on the tutorial's board");
+            yield return null;
+            yield return null;
+
+            Assert.AreEqual(StepIndex(TutorialScript.RunId), director.CurrentStep,
+                "a longer wire did not move the tutorial on to RUN");
+        }
+
+        private static int StepIndex(string id)
+        {
+            for (int i = 0; i < TutorialScript.Count; i++)
             {
-                runner.StepOneTick();
-                yield return null;
+                if (TutorialScript.Steps[i].Id == id)
+                    return i;
             }
 
-            Assert.AreEqual(RunState.Passed, session.State, "sanity: the tutorial's circuit did not pass");
+            Assert.Fail($"sanity: there is no step called '{id}'");
+            return -1;
+        }
 
-            WinPanel win = Find<WinPanel>();
-            for (int frame = 0; frame < 60 && !win.IsShowing; frame++)
-                yield return null;
+        /// <summary>Whether a tutorial ring on the board is centred on <paramref name="world"/>.</summary>
+        private static bool RingNear(Vector2 world)
+        {
+            foreach (SpriteRenderer ring in Object.FindObjectsByType<SpriteRenderer>(FindObjectsSortMode.None))
+            {
+                if (ring.name == "Tutorial ring" && ring.gameObject.activeInHierarchy
+                    && Vector2.Distance(ring.transform.position, world) < 0.01f)
+                {
+                    return true;
+                }
+            }
 
-            Assert.IsTrue(win.IsShowing, "sanity: the solved card never came up");
+            return false;
         }
 
         private static bool IsShowingButton(string caption)

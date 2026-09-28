@@ -12,8 +12,8 @@ namespace BitSorter.View
     /// <see cref="TutorialScript"/>'s answer, from facts gathered below; this decides nothing about
     /// the sequence, and nothing here blocks any input.
     ///
-    /// One phase either side of the six steps. An opening line orients the player before being
-    /// asked to click anything, and a closing card lists the controls the six steps never touched.
+    /// One phase either side of the seven steps. An opening line orients the player before being
+    /// asked to click anything, and a closing card lists the controls the steps never touched.
     /// Neither is a step: a step is a predicate over board state, and "the player pressed Next" is
     /// not, so making them steps would mean tracking exactly the latching state the design avoids.
     /// </remarks>
@@ -112,7 +112,7 @@ namespace BitSorter.View
         ///
         /// Public because the interesting failures are all of the form "a step was already
         /// satisfied before the player did anything": the auto-selected budget row made step one
-        /// free, and a restored board would have satisfied all six the instant it loaded. Neither
+        /// free, and a restored board would have satisfied every step the instant it loaded. Neither
         /// is visible from outside without asking the director what it thinks the board says.
         /// </remarks>
         public int CurrentStep =>
@@ -426,7 +426,56 @@ namespace BitSorter.View
                 case TutorialTarget.GateOutput:
                     PointAtGatePort(isInput: false);
                     break;
+
+                case TutorialTarget.Wire:
+                    if (TryWireToPointAt(out Vector2 middle))
+                        _highlighter.PointAt(middle, 1.1f);
+                    break;
             }
+        }
+
+        /// <summary>
+        /// The middle of the wire from A into the gate, or of any wire if that one is not there.
+        /// </summary>
+        /// <remarks>
+        /// The middle because a scroll anywhere along a wire re-times it, and the middle is where its
+        /// number is drawn. From the endpoints the edge renderer and the hit tester use, so the ring
+        /// sits on the wire the scroll will find.
+        /// </remarks>
+        private bool TryWireToPointAt(out Vector2 middle)
+        {
+            middle = default;
+
+            bool gate = TryGate(out int gateId);
+            bool source = TryFixture(TutorialLevel.SourceId, out int sourceId);
+
+            SimulationView view = _runner.View;
+            Edge any = null;
+
+            for (int id = 0; id < view.EdgeCount; id++)
+            {
+                Edge edge = view.GetEdge(id);
+
+                if (edge == null)
+                    continue;   // retired id
+
+                if (any == null)
+                    any = edge;
+
+                if (gate && source && edge.Source.Owner.Id == sourceId && edge.Target.Owner.Id == gateId)
+                {
+                    any = edge;
+                    break;
+                }
+            }
+
+            if (any == null)
+                return false;
+
+            Vector2 from = PortGeometry.EndpointOf(any.Source, _runner.PositionOf(any.Source.Owner.Id));
+            Vector2 to = PortGeometry.EndpointOf(any.Target, _runner.PositionOf(any.Target.Owner.Id));
+            middle = (from + to) * 0.5f;
+            return true;
         }
 
         private void PointAtPort(string fixtureId, bool isInput, int index)
@@ -527,7 +576,28 @@ namespace BitSorter.View
                 passed: _session.State == RunState.Passed,
                 runFailed: _session.State == RunState.Failed,
                 partOnCell: onCell,
-                partElsewhere: elsewhere);
+                partElsewhere: elsewhere,
+                wireLengthened: AnyWireLengthened());
+        }
+
+        /// <summary>Whether any wire on the board is longer than one tick.</summary>
+        /// <remarks>
+        /// Read off the built graph, as <see cref="IsWired"/> is. Any wire rather than the ringed
+        /// one: the step teaches the gesture, and scrolling the other wire has learned it as well.
+        /// </remarks>
+        private bool AnyWireLengthened()
+        {
+            SimulationView view = _runner.View;
+
+            for (int id = 0; id < view.EdgeCount; id++)
+            {
+                Edge edge = view.GetEdge(id);
+
+                if (edge != null && edge.Delay > 1)
+                    return true;
+            }
+
+            return false;
         }
 
         /// <summary>

@@ -180,8 +180,8 @@ namespace BitSorter.View
                 return;
 
             // The tutorial always starts empty. Its steps are predicates over the board, so a
-            // restored circuit would satisfy all six the instant it loaded and the whole thing would
-            // jump to its ending. Free play is the opposite and deliberately does keep its board,
+            // restored circuit would satisfy every step the instant it loaded and the whole thing
+            // would jump to its ending. Free play is the opposite and deliberately keeps its board,
             // which is why this names the tutorial rather than asking IsOffCatalogue.
             if (levelName == TutorialLevel.Key)
                 return;
@@ -196,7 +196,7 @@ namespace BitSorter.View
 
             // The tutorial always starts from an empty board -- see SaveBoard. Guarded on the way in
             // as well as on the way out, because a save written before that guard existed still
-            // carries a finished tutorial circuit, and restoring one would satisfy all six steps the
+            // carries a finished tutorial circuit, and restoring one would satisfy every step the
             // instant it loaded.
             if (_session.LevelName == TutorialLevel.Key)
                 return;

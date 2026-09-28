@@ -53,7 +53,7 @@ to stock a decoy gate first, in `TutorialLevel`, which works but fixes it from
 the far end: the real cause is that something mutates player-visible state at
 stage 1 and nothing declares that it may.
 
-**Stage 4 nearly satisfied all six steps at once.** `RestoreBoard` restores a
+**Stage 4 nearly satisfied every step at once.** `RestoreBoard` restores a
 saved circuit. A restored tutorial board would have completed every step the
 instant the level loaded. The fix was to refuse to save or restore a board for
 the tutorial at all, guarded on both sides.

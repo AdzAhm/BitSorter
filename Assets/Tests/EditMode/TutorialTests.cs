@@ -5,7 +5,7 @@ using UnityEngine;
 namespace BitSorter.LogicCore.Tests
 {
     /// <summary>
-    /// <see cref="TutorialScript"/> and <see cref="TutorialLevel"/>: the six steps, what finishes
+    /// <see cref="TutorialScript"/> and <see cref="TutorialLevel"/>: the seven steps, what finishes
     /// each, and the board they run on.
     /// </summary>
     /// <remarks>
@@ -25,21 +25,40 @@ namespace BitSorter.LogicCore.Tests
             bool wiredOut = false,
             bool running = false,
             bool passed = false,
-            bool failed = false) =>
-            new BoardFacts(selected, gate, wiredIn, wiredOut, running, passed, failed);
+            bool failed = false,
+            bool lengthened = false) =>
+            new BoardFacts(selected, gate, wiredIn, wiredOut, running, passed, failed,
+                wireLengthened: lengthened);
 
         /// <summary>Everything done up to and including the wiring.</summary>
         private static BoardFacts Wired() =>
             Facts(TutorialLevel.Part, gate: true, wiredIn: true, wiredOut: true);
+
+        /// <summary>Everything done up to pressing RUN: wired, and a wire lengthened.</summary>
+        private static BoardFacts Ready() =>
+            Facts(TutorialLevel.Part, gate: true, wiredIn: true, wiredOut: true, lengthened: true);
+
+        /// <summary>Where the step called <paramref name="id"/> is, so no test counts steps by hand.</summary>
+        private static int IndexOf(string id)
+        {
+            for (int i = 0; i < TutorialScript.Count; i++)
+            {
+                if (TutorialScript.Steps[i].Id == id)
+                    return i;
+            }
+
+            Assert.Fail($"there is no step called '{id}'");
+            return -1;
+        }
 
         // -----------------------------------------------------------------
         // The steps themselves
         // -----------------------------------------------------------------
 
         [Test]
-        public void ThereAreSixSteps_EachWithTextAndATarget()
+        public void ThereAreSevenSteps_EachWithTextAndATarget()
         {
-            Assert.AreEqual(6, TutorialScript.Count, "six steps, deliberately, not fifteen");
+            Assert.AreEqual(7, TutorialScript.Count, "seven steps, deliberately, not fifteen");
 
             foreach (TutorialStep step in TutorialScript.Steps)
             {
@@ -88,12 +107,15 @@ namespace BitSorter.LogicCore.Tests
             Assert.AreEqual(3, TutorialScript.CurrentStep(f), "wire the bin up");
 
             f = Wired();
-            Assert.AreEqual(4, TutorialScript.CurrentStep(f), "press run");
+            Assert.AreEqual(4, TutorialScript.CurrentStep(f), "lengthen a wire");
 
-            f = Facts(TutorialLevel.Part, true, true, true, running: true);
-            Assert.AreEqual(5, TutorialScript.CurrentStep(f), "watch it land");
+            f = Ready();
+            Assert.AreEqual(5, TutorialScript.CurrentStep(f), "press run");
 
-            f = Facts(TutorialLevel.Part, true, true, true, passed: true);
+            f = Facts(TutorialLevel.Part, true, true, true, running: true, lengthened: true);
+            Assert.AreEqual(6, TutorialScript.CurrentStep(f), "watch it land");
+
+            f = Facts(TutorialLevel.Part, true, true, true, passed: true, lengthened: true);
             Assert.AreEqual(TutorialScript.Count, TutorialScript.CurrentStep(f), "and done");
         }
 
@@ -128,12 +150,86 @@ namespace BitSorter.LogicCore.Tests
         [Test]
         public void DeletingTheWire_SendsTheTutorialBack()
         {
-            Assert.AreEqual(4, TutorialScript.CurrentStep(Wired()), "both wires made");
+            Assert.AreEqual(IndexOf(TutorialScript.DelayId), TutorialScript.CurrentStep(Wired()),
+                "both wires made");
 
             BoardFacts undone = Facts(TutorialLevel.Part, gate: true, wiredIn: true);
 
-            Assert.AreEqual(3, TutorialScript.CurrentStep(undone),
+            Assert.AreEqual(IndexOf(TutorialScript.WireOutId), TutorialScript.CurrentStep(undone),
                 "removing the second wire must ask for it again");
+        }
+
+        // -----------------------------------------------------------------
+        // Lengthening a wire
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// With both wires in, the tutorial asks for one to be lengthened, and moves on once one is.
+        /// </summary>
+        /// <remarks>
+        /// From a playtest, 2026-09-28: re-timing a wire was never introduced, and a player took a
+        /// long while to find it. It is the one input nothing on the board shows until it is used.
+        /// </remarks>
+        [Test]
+        public void OnceWired_TheTutorialAsksForAWireToBeLengthened()
+        {
+            Assert.AreEqual(IndexOf(TutorialScript.DelayId), TutorialScript.CurrentStep(Wired()),
+                "with both wires in, the tutorial skipped the step that asks for a longer one");
+            Assert.AreEqual(IndexOf(TutorialScript.RunId), TutorialScript.CurrentStep(Ready()),
+                "a lengthened wire did not move the tutorial on to RUN");
+        }
+
+        /// <summary>Scrolled back down to one tick, the wire is asked for again.</summary>
+        [Test]
+        public void ShorteningTheWireAgain_SendsTheTutorialBack()
+        {
+            Assert.AreEqual(IndexOf(TutorialScript.RunId), TutorialScript.CurrentStep(Ready()));
+
+            Assert.AreEqual(IndexOf(TutorialScript.DelayId), TutorialScript.CurrentStep(Wired()),
+                "a wire put back to one tick left the step finished");
+        }
+
+        /// <summary>
+        /// Pressing RUN before scrolling goes past the step rather than holding it through the run.
+        /// </summary>
+        /// <remarks>
+        /// RUN is on screen and works. Held here, the strip would say "scroll" while the bit went by
+        /// and never "follow the bit" -- and the steps must never hold a player back from an action
+        /// that is legal.
+        /// </remarks>
+        [Test]
+        public void PressingRunFirst_GoesPastTheWireStep()
+        {
+            Assert.AreEqual(IndexOf(TutorialScript.WatchId),
+                TutorialScript.CurrentStep(Facts(TutorialLevel.Part, true, true, true, running: true)),
+                "a run started without a longer wire left the tutorial asking for one");
+
+            Assert.AreEqual(TutorialScript.Count,
+                TutorialScript.CurrentStep(Facts(TutorialLevel.Part, true, true, true, passed: true)),
+                "and a pass still finishes it");
+        }
+
+        [Test]
+        public void TheWireStep_PointsAtAWire()
+        {
+            Assert.AreEqual(TutorialTarget.Wire, TutorialScript.Steps[IndexOf(TutorialScript.DelayId)].From);
+        }
+
+        /// <summary>
+        /// The tutorial's board lets a wire be lengthened, and has no delay budget.
+        /// </summary>
+        /// <remarks>
+        /// It forbade re-timing, with a longest wire of 1, until the step asking for it existed. No
+        /// budget, because a budget is what raises the first-time hint about delay -- and the
+        /// tutorial marks no hint as seen and explains no mechanic.
+        /// </remarks>
+        [Test]
+        public void TheBoard_LetsAWireBeLengthened_WithoutADelayBudget()
+        {
+            LevelDefinition level = TutorialLevel.Build(Board);
+
+            Assert.Greater(level.MaxWireDelay, 1, "no wire on the tutorial's board can be lengthened");
+            Assert.IsFalse(level.HasDelayBudget, "a delay budget would raise the delay hint in the tutorial");
         }
 
         [Test]
@@ -151,8 +247,8 @@ namespace BitSorter.LogicCore.Tests
         {
             // A run is over in a couple of seconds. If only Running counted, a director that looked
             // after it settled would ask the player to press a button they had already pressed.
-            Assert.IsTrue(TutorialScript.IsComplete(4,
-                Facts(TutorialLevel.Part, true, true, true, running: false, passed: true)));
+            Assert.IsTrue(TutorialScript.IsComplete(IndexOf(TutorialScript.RunId),
+                Facts(TutorialLevel.Part, true, true, true, running: false, passed: true, lengthened: true)));
         }
 
         // -----------------------------------------------------------------
@@ -172,9 +268,10 @@ namespace BitSorter.LogicCore.Tests
             // Reachable: a second wire into the bin's port collides, and the run fails. Without the
             // recovery line the watch step could never finish, run would be asked for again, and
             // pressing it would fail again -- while the panel still said the circuit works.
-            BoardFacts failed = Facts(TutorialLevel.Part, true, true, true, failed: true);
+            BoardFacts failed = Facts(TutorialLevel.Part, true, true, true, failed: true, lengthened: true);
 
-            Assert.AreEqual(4, TutorialScript.CurrentStep(failed), "back to the run step");
+            Assert.AreEqual(IndexOf(TutorialScript.RunId), TutorialScript.CurrentStep(failed),
+                "back to the run step");
             Assert.IsNotNull(TutorialScript.RecoveryText(failed), "and told what to press");
         }
 
@@ -264,10 +361,12 @@ namespace BitSorter.LogicCore.Tests
         {
             // Nothing the player might not press can be required here. Space and the right arrow are
             // mentioned in the text as things they may do, never as things they must.
-            Assert.IsFalse(TutorialScript.IsComplete(5,
+            int watch = IndexOf(TutorialScript.WatchId);
+
+            Assert.IsFalse(TutorialScript.IsComplete(watch,
                 Facts(TutorialLevel.Part, true, true, true, running: true)), "still in flight");
 
-            Assert.IsTrue(TutorialScript.IsComplete(5,
+            Assert.IsTrue(TutorialScript.IsComplete(watch,
                 Facts(TutorialLevel.Part, true, true, true, passed: true)), "settled");
         }
 

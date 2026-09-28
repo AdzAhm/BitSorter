@@ -100,8 +100,8 @@ empty the port in between — if it is lit, the collision is already unavoidable
 ### The tutorial
 
 A short guided level, reached from the level list, which walks through picking a
-part, placing it, wiring it up and running it. Six steps, each waiting for you to
-actually do the thing rather than for you to click Next.
+part, placing it, wiring it up, lengthening a wire and running it. Seven steps,
+each waiting for you to actually do the thing rather than for you to click Next.
 
 It never takes the controls away. Every other action stays legal throughout, and
 a step quietly un-finishes itself if you delete what it asked for — undo

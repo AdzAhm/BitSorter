@@ -55,6 +55,15 @@ namespace BitSorter.View
         /// <summary>Where the player is asked to put the gate. The one highlighted cell.</summary>
         public static readonly Vector2Int GateCell = new Vector2Int(0, 0);
 
+        /// <summary>How long a wire may be scrolled to on the tutorial's board.</summary>
+        /// <remarks>
+        /// Long enough to see the number move and the wire divide, and no longer. It was 1, which
+        /// forbids re-timing, until the tutorial gained a step asking for exactly that. With one
+        /// vector nothing can collide however long a wire is, and there is no delay budget, so the
+        /// first-time hint about delay stays for the level where delay matters.
+        /// </remarks>
+        public const int MaxWireDelay = 3;
+
         public static Vector2Int SourceCell(Vector2Int halfExtents) =>
             new Vector2Int(-halfExtents.x + 1, 0);
 
@@ -104,7 +113,7 @@ namespace BitSorter.View
                 fixtures: fixtures,
                 budget: budget,
                 expectations: expectations,
-                maxWireDelay: 1,
+                maxWireDelay: MaxWireDelay,
                 delayBudget: 0,
                 maxLatency: 0,
                 order: 0,
