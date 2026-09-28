@@ -380,6 +380,10 @@ namespace BitSorter.View
 
             column.Space(6f);
             Stepper(column, "Vectors", _config.vectors, SandboxRules.Vectors(), SetVectors);
+
+            // The testbench's word, kept because it is the course's, and said once where it is set
+            // (playtest, 2026-09-28: "the vectors thing is not quite clear").
+            Wrapped(column, VectorNote, UiTheme.TextDim);
             Stepper(column, "Clock", _config.Clock, SandboxRules.Clock(), SetClock);
             TableRow(column);
 
@@ -474,6 +478,9 @@ namespace BitSorter.View
             label.text = text;
             _body.Add(label.gameObject);
         }
+
+        /// <summary>What a vector is, under the stepper that sets how many there are.</summary>
+        public const string VectorNote = "A vector is one row of inputs: every source's next bit, sent together.";
 
         /// <summary>Size of the panel's notes, shared with the measurement that sizes their boxes.</summary>
         /// <remarks>Label, up from Micro, with the rest of the panel's small print (2026-09-27).</remarks>

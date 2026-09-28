@@ -44,8 +44,8 @@ namespace BitSorter.View
             "Every gate so far has forgotten each bit the moment it used it. " +
             "From here you have a part that keeps one.\n\n" +
             "That changes the clock as well. A kept bit has to travel back round to meet the next " +
-            "one, so vectors stop arriving every tick and start arriving on a beat -- and " +
-            "everything your circuit does has to fit inside it.";
+            "one, so vectors -- a row of inputs, one bit from every source -- stop arriving every " +
+            "tick and start arriving on a beat. Everything your circuit does has to fit inside it.";
 
         /// <inheritdoc cref="Body"/>
         public const UiType BodyType = UiType.Lead;
