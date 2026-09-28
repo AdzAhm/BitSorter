@@ -314,22 +314,22 @@ Unity 6.3 LTS (6000.3.11f1).
   scene is generated rather than authored, so anything added by hand is discarded
   the next time that runs.
 - Tests: Window → General → Test Runner, or **BitSorter → Run Tests**. Roughly
-  890 EditMode cases and 125 PlayMode at present, the PlayMode ones across
-  thirteen fixtures — pointer arbitration, audio and the menu's music, scene
-  composition, the tutorial's opening, the frame a run ends on, free play's setup,
-  full-screen panels and the keys that open and close them, framing the board
-  clear of the interface, what the board draws while a run moves, the level list,
-  the HUD allocating nothing on a quiet frame, the settings, their reset and the
-  credits, and
+  1,040 EditMode cases and 150 PlayMode at present, the PlayMode ones across
+  fourteen fixtures — pointer arbitration, audio and the menu's music, scene
+  composition, the tutorial's opening, the frame a run ends on, free play's setup
+  and its named boards, full-screen panels and the keys that open and close them,
+  framing the board clear of the interface, what the board draws while a run
+  moves, the level list, the help panel's K-map, the HUD allocating nothing on a
+  quiet frame, the settings, their reset and the credits, and
   the guard that keeps every test off your own save file. Those need a live
   scene, but not a focused window: nothing in the suite waits on wall-clock time
   any more. If you ever script that run, read the results from
   `TestResults.xml` in the save directory rather than from a `TestRunnerApi`
   callback, which does not survive the domain reload that entering play mode
   causes.
-- **BitSorter → Capture Reference Shots** screenshots eighteen states of the
+- **BitSorter → Capture Reference Shots** screenshots twenty-one states of the
   real game — menu, board, a run, both kinds of collision, the cards, free play,
-  settings, the credits — into the save directory. Two captures of the same code are identical
+  settings, the credits, the wider boards — into the save directory. Two captures of the same code are identical
   to the pixel, so a change that claims to leave the look alone can be held to it.
   It needs the Game view.
 - To compile without the editor at all, Bee leaves the exact compiler invocation
@@ -423,6 +423,15 @@ an unbalanced one fails outright, so there is nothing in between to rank.
   ratings, par scores and leaderboards are out by design.
 
 `CLAUDE.md` carries the full set of decisions and the reasoning behind them.
+
+---
+
+## Contributing
+
+Bug reports, level ideas, new levels and code are all welcome.
+[CONTRIBUTING.md](CONTRIBUTING.md) covers how to report a bug usefully, the level
+file format and what a new level needs, setting up the project, the rules the
+code keeps, and how tests and commits are done here.
 
 ---
 

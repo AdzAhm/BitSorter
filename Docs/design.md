@@ -239,6 +239,8 @@ The format is deliberately small. What it can say:
 | `maxLatency` | Critical-path ceiling, graded last |
 | `order` | Place in the run |
 | `goal` / `hint` | What to do, and a nudge |
+| `clockPeriod` | Ticks between vectors, which every source keeps together |
+| `board` | Columns and rows, odd, from 9 × 5 up to 13 × 7; absent means 9 × 5 |
 
 ### Two decisions inside that table
 
