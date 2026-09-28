@@ -655,6 +655,200 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
+        /// A 0 inside a register stands out from what the board draws under it, measured on the
+        /// rendered board.
+        /// </summary>
+        /// <remarks>
+        /// Neon Board draws a register's body as glass, see-through in the middle where the held bit
+        /// sits, so a 0 there is seen against the body at a fraction of its colour over the
+        /// register's halo and the ground -- not against the colour the palette tints the body with.
+        /// Measured on 2026-09-28 it was about 2.5:1, under the 3:1 a mark that carries meaning
+        /// wants, while the two palette colours promised better than 6:1. <c>LookBriefTests</c>
+        /// compares colours, and cannot see what a sprite's alpha lets through.
+        ///
+        /// So the board is rendered twice, with the held bit and without it. What the second shows
+        /// under the bit's footprint is what the bit is drawn on -- which is also what shows through
+        /// the digit cut out of it -- and the 0 is held to 3:1 against its worst pixel. Rendered into
+        /// a texture rather than read off the screen, so it needs no Game view; the two agreed to
+        /// within two levels when this was written.
+        ///
+        /// Classic is exempt, as it is from the brief: it is the game as it shipped.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator AZeroInsideARegister_StandsOutFromWhatItIsDrawnOn()
+        {
+            try
+            {
+                foreach (Look look in Look.All)
+                {
+                    if (look == Look.Classic)
+                        continue;
+
+                    Look.Use(look);
+                    yield return TestScene.Load();
+
+                    // Nothing that would put a panel up mid-measurement, or take the board away.
+                    ProgressStore store = Find<ProgressTracker>().Store;
+                    store.MarkMilestone(TutorialLevel.Key);
+                    store.MarkMilestone(ChapterCard.Milestone);
+                    store.MarkHintSeen(HintRules.Register);
+                    Find<MainMenu>().Show(false);
+                    yield return null;
+
+                    LevelSession session = Find<LevelSession>();
+                    SimulationRunner runner = Find<SimulationRunner>();
+
+                    Assert.IsTrue(session.LoadLevel("one-clock-late"), "the level did not load");
+
+                    for (int frame = 0; frame < 30 && !runner.FixtureNodeIds.ContainsKey("in"); frame++)
+                        yield return null;
+
+                    var middle = new Vector2Int(0, 0);
+                    Assert.IsTrue(session.TryPlaceGate(GateKind.Register, middle), "could not place the register");
+                    int register = NodeOn(runner, middle);
+
+                    yield return null;
+                    yield return null;
+
+                    Assert.IsTrue(runner.View.GetNode(register) is RegisterNode node && node.State == Bit.Zero,
+                        "sanity: a register starts holding a 0");
+
+                    float contrast = HeldBitContrast(runner, register, out string detail);
+
+                    Assert.GreaterOrEqual(contrast, 3f,
+                        $"{look.Name}: a 0 inside a register is {contrast:F2}:1 against what it is drawn on " +
+                        $"({detail})");
+                }
+            }
+            finally
+            {
+                Look.Use(null);
+            }
+        }
+
+        /// <summary>
+        /// The WCAG contrast between a register's held bit and the worst pixel of what the board
+        /// draws under it.
+        /// </summary>
+        private static float HeldBitContrast(SimulationRunner runner, int register, out string detail)
+        {
+            const int Width = 1920;
+            const int Height = 1080;
+
+            Camera camera = Camera.main;
+            SpriteRenderer held = HeldBitOf(register);
+
+            RenderTexture target = RenderTexture.GetTemporary(Width, Height, 24,
+                RenderTextureFormat.ARGB32, RenderTextureReadWrite.sRGB);
+            RenderTexture wasTarget = camera.targetTexture;
+            RenderTexture wasActive = RenderTexture.active;
+
+            Color32[] drawn;
+            Color32[] under;
+            Vector2 centre;
+            float radius;
+
+            try
+            {
+                camera.targetTexture = target;
+
+                Vector2 at = PortGeometry.HeldBitPositionOf(runner.PositionOf(register));
+                centre = camera.WorldToScreenPoint(at);
+                Vector2 edge = camera.WorldToScreenPoint(
+                    at + new Vector2(PortGeometry.HeldBitRadius * PortGeometry.ShapeUnit, 0f));
+                radius = Vector2.Distance(centre, edge);
+
+                drawn = Render(camera, target);
+
+                held.enabled = false;
+                under = Render(camera, target);
+            }
+            finally
+            {
+                held.enabled = true;
+                camera.targetTexture = wasTarget;
+                RenderTexture.active = wasActive;
+                RenderTexture.ReleaseTemporary(target);
+            }
+
+            Assert.GreaterOrEqual(radius, 5f, "sanity: the held bit is too few pixels across to measure");
+
+            // The bit's footprint, kept clear of its soft edge so that no pixel counted is half
+            // disc and half not.
+            float reach = radius * 0.9f;
+            var footprint = new List<int>();
+
+            for (int y = Mathf.FloorToInt(centre.y - reach); y <= Mathf.CeilToInt(centre.y + reach); y++)
+            {
+                for (int x = Mathf.FloorToInt(centre.x - reach); x <= Mathf.CeilToInt(centre.x + reach); x++)
+                {
+                    if (Vector2.Distance(new Vector2(x + 0.5f, y + 0.5f), centre) <= reach)
+                        footprint.Add(y * Width + x);
+                }
+            }
+
+            // The disc's own pixels are the ones drawing it changed. The digit cut out of it shows
+            // what is under it, and is left out.
+            var bit = new List<float>();
+
+            foreach (int i in footprint)
+            {
+                if (Difference(drawn[i], under[i]) > 60)
+                    bit.Add(Luminance(drawn[i]));
+            }
+
+            Assert.Greater(bit.Count, 0, "sanity: drawing the held bit changed nothing where it is");
+            bit.Sort();
+            float bitLuminance = bit[bit.Count / 2];
+
+            float worst = float.MaxValue;
+            Color32 worstUnder = default;
+
+            foreach (int i in footprint)
+            {
+                float against = Contrast(bitLuminance, Luminance(under[i]));
+
+                if (against < worst)
+                {
+                    worst = against;
+                    worstUnder = under[i];
+                }
+            }
+
+            detail = $"the bit's luminance {bitLuminance:F3}, the worst pixel under it " +
+                     $"({worstUnder.r}, {worstUnder.g}, {worstUnder.b})";
+            return worst;
+        }
+
+        /// <summary>Renders what the camera sees into the target, and reads it back.</summary>
+        private static Color32[] Render(Camera camera, RenderTexture target)
+        {
+            camera.Render();
+
+            RenderTexture.active = target;
+            var picture = new Texture2D(target.width, target.height, TextureFormat.RGBA32, false);
+            picture.ReadPixels(new Rect(0, 0, target.width, target.height), 0, 0);
+            picture.Apply();
+
+            Color32[] pixels = picture.GetPixels32();
+            Object.Destroy(picture);
+            return pixels;
+        }
+
+        private static int Difference(Color32 a, Color32 b) =>
+            Mathf.Abs(a.r - b.r) + Mathf.Abs(a.g - b.g) + Mathf.Abs(a.b - b.b);
+
+        /// <summary>WCAG relative luminance of a pixel as it is shown.</summary>
+        private static float Luminance(Color32 pixel)
+        {
+            Color l = ((Color)pixel).linear;
+            return 0.2126f * l.r + 0.7152f * l.g + 0.0722f * l.b;
+        }
+
+        private static float Contrast(float a, float b) =>
+            (Mathf.Max(a, b) + 0.05f) / (Mathf.Min(a, b) + 0.05f);
+
+        /// <summary>
         /// Two bits that meet are never drawn at the same depth, and never swap order mid-flight.
         /// </summary>
         /// <remarks>
