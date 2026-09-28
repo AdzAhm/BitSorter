@@ -645,6 +645,48 @@ namespace BitSorter.PlayMode.Tests
             yield return Capture("20-four-lanes");
         }
 
+        /// <summary>
+        /// Free play on a second board, named through the naming panel, with a gate wired on it: the
+        /// BOARD section with somewhere to step back to.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator Shot21_NamedBoard()
+        {
+            yield return OpenOnTheBoard();
+
+            Find<SandboxPanel>().Open();
+            yield return Frames(2);
+
+            Press("Board new");
+            yield return Frames(2);
+
+            Press("Board rename");
+            yield return Frames(2);
+
+            NameBoardPanel namer = Find<NameBoardPanel>();
+            namer.SetTyped("Half adder, my way");
+            Press("Name ok");
+            yield return Frames(2);
+
+            LevelSession session = Find<LevelSession>();
+            SimulationRunner runner = Find<SimulationRunner>();
+            var cell = new Vector2Int(0, 2);
+
+            Assert.IsTrue(session.TryPlaceGate(GateKind.Xor, cell), "could not place the XOR");
+            int xor = NodeOn(runner, cell);
+            Wire(session, runner.FixtureNodeIds["A"], xor, 0);
+            Wire(session, runner.FixtureNodeIds["B"], xor, 1);
+            Wire(session, xor, runner.FixtureNodeIds["OUT 1"], 0);
+
+            yield return Frames(30);
+
+            Assert.IsFalse(namer.IsShowing, "sanity: the naming panel should have closed");
+            Assert.AreEqual("Half adder, my way",
+                GameObject.Find("Board name").GetComponent<TMPro.TextMeshProUGUI>().text, "sanity: the name did not take");
+
+            yield return Capture("21-named-board");
+        }
+
         private static bool AnyCollisionTakesBoth(SimulationRunner runner)
         {
             for (int id = 0; id < runner.View.EdgeCount; id++)
