@@ -469,10 +469,16 @@ failure side.
   text at 4.5:1 on every kind of button as well as every panel, and a chosen
   button that stands out.
 
-  **Bloom reaches a bit in flight and nothing else**, in every look. The
-  threshold is 1 and only a travelling bit is lifted over it
-  (`BitVisuals.Emission`); gates, fixtures, held bits and the interface are all
-  drawn in plain colour. Several rules below were first written when bloom
+  **Bloom is for a bit in flight**, in every look. The threshold is 1 and only
+  a travelling bit is lifted over it (`BitVisuals.Emission`); gates, fixtures,
+  held bits and the interface are all drawn in plain colour. **It is not quite
+  the only thing bloom reaches**, which this paragraph used to say: URP's bloom
+  eases in from half its threshold, so a plain colour with a channel past 0.5
+  in linear light leaks a little. On a still board rendered with the volume on
+  and off (2026-09-28), a source's next bit showing a 1 -- magenta, a full red
+  channel, and the same colour a register holds a 1 in -- glowed by up to 18
+  levels, a wire's delay label by a few, and a register's pale body and plate
+  by one or two. Several rules below were first written when bloom
   reached the gates too, and gave it as their reason. They were rendered again
   under Neon Board on 2026-09-24 -- a stalled gate drawn both ways, bloom on and
   off -- and bloom changed no pixel of either. The rules stood anyway, each for a
