@@ -190,26 +190,34 @@ namespace BitSorter.PlayMode.Tests
             int zeros = 0;
             int ones = 0;
 
-            for (int frame = 0; frame < 240; frame++)
+            // Driven a tick at a time, with a few frames for the renderer after each, rather than left
+            // to run for 240 frames: at the half-second clock, how many ticks fit in 240 frames depends
+            // on how fast the editor is drawing, and on a fast frame rate no 1 had left a source yet.
+            for (int tick = 0; tick < 12; tick++)
             {
-                yield return null;
+                runner.StepOneTick();
 
-                foreach (Transform bit in container)
+                for (int frame = 0; frame < 3; frame++)
                 {
-                    if (!bit.gameObject.activeInHierarchy)
-                        continue;
+                    yield return null;
 
-                    Sprite drawn = bit.GetComponent<SpriteRenderer>().sprite;
+                    foreach (Transform bit in container)
+                    {
+                        if (!bit.gameObject.activeInHierarchy)
+                            continue;
 
-                    Assert.IsTrue(drawn == zero || drawn == one,
-                        $"a bit in flight is drawn as {drawn.name}, not as a digit");
-                    Assert.Less(Quaternion.Angle(Quaternion.identity, bit.rotation), 0.01f,
-                        "a digit turned to face its wire, and a turned digit is not a digit");
+                        Sprite drawn = bit.GetComponent<SpriteRenderer>().sprite;
 
-                    if (drawn == zero)
-                        zeros++;
-                    else
-                        ones++;
+                        Assert.IsTrue(drawn == zero || drawn == one,
+                            $"a bit in flight is drawn as {drawn.name}, not as a digit");
+                        Assert.Less(Quaternion.Angle(Quaternion.identity, bit.rotation), 0.01f,
+                            "a digit turned to face its wire, and a turned digit is not a digit");
+
+                        if (drawn == zero)
+                            zeros++;
+                        else
+                            ones++;
+                    }
                 }
             }
 
