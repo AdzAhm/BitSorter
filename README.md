@@ -215,6 +215,12 @@ bits-lost meter still fires, and the scorch mark still names the junction — yo
 just do not get marked on any of it. The board is saved like any other, so a
 sandbox circuit and its setup are still there next time.
 
+**You can keep up to eight boards**, each with a name, from the **Board** section
+at the top of the setup panel: the arrows step between them, **New** starts an
+empty one, **Copy** duplicates the board on screen, **Rename** asks for a name,
+and **Delete** asks before it deletes anything. Deleting your last board empties
+it instead. Free play is 13 cells by 7, so a column holds seven sources.
+
 Sources and sinks keep their own slots, counted from the top, so adding a third
 source never moves the first two and never moves the wires you drew from them.
 Both edge columns are kept for them, which is why a gate will not go there. Take

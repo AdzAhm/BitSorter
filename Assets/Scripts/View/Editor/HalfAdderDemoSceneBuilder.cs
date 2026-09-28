@@ -145,6 +145,7 @@ namespace BitSorter.View.EditorTools
             EndingPanel ending = host.AddComponent<EndingPanel>();
 
             SandboxPanel sandbox = host.AddComponent<SandboxPanel>();
+            NameBoardPanel namer = host.AddComponent<NameBoardPanel>();
 
             // AddComponent brings its own AudioSource along, via RequireComponent.
             GameAudio audio = host.AddComponent<GameAudio>();
@@ -250,7 +251,9 @@ namespace BitSorter.View.EditorTools
             Assign(sandbox, "_session", session);
             Assign(sandbox, "_progress", progress);
             Assign(sandbox, "_runner", runner);
+            Assign(sandbox, "_namer", namer);
             Assign(sandbox, "_canvas", canvas);
+            Assign(namer, "_canvas", canvas);
 
             Assign(help, "_session", session);
             Assign(help, "_canvas", canvas);

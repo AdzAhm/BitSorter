@@ -329,14 +329,23 @@ namespace BitSorter.View
         ///
         /// Rebuilding is also how free play applies an edit to its sources: changing them changes the
         /// graph, so the config produces a new definition and it arrives back through here.
+        ///
+        /// <paramref name="betweenLevels"/> runs after the board being left has been announced --
+        /// and so saved -- and before the new one is: the one moment the save file is not describing
+        /// either. Switching free play's board needs exactly that moment, because both boards save
+        /// under the same key and the store decides which of the player's boards that key means. A
+        /// second subscriber to the two events would be racing <see cref="ProgressTracker"/> for them,
+        /// in an order Unity does not promise; a step in the call has no order to get wrong.
         /// </remarks>
-        public bool Adopt(LevelDefinition level, string key)
+        public bool Adopt(LevelDefinition level, string key, Action betweenLevels = null)
         {
             if (level == null || string.IsNullOrWhiteSpace(key))
                 return false;
 
             if (IsLoaded)
                 LevelUnloading?.Invoke(_levelName);
+
+            betweenLevels?.Invoke();
 
             _levelName = key;
             Level = level;

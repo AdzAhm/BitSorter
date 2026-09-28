@@ -34,8 +34,15 @@ namespace BitSorter.View
     /// switch and is what makes <see cref="ProgressTracker"/> save the level being left and restore
     /// the sandbox board.
     ///
-    /// Bits are toggled rather than typed. A text field would need focus handling, and this game
-    /// binds Space, Enter, R and Q/E, all of which a focused field would swallow.
+    /// Bits are toggled rather than typed. The one thing free play asks to have typed is a board's
+    /// name, and that is asked for in <see cref="NameBoardPanel"/>, a full-screen panel of its own,
+    /// where <see cref="UiText"/> keeps the game's keys out of the field.
+    ///
+    /// **Free play keeps several boards, each under a name.** The BOARD section at the top steps
+    /// between them and makes, copies, renames and deletes them. Switching is a real level switch
+    /// -- a different board, so the undo history goes and a run is cancelled -- with one step added:
+    /// the store's open board changes between the old board being saved and the new one restored,
+    /// because both save under free play's one key (<see cref="LevelSession.Adopt"/>).
     /// </remarks>
     public sealed class SandboxPanel : MonoBehaviour
     {
@@ -63,6 +70,9 @@ namespace BitSorter.View
         [SerializeField] private ProgressTracker _progress;
         [SerializeField] private SimulationRunner _runner;
 
+        [Tooltip("Asks for a board's name. Found by type when left empty.")]
+        [SerializeField] private NameBoardPanel _namer;
+
         [Tooltip("Canvas the panel is built under. Found by type when left empty.")]
         [SerializeField] private Canvas _canvas;
 
@@ -76,6 +86,9 @@ namespace BitSorter.View
         private RectTransform _tab;
         private bool _expanded = true;
         private int _speed = SimulationRunner.DefaultSpeed;
+
+        /// <summary>Whether DELETE has been pressed and the panel is asking whether it meant it.</summary>
+        private bool _confirmingDelete;
 
         // -----------------------------------------------------------------
         // Layout
@@ -105,6 +118,7 @@ namespace BitSorter.View
             if (_session == null) _session = FindFirstObjectByType<LevelSession>();
             if (_progress == null) _progress = FindFirstObjectByType<ProgressTracker>();
             if (_runner == null) _runner = FindFirstObjectByType<SimulationRunner>();
+            if (_namer == null) _namer = FindFirstObjectByType<NameBoardPanel>();
             if (_canvas == null) _canvas = FindFirstObjectByType<Canvas>();
         }
 
@@ -201,6 +215,7 @@ namespace BitSorter.View
                 Adopt();
 
             _expanded = true;
+            _confirmingDelete = false;
 
             ApplySpeed();
             Rebuild();
@@ -345,6 +360,8 @@ namespace BitSorter.View
             int capacity = SandboxLevel.Capacity(Extents());
             var column = new UiColumn();
 
+            BoardsSection(column);
+
             // The same sentence the status banner carries. The panel no longer covers the banner, but
             // the moment a count reaches zero is the moment it needs saying next to the count.
             string warning = SandboxLevel.Warning(_config);
@@ -384,22 +401,34 @@ namespace BitSorter.View
         }
 
         /// <summary>
-        /// Sizes the panel to what is in it, without letting it reach the row below.
+        /// Sizes the panel to what is in it, and shrinks it to fit above the row below.
         /// </summary>
         /// <remarks>
         /// The counts decide how many rows there are, so the height cannot be a constant, and a
         /// panel stretched down the whole edge is a column of empty background beside the board.
         /// <see cref="UiRows.PanelFloor"/> is the floor: below it are the refusal toast and the
         /// run buttons.
+        ///
+        /// Past the floor it shrinks, as Settings and the help panel do
+        /// (<see cref="SettingsPanel.FitScale"/>). It used to stop its background there and let the
+        /// rows run on below it, over the board -- which a short browser window reached with a
+        /// modest setup, and the BOARD section made likelier still. Hung from its top-right corner,
+        /// so it shrinks towards it, and <see cref="ScreenLeftEdge"/> reads the scaled edge, so the
+        /// board gets the width back.
         /// </remarks>
         /// <param name="used">How far down the body its rows reach.</param>
         private void Fit(float used)
         {
             float wanted = BodyTop + used + Pad;
             float room = CanvasHeight() - UiRows.Panels.Offset - UiRows.PanelFloor;
+            float scale = SettingsPanel.FitScale(room, wanted);
 
-            _root.sizeDelta = new Vector2(UiTheme.SetupWidth, Mathf.Min(wanted, room));
+            _root.sizeDelta = new Vector2(UiTheme.SetupWidth, wanted);
+            _root.localScale = new Vector3(scale, scale, 1f);
         }
+
+        /// <summary>The scale the panel is drawn at, for the tests.</summary>
+        public float Scale => _root != null ? _root.localScale.x : 1f;
 
         private float CanvasHeight() =>
             _canvas != null && _canvas.transform is RectTransform rect ? rect.rect.height : 1080f;
@@ -707,6 +736,224 @@ namespace BitSorter.View
 
             sink = view.GetNode(nodeId) as SinkNode;
             return sink != null;
+        }
+
+        // -----------------------------------------------------------------
+        // Boards
+        // -----------------------------------------------------------------
+
+        private ProgressStore Store => _progress != null ? _progress.Store : null;
+
+        /// <summary>A button in the BOARD section, two to a row.</summary>
+        private const float BoardButtonHeight = 28f;
+
+        /// <summary>
+        /// The open board's name between two arrows, and what can be done with boards, two by two.
+        /// </summary>
+        /// <remarks>
+        /// Two by two because four captions at the smallest a button may use do not fit across the
+        /// panel. DELETE asks first, as RESET PROGRESS does: the question takes the name's place,
+        /// CANCEL and YES, DELETE come up on the row above, and where DELETE was is left empty -- so
+        /// the second click of a double-click lands on bare panel and answers nothing.
+        /// </remarks>
+        private void BoardsSection(UiColumn column)
+        {
+            ProgressStore store = Store;
+
+            if (store == null)
+                return;
+
+            Heading(column, "BOARD");
+
+            int count = store.FreePlayCount;
+            int active = store.ActiveFreePlay;
+            string name = store.FreePlayName(active) ?? BoardNames.First;
+
+            float y = -column.Take(StepHeight, 4f);
+
+            if (_confirmingDelete)
+            {
+                BoardLabel("Board question", $"Delete {name}?", UiTheme.Bad, 0f, y, Inner);
+            }
+            else
+            {
+                BoardButton("Board previous", "<", 0f, y, 24f, active > 0, ButtonRole.Secondary,
+                    () => SwitchTo(active - 1));
+                BoardLabel("Board name", name, UiTheme.Text, 30f, y, Inner - 60f);
+                BoardButton("Board next", ">", Inner - 24f, y, 24f, active < count - 1, ButtonRole.Secondary,
+                    () => SwitchTo(active + 1));
+            }
+
+            float half = (Inner - 6f) * 0.5f;
+            float upper = -column.Take(BoardButtonHeight, 4f);
+            float lower = -column.Take(BoardButtonHeight, 4f);
+
+            if (_confirmingDelete)
+            {
+                BoardButton("Board delete cancel", "CANCEL", 0f, upper, half, true, ButtonRole.Secondary,
+                    () => { _confirmingDelete = false; Rebuild(); });
+                BoardButton("Board delete yes", "YES, DELETE", half + 6f, upper, half, true,
+                    ButtonRole.Destructive, DeleteOpenBoard);
+            }
+            else
+            {
+                bool room = count < BoardNames.MaxBoards;
+
+                BoardButton("Board new", "NEW", 0f, upper, half, room, ButtonRole.Secondary, NewBoard);
+                BoardButton("Board copy", "COPY", half + 6f, upper, half, room, ButtonRole.Secondary, CopyBoard);
+                BoardButton("Board rename", "RENAME", 0f, lower, half, _namer != null, ButtonRole.Secondary,
+                    RenameBoard);
+                BoardButton("Board delete", "DELETE", half + 6f, lower, half, true, ButtonRole.Destructive,
+                    () => { _confirmingDelete = true; Rebuild(); });
+            }
+
+            column.Space(8f);
+        }
+
+        private void BoardButton(
+            string name, string caption, float x, float y, float width, bool enabled, ButtonRole role,
+            UnityEngine.Events.UnityAction go)
+        {
+            Button button = UiTheme.Button_(name, _bodyRoot, caption, out TextMeshProUGUI label, role: role);
+
+            UiTheme.Anchor(button.GetComponent<RectTransform>(), new Vector2(0f, 1f), new Vector2(0f, 1f),
+                new Vector2(x, y), new Vector2(width, caption.Length <= 1 ? 24f : BoardButtonHeight));
+
+            UiTheme.SetEnabled(button, label, enabled);
+            button.onClick.AddListener(() => { go(); UiTheme.Defocus(); });
+
+            _body.Add(button.gameObject);
+        }
+
+        private void BoardLabel(string name, string text, Color colour, float x, float y, float width)
+        {
+            TextMeshProUGUI label = UiTheme.Label(name, _bodyRoot, UiType.Body, colour, TextAlignmentOptions.Center);
+            UiTheme.Anchor(label.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f),
+                new Vector2(x, y), new Vector2(width, StepHeight));
+
+            // A name runs to 24 characters, and the widest of those do not fit between the arrows.
+            label.overflowMode = TextOverflowModes.Ellipsis;
+            label.text = text;
+            _body.Add(label.gameObject);
+        }
+
+        /// <summary>Opens another of the player's boards, saving the one being left.</summary>
+        /// <remarks>
+        /// The setup is staged into the board being left, and the level switch saves its circuit
+        /// there too; the store's open board changes only between that save and the restore, which
+        /// is the step handed to <see cref="LevelSession.Adopt"/>.
+        /// </remarks>
+        private void SwitchTo(int index)
+        {
+            ProgressStore store = Store;
+
+            if (store == null || _session == null || !IsOpen || index == store.ActiveFreePlay)
+                return;
+
+            SavedBoard target = store.FreePlayBoard(index);
+
+            if (target == null)
+                return;
+
+            Stage();
+            OpenBoard(target.sandbox, () => store.SelectFreePlay(index));
+        }
+
+        /// <summary>
+        /// Builds free play from a setup and switches to it, running <paramref name="between"/> after
+        /// the board being left has been saved and before the new one is restored.
+        /// </summary>
+        private void OpenBoard(SandboxConfig setup, System.Action between)
+        {
+            int capacity = SandboxLevel.Capacity(Extents());
+
+            _config = setup != null ? setup.Clone() : SandboxLevel.Default(Extents());
+            _config.Normalise(capacity, capacity);
+            _confirmingDelete = false;
+
+            _session.Adopt(SandboxLevel.Build(_config, Extents()), SandboxLevel.Key, between);
+
+            ApplySpeed();
+            Rebuild();
+        }
+
+        /// <summary>An empty board, with the setup free play opens on the first time, opened.</summary>
+        private void NewBoard()
+        {
+            ProgressStore store = Store;
+
+            if (store == null)
+                return;
+
+            var board = new SavedBoard { sandbox = SandboxLevel.Default(Extents()) };
+            int index = store.AddFreePlay(BoardNames.NextDefault(store.FreePlayNames()), board);
+
+            if (index >= 0)
+                SwitchTo(index);
+        }
+
+        /// <summary>The board as it is on screen, setup and circuit, as a new board, opened.</summary>
+        /// <remarks>
+        /// Copied from the board on screen rather than from the save, which is only brought up to
+        /// date when free play is left.
+        /// </remarks>
+        private void CopyBoard()
+        {
+            ProgressStore store = Store;
+
+            if (store == null || _session == null)
+                return;
+
+            SavedBoard board = BoardSerializer.ToSaved(SandboxLevel.Key, _session.Blueprint);
+            board.sandbox = _config.Clone();
+
+            string name = BoardNames.CopyOf(store.FreePlayName(store.ActiveFreePlay), store.FreePlayNames());
+            int index = store.AddFreePlay(name, board);
+
+            if (index >= 0)
+                SwitchTo(index);
+        }
+
+        private void RenameBoard()
+        {
+            ProgressStore store = Store;
+
+            if (store == null || _namer == null)
+                return;
+
+            int index = store.ActiveFreePlay;
+
+            _namer.Ask(store.FreePlayName(index), typed =>
+            {
+                if (!store.RenameFreePlay(index, typed, out string refusal))
+                    return refusal;
+
+                Rebuild();
+                return null;
+            });
+        }
+
+        /// <summary>
+        /// Deletes the open board and opens the one that takes its place; the last board is emptied
+        /// instead, and stays open.
+        /// </summary>
+        private void DeleteOpenBoard()
+        {
+            ProgressStore store = Store;
+
+            if (store == null || _session == null)
+                return;
+
+            int index = store.ActiveFreePlay;
+            int count = store.FreePlayCount;
+
+            // Which board opens once this one is gone, by its index before the deletion: the one
+            // after it, or the one before it at the end of the list. The store opens the same one.
+            SandboxConfig next = count > 1
+                ? store.FreePlayBoard(index < count - 1 ? index + 1 : index - 1)?.sandbox
+                : null;
+
+            OpenBoard(next, () => store.DeleteFreePlay(index));
         }
 
         // -----------------------------------------------------------------

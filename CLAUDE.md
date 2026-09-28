@@ -584,6 +584,17 @@ failure side.
   frame's input: a tap puts press and release in one frame, the event system
   handles the whole click, and a button that closes its panel would otherwise
   leave nothing under the pointer by the time placement asks.
+- **`UiText` arbitrates the keyboard, as `PointerGate` does the mouse.** Naming a
+  free-play board put the first text field into a game that binds N, M, Q, E, H,
+  R, Space, Enter and Escape in seventeen places, so typing "Adder" would have
+  muted the sound. Every one of them takes its keyboard from `UiText.Keyboard`,
+  which is null while a text field is selected -- and each already coped with
+  there being no keyboard, so while a name is typed each simply sees none.
+  `UiTextTests` refuses a script under View that reads `Keyboard.current`
+  itself. Derived, never set, for the reason pointer ownership is: a "typing"
+  flag that leaked would be a game whose keys do nothing. The field answers
+  Enter and Escape itself while it holds the keys (`NameBoardPanel`), and the
+  frame it closes is covered by `UiModal.OpenOrJustClosed` like any panel's.
 - **A panel's backdrop is nine-sliced, and a full-screen one is not a panel.**
   `ProceduralSprites.Panel` is a rounded rectangle cut with a ten-texel border,
   so every `Panel_` keeps ten-pixel corners and a solid middle at any size.
@@ -927,7 +938,8 @@ failure side.
   one that pressed the tab.
 
   **The help panel shrinks to fit a short window**, as Settings does and as the
-  setup panel beside it already stops at `UiRows.PanelFloor`. A browser tab 1920
+  setup panel beside it does at `UiRows.PanelFloor` -- which once only stopped its
+  background there and let its rows run on over the board. A browser tab 1920
   by 800 gives the canvas about 930 of height, and a sixteen-row table needs all
   of the room that leaves. `HelpPanelTests` holds every level to fitting unscaled
   at 1080 and to at least 90% at 930.
@@ -1015,6 +1027,18 @@ under the board and raises `LevelChanged`, which is for anything derived
 from the level rather than the board; the help panel's truth table is the
 subscriber that matters, since free play's streams are the player's.
 Entering free play is still an Adopt, and that is what saves and restores.
+
+**Free play keeps up to eight boards, each under a name** (`BoardNames`: 1 to
+24 characters, unique ignoring case). The save file holds them as `freePlay`,
+and free play's key means the open one -- `ProgressTracker` and the setup
+panel still ask for one board by one key, and only the store knows there are
+several. A 3.0.2 file's single board becomes "My board". The setup panel's
+BOARD section steps between them and makes, copies, renames and deletes them;
+DELETE asks as RESET PROGRESS does, and deleting the last board empties it.
+**Switching is an `Adopt` with a step in the middle** (`betweenLevels`): both
+boards save under the same key, so the store's open board has to change after
+the old one is written and before the new one is restored. A second subscriber
+to those events would be racing the tracker for them.
 
 **Fixtures have fixed slots and both edge columns are reserved.** Slot *i*
 sits at `halfExtents.y - i`, never re-centred: fixtures used to be centred

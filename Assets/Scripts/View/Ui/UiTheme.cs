@@ -397,6 +397,25 @@ namespace BitSorter.View
                 UnityEngine.EventSystems.EventSystem.current.SetSelectedGameObject(null);
         }
 
+        /// <summary>
+        /// Gives keyboard focus to a text field, the one thing in the game that should hold it.
+        /// </summary>
+        /// <remarks>
+        /// Beside <see cref="Defocus"/> so that focus is taken and given in one place. The field
+        /// holding focus is what takes the game's keys away from it (<see cref="UiText.Typing"/>),
+        /// so giving focus to anything else would silence the keys with nothing typed.
+        /// </remarks>
+        public static void Focus(TMP_InputField field)
+        {
+            if (field == null)
+                return;
+
+            if (UnityEngine.EventSystems.EventSystem.current != null)
+                UnityEngine.EventSystems.EventSystem.current.SetSelectedGameObject(field.gameObject);
+
+            field.ActivateInputField();
+        }
+
         /// <summary>Shows or hides a piece of interface, touching it only when that changes.</summary>
         public static void SetShown(Component part, bool shown)
         {

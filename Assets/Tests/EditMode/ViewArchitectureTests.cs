@@ -50,12 +50,14 @@ namespace BitSorter.LogicCore.Tests
         }
 
         /// <summary>
-        /// Only <see cref="UiTheme.Defocus"/> takes keyboard focus off a button.
+        /// Only <see cref="UiTheme"/> moves keyboard focus: <see cref="UiTheme.Defocus"/> takes it
+        /// off a button, and <see cref="UiTheme.Focus"/> gives it to a text field.
         /// </summary>
         /// <remarks>
         /// It was written out twelve times under four names, each with its own copy of the reason
         /// or none. A button that keeps focus swallows Space and Enter, which run the board, so the
         /// thirteenth copy is the one that gets written without knowing why and then "tidied" away.
+        /// Giving focus is held to the same place since a text field took the game's keys with it.
         /// Read from the source, because a call is not something reflection can see.
         /// </remarks>
         [Test]
@@ -72,7 +74,7 @@ namespace BitSorter.LogicCore.Tests
                 .ToArray();
 
             Assert.IsEmpty(offenders,
-                "these clear the selection themselves rather than through UiTheme.Defocus: " +
+                "these move the selection themselves rather than through UiTheme.Defocus or Focus: " +
                 string.Join(", ", offenders));
         }
     }
