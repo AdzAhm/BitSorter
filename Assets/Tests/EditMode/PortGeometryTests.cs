@@ -123,9 +123,6 @@ namespace BitSorter.LogicCore.Tests
         }
 
         /// <summary>
-        /// The scale that draws a circle at a wanted radius, which is how the held bit is sized.
-        /// </summary>
-        /// <summary>
         /// A source's next bit sits above its capsule, clear of it, and inside the square the source
         /// occupies -- so nothing laid out around a node has to allow for it.
         /// </summary>
@@ -145,6 +142,9 @@ namespace BitSorter.LogicCore.Tests
             Assert.Greater(at.y, Centre.y, "the disc is not above the source");
         }
 
+        /// <summary>
+        /// The scale that draws a circle at a wanted radius, which is how the held bit is sized.
+        /// </summary>
         [Test]
         public void ScaleForRadius_DrawsACircleAtThatRadius()
         {
