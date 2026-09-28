@@ -53,6 +53,10 @@ namespace BitSorter.View
         private readonly Dictionary<int, Bit> _heldValues = new Dictionary<int, Bit>();
         private readonly Dictionary<int, float> _capturing = new Dictionary<int, float>();
 
+        /// <summary>The disc above each source showing what it sends next, and what it last showed.</summary>
+        private readonly Dictionary<int, SpriteRenderer> _nextBits = new Dictionary<int, SpriteRenderer>();
+        private readonly Dictionary<int, Bit> _nextValues = new Dictionary<int, Bit>();
+
         private Transform _container;
         private int _builtRevision = -1;
 
@@ -78,7 +82,74 @@ namespace BitSorter.View
 
             ApplyStallStates();
             ApplyHeldBits();
+            ApplyNextBits();
         }
+
+        /// <summary>
+        /// Draws, above each source, the bit it will send next, and hides it once there is none.
+        /// </summary>
+        /// <remarks>
+        /// A playtester asked to see what a source was about to send (2026-09-28): a stream is a row
+        /// of bits in a file, and on the board the only way to learn it was to run it and watch.
+        /// Drawn as the register's held bit is -- the same disc, digit and colour -- because both are
+        /// a value sitting on a part rather than one travelling. While the board is being built it
+        /// shows the first bit, and as a run goes it steps along the stream.
+        ///
+        /// Redrawn only when the value changes, the idiom every renderer here uses; the lookup it
+        /// makes each frame walks at most the silent ticks of one clock period.
+        /// </remarks>
+        private void ApplyNextBits()
+        {
+            SimulationView view = _runner.View;
+
+            foreach (KeyValuePair<int, SpriteRenderer> pair in _nextBits)
+            {
+                SpriteRenderer disc = pair.Value;
+
+                if (disc == null || !(view.GetNode(pair.Key) is SourceNode source))
+                    continue;
+
+                Bit? next = source.NextBit;
+
+                if (disc.enabled != next.HasValue)
+                    disc.enabled = next.HasValue;
+
+                if (!next.HasValue)
+                    continue;
+
+                if (_nextValues.TryGetValue(pair.Key, out Bit shown) && shown == next.Value)
+                    continue;
+
+                _nextValues[pair.Key] = next.Value;
+                disc.sprite = Look.Current.Bits == BitStyle.Digit
+                    ? ProceduralSprites.HeldBit(next.Value)
+                    : ProceduralSprites.Circle();
+                disc.color = BitVisuals.ColourFor(next.Value);
+            }
+        }
+
+        /// <summary>The disc above a source, showing the bit it will send next.</summary>
+        private void SpawnNextBit(int id, Vector2 centre)
+        {
+            GameObject next = ViewSprites.Spawn(_nodePrefab, _container, $"Next {id}");
+            next.transform.position = PortGeometry.NextBitPositionOf(centre);
+            next.transform.localScale =
+                Vector3.one * PortGeometry.ScaleForRadius(PortGeometry.NextBitRadius);
+
+            var renderer = next.GetComponent<SpriteRenderer>();
+            renderer.sprite = ProceduralSprites.Circle();
+            renderer.sortingOrder = ViewLayers.NodeDetail;
+
+            _spawned.Add(next);
+            _nextBits[id] = renderer;
+        }
+
+        /// <summary>The source's next bit as the board draws it, or null if none is drawn: for the tests.</summary>
+        public Bit? ShownNextBit(int nodeId) =>
+            _nextBits.TryGetValue(nodeId, out SpriteRenderer disc) && disc != null && disc.enabled
+                && _nextValues.TryGetValue(nodeId, out Bit value)
+                ? value
+                : (Bit?)null;
 
         /// <summary>
         /// Draws the bit each register is holding, and flashes it when that bit changes.
@@ -221,6 +292,8 @@ namespace BitSorter.View
             _heldBits.Clear();
             _heldValues.Clear();
             _capturing.Clear();
+            _nextBits.Clear();
+            _nextValues.Clear();
 
             SimulationView view = _runner.View;
 
@@ -262,6 +335,9 @@ namespace BitSorter.View
 
                 if (node is RegisterNode)
                     SpawnHeldBit(id, centre);
+
+                if (node is SourceNode)
+                    SpawnNextBit(id, centre);
 
                 SpawnLabel(node, centre, colour);
             }

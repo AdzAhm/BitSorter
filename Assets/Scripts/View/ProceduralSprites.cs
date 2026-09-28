@@ -100,7 +100,16 @@ namespace BitSorter.View
         /// one cue that survives it. A diamond read too close to NOT's circle once both glowed.
         /// </summary>
         public static Sprite Capsule(BodyStyle style = BodyStyle.Filled) =>
-            Body("capsule", style, p => InCapsule(p, 0.94f, 0.40f));
+            Body("capsule", style, p => InCapsule(p, CapsuleHalfWidth, CapsuleHalfHeight));
+
+        /// <summary>Half the source capsule's width, in shape units.</summary>
+        public const float CapsuleHalfWidth = 0.94f;
+
+        /// <summary>
+        /// Half the source capsule's height, in shape units -- what <see cref="PortGeometry"/>
+        /// places a source's next bit above.
+        /// </summary>
+        public const float CapsuleHalfHeight = 0.40f;
 
         public static Sprite Hexagon(BodyStyle style = BodyStyle.Filled) =>
             Body("hexagon", style, p => InHexagon(p, 0.88f));

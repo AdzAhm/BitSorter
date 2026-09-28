@@ -82,6 +82,32 @@ namespace BitSorter.View
         public static Vector2 HeldBitPositionOf(Vector2 nodeCentre) =>
             new Vector2(nodeCentre.x + HeldBitCentre * ShapeUnit, nodeCentre.y);
 
+        // -----------------------------------------------------------------
+        // The bit a source will send next, drawn above it
+        // -----------------------------------------------------------------
+
+        /// <summary>Radius of a source's next bit, in shape units: the register's held bit at rest.</summary>
+        /// <remarks>
+        /// The same disc as the register's, so a bit waiting to leave and a bit being kept read as
+        /// the same kind of thing: a value sitting on a part, not a bit in flight.
+        /// </remarks>
+        public const float NextBitRadius = HeldBitRadius;
+
+        /// <summary>Space between the top of a source's capsule and its next bit, in shape units.</summary>
+        public const float NextBitGap = 0.07f;
+
+        /// <summary>How far above a source's centre its next bit sits, in shape units.</summary>
+        /// <remarks>
+        /// Above the capsule rather than on it, where a playtester asked for it (2026-09-28) -- and
+        /// still inside the square the source occupies, so nothing laid out around a node, the
+        /// banner's clearance of the top row included, has to know it is there.
+        /// </remarks>
+        public const float NextBitCentre = ProceduralSprites.CapsuleHalfHeight + NextBitGap + NextBitRadius;
+
+        /// <summary>Where a source's next bit is drawn, given the source's centre.</summary>
+        public static Vector2 NextBitPositionOf(Vector2 nodeCentre) =>
+            new Vector2(nodeCentre.x, nodeCentre.y + NextBitCentre * ShapeUnit);
+
         /// <summary>
         /// The local scale that draws <see cref="ProceduralSprites.Circle"/> at a wanted radius.
         /// </summary>

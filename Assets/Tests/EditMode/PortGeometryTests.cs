@@ -125,6 +125,24 @@ namespace BitSorter.LogicCore.Tests
         /// <summary>
         /// The scale that draws a circle at a wanted radius, which is how the held bit is sized.
         /// </summary>
+        /// <summary>
+        /// A source's next bit sits above its capsule, clear of it, and inside the square the source
+        /// occupies -- so nothing laid out around a node has to allow for it.
+        /// </summary>
+        [Test]
+        public void TheNextBitAboveASource_ClearsTheCapsule_AndStaysInsideTheNode()
+        {
+            float bottom = PortGeometry.NextBitCentre - PortGeometry.NextBitRadius;
+            float top = PortGeometry.NextBitCentre + PortGeometry.NextBitRadius;
+
+            Assert.Greater(bottom, ProceduralSprites.CapsuleHalfHeight, "the disc overlaps the capsule");
+            Assert.LessOrEqual(top, 1f, "the disc reaches past the square the source occupies");
+
+            Vector2 at = PortGeometry.NextBitPositionOf(Centre);
+            Assert.AreEqual(Centre.x, at.x, 0.0001f, "the disc is not centred over the source");
+            Assert.Greater(at.y, Centre.y, "the disc is not above the source");
+        }
+
         [Test]
         public void ScaleForRadius_DrawsACircleAtThatRadius()
         {

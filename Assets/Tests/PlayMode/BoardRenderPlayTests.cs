@@ -228,6 +228,57 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
+        /// Each source shows the bit it will send next: the first while the board is built, then
+        /// each in turn as the run goes, and nothing once its stream is spent.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator EachSource_ShowsTheBitItWillSendNext()
+        {
+            yield return TestScene.Load();
+            Find<MainMenu>().Show(false);
+            yield return null;
+
+            LevelSession session = Find<LevelSession>();
+            SimulationRunner runner = Find<SimulationRunner>();
+
+            Assert.IsTrue(session.LoadLevel(Level), "the level did not load");
+
+            for (int frame = 0; frame < 30 && !runner.FixtureNodeIds.ContainsKey("a"); frame++)
+                yield return null;
+
+            yield return null;
+
+            NodeRenderer nodes = Find<NodeRenderer>();
+            int a = runner.FixtureNodeIds["a"];
+            IReadOnlyList<Bit> stream = session.Level.FixtureById("a").Stream;
+
+            Assert.AreEqual(stream[0], nodes.ShownNextBit(a), "the board does not show A's first bit before the run");
+
+            BuildTheHalfAdder(session, runner);
+            session.Run();
+            runner.SetPaused(true);
+
+            bool sawZero = false, sawOne = false;
+
+            for (int step = 0; step < stream.Count + 3; step++)
+            {
+                runner.StepOneTick();
+                yield return null;
+
+                var source = (SourceNode)runner.View.GetNode(runner.FixtureNodeIds["a"]);
+                Bit? shown = nodes.ShownNextBit(runner.FixtureNodeIds["a"]);
+
+                Assert.AreEqual(source.NextBit, shown, $"after step {step} the board shows another bit than A will send");
+
+                sawZero |= shown == Bit.Zero;
+                sawOne |= shown == Bit.One;
+            }
+
+            Assert.IsTrue(sawZero && sawOne, "sanity: A's stream should have shown both values on the way");
+            Assert.IsNull(nodes.ShownNextBit(runner.FixtureNodeIds["a"]), "a spent source still shows a bit");
+        }
+
+        /// <summary>
         /// A collision that will take the waiting bit too crosses that bit out; one that will not,
         /// does not.
         /// </summary>
