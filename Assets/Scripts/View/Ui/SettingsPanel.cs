@@ -7,8 +7,9 @@ using TMPro;
 namespace BitSorter.View
 {
     /// <summary>
-    /// The settings: sound and its volume, fullscreen, vertical sync and a frame cap on a desktop
-    /// build, reporting, and starting over. Reached from the main menu, and goes back to it.
+    /// The settings: sound and its volume; fullscreen, vertical sync, a frame cap and a frame-rate
+    /// counter on a desktop build; reporting, and starting over. Reached from the main menu, and
+    /// goes back to it.
     /// </summary>
     /// <remarks>
     /// A section is a heading, a line saying what the setting does, and the control. Sound and data
@@ -40,6 +41,7 @@ namespace BitSorter.View
         private TextMeshProUGUI _dataLabel;
         private TextMeshProUGUI _fullscreenLabel;
         private TextMeshProUGUI _vSyncLabel;
+        private TextMeshProUGUI _counterLabel;
         private Slider _cap;
         private TextMeshProUGUI _capLabel;
         private TextMeshProUGUI _capValue;
@@ -84,6 +86,9 @@ namespace BitSorter.View
         public const string FrameCapSlider = "Frame cap setting";
 
         /// <inheritdoc cref="SoundButton"/>
+        public const string CounterButton = "FPS counter setting";
+
+        /// <inheritdoc cref="SoundButton"/>
         public const string DataButton = "Data setting";
 
         /// <inheritdoc cref="SoundButton"/>
@@ -123,7 +128,7 @@ namespace BitSorter.View
         public const string DisplayText =
             "Fill the screen, or play in a window: Alt+Enter does the same. " +
             "VSYNC keeps the frame rate to your screen's. Turn it off to set FRAME CAP yourself: " +
-            "lower uses less power.";
+            "lower uses less power. FPS COUNTER shows the frame rate in the top right corner.";
 
         public const string PrivacyText =
             "Reports which levels people get stuck on. The README lists exactly what is sent.";
@@ -315,20 +320,18 @@ namespace BitSorter.View
             {
                 Section(block, column, DisplayHeading, DisplayText);
 
-                // Side by side: two settings of one screen, and a row apiece would make the panel
-                // taller than the window it shrinks to fit.
+                // Side by side, three to a row like the sound's: settings of one screen, and a row
+                // apiece would make the panel taller than the window it shrinks to fit.
                 float display = column.Take(UiTheme.ButtonHeight);
 
-                Button fullscreen = UiTheme.Button_(FullscreenButton, block, string.Empty,
-                    out _fullscreenLabel, UiType.Body, ButtonRole.Secondary);
-                PlaceLeft(fullscreen.GetComponent<RectTransform>(), display, 0f, ButtonWidth, UiTheme.ButtonHeight);
+                Button fullscreen = Switch(block, display, 0, FullscreenButton, out _fullscreenLabel);
                 fullscreen.onClick.AddListener(() => Fire(ToggleFullscreen));
 
-                Button vSync = UiTheme.Button_(VSyncButton, block, string.Empty,
-                    out _vSyncLabel, UiType.Body, ButtonRole.Secondary);
-                PlaceLeft(vSync.GetComponent<RectTransform>(), display, ButtonWidth + SwitchGap,
-                    ButtonWidth, UiTheme.ButtonHeight);
+                Button vSync = Switch(block, display, 1, VSyncButton, out _vSyncLabel);
                 vSync.onClick.AddListener(() => Fire(ToggleVSync));
+
+                Button counter = Switch(block, display, 2, CounterButton, out _counterLabel);
+                counter.onClick.AddListener(() => Fire(ToggleCounter));
 
                 // The cap under the switch it depends on, as the volume sits under the sound's.
                 column.Space(VolumeGap);
@@ -602,6 +605,7 @@ namespace BitSorter.View
         {
             bool vSync = FrameRate.VSync;
             _vSyncLabel.text = VSyncCaption(vSync);
+            _counterLabel.text = CounterCaption(FrameRate.ShowsCounter);
 
             UiTheme.SetEnabled(_cap, !vSync);
             _capLabel.color = vSync ? UiTheme.TextDim : UiTheme.Text;
@@ -691,6 +695,15 @@ namespace BitSorter.View
         private static string[] _capCaptions;
 
         private static void ToggleVSync() => FrameRate.SetVSync(!FrameRate.VSync);
+
+        /// <summary>What the counter's switch says.</summary>
+        /// <remarks>
+        /// It names the counter, not the frame rate: "FPS OFF" read as though the frames themselves
+        /// could be switched off.
+        /// </remarks>
+        public static string CounterCaption(bool on) => on ? "FPS COUNTER  ON" : "FPS COUNTER  OFF";
+
+        private static void ToggleCounter() => FrameRate.SetCounter(!FrameRate.ShowsCounter);
 
         // -----------------------------------------------------------------
         // Starting over

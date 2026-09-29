@@ -4,8 +4,8 @@ using UnityEngine;
 namespace BitSorter.View
 {
     /// <summary>
-    /// The frame-rate settings -- vertical sync, and a cap for when it is off: what each does to the
-    /// player, and remembering them.
+    /// The frame-rate settings -- vertical sync, a cap for when it is off, and whether the counter
+    /// is in the corner: what each does to the player, and remembering them.
     /// </summary>
     /// <remarks>
     /// The game shipped with vertical sync on and no cap, so a 165 Hz laptop drew 165 frames a
@@ -34,6 +34,9 @@ namespace BitSorter.View
         /// A stop stored would silently mean a different rate the day a stop was added below it.
         /// </remarks>
         public const string CapKey = "bitsorter.frameCap";
+
+        /// <summary>Where the frame-rate counter's switch is kept.</summary>
+        public const string CounterKey = "bitsorter.fpsCounter";
 
         /// <summary>No cap: Unity's own spelling of it.</summary>
         public const int NoCap = -1;
@@ -132,6 +135,18 @@ namespace BitSorter.View
 
         /// <summary>Writes out a cap staged during a drag.</summary>
         public static void KeepCap() => Preferences.Save();
+
+        /// <summary>
+        /// Whether <see cref="FrameRateCounter"/> is in the corner: off until the player asks for it.
+        /// </summary>
+        /// <remarks>
+        /// Only a switch to remember -- it changes nothing about how the game is drawn, so unlike
+        /// the two above it is honoured in the editor as well.
+        /// </remarks>
+        public static bool ShowsCounter => Preferences.GetInt(CounterKey, 0) != 0;
+
+        /// <summary>Stores whether the counter is shown. The counter itself notices on its next frame.</summary>
+        public static void SetCounter(bool on) => Preferences.SetInt(CounterKey, on ? 1 : 0);
 
         private static void Apply()
         {

@@ -144,6 +144,43 @@ namespace BitSorter.LogicCore.Tests
         }
 
         [Test]
+        public void TheCounter_IsOffUntilAskedFor_AndRemembered()
+        {
+            Assert.IsFalse(FrameRate.ShowsCounter, "a machine that never asked shows a counter");
+
+            FrameRate.SetCounter(true);
+            Assert.IsTrue(FrameRate.ShowsCounter);
+            Assert.AreEqual(1, Preferences.GetInt(FrameRate.CounterKey, 0));
+
+            FrameRate.SetCounter(false);
+            Assert.IsFalse(FrameRate.ShowsCounter);
+        }
+
+        [Test]
+        public void TheCountersRate_IsFramesOverSeconds_Rounded()
+        {
+            Assert.AreEqual(60, FrameRateCounter.Rate(30, 0.5f));
+            Assert.AreEqual(165, FrameRateCounter.Rate(83, 0.503f));
+            Assert.AreEqual(0, FrameRateCounter.Rate(0, 0.5f));
+            Assert.AreEqual(0, FrameRateCounter.Rate(10, 0f), "no time passed is no rate, not a division by zero");
+        }
+
+        /// <summary>The counter writes its digits itself, to hand TextMeshPro no new string a frame.</summary>
+        [TestCase(0, "0")]
+        [TestCase(7, "7")]
+        [TestCase(60, "60")]
+        [TestCase(144, "144")]
+        [TestCase(1000, "1000")]
+        [TestCase(2147483647, "2147483647")]
+        [TestCase(-3, "0")]
+        public void TheCountersDigits_AreTheNumber(int value, string expected)
+        {
+            var into = new char[10];
+            int length = FrameRateCounter.Digits(value, into);
+            Assert.AreEqual(expected, new string(into, 0, length));
+        }
+
+        [Test]
         public void EachStop_HasItsOwnCaption()
         {
             var seen = new HashSet<string>();
@@ -161,6 +198,8 @@ namespace BitSorter.LogicCore.Tests
             Assert.AreEqual("NONE", SettingsPanel.CapCaption(FrameRate.Stops - 1));
             StringAssert.StartsWith("VSYNC", SettingsPanel.VSyncCaption(true));
             Assert.AreNotEqual(SettingsPanel.VSyncCaption(true), SettingsPanel.VSyncCaption(false));
+            StringAssert.StartsWith("FPS COUNTER", SettingsPanel.CounterCaption(true));
+            Assert.AreNotEqual(SettingsPanel.CounterCaption(true), SettingsPanel.CounterCaption(false));
         }
     }
 }

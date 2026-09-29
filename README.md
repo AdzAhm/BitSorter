@@ -55,7 +55,8 @@ one each for the music and the effects -- and its volume, fullscreen on Windows
 (`Alt`+`Enter` works too), the data switch, a way to start over, and the credits.
 On Windows it also has vertical sync, on by default so the game keeps to your
 screen's refresh rate, and with it off a frame cap from 30 to 240 frames a second,
-or none. A lower cap uses less power on a laptop.
+or none. A lower cap uses less power on a laptop. FPS COUNTER puts a small
+frame-rate counter in the top-right corner.
 
 The bottom-right corner of the main menu says which version you are running,
 which is worth including if you report a bug.

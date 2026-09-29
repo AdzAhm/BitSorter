@@ -378,6 +378,96 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsTrue(FrameRate.VSync && FrameRate.CapStop == before, "sanity: both should be back");
         }
 
+        /// <summary>
+        /// FPS COUNTER puts a counter in the top-right corner: above every panel, clear of the
+        /// buttons that corner already has, taking no clicks, and saying a real number. Off again,
+        /// it goes.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator TheFpsSwitch_PutsACounterInTheTopRightCorner()
+        {
+            yield return TestScene.Load();
+            yield return OpenSettings();
+
+            FrameRateCounter counter = Find<FrameRateCounter>();
+            Assert.IsNotNull(counter, "the scene has no frame-rate counter");
+            Assert.IsFalse(counter.IsShowing, "a machine that never asked has a counter in the corner");
+
+            Button fps = OnScreen(SettingsPanel.CounterButton);
+            Assert.AreEqual(ScreenRect(OnScreen(SettingsPanel.VSyncButton)).center.y, ScreenRect(fps).center.y, 1f,
+                "FPS COUNTER is not on VSYNC's row");
+            Assert.AreEqual(SettingsPanel.CounterCaption(false), fps.GetComponentInChildren<TextMeshProUGUI>().text);
+
+            yield return Click(SettingsPanel.CounterButton);
+            Assert.IsTrue(FrameRate.ShowsCounter, "FPS COUNTER did not switch the counter on");
+            Assert.IsTrue(counter.IsShowing, "the counter did not come up");
+
+            // Real seconds, so a count of frames: generous, and loud if it runs out.
+            for (int frame = 0; frame < 5000 && counter.Shown <= 0; frame++)
+                yield return null;
+
+            Assert.Greater(counter.Shown, 0, "the counter never said a frame rate");
+            TextMeshProUGUI number = counter.Box.GetComponentInChildren<TextMeshProUGUI>();
+            number.ForceMeshUpdate();
+            Assert.AreEqual(counter.Shown.ToString(), number.GetParsedText(), "the corner does not say the rate counted");
+
+            Rect box = ScreenRect(counter.Box);
+            Assert.Greater(box.xMax, Screen.width * 0.97f, "the counter is not at the right edge");
+            Assert.Greater(box.yMax, Screen.height * 0.97f, "the counter is not at the top");
+            Assert.LessOrEqual(box.xMax, Screen.width + 0.5f, "the counter runs off the right edge");
+            Assert.LessOrEqual(box.yMax, Screen.height + 0.5f, "the counter runs off the top");
+            Assert.IsFalse(box.Overlaps(ScreenRect(OnScreen(SettingsPanel.BackButton))), "the counter sits on BACK");
+
+            Canvas own = counter.Box.GetComponent<Canvas>();
+            Assert.IsTrue(own != null && own.overrideSorting, "the counter has no canvas of its own to sort above panels");
+            Assert.Greater(own.sortingOrder, own.rootCanvas.sortingOrder, "a panel can cover the counter");
+
+            foreach (Graphic graphic in counter.Box.GetComponentsInChildren<Graphic>(true))
+                Assert.IsFalse(graphic.raycastTarget, $"'{graphic.name}' in the counter would take a click");
+
+            // On a board, the corner also has the help badge under it.
+            yield return Click(SettingsPanel.BackButton);
+            Find<MainMenu>().Show(false);
+            yield return null;
+            yield return null;
+
+            GameObject badge = GameObject.Find("Help badge");
+            Assert.IsNotNull(badge, "sanity: the help badge should be on the board");
+            Assert.IsFalse(ScreenRect(counter.Box).Overlaps(ScreenRect(badge.GetComponent<RectTransform>())),
+                "the counter sits on the help badge");
+
+            FrameRate.SetCounter(false);   // the fixture shares its scratch preferences
+            yield return null;
+            Assert.IsFalse(counter.IsShowing, "the counter stayed up once switched off");
+        }
+
+        /// <summary>
+        /// Every DISPLAY switch's caption fits its button, whichever way it is set. They are three
+        /// to a row, a switch's width rather than a button's, and the longest caption is set by the
+        /// state the switch is not in.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator TheDisplaySwitches_CaptionsFitTheirButtons_EitherWay()
+        {
+            yield return TestScene.Load();
+            yield return OpenSettings();
+
+            AssertFits(SettingsPanel.FullscreenButton, "FULLSCREEN  OFF");
+
+            foreach (bool on in new[] { true, false })
+            {
+                AssertFits(SettingsPanel.VSyncButton, SettingsPanel.VSyncCaption(on));
+                AssertFits(SettingsPanel.CounterButton, SettingsPanel.CounterCaption(on));
+            }
+        }
+
+        private static void AssertFits(string button, string caption)
+        {
+            TextMeshProUGUI label = OnScreen(button).GetComponentInChildren<TextMeshProUGUI>();
+            Assert.LessOrEqual(label.GetPreferredValues(caption).x, label.rectTransform.rect.width,
+                $"'{caption}' runs out of its button");
+        }
+
         // -----------------------------------------------------------------
         // Credits
         // -----------------------------------------------------------------

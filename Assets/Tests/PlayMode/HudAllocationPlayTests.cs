@@ -4,6 +4,7 @@ using System.Reflection;
 using NUnit.Framework;
 using BitSorter.View;
 using UnityEngine;
+using UnityEngine.Profiling;
 using UnityEngine.TestTools;
 using UnityEngine.TestTools.Constraints;
 using Is = UnityEngine.TestTools.Constraints.Is;
@@ -116,6 +117,94 @@ namespace BitSorter.PlayMode.Tests
 
             AssertQuiet(FrameOf(Find<StatusBanner>()));
             AssertQuiet(FrameOf(Find<GatePaletteView>()));
+        }
+
+        /// <summary>
+        /// The frame-rate counter allocates nothing counting, and its redraw -- twice a second, by
+        /// design -- makes no garbage of its own.
+        /// </summary>
+        /// <remarks>
+        /// One real count first, so TextMeshPro has drawn a number once; then off and on, which
+        /// starts the count again from nothing, and the frames of one count are called directly at
+        /// this frame's delta.
+        ///
+        /// **A redraw is allowed two allocations, and only because this is the editor.** The
+        /// counter hands TextMeshPro its digits with <c>SetCharArray</c>, which fills a buffer
+        /// TextMeshPro reuses -- except that under <c>UNITY_EDITOR</c> it also keeps a string copy
+        /// of the text for the inspector, built as a char array and then a string from it
+        /// (<c>TMP_Text.InternalTextBackingArrayToString</c>). A player has no such line. So the
+        /// counting frames are held to nothing at all, and the redraw to that copy.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator TheFrameRateCounter_AllocatesNothingCounting_AndOnlyTheEditorsCopyRedrawing()
+        {
+            yield return LoadLevel();
+
+            FrameRateCounter counter = Find<FrameRateCounter>();
+            FrameRate.SetCounter(true);
+
+            for (int frame = 0; frame < 5000 && counter.Shown <= 0; frame++)
+                yield return null;
+
+            Assert.Greater(counter.Shown, 0, "sanity: the counter never counted");
+
+            Action update = FrameOf(counter);
+            FrameRate.SetCounter(false);
+            update();
+            FrameRate.SetCounter(true);
+            update();
+            Assert.AreEqual(-1, counter.Shown, "sanity: switching the counter off and on should start its count again");
+
+            float delta = Mathf.Max(Time.unscaledDeltaTime, 1e-4f);
+            int quiet = Mathf.Max(1, Mathf.FloorToInt(FrameRateCounter.Window / delta) - 2);
+
+            Assert.That(() =>
+            {
+                for (int call = 0; call < quiet; call++)
+                    update();
+            }, Is.Not.AllocatingGCMemory(), "the counter made garbage counting frames");
+
+            Assert.AreEqual(-1, counter.Shown, "sanity: the quiet frames should have stayed inside one count");
+
+            int allocations = AllocationsIn(() =>
+            {
+                for (int call = 0; call < 8 && counter.Shown < 0; call++)
+                    update();
+            });
+
+            Assert.Greater(counter.Shown, 0, "sanity: the count should have finished inside the measurement");
+            Assert.LessOrEqual(allocations, EditorCopyOfTheText,
+                "drawing the number made garbage beyond TextMeshPro's editor-only copy of the text");
+
+            FrameRate.SetCounter(false);
+        }
+
+        /// <summary>
+        /// What TextMeshPro allocates in the editor alone each time text is set from a char array: a
+        /// char array, and a string made from it.
+        /// </summary>
+        private const int EditorCopyOfTheText = 2;
+
+        /// <summary>How many managed allocations one call makes, on this thread.</summary>
+        /// <remarks>What <c>Is.Not.AllocatingGCMemory</c> measures, as a count rather than a yes or no.</remarks>
+        private static int AllocationsIn(Action action)
+        {
+            Recorder recorder = Recorder.Get("GC.Alloc");
+            recorder.enabled = false;
+            recorder.FilterToCurrentThread();
+            recorder.enabled = true;
+
+            try
+            {
+                action();
+            }
+            finally
+            {
+                recorder.enabled = false;
+                recorder.CollectFromAllThreads();
+            }
+
+            return recorder.sampleBlockCount;
         }
 
         // -----------------------------------------------------------------

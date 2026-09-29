@@ -1265,8 +1265,8 @@ order: a card dismissed in the frame it appeared was never seen, and the ending
 waited for a card that had already come and gone. `PresentedThisRun` is set in
 the call that presents the card, so there is nothing to catch.
 
-**Settings is sound and its volume, fullscreen, vertical sync and a frame cap,
-the data switch, starting over, and the credits.** `SettingsPanel` is reached only from the main menu and goes
+**Settings is sound and its volume, fullscreen, vertical sync, a frame cap and a
+frame-rate counter, the data switch, starting over, and the credits.** `SettingsPanel` is reached only from the main menu and goes
 back to it, and it plays the menu's music. Sound and Data were rows of the menu
 until it existed.
 
@@ -1315,6 +1315,20 @@ starts with. Both are kept in `Preferences` and applied before the first scene,
 a cap would hold every Play Mode test to it. Nothing in the game runs better or
 worse for the frame rate: the simulation keeps its own clock and every
 animation counts time.
+
+**FPS COUNTER puts a frame-rate counter in the top-right corner** (`FrameRateCounter`),
+off until asked for, so what the cap does can be seen -- asked for with it,
+"like the one Steam puts on games". It sits in the margin every top-right
+control keeps, so it is above BACK, CLOSE and the help badge rather than on
+them at any window size, and over every panel on a canvas of its own sorted
+above the interface's; it takes no clicks. It counts half a second of real
+time, and hands TextMeshPro its digits in a reused buffer (`SetCharArray`)
+rather than formatting a string, because unlike the rest of the HUD it redraws
+by design. `HudAllocationPlayTests` holds the counting frames to no allocation
+and a redraw to two: in the editor, and only there, `SetCharArray` also keeps a
+string copy of the text for the inspector, a char array and a string -- read in
+TextMeshPro's own source after the first version of that test, which asked for
+none, failed on exactly those.
 
 **A reset asks first, and a double-click cannot answer.** RESET PROGRESS puts
 its question where the button was, exactly the button's height, with CANCEL

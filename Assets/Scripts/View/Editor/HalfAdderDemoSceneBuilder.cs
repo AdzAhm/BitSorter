@@ -144,6 +144,9 @@ namespace BitSorter.View.EditorTools
             CreditsPanel credits = host.AddComponent<CreditsPanel>();
             EndingPanel ending = host.AddComponent<EndingPanel>();
 
+            // Over everything, on a canvas of its own, so its place in this list does not matter.
+            FrameRateCounter frameCounter = host.AddComponent<FrameRateCounter>();
+
             SandboxPanel sandbox = host.AddComponent<SandboxPanel>();
             NameBoardPanel namer = host.AddComponent<NameBoardPanel>();
 
@@ -316,6 +319,8 @@ namespace BitSorter.View.EditorTools
 
             Assign(credits, "_settings", settings);
             Assign(credits, "_canvas", canvas);
+
+            Assign(frameCounter, "_canvas", canvas);
 
             Assign(audio, "_runner", runner);
             Assign(audio, "_session", session);
