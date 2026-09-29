@@ -694,6 +694,49 @@ namespace BitSorter.PlayMode.Tests
             yield return Capture("21-named-board");
         }
 
+        /// <summary>
+        /// The three levels that open on a broken circuit, as they open: the start on the board and
+        /// START OVER on the button, before anything has been touched.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator Shot22_OutOfStep() => OpensOnItsCircuit("out-of-step", "a", "22-out-of-step");
+
+        /// <inheritdoc cref="Shot22_OutOfStep"/>
+        [UnityTest]
+        public IEnumerator Shot23_WrongPart() => OpensOnItsCircuit("wrong-part", "a", "23-wrong-part");
+
+        /// <inheritdoc cref="Shot22_OutOfStep"/>
+        [UnityTest]
+        public IEnumerator Shot24_Miscount() => OpensOnItsCircuit("miscount", "in", "24-miscount");
+
+        private static IEnumerator OpensOnItsCircuit(string level, string fixture, string shot)
+        {
+            yield return LoadTheGame();
+            FixTheSparks();
+
+            // The board as it opens, not the lessons that come up over it on a first visit: the
+            // held wire-delay hint, the register's hint and the chapter card.
+            ProgressStore store = Find<ProgressTracker>().Store;
+            store.MarkMilestone(TutorialLevel.Key);
+            store.MarkMilestone(ChapterCard.Milestone);
+            store.MarkHintSeen(HintRules.WireDelay);
+            store.MarkHintSeen(HintRules.Register);
+            Find<MainMenu>().Show(false);
+
+            LevelSession session = Find<LevelSession>();
+            SimulationRunner runner = Find<SimulationRunner>();
+
+            Assert.IsTrue(session.LoadLevel(level), $"{level} did not load");
+
+            for (int frame = 0; frame < 60 && !runner.FixtureNodeIds.ContainsKey(fixture); frame++)
+                yield return null;
+
+            Assert.IsTrue(session.HasStart && session.IsAtStart, $"sanity: {level} did not open on its circuit");
+
+            yield return Frames(30);
+            yield return Capture(shot);
+        }
+
         private static bool AnyCollisionTakesBoth(SimulationRunner runner)
         {
             for (int id = 0; id < runner.View.EdgeCount; id++)

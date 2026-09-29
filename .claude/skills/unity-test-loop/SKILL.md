@@ -71,7 +71,7 @@ until ! grep -q RUNNING "$f"; do sleep 3; done; cat "$f"
 
 - The file says `PASS`/`FAIL`, what ran, the tally, and every failure with its message. `REFUSED` means the editor was busy or the scene was dirty, and it says which.
 - `ran=(started elsewhere)` means you did not start that run. Someone else did.
-- The explicit `ReferenceShots` fixture shows as 21 skipped in a plain Play Mode run. That is expected.
+- The explicit `ReferenceShots` fixture's shots show as skipped in a plain Play Mode run, one per shot. That is expected.
 - **Only ever the menu's PlayMode run.** The Test Runner's *Player* tab builds a player, cannot read project files, and proves nothing (see CLAUDE.md).
 - Tests run under `SaveGuard`. **Never drive the real game against the real save** with ad-hoc RunCommand code, and never launch the Windows build for a smoke test. If you need a probe, write an `[Explicit]` Play Mode fixture that uses `SaveGuard`, run it by name, and delete it before committing.
 
