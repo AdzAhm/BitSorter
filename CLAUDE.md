@@ -1240,8 +1240,8 @@ order: a card dismissed in the frame it appeared was never seen, and the ending
 waited for a card that had already come and gone. `PresentedThisRun` is set in
 the call that presents the card, so there is nothing to catch.
 
-**Settings is sound and its volume, fullscreen, the data switch, starting over,
-and the credits.** `SettingsPanel` is reached only from the main menu and goes
+**Settings is sound and its volume, fullscreen and the frame rate, the data
+switch, starting over, and the credits.** `SettingsPanel` is reached only from the main menu and goes
 back to it, and it plays the menu's music. Sound and Data were rows of the menu
 until it existed.
 
@@ -1271,6 +1271,18 @@ the mode alone kept the fullscreen resolution, a window the size of the display
 with its title bar off the top. `DisplayRules.PreferredWindow` restates the
 player settings' default size, and `DisplayRulesTests` reads the project file
 to hold the two together. Unity remembers the choice between launches itself.
+
+**So is the frame rate, and SCREEN is the game as it shipped** (`FrameRate`):
+vertical sync on and no cap, so a 165 Hz laptop draws 165 frames a second.
+The one choice added is down -- held at 60, for a laptop on battery -- asked for
+after exactly that question (2026-09-28). A cap is ignored while vertical sync
+is on, so 60 turns it off; `FrameRateTests` reads the project's quality
+settings to hold SCREEN to the vertical sync the desktop build starts with. The
+choice is kept in `Preferences` and applied before the first scene, **but never
+in the editor**, whose Game view has its own VSync switch and where a cap would
+hold every Play Mode test to sixty frames a second. Nothing in the game runs
+better or worse for the frame rate: the simulation keeps its own clock and
+every animation counts time.
 
 **A reset asks first, and a double-click cannot answer.** RESET PROGRESS puts
 its question where the button was, exactly the button's height, with CANCEL

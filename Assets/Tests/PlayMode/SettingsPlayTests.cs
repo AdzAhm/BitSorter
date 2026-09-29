@@ -289,6 +289,38 @@ namespace BitSorter.PlayMode.Tests
             StringAssert.StartsWith("FULLSCREEN", fullscreen.GetComponentInChildren<TextMeshProUGUI>().text);
         }
 
+        /// <summary>
+        /// FRAME RATE sits beside FULLSCREEN under DISPLAY, says what it is set to, and switches the
+        /// choice both ways.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator TheDisplaySection_OffersTheFrameRate_BesideFullscreen()
+        {
+            yield return TestScene.Load();
+            yield return OpenSettings();
+
+            Button fullscreen = OnScreen(SettingsPanel.FullscreenButton);
+            Button frameRate = OnScreen(SettingsPanel.FrameRateButton);
+            TextMeshProUGUI caption = frameRate.GetComponentInChildren<TextMeshProUGUI>();
+
+            Assert.AreEqual(FrameRateChoice.Screen, FrameRate.Choice, "sanity: a fresh machine keeps up with its screen");
+            Assert.AreEqual(SettingsPanel.FrameRateCaption(FrameRateChoice.Screen), caption.text);
+
+            Rect beside = ScreenRect(fullscreen);
+            Rect rate = ScreenRect(frameRate);
+            Assert.AreEqual(beside.center.y, rate.center.y, 1f, "FRAME RATE is not on FULLSCREEN's row");
+            Assert.Greater(rate.xMin, beside.xMax, "FRAME RATE overlaps FULLSCREEN");
+
+            yield return Click(SettingsPanel.FrameRateButton);
+            Assert.AreEqual(FrameRateChoice.Sixty, FrameRate.Choice, "FRAME RATE did not switch to sixty");
+            Assert.AreEqual(SettingsPanel.FrameRateCaption(FrameRateChoice.Sixty), caption.text,
+                "the button does not say it is holding at sixty");
+
+            // Back, which also puts the fixture's shared scratch preferences as they were.
+            yield return Click(SettingsPanel.FrameRateButton);
+            Assert.AreEqual(FrameRateChoice.Screen, FrameRate.Choice, "FRAME RATE did not switch back");
+        }
+
         // -----------------------------------------------------------------
         // Credits
         // -----------------------------------------------------------------

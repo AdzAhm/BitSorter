@@ -7,8 +7,8 @@ using TMPro;
 namespace BitSorter.View
 {
     /// <summary>
-    /// The settings: sound and its volume, fullscreen on a desktop build, reporting, and starting
-    /// over. Reached from the main menu, and goes back to it.
+    /// The settings: sound and its volume, fullscreen and the frame rate on a desktop build,
+    /// reporting, and starting over. Reached from the main menu, and goes back to it.
     /// </summary>
     /// <remarks>
     /// A section is a heading, a line saying what the setting does, and the control. Sound and data
@@ -39,6 +39,7 @@ namespace BitSorter.View
         private TextMeshProUGUI _effectsLabel;
         private TextMeshProUGUI _dataLabel;
         private TextMeshProUGUI _fullscreenLabel;
+        private TextMeshProUGUI _frameRateLabel;
         private Slider _volume;
         private TextMeshProUGUI _volumeLabel;
         private TextMeshProUGUI _volumeValue;
@@ -69,6 +70,9 @@ namespace BitSorter.View
 
         /// <inheritdoc cref="SoundButton"/>
         public const string FullscreenButton = "Fullscreen setting";
+
+        /// <inheritdoc cref="SoundButton"/>
+        public const string FrameRateButton = "Frame rate setting";
 
         /// <inheritdoc cref="SoundButton"/>
         public const string DataButton = "Data setting";
@@ -107,7 +111,9 @@ namespace BitSorter.View
         public const string AudioText =
             "SOUND switches everything, as N does from anywhere. MUSIC and EFFECTS switch one each.";
 
-        public const string DisplayText = "Fill the screen, or play in a window. Alt+Enter does the same.";
+        public const string DisplayText =
+            "Fill the screen, or play in a window: Alt+Enter does the same. " +
+            "The frame rate keeps up with your screen, or holds at 60 to use less power.";
 
         public const string PrivacyText =
             "Reports which levels people get stuck on. The README lists exactly what is sent.";
@@ -280,8 +286,22 @@ namespace BitSorter.View
             if (DisplayRules.Offered)
             {
                 Section(block, column, DisplayHeading, DisplayText);
-                Button fullscreen = Control(block, column, FullscreenButton, out _fullscreenLabel, ButtonRole.Secondary);
+
+                // Side by side: two settings of one screen, and a row apiece would make the panel
+                // taller than the window it shrinks to fit.
+                float display = column.Take(UiTheme.ButtonHeight);
+
+                Button fullscreen = UiTheme.Button_(FullscreenButton, block, string.Empty,
+                    out _fullscreenLabel, UiType.Body, ButtonRole.Secondary);
+                PlaceLeft(fullscreen.GetComponent<RectTransform>(), display, 0f, ButtonWidth, UiTheme.ButtonHeight);
                 fullscreen.onClick.AddListener(() => Fire(ToggleFullscreen));
+
+                Button frameRate = UiTheme.Button_(FrameRateButton, block, string.Empty,
+                    out _frameRateLabel, UiType.Body, ButtonRole.Secondary);
+                PlaceLeft(frameRate.GetComponent<RectTransform>(), display, ButtonWidth + SwitchGap,
+                    ButtonWidth, UiTheme.ButtonHeight);
+                frameRate.onClick.AddListener(() => Fire(ToggleFrameRate));
+
                 column.Space(SectionGap);
             }
 
@@ -496,6 +516,9 @@ namespace BitSorter.View
             if (_fullscreenLabel != null)
                 _fullscreenLabel.text = Screen.fullScreen ? "FULLSCREEN  ON" : "FULLSCREEN  OFF";
 
+            if (_frameRateLabel != null)
+                _frameRateLabel.text = FrameRateCaption(FrameRate.Choice);
+
             // Greyed out and locked with the sound off, and live again the moment it is back on --
             // N included, which is why this is asked every frame rather than on the button's click.
             UiTheme.SetEnabled(_volume, sound);
@@ -561,6 +584,13 @@ namespace BitSorter.View
                 Screen.SetResolution(width, height, FullScreenMode.FullScreenWindow);
             }
         }
+
+        /// <summary>What the frame-rate button says for a choice.</summary>
+        public static string FrameRateCaption(FrameRateChoice choice) =>
+            choice == FrameRateChoice.Sixty ? "FRAME RATE  60" : "FRAME RATE  SCREEN";
+
+        private static void ToggleFrameRate() =>
+            FrameRate.Set(FrameRate.Choice == FrameRateChoice.Sixty ? FrameRateChoice.Screen : FrameRateChoice.Sixty);
 
         // -----------------------------------------------------------------
         // Starting over

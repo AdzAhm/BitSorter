@@ -53,6 +53,8 @@ is unsigned, which is all that warning means. "More info", then "Run anyway".
 **Settings**, on the main menu, has the sound -- one switch for everything, and
 one each for the music and the effects -- and its volume, fullscreen on Windows
 (`Alt`+`Enter` works too), the data switch, a way to start over, and the credits.
+On Windows it also has the frame rate: as fast as your screen refreshes, which is
+how the game runs by default, or held at 60 to use less power on a laptop.
 
 The bottom-right corner of the main menu says which version you are running,
 which is worth including if you report a bug.
