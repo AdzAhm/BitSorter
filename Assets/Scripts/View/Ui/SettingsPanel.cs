@@ -7,8 +7,8 @@ using TMPro;
 namespace BitSorter.View
 {
     /// <summary>
-    /// The settings: sound and its volume, fullscreen and the frame rate on a desktop build,
-    /// reporting, and starting over. Reached from the main menu, and goes back to it.
+    /// The settings: sound and its volume, fullscreen, vertical sync and a frame cap on a desktop
+    /// build, reporting, and starting over. Reached from the main menu, and goes back to it.
     /// </summary>
     /// <remarks>
     /// A section is a heading, a line saying what the setting does, and the control. Sound and data
@@ -39,13 +39,19 @@ namespace BitSorter.View
         private TextMeshProUGUI _effectsLabel;
         private TextMeshProUGUI _dataLabel;
         private TextMeshProUGUI _fullscreenLabel;
-        private TextMeshProUGUI _frameRateLabel;
+        private TextMeshProUGUI _vSyncLabel;
+        private Slider _cap;
+        private TextMeshProUGUI _capLabel;
+        private TextMeshProUGUI _capValue;
         private Slider _volume;
         private TextMeshProUGUI _volumeLabel;
         private TextMeshProUGUI _volumeValue;
 
         /// <summary>The volume the readout last said, so it is rewritten only when it changes.</summary>
         private int _shownVolume = -1;
+
+        /// <summary>The cap's stop the readout last said, for the same reason.</summary>
+        private int _shownCap = -1;
         private TextMeshProUGUI _status;
         private RectTransform _resetButton;
         private RectTransform _question;
@@ -72,7 +78,10 @@ namespace BitSorter.View
         public const string FullscreenButton = "Fullscreen setting";
 
         /// <inheritdoc cref="SoundButton"/>
-        public const string FrameRateButton = "Frame rate setting";
+        public const string VSyncButton = "VSync setting";
+
+        /// <inheritdoc cref="SoundButton"/>
+        public const string FrameCapSlider = "Frame cap setting";
 
         /// <inheritdoc cref="SoundButton"/>
         public const string DataButton = "Data setting";
@@ -113,7 +122,8 @@ namespace BitSorter.View
 
         public const string DisplayText =
             "Fill the screen, or play in a window: Alt+Enter does the same. " +
-            "The frame rate keeps up with your screen, or holds at 60 to use less power.";
+            "VSYNC keeps the frame rate to your screen's. Turn it off to set FRAME CAP yourself: " +
+            "lower uses less power.";
 
         public const string PrivacyText =
             "Reports which levels people get stuck on. The README lists exactly what is sent.";
@@ -248,7 +258,25 @@ namespace BitSorter.View
         private const float VolumeGap = 10f;
         private const float VolumeLabelWidth = 110f;
         private const float VolumeSliderWidth = 300f;
-        private const float VolumeValueWidth = 70f;
+
+        /// <summary>
+        /// Where a slider's readout starts, past the slider's end, and how wide it is -- the same for
+        /// the volume and the frame cap, so the two read as one column: "100%" over "60 FPS".
+        /// </summary>
+        private const float ReadoutGap = 20f;
+
+        /// <inheritdoc cref="ReadoutGap"/>
+        private const float ReadoutWidth = 110f;
+
+        /// <summary>A slider row's readout, left-aligned just past its slider.</summary>
+        private static TextMeshProUGUI Readout(string name, RectTransform block, float top)
+        {
+            TextMeshProUGUI readout = UiTheme.Label(
+                name, block, UiType.Body, UiTheme.Text, TextAlignmentOptions.MidlineLeft);
+            PlaceLeft(readout.rectTransform, top, VolumeLabelWidth + VolumeSliderWidth + ReadoutGap,
+                ReadoutWidth, VolumeHeight);
+            return readout;
+        }
 
         private void Build()
         {
@@ -296,12 +324,15 @@ namespace BitSorter.View
                 PlaceLeft(fullscreen.GetComponent<RectTransform>(), display, 0f, ButtonWidth, UiTheme.ButtonHeight);
                 fullscreen.onClick.AddListener(() => Fire(ToggleFullscreen));
 
-                Button frameRate = UiTheme.Button_(FrameRateButton, block, string.Empty,
-                    out _frameRateLabel, UiType.Body, ButtonRole.Secondary);
-                PlaceLeft(frameRate.GetComponent<RectTransform>(), display, ButtonWidth + SwitchGap,
+                Button vSync = UiTheme.Button_(VSyncButton, block, string.Empty,
+                    out _vSyncLabel, UiType.Body, ButtonRole.Secondary);
+                PlaceLeft(vSync.GetComponent<RectTransform>(), display, ButtonWidth + SwitchGap,
                     ButtonWidth, UiTheme.ButtonHeight);
-                frameRate.onClick.AddListener(() => Fire(ToggleFrameRate));
+                vSync.onClick.AddListener(() => Fire(ToggleVSync));
 
+                // The cap under the switch it depends on, as the volume sits under the sound's.
+                column.Space(VolumeGap);
+                BuildCap(block, column);
                 column.Space(SectionGap);
             }
 
@@ -422,10 +453,7 @@ namespace BitSorter.View
             _volume.onValueChanged.AddListener(OnVolume);
             _volume.gameObject.AddComponent<PointerRelease>().Released += GameAudio.KeepVolume;
 
-            _volumeValue = UiTheme.Label(
-                "volume value", block, UiType.Body, UiTheme.Text, TextAlignmentOptions.MidlineRight);
-            PlaceLeft(_volumeValue.rectTransform, top, VolumeLabelWidth + VolumeSliderWidth,
-                VolumeValueWidth, VolumeHeight);
+            _volumeValue = Readout("volume value", block, top);
         }
 
         private void OnVolume(float value)
@@ -433,6 +461,35 @@ namespace BitSorter.View
             if (_audio != null)
                 _audio.SetVolume(Mathf.RoundToInt(value), keep: false);
         }
+
+        /// <summary>
+        /// The frame cap, under the vertical sync it depends on, laid out as the volume is and in
+        /// line with it: a caption, the slider, and what it is set to.
+        /// </summary>
+        /// <remarks>
+        /// One stop per cap on offer, and the last is none. Applied at every stop of a drag and
+        /// written out once when the drag lets go, like the volume. Greyed out and locked while
+        /// vertical sync is on, because Unity ignores a cap then -- see <see cref="Refresh"/>.
+        /// </remarks>
+        private void BuildCap(RectTransform block, UiColumn column)
+        {
+            float top = column.Take(VolumeHeight);
+
+            _capLabel = UiTheme.Label(
+                "frame cap label", block, UiType.Body, UiTheme.Text, TextAlignmentOptions.MidlineLeft);
+            PlaceLeft(_capLabel.rectTransform, top, 0f, VolumeLabelWidth, VolumeHeight);
+            _capLabel.text = "FRAME CAP";
+
+            _cap = UiTheme.Slider_(FrameCapSlider, block, 0, FrameRate.Stops - 1);
+            PlaceLeft(_cap.GetComponent<RectTransform>(), top, VolumeLabelWidth, VolumeSliderWidth, VolumeHeight);
+            _cap.SetValueWithoutNotify(FrameRate.CapStop);
+            _cap.onValueChanged.AddListener(OnCap);
+            _cap.gameObject.AddComponent<PointerRelease>().Released += FrameRate.KeepCap;
+
+            _capValue = Readout("frame cap value", block, top);
+        }
+
+        private static void OnCap(float value) => FrameRate.SetCapStop(Mathf.RoundToInt(value), keep: false);
 
         /// <summary>
         /// The reset button, and in the same place the question it asks and the two answers under it.
@@ -516,8 +573,8 @@ namespace BitSorter.View
             if (_fullscreenLabel != null)
                 _fullscreenLabel.text = Screen.fullScreen ? "FULLSCREEN  ON" : "FULLSCREEN  OFF";
 
-            if (_frameRateLabel != null)
-                _frameRateLabel.text = FrameRateCaption(FrameRate.Choice);
+            if (_vSyncLabel != null)
+                RefreshFrameRate();
 
             // Greyed out and locked with the sound off, and live again the moment it is back on --
             // N included, which is why this is asked every frame rather than on the button's click.
@@ -535,6 +592,31 @@ namespace BitSorter.View
                 if (Mathf.RoundToInt(_volume.value) != volume)
                     _volume.SetValueWithoutNotify(volume);
             }
+        }
+
+        /// <summary>
+        /// Vertical sync's caption, and the cap greyed out and locked while it is on -- still saying
+        /// what it is set to, so turning vertical sync off brings back exactly the cap the player had.
+        /// </summary>
+        private void RefreshFrameRate()
+        {
+            bool vSync = FrameRate.VSync;
+            _vSyncLabel.text = VSyncCaption(vSync);
+
+            UiTheme.SetEnabled(_cap, !vSync);
+            _capLabel.color = vSync ? UiTheme.TextDim : UiTheme.Text;
+            _capValue.color = vSync ? UiTheme.TextDim : UiTheme.Text;
+
+            int stop = FrameRate.CapStop;
+
+            if (stop == _shownCap)
+                return;
+
+            _shownCap = stop;
+            _capValue.text = CapCaption(stop);
+
+            if (Mathf.RoundToInt(_cap.value) != stop)
+                _cap.SetValueWithoutNotify(stop);
         }
 
         private void ToggleMusic()
@@ -585,12 +667,30 @@ namespace BitSorter.View
             }
         }
 
-        /// <summary>What the frame-rate button says for a choice.</summary>
-        public static string FrameRateCaption(FrameRateChoice choice) =>
-            choice == FrameRateChoice.Sixty ? "FRAME RATE  60" : "FRAME RATE  SCREEN";
+        /// <summary>What the vertical sync switch says.</summary>
+        public static string VSyncCaption(bool on) => on ? "VSYNC  ON" : "VSYNC  OFF";
 
-        private static void ToggleFrameRate() =>
-            FrameRate.Set(FrameRate.Choice == FrameRateChoice.Sixty ? FrameRateChoice.Screen : FrameRateChoice.Sixty);
+        /// <summary>What the cap's readout says at a stop of the slider: "144 FPS", or NONE.</summary>
+        /// <remarks>Built once, so the readout allocates nothing however often it changes.</remarks>
+        public static string CapCaption(int stop)
+        {
+            if (_capCaptions == null)
+            {
+                _capCaptions = new string[FrameRate.Stops];
+
+                for (int i = 0; i < _capCaptions.Length; i++)
+                {
+                    int cap = FrameRate.CapAt(i);
+                    _capCaptions[i] = cap == FrameRate.NoCap ? "NONE" : cap + " FPS";
+                }
+            }
+
+            return _capCaptions[Mathf.Clamp(stop, 0, _capCaptions.Length - 1)];
+        }
+
+        private static string[] _capCaptions;
+
+        private static void ToggleVSync() => FrameRate.SetVSync(!FrameRate.VSync);
 
         // -----------------------------------------------------------------
         // Starting over
@@ -662,14 +762,20 @@ namespace BitSorter.View
             SetConfirming(false);
             _status.text = string.Empty;
             _shownVolume = -1;
+            _shownCap = -1;
             Fit();
             Refresh();
         }
 
         /// <summary>
-        /// A drag keeps its volume when it lets go; this keeps one that was somehow left staged.
+        /// A drag keeps its volume or its cap when it lets go; this keeps one that was somehow left
+        /// staged.
         /// </summary>
-        protected override void OnHidden() => GameAudio.KeepVolume();
+        protected override void OnHidden()
+        {
+            GameAudio.KeepVolume();
+            FrameRate.KeepCap();
+        }
 
         private static void Fire(System.Action action)
         {

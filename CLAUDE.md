@@ -1265,8 +1265,8 @@ order: a card dismissed in the frame it appeared was never seen, and the ending
 waited for a card that had already come and gone. `PresentedThisRun` is set in
 the call that presents the card, so there is nothing to catch.
 
-**Settings is sound and its volume, fullscreen and the frame rate, the data
-switch, starting over, and the credits.** `SettingsPanel` is reached only from the main menu and goes
+**Settings is sound and its volume, fullscreen, vertical sync and a frame cap,
+the data switch, starting over, and the credits.** `SettingsPanel` is reached only from the main menu and goes
 back to it, and it plays the menu's music. Sound and Data were rows of the menu
 until it existed.
 
@@ -1297,17 +1297,24 @@ with its title bar off the top. `DisplayRules.PreferredWindow` restates the
 player settings' default size, and `DisplayRulesTests` reads the project file
 to hold the two together. Unity remembers the choice between launches itself.
 
-**So is the frame rate, and SCREEN is the game as it shipped** (`FrameRate`):
-vertical sync on and no cap, so a 165 Hz laptop draws 165 frames a second.
-The one choice added is down -- held at 60, for a laptop on battery -- asked for
-after exactly that question (2026-09-28). A cap is ignored while vertical sync
-is on, so 60 turns it off; `FrameRateTests` reads the project's quality
-settings to hold SCREEN to the vertical sync the desktop build starts with. The
-choice is kept in `Preferences` and applied before the first scene, **but never
-in the editor**, whose Game view has its own VSync switch and where a cap would
-hold every Play Mode test to sixty frames a second. Nothing in the game runs
-better or worse for the frame rate: the simulation keeps its own clock and
-every animation counts time.
+**So are vertical sync and the frame cap, and with nothing set they are the
+game as it shipped** (`FrameRate`): vertical sync on and no cap, so a 165 Hz
+laptop draws 165 frames a second. VSYNC switches it, beside FULLSCREEN, and
+FRAME CAP under it holds the game to 30 up to 240 frames a second, or none.
+**The cap is greyed out and locked while vertical sync is on**, still saying
+what it is set to, because Unity ignores a cap then -- the volume's rule for a
+control that would visibly do nothing. The first version was one button,
+SCREEN or 60, for a laptop on battery (2026-09-28); asked again, the cap became
+the player's and vertical sync a switch of its own (2026-09-30). The cap is
+stored as a rate, never as the slider's stop, so a stop added later cannot move
+anyone's cap; one this build does not offer reads as 60, never as none, the one
+reading that costs the player something. `FrameRateTests` reads the project's
+quality settings to hold the default to the vertical sync the desktop build
+starts with. Both are kept in `Preferences` and applied before the first scene,
+**but never in the editor**, whose Game view has its own VSync switch and where
+a cap would hold every Play Mode test to it. Nothing in the game runs better or
+worse for the frame rate: the simulation keeps its own clock and every
+animation counts time.
 
 **A reset asks first, and a double-click cannot answer.** RESET PROGRESS puts
 its question where the button was, exactly the button's height, with CANCEL

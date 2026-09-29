@@ -290,35 +290,92 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
-        /// FRAME RATE sits beside FULLSCREEN under DISPLAY, says what it is set to, and switches the
-        /// choice both ways.
+        /// VSYNC sits beside FULLSCREEN under DISPLAY, says what it is set to, and switches both ways.
         /// </summary>
         [UnityTest]
-        public IEnumerator TheDisplaySection_OffersTheFrameRate_BesideFullscreen()
+        public IEnumerator TheDisplaySection_OffersVSync_BesideFullscreen()
         {
             yield return TestScene.Load();
             yield return OpenSettings();
 
             Button fullscreen = OnScreen(SettingsPanel.FullscreenButton);
-            Button frameRate = OnScreen(SettingsPanel.FrameRateButton);
-            TextMeshProUGUI caption = frameRate.GetComponentInChildren<TextMeshProUGUI>();
+            Button vSync = OnScreen(SettingsPanel.VSyncButton);
+            TextMeshProUGUI caption = vSync.GetComponentInChildren<TextMeshProUGUI>();
 
-            Assert.AreEqual(FrameRateChoice.Screen, FrameRate.Choice, "sanity: a fresh machine keeps up with its screen");
-            Assert.AreEqual(SettingsPanel.FrameRateCaption(FrameRateChoice.Screen), caption.text);
+            Assert.IsTrue(FrameRate.VSync, "sanity: a fresh machine keeps up with its screen");
+            Assert.AreEqual(SettingsPanel.VSyncCaption(true), caption.text);
 
             Rect beside = ScreenRect(fullscreen);
-            Rect rate = ScreenRect(frameRate);
-            Assert.AreEqual(beside.center.y, rate.center.y, 1f, "FRAME RATE is not on FULLSCREEN's row");
-            Assert.Greater(rate.xMin, beside.xMax, "FRAME RATE overlaps FULLSCREEN");
+            Rect sync = ScreenRect(vSync);
+            Assert.AreEqual(beside.center.y, sync.center.y, 1f, "VSYNC is not on FULLSCREEN's row");
+            Assert.Greater(sync.xMin, beside.xMax, "VSYNC overlaps FULLSCREEN");
 
-            yield return Click(SettingsPanel.FrameRateButton);
-            Assert.AreEqual(FrameRateChoice.Sixty, FrameRate.Choice, "FRAME RATE did not switch to sixty");
-            Assert.AreEqual(SettingsPanel.FrameRateCaption(FrameRateChoice.Sixty), caption.text,
-                "the button does not say it is holding at sixty");
+            yield return Click(SettingsPanel.VSyncButton);
+            Assert.IsFalse(FrameRate.VSync, "VSYNC did not switch vertical sync off");
+            Assert.AreEqual(SettingsPanel.VSyncCaption(false), caption.text, "the switch does not say it is off");
 
             // Back, which also puts the fixture's shared scratch preferences as they were.
-            yield return Click(SettingsPanel.FrameRateButton);
-            Assert.AreEqual(FrameRateChoice.Screen, FrameRate.Choice, "FRAME RATE did not switch back");
+            yield return Click(SettingsPanel.VSyncButton);
+            Assert.IsTrue(FrameRate.VSync, "VSYNC did not switch back on");
+        }
+
+        /// <summary>
+        /// The frame cap sits under VSYNC, is greyed out and locked while vertical sync is on -- when
+        /// Unity would ignore it -- and once it is off, sets the cap and says what it is.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator TheFrameCap_IsLockedUntilVSyncIsOff_ThenSetsTheCap()
+        {
+            yield return TestScene.Load();
+            yield return OpenSettings();
+
+            Slider cap = FrameCapSlider();
+            TextMeshProUGUI readout = GameObject.Find("Settings/sections/frame cap value").GetComponent<TextMeshProUGUI>();
+            TextMeshProUGUI label = GameObject.Find("Settings/sections/frame cap label").GetComponent<TextMeshProUGUI>();
+
+            Rect sync = ScreenRect(OnScreen(SettingsPanel.VSyncButton));
+            Assert.LessOrEqual(ScreenRect(cap).yMax, sync.yMin, "the cap is not under VSYNC");
+            Assert.AreEqual(ScreenRect(VolumeSlider()).xMin, ScreenRect(cap).xMin, 0.5f,
+                "the cap's slider is not in line with the volume's");
+            Assert.AreEqual(ScreenRect(GameObject.Find("Settings/sections/volume value").GetComponent<RectTransform>()).xMin,
+                ScreenRect(readout).xMin, 0.5f, "the cap's readout is not in line with the volume's");
+
+            Assert.LessOrEqual(label.GetPreferredValues(label.text).x, label.rectTransform.rect.width,
+                "FRAME CAP runs out of its box");
+
+            for (int stop = 0; stop < FrameRate.Stops; stop++)
+            {
+                string caption = SettingsPanel.CapCaption(stop);
+                Assert.LessOrEqual(readout.GetPreferredValues(caption).x, readout.rectTransform.rect.width,
+                    $"'{caption}' runs out of the cap's readout");
+            }
+
+            int before = FrameRate.CapStop;
+
+            Assert.IsTrue(FrameRate.VSync, "sanity: a fresh machine has vertical sync on");
+            Assert.IsFalse(cap.interactable, "the cap can be moved while vertical sync would ignore it");
+            Assert.AreEqual(UiTheme.TextDim, cap.handleRect.GetComponent<Image>().color,
+                "the cap's handle is not greyed out with vertical sync on");
+            Assert.AreEqual(SettingsPanel.CapCaption(FrameRate.CapStop), readout.text,
+                "a greyed-out cap stopped saying what it is set to");
+
+            yield return Click(SettingsPanel.VSyncButton);
+
+            Assert.IsTrue(cap.interactable, "the cap stayed locked with vertical sync off");
+            Assert.AreEqual(UiTheme.Text, cap.handleRect.GetComponent<Image>().color,
+                "the cap's handle stayed grey with vertical sync off");
+
+            int top = FrameRate.Stops - 2;
+            cap.value = top;
+            yield return null;
+
+            Assert.AreEqual(FrameRate.CapAt(top), FrameRate.Cap, "the slider did not set the cap");
+            Assert.AreEqual(SettingsPanel.CapCaption(top), readout.text, "the readout does not say the new cap");
+
+            // Put back: the fixture shares its scratch preferences between tests.
+            cap.value = before;
+            yield return Click(SettingsPanel.VSyncButton);
+            Assert.IsTrue(FrameRate.VSync && FrameRate.CapStop == before, "sanity: both should be back");
         }
 
         // -----------------------------------------------------------------
@@ -471,6 +528,13 @@ namespace BitSorter.PlayMode.Tests
         {
             GameObject found = GameObject.Find(SettingsPanel.VolumeSlider);
             Assert.IsNotNull(found, "no volume slider on screen");
+            return found.GetComponent<Slider>();
+        }
+
+        private static Slider FrameCapSlider()
+        {
+            GameObject found = GameObject.Find(SettingsPanel.FrameCapSlider);
+            Assert.IsNotNull(found, "no frame cap slider on screen");
             return found.GetComponent<Slider>();
         }
 
