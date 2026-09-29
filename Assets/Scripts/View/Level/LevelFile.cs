@@ -123,7 +123,7 @@ namespace BitSorter.View
     [Serializable]
     public sealed class LevelBudgetFile
     {
-        /// <summary>A GateKind name: Not, And, Or, Xor, Nand or Nor.</summary>
+        /// <summary>A GateKind name: Not, And, Or, Xor, Nand, Nor or Register.</summary>
         public string kind;
 
         public int count;
@@ -140,7 +140,6 @@ namespace BitSorter.View
         public string values;
     }
 
-    /// <summary>A grid cell in the JSON's own coordinates, converted to Vector2Int on validation.</summary>
     /// <summary>A level's own board size, in cells. See <see cref="LevelFile.board"/>.</summary>
     [Serializable]
     public sealed class LevelBoardFile
@@ -149,6 +148,7 @@ namespace BitSorter.View
         public int rows;
     }
 
+    /// <summary>A grid cell in the JSON's own coordinates, converted to Vector2Int on validation.</summary>
     [Serializable]
     public struct LevelCellFile
     {

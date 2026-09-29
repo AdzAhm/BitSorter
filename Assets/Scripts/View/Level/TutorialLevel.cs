@@ -15,8 +15,8 @@ namespace BitSorter.View
     /// those rules exactly as strict as they were.
     ///
     /// It is deliberately **not** in <see cref="LevelCatalog"/>. Two consequences, both wanted: it
-    /// cannot disturb the nine-level run that CurriculumTests pins, and it never appears in
-    /// AvailableLevels, so Q and E do not cycle into it and the banner still counts to nine. It is
+    /// cannot disturb the run that CurriculumTests pins, and it never appears in AvailableLevels, so
+    /// Q and E do not cycle into it and the banner counts the levels of the run without it. It is
     /// reached by the row at the head of the level list, and once by itself on a fresh save.
     ///
     /// Unlike the sandbox it *is* graded. The last step is a bit landing in the bin, and letting the

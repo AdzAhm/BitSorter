@@ -16,9 +16,10 @@ namespace BitSorter.View
     /// by the time one of these exists, so nothing downstream re-checks anything.
     /// </summary>
     /// <remarks>
-    /// Built only by <see cref="LevelLoader.Validate"/>. The constructor is deliberately not public
-    /// state to assemble piecemeal: a half-built level is the thing the two-layer split exists to
-    /// make unrepresentable.
+    /// Built by <see cref="LevelLoader.Validate"/> for every authored level, and in code for the two
+    /// boards that are not levels in the run (<see cref="SandboxLevel"/>, <see cref="TutorialLevel"/>)
+    /// and by tests. The constructor is deliberately not public state to assemble piecemeal: a
+    /// half-built level is the thing the two-layer split exists to make unrepresentable.
     /// </remarks>
     public sealed class LevelDefinition
     {
@@ -40,7 +41,7 @@ namespace BitSorter.View
         /// budget, because it is the same idea and a second spelling would be a second thing to learn.
         ///
         /// Not authorable: <see cref="LevelLoader"/> still refuses a count below 1, so a JSON level
-        /// cannot reach this. Only a level built in code can, which is what keeps the nine levels
+        /// cannot reach this. Only a level built in code can, which is what keeps the authored levels
         /// exactly as strict as they were.
         /// </remarks>
         public const int UnlimitedBudget = -1;
