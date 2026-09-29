@@ -46,6 +46,18 @@ namespace BitSorter.LogicCore.Tests
             Assert.AreEqual(RunOutcome.WrongOutput, verdict.Outcome, verdict.ToString());
             Assert.AreEqual("high", verdict.SinkId, "LOW is meant to count correctly");
             Assert.AreEqual(0, built.Simulation.CorruptedCount, "every wire's timing is meant to be right");
+
+            // What the goal says, and this test's name: HIGH never gets a 1. The verdict alone cannot
+            // see it -- a stream with a 0 arriving while LOW is 1 would still fail on HIGH, having
+            // counted past one first.
+            var high = (SinkNode)built.Simulation.GetNode(built.FixtureNodeIds["high"]);
+            var low = (SinkNode)built.Simulation.GetNode(built.FixtureNodeIds["low"]);
+
+            Assert.Greater(high.Received.Count, 0, "sanity: HIGH received nothing");
+            Assert.AreEqual(low.Received.Count, high.Received.Count, "sanity: HIGH missed a cycle LOW had");
+
+            foreach (SinkNode.Reception bit in high.Received)
+                Assert.AreEqual(Bit.Zero, bit.Value, $"the start counts past one: HIGH got a 1 at tick {bit.Tick}");
         }
 
         [Test]
