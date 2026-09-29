@@ -49,6 +49,26 @@ namespace BitSorter.LogicCore.Tests
             Assert.AreEqual(GateKind.Register, kind);
         }
 
+        /// <summary>
+        /// The port counts a save and a level's starting circuit are checked against are the counts the
+        /// built parts actually have.
+        /// </summary>
+        /// <remarks>
+        /// Two tables that nothing compared: <see cref="GatePalette"/>'s, which the loader and the save
+        /// path read, and each node's constructor, which the simulation reads. Only the register's
+        /// input count was pinned before.
+        /// </remarks>
+        [Test]
+        public void EveryKind_HasThePortsItsNodeHas()
+        {
+            foreach (GateKind kind in System.Enum.GetValues(typeof(GateKind)))
+            {
+                Node node = GatePalette.Create(kind);
+                Assert.AreEqual(node.InputCount, GatePalette.InputsOf(kind), $"{kind}'s inputs");
+                Assert.AreEqual(node.OutputCount, GatePalette.OutputsOf(kind), $"{kind}'s outputs");
+            }
+        }
+
         /// <summary>Every kind's label reads back as that kind, since the label is what a save writes.</summary>
         [Test]
         public void EveryLabel_ParsesBackToItsKind()

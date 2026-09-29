@@ -78,6 +78,13 @@ namespace BitSorter.View
         public static int InputsOf(GateKind kind) =>
             kind == GateKind.Not || kind == GateKind.Register ? 1 : 2;
 
+        /// <summary>How many output ports a gate of this kind has: one, for every kind there is.</summary>
+        /// <remarks>
+        /// Stated rather than assumed, so a save and a level's starting circuit ask the same question
+        /// of the same table -- and <c>RegisterPartTests</c> holds both counts to the nodes themselves.
+        /// </remarks>
+        public static int OutputsOf(GateKind kind) => 1;
+
         public static string Label(GateKind kind)
         {
             switch (kind)

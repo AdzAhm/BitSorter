@@ -261,7 +261,7 @@ namespace BitSorter.View
             if (level.TryReservedKind(cell, out FixtureKind reserved))
                 return reserved == FixtureKind.Source ? 1 : 0;
 
-            return blueprint.TryGetPlacement(cell, out GateKind _) ? 1 : 0;
+            return blueprint.TryGetPlacement(cell, out GateKind kind) ? GatePalette.OutputsOf(kind) : 0;
         }
 
         /// <inheritdoc cref="OutputsAt"/>
