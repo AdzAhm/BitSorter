@@ -11,8 +11,8 @@ namespace BitSorter.View
     /// <remarks>
     /// Built in code rather than authored as JSON, for the reasons <see cref="SandboxLevel"/> sets
     /// out and which apply here unchanged: CurriculumTests parses every file in Resources/Levels and
-    /// demands a goal and hint from each, and a level file cannot author wires. Building here leaves
-    /// those rules exactly as strict as they were.
+    /// demands a goal and hint from each. Building here leaves those rules exactly as strict as they
+    /// were.
     ///
     /// It is deliberately **not** in <see cref="LevelCatalog"/>. Two consequences, both wanted: it
     /// cannot disturb the run that CurriculumTests pins, and it never appears in AvailableLevels, so

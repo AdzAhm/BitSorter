@@ -284,10 +284,198 @@ namespace BitSorter.View
             string hint = string.IsNullOrWhiteSpace(file.hint) ? string.Empty : file.hint.Trim();
             string goal = string.IsNullOrWhiteSpace(file.goal) ? string.Empty : file.goal.Trim();
 
-            return LevelLoadResult.Accept(new LevelDefinition(
+            LevelDefinition Define(BlueprintSnapshot start) => new LevelDefinition(
                 file.name.Trim(), hint, tickLimit, vectorCount, fixtures, budget, expectations,
                 maxWireDelay, file.delayBudget, file.maxLatency, file.order, goal,
-                clockPeriod: file.clockPeriod, boardHalfExtents: halfExtents));
+                clockPeriod: file.clockPeriod, boardHalfExtents: halfExtents, start: start);
+
+            // A start is checked against the level it belongs to -- its board, fixtures, budget and
+            // wire limits -- so the level is defined once without it to be asked, then again with it.
+            LevelDefinition level = Define(null);
+
+            if (!TryBuildStart(file.start, level, halfExtents, out BlueprintSnapshot starting, out string startError))
+                return LevelLoadResult.Reject(startError);
+
+            return LevelLoadResult.Accept(starting == null ? level : Define(starting));
+        }
+
+        /// <summary>
+        /// A level's starting circuit, checked as a board the player could have built, or null when
+        /// the level opens on an empty one.
+        /// </summary>
+        /// <remarks>
+        /// Every check runs before the part or wire goes onto the scratch board, because the board
+        /// itself guards less than this does: <see cref="CircuitBlueprint.Place"/> throws on a taken
+        /// cell and <see cref="CircuitBlueprint.AddWire"/> checks no delay, so a bad file would throw
+        /// here, or later inside the level load, rather than be refused with a reason. The port counts
+        /// are the save path's own (<see cref="BoardSerializer"/>), so a start that loads is one a
+        /// save of it restores.
+        ///
+        /// Only a fixture's cell is off limits: the reserved edge columns belong to free play alone.
+        /// And a second wire into one input is refused although the game allows it, because in a
+        /// file it is far likelier to be a forgotten <c>toPort</c>, read as 0, than a design.
+        /// </remarks>
+        private static bool TryBuildStart(
+            LevelStartFile raw, LevelDefinition level, Vector2Int halfExtents,
+            out BlueprintSnapshot start, out string error)
+        {
+            start = null;
+            error = null;
+
+            int gateCount = raw?.gates?.Length ?? 0;
+            int wireCount = raw?.wires?.Length ?? 0;
+
+            // JsonUtility may hand back an empty object for a missing one, as it does for board.
+            if (gateCount == 0 && wireCount == 0)
+                return true;
+
+            var board = new CircuitBlueprint();
+
+            for (int i = 0; i < gateCount; i++)
+            {
+                LevelStartGateFile gate = raw.gates[i];
+
+                if (gate == null)
+                {
+                    error = $"start gate {i} is empty";
+                    return false;
+                }
+
+                if (!TryParseGateKind(gate.kind, out GateKind kind))
+                {
+                    error = $"start gate {i} has kind '{gate.kind}'; expected one of " +
+                            string.Join(", ", Enum.GetNames(typeof(GateKind)));
+                    return false;
+                }
+
+                var cell = new Vector2Int(gate.cell.x, gate.cell.y);
+                string label = GatePalette.Label(kind);
+
+                if (Mathf.Abs(cell.x) > halfExtents.x || Mathf.Abs(cell.y) > halfExtents.y)
+                {
+                    error = $"the start's {label} sits at {cell}, outside the board " +
+                            $"(x within {halfExtents.x}, y within {halfExtents.y})";
+                    return false;
+                }
+
+                LevelFixture under = level.FixtureAt(cell);
+
+                if (under != null || level.IsReserved(cell))
+                {
+                    error = $"the start's {label} sits at {cell}, on the fixture '{under?.Id}'";
+                    return false;
+                }
+
+                if (board.HasPlacementAt(cell))
+                {
+                    error = $"two of the start's gates share the cell {cell}";
+                    return false;
+                }
+
+                int budgeted = level.BudgetFor(kind);
+
+                if (budgeted == 0)
+                {
+                    error = $"the start places a {label} but the budget stocks none; the budget counts " +
+                            "the start's parts as well as the spares";
+                    return false;
+                }
+
+                if (!level.IsUnlimited(kind) && board.CountOf(kind) >= budgeted)
+                {
+                    error = $"the start places more than the budget's {budgeted} {label}; the budget " +
+                            "counts the start's parts as well as the spares";
+                    return false;
+                }
+
+                board.Place(cell, kind);
+            }
+
+            for (int i = 0; i < wireCount; i++)
+            {
+                LevelStartWireFile wire = raw.wires[i];
+
+                if (wire == null)
+                {
+                    error = $"start wire {i} is empty";
+                    return false;
+                }
+
+                var fromCell = new Vector2Int(wire.from.x, wire.from.y);
+                var toCell = new Vector2Int(wire.to.x, wire.to.y);
+
+                int outputs = BoardSerializer.OutputsAt(fromCell, level, board);
+
+                if (outputs == 0)
+                {
+                    error = $"start wire {i} runs from {fromCell}, where there is no output -- " +
+                            "nothing there, or a sink";
+                    return false;
+                }
+
+                if (wire.fromPort < 0 || wire.fromPort >= outputs)
+                {
+                    error = $"start wire {i} leaves output {wire.fromPort} at {fromCell}, which has {outputs}";
+                    return false;
+                }
+
+                int inputs = BoardSerializer.InputsAt(toCell, level, board);
+
+                if (inputs == 0)
+                {
+                    error = $"start wire {i} runs to {toCell}, where there is no input -- " +
+                            "nothing there, or a source";
+                    return false;
+                }
+
+                if (wire.toPort < 0 || wire.toPort >= inputs)
+                {
+                    error = $"start wire {i} enters input {wire.toPort} at {toCell}, which has {inputs}, " +
+                            "counted from 0";
+                    return false;
+                }
+
+                int delay = wire.delay == 0 ? 1 : wire.delay;
+
+                if (delay < 1 || delay > level.MaxWireDelay)
+                {
+                    error = $"start wire {i} has delay {wire.delay}; it may be from 1 to {level.MaxWireDelay}, " +
+                            "or left out for 1";
+                    return false;
+                }
+
+                var from = new CellPort(fromCell, false, wire.fromPort);
+                var to = new CellPort(toCell, true, wire.toPort);
+
+                if (board.HasWire(from, to))
+                {
+                    error = $"start wire {i} repeats an earlier one";
+                    return false;
+                }
+
+                for (int j = 0; j < board.Wires.Count; j++)
+                {
+                    if (board.Wires[j].To.Equals(to))
+                    {
+                        error = $"start wire {i} is a second wire into input {wire.toPort} at {toCell}; " +
+                                "check its toPort, which reads as 0 when left out";
+                        return false;
+                    }
+                }
+
+                // A wire from a part back into itself is allowed: a register's feedback is one.
+                board.AddWire(new BlueprintWire(from, to, delay));
+            }
+
+            if (level.HasDelayBudget && board.ExtraDelay() > level.DelayBudget)
+            {
+                error = $"the start's wires add {board.ExtraDelay()} ticks of delay, more than the " +
+                        $"delayBudget of {level.DelayBudget}";
+                return false;
+            }
+
+            start = board.Snapshot();
+            return true;
         }
 
         /// <summary>The smallest board a level may name: the standard one.</summary>
@@ -604,7 +792,7 @@ namespace BitSorter.View
         }
 
         /// <summary>
-        /// Kept only to keep the shape of this file's other parsers. It is
+        /// The shape of this file's other parsers, for the parts of a starting circuit. It is
         /// <see cref="GatePalette.TryParse"/>, which is the one place a kind name becomes a
         /// <see cref="GateKind"/>.
         /// </summary>

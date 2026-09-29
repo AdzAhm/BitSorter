@@ -1129,9 +1129,9 @@ into a taught level.
 
 **The guided tutorial is code-built, like the sandbox, and for the same
 reasons.** `LevelLoader.Validate` and `CurriculumTests` stay exactly as strict
-as they were rather than gaining an exception, and a level file cannot author
-wires. It reaches the board through `LevelSession.Adopt`, so `ProgressTracker`
-persistence works with neither side knowing the other exists.
+as they were rather than gaining an exception. It reaches the board through
+`LevelSession.Adopt`, so `ProgressTracker` persistence works with neither side
+knowing the other exists.
 
 It is **not in `LevelCatalog`**: it cannot disturb the run whose order
 `CurriculumTests` pins, and it never appears in `AvailableLevels`, so Q and E

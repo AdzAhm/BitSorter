@@ -100,6 +100,58 @@ namespace BitSorter.View
         public LevelFixtureFile[] fixtures;
         public LevelBudgetFile[] budget;
         public LevelExpectationFile[] expected;
+
+        /// <summary>
+        /// A circuit already on the board when the level opens, for a level about finding what is
+        /// wrong with one. Absent or empty is an empty board, which is every level written before
+        /// this field.
+        /// </summary>
+        /// <remarks>
+        /// Its parts count against <see cref="budget"/> like any the player places, so the budget
+        /// is the start's parts plus whatever spares the level offers, and its wires spend
+        /// <see cref="delayBudget"/> from the moment the level opens. The loader holds it to every
+        /// rule a player's board is held to.
+        /// </remarks>
+        public LevelStartFile start;
+    }
+
+    /// <summary>A level's starting circuit: its parts, and the wires between them.</summary>
+    [Serializable]
+    public sealed class LevelStartFile
+    {
+        public LevelStartGateFile[] gates;
+        public LevelStartWireFile[] wires;
+    }
+
+    /// <summary>One part of a starting circuit.</summary>
+    [Serializable]
+    public sealed class LevelStartGateFile
+    {
+        /// <summary>A GateKind name, as in the budget.</summary>
+        public string kind;
+
+        public LevelCellFile cell;
+    }
+
+    /// <summary>
+    /// One wire of a starting circuit, from an output to an input, each named by its cell and its
+    /// port there.
+    /// </summary>
+    /// <remarks>
+    /// JsonUtility reads a missing key as zero, which decides what zero means here. Every part and
+    /// every source has one output, so <see cref="fromPort"/> is 0 and may be left out. A missing
+    /// <see cref="toPort"/> is input 0, counted from the top -- so one forgotten on a two-input gate
+    /// shows up as a second wire into input 0, which the loader refuses and names. A missing
+    /// <see cref="delay"/> is 1, the length of a wire nobody has scrolled.
+    /// </remarks>
+    [Serializable]
+    public sealed class LevelStartWireFile
+    {
+        public LevelCellFile from;
+        public int fromPort;
+        public LevelCellFile to;
+        public int toPort;
+        public int delay;
     }
 
     /// <summary>A node the player can neither move nor delete.</summary>

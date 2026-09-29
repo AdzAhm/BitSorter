@@ -251,7 +251,7 @@ namespace BitSorter.View
         /// and a wire dropped on the way down would not come back on the way up. It stays in the
         /// blueprint, drawn by nothing and simulated by nothing, until the fixture returns.
         /// </remarks>
-        private static int OutputsAt(Vector2Int cell, LevelDefinition level, CircuitBlueprint blueprint)
+        internal static int OutputsAt(Vector2Int cell, LevelDefinition level, CircuitBlueprint blueprint)
         {
             LevelFixture fixture = level.FixtureAt(cell);
 
@@ -265,7 +265,7 @@ namespace BitSorter.View
         }
 
         /// <inheritdoc cref="OutputsAt"/>
-        private static int InputsAt(Vector2Int cell, LevelDefinition level, CircuitBlueprint blueprint)
+        internal static int InputsAt(Vector2Int cell, LevelDefinition level, CircuitBlueprint blueprint)
         {
             LevelFixture fixture = level.FixtureAt(cell);
 

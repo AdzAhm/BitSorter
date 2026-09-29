@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using NUnit.Framework;
 using BitSorter.LogicCore;
 using BitSorter.View;
@@ -671,6 +672,182 @@ namespace BitSorter.LogicCore.Tests
 
             Assert.IsFalse(result.IsValid);
             StringAssert.Contains("after the last vector", result.Error);
+        }
+
+        // -----------------------------------------------------------------
+        // A starting circuit
+        // -----------------------------------------------------------------
+
+        /// <summary>The budget the starting-circuit tests stock unless told otherwise.</summary>
+        private const string StartBudget =
+            @"{ ""kind"": ""And"", ""count"": 1 }, { ""kind"": ""Not"", ""count"": 1 }, " +
+            @"{ ""kind"": ""Register"", ""count"": 1 }";
+
+        /// <summary>
+        /// A level whose file carries a start of these gates and wires, on the usual fixtures: in at
+        /// (-3, 0), binOne at (3, 1), binZero at (3, -1).
+        /// </summary>
+        private static LevelLoadResult WithStart(string gates, string wires, string limits = "")
+        {
+            string json = Json($"{SourceIn}, {BinOne}, {BinZero}", $"{ExpectOne}, {ExpectZeroEmpty}", StartBudget)
+                .Replace(@"""tickLimit"": 100",
+                    @"""tickLimit"": 100" + limits +
+                    $@", ""start"": {{ ""gates"": [{gates}], ""wires"": [{wires}] }}");
+
+            return Parse(json);
+        }
+
+        /// <summary>One gate of a start, in the file's own shape.</summary>
+        private static string G(string kind, int x, int y) =>
+            $@"{{ ""kind"": ""{kind}"", ""cell"": {{ ""x"": {x}, ""y"": {y} }} }}";
+
+        /// <summary>One wire of a start, in the file's own shape; a null delay leaves the key out.</summary>
+        private static string W(int fromX, int fromY, int toX, int toY, int toPort = 0, int? delay = 1)
+        {
+            string wire = $@"{{ ""from"": {{ ""x"": {fromX}, ""y"": {fromY} }}, ""fromPort"": 0, " +
+                          $@"""to"": {{ ""x"": {toX}, ""y"": {toY} }}, ""toPort"": {toPort}";
+
+            return wire + (delay.HasValue ? $@", ""delay"": {delay.Value} }}" : " }");
+        }
+
+        private static CircuitBlueprint StartOf(LevelDefinition level)
+        {
+            var board = new CircuitBlueprint();
+            board.Restore(level.Start);
+            return board;
+        }
+
+        [Test]
+        public void ALevelWithoutAStart_OpensOnAnEmptyBoard()
+        {
+            LevelLoadResult result = Parse(Json($"{SourceIn}, {BinOne}, {BinZero}", $"{ExpectOne}, {ExpectZeroEmpty}"));
+
+            Assert.IsTrue(result.IsValid, result.Error);
+            Assert.IsFalse(result.Level.HasStart);
+            Assert.IsNull(result.Level.Start);
+        }
+
+        /// <summary>
+        /// An empty start is no start: JsonUtility may hand back an empty object for a missing one, as
+        /// it does for a missing board.
+        /// </summary>
+        [Test]
+        public void AnEmptyStart_IsNoStart()
+        {
+            LevelLoadResult empty = WithStart(string.Empty, string.Empty);
+            Assert.IsTrue(empty.IsValid, empty.Error);
+            Assert.IsFalse(empty.Level.HasStart, "a start with nothing in it made a start");
+
+            string braces = Json($"{SourceIn}, {BinOne}, {BinZero}", $"{ExpectOne}, {ExpectZeroEmpty}")
+                .Replace(@"""tickLimit"": 100", @"""tickLimit"": 100, ""start"": {}");
+            LevelLoadResult bare = Parse(braces);
+            Assert.IsTrue(bare.IsValid, bare.Error);
+            Assert.IsFalse(bare.Level.HasStart, "an empty start object made a start");
+        }
+
+        [Test]
+        public void AStart_ArrivesAsWritten_InTheFilesOrder()
+        {
+            LevelLoadResult result = WithStart(
+                G("Not", 0, 0),
+                W(-3, 0, 0, 0, delay: 2) + ", " + W(0, 0, 3, 1));
+
+            Assert.IsTrue(result.IsValid, result.Error);
+            Assert.IsTrue(result.Level.HasStart);
+
+            CircuitBlueprint board = StartOf(result.Level);
+
+            Assert.AreEqual(1, board.Placements.Count);
+            Assert.AreEqual(new Vector2Int(0, 0), board.Placements[0].Cell);
+            Assert.AreEqual(GateKind.Not, board.Placements[0].Kind);
+
+            Assert.AreEqual(2, board.Wires.Count);
+            Assert.AreEqual(new Vector2Int(-3, 0), board.Wires[0].From.Cell, "the wires are not in the file's order");
+            Assert.AreEqual(2, board.Wires[0].Delay);
+            Assert.AreEqual(new Vector2Int(3, 1), board.Wires[1].To.Cell);
+            Assert.AreEqual(1, board.Wires[1].Delay);
+        }
+
+        /// <summary>A wire whose delay is left out is one tick long, as a wire nobody has scrolled.</summary>
+        [Test]
+        public void AStartWireWithNoDelay_IsOneTick()
+        {
+            LevelLoadResult result = WithStart(G("Not", 0, 0), W(-3, 0, 0, 0, delay: null));
+
+            Assert.IsTrue(result.IsValid, result.Error);
+            Assert.AreEqual(1, StartOf(result.Level).Wires[0].Delay);
+        }
+
+        /// <summary>A wire from a part back into itself is allowed: a register's feedback is one.</summary>
+        [Test]
+        public void AStartWireBackIntoItsOwnPart_IsAllowed()
+        {
+            LevelLoadResult result = WithStart(G("Register", 0, 0), W(0, 0, 0, 0));
+
+            Assert.IsTrue(result.IsValid, result.Error);
+            Assert.AreEqual(1, StartOf(result.Level).Wires.Count);
+        }
+
+        /// <summary>
+        /// A start that loads is one a save of it restores: the loader and the save path ask the same
+        /// questions of the same tables.
+        /// </summary>
+        [Test]
+        public void AStartThatLoads_SurvivesASaveAndRestore()
+        {
+            LevelLoadResult result = WithStart(
+                G("And", 0, 0) + ", " + G("Not", 0, 1) + ", " + G("Register", 1, -1),
+                W(-3, 0, 0, 0) + ", " + W(-3, 0, 0, 1) + ", " + W(0, 1, 0, 0, toPort: 1) + ", " +
+                W(0, 0, 1, -1) + ", " + W(1, -1, 3, 1));
+
+            Assert.IsTrue(result.IsValid, result.Error);
+
+            SavedBoard saved = BoardSerializer.ToSaved("test", StartOf(result.Level));
+            var restored = new CircuitBlueprint();
+
+            Assert.AreEqual(0, BoardSerializer.Restore(saved, result.Level, restored, Board),
+                "a start the loader accepted was not all restored from a save of it");
+            Assert.AreEqual(3, restored.Placements.Count);
+            Assert.AreEqual(5, restored.Wires.Count);
+        }
+
+        private static IEnumerable<TestCaseData> BadStarts()
+        {
+            yield return Bad("AStartGateOffTheBoard", G("Not", 9, 0), "", "outside the board");
+            yield return Bad("AStartGateOnAFixture", G("Not", -3, 0), "", "on the fixture 'in'");
+            yield return Bad("TwoStartGatesInOneCell", G("Not", 0, 0) + ", " + G("And", 0, 0), "", "share the cell");
+            yield return Bad("AStartGateOfNoKind", G("Nope", 0, 0), "", "has kind 'Nope'");
+            yield return Bad("AStartGateTheBudgetDoesNotStock", G("Xor", 0, 0), "", "stocks none");
+            yield return Bad("MoreStartGatesThanTheBudget", G("Not", 0, 0) + ", " + G("Not", 0, 1), "", "more than the budget");
+            yield return Bad("AStartWireFromAnEmptyCell", G("Not", 0, 0), W(1, 1, 0, 0), "no output");
+            yield return Bad("AStartWireFromASink", G("Not", 0, 0), W(3, 1, 0, 0), "no output");
+            yield return Bad("AStartWireIntoASource", G("Not", 0, 0), W(0, 0, -3, 0), "no input");
+            yield return Bad("AStartWireIntoAThirdInput", G("And", 0, 0), W(-3, 0, 0, 0, toPort: 2), "input 2");
+            yield return Bad("AStartWireIntoANotsSecondInput", G("Not", 0, 0), W(-3, 0, 0, 0, toPort: 1), "input 1");
+            yield return Bad("AStartWireLongerThanTheCap", G("Not", 0, 0), W(-3, 0, 0, 0, delay: 4), "delay 4",
+                @", ""maxWireDelay"": 3");
+            yield return Bad("AStartWireOfNegativeDelay", G("Not", 0, 0), W(-3, 0, 0, 0, delay: -1), "delay -1");
+            yield return Bad("AStartDearerThanTheDelayBudget", G("Not", 0, 0),
+                W(-3, 0, 0, 0, delay: 2) + ", " + W(0, 0, 3, 1, delay: 2), "delayBudget", @", ""delayBudget"": 1");
+            yield return Bad("AStartWireTwice", G("Not", 0, 0), W(-3, 0, 0, 0) + ", " + W(-3, 0, 0, 0), "repeats");
+            yield return Bad("TwoStartWiresIntoOneInput", G("And", 0, 0) + ", " + G("Not", 0, 1),
+                W(-3, 0, 0, 0) + ", " + W(0, 1, 0, 0), "second wire into input 0");
+        }
+
+        private static TestCaseData Bad(string name, string gates, string wires, string reason, string limits = "") =>
+            new TestCaseData(gates, wires, limits, reason).SetName(name + "_IsRefusedWithAReason");
+
+        /// <summary>
+        /// A start the player could not have built is refused, with a reason naming the problem --
+        /// and before anything is placed, since the board throws on some of these rather than saying.
+        /// </summary>
+        [TestCaseSource(nameof(BadStarts))]
+        public void ABadStart_IsRefused(string gates, string wires, string limits, string reason)
+        {
+            LevelLoadResult result = WithStart(gates, wires, limits);
+
+            AssertRefused(result);
+            StringAssert.Contains(reason, result.Error);
         }
     }
 }

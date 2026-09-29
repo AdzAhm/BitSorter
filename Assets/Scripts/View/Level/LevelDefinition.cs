@@ -62,8 +62,10 @@ namespace BitSorter.View
             bool isGraded = true,
             IReadOnlyList<LevelSlot> reservedSlots = null,
             int clockPeriod = 1,
-            Vector2Int boardHalfExtents = default)
+            Vector2Int boardHalfExtents = default,
+            BlueprintSnapshot start = null)
         {
+            Start = start != null && !start.IsEmpty ? start : null;
             BoardHalfExtents = boardHalfExtents;
             ClockPeriod = clockPeriod > 0 ? clockPeriod : 1;
             ReservedSlots = reservedSlots ?? System.Array.Empty<LevelSlot>();
@@ -83,6 +85,20 @@ namespace BitSorter.View
         }
 
         public string Name { get; }
+
+        /// <summary>
+        /// The circuit a level hands the player to repair, or null for a level that opens on an
+        /// empty board.
+        /// </summary>
+        /// <remarks>
+        /// Immutable, like every snapshot, so nothing done on the board can reach it. Checked by
+        /// <see cref="LevelLoader"/> against the rest of this definition -- its board, fixtures,
+        /// budget and wire limits -- so a start that loaded is a board the player could have built.
+        /// </remarks>
+        public BlueprintSnapshot Start { get; }
+
+        /// <summary>Whether the level opens on a circuit rather than an empty board.</summary>
+        public bool HasStart => Start != null;
 
         /// <summary>
         /// Whether a settled run produces a verdict. False for free play, where there is nothing to
