@@ -241,6 +241,7 @@ The format is deliberately small. What it can say:
 | `goal` / `hint` | What to do, and a nudge |
 | `clockPeriod` | Ticks between vectors, which every source keeps together |
 | `board` | Columns and rows, odd, from 9 × 5 up to 13 × 7; absent means 9 × 5 |
+| `start` | A circuit the board opens on — gates and wires — for a level about finding what is wrong with one |
 
 ### Two decisions inside that table
 
@@ -259,10 +260,13 @@ apply to the hint alone.
 
 ### What the format deliberately cannot express
 
-- **No authored wires.** There is no fixture-wire array. Every wire on the board
-  is the player's, which means every timing hazard is one they created and can
-  therefore undo. A level can constrain the delay budget; it cannot hand the
-  player a pre-broken circuit to repair.
+- **No locked wires.** A level may open on a circuit (`start`, 4.0.0), which is
+  how it hands the player a pre-broken one to repair — but that circuit is the
+  player's board from the first frame. Every part and wire in it can be removed
+  or re-timed, its parts count against `budget` exactly as placed ones do, its
+  wires spend `delayBudget` from the moment the level opens, and START OVER puts
+  it back. `LevelLoader` holds a start to every rule a player's board is held to.
+  So every timing hazard on the board is still one the player can undo.
 - **No seeded edges.** They were once thought to be what flip-flops needed; the
   register emits its own first bit instead, so nothing authors a wire's contents.
 - **Sinks have exactly one input port.**
@@ -443,8 +447,9 @@ value is acceptable, which needs a slot. They could not be the same character, s
 level JSON, or player-chosen wire delays. The second landed. Delay became a
 resource the player manages — scrolled on the wire itself, floored at 1 by
 `LevelRules.CanSetDelay`, bounded per-level by `maxWireDelay` and `delayBudget`.
-The road not taken is still not built, which is why no level can author an
-unbalanced path of its own. *(`2925472`)*
+The road not taken arrived later in a better form than a locked array: a level
+can open on a circuit (`start`, 4.0.0), an unbalanced path included, whose wires
+stay the player's to re-time. *(`2925472`, `ecdfbf3`)*
 
 **`PointerOverUi` used `EventSystem.IsPointerOverGameObject()`.** The no-argument
 overload reports whichever pointer id the input module touched most recently, from
@@ -514,7 +519,7 @@ stays, over the two. *(3.0.2)*
 - **`CurriculumTests` checks the run as a whole**: that hints give nothing away,
   that every level states a goal, and that a mechanic is taught before it is
   required.
-- **The look is held to eighteen reference screenshots**, captured from the real
+- **The look is held to twenty-four reference screenshots**, captured from the real
   game on a fixed frame time with every ambient pulse pinned and every particle
   seeded, so two captures of the same code are identical to the pixel and a change
   that claims to leave the look alone can be held to it. That promise failed about

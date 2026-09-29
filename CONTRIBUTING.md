@@ -77,13 +77,16 @@ to the one you want; `pick-a-lane.json` and `pass-it-on.json` are short.
 | `maxLatency` | The longest the critical path may be, in ticks. |
 | `clockPeriod` | Ticks between vectors. Sequential levels need one; see the design notes. |
 | `board` | `{ "columns": 11, "rows": 7 }` for a board bigger than 9 by 5. Odd sizes, up to 13 by 7. |
+| `start` | A circuit the board opens on, for a level about finding what is wrong with one: `gates` (`kind`, `cell`) and `wires` (`from`, `fromPort`, `to`, `toPort`, `delay`). It is held to every rule a player's board is. Its parts count against `budget`, so the budget is the start's parts plus any spares, and its wires spend `delayBudget` from the start. `out-of-step.json` is an example. |
 
 A **vector** is one row of input values: every source plays its next bit at once,
 and the sinks' expectations line up with the same rows.
 
 Every level ships with a test class, `Assets/Tests/EditMode/<Name>LevelTests.cs`,
 that builds a reference solution and shows it passes, fits the parts and delay
-budget, and that the obvious wrong answers fail. Add the level to the list in
+budget, and that the obvious wrong answers fail. A level with a `start` also
+shows that the start fails the way its goal says, and `CurriculumTests` refuses
+one that ships already solved. Add the level to the list in
 `CurriculumTests.TheRun_IsEveryLevelInItsTaughtOrder`, and to the level table in
 the README. Work the timing out tick by tick before writing the file: "The
 arithmetic every level design uses" in the design notes is the whole method.

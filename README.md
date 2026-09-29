@@ -130,7 +130,7 @@ until you reset your progress — and none of them pause the game.
 | `Ctrl`+`Y` / `Ctrl`+`Shift`+`Z` | Redo it |
 | `Enter`, or the RUN button | Run |
 | `R`, or the RESET button | Stop a run, or clear what a finished one left on the board. There is no need to press it before editing: after a run, the first edit puts the board back by itself |
-| `Shift`+`R` | Clear everything you built |
+| `Shift`+`R` | Clear everything you built. On a level that opens on a circuit this is START OVER, which puts that circuit back |
 | `Space` | Pause a run |
 | `→` while paused | Step one tick |
 | `H`, or the `?` button | This level's truth table, its Karnaugh map for each bin where it has one, and a hint |
@@ -337,9 +337,10 @@ Unity 6.3 LTS (6000.3.11f1).
   `TestResults.xml` in the save directory rather than from a `TestRunnerApi`
   callback, which does not survive the domain reload that entering play mode
   causes.
-- **BitSorter → Capture Reference Shots** screenshots twenty-one states of the
+- **BitSorter → Capture Reference Shots** screenshots twenty-four states of the
   real game — menu, board, a run, both kinds of collision, the cards, free play,
-  settings, the credits, the wider boards — into the save directory. Two captures of the same code are identical
+  settings, the credits, the wider boards, the three levels that open on a broken
+  circuit — into the save directory. Two captures of the same code are identical
   to the pixel, so a change that claims to leave the look alone can be held to it.
   It needs the Game view.
 - To compile without the editor at all, Bee leaves the exact compiler invocation
