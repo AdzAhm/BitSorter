@@ -87,6 +87,41 @@ namespace BitSorter.LogicCore.Tests
             Assert.IsTrue(restored.HasPlacementAt(Middle));
         }
 
+        /// <summary>
+        /// A register comes back, and so do the wires into and out of it.
+        /// </summary>
+        /// <remarks>
+        /// A save names each part by its label, which is "REG" for a register, and the parser only
+        /// knew "register" -- so every saved register, and every wire touching it, was dropped on
+        /// the way back: leave a sequential level and return, and the circuit had lost its memory.
+        /// Found in the check before Part C's debugging levels (2026-09-29); nothing had tested the
+        /// round trip for a register.
+        /// </remarks>
+        [Test]
+        public void ARegisterSurvivesARestart()
+        {
+            LevelDefinition level = Level("one-clock-late");
+
+            var blueprint = new CircuitBlueprint();
+            blueprint.Place(Middle, GateKind.Register);
+            LevelTestFixtures.Wire(blueprint, new Vector2Int(-3, 0), Middle);
+            LevelTestFixtures.Wire(blueprint, Middle, OutCell);
+
+            var first = new ProgressStore(_path);
+            first.Load();
+            first.SaveBoard("one-clock-late", BoardSerializer.ToSaved("one-clock-late", blueprint));
+
+            var second = new ProgressStore(_path);
+            second.Load();
+
+            var restored = new CircuitBlueprint();
+            int dropped = BoardSerializer.Restore(second.BoardFor("one-clock-late"), level, restored, Board);
+
+            Assert.AreEqual(0, dropped, "a saved register, or a wire to it, was refused on the way back");
+            Assert.AreEqual(1, restored.CountOf(GateKind.Register), "the register did not come back");
+            Assert.AreEqual(2, restored.Wires.Count, "the wires into and out of the register did not come back");
+        }
+
         [Test]
         public void WireDelaysSurviveToo()
         {
