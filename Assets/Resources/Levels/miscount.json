@@ -1,7 +1,7 @@
 {
   "name": "Miscount",
   "order": 145,
-  "goal": "This counter of 1s comes already built, and it never counts past one. Every part is right, and so is every wire's timing, but one wire goes to the wrong place.",
+  "goal": "This counter of 1s comes already built, and it never counts past one. Every part is right, and so is every wire's timing, but one wire comes from the wrong place.",
   "hint": "LOW keeps count properly. Compare how the two columns are wired: one difference between them should not be there.",
   "tickLimit": 60,
   "clockPeriod": 2,
