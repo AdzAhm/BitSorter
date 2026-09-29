@@ -58,6 +58,13 @@ namespace BitSorter.LogicCore.Tests
             Assert.IsEmpty(level.Expectations, "free play grades nothing, so it expects nothing");
         }
 
+        /// <summary>Free play opens on the player's own board, never on a circuit of its own.</summary>
+        [Test]
+        public void ASandbox_HasNoStartingCircuit()
+        {
+            Assert.IsFalse(SandboxLevel.Build(SandboxLevel.Default(Board), Board).HasStart);
+        }
+
         [Test]
         public void ASandbox_BuildsTheFixturesItWasAskedFor()
         {

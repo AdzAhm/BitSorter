@@ -84,6 +84,27 @@ namespace BitSorter.LogicCore.Tests
             }}");
         }
 
+        /// <summary>
+        /// A level that opens on a circuit: a NOT at the middle cell, wired from the source and into
+        /// the bin. Stocks one NOT, which the start uses.
+        /// </summary>
+        internal static LevelDefinition WithAStart() => Parse(@"{
+                ""name"": ""Starts built"", ""hint"": ""a hint"", ""tickLimit"": 40,
+                ""fixtures"": [
+                    { ""id"": ""in"",  ""kind"": ""Source"", ""cell"": { ""x"": -3, ""y"": 0 }, ""stream"": ""1"" },
+                    { ""id"": ""out"", ""kind"": ""Sink"",   ""cell"": { ""x"":  3, ""y"": 0 } }
+                ],
+                ""budget"": [ { ""kind"": ""Not"", ""count"": 1 } ],
+                ""expected"": [ { ""sink"": ""out"", ""values"": ""0"" } ],
+                ""start"": {
+                    ""gates"": [ { ""kind"": ""Not"", ""cell"": { ""x"": 0, ""y"": 0 } } ],
+                    ""wires"": [
+                        { ""from"": { ""x"": -3, ""y"": 0 }, ""to"": { ""x"": 0, ""y"": 0 }, ""delay"": 1 },
+                        { ""from"": { ""x"":  0, ""y"": 0 }, ""to"": { ""x"": 3, ""y"": 0 }, ""delay"": 1 }
+                    ]
+                }
+            }");
+
         /// <summary>Parses a level and fails the test rather than the assertion if it is invalid.</summary>
         internal static LevelDefinition Parse(string json)
         {

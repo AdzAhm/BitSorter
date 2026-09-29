@@ -59,7 +59,7 @@ namespace BitSorter.View
         /// <summary>Its key, over REDO.</summary>
         RedoButton,
 
-        /// <summary>Its key, over CLEAR ALL.</summary>
+        /// <summary>Its key, over CLEAR ALL -- START OVER, on a level that opens on a circuit.</summary>
         ClearButton,
 
         /// <summary>Its key, under the MENU button in the top-left corner.</summary>

@@ -22,6 +22,10 @@ just because it is written down here.
 - Levels are JSON in Assets/Resources/Levels/, and each one names its own
   `order` — play order is authored, not the ordinal sort of file names.
   `LevelCatalog` refuses two levels claiming the same place.
+- **A level may open on a circuit** -- `start`, its gates and wires, for a
+  level about finding what is wrong with one. `LevelLoader` holds it to every
+  rule a player's board is held to, its parts count against the budget like any
+  placed, and its wires spend the delay budget from the moment the level opens.
 - **`goal` states the objective and may name gates outright. `hint` may
   not.** The no-giveaway rules in `CurriculumTests` apply to the hint
   alone. Before `goal` existed the hint had to carry both jobs, which is
@@ -54,6 +58,9 @@ just because it is written down here.
   (2026-09-28). A collision or a stall still cuts in over it and it comes back
   after them, and leaving the level leaves it for the next one that budgets
   delay. `balance-the-paths`' goal says it as well, and the tutorial asks for it.
+  On a level that opens on a circuit its wires are already in, so it comes up
+  as the level loads -- as the register hint does on one that opens with a
+  register -- which is when a player jumping there first needs it.
 
   The jobs must stay apart. `balance-the-paths`' hint already covers stalling
   and collision *for that level*, so a first-time hint reaching for the same
@@ -242,7 +249,20 @@ failure side.
   scrolling 1→4 and pressing Ctrl+Z should land on 1, not 3. History is
   capped, gated on `CanEdit`, and cleared on every level load — before
   `LevelLoaded`, so the board `ProgressTracker` restores is the baseline
-  rather than a step the player can reverse past.
+  rather than a step the player can reverse past, and on a level that opens
+  on a circuit with nothing saved, that circuit is.
+
+- **START OVER is CLEAR ALL on a level that opens on a circuit**, and it puts
+  that circuit back rather than leaving an empty board -- one undo step, like
+  CLEAR ALL. The session places the start in the call that installs the level
+  (`LevelSession.PutTheStartingBoard`), never on `LevelLoaded`, where
+  `ProgressTracker` restores a saved board that must win and two listeners run
+  in no promised order. Whether there is anything to start over is "is the
+  board still the start?" (`LevelSession.IsAtStart`) where it used to be "is it
+  empty?", and `BlueprintSnapshot.DescribesBoard` answers it in any order and
+  without allocating, because the run controls ask every frame. The first visit
+  saves the start as the player's board, so a start changed in a later version
+  reaches a returning player only through START OVER.
 
 - **A finished run is left by editing it.** Once a run passes, fails or
   finishes, the board keeps showing how it went -- the verdict, the scorch
@@ -1384,12 +1404,11 @@ by name. Treat this section as a place to park ideas, not as a to-do list.
   of 1, and a level bounds it with `maxWireDelay` and `delayBudget`.
   `balance-the-paths.json` is the first level built on it.
 
-  The road not taken is still not built: there is no fixture-wire array,
-  so a level cannot author an unbalanced path of its own. Every wire on
-  the board is the player's, which means every timing hazard is one they
-  created and can therefore undo. Worth knowing when writing the adder
-  chapters — a level can constrain the delay budget, but it cannot hand
-  the player a pre-broken circuit to repair.
+  The road not taken is built now, in a better form than a locked array: a
+  level can open on a circuit (`start`, 4.0.0), so it can hand the player a
+  pre-broken one to repair -- an unbalanced path included. The wires stay
+  the player's all the same: a starting circuit is edited like any board,
+  and START OVER puts it back.
 
 - **A waiting bit needs a stronger visual. Shipped.** This entry used to
   claim a held bit rendered as a small square inside the node. It never

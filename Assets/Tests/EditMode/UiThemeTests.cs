@@ -372,6 +372,22 @@ namespace BitSorter.LogicCore.Tests
             }
         }
 
+        /// <summary>
+        /// Every caption the clear button can show fits it, with room either side: START OVER is the
+        /// longest.
+        /// </summary>
+        [Test]
+        public void TheClearButtonsCaptions_FitIt()
+        {
+            foreach (string caption in new[] { RunControls.ClearCaption, RunControls.StartOverCaption, "SURE?" })
+            {
+                float needed = UiTheme.TextWidth(caption, UiType.Body);
+
+                Assert.LessOrEqual(needed, RunControls.ClearButtonWidth - 2f * 8f,
+                    $"'{caption}' needs {needed:F0}px of a {RunControls.ClearButtonWidth}px button");
+            }
+        }
+
         /// <summary>A key over a button is no wider than the narrowest of them.</summary>
         [Test]
         public void EveryKeyOverAButton_FitsOverIt()

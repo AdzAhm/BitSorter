@@ -146,7 +146,8 @@ namespace BitSorter.View
         }
 
         /// <summary>
-        /// Raised once a level is loaded and the board is back to empty, carrying the new level.
+        /// Raised once a level is loaded and the board is back to how the level opens -- empty, or its
+        /// starting circuit -- carrying the new level.
         /// </summary>
         /// <remarks>
         /// Exists for state that is derived from the level but not stored here -- the palette
@@ -176,7 +177,7 @@ namespace BitSorter.View
         /// </summary>
         /// <remarks>
         /// Free play's event. Deliberately not <see cref="LevelLoaded"/>: that one means "here is a
-        /// new level and an empty board", and everything listening to it acts accordingly --
+        /// new level and a fresh board", and everything listening to it acts accordingly --
         /// <see cref="ProgressTracker"/> writes the outgoing board to the save file and restores the
         /// incoming one, the palette rebuilds, the selection resets. None of that is wanted when the
         /// player has only changed what a source emits.
@@ -253,9 +254,9 @@ namespace BitSorter.View
         // -----------------------------------------------------------------
 
         /// <summary>
-        /// Loads a level by file name and returns to an empty, editable board. The way into every
-        /// level: the level list, the main menu's Continue, the solved panel's NEXT, Q and E, and the
-        /// tutorial's closing card.
+        /// Loads a level by file name and returns to the board it opens on, editable: empty, or the
+        /// level's starting circuit. The way into every level: the level list, the main menu's
+        /// Continue, the solved panel's NEXT, Q and E, and the tutorial's closing card.
         /// </summary>
         public bool LoadLevel(string levelName)
         {
@@ -294,7 +295,10 @@ namespace BitSorter.View
             if (_runner != null)
                 _runner.ResizeBoard(Level.BoardHalfExtents);
 
-            _blueprint.Clear();
+            // The level's own starting circuit, or an empty board. Here, in the call, and not on
+            // LevelLoaded: ProgressTracker restores a saved board on that event, which must win, and
+            // two listeners to one event run in no promised order.
+            PutTheStartingBoard();
 
             // The clock goes back to the authored rate: free play offers a faster one and a level
             // that inherited it would run its lesson at four times the speed.
@@ -308,8 +312,8 @@ namespace BitSorter.View
 
             ResetBoard();
 
-            // Last, so a subscriber sees a board that is already empty and a level that is already
-            // the new one. Anything reading the session from in here gets the finished state.
+            // Last, so a subscriber sees a board that is already the level's and a level that is
+            // already the new one. Anything reading the session from in here gets the finished state.
             LevelLoaded?.Invoke(Level);
             return true;
         }
@@ -354,7 +358,10 @@ namespace BitSorter.View
             if (_runner != null)
                 _runner.ResizeBoard(Level.BoardHalfExtents);
 
-            _blueprint.Clear();
+            // The level's own starting circuit, or an empty board. Here, in the call, and not on
+            // LevelLoaded: ProgressTracker restores a saved board on that event, which must win, and
+            // two listeners to one event run in no promised order.
+            PutTheStartingBoard();
 
             // The clock goes back to the authored rate: free play offers a faster one and a level
             // that inherited it would run its lesson at four times the speed.
@@ -534,7 +541,9 @@ namespace BitSorter.View
         }
 
         /// <summary>
-        /// Throws away everything the player built, leaving the level's fixtures and an empty board.
+        /// Throws away everything the player built, leaving the level's fixtures and the board the
+        /// level opens on: its starting circuit, or nothing. START OVER on a level with a start, CLEAR
+        /// ALL everywhere else.
         /// </summary>
         /// <remarks>
         /// Deliberately distinct from <see cref="ResetBoard"/>, which only rewinds the clock and
@@ -547,13 +556,36 @@ namespace BitSorter.View
             if (!IsLoaded || _runner == null)
                 return;
 
-            // An empty board has nothing to go back to, and recording it would hand the player a
-            // Ctrl+Z that visibly does nothing.
-            if (!_blueprint.IsEmpty)
+            // A board already at its start has nothing to go back to, and recording it would hand the
+            // player a Ctrl+Z that visibly does nothing.
+            if (!IsAtStart)
                 Record(BoardEdit.Structural);
 
-            _blueprint.Clear();
+            PutTheStartingBoard();
             ResetBoard();
+        }
+
+        /// <summary>Whether the level being played opens on a circuit of its own.</summary>
+        public bool HasStart => Level != null && Level.HasStart;
+
+        /// <summary>
+        /// Whether the board is how the level opens it: its starting circuit, or empty.
+        /// </summary>
+        /// <remarks>
+        /// What START OVER -- CLEAR ALL, on a level without a start -- asks before it lights up or
+        /// records an undo step, since a board already there has nothing to go back to. Asked every
+        /// frame, so it allocates nothing (<see cref="BlueprintSnapshot.DescribesBoard"/>).
+        /// </remarks>
+        public bool IsAtStart =>
+            Level != null && (Level.HasStart ? Level.Start.DescribesBoard(_blueprint) : _blueprint.IsEmpty);
+
+        /// <summary>Puts the board the level opens on: its starting circuit, or nothing.</summary>
+        private void PutTheStartingBoard()
+        {
+            if (Level != null && Level.HasStart)
+                _blueprint.Restore(Level.Start);
+            else
+                _blueprint.Clear();
         }
 
         /// <summary>Returns to the pre-run board so the player can edit and try again.</summary>

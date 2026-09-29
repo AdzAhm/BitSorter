@@ -250,5 +250,58 @@ namespace BitSorter.LogicCore.Tests
             Assert.IsFalse(wiresOnly.TryFirstBudgetKind(out _), "there is no part to select");
             Assert.IsFalse(wiresOnly.Offers(GateKind.Not));
         }
+
+        // -----------------------------------------------------------------
+        // A level that opens on a circuit
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// A level that opens on a circuit opens on it, and it is on the board before anything hears
+        /// the level loaded.
+        /// </summary>
+        /// <remarks>
+        /// Put there by the session in the call that installs the level. A listener to LevelLoaded
+        /// would race <see cref="ProgressTracker"/>, which restores a saved board on that same event
+        /// and must win.
+        /// </remarks>
+        [Test]
+        public void ALevelWithAStart_OpensOnIt()
+        {
+            LevelDefinition level = LevelTestFixtures.WithAStart();
+            int placedWhenAnnounced = -1;
+            _session.LevelLoaded += _ => placedWhenAnnounced = _session.Blueprint.Placements.Count;
+
+            Assert.IsTrue(_session.Adopt(level, "starts-built"));
+
+            Assert.AreEqual(1, placedWhenAnnounced, "the level was announced before its start was on the board");
+            Assert.IsTrue(level.Start.DescribesBoard(_session.Blueprint), "the board is not the level's start");
+            Assert.IsTrue(_session.HasStart);
+            Assert.IsTrue(_session.IsAtStart);
+        }
+
+        [Test]
+        public void LeavingALevelWithAStart_LeavesNothingOfItBehind()
+        {
+            Assert.IsTrue(_session.Adopt(LevelTestFixtures.WithAStart(), "starts-built"));
+            Assert.IsTrue(_session.LoadLevel("route-the-bit"));
+
+            Assert.IsTrue(_session.Blueprint.IsEmpty, "the last level's starting circuit came along");
+            Assert.IsFalse(_session.HasStart);
+            Assert.IsTrue(_session.IsAtStart, "an empty board is where a level without a start opens");
+        }
+
+        /// <summary>An edit moves the board off its start, and never reaches the level's own copy.</summary>
+        [Test]
+        public void EditingTheStart_LeavesTheLevelsOwnCopyAlone()
+        {
+            LevelDefinition level = LevelTestFixtures.WithAStart();
+            Assert.IsTrue(_session.Adopt(level, "starts-built"));
+
+            Assert.IsTrue(_session.Blueprint.RemoveAt(LevelTestFixtures.MiddleCell));
+
+            Assert.IsFalse(_session.IsAtStart, "a board with the start's part taken off still reads as the start");
+            Assert.AreEqual(1, level.Start.PlacementCount, "an edit on the board reached the level's start");
+            Assert.AreEqual(2, level.Start.WireCount);
+        }
     }
 }

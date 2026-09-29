@@ -193,6 +193,61 @@ namespace BitSorter.LogicCore.Tests
             Assert.AreNotEqual(input, new CellPort(new Vector2Int(2, 1), true, 0), "cell matters");
         }
 
+        /// <summary>
+        /// A NOT and a second part wired from the source, in either order, with the join's wire at a
+        /// chosen delay and optionally one wire more.
+        /// </summary>
+        private static CircuitBlueprint Built(GateKind second, int delay, bool reversed = false, bool extraWire = false)
+        {
+            var not = new Vector2Int(0, 0);
+            var join = new Vector2Int(1, 0);
+            var source = new Vector2Int(-3, 0);
+            var board = new CircuitBlueprint();
+
+            if (reversed)
+            {
+                board.Place(join, second);
+                board.Place(not, GateKind.Not);
+                LevelTestFixtures.Wire(board, not, join, toPort: 1, delay: delay);
+                LevelTestFixtures.Wire(board, source, not);
+            }
+            else
+            {
+                board.Place(not, GateKind.Not);
+                board.Place(join, second);
+                LevelTestFixtures.Wire(board, source, not);
+                LevelTestFixtures.Wire(board, not, join, toPort: 1, delay: delay);
+            }
+
+            if (extraWire)
+                LevelTestFixtures.Wire(board, source, join);
+
+            return board;
+        }
+
+        /// <summary>
+        /// A board describes a start however it was built up, and not once anything about it differs.
+        /// </summary>
+        /// <remarks>
+        /// What START OVER asks every frame. <see cref="BlueprintSnapshot.Matches"/> counts order, so a
+        /// part taken off and put back read as a changed board; this does not.
+        /// </remarks>
+        [Test]
+        public void DescribesBoard_IgnoresOrder_AndNoticesEveryDifference()
+        {
+            BlueprintSnapshot start = Built(GateKind.And, delay: 2).Snapshot();
+
+            Assert.IsTrue(start.DescribesBoard(Built(GateKind.And, delay: 2)), "the same circuit");
+            Assert.IsTrue(start.DescribesBoard(Built(GateKind.And, delay: 2, reversed: true)),
+                "the same circuit, built in another order");
+
+            Assert.IsFalse(start.DescribesBoard(Built(GateKind.And, delay: 1)), "a wire re-timed");
+            Assert.IsFalse(start.DescribesBoard(Built(GateKind.Or, delay: 2)), "another part on the same cell");
+            Assert.IsFalse(start.DescribesBoard(Built(GateKind.And, delay: 2, extraWire: true)), "a wire more");
+            Assert.IsFalse(start.DescribesBoard(new CircuitBlueprint()), "an empty board");
+            Assert.IsFalse(start.DescribesBoard(null), "no board at all");
+        }
+
         [Test]
         public void AnEmptyBlueprint_ReportsItself()
         {

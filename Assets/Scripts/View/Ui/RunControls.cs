@@ -25,8 +25,20 @@ namespace BitSorter.View
         [Tooltip("Canvas the controls are built under. Found by type when left empty.")]
         [SerializeField] private Canvas _canvas;
 
-        [Tooltip("Seconds a CLEAR ALL press waits for its confirming second press.")]
+        [Tooltip("Seconds a CLEAR ALL or START OVER press waits for its confirming second press.")]
         [SerializeField] private float _confirmSeconds = 3f;
+
+        /// <summary>The clear button's caption on a level that opens on an empty board.</summary>
+        public const string ClearCaption = "CLEAR ALL";
+
+        /// <summary>
+        /// Its caption on a level that opens on a circuit: it puts that circuit back rather than
+        /// leaving an empty board, so it says so.
+        /// </summary>
+        public const string StartOverCaption = "START OVER";
+
+        /// <summary>How wide the clear button is, which both captions have to fit.</summary>
+        public const float ClearButtonWidth = 150f;
 
         private Button _run;
 
@@ -83,9 +95,9 @@ namespace BitSorter.View
             UiTheme.Anchor(_redo.GetComponent<RectTransform>(), new Vector2(0f, 0f), new Vector2(0f, 0f),
                 new Vector2(356f, 0f), new Vector2(SmallButtonWidth, UiTheme.ButtonHeight));
 
-            _clear = UiTheme.Button_("Clear", root, "CLEAR ALL", out _clearLabel, role: ButtonRole.Destructive);
+            _clear = UiTheme.Button_("Clear", root, ClearCaption, out _clearLabel, role: ButtonRole.Destructive);
             UiTheme.Anchor(_clear.GetComponent<RectTransform>(), new Vector2(1f, 0f), new Vector2(1f, 0f),
-                Vector2.zero, new Vector2(150f, UiTheme.ButtonHeight));
+                Vector2.zero, new Vector2(ClearButtonWidth, UiTheme.ButtonHeight));
 
             _run.onClick.AddListener(() => Fire(Run));
             _reset.onClick.AddListener(() => Fire(ResetBoard));
@@ -250,13 +262,14 @@ namespace BitSorter.View
             if (!pending && _confirmUntil != 0f)
                 _confirmUntil = 0f;
 
-            // Nothing to clear on an untouched board, and nothing to clear mid-run.
-            bool clearable = _session.IsLoaded && _session.CanEdit && !_session.Blueprint.IsEmpty;
+            // Nothing to clear on an untouched board -- empty, or still the level's own start -- and
+            // nothing to clear mid-run.
+            bool clearable = _session.IsLoaded && _session.CanEdit && !_session.IsAtStart;
 
             // SetEnabled's rule with a third state, written out rather than called and then
             // overridden: two colours set in one frame would rebuild the caption every frame the
-            // question stands.
-            _clearLabel.text = pending ? "SURE?" : "CLEAR ALL";
+            // question stands. The captions are constants, so choosing one allocates nothing.
+            _clearLabel.text = pending ? "SURE?" : _session.HasStart ? StartOverCaption : ClearCaption;
             _clearLabel.color = !clearable ? UiTheme.TextDim : pending ? UiTheme.Bad : UiTheme.Text;
             _clear.interactable = clearable;
         }
@@ -264,7 +277,7 @@ namespace BitSorter.View
         /// <summary>First press arms, second press within the window clears.</summary>
         private void AskToClear()
         {
-            if (_session == null || !_session.CanEdit || _session.Blueprint.IsEmpty)
+            if (_session == null || !_session.CanEdit || _session.IsAtStart)
                 return;
 
             if (_confirmUntil > Time.unscaledTime)

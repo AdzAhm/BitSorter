@@ -389,6 +389,13 @@ namespace BitSorter.LogicCore.Tests
             Assert.AreEqual(2, level.Fixtures.Count, "one source and one bin");
         }
 
+        /// <summary>The tutorial opens on an empty board: its first steps are putting a part down.</summary>
+        [Test]
+        public void TheBoardHasNoStartingCircuit()
+        {
+            Assert.IsFalse(TutorialLevel.Build(Board).HasStart);
+        }
+
         [Test]
         public void ThePaletteOffersThePartAndOneOther()
         {

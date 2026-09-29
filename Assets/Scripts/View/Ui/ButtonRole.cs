@@ -24,7 +24,7 @@ namespace BitSorter.View
         /// <summary>The way out that is not the point of the screen: KEEP TINKERING, SKIP.</summary>
         Quiet,
 
-        /// <summary>A button that throws the player's work away: CLEAR ALL.</summary>
+        /// <summary>A button that throws the player's work away: CLEAR ALL, or START OVER.</summary>
         Destructive,
     }
 }

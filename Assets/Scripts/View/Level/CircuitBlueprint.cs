@@ -133,6 +133,37 @@ namespace BitSorter.View
         }
 
         /// <summary>
+        /// Whether a live board holds exactly this circuit, in any order, without allocating.
+        /// </summary>
+        /// <remarks>
+        /// Not <see cref="Matches"/>, which counts order and needs a snapshot of the board to compare
+        /// with. A part removed and put back is the same circuit with that part at the end of the
+        /// list, and the run controls ask this every frame, for START OVER. One to one, because a
+        /// board has one part a cell and one wire between any two ports.
+        /// </remarks>
+        public bool DescribesBoard(CircuitBlueprint board)
+        {
+            if (board == null || board.Placements.Count != _placements.Length || board.Wires.Count != _wires.Length)
+                return false;
+
+            for (int i = 0; i < _placements.Length; i++)
+            {
+                if (!board.TryGetPlacement(_placements[i].Cell, out GateKind kind) || kind != _placements[i].Kind)
+                    return false;
+            }
+
+            for (int i = 0; i < _wires.Length; i++)
+            {
+                int index = board.IndexOfWire(_wires[i].From, _wires[i].To);
+
+                if (index < 0 || board.Wires[index].Delay != _wires[i].Delay)
+                    return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
         /// Whether two snapshots describe the same board, order included.
         /// </summary>
         /// <remarks>
