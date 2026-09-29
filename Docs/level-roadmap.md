@@ -69,6 +69,7 @@ author a level that silently fails to teach its own lesson.
 | 9 | Critical path | **(a)** | **Shipped.** `maxLatency` — see [Q2](#q2-can-a-level-score-on-critical-path-length). `odd-one-out` teaches it by shape: a chain of XORs is too slow, a tree is not |
 | 10 | Pipelining (latency vs throughput) | **(c)** | Every gate is already a register, and throughput is binary rather than graded — see below |
 | 10b | Pipeline stage balancing | **(a)** | The substitute lesson, and the game's core mechanic |
+| 11 | Debugging a given circuit | **(a)** | **Shipped (4.0.0).** A level may open on a circuit (`start`). `out-of-step` (timing), `wrong-part` (a wrong gate in a full adder) and `miscount` (a counter wired wrong), each just after the level that builds the thing it breaks |
 
 ---
 
@@ -260,7 +261,7 @@ CLA.
 
 ### 7. Latches and flip-flops — shipped
 
-**Built as the eight sequential levels**, orders 100 to 170. What follows is the
+**Built as the nine sequential levels**, orders 100 to 170. What follows is the
 analysis as it was written, kept because three of its four claims were right and
 the fourth is the interesting one.
 

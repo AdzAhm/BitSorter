@@ -1,0 +1,42 @@
+{
+  "name": "Out of step",
+  "order": 62,
+  "goal": "This circuit comes already built, and every gate in it is right: the bin should get (A AND B) OR (NOT C AND D). But its bits arrive out of step. Fix the timing.",
+  "hint": "Some numbers already on the board are wrong. Fix the collision nearest the sources first: it may be causing the other.",
+  "tickLimit": 40,
+  "maxWireDelay": 3,
+  "delayBudget": 2,
+  "fixtures": [
+    { "id": "a",   "kind": "Source", "cell": { "x": -4, "y":  2 }, "stream": "0000000011111111" },
+    { "id": "b",   "kind": "Source", "cell": { "x": -4, "y":  1 }, "stream": "0000111100001111" },
+    { "id": "c",   "kind": "Source", "cell": { "x": -4, "y": -1 }, "stream": "0011001100110011" },
+    { "id": "d",   "kind": "Source", "cell": { "x": -4, "y": -2 }, "stream": "0101010101010101" },
+    { "id": "out", "kind": "Sink",   "cell": { "x":  4, "y":  0 } }
+  ],
+  "budget": [
+    { "kind": "And", "count": 2 },
+    { "kind": "Not", "count": 1 },
+    { "kind": "Or",  "count": 1 }
+  ],
+  "expected": [
+    { "sink": "out", "values": "0100010001001111" }
+  ],
+  "start": {
+    "gates": [
+      { "kind": "And", "cell": { "x": -2, "y":  1 } },
+      { "kind": "Not", "cell": { "x": -2, "y": -1 } },
+      { "kind": "And", "cell": { "x":  0, "y": -2 } },
+      { "kind": "Or",  "cell": { "x":  2, "y":  0 } }
+    ],
+    "wires": [
+      { "from": { "x": -4, "y":  2 }, "to": { "x": -2, "y":  1 }, "toPort": 0, "delay": 1 },
+      { "from": { "x": -4, "y":  1 }, "to": { "x": -2, "y":  1 }, "toPort": 1, "delay": 1 },
+      { "from": { "x": -4, "y": -1 }, "to": { "x": -2, "y": -1 }, "toPort": 0, "delay": 1 },
+      { "from": { "x": -2, "y": -1 }, "to": { "x":  0, "y": -2 }, "toPort": 0, "delay": 2 },
+      { "from": { "x": -4, "y": -2 }, "to": { "x":  0, "y": -2 }, "toPort": 1, "delay": 1 },
+      { "from": { "x": -2, "y":  1 }, "to": { "x":  2, "y":  0 }, "toPort": 0, "delay": 2 },
+      { "from": { "x":  0, "y": -2 }, "to": { "x":  2, "y":  0 }, "toPort": 1, "delay": 1 },
+      { "from": { "x":  2, "y":  0 }, "to": { "x":  4, "y":  0 }, "toPort": 0, "delay": 1 }
+    ]
+  }
+}

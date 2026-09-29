@@ -85,6 +85,7 @@ namespace BitSorter.LogicCore.Tests
                 "dont-care",
                 "nothing-but-nand",
                 "the-slow-lane",
+                "out-of-step",
                 "odd-one-out",
                 "one-of-four",
                 "pick-a-lane",
@@ -93,6 +94,7 @@ namespace BitSorter.LogicCore.Tests
                 "which-is-bigger",
                 "half-adder",
                 "carry-the-one",
+                "wrong-part",
                 "pass-it-on",
                 "carry-it-further",
 
@@ -102,6 +104,7 @@ namespace BitSorter.LogicCore.Tests
                 "flip-on-one",
                 "hold-when-told",
                 "count-the-ones",
+                "miscount",
                 "spot-the-pattern",
                 "one-clock-behind",
                 "add-as-you-go",
@@ -147,6 +150,97 @@ namespace BitSorter.LogicCore.Tests
                     $"'{level.Key}' (order {level.Value.Order}) budgets delay, but the level that " +
                     $"teaches re-timing is order {tutorialOrder}. Teach the mechanic first.");
             }
+        }
+
+        // -----------------------------------------------------------------
+        // Levels that open on a circuit
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// No level opens on a circuit that already works, and none on one that lost a wire on the
+        /// way to the board.
+        /// </summary>
+        /// <remarks>
+        /// The second half is what makes the first worth anything. <see cref="CircuitBuilder"/> skips
+        /// a wire it cannot resolve without a word, so a start missing a wire would fail as shipped
+        /// for a reason nobody designed -- and pass this test.
+        /// </remarks>
+        [Test]
+        public void EveryStartingCircuit_FailsAsShipped()
+        {
+            int starts = 0;
+
+            foreach (KeyValuePair<string, LevelDefinition> level in LevelsInPlayOrder())
+            {
+                if (!level.Value.HasStart)
+                    continue;
+
+                starts++;
+
+                var board = new CircuitBlueprint();
+                board.Restore(level.Value.Start);
+
+                BuiltCircuit built = CircuitBuilder.Build(level.Value, board);
+
+                Assert.AreEqual(board.Wires.Count, built.Simulation.LiveEdgeCount,
+                    $"'{level.Key}' lost a start wire on the way to the board");
+                Assert.AreEqual(level.Value.Fixtures.Count + board.Placements.Count, built.Simulation.LiveNodeCount,
+                    $"'{level.Key}' lost a start part on the way to the board");
+
+                RunVerdict verdict = LevelGrader.RunToCompletion(built.Simulation, level.Value, built.FixtureNodeIds);
+
+                Assert.IsFalse(verdict.IsPass, $"'{level.Key}' ships already solved");
+            }
+
+            Assert.Greater(starts, 0, "sanity: no level opens on a circuit");
+        }
+
+        /// <summary>
+        /// A level's start survives being saved and restored whole, since the first visit saves it
+        /// as the player's board and every visit after restores that.
+        /// </summary>
+        /// <remarks>
+        /// The register's label once read back as nothing, so a counter's start would have come back
+        /// without its registers on the second visit.
+        /// </remarks>
+        [Test]
+        public void EveryStartingCircuit_SurvivesASave()
+        {
+            foreach (KeyValuePair<string, LevelDefinition> level in LevelsInPlayOrder())
+            {
+                if (!level.Value.HasStart)
+                    continue;
+
+                var board = new CircuitBlueprint();
+                board.Restore(level.Value.Start);
+
+                var restored = new CircuitBlueprint();
+                int dropped = BoardSerializer.Restore(
+                    BoardSerializer.ToSaved(level.Key, board), level.Value, restored, level.Value.BoardHalfExtents);
+
+                Assert.AreEqual(0, dropped, $"'{level.Key}': a save of the start dropped {dropped} of it");
+                Assert.IsTrue(level.Value.Start.DescribesBoard(restored), $"'{level.Key}': the start came back changed");
+            }
+        }
+
+        /// <summary>
+        /// The first level that opens on a circuit says so in its goal: the circuit is built, and the
+        /// job is to find what is wrong with it. A mechanic taught before it is required.
+        /// </summary>
+        [Test]
+        public void TheFirstLevelWithAStart_SaysSoInItsGoal()
+        {
+            foreach (KeyValuePair<string, LevelDefinition> level in LevelsInPlayOrder())
+            {
+                if (!level.Value.HasStart)
+                    continue;
+
+                StringAssert.Contains("already built", level.Value.Goal.ToLowerInvariant(),
+                    $"'{level.Key}' is the first level that opens on a circuit, and its goal does not say so");
+                return;
+            }
+
+            Assert.Fail("sanity: no level opens on a circuit");
         }
 
         /// <summary>

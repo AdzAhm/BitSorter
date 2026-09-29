@@ -131,6 +131,34 @@ namespace BitSorter.LogicCore.Tests
                 delay));
         }
 
+        /// <summary>A level's starting circuit, on a board of its own to edit.</summary>
+        internal static CircuitBlueprint FromStart(LevelDefinition level)
+        {
+            Assert.IsTrue(level.HasStart, "sanity: the level opens on an empty board");
+
+            var board = new CircuitBlueprint();
+            board.Restore(level.Start);
+            return board;
+        }
+
+        /// <summary>Re-times the wire into one input from one output, as a scroll over it would.</summary>
+        internal static void Retime(CircuitBlueprint board, Vector2Int from, Vector2Int to, int toPort, int delay)
+        {
+            int index = board.IndexOfWire(new CellPort(from, false, 0), new CellPort(to, true, toPort));
+            Assert.GreaterOrEqual(index, 0, $"sanity: no wire from {from} into {to} port {toPort}");
+
+            board.SetDelayAt(index, delay);
+        }
+
+        /// <summary>Takes the wire into one input from one output off the board.</summary>
+        internal static void Unwire(CircuitBlueprint board, Vector2Int from, Vector2Int to, int toPort)
+        {
+            int index = board.IndexOfWire(new CellPort(from, false, 0), new CellPort(to, true, toPort));
+            Assert.GreaterOrEqual(index, 0, $"sanity: no wire from {from} into {to} port {toPort}");
+
+            board.RemoveWireAt(index);
+        }
+
         /// <summary>Builds the circuit, runs it to a standstill, and grades it -- the whole Run cycle.</summary>
         internal static RunVerdict RunAndGrade(LevelDefinition level, CircuitBlueprint blueprint)
         {

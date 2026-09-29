@@ -1,0 +1,49 @@
+{
+  "name": "Wrong part",
+  "order": 92,
+  "goal": "This full adder comes already built, and its timing is right, but one of its parts is the wrong gate. SUM should get the sum and COUT the carry out. Replace the wrong part.",
+  "hint": "One bin is right on every row. The other goes wrong only where it should get a 1: follow it back from there.",
+  "tickLimit": 60,
+  "maxWireDelay": 3,
+  "delayBudget": 5,
+  "maxLatency": 4,
+  "fixtures": [
+    { "id": "a",    "kind": "Source", "cell": { "x": -4, "y":  2 }, "stream": "00001111" },
+    { "id": "b",    "kind": "Source", "cell": { "x": -4, "y":  0 }, "stream": "00110011" },
+    { "id": "cin",  "kind": "Source", "cell": { "x": -4, "y": -2 }, "stream": "01010101" },
+    { "id": "sum",  "kind": "Sink",   "cell": { "x":  4, "y":  1 } },
+    { "id": "cout", "kind": "Sink",   "cell": { "x":  4, "y": -1 } }
+  ],
+  "budget": [
+    { "kind": "Xor", "count": 3 },
+    { "kind": "And", "count": 3 },
+    { "kind": "Or",  "count": 1 }
+  ],
+  "expected": [
+    { "sink": "sum",  "values": "01101001" },
+    { "sink": "cout", "values": "00010111" }
+  ],
+  "start": {
+    "gates": [
+      { "kind": "Xor", "cell": { "x": -2, "y":  2 } },
+      { "kind": "And", "cell": { "x": -2, "y":  0 } },
+      { "kind": "Xor", "cell": { "x":  1, "y":  1 } },
+      { "kind": "And", "cell": { "x":  0, "y": -2 } },
+      { "kind": "And", "cell": { "x":  2, "y": -1 } }
+    ],
+    "wires": [
+      { "from": { "x": -4, "y":  2 }, "to": { "x": -2, "y":  2 }, "toPort": 0, "delay": 1 },
+      { "from": { "x": -4, "y":  0 }, "to": { "x": -2, "y":  2 }, "toPort": 1, "delay": 1 },
+      { "from": { "x": -4, "y":  2 }, "to": { "x": -2, "y":  0 }, "toPort": 0, "delay": 1 },
+      { "from": { "x": -4, "y":  0 }, "to": { "x": -2, "y":  0 }, "toPort": 1, "delay": 1 },
+      { "from": { "x": -2, "y":  2 }, "to": { "x":  1, "y":  1 }, "toPort": 0, "delay": 1 },
+      { "from": { "x": -4, "y": -2 }, "to": { "x":  1, "y":  1 }, "toPort": 1, "delay": 2 },
+      { "from": { "x": -2, "y":  2 }, "to": { "x":  0, "y": -2 }, "toPort": 0, "delay": 1 },
+      { "from": { "x": -4, "y": -2 }, "to": { "x":  0, "y": -2 }, "toPort": 1, "delay": 2 },
+      { "from": { "x": -2, "y":  0 }, "to": { "x":  2, "y": -1 }, "toPort": 0, "delay": 2 },
+      { "from": { "x":  0, "y": -2 }, "to": { "x":  2, "y": -1 }, "toPort": 1, "delay": 1 },
+      { "from": { "x":  1, "y":  1 }, "to": { "x":  4, "y":  1 }, "toPort": 0, "delay": 1 },
+      { "from": { "x":  2, "y": -1 }, "to": { "x":  4, "y": -1 }, "toPort": 0, "delay": 1 }
+    ]
+  }
+}

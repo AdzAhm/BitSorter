@@ -1,0 +1,44 @@
+{
+  "name": "Miscount",
+  "order": 145,
+  "goal": "This counter of 1s comes already built, and it never counts past one. Every part is right, and so is every wire's timing, but one wire goes to the wrong place.",
+  "hint": "LOW keeps count properly. Compare how the two columns are wired: one difference between them should not be there.",
+  "tickLimit": 60,
+  "clockPeriod": 2,
+  "maxWireDelay": 1,
+  "fixtures": [
+    { "id": "in",   "kind": "Source", "cell": { "x": -4, "y":  0 }, "stream": "1101111" },
+    { "id": "high", "kind": "Sink",   "cell": { "x":  4, "y":  1 } },
+    { "id": "low",  "kind": "Sink",   "cell": { "x":  4, "y": -1 } }
+  ],
+  "budget": [
+    { "kind": "Register", "count": 2 },
+    { "kind": "Xor",      "count": 2 },
+    { "kind": "And",      "count": 1 }
+  ],
+  "expected": [
+    { "sink": "high", "values": "00111001" },
+    { "sink": "low",  "values": "01001010" }
+  ],
+  "start": {
+    "gates": [
+      { "kind": "Xor",      "cell": { "x": -1, "y": -1 } },
+      { "kind": "Register", "cell": { "x":  1, "y": -1 } },
+      { "kind": "And",      "cell": { "x": -1, "y":  1 } },
+      { "kind": "Xor",      "cell": { "x":  1, "y":  1 } },
+      { "kind": "Register", "cell": { "x":  3, "y":  1 } }
+    ],
+    "wires": [
+      { "from": { "x": -4, "y":  0 }, "to": { "x": -1, "y": -1 }, "toPort": 0, "delay": 1 },
+      { "from": { "x":  1, "y": -1 }, "to": { "x": -1, "y": -1 }, "toPort": 1, "delay": 1 },
+      { "from": { "x": -1, "y": -1 }, "to": { "x":  1, "y": -1 }, "toPort": 0, "delay": 1 },
+      { "from": { "x":  1, "y": -1 }, "to": { "x":  4, "y": -1 }, "toPort": 0, "delay": 1 },
+      { "from": { "x": -4, "y":  0 }, "to": { "x": -1, "y":  1 }, "toPort": 0, "delay": 1 },
+      { "from": { "x":  1, "y": -1 }, "to": { "x": -1, "y":  1 }, "toPort": 1, "delay": 1 },
+      { "from": { "x": -1, "y":  1 }, "to": { "x":  1, "y":  1 }, "toPort": 1, "delay": 1 },
+      { "from": { "x":  1, "y": -1 }, "to": { "x":  1, "y":  1 }, "toPort": 0, "delay": 1 },
+      { "from": { "x":  1, "y":  1 }, "to": { "x":  3, "y":  1 }, "toPort": 0, "delay": 1 },
+      { "from": { "x":  3, "y":  1 }, "to": { "x":  4, "y":  1 }, "toPort": 0, "delay": 1 }
+    ]
+  }
+}

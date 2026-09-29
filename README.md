@@ -15,7 +15,7 @@ Above is the half adder: `A` and `B` each feed both gates, XOR produces
 the sum and AND produces the carry. Every bit is drawn as the digit it carries: a
 magenta 1, an indigo 0.
 
-Twenty-five levels, from routing a single bit to a state machine that adds two
+Twenty-eight levels, from routing a single bit to a state machine that adds two
 numbers a column at a time. Built in Unity
 as a way of working through a computer engineering digital systems course from
 the inside.
@@ -59,7 +59,7 @@ how the game runs by default, or held at 60 to use less power on a laptop.
 The bottom-right corner of the main menu says which version you are running,
 which is worth including if you report a bug.
 
-[A guided tutorial](#the-tutorial) covers the controls, twenty-five levels teach the
+[A guided tutorial](#the-tutorial) covers the controls, twenty-eight levels teach the
 ideas in order, and [a sandbox](#the-sandbox) is there for when you would rather
 build something without being marked on it.
 
@@ -142,7 +142,7 @@ until you reset your progress — and none of them pause the game.
 
 ### What it teaches
 
-Twenty-five levels, in this order. Each one is a topic from a digital systems course,
+Twenty-eight levels, in this order. Each one is a topic from a digital systems course,
 arranged so that a mechanic is always taught before it is required.
 
 | | Level | The idea |
@@ -154,16 +154,18 @@ arranged so that a mechanic is always taught before it is required.
 | 5 | Don't care | K-map minimisation with don't-cares: six rows that never happen make the circuit smaller |
 | 6 | Nothing but NAND | Functional completeness — XOR out of NANDs alone |
 | 7 | The slow lane | Delay arithmetic across a deep circuit |
-| 8 | Odd one out | Parity and the critical path: three gates in a chain are too slow; as a tree they are not |
-| 9 | One of four | A decoder: each output is one row of the table |
-| 10 | Pick a lane | A multiplexer, and fan-out to two places at once |
-| 11 | Four lanes | A 4:1 multiplexer built from three 2:1 ones, sharing one inverted select between two of them |
-| 12 | Highest wins | A priority encoder, with a valid output, and the first answer that doesn't matter on every row |
-| 13 | Which is bigger | A 1-bit comparator: less, equal, greater |
-| 14 | Half adder | Two outputs from one circuit: sum and carry |
-| 15 | Carry the one | A full adder, joining two half adders and their carries |
-| 16 | Pass it on | A 2-bit ripple-carry adder: the carry travels from one column to the next |
-| 17 | Carry it further | A 3-bit ripple-carry adder: the carry reaches each column later, and everything meeting it waits |
+| 8 | Out of step | Debugging: every gate is right and the timing is not. The board opens on the broken circuit; find the collision and re-time within the budget |
+| 9 | Odd one out | Parity and the critical path: three gates in a chain are too slow; as a tree they are not |
+| 10 | One of four | A decoder: each output is one row of the table |
+| 11 | Pick a lane | A multiplexer, and fan-out to two places at once |
+| 12 | Four lanes | A 4:1 multiplexer built from three 2:1 ones, sharing one inverted select between two of them |
+| 13 | Highest wins | A priority encoder, with a valid output, and the first answer that doesn't matter on every row |
+| 14 | Which is bigger | A 1-bit comparator: less, equal, greater |
+| 15 | Half adder | Two outputs from one circuit: sum and carry |
+| 16 | Carry the one | A full adder, joining two half adders and their carries |
+| 17 | Wrong part | Debugging: a full adder with one wrong gate, found from the rows where its output goes wrong |
+| 18 | Pass it on | A 2-bit ripple-carry adder: the carry travels from one column to the next |
+| 19 | Carry it further | A 3-bit ripple-carry adder: the carry reaches each column later, and everything meeting it waits |
 
 Then the circuits start to remember. A register keeps one bit and hands it on a
 clock later, and because a kept bit has to travel back round to meet the next
@@ -171,14 +173,15 @@ one, these levels space their vectors out on a clock.
 
 | | Level | The idea |
 |---|---|---|
-| 18 | One clock late | The register itself: it starts holding 0, and delays a stream by a clock |
-| 19 | Rising edge | This bit against the one before it — and a register hands its bit on early |
-| 20 | Flip on one | The first loop, and the clock a loop has to close inside |
-| 21 | Hold when told | A register with an enable: load, or keep what you have |
-| 22 | Count the ones | Two bits of state, and the carry between them |
-| 23 | Spot the pattern | A machine watching for 1-0-1, overlaps included, in two registers |
-| 24 | One clock behind | The same answer reported a clock later: Moore against Mealy |
-| 25 | Add as you go | A serial adder, one column per clock, its carry kept in a register |
+| 20 | One clock late | The register itself: it starts holding 0, and delays a stream by a clock |
+| 21 | Rising edge | This bit against the one before it — and a register hands its bit on early |
+| 22 | Flip on one | The first loop, and the clock a loop has to close inside |
+| 23 | Hold when told | A register with an enable: load, or keep what you have |
+| 24 | Count the ones | Two bits of state, and the carry between them |
+| 25 | Miscount | Debugging: a counter that never counts past one, with one wire in the wrong place |
+| 26 | Spot the pattern | A machine watching for 1-0-1, overlaps included, in two registers |
+| 27 | One clock behind | The same answer reported a clock later: Moore against Mealy |
+| 28 | Add as you go | A serial adder, one column per clock, its carry kept in a register |
 
 Deliberately out of scope: assembly, datapaths, memory addressing and number
 representation. Static and dynamic hazards are out too, and cannot be expressed —
