@@ -66,7 +66,10 @@ namespace BitSorter.View
                 case "xor": kind = GateKind.Xor; return true;
                 case "nand": kind = GateKind.Nand; return true;
                 case "nor": kind = GateKind.Nor; return true;
-                case "register": kind = GateKind.Register; return true;
+                // "reg" as well: it is the label, and a save writes the label. Without it every
+                // saved register, and every wire touching one, was dropped on restore.
+                case "register":
+                case "reg": kind = GateKind.Register; return true;
                 default: return false;
             }
         }

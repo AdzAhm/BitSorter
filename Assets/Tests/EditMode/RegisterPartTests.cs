@@ -39,11 +39,26 @@ namespace BitSorter.LogicCore.Tests
         [TestCase("Register")]
         [TestCase("register")]
         [TestCase("  REGISTER  ")]
+        [TestCase("REG")]
         public void ALevelOrSaveAsksForOneByName(string written)
         {
-            // Level budgets and saved boards both spell kinds as text, and both go through here.
+            // Level budgets and saved boards both spell kinds as text, and both go through here. A
+            // save writes the label, which is REG: that one went unparsed, and every saved register
+            // was dropped on restore.
             Assert.IsTrue(GatePalette.TryParse(written, out GateKind kind), written);
             Assert.AreEqual(GateKind.Register, kind);
+        }
+
+        /// <summary>Every kind's label reads back as that kind, since the label is what a save writes.</summary>
+        [Test]
+        public void EveryLabel_ParsesBackToItsKind()
+        {
+            foreach (GateKind kind in System.Enum.GetValues(typeof(GateKind)))
+            {
+                Assert.IsTrue(GatePalette.TryParse(GatePalette.Label(kind), out GateKind parsed),
+                    $"{kind}'s label '{GatePalette.Label(kind)}' does not parse");
+                Assert.AreEqual(kind, parsed, $"{kind}'s label parses as another kind");
+            }
         }
 
         [Test]
