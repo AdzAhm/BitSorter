@@ -48,11 +48,13 @@ namespace BitSorter.View
             Palette palette = Palette.Current;
 
             // A faint mark every fourth tick, under everything else, where the tick numbers are --
-            // in the board's own grid colour, quiet enough not to read as a second playhead.
+            // in the colour of the board's own faint traces, quiet enough not to read as a second
+            // playhead. The grid colour was tried first: in Neon Board it is the copper of the pads,
+            // and every fourth tick came out as a bright orange line.
             for (int i = 0; i < ticks; i++)
             {
                 if ((start + i) % WaveformPanel.NumberEvery == 0)
-                    Quad(vh, left + i * width, bottom, left + i * width + 1f, top, palette.Grid);
+                    Quad(vh, left + i * width, bottom, left + i * width + 1f, top, palette.GroundTrace);
             }
 
             for (int row = 0; row < panel.RowCount; row++)
