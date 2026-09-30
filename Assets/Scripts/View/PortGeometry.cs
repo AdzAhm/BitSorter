@@ -106,11 +106,12 @@ namespace BitSorter.View
         /// thing drawn, and so the size that has to fit.
         /// </summary>
         /// <remarks>
-        /// The largest that fits between the capsule and the top of the square the source occupies.
-        /// On a 13 by 7 board a cell is small, and a disc at the register's size was a few pixels
-        /// across with its digit barely there.
+        /// A little under the largest that fits between the capsule and the top of the square the
+        /// source occupies. That largest, 0.27, read as big beside the capsule and was taken down a
+        /// step on request (2026-09-30). Not down to the register's size: on a 13 by 7 board a cell
+        /// is small, and a disc that size was a few pixels across with its digit barely there.
         /// </remarks>
-        public const float NextBitPlateRadius = 0.27f;
+        public const float NextBitPlateRadius = 0.24f;
 
         /// <summary>Radius of a source's next bit on its plate, in shape units.</summary>
         /// <remarks>
