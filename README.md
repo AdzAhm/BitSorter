@@ -339,10 +339,10 @@ Unity 6.3 LTS (6000.3.11f1).
   `TestResults.xml` in the save directory rather than from a `TestRunnerApi`
   callback, which does not survive the domain reload that entering play mode
   causes.
-- **BitSorter → Capture Reference Shots** screenshots twenty-four states of the
+- **BitSorter → Capture Reference Shots** screenshots twenty-five states of the
   real game — menu, board, a run, both kinds of collision, the cards, free play,
   settings, the credits, the wider boards, the three levels that open on a broken
-  circuit — into the save directory. Two captures of the same code are identical
+  circuit, the timing diagram mid-run — into the save directory. Two captures of the same code are identical
   to the pixel, so a change that claims to leave the look alone can be held to it.
   It needs the Game view.
 - To compile without the editor at all, Bee leaves the exact compiler invocation

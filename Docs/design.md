@@ -519,7 +519,7 @@ stays, over the two. *(3.0.2)*
 - **`CurriculumTests` checks the run as a whole**: that hints give nothing away,
   that every level states a goal, and that a mechanic is taught before it is
   required.
-- **The look is held to twenty-four reference screenshots**, captured from the real
+- **The look is held to twenty-five reference screenshots**, captured from the real
   game on a fixed frame time with every ambient pulse pinned and every particle
   seeded, so two captures of the same code are identical to the pixel and a change
   that claims to leave the look alone can be held to it. That promise failed about

@@ -709,6 +709,67 @@ namespace BitSorter.PlayMode.Tests
         [UnityTest]
         public IEnumerator Shot24_Miscount() => OpensOnItsCircuit("miscount", "in", "24-miscount");
 
+        /// <summary>
+        /// The timing diagram open mid-run, with W1 on a wire whose bits collide.
+        /// </summary>
+        /// <remarks>
+        /// Shot 04's board: an AND with only A wired in, so A's bits pile up at its first input.
+        /// A's second 0 lands on the first (only the arrival dies), then A's first 1 lands on the
+        /// held 0 (both die) -- W1 shows 0, then 0 and 1 each crossed, then the 1 that got in. The
+        /// sources run their streams above it and the bins stay empty, which is the lesson: nothing
+        /// reaches CARRY while the AND waits on an input that never comes.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator Shot25_TimingDiagram()
+        {
+            yield return OpenOnTheBoard();
+
+            // The board and the diagram, not the lessons a first collision and stall bring up.
+            ProgressStore store = Find<ProgressTracker>().Store;
+            store.MarkHintSeen(HintRules.Collision);
+            store.MarkHintSeen(HintRules.Stalled);
+
+            LevelSession session = Find<LevelSession>();
+            SimulationRunner runner = Find<SimulationRunner>();
+
+            Assert.IsTrue(session.TryPlaceGate(GateKind.And, Low), "could not place the AND");
+            int and = NodeOn(runner, Low);
+            int a = runner.FixtureNodeIds["a"];
+            Wire(session, a, and, 0);
+            Wire(session, and, runner.FixtureNodeIds["carry"], 0);
+
+            Edge aIntoTheAnd = null;
+
+            for (int id = 0; id < runner.View.EdgeCount; id++)
+            {
+                Edge edge = runner.View.GetEdge(id);
+
+                if (edge != null && edge.Source.Owner.Id == a && edge.Target.Owner.Id == and)
+                    aIntoTheAnd = edge;
+            }
+
+            Assert.IsNotNull(aIntoTheAnd, "sanity: A's wire into the AND was not built");
+            Assert.AreEqual(ProbeToggle.Added, Find<ProbeController>().Toggle(aIntoTheAnd), "W1 did not go in");
+
+            WaveformPanel diagram = Find<WaveformPanel>();
+            diagram.Badge.onClick.Invoke();
+            yield return Frames(2);
+
+            // Tick 4, with both collisions recorded and A's last bit still on its wire. By tick 5
+            // it has landed, nothing is in flight, and the run is over with no middle to wait for.
+            session.Run();
+            yield return UntilTick(4);
+            yield return HalfATick();
+
+            int w1 = diagram.RowCount - WaveformPanel.WireRows;
+            Assert.IsTrue(diagram.TryCell(w1, 2, out WaveCell second) && second.Collided,
+                "W1 shows no collision at tick 2, so the shot would show none");
+            Assert.IsTrue(diagram.TryCell(w1, 3, out WaveCell third) && third.Collided,
+                "W1 shows no collision at tick 3");
+
+            yield return Capture("25-timing-diagram");
+        }
+
         private static IEnumerator OpensOnItsCircuit(string level, string fixture, string shot)
         {
             yield return LoadTheGame();
