@@ -133,8 +133,21 @@ namespace BitSorter.View
             return _hits.Count > 0;
         }
 
+        /// <summary>
+        /// Whether Alt is held: an Alt+click picks a wire for the timing diagram. False while a text
+        /// field has the keyboard, like every other key.
+        /// </summary>
+        public bool AltHeld
+        {
+            get
+            {
+                Keyboard keyboard = UiText.Keyboard;
+                return keyboard != null && keyboard.altKey.isPressed;
+            }
+        }
+
         /// <summary>Who the pointer belongs to right now.</summary>
-        public PointerOwner Owner => PointerRules.OwnerOf(PaletteDragging, WiringDragging, PointerOverUi);
+        public PointerOwner Owner => PointerRules.OwnerOf(PaletteDragging, WiringDragging, PointerOverUi, AltHeld);
 
         /// <summary>Whether <paramref name="user"/> may act on this frame.</summary>
         public bool MayAct(PointerUser user) => PointerRules.MayAct(user, Owner);

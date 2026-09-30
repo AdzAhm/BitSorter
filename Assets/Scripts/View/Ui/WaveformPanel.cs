@@ -40,6 +40,7 @@ namespace BitSorter.View
         [SerializeField] private GatePaletteView _palette;
         [SerializeField] private SandboxPanel _sandbox;
         [SerializeField] private HelpPanel _help;
+        [SerializeField] private ProbeController _probes;
 
         [Tooltip("Canvas the strip is built under. Found by type when left empty.")]
         [SerializeField] private Canvas _canvas;
@@ -67,7 +68,12 @@ namespace BitSorter.View
         public const int NumberEvery = 4;
 
         /// <summary>Rows kept for wires the player picks, whether or not any is picked.</summary>
-        public const int WireRows = 4;
+        public const int WireRows = WireProbes.Slots;
+
+        /// <summary>
+        /// What the first empty wire row says: the gesture that fills it, where its result appears.
+        /// </summary>
+        public const string EmptyWireRow = "Alt+click a wire to show its bits here";
 
         /// <summary>Space between the badge and the help badge beside it.</summary>
         private const float BadgeGap = 24f;
@@ -83,6 +89,8 @@ namespace BitSorter.View
         private Image _badge;
 
         private readonly List<TextMeshProUGUI> _rowLabels = new List<TextMeshProUGUI>();
+        private TextMeshProUGUI _emptyWireHint;
+        private int _probesRevision = -1;
         private readonly List<TextMeshProUGUI> _tickLabels = new List<TextMeshProUGUI>();
         private readonly List<int> _tickLabelShows = new List<int>();
         private readonly char[] _digits = new char[10];
@@ -148,6 +156,7 @@ namespace BitSorter.View
             if (_palette == null) _palette = FindFirstObjectByType<GatePaletteView>();
             if (_sandbox == null) _sandbox = FindFirstObjectByType<SandboxPanel>();
             if (_help == null) _help = FindFirstObjectByType<HelpPanel>();
+            if (_probes == null) _probes = FindFirstObjectByType<ProbeController>();
             if (_canvas == null) _canvas = FindFirstObjectByType<Canvas>();
         }
 
@@ -244,8 +253,28 @@ namespace BitSorter.View
                 return true;
             }
 
-            // The wire rows, which nothing fills yet.
-            return false;
+            row -= _recorder.SinkCount;
+
+            // A wire the player picked: what arrived at its far end.
+            int edgeId = _probes != null ? _probes.Probes.EdgeIdAt(row) : -1;
+
+            if (edgeId < 0)
+                return false;
+
+            cell = _recorder.EdgeCell(edgeId, tick);
+            return true;
+        }
+
+        /// <summary>The first wire row without a wire in it, or -1 when all four are used.</summary>
+        private int FirstEmptyWireRow()
+        {
+            for (int slot = 0; slot < WireRows; slot++)
+            {
+                if (_probes == null || !_probes.Probes.IsUsed(slot))
+                    return slot;
+            }
+
+            return -1;
         }
 
         /// <summary>The colour a row's line is drawn in: the clock quieter than the signals.</summary>
@@ -285,6 +314,15 @@ namespace BitSorter.View
 
             if (Fit())
                 _dirty = true;
+
+            int probes = _probes != null ? _probes.Probes.Revision : 0;
+
+            if (probes != _probesRevision)
+            {
+                _probesRevision = probes;
+                LabelTheWires();
+                _dirty = true;
+            }
 
             int start = WindowStartFor(_recorder.LastTick, VisibleTicks, _recorder.FirstTick);
 
@@ -410,8 +448,49 @@ namespace BitSorter.View
             for (int i = 0; i < WireRows; i++)
                 RowLabel(row++, "W" + (i + 1), UiTheme.TextDim);
 
-            _leftInset = -1f;   // the height changed, so lay the strip out again
+            if (_emptyWireHint == null)
+            {
+                _emptyWireHint = UiTheme.Label("empty wire row", _labels, UiType.Micro, UiTheme.TextDim, TextAlignmentOptions.MidlineLeft);
+                _emptyWireHint.raycastTarget = false;
+                _emptyWireHint.text = EmptyWireRow;
+            }
+
+            _probesRevision = -1;   // the rows moved, so the wires' labels and the hint follow
+            _leftInset = -1f;       // the height changed, so lay the strip out again
             _dirty = true;
+        }
+
+        /// <summary>
+        /// A wire row's name is bright while it holds a wire and dim while it waits for one, and the
+        /// first empty one says how to fill it.
+        /// </summary>
+        private void LabelTheWires()
+        {
+            int first = RowCount - WireRows;
+
+            for (int slot = 0; slot < WireRows; slot++)
+            {
+                int row = first + slot;
+
+                if (row >= 0 && row < _rowLabels.Count)
+                    _rowLabels[row].color = _probes != null && _probes.Probes.IsUsed(slot) ? UiTheme.Text : UiTheme.TextDim;
+            }
+
+            if (_emptyWireHint == null)
+                return;
+
+            int empty = FirstEmptyWireRow();
+            bool show = empty >= 0;
+
+            if (_emptyWireHint.gameObject.activeSelf != show)
+                _emptyWireHint.gameObject.SetActive(show);
+
+            if (!show)
+                return;
+
+            UiTheme.Anchor(_emptyWireHint.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f),
+                new Vector2(Padding + LabelWidth + 4f, -(Padding + HeaderHeight + (first + empty) * RowHeight)),
+                new Vector2(420f, RowHeight));
         }
 
         private string NameOf(int nodeId)

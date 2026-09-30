@@ -19,11 +19,13 @@ namespace BitSorter.LogicCore.Tests
         private static readonly PointerUser[] AllUsers =
         {
             PointerUser.Placement, PointerUser.Wiring, PointerUser.WireDelay, PointerUser.Palette,
+            PointerUser.Probe,
         };
 
         private static readonly PointerOwner[] AllOwners =
         {
             PointerOwner.None, PointerOwner.Ui, PointerOwner.Wiring, PointerOwner.Palette,
+            PointerOwner.Probing,
         };
 
         // -----------------------------------------------------------------
@@ -109,6 +111,32 @@ namespace BitSorter.LogicCore.Tests
                 PointerRules.OwnerOf(false, true, false));
             Assert.AreEqual(PointerOwner.Palette,
                 PointerRules.OwnerOf(true, false, false));
+        }
+
+        /// <summary>
+        /// Alt held over the board is the wire picker's, and only that: without it, the same click
+        /// placed the part in hand under the wire or started a wire from a port beside it.
+        /// </summary>
+        [Test]
+        public void AltOverTheBoard_IsTheWirePickersAlone()
+        {
+            Assert.AreEqual(PointerOwner.Probing, PointerRules.OwnerOf(false, false, false, altHeld: true));
+
+            Assert.IsTrue(PointerRules.MayAct(PointerUser.Probe, PointerOwner.Probing));
+            Assert.IsFalse(PointerRules.MayAct(PointerUser.Placement, PointerOwner.Probing), "a gate would be placed");
+            Assert.IsFalse(PointerRules.MayAct(PointerUser.Wiring, PointerOwner.Probing), "a wire would be started");
+            Assert.IsFalse(PointerRules.MayAct(PointerUser.WireDelay, PointerOwner.Probing));
+            Assert.IsFalse(PointerRules.MayAct(PointerUser.Palette, PointerOwner.Probing));
+        }
+
+        /// <summary>A drag in flight or the interface keeps the pointer, whatever keys are down.</summary>
+        [Test]
+        public void DragsAndTheInterface_OutrankAlt()
+        {
+            Assert.AreEqual(PointerOwner.Palette, PointerRules.OwnerOf(true, false, false, altHeld: true));
+            Assert.AreEqual(PointerOwner.Wiring, PointerRules.OwnerOf(false, true, false, altHeld: true));
+            Assert.AreEqual(PointerOwner.Ui, PointerRules.OwnerOf(false, false, true, altHeld: true));
+            Assert.IsFalse(PointerRules.MayAct(PointerUser.Probe, PointerOwner.Ui), "an Alt+click on a button picked a wire");
         }
 
         [Test]

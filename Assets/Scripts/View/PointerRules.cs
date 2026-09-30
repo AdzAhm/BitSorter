@@ -14,6 +14,12 @@ namespace BitSorter.View
 
         /// <summary>A gate is being dragged out of the palette.</summary>
         Palette,
+
+        /// <summary>
+        /// Alt is held over the board: a click picks a wire for the timing diagram, and does nothing
+        /// else.
+        /// </summary>
+        Probing,
     }
 
     /// <summary>Something that reads the mouse and wants to know whether it may act.</summary>
@@ -23,6 +29,9 @@ namespace BitSorter.View
         Wiring,
         WireDelay,
         Palette,
+
+        /// <summary>The timing diagram's wire picker, on Alt+click.</summary>
+        Probe,
     }
 
     /// <summary>
@@ -57,7 +66,17 @@ namespace BitSorter.View
         /// cannot both begin, and if some future bug lets them, the newer interaction winning is the
         /// one the player can escape by releasing the button.
         /// </remarks>
-        public static PointerOwner OwnerOf(bool paletteDragging, bool wiringDragging, bool pointerOverUi)
+        public static PointerOwner OwnerOf(bool paletteDragging, bool wiringDragging, bool pointerOverUi) =>
+            OwnerOf(paletteDragging, wiringDragging, pointerOverUi, altHeld: false);
+
+        /// <inheritdoc cref="OwnerOf(bool, bool, bool)"/>
+        /// <remarks>
+        /// Alt held over the board is last: a drag in flight keeps the pointer whatever keys are down,
+        /// and the interface keeps its own clicks. Otherwise an Alt+click picks a wire for the timing
+        /// diagram and nothing else -- without this, the same press placed the part in hand on the
+        /// empty cell under the wire, or started a wire from a port near it.
+        /// </remarks>
+        public static PointerOwner OwnerOf(bool paletteDragging, bool wiringDragging, bool pointerOverUi, bool altHeld)
         {
             if (paletteDragging)
                 return PointerOwner.Palette;
@@ -68,6 +87,9 @@ namespace BitSorter.View
             if (pointerOverUi)
                 return PointerOwner.Ui;
 
+            if (altHeld)
+                return PointerOwner.Probing;
+
             return PointerOwner.None;
         }
 
@@ -76,11 +98,12 @@ namespace BitSorter.View
         /// The whole matrix, stated once:
         ///
         /// <code>
-        /// owner \ user  | Placement | Wiring | WireDelay | Palette
-        /// None          |     y     |    y   |     y     |    y
-        /// Ui            |     n     |    n   |     n     |    y
-        /// Wiring        |     n     |    y   |     n     |    n
-        /// Palette       |     n     |    n   |     n     |    y
+        /// owner \ user  | Placement | Wiring | WireDelay | Palette | Probe
+        /// None          |     y     |    y   |     y     |    y    |   y
+        /// Ui            |     n     |    n   |     n     |    y    |   n
+        /// Wiring        |     n     |    y   |     n     |    n    |   n
+        /// Palette       |     n     |    n   |     n     |    y    |   n
+        /// Probing       |     n     |    n   |     n     |    n    |   y
         /// </code>
         ///
         /// Two rows are worth explaining. Under <see cref="PointerOwner.Ui"/> the palette may still
@@ -104,6 +127,9 @@ namespace BitSorter.View
 
                 case PointerOwner.Palette:
                     return user == PointerUser.Palette;
+
+                case PointerOwner.Probing:
+                    return user == PointerUser.Probe;
 
                 default:
                     // An owner nobody taught this method about must not silently disable the board.

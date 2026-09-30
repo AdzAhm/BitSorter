@@ -638,7 +638,11 @@ failure side.
   `-30000` and samples "over the interface" before anything reacts to the
   frame's input: a tap puts press and release in one frame, the event system
   handles the whole click, and a button that closes its panel would otherwise
-  leave nothing under the pointer by the time placement asks.
+  leave nothing under the pointer by the time placement asks. **Alt held over
+  the board is an owner too** (`PointerOwner.Probing`): the click picks a wire
+  for the timing diagram and nothing else. Before it, nothing read Alt, and an
+  Alt+click placed the part in hand under the wire or started a wire from a
+  port beside it. Drags and the interface still outrank it.
 - **`UiText` arbitrates the keyboard, as `PointerGate` does the mouse.** Naming a
   free-play board put the first text field into a game that binds N, M, Q, E, H,
   R, Space, Enter and Escape in seventeen places, so typing "Adder" would have
@@ -1016,6 +1020,23 @@ failure side.
   bottom-right corner, under the strip. They follow the strip's one flag
   instead of reading F2 themselves, so the key and the badge cannot leave the
   two out of step. Both hide while `UiModal.HudVisible` is false.
+
+  **A wire the player picks is in the diagram too**: Alt+click on a wire,
+  any time the board is on screen, running or not (`ProbeController`), up to
+  four, W1 to W4, each with a tag on its wire. The tag sits on the side of the
+  wire the delay's number does not. Things to know:
+  - A picked wire's row is what arrived at its far end, where a bit waits or
+    collides. Every wire is recorded from tick 0, so one picked mid-run shows
+    its history.
+  - Picked wires are held by the two ports they join, never by edge id
+    (`WireProbes`). Every edit and RUN rebuilds the graph and renumbers edges.
+  - A deleted wire takes its slot with it, undo does not bring it back, and a
+    new level starts with none.
+  - Slots stay put, so taking W1 out leaves W2 as W2.
+  - A fifth wire is refused with the way out.
+  - **"Probe" is the code's word and never the player's.** A playtester asked
+    what probing a wire meant (2026-09-30). The screen says W1 to W4, and the
+    first empty row says "Alt+click a wire to show its bits here".
 - **Anything shown to the player is derived, never restated.** The truth
   table comes from the level's own streams and expectations; node labels
   come from `Node.Name`. A second copy of a fact is a second thing to

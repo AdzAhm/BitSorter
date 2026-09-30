@@ -27,6 +27,7 @@ namespace BitSorter.View
         [SerializeField] private SimulationRunner _runner;
         [SerializeField] private WireDelayController _delay;
         [SerializeField] private SparkEffects _sparks;
+        [SerializeField] private ProbeController _probes;
         [SerializeField] private float _casingWidth = 0.17f;
         [SerializeField] private float _coreWidth = 0.065f;
         [SerializeField] private float _markLength = 0.20f;
@@ -45,6 +46,14 @@ namespace BitSorter.View
         private Camera _camera;
         private int _builtRevision = -1;
         private int _sparkedCount;
+
+        /// <summary>The W1-W4 tags on wires in the timing diagram, and what they were built for.</summary>
+        private readonly List<GameObject> _tags = new List<GameObject>();
+        private int _taggedProbes = -1;
+        private int _taggedGraph = -1;
+
+        /// <summary>A tag's pill: the delay label's, wide enough for two characters.</summary>
+        private static readonly Vector2 TagPill = new Vector2(0.52f, 0.28f);
 
         /// <summary>Offset of the number from the wire's centreline, so the marks have the middle.</summary>
         /// <remarks>
@@ -96,6 +105,9 @@ namespace BitSorter.View
             if (_sparks == null)
                 _sparks = FindFirstObjectByType<SparkEffects>();
 
+            if (_probes == null)
+                _probes = FindFirstObjectByType<ProbeController>();
+
             _camera = Camera.main;
 
             _container = new GameObject("Edges").transform;
@@ -111,6 +123,15 @@ namespace BitSorter.View
             {
                 Rebuild();
                 _builtRevision = _runner.GraphRevision;
+            }
+
+            int probes = _probes != null ? _probes.Probes.Revision : 0;
+
+            if (probes != _taggedProbes || _builtRevision != _taggedGraph)
+            {
+                TagTheProbedWires();
+                _taggedProbes = probes;
+                _taggedGraph = _builtRevision;
             }
 
             // Unconditional: hover and the flash both change without the graph changing.
@@ -221,6 +242,84 @@ namespace BitSorter.View
             text.rectTransform.sizeDelta = new Vector2(LabelPill.x * 2f, LabelPill.y);
 
             return text;
+        }
+
+        /// <summary>
+        /// A tag on each wire in the timing diagram -- W1 to W4, as its row there is named -- on the
+        /// side of the wire the delay's number is not.
+        /// </summary>
+        /// <remarks>
+        /// The middle of a wire is taken: its bits travel through it, and a delay of two puts a
+        /// hatch there. The number sits off to one side, so the tag takes the other, at the same
+        /// distance, which keeps it as clear of a passing bit as the number is. In the text colour
+        /// on the number's dark pill: every hue on the board already means a part, a bit or a state,
+        /// and the W says what it is.
+        /// </remarks>
+        private void TagTheProbedWires()
+        {
+            for (int i = 0; i < _tags.Count; i++)
+            {
+                if (_tags[i] != null)
+                    Destroy(_tags[i]);
+            }
+
+            _tags.Clear();
+
+            if (_probes == null)
+                return;
+
+            SimulationView view = _runner.View;
+
+            for (int slot = 0; slot < WireProbes.Slots; slot++)
+            {
+                int id = _probes.Probes.EdgeIdAt(slot);
+
+                if (id < 0 || id >= view.EdgeCount)
+                    continue;
+
+                Edge edge = view.GetEdge(id);
+
+                if (edge == null)
+                    continue;
+
+                Vector2 from = PortGeometry.EndpointOf(edge.Source, _runner.PositionOf(edge.Source.Owner.Id));
+                Vector2 to = PortGeometry.EndpointOf(edge.Target, _runner.PositionOf(edge.Target.Owner.Id));
+                Vector2 at = (from + to) * 0.5f - Normal(from, to) * LabelOffset;
+
+                _tags.Add(SpawnTag(slot, at));
+            }
+        }
+
+        private GameObject SpawnTag(int slot, Vector2 at)
+        {
+            var host = new GameObject($"Wire tag W{slot + 1}");
+            host.transform.SetParent(_container, false);
+            host.transform.position = at;
+
+            var pill = new GameObject("backing");
+            pill.transform.SetParent(host.transform, false);
+
+            var backing = pill.AddComponent<SpriteRenderer>();
+            backing.sprite = ProceduralSprites.Dot();
+            backing.color = Palette.Current.DelayLabelBacking;
+            backing.sortingOrder = ViewLayers.WireLabelBacking;
+
+            Vector2 native = backing.sprite.bounds.size;
+            pill.transform.localScale = new Vector3(TagPill.x / native.x, TagPill.y / native.y, 1f);
+
+            var name = new GameObject("name");
+            name.transform.SetParent(host.transform, false);
+
+            var text = name.AddComponent<TextMeshPro>();
+            text.text = "W" + (slot + 1);
+            text.fontSize = LabelFontSize;
+            text.alignment = TextAlignmentOptions.Center;
+            text.textWrappingMode = TextWrappingModes.NoWrap;
+            text.color = Palette.Current.Text;
+            text.sortingOrder = ViewLayers.WireLabel;
+            text.rectTransform.sizeDelta = new Vector2(TagPill.x * 2f, TagPill.y);
+
+            return host;
         }
 
         /// <summary>

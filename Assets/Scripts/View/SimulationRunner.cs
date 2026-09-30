@@ -91,6 +91,12 @@ namespace BitSorter.View
 
         private static readonly Dictionary<string, int> EmptyFixtureIds = new Dictionary<string, int>();
 
+        /// <summary>Node id to the cell it sits on, from the most recent rebuild.</summary>
+        public IReadOnlyDictionary<int, Vector2Int> NodeCells =>
+            _circuit != null ? _circuit.Cells : EmptyCells;
+
+        private static readonly Dictionary<int, Vector2Int> EmptyCells = new Dictionary<int, Vector2Int>();
+
         /// <summary>
         /// Whether the clock may advance at all. Set by the level session, which holds it false while
         /// the player is editing.

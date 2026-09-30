@@ -125,6 +125,9 @@ namespace BitSorter.View.EditorTools
             // The timing diagram along the bottom, behind F2 and the badge beside the help badge.
             // Diagnostics follows its flag.
             WaveformPanel waveform = host.AddComponent<WaveformPanel>();
+
+            // Alt+click on a wire puts it in the diagram.
+            ProbeController probes = host.AddComponent<ProbeController>();
             ProgressTracker progress = host.AddComponent<ProgressTracker>();
 
             // Reads the tracker's store only in Update, after every Awake has run, so its place in
@@ -186,6 +189,7 @@ namespace BitSorter.View.EditorTools
             Assign(edges, "_runner", runner);
             Assign(edges, "_delay", wireDelay);
             Assign(edges, "_sparks", sparks);
+            Assign(edges, "_probes", probes);
             Assign(bits, "_runner", runner);
             Assign(bits, "_bitPrefab", bitPrefab);
 
@@ -248,7 +252,12 @@ namespace BitSorter.View.EditorTools
             Assign(waveform, "_palette", palette);
             Assign(waveform, "_sandbox", sandbox);
             Assign(waveform, "_help", help);
+            Assign(waveform, "_probes", probes);
             Assign(waveform, "_canvas", canvas);
+
+            Assign(probes, "_runner", runner);
+            Assign(probes, "_session", session);
+            Assign(probes, "_pointer", pointer);
 
             Assign(progress, "_session", session);
             Assign(progress, "_runner", runner);

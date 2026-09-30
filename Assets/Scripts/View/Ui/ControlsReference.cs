@@ -227,6 +227,11 @@ namespace BitSorter.View
             new ControlEntry("right arrow to step one tick", ControlSpot.None, ControlKind.Running),
             TimingDiagram,
 
+            // Off the board, whose blocks are full: named on the card, and on the timing diagram's
+            // own first empty wire row, which is where what it does shows up. "Probe" is the
+            // lab's word, and a playtester asked what it meant (2026-09-30).
+            new ControlEntry("Alt+click a wire to add it to the diagram", ControlSpot.None, ControlKind.Running),
+
             // H and M are off the menu's line: with the menu open neither does anything -- the level
             // list will not stack on the menu, and H is held back the same way.
             new ControlEntry("H for help", ControlSpot.HelpBadge, ControlKind.Everything),
