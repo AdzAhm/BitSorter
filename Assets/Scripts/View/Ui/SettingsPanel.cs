@@ -122,23 +122,21 @@ namespace BitSorter.View
         private static readonly string[] WithoutDisplay =
             { AudioHeading, PrivacyHeading, ProgressHeading, AboutHeading };
 
-        public const string AudioText =
-            "SOUND switches everything, as N does from anywhere. MUSIC and EFFECTS switch one each.";
+        /// <remarks>
+        /// Each section says only what its buttons cannot: they already say what they switch, and
+        /// the screen once read as a wall of words (2026-09-30).
+        /// </remarks>
+        public const string AudioText = "N switches the sound from anywhere.";
 
         public const string DisplayText =
-            "Fill the screen, or play in a window: Alt+Enter does the same. " +
-            "VSYNC keeps the frame rate to your screen's. Turn it off to set FRAME CAP yourself: " +
-            "lower uses less power. FPS COUNTER shows the frame rate in the top right corner.";
+            "Alt+Enter also switches fullscreen. With VSYNC off, a lower frame cap saves power.";
 
         public const string PrivacyText =
             "Reports which levels people get stuck on. The README lists exactly what is sent.";
 
-        /// <remarks>Names only the settings this build has: a browser build has no DISPLAY section.</remarks>
-        public static string ProgressText =>
-            "Forget every solved level, saved board, personal best and hint already shown, and " +
-            "start again from the tutorial. " +
-            (DisplayRules.Offered ? "Sound, display and data settings" : "Sound and data settings") +
-            " stay as they are.";
+        public const string ProgressText =
+            "Start over from the tutorial: every solved level, board, best and hint is forgotten. " +
+            "Settings are kept.";
 
         /// <summary>The question RESET PROGRESS asks.</summary>
         public const string Question = "Reset all progress? This cannot be undone.";
