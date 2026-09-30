@@ -192,22 +192,10 @@ namespace BitSorter.LogicCore.Tests
             Assert.AreEqual(2, built.Simulation.CorruptedCount, "sanity: one bit lost on each tick");
         }
 
-        /// <summary>
-        /// On a clocked level a source sends only on the ticks the clock is high, and the clock is
-        /// the old corner diagram's, one tick on from the executed tick it counts.
-        /// </summary>
+        /// <summary>On a clocked level a source sends only on the ticks the clock is high.</summary>
         [Test]
         public void TheClock_IsHighOnExactlyTheTicksTheSourcesSendOn()
         {
-            for (int period = 1; period <= 6; period++)
-            {
-                for (int tick = 0; tick < 30; tick++)
-                {
-                    Assert.AreEqual(ClockDiagram.IsHigh(tick + 1, period), WaveformRecorder.ClockOn(tick, period),
-                        $"tick {tick}, period {period}");
-                }
-            }
-
             LevelDefinition level = LevelTestFixtures.FourVectorsOnAClock("0011", clockPeriod: 3);
             WaveformRecorder recorder = Record(level, new CircuitBlueprint(), 12, out BuiltCircuit _);
 
@@ -216,6 +204,20 @@ namespace BitSorter.LogicCore.Tests
                 Assert.AreEqual(WaveformRecorder.ClockOn(tick, 3), recorder.SourceCell(0, tick).Value.HasValue,
                     $"tick {tick}: the source and the clock disagree");
             }
+        }
+
+        /// <summary>
+        /// The strip starts at tick 0 and stays there while the run fits; once it does not, it shows
+        /// the latest ticks -- but never earlier than the oldest the recorder still holds.
+        /// </summary>
+        [Test]
+        public void TheWindow_StartsAtZero_UntilTheRunOutgrowsTheStrip()
+        {
+            Assert.AreEqual(0, WaveformPanel.WindowStartFor(-1, 100, 0), "before a run");
+            Assert.AreEqual(0, WaveformPanel.WindowStartFor(99, 100, 0), "the run fits exactly");
+            Assert.AreEqual(1, WaveformPanel.WindowStartFor(100, 100, 0), "one tick past fitting");
+            Assert.AreEqual(73, WaveformPanel.WindowStartFor(200, 150, 73), "wider than what is still held");
+            Assert.AreEqual(0, WaveformPanel.WindowStartFor(50, 0, 0), "a strip too narrow for any tick");
         }
 
         // -----------------------------------------------------------------

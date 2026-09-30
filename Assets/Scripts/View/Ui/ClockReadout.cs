@@ -46,34 +46,19 @@ namespace BitSorter.View
         /// end of the strip faded with it. Now that a panel has a real edge, a two-tick clock in a
         /// strip sized for four is a bar that is half empty for no reason.
         /// </remarks>
-        public static float WidthFor(int period) => KeyLeft(period) + KeyWidth() + Inset;
-
-        /// <summary>Where the F2 key's caption starts, after the beat.</summary>
-        private static float KeyLeft(int period)
+        /// <remarks>
+        /// It used to end on "F2 for the timing diagram", the only place on the board the key was
+        /// named, when the diagram showed the clock alone. The diagram shows every source and bin
+        /// now and has a badge of its own beside the help badge, on every level (2026-09-30).
+        /// </remarks>
+        public static float WidthFor(int period)
         {
             float beat = period <= 0 ? 0f : period * (PipSize + PipGap) - PipGap;
-            return PipRowLeft + beat + KeyGap;
+            return PipRowLeft + beat + Inset;
         }
-
-        /// <summary>
-        /// How wide the caption naming the timing diagram is, measured.
-        /// </summary>
-        /// <remarks>
-        /// The diagram was behind F2 and named nowhere. This strip is on screen exactly on the
-        /// levels where the diagram means anything, so it says so here, quietly, at the end of the
-        /// beat -- and nowhere else costs a player who never wants it anything.
-        /// </remarks>
-        private static float KeyWidth() =>
-            Mathf.Ceil(UiTheme.TextWidth(ControlsReference.TimingDiagram.Text, KeyType));
-
-        private const UiType KeyType = UiType.Micro;
-
-        /// <summary>Space between the last pip and the caption.</summary>
-        private const float KeyGap = 16f;
 
         private RectTransform _root;
         private TextMeshProUGUI _label;
-        private TextMeshProUGUI _key;
         private RectTransform _pipRow;
 
         private readonly List<Image> _pips = new List<Image>();
@@ -113,9 +98,6 @@ namespace BitSorter.View
             _pipRow = row.GetComponent<RectTransform>();
             UiTheme.Anchor(_pipRow, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f),
                 new Vector2(PipRowLeft, 0f), new Vector2(126f, RowHeight));
-
-            _key = UiTheme.Label("diagram key", _root, KeyType, UiTheme.TextDim, TextAlignmentOptions.Left);
-            _key.text = ControlsReference.TimingDiagram.Text;
 
             _root.gameObject.SetActive(false);
         }
@@ -162,9 +144,6 @@ namespace BitSorter.View
             _label.text = $"CLOCK  {period} TICKS";
 
             _root.sizeDelta = new Vector2(WidthFor(period), _root.sizeDelta.y);
-
-            UiTheme.Anchor(_key.rectTransform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f),
-                new Vector2(KeyLeft(period), 0f), new Vector2(KeyWidth(), RowHeight));
 
             for (int i = 0; i < period; i++)
             {

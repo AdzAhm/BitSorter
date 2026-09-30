@@ -1,13 +1,12 @@
 using BitSorter.LogicCore;
 using UnityEngine;
-using UnityEngine.InputSystem;
 using UnityEngine.UI;
 using TMPro;
 
 namespace BitSorter.View
 {
     /// <summary>
-    /// Developer numbers, behind F2. Hidden by default.
+    /// Developer numbers, up with the timing diagram behind F2. Hidden by default.
     /// </summary>
     /// <remarks>
     /// What is in here is deliberately only what a player never needs: the tick, how many nodes are
@@ -15,25 +14,30 @@ namespace BitSorter.View
     /// balance-the-paths teach, so it lives in the game interface where it cannot be missed. See
     /// <see cref="BitsLostMeter"/>.
     ///
-    /// Reads its own key, the way PlacementController reads 1-7 and WireDelayController reads the
-    /// brackets. A component that owns a key reads it.
+    /// It does not read F2 itself: it follows <see cref="WaveformPanel.IsOpen"/>, the one F2 flag,
+    /// which the badge beside the help badge flips too. Two readers of one key each with a flag of
+    /// its own came apart the first time one of them was switched some other way.
     /// </remarks>
     public sealed class DiagnosticsPanel : MonoBehaviour
     {
         [SerializeField] private SimulationRunner _runner;
         [SerializeField] private LevelSession _session;
+        [SerializeField] private WaveformPanel _waveform;
 
         [Tooltip("Canvas the panel is built under. Found by type when left empty.")]
         [SerializeField] private Canvas _canvas;
 
         private RectTransform _root;
         private TextMeshProUGUI _text;
-        private bool _shown;
+
+        /// <summary>Whether the numbers are on screen now.</summary>
+        public bool IsShowing => _root != null && _root.gameObject.activeSelf;
 
         private void Awake()
         {
             if (_runner == null) _runner = FindFirstObjectByType<SimulationRunner>();
             if (_session == null) _session = FindFirstObjectByType<LevelSession>();
+            if (_waveform == null) _waveform = FindFirstObjectByType<WaveformPanel>();
             if (_canvas == null) _canvas = FindFirstObjectByType<Canvas>();
         }
 
@@ -44,9 +48,7 @@ namespace BitSorter.View
 
             Image panel = UiTheme.Panel_("Diagnostics", _canvas.transform, UiTheme.Panel);
             _root = panel.GetComponent<RectTransform>();
-            // Bottom right. UiTheme owns which corner, because the clock diagram now has the other
-            // catch readout, so with F2 open in free play the two drew in exactly the same rectangle.
-            // That readout is now part of the setup panel, and this stays on the left regardless.
+            // Bottom right, under the timing diagram's strip, which starts above the toast.
             UiTheme.AnchorBottomCorner(_root, UiTheme.DiagnosticsCorner, 96f);
 
             panel.raycastTarget = false;
@@ -59,20 +61,12 @@ namespace BitSorter.View
 
         private void Update()
         {
-            Keyboard keyboard = UiText.Keyboard;
-
-            // Not behind a full-screen panel, where every board key stands aside: pressed on the
-            // main menu it did nothing visible, and the readout appeared once the menu closed.
-            if (keyboard != null && keyboard.f2Key.wasPressedThisFrame && !UiModal.OpenOrJustClosed)
-                _shown = !_shown;
-
             if (_root == null)
                 return;
 
             // Out of the way of a full-screen panel, like every other readout. This did not, so
-            // F2 left it drawn over the level list and the win panel -- and over the clock diagram
-            // in the other corner, which comes up on the same key and did step aside.
-            bool wanted = _shown && UiModal.HudVisible;
+            // F2 left it drawn over the level list and the win panel.
+            bool wanted = _waveform != null && _waveform.IsOpen && UiModal.HudVisible;
 
             if (_root.gameObject.activeSelf != wanted)
                 _root.gameObject.SetActive(wanted);

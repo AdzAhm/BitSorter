@@ -21,6 +21,7 @@ namespace BitSorter.View
         [SerializeField] private LevelSession _session;
         [SerializeField] private SimulationRunner _runner;
         [SerializeField] private ProgressTracker _progress;
+        [SerializeField] private WaveformPanel _waveform;
 
         [Tooltip("Canvas the panel is built under. Found by type when left empty.")]
         [SerializeField] private Canvas _canvas;
@@ -119,8 +120,22 @@ namespace BitSorter.View
             if (_session == null) _session = FindFirstObjectByType<LevelSession>();
             if (_runner == null) _runner = FindFirstObjectByType<SimulationRunner>();
             if (_progress == null) _progress = FindFirstObjectByType<ProgressTracker>();
+            if (_waveform == null) _waveform = FindFirstObjectByType<WaveformPanel>();
             if (_canvas == null) _canvas = FindFirstObjectByType<Canvas>();
         }
+
+        /// <summary>
+        /// How far up the card sits: on its row, or above the timing diagram while F2 has it open.
+        /// </summary>
+        /// <remarks>
+        /// The card is a strip over the middle of the board's bottom row, and the diagram's strip
+        /// starts on the same row. Above the diagram it is back over the board's bottom row, which
+        /// has moved up with the board -- and the diagram is what a player reads right after a
+        /// solve, so it is not the one to cover.
+        /// </remarks>
+        public float CardBottom =>
+            UiRows.SolvedCard.Offset
+            + (_waveform != null && _waveform.IsOpen ? _waveform.Height + UiTheme.Gap : 0f);
 
         private void Start()
         {
@@ -170,6 +185,11 @@ namespace BitSorter.View
             // Every frame, not only on a state change: the panel that covers this one can open and
             // close without the run changing at all.
             Draw();
+
+            float bottom = CardBottom;
+
+            if (!Mathf.Approximately(_root.anchoredPosition.y, bottom))
+                _root.anchoredPosition = new Vector2(_root.anchoredPosition.x, bottom);
 
             // After Draw, so a panel that closed on this same Escape has already been taken into
             // account -- HoldsEscapeNow refuses the frame a panel closed on, whatever order the two

@@ -82,7 +82,7 @@ namespace BitSorter.LogicCore.Tests
         private static readonly ControlSpot[] KeySpots =
         {
             ControlSpot.RunButton, ControlSpot.ResetButton, ControlSpot.UndoButton, ControlSpot.RedoButton,
-            ControlSpot.ClearButton, ControlSpot.MenuButton, ControlSpot.HelpBadge,
+            ControlSpot.ClearButton, ControlSpot.MenuButton, ControlSpot.HelpBadge, ControlSpot.TimingBadge,
             ControlSpot.LevelBefore, ControlSpot.LevelAfter,
         };
 
@@ -137,6 +137,7 @@ namespace BitSorter.LogicCore.Tests
         [TestCase(ControlSpot.ClearButton, "to clear")]
         [TestCase(ControlSpot.MenuButton, "main menu")]
         [TestCase(ControlSpot.HelpBadge, "for help")]
+        [TestCase(ControlSpot.TimingBadge, "timing diagram")]
         [TestCase(ControlSpot.LevelBefore, "level before")]
         [TestCase(ControlSpot.LevelAfter, "level after")]
         public void EachKey_IsOnTheThingItWorks(ControlSpot spot, string does)
@@ -399,14 +400,15 @@ namespace BitSorter.LogicCore.Tests
         }
 
         /// <summary>
-        /// The timing diagram's key is a control like the rest: on the card, and named by F2.
+        /// The timing diagram's key is a control like the rest: on the card, named by F2, and under
+        /// its badge on every board.
         /// </summary>
         /// <remarks>
-        /// It was behind F2 and named nowhere. The clock strip draws this entry's own text, so the
-        /// strip and the card say the same thing.
+        /// It was behind F2 and named nowhere, then on the clock strip on the five levels with a
+        /// clock. The diagram shows every source and bin now, so it is worth naming on every board.
         /// </remarks>
         [Test]
-        public void TheTimingDiagram_IsNamedOnTheCard()
+        public void TheTimingDiagram_IsNamedOnTheCardAndUnderItsBadge()
         {
             StringAssert.StartsWith("F2", ControlsReference.TimingDiagram.Text);
 
@@ -422,8 +424,9 @@ namespace BitSorter.LogicCore.Tests
             }
 
             Assert.IsTrue(onTheCard, "the tutorial's card does not name the timing diagram's key");
-            Assert.IsFalse(ControlsReference.TimingDiagram.OnBoard,
-                "the timing diagram is only worth naming on a clocked level, not on every board");
+            Assert.AreEqual(ControlSpot.TimingBadge, ControlsReference.TimingDiagram.Spot,
+                "the timing diagram's key is not under its badge");
+            Assert.AreEqual("F2", ControlsReference.At(ControlSpot.TimingBadge));
         }
 
         /// <summary>

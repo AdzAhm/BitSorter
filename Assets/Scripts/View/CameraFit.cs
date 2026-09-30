@@ -40,6 +40,9 @@ namespace BitSorter.View
         [Tooltip("The level's banner, over the middle of the top edge.")]
         [SerializeField] private StatusBanner _banner;
 
+        [Tooltip("The timing diagram, along the bottom while F2 has it open.")]
+        [SerializeField] private WaveformPanel _waveform;
+
         [Tooltip("World units of clearance around the outermost cells.")]
         [SerializeField] private float _margin = 1.4f;
 
@@ -53,6 +56,7 @@ namespace BitSorter.View
         private float _left = -1f;
         private float _right = -1f;
         private float _top = -1f;
+        private float _bottom = -1f;
 
         private void Awake()
         {
@@ -64,6 +68,7 @@ namespace BitSorter.View
             if (_sandbox == null) _sandbox = FindFirstObjectByType<SandboxPanel>();
             if (_help == null) _help = FindFirstObjectByType<HelpPanel>();
             if (_banner == null) _banner = FindFirstObjectByType<StatusBanner>();
+            if (_waveform == null) _waveform = FindFirstObjectByType<WaveformPanel>();
         }
 
         private void OnEnable()
@@ -71,7 +76,7 @@ namespace BitSorter.View
             if (_grid != null)
                 _grid.Resized += Refit;
 
-            Apply(LeftInset(), RightInset(), TopInset());
+            Apply(LeftInset(), RightInset(), TopInset(), BottomInset());
         }
 
         private void OnDisable()
@@ -81,27 +86,28 @@ namespace BitSorter.View
         }
 
         /// <summary>The board changed size, from the call that changed it: frame the new one now.</summary>
-        private void Refit() => Apply(LeftInset(), RightInset(), TopInset());
+        private void Refit() => Apply(LeftInset(), RightInset(), TopInset(), BottomInset());
 
         private void Update()
         {
             float left = LeftInset();
             float right = RightInset();
             float top = TopInset();
+            float bottom = BottomInset();
 
             // Only on an actual change. The alternative is re-framing every frame forever to discover
             // nothing moved.
             if (Screen.width == _width && Screen.height == _height &&
                 Mathf.Approximately(left, _left) && Mathf.Approximately(right, _right) &&
-                Mathf.Approximately(top, _top))
+                Mathf.Approximately(top, _top) && Mathf.Approximately(bottom, _bottom))
             {
                 return;
             }
 
-            Apply(left, right, top);
+            Apply(left, right, top, bottom);
         }
 
-        private void Apply(float left, float right, float top)
+        private void Apply(float left, float right, float top, float bottom)
         {
             if (_camera == null || !_camera.orthographic)
                 return;
@@ -111,10 +117,11 @@ namespace BitSorter.View
             _left = left;
             _right = right;
             _top = top;
+            _bottom = bottom;
 
             Framing framing = CameraFraming.Fit(
                 RequiredHalfWidth(), RequiredHalfHeight(), RequiredTop(), _authoredSize,
-                _width, _height, left, right, top);
+                _width, _height, left, right, top, bottom);
 
             _camera.orthographicSize = framing.OrthographicSize;
 
@@ -154,6 +161,19 @@ namespace BitSorter.View
         {
             float edge = _banner != null ? _banner.ScreenBottomEdge : 0f;
             return edge > 0f ? Screen.height - edge : 0f;
+        }
+
+        /// <summary>
+        /// Pixels the timing diagram takes along the bottom while it is open, gap included.
+        /// </summary>
+        /// <remarks>
+        /// Read by intent, as every inset here is: F2 having it open, not it being drawn, so a
+        /// full-screen panel over the board does not reframe the board behind it.
+        /// </remarks>
+        private float BottomInset()
+        {
+            float edge = _waveform != null ? _waveform.ScreenTopEdge : 0f;
+            return edge > 0f ? edge + _insetGap : 0f;
         }
 
         /// <summary>

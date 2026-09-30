@@ -136,10 +136,20 @@ namespace BitSorter.PlayMode.Tests
                 string.Join("\n  ", missing));
         }
 
-        /// <summary>Serialized instance fields, including private ones, up the hierarchy.</summary>
+        /// <summary>
+        /// Serialized instance fields, including private ones, up the hierarchy -- as far as this
+        /// project's own classes go.
+        /// </summary>
+        /// <remarks>
+        /// Not into Unity's: the timing diagram's lines are a <see cref="UnityEngine.UI.MaskableGraphic"/>, whose
+        /// serialized material is null on purpose, meaning the default UI material. A null there is
+        /// Unity's convention, not a collaborator missing from the scene, which is what this test
+        /// looks for.
+        /// </remarks>
         private static IEnumerable<FieldInfo> Fields(System.Type type)
         {
-            while (type != null && type != typeof(MonoBehaviour))
+            while (type != null && type != typeof(MonoBehaviour)
+                   && type.Namespace != null && type.Namespace.StartsWith("BitSorter"))
             {
                 foreach (FieldInfo field in type.GetFields(
                              BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic |

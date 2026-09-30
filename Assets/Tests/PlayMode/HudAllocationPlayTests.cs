@@ -120,6 +120,26 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
+        /// The timing diagram's strip, open on a board, is quiet on a frame when no tick has been
+        /// recorded: its mesh and its tick numbers are rebuilt only when something moved.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator WhileOpen_TheTimingDiagramAllocatesNothing()
+        {
+            yield return LoadLevel();
+
+            WaveformPanel diagram = Find<WaveformPanel>();
+            diagram.Badge.onClick.Invoke();
+
+            yield return null;
+            yield return null;
+
+            Assert.IsTrue(diagram.IsShowing, "sanity: the strip should be open");
+
+            AssertQuiet(FrameOf(diagram));
+        }
+
+        /// <summary>
         /// The frame-rate counter allocates nothing counting, and its redraw -- twice a second, by
         /// design -- makes no garbage of its own.
         /// </summary>

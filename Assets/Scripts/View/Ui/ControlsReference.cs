@@ -68,6 +68,9 @@ namespace BitSorter.View
         /// <summary>Its key, under the help badge in the top-right corner.</summary>
         HelpBadge,
 
+        /// <summary>Its key, under the timing diagram's badge, beside the help badge.</summary>
+        TimingBadge,
+
         /// <summary>Its key, before the level counter on the banner: the key for the level before.</summary>
         /// <remarks>
         /// Q and E were named on the tutorial's card and the level list's help line and nowhere on
@@ -187,19 +190,20 @@ namespace BitSorter.View
         public const string LineSeparator = "     ";
 
         /// <summary>
-        /// The key for the timing diagram, which the clock strip names on every level with a clock.
+        /// The key for the timing diagram, under its badge beside the help badge.
         /// </summary>
         /// <remarks>
-        /// Kept off the board's controls: it is only worth anything on a level with a clock, and the
-        /// strip that says so is on screen exactly then. It used to be named nowhere at all, though
-        /// its own remarks call it the notation the course uses.
+        /// While the diagram showed only the clock, it was named only on the clock strip, on the five
+        /// levels with a clock. Once it showed every source and bin it was worth something on every
+        /// level, and a key named nowhere a player looks does not exist -- so it has a badge, and
+        /// its key is under it as H is under the help's (2026-09-30).
         ///
         /// F2, not F3: in a browser F3 opens the page's find bar, which is what pressing it did in
         /// a playtest, 2026-09-26. F2 is the one function key browsers leave alone -- F1 is their
         /// help, F5 reloads, F6 and F10 to F12 are taken.
         /// </remarks>
         public static readonly ControlEntry TimingDiagram =
-            new ControlEntry("F2 for the timing diagram", ControlSpot.None, ControlKind.Running);
+            new ControlEntry("F2 for the timing diagram", ControlSpot.TimingBadge, ControlKind.Running);
 
         public static IReadOnlyList<ControlEntry> All { get; } = new[]
         {

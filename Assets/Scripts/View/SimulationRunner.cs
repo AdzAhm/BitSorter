@@ -45,6 +45,14 @@ namespace BitSorter.View
 
         public bool IsReady => _circuit != null;
 
+        /// <summary>The level the current graph was built from, or null before the first build.</summary>
+        /// <remarks>
+        /// For anything that hears <see cref="Rebuilt"/> and needs to know what the new graph's
+        /// fixtures are: it is the level passed to <see cref="Rebuild"/>, so it cannot disagree with
+        /// the graph, whatever order the session updates its own state in.
+        /// </remarks>
+        public LevelDefinition BuiltLevel { get; private set; }
+
         /// <summary>
         /// Raised after every tick of the live graph, with the tick just executed, from inside the
         /// call that ran it.
@@ -280,6 +288,7 @@ namespace BitSorter.View
         public void Rebuild(LevelDefinition level, CircuitBlueprint blueprint)
         {
             _circuit = CircuitBuilder.Build(level, blueprint);
+            BuiltLevel = level;
             _accumulator = 0f;
 
             GraphRevision++;

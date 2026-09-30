@@ -953,8 +953,8 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
-        /// F2 pressed behind a full-screen panel toggles nothing; pressed on the board it toggles both
-        /// readouts.
+        /// F2 pressed behind a full-screen panel toggles nothing; pressed on the board it brings up
+        /// the timing diagram and diagnostics with it.
         /// </summary>
         /// <remarks>
         /// A panel over the board owns the keyboard -- every board key asks UiModal first -- and F2
@@ -971,27 +971,28 @@ namespace BitSorter.PlayMode.Tests
 
             Assert.IsTrue(Find<MainMenu>().IsOpen, "sanity: the game boots into the main menu");
 
-            ClockDiagram diagram = Find<ClockDiagram>();
+            WaveformPanel diagram = Find<WaveformPanel>();
             DiagnosticsPanel diagnostics = Find<DiagnosticsPanel>();
 
             yield return PressKey(_keyboard.f2Key);
             Release(_keyboard.f2Key);
             yield return null;
 
-            Assert.IsFalse(Shown(diagram), "F2 behind the main menu switched the timing diagram on");
-            Assert.IsFalse(Shown(diagnostics), "F2 behind the main menu switched diagnostics on");
+            Assert.IsFalse(diagram.IsOpen, "F2 behind the main menu switched the timing diagram on");
 
             yield return CloseTheMainMenu();
 
             yield return PressKey(_keyboard.f2Key);
             Release(_keyboard.f2Key);
             yield return null;
+            yield return null;
 
-            Assert.IsTrue(Shown(diagram), "F2 on the board did not switch the timing diagram on");
-            Assert.IsTrue(Shown(diagnostics), "F2 on the board did not switch diagnostics on");
+            Assert.IsTrue(diagram.IsOpen, "F2 on the board did not switch the timing diagram on");
+            Assert.IsTrue(diagram.IsShowing, "the timing diagram is switched on and not drawn");
+            Assert.IsTrue(diagnostics.IsShowing, "F2 on the board did not bring diagnostics up with it");
         }
 
-        /// <summary>Whether a toggled readout is switched on, which is private to it.</summary>
+        /// <summary>Whether a toggled panel is switched on, which is private to it.</summary>
         private static bool Shown(MonoBehaviour readout)
         {
             FieldInfo field = readout.GetType().GetField("_shown", BindingFlags.Instance | BindingFlags.NonPublic);

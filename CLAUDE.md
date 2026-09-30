@@ -600,7 +600,7 @@ failure side.
   came out of a stack.
 - **A control is shown beside the thing it works.** `ControlsReference` gives
   each control a `ControlSpot`: a button's key goes over the button (Enter over
-  RUN, ctrl+Z over UNDO), ESC under MENU and H under the help badge, and what
+  RUN, ctrl+Z over UNDO), ESC under MENU, H under the help badge and F2 under the timing diagram's, and what
   works nothing on screen -- the mouse, M, N -- in two short blocks either side
   of the run buttons, an upper line and a lower. An upper line holds one short
   phrase: it is level with the names under the board's bottom row, and two
@@ -979,21 +979,43 @@ failure side.
   verdict, which is the third time two things in that file each owned half
   the arithmetic.
 
-  **`ClockDiagram` is the same fact in the course's notation**, behind F2 --
-  F3 until a playtest found that in a browser F3 opens find-in-page:
-  a square wave over three cycles with a playhead on the current tick, in
-  the bottom-left corner. It is the pair to the readout, not a replacement
-  — the pips explain the beat to someone who has never seen a timing
-  diagram, and this is for someone who has. Behind F2 and absent from the
-  board's controls, so it costs a player who does not want it nothing -- but
-  named, quietly, at the end of the clock strip, which is on screen exactly
-  on the levels where it means anything, and on the tutorial's card. It was
-  once named nowhere, which is not "costs nothing" but "does not exist".
+  **The timing diagram is all of it in the course's notation**
+  (`WaveformPanel`, 4.0.0): a strip along the bottom showing, tick by tick,
+  what each source sent and each bin received, with the clock as its first
+  row on a clocked level. It is the pair to the pips, not a replacement: the
+  pips explain the beat to someone who has never seen a timing diagram. It
+  replaced a small clock diagram in the bottom-left corner that showed the
+  clock alone. That was named only at the end of the clock strip, on the
+  five levels with a clock. The strip is worth something on every level, so
+  it has **a badge beside the help badge**, with F2 under it as H is under the
+  help's. F2, because F3 opens find-in-page in a browser.
 
-  **The two F2 readouts take opposite bottom corners**, and both hide while
-  `UiModal.HudVisible` is false. They come up on one key and are anchored
-  the same way at the same width, so a shared corner would put them in one
-  rectangle — which the catch readout and diagnostics already did once.
+  **It is recorded from tick 0 whether it is open or not** (`WaveformRecorder`,
+  fed by `SimulationRunner.Ticked` and `Rebuilt`). Several ticks can run in
+  one frame, and a wire forgets a bit once it is delivered, so nothing here
+  polls: what a wire delivers is read the tick before, from the front bit
+  with one tick left. A cell is a bit or none, plus a collision flag, drawn
+  as an ✕ where a bit arrived into a collision. When two equal bits land
+  together, both get an ✕, because the model does not say which one
+  survived. So a row's crosses are not a count of lost bits.
+
+  **Along the bottom, and the board moves up** (Ahmad's choice over a
+  right-hand column, 2026-09-30):
+  - The strip sits on `UiRows.PanelFloor`. It runs from the parts list to the
+    right margin or to an open right-hand panel.
+  - Its height is fixed per level, with four wire rows reserved, so F2
+    frames the board once.
+  - `CameraFraming` centres the board in the band between the banner and the
+    strip, at the smallest size that fits it there.
+  - With no strip the framing is exactly as before, camera at y = 0, which
+    the reference shots hold it to.
+  - The solved card moves up above the strip, back over the board's bottom
+    row.
+
+  **Diagnostics is the other thing on F2**: the developer numbers in the
+  bottom-right corner, under the strip. They follow the strip's one flag
+  instead of reading F2 themselves, so the key and the badge cannot leave the
+  two out of step. Both hide while `UiModal.HudVisible` is false.
 - **Anything shown to the player is derived, never restated.** The truth
   table comes from the level's own streams and expectations; node labels
   come from `Node.Name`. A second copy of a fact is a second thing to

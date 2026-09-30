@@ -122,8 +122,9 @@ namespace BitSorter.View.EditorTools
 
             DiagnosticsPanel diagnostics = host.AddComponent<DiagnosticsPanel>();
 
-            // The other bottom corner, behind the same key.
-            ClockDiagram clockDiagram = host.AddComponent<ClockDiagram>();
+            // The timing diagram along the bottom, behind F2 and the badge beside the help badge.
+            // Diagnostics follows its flag.
+            WaveformPanel waveform = host.AddComponent<WaveformPanel>();
             ProgressTracker progress = host.AddComponent<ProgressTracker>();
 
             // Reads the tracker's store only in Update, after every Awake has run, so its place in
@@ -167,8 +168,10 @@ namespace BitSorter.View.EditorTools
             Assign(fit, "_sandbox", sandbox);
             Assign(fit, "_help", help);
 
-            // And the banner over the top edge, which a seven-row board's top row would reach.
+            // And the banner over the top edge, which a seven-row board's top row would reach, and
+            // the timing diagram along the bottom while it is open.
             Assign(fit, "_banner", banner);
+            Assign(fit, "_waveform", waveform);
             Assign(bits, "_sparks", sparks);
             Assign(scorch, "_runner", runner);
 
@@ -237,11 +240,15 @@ namespace BitSorter.View.EditorTools
 
             Assign(diagnostics, "_runner", runner);
             Assign(diagnostics, "_session", session);
+            Assign(diagnostics, "_waveform", waveform);
             Assign(diagnostics, "_canvas", canvas);
 
-            Assign(clockDiagram, "_runner", runner);
-            Assign(clockDiagram, "_session", session);
-            Assign(clockDiagram, "_canvas", canvas);
+            Assign(waveform, "_runner", runner);
+            Assign(waveform, "_session", session);
+            Assign(waveform, "_palette", palette);
+            Assign(waveform, "_sandbox", sandbox);
+            Assign(waveform, "_help", help);
+            Assign(waveform, "_canvas", canvas);
 
             Assign(progress, "_session", session);
             Assign(progress, "_runner", runner);
@@ -295,6 +302,7 @@ namespace BitSorter.View.EditorTools
             Assign(winPanel, "_session", session);
             Assign(winPanel, "_runner", runner);
             Assign(winPanel, "_progress", progress);
+            Assign(winPanel, "_waveform", waveform);
             Assign(winPanel, "_canvas", canvas);
 
             Assign(ending, "_session", session);

@@ -487,47 +487,41 @@ namespace BitSorter.LogicCore.Tests
 
 
         /// <summary>
-        /// The clock diagram's wave is high on the tick a vector arrives and low for the rest.
+        /// The timing diagram's clock is high on the tick every source sends its next vector and low
+        /// for the rest of the period.
         /// </summary>
         /// <remarks>
-        /// The same fact the clock readout lights its first pip on, which is why both ask what the
-        /// tick is within the cycle rather than each deciding what a cycle is. A period of one is
-        /// high throughout -- a square wave that never falls -- which is why the diagram is not
-        /// drawn on a level without a clock.
+        /// Counted on the executed tick -- the one <see cref="SimulationRunner.Ticked"/> reports --
+        /// where the clock strip counts <c>CurrentTick</c>, one on from it. A period of one is high
+        /// throughout, a square wave that never falls, which is why the diagram draws no clock row on
+        /// a level without a clock.
         /// </remarks>
         [Test]
-        public void TheClockWave_IsHighOnTheTickAVectorArrives()
+        public void TheClockWave_IsHighOnTheTickAVectorIsSent()
         {
-            // Tick 0 is before the run starts, and tick 1 is the first tick of the first cycle.
-            Assert.IsTrue(ClockDiagram.IsHigh(0, 3), "the run has not started");
-            Assert.IsTrue(ClockDiagram.IsHigh(1, 3), "the first vector arrives");
-            Assert.IsFalse(ClockDiagram.IsHigh(2, 3));
-            Assert.IsFalse(ClockDiagram.IsHigh(3, 3));
-            Assert.IsTrue(ClockDiagram.IsHigh(4, 3), "the second vector, a period later");
+            Assert.IsTrue(WaveformRecorder.ClockOn(0, 3), "the first vector is sent on tick 0");
+            Assert.IsFalse(WaveformRecorder.ClockOn(1, 3));
+            Assert.IsFalse(WaveformRecorder.ClockOn(2, 3));
+            Assert.IsTrue(WaveformRecorder.ClockOn(3, 3), "the second vector, a period later");
 
             for (int tick = 0; tick < 8; tick++)
             {
-                Assert.IsTrue(ClockDiagram.IsHigh(tick, 1),
+                Assert.IsTrue(WaveformRecorder.ClockOn(tick, 1),
                     "a vector every tick is a wave that never falls");
             }
         }
 
         /// <summary>
-        /// The two F2 readouts are in opposite bottom corners.
+        /// The timing diagram's strip starts above everything along the bottom edge -- the run
+        /// buttons, the key lines, the toast -- and so above diagnostics in the corner.
         /// </summary>
-        /// <remarks>
-        /// They come up together on the same key, and both are anchored with
-        /// <see cref="UiTheme.AnchorBottomCorner"/> at the same width -- so sharing a corner would
-        /// put them in exactly the same rectangle, which is what the catch readout and diagnostics
-        /// already did once.
-        /// </remarks>
         [Test]
-        public void TheTwoF2Readouts_TakeDifferentCorners()
+        public void TheTimingStrip_StartsAboveTheBottomRowsAndTheCornerReadout()
         {
-            Assert.AreNotEqual(UiTheme.DiagnosticsCorner, UiTheme.ClockDiagramCorner);
-
-            Assert.AreEqual(0f, UiTheme.DiagnosticsCorner.y, "both sit on the bottom edge");
-            Assert.AreEqual(0f, UiTheme.ClockDiagramCorner.y, "both sit on the bottom edge");
+            Assert.GreaterOrEqual(UiRows.PanelFloor, UiRows.Toast.Offset + UiRows.Toast.Height,
+                "the strip would start on the toast's row");
+            Assert.GreaterOrEqual(UiRows.PanelFloor, UiTheme.Margin + 96f,
+                "the strip would start on diagnostics in the corner");
         }
 
     }
