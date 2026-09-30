@@ -179,5 +179,98 @@ namespace BitSorter.LogicCore.Tests
             Assert.AreEqual(Authored, framing.OrthographicSize);
             Assert.AreEqual(0f, framing.CameraX);
         }
+
+        // -----------------------------------------------------------------
+        // The timing diagram along the bottom
+        // -----------------------------------------------------------------
+
+        /// <summary>Where a world y lands, in pixels up from the bottom of the screen.</summary>
+        private static float ScreenY(Framing framing, float worldY, float height) =>
+            height * 0.5f + (worldY - framing.CameraY) * height / (2f * framing.OrthographicSize);
+
+        private const float FiveRowHalfHeight = 2 * 2f + NodeRenderer.LabelReach + 0.2f;
+        private const float FiveRowTop = 2 * 2f + PortGeometry.NodeSize * 0.5f;
+        private const float SevenRowHalfHeight = 3 * 2f + NodeRenderer.LabelReach + 0.2f;
+        private const float SevenRowTop = 3 * 2f + PortGeometry.NodeSize * 0.5f;
+
+        /// <summary>
+        /// With nothing along the bottom the framing is the one without the argument, to the last bit
+        /// -- the camera stays at y = 0 -- because every reference shot is held to it.
+        /// </summary>
+        [Test]
+        public void WithNothingAlongTheBottom_TheFramingIsExactlyAsBefore()
+        {
+            foreach (float banner in new[] { 0f, 88f, 150f })
+            {
+                foreach (float right in new[] { 0f, 330f })
+                {
+                    Framing before = CameraFraming.Fit(
+                        HalfWidth, SevenRowHalfHeight, SevenRowTop, Authored, 1920f, 1080f, 164f, right, banner);
+                    Framing now = CameraFraming.Fit(
+                        HalfWidth, SevenRowHalfHeight, SevenRowTop, Authored, 1920f, 1080f, 164f, right, banner, 0f);
+
+                    Assert.AreEqual(before.OrthographicSize, now.OrthographicSize, $"banner {banner}, right {right}");
+                    Assert.AreEqual(before.CameraX, now.CameraX, $"banner {banner}, right {right}");
+                    Assert.AreEqual(0f, now.CameraY, $"banner {banner}, right {right}");
+                }
+            }
+        }
+
+        /// <summary>
+        /// A strip along the bottom lifts the board clear of it: the names under the bottom row stay
+        /// above the strip, the top row stays under the banner, and the width still fits.
+        /// </summary>
+        [TestCase(1080f, 150f, 450f, false)]
+        [TestCase(1080f, 110f, 330f, false)]
+        [TestCase(929f, 150f, 420f, true)]
+        [TestCase(1080f, 150f, 380f, true)]
+        public void AStripAlongTheBottom_LiftsTheBoardClearOfIt(float height, float banner, float strip, bool sevenRows)
+        {
+            float halfHeight = sevenRows ? SevenRowHalfHeight : FiveRowHalfHeight;
+            float top = sevenRows ? SevenRowTop : FiveRowTop;
+
+            Framing framing = CameraFraming.Fit(
+                HalfWidth, halfHeight, top, Authored, 1920f, height, 164f, 0f, banner, strip);
+
+            Assert.GreaterOrEqual(ScreenY(framing, -halfHeight, height), strip - 1e-2f,
+                "the board's bottom row, or the names under it, is under the strip");
+            Assert.LessOrEqual(ScreenY(framing, top, height), height - banner + 1e-2f,
+                "the board's top row is under the banner");
+
+            float pixelsPerWorld = height / (2f * framing.OrthographicSize);
+            Assert.LessOrEqual(2f * HalfWidth * pixelsPerWorld, 1920f - 164f + 1e-2f,
+                "the board no longer fits across");
+        }
+
+        /// <summary>Opening the strip can only make the board smaller, never larger.</summary>
+        [Test]
+        public void AStripAlongTheBottom_NeverMakesTheBoardBigger()
+        {
+            foreach (float strip in new[] { 20f, 160f, 300f, 450f })
+            {
+                Framing without = CameraFraming.Fit(
+                    HalfWidth, FiveRowHalfHeight, FiveRowTop, Authored, 1920f, 1080f, 164f, 0f, 88f);
+                Framing with = CameraFraming.Fit(
+                    HalfWidth, FiveRowHalfHeight, FiveRowTop, Authored, 1920f, 1080f, 164f, 0f, 88f, strip);
+
+                Assert.GreaterOrEqual(with.OrthographicSize, without.OrthographicSize, $"a strip {strip}px tall");
+            }
+        }
+
+        /// <summary>
+        /// A strip that leaves under a quarter of the screen is ignored, as a banner or side panels
+        /// that leave no room are: the board keeps its framing and the strip covers it.
+        /// </summary>
+        [Test]
+        public void AStripThatLeavesNoRoom_IsIgnored()
+        {
+            Framing plain = CameraFraming.Fit(
+                HalfWidth, FiveRowHalfHeight, FiveRowTop, Authored, 1920f, 1080f, 164f, 0f, 150f);
+            Framing framing = CameraFraming.Fit(
+                HalfWidth, FiveRowHalfHeight, FiveRowTop, Authored, 1920f, 1080f, 164f, 0f, 150f, 700f);
+
+            Assert.AreEqual(plain.OrthographicSize, framing.OrthographicSize);
+            Assert.AreEqual(0f, framing.CameraY);
+        }
     }
 }

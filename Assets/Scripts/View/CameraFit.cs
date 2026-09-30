@@ -119,7 +119,7 @@ namespace BitSorter.View
             _camera.orthographicSize = framing.OrthographicSize;
 
             Vector3 position = transform.position;
-            transform.position = new Vector3(framing.CameraX, position.y, position.z);
+            transform.position = new Vector3(framing.CameraX, framing.CameraY, position.z);
         }
 
         /// <summary>Pixels the parts list takes along the left edge, gap included.</summary>

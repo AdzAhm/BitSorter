@@ -9,13 +9,19 @@ namespace BitSorter.View
         /// <summary>The camera's x position, in world units.</summary>
         public readonly float CameraX;
 
-        public Framing(float orthographicSize, float cameraX)
+        /// <summary>
+        /// The camera's y position, in world units: 0 unless something covers the bottom edge.
+        /// </summary>
+        public readonly float CameraY;
+
+        public Framing(float orthographicSize, float cameraX, float cameraY = 0f)
         {
             OrthographicSize = orthographicSize;
             CameraX = cameraX;
+            CameraY = cameraY;
         }
 
-        public override string ToString() => $"size {OrthographicSize:F3}, x {CameraX:F3}";
+        public override string ToString() => $"size {OrthographicSize:F3}, x {CameraX:F3}, y {CameraY:F3}";
     }
 
     /// <summary>
@@ -78,7 +84,28 @@ namespace BitSorter.View
         public static Framing Fit(
             float boardHalfWidth, float boardHalfHeight, float boardTop, float authoredSize,
             float screenWidth, float screenHeight,
-            float leftInset, float rightInset, float topInset)
+            float leftInset, float rightInset, float topInset) =>
+            Fit(boardHalfWidth, boardHalfHeight, boardTop, authoredSize,
+                screenWidth, screenHeight, leftInset, rightInset, topInset, 0f);
+
+        /// <inheritdoc cref="Fit(float, float, float, float, float, float, float, float, float)"/>
+        /// <param name="bottomInset">Pixels covered along the bottom edge: the timing diagram's strip.</param>
+        /// <remarks>
+        /// **With nothing along the bottom, this is exactly the framing above**, the same arithmetic
+        /// in the same order, with the camera at y = 0 -- every reference shot is held to that.
+        ///
+        /// **With something there, the camera moves.** Clearing the banner by zooming alone was
+        /// cheap because the banner is shallow; a strip a third of the screen tall, cleared the same
+        /// way, would leave the board at a fraction of its size with empty screen above it. So the
+        /// board is centred in the band between the banner and the strip, at the smallest size that
+        /// fits it there -- and never a smaller size than it has without the strip, so opening the
+        /// strip cannot make the board grow. A band under a quarter of the screen is ignored, as a
+        /// banner that leaves no room is, and the strip then covers the board.
+        /// </remarks>
+        public static Framing Fit(
+            float boardHalfWidth, float boardHalfHeight, float boardTop, float authoredSize,
+            float screenWidth, float screenHeight,
+            float leftInset, float rightInset, float topInset, float bottomInset)
         {
             if (screenWidth <= 0f || screenHeight <= 0f)
                 return new Framing(authoredSize, 0f);
@@ -119,7 +146,30 @@ namespace BitSorter.View
             float worldPerPixel = 2f * size / screenHeight;
             float cameraX = -(leftInset - rightInset) * 0.5f * worldPerPixel;
 
-            return new Framing(size, cameraX);
+            float top = topInset < 0f ? 0f : topInset;
+            float band = 1f - (top + bottomInset) / screenHeight;
+
+            if (bottomInset <= 0f || band < 0.25f)
+                return new Framing(size, cameraX);
+
+            // The board runs from boardHalfHeight below its centre to boardTop above it, and the band
+            // is 2 * size * band world units tall, so this is the smallest size it fits in.
+            float inTheBand = (boardHalfHeight + boardTop) / (2f * band);
+
+            if (inTheBand > size)
+                size = inTheBand;
+
+            // At this size the camera may sit anywhere from lowest (the board's top just under the
+            // banner) to highest (its bottom just over the strip); halfway between centres the board
+            // in the band. Below zero, since the strip is the deeper of the two.
+            float lowest = boardTop - size * (1f - 2f * top / screenHeight);
+            float highest = -boardHalfHeight + size * (1f - 2f * bottomInset / screenHeight);
+            float cameraY = (lowest + highest) * 0.5f;
+
+            worldPerPixel = 2f * size / screenHeight;
+            cameraX = -(leftInset - rightInset) * 0.5f * worldPerPixel;
+
+            return new Framing(size, cameraX, cameraY);
         }
     }
 }

@@ -88,10 +88,12 @@ namespace BitSorter.View
             float height = _camera.orthographicSize * 2f + _padding;
 
             // Centred on the board, so WholeTiles can keep its pattern on the cells, and grown instead
-            // to cover a camera that has moved sideways to frame the board clear of the interface.
+            // to cover a camera that has moved to frame the board clear of the interface: sideways
+            // for the panels, and up or down for the timing diagram along the bottom.
             float shift = Mathf.Abs(_camera.transform.position.x) * 2f;
+            float lift = Mathf.Abs(_camera.transform.position.y) * 2f;
 
-            return new Vector2(height * _camera.aspect + _padding + shift, height);
+            return new Vector2(height * _camera.aspect + _padding + shift, height + lift);
         }
     }
 }
