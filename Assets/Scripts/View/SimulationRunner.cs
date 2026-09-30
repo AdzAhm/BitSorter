@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using BitSorter.LogicCore;
 using UnityEngine;
@@ -45,6 +46,35 @@ namespace BitSorter.View
         public bool IsReady => _circuit != null;
 
         /// <summary>
+        /// Raised after every tick of the live graph, with the tick just executed, from inside the
+        /// call that ran it.
+        /// </summary>
+        /// <remarks>
+        /// For anything that records what happened on each tick, which is the timing diagram. Several
+        /// ticks can run in one frame -- the timed loop catches up after a slow frame or at free
+        /// play's faster speeds, and <see cref="StepOneTick"/> runs one per call, as often as a caller
+        /// likes -- so a poll once a frame would see only the last of them. Per-tick facts do not
+        /// accumulate the way <see cref="Simulation.CorruptionSites"/> does: which bit a wire
+        /// delivered on a tick is gone by the next one.
+        ///
+        /// A handler must not throw. It runs inside the timed loop, and an exception would end that
+        /// frame's catching up part-way.
+        /// </remarks>
+        public event Action<int> Ticked;
+
+        /// <summary>
+        /// Raised when <see cref="Rebuild"/> has replaced the graph, so the clock is back at tick 0.
+        /// </summary>
+        /// <remarks>
+        /// Every way a run restarts comes through here -- RUN, RESET, every edit, undo, a level
+        /// loading -- and a recording of the old graph describes nothing on the new one. Raised in
+        /// the call rather than left to a poll of <see cref="GraphRevision"/>, because RUN and the
+        /// new graph's first tick can fall in the same frame, and a poll after that tick would clear
+        /// it away.
+        /// </remarks>
+        public event Action Rebuilt;
+
+        /// <summary>
         /// Fixture id to node id, from the most recent rebuild. The grader's way in: a level names its
         /// sinks, and the simulator only knows ids.
         /// </summary>
@@ -84,7 +114,14 @@ namespace BitSorter.View
                 return;
 
             _accumulator = 0f;
+            Advance();
+        }
+
+        /// <summary>Runs one tick and says so: the one way the live graph is ticked.</summary>
+        private void Advance()
+        {
             _circuit.Simulation.Tick();
+            Ticked?.Invoke(_circuit.Simulation.CurrentTick - 1);
         }
 
         /// <summary>
@@ -223,7 +260,7 @@ namespace BitSorter.View
             while (_accumulator >= interval)
             {
                 _accumulator -= interval;
-                _circuit.Simulation.Tick();
+                Advance();
             }
         }
 
@@ -246,6 +283,7 @@ namespace BitSorter.View
             _accumulator = 0f;
 
             GraphRevision++;
+            Rebuilt?.Invoke();
         }
 
         private Vector2 CellToWorld(Vector2Int cell) =>
