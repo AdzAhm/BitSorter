@@ -43,6 +43,12 @@ namespace BitSorter.View
         [Tooltip("The timing diagram, along the bottom while it is open (F8, or its badge).")]
         [SerializeField] private WaveformPanel _waveform;
 
+        [Tooltip("The level, which says whether a bin sits in the board's top-right cell.")]
+        [SerializeField] private LevelSession _session;
+
+        [Tooltip("The canvas the badges are on, whose scale turns the corner into pixels.")]
+        [SerializeField] private Canvas _canvas;
+
         [Tooltip("World units of clearance around the outermost cells.")]
         [SerializeField] private float _margin = 1.4f;
 
@@ -57,6 +63,7 @@ namespace BitSorter.View
         private float _right = -1f;
         private float _top = -1f;
         private float _bottom = -1f;
+        private Vector2 _corner = new Vector2(-1f, -1f);
 
         private void Awake()
         {
@@ -69,6 +76,8 @@ namespace BitSorter.View
             if (_help == null) _help = FindFirstObjectByType<HelpPanel>();
             if (_banner == null) _banner = FindFirstObjectByType<StatusBanner>();
             if (_waveform == null) _waveform = FindFirstObjectByType<WaveformPanel>();
+            if (_session == null) _session = FindFirstObjectByType<LevelSession>();
+            if (_canvas == null) _canvas = FindFirstObjectByType<Canvas>();
         }
 
         private void OnEnable()
@@ -76,7 +85,7 @@ namespace BitSorter.View
             if (_grid != null)
                 _grid.Resized += Refit;
 
-            Apply(LeftInset(), RightInset(), TopInset(), BottomInset());
+            Apply(LeftInset(), RightInset(), TopInset(), BottomInset(), Corner());
         }
 
         private void OnDisable()
@@ -86,7 +95,7 @@ namespace BitSorter.View
         }
 
         /// <summary>The board changed size, from the call that changed it: frame the new one now.</summary>
-        private void Refit() => Apply(LeftInset(), RightInset(), TopInset(), BottomInset());
+        private void Refit() => Apply(LeftInset(), RightInset(), TopInset(), BottomInset(), Corner());
 
         private void Update()
         {
@@ -94,20 +103,22 @@ namespace BitSorter.View
             float right = RightInset();
             float top = TopInset();
             float bottom = BottomInset();
+            Vector2 corner = Corner();
 
             // Only on an actual change. The alternative is re-framing every frame forever to discover
             // nothing moved.
             if (Screen.width == _width && Screen.height == _height &&
                 Mathf.Approximately(left, _left) && Mathf.Approximately(right, _right) &&
-                Mathf.Approximately(top, _top) && Mathf.Approximately(bottom, _bottom))
+                Mathf.Approximately(top, _top) && Mathf.Approximately(bottom, _bottom) &&
+                corner == _corner)
             {
                 return;
             }
 
-            Apply(left, right, top, bottom);
+            Apply(left, right, top, bottom, corner);
         }
 
-        private void Apply(float left, float right, float top, float bottom)
+        private void Apply(float left, float right, float top, float bottom, Vector2 corner)
         {
             if (_camera == null || !_camera.orthographic)
                 return;
@@ -118,10 +129,11 @@ namespace BitSorter.View
             _right = right;
             _top = top;
             _bottom = bottom;
+            _corner = corner;
 
             Framing framing = CameraFraming.Fit(
                 RequiredHalfWidth(), RequiredHalfHeight(), RequiredTop(), _authoredSize,
-                _width, _height, left, right, top, bottom);
+                _width, _height, left, right, top, bottom, RequiredRight(), corner.x, corner.y);
 
             _camera.orthographicSize = framing.OrthographicSize;
 
@@ -174,6 +186,44 @@ namespace BitSorter.View
         {
             float edge = _waveform != null ? _waveform.ScreenTopEdge : 0f;
             return edge > 0f ? edge + _insetGap : 0f;
+        }
+
+        /// <summary>
+        /// Pixels the top-right corner takes -- in from the right, gap included, and down from the
+        /// top -- while the level keeps a bin in the board's top-right cell, or zero.
+        /// </summary>
+        /// <remarks>
+        /// Five levels keep one there, and free play keeps that cell for its first bin. On those the
+        /// badges' keys were printed across the bin, and free play's folded tab across OUT 1.
+        ///
+        /// Decided by the level, never by what the player has placed: a gate dropped on that cell
+        /// of another level would otherwise shrink the board under the player's hand, and it is
+        /// their gate to move. Read by intent, as every inset here is -- the badges are part of the
+        /// HUD and step aside for a full-screen panel, and the board must not reframe behind one.
+        /// </remarks>
+        private Vector2 Corner()
+        {
+            LevelDefinition level = _session != null ? _session.Level : null;
+
+            if (level == null || _grid == null || _canvas == null)
+                return Vector2.zero;
+
+            Vector2Int cell = _grid.HalfExtents;
+
+            if (level.FixtureAt(cell) == null && !level.IsReserved(cell))
+                return Vector2.zero;
+
+            Vector2 corner = UiRows.TopRightCorner(_sandbox != null && _sandbox.IsFolded) * _canvas.scaleFactor;
+            return new Vector2(corner.x + _insetGap, corner.y);
+        }
+
+        /// <summary>How far right of the centre a part in the right-hand column reaches.</summary>
+        private float RequiredRight()
+        {
+            if (_grid == null)
+                return 0f;
+
+            return _grid.HalfExtents.x * _grid.CellSize + PortGeometry.NodeSize * 0.5f;
         }
 
         /// <summary>

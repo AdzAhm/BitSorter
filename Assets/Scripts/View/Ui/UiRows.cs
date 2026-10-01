@@ -1,3 +1,5 @@
+using UnityEngine;
+
 namespace BitSorter.View
 {
     /// <summary>
@@ -140,6 +142,32 @@ namespace BitSorter.View
         /// which sits between the panels rather than under them.
         /// </summary>
         public static float PanelFloor { get; }
+
+        /// <summary>
+        /// The top-right corner the two badges and their keys take, and free play's folded setup
+        /// tab under them when <paramref name="withTab"/>: how far in from the right edge and down
+        /// from the top, in canvas units.
+        /// </summary>
+        /// <remarks>
+        /// Worked out from the constants the badges and the tab are placed with, never read off
+        /// what is drawn. <see cref="CameraFit"/> keeps a bin in the board's top-right cell out of
+        /// it: the badges' keys were printed across one on five levels, and the tab across OUT 1 in
+        /// free play.
+        /// </remarks>
+        public static Vector2 TopRightCorner(bool withTab)
+        {
+            // The timing badge is the further in of the two, and its key is wider than it is.
+            float badges = UiTheme.Margin + UiTheme.BadgeSize + UiTheme.BadgeGap +
+                0.5f * (UiTheme.BadgeSize + Mathf.Max(UiTheme.BadgeSize, UiTheme.BadgeKeyWidth));
+            float keys = BadgeKey.Offset + UiTheme.BadgeKeyDrop + UiTheme.BadgeKeyLabelHeight;
+
+            if (!withTab)
+                return new Vector2(badges, keys);
+
+            return new Vector2(
+                Mathf.Max(badges, UiTheme.Margin + UiTheme.SetupTabSize.x),
+                Mathf.Max(keys, Panels.Offset + UiTheme.SetupTabSize.y));
+        }
 
         /// <summary>Every stack, for whatever checks them.</summary>
         public static UiStack[] All => new[] { Top, Bottom, Right };

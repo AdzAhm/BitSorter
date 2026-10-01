@@ -1230,6 +1230,8 @@ MonoBehaviour:
   _help: {fileID: 98651552}
   _banner: {fileID: 98651567}
   _waveform: {fileID: 98651557}
+  _session: {fileID: 98651583}
+  _canvas: {fileID: 985738434}
   _margin: 1.4
   _insetGap: 8
 --- !u!81 &1965538570

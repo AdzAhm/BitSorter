@@ -171,5 +171,67 @@ namespace BitSorter.View
 
             return new Framing(size, cameraX, cameraY);
         }
+
+        /// <inheritdoc cref="Fit(float, float, float, float, float, float, float, float, float, float)"/>
+        /// <param name="partRight">
+        /// How far right of the board's centre a part in its top-right cell reaches, in world units.
+        /// Its top is <paramref name="boardTop"/>.
+        /// </param>
+        /// <param name="cornerWidth">
+        /// Pixels the top-right corner takes in from the right edge -- the badges, their keys, and
+        /// free play's folded tab -- or zero when nothing in that cell needs keeping out of it.
+        /// </param>
+        /// <param name="cornerHeight">Pixels the corner takes down from the top edge.</param>
+        /// <remarks>
+        /// **Only when the top-right part would reach into the corner** is the board framed again,
+        /// with the corner's left edge as the right inset -- about 7% smaller at 16:9. Every
+        /// framing that already clears it is the framing above, to the last bit, and so is one
+        /// where a panel down the right already reaches further in than the corner does.
+        ///
+        /// The corner is not a side panel, because it is not a column: it is two badges and the
+        /// keys under them, and below them the board's right edge is free. Counting it as a right
+        /// inset on every level would shrink every board for a cell most levels leave empty.
+        /// </remarks>
+        public static Framing Fit(
+            float boardHalfWidth, float boardHalfHeight, float boardTop, float authoredSize,
+            float screenWidth, float screenHeight,
+            float leftInset, float rightInset, float topInset, float bottomInset,
+            float partRight, float cornerWidth, float cornerHeight)
+        {
+            Framing framing = Fit(boardHalfWidth, boardHalfHeight, boardTop, authoredSize,
+                screenWidth, screenHeight, leftInset, rightInset, topInset, bottomInset);
+
+            if (cornerWidth <= 0f || cornerHeight <= 0f || cornerWidth <= rightInset)
+                return framing;
+
+            // A corner that would leave no room is ignored, as side insets are: framed again, the
+            // board would drop every inset and fill the screen, over the parts list.
+            float left = leftInset < 0f ? 0f : leftInset;
+            if (screenWidth - left - cornerWidth <= screenWidth * 0.25f)
+                return framing;
+
+            if (!Reaches(framing, partRight, boardTop, screenWidth, screenHeight, cornerWidth, cornerHeight))
+                return framing;
+
+            return Fit(boardHalfWidth, boardHalfHeight, boardTop, authoredSize,
+                screenWidth, screenHeight, leftInset, cornerWidth, topInset, bottomInset);
+        }
+
+        /// <summary>
+        /// Whether a part reaching this far right and this far up is drawn into the top-right corner.
+        /// </summary>
+        /// <remarks>
+        /// Touching is not reaching into, as for <c>Rect.Overlaps</c>.
+        /// </remarks>
+        public static bool Reaches(
+            Framing framing, float partRight, float partTop,
+            float screenWidth, float screenHeight, float cornerWidth, float cornerHeight)
+        {
+            float pixelsPerWorld = screenHeight / (2f * framing.OrthographicSize);
+            float right = screenWidth * 0.5f + (partRight - framing.CameraX) * pixelsPerWorld;
+            float top = screenHeight * 0.5f + (partTop - framing.CameraY) * pixelsPerWorld;
+
+            return right > screenWidth - cornerWidth && top > screenHeight - cornerHeight;
+        }
     }
 }

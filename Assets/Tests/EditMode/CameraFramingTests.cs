@@ -272,5 +272,115 @@ namespace BitSorter.LogicCore.Tests
             Assert.AreEqual(plain.OrthographicSize, framing.OrthographicSize);
             Assert.AreEqual(0f, framing.CameraY);
         }
+
+        // -----------------------------------------------------------------
+        // The top-right corner
+        // -----------------------------------------------------------------
+
+        private const float ThirteenHalfWidth = 6 * 2f + 1.4f;
+        private const float NineRight = 4 * 2f + PortGeometry.NodeSize * 0.5f;
+        private const float ThirteenRight = 6 * 2f + PortGeometry.NodeSize * 0.5f;
+
+        /// <summary>The gap CameraFit adds to the corner's width, as to every side inset.</summary>
+        private const float Gap = 8f;
+
+        /// <summary>Where a world x lands on a 1920-wide screen 1080 tall.</summary>
+        private static float ScreenXAt1080(Framing framing, float worldX) =>
+            1920f * 0.5f + (worldX - framing.CameraX) * 1080f / (2f * framing.OrthographicSize);
+
+        /// <summary>
+        /// The corner takes in both badges with the keys under them, and free play's folded tab.
+        /// </summary>
+        [Test]
+        public void TheTopRightCorner_TakesInTheBadgesAndTheTab()
+        {
+            var badges = UiRows.TopRightCorner(false);
+            var tab = UiRows.TopRightCorner(true);
+
+            Assert.GreaterOrEqual(badges.x, UiTheme.Margin + 2f * UiTheme.BadgeSize + UiTheme.BadgeGap,
+                "the timing badge, the further in of the two, is outside the corner");
+            Assert.GreaterOrEqual(badges.y, UiRows.BadgeKey.Offset + UiRows.BadgeKey.Height,
+                "the keys under the badges are below the corner");
+            Assert.GreaterOrEqual(tab.x, UiTheme.Margin + UiTheme.SetupTabSize.x, "the tab is wider than the corner");
+            Assert.GreaterOrEqual(tab.y, UiRows.Panels.Offset + UiTheme.SetupTabSize.y, "the tab is below the corner");
+        }
+
+        /// <summary>
+        /// A bin in the top-right cell that the framing would put under the badges, or under free
+        /// play's folded tab, is framed clear of them -- and the board stays clear of the parts list
+        /// and the banner.
+        /// </summary>
+        /// <remarks>
+        /// At 1920 by 1080 the canvas is at scale 1, so the corner is its canvas size in pixels.
+        /// The last case is a 13 by 7 board under a three-line banner, which already sets the size:
+        /// the board moves left rather than shrinking.
+        /// </remarks>
+        [TestCase(false, 88f, false)]
+        [TestCase(false, 120f, false)]
+        [TestCase(true, 88f, false)]
+        [TestCase(true, 88f, true)]
+        [TestCase(true, 150f, true)]
+        public void ABinUnderTheCorner_IsFramedClearOfIt(bool thirteen, float banner, bool tab)
+        {
+            float halfWidth = thirteen ? ThirteenHalfWidth : HalfWidth;
+            float halfHeight = thirteen ? SevenRowHalfHeight : FiveRowHalfHeight;
+            float top = thirteen ? SevenRowTop : FiveRowTop;
+            float right = thirteen ? ThirteenRight : NineRight;
+
+            float cornerWidth = UiRows.TopRightCorner(tab).x + Gap;
+            float cornerHeight = UiRows.TopRightCorner(tab).y;
+
+            Framing before = CameraFraming.Fit(
+                halfWidth, halfHeight, top, Authored, 1920f, 1080f, 164f, 0f, banner, 0f);
+
+            Assert.IsTrue(CameraFraming.Reaches(before, right, top, 1920f, 1080f, cornerWidth, cornerHeight),
+                "sanity: framed without the corner, the top-right part is clear of it already");
+
+            Framing framing = CameraFraming.Fit(
+                halfWidth, halfHeight, top, Authored, 1920f, 1080f, 164f, 0f, banner, 0f,
+                right, cornerWidth, cornerHeight);
+
+            Assert.IsFalse(CameraFraming.Reaches(framing, right, top, 1920f, 1080f, cornerWidth, cornerHeight),
+                "the top-right part is still drawn into the corner");
+            Assert.GreaterOrEqual(ScreenXAt1080(framing, -halfWidth), 164f - 1e-2f,
+                "the board's left edge went under the parts list");
+            Assert.LessOrEqual(ScreenY(framing, top, 1080f), 1080f - banner + 1e-2f,
+                "the board's top row went under the banner");
+            Assert.GreaterOrEqual(framing.OrthographicSize, before.OrthographicSize,
+                "keeping clear of the corner made the board bigger");
+        }
+
+        /// <summary>
+        /// Wherever the top-right part does not reach into the corner, the framing is the one
+        /// without it, to the last bit -- which is what holds every reference shot still.
+        /// </summary>
+        [Test]
+        public void WhereTheCornerIsNotReached_TheFramingIsExactlyAsBefore()
+        {
+            float width = UiRows.TopRightCorner(false).x + Gap;
+            float depth = UiRows.TopRightCorner(false).y;
+
+            AssertUnchanged(1920f, 0f, 0f, 0f, 0f, "no bin in the cell, so no corner");
+            AssertUnchanged(1920f, 0f, 0f, width, 60f, "a corner that stops above the top row");
+            AssertUnchanged(2560f, 0f, 0f, width, depth, "a 21:9 screen, which keeps the authored framing");
+            AssertUnchanged(1920f, 330f, 0f, width, depth, "a panel down the right that reaches further in");
+            AssertUnchanged(1920f, 0f, 380f, width, depth, "the timing diagram open, which shrinks the board clear");
+            AssertUnchanged(1920f, 0f, 0f, 1500f, depth, "a corner that would leave no room");
+        }
+
+        /// <summary>A 9 by 5 board 1080 tall under a one-line banner, with and without the corner.</summary>
+        private static void AssertUnchanged(
+            float screenWidth, float rightInset, float strip, float cornerWidth, float cornerHeight, string what)
+        {
+            Framing before = CameraFraming.Fit(
+                HalfWidth, FiveRowHalfHeight, FiveRowTop, Authored, screenWidth, 1080f, 164f, rightInset, 88f, strip);
+            Framing now = CameraFraming.Fit(
+                HalfWidth, FiveRowHalfHeight, FiveRowTop, Authored, screenWidth, 1080f, 164f, rightInset, 88f, strip,
+                NineRight, cornerWidth, cornerHeight);
+
+            Assert.AreEqual(before.OrthographicSize, now.OrthographicSize, what);
+            Assert.AreEqual(before.CameraX, now.CameraX, what);
+            Assert.AreEqual(before.CameraY, now.CameraY, what);
+        }
     }
 }

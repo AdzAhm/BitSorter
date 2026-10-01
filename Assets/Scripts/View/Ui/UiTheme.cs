@@ -54,6 +54,24 @@ namespace BitSorter.View
         /// <summary>The key hint hanging under the badge. Where it sits is <see cref="UiRows.BadgeKey"/>.</summary>
         public const float BadgeKeyHeight = 20f;
 
+        /// <summary>How far under its badge a key hint starts.</summary>
+        public const float BadgeKeyDrop = 4f;
+
+        /// <summary>A key hint's own height: it starts <see cref="BadgeKeyDrop"/> down, so it runs past its row.</summary>
+        public const float BadgeKeyLabelHeight = BadgeKeyHeight - 2f;
+
+        /// <summary>A key hint's width, centred under its badge and wider than it.</summary>
+        public const float BadgeKeyWidth = 60f;
+
+        /// <summary>Space between the timing diagram's badge and the help badge to its right.</summary>
+        public const float BadgeGap = 24f;
+
+        /// <summary>
+        /// The tab free play's setup panel leaves when it is folded, on <see cref="UiRows.Panels"/>
+        /// at the right margin.
+        /// </summary>
+        public static readonly Vector2 SetupTabSize = new Vector2(110f, 28f);
+
         /// <summary>
         /// Free play's setup panel's width. It runs from <see cref="UiRows.Panels"/> down to
         /// <see cref="UiRows.PanelFloor"/>.

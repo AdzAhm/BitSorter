@@ -735,10 +735,15 @@ failure side.
   gone waits for the fade, then one frame for each piece to step aside.
 - **The board is framed in what the interface leaves free.** `CameraFraming
   .Fit` centres it between the pixels taken on the left and the right, and
-  `CameraFit` reads those from the parts list and free play's setup panel.
-  Fitting to the whole screen put the outermost column under the parts list,
-  where four shipped levels keep a source — in Carry the one, source B sat
-  under the AND with "DELAY 0 of 5" across its label.
+  `CameraFit` reads those from the parts list, free play's setup panel and the
+  open help panel. Fitting to the whole screen put the outermost column under
+  the parts list, where four shipped levels keep a source — in Carry the one,
+  source B sat under the AND with "DELAY 0 of 5" across its label. **The
+  top-right corner counts only on a level that keeps a bin in that cell** --
+  five do, and free play -- where a board reaching the badges, their keys or
+  the folded setup tab is framed again with the corner as a right inset, about
+  7% smaller (`UiRows.TopRightCorner`); every other framing is untouched, to
+  the pixel, and a gate the player drops there never reframes the board.
 
   **A level may name its own board, and the level wins.** `board: { columns,
   rows }` in the file, odd both ways because the grid is centred on the

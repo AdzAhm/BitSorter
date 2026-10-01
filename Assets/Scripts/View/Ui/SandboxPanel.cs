@@ -174,6 +174,15 @@ namespace BitSorter.View
         public bool IsOpen => _session != null && _session.LevelName == SandboxLevel.Key;
 
         /// <summary>
+        /// Whether the panel is folded to its tab in the top-right corner, shown or not.
+        /// </summary>
+        /// <remarks>
+        /// By intent, like <see cref="ScreenLeftEdge"/>: <see cref="CameraFit"/> keeps the board out
+        /// of the corner the tab takes, and must not reframe it behind a full-screen panel.
+        /// </remarks>
+        public bool IsFolded => IsOpen && !_expanded;
+
+        /// <summary>
         /// The panel's left edge in screen pixels, or zero when it is taking no width.
         /// </summary>
         /// <remarks>
@@ -326,7 +335,7 @@ namespace BitSorter.View
             _tab = tab.GetComponent<RectTransform>();
 
             UiTheme.Anchor(_tab, new Vector2(1f, 1f), new Vector2(1f, 1f),
-                new Vector2(-UiTheme.Margin, -UiRows.Panels.Offset), new Vector2(110f, 28f));
+                new Vector2(-UiTheme.Margin, -UiRows.Panels.Offset), UiTheme.SetupTabSize);
 
             tab.onClick.AddListener(() => { Expand(true); UiTheme.Defocus(); });
         }

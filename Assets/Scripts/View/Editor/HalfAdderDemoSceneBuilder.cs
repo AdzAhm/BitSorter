@@ -178,6 +178,12 @@ namespace BitSorter.View.EditorTools
             // the timing diagram along the bottom while it is open.
             Assign(fit, "_banner", banner);
             Assign(fit, "_waveform", waveform);
+
+            // And the badges in the top-right corner, kept clear of the board's top-right cell on a
+            // level with a bin there: the level says whether there is one, the canvas how big the
+            // corner is on screen.
+            Assign(fit, "_session", session);
+            Assign(fit, "_canvas", canvas);
             Assign(bits, "_sparks", sparks);
             Assign(scorch, "_runner", runner);
 

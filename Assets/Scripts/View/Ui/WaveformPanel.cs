@@ -75,9 +75,6 @@ namespace BitSorter.View
         /// </summary>
         public const string EmptyWireRow = "Alt+click a wire to show its bits here";
 
-        /// <summary>Space between the badge and the help badge beside it.</summary>
-        private const float BadgeGap = 24f;
-
         private readonly WaveformRecorder _recorder = new WaveformRecorder();
 
         private bool _shown;
@@ -574,7 +571,7 @@ namespace BitSorter.View
             var rect = _badge.GetComponent<RectTransform>();
 
             UiTheme.Anchor(rect, new Vector2(1f, 1f), new Vector2(1f, 1f),
-                new Vector2(-(UiTheme.Margin + UiTheme.BadgeSize + BadgeGap), -UiRows.Badge.Offset),
+                new Vector2(-(UiTheme.Margin + UiTheme.BadgeSize + UiTheme.BadgeGap), -UiRows.Badge.Offset),
                 new Vector2(UiTheme.BadgeSize, UiRows.Badge.Height));
 
             _badge.sprite = ProceduralSprites.Circle();
@@ -604,7 +601,7 @@ namespace BitSorter.View
                 "key", rect, UiTheme.KeyCaptionType, UiTheme.TextDim, TextAlignmentOptions.Center);
             key.raycastTarget = false;
             UiTheme.Anchor(key.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 1f),
-                new Vector2(0f, -4f), new Vector2(60f, UiRows.BadgeKey.Height - 2f));
+                new Vector2(0f, -UiTheme.BadgeKeyDrop), new Vector2(UiTheme.BadgeKeyWidth, UiTheme.BadgeKeyLabelHeight));
             key.text = ControlsReference.At(ControlSpot.TimingBadge);
         }
 
