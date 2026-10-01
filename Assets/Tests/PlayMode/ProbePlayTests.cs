@@ -166,6 +166,49 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>A fifth wire is refused with the way out, and the four stay as they were.</summary>
+        /// <summary>
+        /// A tap on a port -- pressed and let go in one frame, as a touchpad taps -- does nothing at
+        /// all: no wire, no part, and no refusal.
+        /// </summary>
+        /// <remarks>
+        /// A press on a port starts a wire, and placement stands aside while a wire is dragged. A tap
+        /// starts and ends the wire inside the wiring controller's one Update, so by the time
+        /// placement asked whose press it was, the wire was over and nobody owned it: the press put
+        /// the part in hand on the port's own cell and was refused out loud. A wire let go on the
+        /// port it started from is silent on purpose -- "a click, stay quiet" in WiringRules. The
+        /// plain click on the board being refused is the paired test above.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator ATapOnAPort_DoesNothing()
+        {
+            yield return OnTheBoard();
+
+            LevelSession session = Find<LevelSession>();
+            SimulationRunner runner = Find<SimulationRunner>();
+
+            Edge edge = runner.View.GetEdge(0);
+            Assert.IsNotNull(edge, "sanity: the level opens with no wire to find a port by");
+
+            Vector2 port = PortGeometry.EndpointOf(edge.Source, runner.PositionOf(edge.Source.Owner.Id));
+            Vector3 screen = Camera.main.WorldToScreenPoint(new Vector3(port.x, port.y, 0f));
+
+            int parts = session.Blueprint.Placements.Count;
+            int wires = session.Blueprint.Wires.Count;
+            float refusedAt = runner.LastRejectionTime;
+
+            Set(_mouse.position, new Vector2(screen.x, screen.y));
+            yield return null;
+
+            PressAndRelease(_mouse.leftButton);
+            yield return null;
+            yield return null;
+
+            Assert.AreEqual(parts, session.Blueprint.Placements.Count, "a tap on a port placed a part");
+            Assert.AreEqual(wires, session.Blueprint.Wires.Count, "a tap on a port changed the wiring");
+            Assert.AreEqual(refusedAt, runner.LastRejectionTime,
+                $"a tap on a port drew a refusal: \"{runner.LastRejectionReason}\"");
+        }
+
         [UnityTest]
         public IEnumerator AFifthWire_IsRefused_WithTheWayOut()
         {
