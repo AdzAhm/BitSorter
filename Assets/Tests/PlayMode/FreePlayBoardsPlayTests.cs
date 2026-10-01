@@ -66,6 +66,79 @@ namespace BitSorter.PlayMode.Tests
 
         private static LevelSession Session => Find<LevelSession>();
 
+        /// <summary>
+        /// What a reload would find on a level's board: the save read back from the file, not the
+        /// store already in memory.
+        /// </summary>
+        private static SavedBoard OnDisk(string level)
+        {
+            var store = new ProgressStore(ProgressStore.DefaultPath);
+            store.Load();
+            return store.BoardFor(level);
+        }
+
+        /// <summary>
+        /// Waits, frame by frame and with a cap that fails loudly, for a part placed on a board to
+        /// reach the file, without anything leaving the level.
+        /// </summary>
+        private static IEnumerator UntilThePartIsOnDisk(string level)
+        {
+            for (int frame = 0; frame < 3000; frame++)
+            {
+                yield return null;
+
+                // A file read is cheap, but not every frame's worth of cheap.
+                if (frame % 10 != 0)
+                    continue;
+
+                SavedBoard board = OnDisk(level);
+
+                if (board != null && board.placements != null && board.placements.Length > 0)
+                    yield break;
+            }
+
+            Assert.Fail($"three thousand frames after a part was placed on {level}, the save still did not have it -- " +
+                        "a browser tab closed or reloaded now would lose it");
+        }
+
+        /// <summary>
+        /// A board reaches the save soon after it is edited, without leaving the level or quitting.
+        /// </summary>
+        /// <remarks>
+        /// Boards were saved on the way out of a level, on a solve and on quit, and quitting never
+        /// reaches the game in a browser: a tab closes or reloads without telling it. So a player
+        /// who built half a circuit and reloaded found the board as they had last left it on another
+        /// level, and the README promised a reload loses nothing.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator AnEditedBoard_ReachesTheSave_WithoutLeavingTheLevel()
+        {
+            yield return TestScene.Load();
+            Find<MainMenu>().Show(false);
+            yield return null;
+
+            Assert.IsTrue(Session.LoadLevel("half-adder"), "the level did not load");
+            yield return null;
+
+            Assert.IsTrue(Session.TryPlaceGate(GateKind.Xor, new Vector2Int(0, 1)), "could not place the XOR");
+
+            yield return UntilThePartIsOnDisk("half-adder");
+        }
+
+        /// <summary>
+        /// A free-play circuit reaches the save without leaving free play: the board most likely to
+        /// be built over a long time without ever switching level.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator AFreePlayCircuit_ReachesTheSave_WithoutLeaving()
+        {
+            yield return OpenFreePlay();
+
+            Assert.IsTrue(Session.TryPlaceGate(GateKind.And, new Vector2Int(0, 0)), "could not place the AND");
+
+            yield return UntilThePartIsOnDisk(SandboxLevel.Key);
+        }
+
         private static IEnumerator OpenFreePlay()
         {
             yield return TestScene.Load();
