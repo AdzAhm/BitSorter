@@ -1,4 +1,6 @@
 using System.Collections;
+using System.Collections.Generic;
+using System.Reflection;
 using NUnit.Framework;
 using BitSorter.View;
 using TMPro;
@@ -681,6 +683,88 @@ namespace BitSorter.PlayMode.Tests
                 Assert.IsFalse(label.isTextOverflowing, $"'{label.text}' runs out of its box");
                 Assert.LessOrEqual(label.preferredHeight, label.rectTransform.rect.height + 0.5f,
                     $"'{label.text}' is taller than its box");
+            }
+        }
+
+        // -----------------------------------------------------------------
+        // Data
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// An event waiting for the analytics services to start is dropped when DATA is switched
+        /// off, never sent once they are up.
+        /// </summary>
+        /// <remarks>
+        /// Events queue until the services have started, which on a slow or blocked connection is a
+        /// while -- long enough to open Settings and switch DATA off. The switch stopped new events
+        /// and told the consent framework, and left the queue to be sent the moment the services
+        /// came up: a promise not to collect, kept for everything but what was already collected.
+        ///
+        /// Driven through the private state rather than a real boot, because a real boot with
+        /// reporting on is a real event from a test run. Reporting is switched on in the redirected
+        /// preferences alone, so consent is never granted and nothing can leave the machine; and no
+        /// frame passes while the queue holds anything, so the boot's own flush cannot run.
+        /// </remarks>
+        [Test]
+        public void SwitchingDataOff_DropsWhatWasWaitingToBeSent()
+        {
+            const BindingFlags Hidden = BindingFlags.Static | BindingFlags.NonPublic;
+            System.Type analytics = typeof(GameAnalytics);
+
+            FieldInfo consentKey = analytics.GetField("ConsentKey", Hidden);
+            FieldInfo collecting = analytics.GetField("_collecting", Hidden);
+            FieldInfo unavailable = analytics.GetField("_unavailable", Hidden);
+            FieldInfo pending = analytics.GetField("Pending", Hidden);
+            FieldInfo sent = analytics.GetField("Sent", Hidden);
+            MethodInfo record = analytics.GetMethod("Record", Hidden);
+
+            Assert.IsNotNull(consentKey, "GameAnalytics no longer names its preference in ConsentKey");
+            Assert.IsNotNull(collecting, "GameAnalytics no longer keeps _collecting");
+            Assert.IsNotNull(unavailable, "GameAnalytics no longer keeps _unavailable");
+            Assert.IsNotNull(pending, "GameAnalytics no longer queues in Pending");
+            Assert.IsNotNull(sent, "GameAnalytics no longer remembers what it sent in Sent");
+            Assert.IsNotNull(record, "GameAnalytics no longer records through Record");
+
+            var queue = (List<KeyValuePair<string, string>>)pending.GetValue(null);
+            var gone = (HashSet<string>)sent.GetValue(null);
+            string key = AnalyticsRules.SessionKey(AnalyticsRules.LevelStarted, "route-the-bit");
+
+            object wasCollecting = collecting.GetValue(null);
+            object wasUnavailable = unavailable.GetValue(null);
+            bool wasSent = gone.Contains(key);
+
+            try
+            {
+                collecting.SetValue(null, false);
+                unavailable.SetValue(null, false);
+                gone.Remove(key);
+                queue.Clear();
+
+                Assert.IsNotNull(Preferences.Redirected,
+                    "sanity: the preferences should be redirected, or this would write the player's own");
+                Preferences.SetInt((string)consentKey.GetRawConstantValue(), 1);
+                Assert.IsTrue(GameAnalytics.Reporting, "sanity: reporting should read as on");
+
+                record.Invoke(null, new object[] { AnalyticsRules.LevelStarted, "route-the-bit" });
+                Assert.AreEqual(1, queue.Count,
+                    "sanity: with the services still starting, a level start should wait in the queue");
+
+                GameAnalytics.SetReporting(false);
+
+                Assert.AreEqual(0, queue.Count,
+                    "DATA was switched off and an event was still waiting to be sent once the services were up");
+            }
+            finally
+            {
+                queue.Clear();
+                GameAnalytics.SetReporting(false);
+                collecting.SetValue(null, wasCollecting);
+                unavailable.SetValue(null, wasUnavailable);
+
+                if (wasSent)
+                    gone.Add(key);
+                else
+                    gone.Remove(key);
             }
         }
 
