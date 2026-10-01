@@ -182,6 +182,37 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
+        /// Alt+Enter is the desktop build's fullscreen switch, and it does not also run the board.
+        /// </summary>
+        /// <remarks>
+        /// Settings names Alt+Enter for fullscreen and the player switches on it by itself, while the
+        /// board read Enter without asking about Alt, so the one press went fullscreen and ran the
+        /// circuit too. Enter alone still runs it: <see cref="AnEnterWithNothingOpen_StillRunsTheBoard"/>
+        /// is the positive control.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator AltEnter_DoesNotRunTheBoard()
+        {
+            yield return TestScene.Load();
+            yield return SkipTheTutorial();
+            yield return CloseTheMainMenu();
+
+            LevelSession session = Find<LevelSession>();
+            SimulationInput keys = Find<SimulationInput>();
+            keys.enabled = false;
+
+            Press(_keyboard.leftAltKey);
+            yield return PressKey(_keyboard.enterKey);
+            FrameOf(keys)();
+
+            Assert.AreNotEqual(RunState.Running, session.State, "Alt+Enter, the fullscreen switch, also ran the board");
+
+            Release(_keyboard.enterKey);
+            Release(_keyboard.leftAltKey);
+            keys.enabled = true;
+        }
+
+        /// <summary>
         /// Escape over the solved card closes the card and opens nothing, whichever of the card and
         /// the main menu Unity updates first.
         /// </summary>
