@@ -104,6 +104,9 @@ namespace BitSorter.View
             Show(false);
         }
 
+        /// <summary>A pass on the last level, waiting for the screen to be clear to show.</summary>
+        private bool _due;
+
         private void Update()
         {
             if (_session == null || Root == null)
@@ -114,11 +117,20 @@ namespace BitSorter.View
             if (now != _state)
             {
                 if (now == RunState.Passed && IsTheEnd(_session, _progress))
-                    Present();
+                    _due = true;
                 else if (IsShowing)
                     Show(false);
 
                 _state = now;
+            }
+
+            // Never over another full-screen panel. A run goes on behind the main menu, so the last
+            // level can pass while it is up; the ending waits for it to close, as the chapter card
+            // waits, rather than opening on top where one Escape closed both.
+            if (_due && !IsShowing && !UiModal.AnyOpen)
+            {
+                _due = false;
+                Present();
             }
 
             // Escape as well as the buttons. A full-screen panel that only a mouse can dismiss is
