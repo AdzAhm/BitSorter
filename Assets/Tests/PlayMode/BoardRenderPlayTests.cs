@@ -956,9 +956,84 @@ namespace BitSorter.PlayMode.Tests
                 "crossing is where they are expected to meet");
         }
 
+        /// <summary>
+        /// A bin lit by a win is drawn behind the wires running into it, every time.
+        /// </summary>
+        /// <remarks>
+        /// The celebration's layer said it sat in the node glow's slot, behind everything the player
+        /// reads; its number put it level with the wires' casing, and with both at depth zero, which
+        /// of a bin's glow and the wire into it was on top was Unity's choice.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator AWinsGlow_IsDrawnBehindTheWiresIntoItsBin()
+        {
+            yield return TestScene.Load();
+            Find<MainMenu>().Show(false);
+            yield return null;
+
+            LevelSession session = Find<LevelSession>();
+            SimulationRunner runner = Find<SimulationRunner>();
+
+            Assert.IsTrue(session.LoadLevel(Level), "the level did not load");
+
+            for (int frame = 0; frame < 30 && !runner.FixtureNodeIds.ContainsKey("a"); frame++)
+                yield return null;
+
+            BuildTheHalfAdder(session, runner);
+            session.Run();
+
+            for (int tick = 0; tick < 100 && !runner.IsIdle(); tick++)
+                runner.StepOneTick();
+
+            var glows = new List<SpriteRenderer>();
+
+            for (int frame = 0; frame < 30 && glows.Count == 0; frame++)
+            {
+                yield return null;
+
+                GameObject container = GameObject.Find("Sink celebration");
+
+                if (container != null)
+                    glows.AddRange(container.GetComponentsInChildren<SpriteRenderer>());
+            }
+
+            Assert.AreEqual(RunState.Passed, session.State, "sanity: the half adder should pass");
+            Assert.Greater(glows.Count, 0, "sanity: the win lit no bins");
+
+            int overlaps = 0;
+
+            foreach (LineRenderer casing in Object.FindObjectsByType<LineRenderer>(FindObjectsSortMode.None))
+            {
+                if (!casing.enabled || !casing.name.EndsWith(" casing"))
+                    continue;
+
+                foreach (SpriteRenderer glow in glows)
+                {
+                    if (!Flat(glow.bounds).Overlaps(Flat(casing.bounds)))
+                        continue;
+
+                    overlaps++;
+
+                    bool behind = glow.sortingOrder < casing.sortingOrder ||
+                                  (glow.sortingOrder == casing.sortingOrder &&
+                                   glow.bounds.center.z > casing.bounds.center.z);
+
+                    Assert.IsTrue(behind,
+                        $"{glow.name} is not drawn behind {casing.name} (orders {glow.sortingOrder} and " +
+                        $"{casing.sortingOrder}, depths {glow.bounds.center.z} and {casing.bounds.center.z})");
+                }
+            }
+
+            Assert.Greater(overlaps, 0, "sanity: no wire ran into a lit bin, so nothing here was tested");
+        }
+
         // -----------------------------------------------------------------
         // Helpers
         // -----------------------------------------------------------------
+
+        /// <summary>A renderer's bounds, flattened onto the board.</summary>
+        private static Rect Flat(Bounds bounds) =>
+            Rect.MinMaxRect(bounds.min.x, bounds.min.y, bounds.max.x, bounds.max.y);
 
         /// <summary>Whether two bits overlap anywhere they draw: dot, halo or trail.</summary>
         private static bool Meet(Transform a, Transform b)

@@ -209,6 +209,63 @@ namespace BitSorter.PlayMode.Tests
                 $"a tap on a port drew a refusal: \"{runner.LastRejectionReason}\"");
         }
 
+        /// <summary>
+        /// The wire being dragged is drawn over everything on the board, the port it leaves included.
+        /// </summary>
+        /// <remarks>
+        /// It is a cursor, and its layer said so -- "above everything" -- while its number put it
+        /// level with the ports and under every bit, glow and wire label. Level with the port it is
+        /// pulled from, with both at depth zero, which of the two was on top was Unity's choice.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator AWireBeingDragged_IsDrawnOverEverythingOnTheBoard()
+        {
+            yield return OnTheBoard();
+
+            SimulationRunner runner = Find<SimulationRunner>();
+
+            Edge edge = runner.View.GetEdge(0);
+            Assert.IsNotNull(edge, "sanity: the level opens with no wire to find a port by");
+
+            Vector2 port = PortGeometry.EndpointOf(edge.Source, runner.PositionOf(edge.Source.Owner.Id));
+            Vector3 screen = Camera.main.WorldToScreenPoint(new Vector3(port.x, port.y, 0f));
+
+            Set(_mouse.position, new Vector2(screen.x, screen.y));
+            yield return null;
+
+            Press(_mouse.leftButton);
+            yield return null;
+
+            Set(_mouse.position, new Vector2(screen.x + 60f, screen.y + 40f));
+            yield return null;
+            yield return null;
+
+            Assert.IsTrue(Find<WiringController>().IsDragging, "sanity: the press on the port should start a wire");
+
+            GameObject host = GameObject.Find("Wire preview");
+            Assert.IsNotNull(host, "sanity: a wire being dragged should be drawn");
+            LineRenderer preview = host.GetComponent<LineRenderer>();
+
+            GameObject stub = GameObject.Find($"Out {edge.Source.Owner.Id}.{edge.Source.Index}");
+            Assert.IsNotNull(stub, "sanity: the port the wire leaves should be drawn");
+
+            Renderer leaves = stub.GetComponent<Renderer>();
+            Assert.Greater(preview.sortingOrder, leaves.sortingOrder,
+                "the wire being dragged is not drawn over the port it leaves");
+
+            foreach (Renderer other in Object.FindObjectsByType<Renderer>(FindObjectsSortMode.None))
+            {
+                if (other == preview || !other.enabled || other.sortingLayerID != preview.sortingLayerID)
+                    continue;
+
+                Assert.Greater(preview.sortingOrder, other.sortingOrder,
+                    $"the wire being dragged is not drawn over {other.name}");
+            }
+
+            Release(_mouse.leftButton);
+            yield return null;
+        }
+
         [UnityTest]
         public IEnumerator AFifthWire_IsRefused_WithTheWayOut()
         {
