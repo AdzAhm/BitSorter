@@ -717,10 +717,6 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
-        /// Long enough for a fade down, a swap and a fade back up -- and for the new track to finish
-        /// building first, which GameAudio waits for rather than freezing a frame on.
-        /// </summary>
-        /// <summary>
         /// Waits until the music has stopped reacting to whatever the test just did.
         /// </summary>
         /// <remarks>

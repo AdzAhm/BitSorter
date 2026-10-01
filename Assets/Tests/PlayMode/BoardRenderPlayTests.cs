@@ -372,16 +372,6 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
-        /// The bits-lost meter's pop stays inside its own row, clear of the help badge below it.
-        /// </summary>
-        /// <remarks>
-        /// The pop scaled the whole meter from its top-right corner, so at its peak the backdrop
-        /// reached sixteen pixels further down than its row -- over the top of the badge, whose row
-        /// starts ten below. <see cref="UiRows"/> had it written down as a known overlap. Sampled on
-        /// every frame of every pop, on a fixed frame time, and paired with proof that a pop was
-        /// running while it was sampled, or a meter that never popped would pass.
-        /// </remarks>
-        /// <summary>
         /// A scorch mark ends at its full strength and size, whatever the frame rate.
         /// </summary>
         /// <remarks>
@@ -459,6 +449,16 @@ namespace BitSorter.PlayMode.Tests
             return (float)info.GetValue(component);
         }
 
+        /// <summary>
+        /// The bits-lost meter's pop stays inside its own row, clear of the help badge below it.
+        /// </summary>
+        /// <remarks>
+        /// The pop scaled the whole meter from its top-right corner, so at its peak the backdrop
+        /// reached sixteen pixels further down than its row -- over the top of the badge, whose row
+        /// starts ten below. <see cref="UiRows"/> had it written down as a known overlap. Sampled on
+        /// every frame of every pop, on a fixed frame time, and paired with proof that a pop was
+        /// running while it was sampled, or a meter that never popped would pass.
+        /// </remarks>
         [UnityTest]
         public IEnumerator TheBitsLostPop_StaysClearOfTheHelpBadge()
         {
