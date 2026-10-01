@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Reflection;
 using NUnit.Framework;
 using BitSorter.LogicCore;
 using BitSorter.View;
@@ -1042,6 +1043,63 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>How far apart the two ends of the longest wire on the board are.</summary>
+        /// <summary>
+        /// RESET in the middle of a run lands nothing: the bits it throws away do not count as
+        /// arriving, so no bin chimes and no spark bursts for them.
+        /// </summary>
+        /// <remarks>
+        /// The bit renderer calls a bit arrived when it was on its wire's last tick and then is
+        /// gone. A rebuild empties every wire at once, and on a delay-1 wire every bit is on its last
+        /// tick -- so RESET mid-run read as every bit on the board landing together: a burst of
+        /// sparks, and the landing chime from each bin with a bit on its way.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator ResetMidRun_LandsNothing()
+        {
+            yield return TestScene.Load();
+            Find<MainMenu>().Show(false);
+            yield return null;
+
+            LevelSession session = Find<LevelSession>();
+            SimulationRunner runner = Find<SimulationRunner>();
+            BitRenderer bits = Find<BitRenderer>();
+
+            Assert.IsTrue(session.LoadLevel(Level), "the level did not load");
+
+            for (int frame = 0; frame < 30 && !runner.FixtureNodeIds.ContainsKey("a"); frame++)
+                yield return null;
+
+            // A straight into SUM: one wire of one tick, so the bit on it is always on its last tick.
+            Wire(session, runner.FixtureNodeIds["a"], 0, runner.FixtureNodeIds["sum"], 0);
+
+            session.Run();
+            runner.SetPaused(true);
+            runner.StepOneTick();
+            yield return null;
+            yield return null;
+
+            int inFlight = 0;
+
+            for (int id = 0; id < runner.View.EdgeCount; id++)
+            {
+                Edge edge = runner.View.GetEdge(id);
+
+                if (edge != null)
+                    inFlight += edge.InTransitCount;
+            }
+
+            Assert.Greater(inFlight, 0, "sanity: no bit is on its way to SUM, so RESET has nothing to throw away");
+
+            int landed = bits.BinLandedCount;
+
+            session.ResetBoard();
+            yield return null;
+            yield return null;
+
+            Assert.AreEqual(landed, bits.BinLandedCount,
+                "RESET counted the bits it threw away as landing in the bin");
+        }
+
         private static float LongestWire(SimulationRunner runner)
         {
             float longest = 0f;
