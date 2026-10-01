@@ -1117,7 +1117,6 @@ namespace BitSorter.PlayMode.Tests
             return worst;
         }
 
-        /// <summary>How far apart the two ends of the longest wire on the board are.</summary>
         /// <summary>
         /// RESET in the middle of a run lands nothing: the bits it throws away do not count as
         /// arriving, so no bin chimes and no spark bursts for them.
@@ -1218,6 +1217,7 @@ namespace BitSorter.PlayMode.Tests
             }
         }
 
+        /// <summary>How far apart the two ends of the longest wire on the board are.</summary>
         private static float LongestWire(SimulationRunner runner)
         {
             float longest = 0f;
