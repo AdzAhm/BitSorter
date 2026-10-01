@@ -136,12 +136,18 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsNotNull(music.clip, "the music source has no clip");
 
             // The menu's first track loads in the background, so it may take a moment to start.
-            float until = Time.unscaledTime + 2f;
+            // Waited on, with WaitForTheFade's kind of cap: generous, and a deadlock guard rather
+            // than a timing assumption. It was two seconds, which an editor in the background,
+            // drawing a few frames a second, could spend before the clip had loaded.
+            float until = Time.unscaledTime + 60f;
 
-            while (!music.isPlaying && Time.unscaledTime < until)
+            while (!music.isPlaying)
+            {
+                if (Time.unscaledTime > until)
+                    Assert.Fail("the music is not playing a minute after the scene loaded");
+
                 yield return null;
-
-            Assert.IsTrue(music.isPlaying, "the music is not playing");
+            }
         }
 
         // -----------------------------------------------------------------
