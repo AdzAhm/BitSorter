@@ -116,6 +116,10 @@ namespace BitSorter.PlayMode.Tests
                 }
             }
 
+            // The pair: a trail was drawn and measured, or "no jump" would pass on a board where no
+            // trail had two points to be apart.
+            Assert.Greater(worst, 0f, "sanity: no bit's trail drew two points, so nothing here was tested");
+
             Assert.Less(worst, longestWire,
                 $"a bit's trail jumped {worst:F2} units in one step on '{where}', and the longest " +
                 $"wire on this board is {longestWire:F2} -- a recycled bit is drawing a streak from " +
