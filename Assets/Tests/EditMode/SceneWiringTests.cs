@@ -48,9 +48,19 @@ namespace BitSorter.LogicCore.Tests
         private static readonly Regex ClassIdentifier =
             new Regex(@"m_EditorClassIdentifier:\s*(\S+)", RegexOptions.Compiled);
 
-        /// <summary>A field holding an object reference, at the indentation Unity writes them.</summary>
+        /// <summary>A field holding an object reference, at any depth Unity writes one.</summary>
+        /// <remarks>
+        /// Top-level fields sit two spaces in; a field of a list entry or a nested struct sits
+        /// deeper, or after the list's "- ". This read the top level alone, so the menu's two music
+        /// clips -- fields of the entries in <c>GameAudio</c>'s track list -- could have serialised as
+        /// nothing, and the menu opened silent on a fresh clone, with this test green.
+        /// </remarks>
         private static readonly Regex ObjectField =
-            new Regex(@"^  (\w+): \{fileID: (-?\d+)", RegexOptions.Multiline | RegexOptions.Compiled);
+            new Regex(@"^ {2,}(?:- )?(\w+): \{fileID: (-?\d+)", RegexOptions.Multiline | RegexOptions.Compiled);
+
+        /// <summary>A list entry that is itself an object reference, with no field name of its own.</summary>
+        private static readonly Regex ListEntry =
+            new Regex(@"^ {2,}- \{fileID: (-?\d+)", RegexOptions.Multiline | RegexOptions.Compiled);
 
         private readonly struct Reference
         {
@@ -110,6 +120,9 @@ namespace BitSorter.LogicCore.Tests
 
                     found.Add(new Reference(component, name, field.Groups[2].Value != "0"));
                 }
+
+                foreach (Match entry in ListEntry.Matches(document))
+                    found.Add(new Reference(component, "a list entry", entry.Groups[1].Value != "0"));
             }
 
             return found;
@@ -192,6 +205,19 @@ namespace BitSorter.LogicCore.Tests
             Assert.IsTrue(bad.Success, "the parser no longer recognises an empty reference");
             Assert.AreEqual("0", bad.Groups[2].Value,
                 "an empty reference must be seen as empty, or the whole test is decorative");
+
+            // One level down: a field of a list entry, and a list entry that is a reference itself.
+            Match nested = ObjectField.Match("  - Clip: {fileID: 0}");
+            Assert.IsTrue(nested.Success, "the parser does not see a reference inside a list entry");
+            Assert.AreEqual("0", nested.Groups[2].Value);
+
+            Match deeper = ObjectField.Match("    Clip: {fileID: 0}");
+            Assert.IsTrue(deeper.Success, "the parser does not see a reference inside a nested struct");
+            Assert.AreEqual("0", deeper.Groups[2].Value);
+
+            Match bare = ListEntry.Match("  - {fileID: 0}");
+            Assert.IsTrue(bare.Success, "the parser does not see a list of references");
+            Assert.AreEqual("0", bare.Groups[1].Value);
         }
     }
 }
