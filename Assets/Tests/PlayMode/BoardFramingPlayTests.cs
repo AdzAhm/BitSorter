@@ -252,5 +252,115 @@ namespace BitSorter.PlayMode.Tests
             Assert.LessOrEqual(columnRightOnScreen, helpLeft,
                 "the open help panel covers the board's rightmost column, where the bins are");
         }
+
+        // -----------------------------------------------------------------
+        // The top-right corner
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// On a 13 by 7 board with nothing docked on the right, the bin in the top-right cell is
+        /// clear of the badges in the top-right corner and the keys under them.
+        /// </summary>
+        /// <remarks>
+        /// A board framed to fill the width the interface leaves reaches into the corner, where
+        /// nothing down the right was counted while no panel was open there. Every level keeps its
+        /// first bin in the top-right cell, and Carry it further is 13 by 7. Found on a render of
+        /// free play (2026-09-30): the timing badge's key was printed across the bin.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator TheTopRightBin_IsClearOfTheCornerBadges()
+        {
+            yield return TestScene.Load();
+            Find<ProgressTracker>().Store.MarkMilestone(TutorialLevel.Key);
+            Find<MainMenu>().Show(false);
+            yield return null;
+
+            Assert.IsTrue(Find<LevelSession>().LoadLevel("carry-it-further"), "the level did not load");
+
+            for (int frame = 0; frame < 4; frame++)
+                yield return null;
+
+            Assert.AreEqual(new Vector2Int(6, 3), Find<PlacementGrid>().HalfExtents, "sanity: not on the 13 by 7 board");
+
+            Rect bin = TopRightPart();
+            AssertClear(bin, "Timing badge");
+            AssertClear(bin, "Help badge");
+        }
+
+        /// <summary>
+        /// In free play with the setup panel folded to its tab, the bin in the top-right cell is
+        /// clear of the tab, and of the badges.
+        /// </summary>
+        /// <remarks>
+        /// Folding the panel hands its width back to the board, and the tab it leaves sits on the
+        /// panels' row in the top-right corner -- which on the full-width 13 by 7 board is over
+        /// OUT 1. Older than the badges: the tab covered the bin from the day free play's board
+        /// became 13 by 7.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator InFreePlay_WithTheSetupFolded_TheTopRightBinIsClearOfTheTab()
+        {
+            yield return TestScene.Load();
+            Find<ProgressTracker>().Store.MarkMilestone(TutorialLevel.Key);
+            Find<MainMenu>().Show(false);
+            yield return null;
+
+            Find<SandboxPanel>().Open();
+
+            for (int frame = 0; frame < 4; frame++)
+                yield return null;
+
+            GameObject fold = GameObject.Find("collapse");
+            Assert.IsNotNull(fold, "sanity: the setup panel has no button to fold it");
+            fold.GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+
+            for (int frame = 0; frame < 4; frame++)
+                yield return null;
+
+            Assert.AreEqual(new Vector2Int(6, 3), Find<PlacementGrid>().HalfExtents, "sanity: not on free play's board");
+            Assert.IsNotNull(GameObject.Find("Setup tab"), "sanity: the folded panel left no tab");
+
+            Rect bin = TopRightPart();
+            AssertClear(bin, "Setup tab");
+            AssertClear(bin, "Timing badge");
+            AssertClear(bin, "Help badge");
+        }
+
+        /// <summary>The square the part in the board's top-right cell is drawn in, in screen pixels.</summary>
+        private static Rect TopRightPart()
+        {
+            PlacementGrid grid = Find<PlacementGrid>();
+            Camera view = Camera.main;
+
+            float half = PortGeometry.NodeSize * 0.5f;
+            float x = grid.HalfExtents.x * grid.CellSize;
+            float y = grid.HalfExtents.y * grid.CellSize;
+
+            Vector3 low = view.WorldToScreenPoint(new Vector3(x - half, y - half, 0f));
+            Vector3 high = view.WorldToScreenPoint(new Vector3(x + half, y + half, 0f));
+            return Rect.MinMaxRect(low.x, low.y, high.x, high.y);
+        }
+
+        /// <summary>
+        /// Fails when the named piece of the interface -- itself or anything under it, such as a
+        /// badge's key -- overlaps <paramref name="part"/>.
+        /// </summary>
+        private static void AssertClear(Rect part, string name)
+        {
+            GameObject target = GameObject.Find(name);
+            Assert.IsNotNull(target, $"sanity: there is no '{name}' on screen");
+
+            var corners = new Vector3[4];
+
+            foreach (RectTransform piece in target.GetComponentsInChildren<RectTransform>())
+            {
+                piece.GetWorldCorners(corners);
+                Rect drawn = Rect.MinMaxRect(corners[0].x, corners[0].y, corners[2].x, corners[2].y);
+
+                Assert.IsFalse(drawn.Overlaps(part),
+                    $"'{piece.name}' of '{name}' is drawn over the part in the board's top-right cell " +
+                    $"({drawn} over {part})");
+            }
+        }
     }
 }
