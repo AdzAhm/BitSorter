@@ -124,6 +124,8 @@ namespace BitSorter.PlayMode.Tests
             for (int frame = 0; frame < 1200 && Time.time - shownAt < 1.5f; frame++)
                 yield return null;
 
+            Assert.GreaterOrEqual(Time.time - shownAt, 1.5f,
+                "sanity: the cap ran out before the hint's time had, so its outlasting it was not tested");
             Assert.IsTrue(Showing(HintRules.WireDelay), "the wire-delay hint ran out before any wire was lengthened");
 
             // A click over the status banner, where it lands on nothing on the board.
