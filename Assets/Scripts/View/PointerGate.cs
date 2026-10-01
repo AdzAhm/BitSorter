@@ -64,8 +64,15 @@ namespace BitSorter.View
                 _paletteDragOwner = null;
         }
 
-        /// <summary>Whether a wire is mid-drag. False when no wiring controller is wired up.</summary>
-        public bool WiringDragging => _wiring != null && _wiring.IsDragging;
+        /// <summary>
+        /// Whether a wire is mid-drag, or was let go this frame. False when no wiring controller is
+        /// wired up.
+        /// </summary>
+        /// <remarks>
+        /// The frame a wire ends is still the wiring's: a tap on a port begins and ends its wire in
+        /// one frame, before placement asks, and placement must not take the same press.
+        /// </remarks>
+        public bool WiringDragging => _wiring != null && (_wiring.IsDragging || _wiring.EndedThisFrame);
 
         /// <summary>Reused across frames; RaycastAll clears it before filling it.</summary>
         private readonly List<RaycastResult> _hits = new List<RaycastResult>();

@@ -41,6 +41,21 @@ namespace BitSorter.View
         private LineRenderer _preview;
         private PortAddress _dragFrom = PortAddress.None;
 
+        /// <summary>The frame a wire was last let go.</summary>
+        private int _endedOnFrame = -1;
+
+        /// <summary>
+        /// Whether a wire was let go this frame -- so a press that began and ended one, a tap, still
+        /// reads as the wiring's for the rest of the frame.
+        /// </summary>
+        /// <remarks>
+        /// This runs first, and a tap starts and ends its wire inside one Update; by the time
+        /// placement asked whose press it was, the wire was over and the press placed the part in
+        /// hand on the port's own cell, refused out loud. <see cref="PointerGate"/> counts this as
+        /// dragging. Derived from the frame, so it cannot leak past it.
+        /// </remarks>
+        public bool EndedThisFrame => _endedOnFrame == Time.frameCount;
+
         public bool IsDragging => _dragFrom.IsValid;
 
         private void Awake()
@@ -166,6 +181,7 @@ namespace BitSorter.View
         {
             PortAddress from = _dragFrom;
             _dragFrom = PortAddress.None;
+            _endedOnFrame = Time.frameCount;
             _preview.enabled = false;
 
             PortAddress to = FindPort(world);
