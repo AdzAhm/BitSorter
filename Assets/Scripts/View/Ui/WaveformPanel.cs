@@ -535,7 +535,7 @@ namespace BitSorter.View
 
         /// <summary>
         /// Lays the strip out across the room between the parts list and whatever is on the right,
-        /// and works out how many ticks fit. True when anything moved.
+        /// and measures the room its ticks have. True when anything moved.
         /// </summary>
         private bool Fit()
         {
@@ -549,17 +549,30 @@ namespace BitSorter.View
             float edge = setup <= 0f ? help : help <= 0f ? setup : Mathf.Min(setup, help);
             float right = edge > 0f ? (Screen.width - edge) / scale + UiTheme.Gap : UiTheme.Margin;
 
-            if (Mathf.Approximately(left, _leftInset) && Mathf.Approximately(right, _rightInset))
-                return false;
+            bool moved = false;
 
-            _leftInset = left;
-            _rightInset = right;
+            if (!Mathf.Approximately(left, _leftInset) || !Mathf.Approximately(right, _rightInset))
+            {
+                _leftInset = left;
+                _rightInset = right;
 
-            _root.offsetMin = new Vector2(left, UiRows.PanelFloor);
-            _root.offsetMax = new Vector2(-right, UiRows.PanelFloor + Height);
+                _root.offsetMin = new Vector2(left, UiRows.PanelFloor);
+                _root.offsetMax = new Vector2(-right, UiRows.PanelFloor + Height);
+                moved = true;
+            }
 
-            _ticksRoom = _root.rect.width - 2f * Padding - LabelWidth;
-            return true;
+            // Measured every frame, not only when an inset moves: the insets are fixed in canvas
+            // units, and a window changing shape changes the canvas's width under them, so the room
+            // the ticks have changes while neither inset does.
+            float room = _root.rect.width - 2f * Padding - LabelWidth;
+
+            if (!Mathf.Approximately(room, _ticksRoom))
+            {
+                _ticksRoom = room;
+                moved = true;
+            }
+
+            return moved;
         }
 
         // -----------------------------------------------------------------
