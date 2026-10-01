@@ -27,6 +27,13 @@ namespace BitSorter.View
         [Tooltip("Pulses per second.")]
         [SerializeField] private float _rate = 2.6f;
 
+        /// <summary>
+        /// How far behind the wires a glow sits. It shares their casing's sorting order
+        /// (<see cref="ViewLayers.Celebration"/>), and the camera is at -10 looking along +z, so
+        /// farther is more positive. A tie in order and depth is drawn in whichever order Unity picks.
+        /// </summary>
+        private const float Depth = 0.01f;
+
         private readonly List<SpriteRenderer> _glows = new List<SpriteRenderer>();
         private Transform _container;
         private float _remaining;
@@ -120,13 +127,14 @@ namespace BitSorter.View
                     continue;
 
                 GameObject glow = ViewSprites.Spawn(null, _container, $"Win glow {id}");
-                glow.transform.position = _runner.PositionOf(id);
+                Vector2 at = _runner.PositionOf(id);
+                glow.transform.position = new Vector3(at.x, at.y, Depth);
 
                 var renderer = glow.GetComponent<SpriteRenderer>();
                 renderer.sprite = ProceduralSprites.Glow();
                 renderer.color = NodeShapes.ColourFor(node);
 
-                // Behind the node body, in the slot the ordinary node glow already uses.
+                // Behind the node body, and behind the wires into the bin (Depth).
                 renderer.sortingOrder = ViewLayers.Celebration;
 
                 _glows.Add(renderer);

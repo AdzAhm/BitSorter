@@ -47,7 +47,14 @@ namespace BitSorter.View
         public const int WireMark = WireCore;
 
         /// <summary>The bins lighting up on a win, behind everything the player reads.</summary>
-        public const int Celebration = -2;
+        /// <remarks>
+        /// Over the node glow, and sharing its order with a wire's casing and never its depth: each
+        /// glow sits a little farther from the camera than the wires (<see cref="SinkCelebration"/>),
+        /// so the wire into a lit bin is drawn over its glow every time. It once claimed the node
+        /// glow's slot while sitting level with the casing at depth zero, which left the order of a
+        /// bin's glow and the wire into it to chance.
+        /// </remarks>
+        public const int Celebration = WireCasing;
 
         /// <summary>A node's body.</summary>
         public const int NodeBody = 0;
@@ -66,9 +73,6 @@ namespace BitSorter.View
         /// exactly the one whose state is worth reading -- so the burn must not bury it.
         /// </remarks>
         public const int Port = 3;
-
-        /// <summary>The wire being dragged. Above everything, because it is a cursor.</summary>
-        public const int WiringPreview = 3;
 
         /// <summary>
         /// The cross on a waiting bit that an imminent collision will take with it, over its port.
@@ -93,7 +97,8 @@ namespace BitSorter.View
         public const int Bit = 5;
 
         /// <summary>
-        /// A wire's delay, and the dark pill behind it: above everything else on the board.
+        /// A wire's delay, and the dark pill behind it: above everything else on the board but the
+        /// wire being dragged.
         /// </summary>
         /// <remarks>
         /// A number under a glowing bit is unreadable. Still on the board, though, and so under
@@ -104,5 +109,13 @@ namespace BitSorter.View
 
         /// <inheritdoc cref="WireLabelBacking"/>
         public const int WireLabel = 7;
+
+        /// <summary>The wire being dragged. Above everything, because it is a cursor.</summary>
+        /// <remarks>
+        /// It said so while it sat at 3, level with the ports and under every bit, glow and label --
+        /// and level with the port it is pulled from, at the same depth, so which of the two was on
+        /// top was Unity's choice.
+        /// </remarks>
+        public const int WiringPreview = 8;
     }
 }
