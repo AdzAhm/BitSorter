@@ -165,7 +165,6 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsFalse(controller.Probes.IsUsed(0), "a plain click put the wire in the diagram");
         }
 
-        /// <summary>A fifth wire is refused with the way out, and the four stay as they were.</summary>
         /// <summary>
         /// A tap on a port -- pressed and let go in one frame, as a touchpad taps -- does nothing at
         /// all: no wire, no part, and no refusal.
@@ -266,6 +265,7 @@ namespace BitSorter.PlayMode.Tests
             yield return null;
         }
 
+        /// <summary>A fifth wire is refused with the way out, and the four stay as they were.</summary>
         [UnityTest]
         public IEnumerator AFifthWire_IsRefused_WithTheWayOut()
         {
