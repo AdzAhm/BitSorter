@@ -103,6 +103,14 @@ namespace BitSorter.LogicCore.Tests
                 StringAssert.Contains(track.Author, roll);
                 StringAssert.Contains(track.Licence, roll);
 
+                // CC BY asks for both, so for it they are not optional: under the "if"s below alone,
+                // a CC BY track that lost its address or its change passed by skipping the check.
+                if (track.Licence.StartsWith("CC BY"))
+                {
+                    Assert.IsNotNull(track.LicenceAddress, $"{track.Title} is CC BY and names no licence address");
+                    Assert.IsNotNull(track.Change, $"{track.Title} is CC BY and does not say what was changed");
+                }
+
                 if (track.LicenceAddress != null)
                     StringAssert.Contains(track.LicenceAddress, roll, $"{track.Title}'s licence address is missing");
 
