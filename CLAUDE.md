@@ -601,7 +601,7 @@ failure side.
   came out of a stack.
 - **A control is shown beside the thing it works.** `ControlsReference` gives
   each control a `ControlSpot`: a button's key goes over the button (Enter over
-  RUN, ctrl+Z over UNDO), ESC under MENU, H under the help badge and F2 under the timing diagram's, and what
+  RUN, ctrl+Z over UNDO), ESC under MENU, H under the help badge and F8 under the timing diagram's, and what
   works nothing on screen -- the mouse, M, N -- in two short blocks either side
   of the run buttons, an upper line and a lower. An upper line holds one short
   phrase: it is level with the names under the board's bottom row, and two
@@ -984,16 +984,39 @@ failure side.
   verdict, which is the third time two things in that file each owned half
   the arithmetic.
 
-  **The timing diagram is all of it in the course's notation**
-  (`WaveformPanel`, 4.0.0): a strip along the bottom showing, tick by tick,
-  what each source sent and each bin received, with the clock as its first
-  row on a clocked level. It is the pair to the pips, not a replacement: the
-  pips explain the beat to someone who has never seen a timing diagram. It
-  replaced a small clock diagram in the bottom-left corner that showed the
-  clock alone. That was named only at the end of the clock strip, on the
-  five levels with a clock. The strip is worth something on every level, so
-  it has **a badge beside the help badge**, with F2 under it as H is under the
-  help's. F2, because F3 opens find-in-page in a browser.
+  **`ClockDiagram` is the same fact in the course's notation**, behind F2: a
+  square wave over three cycles with a playhead on the current tick, in the
+  bottom-left corner, on clocked levels only. It is the pair to the pips, not
+  a replacement: the pips explain the beat to someone who has never seen a
+  timing diagram. It is not on the tutorial's card -- the card's taller column
+  is at the 14 rows `TheCardsColumns_StayRoughlyBalanced` allows, and F2 is
+  worth nothing before the clocked chapter -- but it is named, quietly, at the
+  end of the clock strip, which is on screen exactly on the levels where it
+  means anything.
+
+  **Diagnostics is the other thing on F2**: the developer numbers in the
+  bottom-right corner. They follow the clock diagram's flag
+  (`ClockDiagram.IsOpen`) instead of reading F2 themselves, one flag per key.
+  **The two F2 readouts take opposite bottom corners**, under the timing
+  diagram's strip, and both hide while `UiModal.HudVisible` is false. They are
+  anchored the same way at the same width, so a shared corner would put them
+  in one rectangle -- which the catch readout and diagnostics already did once.
+
+  **The timing diagram is all of it** (`WaveformPanel`, 4.0.0): a strip along
+  the bottom showing, tick by tick, what each source sent and each bin
+  received, with the clock as its first row on a clocked level. It is worth
+  something on every level, so it has **a badge beside the help badge**, with
+  its key under it as H is under the help's.
+
+  **Its key is F8, the one function key no browser keeps that F2 does not
+  already have.** A key the browser keeps does the browser's thing first, and
+  F3 opened find-in-page in a playtest. F1 is help; F3 find; F4 selects Edge's
+  address bar, and Alt+F4 closes the window, with Alt held to pick wires; F5
+  reloads; F6 moves focus; F7 is caret browsing; F9 is Edge's and Firefox's
+  reader view; F10 to F12 are the menu, fullscreen and the developer tools.
+  `ControlsReferenceTests` scans the sources and refuses any other function
+  key. For its first day the strip was on F2, in place of the clock diagram;
+  Ahmad asked for the two apart (2026-10-01).
 
   **It is recorded from tick 0 whether it is open or not** (`WaveformRecorder`,
   fed by `SimulationRunner.Ticked` and `Rebuilt`). Several ticks can run in
@@ -1008,19 +1031,14 @@ failure side.
   right-hand column, 2026-09-30):
   - The strip sits on `UiRows.PanelFloor`. It runs from the parts list to the
     right margin or to an open right-hand panel.
-  - Its height is fixed per level, with four wire rows reserved, so F2
-    frames the board once.
+  - Its height is fixed per level, with four wire rows reserved, so opening
+    it frames the board once.
   - `CameraFraming` centres the board in the band between the banner and the
     strip, at the smallest size that fits it there.
   - With no strip the framing is exactly as before, camera at y = 0, which
     the reference shots hold it to.
   - The solved card moves up above the strip, back over the board's bottom
     row.
-
-  **Diagnostics is the other thing on F2**: the developer numbers in the
-  bottom-right corner, under the strip. They follow the strip's one flag
-  instead of reading F2 themselves, so the key and the badge cannot leave the
-  two out of step. Both hide while `UiModal.HudVisible` is false.
 
   **A wire the player picks is in the diagram too**: Alt+click on a wire,
   any time the board is on screen, running or not (`ProbeController`), up to

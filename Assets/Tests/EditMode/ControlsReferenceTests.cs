@@ -1,6 +1,10 @@
 using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Text.RegularExpressions;
 using NUnit.Framework;
 using BitSorter.View;
+using UnityEngine;
 
 namespace BitSorter.LogicCore.Tests
 {
@@ -400,33 +404,95 @@ namespace BitSorter.LogicCore.Tests
         }
 
         /// <summary>
-        /// The timing diagram's key is a control like the rest: on the card, named by F2, and under
+        /// The timing diagram's key is a control like the rest: on the card, named by F8, and under
         /// its badge on every board.
         /// </summary>
         /// <remarks>
-        /// It was behind F2 and named nowhere, then on the clock strip on the five levels with a
-        /// clock. The diagram shows every source and bin now, so it is worth naming on every board.
+        /// The diagram shows every source and bin, so it is worth naming on every board. It was on
+        /// F2 for its first day, which went back to the clock diagram (2026-10-01).
         /// </remarks>
         [Test]
         public void TheTimingDiagram_IsNamedOnTheCardAndUnderItsBadge()
         {
-            StringAssert.StartsWith("F2", ControlsReference.TimingDiagram.Text);
+            StringAssert.StartsWith("F8", ControlsReference.TimingDiagram.Text);
 
-            bool onTheCard = false;
+            Assert.IsTrue(OnTheCard(ControlsReference.TimingDiagram),
+                "the tutorial's card does not name the timing diagram's key");
+            Assert.AreEqual(ControlSpot.TimingBadge, ControlsReference.TimingDiagram.Spot,
+                "the timing diagram's key is not under its badge");
+            Assert.AreEqual("F8", ControlsReference.At(ControlSpot.TimingBadge));
+        }
 
+        /// <summary>
+        /// The clock diagram's key is F2, named at the end of the clock strip and on neither the
+        /// board nor the card.
+        /// </summary>
+        /// <remarks>
+        /// The card's taller column holds as many rows as <c>TheCardsColumns_StayRoughlyBalanced</c>
+        /// allows, and the clock diagram is worth nothing before the clocked chapter. The clock
+        /// strip is on screen on exactly the levels where it means something, and ends on this
+        /// entry's own text, so the key is named where it is wanted and nowhere it is not.
+        /// </remarks>
+        [Test]
+        public void TheClockDiagram_IsF2_NamedByTheClockStripAndNotOnTheCard()
+        {
+            Assert.AreEqual("F2", ControlsReference.ClockDiagram.Key);
+            Assert.IsFalse(ControlsReference.ClockDiagram.OnBoard, "the clock diagram's key is on the board");
+            Assert.IsFalse(OnTheCard(ControlsReference.ClockDiagram),
+                "the clock diagram's key is on the card, which has no row to spare for it");
+
+            Assert.AreNotEqual(ControlsReference.TimingDiagram.Key, ControlsReference.ClockDiagram.Key,
+                "the two diagrams share a key again");
+        }
+
+        private static bool OnTheCard(ControlEntry wanted)
+        {
             foreach (ControlGroup group in ControlsReference.Groups)
             {
                 foreach (ControlEntry entry in group.Entries)
                 {
-                    if (entry.Text == ControlsReference.TimingDiagram.Text)
-                        onTheCard = true;
+                    if (entry.Text == wanted.Text)
+                        return true;
                 }
             }
 
-            Assert.IsTrue(onTheCard, "the tutorial's card does not name the timing diagram's key");
-            Assert.AreEqual(ControlSpot.TimingBadge, ControlsReference.TimingDiagram.Spot,
-                "the timing diagram's key is not under its badge");
-            Assert.AreEqual("F2", ControlsReference.At(ControlSpot.TimingBadge));
+            return false;
+        }
+
+        /// <summary>
+        /// The only function keys the game reads are F2 and F8, the two no browser keeps for itself.
+        /// </summary>
+        /// <remarks>
+        /// The game runs in a browser, and a key the browser keeps does the browser's thing first:
+        /// F3 opened the page's find bar in a playtest (2026-09-26). Checked against the browsers'
+        /// own lists (2026-10-01): F1 is help in every browser, F3 find, F4 selects the address bar
+        /// in Edge (and Alt+F4 closes the window, with Alt held to pick wires), F5 reloads, F6 moves
+        /// focus to the toolbars, F7 is caret browsing, F9 is Edge's Immersive Reader and Firefox's
+        /// reader view, and F10 to F12 are the menu, fullscreen and the developer tools.
+        ///
+        /// A scan of the sources, as <c>UiTextTests</c> scans for <c>Keyboard.current</c>: the read
+        /// this guards against is one added later by someone who never saw this list.
+        /// </remarks>
+        [Test]
+        public void TheGame_ReadsNoFunctionKeyABrowserKeeps()
+        {
+            string root = Path.Combine(Application.dataPath, "Scripts", "View");
+            var found = new SortedSet<string>();
+            var reading = new Regex(@"\.(f\d+)Key\b");
+
+            foreach (string path in Directory.GetFiles(root, "*.cs", SearchOption.AllDirectories))
+            {
+                foreach (Match match in reading.Matches(File.ReadAllText(path)))
+                    found.Add(match.Groups[1].Value + " in " + Path.GetFileName(path));
+            }
+
+            Assert.Contains("f2 in ClockDiagram.cs", found, "sanity: the scan did not find F2, so it is looking in the wrong place");
+
+            foreach (string read in found)
+            {
+                Assert.IsTrue(read.StartsWith("f2 ") || read.StartsWith("f8 "),
+                    $"the game reads {read}, a function key a browser keeps for itself -- only F2 and F8 are free");
+            }
         }
 
         /// <summary>

@@ -193,17 +193,35 @@ namespace BitSorter.View
         /// The key for the timing diagram, under its badge beside the help badge.
         /// </summary>
         /// <remarks>
-        /// While the diagram showed only the clock, it was named only on the clock strip, on the five
-        /// levels with a clock. Once it showed every source and bin it was worth something on every
-        /// level, and a key named nowhere a player looks does not exist -- so it has a badge, and
-        /// its key is under it as H is under the help's (2026-09-30).
+        /// It shows every source and bin, so it is worth something on every level, and a key named
+        /// nowhere a player looks does not exist -- so it has a badge, and its key is under it as H
+        /// is under the help's (2026-09-30).
         ///
-        /// F2, not F3: in a browser F3 opens the page's find bar, which is what pressing it did in
-        /// a playtest, 2026-09-26. F2 is the one function key browsers leave alone -- F1 is their
-        /// help, F5 reloads, F6 and F10 to F12 are taken.
+        /// **F8, because it is the one function key no browser takes that F2 does not already
+        /// have.** The game runs in a browser, and a key the browser keeps does the browser's thing:
+        /// F3 opened the page's find bar in a playtest (2026-09-26). F1 is help in every browser; F3
+        /// is find; F4 selects the address bar in Edge, and Alt+F4 closes the window -- with Alt held
+        /// to pick wires for this very diagram; F5 reloads; F6 moves focus to the toolbars; F7 is
+        /// caret browsing; F9 is Edge's Immersive Reader and Firefox's reader view; F10 to F12 are
+        /// the menu, fullscreen and the developer tools. F2 is the clock diagram's, which had it
+        /// first and has it again (2026-10-01).
         /// </remarks>
         public static readonly ControlEntry TimingDiagram =
-            new ControlEntry("F2 for the timing diagram", ControlSpot.TimingBadge, ControlKind.Running);
+            new ControlEntry("F8 for the timing diagram", ControlSpot.TimingBadge, ControlKind.Running);
+
+        /// <summary>
+        /// The key for the clock diagram and the developer numbers, named at the end of the clock
+        /// strip.
+        /// </summary>
+        /// <remarks>
+        /// **Beside <see cref="All"/>, not in it**, so not on the tutorial's card. The card's taller
+        /// column is at the most rows it holds (<c>TheCardsColumns_StayRoughlyBalanced</c>), and
+        /// this key is worth nothing before the clocked chapter. The clock strip is on screen exactly
+        /// on the levels where it means something, and the strip ends on this phrase, so it is never
+        /// named nowhere. It was on the card as well until the Alt+click line took the last row.
+        /// </remarks>
+        public static readonly ControlEntry ClockDiagram =
+            new ControlEntry("F2 for the clock diagram", ControlSpot.None, ControlKind.Running);
 
         public static IReadOnlyList<ControlEntry> All { get; } = new[]
         {

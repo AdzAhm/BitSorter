@@ -112,8 +112,9 @@ namespace BitSorter.View
         /// </summary>
         /// <remarks>
         /// A period of one is high throughout. This is the executed tick -- the one
-        /// <see cref="SimulationRunner.Ticked"/> reports -- where the clock strip and the old corner
-        /// diagram count <c>CurrentTick</c>, one on from it.
+        /// <see cref="SimulationRunner.Ticked"/> reports -- where the clock strip counts
+        /// <c>CurrentTick</c>, one on from it. <see cref="ClockDiagram"/>, behind F2, draws its wave
+        /// from this too.
         /// </remarks>
         public static bool ClockOn(int executedTick, int period) =>
             period <= 1 || (executedTick >= 0 && executedTick % period == 0);

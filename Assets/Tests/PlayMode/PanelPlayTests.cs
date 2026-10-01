@@ -954,13 +954,17 @@ namespace BitSorter.PlayMode.Tests
 
         /// <summary>
         /// F2 pressed behind a full-screen panel toggles nothing; pressed on the board it brings up
-        /// the timing diagram and diagnostics with it.
+        /// diagnostics, and not the timing diagram, whose key is F8.
         /// </summary>
         /// <remarks>
         /// A panel over the board owns the keyboard -- every board key asks UiModal first -- and F2
         /// was the one that did not. Pressed on the main menu it did nothing visible, and the
-        /// diagram and diagnostics then appeared from nowhere when the menu closed. The second half
-        /// is the positive control, so the first cannot pass by F2 never being read at all.
+        /// readouts then appeared from nowhere when the menu closed. The second half is the positive
+        /// control, so the first cannot pass by F2 never being read at all.
+        ///
+        /// The level the menu closes onto has no clock, so the clock diagram is switched on and
+        /// draws nothing there; <see cref="OnAClockedLevel_F2DrawsTheClockDiagram_ClearOfTheStrip"/>
+        /// shows it drawn.
         /// </remarks>
         [UnityTest]
         public IEnumerator F2BehindAFullScreenPanel_TogglesNothing()
@@ -971,14 +975,15 @@ namespace BitSorter.PlayMode.Tests
 
             Assert.IsTrue(Find<MainMenu>().IsOpen, "sanity: the game boots into the main menu");
 
-            WaveformPanel diagram = Find<WaveformPanel>();
+            ClockDiagram clock = Find<ClockDiagram>();
             DiagnosticsPanel diagnostics = Find<DiagnosticsPanel>();
+            WaveformPanel strip = Find<WaveformPanel>();
 
             yield return PressKey(_keyboard.f2Key);
             Release(_keyboard.f2Key);
             yield return null;
 
-            Assert.IsFalse(diagram.IsOpen, "F2 behind the main menu switched the timing diagram on");
+            Assert.IsFalse(clock.IsOpen, "F2 behind the main menu switched the clock diagram on");
 
             yield return CloseTheMainMenu();
 
@@ -987,9 +992,98 @@ namespace BitSorter.PlayMode.Tests
             yield return null;
             yield return null;
 
-            Assert.IsTrue(diagram.IsOpen, "F2 on the board did not switch the timing diagram on");
-            Assert.IsTrue(diagram.IsShowing, "the timing diagram is switched on and not drawn");
-            Assert.IsTrue(diagnostics.IsShowing, "F2 on the board did not bring diagnostics up with it");
+            Assert.IsTrue(clock.IsOpen, "F2 on the board did not switch the clock diagram on");
+            Assert.IsTrue(diagnostics.IsShowing, "F2 on the board did not bring diagnostics up");
+            Assert.IsFalse(strip.IsOpen, "F2 opened the timing diagram, whose key is F8");
+        }
+
+        /// <summary>
+        /// F8, the timing diagram's key, keeps the same rule: behind a full-screen panel it toggles
+        /// nothing, and on the board it opens the strip -- and not diagnostics, which are F2's.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator F8BehindAFullScreenPanel_TogglesNothing()
+        {
+            yield return TestScene.Load();
+            yield return SkipTheTutorial();
+            yield return null;
+
+            Assert.IsTrue(Find<MainMenu>().IsOpen, "sanity: the game boots into the main menu");
+
+            WaveformPanel strip = Find<WaveformPanel>();
+            DiagnosticsPanel diagnostics = Find<DiagnosticsPanel>();
+
+            yield return PressKey(_keyboard.f8Key);
+            Release(_keyboard.f8Key);
+            yield return null;
+
+            Assert.IsFalse(strip.IsOpen, "F8 behind the main menu switched the timing diagram on");
+
+            yield return CloseTheMainMenu();
+
+            yield return PressKey(_keyboard.f8Key);
+            Release(_keyboard.f8Key);
+            yield return null;
+            yield return null;
+
+            Assert.IsTrue(strip.IsOpen, "F8 on the board did not switch the timing diagram on");
+            Assert.IsTrue(strip.IsShowing, "the timing diagram is switched on and not drawn");
+            Assert.IsFalse(diagnostics.IsShowing, "F8 brought diagnostics up, which are F2's");
+        }
+
+        /// <summary>
+        /// On a level with a clock, F2 draws the clock diagram in the bottom-left corner -- and with
+        /// the timing diagram open on F8 as well, the two do not overlap.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator OnAClockedLevel_F2DrawsTheClockDiagram_ClearOfTheStrip()
+        {
+            yield return TestScene.Load();
+            yield return SkipTheTutorial();
+
+            // The first clocked level is in the chapter with registers, whose card and register hint
+            // would come up over the board on a fresh save.
+            ProgressStore store = Find<ProgressTracker>().Store;
+            store.MarkMilestone(ChapterCard.Milestone);
+            store.MarkHintSeen(HintRules.Register);
+
+            yield return CloseTheMainMenu();
+
+            LevelSession session = Find<LevelSession>();
+            Assert.IsTrue(session.LoadLevel("flip-on-one"), "the level did not load");
+            yield return null;
+            yield return null;
+
+            Assert.IsTrue(session.Level.HasClock, "sanity: flip-on-one has a clock");
+
+            yield return PressKey(_keyboard.f2Key);
+            Release(_keyboard.f2Key);
+            yield return null;
+
+            yield return PressKey(_keyboard.f8Key);
+            Release(_keyboard.f8Key);
+            yield return null;
+            yield return null;
+
+            ClockDiagram clock = Find<ClockDiagram>();
+            WaveformPanel strip = Find<WaveformPanel>();
+
+            Assert.IsTrue(clock.IsShowing, "F2 on a clocked level did not draw the clock diagram");
+            Assert.IsTrue(strip.IsShowing, "sanity: F8 should have opened the timing diagram");
+
+            Rect corner = ScreenRect(GameObject.Find("Clock diagram").GetComponent<RectTransform>());
+            Rect band = ScreenRect(strip.Root);
+
+            Assert.IsFalse(corner.Overlaps(band), "the clock diagram is drawn under the timing diagram's strip");
+            Assert.Less(corner.center.x, Screen.width * 0.5f, "the clock diagram is not in the left corner");
+        }
+
+        /// <summary>Where a piece of the interface is on screen, in pixels.</summary>
+        private static Rect ScreenRect(RectTransform rect)
+        {
+            var corners = new Vector3[4];
+            rect.GetWorldCorners(corners);
+            return Rect.MinMaxRect(corners[0].x, corners[0].y, corners[2].x, corners[2].y);
         }
 
         /// <summary>Whether a toggled panel is switched on, which is private to it.</summary>

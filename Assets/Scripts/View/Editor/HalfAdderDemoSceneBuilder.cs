@@ -122,8 +122,11 @@ namespace BitSorter.View.EditorTools
 
             DiagnosticsPanel diagnostics = host.AddComponent<DiagnosticsPanel>();
 
-            // The timing diagram along the bottom, behind F2 and the badge beside the help badge.
-            // Diagnostics follows its flag.
+            // The other bottom corner, behind the same key: F2's one flag is the clock diagram's,
+            // and diagnostics follows it.
+            ClockDiagram clockDiagram = host.AddComponent<ClockDiagram>();
+
+            // The timing diagram along the bottom, behind F8 and the badge beside the help badge.
             WaveformPanel waveform = host.AddComponent<WaveformPanel>();
 
             // Alt+click on a wire puts it in the diagram.
@@ -244,8 +247,12 @@ namespace BitSorter.View.EditorTools
 
             Assign(diagnostics, "_runner", runner);
             Assign(diagnostics, "_session", session);
-            Assign(diagnostics, "_waveform", waveform);
+            Assign(diagnostics, "_clock", clockDiagram);
             Assign(diagnostics, "_canvas", canvas);
+
+            Assign(clockDiagram, "_runner", runner);
+            Assign(clockDiagram, "_session", session);
+            Assign(clockDiagram, "_canvas", canvas);
 
             Assign(waveform, "_runner", runner);
             Assign(waveform, "_session", session);

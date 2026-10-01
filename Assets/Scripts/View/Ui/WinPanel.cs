@@ -125,7 +125,7 @@ namespace BitSorter.View
         }
 
         /// <summary>
-        /// How far up the card sits: on its row, or above the timing diagram while F2 has it open.
+        /// How far up the card sits: on its row, or above the timing diagram while it is open.
         /// </summary>
         /// <remarks>
         /// The card is a strip over the middle of the board's bottom row, and the diagram's strip

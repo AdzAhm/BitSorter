@@ -71,9 +71,13 @@ namespace BitSorter.PlayMode.Tests
             return Rect.MinMaxRect(corners[0].x, corners[0].y, corners[2].x, corners[2].y);
         }
 
-        /// <summary>The badge opens the strip as F2 does, diagnostics with it, and closes it again.</summary>
+        /// <summary>The badge opens the strip as F8 does, and nothing else, and closes it again.</summary>
+        /// <remarks>
+        /// Diagnostics came up with the strip for the one day the strip was on F2. They are F2's
+        /// again, with the clock diagram, and the badge is the strip's alone.
+        /// </remarks>
         [UnityTest]
-        public IEnumerator TheBadge_OpensTheDiagram_AndDiagnosticsWithIt()
+        public IEnumerator TheBadge_OpensTheDiagram_AndNothingElse()
         {
             yield return OnTheBoard();
 
@@ -85,12 +89,12 @@ namespace BitSorter.PlayMode.Tests
 
             Assert.IsTrue(diagram.IsOpen, "the badge did not open the timing diagram");
             Assert.IsTrue(diagram.IsShowing, "the timing diagram is open and not drawn");
-            Assert.IsTrue(diagnostics.IsShowing, "diagnostics did not come up with it");
+            Assert.IsFalse(diagnostics.IsShowing, "diagnostics came up with the timing diagram; they are F2's");
+            Assert.IsFalse(Find<ClockDiagram>().IsOpen, "the badge switched F2 on");
 
             yield return ClickTheBadge();
 
             Assert.IsFalse(diagram.IsShowing, "the badge did not close the timing diagram");
-            Assert.IsFalse(diagnostics.IsShowing, "diagnostics stayed up without it");
         }
 
         /// <summary>

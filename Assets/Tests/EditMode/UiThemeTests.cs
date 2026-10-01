@@ -487,14 +487,15 @@ namespace BitSorter.LogicCore.Tests
 
 
         /// <summary>
-        /// The timing diagram's clock is high on the tick every source sends its next vector and low
-        /// for the rest of the period.
+        /// The clock is high on the tick every source sends its next vector and low for the rest of
+        /// the period -- in the timing diagram's clock row and in the clock diagram behind F2 alike.
         /// </summary>
         /// <remarks>
         /// Counted on the executed tick -- the one <see cref="SimulationRunner.Ticked"/> reports --
         /// where the clock strip counts <c>CurrentTick</c>, one on from it. A period of one is high
-        /// throughout, a square wave that never falls, which is why the diagram draws no clock row on
-        /// a level without a clock.
+        /// throughout, a square wave that never falls, which is why neither diagram draws a clock on
+        /// a level without one. The clock diagram had its own copy of this rule, one tick apart in
+        /// its counting, until it came back to F2 drawing from this one (2026-10-01).
         /// </remarks>
         [Test]
         public void TheClockWave_IsHighOnTheTickAVectorIsSent()
@@ -513,15 +514,36 @@ namespace BitSorter.LogicCore.Tests
 
         /// <summary>
         /// The timing diagram's strip starts above everything along the bottom edge -- the run
-        /// buttons, the key lines, the toast -- and so above diagnostics in the corner.
+        /// buttons, the key lines, the toast -- and so above the F2 readouts in the corners.
         /// </summary>
+        /// <remarks>
+        /// 96 is the taller of the two corner readouts, diagnostics; the clock diagram is 76.
+        /// </remarks>
         [Test]
-        public void TheTimingStrip_StartsAboveTheBottomRowsAndTheCornerReadout()
+        public void TheTimingStrip_StartsAboveTheBottomRowsAndTheCornerReadouts()
         {
             Assert.GreaterOrEqual(UiRows.PanelFloor, UiRows.Toast.Offset + UiRows.Toast.Height,
                 "the strip would start on the toast's row");
             Assert.GreaterOrEqual(UiRows.PanelFloor, UiTheme.Margin + 96f,
-                "the strip would start on diagnostics in the corner");
+                "the strip would start on the F2 readouts in the corners");
+        }
+
+        /// <summary>
+        /// The two F2 readouts are in opposite bottom corners.
+        /// </summary>
+        /// <remarks>
+        /// They come up together on the same key, and both are anchored with
+        /// <see cref="UiTheme.AnchorBottomCorner"/> at the same width -- so sharing a corner would
+        /// put them in exactly the same rectangle, which is what the catch readout and diagnostics
+        /// already did once.
+        /// </remarks>
+        [Test]
+        public void TheTwoF2Readouts_TakeDifferentCorners()
+        {
+            Assert.AreNotEqual(UiTheme.DiagnosticsCorner, UiTheme.ClockDiagramCorner);
+
+            Assert.AreEqual(0f, UiTheme.DiagnosticsCorner.y, "both sit on the bottom edge");
+            Assert.AreEqual(0f, UiTheme.ClockDiagramCorner.y, "both sit on the bottom edge");
         }
 
     }

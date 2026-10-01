@@ -92,26 +92,34 @@ namespace BitSorter.View
         /// Width of a bottom-corner readout.
         /// </summary>
         /// <remarks>
-        /// One corner is in use: diagnostics, on the right. The left held the small clock diagram
-        /// until the timing diagram replaced it with a strip above the toast (2026-09-30), and free
-        /// play's catch readout once held the right, until it moved into the setup panel -- in free
-        /// play with F2 open the two had drawn in exactly the same rectangle, which is the pair this
-        /// constant is for.
+        /// Both corners are in use, by the two readouts behind F2: diagnostics on the right and the
+        /// clock diagram on the left. Free play's catch readout once held the right as well, until
+        /// it moved into the setup panel -- in free play with F2 open it and diagnostics had drawn
+        /// in exactly the same rectangle, which is the pair this constant is for.
         ///
-        /// Narrow enough that a second corner readout could return without colliding with this one,
-        /// which <see cref="UiThemeTests"/> keeps true.
+        /// The clock diagram was away for a day (2026-09-30), replaced by the timing diagram's
+        /// strip, and came back when the strip moved to F8.
         /// </remarks>
         public const float CornerWidth = 230f;
 
         /// <summary>
-        /// Diagnostics takes the right corner.
+        /// Diagnostics takes the right corner, and the clock diagram the left.
         /// </summary>
         /// <remarks>
-        /// Clear at this height: a corner readout is 96 tall on the margin, and everything above it
-        /// on that side -- free play's setup panel, the help panel, the timing diagram's strip --
-        /// stops at <see cref="UiRows.PanelFloor"/>, 152 from the bottom.
+        /// Both are behind F2 and both are bottom-corner readouts, so they are stated together:
+        /// they are the pair this constant's width exists to keep apart. Both are clear at this
+        /// height: a corner readout is at most 96 tall on the margin, and everything above them --
+        /// free play's setup panel, the help panel, the timing diagram's strip -- stops at
+        /// <see cref="UiRows.PanelFloor"/>, 152 from the bottom. The parts list is centred on the
+        /// left edge and stops well above the left corner.
+        ///
+        /// The clock diagram is a picture of the level's beat and belongs beside the board's own
+        /// left edge, where the sources are.
         /// </remarks>
         public static readonly Vector2 DiagnosticsCorner = new Vector2(1f, 0f);
+
+        /// <inheritdoc cref="DiagnosticsCorner"/>
+        public static readonly Vector2 ClockDiagramCorner = new Vector2(0f, 0f);
 
         /// <summary>
         /// Puts a readout in one of the two bottom corners, at the shared width.

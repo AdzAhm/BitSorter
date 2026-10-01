@@ -40,7 +40,7 @@ namespace BitSorter.View
         [Tooltip("The level's banner, over the middle of the top edge.")]
         [SerializeField] private StatusBanner _banner;
 
-        [Tooltip("The timing diagram, along the bottom while F2 has it open.")]
+        [Tooltip("The timing diagram, along the bottom while it is open (F8, or its badge).")]
         [SerializeField] private WaveformPanel _waveform;
 
         [Tooltip("World units of clearance around the outermost cells.")]
@@ -167,8 +167,8 @@ namespace BitSorter.View
         /// Pixels the timing diagram takes along the bottom while it is open, gap included.
         /// </summary>
         /// <remarks>
-        /// Read by intent, as every inset here is: F2 having it open, not it being drawn, so a
-        /// full-screen panel over the board does not reframe the board behind it.
+        /// Read by intent, as every inset here is: the strip being switched on, not it being drawn,
+        /// so a full-screen panel over the board does not reframe the board behind it.
         /// </remarks>
         private float BottomInset()
         {

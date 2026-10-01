@@ -9,13 +9,13 @@ namespace BitSorter.View
 {
     /// <summary>
     /// The timing diagram: a strip along the bottom of the screen showing, tick by tick, what every
-    /// source sent and every bin received. Behind F2, and the badge beside the help badge.
+    /// source sent and every bin received. Behind F8, and the badge beside the help badge.
     /// </summary>
     /// <remarks>
     /// The course's own notation for what the board already teaches: a bit that arrives a tick late
     /// is a step in the wrong place, and a collision is a cross where a bit arrived. On a clocked
-    /// level the clock is its first row. It replaced the small clock diagram that sat in the bottom
-    /// left corner, which showed the clock and nothing else.
+    /// level the clock is its first row. The small clock diagram in the bottom left corner, behind
+    /// F2, shows the clock and nothing else (<see cref="ClockDiagram"/>).
     ///
     /// **Along the bottom, and the board moves up and shrinks to make room** -- Ahmad's choice, over
     /// a column on the right (2026-09-30). The bottom of the screen is the run buttons, the key lines
@@ -29,9 +29,9 @@ namespace BitSorter.View
     /// **Recorded from tick 0 whether it is open or not**, by <see cref="WaveformRecorder"/>, from
     /// the runner's own tick and rebuild events. Opening it mid-run shows the run so far.
     ///
-    /// **One F2 flag, and it is this one.** The developer numbers in the bottom-right corner come up
-    /// with it -- <see cref="DiagnosticsPanel"/> follows <see cref="IsOpen"/> rather than reading F2
-    /// itself -- so the key and the badge can never leave the two out of step.
+    /// **Its own key, F8, and the badge flips the same flag.** For its first day it was on F2, which
+    /// it had taken from the clock diagram and shared with the developer numbers; F2 is theirs again
+    /// now. Why F8 and no other function key is on <see cref="ControlsReference.TimingDiagram"/>.
     /// </remarks>
     public sealed class WaveformPanel : MonoBehaviour
     {
@@ -106,7 +106,7 @@ namespace BitSorter.View
         /// <summary>What the strip draws from.</summary>
         public WaveformRecorder Recorder => _recorder;
 
-        /// <summary>Whether F2 has the strip up -- the intent, drawn or not.</summary>
+        /// <summary>Whether F8 or the badge has the strip up -- the intent, drawn or not.</summary>
         public bool IsOpen => _shown;
 
         /// <summary>Whether the strip is on screen now.</summary>
@@ -134,7 +134,7 @@ namespace BitSorter.View
         public Button Badge => _badge != null ? _badge.GetComponent<Button>() : null;
 
         /// <summary>
-        /// The strip's top edge in screen pixels up from the bottom while F2 has it open, or zero.
+        /// The strip's top edge in screen pixels up from the bottom while it is switched on, or zero.
         /// </summary>
         /// <remarks>
         /// What <see cref="CameraFit"/> frames the board above. Worked out from the flag and the
@@ -290,7 +290,7 @@ namespace BitSorter.View
 
             // Not behind a full-screen panel, where every board key stands aside: pressed on the main
             // menu it would switch the strip on unseen, to appear once the menu closed.
-            if (keyboard != null && keyboard.f2Key.wasPressedThisFrame && !UiModal.OpenOrJustClosed)
+            if (keyboard != null && keyboard.f8Key.wasPressedThisFrame && !UiModal.OpenOrJustClosed)
                 Toggle();
 
             if (_root == null)
@@ -560,12 +560,13 @@ namespace BitSorter.View
         }
 
         /// <summary>
-        /// The badge beside the help badge: a square wave, with F2 under it as H is under the help's.
+        /// The badge beside the help badge: a square wave, with F8 under it as H is under the help's.
         /// </summary>
         /// <remarks>
-        /// The strip is useful on every level and F2 alone is named nowhere a player looks -- the
-        /// clock strip named it on the five levels with a clock, and nowhere else. A button beside the
-        /// other button that opens something is where a player finds it.
+        /// The strip is useful on every level, and a key named nowhere a player looks does not
+        /// exist. A button beside the other button that opens something is where a player finds it.
+        /// The key under it is the first word of <see cref="ControlsReference.TimingDiagram"/>, so
+        /// the badge and the tutorial's card cannot disagree.
         /// </remarks>
         private void BuildBadge()
         {
