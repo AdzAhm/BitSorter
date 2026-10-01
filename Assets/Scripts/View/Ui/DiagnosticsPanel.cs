@@ -31,6 +31,13 @@ namespace BitSorter.View
         private RectTransform _root;
         private TextMeshProUGUI _text;
 
+        // The numbers the text says, so it is built again only when one of them moves: four
+        // interpolated lines a frame were garbage on the one screen somebody opens to watch numbers.
+        private int _drawnTick = -1;
+        private int _drawnNodes = -1;
+        private int _drawnEdges = -1;
+        private int _drawnRevision = -1;
+
         /// <summary>Whether the numbers are on screen now.</summary>
         public bool IsShowing => _root != null && _root.gameObject.activeSelf;
 
@@ -78,6 +85,15 @@ namespace BitSorter.View
                 return;
 
             SimulationView view = _runner.View;
+
+            if (view.CurrentTick == _drawnTick && view.LiveNodeCount == _drawnNodes &&
+                view.LiveEdgeCount == _drawnEdges && _runner.GraphRevision == _drawnRevision)
+                return;
+
+            _drawnTick = view.CurrentTick;
+            _drawnNodes = view.LiveNodeCount;
+            _drawnEdges = view.LiveEdgeCount;
+            _drawnRevision = _runner.GraphRevision;
 
             _text.text =
                 $"tick        {view.CurrentTick}\n" +
