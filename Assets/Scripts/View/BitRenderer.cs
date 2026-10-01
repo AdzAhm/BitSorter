@@ -90,6 +90,9 @@ namespace BitSorter.View
         /// <inheritdoc cref="GateFiredCount"/>
         public int BinLandedCount { get; private set; }
 
+        /// <summary>The graph the bits in <see cref="_live"/> were seen on.</summary>
+        private int _trackedRevision = -1;
+
         private void Awake()
         {
             if (_runner == null)
@@ -113,6 +116,19 @@ namespace BitSorter.View
 
             SimulationView view = _runner.View;
             float fraction = _runner.TickProgress;
+
+            // A rebuild empties every wire at once -- RESET, RUN, any edit -- and none of the bits it
+            // threw away arrived anywhere. Let go of them quietly, before the new graph is read: on a
+            // delay-1 wire every bit is on its last tick, so the loop below would call each of them
+            // an arrival, and the new graph's bits start again from serial 0 under the same keys.
+            if (_runner.GraphRevision != _trackedRevision)
+            {
+                foreach (KeyValuePair<long, Tracked> stale in _live)
+                    Release(stale.Value.Sprite);
+
+                _live.Clear();
+                _trackedRevision = _runner.GraphRevision;
+            }
 
             _next.Clear();
 
