@@ -40,6 +40,9 @@ namespace BitSorter.View
 
         private float _punch;
 
+        /// <summary>The count the label says, or -1 before it has said one.</summary>
+        private int _drawn = -1;
+
         private void Awake()
         {
             if (_runner == null) _runner = FindFirstObjectByType<SimulationRunner>();
@@ -98,10 +101,16 @@ namespace BitSorter.View
             if (!visible)
                 return;
 
-            // Set every frame rather than only on change: the text is the thing that must never lag
-            // the simulation, and one assignment a frame is cheaper than reasoning about when it can
-            // be skipped.
-            _label.text = BitsLostReadout.Describe(destroyed);
+            // Drawn whenever the count differs from the one on the label, checked every frame, so it
+            // never lags the simulation. It used to be set every frame on the argument that one
+            // assignment was cheaper than reasoning about when to skip it -- true of the assignment,
+            // but each one built a new string, and the meter stays up for as long as a failed board
+            // is being read.
+            if (destroyed != _drawn)
+            {
+                _label.text = BitsLostReadout.Describe(destroyed);
+                _drawn = destroyed;
+            }
 
             Animate();
         }
