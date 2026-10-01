@@ -1,4 +1,6 @@
+using System.Collections.Generic;
 using System.IO;
+using System.Text.RegularExpressions;
 using NUnit.Framework;
 using BitSorter.View;
 using UnityEngine;
@@ -142,15 +144,38 @@ namespace BitSorter.LogicCore.Tests
                     $"'{name}' is sent but the README does not mention it");
             }
 
-            // The other direction: a name in the README that the code no longer sends.
-            foreach (string candidate in new[] { "levelStarted", "levelSolved" })
-            {
-                if (!readme.Contains(candidate))
-                    continue;
+            // The other direction: every event the README's table lists is one the code sends. Read
+            // off the table, because a list written here could only ever hold the names the code
+            // already sends -- which is what it was, and it could not fail.
+            List<string> listed = EventsInTheReadme(readme);
+            Assert.IsNotEmpty(listed, "sanity: no events found in the README's table -- has its layout changed?");
 
-                CollectionAssert.Contains(AnalyticsRules.Events, candidate,
-                    $"the README promises '{candidate}' but nothing sends it");
+            foreach (string name in listed)
+            {
+                CollectionAssert.Contains(AnalyticsRules.Events, name,
+                    $"the README promises '{name}' but nothing sends it");
             }
+        }
+
+        /// <summary>
+        /// The event names in the first column of the table under "What it collects": each data row
+        /// opens with a name in backticks.
+        /// </summary>
+        private static List<string> EventsInTheReadme(string readme)
+        {
+            const string Heading = "### What it collects";
+            int start = readme.IndexOf(Heading, System.StringComparison.Ordinal);
+            Assert.GreaterOrEqual(start, 0, $"the README has no \"{Heading}\" section");
+
+            int end = readme.IndexOf("\n#", start + Heading.Length, System.StringComparison.Ordinal);
+            string section = end < 0 ? readme.Substring(start) : readme.Substring(start, end - start);
+
+            var names = new List<string>();
+
+            foreach (Match row in Regex.Matches(section, @"^\|\s*`([A-Za-z]+)`\s*\|", RegexOptions.Multiline))
+                names.Add(row.Groups[1].Value);
+
+            return names;
         }
 
         [Test]
