@@ -167,6 +167,11 @@ namespace BitSorter.View
             if (!IsOpen || !_expanded || !hud)
                 return;
 
+            // A window resized since the last build changes the room and not the rows, so the panel
+            // is fitted again to the canvas it now has, as the help panel beside it is.
+            if (_fittedUsed >= 0f && !Mathf.Approximately(CanvasHeight(), _fittedHeight))
+                Fit(_fittedUsed);
+
             RefreshCaught();
         }
 
@@ -434,8 +439,11 @@ namespace BitSorter.View
         /// <param name="used">How far down the body its rows reach.</param>
         private void Fit(float used)
         {
+            _fittedUsed = used;
+            _fittedHeight = CanvasHeight();
+
             float wanted = BodyTop + used + Pad;
-            float room = CanvasHeight() - UiRows.Panels.Offset - UiRows.PanelFloor;
+            float room = _fittedHeight - UiRows.Panels.Offset - UiRows.PanelFloor;
             float scale = SettingsPanel.FitScale(room, wanted);
 
             _root.sizeDelta = new Vector2(UiTheme.SetupWidth, wanted);
@@ -444,6 +452,12 @@ namespace BitSorter.View
 
         /// <summary>The scale the panel is drawn at, for the tests.</summary>
         public float Scale => _root != null ? _root.localScale.x : 1f;
+
+        /// <summary>How far down the body the rows reached when last built, or -1 before then.</summary>
+        private float _fittedUsed = -1f;
+
+        /// <summary>The canvas height the panel was last fitted to.</summary>
+        private float _fittedHeight = -1f;
 
         private float CanvasHeight() =>
             _canvas != null && _canvas.transform is RectTransform rect ? rect.rect.height : 1080f;
