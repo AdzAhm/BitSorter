@@ -14,7 +14,6 @@ namespace BitSorter.View
     public sealed class BoardBackground : MonoBehaviour
     {
         [SerializeField] private Camera _camera;
-        [SerializeField] private Color _tint = new Color(1f, 1f, 1f, 1f);
         [SerializeField] private float _padding = 2f;
 
         private SpriteRenderer _renderer;
@@ -33,7 +32,6 @@ namespace BitSorter.View
             renderer.sprite = ProceduralSprites.BoardTile();
             renderer.drawMode = SpriteDrawMode.Tiled;
             renderer.tileMode = SpriteTileMode.Continuous;
-            renderer.color = _tint;
             renderer.sortingOrder = ViewLayers.Board;
 
             _renderer = renderer;

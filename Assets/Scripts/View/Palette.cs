@@ -134,6 +134,14 @@ namespace BitSorter.View
         /// <summary>The backdrop of a refusal, and of the bits-lost meter.</summary>
         public Color ToastBackdrop, MeterBackdrop;
 
+        /// <summary>
+        /// What stands on a filled badge: the help badge's question mark, and the bits-lost count.
+        /// </summary>
+        public Color BadgeText;
+
+        /// <summary>What the bits-lost meter's backdrop flashes towards as the count rises.</summary>
+        public Color MeterFlash;
+
         /// <summary>The rule under the menu's title.</summary>
         public Color Rule;
 
@@ -240,6 +248,11 @@ namespace BitSorter.View
             MenuScrim = new Color(0f, 0f, 0f, 0.88f),
             ListScrim = new Color(0f, 0f, 0f, 0.78f),
             CardScrim = new Color(0f, 0f, 0f, 0.9f),
+
+            // White, as the help badge and the meter drew them with Color.white before these had
+            // names.
+            BadgeText = new Color(1f, 1f, 1f),
+            MeterFlash = new Color(1f, 1f, 1f),
         });
 
         /// <summary>

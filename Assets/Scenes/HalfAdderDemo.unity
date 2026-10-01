@@ -782,7 +782,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: BitSorter.View::BitSorter.View.BoardBackground
   _camera: {fileID: 716253198}
-  _tint: {r: 1, g: 1, b: 1, a: 1}
   _padding: 2
 --- !u!114 &97532188
 MonoBehaviour:

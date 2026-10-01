@@ -65,7 +65,7 @@ namespace BitSorter.View
 
             _background.raycastTarget = false;
 
-            _label = UiTheme.Label("count", _root, UiType.Numeral, Color.white, TextAlignmentOptions.Center);
+            _label = UiTheme.Label("count", _root, UiType.Numeral, Palette.Current.BadgeText, TextAlignmentOptions.Center);
             UiTheme.Stretch(_label.rectTransform);
 
             _root.gameObject.SetActive(false);
@@ -138,7 +138,7 @@ namespace BitSorter.View
 
             // Flashes towards white at the peak and settles back to the sink red used everywhere else
             // for a destroyed bit, so the colour means the same thing here as it does on the board.
-            _background.color = Color.Lerp(Palette.Current.MeterBackdrop, Color.white, _punch * 0.6f);
+            _background.color = Color.Lerp(Palette.Current.MeterBackdrop, Palette.Current.MeterFlash, _punch * 0.6f);
         }
     }
 }

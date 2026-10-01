@@ -402,7 +402,9 @@ namespace BitSorter.View.EditorTools
             // on anything narrower, so it is no longer the only shape the game is playable at.
             camera.orthographicSize = 5.5f;   // shows roughly x -9..9 at 16:9
             camera.clearFlags = CameraClearFlags.SolidColor;
-            camera.backgroundColor = new Color(0.09f, 0.10f, 0.13f);
+            // Never seen -- the board tile covers the view from the first frame -- but taken from
+            // the palette all the same, so nothing in the game names a colour of its own.
+            camera.backgroundColor = Palette.Current.Ground;
             camera.nearClipPlane = 0.1f;
             camera.farClipPlane = 100f;
 

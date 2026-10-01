@@ -327,7 +327,7 @@ namespace BitSorter.View
             });
 
             TextMeshProUGUI mark = UiTheme.Label(
-                "mark", rect, UiType.Numeral, Color.white, TextAlignmentOptions.Center);
+                "mark", rect, UiType.Numeral, Palette.Current.BadgeText, TextAlignmentOptions.Center);
             UiTheme.Stretch(mark.rectTransform);
             mark.text = BadgeGlyph;
 
