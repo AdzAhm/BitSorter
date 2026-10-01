@@ -54,6 +54,14 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
+        /// Each test starts on a fresh save, as every other fixture's does: without this, whatever
+        /// one test wrote -- a milestone, a solve, a board -- was the next test's starting point,
+        /// and the fixture passed or failed by the order NUnit ran it in.
+        /// </summary>
+        [TearDown]
+        public void ClearTheSave() => SaveGuard.Clear();
+
+        /// <summary>
         /// Takes the game back off the screen before the next fixture runs.
         /// </summary>
         /// <remarks>
