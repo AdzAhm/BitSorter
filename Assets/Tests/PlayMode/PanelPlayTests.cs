@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Reflection;
 using NUnit.Framework;
 using BitSorter.View;
@@ -179,6 +180,55 @@ namespace BitSorter.PlayMode.Tests
 
             Release(_keyboard.enterKey);
             keys.enabled = true;
+        }
+
+        /// <summary>
+        /// The ending waits for a full-screen panel to close rather than opening on top of it, and
+        /// comes up once it has.
+        /// </summary>
+        /// <remarks>
+        /// A run keeps going behind the main menu, so the last level could pass while the menu was
+        /// up -- and the ending opened over it, two full-screen panels at once, where one Escape
+        /// then closed both. The chapter card already waited for nothing to be open; this did not.
+        ///
+        /// The pass is made by setting the run's state, which is all the ending watches: building a
+        /// serial adder here would test the serial adder. Every other level is marked solved in the
+        /// test's own save, so this is the end.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator TheEnding_WaitsForTheMenuToClose()
+        {
+            yield return TestScene.Load();
+            yield return SkipTheTutorial();
+            yield return CloseTheMainMenu();
+
+            LevelSession session = Find<LevelSession>();
+            ProgressStore store = Find<ProgressTracker>().Store;
+            IReadOnlyList<LevelEntry> catalogue = session.Catalogue;
+            string last = catalogue[catalogue.Count - 1].FileName;
+
+            for (int i = 0; i < catalogue.Count - 1; i++)
+                store.MarkComplete(catalogue[i].FileName);
+
+            Assert.IsTrue(session.LoadLevel(last), "the last level did not load");
+            yield return null;
+
+            Find<MainMenu>().Show(true);
+            yield return null;
+
+            typeof(LevelSession).GetProperty("State").SetValue(session, RunState.Passed);
+            yield return null;
+            yield return null;
+
+            EndingPanel ending = Find<EndingPanel>();
+            Assert.IsFalse(ending.IsShowing, "the ending opened on top of the main menu");
+
+            Find<MainMenu>().Show(false);
+
+            for (int frame = 0; frame < 10 && !ending.IsShowing; frame++)
+                yield return null;
+
+            Assert.IsTrue(ending.IsShowing, "the ending never came up once the menu had closed");
         }
 
         /// <summary>
