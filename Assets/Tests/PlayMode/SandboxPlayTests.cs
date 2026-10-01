@@ -372,6 +372,58 @@ namespace BitSorter.PlayMode.Tests
             }
         }
 
+        /// <summary>
+        /// After the window gets shorter, the setup panel still stops at the floor.
+        /// </summary>
+        /// <remarks>
+        /// The panel shrinks to fit when it is built, and was never fitted again: the help panel
+        /// beside it refits every frame, and this one stayed the size it was built at, so a window
+        /// made shorter left its rows running on below the floor, over the board. The canvas is made
+        /// shorter here the way a shorter window makes it, through the scaler's reference resolution,
+        /// with the fullest setup so the panel needs every bit of its room.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator AfterTheWindowGetsShorter_TheSetupStillStopsAtTheFloor()
+        {
+            yield return TestScene.Load();
+            yield return OpenFreePlay();
+
+            foreach (string caption in new[] { "Sources", "Sinks", "Vectors" })
+            {
+                for (int press = 0; press < 12; press++)
+                {
+                    Button plus = StepButton(caption, "+");
+
+                    if (!plus.interactable)
+                        break;
+
+                    plus.onClick.Invoke();
+                    yield return null;
+                }
+            }
+
+            yield return null;
+
+            RectTransform panel = GameObject.Find("Sandbox setup").GetComponent<RectTransform>();
+            Canvas canvas = panel.GetComponentInParent<Canvas>().rootCanvas;
+            var scaler = canvas.GetComponent<CanvasScaler>();
+            Assert.IsNotNull(scaler, "sanity: the canvas has no scaler to make it shorter with");
+
+            scaler.referenceResolution = new Vector2(scaler.referenceResolution.x, scaler.referenceResolution.y * 0.5f);
+
+            yield return null;
+            yield return null;
+            yield return null;
+
+            Assert.Less(((RectTransform)canvas.transform).rect.height, 900f, "sanity: the canvas did not get shorter");
+
+            var corners = new Vector3[4];
+            panel.GetWorldCorners(corners);
+
+            Assert.GreaterOrEqual(corners[0].y, UiRows.PanelFloor * canvas.scaleFactor - 0.5f,
+                "after the window got shorter, the setup panel runs on below the floor, over the board");
+        }
+
         private static int Sources() => int.Parse(SetupLabel("Sources count").text);
 
         /// <summary>
