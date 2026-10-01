@@ -252,20 +252,44 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsFalse(table.interactable,
                 "sanity: a fresh sandbox opens on the full two-input table, so the button is off");
 
-            int sources = int.Parse(SetupLabel("Sources count").text);
+            int sources = Sources();
             string[] notes = SetupNotes();
 
             Assert.IsNotEmpty(notes, "the table button is off and nothing says why");
+            Assert.LessOrEqual(sources, SandboxRules.MaxTableSources,
+                "sanity: a fresh sandbox should have few enough sources for a table");
+
+            // The too-many reason, from the rules that word it, so a rewording is followed rather
+            // than missed. This matched a fragment of the sentence under an "if", and a sentence
+            // rewritten without it would have passed by never being recognised.
+            var tooManyNames = new string[SandboxRules.MaxTableSources + 1];
+
+            for (int i = 0; i < tooManyNames.Length; i++)
+                tooManyNames[i] = "s" + i;
+
+            string tooMany = SandboxRules.WhyNoTable(tooManyNames, SandboxConfig.MaxVectors);
+            Assert.IsNotNull(tooMany, "sanity: the rules should give a reason for too many sources");
 
             foreach (string note in notes)
             {
-                if (note.Contains("sources or fewer"))
-                {
-                    Assert.Greater(sources, SandboxRules.MaxTableSources,
-                        $"the panel says \"{note}\" while showing {sources} sources -- the button is " +
-                        "off because the streams are already every combination, not because of the count");
-                }
+                StringAssert.DoesNotContain(tooMany, note,
+                    $"the panel says \"{note}\" while showing {sources} sources -- the button is " +
+                    "off because the streams are already every combination, not because of the count");
             }
+
+            // The pair: past the limit the same reason does appear, so its absence above was seen.
+            for (int press = 0; press < 6 && Sources() <= SandboxRules.MaxTableSources; press++)
+            {
+                StepButton("Sources", "+").onClick.Invoke();
+                yield return null;
+                yield return null;
+            }
+
+            Assert.Greater(Sources(), SandboxRules.MaxTableSources,
+                "sanity: the source count never passed the table limit");
+            Assert.IsTrue(System.Array.Exists(SetupNotes(), note => note.Contains(tooMany)),
+                $"with {Sources()} sources the panel does not give the too-many reason, so the check " +
+                "above could not have seen it");
         }
 
         /// <summary>
