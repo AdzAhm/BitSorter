@@ -491,15 +491,27 @@ namespace BitSorter.LogicCore.Tests
         {
             string root = Path.Combine(Application.dataPath, "Scripts", "View");
             var found = new SortedSet<string>();
-            var reading = new Regex(@"\.(f\d+)Key\b");
+            // Every way a key can be named: keyboard.f3Key, keyboard[Key.F3], and the old input
+            // manager's KeyCode.F3. The first form alone let the other two through unseen.
+            var reading = new Regex(@"\.f(\d+)Key\b|\bKey\.F(\d+)\b|\bKeyCode\.F(\d+)\b");
 
             foreach (string path in Directory.GetFiles(root, "*.cs", SearchOption.AllDirectories))
             {
                 foreach (Match match in reading.Matches(File.ReadAllText(path)))
-                    found.Add(match.Groups[1].Value + " in " + Path.GetFileName(path));
+                {
+                    string number = match.Groups[1].Success ? match.Groups[1].Value
+                        : match.Groups[2].Success ? match.Groups[2].Value
+                        : match.Groups[3].Value;
+
+                    found.Add("f" + number + " in " + Path.GetFileName(path));
+                }
             }
 
             Assert.Contains("f2 in ClockDiagram.cs", found, "sanity: the scan did not find F2, so it is looking in the wrong place");
+
+            // And the other two forms are recognised, or a read written either way would pass unseen.
+            Assert.IsTrue(reading.IsMatch("keyboard[Key.F3].wasPressedThisFrame"), "sanity: the scan does not see Key.F3");
+            Assert.IsTrue(reading.IsMatch("Input.GetKeyDown(KeyCode.F5)"), "sanity: the scan does not see KeyCode.F5");
 
             foreach (string read in found)
             {
