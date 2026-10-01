@@ -908,14 +908,17 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator ADeadButtonOnTheRunRow_DimsItsCaption()
         {
             yield return TestScene.Load();
+            yield return SkipTheTutorial();
             yield return CloseTheMainMenu();
 
             Transform row = GameObject.Find("Run controls").transform;
             Button undo = row.Find("Undo").GetComponent<Button>();
             Button reset = row.Find("Reset").GetComponent<Button>();
 
-            Assume.That(undo.interactable, Is.False, "a board nothing has been done to has nothing to undo");
-            Assume.That(reset.interactable, Is.True, "a loaded level can always be reset");
+            // Asserted, not assumed: an assumption that fails reports the test inconclusive, which
+            // reads as nothing wrong while nothing was tested.
+            Assert.IsFalse(undo.interactable, "sanity: a board nothing has been done to has nothing to undo");
+            Assert.IsTrue(reset.interactable, "sanity: a loaded level can always be reset");
 
             Assert.AreEqual(UiTheme.TextDim, CaptionOf(undo).color,
                 "UNDO cannot be pressed, and its caption says it can");
