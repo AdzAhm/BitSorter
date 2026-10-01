@@ -16,8 +16,13 @@ namespace BitSorter.View
     /// unison, which looks like a fault rather than motion. Phase comes from cell position, so the
     /// crest moves across the board.
     ///
-    /// Quietens while the simulation is running. Bits moving along wires are the thing to watch
-    /// then, and a background that keeps pulsing underneath them is just noise.
+    /// Quiet until a run has settled: a quarter of its depth while the board is edited and while it
+    /// runs, and the whole wave only on a board a finished run has left. Bits moving along wires are
+    /// the thing to watch during a run, and a background pulsing underneath them is just noise.
+    /// This used to say only that it quietened while the simulation ran -- but "running" here is
+    /// <see cref="SimulationRunner.IsIdle"/> being false, which it is at tick 0 too, before the
+    /// sources have played, so an editing board is quiet as well. Every reference shot of a board
+    /// being edited is drawn that way.
     /// </remarks>
     public sealed class GridPulse : MonoBehaviour
     {
@@ -33,7 +38,7 @@ namespace BitSorter.View
         [Tooltip("How much a dot grows at the crest, as a fraction of its base size.")]
         [SerializeField] private float _swell = 0.45f;
 
-        [Tooltip("Multiplier applied to the depth while a run is in progress.")]
+        [Tooltip("Multiplier applied to the depth until a run has settled, editing included.")]
         [SerializeField] private float _runningDepth = 0.25f;
 
         private readonly List<SpriteRenderer> _dots = new List<SpriteRenderer>();
@@ -49,14 +54,6 @@ namespace BitSorter.View
             if (_runner == null) _runner = FindFirstObjectByType<SimulationRunner>();
         }
 
-        /// <summary>
-        /// Collects the dots after <see cref="PlacementGrid"/> has built them.
-        /// </summary>
-        /// <remarks>
-        /// The grid spawns its dots in Start, so this cannot run in Start too without depending on
-        /// component order. A first-frame Update is late enough to be certain and early enough that
-        /// nobody sees the difference.
-        /// </remarks>
         /// <summary>
         /// The board changed size: the dots collected are gone, and the new ones are collected on
         /// the next frame.
@@ -80,6 +77,14 @@ namespace BitSorter.View
                 _grid.Resized -= Forget;
         }
 
+        /// <summary>
+        /// Collects the dots after <see cref="PlacementGrid"/> has built them.
+        /// </summary>
+        /// <remarks>
+        /// The grid spawns its dots in Start, so this cannot run in Start too without depending on
+        /// component order. A first-frame Update is late enough to be certain and early enough that
+        /// nobody sees the difference.
+        /// </remarks>
         private void Collect()
         {
             _ready = true;
