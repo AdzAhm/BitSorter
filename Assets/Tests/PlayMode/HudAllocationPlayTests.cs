@@ -405,6 +405,46 @@ namespace BitSorter.PlayMode.Tests
         }
 
         // -----------------------------------------------------------------
+        // Diagnostics
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// The developer numbers behind F2 are quiet while none of them moves, and drawn again when
+        /// one does.
+        /// </summary>
+        /// <remarks>
+        /// They built four interpolated lines every frame they were up, the tick and the counts
+        /// included, whether or not any had changed -- and F2 is the key somebody presses to watch
+        /// the game's numbers, which garbage of its own then disturbs.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator WhileF2IsOn_DiagnosticsAllocateNothing_UntilANumberMoves()
+        {
+            yield return LoadLevel();
+
+            SwitchF2On(Find<ClockDiagram>());
+            DiagnosticsPanel diagnostics = Find<DiagnosticsPanel>();
+
+            yield return null;
+            yield return null;
+
+            Assert.IsTrue(diagnostics.IsShowing, "sanity: F2 should put the numbers up");
+
+            Action update = FrameOf(diagnostics);
+            AssertQuiet(update);
+
+            Assert.IsTrue(Find<LevelSession>().TryPlaceGate(GateKind.Xor, new Vector2Int(0, 0)),
+                "could not place a gate");
+
+            Assert.That(() => update(), Is.AllocatingGCMemory(),
+                "a node was added and the numbers were not redrawn -- or the measurement cannot see " +
+                "an allocation, in which case the quiet frame above proves nothing");
+
+            Assert.That(() => update(), Is.Not.AllocatingGCMemory(),
+                "once redrawn, the numbers should be quiet again");
+        }
+
+        // -----------------------------------------------------------------
         // Helpers
         // -----------------------------------------------------------------
 
@@ -487,6 +527,21 @@ namespace BitSorter.PlayMode.Tests
 
             Assert.IsNotNull(field, "BitsLostMeter no longer keeps its pop in _punch");
             return (float)field.GetValue(meter);
+        }
+
+        /// <summary>
+        /// Switches F2 on without a key: this fixture has no keyboard, and the flag is what F2 sets.
+        /// </summary>
+        private static void SwitchF2On(ClockDiagram clock)
+        {
+            Assert.IsNotNull(clock, "the clock diagram is not in the scene");
+
+            FieldInfo field = typeof(ClockDiagram).GetField(
+                "_shown", BindingFlags.Instance | BindingFlags.NonPublic);
+
+            Assert.IsNotNull(field, "ClockDiagram no longer keeps F2 in _shown");
+            field.SetValue(clock, true);
+            Assert.IsTrue(clock.IsOpen, "sanity: F2 should read as on");
         }
 
         /// <summary>A component's own Update, callable without Unity.</summary>
