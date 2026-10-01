@@ -12,9 +12,13 @@ namespace BitSorter.View
     /// against a scratch file without a scene. Everything interesting lives there; this decides
     /// *when* to record.
     ///
-    /// Boards are saved on the way out of a level and on quit, not on every edit. A file write per
-    /// click would be a lot of writing to solve a problem nobody has, and the two moments a board
-    /// can actually be lost are exactly those.
+    /// Boards are saved on the way out of a level, on a solve and on quit -- and, because quitting
+    /// never reaches the game in a browser, also <see cref="SaveDelay"/> after the board stops
+    /// changing and whenever the game loses focus. A browser tab closes or reloads without telling
+    /// the game anything, so the first three alone lost an unsolved board back to the last level
+    /// switch, and a free-play circuit built without leaving was lost entirely. Waiting for the board
+    /// to settle keeps it to one write for a burst of edits -- a run of scroll notches on a wire is
+    /// one write, not one a notch.
     /// </remarks>
     public sealed class ProgressTracker : MonoBehaviour
     {
@@ -25,6 +29,22 @@ namespace BitSorter.View
         [SerializeField] private string _pathOverride;
 
         private ProgressStore _store;
+
+        /// <summary>How long the board must stay unchanged before it is written.</summary>
+        public const float SaveDelay = 0.5f;
+
+        /// <summary>The graph revision last seen, the one last written, and when it was first seen.</summary>
+        /// <remarks>
+        /// Every edit, undo, redo and RUN rebuilds the graph, so a new revision is a board that may
+        /// have changed. A rebuild that changed nothing, such as RUN, costs one write of the same board.
+        /// </remarks>
+        private int _seenRevision = -1;
+
+        /// <inheritdoc cref="_seenRevision"/>
+        private int _savedRevision = -1;
+
+        /// <inheritdoc cref="_seenRevision"/>
+        private float _seenAt;
 
         /// <summary>The store, loaded. Null only before Awake has run.</summary>
         public ProgressStore Store => _store;
@@ -107,6 +127,56 @@ namespace BitSorter.View
         /// <summary>Quitting is the other way a board goes missing.</summary>
         private void OnApplicationQuit()
         {
+            if (_session != null && _session.IsLoaded)
+                SaveBoard(_session.LevelName);
+        }
+
+        /// <summary>
+        /// Writes the board once it has stopped changing -- see the remarks on this class.
+        /// </summary>
+        /// <remarks>
+        /// Polls a revision number and nothing else, so a frame with nothing new costs two
+        /// comparisons and allocates nothing. Nothing reads the file mid-frame, so when in the frame
+        /// this runs does not matter.
+        /// </remarks>
+        private void Update()
+        {
+            if (_store == null || _runner == null || _session == null || !_session.IsLoaded)
+                return;
+
+            int revision = _runner.GraphRevision;
+
+            if (revision != _seenRevision)
+            {
+                _seenRevision = revision;
+                _seenAt = Time.unscaledTime;
+            }
+
+            if (_seenRevision != _savedRevision && Time.unscaledTime - _seenAt >= SaveDelay)
+                SaveTheOpenBoard();
+        }
+
+        /// <summary>
+        /// Losing focus writes the board at once: switching tab or window, which in a browser is
+        /// often the last thing before the tab is closed.
+        /// </summary>
+        private void OnApplicationFocus(bool focused)
+        {
+            if (!focused)
+                SaveTheOpenBoard();
+        }
+
+        /// <inheritdoc cref="OnApplicationFocus"/>
+        private void OnApplicationPause(bool paused)
+        {
+            if (paused)
+                SaveTheOpenBoard();
+        }
+
+        private void SaveTheOpenBoard()
+        {
+            _savedRevision = _seenRevision;
+
             if (_session != null && _session.IsLoaded)
                 SaveBoard(_session.LevelName);
         }

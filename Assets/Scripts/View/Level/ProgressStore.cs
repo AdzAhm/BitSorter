@@ -453,8 +453,9 @@ namespace BitSorter.View
         /// setup here lets that one write carry it, instead of following it with another.
         ///
         /// Safe to stage and never write: every path that matters writes afterwards. Leaving the
-        /// sandbox raises LevelUnloading and quitting saves the open board, and both merge whatever
-        /// is staged here into the file.
+        /// sandbox raises LevelUnloading, quitting saves the open board, and so does the board
+        /// settling after an edit or the game losing focus (<see cref="ProgressTracker"/>), and all
+        /// of them merge whatever is staged here into the file.
         /// </remarks>
         public bool StageBoard(string level, SavedBoard board)
         {

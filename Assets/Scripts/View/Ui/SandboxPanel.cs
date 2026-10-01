@@ -262,12 +262,14 @@ namespace BitSorter.View
         /// Deliberately not a write. Entering free play raises LevelUnloading, which makes
         /// <see cref="ProgressTracker"/> save the sandbox board, and
         /// <see cref="ProgressStore.SaveBoard"/> carries a staged setup forward into it -- so one
-        /// click produces one write instead of two. CLAUDE.md rejects a file write per click for
-        /// boards, and a setup is no different.
+        /// click produces one write instead of two. Boards are not written a click at a time
+        /// (<see cref="ProgressTracker"/> waits for one to settle), and a setup is no different.
         ///
-        /// Nothing is lost by never writing directly. Leaving the sandbox and quitting both save the
-        /// open board, and a setup that survives neither was never worth a file write: it is the
-        /// opening default, which is rebuilt identically next time.
+        /// Nothing is lost by never writing directly. Leaving the sandbox, quitting, the board
+        /// settling after an edit and the game losing focus all save the open board -- a setup
+        /// change rebuilds the board, so it settles and is written within half a second -- and a
+        /// setup that survives none of them was never worth a file write: it is the opening
+        /// default, which is rebuilt identically next time.
         ///
         /// Reads the stored board back rather than making a fresh one, because a fresh one has no
         /// placements and would stage away the circuit it belongs to.
