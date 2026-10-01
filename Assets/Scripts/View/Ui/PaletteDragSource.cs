@@ -29,6 +29,15 @@ namespace BitSorter.View
 
         private RectTransform _ghost;
 
+        /// <summary>Whether the drag under way was taken up when it began.</summary>
+        /// <remarks>
+        /// The release asks this, not whether the board is editable now. A drag begun mid-run is
+        /// refused -- no ghost, no claim on the pointer -- and if the run ended or was reset while
+        /// the button was still held, asking only "editable now?" turned it into a part dropped under
+        /// the cursor that the player had never seen in hand.
+        /// </remarks>
+        private bool _dragging;
+
         /// <summary>Wired by the palette as it builds each row.</summary>
         public void Configure(
             GateKind kind, LevelSession session, PointerGate pointer,
@@ -46,6 +55,8 @@ namespace BitSorter.View
         {
             if (_session == null || !_session.CanEdit)
                 return;
+
+            _dragging = true;
 
             if (_pointer != null)
                 _pointer.BeginPaletteDrag(this);
@@ -68,6 +79,11 @@ namespace BitSorter.View
             if (_pointer != null)
                 _pointer.EndPaletteDrag(this);
 
+            if (!_dragging)
+                return;
+
+            _dragging = false;
+
             if (_session == null || !_session.CanEdit || _grid == null || _camera == null)
                 return;
 
@@ -88,6 +104,7 @@ namespace BitSorter.View
         /// </remarks>
         private void OnDisable()
         {
+            _dragging = false;
             DestroyGhost();
 
             if (_pointer != null)
