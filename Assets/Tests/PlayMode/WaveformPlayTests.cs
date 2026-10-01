@@ -242,6 +242,44 @@ namespace BitSorter.PlayMode.Tests
             Assert.AreEqual(0, diagram.WindowStart, "a short run should not scroll");
         }
 
+        /// <summary>
+        /// After the window changes shape, the ticks still fit inside the strip.
+        /// </summary>
+        /// <remarks>
+        /// The room for ticks was worked out again only when the strip's side insets moved, and they
+        /// are fixed in canvas units, so a window turning squarer -- a browser tab going fullscreen
+        /// is one -- left the old room in place: the waves, crosses and playhead ran on past the
+        /// strip's right-hand edge. The canvas is made narrower here the way a squarer window makes
+        /// it, through the scaler's reference resolution.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator AfterTheWindowChangesShape_TheTicksStillFitTheStrip()
+        {
+            yield return OnTheBoard("out-of-step");
+
+            WaveformPanel diagram = Find<WaveformPanel>();
+            yield return ClickTheBadge();
+
+            float before = diagram.Root.rect.width;
+            Assert.LessOrEqual(diagram.VisibleTicks * diagram.TickWidth, TicksRoom(diagram) + 0.5f,
+                "sanity: the ticks run past the strip before anything changed");
+
+            var scaler = Find<CanvasScaler>();
+            scaler.referenceResolution = new Vector2(1200f, scaler.referenceResolution.y);
+
+            yield return null;
+            yield return null;
+            yield return null;
+
+            Assert.Less(diagram.Root.rect.width, before - 50f, "sanity: the strip did not get narrower");
+            Assert.LessOrEqual(diagram.VisibleTicks * diagram.TickWidth, TicksRoom(diagram) + 0.5f,
+                "after the window changed shape, the ticks are drawn on past the strip's edge");
+        }
+
+        /// <summary>The width the ticks have, right of the rows' names, in canvas units.</summary>
+        private static float TicksRoom(WaveformPanel diagram) =>
+            diagram.Root.rect.width - 2f * WaveformPanel.Padding - WaveformPanel.LabelWidth;
+
         /// <summary>The middle of the strip on screen, where the wheel is turned.</summary>
         private static Vector2 MiddleOfTheStrip(WaveformPanel diagram) => ScreenRect(diagram.Root).center;
 
