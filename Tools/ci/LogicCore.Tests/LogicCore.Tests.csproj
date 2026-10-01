@@ -6,7 +6,7 @@
     Only the test files that touch nothing but LogicCore are listed. The rest of the EditMode suite
     reaches into BitSorter.View and UnityEngine and runs in the editor. A file listed here that
     later gains a Unity dependency breaks this build, which is the point: these eight are the
-    simulator's own tests and should never need the engine. A new one is added here by hand --
+    simulator's own tests and should never need the engine. A new one is added here by hand:
     RegisterTests went unlisted, and so unrun outside the editor, until a sweep found it.
 
     NUnit stays on 3.x because the tests use the classic Assert.AreEqual family, which NUnit 4
