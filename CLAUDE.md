@@ -1049,6 +1049,27 @@ failure side.
   - The solved card moves up above the strip, back over the board's bottom
     row.
 
+  **It is fitted to the run, and the wheel over it zooms** (`WaveformZoom`,
+  asked for 2026-10-01). A tick was a fixed 24 units, about seventy across,
+  so a half adder's run of eight was a sliver at the left of an empty strip.
+  - Fitted, the strip divides its width by the level's expected run -- its
+    vectors a clock period apart, plus half the board's width for the
+    circuit to carry the last one -- or by the run so far once that is
+    longer, so a run that outlasts the estimate narrows as it goes. Past the
+    recorder's 128 ticks it scrolls. Every level fits at 75 to 160 a tick.
+  - The wheel up zooms in on the tick under the cursor, and down zooms back
+    out as far as the whole run, which is how the fit comes back. Shift with
+    the wheel, or a sideways scroll, moves through time; back at the latest
+    ticks, the view follows the run again.
+  - A new run keeps the zoom and follows the playhead; a new level starts
+    fitted.
+  - The header names the gestures at its right-hand end
+    (`ControlsReference.TimingZoom`), beside the list and off the card, for
+    the clock diagram's reason. Its numbers thin out from every tick to
+    every eighth as ticks narrow, never closer than 28 units.
+  - The wheel over the strip is free: the strip takes clicks, so a wire's
+    delay is never scrolled through it.
+
   **A wire the player picks is in the diagram too**: Alt+click on a wire,
   any time the board is on screen, running or not (`ProbeController`), up to
   four, W1 to W4, each with a tag on its wire. The tag sits on the side of the

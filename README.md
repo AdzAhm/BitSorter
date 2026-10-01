@@ -143,6 +143,7 @@ until you reset your progress — and none of them pause the game.
 | `F8`, or the square-wave button | The timing diagram: what every source sent and every bin got, tick by tick, and the clock on levels that have one. F8 because browsers keep most of the other function keys for themselves (F3 is find-in-page, F5 reloads) |
 | `F2` | The clock as a square wave, on levels that have a clock, and some developer numbers |
 | `Alt`+click a wire | Add that wire to the timing diagram, W1 to W4, to see what arrives at its end each tick. Alt+click it again to take it out |
+| Scroll on the timing diagram | Zoom in on the tick under the cursor, or back out to the whole run. With `Shift`, or scrolling sideways, move through the run |
 
 ### What it teaches
 

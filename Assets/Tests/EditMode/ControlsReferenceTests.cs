@@ -445,6 +445,19 @@ namespace BitSorter.LogicCore.Tests
                 "the two diagrams share a key again");
         }
 
+        /// <summary>
+        /// The wheel over the timing diagram is named on the strip itself, and nowhere else: not on
+        /// the tutorial's card, which has no row to spare, and not in the board's blocks.
+        /// </summary>
+        [Test]
+        public void TheTimingZoom_IsNamedOnTheStripAndNotOnTheCard()
+        {
+            Assert.IsFalse(ControlsReference.TimingZoom.OnBoard, "the zoom's gestures are in the board's blocks");
+            Assert.IsFalse(OnTheCard(ControlsReference.TimingZoom),
+                "the zoom's gestures are on the card, which has no row to spare for them");
+            StringAssert.Contains("zoom", ControlsReference.TimingZoom.Text);
+        }
+
         private static bool OnTheCard(ControlEntry wanted)
         {
             foreach (ControlGroup group in ControlsReference.Groups)

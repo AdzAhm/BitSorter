@@ -82,6 +82,9 @@ namespace BitSorter.LogicCore.Tests
             foreach (ControlEntry control in ControlsReference.All)
                 lines.Add(new Line("ControlsReference", control.Text));
 
+            // Beside the list rather than in it, and on the timing diagram's strip.
+            lines.Add(new Line("ControlsReference.TimingZoom", ControlsReference.TimingZoom.Text));
+
             // Settings, whose words are constants rather than literals inside its builder.
             lines.Add(new Line("SettingsPanel.AudioText", SettingsPanel.AudioText));
             lines.Add(new Line("SettingsPanel.DisplayText", SettingsPanel.DisplayText));

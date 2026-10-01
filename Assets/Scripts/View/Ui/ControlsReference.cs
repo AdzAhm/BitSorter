@@ -223,6 +223,17 @@ namespace BitSorter.View
         public static readonly ControlEntry ClockDiagram =
             new ControlEntry("F2 for the clock diagram", ControlSpot.None, ControlKind.Running);
 
+        /// <summary>
+        /// The wheel over the timing diagram, named at the right-hand end of its tick numbers.
+        /// </summary>
+        /// <remarks>
+        /// **Beside <see cref="All"/>, not in it**, for the clock diagram's reason: the card has no
+        /// row to spare, and the gesture means nothing until the strip is open -- at which point it
+        /// is written on the strip itself, the thing it works.
+        /// </remarks>
+        public static readonly ControlEntry TimingZoom =
+            new ControlEntry("scroll to zoom, shift+scroll to move", ControlSpot.None, ControlKind.Running);
+
         public static IReadOnlyList<ControlEntry> All { get; } = new[]
         {
             // The number keys and redo are bound (PlacementController, SimulationInput) and were

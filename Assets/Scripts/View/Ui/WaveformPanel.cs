@@ -29,6 +29,12 @@ namespace BitSorter.View
     /// **Recorded from tick 0 whether it is open or not**, by <see cref="WaveformRecorder"/>, from
     /// the runner's own tick and rebuild events. Opening it mid-run shows the run so far.
     ///
+    /// **Fitted to the run, and zoomed with the wheel over it** (<see cref="WaveformZoom"/>): up
+    /// zooms in on the tick under the cursor, down zooms back out as far as the whole run, and with
+    /// Shift held, or scrolled sideways, the wheel moves through time. A new run keeps the zoom and
+    /// follows the playhead again; a new level starts fitted. The header names the gestures at its
+    /// right-hand end, <see cref="ControlsReference.TimingZoom"/>.
+    ///
     /// **Its own key, F8, and the badge flips the same flag.** For its first day it was on F2, which
     /// it had taken from the clock diagram and shared with the developer numbers; F2 is theirs again
     /// now. Why F8 and no other function key is on <see cref="ControlsReference.TimingDiagram"/>.
@@ -56,16 +62,6 @@ namespace BitSorter.View
 
         /// <summary>The column the rows' names sit in, left of the ticks.</summary>
         public const float LabelWidth = 64f;
-
-        /// <summary>How wide one tick is drawn.</summary>
-        /// <remarks>
-        /// Wide enough for a step and a cross to read -- at 14 a whole half adder's run was a sliver
-        /// at the left of the strip -- and narrow enough that most runs still fit without scrolling.
-        /// </remarks>
-        public const float TickWidth = 24f;
-
-        /// <summary>A tick number every this many ticks.</summary>
-        public const int NumberEvery = 4;
 
         /// <summary>Rows kept for wires the player picks, whether or not any is picked.</summary>
         public const int WireRows = WireProbes.Slots;
@@ -100,6 +96,18 @@ namespace BitSorter.View
         private float _rightInset = -1f;
         private bool _dirty = true;
 
+        /// <summary>Canvas units the ticks span, right of the rows' names.</summary>
+        private float _ticksRoom;
+
+        /// <summary>How far the wheel has zoomed in from the fit; 1 is the whole run.</summary>
+        private float _zoom = 1f;
+
+        /// <summary>The first tick in view once the wheel has moved it, or -1 to follow the run.</summary>
+        private int _pinnedStart = -1;
+
+        private TextMeshProUGUI _zoomHint;
+        private float _zoomHintWidth;
+
         /// <summary>What the strip draws from.</summary>
         public WaveformRecorder Recorder => _recorder;
 
@@ -118,7 +126,19 @@ namespace BitSorter.View
         /// <summary>How many ticks fit across the strip.</summary>
         public int VisibleTicks { get; private set; }
 
-        /// <summary>The first tick drawn: 0 until a run outgrows the strip, then it scrolls.</summary>
+        /// <summary>How wide one tick is drawn now, in canvas units.</summary>
+        public float TickWidth { get; private set; } = WaveformZoom.MinTickWidth;
+
+        /// <summary>A tick number, and a faint mark under it, every this many ticks.</summary>
+        public int NumberStep { get; private set; } = 1;
+
+        /// <summary>How far the wheel has zoomed in from the whole run: 1 is fitted.</summary>
+        public float Zoom => _zoom;
+
+        /// <summary>
+        /// The first tick drawn: 0 until a run outgrows the strip, then the latest -- or wherever the
+        /// wheel has moved it.
+        /// </summary>
         public int WindowStart { get; private set; }
 
         /// <summary>The latest tick recorded, or -1 before a run.</summary>
@@ -197,6 +217,7 @@ namespace BitSorter.View
             _recordedLevel = _runner.BuiltLevel;
             _recorder.Reset(_runner.View, _recordedLevel, _runner.FixtureNodeIds);
             _recordedRevision = _runner.GraphRevision;
+            _pinnedStart = -1;
             _dirty = true;
         }
 
@@ -312,6 +333,12 @@ namespace BitSorter.View
             if (Fit())
                 _dirty = true;
 
+            if (ReadTheWheel())
+                _dirty = true;
+
+            if (Scale())
+                _dirty = true;
+
             int probes = _probes != null ? _probes.Probes.Revision : 0;
 
             if (probes != _probesRevision)
@@ -321,7 +348,10 @@ namespace BitSorter.View
                 _dirty = true;
             }
 
-            int start = WindowStartFor(_recorder.LastTick, VisibleTicks, _recorder.FirstTick);
+            int following = FollowingStart();
+            int start = _pinnedStart < 0
+                ? following
+                : WaveformZoom.ClampStart(_pinnedStart, _recorder.FirstTick, following);
 
             if (start != WindowStart)
             {
@@ -348,6 +378,150 @@ namespace BitSorter.View
 
             int start = lastTick - visible + 1;
             return start < firstHeld ? firstHeld : start;
+        }
+
+        private int FollowingStart() => WindowStartFor(_recorder.LastTick, VisibleTicks, _recorder.FirstTick);
+
+        // -----------------------------------------------------------------
+        // Zoom
+        // -----------------------------------------------------------------
+
+        /// <summary>How many ticks the level's run is expected to take.</summary>
+        private int ExpectedRun()
+        {
+            LevelDefinition level = _recordedLevel;
+
+            if (level == null)
+                return 1;
+
+            // A file without a board gets the scene's 9 by 5, the narrowest a level may name.
+            int halfWidth = level.HasBoard ? level.BoardHalfExtents.x : (LevelLoader.MinColumns - 1) / 2;
+            return WaveformZoom.ExpectedRun(level.VectorCount, level.ClockPeriod, halfWidth);
+        }
+
+        /// <summary>The tick width that fits the whole run across the strip.</summary>
+        private float FitWidth() =>
+            WaveformZoom.FitWidth(_ticksRoom,
+                WaveformZoom.FitTicks(ExpectedRun(), _recorder.LastTick, WaveformRecorder.Capacity));
+
+        /// <summary>
+        /// Works out the tick width and how many ticks are in view, from the fit and the zoom. True
+        /// when either moved.
+        /// </summary>
+        /// <remarks>
+        /// Every frame, because a run that outlasts its estimate narrows the fit as it goes -- and
+        /// cheap, and allocation-free, so a frame with nothing new stays quiet.
+        /// </remarks>
+        private bool Scale()
+        {
+            float width = WaveformZoom.TickWidth(FitWidth(), _zoom);
+            int visible = WaveformZoom.Visible(_ticksRoom, width);
+
+            if (Mathf.Approximately(width, TickWidth) && visible == VisibleTicks)
+                return false;
+
+            TickWidth = width;
+            VisibleTicks = visible;
+            NumberStep = WaveformZoom.NumberStep(width);
+            return true;
+        }
+
+        /// <summary>The real mouse's wheel, handed to <see cref="TakeWheel"/>.</summary>
+        private bool ReadTheWheel()
+        {
+            Mouse mouse = Mouse.current;
+
+            if (mouse == null || UiModal.OpenOrJustClosed)
+                return false;
+
+            Keyboard keyboard = UiText.Keyboard;
+            bool shift = keyboard != null && keyboard.shiftKey.isPressed;
+
+            return TakeWheel(mouse.position.ReadValue(), mouse.scroll.ReadValue(), shift);
+        }
+
+        /// <summary>
+        /// A turn of the wheel at a point on the screen: over the strip, up zooms in on the tick
+        /// under the cursor and down zooms back out, as far as the whole run; with Shift held, or
+        /// scrolled sideways, it moves through time. True when the view changed.
+        /// </summary>
+        /// <remarks>
+        /// Over the strip the wheel is free: the strip takes clicks, so the pointer is over the
+        /// interface there and a wire's delay is never scrolled through it. Only the sign is read,
+        /// as for a wire's delay: a notch is 120 on Windows and 1 elsewhere.
+        ///
+        /// Public so a test can turn the wheel without a mouse; each frame the strip hands it the
+        /// real one's.
+        /// </remarks>
+        public bool TakeWheel(Vector2 screenPoint, Vector2 scroll, bool shift)
+        {
+            if (_root == null || !_root.gameObject.activeSelf)
+                return false;
+
+            float across = Mathf.Abs(scroll.x);
+            float down = Mathf.Abs(scroll.y);
+
+            if (across < 0.01f && down < 0.01f)
+                return false;
+
+            // The canvas is a screen-space overlay, so no camera.
+            if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(_root, screenPoint, null, out Vector2 local) ||
+                !_root.rect.Contains(local))
+            {
+                return false;
+            }
+
+            if (across > down)
+                return MoveThroughTime(scroll.x > 0f ? 1 : -1);
+
+            // Shift and the wheel down moves later, as a page scrolls on with it.
+            if (shift)
+                return MoveThroughTime(scroll.y < 0f ? 1 : -1);
+
+            float cursor = Mathf.Clamp(local.x - _root.rect.xMin - Padding - LabelWidth, 0f, _ticksRoom);
+            return ZoomBy(scroll.y > 0f ? 1 : -1, cursor);
+        }
+
+        private bool ZoomBy(int notches, float cursor)
+        {
+            float zoom = WaveformZoom.Zoomed(_zoom, notches, FitWidth());
+
+            if (Mathf.Approximately(zoom, _zoom))
+                return false;
+
+            float before = TickWidth;
+            _zoom = zoom;
+            Scale();
+
+            // Back out to the whole run, there is nothing to hold in view.
+            if (Mathf.Approximately(_zoom, 1f))
+            {
+                _pinnedStart = -1;
+                return true;
+            }
+
+            Hold(WaveformZoom.StartAfterZoom(WindowStart, cursor, before, TickWidth));
+            return true;
+        }
+
+        private bool MoveThroughTime(int notches)
+        {
+            if (VisibleTicks <= 0)
+                return false;
+
+            return Hold(WindowStart + notches * WaveformZoom.PanTicks(VisibleTicks));
+        }
+
+        /// <summary>
+        /// Holds the view at a start -- or lets it follow the run again, once it is back at the
+        /// latest ticks. True when that moves the view; it moves on the next frame.
+        /// </summary>
+        private bool Hold(int start)
+        {
+            int following = FollowingStart();
+            start = WaveformZoom.ClampStart(start, _recorder.FirstTick, following);
+            _pinnedStart = start >= following ? -1 : start;
+            return start != WindowStart;
         }
 
         private void Toggle()
@@ -384,8 +558,7 @@ namespace BitSorter.View
             _root.offsetMin = new Vector2(left, UiRows.PanelFloor);
             _root.offsetMax = new Vector2(-right, UiRows.PanelFloor + Height);
 
-            float width = _root.rect.width - 2f * Padding - LabelWidth;
-            VisibleTicks = width > 0f ? Mathf.FloorToInt(width / TickWidth) : 0;
+            _ticksRoom = _root.rect.width - 2f * Padding - LabelWidth;
             return true;
         }
 
@@ -413,6 +586,15 @@ namespace BitSorter.View
 
             _labels = UiTheme.Rect("labels", _root);
             UiTheme.Stretch(_labels);
+
+            // The wheel's gestures, quietly, at the right-hand end of the tick numbers: named on the
+            // thing they work, as every control is, and not on the tutorial's card.
+            _zoomHint = UiTheme.Label("zoom hint", _labels, UiType.Micro, UiTheme.TextDim, TextAlignmentOptions.MidlineRight);
+            _zoomHint.raycastTarget = false;
+            _zoomHint.text = ControlsReference.TimingZoom.Text;
+            _zoomHintWidth = Mathf.Ceil(UiTheme.TextWidth(ControlsReference.TimingZoom.Text, UiType.Micro));
+            UiTheme.Anchor(_zoomHint.rectTransform, new Vector2(1f, 1f), new Vector2(1f, 1f),
+                new Vector2(-Padding, -Padding), new Vector2(_zoomHintWidth, HeaderHeight));
         }
 
         /// <summary>A name for each row, down the left: CLOCK, then the fixtures, then the wires.</summary>
@@ -422,6 +604,10 @@ namespace BitSorter.View
             _rowsFor = _recordedLevel;
             _rowsSources = _recorder.SourceCount;
             _rowsSinks = _recorder.SinkCount;
+
+            // A new level starts with its whole run in view.
+            _zoom = 1f;
+            _pinnedStart = -1;
 
             RowCount = (HasClockRow ? 1 : 0) + _rowsSources + _rowsSinks + WireRows;
             Height = 2f * Padding + HeaderHeight + RowCount * RowHeight;
@@ -510,13 +696,16 @@ namespace BitSorter.View
         }
 
         /// <summary>
-        /// A number over every fourth tick in the window. Each label is rewritten only when the tick it
+        /// A number over every <see cref="NumberStep"/>th tick in the window, stopping short of the
+        /// zoom hint at the header's right-hand end. Each label is rewritten only when the tick it
         /// shows changes, into a reused buffer, so scrolling makes no garbage in a player.
         /// </summary>
         private void NumberTheTicks()
         {
-            int first = (WindowStart + NumberEvery - 1) / NumberEvery * NumberEvery;
-            int needed = VisibleTicks <= 0 ? 0 : (WindowStart + VisibleTicks - 1 - first) / NumberEvery + 1;
+            int step = NumberStep;
+            int first = (WindowStart + step - 1) / step * step;
+            int needed = VisibleTicks <= 0 ? 0 : (WindowStart + VisibleTicks - 1 - first) / step + 1;
+            float hintLeft = _root.rect.width - Padding - _zoomHintWidth;
 
             if (needed < 0)
                 needed = 0;
@@ -528,7 +717,6 @@ namespace BitSorter.View
                 label.rectTransform.anchorMin = new Vector2(0f, 1f);
                 label.rectTransform.anchorMax = new Vector2(0f, 1f);
                 label.rectTransform.pivot = new Vector2(0f, 1f);
-                label.rectTransform.sizeDelta = new Vector2(TickWidth * NumberEvery, HeaderHeight);
                 _tickLabels.Add(label);
                 _tickLabelShows.Add(-1);
             }
@@ -536,7 +724,9 @@ namespace BitSorter.View
             for (int i = 0; i < _tickLabels.Count; i++)
             {
                 TextMeshProUGUI label = _tickLabels[i];
-                bool used = i < needed;
+                int tick = first + i * step;
+                float x = Padding + LabelWidth + (tick - WindowStart) * TickWidth + 2f;
+                bool used = i < needed && x + WaveformZoom.LabelSpacing <= hintLeft;
 
                 if (label.gameObject.activeSelf != used)
                     label.gameObject.SetActive(used);
@@ -544,9 +734,8 @@ namespace BitSorter.View
                 if (!used)
                     continue;
 
-                int tick = first + i * NumberEvery;
-                label.rectTransform.anchoredPosition =
-                    new Vector2(Padding + LabelWidth + (tick - WindowStart) * TickWidth + 2f, -Padding);
+                label.rectTransform.anchoredPosition = new Vector2(x, -Padding);
+                label.rectTransform.sizeDelta = new Vector2(TickWidth * step, HeaderHeight);
 
                 if (_tickLabelShows[i] == tick)
                     continue;
