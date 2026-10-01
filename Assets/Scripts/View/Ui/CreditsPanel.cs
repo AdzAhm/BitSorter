@@ -93,12 +93,17 @@ namespace BitSorter.View
             if (keyboard != null && keyboard.anyKey.wasPressedThisFrame)
                 return true;
 
+            // A mouse button on its release, not its press. The settings come back in the frame this
+            // answers, and a press answered here could still go on to the interface in the same
+            // frame -- to whichever setting was now under the pointer, which it then pressed on
+            // release. By the release the press has already gone to this scrim, so nothing behind it
+            // can take the click.
             Mouse mouse = Mouse.current;
 
             return mouse != null
-                   && (mouse.leftButton.wasPressedThisFrame
-                       || mouse.rightButton.wasPressedThisFrame
-                       || mouse.middleButton.wasPressedThisFrame);
+                   && (mouse.leftButton.wasReleasedThisFrame
+                       || mouse.rightButton.wasReleasedThisFrame
+                       || mouse.middleButton.wasReleasedThisFrame);
         }
 
         // -----------------------------------------------------------------
