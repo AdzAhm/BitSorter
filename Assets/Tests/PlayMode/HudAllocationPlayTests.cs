@@ -336,6 +336,75 @@ namespace BitSorter.PlayMode.Tests
         }
 
         // -----------------------------------------------------------------
+        // The bits-lost meter
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// The bits-lost meter, up after a run that lost bits, is quiet once the count has stopped
+        /// moving, and draws the count again when it does move.
+        /// </summary>
+        /// <remarks>
+        /// It formatted "N BITS LOST" every frame it was up, on the argument that one assignment a
+        /// frame was cheaper than reasoning about when to skip it -- true of the assignment, not of
+        /// the string built for it. The meter stays up for as long as the failed board does, which is
+        /// exactly while the player is reading it.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator AfterBitsAreLost_TheMeterAllocatesNothing_UntilTheCountMoves()
+        {
+            yield return LoadLevel();
+
+            LevelSession session = Find<LevelSession>();
+            SimulationRunner runner = Find<SimulationRunner>();
+            BitsLostMeter meter = Find<BitsLostMeter>();
+
+            for (int frame = 0; frame < 30 && !runner.FixtureNodeIds.ContainsKey("a"); frame++)
+                yield return null;
+
+            Assert.IsTrue(runner.FixtureNodeIds.ContainsKey("a"), "the level's fixtures were never built");
+
+            // One input of the XOR fed and the other not: the first bit waits for a partner that
+            // never comes, and every bit after it collides.
+            var middle = new Vector2Int(0, 0);
+            Assert.IsTrue(session.TryPlaceGate(GateKind.Xor, middle), "could not place the XOR gate");
+            Assert.IsTrue(session.TryConnect(
+                new PortAddress(runner.FixtureNodeIds["a"], false, 0),
+                new PortAddress(NodeOn(runner, middle), true, 0)), "could not wire A to the XOR");
+
+            session.Run();
+
+            for (int tick = 0; tick < 100 && !runner.IsIdle(); tick++)
+                runner.StepOneTick();
+
+            Assert.Greater(runner.View.CorruptedCount, 0, "sanity: the half-wired gate should lose bits");
+
+            // The pop decays on the frame clock; waited on, not counted.
+            for (int frame = 0; frame < 600 && Punch(meter) > 0f; frame++)
+                yield return null;
+
+            Assert.AreEqual(0f, Punch(meter), "the meter's pop never settled");
+
+            Action update = FrameOf(meter);
+            AssertQuiet(update);
+
+            // The proof the measurement can see this meter draw: a second run, stopped at its first
+            // loss, is a new count to write.
+            session.Run();
+
+            for (int tick = 0; tick < 100 && runner.View.CorruptedCount == 0; tick++)
+                runner.StepOneTick();
+
+            Assert.Greater(runner.View.CorruptedCount, 0, "sanity: the second run should lose a bit too");
+
+            Assert.That(() => update(), Is.AllocatingGCMemory(),
+                "the count moved and the meter did not draw it -- or the measurement cannot see an " +
+                "allocation, in which case the quiet frame above proves nothing");
+
+            Assert.That(() => update(), Is.Not.AllocatingGCMemory(),
+                "once drawn, the meter should be quiet again");
+        }
+
+        // -----------------------------------------------------------------
         // Helpers
         // -----------------------------------------------------------------
 
@@ -395,6 +464,29 @@ namespace BitSorter.PlayMode.Tests
             Assert.AreEqual(RunState.Passed, session.State, "sanity: the intended answer should pass");
             Assert.Greater(Find<ProgressTracker>().BestGates("route-the-bit"), 0,
                 "sanity: solving should leave a gate record for the list to draw");
+        }
+
+        /// <summary>The node on a cell, failing the test if there is none.</summary>
+        private static int NodeOn(SimulationRunner runner, Vector2Int cell)
+        {
+            for (int id = 0; id < runner.View.NodeCount; id++)
+            {
+                if (runner.TryCellOf(id, out Vector2Int at) && at == cell)
+                    return id;
+            }
+
+            Assert.Fail($"nothing on {cell}");
+            return -1;
+        }
+
+        /// <summary>How much of the meter's pop is left, which is private because only a test needs it.</summary>
+        private static float Punch(BitsLostMeter meter)
+        {
+            FieldInfo field = typeof(BitsLostMeter).GetField(
+                "_punch", BindingFlags.Instance | BindingFlags.NonPublic);
+
+            Assert.IsNotNull(field, "BitsLostMeter no longer keeps its pop in _punch");
+            return (float)field.GetValue(meter);
         }
 
         /// <summary>A component's own Update, callable without Unity.</summary>
