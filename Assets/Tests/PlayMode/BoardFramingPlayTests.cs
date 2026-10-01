@@ -263,9 +263,10 @@ namespace BitSorter.PlayMode.Tests
         /// </summary>
         /// <remarks>
         /// A board framed to fill the width the interface leaves reaches into the corner, where
-        /// nothing down the right was counted while no panel was open there. Every level keeps its
-        /// first bin in the top-right cell, and Carry it further is 13 by 7. Found on a render of
-        /// free play (2026-09-30): the timing badge's key was printed across the bin.
+        /// nothing down the right was counted while no panel was open there. Five levels keep a bin
+        /// in the top-right cell -- One of four, Highest wins, Which is bigger, Pass it on and Carry
+        /// it further -- and Carry it further is 13 by 7. Found on a render of free play
+        /// (2026-09-30): the timing badge's key was printed across the bin.
         /// </remarks>
         [UnityTest]
         public IEnumerator TheTopRightBin_IsClearOfTheCornerBadges()
@@ -281,6 +282,38 @@ namespace BitSorter.PlayMode.Tests
                 yield return null;
 
             Assert.AreEqual(new Vector2Int(6, 3), Find<PlacementGrid>().HalfExtents, "sanity: not on the 13 by 7 board");
+
+            Rect bin = TopRightPart();
+            AssertClear(bin, "Timing badge");
+            AssertClear(bin, "Help badge");
+        }
+
+        /// <summary>
+        /// On the standard 9 by 5 board the bin in the top-right cell is clear of the corner badges
+        /// too.
+        /// </summary>
+        /// <remarks>
+        /// Not only a big board's problem. At 16:9 the top-right part of a 9 by 5 board is drawn from
+        /// about 110 pixels down at 1080, and the timing badge's key runs to 132 -- so on the four
+        /// 9 by 5 levels with a bin in that cell, the key was printed across it. Pass it on stands
+        /// for the four.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator OnTheStandardBoard_TheTopRightBinIsClearOfTheCornerBadges()
+        {
+            yield return TestScene.Load();
+            Find<ProgressTracker>().Store.MarkMilestone(TutorialLevel.Key);
+            Find<MainMenu>().Show(false);
+            yield return null;
+
+            Assert.IsTrue(Find<LevelSession>().LoadLevel("pass-it-on"), "the level did not load");
+
+            for (int frame = 0; frame < 4; frame++)
+                yield return null;
+
+            Assert.AreEqual(new Vector2Int(4, 2), Find<PlacementGrid>().HalfExtents, "sanity: not on the 9 by 5 board");
+            Assert.IsNotNull(Find<LevelSession>().Level.FixtureAt(new Vector2Int(4, 2)),
+                "sanity: Pass it on no longer keeps a bin in the top-right cell");
 
             Rect bin = TopRightPart();
             AssertClear(bin, "Timing badge");
