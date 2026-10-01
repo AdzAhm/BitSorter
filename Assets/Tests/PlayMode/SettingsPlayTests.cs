@@ -589,6 +589,40 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
+        /// A click leaves the credits when the button comes up, not when it goes down, so the press
+        /// cannot also land on the settings that come back under the pointer.
+        /// </summary>
+        /// <remarks>
+        /// Left on the press, the settings came back in the same frame, and if the interface's input
+        /// ran after the credits did, the press went to whichever setting was now under the pointer
+        /// and pressed it when the button came up -- DATA among them. Which ran first was Unity's
+        /// choice, so it happened some of the time.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator AClick_LeavesTheCreditsOnRelease_NotOnPress()
+        {
+            yield return TestScene.Load();
+            yield return OpenCredits();
+            yield return null;
+
+            Mouse mouse = Mouse.current;
+            Assert.IsNotNull(mouse, "sanity: the fixture adds a mouse");
+
+            Press(mouse.leftButton);
+            yield return null;
+
+            Assert.IsTrue(Find<CreditsPanel>().IsOpen,
+                "the credits closed while the button was still down, so the press could land on a setting");
+
+            Release(mouse.leftButton);
+            yield return null;
+            yield return null;
+
+            Assert.IsFalse(Find<CreditsPanel>().IsOpen, "letting go did not close the credits");
+            Assert.IsTrue(Find<SettingsPanel>().IsOpen, "letting go left the credits for somewhere other than the settings");
+        }
+
+        /// <summary>
         /// The sections fit between the BACK button and the help line, whatever the window gives
         /// them.
         /// </summary>
