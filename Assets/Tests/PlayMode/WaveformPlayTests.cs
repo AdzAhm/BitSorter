@@ -400,8 +400,9 @@ namespace BitSorter.PlayMode.Tests
             runner.StepOneTick();
             yield return null;
 
-            if (diagram.LastTick == 16)
-                Assert.AreEqual(before + 1, diagram.WindowStart, "at the end, the view stopped following the run");
+            // Asserted, not assumed: under an "if" the following check passed by being skipped.
+            Assert.AreEqual(16, diagram.LastTick, "sanity: the run should still be going, and the step recorded");
+            Assert.AreEqual(before + 1, diagram.WindowStart, "at the end, the view stopped following the run");
         }
     }
 }
