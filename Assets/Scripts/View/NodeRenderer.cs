@@ -214,10 +214,17 @@ namespace BitSorter.View
                 if (!(view.GetNode(id) is RegisterNode register))
                     continue;
 
-                if (!_heldValues.TryGetValue(id, out Bit shown) || shown != register.State)
+                bool seen = _heldValues.TryGetValue(id, out Bit shown);
+
+                if (!seen || shown != register.State)
                 {
                     _heldValues[id] = register.State;
-                    _capturing[id] = _captureSeconds;
+
+                    // Only a change swells. The first sight of a register after a rebuild is not
+                    // one: every edit rebuilds the board, and swelling then made every register on
+                    // it look as though it had just captured something.
+                    if (seen)
+                        _capturing[id] = _captureSeconds;
 
                     // The state of a machine, so it says its value by its shape as a bit in
                     // flight does -- not by its colour alone.
