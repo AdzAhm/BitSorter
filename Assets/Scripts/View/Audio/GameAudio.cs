@@ -516,21 +516,6 @@ namespace BitSorter.View
             return bake.ToClip();
         }
 
-        /// <summary>
-        /// Fades the track down, swaps it at the bottom, and fades back up.
-        /// </summary>
-        /// <remarks>
-        /// One source rather than two crossfading. The music is quiet and sparse enough that a
-        /// brief dip reads as a breath rather than as a gap, and a second source would need its
-        /// own copy of the mute handling -- which is the setting most likely to end up applying
-        /// to one source and not the other.
-        ///
-        /// Unscaled time, so a fade cannot stall if the game is ever paused by timescale.
-        ///
-        /// The track switched to is normally built already, by <see cref="BakeAhead"/>. This used
-        /// to say building it on the spot cost "a few milliseconds"; measured, it was 260 to 550,
-        /// and the frame it landed on froze.
-        /// </remarks>
         /// <summary>Whether the music is part-way through reacting to a change.</summary>
         /// <remarks>
         /// Lifted out of <see cref="DriveMusic"/> so <see cref="IsSettled"/> and the fade itself
@@ -562,6 +547,21 @@ namespace BitSorter.View
         /// </remarks>
         public bool IsSettled => _begun && !Switching && _gain >= 1f;
 
+        /// <summary>
+        /// Fades the track down, swaps it at the bottom, and fades back up.
+        /// </summary>
+        /// <remarks>
+        /// One source rather than two crossfading. The music is quiet and sparse enough that a
+        /// brief dip reads as a breath rather than as a gap, and a second source would need its
+        /// own copy of the mute handling -- which is the setting most likely to end up applying
+        /// to one source and not the other.
+        ///
+        /// Unscaled time, so a fade cannot stall if the game is ever paused by timescale.
+        ///
+        /// The track switched to is normally built already, by <see cref="BakeAhead"/>. This used
+        /// to say building it on the spot cost "a few milliseconds"; measured, it was 260 to 550,
+        /// and the frame it landed on froze.
+        /// </remarks>
         private void DriveMusic()
         {
             if (_musicSource == null)

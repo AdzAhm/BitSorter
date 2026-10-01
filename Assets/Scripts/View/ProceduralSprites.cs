@@ -540,7 +540,6 @@ namespace BitSorter.View
             return false;
         }
 
-        /// <summary>White sprite whose alpha is the supersampled coverage of a shape.</summary>
         /// <summary>A gate body in a style. Filled is exactly <see cref="Mask"/>, under its old key.</summary>
         /// <remarks>
         /// Filled goes through the untouched mask path and cache key, so the shipped look cannot
@@ -780,6 +779,7 @@ namespace BitSorter.View
             return depth;
         }
 
+        /// <summary>White sprite whose alpha is the supersampled coverage of a shape.</summary>
         private static Sprite Mask(
             string key, int size, Func<Vector2, bool> inside,
             Vector4 border = default, float pixelsPerUnit = 0f)
