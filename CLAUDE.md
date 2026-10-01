@@ -465,7 +465,11 @@ failure side.
 - After any change that builds or modifies the demo scene, verify the
   saved scene file itself — serialized references can be `{fileID: 0}`
   even when the setup code looks correct. A scene that opens fine on
-  this machine can still be broken for a fresh clone.
+  this machine can still be broken for a fresh clone. **A rebuild
+  renumbers every file ID**, so its diff runs to hundreds of lines whatever
+  changed and says nothing by its size: find a new reference by its field
+  name in the saved file. A reference written into the scene by hand is a
+  stand-in until the builder runs, never a substitute for it.
 - Commit after each green test run, with a short descriptive message.
 - Bug fixes land as two commits: a failing test that reproduces the bug,
   then the fix that makes it pass. The red commit must still compile —
