@@ -42,6 +42,14 @@ namespace BitSorter.View
         /// </summary>
         private Predicate<string> _isComplete;
 
+        // What the lines under the buttons say, so they are built again only when one of these moves.
+        // Built every frame, they were two new strings a frame on the screen the game opens on.
+        private int _drawnSolved = -1;
+        private int _drawnTotal = -1;
+        private bool _drawnFresh;
+        private bool _drawnTutorial;
+        private string _drawnNext;
+
         /// <summary>Whether the menu is covering the board.</summary>
         public bool IsOpen => IsShowing;
 
@@ -311,22 +319,37 @@ namespace BitSorter.View
             int total = _session.Catalogue.Count;
             int done = SolvedCount();
 
-            _progressLine.text = MenuRules.DescribeProgress(done, total);
-
             // "Continue" on a fresh save is a lie -- there is nothing to continue from.
             bool fresh = done == 0 && _session.LevelIndex == 0;
-
-            _continueLabel.text = fresh ? "START" : "CONTINUE";
+            bool tutorial = TutorialDirector.Running;
 
             // Named from the same walk Continue itself uses, so the label cannot promise one level
             // and the button open another. Asked only once the run is known to have a frontier left:
             // an empty catalogue has no next level, and used to throw here rather than say so.
-            if (TutorialDirector.Running)
+            string next = null;
+
+            if (!tutorial && !MenuRules.AllSolved(done, total) && TryNextUp(out LevelEntry entry))
+                next = entry.DisplayName;
+
+            if (done == _drawnSolved && total == _drawnTotal && fresh == _drawnFresh &&
+                tutorial == _drawnTutorial && next == _drawnNext)
+                return;
+
+            _drawnSolved = done;
+            _drawnTotal = total;
+            _drawnFresh = fresh;
+            _drawnTutorial = tutorial;
+            _drawnNext = next;
+
+            _progressLine.text = MenuRules.DescribeProgress(done, total);
+            _continueLabel.text = fresh ? "START" : "CONTINUE";
+
+            if (tutorial)
                 _nextLine.text = "next up: the rest of the tutorial";
             else if (MenuRules.AllSolved(done, total))
                 _nextLine.text = "all solved -- replay anything you like";
-            else if (TryNextUp(out LevelEntry next))
-                _nextLine.text = $"next up: {next.DisplayName}";
+            else if (next != null)
+                _nextLine.text = $"next up: {next}";
             else
                 _nextLine.text = string.Empty;
         }

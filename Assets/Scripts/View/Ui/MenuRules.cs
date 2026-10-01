@@ -36,11 +36,13 @@ namespace BitSorter.View
             if (catalogue == null || catalogue.Count == 0)
                 return false;
 
-            foreach (LevelEntry entry in catalogue)
+            // By index, not foreach: an enumerator through the interface is boxed, and the menu
+            // asks every frame it is up.
+            for (int i = 0; i < catalogue.Count; i++)
             {
-                if (isComplete == null || !isComplete(entry.FileName))
+                if (isComplete == null || !isComplete(catalogue[i].FileName))
                 {
-                    next = entry;
+                    next = catalogue[i];
                     return true;
                 }
             }
@@ -69,9 +71,9 @@ namespace BitSorter.View
 
             int solved = 0;
 
-            foreach (LevelEntry entry in catalogue)
+            for (int i = 0; i < catalogue.Count; i++)
             {
-                if (isComplete(entry.FileName))
+                if (isComplete(catalogue[i].FileName))
                     solved++;
             }
 
