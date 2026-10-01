@@ -445,6 +445,45 @@ namespace BitSorter.PlayMode.Tests
         }
 
         // -----------------------------------------------------------------
+        // The main menu
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// The main menu is quiet while it stands still, and draws its progress again when a level
+        /// is solved.
+        /// </summary>
+        /// <remarks>
+        /// It refreshes every frame it is up, and every refresh built the progress line and the
+        /// next-up line afresh and walked the run twice through boxed enumerators. It is the screen
+        /// the game opens on, and the one left up while the player is away.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator WhileOpen_TheMainMenuAllocatesNothing_UntilProgressMoves()
+        {
+            yield return TestScene.Load();
+
+            MainMenu menu = Find<MainMenu>();
+
+            yield return null;
+            yield return null;
+
+            Assert.IsTrue(menu.IsOpen, "sanity: the game should boot into the main menu");
+
+            Action update = FrameOf(menu);
+            AssertQuiet(update);
+
+            Assert.IsTrue(Find<ProgressTracker>().Store.MarkComplete("route-the-bit"),
+                "sanity: the first level should not have been solved on a fresh save");
+
+            Assert.That(() => update(), Is.AllocatingGCMemory(),
+                "a level was solved and the menu's progress was not redrawn -- or the measurement " +
+                "cannot see an allocation, in which case the quiet frame above proves nothing");
+
+            Assert.That(() => update(), Is.Not.AllocatingGCMemory(),
+                "once redrawn, the menu should be quiet again");
+        }
+
+        // -----------------------------------------------------------------
         // Helpers
         // -----------------------------------------------------------------
 
