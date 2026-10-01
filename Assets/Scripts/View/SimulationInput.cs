@@ -83,9 +83,13 @@ namespace BitSorter.View
                 }
             }
 
-            // Both Enter keys, because a numpad Enter is not the same control.
-            if (keyboard.enterKey.wasPressedThisFrame || keyboard.numpadEnterKey.wasPressedThisFrame)
+            // Both Enter keys, because a numpad Enter is not the same control. Not with Alt held:
+            // Alt+Enter is the desktop build's fullscreen switch, which the player answers by itself.
+            if ((keyboard.enterKey.wasPressedThisFrame || keyboard.numpadEnterKey.wasPressedThisFrame)
+                && !keyboard.altKey.isPressed)
+            {
                 _session.Run();
+            }
 
             // Shift+R clears the board and is RunControls' to handle, so it must not also reset here.
             if (keyboard.rKey.wasPressedThisFrame && !keyboard.shiftKey.isPressed)
