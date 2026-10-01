@@ -21,7 +21,9 @@ just because it is written down here.
 - Every LogicCore component gets a unit test with its truth table.
 - Levels are JSON in Assets/Resources/Levels/, and each one names its own
   `order` — play order is authored, not the ordinal sort of file names.
-  `LevelCatalog` refuses two levels claiming the same place.
+  Two levels claiming the same place are an error: `LevelCatalog` names them,
+  the game logs it, and `CurriculumTests` fails. It does not refuse them --
+  both still load, in file-name order, which this line once said it did.
 - **A level may open on a circuit** -- `start`, its gates and wires, for a
   level about finding what is wrong with one. `LevelLoader` holds it to every
   rule a player's board is held to, its parts count against the budget like any
@@ -50,7 +52,7 @@ just because it is written down here.
   `hintsSeen` in the save remembers them.
 
   **The wire-delay hint is the one that stays.** It is up until the player
-  lengthens a wire, and only then counts as seen, where every other one is
+  re-times a wire, and only then counts as seen, where every other one is
   marked as it goes up and then timed. It explains a verb rather than something
   that just happened, and it comes up as the first wire goes in -- the middle of
   wiring -- so the click that began the next wire took it down unread, and the
@@ -606,7 +608,7 @@ failure side.
 - **A control is shown beside the thing it works.** `ControlsReference` gives
   each control a `ControlSpot`: a button's key goes over the button (Enter over
   RUN, ctrl+Z over UNDO), ESC under MENU, H under the help badge and F8 under the timing diagram's, and what
-  works nothing on screen -- the mouse, M, N -- in two short blocks either side
+  works nothing on screen -- the mouse and M -- in two short blocks either side
   of the run buttons, an upper line and a lower. An upper line holds one short
   phrase: it is level with the names under the board's bottom row, and two
   phrases reached a bottom-left source's name. They were one line along the
@@ -744,7 +746,8 @@ failure side.
   .Fit` centres it between the pixels taken on the left and the right, and
   `CameraFit` reads those from the parts list, free play's setup panel and the
   open help panel. Fitting to the whole screen put the outermost column under
-  the parts list, where four shipped levels keep a source — in Carry the one,
+  the parts list, where eighteen of the twenty-eight levels keep a source
+  (counted 2026-10-01; this said four once) — in Carry the one,
   source B sat under the AND with "DELAY 0 of 5" across its label. **The
   top-right corner counts only on a level that keeps a bin in that cell** --
   five do, and free play -- where a board reaching the badges, their keys or

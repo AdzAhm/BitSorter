@@ -31,8 +31,8 @@ namespace BitSorter.View
     /// Pure arithmetic, so the rule is testable without a camera or a canvas.
     ///
     /// The camera used to fit the board to the whole screen, and the parts list sits over the
-    /// screen's left edge -- which is where the board's leftmost column is. Four shipped levels keep
-    /// a source in that column. Framing into the space between the insets moves the board clear of
+    /// screen's left edge -- which is where the board's leftmost column is. Most levels keep a
+    /// source in that column. Framing into the space between the insets moves the board clear of
     /// whatever sits at the sides, and free play's docked panel is just a second inset.
     ///
     /// The authored size stays a floor, exactly as before: a screen with room to spare shows the

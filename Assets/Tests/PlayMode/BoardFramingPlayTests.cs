@@ -11,9 +11,9 @@ namespace BitSorter.PlayMode.Tests
     /// </summary>
     /// <remarks>
     /// The camera used to fit the board to the whole screen, and the parts list sits over the
-    /// screen's left edge -- which is where the board's leftmost column is. Four shipped levels
-    /// put a source in that column, and in Carry the one the parts list covered source B's body
-    /// and the delay line printed over its label.
+    /// screen's left edge -- which is where the board's leftmost column is. Most levels put a
+    /// source in that column, and in Carry the one the parts list covered source B's body and the
+    /// delay line printed over its label.
     /// </remarks>
     [TestFixture]
     public class BoardFramingPlayTests
@@ -207,7 +207,7 @@ namespace BitSorter.PlayMode.Tests
             float columnLeftOnScreen = view.WorldToScreenPoint(new Vector3(columnLeft, 0f, 0f)).x;
 
             Assert.GreaterOrEqual(columnLeftOnScreen, paletteRight,
-                "the parts list covers the board's leftmost column, where four levels keep a source");
+                "the parts list covers the board's leftmost column, where most levels keep a source");
         }
 
         /// <summary>

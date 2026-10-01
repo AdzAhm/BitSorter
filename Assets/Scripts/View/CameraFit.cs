@@ -13,8 +13,8 @@ namespace BitSorter.View
     /// monitor cannot see the bin they are wiring to, with nothing on screen to suggest why.
     ///
     /// It then fitted the board to the whole screen, and the parts list sits over the screen's left
-    /// edge, where the board's leftmost column is. Four shipped levels keep a source in that column,
-    /// and in Carry the one the list covered source B. The board is now framed between whatever
+    /// edge, where the board's leftmost column is. Most levels keep a source in that column, and in
+    /// Carry the one the list covered source B. The board is now framed between whatever
     /// covers the left and right edges; the arithmetic is <see cref="CameraFraming"/>.
     ///
     /// The requirement is read off <see cref="PlacementGrid"/> rather than restated here, so a board

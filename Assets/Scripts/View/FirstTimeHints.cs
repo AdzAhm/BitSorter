@@ -16,7 +16,7 @@ namespace BitSorter.View
     /// three different places -- the graph, the corruption count and the level's budget -- and a
     /// component that subscribed would need all three to announce themselves.
     ///
-    /// **The wire-delay hint is held, and seen only once a wire has been lengthened.** Every other
+    /// **The wire-delay hint is held, and seen only once a wire has been re-timed.** Every other
     /// hint is marked seen as it goes up and then timed. That one explains a verb, not something
     /// that just happened, and it comes up as the first wire goes in -- the middle of wiring -- so
     /// the click that began the next wire took it down unread, and the save never offered it
@@ -120,7 +120,8 @@ namespace BitSorter.View
 
             // Not an event but a verb the player has no way to discover: nothing on screen says a
             // wire can be scrolled. Offered on the first board that budgets delay, while there is
-            // still a board to try it on, and held there until a wire is lengthened.
+            // still a board to try it on, and held there until a wire is re-timed -- lengthened, nearly
+            // always, since a new wire starts at the shortest.
             //
             // Waits for a wire to exist. Firing on an empty board told the player to scroll
             // something that was not there yet -- an instruction they could not follow and would
