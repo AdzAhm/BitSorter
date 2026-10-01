@@ -1100,6 +1100,49 @@ namespace BitSorter.PlayMode.Tests
                 "RESET counted the bits it threw away as landing in the bin");
         }
 
+        /// <summary>
+        /// A register's held bit swells when it captures a new value, and not when the board is
+        /// merely rebuilt around it.
+        /// </summary>
+        /// <remarks>
+        /// Every edit rebuilds the board, and the renderer forgot what each register showed, so the
+        /// first frame after any edit read as a change: every register on a sequential board swelled
+        /// at once, on a wire drawn or a gate placed anywhere, though none had captured anything.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator ARebuild_DoesNotSwellARegister()
+        {
+            yield return TestScene.Load();
+            Find<MainMenu>().Show(false);
+            yield return null;
+
+            LevelSession session = Find<LevelSession>();
+
+            Assert.IsTrue(session.LoadLevel("one-clock-late"), "the level did not load");
+            yield return null;
+
+            Assert.IsTrue(session.TryPlaceGate(GateKind.Register, new Vector2Int(0, 0)), "could not place the register");
+            yield return null;
+            yield return null;
+
+            NodeRenderer renderer = Find<NodeRenderer>();
+            FieldInfo held = typeof(NodeRenderer).GetField("_heldBits", BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.IsNotNull(held, "sanity: NodeRenderer no longer keeps its held bits in _heldBits");
+            Assert.Greater(((System.Collections.ICollection)held.GetValue(renderer)).Count, 0,
+                "sanity: no register's held bit is drawn, so there is nothing to swell");
+
+            FieldInfo field = typeof(NodeRenderer).GetField("_capturing", BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.IsNotNull(field, "sanity: NodeRenderer no longer keeps its capture timers in _capturing");
+
+            var capturing = (Dictionary<int, float>)field.GetValue(renderer);
+
+            foreach (KeyValuePair<int, float> timer in capturing)
+            {
+                Assert.LessOrEqual(timer.Value, 0f,
+                    $"node {timer.Key}'s held bit is swelling, though the register has captured nothing -- the board was only rebuilt");
+            }
+        }
+
         private static float LongestWire(SimulationRunner runner)
         {
             float longest = 0f;
