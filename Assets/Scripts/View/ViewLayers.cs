@@ -36,6 +36,16 @@ namespace BitSorter.View
         /// <inheritdoc cref="WireCasing"/>
         public const int WireCore = -1;
 
+        /// <summary>
+        /// The buffer triangles on a longer wire, over its core.
+        /// </summary>
+        /// <remarks>
+        /// Shares its order with the core and never its depth, as <see cref="PortMark"/> does with a
+        /// bit's glow: a triangle's fill and outline sit a little nearer the camera than the line
+        /// they cover (<see cref="EdgeRenderer"/>), so which is in front is the same every time.
+        /// </remarks>
+        public const int WireMark = WireCore;
+
         /// <summary>The bins lighting up on a win, behind everything the player reads.</summary>
         public const int Celebration = -2;
 

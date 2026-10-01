@@ -7,16 +7,19 @@ namespace BitSorter.View
 {
     /// <summary>
     /// Draws one wire per edge, from its source node's position to its target's, with its delay shown
-    /// both as a number and as division marks across the wire.
+    /// both as a number and as buffer triangles along the wire.
     /// </summary>
     /// <remarks>
-    /// The marks are why this is more than a line. A wire carrying four ticks gets three cross-hatches,
-    /// dividing it into four, so two paths of unequal total delay are visible without reading digits --
-    /// which is the whole lesson of the balancing levels. A delay-1 wire gets none, so the default look
-    /// is unchanged and bare means "nothing added".
+    /// The marks are why this is more than a line. A wire carrying four ticks gets three buffer
+    /// triangles, dividing it into four, so two paths of unequal total delay are visible without
+    /// reading digits -- which is the whole lesson of the balancing levels. A delay-1 wire gets none,
+    /// so the default look is unchanged and bare means "nothing added".
     ///
-    /// Cross-hatches rather than dots along the wire on purpose. Round pips would read as bits in
-    /// transit, and where the bits are is the one thing on screen that must stay unambiguous.
+    /// **Buffers, not the cross-hatches they replaced** (2026-10-01, Ahmad's choice of three drawn
+    /// side by side): the textbook symbol for a delay with nothing else in it, pointing the way the
+    /// bits go, one per tick past the first and no cap. Hollow, never round, on purpose: a round pip
+    /// would read as a bit in transit, and where the bits are is the one thing on screen that must
+    /// stay unambiguous.
     ///
     /// Two passes per frame, unlike the other renderers: <see cref="Rebuild"/> only when the graph
     /// changes shape, then <see cref="ApplyHighlight"/> every frame, because what the cursor is over
@@ -30,8 +33,6 @@ namespace BitSorter.View
         [SerializeField] private ProbeController _probes;
         [SerializeField] private float _casingWidth = 0.17f;
         [SerializeField] private float _coreWidth = 0.065f;
-        [SerializeField] private float _markLength = 0.20f;
-        [SerializeField] private float _markWidth = 0.055f;
 
         private readonly List<GameObject> _spawned = new List<GameObject>();
 
@@ -51,6 +52,34 @@ namespace BitSorter.View
         private readonly List<GameObject> _tags = new List<GameObject>();
         private int _taggedProbes = -1;
         private int _taggedGraph = -1;
+
+        /// <summary>A buffer triangle's size, along and across the wire, where the wire has room.</summary>
+        /// <remarks>About the casing's width across, so the triangle stands just proud of the wire.</remarks>
+        public const float MarkSize = 0.2f;
+
+        /// <summary>The most of the gap between two triangles' centres one may take, so they never touch.</summary>
+        public const float MarkFill = 0.9f;
+
+        /// <summary>
+        /// How large each buffer triangle on a wire of this length and delay is drawn, or zero for a
+        /// wire that gets none.
+        /// </summary>
+        public static float MarkSizeFor(float length, int delay) =>
+            delay < 2 || length <= 0f ? 0f : Mathf.Min(MarkSize, length / delay * MarkFill);
+
+        /// <summary>
+        /// The depths of a triangle's fill and of its outline: both share the wire core's sorting
+        /// order, so each is put nearer the camera than what it covers.
+        /// </summary>
+        /// <remarks>
+        /// The camera is at -10 looking along +z, so nearer is more negative. A tie in sorting
+        /// order and depth is drawn in whichever order Unity happens to pick, so the fill could go
+        /// under the core line on one capture and over it on the next.
+        /// </remarks>
+        private const float MarkFillDepth = -0.01f;
+
+        /// <inheritdoc cref="MarkFillDepth"/>
+        private const float MarkDepth = -0.02f;
 
         /// <summary>A tag's pill: the delay label's, wide enough for two characters.</summary>
         private static readonly Vector2 TagPill = new Vector2(0.52f, 0.28f);
@@ -250,7 +279,7 @@ namespace BitSorter.View
         /// </summary>
         /// <remarks>
         /// The middle of a wire is taken: its bits travel through it, and a delay of two puts a
-        /// hatch there. The number sits off to one side, so the tag takes the other, at the same
+        /// buffer triangle there. The number sits off to one side, so the tag takes the other, at the same
         /// distance, which keeps it as clear of a passing bit as the number is. In the text colour
         /// on the number's dark pill: every hue on the board already means a part, a bit or a state,
         /// and the W says what it is.
@@ -323,25 +352,54 @@ namespace BitSorter.View
         }
 
         /// <summary>
-        /// <paramref name="delay"/> minus one hatches, dividing the wire into that many equal parts.
-        /// A delay-1 wire gets none.
+        /// <paramref name="delay"/> minus one buffer triangles, dividing the wire into that many
+        /// equal parts and pointing the way the bits go. A delay-1 wire gets none.
         /// </summary>
+        /// <remarks>
+        /// <see cref="MarkSize"/> where there is room, and smaller only where there is not: a wire
+        /// between neighbouring cells is 0.8 long, so nine ticks on it put eight triangles under a
+        /// tenth of a unit apart.
+        /// </remarks>
         private void SpawnMarks(int edgeId, Vector2 from, Vector2 to, int delay)
         {
             if (delay < 2)
                 return;
 
-            Vector2 normal = Normal(from, to);
+            Vector2 along = to - from;
+            float size = MarkSizeFor(along.magnitude, delay);
+
+            if (size <= 0f)
+                return;
+
+            Quaternion pointing = Quaternion.Euler(0f, 0f, Mathf.Atan2(along.y, along.x) * Mathf.Rad2Deg);
 
             for (int i = 1; i < delay; i++)
             {
                 Vector2 centre = Vector2.Lerp(from, to, i / (float)delay);
-                Vector2 half = normal * (_markLength * 0.5f);
 
-                // Across the wire, not along it, so a hatch cannot be mistaken for a travelling bit.
-                Spawn($"Edge {edgeId} mark {i}", centre - half, centre + half,
-                    _markWidth, Palette.Current.WireMark, ViewLayers.WireCore);
+                SpawnMark($"Edge {edgeId} buffer {i} fill", ProceduralSprites.WireBufferFill(),
+                    centre, pointing, size, Palette.Current.WireCasing, MarkFillDepth);
+                SpawnMark($"Edge {edgeId} buffer {i}", ProceduralSprites.WireBuffer(),
+                    centre, pointing, size, Palette.Current.WireMark, MarkDepth);
             }
+        }
+
+        private void SpawnMark(string name, Sprite sprite, Vector2 centre, Quaternion pointing, float size,
+            Color colour, float depth)
+        {
+            var mark = new GameObject(name);
+            mark.transform.SetParent(_container, false);
+            mark.transform.SetPositionAndRotation(new Vector3(centre.x, centre.y, depth), pointing);
+
+            Vector2 native = sprite.bounds.size;
+            mark.transform.localScale = new Vector3(size / native.x, size / native.y, 1f);
+
+            var renderer = mark.AddComponent<SpriteRenderer>();
+            renderer.sprite = sprite;
+            renderer.color = colour;
+            renderer.sortingOrder = ViewLayers.WireMark;
+
+            _spawned.Add(mark);
         }
 
         /// <summary>Unit vector perpendicular to the wire. Arbitrary but stable for a zero-length one.</summary>

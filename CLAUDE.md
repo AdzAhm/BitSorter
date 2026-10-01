@@ -933,6 +933,15 @@ failure side.
   square, a shape the game had made up. As wide as tall like every gate, so the
   aspect-ratio rule below still holds; square back corners and a round front keep
   it apart from the OR family's pointed front at a glance.
+- **A wire's delay is drawn as buffer triangles**, one per tick past the first,
+  evenly along the wire and pointing the way the bits go, with no cap -- the
+  textbook symbol for a delay with nothing else in it. They replaced
+  cross-hatches (2026-10-01, Ahmad's choice of three drawn side by side). Hollow
+  and never round, so none can be read as a bit in transit; a fill in the
+  casing's colour keeps the bright core from running through them. Full size
+  is about the casing's width, and only a wire too short to hold them apart
+  shrinks them (`EdgeRenderer.MarkSizeFor`). They share the core's sorting
+  order at a nearer depth, never a tie (`ViewLayers.WireMark`).
 - **A register is drawn as what it is, not as another gate.** Its
   silhouette is a tall box with the clock's notch cut out of the left edge,
   and it is the only shape taller than it is wide — aspect ratio is the cue

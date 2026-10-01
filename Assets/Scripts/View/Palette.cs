@@ -50,7 +50,7 @@ namespace BitSorter.View
         /// <summary>A wire whose delay just changed, and the sparks that say so.</summary>
         public Color WireFlash;
 
-        /// <summary>The hatches dividing a longer wire into its ticks.</summary>
+        /// <summary>The buffer triangles dividing a longer wire into its ticks.</summary>
         public Color WireMark;
 
         /// <summary>A wire's delay, and the pill behind it.</summary>

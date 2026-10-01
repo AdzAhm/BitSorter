@@ -51,7 +51,7 @@ namespace BitSorter.View
                 p.WireHover = Hex(0x8BEFFF);
                 p.WireFlash = Hex(0xFFE9FF);
                 p.WireMark = Hex(0x6FE0FF);
-                // The wire's own colour, the colour of its hatches, rather than white: a bit is a
+                // The wire's own colour, the colour of its buffers, rather than white: a bit is a
                 // digit here, and a white number beside a wire read as the value of the bit on it.
                 p.DelayLabel = Hex(0x6FE0FF);
                 p.DelayLabelBacking = Hex(0x05040C, Palette.Seen(0.85f));

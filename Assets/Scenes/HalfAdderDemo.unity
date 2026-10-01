@@ -956,8 +956,6 @@ MonoBehaviour:
   _probes: {fileID: 97532172}
   _casingWidth: 0.17
   _coreWidth: 0.065
-  _markLength: 0.2
-  _markWidth: 0.055
 --- !u!114 &97532198
 MonoBehaviour:
   m_ObjectHideFlags: 0

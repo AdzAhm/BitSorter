@@ -56,6 +56,52 @@ namespace BitSorter.LogicCore.Tests
             }
         }
 
+        /// <summary>
+        /// A wire's number is clear of its buffer triangles too, at their full size: the number sits
+        /// off to one side of the wire, and a triangle stands only a little proud of it.
+        /// </summary>
+        [Test]
+        public void EveryLook_KeepsAWiresNumberClearOfItsBuffers()
+        {
+            try
+            {
+                foreach (Look look in Look.All)
+                {
+                    Look.Use(look);
+
+                    Assert.Greater(EdgeRenderer.LabelInnerEdge, EdgeRenderer.MarkSize * 0.5f,
+                        $"in {look.Name} a buffer triangle reaches under the wire's number");
+                }
+            }
+            finally
+            {
+                Look.Use(null);
+            }
+        }
+
+        /// <summary>
+        /// A wire gets one buffer triangle per tick past the first, at full size where it has room
+        /// and smaller where it has not -- so neighbours never touch, however many a short wire holds.
+        /// </summary>
+        [Test]
+        public void BufferTriangles_ShrinkOnlyToKeepApart()
+        {
+            Assert.AreEqual(0f, EdgeRenderer.MarkSizeFor(4f, 1), "a delay-1 wire is bare");
+            Assert.AreEqual(EdgeRenderer.MarkSize, EdgeRenderer.MarkSizeFor(4f, 3), "a long wire has room");
+
+            // Neighbouring cells: a wire from one node's face to the next's.
+            float shortest = 2f - PortGeometry.NodeSize;
+
+            for (int delay = 2; delay <= 12; delay++)
+            {
+                float size = EdgeRenderer.MarkSizeFor(shortest, delay);
+                float apart = shortest / delay;
+
+                Assert.Greater(size, 0f, $"a delay-{delay} wire between neighbours lost its triangles");
+                Assert.Less(size, apart, $"delay-{delay} triangles on the shortest wire touch");
+            }
+        }
+
         /// <summary>Every look can be found by its name, and no two share one.</summary>
         [Test]
         public void EveryLook_IsNamedOnce()

@@ -329,6 +329,50 @@ namespace BitSorter.View
             Segment(p, new Vector2(-0.62f, -0.62f), new Vector2(0.62f, 0.62f)),
             Segment(p, new Vector2(-0.62f, 0.62f), new Vector2(0.62f, -0.62f)))));
 
+        /// <summary>
+        /// A buffer's triangle, stroked like the digits and pointing along +x: one on a wire for
+        /// each tick it holds a bit past the first.
+        /// </summary>
+        /// <remarks>
+        /// The textbook buffer is a delay with nothing else in it, which is what a tick added to a
+        /// wire is, and the triangle points the way the bits go. Hollow, so it reads as a mark on
+        /// the wire and never as something travelling along it: a bit is a dot or a stroked digit.
+        /// <see cref="WireBufferFill"/> goes under it in the wire's casing colour, so the wire's
+        /// bright core does not run through the middle.
+        ///
+        /// Drawn small, because it is drawn small: a texture many times its size on screen is
+        /// sampled too sparsely to keep a thin stroke whole.
+        /// </remarks>
+        public static Sprite WireBuffer() =>
+            Field("wire buffer", BufferSize, p => Stroked(BufferDistance(p)));
+
+        /// <summary>The inside of <see cref="WireBuffer"/>, solid, to be drawn under it.</summary>
+        public static Sprite WireBufferFill() => Mask("wire buffer fill", BufferSize, InBuffer);
+
+        /// <summary>Texels across a buffer's triangle: about twice what it covers on screen at 1080.</summary>
+        private const int BufferSize = 32;
+
+        /// <summary>The triangle's corners, its stroke kept inside the -1..1 square.</summary>
+        private static readonly Vector2 BufferTip = new Vector2(0.78f, 0f);
+        private static readonly Vector2 BufferTop = new Vector2(-0.66f, 0.8f);
+        private static readonly Vector2 BufferBottom = new Vector2(-0.66f, -0.8f);
+
+        private static float BufferDistance(Vector2 p) => Mathf.Min(
+            Segment(p, BufferTop, BufferTip),
+            Mathf.Min(Segment(p, BufferTip, BufferBottom), Segment(p, BufferBottom, BufferTop)));
+
+        /// <summary>Whether a point is inside the triangle: on the same side of all three edges.</summary>
+        private static bool InBuffer(Vector2 p)
+        {
+            float a = Cross(BufferTop, BufferTip, p);
+            float b = Cross(BufferTip, BufferBottom, p);
+            float c = Cross(BufferBottom, BufferTop, p);
+            return (a <= 0f && b <= 0f && c <= 0f) || (a >= 0f && b >= 0f && c >= 0f);
+        }
+
+        private static float Cross(Vector2 from, Vector2 to, Vector2 p) =>
+            (to.x - from.x) * (p.y - from.y) - (to.y - from.y) * (p.x - from.x);
+
         /// <summary>How large the digit cut into a held bit is, against the stroked one.</summary>
         private const float CoinDigit = 0.6f;
 
