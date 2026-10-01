@@ -5,6 +5,7 @@ using System.Reflection;
 using NUnit.Framework;
 using BitSorter.View;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 using UnityEngine.TestTools;
 using UnityEngine.UI;
@@ -1408,6 +1409,60 @@ namespace BitSorter.PlayMode.Tests
             yield return null;
 
             Assert.IsNotNull(GameObject.Find("Win"), "the card did not come back when the panel closed");
+        }
+
+        // -----------------------------------------------------------------
+        // The parts list
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// A drag from the parts list that began while the board could not be edited drops nothing,
+        /// even if the board can be edited by the time it is let go.
+        /// </summary>
+        /// <remarks>
+        /// A drag begun mid-run is refused: no ghost follows the cursor and the pointer is not
+        /// claimed. The release used to ask only whether the board was editable *now* -- so a run
+        /// that ended, or a RESET from the keyboard, while the button was still held turned the
+        /// refused drag into a part dropped under the cursor, a part the player never saw in hand.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator ADragRefusedAtItsStart_DropsNothingWhenLetGo()
+        {
+            yield return TestScene.Load();
+            yield return SkipTheTutorial();
+            yield return CloseTheMainMenu();
+
+            LevelSession session = Find<LevelSession>();
+            PlacementGrid grid = Find<PlacementGrid>();
+            PointerGate pointer = Find<PointerGate>();
+
+            Assert.IsTrue(session.LoadLevel("route-the-bit"), "the level did not load");
+            yield return null;
+            yield return null;
+
+            PaletteDragSource row = Find<PaletteDragSource>();
+            Assert.IsNotNull(row, "sanity: the parts list should have a row to drag from");
+
+            Vector2 middle = grid.CellToWorld(new Vector2Int(0, 0));
+            Vector3 screen = Camera.main.WorldToScreenPoint(new Vector3(middle.x, middle.y, 0f));
+            Set(Mouse.current.position, new Vector2(screen.x, screen.y));
+            yield return null;
+
+            Assert.IsFalse(pointer.PointerOverUi, "sanity: the middle of the board should be clear of the interface");
+
+            int placed = session.Blueprint.Placements.Count;
+            var drag = new PointerEventData(EventSystem.current) { position = new Vector2(screen.x, screen.y) };
+
+            session.Run();
+            Assert.IsFalse(session.CanEdit, "sanity: a running board should not be editable");
+            row.OnBeginDrag(drag);
+
+            session.ResetBoard();
+            Assert.IsTrue(session.CanEdit, "sanity: RESET should make the board editable again");
+            row.OnEndDrag(drag);
+
+            Assert.AreEqual(placed, session.Blueprint.Placements.Count,
+                "a drag refused as it began dropped a part when it was let go");
         }
 
         // -----------------------------------------------------------------
