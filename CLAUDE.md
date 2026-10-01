@@ -704,7 +704,10 @@ failure side.
   about them from `UiModal`: each implements `IHoldsEscape` and joins
   `UiEscape`, and the menu asks `UiEscape.AnyHolds`. A holder answers true
   while a press would close it and for the rest of the frame once Escape has
-  -- one press, one thing, whichever updates first. `UiEscapeTests` scans the
+  -- one press, one thing, whichever updates first. The holders share a press
+  among themselves the same way: the first to close on it takes it
+  (`UiEscape.TryTake`), so the help panel over the solved card is two
+  presses, not one that closes both. `UiEscapeTests` scans the
   view scripts and refuses one that reads Escape without being a full-screen
   panel, the main menu, or a member of the list; each of the three was found
   by one press closing it and opening the menu as well. And **a panel never answers a key on the

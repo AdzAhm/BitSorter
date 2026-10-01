@@ -144,11 +144,17 @@ namespace BitSorter.View
             if (Dismissable && Dismissed())
             {
                 Keyboard keyboard = UiText.Keyboard;
+                bool escape = keyboard != null && keyboard.escapeKey.wasPressedThisFrame;
 
-                if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame)
-                    _escapedOn = Time.frameCount;
+                // An Escape another holder took this frame is not this hint's to close on: one press,
+                // one thing. A click or Space still dismisses it.
+                if (!escape || UiEscape.TryTake())
+                {
+                    if (escape)
+                        _escapedOn = Time.frameCount;
 
-                _remaining = 0f;
+                    _remaining = 0f;
+                }
             }
 
             if (!IsShowing)

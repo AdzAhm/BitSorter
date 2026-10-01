@@ -71,5 +71,30 @@ namespace BitSorter.View
 
         /// <summary>How many things have joined, for the tests.</summary>
         public static int Count => Holders.Count;
+
+        /// <summary>The frame whose Escape a holder has taken, or -1.</summary>
+        private static int _takenOnFrame = -1;
+
+        /// <summary>
+        /// Takes this frame's Escape for the holder about to close on it: true for the first to ask
+        /// in a frame and false for every other, so one press closes one thing.
+        /// </summary>
+        /// <remarks>
+        /// Each holder used to close itself on Escape independently, so with the help panel open
+        /// over the solved card, or a hint up over either, one press took them all. Asked last, after
+        /// a holder has decided it would close, so a holder that would not close takes nothing. The
+        /// one that updates first wins, which Unity leaves to chance -- the rest stay up, still
+        /// holding Escape, for the next press. Derived from the frame number, so it cannot leak.
+        /// </remarks>
+        public static bool TryTake()
+        {
+            int frame = UnityEngine.Time.frameCount;
+
+            if (_takenOnFrame == frame)
+                return false;
+
+            _takenOnFrame = frame;
+            return true;
+        }
     }
 }

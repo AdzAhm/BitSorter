@@ -283,7 +283,7 @@ namespace BitSorter.View
 
             // Escape closes it, as Escape closes whatever is on top.
             if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame
-                && _escapedOn != Time.frameCount && HoldsEscapeNow)
+                && _escapedOn != Time.frameCount && HoldsEscapeNow && UiEscape.TryTake())
             {
                 _escapedOn = Time.frameCount;
                 Show(false);
