@@ -318,6 +318,51 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
+        /// One Escape closes one thing: with the help panel open over the solved card, one press
+        /// takes down one of them and leaves the other for the next.
+        /// </summary>
+        /// <remarks>
+        /// The things over the board that hold Escape each closed themselves on it independently,
+        /// so one press took the help panel, the solved card and a first-time hint all at once --
+        /// where everywhere else in the game one press closes one thing. Both Updates are driven by
+        /// hand so the frame they share is the same frame.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator OneEscape_ClosesOneThing_OfTheHelpPanelAndTheSolvedCard()
+        {
+            yield return TestScene.Load();
+            yield return SkipTheTutorial();
+            yield return CloseTheMainMenu();
+            yield return SolveTheFirstLevel();
+
+            WinPanel win = Find<WinPanel>();
+            HelpPanel help = Find<HelpPanel>();
+            Assert.IsTrue(win.IsShowing, "sanity: solving the level should show the card");
+
+            yield return PressKey(_keyboard.hKey);
+            Release(_keyboard.hKey);
+            yield return null;
+
+            Assert.IsTrue(Shown(help), "sanity: H did not open the help panel");
+
+            win.enabled = false;   // both Updates are called by hand below
+            help.enabled = false;
+
+            yield return PressEscape();
+            FrameOf(win)();
+            FrameOf(help)();
+
+            int closed = (win.IsShowing ? 0 : 1) + (Shown(help) ? 0 : 1);
+            Assert.AreEqual(1, closed, closed == 0
+                ? "Escape closed neither the solved card nor the help panel"
+                : "one Escape closed the solved card and the help panel together");
+
+            Release(_keyboard.escapeKey);
+            win.enabled = true;
+            help.enabled = true;
+        }
+
+        /// <summary>
         /// A card does not answer the key that was pressed before it was there.
         /// </summary>
         /// <remarks>
