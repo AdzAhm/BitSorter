@@ -54,10 +54,18 @@ namespace BitSorter.View
         /// <remarks>
         /// Takes effect immediately in both directions. Granting mid-session starts collection --
         /// the SDK begins on the grant, not only at startup -- and denying stops it.
+        ///
+        /// Denying also drops anything still queued for the services to start. Left there, it was
+        /// sent the moment they came up: a promise not to collect, kept for everything but what had
+        /// already been collected.
         /// </remarks>
         public static void SetReporting(bool reporting)
         {
             Reporting = reporting;
+
+            if (!reporting)
+                Pending.Clear();
+
             ApplyConsent();
         }
 
