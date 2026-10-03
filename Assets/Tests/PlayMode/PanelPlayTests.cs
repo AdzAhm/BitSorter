@@ -211,6 +211,11 @@ namespace BitSorter.PlayMode.Tests
             for (int i = 0; i < catalogue.Count - 1; i++)
                 store.MarkComplete(catalogue[i].FileName);
 
+            // The last level is in the chapter with registers, so on a fresh save its card comes up
+            // as it loads -- a full-screen panel the ending rightly waits for, and one nothing here
+            // closes. A player who has solved every other level has long since seen it.
+            store.MarkMilestone(ChapterCard.Milestone);
+
             Assert.IsTrue(session.LoadLevel(last), "the last level did not load");
             yield return null;
 
