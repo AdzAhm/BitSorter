@@ -363,20 +363,27 @@ namespace BitSorter.PlayMode.Tests
 
             Assert.IsTrue(runner.FixtureNodeIds.ContainsKey("a"), "the level's fixtures were never built");
 
-            // One input of the XOR fed and the other not: the first bit waits for a partner that
-            // never comes, and every bit after it collides.
-            var middle = new Vector2Int(0, 0);
-            Assert.IsTrue(session.TryPlaceGate(GateKind.Xor, middle), "could not place the XOR gate");
+            // Each gate with one input fed and the other not: the first bit waits for a partner that
+            // never comes, and the bits after it collide. Two of them, so the count passes through
+            // more than one figure on the way to its last -- see the pair below.
+            var high = new Vector2Int(0, 1);
+            var low = new Vector2Int(0, -1);
+            Assert.IsTrue(session.TryPlaceGate(GateKind.Xor, high), "could not place the XOR gate");
+            Assert.IsTrue(session.TryPlaceGate(GateKind.And, low), "could not place the AND gate");
             Assert.IsTrue(session.TryConnect(
                 new PortAddress(runner.FixtureNodeIds["a"], false, 0),
-                new PortAddress(NodeOn(runner, middle), true, 0)), "could not wire A to the XOR");
+                new PortAddress(NodeOn(runner, high), true, 0)), "could not wire A to the XOR");
+            Assert.IsTrue(session.TryConnect(
+                new PortAddress(runner.FixtureNodeIds["b"], false, 0),
+                new PortAddress(NodeOn(runner, low), true, 0)), "could not wire B to the AND");
 
             session.Run();
 
             for (int tick = 0; tick < 100 && !runner.IsIdle(); tick++)
                 runner.StepOneTick();
 
-            Assert.Greater(runner.View.CorruptedCount, 0, "sanity: the half-wired gate should lose bits");
+            int lost = runner.View.CorruptedCount;
+            Assert.Greater(lost, 1, "sanity: the half-wired gates should lose several bits");
 
             // The pop decays on the frame clock; waited on, not counted.
             for (int frame = 0; frame < 600 && Punch(meter) > 0f; frame++)
@@ -387,14 +394,19 @@ namespace BitSorter.PlayMode.Tests
             Action update = FrameOf(meter);
             AssertQuiet(update);
 
-            // The proof the measurement can see this meter draw: a second run, stopped at its first
-            // loss, is a new count to write.
+            // The proof the measurement can see this meter draw: a second run, stopped part-way, is a
+            // new count to write. Past one, because one bit lost is the constant "1 BIT LOST" and
+            // drawing it allocates nothing -- the first version of this stopped there and could
+            // never see the redraw it was checking for.
             session.Run();
 
-            for (int tick = 0; tick < 100 && runner.View.CorruptedCount == 0; tick++)
+            for (int tick = 0; tick < 100 && runner.View.CorruptedCount <= 1; tick++)
                 runner.StepOneTick();
 
-            Assert.Greater(runner.View.CorruptedCount, 0, "sanity: the second run should lose a bit too");
+            int partWay = runner.View.CorruptedCount;
+            Assert.Greater(partWay, 1, "sanity: the second run should lose more than one bit");
+            Assert.AreNotEqual(lost, partWay,
+                "sanity: the second run stopped on the count the meter already shows, so there is nothing to redraw");
 
             Assert.That(() => update(), Is.AllocatingGCMemory(),
                 "the count moved and the meter did not draw it -- or the measurement cannot see an " +
