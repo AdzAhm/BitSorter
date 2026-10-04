@@ -369,6 +369,92 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
+        /// Escape closes the last thing opened: with the help panel opened over the solved card, the
+        /// help panel goes and the card stays up for the next press.
+        /// </summary>
+        /// <remarks>
+        /// One press closed one thing, but which one went to whichever Unity updated first. The
+        /// card's Update runs first here, the order that took the card and left the help open.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator AnEscape_ClosesTheHelpPanel_OpenedOverTheSolvedCard()
+        {
+            yield return TestScene.Load();
+            yield return SkipTheTutorial();
+            yield return CloseTheMainMenu();
+            yield return SolveTheFirstLevel();
+
+            WinPanel win = Find<WinPanel>();
+            HelpPanel help = Find<HelpPanel>();
+            Assert.IsTrue(win.IsShowing, "sanity: solving the level should show the card");
+
+            yield return PressKey(_keyboard.hKey);
+            Release(_keyboard.hKey);
+            yield return null;
+
+            Assert.IsTrue(Shown(help), "sanity: H did not open the help panel");
+
+            win.enabled = false;   // both Updates are called by hand below
+            help.enabled = false;
+
+            yield return PressEscape();
+            FrameOf(win)();
+            FrameOf(help)();
+
+            Assert.IsFalse(Shown(help), "Escape did not close the help panel, the last thing opened");
+            Assert.IsTrue(win.IsShowing, "Escape closed the solved card under the help panel opened over it");
+
+            Release(_keyboard.escapeKey);
+            win.enabled = true;
+            help.enabled = true;
+        }
+
+        /// <summary>
+        /// Escape closes the last thing opened: with the solved card come up over the open help
+        /// panel, the card goes and the help stays open for the next press.
+        /// </summary>
+        /// <remarks>
+        /// The other half of <see cref="AnEscape_ClosesTheHelpPanel_OpenedOverTheSolvedCard"/>: the
+        /// same two things opened the other way round, with the help panel's Update first.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator AnEscape_ClosesTheSolvedCard_OpenedOverTheHelpPanel()
+        {
+            yield return TestScene.Load();
+            yield return SkipTheTutorial();
+            yield return CloseTheMainMenu();
+            yield return LoadTheFirstLevel();
+
+            WinPanel win = Find<WinPanel>();
+            HelpPanel help = Find<HelpPanel>();
+
+            yield return PressKey(_keyboard.hKey);
+            Release(_keyboard.hKey);
+            yield return null;
+
+            Assert.IsTrue(Shown(help), "sanity: H did not open the help panel");
+
+            yield return SolveTheFirstLevelLoaded();
+
+            Assert.IsTrue(win.IsShowing, "sanity: solving the level should show the card");
+            Assert.IsTrue(Shown(help), "sanity: solving the level closed the help panel");
+
+            win.enabled = false;   // both Updates are called by hand below
+            help.enabled = false;
+
+            yield return PressEscape();
+            FrameOf(help)();
+            FrameOf(win)();
+
+            Assert.IsFalse(win.IsShowing, "Escape did not close the solved card, the last thing opened");
+            Assert.IsTrue(Shown(help), "Escape closed the help panel under the solved card that came up over it");
+
+            Release(_keyboard.escapeKey);
+            win.enabled = true;
+            help.enabled = true;
+        }
+
+        /// <summary>
         /// A card does not answer the key that was pressed before it was there.
         /// </summary>
         /// <remarks>
@@ -1526,11 +1612,25 @@ namespace BitSorter.PlayMode.Tests
         /// </summary>
         private static IEnumerator SolveTheFirstLevel()
         {
+            yield return LoadTheFirstLevel();
+            yield return SolveTheFirstLevelLoaded();
+        }
+
+        /// <summary>Loads route-the-bit, which opens with nothing on the board.</summary>
+        private static IEnumerator LoadTheFirstLevel()
+        {
+            Assert.IsTrue(Find<LevelSession>().LoadLevel("route-the-bit"), "the level did not load");
+            yield return null;
+        }
+
+        /// <summary>
+        /// <see cref="SolveTheFirstLevel"/> on a board already loaded, for a test that does something
+        /// in between -- loading a level closes the help panel, so it cannot be opened first.
+        /// </summary>
+        private static IEnumerator SolveTheFirstLevelLoaded()
+        {
             LevelSession session = Find<LevelSession>();
             SimulationRunner runner = Find<SimulationRunner>();
-
-            Assert.IsTrue(session.LoadLevel("route-the-bit"), "the level did not load");
-            yield return null;
 
             var middle = new Vector2Int(0, 0);
             Assert.IsTrue(session.TryPlaceGate(GateKind.Not, middle), "could not place the NOT gate");
