@@ -146,9 +146,10 @@ namespace BitSorter.View
                 Keyboard keyboard = UiText.Keyboard;
                 bool escape = keyboard != null && keyboard.escapeKey.wasPressedThisFrame;
 
-                // An Escape another holder took this frame is not this hint's to close on: one press,
-                // one thing. A click or Space still dismisses it.
-                if (!escape || UiEscape.TryTake())
+                // An Escape that something opened after the hint takes, or that another holder took
+                // this frame, is not this hint's to close on: one press, one thing, the last opened.
+                // A click or Space still dismisses it.
+                if (!escape || UiEscape.TryTake(this))
                 {
                     if (escape)
                         _escapedOn = Time.frameCount;
@@ -203,6 +204,7 @@ namespace BitSorter.View
 
             _background.gameObject.SetActive(true);
             UiTheme.BringToFront(_background.rectTransform);
+            UiEscape.Opened(this);
         }
 
         /// <summary>
@@ -220,6 +222,7 @@ namespace BitSorter.View
 
             _background.gameObject.SetActive(true);
             UiTheme.BringToFront(_background.rectTransform);
+            UiEscape.Opened(this);
         }
 
         /// <summary>Takes it down early, for a level change that makes it irrelevant.</summary>

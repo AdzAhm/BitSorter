@@ -32,6 +32,9 @@ namespace BitSorter.View
     ///
     /// Joined in Awake and left in OnDestroy rather than on enable and disable: a test that drives
     /// an Update by hand disables the component, and the thing it draws has not gone anywhere.
+    ///
+    /// The list is kept in the order the holders were opened, last at the end, because Escape
+    /// closes the last thing opened, as undo undoes the last thing done (<see cref="TryTake"/>).
     /// </remarks>
     public static class UiEscape
     {
@@ -44,6 +47,22 @@ namespace BitSorter.View
         }
 
         public static void Leave(IHoldsEscape holder) => Holders.Remove(holder);
+
+        /// <summary>
+        /// Says a holder has just come up over the board, which makes it the first that Escape
+        /// closes. Called where each one opens, not where it joins.
+        /// </summary>
+        /// <remarks>A holder that has not joined is left off: joining is what makes it one.</remarks>
+        public static void Opened(IHoldsEscape holder)
+        {
+            int at = Holders.IndexOf(holder);
+
+            if (at < 0 || at == Holders.Count - 1)
+                return;
+
+            Holders.RemoveAt(at);
+            Holders.Add(holder);
+        }
 
         /// <summary>Whether anything over the board holds this frame's Escape.</summary>
         /// <remarks>
@@ -76,22 +95,45 @@ namespace BitSorter.View
         private static int _takenOnFrame = -1;
 
         /// <summary>
-        /// Takes this frame's Escape for the holder about to close on it: true for the first to ask
-        /// in a frame and false for every other, so one press closes one thing.
+        /// Takes this frame's Escape for the holder about to close on it, if it is the last thing
+        /// opened that still holds the press, and if nothing has taken it already. One press closes
+        /// one thing, and it is the thing on top.
         /// </summary>
         /// <remarks>
         /// Each holder used to close itself on Escape independently, so with the help panel open
-        /// over the solved card, or a hint up over either, one press took them all. Asked last, after
-        /// a holder has decided it would close, so a holder that would not close takes nothing. The
-        /// one that updates first wins, which Unity leaves to chance -- the rest stay up, still
-        /// holding Escape, for the next press. Derived from the frame number, so it cannot leak.
+        /// over the solved card, or a hint up over either, one press took them all. Then the first
+        /// to ask took it, and which one asked first was up to the order Unity updates them in,
+        /// which it leaves to chance.
+        ///
+        /// Now a holder is refused while anything opened after it still holds the press. Every
+        /// holder works that out the same way in any order: asked before the one on top has closed,
+        /// that one still holds Escape; asked after, it still holds it for the rest of the frame. The
+        /// rest stay up, still holding Escape, for the next press.
+        ///
+        /// Asked last, after a holder has decided it would close, so a holder that would not close
+        /// takes nothing. Derived from the list and the frame number, so it cannot leak, and it
+        /// allocates nothing.
         /// </remarks>
-        public static bool TryTake()
+        public static bool TryTake(IHoldsEscape taker)
         {
             int frame = UnityEngine.Time.frameCount;
 
             if (_takenOnFrame == frame)
                 return false;
+
+            for (int i = Holders.Count - 1; i >= 0; i--)
+            {
+                IHoldsEscape holder = Holders[i];
+
+                if (ReferenceEquals(holder, taker))
+                    break;
+
+                if (holder is UnityEngine.Object unity && unity == null)
+                    continue;
+
+                if (holder.HoldsEscapeNow)
+                    return false;
+            }
 
             _takenOnFrame = frame;
             return true;

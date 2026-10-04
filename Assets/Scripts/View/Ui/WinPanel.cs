@@ -198,7 +198,7 @@ namespace BitSorter.View
             Keyboard keyboard = UiText.Keyboard;
 
             if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame
-                && _escapedOn != Time.frameCount && HoldsEscapeNow && UiEscape.TryTake())
+                && _escapedOn != Time.frameCount && HoldsEscapeNow && UiEscape.TryTake(this))
             {
                 _escapedOn = Time.frameCount;
                 Dismiss();
@@ -284,6 +284,7 @@ namespace BitSorter.View
             _next.GetComponent<RectTransform>().anchoredPosition = new Vector2(-Padding, both ? half : 0f);
             _stay.GetComponent<RectTransform>().anchoredPosition = new Vector2(-Padding, both ? -half : 0f);
 
+            UiEscape.Opened(this);   // over anything already up, so the next Escape closes it first
             Show(true);
         }
 

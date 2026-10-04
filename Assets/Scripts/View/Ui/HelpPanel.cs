@@ -283,7 +283,7 @@ namespace BitSorter.View
 
             // Escape closes it, as Escape closes whatever is on top.
             if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame
-                && _escapedOn != Time.frameCount && HoldsEscapeNow && UiEscape.TryTake())
+                && _escapedOn != Time.frameCount && HoldsEscapeNow && UiEscape.TryTake(this))
             {
                 _escapedOn = Time.frameCount;
                 Show(false);
@@ -711,7 +711,10 @@ namespace BitSorter.View
                 _panel.gameObject.SetActive(visible);
 
             if (visible)
+            {
                 UiTheme.BringToFront(_panel);
+                UiEscape.Opened(this);   // on top, so the next Escape closes it first
+            }
         }
     }
 }
