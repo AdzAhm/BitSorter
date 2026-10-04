@@ -70,7 +70,7 @@ to the one you want; `pick-a-lane.json` and `pass-it-on.json` are short.
 | `goal` | The objective, stated plainly. It may name gates. |
 | `hint` | A nudge towards the answer. It **may not** name the gates that solve it; `CurriculumTests` checks. |
 | `fixtures` | Sources (with a `stream` of 0s and 1s, one per vector) and sinks, each on a `cell`. |
-| `budget` | The parts the player may place, with counts. A kind that is not listed cannot be placed. |
+| `budget` | The parts the player may place, with counts. A kind that is not listed cannot be placed. A block is stocked as `{ "block": "FA", "count": 4 }`. |
 | `expected` | Per sink, the values it must receive: `0`, `1`, `x` (either is fine) or `-` (nothing). |
 | `tickLimit` | When a circuit that never settles is given up on. |
 | `maxWireDelay`, `delayBudget` | The longest one wire may be, and the total extra delay across all wires. |
@@ -78,6 +78,7 @@ to the one you want; `pick-a-lane.json` and `pass-it-on.json` are short.
 | `clockPeriod` | Ticks between vectors. Sequential levels need one; see the design notes. |
 | `board` | `{ "columns": 11, "rows": 7 }` for a board bigger than 9 by 5. Odd sizes, up to 13 by 7. |
 | `start` | A circuit the board opens on, for a level about finding what is wrong with one: `gates` (`kind`, `cell`) and `wires` (`from`, `fromPort`, `to`, `toPort`, `delay`). It is held to every rule a player's board is. Its parts count against `budget`, so the budget is the start's parts plus any spares, and its wires spend `delayBudget` from the start. `out-of-step.json` is an example. |
+| `blocks` | The blocks the level defines, each a small board written as a start is: a `name` of up to four characters, `inputs` and `outputs` (each an `id` and the `cell` its wires inside start or end on), `gates` and `wires`. Every input must lead somewhere inside, every output must be fed by exactly one wire, and none may hold a register. The budget must stock every block it defines. |
 
 A **vector** is one row of input values: every source plays its next bit at once,
 and the sinks' expectations line up with the same rows.

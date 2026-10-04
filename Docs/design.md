@@ -242,6 +242,7 @@ The format is deliberately small. What it can say:
 | `clockPeriod` | Ticks between vectors, which every source keeps together |
 | `board` | Columns and rows, odd, from 9 × 5 up to 13 × 7; absent means 9 × 5 |
 | `start` | A circuit the board opens on — gates and wires — for a level about finding what is wrong with one |
+| `blocks` | Small boards in a box, defined in the level and stocked in `budget` by name; a level never depends on the player's own library |
 
 ### Two decisions inside that table
 

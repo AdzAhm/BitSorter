@@ -113,6 +113,38 @@ namespace BitSorter.View
         /// rule a player's board is held to.
         /// </remarks>
         public LevelStartFile start;
+
+        /// <summary>
+        /// The blocks this level defines, which <see cref="budget"/> stocks by name. Absent is none,
+        /// which is every level written before blocks.
+        /// </summary>
+        /// <remarks>
+        /// Defined in the file rather than taken from the player's own library, so a graded level
+        /// never depends on what somebody happened to build in free play.
+        /// </remarks>
+        public LevelBlockFile[] blocks;
+    }
+
+    /// <summary>
+    /// A block a level defines: a small board, written as a start is, whose named inputs and outputs
+    /// stand where its sources and sinks would.
+    /// </summary>
+    [Serializable]
+    public sealed class LevelBlockFile
+    {
+        public string name;
+        public LevelBlockPortFile[] inputs;
+        public LevelBlockPortFile[] outputs;
+        public LevelStartGateFile[] gates;
+        public LevelStartWireFile[] wires;
+    }
+
+    /// <summary>One port of a level's block: its label, and the cell its wires inside start or end on.</summary>
+    [Serializable]
+    public sealed class LevelBlockPortFile
+    {
+        public string id;
+        public LevelCellFile cell;
     }
 
     /// <summary>A level's starting circuit: its parts, and the wires between them.</summary>
@@ -171,12 +203,15 @@ namespace BitSorter.View
         public string stream;
     }
 
-    /// <summary>How many of one gate kind the player may place.</summary>
+    /// <summary>How many of one gate kind, or of one of the level's blocks, the player may place.</summary>
     [Serializable]
     public sealed class LevelBudgetFile
     {
-        /// <summary>A GateKind name: Not, And, Or, Xor, Nand, Nor or Register.</summary>
+        /// <summary>A GateKind name: Not, And, Or, Xor, Nand, Nor or Register. Empty for a block.</summary>
         public string kind;
+
+        /// <summary>The name of one of the level's <see cref="LevelFile.blocks"/>, or empty for a gate.</summary>
+        public string block;
 
         public int count;
     }

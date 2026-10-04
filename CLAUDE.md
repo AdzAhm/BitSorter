@@ -360,6 +360,14 @@ failure side.
   would; a block scores the gates inside it, for the same reason (both
   Ahmad's choice, 2026-10-04).
 
+  **A block is saved whole wherever it stands.** `SavedBoard.blocks` keeps a
+  copy with each placement, so a free-play board survives its block being
+  deleted from the library or made again under the same name. A level's board
+  is restored from the level's own block of that name instead, as it takes the
+  level's current budget. Free play's library is `ProgressFile.blocks`. Every
+  key is new, with no version field, so an older save reads them as absent;
+  `WholeSaveMigrationTests` takes a 3.0.2 file the whole way to now.
+
 ## Working agreement
 - **The loop below, with its exact calls, is the `unity-test-loop` skill**
   (`.claude/skills/unity-test-loop/`): compile, check the DLL, Edit Mode, Play

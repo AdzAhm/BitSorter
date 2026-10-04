@@ -75,6 +75,44 @@ namespace BitSorter.View
         /// do not exist yet would drop everything wired to one.
         /// </remarks>
         public SandboxConfig sandbox;
+
+        /// <summary>The blocks on the board, each with a copy of what it is.</summary>
+        /// <remarks>
+        /// A new key, so a file from before blocks reads it as null and loads unchanged. The copy is
+        /// what keeps a free-play board whole after its block is deleted from the library or made
+        /// again differently under the same name. A level's board is restored from the level's own
+        /// block of that name instead, which is current where the copy might not be.
+        /// </remarks>
+        public SavedBlockPlacement[] blocks;
+    }
+
+    /// <summary>A block on a board: its top cell, and a copy of the block.</summary>
+    [Serializable]
+    public sealed class SavedBlockPlacement
+    {
+        public int x;
+        public int y;
+        public SavedBlock block;
+    }
+
+    /// <summary>A block, as the save file stores it: on a board, and in free play's library.</summary>
+    [Serializable]
+    public sealed class SavedBlock
+    {
+        public string name;
+        public SavedBlockPort[] inputs;
+        public SavedBlockPort[] outputs;
+        public SavedPlacement[] gates;
+        public SavedWire[] wires;
+    }
+
+    /// <summary>One port of a saved block.</summary>
+    [Serializable]
+    public sealed class SavedBlockPort
+    {
+        public string id;
+        public int x;
+        public int y;
     }
 
     /// <summary>
@@ -112,22 +150,124 @@ namespace BitSorter.View
             }
 
             for (int i = 0; i < blueprint.Wires.Count; i++)
-            {
-                BlueprintWire wire = blueprint.Wires[i];
+                saved.wires[i] = ToSaved(blueprint.Wires[i]);
 
-                saved.wires[i] = new SavedWire
+            saved.blocks = new SavedBlockPlacement[blueprint.Blocks.Count];
+
+            for (int i = 0; i < blueprint.Blocks.Count; i++)
+            {
+                BlockPlacement block = blueprint.Blocks[i];
+
+                saved.blocks[i] = new SavedBlockPlacement
                 {
-                    fromX = wire.From.Cell.x,
-                    fromY = wire.From.Cell.y,
-                    fromPort = wire.From.Index,
-                    toX = wire.To.Cell.x,
-                    toY = wire.To.Cell.y,
-                    toPort = wire.To.Index,
-                    delay = wire.Delay,
+                    x = block.Cell.x,
+                    y = block.Cell.y,
+                    block = ToSaved(block.Block),
                 };
             }
 
             return saved;
+        }
+
+        private static SavedWire ToSaved(BlueprintWire wire) => new SavedWire
+        {
+            fromX = wire.From.Cell.x,
+            fromY = wire.From.Cell.y,
+            fromPort = wire.From.Index,
+            toX = wire.To.Cell.x,
+            toY = wire.To.Cell.y,
+            toPort = wire.To.Index,
+            delay = wire.Delay,
+        };
+
+        /// <summary>A block as the file stores it, in full.</summary>
+        public static SavedBlock ToSaved(BlockDefinition block)
+        {
+            var saved = new SavedBlock
+            {
+                name = block.Name,
+                inputs = ToSaved(block.Inputs),
+                outputs = ToSaved(block.Outputs),
+                gates = new SavedPlacement[block.Gates.Count],
+                wires = new SavedWire[block.Wires.Count],
+            };
+
+            for (int i = 0; i < block.Gates.Count; i++)
+            {
+                saved.gates[i] = new SavedPlacement
+                {
+                    x = block.Gates[i].Cell.x,
+                    y = block.Gates[i].Cell.y,
+                    kind = GatePalette.Label(block.Gates[i].Kind),
+                };
+            }
+
+            for (int i = 0; i < block.Wires.Count; i++)
+                saved.wires[i] = ToSaved(block.Wires[i]);
+
+            return saved;
+        }
+
+        private static SavedBlockPort[] ToSaved(IReadOnlyList<BlockPort> ports)
+        {
+            var saved = new SavedBlockPort[ports.Count];
+
+            for (int i = 0; i < saved.Length; i++)
+                saved[i] = new SavedBlockPort { id = ports[i].Id, x = ports[i].Cell.x, y = ports[i].Cell.y };
+
+            return saved;
+        }
+
+        /// <summary>
+        /// A saved block, read back and held to <see cref="BlockRules"/> again: a file is not trusted
+        /// to still describe a block, any more than it is trusted to describe a board.
+        /// </summary>
+        public static bool TryFromSaved(SavedBlock saved, out BlockDefinition block)
+        {
+            block = null;
+
+            if (saved == null)
+                return false;
+
+            var gates = new List<GatePlacement>(saved.gates?.Length ?? 0);
+
+            foreach (SavedPlacement gate in saved.gates ?? Array.Empty<SavedPlacement>())
+            {
+                if (gate == null || !GatePalette.TryParse(gate.kind, out GateKind kind))
+                    return false;
+
+                gates.Add(new GatePlacement(new Vector2Int(gate.x, gate.y), kind));
+            }
+
+            var wires = new List<BlueprintWire>(saved.wires?.Length ?? 0);
+
+            foreach (SavedWire wire in saved.wires ?? Array.Empty<SavedWire>())
+            {
+                if (wire == null)
+                    return false;
+
+                wires.Add(new BlueprintWire(
+                    new CellPort(new Vector2Int(wire.fromX, wire.fromY), false, wire.fromPort),
+                    new CellPort(new Vector2Int(wire.toX, wire.toY), true, wire.toPort),
+                    wire.delay));
+            }
+
+            return BlockRules.TryDefine(
+                saved.name, FromSaved(saved.inputs), FromSaved(saved.outputs), gates, wires, out block, out string _);
+        }
+
+        private static BlockPort[] FromSaved(SavedBlockPort[] saved)
+        {
+            var ports = new BlockPort[saved?.Length ?? 0];
+
+            for (int i = 0; i < ports.Length; i++)
+            {
+                ports[i] = saved[i] == null
+                    ? new BlockPort(null, default)
+                    : new BlockPort(saved[i].id, new Vector2Int(saved[i].x, saved[i].y));
+            }
+
+            return ports;
         }
 
         /// <summary>
@@ -146,9 +286,82 @@ namespace BitSorter.View
             int dropped = 0;
 
             dropped += RestorePlacements(saved, level, blueprint, halfExtents);
+            dropped += RestoreBlocks(saved, level, blueprint, halfExtents);
             dropped += RestoreWires(saved, level, blueprint);
 
             return dropped;
+        }
+
+        /// <summary>
+        /// Puts back the blocks a level still stocks, or in free play any block whose copy still makes
+        /// a block, on cells still free.
+        /// </summary>
+        /// <remarks>
+        /// A level's board takes the level's own block of that name rather than the saved copy, the way
+        /// it takes the level's current budget: a block changed in a later version reaches the board.
+        /// Free play keeps the copy, which is the point of keeping one.
+        /// </remarks>
+        private static int RestoreBlocks(
+            SavedBoard saved, LevelDefinition level, CircuitBlueprint blueprint, Vector2Int halfExtents)
+        {
+            if (saved.blocks == null)
+                return 0;
+
+            int dropped = 0;
+
+            foreach (SavedBlockPlacement placement in saved.blocks)
+            {
+                BlockDefinition block = null;
+
+                if (placement?.block != null)
+                {
+                    if (level.AnyBlock)
+                        TryFromSaved(placement.block, out block);
+                    else
+                        block = level.BlockNamed(placement.block.name);
+                }
+
+                if (block == null || !Fits(block, new Vector2Int(placement.x, placement.y), level, blueprint, halfExtents))
+                {
+                    dropped++;
+                    continue;
+                }
+
+                blueprint.PlaceBlock(new Vector2Int(placement.x, placement.y), block);
+            }
+
+            return dropped;
+        }
+
+        /// <summary>Whether a block may stand here as the board now is: every cell, and the budget.</summary>
+        private static bool Fits(
+            BlockDefinition block, Vector2Int cell, LevelDefinition level, CircuitBlueprint blueprint,
+            Vector2Int halfExtents)
+        {
+            int budgeted = level.BlockBudgetFor(block.Name);
+
+            if (budgeted == 0 ||
+                (budgeted != LevelDefinition.UnlimitedBudget && blueprint.CountOfBlock(block.Name) >= budgeted))
+            {
+                return false;
+            }
+
+            for (int i = 0; i < block.Height; i++)
+            {
+                var covered = new Vector2Int(cell.x, cell.y - i);
+
+                bool free =
+                    Mathf.Abs(covered.x) <= halfExtents.x &&
+                    Mathf.Abs(covered.y) <= halfExtents.y &&
+                    level.FixtureAt(covered) == null &&
+                    !level.IsReserved(covered) &&
+                    !blueprint.HasPlacementAt(covered);
+
+                if (!free)
+                    return false;
+            }
+
+            return true;
         }
 
         private static int RestorePlacements(
@@ -261,6 +474,10 @@ namespace BitSorter.View
             if (level.TryReservedKind(cell, out FixtureKind reserved))
                 return reserved == FixtureKind.Source ? 1 : 0;
 
+            // A block's wires are stored against its top cell alone.
+            if (blueprint.TryGetBlock(cell, out BlockPlacement block))
+                return block.Cell == cell ? block.Block.Outputs.Count : 0;
+
             return blueprint.TryGetPlacement(cell, out GateKind kind) ? GatePalette.OutputsOf(kind) : 0;
         }
 
@@ -274,6 +491,9 @@ namespace BitSorter.View
 
             if (level.TryReservedKind(cell, out FixtureKind reserved))
                 return reserved == FixtureKind.Sink ? 1 : 0;
+
+            if (blueprint.TryGetBlock(cell, out BlockPlacement block))
+                return block.Cell == cell ? block.Block.Inputs.Count : 0;
 
             return blueprint.TryGetPlacement(cell, out GateKind kind)
                 ? GatePalette.InputsOf(kind)

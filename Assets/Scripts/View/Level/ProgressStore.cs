@@ -53,6 +53,14 @@ namespace BitSorter.View
         /// this list, so a file written by 4.0.0 or later never has one in both places.
         /// </remarks>
         public FreePlayFile freePlay;
+
+        /// <summary>Free play's library of blocks, in the order they were made.</summary>
+        /// <remarks>
+        /// A new key: a file from before blocks reads it as null and has no library. A block on a
+        /// board carries its own copy (<see cref="SavedBoard.blocks"/>), so what happens here never
+        /// reaches a board already built.
+        /// </remarks>
+        public SavedBlock[] blocks;
     }
 
     /// <summary>Free play's named boards, as the save file holds them.</summary>
@@ -109,6 +117,9 @@ namespace BitSorter.View
 
         /// <summary>Which of <see cref="_freePlay"/> is open; meaningless while there are none.</summary>
         private int _activeFreePlay;
+
+        /// <summary>Free play's library of blocks, in the order they were made.</summary>
+        private readonly List<SavedBlock> _library = new List<SavedBlock>();
 
         public ProgressStore(string path)
         {
@@ -216,6 +227,7 @@ namespace BitSorter.View
             _milestones.Clear();
             _freePlay.Clear();
             _activeFreePlay = 0;
+            _library.Clear();
 
             string source = null;
 
@@ -278,6 +290,15 @@ namespace BitSorter.View
                 }
 
                 LoadFreePlay(file.freePlay);
+
+                if (file.blocks != null)
+                {
+                    foreach (SavedBlock block in file.blocks)
+                    {
+                        if (block != null && !string.IsNullOrEmpty(block.name))
+                            _library.Add(block);
+                    }
+                }
             }
             catch (Exception exception)
             {
@@ -358,6 +379,7 @@ namespace BitSorter.View
                         active = _activeFreePlay,
                         saves = _freePlay.ToArray(),
                     },
+                    blocks = _library.ToArray(),
                 };
 
                 _completed.CopyTo(file.completed);
@@ -392,7 +414,44 @@ namespace BitSorter.View
             _milestones.Clear();
             _freePlay.Clear();
             _activeFreePlay = 0;
+            _library.Clear();
             Save();
+        }
+
+        // -----------------------------------------------------------------
+        // Free play's library of blocks
+        // -----------------------------------------------------------------
+
+        /// <summary>The library's blocks, as saved: read back through <see cref="BoardSerializer.TryFromSaved"/>.</summary>
+        public IReadOnlyList<SavedBlock> Library => _library;
+
+        /// <summary>Whether the library holds a block of this name, ignoring case.</summary>
+        public bool HasBlockNamed(string name)
+        {
+            for (int i = 0; i < _library.Count; i++)
+            {
+                if (string.Equals(_library[i].name, name, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>Adds a block at the end of the library. Whether it may be added is the caller's to ask.</summary>
+        public void AddBlock(SavedBlock block)
+        {
+            if (block != null)
+                _library.Add(block);
+        }
+
+        /// <summary>Takes a block out of the library. Boards with one on keep their own copy.</summary>
+        public bool DeleteBlock(int index)
+        {
+            if (index < 0 || index >= _library.Count)
+                return false;
+
+            _library.RemoveAt(index);
+            return true;
         }
 
         // -----------------------------------------------------------------

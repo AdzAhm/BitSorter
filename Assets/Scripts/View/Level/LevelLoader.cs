@@ -209,8 +209,14 @@ namespace BitSorter.View
             if (vectorCount < 0)
                 return LevelLoadResult.Reject("no sources -- nothing would ever be emitted");
 
-            if (!TryBuildBudget(file.budget, out List<LevelBudgetEntry> budget, out string budgetError))
+            if (!TryBuildBlocks(file.blocks, out List<BlockDefinition> blocks, out string blocksError))
+                return LevelLoadResult.Reject(blocksError);
+
+            if (!TryBuildBudget(file.budget, blocks, out List<LevelBudgetEntry> budget,
+                    out List<LevelBlockBudgetEntry> blockBudget, out string budgetError))
+            {
                 return LevelLoadResult.Reject(budgetError);
+            }
 
             if (!TryBuildExpectations(file.expected, fixtures, vectorCount, TailRoom(budget),
                     out List<LevelExpectation> expectations, out string expectationError))
@@ -287,7 +293,8 @@ namespace BitSorter.View
             LevelDefinition Define(BlueprintSnapshot start) => new LevelDefinition(
                 file.name.Trim(), hint, tickLimit, vectorCount, fixtures, budget, expectations,
                 maxWireDelay, file.delayBudget, file.maxLatency, file.order, goal,
-                clockPeriod: file.clockPeriod, boardHalfExtents: halfExtents, start: start);
+                clockPeriod: file.clockPeriod, boardHalfExtents: halfExtents, start: start,
+                blocks: blocks, blockBudget: blockBudget);
 
             // A start is checked against the level it belongs to -- its board, fixtures, budget and
             // wire limits -- so the level is defined once without it to be asked, then again with it.
@@ -530,53 +537,207 @@ namespace BitSorter.View
             return true;
         }
 
-        private static bool TryBuildBudget(
-            LevelBudgetFile[] raw, out List<LevelBudgetEntry> budget, out string error)
+        /// <summary>
+        /// A level's own blocks, each held to <see cref="BlockRules"/> as a free-play block is.
+        /// </summary>
+        /// <remarks>
+        /// Written as a start is -- gates and wires by cell -- with named inputs and outputs standing
+        /// where a board's sources and sinks would. A wire's delay left out reads as 1, as a start's
+        /// does.
+        /// </remarks>
+        private static bool TryBuildBlocks(LevelBlockFile[] raw, out List<BlockDefinition> blocks, out string error)
         {
-            budget = new List<LevelBudgetEntry>(raw?.Length ?? 0);
+            blocks = new List<BlockDefinition>(raw?.Length ?? 0);
             error = null;
 
-            // An absent or empty budget is legal: it means a level solvable with wires alone.
             if (raw == null)
                 return true;
 
-            var takenKinds = new HashSet<GateKind>();
+            var names = new HashSet<string>(StringComparer.Ordinal);
 
             for (int i = 0; i < raw.Length; i++)
             {
-                LevelBudgetFile entry = raw[i];
+                LevelBlockFile entry = raw[i];
 
                 if (entry == null)
                 {
-                    error = $"budget entry {i} is empty";
+                    error = $"block {i} is empty";
                     return false;
                 }
 
-                if (!GatePalette.TryParse(entry.kind, out GateKind kind))
+                string label = string.IsNullOrWhiteSpace(entry.name) ? $"block {i}" : $"block '{entry.name.Trim()}'";
+                var gates = new List<GatePlacement>(entry.gates?.Length ?? 0);
+
+                for (int g = 0; g < (entry.gates?.Length ?? 0); g++)
                 {
-                    error = $"budget entry {i} has kind '{entry.kind}'; expected one of " +
-                            string.Join(", ", System.Enum.GetNames(typeof(GateKind)));
+                    LevelStartGateFile gate = entry.gates[g];
+
+                    if (gate == null || !TryParseGateKind(gate.kind, out GateKind kind))
+                    {
+                        error = $"{label}: gate {g} has kind '{gate?.kind}'; expected one of " +
+                                string.Join(", ", Enum.GetNames(typeof(GateKind)));
+                        return false;
+                    }
+
+                    gates.Add(new GatePlacement(new Vector2Int(gate.cell.x, gate.cell.y), kind));
+                }
+
+                var wires = new List<BlueprintWire>(entry.wires?.Length ?? 0);
+
+                for (int w = 0; w < (entry.wires?.Length ?? 0); w++)
+                {
+                    LevelStartWireFile wire = entry.wires[w];
+
+                    if (wire == null)
+                    {
+                        error = $"{label}: wire {w} is empty";
+                        return false;
+                    }
+
+                    wires.Add(new BlueprintWire(
+                        new CellPort(new Vector2Int(wire.from.x, wire.from.y), false, wire.fromPort),
+                        new CellPort(new Vector2Int(wire.to.x, wire.to.y), true, wire.toPort),
+                        wire.delay == 0 ? 1 : wire.delay));
+                }
+
+                if (!BlockRules.TryDefine(entry.name, BlockPorts(entry.inputs), BlockPorts(entry.outputs), gates, wires,
+                        out BlockDefinition block, out string refusal))
+                {
+                    error = $"{label}: {refusal}";
                     return false;
                 }
 
-                if (!takenKinds.Add(kind))
+                if (!names.Add(block.Name))
+                {
+                    error = $"two blocks are called '{block.Name}'";
+                    return false;
+                }
+
+                blocks.Add(block);
+            }
+
+            return true;
+        }
+
+        private static BlockPort[] BlockPorts(LevelBlockPortFile[] raw)
+        {
+            var ports = new BlockPort[raw?.Length ?? 0];
+
+            for (int i = 0; i < ports.Length; i++)
+            {
+                LevelBlockPortFile port = raw[i];
+                ports[i] = port == null
+                    ? new BlockPort(null, default)
+                    : new BlockPort(port.id?.Trim(), new Vector2Int(port.cell.x, port.cell.y));
+            }
+
+            return ports;
+        }
+
+        private static bool TryBuildBudget(
+            LevelBudgetFile[] raw, List<BlockDefinition> blocks, out List<LevelBudgetEntry> budget,
+            out List<LevelBlockBudgetEntry> blockBudget, out string error)
+        {
+            budget = new List<LevelBudgetEntry>(raw?.Length ?? 0);
+            blockBudget = new List<LevelBlockBudgetEntry>();
+            error = null;
+
+            var takenBlocks = new HashSet<string>(StringComparer.Ordinal);
+
+            // An absent or empty budget is legal: it means a level solvable with wires alone.
+            for (int i = 0; i < (raw?.Length ?? 0); i++)
+            {
+                LevelBudgetFile entry = raw[i];
+
+                if (entry != null && !string.IsNullOrWhiteSpace(entry.block))
+                {
+                    string name = entry.block.Trim();
+
+                    if (!string.IsNullOrWhiteSpace(entry.kind))
+                    {
+                        error = $"budget entry {i} names both the kind '{entry.kind}' and the block '{name}'; " +
+                                "an entry is one or the other";
+                        return false;
+                    }
+
+                    if (blocks.Find(b => b.Name == name) == null)
+                    {
+                        error = $"budget entry {i} stocks the block '{name}', which the level does not define";
+                        return false;
+                    }
+
+                    if (!takenBlocks.Add(name))
+                    {
+                        error = $"the budget lists the block {name} twice";
+                        return false;
+                    }
+
+                    if (entry.count < 1)
+                    {
+                        error = $"budget for the block {name} is {entry.count}; omit it entirely to forbid it";
+                        return false;
+                    }
+
+                    blockBudget.Add(new LevelBlockBudgetEntry(name, entry.count));
+                    continue;
+                }
+
+                if (!TryBuildGateEntry(entry, i, budget, out error))
+                    return false;
+            }
+
+            // A block defined and never stocked is a block the player can never place: a typo in the
+            // budget, almost always, rather than a design.
+            for (int b = 0; b < blocks.Count; b++)
+            {
+                if (!takenBlocks.Contains(blocks[b].Name))
+                {
+                    error = $"the level defines the block '{blocks[b].Name}' but its budget never stocks it";
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        /// <summary>One gate's row of the budget, refused if it repeats a kind already listed.</summary>
+        private static bool TryBuildGateEntry(
+            LevelBudgetFile entry, int i, List<LevelBudgetEntry> budget, out string error)
+        {
+            error = null;
+
+            if (entry == null)
+            {
+                error = $"budget entry {i} is empty";
+                return false;
+            }
+
+            if (!GatePalette.TryParse(entry.kind, out GateKind kind))
+            {
+                error = $"budget entry {i} has kind '{entry.kind}'; expected one of " +
+                        string.Join(", ", System.Enum.GetNames(typeof(GateKind)));
+                return false;
+            }
+
+            for (int k = 0; k < budget.Count; k++)
+            {
+                if (budget[k].Kind == kind)
                 {
                     error = $"the budget lists {GatePalette.Label(kind)} twice";
                     return false;
                 }
-
-                if (entry.count < 1)
-                {
-                    // Zero would be indistinguishable from leaving the kind out, which is already
-                    // how a level says "you may not place this".
-                    error = $"budget for {GatePalette.Label(kind)} is {entry.count}; " +
-                            "omit the kind entirely to forbid it";
-                    return false;
-                }
-
-                budget.Add(new LevelBudgetEntry(kind, entry.count));
             }
 
+            if (entry.count < 1)
+            {
+                // Zero would be indistinguishable from leaving the kind out, which is already
+                // how a level says "you may not place this".
+                error = $"budget for {GatePalette.Label(kind)} is {entry.count}; " +
+                        "omit the kind entirely to forbid it";
+                return false;
+            }
+
+            budget.Add(new LevelBudgetEntry(kind, entry.count));
             return true;
         }
 

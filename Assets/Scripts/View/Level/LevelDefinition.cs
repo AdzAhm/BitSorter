@@ -63,8 +63,14 @@ namespace BitSorter.View
             IReadOnlyList<LevelSlot> reservedSlots = null,
             int clockPeriod = 1,
             Vector2Int boardHalfExtents = default,
-            BlueprintSnapshot start = null)
+            BlueprintSnapshot start = null,
+            IReadOnlyList<BlockDefinition> blocks = null,
+            IReadOnlyList<LevelBlockBudgetEntry> blockBudget = null,
+            bool anyBlock = false)
         {
+            Blocks = blocks ?? System.Array.Empty<BlockDefinition>();
+            BlockBudget = blockBudget ?? System.Array.Empty<LevelBlockBudgetEntry>();
+            AnyBlock = anyBlock;
             Start = start != null && !start.IsEmpty ? start : null;
             BoardHalfExtents = boardHalfExtents;
             ClockPeriod = clockPeriod > 0 ? clockPeriod : 1;
@@ -343,7 +349,75 @@ namespace BitSorter.View
             return false;
         }
 
+        // -----------------------------------------------------------------
+        // Blocks
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// The blocks this level offers, in parts-list order: a level's own, from its file, or free
+        /// play's library. Empty for every level written before blocks.
+        /// </summary>
+        public IReadOnlyList<BlockDefinition> Blocks { get; }
+
+        /// <summary>How many of each block the player may place, by name, in parts-list order.</summary>
+        public IReadOnlyList<LevelBlockBudgetEntry> BlockBudget { get; }
+
+        /// <summary>
+        /// Whether any block at all may stand on this board, without limit. Free play's alone.
+        /// </summary>
+        /// <remarks>
+        /// A board carries a copy of every block on it, so a free-play board still holds a block its
+        /// player has since deleted from the library, and restoring it must not drop it. A level is
+        /// different: it stocks its own blocks by name, and a saved board is held to that.
+        /// </remarks>
+        public bool AnyBlock { get; }
+
+        /// <summary>The block of this name the level offers, or null.</summary>
+        public BlockDefinition BlockNamed(string name)
+        {
+            for (int i = 0; i < Blocks.Count; i++)
+            {
+                if (string.Equals(Blocks[i].Name, name, System.StringComparison.Ordinal))
+                    return Blocks[i];
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// How many of a block the player may place: zero when it is not stocked, or
+        /// <see cref="UnlimitedBudget"/>. The same two spellings as <see cref="BudgetFor"/>.
+        /// </summary>
+        public int BlockBudgetFor(string name)
+        {
+            if (AnyBlock)
+                return UnlimitedBudget;
+
+            for (int i = 0; i < BlockBudget.Count; i++)
+            {
+                if (string.Equals(BlockBudget[i].Block, name, System.StringComparison.Ordinal))
+                    return BlockBudget[i].Count;
+            }
+
+            return 0;
+        }
+
         public override string ToString() => $"{Name} ({VectorCount} vectors)";
+    }
+
+    /// <summary>One block's row of the parts list: its name, and how many may be placed.</summary>
+    public readonly struct LevelBlockBudgetEntry
+    {
+        public readonly string Block;
+        public readonly int Count;
+
+        public LevelBlockBudgetEntry(string block, int count)
+        {
+            Block = block;
+            Count = count;
+        }
+
+        public override string ToString() => $"{Block} x{Count}";
     }
 
     /// <summary>A cell held for a fixture that is not on the board yet.</summary>

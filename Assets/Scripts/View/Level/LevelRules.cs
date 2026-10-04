@@ -185,6 +185,97 @@ namespace BitSorter.View
         }
 
         /// <summary>
+        /// Whether a block may stand with its top on this cell: every cell it covers free and on the
+        /// board, and one left in the budget.
+        /// </summary>
+        /// <remarks>
+        /// The same refusals a gate gets, in the same order, for each cell it would cover. Below its
+        /// top they say so, since the player is pointing at the top: a refusal about the cell under
+        /// the cursor would describe a cell that is free.
+        /// </remarks>
+        public static LevelVerdict CanPlaceBlock(
+            LevelDefinition level,
+            CircuitBlueprint blueprint,
+            RunState state,
+            BlockDefinition block,
+            Vector2Int cell,
+            Vector2Int halfExtents)
+        {
+            LevelVerdict gate = CanEdit(state);
+
+            if (!gate.IsValid)
+                return gate;
+
+            for (int i = 0; i < block.Height; i++)
+            {
+                var covered = new Vector2Int(cell.x, cell.y - i);
+                string tall = $"{block.Name} is {block.Height} cells tall, and";
+
+                if (Mathf.Abs(covered.x) > halfExtents.x || Mathf.Abs(covered.y) > halfExtents.y)
+                {
+                    return LevelVerdict.Reject(LevelOutcome.OffBoard,
+                        i == 0 ? "Off the board." : $"{tall} runs off the board.");
+                }
+
+                LevelFixture fixedNode = level.FixtureAt(covered);
+
+                if (fixedNode != null)
+                {
+                    return LevelVerdict.Reject(LevelOutcome.CellTaken,
+                        i == 0
+                            ? $"{BoardLabel(fixedNode)} is on that cell."
+                            : $"{tall} {BoardLabel(fixedNode)} is on the cell {Below(i)} it.");
+                }
+
+                if (blueprint.HasPlacementAt(covered))
+                {
+                    return LevelVerdict.Reject(LevelOutcome.CellTaken,
+                        i == 0 ? "That cell is taken." : $"{tall} the cell {Below(i)} it is taken.");
+                }
+
+                if (level.TryReservedKind(covered, out FixtureKind reserved))
+                {
+                    return LevelVerdict.Reject(LevelOutcome.Reserved,
+                        reserved == FixtureKind.Source
+                            ? "That column is kept for sources."
+                            : "That column is kept for sinks.");
+                }
+            }
+
+            int budgeted = level.BlockBudgetFor(block.Name);
+
+            if (budgeted == 0)
+                return LevelVerdict.Reject(LevelOutcome.NotInBudget, $"No {block.Name} blocks on this level.");
+
+            if (budgeted == LevelDefinition.UnlimitedBudget)
+                return LevelVerdict.Accept();
+
+            if (blueprint.CountOfBlock(block.Name) >= budgeted)
+            {
+                return LevelVerdict.Reject(LevelOutcome.BudgetSpent,
+                    budgeted == 1
+                        ? $"No {block.Name} left. The only one is placed."
+                        : $"No {block.Name} left. All {budgeted} are placed.");
+            }
+
+            return LevelVerdict.Accept();
+        }
+
+        /// <summary>"below", or "two below", for the cells under a block's top.</summary>
+        private static string Below(int cells) =>
+            cells == 1 ? "below" : cells == 2 ? "two below" : $"{cells} below";
+
+        /// <summary>How many of a block are still available, or <see cref="LevelDefinition.UnlimitedBudget"/>.</summary>
+        public static int RemainingForBlock(LevelDefinition level, CircuitBlueprint blueprint, string block)
+        {
+            int budgeted = level.BlockBudgetFor(block);
+
+            return budgeted == LevelDefinition.UnlimitedBudget
+                ? LevelDefinition.UnlimitedBudget
+                : budgeted - blueprint.CountOfBlock(block);
+        }
+
+        /// <summary>
         /// A fixture's name as the board draws it, which is how a refusal should name it.
         /// </summary>
         /// <remarks>
