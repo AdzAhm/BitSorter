@@ -41,7 +41,7 @@ namespace BitSorter.LogicCore.Tests
         /// The obvious circuit. Wire order is fixed so <see cref="DirectWire"/> stays meaningful, and it
         /// matches the order a player drawing left to right would produce.
         /// </summary>
-        private static CircuitBlueprint Wiring(int directDelay = 1, int aToXor = 1)
+        internal static CircuitBlueprint Wiring(int directDelay = 1, int aToXor = 1)
         {
             var blueprint = new CircuitBlueprint();
             blueprint.Place(XorCell, GateKind.Xor);

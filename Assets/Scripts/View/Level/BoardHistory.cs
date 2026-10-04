@@ -60,7 +60,7 @@ namespace BitSorter.View
     /// </summary>
     /// <remarks>
     /// Holds whole-board snapshots rather than inverse operations. See <see cref="BlueprintSnapshot"/>
-    /// for why: a blueprint is two lists of value types, so copying one is cheap and correct by
+    /// for why: a blueprint is three lists of value types, so copying one is cheap and correct by
     /// construction, whereas the inverses of "remove a gate" and "clear the board" are themselves
     /// snapshots of everything they took with them.
     ///

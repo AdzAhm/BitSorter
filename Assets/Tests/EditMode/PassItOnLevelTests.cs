@@ -52,7 +52,7 @@ namespace BitSorter.LogicCore.Tests
         /// <summary>
         /// S0 = A0 xor B0, C0 = A0 B0; P1 = A1 xor B1, G1 = A1 B1; S1 = P1 xor C0; COUT = P1 C0 + G1.
         /// </summary>
-        private static CircuitBlueprint Adder(int generateDelay = 2, int coutWire = 1)
+        internal static CircuitBlueprint Adder(int generateDelay = 2, int coutWire = 1)
         {
             var blueprint = new CircuitBlueprint();
             blueprint.Place(XorS0, GateKind.Xor);

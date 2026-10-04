@@ -54,7 +54,7 @@ namespace BitSorter.LogicCore.Tests
         /// Both products sit at level 1 and the OR joining them at level 2, so the last OR is level
         /// 3 and A, which goes straight there, waits two ticks on its wire to meet it.
         /// </remarks>
-        private static CircuitBlueprint SumOfProducts(int aDelay = 3)
+        internal static CircuitBlueprint SumOfProducts(int aDelay = 3)
         {
             var blueprint = new CircuitBlueprint();
             blueprint.Place(Upper, GateKind.And);    // BC

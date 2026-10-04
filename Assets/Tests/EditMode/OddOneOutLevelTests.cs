@@ -34,7 +34,7 @@ namespace BitSorter.LogicCore.Tests
         }
 
         /// <summary>(A XOR B) XOR (C XOR D): two gates deep, both halves level.</summary>
-        private static CircuitBlueprint Tree()
+        internal static CircuitBlueprint Tree()
         {
             var ab = new Vector2Int(-2, 1);
             var cd = new Vector2Int(-2, -1);

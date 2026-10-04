@@ -240,9 +240,10 @@ failure side.
   not corruption and must never touch CorruptedCount.
 
 - **Undo is a stack of whole-board snapshots, not inverse operations.**
-  `BlueprintSnapshot` copies the blueprint's two lists; both hold only
-  readonly structs, so a snapshot shares nothing with the live board and
-  is correct by construction rather than by argument. Inverses were
+  `BlueprintSnapshot` copies the blueprint's three lists -- gates, blocks
+  and wires; all hold only readonly structs, and a block's definition is
+  immutable, so a snapshot shares nothing that can change with the live
+  board and is correct by construction rather than by argument. Inverses were
   rejected because two of the six edits — removing a gate, and CLEAR ALL —
   take wires with them, so their inverses are subgraph snapshots anyway.
   The undo unit is one committed edit, recorded after validation so a
@@ -325,6 +326,39 @@ failure side.
   **A loop must close within one period.** Longer and the state comes back
   late, the inputs queue, and the run corrupts — this game's own way of
   saying a circuit missed its clock.
+
+- **A block's boundary is spliced, so a block costs exactly its contents.**
+  A block (4.0.0, Part E) is a small board in a box: its sources are the
+  box's inputs and its sinks its outputs. Delay lives on wires, at least a
+  tick each, so a node on each port would make the way in two wires where
+  the same gate placed directly takes one, and every block crossed would add
+  a tick each way. That is a delay no hardware has, and it would teach
+  "modules make circuits slower" in the one level built to compare critical
+  paths. So `CircuitBuilder` joins the wire drawn to a port and the block's
+  own wire from it into one edge, of the two delays less one; the way out the
+  same, and block to block all three. LogicCore is unchanged and every edge
+  is still at least a tick. `BlockBuildTests` runs the shipped levels'
+  reference circuits both ways and holds them identical tick for tick,
+  collisions included.
+
+  **The view keeps its two identities through anchors and shapes.** A port
+  the player sees is a real port, and a wire they see is one edge -- the
+  splice breaks both, so each block port is an inert `PassThroughNode` with
+  no edges (a *port anchor*), standing on the box's face, and
+  `BuiltCircuit.Shapes` says how each edge is drawn: between which ports,
+  for how many of its ticks, as which drawn wire. One drawn wire into an
+  input two gates read is two edges; only the first draws.
+
+  **What the splice needs is `BlockRules`**, for a level's blocks and free
+  play's alike: every input leads somewhere inside, every output is fed by
+  exactly one wire, no input runs straight to an output, no register, no
+  block inside a block, one to five ports a face. Blocks expand after the
+  gates -- anchors in, anchors out, gates -- and their inside wires come
+  after every drawn one, which keeps the id contract. A second wire into a
+  block's input is allowed, as into a gate's, and a collision there loses a
+  bit at each gate inside that reads it, as the contents placed directly
+  would; a block scores the gates inside it, for the same reason (both
+  Ahmad's choice, 2026-10-04).
 
 ## Working agreement
 - **The loop below, with its exact calls, is the `unity-test-loop` skill**

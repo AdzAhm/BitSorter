@@ -94,39 +94,74 @@ namespace BitSorter.View
         public override string ToString() => $"{GatePalette.Label(Kind)} at {Cell}";
     }
 
+    /// <summary>A block the player put on the board, by its top cell.</summary>
+    /// <remarks>
+    /// It covers <see cref="BlockDefinition.Height"/> cells, from this one downwards, and its wires are
+    /// stored against this cell alone: port <c>i</c> of the box is <c>CellPort(Cell, isInput, i)</c>,
+    /// whichever of its cells the port is drawn beside.
+    /// </remarks>
+    public readonly struct BlockPlacement
+    {
+        public readonly Vector2Int Cell;
+        public readonly BlockDefinition Block;
+
+        public BlockPlacement(Vector2Int cell, BlockDefinition block)
+        {
+            Cell = cell;
+            Block = block;
+        }
+
+        /// <summary>Whether the box stands on this cell.</summary>
+        public bool Covers(Vector2Int cell) =>
+            cell.x == Cell.x && cell.y <= Cell.y && cell.y > Cell.y - Block.Height;
+
+        public override string ToString() => $"{Block.Name} at {Cell}";
+    }
+
     /// <summary>
     /// An immutable copy of a board, as <see cref="BoardHistory"/> stores it.
     /// </summary>
     /// <remarks>
     /// A snapshot rather than an inverse operation, and the reason is visible right here: a blueprint
-    /// is two lists of readonly structs and nothing else. Copying the lists copies the board, with
+    /// is three lists of readonly structs and nothing else. Copying the lists copies the board, with
     /// nothing shared and nothing to alias, so a snapshot is correct by construction rather than by
     /// argument. Undoing by inverse would need six inverses instead -- and two of them, removing a gate
     /// and clearing the board, take wires with them, so their inverses are subgraph snapshots anyway.
     ///
     /// Immutable so a stack of these cannot be edited from underneath by the live board they came from.
+    /// A block placement holds its definition by reference, which is still a copy: a definition is
+    /// immutable too.
     /// </remarks>
     public sealed class BlueprintSnapshot
     {
         private readonly GatePlacement[] _placements;
+        private readonly BlockPlacement[] _blocks;
         private readonly BlueprintWire[] _wires;
 
-        internal BlueprintSnapshot(List<GatePlacement> placements, List<BlueprintWire> wires)
+        internal BlueprintSnapshot(
+            List<GatePlacement> placements, List<BlockPlacement> blocks, List<BlueprintWire> wires)
         {
             _placements = placements.ToArray();
+            _blocks = blocks.ToArray();
             _wires = wires.ToArray();
         }
 
         public int PlacementCount => _placements.Length;
 
+        public int BlockCount => _blocks.Length;
+
         public int WireCount => _wires.Length;
 
-        public bool IsEmpty => _placements.Length == 0 && _wires.Length == 0;
+        public bool IsEmpty => _placements.Length == 0 && _blocks.Length == 0 && _wires.Length == 0;
 
-        internal void RestoreInto(List<GatePlacement> placements, List<BlueprintWire> wires)
+        internal void RestoreInto(
+            List<GatePlacement> placements, List<BlockPlacement> blocks, List<BlueprintWire> wires)
         {
             placements.Clear();
             placements.AddRange(_placements);
+
+            blocks.Clear();
+            blocks.AddRange(_blocks);
 
             wires.Clear();
             wires.AddRange(_wires);
@@ -143,13 +178,25 @@ namespace BitSorter.View
         /// </remarks>
         public bool DescribesBoard(CircuitBlueprint board)
         {
-            if (board == null || board.Placements.Count != _placements.Length || board.Wires.Count != _wires.Length)
+            if (board == null || board.Placements.Count != _placements.Length ||
+                board.Blocks.Count != _blocks.Length || board.Wires.Count != _wires.Length)
+            {
                 return false;
+            }
 
             for (int i = 0; i < _placements.Length; i++)
             {
                 if (!board.TryGetPlacement(_placements[i].Cell, out GateKind kind) || kind != _placements[i].Kind)
                     return false;
+            }
+
+            for (int i = 0; i < _blocks.Length; i++)
+            {
+                if (!board.TryGetBlock(_blocks[i].Cell, out BlockPlacement block) ||
+                    block.Cell != _blocks[i].Cell || !block.Block.Matches(_blocks[i].Block))
+                {
+                    return false;
+                }
             }
 
             for (int i = 0; i < _wires.Length; i++)
@@ -176,8 +223,11 @@ namespace BitSorter.View
             if (other == null)
                 return false;
 
-            if (other._placements.Length != _placements.Length || other._wires.Length != _wires.Length)
+            if (other._placements.Length != _placements.Length || other._blocks.Length != _blocks.Length ||
+                other._wires.Length != _wires.Length)
+            {
                 return false;
+            }
 
             for (int i = 0; i < _placements.Length; i++)
             {
@@ -186,6 +236,12 @@ namespace BitSorter.View
                 {
                     return false;
                 }
+            }
+
+            for (int i = 0; i < _blocks.Length; i++)
+            {
+                if (_blocks[i].Cell != other._blocks[i].Cell || !_blocks[i].Block.Matches(other._blocks[i].Block))
+                    return false;
             }
 
             for (int i = 0; i < _wires.Length; i++)
@@ -215,22 +271,28 @@ namespace BitSorter.View
     public sealed class CircuitBlueprint
     {
         private readonly List<GatePlacement> _placements = new List<GatePlacement>();
+        private readonly List<BlockPlacement> _blocks = new List<BlockPlacement>();
         private readonly List<BlueprintWire> _wires = new List<BlueprintWire>();
 
         /// <summary>In placement order, which is the order they are added on a rebuild.</summary>
         public IReadOnlyList<GatePlacement> Placements => _placements;
 
+        /// <summary>In placement order, added on a rebuild after every gate.</summary>
+        public IReadOnlyList<BlockPlacement> Blocks => _blocks;
+
         /// <summary>In creation order, which is the order they are connected on a rebuild.</summary>
         public IReadOnlyList<BlueprintWire> Wires => _wires;
 
-        public bool IsEmpty => _placements.Count == 0 && _wires.Count == 0;
+        public bool IsEmpty => _placements.Count == 0 && _blocks.Count == 0 && _wires.Count == 0;
 
         // -----------------------------------------------------------------
         // Placements
         // -----------------------------------------------------------------
 
-        /// <summary>True if the player has already put a gate on this cell.</summary>
-        public bool HasPlacementAt(Vector2Int cell) => IndexOfPlacement(cell) >= 0;
+        /// <summary>
+        /// True if the player has already put a part on this cell: a gate, or a block standing on it.
+        /// </summary>
+        public bool HasPlacementAt(Vector2Int cell) => IndexOfPlacement(cell) >= 0 || IndexOfBlock(cell) >= 0;
 
         public bool TryGetPlacement(Vector2Int cell, out GateKind kind)
         {
@@ -259,17 +321,31 @@ namespace BitSorter.View
         }
 
         /// <summary>
-        /// Removes the gate on a cell along with every wire touching it, mirroring
+        /// Removes the part on a cell along with every wire touching it, mirroring
         /// Simulation.Remove. Returns false if the cell held nothing.
         /// </summary>
+        /// <remarks>
+        /// A block goes from any of the cells it stands on, and takes the wires on its top cell, which
+        /// is where all of them are stored.
+        /// </remarks>
         public bool RemoveAt(Vector2Int cell)
         {
             int index = IndexOfPlacement(cell);
 
-            if (index < 0)
-                return false;
+            if (index >= 0)
+            {
+                _placements.RemoveAt(index);
+            }
+            else
+            {
+                index = IndexOfBlock(cell);
 
-            _placements.RemoveAt(index);
+                if (index < 0)
+                    return false;
+
+                cell = _blocks[index].Cell;
+                _blocks.RemoveAt(index);
+            }
 
             // Backwards, so removing one does not skip the next.
             for (int i = _wires.Count - 1; i >= 0; i--)
@@ -279,6 +355,60 @@ namespace BitSorter.View
             }
 
             return true;
+        }
+
+        /// <summary>The block standing on this cell, if there is one, on any of the cells it covers.</summary>
+        public bool TryGetBlock(Vector2Int cell, out BlockPlacement block)
+        {
+            int index = IndexOfBlock(cell);
+
+            block = index >= 0 ? _blocks[index] : default;
+            return index >= 0;
+        }
+
+        /// <summary>
+        /// Records a block with its top on a cell. The caller has already checked legality, every cell
+        /// it covers included; this only guards the invariant that one cell holds one part.
+        /// </summary>
+        public void PlaceBlock(Vector2Int cell, BlockDefinition block)
+        {
+            if (block == null)
+                throw new ArgumentNullException(nameof(block));
+
+            for (int i = 0; i < block.Height; i++)
+            {
+                var covered = new Vector2Int(cell.x, cell.y - i);
+
+                if (HasPlacementAt(covered))
+                    throw new InvalidOperationException($"A part is already placed at {covered}.");
+            }
+
+            _blocks.Add(new BlockPlacement(cell, block));
+        }
+
+        /// <summary>How many of this block are placed, by name. The budget's "used" figure.</summary>
+        public int CountOfBlock(string name)
+        {
+            int count = 0;
+
+            for (int i = 0; i < _blocks.Count; i++)
+            {
+                if (string.Equals(_blocks[i].Block.Name, name, StringComparison.Ordinal))
+                    count++;
+            }
+
+            return count;
+        }
+
+        /// <summary>Gates inside the blocks on the board, which count as gates the player placed.</summary>
+        public int GatesInBlocks()
+        {
+            int gates = 0;
+
+            for (int i = 0; i < _blocks.Count; i++)
+                gates += _blocks[i].Block.Gates.Count;
+
+            return gates;
         }
 
         /// <summary>How many of a kind are placed. The budget's "used" figure, always computed.</summary>
@@ -383,6 +513,7 @@ namespace BitSorter.View
         public void Clear()
         {
             _placements.Clear();
+            _blocks.Clear();
             _wires.Clear();
         }
 
@@ -391,7 +522,7 @@ namespace BitSorter.View
         // -----------------------------------------------------------------
 
         /// <summary>A copy of the board as it stands, for <see cref="BoardHistory"/> to hold.</summary>
-        public BlueprintSnapshot Snapshot() => new BlueprintSnapshot(_placements, _wires);
+        public BlueprintSnapshot Snapshot() => new BlueprintSnapshot(_placements, _blocks, _wires);
 
         /// <summary>
         /// Replaces the board with a snapshot taken earlier.
@@ -406,7 +537,7 @@ namespace BitSorter.View
             if (snapshot == null)
                 return;
 
-            snapshot.RestoreInto(_placements, _wires);
+            snapshot.RestoreInto(_placements, _blocks, _wires);
         }
 
         private int IndexOfPlacement(Vector2Int cell)
@@ -420,7 +551,18 @@ namespace BitSorter.View
             return -1;
         }
 
+        private int IndexOfBlock(Vector2Int cell)
+        {
+            for (int i = 0; i < _blocks.Count; i++)
+            {
+                if (_blocks[i].Covers(cell))
+                    return i;
+            }
+
+            return -1;
+        }
+
         public override string ToString() =>
-            $"{_placements.Count} gates, {_wires.Count} wires";
+            $"{_placements.Count} gates, {_blocks.Count} blocks, {_wires.Count} wires";
     }
 }

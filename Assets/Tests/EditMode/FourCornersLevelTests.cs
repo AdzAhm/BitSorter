@@ -61,7 +61,7 @@ namespace BitSorter.LogicCore.Tests
         /// bare literals and lands a whole level early at 1, so its wire into the second OR carries
         /// the difference.
         /// </remarks>
-        private static CircuitBlueprint FirstCover(int shallowTermDelay = 3, int bareLiteralDelay = 2)
+        internal static CircuitBlueprint FirstCover(int shallowTermDelay = 3, int bareLiteralDelay = 2)
         {
             var blueprint = new CircuitBlueprint();
 

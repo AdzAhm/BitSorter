@@ -52,7 +52,7 @@ namespace BitSorter.LogicCore.Tests
         /// <summary>
         /// The encoder, with I1 made to wait for I2' and I3 made to wait for the AND.
         /// </summary>
-        private static CircuitBlueprint Encoder(int i3IntoY0 = 3, bool respectPriority = true)
+        internal static CircuitBlueprint Encoder(int i3IntoY0 = 3, bool respectPriority = true)
         {
             var blueprint = new CircuitBlueprint();
             blueprint.Place(OrHigh, GateKind.Or);   // I3 + I2: Y1, and half of V

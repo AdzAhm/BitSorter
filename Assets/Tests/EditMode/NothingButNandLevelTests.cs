@@ -86,7 +86,7 @@ namespace BitSorter.LogicCore.Tests
         /// The second stage takes one input straight from a source and the other from N1, a level
         /// behind, so both bare literals have to wait a tick. That is the whole trap.
         /// </remarks>
-        private static CircuitBlueprint CanonicalFour(int bareLiteralDelay = 2)
+        internal static CircuitBlueprint CanonicalFour(int bareLiteralDelay = 2)
         {
             var blueprint = new CircuitBlueprint();
             blueprint.Place(Middle, GateKind.Nand);        // N1

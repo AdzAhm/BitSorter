@@ -43,7 +43,7 @@ namespace BitSorter.LogicCore.Tests
         }
 
         /// <summary>LT = A'B, GT = AB', EQ = NOR(LT, GT).</summary>
-        private static CircuitBlueprint Comparator(int bareBIntoLt = 2)
+        internal static CircuitBlueprint Comparator(int bareBIntoLt = 2)
         {
             var blueprint = new CircuitBlueprint();
             blueprint.Place(NotA, GateKind.Not);

@@ -46,7 +46,7 @@ namespace BitSorter.LogicCore.Tests
         /// Two half adders plus a carry join. <paramref name="carryJoin"/> is the gate that merges the
         /// two carries, and <paramref name="cinDelay"/> is the one number the level is really about.
         /// </summary>
-        private static CircuitBlueprint FullAdder(
+        internal static CircuitBlueprint FullAdder(
             GateKind carryJoin = GateKind.Or, int cinDelay = 2, int sumSinkDelay = 1)
         {
             var blueprint = new CircuitBlueprint();

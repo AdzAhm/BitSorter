@@ -50,7 +50,7 @@ namespace BitSorter.LogicCore.Tests
         /// inverted branch sits a level deeper, so bare A waits for it and the bare branch waits on
         /// its way into the OR.
         /// </remarks>
-        private static CircuitBlueprint TextbookMux(int aDelay = 2, int bareBranchToOr = 2)
+        internal static CircuitBlueprint TextbookMux(int aDelay = 2, int bareBranchToOr = 2)
         {
             var blueprint = new CircuitBlueprint();
             blueprint.Place(NotCell, GateKind.Not);

@@ -47,7 +47,7 @@ namespace BitSorter.LogicCore.Tests
         /// <summary>
         /// D0 = A'B', D1 = A'B, D2 = AB', D3 = AB. The inverters are shared, one per input.
         /// </summary>
-        private static CircuitBlueprint Decoder(int bareBIntoD1 = 2)
+        internal static CircuitBlueprint Decoder(int bareBIntoD1 = 2)
         {
             var blueprint = new CircuitBlueprint();
             blueprint.Place(NotA, GateKind.Not);
