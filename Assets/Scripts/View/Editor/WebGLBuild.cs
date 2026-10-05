@@ -56,6 +56,17 @@ namespace BitSorter.View.Editor
             // relies on catching engine-level faults.
             PlayerSettings.WebGL.exceptionSupport = WebGLExceptionSupport.ExplicitlyThrownExceptionsOnly;
 
+            // Built for a small download rather than a quick build (2026-10-06, before 4.0.0): the
+            // wasm was half of it. Set here because the code optimization lives in Library/, per
+            // machine, and would otherwise be whatever this editor last had -- it was BuildTimes.
+            // Stripping is Low, the conservative level: no runtime script uses reflection, and at
+            // Minimal every package's code went into the wasm whole, used or not. WebGL only, so the
+            // Windows build, which is Mono, is untouched.
+            UnityEditor.WebGL.UserBuildSettings.codeOptimization = UnityEditor.WebGL.WasmCodeOptimization.DiskSizeLTO;
+            PlayerSettings.SetIl2CppCodeGeneration(UnityEditor.Build.NamedBuildTarget.WebGL,
+                UnityEditor.Build.Il2CppCodeGeneration.OptimizeSize);
+            PlayerSettings.SetManagedStrippingLevel(UnityEditor.Build.NamedBuildTarget.WebGL, ManagedStrippingLevel.Low);
+
             var options = new BuildPlayerOptions
             {
                 scenes = new[] { Scene },

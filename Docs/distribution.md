@@ -121,6 +121,14 @@ last clicked:
 | Decompression fallback | **On** | See below |
 | Data caching | **On** | Returning players do not re-download the data file |
 | Exception support | Explicitly thrown only | Full support costs size and speed; nothing here catches engine faults |
+| Code optimization | **Disk size, with LTO** | The wasm is half the download. Lives in `Library/`, per machine, which is why the script sets it |
+| IL2CPP code generation | Optimize size | Smaller wasm, at a small cost in speed the game does not need |
+| Managed stripping | Low | Removes code nothing reaches; at Minimal every package went in whole. Low is the conservative level, and no runtime script uses reflection |
+
+URP's film-grain noise textures are left out too: the renderer points at a copy of URP's
+post-processing data, `Assets/Settings/PostProcessData.asset`, with its film-grain list emptied.
+No look uses film grain, URP only reads that list while film grain is on, and noise barely
+compresses, so it was about 2.5 MB of the download for nothing.
 
 **Decompression fallback is the setting that matters.** A Brotli-compressed Unity
 build only loads if the server answers with `Content-Encoding: br`. A host that
