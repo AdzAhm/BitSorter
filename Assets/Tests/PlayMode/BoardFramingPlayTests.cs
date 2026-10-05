@@ -177,6 +177,89 @@ namespace BitSorter.PlayMode.Tests
             Assert.LessOrEqual(rowTopOnScreen, bannerBottom, "the board's top row runs under the banner");
         }
 
+        /// <summary>
+        /// A 13 by 9 level that stocks a block, with a goal long enough to take all three of the
+        /// banner's lines, so the board is fitted by its height with its top row just under the banner.
+        /// </summary>
+        private static LevelDefinition ATallLevelWithABlock()
+        {
+            LevelLoadResult result = LevelLoader.Parse(@"{
+                ""name"": ""Tall"", ""tickLimit"": 40,
+                ""goal"": ""A goal long enough to run to the third line of the banner, so that the board under it is fitted by its height and not by its width, which puts its top row as close under the banner as it may go."",
+                ""board"": { ""columns"": 13, ""rows"": 9 },
+                ""fixtures"": [
+                    { ""id"": ""a"",   ""kind"": ""Source"", ""cell"": { ""x"": -6, ""y"":  4 }, ""stream"": ""01"" },
+                    { ""id"": ""b"",   ""kind"": ""Source"", ""cell"": { ""x"": -6, ""y"":  3 }, ""stream"": ""01"" },
+                    { ""id"": ""out"", ""kind"": ""Sink"",   ""cell"": { ""x"":  6, ""y"":  4 } }
+                ],
+                ""blocks"": [ {
+                    ""name"": ""HA"",
+                    ""inputs"":  [ { ""id"": ""a"", ""cell"": { ""x"": -2, ""y"": 1 } }, { ""id"": ""b"", ""cell"": { ""x"": -2, ""y"": -1 } } ],
+                    ""outputs"": [ { ""id"": ""s"", ""cell"": { ""x"":  2, ""y"": 1 } }, { ""id"": ""c"", ""cell"": { ""x"":  2, ""y"": -1 } } ],
+                    ""gates"": [ { ""kind"": ""Xor"", ""cell"": { ""x"": 0, ""y"": 1 } }, { ""kind"": ""And"", ""cell"": { ""x"": 0, ""y"": -1 } } ],
+                    ""wires"": [
+                        { ""from"": { ""x"": -2, ""y"":  1 }, ""to"": { ""x"": 0, ""y"":  1 }, ""toPort"": 0 },
+                        { ""from"": { ""x"": -2, ""y"": -1 }, ""to"": { ""x"": 0, ""y"":  1 }, ""toPort"": 1 },
+                        { ""from"": { ""x"": -2, ""y"":  1 }, ""to"": { ""x"": 0, ""y"": -1 }, ""toPort"": 0 },
+                        { ""from"": { ""x"": -2, ""y"": -1 }, ""to"": { ""x"": 0, ""y"": -1 }, ""toPort"": 1 },
+                        { ""from"": { ""x"":  0, ""y"":  1 }, ""to"": { ""x"": 2, ""y"":  1 } },
+                        { ""from"": { ""x"":  0, ""y"": -1 }, ""to"": { ""x"": 2, ""y"": -1 } }
+                    ]
+                } ],
+                ""budget"": [ { ""block"": ""HA"", ""count"": 1 } ],
+                ""expected"": [ { ""sink"": ""out"", ""values"": ""01"" } ]
+            }", new Vector2Int(4, 2));
+
+            Assert.IsTrue(result.IsValid, result.Error);
+            return result.Level;
+        }
+
+        /// <summary>
+        /// A block's name is drawn above its box, so on a level that stocks blocks the top row has a
+        /// name over it, and that name is clear of the banner.
+        /// </summary>
+        /// <remarks>
+        /// The framing allowed for a part on the top row and for the names under the bottom one,
+        /// which was all a board could hold until blocks. In Four at once A0, B0 and CIN are the top
+        /// three sources, so the first full adder's natural place is the top row -- and on a board
+        /// fitted by its height, "FA" went under the banner.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator ABlocksName_OnTheTopRow_IsClearOfTheBanner()
+        {
+            yield return TestScene.Load();
+            Find<MainMenu>().Show(false);
+            yield return null;
+
+            LevelSession session = Find<LevelSession>();
+            LevelDefinition level = ATallLevelWithABlock();
+            Assert.IsTrue(session.Adopt(level, "tall-block-test"), "the tall level was not adopted");
+            yield return null;
+
+            Assert.IsTrue(session.TryPlaceBlock(level.BlockNamed("HA"), new Vector2Int(0, 4)),
+                "the block did not go on the top row");
+
+            for (int frame = 0; frame < 4; frame++)
+                yield return null;
+
+            GameObject banner = GameObject.Find("Status");
+            Assert.IsNotNull(banner, "sanity: no banner on screen");
+
+            var corners = new Vector3[4];
+            banner.GetComponent<RectTransform>().GetWorldCorners(corners);
+            float bannerBottom = corners[0].y;
+
+            GameObject label = GameObject.Find("Label HA");
+            Assert.IsNotNull(label, "sanity: the block's name is not drawn");
+
+            var text = label.GetComponent<TMPro.TextMeshPro>();
+            text.ForceMeshUpdate();
+            float nameTop = label.transform.TransformPoint(text.textBounds.max).y;
+            float nameTopOnScreen = Camera.main.WorldToScreenPoint(new Vector3(0f, nameTop, 0f)).y;
+
+            Assert.LessOrEqual(nameTopOnScreen, bannerBottom, "the block's name runs under the banner");
+        }
+
         [UnityTest]
         public IEnumerator TheLeftmostColumn_IsClearOfThePartsList()
         {
