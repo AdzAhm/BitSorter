@@ -58,6 +58,36 @@ namespace BitSorter.View
             return p.OtherNode;
         }
 
+        /// <summary>
+        /// A block's box, on the board and on its row of the parts list: a rounded rectangle, where
+        /// every gate has a symbol of its own, because a block is whatever its maker put in it.
+        /// </summary>
+        public static Sprite BlockSprite() => ProceduralSprites.BlockBody(Look.Current.Bodies);
+
+        /// <summary>
+        /// A block's colour: the one for anything without a colour of its own, which is what a box of
+        /// somebody else's circuit is -- and the colour its port anchors already spark in.
+        /// </summary>
+        public static Color BlockColour() => Palette.Current.OtherNode;
+
+        /// <summary>
+        /// The colour of the port names written inside a block's box: what reads against the box.
+        /// </summary>
+        /// <remarks>
+        /// A solid body is the block's colour edge to edge, so a name in that colour would vanish on
+        /// it; it takes the board's ground instead, the dark the body is itself drawn against. A body
+        /// that is see-through in the middle shows the ground there already, and the name takes the
+        /// block's colour, as a fixture's name takes its fixture's.
+        /// </remarks>
+        public static Color BlockLabelColour()
+        {
+            BodyStyle bodies = Look.Current.Bodies;
+
+            return bodies == BodyStyle.Filled || bodies == BodyStyle.Raised
+                ? Palette.Current.Ground
+                : BlockColour();
+        }
+
         /// <summary>The silhouette a palette entry shows, matching the gate it places.</summary>
         /// <remarks>
         /// Keyed off <see cref="GateKind"/> rather than off a node, so a palette button needs no

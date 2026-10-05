@@ -310,9 +310,9 @@ namespace BitSorter.View
 
             _store.MarkComplete(level);
 
-            int gates = 0;
-            foreach (LevelBudgetEntry entry in _session.Level.Budget)
-                gates += _session.PlacedCountOf(entry.Kind);
+            // The gates inside a block count, so a circuit built of blocks and the same one built
+            // loose share a best.
+            int gates = _session.GateCount();
 
             int latency = MeasuredLatency();
 

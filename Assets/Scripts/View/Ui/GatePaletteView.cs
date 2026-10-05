@@ -22,6 +22,10 @@ namespace BitSorter.View
         private sealed class Row
         {
             public GateKind Kind;
+
+            /// <summary>The block this row places, or null for a gate's row.</summary>
+            public BlockDefinition Block;
+
             public Button Button;
             public Image Frame;
             public Image Icon;
@@ -92,7 +96,7 @@ namespace BitSorter.View
         {
             for (int i = 0; i < _rows.Count; i++)
             {
-                if (_rows[i].Kind == kind && _rows[i].Button != null)
+                if (_rows[i].Block == null && _rows[i].Kind == kind && _rows[i].Button != null)
                     return _rows[i].Button.GetComponent<RectTransform>();
             }
 
@@ -195,15 +199,26 @@ namespace BitSorter.View
 
             _rows.Clear();
 
-            if (level == null || level.Budget.Count == 0)
+            int count = level == null ? 0 : level.Budget.Count + level.BlockBudget.Count;
+
+            if (count == 0)
                 return;
 
             float rowHeight = UiTheme.PaletteButton;
-            float total = level.Budget.Count * (rowHeight + UiTheme.Gap) - UiTheme.Gap;
+            float total = count * (rowHeight + UiTheme.Gap) - UiTheme.Gap;
             _root.sizeDelta = new Vector2(_root.sizeDelta.x, total + 26f);
 
             for (int i = 0; i < level.Budget.Count; i++)
                 _rows.Add(BuildRow(level.Budget[i], i, rowHeight));
+
+            // Blocks under the gates, each by its name.
+            for (int i = 0; i < level.BlockBudget.Count; i++)
+            {
+                BlockDefinition block = level.BlockNamed(level.BlockBudget[i].Block);
+
+                if (block != null)
+                    _rows.Add(BuildBlockRow(block, _rows.Count, rowHeight));
+            }
 
             _delay = UiTheme.Label("delay", _root, UiType.Caption, UiTheme.TextDim, TextAlignmentOptions.Left);
             _drawnSpent = -1;
@@ -216,7 +231,41 @@ namespace BitSorter.View
         {
             var row = new Row { Kind = entry.Kind };
 
-            row.Button = UiTheme.RowButton($"Part {entry.Kind}", _root);   // this row draws its own contents
+            Lay(row, $"Part {entry.Kind}", index, height,
+                NodeShapes.SpriteFor(entry.Kind), NodeShapes.ColourFor(entry.Kind), GatePalette.Label(entry.Kind));
+
+            GateKind kind = entry.Kind;
+            row.Button.onClick.AddListener(() => Choose(kind));
+
+            // Dragging and clicking coexist: Unity only raises the drag handlers once the pointer has
+            // moved past the drag threshold, so a press that stays put is still a click.
+            var drag = row.Button.gameObject.AddComponent<PaletteDragSource>();
+            drag.Configure(kind, _session, _pointer, _grid, _camera, _canvas);
+
+            return row;
+        }
+
+        /// <summary>A block's row: its box for an icon, its name, and how many are left.</summary>
+        private Row BuildBlockRow(BlockDefinition block, int index, float height)
+        {
+            var row = new Row { Block = block };
+
+            // "Part block", so a block named like a gate cannot share a row's name with that gate's.
+            Lay(row, $"Part block {block.Name}", index, height,
+                NodeShapes.BlockSprite(), NodeShapes.BlockColour(), block.Name.ToUpperInvariant());
+
+            row.Button.onClick.AddListener(() => ChooseBlock(block));
+
+            var drag = row.Button.gameObject.AddComponent<PaletteDragSource>();
+            drag.Configure(block, _session, _pointer, _grid, _camera, _canvas);
+
+            return row;
+        }
+
+        /// <summary>A row's button, icon, name and count, laid out the same for a gate and a block.</summary>
+        private void Lay(Row row, string name, int index, float height, Sprite icon, Color colour, string caption)
+        {
+            row.Button = UiTheme.RowButton(name, _root);   // this row draws its own contents
 
             var rect = row.Button.GetComponent<RectTransform>();
             UiTheme.Anchor(rect, new Vector2(0f, 1f), new Vector2(0f, 1f),
@@ -232,29 +281,19 @@ namespace BitSorter.View
                 new Vector2(UiTheme.Gap, 0f), new Vector2(height - UiTheme.Gap * 2f, height - UiTheme.Gap * 2f));
 
             row.Icon = iconRect.gameObject.AddComponent<Image>();
-            row.Icon.sprite = NodeShapes.SpriteFor(entry.Kind);
-            row.Icon.color = NodeShapes.ColourFor(entry.Kind);
+            row.Icon.sprite = icon;
+            row.Icon.color = colour;
             row.Icon.raycastTarget = false;
 
             TextMeshProUGUI label = UiTheme.Label(
                 "name", rect, UiType.Label, UiTheme.Text, TextAlignmentOptions.Left);
             UiTheme.Anchor(label.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f),
                 new Vector2(height, -UiTheme.Gap), new Vector2(_root.sizeDelta.x - height - UiTheme.Gap, 22f));
-            label.text = GatePalette.Label(entry.Kind);
+            label.text = caption;
 
             row.Count = UiTheme.Label("count", rect, UiType.Caption, UiTheme.TextDim, TextAlignmentOptions.Left);
             UiTheme.Anchor(row.Count.rectTransform, new Vector2(0f, 0f), new Vector2(0f, 0f),
                 new Vector2(height, UiTheme.Gap), new Vector2(_root.sizeDelta.x - height - UiTheme.Gap, 20f));
-
-            GateKind kind = entry.Kind;
-            row.Button.onClick.AddListener(() => Choose(kind));
-
-            // Dragging and clicking coexist: Unity only raises the drag handlers once the pointer has
-            // moved past the drag threshold, so a press that stays put is still a click.
-            var drag = row.Button.gameObject.AddComponent<PaletteDragSource>();
-            drag.Configure(kind, _session, _pointer, _grid, _camera, _canvas);
-
-            return row;
         }
 
         private void Choose(GateKind kind)
@@ -265,11 +304,20 @@ namespace BitSorter.View
             UiTheme.Defocus();
         }
 
+        private void ChooseBlock(BlockDefinition block)
+        {
+            if (_placement != null)
+                _placement.TrySelectBlock(block);
+
+            UiTheme.Defocus();
+        }
+
         private void Refresh(Row row)
         {
-            int placed = _session.PlacedCountOf(row.Kind);
-            bool unlimited = _session.Level.IsUnlimited(row.Kind);
-            int total = _session.Level.BudgetFor(row.Kind);
+            bool isBlock = row.Block != null;
+            int placed = isBlock ? _session.PlacedCountOfBlock(row.Block.Name) : _session.PlacedCountOf(row.Kind);
+            int total = isBlock ? _session.Level.BlockBudgetFor(row.Block.Name) : _session.Level.BudgetFor(row.Kind);
+            bool unlimited = total == LevelDefinition.UnlimitedBudget;
             int left = unlimited ? 1 : total - placed;
 
             // Free play still shows what is on the board -- the count is the useful half of this row
@@ -285,9 +333,13 @@ namespace BitSorter.View
             // Exhausted is dimmed but still selectable: the player may yet remove one and place it
             // elsewhere, which is exactly what LevelDefinition.Offers documents.
             row.Count.color = left > 0 ? UiTheme.TextDim : UiTheme.Bad;
-            row.Icon.color = NodeShapes.ColourFor(row.Kind) * (left > 0 ? 1f : 0.45f);
+            Color colour = isBlock ? NodeShapes.BlockColour() : NodeShapes.ColourFor(row.Kind);
+            row.Icon.color = colour * (left > 0 ? 1f : 0.45f);
 
-            bool selected = _placement != null && _placement.Selected == row.Kind;
+            // One part is in hand, a gate or a block, so a gate's row is chosen only while no block is.
+            bool selected = _placement != null && (isBlock
+                ? _placement.SelectedBlock != null && _placement.SelectedBlock.Name == row.Block.Name
+                : _placement.SelectedBlock == null && _placement.Selected == row.Kind);
             row.Frame.color = UiTheme.SelectedFill(selected);
 
             // Editing only. During a run the parts list is a readout, not a control.

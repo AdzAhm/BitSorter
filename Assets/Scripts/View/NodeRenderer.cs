@@ -61,6 +61,25 @@ namespace BitSorter.View
         private readonly Dictionary<int, SpriteRenderer> _nextPlates = new Dictionary<int, SpriteRenderer>();
         private readonly Dictionary<int, Bit> _nextValues = new Dictionary<int, Bit>();
 
+        /// <summary>A block as drawn: its box and glow and their resting colour, for the stall pass.</summary>
+        private readonly struct DrawnBlock
+        {
+            public readonly BuiltBlock Block;
+            public readonly SpriteRenderer Body;
+            public readonly SpriteRenderer Halo;
+            public readonly Color Colour;
+
+            public DrawnBlock(BuiltBlock block, SpriteRenderer body, SpriteRenderer halo, Color colour)
+            {
+                Block = block;
+                Body = body;
+                Halo = halo;
+                Colour = colour;
+            }
+        }
+
+        private readonly List<DrawnBlock> _blocks = new List<DrawnBlock>();
+
         private Transform _container;
         private int _builtRevision = -1;
 
@@ -296,7 +315,37 @@ namespace BitSorter.View
                         Mathf.Lerp(_stallGlowMin, _stallGlowMax, breath))
                     : new Color(baseColour.r, baseColour.g, baseColour.b, GlowAlpha(node));
             }
+
+            // A block breathes when anything inside it is waiting: its gates are out of sight, and
+            // the box is what stands for them.
+            for (int b = 0; b < _blocks.Count; b++)
+            {
+                DrawnBlock drawn = _blocks[b];
+                bool stalled = false;
+
+                for (int g = 0; g < drawn.Block.Gates.Count && !stalled; g++)
+                {
+                    Node inside = view.GetNode(drawn.Block.Gates[g]);
+                    stalled = inside != null && PortState.IsStalled(inside);
+                }
+
+                Color colour = drawn.Colour;
+
+                if (drawn.Body != null)
+                    drawn.Body.color = stalled ? Dormant(colour) : colour;
+
+                if (drawn.Halo != null)
+                {
+                    drawn.Halo.color = stalled
+                        ? new Color(PortState.Waiting.r, PortState.Waiting.g, PortState.Waiting.b,
+                            Mathf.Lerp(_stallGlowMin, _stallGlowMax, breath))
+                        : new Color(colour.r, colour.g, colour.b, BlockGlowAlpha);
+                }
+            }
         }
+
+        /// <summary>How strongly a block's halo glows at rest: as a gate's does.</summary>
+        private float BlockGlowAlpha => _glowAlpha * Look.Current.GateGlow;
 
         /// <summary>How strongly this node's halo glows at rest, in the current look.</summary>
         private float GlowAlpha(Node node) =>
@@ -339,6 +388,7 @@ namespace BitSorter.View
             _nextBits.Clear();
             _nextPlates.Clear();
             _nextValues.Clear();
+            _blocks.Clear();
 
             SimulationView view = _runner.View;
 
@@ -388,6 +438,126 @@ namespace BitSorter.View
 
                 SpawnLabel(node, centre, colour);
             }
+
+            BuiltCircuit circuit = _runner.Circuit;
+
+            for (int b = 0; b < circuit.Blocks.Count; b++)
+                SpawnBlock(circuit.Blocks[b]);
+        }
+
+        /// <summary>
+        /// A block's box over every cell it covers, its glow behind it, its name above it, and the name
+        /// of each port inside it beside the port.
+        /// </summary>
+        /// <remarks>
+        /// One box for the whole block: the gates inside are not drawn, and neither are the anchors
+        /// that stand on its faces -- their sockets are, by the port renderer, where the box's ports
+        /// are. Its glow is a gate's, stretched to its height.
+        /// </remarks>
+        private void SpawnBlock(BuiltBlock block)
+        {
+            Vector2 centre = _runner.BlockCentre(block);
+            float height = _runner.BlockHeight(block);
+            Color colour = NodeShapes.BlockColour();
+
+            GameObject halo = ViewSprites.Spawn(_nodePrefab, _container, $"Glow {block}");
+            halo.transform.position = centre;
+            halo.transform.localScale = new Vector3(PortGeometry.NodeSize * _glowScale, height * _glowScale, 1f);
+
+            var haloRenderer = halo.GetComponent<SpriteRenderer>();
+            haloRenderer.sprite = ProceduralSprites.Glow();
+            haloRenderer.color = new Color(colour.r, colour.g, colour.b, BlockGlowAlpha);
+            haloRenderer.sortingOrder = ViewLayers.NodeGlow;
+            _spawned.Add(halo);
+
+            GameObject box = ViewSprites.Spawn(_nodePrefab, _container, $"Block {block}");
+            box.transform.position = centre;
+
+            // Sliced, so the corners and the rim keep a gate's size however tall the box is.
+            var body = box.GetComponent<SpriteRenderer>();
+            body.sprite = NodeShapes.BlockSprite();
+            body.drawMode = SpriteDrawMode.Sliced;
+            body.size = PortGeometry.BlockBodySize(height);
+            body.color = colour;
+            body.sortingOrder = ViewLayers.NodeBody;
+
+            // After the draw mode, not before: switching a renderer to sliced rewrites its transform's
+            // scale to keep the size the sprite had, which drew every box 1.2 times too large.
+            box.transform.localScale = Vector3.one;
+            _spawned.Add(box);
+
+            _blocks.Add(new DrawnBlock(block, body, haloRenderer, colour));
+
+            // Above the box, as far from it as a fixture's name is below its own.
+            Vector2 nameAt = new Vector2(centre.x, centre.y + height * 0.5f + LabelDrop - PortGeometry.NodeSize * 0.5f);
+            SpawnText($"Label {block.Definition.Name}", block.Definition.Name.ToUpperInvariant(), nameAt,
+                LabelFontSize, colour, TMPro.TextAlignmentOptions.Center, PortGeometry.NodeSize * 2.4f);
+
+            Color portColour = NodeShapes.BlockLabelColour();
+
+            for (int i = 0; i < block.Definition.Inputs.Count; i++)
+                SpawnPortLabel(block.Definition.Inputs[i].Id, _runner.BlockPortPosition(block, true, i), true, portColour);
+
+            for (int j = 0; j < block.Definition.Outputs.Count; j++)
+                SpawnPortLabel(block.Definition.Outputs[j].Id, _runner.BlockPortPosition(block, false, j), false, portColour);
+        }
+
+        /// <summary>Size of a fixture's name, and of a block's.</summary>
+        private const float LabelFontSize = 3.2f;
+
+        /// <summary>Size of a block's port names: smaller than its own name, inside a box a node wide.</summary>
+        private const float PortLabelFontSize = 2.6f;
+
+        /// <summary>How far in from the box's face a port's name starts, clear of the socket on it.</summary>
+        private const float PortLabelInset = PortGeometry.StubSize * 0.5f + 0.06f;
+
+        /// <summary>The smallest a port's name shrinks to, to keep clear of the name across the box.</summary>
+        private const float PortLabelMinFontSize = 1.6f;
+
+        /// <summary>
+        /// A port's name, inside the box beside the port: left-aligned on the left face, right on the
+        /// right.
+        /// </summary>
+        /// <remarks>
+        /// Each takes the half of the box on its own side, less a gap, and shrinks to fit there. An
+        /// input and an output often share a row -- a full adder's cin and cout -- and at the size a
+        /// short name is drawn the two long ones ran into each other.
+        /// </remarks>
+        private void SpawnPortLabel(string id, Vector2 port, bool isInput, Color colour)
+        {
+            float width = PortGeometry.BlockWidth * 0.5f - PortLabelInset - PortLabelGap * 0.5f;
+            float x = isInput ? port.x + PortLabelInset + width * 0.5f : port.x - PortLabelInset - width * 0.5f;
+
+            TMPro.TextMeshPro text = SpawnText($"Port label {id}", id, new Vector2(x, port.y), PortLabelFontSize, colour,
+                isInput ? TMPro.TextAlignmentOptions.Left : TMPro.TextAlignmentOptions.Right, width);
+
+            text.enableAutoSizing = true;
+            text.fontSizeMin = PortLabelMinFontSize;
+            text.fontSizeMax = PortLabelFontSize;
+        }
+
+        /// <summary>The space kept between an input's name and an output's on one row.</summary>
+        private const float PortLabelGap = 0.06f;
+
+        private TMPro.TextMeshPro SpawnText(
+            string name, string content, Vector2 at, float size, Color colour, TMPro.TextAlignmentOptions alignment,
+            float width)
+        {
+            var host = new GameObject(name);
+            host.transform.SetParent(_container, false);
+            host.transform.position = at;
+
+            var text = host.AddComponent<TMPro.TextMeshPro>();
+            text.text = content;
+            text.fontSize = size;
+            text.alignment = alignment;
+            text.textWrappingMode = TMPro.TextWrappingModes.NoWrap;
+            text.color = colour;
+            text.sortingOrder = ViewLayers.NodeDetail;
+
+            host.GetComponent<RectTransform>().sizeDelta = new Vector2(width, LabelHeight);
+            _spawned.Add(host);
+            return text;
         }
 
         /// <summary>

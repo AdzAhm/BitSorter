@@ -167,6 +167,16 @@ namespace BitSorter.View
         /// <summary>A block's box H cells tall, in world units: a node in each of the end cells and the gaps between.</summary>
         public static float BlockHeight(int cells, float cellSize) => (cells - 1) * cellSize + NodeSize;
 
+        /// <summary>
+        /// How much of a node's square a gate's silhouette fills, and so how far in from it a block's
+        /// box is drawn: the ports stay on the square's faces, as they do on a gate.
+        /// </summary>
+        public const float BlockBodyFill = 0.88f;
+
+        /// <summary>The size a block's box is drawn at, inside the square-edged extent its ports sit on.</summary>
+        public static Vector2 BlockBodySize(float height) =>
+            new Vector2(BlockWidth * BlockBodyFill, height - NodeSize * (1f - BlockBodyFill));
+
         /// <summary>The middle of a block's box, given the centre of its top cell.</summary>
         public static Vector2 BlockCentre(Vector2 topCell, int cells, float cellSize) =>
             new Vector2(topCell.x, topCell.y - (cells - 1) * cellSize * 0.5f);

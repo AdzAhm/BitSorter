@@ -33,6 +33,12 @@ namespace BitSorter.View
         /// </summary>
         public GateKind Selected { get; private set; } = GateKind.Not;
 
+        /// <summary>
+        /// The block a left click will place, or null while a gate is in hand. One or the other is
+        /// in hand, never both: choosing either puts the other down.
+        /// </summary>
+        public BlockDefinition SelectedBlock { get; private set; }
+
         private void Awake()
         {
             if (_session == null)
@@ -72,10 +78,18 @@ namespace BitSorter.View
         /// </remarks>
         private void SelectFirstOffered(LevelDefinition level)
         {
+            // The last level's block is never this one's to place.
+            SelectedBlock = null;
+
             // A wires-only level stocks nothing, so there is no selection to make. Leaving the old
-            // one in place is harmless: there is no cell it could legally be placed on.
-            if (level != null && level.TryFirstBudgetKind(out GateKind first))
+            // gate in place is harmless: there is no cell it could legally be placed on.
+            if (level == null)
+                return;
+
+            if (level.TryFirstBudgetKind(out GateKind first))
                 Selected = first;
+            else if (level.BlockBudget.Count > 0)
+                SelectedBlock = level.BlockNamed(level.BlockBudget[0].Block);   // blocks come after the gates
         }
 
         private void Update()
@@ -107,7 +121,11 @@ namespace BitSorter.View
             {
                 // A press on a port starts a wire drag instead; that cell is already occupied by
                 // the port's own node, so placement refuses it without needing to know about it.
-                _session.TryPlaceGate(Selected, cell);
+                if (SelectedBlock != null)
+                    _session.TryPlaceBlock(SelectedBlock, cell);
+                else
+                    _session.TryPlaceGate(Selected, cell);
+
                 return;
             }
 
@@ -136,6 +154,20 @@ namespace BitSorter.View
                 return false;
 
             Selected = kind;
+            SelectedBlock = null;
+            return true;
+        }
+
+        /// <summary>Puts a block in hand, refusing one the level does not stock. The block's row is the only way in.</summary>
+        public bool TrySelectBlock(BlockDefinition block)
+        {
+            if (block == null || (_session != null && _session.Level != null &&
+                                  _session.Level.BlockBudgetFor(block.Name) == 0))
+            {
+                return false;
+            }
+
+            SelectedBlock = block;
             return true;
         }
 

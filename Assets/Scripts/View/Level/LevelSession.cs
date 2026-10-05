@@ -681,6 +681,30 @@ namespace BitSorter.View
         /// </remarks>
         public int PlacedCountOf(GateKind kind) => _blueprint.CountOf(kind);
 
+        /// <inheritdoc cref="PlacedCountOf"/>
+        public int PlacedCountOfBlock(string block) => _blueprint.CountOfBlock(block);
+
+        /// <summary>
+        /// Gates on the board, counting the ones inside every block -- a block scores the gates it
+        /// holds, so a circuit built of blocks and the same circuit built loose score the same.
+        /// </summary>
+        /// <remarks>
+        /// Counted over what the level stocks, as the win panel and the personal best always have:
+        /// a gate the level does not stock cannot be on the board.
+        /// </remarks>
+        public int GateCount()
+        {
+            int gates = _blueprint.GatesInBlocks();
+
+            if (Level != null)
+            {
+                for (int i = 0; i < Level.Budget.Count; i++)
+                    gates += _blueprint.CountOf(Level.Budget[i].Kind);
+            }
+
+            return gates;
+        }
+
         /// <summary>Ticks of delay already added across every wire.</summary>
         public int SpentDelay => _blueprint.ExtraDelay();
 
@@ -739,6 +763,28 @@ namespace BitSorter.View
             LeaveTheFinishedRun();
             Record(BoardEdit.Structural);
             _blueprint.Place(cell, kind);
+            _runner.Rebuild(Level, _blueprint);
+            return true;
+        }
+
+        /// <summary>Puts a block with its top on a cell, if every cell it would cover allows it.</summary>
+        public bool TryPlaceBlock(BlockDefinition block, Vector2Int cell)
+        {
+            if (!IsLoaded || block == null)
+                return false;
+
+            LevelVerdict verdict = LevelRules.CanPlaceBlock(
+                Level, _blueprint, EditState, block, cell, _runner.HalfExtents);
+
+            if (!verdict.IsValid)
+            {
+                _runner.RejectEdit(verdict.Reason);
+                return false;
+            }
+
+            LeaveTheFinishedRun();
+            Record(BoardEdit.Structural);
+            _blueprint.PlaceBlock(cell, block);
             _runner.Rebuild(Level, _blueprint);
             return true;
         }

@@ -129,6 +129,36 @@ namespace BitSorter.View
         public static Sprite FlipFlop(BodyStyle style = BodyStyle.Filled) =>
             Body("flipFlop", style, InFlipFlop);
 
+        /// <summary>Radius of a block's corners, in the -1..1 space of its texture.</summary>
+        private const float BlockCorner = 0.30f;
+
+        /// <summary>
+        /// Texels kept whole at each edge of a block's box when it is stretched: its corner, and the
+        /// rim a glass or outlined body draws inside the edge, so what stretches is plain fill.
+        /// </summary>
+        private const int BlockSlice = 40;
+
+        /// <summary>
+        /// A block's box: a rounded rectangle in the look's body style, nine-sliced, so one sprite
+        /// draws a box one cell tall or three.
+        /// </summary>
+        /// <remarks>
+        /// Not <see cref="RoundedSquare"/>, which is a squircle with no straight edge to stretch --
+        /// the reason panels have their own shape. Drawn at the texel size a gate is, so its edge, rim
+        /// and corners look like a gate's at any height: a texel is a node's width over the texture's.
+        /// </remarks>
+        public static Sprite BlockBody(BodyStyle style = BodyStyle.Filled)
+        {
+            var border = new Vector4(BlockSlice, BlockSlice, BlockSlice, BlockSlice);
+            float pixelsPerUnit = NodeSize / PortGeometry.NodeSize;
+
+            return style == BodyStyle.Filled
+                ? Mask("block", NodeSize, InBlock, border, pixelsPerUnit)
+                : Styled("block:" + style, style, InBlock, border, pixelsPerUnit);
+        }
+
+        private static bool InBlock(Vector2 p) => InRoundedRect(p, BlockCorner);
+
         // -----------------------------------------------------------------
         // Interface chrome
         // -----------------------------------------------------------------
@@ -581,7 +611,9 @@ namespace BitSorter.View
         /// the same way -- so the shape rule survives every style: what separates gates is still
         /// their outline, never their fill.
         /// </remarks>
-        private static Sprite Styled(string key, BodyStyle style, Func<Vector2, bool> inside)
+        private static Sprite Styled(
+            string key, BodyStyle style, Func<Vector2, bool> inside,
+            Vector4 border = default, float pixelsPerUnit = 0f)
         {
             if (TryCached(key, out Sprite cached))
                 return cached;
@@ -629,7 +661,7 @@ namespace BitSorter.View
                 }
             }
 
-            return Store(key, size, pixels);
+            return Store(key, size, pixels, border, pixelsPerUnit);
         }
 
         /// <summary>

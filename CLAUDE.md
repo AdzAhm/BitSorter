@@ -1030,6 +1030,23 @@ failure side.
   the bit swells over it -- so it clears the notch and the edges at rest; and
   where the body is solid already, as in Classic, it is the same colour on the
   same colour.
+- **A block is drawn as one box over every cell it covers** (`NodeRenderer
+  .SpawnBlock`), and nothing inside it is drawn. A rounded rectangle,
+  nine-sliced so its corners and rim keep a gate's size at any height, in
+  `OtherNode`'s colour -- a block is whatever its maker put in it, and anything
+  without a colour of its own takes that one. Its name sits above it, as far from
+  it as a fixture's name sits below its own; each port's name sits inside beside
+  its port and shrinks to keep clear of the one across the box, because a full
+  adder's cin and cout share a row. Port names take the ground's colour on a
+  solid body (Classic) and the block's on a see-through one (Neon Board). When
+  anything inside is stalled the box breathes amber, as a gate does. Its ports
+  are its anchors' sockets, placed by `PortGeometry`'s block geometry, so a box
+  one cell tall with two ports has them where a gate does.
+
+  **Set a sliced sprite's draw mode before its transform's scale.** Switching a
+  renderer to sliced rewrites the scale to keep the size the sprite had, and the
+  first boxes came out 1.2 times too large -- found only by logging the
+  renderer's `lossyScale` from a render probe (2026-10-05).
 - **A source shows the bit it will send next**, in a disc above its capsule:
   the register's held bit, the same disc, digit and colour, on the same kind of
   solid plate in the register's colour, because both are a value sitting on a

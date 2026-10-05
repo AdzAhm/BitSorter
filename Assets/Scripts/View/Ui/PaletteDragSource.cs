@@ -21,6 +21,10 @@ namespace BitSorter.View
         IBeginDragHandler, IDragHandler, IEndDragHandler
     {
         private GateKind _kind;
+
+        /// <summary>The block this row drags, or null for a gate's row.</summary>
+        private BlockDefinition _block;
+
         private LevelSession _session;
         private PointerGate _pointer;
         private PlacementGrid _grid;
@@ -44,11 +48,21 @@ namespace BitSorter.View
             PlacementGrid grid, Camera camera, Canvas canvas)
         {
             _kind = kind;
+            _block = null;
             _session = session;
             _pointer = pointer;
             _grid = grid;
             _camera = camera;
             _canvas = canvas;
+        }
+
+        /// <summary>Wired by the palette for a block's row: the drop places the block, top on the cell.</summary>
+        public void Configure(
+            BlockDefinition block, LevelSession session, PointerGate pointer,
+            PlacementGrid grid, Camera camera, Canvas canvas)
+        {
+            Configure(default(GateKind), session, pointer, grid, camera, canvas);
+            _block = block;
         }
 
         public void OnBeginDrag(PointerEventData eventData)
@@ -93,7 +107,10 @@ namespace BitSorter.View
                 return;
 
             Vector2 world = ScreenToWorld(eventData.position);
-            _session.TryPlaceGate(_kind, _grid.WorldToCell(world));
+            if (_block != null)
+                _session.TryPlaceBlock(_block, _grid.WorldToCell(world));
+            else
+                _session.TryPlaceGate(_kind, _grid.WorldToCell(world));
         }
 
         /// <summary>Belt and braces: if this row is torn down mid-drag, let go of the pointer.</summary>
@@ -116,15 +133,15 @@ namespace BitSorter.View
             if (_canvas == null)
                 return;
 
-            var host = new GameObject($"Dragging {_kind}", typeof(RectTransform));
+            var host = new GameObject(_block != null ? $"Dragging {_block.Name}" : $"Dragging {_kind}", typeof(RectTransform));
             host.transform.SetParent(_canvas.transform, false);
 
             _ghost = host.GetComponent<RectTransform>();
             _ghost.sizeDelta = new Vector2(UiTheme.PaletteButton, UiTheme.PaletteButton);
 
             var image = host.AddComponent<Image>();
-            image.sprite = NodeShapes.SpriteFor(_kind);
-            image.color = NodeShapes.ColourFor(_kind) * 0.85f;
+            image.sprite = _block != null ? NodeShapes.BlockSprite() : NodeShapes.SpriteFor(_kind);
+            image.color = (_block != null ? NodeShapes.BlockColour() : NodeShapes.ColourFor(_kind)) * 0.85f;
 
             // Never a raycast target, or it would sit under the cursor and report the pointer as
             // being over the interface for the whole drag -- which would refuse every drop.

@@ -235,18 +235,24 @@ namespace BitSorter.View
 
             _title.text = "SOLVED";
 
-            int gates = 0;
+            // A block scores the gates inside it, and the list names it as itself: "20 gates - 4 FA".
+            int gates = _session.GateCount();
             var parts = new List<string>();
 
             foreach (LevelBudgetEntry entry in level.Budget)
             {
                 int placed = _session.PlacedCountOf(entry.Kind);
 
-                if (placed <= 0)
-                    continue;
+                if (placed > 0)
+                    parts.Add($"{placed} {GatePalette.Label(entry.Kind)}");
+            }
 
-                gates += placed;
-                parts.Add($"{placed} {GatePalette.Label(entry.Kind)}");
+            foreach (LevelBlockBudgetEntry entry in level.BlockBudget)
+            {
+                int placed = _session.PlacedCountOfBlock(entry.Block);
+
+                if (placed > 0)
+                    parts.Add($"{placed} {entry.Block}");
             }
 
             string built = parts.Count > 0 ? string.Join(", ", parts.ToArray()) : "no gates at all";
