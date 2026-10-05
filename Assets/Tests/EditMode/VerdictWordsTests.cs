@@ -86,7 +86,7 @@ namespace BitSorter.LogicCore.Tests
         private static LevelDefinition Inputs(params (string id, string stream)[] sources)
         {
             var fixtures = new System.Text.StringBuilder();
-            int y = 3;
+            int y = 4;
 
             foreach (var source in sources)
             {
@@ -100,7 +100,7 @@ namespace BitSorter.LogicCore.Tests
                 ""fixtures"": [ {fixtures} {{ ""id"": ""out"", ""kind"": ""Sink"", ""cell"": {{ ""x"": 6, ""y"": 0 }} }} ],
                 ""budget"": [ {{ ""kind"": ""And"", ""count"": 1 }} ],
                 ""expected"": [ {{ ""sink"": ""out"", ""values"": ""{zeros}"" }} ]
-            }}", new Vector2Int(6, 3)).Level;
+            }}", new Vector2Int(6, 4)).Level;
         }
 
         [Test]
@@ -120,8 +120,42 @@ namespace BitSorter.LogicCore.Tests
             Assert.AreEqual("Row 2 (ABCDE = 10110)",
                 LevelGrader.Row(Inputs(("a", "01"), ("b", "00"), ("c", "01"), ("d", "01"), ("e", "00")), 1));
 
-            Assert.AreEqual("Row 2 (A2 A1 A0 B2 B1 B0 = 101100)",
+            // Four lanes: its data inputs count up, so they are not a number, and S alone as one
+            // would still leave five names.
+            Assert.AreEqual("Row 2 (D0 D1 D2 D3 S1 S0 = 101100)",
+                LevelGrader.Row(Inputs(("d0", "01"), ("d1", "00"), ("d2", "01"), ("d3", "01"), ("s1", "00"), ("s0", "00")), 1));
+        }
+
+        /// <summary>
+        /// Inputs counting down to bit 0 are a number, top bit first as the table's columns are, and
+        /// are named as one -- whenever that leaves four names or fewer.
+        /// </summary>
+        [Test]
+        public void InputsCountingDownToBit0_AreNamedAsNumbers()
+        {
+            Assert.AreEqual("Row 2 (A = 101, B = 100)",
                 LevelGrader.Row(Inputs(("a2", "01"), ("a1", "00"), ("a0", "01"), ("b2", "01"), ("b1", "00"), ("b0", "00")), 1));
+
+            Assert.AreEqual("Row 1 (A = 0100, B = 0111, CIN = 0)",
+                LevelGrader.Row(Inputs(("a3", "0"), ("a2", "1"), ("a1", "0"), ("a0", "0"),
+                    ("b3", "0"), ("b2", "1"), ("b1", "1"), ("b0", "1"), ("cin", "0")), 0));
+
+            // A run that stops short of bit 0 would hide which bits it is, so it is not one number.
+            Assert.AreEqual("Row 1 (A3 A2 A1 B2 B1 = 10101)",
+                LevelGrader.Row(Inputs(("a3", "1"), ("a2", "0"), ("a1", "1"), ("b2", "0"), ("b1", "1")), 0));
+        }
+
+        /// <summary>The 4-bit adders' nine inputs, the longest a verdict names, fit the line as numbers.</summary>
+        [Test]
+        public void NineInputs_FitTheLine_AsNumbers()
+        {
+            LevelDefinition level = Inputs(("a3", "1"), ("a2", "1"), ("a1", "1"), ("a0", "1"),
+                ("b3", "1"), ("b2", "1"), ("b1", "1"), ("b0", "1"), ("cin", "1"));
+
+            string line = StatusBanner.FailPrefix +
+                          LevelGrader.Words.NothingArrived(LevelGrader.Row(level, 0), "cout", "a bit");
+
+            Assert.LessOrEqual(UiTheme.TextWidth(line, StatusBanner.VerdictType), UiTheme.BannerTextWidth, line);
         }
 
         /// <summary>

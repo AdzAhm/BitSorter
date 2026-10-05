@@ -453,9 +453,16 @@ namespace BitSorter.View
         /// says so rather than printing an empty pair of brackets.
         ///
         /// Past four inputs the row is written as one word, the way the table writes it: "Row 12
-        /// (A2 A1 A0 B2 B1 B0 = 101100)". One by one, five inputs ran the verdict past the line
+        /// (D0 D1 D2 D3 S1 S0 = 101100)". One by one, five inputs ran the verdict past the line
         /// under the banner (766 pixels of 760) and six to 832; as one word six take 705. Four
         /// fit either way, so they keep naming each input, which says more.
+        ///
+        /// **Unless they are numbers.** Inputs counting down to bit 0 -- A3 A2 A1 A0 -- are one
+        /// number written the way the table writes its columns, top bit first, so they are named as
+        /// one: "Row 12 (A = 0100, B = 0111, CIN = 0)". The 4-bit adders' nine inputs as one word
+        /// took the line to 851 pixels, and as numbers they are back under it. It is the form a
+        /// player checking a sum wants anyway, and it is used only when it leaves four things or
+        /// fewer to name, so everything named still says which input it is.
         /// </remarks>
         public static string Row(LevelDefinition level, int vector)
         {
@@ -483,7 +490,12 @@ namespace BitSorter.View
                 return $"{row} (after the last input)";
 
             if (labels.Count > MostInputsNamedOneByOne)
+            {
+                if (TryAsNumbers(labels, bits.ToString(), out string numbers))
+                    return $"{row} ({numbers})";
+
                 return $"{row} ({string.Join(AllOneLetter(labels) ? string.Empty : " ", labels)} = {bits})";
+            }
 
             var inputs = new System.Text.StringBuilder();
 
@@ -500,6 +512,71 @@ namespace BitSorter.View
 
         /// <summary>How many inputs a row still names one by one; past this they are one word.</summary>
         public const int MostInputsNamedOneByOne = 4;
+
+        /// <summary>
+        /// Names each run of inputs counting down to bit 0 as one number, "A = 0100", and every other
+        /// input as itself, or says it cannot in four names or fewer.
+        /// </summary>
+        /// <remarks>
+        /// Only a run that ends at bit 0 and counts down by one is a number: counting up, the bits
+        /// would read backwards, and a run stopping short of 0 would hide which bits it was.
+        /// </remarks>
+        private static bool TryAsNumbers(List<string> labels, string bits, out string numbers)
+        {
+            numbers = null;
+
+            var named = new List<string>();
+            int i = 0;
+
+            while (i < labels.Count)
+            {
+                int end = i + 1;
+
+                if (TrySplit(labels[i], out string name, out int top) && top > 0)
+                {
+                    int expected = top - 1;
+
+                    while (end < labels.Count && TrySplit(labels[end], out string next, out int bit) &&
+                           next == name && bit == expected)
+                    {
+                        end++;
+                        expected--;
+                    }
+
+                    if (expected == -1)
+                    {
+                        named.Add($"{name} = {bits.Substring(i, end - i)}");
+                        i = end;
+                        continue;
+                    }
+
+                    end = i + 1;
+                }
+
+                named.Add($"{labels[i]} = {bits[i]}");
+                i = end;
+            }
+
+            if (named.Count > MostInputsNamedOneByOne)
+                return false;
+
+            numbers = string.Join(", ", named);
+            return true;
+        }
+
+        /// <summary>"A3" is A's bit 3. A name with no digits, or nothing but digits, is not a bit.</summary>
+        private static bool TrySplit(string label, out string name, out int bit)
+        {
+            int digits = label.Length;
+
+            while (digits > 0 && char.IsDigit(label[digits - 1]))
+                digits--;
+
+            name = label.Substring(0, digits);
+            bit = -1;
+
+            return digits > 0 && digits < label.Length && int.TryParse(label.Substring(digits), out bit);
+        }
 
         /// <summary>Names run together as one word only when each is one letter, or they blur.</summary>
         private static bool AllOneLetter(List<string> labels)
