@@ -1525,7 +1525,10 @@ animation counts time.
 
 **FPS COUNTER puts a frame-rate counter in the top-right corner** (`FrameRateCounter`),
 off until asked for, so what the cap does can be seen -- asked for with it,
-"like the one Steam puts on games". It sits in the margin every top-right
+"like the one Steam puts on games". **It is the one DISPLAY switch a browser
+build has too** (`SettingsPanel.DisplaySwitches`): a browser keeps fullscreen and
+the frame rate to itself, but what the frame rate is is worth seeing anywhere
+(asked for after the 4.0.0 browser playtest, 2026-10-05). It sits in the margin every top-right
 control keeps, so it is above BACK, CLOSE and the help badge rather than on
 them at any window size, and over every panel on a canvas of its own sorted
 above the interface's; it takes no clicks. It counts half a second of real

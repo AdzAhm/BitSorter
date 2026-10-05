@@ -112,15 +112,35 @@ namespace BitSorter.View
         public const string ProgressHeading = "PROGRESS";
         public const string AboutHeading = "ABOUT";
 
-        /// <summary>The section headings this build shows, in order down the screen.</summary>
-        /// <remarks>DISPLAY only where <see cref="DisplayRules.Offered"/> says the switch works.</remarks>
-        public static IReadOnlyList<string> Headings => DisplayRules.Offered ? WithDisplay : WithoutDisplay;
+        /// <summary>The section headings, in order down the screen.</summary>
+        /// <remarks>
+        /// DISPLAY in every build: a browser has the FPS counter, and only the counter
+        /// (<see cref="DisplaySwitches"/>). It used to leave the section out there altogether.
+        /// </remarks>
+        public static IReadOnlyList<string> Headings => Sections;
 
-        private static readonly string[] WithDisplay =
+        private static readonly string[] Sections =
             { AudioHeading, DisplayHeading, PrivacyHeading, ProgressHeading, AboutHeading };
 
-        private static readonly string[] WithoutDisplay =
-            { AudioHeading, PrivacyHeading, ProgressHeading, AboutHeading };
+        /// <summary>
+        /// The switches DISPLAY holds, left to right: on a desktop build fullscreen, vertical sync and
+        /// the counter, and in a browser the counter alone.
+        /// </summary>
+        /// <remarks>
+        /// A browser keeps fullscreen and the frame rate to itself (<see cref="DisplayRules.Offered"/>),
+        /// so neither switch would do anything there; the counter only reads what the frame rate is,
+        /// which is worth seeing anywhere. Asked for after the 4.0.0 browser playtest (2026-10-05).
+        /// A question of the build rather than of the editor, so the build passes
+        /// <see cref="DisplayRules.Offered"/> and a test can ask for either.
+        /// </remarks>
+        public static IReadOnlyList<string> DisplaySwitches(bool desktop) => desktop ? DesktopSwitches : BrowserSwitches;
+
+        private static readonly string[] DesktopSwitches = { FullscreenButton, VSyncButton, CounterButton };
+
+        private static readonly string[] BrowserSwitches = { CounterButton };
+
+        /// <summary>DISPLAY's line, for a desktop build or a browser.</summary>
+        public static string DisplayTextFor(bool desktop) => desktop ? DisplayText : BrowserDisplayText;
 
         /// <remarks>
         /// Each section says only what its buttons cannot: they already say what they switch, and
@@ -130,6 +150,10 @@ namespace BitSorter.View
 
         public const string DisplayText =
             "Alt+Enter also switches fullscreen. With VSYNC off, a lower frame cap saves power.";
+
+        /// <summary>DISPLAY's line in a browser, where the counter is the section's one switch.</summary>
+        public const string BrowserDisplayText =
+            "The browser sets the frame rate here. The counter shows what it is.";
 
         public const string PrivacyText =
             "Reports which levels people get stuck on. The README lists exactly what is sent.";
@@ -314,28 +338,44 @@ namespace BitSorter.View
             BuildVolume(block, column);
             column.Space(SectionGap);
 
-            if (DisplayRules.Offered)
+            bool desktop = DisplayRules.Offered;
+            Section(block, column, DisplayHeading, DisplayTextFor(desktop));
+
+            // Side by side, three to a row like the sound's: settings of one screen, and a row
+            // apiece would make the panel taller than the window it shrinks to fit.
+            float display = column.Take(UiTheme.ButtonHeight);
+            IReadOnlyList<string> displaySwitches = DisplaySwitches(desktop);
+
+            for (int i = 0; i < displaySwitches.Count; i++)
             {
-                Section(block, column, DisplayHeading, DisplayText);
+                switch (displaySwitches[i])
+                {
+                    case FullscreenButton:
+                        Switch(block, display, i, FullscreenButton, out _fullscreenLabel)
+                            .onClick.AddListener(() => Fire(ToggleFullscreen));
+                        break;
 
-                // Side by side, three to a row like the sound's: settings of one screen, and a row
-                // apiece would make the panel taller than the window it shrinks to fit.
-                float display = column.Take(UiTheme.ButtonHeight);
+                    case VSyncButton:
+                        Switch(block, display, i, VSyncButton, out _vSyncLabel)
+                            .onClick.AddListener(() => Fire(ToggleVSync));
+                        break;
 
-                Button fullscreen = Switch(block, display, 0, FullscreenButton, out _fullscreenLabel);
-                fullscreen.onClick.AddListener(() => Fire(ToggleFullscreen));
+                    case CounterButton:
+                        Switch(block, display, i, CounterButton, out _counterLabel)
+                            .onClick.AddListener(() => Fire(ToggleCounter));
+                        break;
+                }
+            }
 
-                Button vSync = Switch(block, display, 1, VSyncButton, out _vSyncLabel);
-                vSync.onClick.AddListener(() => Fire(ToggleVSync));
-
-                Button counter = Switch(block, display, 2, CounterButton, out _counterLabel);
-                counter.onClick.AddListener(() => Fire(ToggleCounter));
-
-                // The cap under the switch it depends on, as the volume sits under the sound's.
+            // The cap under the switch it depends on, as the volume sits under the sound's, and only
+            // where there is a vertical sync for it to depend on.
+            if (desktop)
+            {
                 column.Space(VolumeGap);
                 BuildCap(block, column);
-                column.Space(SectionGap);
             }
+
+            column.Space(SectionGap);
 
             Section(block, column, PrivacyHeading, PrivacyText);
             Button data = Control(block, column, DataButton, out _dataLabel, ButtonRole.Secondary);
@@ -574,6 +614,10 @@ namespace BitSorter.View
             if (_fullscreenLabel != null)
                 _fullscreenLabel.text = Screen.fullScreen ? "FULLSCREEN  ON" : "FULLSCREEN  OFF";
 
+            // On its own, because a browser has the counter and not the vertical sync it sits beside.
+            if (_counterLabel != null)
+                _counterLabel.text = CounterCaption(FrameRate.ShowsCounter);
+
             if (_vSyncLabel != null)
                 RefreshFrameRate();
 
@@ -603,7 +647,6 @@ namespace BitSorter.View
         {
             bool vSync = FrameRate.VSync;
             _vSyncLabel.text = VSyncCaption(vSync);
-            _counterLabel.text = CounterCaption(FrameRate.ShowsCounter);
 
             UiTheme.SetEnabled(_cap, !vSync);
             _capLabel.color = vSync ? UiTheme.TextDim : UiTheme.Text;

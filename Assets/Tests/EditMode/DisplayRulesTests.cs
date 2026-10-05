@@ -90,5 +90,27 @@ namespace BitSorter.LogicCore.Tests
         {
             Assert.IsTrue(DisplayRules.Offered);
         }
+
+        /// <summary>
+        /// A browser's DISPLAY holds the FPS counter and nothing else: fullscreen and the frame rate
+        /// are the browser's, and a switch for either would visibly do nothing.
+        /// </summary>
+        [Test]
+        public void ABrowsersDisplay_IsTheCounterAlone_AndSaysNothingOfTheDesktopsSwitches()
+        {
+            CollectionAssert.AreEqual(new[] { SettingsPanel.CounterButton }, SettingsPanel.DisplaySwitches(false));
+            CollectionAssert.AreEqual(
+                new[] { SettingsPanel.FullscreenButton, SettingsPanel.VSyncButton, SettingsPanel.CounterButton },
+                SettingsPanel.DisplaySwitches(true), "the desktop's switches changed");
+
+            string browser = SettingsPanel.DisplayTextFor(false).ToLowerInvariant();
+
+            foreach (string desktopOnly in new[] { "alt+enter", "fullscreen", "vsync", "cap" })
+                StringAssert.DoesNotContain(desktopOnly, browser, $"the browser's line mentions {desktopOnly}");
+
+            Assert.AreEqual(SettingsPanel.DisplayText, SettingsPanel.DisplayTextFor(true));
+            CollectionAssert.Contains(SettingsPanel.Headings, SettingsPanel.DisplayHeading,
+                "DISPLAY is missing, and with it the browser's counter");
+        }
     }
 }
