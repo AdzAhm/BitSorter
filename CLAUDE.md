@@ -593,15 +593,16 @@ failure side.
   counts from it -- the win celebration once pulsed on the game clock and a solve
   could land at the bottom of its swell.
 - **Visual changes are checked against the reference shots.**
-  `BitSorter/Capture Reference Shots` captures twenty-five states (menu, a built
+  `BitSorter/Capture Reference Shots` captures twenty-six states (menu, a built
   board, bits in flight, a collision one tick out and one that takes both bits,
   the solved card, the level list, free play, the help panel, the chapter card, a
   clocked level, the tutorial's intro and its closing card, a first-time hint, a
   register holding a bit, the tutorial ringing a button, the settings asking
   whether to reset, the credits part-way up, the help panel's K-map, Four lanes
   built on its 11 by 7 board, free play on a second board with a name, and the
-  three levels that open on a broken circuit, as they open, and the timing
-  diagram mid-run with a picked wire's collisions crossed) as an Explicit Play
+  three levels that open on a broken circuit, as they open, the timing
+  diagram mid-run with a picked wire's collisions crossed, and Four at once
+  built and running, its carry passing between the boxes) as an Explicit Play
   Mode fixture, so it runs under `SaveGuard` --
   driving the real game for a screenshot by hand once marked a level solved on
   the developer's own save. Frame time is fixed, particle systems are seeded,
@@ -790,8 +791,8 @@ failure side.
   .Fit` centres it between the pixels taken on the left and the right, and
   `CameraFit` reads those from the parts list, free play's setup panel and the
   open help panel. Fitting to the whole screen put the outermost column under
-  the parts list, where eighteen of the twenty-eight levels keep a source
-  (counted 2026-10-01; this said four once) — in Carry the one,
+  the parts list, where twenty of the thirty levels keep a source
+  (counted 2026-10-05; this said four once) — in Carry the one,
   source B sat under the AND with "DELAY 0 of 5" across its label. **The
   top-right corner counts only on a level that keeps a bin in that cell** --
   five do, and free play -- where a board reaching the badges, their keys or
@@ -1204,21 +1205,28 @@ failure side.
 
 ## Not yet
 Do not build ahead of me. The logic core, the view layer, the level
-format, the twenty-eight levels, the canvas interface, sound, level select,
+format, the thirty levels, the canvas interface, sound, level select,
 saved progress, analytics, the sandbox, board undo, the settings screen and
 the K-map view are all in.
 
-**Twenty-eight: nineteen combinational, nine sequential.** The
+**Thirty: twenty-one combinational, nine sequential.** The
 combinational chapter runs in three stretches: logic and timing (Route the
 bit to Odd one out, with the K-map pair Four corners and Don't care in the
 middle), building blocks (One of four, Pick a lane, Four lanes, Highest wins,
 Which is bigger), and arithmetic (Half adder, Carry the one, Pass it on,
-Carry it further). **Three of them open on a broken circuit** to repair, each
+Carry it further, and the two built from blocks, Four at once and Look
+ahead). **Three of them open on a broken circuit** to repair, each
 placed just after the level that builds the thing it breaks: Out of step
 after The slow lane, Wrong part after Carry the one, and Miscount after the
-two-bit counter. Four lanes and Carry it further are the two on a board
-bigger than 9 by 5 -- 11 by 7 and 13 by 7 -- because a 4:1 mux and a 3-bit
-adder do not fit a smaller one. The
+two-bit counter. Four lanes, Carry it further and the two 4-bit adders are
+the four on a board bigger than 9 by 5 -- 11 by 7, 13 by 7 and 13 by 9 --
+because a 4:1 mux and a 3-bit adder do not fit a smaller one, and nine
+sources do not fit a column of seven. **The two 4-bit adders' blocks take
+their carry a tick after their other inputs**, as a full adder built for
+speed does, and both goals say so, since nothing on the board shows a
+block's inside. It is also what fits the wire cap: an FA wanting all three
+inputs together makes each column three ticks after the one below, and A3's
+wire ten, past the single digit a wire's label holds. The
 sequential chapter is the register, the rising edge, the toggle, the enabled
 register, the two-bit counter and its broken twin, the 1-0-1 detector, the
 Moore reading of it and the serial adder — orders 100 to 170. Orders are not all tens: each
@@ -1247,8 +1255,8 @@ fitting at 1080; a shorter window still scrolls, both columns together.
 **The banner reserves three lines for the goal and shrinks to what it
 uses.** A goal is centred and wrapping, so before this it overflowed a
 28-pixel box in both directions and printed over the level title;
-eighteen of the twenty-eight goals are longer than one line (measured
-2026-09-29). `UiTheme.GoalHeight`
+eighteen of the twenty-eight goals were longer than one line when measured
+(2026-09-29), and both 4-bit adders' run to three. `UiTheme.GoalHeight`
 measures one with the label that will draw it, and is what both the
 banner and `UiThemeTests` ask — a level whose goal will not fit is a
 failing test rather than a smudge on the title. Everything below the
@@ -1600,8 +1608,9 @@ by name. Treat this section as a place to park ideas, not as a to-do list.
   because every register starting at 0 needs no authoring at all.
 
   What is left of that chapter's ideas: level- versus edge-triggering and
-  clock skew stay out (see Syllabus scope), and a wider board is still
-  what stands between this game and carry-lookahead.
+  clock skew stay out (see Syllabus scope). Carry-lookahead, which this
+  line once said was waiting for a wider board, waited for blocks as well
+  and **shipped** as `look-ahead`.
 
 - **NAND-only puzzle.** NAND and NOR are each functionally complete —
   every other gate, including NOT, can be built from either one alone.

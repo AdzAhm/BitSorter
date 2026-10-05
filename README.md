@@ -15,7 +15,7 @@ Above is the half adder: `A` and `B` each feed both gates, XOR produces
 the sum and AND produces the carry. Every bit is drawn as the digit it carries: a
 magenta 1, an indigo 0.
 
-Twenty-eight levels, from routing a single bit to a state machine that adds two
+Thirty levels, from routing a single bit to a state machine that adds two
 numbers a column at a time. Built in Unity
 as a way of working through a computer engineering digital systems course from
 the inside.
@@ -61,7 +61,7 @@ frame-rate counter in the top-right corner.
 The bottom-right corner of the main menu says which version you are running,
 which is worth including if you report a bug.
 
-[A guided tutorial](#the-tutorial) covers the controls, twenty-eight levels teach the
+[A guided tutorial](#the-tutorial) covers the controls, thirty levels teach the
 ideas in order, and [a sandbox](#the-sandbox) is there for when you would rather
 build something without being marked on it.
 
@@ -147,7 +147,7 @@ until you reset your progress — and none of them pause the game.
 
 ### What it teaches
 
-Twenty-eight levels, in this order. Each one is a topic from a digital systems course,
+Thirty levels, in this order. Each one is a topic from a digital systems course,
 arranged so that a mechanic is always taught before it is required.
 
 | | Level | The idea |
@@ -171,6 +171,8 @@ arranged so that a mechanic is always taught before it is required.
 | 17 | Wrong part | Debugging: a full adder with one wrong gate, found from the rows where its output goes wrong |
 | 18 | Pass it on | A 2-bit ripple-carry adder: the carry travels from one column to the next |
 | 19 | Carry it further | A 3-bit ripple-carry adder: the carry reaches each column later, and everything meeting it waits |
+| 20 | Four at once | A 4-bit ripple-carry adder from four full adders in boxes: the first [block](#blocks) |
+| 21 | Look ahead | Carry-lookahead: the same sum two ticks sooner, by working out the carry into the top half without waiting for it |
 
 Then the circuits start to remember. A register keeps one bit and hands it on a
 clock later, and because a kept bit has to travel back round to meet the next
@@ -178,15 +180,15 @@ one, these levels space their vectors out on a clock.
 
 | | Level | The idea |
 |---|---|---|
-| 20 | One clock late | The register itself: it starts holding 0, and delays a stream by a clock |
-| 21 | Rising edge | This bit against the one before it — and a register hands its bit on early |
-| 22 | Flip on one | The first loop, and the clock a loop has to close inside |
-| 23 | Hold when told | A register with an enable: load, or keep what you have |
-| 24 | Count the ones | Two bits of state, and the carry between them |
-| 25 | Miscount | Debugging: a counter that never counts past one, with one wire in the wrong place |
-| 26 | Spot the pattern | A machine watching for 1-0-1, overlaps included, in two registers |
-| 27 | One clock behind | The same answer reported a clock later: Moore against Mealy |
-| 28 | Add as you go | A serial adder, one column per clock, its carry kept in a register |
+| 22 | One clock late | The register itself: it starts holding 0, and delays a stream by a clock |
+| 23 | Rising edge | This bit against the one before it — and a register hands its bit on early |
+| 24 | Flip on one | The first loop, and the clock a loop has to close inside |
+| 25 | Hold when told | A register with an enable: load, or keep what you have |
+| 26 | Count the ones | Two bits of state, and the carry between them |
+| 27 | Miscount | Debugging: a counter that never counts past one, with one wire in the wrong place |
+| 28 | Spot the pattern | A machine watching for 1-0-1, overlaps included, in two registers |
+| 29 | One clock behind | The same answer reported a clock later: Moore against Mealy |
+| 30 | Add as you go | A serial adder, one column per clock, its carry kept in a register |
 
 Deliberately out of scope: assembly, datapaths, memory addressing and number
 representation. Static and dynamic hazards are out too, and cannot be expressed —
@@ -199,6 +201,29 @@ the spacing between vectors, global and exact, so nothing can arrive late
 relative to it. What survives is the constraint setup time exists for —
 everything must settle within one clock period — and the sequential levels are
 built on it.
+
+### Blocks
+
+A block is a small circuit in a box, placed from the parts list and wired like a
+gate: its inputs down the left of the box, its outputs down the right, each with
+its name beside it. What is inside is not drawn, only the box. Four at once
+hands you a full adder as one, `FA`, and Look ahead adds a lookahead block, `LA`.
+
+**A block costs exactly what is inside it.** The wire you draw to a block's input
+and the block's own wire from that input are one wire, so going in and out of a
+box adds no tick: a block is as fast as the same gates placed by hand, and the
+solved card counts the gates inside it. That matters most in Look ahead, which is
+about how long the carry takes.
+
+**A block's timing is the timing of what is inside it**, so what the goal says
+about it is worth reading. Both of the levels' blocks take their carry a tick
+after their other inputs, because inside, the carry meets the other bits one gate
+later. A carry that arrives early waits in its port, and the next one runs into it.
+
+In free play you can make your own: **Make block** turns the board on screen into a
+block, its sources becoming the inputs and its sinks the outputs, and it joins
+free play's parts list. The library holds four, and a board that uses a block
+keeps its own copy, so deleting one from the library never breaks a saved board.
 
 ### The sandbox
 
@@ -341,7 +366,7 @@ Unity 6.3 LTS (6000.3.11f1).
   `TestResults.xml` in the save directory rather than from a `TestRunnerApi`
   callback, which does not survive the domain reload that entering play mode
   causes.
-- **BitSorter → Capture Reference Shots** screenshots twenty-five states of the
+- **BitSorter → Capture Reference Shots** screenshots twenty-six states of the
   real game — menu, board, a run, both kinds of collision, the cards, free play,
   settings, the credits, the wider boards, the three levels that open on a broken
   circuit, the timing diagram mid-run — into the save directory. Two captures of the same code are identical

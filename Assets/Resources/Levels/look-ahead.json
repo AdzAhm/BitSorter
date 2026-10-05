@@ -1,0 +1,118 @@
+{
+  "name": "Look ahead",
+  "order": 99,
+  "goal": "Add as in Four at once, but in 8 ticks. LA reads two columns of A and B and the carry into them, and works out the carry out of both at once. Like FA, it takes its carry a tick late.",
+  "hint": "The sum is only as quick as the carry that reaches the top. Let it get there without passing through every box on the way.",
+  "tickLimit": 60,
+  "maxWireDelay": 7,
+  "delayBudget": 35,
+  "maxLatency": 8,
+  "board": { "columns": 13, "rows": 9 },
+  "fixtures": [
+    { "id": "a3",   "kind": "Source", "cell": { "x": -6, "y": -3 }, "stream": "1110110000100101" },
+    { "id": "a2",   "kind": "Source", "cell": { "x": -6, "y": -1 }, "stream": "0101101010101001" },
+    { "id": "a1",   "kind": "Source", "cell": { "x": -6, "y":  1 }, "stream": "0011111001010001" },
+    { "id": "a0",   "kind": "Source", "cell": { "x": -6, "y":  4 }, "stream": "1001010000111011" },
+    { "id": "b3",   "kind": "Source", "cell": { "x": -6, "y": -4 }, "stream": "1011000011010110" },
+    { "id": "b2",   "kind": "Source", "cell": { "x": -6, "y": -2 }, "stream": "1100001100110110" },
+    { "id": "b1",   "kind": "Source", "cell": { "x": -6, "y":  0 }, "stream": "1001011001101100" },
+    { "id": "b0",   "kind": "Source", "cell": { "x": -6, "y":  3 }, "stream": "1100000011101011" },
+    { "id": "cin",  "kind": "Source", "cell": { "x": -6, "y":  2 }, "stream": "1100010110011010" },
+    { "id": "s3",   "kind": "Sink",   "cell": { "x":  6, "y": -3 } },
+    { "id": "s2",   "kind": "Sink",   "cell": { "x":  6, "y": -1 } },
+    { "id": "s1",   "kind": "Sink",   "cell": { "x":  6, "y":  1 } },
+    { "id": "s0",   "kind": "Sink",   "cell": { "x":  6, "y":  3 } },
+    { "id": "cout", "kind": "Sink",   "cell": { "x":  6, "y": -4 } }
+  ],
+  "blocks": [
+    {
+      "name": "FA",
+      "inputs": [
+        { "id": "a",   "cell": { "x": -4, "y":  1 } },
+        { "id": "b",   "cell": { "x": -4, "y":  0 } },
+        { "id": "cin", "cell": { "x": -4, "y": -1 } }
+      ],
+      "outputs": [
+        { "id": "s",    "cell": { "x": 4, "y":  1 } },
+        { "id": "cout", "cell": { "x": 4, "y": -1 } }
+      ],
+      "gates": [
+        { "kind": "Xor", "cell": { "x": -2, "y":  1 } },
+        { "kind": "And", "cell": { "x": -2, "y":  0 } },
+        { "kind": "Xor", "cell": { "x":  0, "y":  1 } },
+        { "kind": "And", "cell": { "x":  0, "y": -1 } },
+        { "kind": "Or",  "cell": { "x":  2, "y": -1 } }
+      ],
+      "wires": [
+        { "from": { "x": -4, "y":  1 }, "to": { "x": -2, "y":  1 }, "toPort": 0 },
+        { "from": { "x": -4, "y":  0 }, "to": { "x": -2, "y":  1 }, "toPort": 1 },
+        { "from": { "x": -4, "y":  1 }, "to": { "x": -2, "y":  0 }, "toPort": 0 },
+        { "from": { "x": -4, "y":  0 }, "to": { "x": -2, "y":  0 }, "toPort": 1 },
+        { "from": { "x": -2, "y":  1 }, "to": { "x":  0, "y":  1 }, "toPort": 0 },
+        { "from": { "x": -4, "y": -1 }, "to": { "x":  0, "y":  1 }, "toPort": 1 },
+        { "from": { "x": -2, "y":  1 }, "to": { "x":  0, "y": -1 }, "toPort": 0 },
+        { "from": { "x": -4, "y": -1 }, "to": { "x":  0, "y": -1 }, "toPort": 1 },
+        { "from": { "x": -2, "y":  0 }, "to": { "x":  2, "y": -1 }, "toPort": 0, "delay": 2 },
+        { "from": { "x":  0, "y": -1 }, "to": { "x":  2, "y": -1 }, "toPort": 1 },
+        { "from": { "x":  0, "y":  1 }, "to": { "x":  4, "y":  1 } },
+        { "from": { "x":  2, "y": -1 }, "to": { "x":  4, "y": -1 } }
+      ]
+    },
+    {
+      "name": "LA",
+      "inputs": [
+        { "id": "a0",  "cell": { "x": -4, "y":  2 } },
+        { "id": "b0",  "cell": { "x": -4, "y":  1 } },
+        { "id": "cin", "cell": { "x": -4, "y":  0 } },
+        { "id": "a1",  "cell": { "x": -4, "y": -1 } },
+        { "id": "b1",  "cell": { "x": -4, "y": -2 } }
+      ],
+      "outputs": [
+        { "id": "cout", "cell": { "x": 4, "y": 0 } }
+      ],
+      "gates": [
+        { "kind": "Xor", "cell": { "x": -2, "y":  2 } },
+        { "kind": "And", "cell": { "x": -2, "y":  1 } },
+        { "kind": "Xor", "cell": { "x": -2, "y": -1 } },
+        { "kind": "And", "cell": { "x": -2, "y": -2 } },
+        { "kind": "And", "cell": { "x":  0, "y":  1 } },
+        { "kind": "And", "cell": { "x":  0, "y": -1 } },
+        { "kind": "Or",  "cell": { "x":  2, "y":  1 } },
+        { "kind": "And", "cell": { "x":  2, "y": -1 } },
+        { "kind": "Or",  "cell": { "x":  3, "y":  0 } }
+      ],
+      "wires": [
+        { "from": { "x": -4, "y":  2 }, "to": { "x": -2, "y":  2 }, "toPort": 0 },
+        { "from": { "x": -4, "y":  1 }, "to": { "x": -2, "y":  2 }, "toPort": 1 },
+        { "from": { "x": -4, "y":  2 }, "to": { "x": -2, "y":  1 }, "toPort": 0 },
+        { "from": { "x": -4, "y":  1 }, "to": { "x": -2, "y":  1 }, "toPort": 1 },
+        { "from": { "x": -4, "y": -1 }, "to": { "x": -2, "y": -1 }, "toPort": 0 },
+        { "from": { "x": -4, "y": -2 }, "to": { "x": -2, "y": -1 }, "toPort": 1 },
+        { "from": { "x": -4, "y": -1 }, "to": { "x": -2, "y": -2 }, "toPort": 0 },
+        { "from": { "x": -4, "y": -2 }, "to": { "x": -2, "y": -2 }, "toPort": 1 },
+        { "from": { "x": -2, "y": -1 }, "to": { "x":  0, "y":  1 }, "toPort": 0 },
+        { "from": { "x": -2, "y":  1 }, "to": { "x":  0, "y":  1 }, "toPort": 1 },
+        { "from": { "x": -2, "y": -1 }, "to": { "x":  0, "y": -1 }, "toPort": 0 },
+        { "from": { "x": -2, "y":  2 }, "to": { "x":  0, "y": -1 }, "toPort": 1 },
+        { "from": { "x": -2, "y": -2 }, "to": { "x":  2, "y":  1 }, "toPort": 0, "delay": 2 },
+        { "from": { "x":  0, "y":  1 }, "to": { "x":  2, "y":  1 }, "toPort": 1 },
+        { "from": { "x":  0, "y": -1 }, "to": { "x":  2, "y": -1 }, "toPort": 0 },
+        { "from": { "x": -4, "y":  0 }, "to": { "x":  2, "y": -1 }, "toPort": 1, "delay": 2 },
+        { "from": { "x":  2, "y":  1 }, "to": { "x":  3, "y":  0 }, "toPort": 0 },
+        { "from": { "x":  2, "y": -1 }, "to": { "x":  3, "y":  0 }, "toPort": 1 },
+        { "from": { "x":  3, "y":  0 }, "to": { "x":  4, "y":  0 } }
+      ]
+    }
+  ],
+  "budget": [
+    { "block": "FA", "count": 4 },
+    { "block": "LA", "count": 2 }
+  ],
+  "expected": [
+    { "sink": "s3",   "values": "1000111011001010" },
+    { "sink": "s2",   "values": "0000111111100110" },
+    { "sink": "s1",   "values": "0110110010000110" },
+    { "sink": "s0",   "values": "1001000101001010" },
+    { "sink": "cout", "values": "1111000000110101" }
+  ]
+}

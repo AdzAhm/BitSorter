@@ -770,6 +770,37 @@ namespace BitSorter.PlayMode.Tests
             yield return Capture("25-timing-diagram");
         }
 
+        /// <summary>
+        /// Four at once built and running: four full adders in boxes down a staircase on the 13 by 9
+        /// board, the carry handed from box to box and the upper columns' bits waiting on their
+        /// wires for it.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator Shot26_FourAtOnce()
+        {
+            yield return OpenOnTheBoard();
+
+            // The first wire given a delay raises the first-time hint about scrolling one, over the
+            // board this shot is of, as in shot 20.
+            Find<ProgressTracker>().Store.MarkHintSeen(HintRules.WireDelay);
+
+            yield return LoadAndBuild("four-at-once");
+            BuildFourAtOnce();
+            yield return Frames(30);
+
+            LevelSession session = Find<LevelSession>();
+            Assert.AreEqual(new Vector2Int(6, 4), Find<PlacementGrid>().HalfExtents, "sanity: not on the level's own board");
+            Assert.AreEqual(4, Find<SimulationRunner>().Circuit.Blocks.Count, "sanity: not four boxes");
+            Assert.AreEqual(17, session.Blueprint.Wires.Count, "sanity: the adder is not fully wired");
+
+            // Tick 6: bit 0's sums landing, carries between the boxes, A3 and B3 still on their way.
+            session.Run();
+            yield return UntilTick(6);
+            yield return HalfATick();
+
+            yield return Capture("26-four-at-once");
+        }
+
         private static IEnumerator OpensOnItsCircuit(string level, string fixture, string shot)
         {
             yield return LoadTheGame();
@@ -976,6 +1007,39 @@ namespace BitSorter.PlayMode.Tests
             Wire(session, On(orOut), Fixture("out"), 0);
 
             yield return null;
+        }
+
+        /// <summary>
+        /// The ripple FourAtOnceLevelTests solves the level with: bit i's A and B wait 2i + 1 ticks,
+        /// CIN two, and each box's carry out goes to the carry in of the box below.
+        /// </summary>
+        private static void BuildFourAtOnce()
+        {
+            LevelSession session = Find<LevelSession>();
+            SimulationRunner runner = Find<SimulationRunner>();
+            BlockDefinition fa = session.Level.BlockNamed("FA");
+
+            foreach (Vector2Int cell in new[] { new Vector2Int(-4, 3), new Vector2Int(-2, 1), new Vector2Int(0, -1), new Vector2Int(2, -3) })
+                Assert.IsTrue(session.TryPlaceBlock(fa, cell), $"could not place an FA on {cell}");
+
+            // Each wire rebuilds the board, so a box is looked up afresh every time. Its anchors keep
+            // their ids -- wires add edges, not nodes -- but nothing here needs to know that.
+            int Fixture(string id) => runner.FixtureNodeIds[id];
+            BuiltBlock Box(int bit) => runner.Circuit.Blocks[bit];
+
+            for (int bit = 0; bit < 4; bit++)
+            {
+                Wire(session, Fixture("a" + bit), Box(bit).InputAnchors[0], 0, delay: 2 * bit + 1);
+                Wire(session, Fixture("b" + bit), Box(bit).InputAnchors[1], 0, delay: 2 * bit + 1);
+                Wire(session, Box(bit).OutputAnchors[0], Fixture("s" + bit), 0);
+            }
+
+            Wire(session, Fixture("cin"), Box(0).InputAnchors[2], 0, delay: 2);
+
+            for (int bit = 0; bit < 3; bit++)
+                Wire(session, Box(bit).OutputAnchors[1], Box(bit + 1).InputAnchors[2], 0);
+
+            Wire(session, Box(3).OutputAnchors[1], Fixture("cout"), 0);
         }
 
         /// <summary>An XOR for the sum and an AND for the carry, each fed by both sources.</summary>

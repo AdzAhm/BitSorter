@@ -1,0 +1,72 @@
+{
+  "name": "Four at once",
+  "order": 98,
+  "goal": "FA is a block: a whole full adder in one box, wired like a gate. It takes its carry in a tick after its A and B. Chain four to add A3-A0, B3-B0 and CIN: S3-S0 get the sum, COUT the carry out.",
+  "hint": "Each box hands its carry on a tick after it takes one in. Follow a carry from bit 0 up to bit 3, counting as you go.",
+  "tickLimit": 60,
+  "maxWireDelay": 7,
+  "delayBudget": 26,
+  "maxLatency": 10,
+  "board": { "columns": 13, "rows": 9 },
+  "fixtures": [
+    { "id": "a3",   "kind": "Source", "cell": { "x": -6, "y": -3 }, "stream": "0011000111011010" },
+    { "id": "a2",   "kind": "Source", "cell": { "x": -6, "y": -1 }, "stream": "1011000000110111" },
+    { "id": "a1",   "kind": "Source", "cell": { "x": -6, "y":  1 }, "stream": "0100001001111011" },
+    { "id": "a0",   "kind": "Source", "cell": { "x": -6, "y":  4 }, "stream": "0110100010101110" },
+    { "id": "b3",   "kind": "Source", "cell": { "x": -6, "y": -4 }, "stream": "0110101011000011" },
+    { "id": "b2",   "kind": "Source", "cell": { "x": -6, "y": -2 }, "stream": "1001100101001011" },
+    { "id": "b1",   "kind": "Source", "cell": { "x": -6, "y":  0 }, "stream": "1010011101000110" },
+    { "id": "b0",   "kind": "Source", "cell": { "x": -6, "y":  3 }, "stream": "1000001010011111" },
+    { "id": "cin",  "kind": "Source", "cell": { "x": -6, "y":  2 }, "stream": "0011000111010101" },
+    { "id": "s3",   "kind": "Sink",   "cell": { "x":  6, "y": -3 } },
+    { "id": "s2",   "kind": "Sink",   "cell": { "x":  6, "y": -1 } },
+    { "id": "s1",   "kind": "Sink",   "cell": { "x":  6, "y":  1 } },
+    { "id": "s0",   "kind": "Sink",   "cell": { "x":  6, "y":  3 } },
+    { "id": "cout", "kind": "Sink",   "cell": { "x":  6, "y": -4 } }
+  ],
+  "blocks": [
+    {
+      "name": "FA",
+      "inputs": [
+        { "id": "a",   "cell": { "x": -4, "y":  1 } },
+        { "id": "b",   "cell": { "x": -4, "y":  0 } },
+        { "id": "cin", "cell": { "x": -4, "y": -1 } }
+      ],
+      "outputs": [
+        { "id": "s",    "cell": { "x": 4, "y":  1 } },
+        { "id": "cout", "cell": { "x": 4, "y": -1 } }
+      ],
+      "gates": [
+        { "kind": "Xor", "cell": { "x": -2, "y":  1 } },
+        { "kind": "And", "cell": { "x": -2, "y":  0 } },
+        { "kind": "Xor", "cell": { "x":  0, "y":  1 } },
+        { "kind": "And", "cell": { "x":  0, "y": -1 } },
+        { "kind": "Or",  "cell": { "x":  2, "y": -1 } }
+      ],
+      "wires": [
+        { "from": { "x": -4, "y":  1 }, "to": { "x": -2, "y":  1 }, "toPort": 0 },
+        { "from": { "x": -4, "y":  0 }, "to": { "x": -2, "y":  1 }, "toPort": 1 },
+        { "from": { "x": -4, "y":  1 }, "to": { "x": -2, "y":  0 }, "toPort": 0 },
+        { "from": { "x": -4, "y":  0 }, "to": { "x": -2, "y":  0 }, "toPort": 1 },
+        { "from": { "x": -2, "y":  1 }, "to": { "x":  0, "y":  1 }, "toPort": 0 },
+        { "from": { "x": -4, "y": -1 }, "to": { "x":  0, "y":  1 }, "toPort": 1 },
+        { "from": { "x": -2, "y":  1 }, "to": { "x":  0, "y": -1 }, "toPort": 0 },
+        { "from": { "x": -4, "y": -1 }, "to": { "x":  0, "y": -1 }, "toPort": 1 },
+        { "from": { "x": -2, "y":  0 }, "to": { "x":  2, "y": -1 }, "toPort": 0, "delay": 2 },
+        { "from": { "x":  0, "y": -1 }, "to": { "x":  2, "y": -1 }, "toPort": 1 },
+        { "from": { "x":  0, "y":  1 }, "to": { "x":  4, "y":  1 } },
+        { "from": { "x":  2, "y": -1 }, "to": { "x":  4, "y": -1 } }
+      ]
+    }
+  ],
+  "budget": [
+    { "block": "FA", "count": 4 }
+  ],
+  "expected": [
+    { "sink": "s3",   "values": "1110101101000110" },
+    { "sink": "s2",   "values": "0000101100100011" },
+    { "sink": "s1",   "values": "1100010110100010" },
+    { "sink": "s0",   "values": "1101101111100100" },
+    { "sink": "cout", "values": "0011000011011011" }
+  ]
+}

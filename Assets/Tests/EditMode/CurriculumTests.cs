@@ -97,6 +97,8 @@ namespace BitSorter.LogicCore.Tests
                 "wrong-part",
                 "pass-it-on",
                 "carry-it-further",
+                "four-at-once",
+                "look-ahead",
 
                 // Sequential logic: circuits that remember.
                 "one-clock-late",
@@ -241,6 +243,34 @@ namespace BitSorter.LogicCore.Tests
             }
 
             Assert.Fail("sanity: no level opens on a circuit");
+        }
+
+        /// <summary>
+        /// The first level that stocks a block says so in its goal: the box in the parts list is a
+        /// whole circuit, and it is wired like a gate. A mechanic taught before it is required.
+        /// </summary>
+        /// <remarks>
+        /// The goal has to carry it because nothing else on the board can. A block's inside is not
+        /// drawn, so its name and its port labels are all a player sees of it until it is run.
+        /// </remarks>
+        [Test]
+        public void TheFirstLevelWithABlock_SaysSoInItsGoal()
+        {
+            foreach (KeyValuePair<string, LevelDefinition> level in LevelsInPlayOrder())
+            {
+                if (level.Value.BlockBudget.Count == 0)
+                    continue;
+
+                string goal = level.Value.Goal.ToLowerInvariant();
+
+                StringAssert.Contains("block", goal,
+                    $"'{level.Key}' is the first level that stocks a block, and its goal does not say so");
+                StringAssert.Contains("like a gate", goal,
+                    $"'{level.Key}' is the first level that stocks a block, and its goal does not say how one is used");
+                return;
+            }
+
+            Assert.Fail("sanity: no level stocks a block");
         }
 
         /// <summary>

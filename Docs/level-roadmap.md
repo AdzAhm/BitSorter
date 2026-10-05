@@ -61,8 +61,8 @@ author a level that silently fails to teach its own lesson.
 | 3 | Functional completeness (NAND-only / NOR-only) | **(a)** | Buildable today, no schema change — see [Q3](#q3-can-a-level-require-a-specific-gate-set-only) |
 | 4 | Propagation delay | **(a)** | Shipped: `balance-the-paths` |
 | 5 | Combinational components (mux, decoder, comparator) | **(a)** | **Shipped:** `pick-a-lane` (2:1 mux), `one-of-four` (decoder), `highest-wins` (priority encoder), `which-is-bigger` (comparator), and the 4:1 mux as `four-lanes`, on an 11 × 7 board |
-| 6 | Adders: half, full, ripple-carry | **(a)** | **Shipped:** `half-adder`, `carry-the-one`, a 2-bit ripple-carry as `pass-it-on` -- seven gates, since bit 0 needs no carry in -- and a 3-bit one as `carry-it-further`, on 13 × 7 |
-| 6b | Carry-lookahead | **(b)** | Board size shipped (a level names its own, up to 13 × 7). Lookahead itself waits for sub-circuit blocks: by hand it only beats ripple at a width too many gates to wire |
+| 6 | Adders: half, full, ripple-carry | **(a)** | **Shipped:** `half-adder`, `carry-the-one`, a 2-bit ripple-carry as `pass-it-on` -- seven gates, since bit 0 needs no carry in -- a 3-bit one as `carry-it-further`, on 13 × 7, and a 4-bit one from full-adder blocks as `four-at-once`, on 13 × 9 |
+| 6b | Carry-lookahead | **(a)** | **Shipped** as `look-ahead`, once blocks existed: four full adders and two 2-column lookahead blocks, on 13 × 9, against a latency the ripple cannot meet |
 | 7 | Latches and flip-flops | **(a)** | **Shipped.** `RegisterNode`, a palette slot, and a clock. Initial-state authoring turned out not to be needed |
 | 7b | Level- vs edge-triggering, setup/hold, clock skew | **(c)** | Skew and hold stay out. Setup time survives as `clockPeriod` — see below |
 | 8 | FSMs (Moore / Mealy), state minimisation | **(a)** | **Shipped.** `spot-the-pattern`, `one-clock-behind` and `add-as-you-go` |
@@ -187,6 +187,14 @@ cover is fixed and the level has one answer, which by your own standard is not
 teaching anything.
 
 ### 6b. Carry-lookahead
+
+**Shipped as `look-ahead`** (4.0.0, Part E), with blocks. Four full adders and two
+lookahead blocks, `LA`, each of which takes two columns' bits and the carry into
+them and works out the carry out of both: the carry into bit 2 comes out at tick 4
+rather than 5, and COUT at 8 rather than 10, against a limit of 8. The board is
+13 × 9, for nine sources. By hand the same circuit is 26 gates and about
+fifty-six wires, every one balanced exactly; in blocks it is six parts. The
+entry below is how it stood before blocks.
 
 **The board-size blocker is gone; the gate count is not.** A level names its own
 board now -- `board: { columns, rows }`, odd sizes from 9 × 5 up to 13 × 7, fitted
@@ -893,8 +901,9 @@ path never makes it longer than the critical path. So correct balancing costs
 zero latency, and a `maxLatency` set to the intended solution's critical path is
 exactly satisfiable. That property is what makes ripple-carry versus lookahead
 gradeable here at all — the ripple version fails a latency gate because its carry
-chain is genuinely deep, not because it was balanced badly. Fitting the two on a
-board is no longer the problem; how many gates the lookahead takes is -- see 6b.
+chain is genuinely deep, not because it was balanced badly. `look-ahead` is built
+on exactly that: Four at once's ripple, correct and within every budget, fails it
+on time alone -- see 6b.
 
 ### Q3: Can a level require a specific gate set only?
 
