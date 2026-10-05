@@ -121,9 +121,21 @@ namespace BitSorter.View
         }
 
         /// <summary>
+        /// Most blocks free play's library holds: what is left of the parts list's rows under every
+        /// gate, so the whole library is always in it.
+        /// </summary>
+        public static int LibraryCapacity => LevelDefinition.MaxPartsRows - EveryKind.Length;
+
+        /// <summary>
         /// Turns a config into a level. Mutates <paramref name="config"/> only by normalising it.
         /// </summary>
-        public static LevelDefinition Build(SandboxConfig config, Vector2Int halfExtents)
+        /// <param name="library">
+        /// The player's blocks, each stocked without limit under the gates. Any block at all may stand
+        /// on a free-play board besides: a board keeps a copy of each of its own, so one deleted from
+        /// the library since is still the player's to keep.
+        /// </param>
+        public static LevelDefinition Build(
+            SandboxConfig config, Vector2Int halfExtents, IReadOnlyList<BlockDefinition> library = null)
         {
             int capacity = Capacity(halfExtents);
 
@@ -157,6 +169,12 @@ namespace BitSorter.View
             foreach (GateKind kind in EveryKind)
                 budget.Add(new LevelBudgetEntry(kind, LevelDefinition.UnlimitedBudget));
 
+            library = library ?? System.Array.Empty<BlockDefinition>();
+            var blocks = new List<LevelBlockBudgetEntry>(library.Count);
+
+            for (int i = 0; i < library.Count; i++)
+                blocks.Add(new LevelBlockBudgetEntry(library[i].Name, LevelDefinition.UnlimitedBudget));
+
             return new LevelDefinition(
                 name: "Sandbox",
                 hint: "Nothing here is graded. Wire whatever you like and watch what comes out.",
@@ -178,7 +196,10 @@ namespace BitSorter.View
                 // levels: a loop through a register cannot keep up with a vector every tick, so a
                 // state machine built at a clock of 1 destroys bits however carefully it is wired.
                 clockPeriod: config.Clock,
-                boardHalfExtents: halfExtents);
+                boardHalfExtents: halfExtents,
+                blocks: library,
+                blockBudget: blocks,
+                anyBlock: true);
         }
 
         /// <summary>

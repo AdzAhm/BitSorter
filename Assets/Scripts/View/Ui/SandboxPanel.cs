@@ -90,6 +90,12 @@ namespace BitSorter.View
         /// <summary>Whether DELETE has been pressed and the panel is asking whether it meant it.</summary>
         private bool _confirmingDelete;
 
+        /// <summary>Which of the library's blocks the BLOCKS section shows.</summary>
+        private int _block;
+
+        /// <summary>Whether the BLOCKS section is asking before it deletes that block.</summary>
+        private bool _confirmingBlockDelete;
+
         // -----------------------------------------------------------------
         // Layout
         // -----------------------------------------------------------------
@@ -251,13 +257,37 @@ namespace BitSorter.View
         /// <summary>Free play's own board, whatever the scene's is.</summary>
         private static Vector2Int Extents() => SandboxLevel.Board;
 
+        /// <summary>Free play as the setup and the library make it.</summary>
+        private LevelDefinition TheLevel() => SandboxLevel.Build(_config, Extents(), Library());
+
+        /// <summary>
+        /// The library, read back into blocks. One that no longer makes a block is left out of the
+        /// parts list rather than offered and refused.
+        /// </summary>
+        private List<BlockDefinition> Library()
+        {
+            var blocks = new List<BlockDefinition>();
+            ProgressStore store = Store;
+
+            if (store == null)
+                return blocks;
+
+            for (int i = 0; i < store.Library.Count; i++)
+            {
+                if (BoardSerializer.TryFromSaved(store.Library[i], out BlockDefinition block))
+                    blocks.Add(block);
+            }
+
+            return blocks;
+        }
+
         private void Adopt()
         {
             // Staged before the level is swapped, so the save that swapping triggers writes the
             // setup along with the board. The other order cost two whole-file writes per click.
             Stage();
 
-            _session.Adopt(SandboxLevel.Build(_config, Extents()), SandboxLevel.Key);
+            _session.Adopt(TheLevel(), SandboxLevel.Key);
         }
 
         /// <summary>
@@ -377,6 +407,7 @@ namespace BitSorter.View
             var column = new UiColumn();
 
             BoardsSection(column);
+            BlocksSection(column);
 
             // The same sentence the status banner carries. The panel no longer covers the banner, but
             // the moment a count reaches zero is the moment it needs saying next to the count.
@@ -842,6 +873,152 @@ namespace BitSorter.View
             column.Space(8f);
         }
 
+        /// <summary>
+        /// The library's blocks one at a time between two arrows, MAKE BLOCK, which turns the open
+        /// board into one, and DELETE, which takes one out of the library.
+        /// </summary>
+        /// <remarks>
+        /// DELETE asks first, as the BOARD section's does, and for the same reason the answer is
+        /// somewhere else: CANCEL takes the left of DELETE's row, YES, DELETE comes up on a row
+        /// below it, and where DELETE was is left empty, so a double-click answers nothing. Deleting
+        /// a block takes it out of the parts list and nowhere else: every board with one on it keeps
+        /// its own copy.
+        /// </remarks>
+        private void BlocksSection(UiColumn column)
+        {
+            ProgressStore store = Store;
+
+            if (store == null)
+                return;
+
+            Heading(column, "BLOCKS");
+
+            int count = store.Library.Count;
+            _block = Mathf.Clamp(_block, 0, Mathf.Max(0, count - 1));
+
+            bool asking = _confirmingBlockDelete && count > 0;
+            float y = -column.Take(StepHeight, 4f);
+
+            if (asking)
+            {
+                BoardLabel("Block question", $"Delete {store.Library[_block].name}?", UiTheme.Bad, 0f, y, Inner);
+            }
+            else if (count == 0)
+            {
+                BoardLabel("Block name", NoBlocksYet, UiTheme.TextDim, 0f, y, Inner);
+            }
+            else
+            {
+                BoardButton("Block previous", "<", 0f, y, 24f, _block > 0, ButtonRole.Secondary,
+                    () => { _block--; Rebuild(); });
+                BoardLabel("Block name", store.Library[_block].name, UiTheme.Text, 30f, y, Inner - 60f);
+                BoardButton("Block next", ">", Inner - 24f, y, 24f, _block < count - 1, ButtonRole.Secondary,
+                    () => { _block++; Rebuild(); });
+            }
+
+            float half = (Inner - 6f) * 0.5f;
+            float row = -column.Take(BoardButtonHeight, 4f);
+
+            if (asking)
+            {
+                BoardButton("Block delete cancel", "CANCEL", 0f, row, half, true, ButtonRole.Secondary,
+                    () => { _confirmingBlockDelete = false; Rebuild(); });
+
+                float below = -column.Take(BoardButtonHeight, 4f);
+                BoardButton("Block delete yes", "YES, DELETE", half + 6f, below, half, true,
+                    ButtonRole.Destructive, DeleteBlock);
+            }
+            else
+            {
+                BoardButton("Block make", "MAKE BLOCK", 0f, row, half,
+                    count < SandboxLevel.LibraryCapacity && _namer != null, ButtonRole.Secondary, MakeBlock);
+                BoardButton("Block delete", "DELETE", half + 6f, row, half, count > 0, ButtonRole.Destructive,
+                    () => { _confirmingBlockDelete = true; Rebuild(); });
+            }
+
+            column.Space(8f);
+        }
+
+        /// <summary>What the BLOCKS section says before there is a library.</summary>
+        public const string NoBlocksYet = "no blocks yet";
+
+        /// <summary>The heading MAKE BLOCK asks for a name under.</summary>
+        public const string NameThisBlock = "NAME THIS BLOCK";
+
+        /// <summary>
+        /// Turns the open board into a block in the library, under a name the player gives it.
+        /// </summary>
+        /// <remarks>
+        /// The board is asked first, under a stand-in name, so one that cannot be a block says why at
+        /// once -- a source wired straight to a sink, say -- rather than after a name has been typed.
+        /// The name is then held to the block's rules and to the library's, one name to a block
+        /// whatever its case, as boards are.
+        /// </remarks>
+        private void MakeBlock()
+        {
+            ProgressStore store = Store;
+
+            if (store == null || _namer == null || _session == null || _session.Level == null)
+                return;
+
+            if (!BlockRules.TryMakeFromBoard("B", _session.Level, _session.Blueprint, out BlockDefinition _,
+                    out string refusal))
+            {
+                if (_runner != null)
+                    _runner.RejectEdit(refusal);
+
+                return;
+            }
+
+            _namer.Ask(NextBlockName(store), typed =>
+            {
+                string name = typed == null ? string.Empty : typed.Trim();
+
+                if (store.HasBlockNamed(name))
+                    return $"There is a block called {name} already.";
+
+                if (!BlockRules.TryMakeFromBoard(name, _session.Level, _session.Blueprint, out BlockDefinition block,
+                        out string why))
+                {
+                    return why;
+                }
+
+                store.AddBlock(BoardSerializer.ToSaved(block));
+                store.Save();
+
+                _block = store.Library.Count - 1;
+                Changed();
+                return null;
+            }, NameThisBlock);
+        }
+
+        /// <summary>B1, B2 and on: the first such name the library does not have.</summary>
+        private static string NextBlockName(ProgressStore store)
+        {
+            for (int n = 1; ; n++)
+            {
+                string name = "B" + n;
+
+                if (!store.HasBlockNamed(name))
+                    return name;
+            }
+        }
+
+        private void DeleteBlock()
+        {
+            ProgressStore store = Store;
+            _confirmingBlockDelete = false;
+
+            if (store == null || !store.DeleteBlock(_block))
+            {
+                Rebuild();
+                return;
+            }
+
+            store.Save();
+            Changed();
+        }
+
         private void BoardButton(
             string name, string caption, float x, float y, float width, bool enabled, ButtonRole role,
             UnityEngine.Events.UnityAction go)
@@ -903,7 +1080,7 @@ namespace BitSorter.View
             _config.Normalise(capacity, capacity);
             _confirmingDelete = false;
 
-            _session.Adopt(SandboxLevel.Build(_config, Extents()), SandboxLevel.Key, between);
+            _session.Adopt(TheLevel(), SandboxLevel.Key, between);
 
             ApplySpeed();
             Rebuild();
@@ -1094,7 +1271,7 @@ namespace BitSorter.View
             _config.Normalise(SandboxLevel.Capacity(Extents()), SandboxLevel.Capacity(Extents()));
 
             Stage();
-            _session.Reconfigure(SandboxLevel.Build(_config, Extents()));
+            _session.Reconfigure(TheLevel());
 
             Rebuild();
         }

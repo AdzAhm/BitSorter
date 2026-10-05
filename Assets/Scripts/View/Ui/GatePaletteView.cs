@@ -118,13 +118,22 @@ namespace BitSorter.View
         private void OnEnable()
         {
             if (_session != null)
+            {
                 _session.LevelLoaded += Rebuild;
+
+                // Free play's parts are the player's: a block made or deleted from the library
+                // changes the list without changing the level.
+                _session.LevelChanged += Rebuild;
+            }
         }
 
         private void OnDisable()
         {
             if (_session != null)
+            {
                 _session.LevelLoaded -= Rebuild;
+                _session.LevelChanged -= Rebuild;
+            }
         }
 
         private void Update()
@@ -204,9 +213,8 @@ namespace BitSorter.View
             if (count == 0)
                 return;
 
-            float rowHeight = UiTheme.PaletteButton;
-            float total = count * (rowHeight + UiTheme.Gap) - UiTheme.Gap;
-            _root.sizeDelta = new Vector2(_root.sizeDelta.x, total + 26f);
+            float rowHeight = RowHeightFor(count);
+            _root.sizeDelta = new Vector2(_root.sizeDelta.x, ListHeight(count));
 
             for (int i = 0; i < level.Budget.Count; i++)
                 _rows.Add(BuildRow(level.Budget[i], i, rowHeight));
@@ -262,9 +270,33 @@ namespace BitSorter.View
             return row;
         }
 
+        /// <summary>Most rows a list draws at their full height; a longer one draws every row compact.</summary>
+        public const int FullRows = 9;
+
+        /// <summary>A compact row: the same icon, name and count, closer together.</summary>
+        public const float CompactRow = 48f;
+
+        /// <summary>Room under the rows for the delay budget's line.</summary>
+        private const float DelayLine = 26f;
+
+        /// <summary>How tall each row of a list this long is drawn.</summary>
+        /// <remarks>
+        /// Every row the same, never a mix: a list that changed size part-way down would read as two
+        /// lists. Only free play with a library reaches the compact size; no level stocks more than
+        /// nine parts.
+        /// </remarks>
+        public static float RowHeightFor(int rows) => rows > FullRows ? CompactRow : UiTheme.PaletteButton;
+
+        /// <summary>How tall a list of this many rows is, its delay line included.</summary>
+        public static float ListHeight(int rows) =>
+            rows * (RowHeightFor(rows) + UiTheme.Gap) - UiTheme.Gap + DelayLine;
+
         /// <summary>A row's button, icon, name and count, laid out the same for a gate and a block.</summary>
         private void Lay(Row row, string name, int index, float height, Sprite icon, Color colour, string caption)
         {
+            // A compact row keeps its name and count apart by drawing them nearer its edges.
+            float inset = height < UiTheme.PaletteButton ? UiTheme.Gap * 0.5f : UiTheme.Gap;
+
             row.Button = UiTheme.RowButton(name, _root);   // this row draws its own contents
 
             var rect = row.Button.GetComponent<RectTransform>();
@@ -278,7 +310,7 @@ namespace BitSorter.View
             // to learn two visual languages for one gate.
             RectTransform iconRect = UiTheme.Rect("icon", rect);
             UiTheme.Anchor(iconRect, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f),
-                new Vector2(UiTheme.Gap, 0f), new Vector2(height - UiTheme.Gap * 2f, height - UiTheme.Gap * 2f));
+                new Vector2(UiTheme.Gap, 0f), new Vector2(height - inset * 2f, height - inset * 2f));
 
             row.Icon = iconRect.gameObject.AddComponent<Image>();
             row.Icon.sprite = icon;
@@ -288,12 +320,12 @@ namespace BitSorter.View
             TextMeshProUGUI label = UiTheme.Label(
                 "name", rect, UiType.Label, UiTheme.Text, TextAlignmentOptions.Left);
             UiTheme.Anchor(label.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f),
-                new Vector2(height, -UiTheme.Gap), new Vector2(_root.sizeDelta.x - height - UiTheme.Gap, 22f));
+                new Vector2(height, -inset), new Vector2(_root.sizeDelta.x - height - UiTheme.Gap, 22f));
             label.text = caption;
 
             row.Count = UiTheme.Label("count", rect, UiType.Caption, UiTheme.TextDim, TextAlignmentOptions.Left);
             UiTheme.Anchor(row.Count.rectTransform, new Vector2(0f, 0f), new Vector2(0f, 0f),
-                new Vector2(height, UiTheme.Gap), new Vector2(_root.sizeDelta.x - height - UiTheme.Gap, 20f));
+                new Vector2(height, inset), new Vector2(_root.sizeDelta.x - height - UiTheme.Gap, 20f));
         }
 
         private void Choose(GateKind kind)

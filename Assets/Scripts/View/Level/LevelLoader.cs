@@ -686,6 +686,13 @@ namespace BitSorter.View
                     return false;
             }
 
+            if (budget.Count + blockBudget.Count > LevelDefinition.MaxPartsRows)
+            {
+                error = $"the budget lists {budget.Count + blockBudget.Count} parts, and the parts list " +
+                        $"shows at most {LevelDefinition.MaxPartsRows}";
+                return false;
+            }
+
             // A block defined and never stocked is a block the player can never place: a typo in the
             // budget, almost always, rather than a design.
             for (int b = 0; b < blocks.Count; b++)

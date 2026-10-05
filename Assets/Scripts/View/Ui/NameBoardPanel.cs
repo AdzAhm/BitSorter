@@ -34,6 +34,7 @@ namespace BitSorter.View
 
         private TMP_InputField _field;
         private TextMeshProUGUI _refusal;
+        private TextMeshProUGUI _title;
 
         /// <summary>Takes a name, returning null, or refuses it with the reason.</summary>
         private Func<string, string> _accept;
@@ -60,12 +61,14 @@ namespace BitSorter.View
         /// </summary>
         /// <param name="current">The name the field starts with.</param>
         /// <param name="accept">Takes a name, returning null, or refuses it with the reason.</param>
-        public void Ask(string current, Func<string, string> accept)
+        /// <param name="title">The heading, for a name that is not a board's: a block's, in free play.</param>
+        public void Ask(string current, Func<string, string> accept, string title = Title)
         {
             if (Root == null || accept == null)
                 return;
 
             _accept = accept;
+            _title.text = title;
             _refusal.text = string.Empty;
             _field.text = current ?? string.Empty;
 
@@ -103,11 +106,11 @@ namespace BitSorter.View
             Root = scrim.GetComponent<RectTransform>();
             UiTheme.Stretch(Root);
 
-            TextMeshProUGUI title = UiTheme.Label(
+            _title = UiTheme.Label(
                 "title", Root, UiType.Heading, UiTheme.Accent, TextAlignmentOptions.Center);
-            UiTheme.Anchor(title.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+            UiTheme.Anchor(_title.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                 new Vector2(0f, 110f), new Vector2(FieldWidth, 40f));
-            title.text = Title;
+            _title.text = Title;
 
             _field = BuildField();
 

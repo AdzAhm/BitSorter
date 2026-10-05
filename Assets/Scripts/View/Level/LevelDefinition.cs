@@ -46,6 +46,18 @@ namespace BitSorter.View
         /// </remarks>
         public const int UnlimitedBudget = -1;
 
+        /// <summary>
+        /// Most rows a parts list may have, gates and blocks together: what fits down the left edge
+        /// of a short browser window with each row drawn compact.
+        /// </summary>
+        /// <remarks>
+        /// The list sits between the menu's key at the top and the clock diagram's corner at the
+        /// bottom. At 1920 by 800, where the canvas is about 930 tall, that is 690, which holds nine
+        /// rows at their full 64 and eleven at a compact 48 (<see cref="GatePaletteView"/>). Every
+        /// shipped level has at most seven, so they all keep the full size.
+        /// </remarks>
+        public const int MaxPartsRows = 11;
+
         public LevelDefinition(
             string name,
             string hint,

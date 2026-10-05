@@ -1292,6 +1292,22 @@ boards save under the same key, so the store's open board has to change after
 the old one is written and before the new one is restored. A second subscriber
 to those events would be racing the tracker for them.
 
+**Free play keeps a library of blocks, and the parts list is what caps it.**
+The setup panel's BLOCKS section, under BOARD, steps through the library and
+has MAKE BLOCK, which turns the open board into a block under a name it asks
+for (`NameBoardPanel`, headed `NAME THIS BLOCK`), and DELETE, which asks
+first as the BOARD section's does. The board is held to `BlockRules` before
+any name is asked for, so one that cannot be a block says why at once. Every
+library block is in free play's parts list without limit, and the list has
+room for `LevelDefinition.MaxPartsRows`, eleven -- so the library holds
+`SandboxLevel.LibraryCapacity`, four, under the seven gates. Eleven fits a
+1920 by 800 browser tab only because a list longer than nine draws every row
+compact, 48 rather than 64 (`GatePaletteView.RowHeightFor`; `PartsListTests`
+holds every length to the window between the menu's key and the clock
+diagram's corner). No level stocks more than nine parts, so none is ever
+drawn compact. Deleting a block takes it out of the parts list and nowhere
+else: free play is `AnyBlock`, and every board keeps its own copy.
+
 **Fixtures have fixed slots and both edge columns are reserved.** Slot *i*
 sits at `halfExtents.y - i`, never re-centred: fixtures used to be centred
 in their column, so adding a source moved every one of them, and wires are
