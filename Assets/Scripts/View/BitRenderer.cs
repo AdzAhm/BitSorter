@@ -51,12 +51,41 @@ namespace BitSorter.View
         {
             public readonly SpriteRenderer Sprite;
             public readonly int TicksRemaining;
+            public readonly Bit Value;
 
-            public Tracked(SpriteRenderer sprite, int ticksRemaining)
+            public Tracked(SpriteRenderer sprite, int ticksRemaining, Bit value)
             {
                 Sprite = sprite;
                 TicksRemaining = ticksRemaining;
+                Value = value;
             }
+        }
+
+        /// <summary>A ring where a bit crossed a block's face (<see cref="PortPulse"/>), and how old it is.</summary>
+        private struct Pulse
+        {
+            public SpriteRenderer Sprite;
+            public Vector2 At;
+            public Bit Value;
+            public float Age;
+        }
+
+        private readonly List<Pulse> _pulses = new List<Pulse>();
+        private readonly Stack<SpriteRenderer> _pulsePool = new Stack<SpriteRenderer>();
+
+        /// <summary>
+        /// Pulses showing now: bits that crossed a block's face within the last
+        /// <see cref="PortPulse.Seconds"/>.
+        /// </summary>
+        public int PulseCount => _pulses.Count;
+
+        /// <summary>Where one showing pulse is, in whose colour, and how old, for tests.</summary>
+        public void GetPulse(int index, out Vector2 at, out Bit value, out float age)
+        {
+            Pulse pulse = _pulses[index];
+            at = pulse.At;
+            value = pulse.Value;
+            age = pulse.Age;
         }
 
         private Dictionary<long, Tracked> _live = new Dictionary<long, Tracked>();
@@ -128,7 +157,11 @@ namespace BitSorter.View
 
                 _live.Clear();
                 _trackedRevision = _runner.GraphRevision;
+                ReleasePulses();
             }
+
+            // Aged before this frame's crossings start theirs, so a new pulse is drawn at age zero.
+            AgePulses(Time.deltaTime);
 
             _next.Clear();
 
@@ -179,6 +212,11 @@ namespace BitSorter.View
                         // the bit rather than its position.
                         sprite = Rent(at);
                         OnNodeFired(edge, from);
+
+                        // New to the board out of a block: it has just crossed the box's face.
+                        Node drawnFrom = shape.DrawnFrom.Owner;
+                        if (IsBlockPort(drawnFrom))
+                            StartPulse(PortGeometry.EndpointOf(shape.DrawnFrom, _runner.PositionOf(drawnFrom.Id)), bit.Value);
                     }
 
                     Color colour = BitVisuals.ColourFor(bit.Value);
@@ -226,7 +264,7 @@ namespace BitSorter.View
                     sprite.color = emissive;
                     Tint(sprite, emissive, colour);
 
-                    _next[key] = new Tracked(sprite, bit.TicksRemaining);
+                    _next[key] = new Tracked(sprite, bit.TicksRemaining, bit.Value);
                 }
             }
 
@@ -234,7 +272,7 @@ namespace BitSorter.View
             // Dictionary<,> has a struct enumerator, so this foreach does not allocate.
             foreach (KeyValuePair<long, Tracked> stale in _live)
             {
-                OnBitGone(view, stale.Key, stale.Value.TicksRemaining);
+                OnBitGone(view, stale.Key, stale.Value.TicksRemaining, stale.Value.Value);
                 Release(stale.Value.Sprite);
             }
 
@@ -243,6 +281,93 @@ namespace BitSorter.View
             Dictionary<long, Tracked> spent = _live;
             _live = _next;
             _next = spent;
+
+            DrawPulses();
+        }
+
+        /// <summary>Whether this node is one of a block's ports: a port anchor on the box's face.</summary>
+        private bool IsBlockPort(Node node) =>
+            node != null && _runner.Circuit != null && _runner.Circuit.IsAnchor(node.Id);
+
+        /// <summary>
+        /// Starts the ring a bit leaves on a block's port as it crosses the box's face.
+        /// </summary>
+        /// <remarks>
+        /// Started, aged and drawn here, in the one <see cref="LateUpdate"/> that sees the bit cross,
+        /// so no other component's update order can put it a frame early or late, and a capture
+        /// draws it the same every time. It counts on <see cref="Time.deltaTime"/> from its own
+        /// start, and is let go at <see cref="PortPulse.Seconds"/>, where it is fully transparent.
+        /// </remarks>
+        private void StartPulse(Vector2 at, Bit value)
+        {
+            SpriteRenderer sprite;
+
+            if (_pulsePool.Count > 0)
+            {
+                sprite = _pulsePool.Pop();
+                sprite.gameObject.SetActive(true);
+            }
+            else
+            {
+                var host = new GameObject("Port pulse");
+                host.transform.SetParent(_container, false);
+
+                sprite = host.AddComponent<SpriteRenderer>();
+                sprite.sprite = ProceduralSprites.PulseRing();
+                sprite.sortingOrder = ViewLayers.PortPulse;
+            }
+
+            // Over its socket, which sits at depth zero: nearer the camera, never a tie.
+            sprite.transform.position = new Vector3(at.x, at.y, -PulseDepth);
+            _pulses.Add(new Pulse { Sprite = sprite, At = at, Value = value, Age = 0f });
+        }
+
+        /// <summary>How far in front of its socket a pulse is drawn.</summary>
+        private const float PulseDepth = 1e-3f;
+
+        private void AgePulses(float seconds)
+        {
+            for (int i = _pulses.Count - 1; i >= 0; i--)
+            {
+                Pulse pulse = _pulses[i];
+                pulse.Age += seconds;
+
+                if (PortPulse.IsOver(pulse.Age))
+                {
+                    pulse.Sprite.gameObject.SetActive(false);
+                    _pulsePool.Push(pulse.Sprite);
+                    _pulses.RemoveAt(i);
+                    continue;
+                }
+
+                _pulses[i] = pulse;
+            }
+        }
+
+        private void DrawPulses()
+        {
+            float socket = PortGeometry.StubSize;
+
+            for (int i = 0; i < _pulses.Count; i++)
+            {
+                Pulse pulse = _pulses[i];
+                Color colour = BitVisuals.ColourFor(pulse.Value);
+                colour.a = PortPulse.AlphaAt(pulse.Age);
+
+                pulse.Sprite.color = colour;
+                pulse.Sprite.transform.localScale = Vector3.one * (socket * PortPulse.ScaleAt(pulse.Age));
+            }
+        }
+
+        private void ReleasePulses()
+        {
+            for (int i = 0; i < _pulses.Count; i++)
+            {
+                _pulses[i].Sprite.gameObject.SetActive(false);
+                _pulsePool.Push(_pulses[i].Sprite);
+            }
+
+            _pulses.Clear();
         }
 
         /// <summary>
@@ -363,7 +488,7 @@ namespace BitSorter.View
         /// so it has arrived as far as the drawn wire goes once it had no more than those ticks and
         /// the last one left. On a wire with nothing hidden that is exactly the last tick.
         /// </remarks>
-        private void OnBitGone(SimulationView view, long key, int ticksRemaining)
+        private void OnBitGone(SimulationView view, long key, int ticksRemaining, Bit value)
         {
             int edgeId = EdgeOf(key);
             if (edgeId < 0 || edgeId >= view.EdgeCount)
@@ -385,10 +510,15 @@ namespace BitSorter.View
             if (drawnTo is SinkNode)
                 BinLandedCount++;
 
+            Vector2 target = PortGeometry.EndpointOf(shape.DrawnTo, _runner.PositionOf(drawnTo.Id));
+
+            // Into a block: it has just crossed the box's face.
+            if (IsBlockPort(drawnTo))
+                StartPulse(target, value);
+
             if (_sparks == null)
                 return;
 
-            Vector2 target = PortGeometry.EndpointOf(shape.DrawnTo, _runner.PositionOf(drawnTo.Id));
             _sparks.Burst(target, NodeShapes.ColourFor(drawnTo));
         }
 

@@ -103,7 +103,14 @@ namespace BitSorter.PlayMode.Tests
         public void OneTimeCleanup() => SaveGuard.Release();
 
         [TearDown]
-        public void ClearPlantedSave() => SaveGuard.Clear();
+        public void ClearPlantedSave()
+        {
+            SaveGuard.Clear();
+
+            // The pulse test fixes the frame time and puts it back itself; this is for the run where
+            // it failed before it got there.
+            Time.captureDeltaTime = 0f;
+        }
 
         [UnityTearDown]
         public IEnumerator ClearTheScene()
@@ -334,6 +341,75 @@ namespace BitSorter.PlayMode.Tests
             GameObject label = GameObject.Find("Edge 0 delay/number");
             Assert.IsNotNull(label, "sanity: no delay label on the wire");
             Assert.AreEqual("2", label.GetComponent<TextMeshPro>().text, "the label is not the delay drawn");
+        }
+
+        /// <summary>
+        /// A bit going into a box leaves a ring on the port it crossed, in its own colour, and so does
+        /// one coming out of it; a bit landing in a bin leaves none; and a pulse's length after the
+        /// last crossing, every ring is gone.
+        /// </summary>
+        /// <remarks>
+        /// The ticks are stepped by hand with the clock paused, so the bits stand still between them
+        /// and the only crossings are the ones a step makes. A fixed frame time makes a pulse's length
+        /// the same number of frames however fast the editor draws.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator ABitCrossingABlocksFace_PulsesThatPort_InItsColour_AndTheRingGoes()
+        {
+            yield return TheGame();
+            yield return OnTheLevel(FullAdderJson, FullAdderKey);
+
+            BuildTheFullAdder();
+            yield return null;
+
+            LevelSession session = Find<LevelSession>();
+            SimulationRunner runner = Find<SimulationRunner>();
+            BitRenderer bits = Find<BitRenderer>();
+            BuiltBlock adder = Block();
+
+            Vector2 intoA = runner.BlockPortPosition(adder, true, 0);
+            Vector2 outOfS = runner.BlockPortPosition(adder, false, 0);
+            Vector2 intoTheBin = runner.PositionOf(new PortAddress(runner.FixtureNodeIds["s"], true, 0));
+
+            Time.captureDeltaTime = 1f / 60f;
+            session.Run();
+            runner.SetPaused(true);
+
+            bool sawIn = false;
+            bool sawOut = false;
+
+            for (int tick = 0; tick < 8 && !(sawIn && sawOut); tick++)
+            {
+                runner.StepOneTick();
+                yield return null;
+                yield return null;
+
+                for (int i = 0; i < bits.PulseCount; i++)
+                {
+                    bits.GetPulse(i, out Vector2 at, out Bit value, out float _);
+
+                    Assert.Greater(Vector2.Distance(at, intoTheBin), 0.05f, "a bit landing in a bin left a ring");
+
+                    if (Vector2.Distance(at, intoA) < 0.05f)
+                    {
+                        sawIn = true;
+                        Assert.AreEqual(Bit.Zero, value, "the ring on A is not A's bit: A's first four are 0");
+                    }
+
+                    if (Vector2.Distance(at, outOfS) < 0.05f)
+                        sawOut = true;
+                }
+            }
+
+            Assert.IsTrue(sawIn, "a bit went into the box through A and left no ring there");
+            Assert.IsTrue(sawOut, "a bit came out of the box through S and left no ring there");
+
+            int frames = Mathf.CeilToInt(PortPulse.Seconds / Time.captureDeltaTime) + 2;
+            for (int frame = 0; frame < frames; frame++)
+                yield return null;
+
+            Assert.AreEqual(0, bits.PulseCount, "a ring outlived its pulse with nothing crossing");
+            Time.captureDeltaTime = 0f;
         }
     }
 }

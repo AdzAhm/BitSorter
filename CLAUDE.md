@@ -1054,6 +1054,16 @@ failure side.
   are its anchors' sockets, placed by `PortGeometry`'s block geometry, so a box
   one cell tall with two ports has them where a gate does.
 
+  **A bit crossing a box's face leaves a ring on the port it crossed**, in its
+  own plain colour, growing to half a gate's width and fading over 0.45
+  seconds, under a tick (`PortPulse`).
+  Nothing inside is drawn, so a bit went into the box and came out ticks later
+  with nothing to say the box was working (asked for after the 4.0.0 browser
+  playtest, 2026-10-05). `BitRenderer` starts, ages and draws it in the one
+  `LateUpdate` that sees the crossing, so no other component's update order
+  can move it a frame, and it is let go at its length, where it is fully
+  transparent.
+
   **Set a sliced sprite's draw mode before its transform's scale.** Switching a
   renderer to sliced rewrites the scale to keep the size the sprite had, and the
   first boxes came out 1.2 times too large -- found only by logging the

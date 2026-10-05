@@ -271,6 +271,33 @@ namespace BitSorter.View
                 new Vector4(PanelCorner, PanelCorner, PanelCorner, PanelCorner), UiPixelsPerUnit);
         }
 
+        /// <summary>
+        /// A thin ring, crisp up to a gate's width: the pulse a bit leaves on a block's port
+        /// (<see cref="PortPulse"/>).
+        /// </summary>
+        /// <remarks>
+        /// Not <see cref="Ring"/>. That one is drawn for a socket a few pixels across, and it uses
+        /// <see cref="Mathf.SmoothStep"/> as though it were the shader smoothstep, so it is a soft
+        /// disc whose middle and corners never reach zero -- grown to a gate's width it read as a
+        /// blob in a faint square (found by a render probe, 2026-10-06). Exactly empty inside the
+        /// ring and outside it, so nothing of the square it is drawn on can show.
+        /// </remarks>
+        public static Sprite PulseRing() => Field("pulse-ring", NodeSize, p =>
+        {
+            float d = p.magnitude;
+            return Edge(0.55f, 0.68f, d) * (1f - Edge(0.84f, 0.96f, d));
+        });
+
+        /// <summary>
+        /// The shader's smoothstep, which <see cref="Mathf.SmoothStep"/> is not: 0 up to
+        /// <paramref name="from"/>, 1 from <paramref name="to"/>, eased between.
+        /// </summary>
+        private static float Edge(float from, float to, float x)
+        {
+            float t = Mathf.InverseLerp(from, to, x);
+            return t * t * (3f - 2f * t);
+        }
+
         /// <summary>Soft radial falloff, used behind everything that should appear to glow.</summary>
         public static Sprite Glow() => Field("glow", NodeSize, p =>
         {

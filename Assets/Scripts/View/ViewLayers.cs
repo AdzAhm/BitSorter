@@ -75,6 +75,13 @@ namespace BitSorter.View
         public const int Port = 3;
 
         /// <summary>
+        /// The ring a bit leaves on a block's port as it crosses the box's face
+        /// (<see cref="PortPulse"/>): over its socket, at the socket's order and a nearer depth,
+        /// never a tie.
+        /// </summary>
+        public const int PortPulse = Port;
+
+        /// <summary>
         /// The cross on a waiting bit that an imminent collision will take with it, over its port.
         /// </summary>
         /// <remarks>
