@@ -154,6 +154,17 @@ namespace BitSorter.PlayMode.Tests
         /// of the text for the inspector, built as a char array and then a string from it
         /// (<c>TMP_Text.InternalTextBackingArrayToString</c>). A player has no such line. So the
         /// counting frames are held to nothing at all, and the redraw to that copy.
+        ///
+        /// **It measures on a short frame.** Every call adds this frame's length to the count, and
+        /// at least one quiet call is made, so on a frame longer than a quarter of the window the
+        /// count finished inside the quiet stretch and the counter redrew -- garbage it is allowed
+        /// to make, failing a test about frames that make none. And the frame the first count ends
+        /// on is more likely than most to be a long one, because a long frame is what pushes a
+        /// count over the line. It failed twice running on 2026-10-05, on changes that did not
+        /// touch the counter, while the editor drew slowly -- the runs took 177 seconds where they
+        /// had taken 150 -- and passed once it waited for a short frame. That run was faster too,
+        /// so a long frame is the likely cause and not a proven one; the failure now says how long
+        /// the frame was.
         /// </remarks>
         [UnityTest]
         public IEnumerator TheFrameRateCounter_AllocatesNothingCounting_AndOnlyTheEditorsCopyRedrawing()
@@ -167,6 +178,12 @@ namespace BitSorter.PlayMode.Tests
                 yield return null;
 
             Assert.Greater(counter.Shown, 0, "sanity: the counter never counted");
+
+            for (int frame = 0; frame < 600 && Time.unscaledDeltaTime > FrameRateCounter.Window / 8f; frame++)
+                yield return null;
+
+            Assert.LessOrEqual(Time.unscaledDeltaTime, FrameRateCounter.Window / 8f,
+                "sanity: the editor never drew a frame short enough to count quietly on");
 
             Action update = FrameOf(counter);
             FrameRate.SetCounter(false);
@@ -182,7 +199,7 @@ namespace BitSorter.PlayMode.Tests
             {
                 for (int call = 0; call < quiet; call++)
                     update();
-            }, Is.Not.AllocatingGCMemory(), "the counter made garbage counting frames");
+            }, Is.Not.AllocatingGCMemory(), $"the counter made garbage counting {quiet} frames of {delta:F4}s");
 
             Assert.AreEqual(-1, counter.Shown, "sanity: the quiet frames should have stayed inside one count");
 
