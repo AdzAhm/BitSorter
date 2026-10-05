@@ -1148,6 +1148,11 @@ failure side.
     out as far as the whole run, which is how the fit comes back. Shift with
     the wheel, or a sideways scroll, moves through time; back at the latest
     ticks, the view follows the run again.
+  - A fitted tick stops at 160 and a zoomed one at four times that
+    (`WaveformZoom.MaxZoomedTickWidth`). Both used to stop at 160, where a
+    short run is fitted already, so on most short levels the wheel and Shift
+    with it did nothing at all, and a playtester took both for broken
+    (2026-10-05).
   - A new run keeps the zoom and follows the playhead; a new level starts
     fitted.
   - The header names the gestures at its right-hand end

@@ -62,10 +62,8 @@ namespace BitSorter.LogicCore.Tests
             Assert.AreEqual(1.25f, WaveformZoom.Zoomed(1f, 1, 50f), 1e-5f, "one notch in");
             Assert.AreEqual(1f, WaveformZoom.Zoomed(1f, -1, 50f), "out past the whole run");
             Assert.AreEqual(1f, WaveformZoom.Zoomed(3.2f, -100, 50f), "all the way back out");
-            Assert.AreEqual(WaveformZoom.MaxTickWidth / 50f, WaveformZoom.Zoomed(1f, 100, 50f), 1e-4f,
+            Assert.AreEqual(WaveformZoom.MaxZoomedTickWidth / 50f, WaveformZoom.Zoomed(1f, 100, 50f), 1e-4f,
                 "in past the widest tick");
-            Assert.AreEqual(1f, WaveformZoom.Zoomed(1f, 1, WaveformZoom.MaxTickWidth),
-                "a run already as wide as a tick is drawn has nothing to zoom into");
 
             Assert.AreEqual(62.5f, WaveformZoom.TickWidth(50f, 1.25f), 1e-4f);
             Assert.AreEqual(50f, WaveformZoom.TickWidth(50f, 0.5f), "a zoom under the fit");

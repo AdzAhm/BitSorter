@@ -22,14 +22,27 @@ namespace BitSorter.View
     ///
     /// **Zoom is measured from the fit**, so zooming back out stops at the whole run and there is no
     /// separate way back to it.
+    ///
+    /// **A fitted tick and a zoomed one have different limits.** Both used to stop at
+    /// <see cref="MaxTickWidth"/>, and a short run is fitted at that width already, so on most
+    /// short levels the wheel did nothing -- and with the whole run in view, Shift with it had
+    /// nothing to move to. A playtester took both for broken (2026-10-05). The fit still stops at
+    /// <see cref="MaxTickWidth"/>, so nothing fitted looks any different; the zoom goes on to
+    /// <see cref="MaxZoomedTickWidth"/>.
     /// </remarks>
     public static class WaveformZoom
     {
         /// <summary>The narrowest tick: a step, a dash and a cross still read.</summary>
         public const float MinTickWidth = 8f;
 
-        /// <summary>The widest tick, zoomed in or fitted to a short run.</summary>
+        /// <summary>The widest a tick is drawn when the run is fitted: a short run fills no wider.</summary>
         public const float MaxTickWidth = 160f;
+
+        /// <summary>
+        /// The widest a tick is drawn zoomed in: four of the widest fitted ticks, about two and a half
+        /// across the strip at 1080, so even a short run zooms in six notches.
+        /// </summary>
+        public const float MaxZoomedTickWidth = 4f * MaxTickWidth;
 
         /// <summary>How much one notch of the wheel zooms in or out.</summary>
         public const float Step = 1.25f;
@@ -77,7 +90,7 @@ namespace BitSorter.View
 
         /// <summary>The tick width at a zoom over the fit.</summary>
         public static float TickWidth(float fitWidth, float zoom) =>
-            Mathf.Clamp(fitWidth * (zoom < 1f ? 1f : zoom), MinTickWidth, MaxTickWidth);
+            Mathf.Clamp(fitWidth * (zoom < 1f ? 1f : zoom), MinTickWidth, MaxZoomedTickWidth);
 
         /// <summary>How many whole ticks fit across.</summary>
         /// <remarks>
@@ -89,11 +102,11 @@ namespace BitSorter.View
 
         /// <summary>
         /// The zoom after this many notches of the wheel: never under the fit, and never past the
-        /// widest tick.
+        /// widest a zoomed tick is drawn.
         /// </summary>
         public static float Zoomed(float zoom, int notches, float fitWidth)
         {
-            float most = fitWidth > 0f ? MaxTickWidth / fitWidth : 1f;
+            float most = fitWidth > 0f ? MaxZoomedTickWidth / fitWidth : 1f;
 
             if (most < 1f)
                 most = 1f;

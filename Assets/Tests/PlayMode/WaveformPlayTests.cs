@@ -301,9 +301,10 @@ namespace BitSorter.PlayMode.Tests
         /// nothing to the strip anywhere else.
         /// </summary>
         /// <remarks>
-        /// On Out of step, whose run of sixteen vectors fits at a width the strip can still zoom in
-        /// from; a half adder's run is already as wide as a tick is drawn. The wheel off the strip is
-        /// turned over the banner, where nothing on the board can take it either.
+        /// On Out of step, whose run of sixteen vectors fits narrower than the widest fitted tick, so
+        /// the zoom is plainly from the fit; a short run zooms too (<c>WaveformZoomTests</c>). The
+        /// wheel off the strip is turned over the banner, where nothing on the board can take it
+        /// either.
         /// </remarks>
         [UnityTest]
         public IEnumerator TheWheel_ZoomsInOverTheStrip_AndBackOutToTheWholeRun()
