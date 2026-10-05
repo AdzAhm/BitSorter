@@ -66,6 +66,46 @@ namespace BitSorter.LogicCore.Tests
         /// The pair to the two above: a check that rebuilt on every call would satisfy them and
         /// quietly make every panel regenerate its backdrop.
         /// </remarks>
+        /// <summary>
+        /// An empty socket is a ring: nothing in its middle or past its rim, and solid in its band.
+        /// </summary>
+        /// <remarks>
+        /// It was drawn with <see cref="Mathf.SmoothStep"/> as though it were the shader smoothstep,
+        /// which it is not -- it eases between its first two arguments -- so the "ring" was a faint
+        /// disc: 0.11 in its middle, 0.012 in its corners and far from solid in its band. Found by a
+        /// render probe of the block pulse, 2026-10-06.
+        /// </remarks>
+        [Test]
+        public void AnEmptySocket_IsARing_EmptyInsideAndOut_AndSolidInItsBand()
+        {
+            Texture2D texture = ProceduralSprites.Ring().texture;
+            int size = texture.width;
+
+            Assert.AreEqual(0f, texture.GetPixel(size / 2, size / 2).a, "the middle of an empty socket is not empty");
+            Assert.AreEqual(0f, texture.GetPixel(0, 0).a, "a corner of an empty socket is not empty");
+
+            // Six tenths of the way out, inside both of the ring's soft edges.
+            int band = size / 2 + Mathf.RoundToInt(size / 2f * 0.6f);
+            Assert.Greater(texture.GetPixel(band, size / 2).a, 0.95f, "the ring's band is not solid");
+        }
+
+        /// <summary>
+        /// A dot -- a bit in Classic, a spark, an output socket, a grid point -- is solid at its core
+        /// and empty past its edge.
+        /// </summary>
+        /// <remarks>
+        /// The same misuse of <see cref="Mathf.SmoothStep"/> left its core at 0.65.
+        /// </remarks>
+        [Test]
+        public void ADot_IsSolidAtItsCore_AndEmptyPastItsEdge()
+        {
+            Texture2D texture = ProceduralSprites.Dot().texture;
+            int size = texture.width;
+
+            Assert.AreEqual(1f, texture.GetPixel(size / 2, size / 2).a, "a dot's core is not solid");
+            Assert.AreEqual(0f, texture.GetPixel(0, 0).a, "a dot's corner is not empty");
+        }
+
         [Test]
         public void AskingTwiceForTheSameSprite_ReturnsTheSameOne()
         {
