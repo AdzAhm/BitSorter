@@ -63,6 +63,7 @@ namespace BitSorter.View
         private float _right = -1f;
         private float _top = -1f;
         private float _bottom = -1f;
+        private float _required = -1f;
         private Vector2 _corner = new Vector2(-1f, -1f);
 
         private void Awake()
@@ -106,11 +107,12 @@ namespace BitSorter.View
             Vector2 corner = Corner();
 
             // Only on an actual change. The alternative is re-framing every frame forever to discover
-            // nothing moved.
+            // nothing moved. The reach above the top row is a change too: free play's first block
+            // asks for room over the top row without the board changing size.
             if (Screen.width == _width && Screen.height == _height &&
                 Mathf.Approximately(left, _left) && Mathf.Approximately(right, _right) &&
                 Mathf.Approximately(top, _top) && Mathf.Approximately(bottom, _bottom) &&
-                corner == _corner)
+                corner == _corner && Mathf.Approximately(RequiredTop(), _required))
             {
                 return;
             }
@@ -130,6 +132,7 @@ namespace BitSorter.View
             _top = top;
             _bottom = bottom;
             _corner = corner;
+            _required = RequiredTop();
 
             Framing framing = CameraFraming.Fit(
                 RequiredHalfWidth(), RequiredHalfHeight(), RequiredTop(), _authoredSize,
@@ -227,8 +230,9 @@ namespace BitSorter.View
         }
 
         /// <summary>
-        /// The bottom row and the names under it. Nothing hangs above the top row, so the lower
-        /// half is the taller -- but the banner hangs over it, which is <see cref="RequiredTop"/>.
+        /// The bottom row and the names under it. Nothing taller than a name hangs above the top row,
+        /// so the lower half is never the shorter -- but the banner hangs over the top, which is
+        /// <see cref="RequiredTop"/>.
         /// </summary>
         private float RequiredHalfHeight()
         {
@@ -241,13 +245,30 @@ namespace BitSorter.View
         /// <summary>World units of clearance below the bottom row's names.</summary>
         private const float VerticalMargin = 0.2f;
 
-        /// <summary>How far above the centre a part on the top row reaches.</summary>
+        /// <summary>
+        /// How far above the centre the top row reaches: a part on it, or on a level that stocks a
+        /// block, the block's name over it.
+        /// </summary>
+        /// <remarks>
+        /// A block's name sits above its box, as far from it as a fixture's name sits below its own,
+        /// so a block on the top row has a name over that row exactly as tall as the bottom row's
+        /// names. Until blocks nothing hung above the top row, and on a board fitted by its height --
+        /// Four at once's 13 by 9, under a three-line goal -- the first full adder's name, on the
+        /// row beside A0 where it naturally goes, was drawn under the banner.
+        ///
+        /// Decided by the level, as <see cref="Corner"/> is, and never by what is placed: a block put
+        /// on the top row would otherwise shrink the board under the player's hand.
+        /// </remarks>
         private float RequiredTop()
         {
             if (_grid == null)
                 return 0f;
 
-            return _grid.HalfExtents.y * _grid.CellSize + PortGeometry.NodeSize * 0.5f;
+            LevelDefinition level = _session != null ? _session.Level : null;
+            bool stocksABlock = level != null && level.BlockBudget.Count > 0;
+
+            return _grid.HalfExtents.y * _grid.CellSize +
+                   (stocksABlock ? NodeRenderer.LabelReach : PortGeometry.NodeSize * 0.5f);
         }
 
         /// <summary>Half the world width the board needs, including its margin.</summary>

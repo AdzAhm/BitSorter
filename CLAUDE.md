@@ -798,6 +798,12 @@ failure side.
   the folded setup tab is framed again with the corner as a right inset, about
   7% smaller (`UiRows.TopRightCorner`); every other framing is untouched, to
   the pixel, and a gate the player drops there never reframes the board.
+  **On a level that stocks a block, the top row is framed with a name over
+  it** (`CameraFit.RequiredTop`): a block's name sits above its box as far as
+  a fixture's sits below its own, and on Four at once's 13 by 9 board, fitted
+  by its height, the first full adder's name -- on the top row beside A0,
+  where it naturally goes -- was drawn under the banner. Decided by the level,
+  as the corner is.
 
   **A level may name its own board, and the level wins.** `board: { columns,
   rows }` in the file, odd both ways because the grid is centred on the
