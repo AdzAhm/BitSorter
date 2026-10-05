@@ -1,7 +1,7 @@
 {
   "name": "Look ahead",
   "order": 99,
-  "goal": "Add as in Four at once, but in 8 ticks. LA reads two columns of A and B and the carry into them, and works out the carry out of both at once. Like FA, it takes its carry a tick late.",
+  "goal": "Add A, B and CIN in 8 ticks. FA is a full adder. LA is a carry lookahead: given two columns of A and B and their carry in, it works out their carry out at once. Both take the carry a tick late.",
   "hint": "The sum is only as quick as the carry that reaches the top. Let it get there without passing through every box on the way.",
   "tickLimit": 60,
   "maxWireDelay": 7,
