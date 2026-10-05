@@ -71,6 +71,25 @@ namespace BitSorter.LogicCore.Tests
             Assert.AreEqual(50f, WaveformZoom.TickWidth(50f, 0.5f), "a zoom under the fit");
         }
 
+        /// <summary>
+        /// A short run, fitted already at the widest a fitted tick is drawn, still zooms in.
+        /// </summary>
+        /// <remarks>
+        /// From a playtest, 2026-10-05: on a short level neither the wheel nor Shift with it did
+        /// anything to the strip, whose header says both do. The zoom stopped at the widest fitted
+        /// tick, so a run fitted there had nothing to zoom into -- and with the whole run in view,
+        /// nothing to move to either.
+        /// </remarks>
+        [Test]
+        public void AShortRun_FittedAtTheWidest_StillZoomsIn()
+        {
+            float zoomed = WaveformZoom.Zoomed(1f, 1, WaveformZoom.MaxTickWidth);
+
+            Assert.Greater(zoomed, 1f, "one notch in on a short run did nothing");
+            Assert.Greater(WaveformZoom.TickWidth(WaveformZoom.MaxTickWidth, zoomed), WaveformZoom.MaxTickWidth,
+                "zoomed in on a short run, the ticks are no wider");
+        }
+
         /// <summary>The tick under the cursor stays under it as the strip zooms.</summary>
         [Test]
         public void AZoom_KeepsTheTickUnderTheCursor()
