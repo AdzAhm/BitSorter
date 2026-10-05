@@ -93,7 +93,7 @@ namespace BitSorter.LogicCore.Tests
         [TestCase(10, 7, "odd")]
         [TestCase(13, 6, "odd")]
         [TestCase(15, 7, "from 9 by 5")]
-        [TestCase(13, 9, "from 9 by 5")]
+        [TestCase(13, 11, "from 9 by 5")]
         [TestCase(7, 5, "from 9 by 5")]
         [TestCase(13, 0, "give both")]
         public void ABoardOfTheWrongSize_IsRefusedWithAReason(int columns, int rows, string reason)

@@ -91,7 +91,7 @@ namespace BitSorter.View
         /// Absent, or zero, is the 9 by 5 board every level had before this field.
         /// </summary>
         /// <remarks>
-        /// Odd both ways, because the grid is centred on the origin, and from 9 by 5 up to 13 by 7:
+        /// Odd both ways, because the grid is centred on the origin, and from 9 by 5 up to 13 by 9:
         /// past that a cell is drawn too small to read on one screen, and the board is never
         /// panned or zoomed.
         /// </remarks>

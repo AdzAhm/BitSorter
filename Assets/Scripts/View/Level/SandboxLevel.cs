@@ -84,7 +84,10 @@ namespace BitSorter.View
         /// </remarks>
         public static int Capacity(Vector2Int halfExtents) => halfExtents.y * 2 + 1;
 
-        /// <summary>Free play's board: 13 by 7, the largest a level may name.</summary>
+        /// <summary>
+        /// Free play's board: 13 by 7, two rows short of the largest a level may name, because free
+        /// play's setup panel takes the right of the screen beside it.
+        /// </summary>
         /// <remarks>
         /// Wider than a taught level's because free play is where a circuit bigger than any level
         /// gets built, and taller so a column holds seven fixtures rather than five. Fixed rather

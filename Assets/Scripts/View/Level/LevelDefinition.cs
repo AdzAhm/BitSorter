@@ -221,7 +221,7 @@ namespace BitSorter.View
 
         /// <summary>
         /// Cells either side of the origin on this level's board: (4, 2) for the standard 9 by 5,
-        /// (6, 3) for 13 by 7. Zero for a definition built without saying, which the session
+        /// (6, 4) for 13 by 9, the largest. Zero for a definition built without saying, which the session
         /// reads as "the scene's own board".
         /// </summary>
         /// <remarks>

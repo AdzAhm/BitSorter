@@ -47,7 +47,7 @@ namespace BitSorter.View
     public static class LevelLoader
     {
         /// <summary>
-        /// Used when a file omits tickLimit. Generous: the largest board is 13 by 7 cells, and free
+        /// Used when a file omits tickLimit. Generous: the largest board is 13 by 9 cells, and free
         /// play's longest input -- eight vectors at a clock of six -- has played its last bit by tick
         /// 42, so no honestly built circuit comes near it. It exists only to stop an oscillator -- a
         /// gate fed by its own output, which WiringRules deliberately allows -- from hanging a run
@@ -495,10 +495,17 @@ namespace BitSorter.View
         /// The largest board a level may name. Past it a cell is drawn too small to read, since the
         /// board is fitted to the screen and never panned.
         /// </summary>
+        /// <remarks>
+        /// Nine rows since the two 4-bit adders: two 4-bit numbers and a carry in are nine sources,
+        /// and a column of seven cannot hold them. Two columns of sources and a row of them along the
+        /// top were rendered beside a 13 by 9 board, and the taller board won (Ahmad's choice,
+        /// 2026-10-05): every wire short and running one way. A level has no setup panel beside it,
+        /// which is what made seven rows the limit for free play.
+        /// </remarks>
         public const int MaxColumns = 13;
 
         /// <inheritdoc cref="MaxColumns"/>
-        public const int MaxRows = 7;
+        public const int MaxRows = 9;
 
         /// <summary>
         /// The board a level is played on: its own, if it names one, or the fallback.

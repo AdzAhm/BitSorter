@@ -76,7 +76,7 @@ to the one you want; `pick-a-lane.json` and `pass-it-on.json` are short.
 | `maxWireDelay`, `delayBudget` | The longest one wire may be, and the total extra delay across all wires. |
 | `maxLatency` | The longest the critical path may be, in ticks. |
 | `clockPeriod` | Ticks between vectors. Sequential levels need one; see the design notes. |
-| `board` | `{ "columns": 11, "rows": 7 }` for a board bigger than 9 by 5. Odd sizes, up to 13 by 7. |
+| `board` | `{ "columns": 11, "rows": 7 }` for a board bigger than 9 by 5. Odd sizes, up to 13 by 9. |
 | `start` | A circuit the board opens on, for a level about finding what is wrong with one: `gates` (`kind`, `cell`) and `wires` (`from`, `fromPort`, `to`, `toPort`, `delay`). It is held to every rule a player's board is. Its parts count against `budget`, so the budget is the start's parts plus any spares, and its wires spend `delayBudget` from the start. `out-of-step.json` is an example. |
 | `blocks` | The blocks the level defines, each a small board written as a start is: a `name` of up to four characters, `inputs` and `outputs` (each an `id` and the `cell` its wires inside start or end on), `gates` and `wires`. Every input must lead somewhere inside, every output must be fed by exactly one wire, and none may hold a register. The budget must stock every block it defines. |
 

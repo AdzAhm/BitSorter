@@ -801,7 +801,7 @@ failure side.
 
   **A level may name its own board, and the level wins.** `board: { columns,
   rows }` in the file, odd both ways because the grid is centred on the
-  origin, from 9 by 5 up to 13 by 7 (`LevelLoader.MinColumns` to
+  origin, from 9 by 5 up to 13 by 9 (`LevelLoader.MinColumns` to
   `MaxColumns`, and rows likewise); a file without one gets the scene's 9 by
   5, and so does every level written before the field. `LevelSession` resizes
   the grid before it raises `LevelLoaded`, so everything that hears about a
@@ -812,8 +812,12 @@ failure side.
   clear of the banner, which a seven-row board fitted by height alone reached
   under (`CameraFit.TopInset`, the drawn banner rather than its reserved row,
   so a short goal costs no board). That is why the cap
-  exists -- a bigger board would only mean smaller cells, and 13 by 7 is the
-  largest drawn and seen still readable with free play's setup panel open.
+  exists -- a bigger board would only mean smaller cells. 13 by 7 is the
+  largest drawn and seen still readable with free play's setup panel open,
+  which is why free play stops there; a level has no panel beside it, and
+  13 by 9 was rendered and chosen for the two 4-bit adders, whose nine
+  sources a column of seven cannot hold (Ahmad's choice, 2026-10-05, over a
+  second column of sources and a row of them along the top).
   A 9 by 5 board renders exactly as it did before boards could change size,
   which the reference shots confirmed to the pixel.
 - **Nothing may depend on the order components update in.** Unity leaves it
@@ -1317,8 +1321,8 @@ of gates, because the count is the player's to raise at any moment.
 Wires may still end on a reserved slot, so a fixture counted away leaves
 its wires in the blueprint, built by nothing, and they return with it.
 **Free play is on its own 13 by 7 board** (`SandboxLevel.Board`), the
-largest a level may name, so a column holds seven fixtures and there is room
-for a circuit bigger than any level's. Boards saved on an older layout are
+largest with its setup panel open beside it, so a column holds seven fixtures
+and there is room for a circuit bigger than most levels'. Boards saved on an older layout are
 brought up a step at a time by `SandboxLevel.Migrate` -- which the store runs
 on every free-play board as it reads the file, so a board opened later in the
 session arrives migrated too -- gated by `SandboxConfig.layout`: 0 centred its fixtures on the 9 by 5 board
