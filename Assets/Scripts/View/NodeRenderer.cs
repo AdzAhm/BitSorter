@@ -345,8 +345,10 @@ namespace BitSorter.View
             for (int id = 0; id < view.NodeCount; id++)
             {
                 Node node = view.GetNode(id);
-                if (node == null)
-                    continue;   // retired id
+
+                // A retired id, or one of a block's nodes, which the block's box stands for.
+                if (node == null || !_runner.IsShownNode(id))
+                    continue;
 
                 Vector2 centre = _runner.PositionOf(id);
                 Color colour = NodeShapes.ColourFor(node);

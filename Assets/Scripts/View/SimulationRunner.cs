@@ -180,8 +180,92 @@ namespace BitSorter.View
             authored / (speed < DefaultSpeed ? DefaultSpeed : speed);
 
         /// <summary>Screen position for a node id, or the origin if the id is unknown.</summary>
-        public Vector2 PositionOf(int nodeId) =>
-            TryCellOf(nodeId, out Vector2Int cell) ? CellToWorld(cell) : Vector2.zero;
+        /// <remarks>
+        /// A block's nodes all stand on its top cell in the layout table, and are placed here instead:
+        /// a port anchor where its port lands on the box's face, and a gate inside at the box's middle.
+        /// </remarks>
+        public Vector2 PositionOf(int nodeId)
+        {
+            if (!TryCellOf(nodeId, out Vector2Int cell))
+                return Vector2.zero;
+
+            int block = _circuit.BlockOf(nodeId);
+
+            if (block < 0)
+                return CellToWorld(cell);
+
+            BuiltBlock built = _circuit.Blocks[block];
+
+            if (_circuit.TryAnchorOf(nodeId, out bool isInput, out int port))
+                return PortGeometry.AnchorCentre(BlockPortPosition(built, isInput, port), isInput);
+
+            return BlockCentre(built);
+        }
+
+        /// <summary>The most recent build, for what needs more of it than the graph.</summary>
+        public BuiltCircuit Circuit => _circuit;
+
+        /// <summary>The middle of a block's box, in world space.</summary>
+        public Vector2 BlockCentre(BuiltBlock block) =>
+            PortGeometry.BlockCentre(CellToWorld(block.Cell), block.Definition.Height, CellSize);
+
+        /// <summary>How tall a block's box is drawn, in world units.</summary>
+        public float BlockHeight(BuiltBlock block) => PortGeometry.BlockHeight(block.Definition.Height, CellSize);
+
+        /// <summary>Where one of a block's ports sits on its box, in world space.</summary>
+        public Vector2 BlockPortPosition(BuiltBlock block, bool isInput, int port) =>
+            PortGeometry.BlockPortPosition(BlockCentre(block), BlockHeight(block), isInput, port,
+                isInput ? block.Definition.Inputs.Count : block.Definition.Outputs.Count);
+
+        private float CellSize => _grid != null ? _grid.CellSize : 2f;
+
+        /// <summary>Whether a node is drawn as itself: every part on the board, and nothing of a block's.</summary>
+        public bool IsShownNode(int nodeId) => !IsReady || _circuit.BlockOf(nodeId) < 0;
+
+        /// <summary>
+        /// Whether a port is on the board to be seen and wired: every port of a part, and the side of
+        /// a block's anchor that faces out.
+        /// </summary>
+        public bool IsShownPort(int nodeId, bool isInput) => !IsReady || _circuit.IsShownPort(nodeId, isInput);
+
+        /// <summary>How an edge is drawn. See <see cref="EdgeShape"/>.</summary>
+        public EdgeShape ShapeOf(Edge edge) => _circuit.Shapes[edge.Id];
+
+        /// <summary>Whether an edge draws a wire: false inside a block, and for the copies of one.</summary>
+        public bool IsDrawn(Edge edge) =>
+            IsReady && edge != null && edge.Id >= 0 && edge.Id < _circuit.Shapes.Count && _circuit.Shapes[edge.Id].Drawn;
+
+        /// <summary>The two ends a drawn edge's wire runs between, from the shared port geometry.</summary>
+        public void DrawnEndsOf(Edge edge, out Vector2 from, out Vector2 to)
+        {
+            EdgeShape shape = _circuit.Shapes[edge.Id];
+
+            from = PortGeometry.EndpointOf(shape.DrawnFrom, PositionOf(shape.DrawnFrom.Owner.Id));
+            to = PortGeometry.EndpointOf(shape.DrawnTo, PositionOf(shape.DrawnTo.Owner.Id));
+        }
+
+        /// <summary>
+        /// Where an input port is shown: on its part, or for a port inside a block, on the box that
+        /// hides it.
+        /// </summary>
+        public Vector2 ShownPositionOf(InputPort port)
+        {
+            int block = _circuit.BlockOf(port.Owner.Id);
+
+            return block >= 0 && !_circuit.IsShownPort(port.Owner.Id, true)
+                ? BlockCentre(_circuit.Blocks[block])
+                : PortGeometry.EndpointOf(port, PositionOf(port.Owner.Id));
+        }
+
+        /// <summary>The port on the board a node's port stands for, as the blueprint stores wires.</summary>
+        public bool TryBoardPort(int nodeId, bool isInput, int index, out CellPort port)
+        {
+            if (_circuit != null)
+                return _circuit.TryBoardPort(nodeId, isInput, index, out port);
+
+            port = default;
+            return false;
+        }
 
         /// <summary>World position of a port, from the shared geometry both sides agree on.</summary>
         public Vector2 PositionOf(PortAddress address)
@@ -324,11 +408,12 @@ namespace BitSorter.View
             for (int id = 0; id < view.EdgeCount; id++)
             {
                 Edge edge = view.GetEdge(id);
-                if (edge == null)
-                    continue;   // retired id
 
-                Vector2 a = PortGeometry.EndpointOf(edge.Source, PositionOf(edge.Source.Owner.Id));
-                Vector2 b = PortGeometry.EndpointOf(edge.Target, PositionOf(edge.Target.Owner.Id));
+                // A retired id, a wire inside a block, or a copy of a wire already drawn.
+                if (edge == null || !IsDrawn(edge))
+                    continue;
+
+                DrawnEndsOf(edge, out Vector2 a, out Vector2 b);
 
                 float distance = PortGeometry.DistanceToSegment(world, a, b);
                 if (distance > nearestDistance)

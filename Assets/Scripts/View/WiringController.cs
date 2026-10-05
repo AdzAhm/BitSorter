@@ -215,8 +215,13 @@ namespace BitSorter.View
                 if ((centre - world).sqrMagnitude > nodeReachSquared)
                     continue;
 
-                Consider(centre, id, true, node.InputCount, world, ref best, ref bestDistance);
-                Consider(centre, id, false, node.OutputCount, world, ref best, ref bestDistance);
+                // A block's ports are its anchors' sides on its face. Their other sides, and
+                // everything inside the box, are not there to be grabbed.
+                if (_runner.IsShownPort(id, true))
+                    Consider(centre, id, true, node.InputCount, world, ref best, ref bestDistance);
+
+                if (_runner.IsShownPort(id, false))
+                    Consider(centre, id, false, node.OutputCount, world, ref best, ref bestDistance);
             }
 
             return best;

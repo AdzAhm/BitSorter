@@ -135,24 +135,33 @@ namespace BitSorter.View
             for (int edgeId = 0; edgeId < view.EdgeCount; edgeId++)
             {
                 Edge edge = view.GetEdge(edgeId);
-                if (edge == null)
-                    continue;   // removed edge; its sprites are released below by not being seen
+
+                // A removed edge, whose sprites are released below by not being seen; a wire inside a
+                // block; or a second edge of one drawn wire, whose bits are this one's, drawn already.
+                if (edge == null || !_runner.IsDrawn(edge))
+                    continue;
 
                 // Same stub endpoints the wire is drawn between, or bits would visibly travel
                 // beside their wire instead of along it.
-                Vector2 from = PortGeometry.EndpointOf(edge.Source, _runner.PositionOf(edge.Source.Owner.Id));
-                Vector2 to = PortGeometry.EndpointOf(edge.Target, _runner.PositionOf(edge.Target.Owner.Id));
+                _runner.DrawnEndsOf(edge, out Vector2 from, out Vector2 to);
+                EdgeShape shape = _runner.ShapeOf(edge);
 
                 for (int i = 0; i < edge.InTransitCount; i++)
                 {
                     BitInTransit bit = edge.GetBitInTransit(i);
 
-                    long key = Key(edge.Id, bit.Serial);
-
                     // Worked out before the bit is rented, not after: a recycled object has to
                     // be standing where it belongs before its trail is cleared, or the trail draws
                     // the jump from wherever the last bit died.
-                    float travelled = Travelled(bit, fraction);
+                    float travelled = Travelled(bit, fraction, shape);
+
+                    // Inside a block at either end, and so not drawn. A bit that has left the drawn
+                    // wire for a block is gone as far as the board is concerned, and one still in
+                    // the block it leaves has not arrived.
+                    if (travelled < 0f || travelled > 1f)
+                        continue;
+
+                    long key = Key(edge.Id, bit.Serial);
                     Vector3 at = Vector2.Lerp(from, to, travelled);
                     at.z = DepthOf(edge.Id, bit.Serial);
 
@@ -177,7 +186,8 @@ namespace BitSorter.View
                     // The bit that is one tick from an occupied port takes the warning colour, in
                     // step with the wire under it and the socket ahead of it. Without this the
                     // board would warn about the destination while the thing arriving looked fine.
-                    if (bit.TicksRemaining == 1 && PortState.WillCollide(edge, out bool heldBitDies))
+                    if (bit.TicksRemaining == 1 && shape.HiddenAfter == 0
+                        && PortState.WillCollide(edge, out bool heldBitDies))
                     {
                         colour = Color.Lerp(colour, PortState.WarningColour(heldBitDies),
                             PortState.Pulse(ViewTime.Now, PortState.WarningHz));
@@ -248,6 +258,25 @@ namespace BitSorter.View
         }
 
         /// <summary>
+        /// Fraction of the drawn wire covered: below 0 while the bit is still inside the block it
+        /// leaves, above 1 once it is inside the block it enters.
+        /// </summary>
+        /// <remarks>
+        /// An edge with nothing hidden is the whole wire, and goes through the overload above
+        /// untouched, so a board without blocks draws every bit exactly where it always has.
+        /// </remarks>
+        private static float Travelled(BitInTransit bit, float fraction, EdgeShape shape)
+        {
+            if (shape.IsPlain)
+                return Travelled(bit, fraction);
+
+            if (shape.DrawnDelay <= 0)
+                return 0f;
+
+            return (bit.TotalDelay - bit.TicksRemaining + fraction - shape.HiddenBefore) / shape.DrawnDelay;
+        }
+
+        /// <summary>
         /// One bit, named for the life of the graph. See <see cref="BitInTransit.Serial"/>.
         /// </summary>
         private static long Key(int edgeId, int serial) =>
@@ -302,17 +331,23 @@ namespace BitSorter.View
         /// A brand-new bit on this edge means its source node consumed its inputs and emitted this
         /// tick. Sparks at the output it came out of.
         /// </summary>
+        /// <remarks>
+        /// From the port the wire is drawn from: out of a block, that is the box's port, and the bit
+        /// is new to the board as it comes out of it.
+        /// </remarks>
         private void OnNodeFired(Edge edge, Vector2 outputPosition)
         {
+            Node drawnFrom = _runner.ShapeOf(edge).DrawnFrom.Owner;
+
             // Counted before the sparks null-check, so the tally is a fact about the simulation
             // rather than a side effect of whether an effects component happens to be wired up.
-            if (!(edge.Source.Owner is SourceNode))
+            if (!(drawnFrom is SourceNode))
                 GateFiredCount++;
 
             if (_sparks == null)
                 return;
 
-            _sparks.Burst(outputPosition, NodeShapes.ColourFor(edge.Source.Owner));
+            _sparks.Burst(outputPosition, NodeShapes.ColourFor(drawnFrom));
         }
 
         /// <summary>
@@ -323,11 +358,13 @@ namespace BitSorter.View
         /// What the bit had left to travel when it was last drawn, from <see cref="Tracked"/>. The
         /// key is a serial now and says nothing about how far along the wire the bit had got.
         /// </param>
+        /// <remarks>
+        /// Into a block, the bit leaves the board at the box's port with ticks still to go inside it,
+        /// so it has arrived as far as the drawn wire goes once it had no more than those ticks and
+        /// the last one left. On a wire with nothing hidden that is exactly the last tick.
+        /// </remarks>
         private void OnBitGone(SimulationView view, long key, int ticksRemaining)
         {
-            if (ticksRemaining != 1)
-                return;
-
             int edgeId = EdgeOf(key);
             if (edgeId < 0 || edgeId >= view.EdgeCount)
                 return;
@@ -336,16 +373,23 @@ namespace BitSorter.View
             if (edge == null)
                 return;   // the wire was deleted; nothing arrived
 
+            EdgeShape shape = _runner.ShapeOf(edge);
+
+            if (ticksRemaining > shape.HiddenAfter + 1)
+                return;
+
             // Only arrivals at a bin are counted. A bit reaching a gate's input port is the ordinary
             // business of the circuit and happens constantly; reaching a bin is the result.
-            if (edge.Target.Owner is SinkNode)
+            Node drawnTo = shape.DrawnTo.Owner;
+
+            if (drawnTo is SinkNode)
                 BinLandedCount++;
 
             if (_sparks == null)
                 return;
 
-            Vector2 target = PortGeometry.EndpointOf(edge.Target, _runner.PositionOf(edge.Target.Owner.Id));
-            _sparks.Burst(target, NodeShapes.ColourFor(edge.Target.Owner));
+            Vector2 target = PortGeometry.EndpointOf(shape.DrawnTo, _runner.PositionOf(drawnTo.Id));
+            _sparks.Burst(target, NodeShapes.ColourFor(drawnTo));
         }
 
         /// <summary>Keeps a bit's glow halo and trail in step with its value colour.</summary>

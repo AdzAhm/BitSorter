@@ -82,6 +82,9 @@ namespace BitSorter.View
 
         private int _edgeCount;
 
+        /// <summary>How each edge is drawn, or null: a bit crosses a wire's drawn end with HiddenAfter + 1 ticks left.</summary>
+        private IReadOnlyList<EdgeShape> _shapes;
+
         /// <summary>The last tick recorded, or -1 before the first.</summary>
         public int LastTick { get; private set; } = -1;
 
@@ -128,8 +131,10 @@ namespace BitSorter.View
         /// free play can count a fixture away while its entry is still listed. The one place that
         /// allocates, and only when a graph is bigger than any before it.
         /// </remarks>
-        public void Reset(SimulationView view, LevelDefinition level, IReadOnlyDictionary<string, int> fixtureNodeIds)
+        public void Reset(SimulationView view, LevelDefinition level, IReadOnlyDictionary<string, int> fixtureNodeIds,
+            IReadOnlyList<EdgeShape> shapes = null)
         {
+            _shapes = shapes;
             _sources.Clear();
             _sinks.Clear();
 
@@ -189,7 +194,7 @@ namespace BitSorter.View
                 byte code = _arriving[id];
                 Edge edge = view.GetEdge(id);
 
-                if (code != WaveCell.NoBit && edge != null && edge.Target.LastCollisionTick == tick)
+                if (code != WaveCell.NoBit && edge != null && HiddenAfter(id) == 0 && edge.Target.LastCollisionTick == tick)
                     code |= WaveCell.CollidedFlag;
 
                 _edgeCells[id * Capacity + column] = code;
@@ -272,12 +277,26 @@ namespace BitSorter.View
                 if (edge == null || edge.InTransitCount == 0)
                     continue;
 
-                BitInTransit front = edge.GetBitInTransit(0);
+                // The bit crossing the drawn end next tick. Into a block that is not the front bit
+                // but the one with the block's own wire still to go; a wire takes a bit a tick, so
+                // there is at most one.
+                int crossing = HiddenAfter(id) + 1;
 
-                if (front.TicksRemaining == 1)
-                    _arriving[id] = WaveCell.CodeOf(front.Value);
+                for (int i = 0; i < edge.InTransitCount; i++)
+                {
+                    BitInTransit bit = edge.GetBitInTransit(i);
+
+                    if (bit.TicksRemaining == crossing)
+                    {
+                        _arriving[id] = WaveCell.CodeOf(bit.Value);
+                        break;
+                    }
+                }
             }
         }
+
+        private int HiddenAfter(int edgeId) =>
+            _shapes != null && edgeId < _shapes.Count ? _shapes[edgeId].HiddenAfter : 0;
 
         private void ClearColumn(int tick)
         {

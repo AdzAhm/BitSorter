@@ -86,6 +86,28 @@ namespace BitSorter.View
         /// <summary>Whether a node is one of a block's port anchors.</summary>
         public bool IsAnchor(int nodeId) => nodeId >= 0 && nodeId < _anchorPort.Length && _anchorPort[nodeId] >= 0;
 
+        /// <summary>Which of its block's ports an anchor stands for: an input or an output, and which.</summary>
+        public bool TryAnchorOf(int nodeId, out bool isInput, out int port)
+        {
+            bool anchor = IsAnchor(nodeId);
+
+            isInput = anchor && _anchorIsInput[nodeId];
+            port = anchor ? _anchorPort[nodeId] : -1;
+            return anchor;
+        }
+
+        /// <summary>
+        /// Whether a node's port is on the board for the player to see and wire: every port of a part
+        /// on the board, and the side of an anchor that faces out. Nothing inside a block.
+        /// </summary>
+        public bool IsShownPort(int nodeId, bool isInput)
+        {
+            if (BlockOf(nodeId) < 0)
+                return true;
+
+            return IsAnchor(nodeId) && _anchorIsInput[nodeId] == isInput;
+        }
+
         /// <summary>Whether a node is a gate inside a block, which nothing on the board shows.</summary>
         public bool IsInsideABlock(int nodeId) => BlockOf(nodeId) >= 0 && !IsAnchor(nodeId);
 

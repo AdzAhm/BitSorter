@@ -807,6 +807,15 @@ namespace BitSorter.View
                 return false;   // a node vanished between the drag starting and ending
             }
 
+            // WiringRules looks for a duplicate among the graph's edges, and a block's port is an
+            // anchor with none: the wire to it was spliced through to a gate inside. The blueprint
+            // has every wire, so it is asked as well.
+            if (_blueprint.HasWire(source, target))
+            {
+                _runner.RejectEdit("Already connected.");
+                return false;
+            }
+
             LeaveTheFinishedRun();
             Record(BoardEdit.Structural);
             _blueprint.AddWire(new BlueprintWire(source, target, delay));
@@ -888,33 +897,24 @@ namespace BitSorter.View
         }
 
         /// <summary>
-        /// The blueprint wire a built edge came from, found by the cells at its two ends. Delay is
-        /// deliberately not part of the match, so this keeps working once wires can be re-timed.
+        /// The blueprint wire a built edge carries: the build says, in the edge's shape. False for a
+        /// wire inside a block, which is not the player's to edit.
         /// </summary>
+        /// <remarks>
+        /// It used to be found by the cells at the edge's two ends, which at a block are a gate inside
+        /// it rather than the box the wire was drawn to.
+        /// </remarks>
         private bool TryWireIndex(Edge edge, out int index)
         {
-            index = -1;
+            index = _runner.IsReady && edge != null && edge.Id >= 0 && edge.Id < _runner.Circuit.Shapes.Count
+                ? _runner.ShapeOf(edge).Wire
+                : -1;
 
-            if (!TryCellPort(edge.Source.Owner.Id, false, edge.Source.Index, out CellPort source) ||
-                !TryCellPort(edge.Target.Owner.Id, true, edge.Target.Index, out CellPort target))
-            {
-                return false;
-            }
-
-            index = _blueprint.IndexOfWire(source, target);
-            return index >= 0;
+            return index >= 0 && index < _blueprint.Wires.Count;
         }
 
-        private bool TryCellPort(int nodeId, bool isInput, int index, out CellPort port)
-        {
-            if (!_runner.TryCellOf(nodeId, out Vector2Int cell))
-            {
-                port = default;
-                return false;
-            }
-
-            port = new CellPort(cell, isInput, index);
-            return true;
-        }
+        /// <summary>The board port a node's port stands for: a part's own, or a block's on its face.</summary>
+        private bool TryCellPort(int nodeId, bool isInput, int index, out CellPort port) =>
+            _runner.TryBoardPort(nodeId, isInput, index, out port);
     }
 }

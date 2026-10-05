@@ -215,7 +215,7 @@ namespace BitSorter.View
         private void OnRebuilt()
         {
             _recordedLevel = _runner.BuiltLevel;
-            _recorder.Reset(_runner.View, _recordedLevel, _runner.FixtureNodeIds);
+            _recorder.Reset(_runner.View, _recordedLevel, _runner.FixtureNodeIds, _runner.Circuit?.Shapes);
             _recordedRevision = _runner.GraphRevision;
             _pinnedStart = -1;
             _dirty = true;

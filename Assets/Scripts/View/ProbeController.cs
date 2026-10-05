@@ -64,7 +64,7 @@ namespace BitSorter.View
                 _session.LevelLoaded -= OnLevelLoaded;
         }
 
-        private void OnRebuilt() => _probes.Resolve(_runner.View, _runner.NodeCells);
+        private void OnRebuilt() => _probes.Resolve(_runner.Circuit);
 
         /// <summary>A new level starts with no wires in the diagram, whatever the last one had.</summary>
         private void OnLevelLoaded(LevelDefinition level) => _probes.Clear();
@@ -98,7 +98,7 @@ namespace BitSorter.View
         /// </summary>
         public ProbeToggle? Toggle(Edge edge)
         {
-            if (edge == null || !WireProbes.TryKeyOf(edge, _runner.NodeCells, out WireKey key))
+            if (edge == null || !WireProbes.TryKeyOf(edge, _runner.Circuit, out WireKey key))
                 return null;
 
             ProbeToggle result = _probes.Toggle(key, edge.Id);

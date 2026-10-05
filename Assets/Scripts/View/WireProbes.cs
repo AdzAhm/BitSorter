@@ -139,7 +139,7 @@ namespace BitSorter.View
         /// After a rebuild: finds the edge now carrying each wire, and drops any wire the new graph
         /// does not have.
         /// </summary>
-        public void Resolve(SimulationView view, IReadOnlyDictionary<int, Vector2Int> cells)
+        public void Resolve(BuiltCircuit circuit)
         {
             bool changed = false;
 
@@ -148,7 +148,7 @@ namespace BitSorter.View
                 if (!_keys[slot].HasValue)
                     continue;
 
-                int id = EdgeIdOf(view, cells, _keys[slot].Value);
+                int id = EdgeIdOf(circuit, _keys[slot].Value);
 
                 if (id < 0)
                 {
@@ -167,28 +167,42 @@ namespace BitSorter.View
                 Revision++;
         }
 
-        /// <summary>The wire an edge carries, by the ports it joins; false for an edge off the layout.</summary>
-        public static bool TryKeyOf(Edge edge, IReadOnlyDictionary<int, Vector2Int> cells, out WireKey key)
+        /// <summary>
+        /// The wire an edge draws, by the board ports it is drawn between; false for an edge that
+        /// draws nothing -- one inside a block, or a second edge of a wire already drawn.
+        /// </summary>
+        /// <remarks>
+        /// By the ends drawn rather than the edge's own: at a block the edge runs on to a gate inside
+        /// it, and the wire the player picked ends at the box.
+        /// </remarks>
+        public static bool TryKeyOf(Edge edge, BuiltCircuit circuit, out WireKey key)
         {
             key = default;
 
-            if (edge == null || cells == null
-                || !cells.TryGetValue(edge.Source.Owner.Id, out Vector2Int from)
-                || !cells.TryGetValue(edge.Target.Owner.Id, out Vector2Int to))
+            if (edge == null || circuit == null || edge.Id < 0 || edge.Id >= circuit.Shapes.Count)
+                return false;
+
+            EdgeShape shape = circuit.Shapes[edge.Id];
+
+            if (!shape.Drawn
+                || !circuit.TryBoardPort(shape.DrawnFrom.Owner.Id, false, shape.DrawnFrom.Index, out CellPort from)
+                || !circuit.TryBoardPort(shape.DrawnTo.Owner.Id, true, shape.DrawnTo.Index, out CellPort to))
             {
                 return false;
             }
 
-            key = new WireKey(new CellPort(from, false, edge.Source.Index), new CellPort(to, true, edge.Target.Index));
+            key = new WireKey(from, to);
             return true;
         }
 
-        /// <summary>The edge carrying a wire, or -1.</summary>
-        public static int EdgeIdOf(SimulationView view, IReadOnlyDictionary<int, Vector2Int> cells, WireKey key)
+        /// <summary>The edge drawing a wire, or -1.</summary>
+        public static int EdgeIdOf(BuiltCircuit circuit, WireKey key)
         {
+            SimulationView view = circuit.Simulation.View;
+
             for (int id = 0; id < view.EdgeCount; id++)
             {
-                if (TryKeyOf(view.GetEdge(id), cells, out WireKey found) && found.Equals(key))
+                if (TryKeyOf(view.GetEdge(id), circuit, out WireKey found) && found.Equals(key))
                     return id;
             }
 

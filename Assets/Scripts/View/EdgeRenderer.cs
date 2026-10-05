@@ -193,13 +193,18 @@ namespace BitSorter.View
             for (int id = 0; id < view.EdgeCount; id++)
             {
                 Edge edge = view.GetEdge(id);
-                if (edge == null)
-                    continue;   // retired id
+
+                // A retired id, a wire inside a block, or a second edge carrying a wire already drawn.
+                if (edge == null || !_runner.IsDrawn(edge))
+                    continue;
 
                 // Stub to stub, from the same geometry the port renderer and hit tester use, so
-                // the wire visibly lands on the ports it actually connects.
-                Vector2 from = PortGeometry.EndpointOf(edge.Source, _runner.PositionOf(edge.Source.Owner.Id));
-                Vector2 to = PortGeometry.EndpointOf(edge.Target, _runner.PositionOf(edge.Target.Owner.Id));
+                // the wire visibly lands on the ports it actually connects -- a block's on its box.
+                _runner.DrawnEndsOf(edge, out Vector2 from, out Vector2 to);
+
+                // The delay the player drew, which is what they scroll and what the budget counts. At
+                // a block, the edge itself is longer by the block's own wire beyond it.
+                int delay = _runner.ShapeOf(edge).DrawnDelay;
 
                 // Two lines make a trace: a wide dark casing with a thin bright core over it.
                 // Cheaper and more predictable than a custom shader.
@@ -208,7 +213,7 @@ namespace BitSorter.View
                 LineRenderer core = Spawn($"Edge {id} core - {edge}", from, to, _coreWidth,
                     Palette.Current.WireCore, ViewLayers.WireCore);
 
-                SpawnMarks(id, from, to, edge.Delay);
+                SpawnMarks(id, from, to, delay);
 
                 _edgeIds.Add(id);
                 _cores.Add(core);
@@ -218,7 +223,7 @@ namespace BitSorter.View
                 Vector2 labelAt = midpoint + Normal(from, to) * LabelOffset;
 
                 _labelPositions.Add(labelAt);
-                _labels.Add(SpawnLabel(id, labelAt, edge.Delay));
+                _labels.Add(SpawnLabel(id, labelAt, delay));
             }
         }
 
@@ -308,11 +313,10 @@ namespace BitSorter.View
 
                 Edge edge = view.GetEdge(id);
 
-                if (edge == null)
+                if (edge == null || !_runner.IsDrawn(edge))
                     continue;
 
-                Vector2 from = PortGeometry.EndpointOf(edge.Source, _runner.PositionOf(edge.Source.Owner.Id));
-                Vector2 to = PortGeometry.EndpointOf(edge.Target, _runner.PositionOf(edge.Target.Owner.Id));
+                _runner.DrawnEndsOf(edge, out Vector2 from, out Vector2 to);
                 Vector2 at = (from + to) * 0.5f - Normal(from, to) * LabelOffset;
 
                 _tags.Add(SpawnTag(slot, at));
@@ -438,9 +442,12 @@ namespace BitSorter.View
                 // happens to be near. Tinting the whole wire rather than the stretch ahead of the
                 // bit keeps this to a colour change, so no geometry is rebuilt for a warning -- and
                 // it ties the wire to the port it is aimed at, which is the thing being warned about.
+                // Only where the edge ends at the end drawn: one running on into a block collides, if
+                // it does, out of sight inside it, and the box shows that.
                 Edge edge = _runner.View.GetEdge(edgeId);
 
-                if (edge != null && PortState.WillCollide(edge, out bool heldBitDies))
+                if (edge != null && _runner.ShapeOf(edge).HiddenAfter == 0
+                    && PortState.WillCollide(edge, out bool heldBitDies))
                 {
                     colour = Color.Lerp(colour, PortState.WarningColour(heldBitDies),
                         PortState.Pulse(ViewTime.Now, PortState.WarningHz));

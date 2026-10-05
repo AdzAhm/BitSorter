@@ -355,11 +355,18 @@ namespace BitSorter.View
 
                 Vector2 centre = _runner.PositionOf(id);
 
-                for (int i = 0; i < node.InputCount; i++)
-                    Spawn(centre, id, true, i, node.InputCount);
+                // Nothing inside a block, and of a block's port anchor only the side on its face.
+                if (_runner.IsShownPort(id, true))
+                {
+                    for (int i = 0; i < node.InputCount; i++)
+                        Spawn(centre, id, true, i, node.InputCount);
+                }
 
-                for (int i = 0; i < node.OutputCount; i++)
-                    Spawn(centre, id, false, i, node.OutputCount);
+                if (_runner.IsShownPort(id, false))
+                {
+                    for (int i = 0; i < node.OutputCount; i++)
+                        Spawn(centre, id, false, i, node.OutputCount);
+                }
             }
         }
 

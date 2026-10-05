@@ -286,7 +286,7 @@ namespace BitSorter.PlayMode.Tests
         private static WireKey KeyOf(int edgeId)
         {
             SimulationRunner runner = Find<SimulationRunner>();
-            Assert.IsTrue(WireProbes.TryKeyOf(runner.View.GetEdge(edgeId), runner.NodeCells, out WireKey key));
+            Assert.IsTrue(WireProbes.TryKeyOf(runner.View.GetEdge(edgeId), runner.Circuit, out WireKey key));
             return key;
         }
 

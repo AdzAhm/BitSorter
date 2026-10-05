@@ -152,6 +152,54 @@ namespace BitSorter.View
             return new Vector2(x, nodeCentre.y + spread);
         }
 
+        // -----------------------------------------------------------------
+        // Blocks
+        // -----------------------------------------------------------------
+
+        /// <summary>How wide a block's box is: a node's width, whatever it holds.</summary>
+        /// <remarks>
+        /// Not wider, because <see cref="HitRadius"/> is sized against the 0.8 between a node's face
+        /// and its neighbour's. A box any wider would bring its ports closer to the next column's
+        /// than that, and a click between them could land on the wrong one.
+        /// </remarks>
+        public const float BlockWidth = NodeSize;
+
+        /// <summary>A block's box H cells tall, in world units: a node in each of the end cells and the gaps between.</summary>
+        public static float BlockHeight(int cells, float cellSize) => (cells - 1) * cellSize + NodeSize;
+
+        /// <summary>The middle of a block's box, given the centre of its top cell.</summary>
+        public static Vector2 BlockCentre(Vector2 topCell, int cells, float cellSize) =>
+            new Vector2(topCell.x, topCell.y - (cells - 1) * cellSize * 0.5f);
+
+        /// <summary>
+        /// A block's port: on its left face for an input and its right for an output, spread evenly
+        /// over its height with port 0 at the top.
+        /// </summary>
+        /// <remarks>
+        /// The ends sit as far in from the box's top and bottom as a gate's two inputs do, so a block
+        /// one cell tall with two ports has them exactly where a gate has them, and a taller one
+        /// spreads them over the whole box.
+        /// </remarks>
+        public static Vector2 BlockPortPosition(Vector2 centre, float height, bool isInput, int index, int count)
+        {
+            float x = centre.x + (isInput ? -BlockWidth * 0.5f : BlockWidth * 0.5f);
+
+            if (count <= 1)
+                return new Vector2(x, centre.y);
+
+            float inset = (NodeSize - PortSpacing) * 0.5f;
+            float spacing = (height - 2f * inset) / (count - 1);
+
+            return new Vector2(x, centre.y + ((count - 1) * 0.5f - index) * spacing);
+        }
+
+        /// <summary>
+        /// Where a block's port anchor stands, so that its one port that faces out lands on the box's
+        /// face: half a node from the port, into the box, as a gate's centre is from its ports.
+        /// </summary>
+        public static Vector2 AnchorCentre(Vector2 port, bool isInput) =>
+            new Vector2(port.x + (isInput ? NodeSize * 0.5f : -NodeSize * 0.5f), port.y);
+
         public static Vector2 EndpointOf(OutputPort port, Vector2 nodeCentre) =>
             PositionOf(nodeCentre, false, port.Index, port.Owner.OutputCount);
 

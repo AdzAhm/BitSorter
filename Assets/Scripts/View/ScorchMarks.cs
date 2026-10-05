@@ -91,7 +91,8 @@ namespace BitSorter.View
 
             var go = new GameObject($"Scorch {port.Owner.Name}.{port.Index}");
             go.transform.SetParent(_container, false);
-            go.transform.position = PortGeometry.EndpointOf(port, _runner.PositionOf(port.Owner.Id));
+            // On the port, or for one inside a block, on the box that hides it.
+            go.transform.position = _runner.ShownPositionOf(port);
 
             var renderer = go.AddComponent<SpriteRenderer>();
 

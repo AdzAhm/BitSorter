@@ -86,25 +86,25 @@ namespace BitSorter.LogicCore.Tests
             WireKey xorToSum = Key(XorCell, SumSink, 0);
             WireKey bToXor = Key(SourceB, XorCell, 1);
 
-            int before = WireProbes.EdgeIdOf(built.Simulation.View, built.Cells, xorToSum);
+            int before = WireProbes.EdgeIdOf(built, xorToSum);
             Assert.GreaterOrEqual(before, 0, "sanity: the XOR's wire into sum was not built");
 
             probes.Toggle(xorToSum, before);
-            probes.Toggle(bToXor, WireProbes.EdgeIdOf(built.Simulation.View, built.Cells, bToXor));
+            probes.Toggle(bToXor, WireProbes.EdgeIdOf(built, bToXor));
 
             // Take a wire out ahead of both in build order: every later edge id moves down.
             LevelTestFixtures.Unwire(board, SourceA, XorCell, toPort: 0);
             BuiltCircuit rebuilt = CircuitBuilder.Build(level, board);
-            probes.Resolve(rebuilt.Simulation.View, rebuilt.Cells);
+            probes.Resolve(rebuilt);
 
             int after = probes.EdgeIdAt(probes.SlotOf(xorToSum));
-            Assert.AreEqual(WireProbes.EdgeIdOf(rebuilt.Simulation.View, rebuilt.Cells, xorToSum), after);
+            Assert.AreEqual(WireProbes.EdgeIdOf(rebuilt, xorToSum), after);
             Assert.AreNotEqual(before, after, "sanity: the deletion should have renumbered the edge");
 
             // Take a picked wire itself out: its slot empties.
             LevelTestFixtures.Unwire(board, SourceB, XorCell, toPort: 1);
             BuiltCircuit again = CircuitBuilder.Build(level, board);
-            probes.Resolve(again.Simulation.View, again.Cells);
+            probes.Resolve(again);
 
             Assert.AreEqual(-1, probes.SlotOf(bToXor), "a deleted wire kept its slot");
             Assert.GreaterOrEqual(probes.SlotOf(xorToSum), 0, "the other wire was dropped with it");
