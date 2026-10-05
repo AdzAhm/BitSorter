@@ -276,10 +276,9 @@ namespace BitSorter.View
         /// (<see cref="PortPulse"/>).
         /// </summary>
         /// <remarks>
-        /// Not <see cref="Ring"/>. That one is drawn for a socket a few pixels across, and it uses
-        /// <see cref="Mathf.SmoothStep"/> as though it were the shader smoothstep, so it is a soft
-        /// disc whose middle and corners never reach zero -- grown to a gate's width it read as a
-        /// blob in a faint square (found by a render probe, 2026-10-06). Exactly empty inside the
+        /// Not <see cref="Ring"/>, which is a socket's ring, drawn for a few pixels across and soft
+        /// on both edges against the board's tiling. Grown to a gate's width that softness reads as
+        /// blur, so this ring is thinner and keeps its edges at any size. Exactly empty inside the
         /// ring and outside it, so nothing of the square it is drawn on can show.
         /// </remarks>
         public static Sprite PulseRing() => Field("pulse-ring", NodeSize, p =>
@@ -306,10 +305,15 @@ namespace BitSorter.View
         });
 
         /// <summary>Solid core with a soft edge, for bits and sparks.</summary>
+        /// <remarks>
+        /// Through <see cref="Edge"/>. It used <see cref="Mathf.SmoothStep"/>, which eases between
+        /// its first two arguments rather than being the shader smoothstep, and left the core at
+        /// 0.65 -- a soft dot rather than a solid one with a soft edge (fixed 2026-10-06).
+        /// </remarks>
         public static Sprite Dot() => Field("dot", DotSize, p =>
         {
             float d = p.magnitude;
-            return 1f - Mathf.SmoothStep(0.35f, 1f, d);
+            return 1f - Edge(0.35f, 1f, d);
         });
 
         /// <summary>How many texels across a digit is drawn: finer than a dot, because it has a shape to keep.</summary>
@@ -479,13 +483,17 @@ namespace BitSorter.View
         /// Filled against empty is the distinction that survives being glanced at on a paused
         /// board, where a difference in colour or brightness alone would not. Soft on both edges
         /// for the same reason the dot is: a hard ring shimmers against the board tiling.
+        ///
+        /// Through <see cref="Edge"/>. With <see cref="Mathf.SmoothStep"/> it was never a ring at
+        /// all: a faint disc, 0.11 in its middle and nowhere solid, so an empty socket read as a
+        /// dim one rather than a hollow one (fixed 2026-10-06).
         /// </remarks>
         public static Sprite Ring() => Field("ring", DotSize, p =>
         {
             float d = p.magnitude;
 
-            float outer = 1f - Mathf.SmoothStep(0.62f, 0.98f, d);
-            float inner = Mathf.SmoothStep(0.28f, 0.58f, d);
+            float outer = 1f - Edge(0.62f, 0.98f, d);
+            float inner = Edge(0.28f, 0.58f, d);
 
             return outer * inner;
         });

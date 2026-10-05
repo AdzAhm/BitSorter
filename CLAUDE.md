@@ -725,6 +725,17 @@ failure side.
   because this is the kind of fault that is only visible once something is
   already drawn wrong.
 
+  **`Mathf.SmoothStep` is not the shader smoothstep.** It eases between its
+  first two arguments, so `SmoothStep(0.62f, 0.98f, d)` is never 0 or 1, and
+  `ProceduralSprites` draws a soft edge through its own `Edge` instead --
+  `SmoothStep(0f, 1f, t)` is the one form that is the same either way. The
+  socket's `Ring` and the `Dot` had it the other way until 2026-10-06: an
+  empty input socket was a faint disc, 0.11 even in its middle, that nobody
+  could see under a wire's end, and every dot's core was 0.65. Fixing them
+  moved every reference shot, and the hollow socket the board always claimed
+  to draw is visible for the first time. `ProceduralSpritesTests` reads the
+  generated textures to hold both.
+
   **A full-screen panel has the screen to itself**, and its backdrop is still
   `UiTheme.Scrim`, a flat rectangle: a scrim wants no corners at all, not small
   ones. Before the slicing was fixed this was a workaround for the fade, and it
