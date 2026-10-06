@@ -1276,8 +1276,8 @@ list is two columns, a chapter each. One column held every level until the
 eighteenth, and past that it scrolled: the run is meant to be one picture, both
 chapters and where the player is in them. The tutorial's row and free play's
 sit under the sequential chapter, the shorter one, apart from the run.
-`UiThemeTests` holds the real run and the thirty 4.0.0 is planned to reach to
-fitting at 1080; a shorter window still scrolls, both columns together.
+`UiThemeTests` holds the real run, thirty levels since 4.0.0, to fitting at
+1080; a shorter window still scrolls, both columns together.
 
 **The banner reserves three lines for the goal and shrinks to what it
 uses.** A goal is centred and wrapping, so before this it overflowed a

@@ -1,12 +1,12 @@
 # The `LevelLoaded` pipeline
 
-**Status: written up, not built** -- still true at 3.0.2. This is the design note
+**Status: written up, not built** -- still true at 4.0.0. This is the design note
 asked for before committing to the work. Nothing here is implemented, and the
-table below was brought up to date on 2026-09-26: a tenth subscriber has joined
-since it was written, which is the drift this note warns about.
+table below was brought up to date on 2026-10-06: a tenth subscriber joined after
+it was written and an eleventh in 4.0.0, which is the drift this note warns about.
 
 `LevelSession.LevelLoaded` started as a notification — "a new level is on the
-board, redraw yourself" — and has become an initialisation pipeline with ten
+board, redraw yourself" — and has become an initialisation pipeline with eleven
 stages, an order that matters, and no declaration of what that order is. Two
 shipped bugs came out of it. This is what it does today, what it needs, and what
 fixing it would look like.
@@ -15,7 +15,7 @@ fixing it would look like.
 
 ## What it is now
 
-Ten subscribers, all subscribing in `OnEnable`:
+Eleven subscribers, all subscribing in `OnEnable`:
 
 | # | Component | Handler | What it does on load |
 |---|---|---|---|
@@ -29,6 +29,7 @@ Ten subscribers, all subscribing in `OnEnable`:
 | 8 | `GameAudio` | `OnLevelLoaded` | Advances the music track if the level actually changed |
 | 9 | `GameAnalytics` | `OnLevelLoaded` | Reports `levelStarted` |
 | 10 | `ChapterCard` | `OnLevelLoaded` | Decides whether the chapter card is owed on this level |
+| 11 | `ProbeController` | `OnLevelLoaded` | Takes every picked wire out of the timing diagram (4.0.0) |
 
 ### The order is real, and it is an accident
 
@@ -143,7 +144,7 @@ listens or when.
 ### Cheaper alternative, if the above is too much
 
 Keep one event. Write the required order down in `HalfAdderDemoSceneBuilder` as a
-comment block, and extend the PlayMode test to assert all ten subscribers appear
+comment block, and extend the PlayMode test to assert all eleven subscribers appear
 in that order rather than the three pairs it pins today. That does not stop the
 order being an accident — it just makes changing it fail loudly. Perhaps a
 quarter of the work, and most of the protection.

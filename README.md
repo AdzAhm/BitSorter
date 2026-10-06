@@ -25,7 +25,7 @@ the inside.
 | Where | |
 | --- | --- |
 | **In a browser** | [Unity Play](https://play.unity.com/en/games/c22f4580-98a3-4fcd-a844-e9d731257c83/bitsorter), or [GitHub Pages](https://adzahm.github.io/BitSorter/) |
-| **Windows** | [Download the latest release](https://github.com/AdzAhm/BitSorter/releases/latest) — 39 MB zip |
+| **Windows** | [Download the latest release](https://github.com/AdzAhm/BitSorter/releases/latest) — 40 MB zip |
 
 The two browser links are the same build, hosted twice so neither one going down
 takes the game with it. Nothing to install, and no account needed for either.
@@ -353,14 +353,16 @@ Unity 6.3 LTS (6000.3.11f1).
   scene is generated rather than authored, so anything added by hand is discarded
   the next time that runs.
 - Tests: Window → General → Test Runner, or **BitSorter → Run Tests**. Roughly
-  1,040 EditMode cases and 150 PlayMode at present, the PlayMode ones across
-  fourteen fixtures — pointer arbitration, audio and the menu's music, scene
-  composition, the tutorial's opening, the frame a run ends on, free play's setup
-  and its named boards, full-screen panels and the keys that open and close them,
+  1,280 EditMode cases and 220 PlayMode at present (4.0.0), the PlayMode ones
+  across twenty-one fixtures — pointer arbitration, audio and the menu's music,
+  scene composition, the tutorial's opening, the frame a run ends on, free play's
+  setup, its named boards and its blocks, a block on a level's board, a level that
+  opens on a circuit, full-screen panels and the keys that open and close them,
   framing the board clear of the interface, what the board draws while a run
-  moves, the level list, the help panel's K-map, the HUD allocating nothing on a
-  quiet frame, the settings, their reset and the credits, and
-  the guard that keeps every test off your own save file. Those need a live
+  moves and how it renders, the timing diagram and the wires picked for it, the
+  wire-delay hint, the level list, the help panel's K-map, the HUD allocating
+  nothing on a quiet frame, the settings, their reset and the credits, and the
+  guard that keeps every test off your own save file. Those need a live
   scene, but not a focused window: nothing in the suite waits on wall-clock time
   any more. If you ever script that run, read the results from
   `TestResults.xml` in the save directory rather than from a `TestRunnerApi`
@@ -369,7 +371,8 @@ Unity 6.3 LTS (6000.3.11f1).
 - **BitSorter → Capture Reference Shots** screenshots twenty-six states of the
   real game — menu, board, a run, both kinds of collision, the cards, free play,
   settings, the credits, the wider boards, the three levels that open on a broken
-  circuit, the timing diagram mid-run — into the save directory. Two captures of the same code are identical
+  circuit, the timing diagram mid-run, a four-bit adder built from blocks — into
+  the save directory. Two captures of the same code are identical
   to the pixel, so a change that claims to leave the look alone can be held to it.
   It needs the Game view.
 - To compile without the editor at all, Bee leaves the exact compiler invocation
