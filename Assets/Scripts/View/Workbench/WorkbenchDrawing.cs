@@ -65,6 +65,44 @@ namespace BitSorter.View
         {
             VectorPainter.RoundedRect(Shape, 0.5f, 0.5f, size.x - 1f, size.y - 1f, 12f);
             painter.Outline(Shape, 1f, palette.CardEdge);
+            Legend(painter, palette, LegendMiddle(size.y));
+        }
+
+        // -----------------------------------------------------------------
+        // The legend, along the card's foot as the reference has it, with all four values
+        // -----------------------------------------------------------------
+
+        /// <summary>How much of the card's foot the legend takes.</summary>
+        public const float LegendHeight = 30f;
+
+        /// <summary>Where the legend's line runs, for a card this tall.</summary>
+        public static float LegendMiddle(float cardHeight) => cardHeight - LegendHeight * 0.5f - 4f;
+
+        /// <summary>Where each value's swatch starts, and where its name and the sentence after them start.</summary>
+        public static float LegendSwatchX(int item) => 24f + item * 52f;
+
+        /// <inheritdoc cref="LegendSwatchX"/>
+        public static float LegendNameX(int item) => LegendSwatchX(item) + 24f;
+
+        /// <inheritdoc cref="LegendSwatchX"/>
+        public static float LegendTextX => LegendSwatchX(4) + 4f;
+
+        /// <summary>A short stretch of each value as a wire draws it: 0, 1, x hatched, z dashed.</summary>
+        private static void Legend(VectorPainter painter, SchematicPalette palette, float y)
+        {
+            const float length = 18f;
+
+            float x = LegendSwatchX(0);
+            painter.Line(new Vector2(x, y), new Vector2(x + length, y), SchematicStyle.ZeroWidth, palette.Zero, roundCaps: true);
+
+            x = LegendSwatchX(1);
+            painter.Line(new Vector2(x, y), new Vector2(x + length, y), SchematicStyle.OneWidth, palette.One, roundCaps: true);
+
+            x = LegendSwatchX(2);
+            HatchedRect(painter, palette, x, y - 4f, x + length, y + 4f);
+
+            x = LegendSwatchX(3);
+            DashedLine(painter, x, x + length, y, SchematicStyle.HighZWidth, palette.HighZ);
         }
 
         // -----------------------------------------------------------------

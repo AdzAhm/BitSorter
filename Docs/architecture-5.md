@@ -408,6 +408,8 @@ Precise, and no casing under the wires.
   shapes into UI meshes, each edge carrying a strip about a pixel wide that fades out — smooth at any
   size, and in a browser build, which has no MSAA. The picture is four layers (card, wires, parts,
   waveform), so a ring's digit, a TextMeshPro label, sits over its ring and under the gate it reaches.
+- **A legend of all four values** along the card's foot, where the reference has one for 0 and 1:
+  each value drawn as a wire draws it, and what a ring and a cross mean.
 - **The glow is drawn, not bloomed.** The plan named URP bloom; the mock's glow is a soft trail and halo
   at a chosen strength, and drawing it reproduces that exactly, costs no full-screen pass in the browser,
   and keeps bloom for the 4.x looks. Colours are `SchematicPalette`; a faint colour's alpha is corrected

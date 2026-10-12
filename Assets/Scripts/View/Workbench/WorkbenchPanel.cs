@@ -70,7 +70,12 @@ namespace BitSorter.View
         public static readonly Vector2 WaveformAt = new Vector2(5f, 388f);
 
         private static float StageHeight =>
-            WaveformAt.y + WorkbenchDrawing.WaveHeight(ReferenceCircuit.Layout.Rows.Count) + 4f;
+            WaveformAt.y + WorkbenchDrawing.WaveHeight(ReferenceCircuit.Layout.Rows.Count) + WorkbenchDrawing.LegendHeight;
+
+        /// <summary>The legend's names for the four values, and what the rings and crosses mean.</summary>
+        public const string LegendText = "A digit on a wire is a change travelling along it; a cross is one swallowed on the way.";
+
+        private static readonly string[] LegendNames = { "0", "1", "x", "z" };
 
         /// <summary>Where the title, its line, the controls and the stage start, from the top of the screen.</summary>
         private const float TitleTop = 22f;
@@ -357,6 +362,14 @@ namespace BitSorter.View
             TopLeft(_waveform, WaveformAt, new Vector2(WorkbenchDrawing.WaveWidth, waveHeight));
             _timing = Layer("timing", _waveform, WorkbenchGraphic.Layer.Timing, Vector2.zero, new Vector2(WorkbenchDrawing.WaveWidth, waveHeight));
             BuildWaveLabels(palette);
+
+            // The legend's words; its swatches are the card's.
+            float legend = WorkbenchDrawing.LegendMiddle(StageHeight);
+            for (int i = 0; i < LegendNames.Length; i++)
+                StageLabel(_stage, LegendNames[i], new Vector2(WorkbenchDrawing.LegendNameX(i), legend),
+                    UiType.Micro, palette.TextDim, TextAlignmentOptions.MidlineLeft, 20f);
+            StageLabel(_stage, LegendText, new Vector2(WorkbenchDrawing.LegendTextX, legend),
+                UiType.Micro, palette.TextDim, TextAlignmentOptions.MidlineLeft, StageWidth - WorkbenchDrawing.LegendTextX - 16f);
         }
 
         private WorkbenchGraphic Layer(string name, RectTransform parent, WorkbenchGraphic.Layer draws, Vector2 at, Vector2 size)
