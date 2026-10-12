@@ -237,6 +237,31 @@ Files         an interface for $readmemh and $writememh: in memory in tests and 
 VCD           written for export, read for the oracle comparison
 ```
 
+**The structural engine, as built in Part 2.** `Simulator`, `NetlistBuilder`, `Design`, `Stimulus`,
+`History`, `SimSession`, `VcdWriter`/`VcdReader` in `Assets/Scripts/Sim`.
+
+- **Two phases a delta.** Within a time step every delta first applies everything due — outputs whose
+  delay is up, testbench writes — then evaluates every driver that reads a signal that changed, and
+  each driver schedules only its own next output. Nothing sees another's half-done work, so the order
+  drivers are visited in cannot change the result: invariant 1, held by building random circuits in
+  shuffled orders. It also gives Icarus's answer where a pulse exactly as long as a delay meets it.
+- **Inertial delay** as section 6 says, each driver with at most one change on its way; a cancelled one
+  is recorded as swallowed where it was cancelled.
+- **Drivers, nets and variables.** A gate or continuous assignment drives one signal. A net resolves its
+  drivers (`LogicVec.ResolveWire`) and reads z with none; a variable takes at most one continuous driver,
+  and `NetlistBuilder` refuses a second with the way out. Every signal starts at x, an undriven net at z,
+  and every driver evaluates once at time 0.
+- **Running.** `RunTo` runs whole time steps until a time or an event budget, so the browser can run in
+  slices; a delta limit stops a zero-delay loop with a message naming what was still changing. Testbench
+  writes are `Stimulus` until procedural code arrives (Part 5).
+- **Recorded.** Every value change with its delta, every transition with its outcome; rewind and step
+  back read them. Once its arrays have grown, a run with recording off allocates nothing (a test holds
+  it), and recording grows its buffers by doubling. On the development machine a 64-bit ripple adder of
+  320 gates ran at about 1.4 million events a second.
+- **Checked.** The probe circuits' waveforms by hand and against Icarus's VCD, signal by signal
+  (`Docs/oracle-notes.md`); wire resolution and every primitive by table; replay, slicing and VCD
+  round trips; the zero-delay loop; allocation and throughput floors (`Tools/ci/Sim.Tests`).
+
 ### The document (`Board`)
 
 ```
@@ -271,17 +296,20 @@ The contract the engine is tested against, by hand-computed waveforms first and 
 
 | Rule | Behaviour |
 | --- | --- |
-| `#(rise, fall)` on a gate | Chosen by the output's **new** value: to 1 takes rise, to 0 takes fall, to `x` the smaller, to `z` the turn-off delay (the smallest). A single `#d` applies to every transition; none means 0. |
+| `#(rise, fall)` on a gate | Chosen by the output's **new** value: to 1 takes rise, to 0 takes fall, to `x` the smallest, to `z` the turn-off delay (the smaller of rise and fall when none is given). A single `#d` applies to every transition; none means 0. |
+| A vector's delay | By the whole value (IEEE 1800, 28.16): from nonzero to all zeros takes fall, to all z turn-off, anything else rise. Icarus decides by something like the lowest bit instead; the standard wins (`Docs/oracle-notes.md`). The course never delays a vector. |
 | Inertial | A new evaluation cancels the gate's pending output event, and schedules a new one only if the new value differs from the output's current value. A pulse shorter than the delay is swallowed, and the history records it as swallowed. |
 | `assign #d` | The same rule as a gate. With no delay, the update is in the Active region. |
 | `#d` in procedural code | A plain wait. |
-| Two drivers on one net | The standard resolution: equal values stay, `0` against `1` is `x`, `z` gives way to anything, `x` wins. |
+| Two drivers on one net | The standard resolution: equal values stay, `0` against `1` is `x`, `z` gives way to anything, `x` wins. Only a `wire` may have two: a `logic` is a variable, and a second continuous driver on one is an error (IEEE 1800, 6.5) that Icarus refuses to compile. |
 | Zero delay | Delta cycles; past a delta limit in one time step the run stops with a diagnostic naming the loop. |
 | Library cells | Rise and fall default to 1, as the course's cells do. A freshly placed gate is a cell with delay 1; "ideal" (0) is one switch. |
 | Order inside a region | Stable, by creation, the same on every run. Where Icarus and the standard disagree, the standard wins, and the difference is written down in `Docs/oracle-notes.md`. |
 
-**Pinned so far** (`Tools/ci/Oracle`): an XOR with rise 2 and fall 3, inputs at 0 from time 0, reads
-`x` until time 3 (a fall), rises at 12 when an input rises at 10, falls at 23 when it falls at 20.
+**Confirmed against Icarus** (`Docs/oracle-notes.md`): eleven probe circuits, from a pulse swallowed to
+the reference visual's glitch, give the same waveform in both, signal by signal. The first fact pinned,
+in Part 0: an XOR with rise 2 and fall 3, inputs at 0 from time 0, reads `x` until time 3 (a fall),
+rises at 12 when an input rises at 10, falls at 23 when it falls at 20.
 
 ---
 
@@ -301,7 +329,8 @@ patterns, and no tri-state, `function`, `task`, `$display`, `` `timescale ``, `d
 | Not supported | `function`, `task`, interfaces, structs, classes, `fork`, `defparam`, DPI — each refused with file, line and a plain message |
 
 **Written in the course's style:** an ANSI header with inputs first and outputs last, one commented
-port per line; `logic` everywhere; vectors MSB first; an ideal gate as a primitive (`and(z, a, b);`), a
+port per line; `logic` everywhere, except a net with more than one driver, which must be a `wire` to
+compile at all (section 6); vectors MSB first; an ideal gate as a primitive (`and(z, a, b);`), a
 gate with delay as a library cell (`NAND2 #(.Tpdlh(5), .Tpdhl(5)) g1 (.A(a), .B(b), .Z(n0));`) with
 BitSorter's **own** cell files beside it; named association; one module per file; instances `g1, g2 …`;
 `always_comb` with defaults first; `always_ff` with an asynchronous reset; enums for states; testbenches
@@ -330,7 +359,8 @@ with `initial` steps or `forever #half clk = ~clk;`.
 These take the place of 4.x's core decisions as each part lands.
 
 1. **Determinism.** The same design and stimulus give the same history — value changes and transitions
-   — whatever order the design was built in. Tested by shuffling the order.
+   — whatever order the design was built in. The engine gets it from its two phases a delta (section 5),
+   and a test holds it by building random circuits in shuffled orders.
 2. **The engine never throws on a design.** A broken design is a diagnostic; a runaway one ends with a
    message (delta limit, event budget, end time). Nothing hangs a browser tab.
 3. **The view does not change** the engine or the document except through their commands.

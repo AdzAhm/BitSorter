@@ -203,7 +203,10 @@ failure side.
 
 - **Order-independence is a hard invariant.** Nodes within a single tick
   must be evaluatable in any order with the same outcome. Do not add
-  anything that breaks this.
+  anything that breaks this. 5.0's engine keeps the same promise another
+  way: each delta cycle applies everything due before any driver is
+  evaluated, so the order drivers are visited in cannot change the history
+  (`Docs/architecture-5.md`, sections 5 and 9; a test shuffles it).
 
 - **SourceNode plays a scripted sequence from tick 0**, then goes silent.
   It needs no special casing: a source has no inputs, so the
