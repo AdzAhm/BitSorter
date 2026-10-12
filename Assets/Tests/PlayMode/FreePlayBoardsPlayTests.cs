@@ -81,9 +81,17 @@ namespace BitSorter.PlayMode.Tests
         /// Waits, frame by frame and with a cap that fails loudly, for a part placed on a board to
         /// reach the file, without anything leaving the level.
         /// </summary>
+        /// <remarks>
+        /// The save waits <see cref="ProgressTracker.SaveDelay"/> of unscaled time, which the clock
+        /// TestScene drives does not reach -- so the cap is in unscaled seconds too, generous and a
+        /// deadlock guard rather than a timing assumption. It was three thousand frames, which meant
+        /// a second and a half in a headless run and fifty in the editor.
+        /// </remarks>
         private static IEnumerator UntilThePartIsOnDisk(string level)
         {
-            for (int frame = 0; frame < 3000; frame++)
+            float until = Time.unscaledTime + 30f;
+
+            for (int frame = 0; Time.unscaledTime < until; frame++)
             {
                 yield return null;
 
@@ -97,7 +105,7 @@ namespace BitSorter.PlayMode.Tests
                     yield break;
             }
 
-            Assert.Fail($"three thousand frames after a part was placed on {level}, the save still did not have it -- " +
+            Assert.Fail($"thirty seconds after a part was placed on {level}, the save still did not have it -- " +
                         "a browser tab closed or reloaded now would lose it");
         }
 

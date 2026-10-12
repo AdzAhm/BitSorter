@@ -174,7 +174,11 @@ namespace BitSorter.PlayMode.Tests
             FrameRateCounter counter = Find<FrameRateCounter>();
             FrameRate.SetCounter(true);
 
-            for (int frame = 0; frame < 5000 && counter.Shown <= 0; frame++)
+            // The counter counts unscaled time, which the clock TestScene drives does not reach:
+            // capped in unscaled seconds, generous and loud, never in frames.
+            float until = Time.unscaledTime + 30f;
+
+            while (counter.Shown <= 0 && Time.unscaledTime < until)
                 yield return null;
 
             Assert.Greater(counter.Shown, 0, "sanity: the counter never counted");

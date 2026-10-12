@@ -767,7 +767,7 @@ namespace BitSorter.PlayMode.Tests
             }
             finally
             {
-                Time.captureDeltaTime = 0f;
+                Time.captureDeltaTime = TestScene.FrameSeconds;
             }
         }
 
@@ -803,7 +803,7 @@ namespace BitSorter.PlayMode.Tests
             }
             finally
             {
-                Time.captureDeltaTime = 0f;
+                Time.captureDeltaTime = TestScene.FrameSeconds;
             }
         }
 
@@ -1078,7 +1078,7 @@ namespace BitSorter.PlayMode.Tests
             }
             finally
             {
-                Time.captureDeltaTime = 0f;
+                Time.captureDeltaTime = TestScene.FrameSeconds;
             }
         }
 

@@ -409,7 +409,7 @@ namespace BitSorter.PlayMode.Tests
                 yield return null;
 
             Assert.AreEqual(0, bits.PulseCount, "a ring outlived its pulse with nothing crossing");
-            Time.captureDeltaTime = 0f;
+            Time.captureDeltaTime = TestScene.FrameSeconds;
         }
     }
 }

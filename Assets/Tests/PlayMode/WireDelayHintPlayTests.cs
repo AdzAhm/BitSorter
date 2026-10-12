@@ -118,7 +118,9 @@ namespace BitSorter.PlayMode.Tests
 
             HintBanner banner = Find<HintBanner>();
 
-            // Three times its time on screen. Waited on a condition, with a cap that fails loudly.
+            // Three times its time on screen. Waited on a condition, with a cap that fails loudly: on
+            // the clock TestScene drives, 1.5 seconds is 90 frames on any machine and the cap is 20
+            // seconds. Before the clock was driven this cap ran out at 0.57 seconds in a headless run.
             float shownAt = Time.time;
 
             for (int frame = 0; frame < 1200 && Time.time - shownAt < 1.5f; frame++)

@@ -492,6 +492,29 @@ failure side.
   asserting no sound was made is trivially satisfied when nothing would have made
   one. Assertions about absence need a paired test proving the thing is possible.
 
+  **And while a test has the game loaded, its clock is driven**: `TestScene.Load`
+  makes every frame `TestScene.FrameSeconds`, a sixtieth of a second of game time,
+  and `TestScene.Clear` gives real time back (`TestClockPlayTests` holds both). A
+  cap in frames used to mean seconds only at the editor's frame rate. Headless,
+  frames are drawn unthrottled: on 2026-10-12 a 1200-frame cap meant to cover 1.5
+  seconds of a hint covered as little as 0.57 -- red on main -- and two fixed
+  240-frame waits for bits to travel did not last one tick, so what they asserted
+  about bits held of none. A fixture that wants its own step sets it before the
+  load and keeps it (the reference shots run at a 120th); one that changes the step
+  mid-test puts `FrameSeconds` back, never 0. **The unscaled clock is not driven**
+  and stays real time, so a wait on something counted in it -- the save's delay,
+  the frame-rate counter, the music's cross-fade -- caps in unscaled seconds, as
+  the audio tests do, never in frames.
+
+  Driven, a headless batch run of Play Mode is green but for one test, and the
+  editor's menu run is still the verdict. `FreePlayBoardsPlayTests
+  .EscapeInTheField_CancelsWithoutOpeningTheMainMenu` fails in a full batch run and
+  passes alone, in the editor, and after any other fixture with simulated input.
+  While a field has the keys, Escape is TextMesh Pro's, which reads IMGUI events
+  rather than the Input System's devices; in batch mode a simulated key stops
+  reaching IMGUI once a fixture that uses the real devices has loaded the game.
+  Not frame rate -- it fails on the driven clock too (2026-10-12).
+
   **Never move the player's save.** `SaveGuard` points `ProgressStore.Redirected`
   at a scratch file and the real `progress.json` is not written, moved or deleted
   by any test -- it is only read, for a dated safety copy beside it whenever it has

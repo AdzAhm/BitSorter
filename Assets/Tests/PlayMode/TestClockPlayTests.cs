@@ -65,8 +65,10 @@ namespace BitSorter.PlayMode.Tests
 
             Assert.AreEqual(1f, Time.time - before, 1e-3f, "sixty frames were not one second of game time");
 
-            // Not asserted: whether the driven step reaches the unscaled clock as well. Written out so
-            // a run says, for the code that counts on unscaled time.
+            // The unscaled clock is not driven, and is not asserted on: it stays real time -- 0.0067
+            // seconds a frame on the day this was written -- and an editor that happened to run at
+            // sixty frames a second would make "not a sixtieth" flaky. TestScene says what follows from
+            // it; this says, in every run, what the unscaled clock was doing.
             TestContext.WriteLine($"unscaledDeltaTime on a driven clock: {Time.unscaledDeltaTime}");
         }
 

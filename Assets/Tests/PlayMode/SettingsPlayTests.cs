@@ -404,8 +404,11 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsTrue(FrameRate.ShowsCounter, "FPS COUNTER did not switch the counter on");
             Assert.IsTrue(counter.IsShowing, "the counter did not come up");
 
-            // Real seconds, so a count of frames: generous, and loud if it runs out.
-            for (int frame = 0; frame < 5000 && counter.Shown <= 0; frame++)
+            // Real seconds, which the clock TestScene drives does not reach: capped in unscaled
+            // seconds, generous and loud, never in frames.
+            float until = Time.unscaledTime + 30f;
+
+            while (counter.Shown <= 0 && Time.unscaledTime < until)
                 yield return null;
 
             Assert.Greater(counter.Shown, 0, "the counter never said a frame rate");

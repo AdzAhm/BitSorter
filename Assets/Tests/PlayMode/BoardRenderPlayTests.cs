@@ -42,9 +42,9 @@ namespace BitSorter.PlayMode.Tests
         {
             SaveGuard.Clear();
 
-            // A test that fixes the frame time puts it back itself, and this is for the one that
-            // failed before it got there: a fixed frame time leaking into the next fixture would
-            // change what every wait in it means.
+            // A test that sets a step of its own puts TestScene's driven one back itself, and this is
+            // for the one that failed before it got there: its step leaking into the next fixture
+            // would change what every wait in it means.
             Time.captureDeltaTime = 0f;
         }
 
@@ -369,7 +369,7 @@ namespace BitSorter.PlayMode.Tests
                 }
             }
 
-            Time.captureDeltaTime = 0f;
+            Time.captureDeltaTime = TestScene.FrameSeconds;
 
             Assert.IsTrue(sawOnlyTheArrival, "sanity: no collision that takes only the arrival was seen");
             Assert.IsTrue(sawBoth, "sanity: no collision that takes the waiting bit too was seen");
@@ -424,7 +424,7 @@ namespace BitSorter.PlayMode.Tests
             for (int frame = 0; frame < 10; frame++)
                 yield return null;
 
-            Time.captureDeltaTime = 0f;
+            Time.captureDeltaTime = TestScene.FrameSeconds;
 
             Assert.Greater(runner.View.CorruptedCount, 0, "sanity: nothing collided, so nothing was scorched");
 
@@ -519,7 +519,7 @@ namespace BitSorter.PlayMode.Tests
                 }
             }
 
-            Time.captureDeltaTime = 0f;
+            Time.captureDeltaTime = TestScene.FrameSeconds;
 
             Assert.IsTrue(sawAPop, "sanity: the meter never popped, so there was nothing to measure");
             Assert.GreaterOrEqual(lowest, badgeTop,
