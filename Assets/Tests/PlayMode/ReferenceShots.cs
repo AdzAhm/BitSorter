@@ -801,6 +801,30 @@ namespace BitSorter.PlayMode.Tests
             yield return Capture("26-four-at-once");
         }
 
+        /// <summary>
+        /// 5.0's workbench preview at 13.5 ns, two changes on their way: NOT B's fall, and the
+        /// second AND's rise that the next nanosecond will swallow. The Schematic look's first shot.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator Shot27_Workbench()
+        {
+            yield return LoadTheGame();
+            yield return Frames(2);
+
+            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            yield return Frames(2);
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.Pause();
+            workbench.Seek(13.5);
+            yield return Frames(30);
+
+            Assert.IsTrue(workbench.IsOpen, "sanity: the workbench should be open");
+            Assert.AreEqual(2, workbench.Model.InFlight, "sanity: two changes should be on their way at 13.5");
+
+            yield return Capture("27-workbench");
+        }
+
         private static IEnumerator OpensOnItsCircuit(string level, string fixture, string shot)
         {
             yield return LoadTheGame();

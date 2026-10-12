@@ -25,6 +25,7 @@ namespace BitSorter.View
         [SerializeField] private LevelSelectPanel _levels;
         [SerializeField] private SandboxPanel _sandbox;
         [SerializeField] private SettingsPanel _settings;
+        [SerializeField] private WorkbenchPanel _workbench;
 
         [Tooltip("Canvas the menu is built under. Found by type when left empty.")]
         [SerializeField] private Canvas _canvas;
@@ -60,6 +61,7 @@ namespace BitSorter.View
             if (_levels == null) _levels = FindFirstObjectByType<LevelSelectPanel>();
             if (_sandbox == null) _sandbox = FindFirstObjectByType<SandboxPanel>();
             if (_settings == null) _settings = FindFirstObjectByType<SettingsPanel>();
+            if (_workbench == null) _workbench = FindFirstObjectByType<WorkbenchPanel>();
             if (_canvas == null) _canvas = FindFirstObjectByType<Canvas>();
         }
 
@@ -111,6 +113,9 @@ namespace BitSorter.View
 
         /// <summary>The HUD's menu button's object name, which the HUD tests look for.</summary>
         public const string HudButtonName = "Menu button";
+
+        /// <summary>The workbench's row: its object name, and its caption in capitals.</summary>
+        public const string WorkbenchButton = "Workbench";
 
         private const float HudButtonWidth = 110f;
 
@@ -213,6 +218,13 @@ namespace BitSorter.View
             sandbox.onClick.AddListener(() => Fire(OpenSandbox));
             row -= RowStep;
 
+            // 5.0's workbench, as a preview beside the game it will replace (Docs/architecture-5.md,
+            // Part 3): the new engine and the Schematic look on one circuit. Under free play, the
+            // other way off the run.
+            Button workbench = Item(WorkbenchButton, row, out TextMeshProUGUI _);
+            workbench.onClick.AddListener(() => Fire(OpenWorkbench));
+            row -= RowStep;
+
             // Sound and the off switch for reporting live here, one click down, beside starting
             // over. They were rows of this menu, which could say ON or OFF and nothing else -- the
             // data switch never said what it switched. The README tells players where it is.
@@ -292,8 +304,10 @@ namespace BitSorter.View
         /// are stated relative to each other on purpose, and re-typing eleven of them is how that
         /// stops being true. The keys line at the bottom is anchored to the screen's edge instead
         /// and is not part of the block.
+        ///
+        /// The workbench's row put a row back, and half a row on this: 70.
         /// </remarks>
-        private const float Lift = 43f;
+        private const float Lift = 70f;
 
         private Button Item(string name, float y, out TextMeshProUGUI label,
             ButtonRole role = ButtonRole.Secondary)
@@ -424,6 +438,16 @@ namespace BitSorter.View
 
             Show(false);
             _sandbox.Open();
+        }
+
+        /// <inheritdoc cref="Continue"/>
+        private void OpenWorkbench()
+        {
+            if (_workbench == null)
+                return;
+
+            Show(false);
+            _workbench.Open();
         }
 
         /// <inheritdoc cref="Continue"/>

@@ -3,6 +3,8 @@
     "rootNamespace": "BitSorter.PlayMode.Tests",
     "references": [
         "BitSorter.LogicCore",
+        "BitSorter.Sim",
+        "BitSorter.SystemVerilog",
         "BitSorter.View",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner",

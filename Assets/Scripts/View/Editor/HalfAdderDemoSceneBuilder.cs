@@ -148,6 +148,9 @@ namespace BitSorter.View.EditorTools
             SinkCelebration celebration = host.AddComponent<SinkCelebration>();
             MainMenu mainMenu = host.AddComponent<MainMenu>();
             SettingsPanel settings = host.AddComponent<SettingsPanel>();
+
+            // 5.0's workbench preview, off the main menu. Builds nothing until it is first opened.
+            WorkbenchPanel workbench = host.AddComponent<WorkbenchPanel>();
             CreditsPanel credits = host.AddComponent<CreditsPanel>();
             EndingPanel ending = host.AddComponent<EndingPanel>();
 
@@ -340,12 +343,16 @@ namespace BitSorter.View.EditorTools
             Assign(mainMenu, "_levels", levelSelect);
             Assign(mainMenu, "_sandbox", sandbox);
             Assign(mainMenu, "_settings", settings);
+            Assign(mainMenu, "_workbench", workbench);
             Assign(mainMenu, "_canvas", canvas);
 
             Assign(settings, "_progress", progress);
             Assign(settings, "_menu", mainMenu);
             Assign(settings, "_credits", credits);
             Assign(settings, "_canvas", canvas);
+
+            Assign(workbench, "_menu", mainMenu);
+            Assign(workbench, "_canvas", canvas);
 
             Assign(credits, "_settings", settings);
             Assign(credits, "_canvas", canvas);

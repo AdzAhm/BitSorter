@@ -390,6 +390,34 @@ report screenshots; and a 0 and a 1 that differ by more than colour. Variants ar
 before any is built, and the result is reviewed side by side with the reference. It sits in Settings
 beside Neon Board and Classic, which also draw the new board.
 
+**Chosen, 2026-10-12: Quiet with a touch of Lively.** Three variants were drawn side by side in an HTML
+mock on the real engine's history (Quiet, Lively, Precise). Ahmad chose Quiet as the base, with Lively's
+trail and halo on a change in flight and its tint on a gate as it flips, kept faint (35% of Lively's,
+which he set on the mock's slider), and the waveform's lines in their values' colours. Nothing from
+Precise, and no casing under the wires.
+
+**As built in Part 3** (`Assets/Scripts/View/Workbench`), as a preview off the main menu:
+
+- **The view reads a view-model, never the engine.** `WorkbenchModel` holds one run of the circuit,
+  made once to its end, and answers for any moment: each net's value, the changes on their way and how
+  far down their wires they have got, a gate's flash, the waveform so far. Playing, replaying and
+  dragging the slider back are `Seek`; nothing re-runs (ADR-6). It formats every value once, so a frame
+  of playback makes no garbage. The circuit and where it is drawn are `ReferenceCircuit`, the stand-in
+  Part 8 replaces with the board document and its layout.
+- **Drawn as anti-aliased meshes.** `VectorPainter` writes strokes, discs, rings, glows and filled
+  shapes into UI meshes, each edge carrying a strip about a pixel wide that fades out — smooth at any
+  size, and in a browser build, which has no MSAA. The picture is four layers (card, wires, parts,
+  waveform), so a ring's digit, a TextMeshPro label, sits over its ring and under the gate it reaches.
+- **The glow is drawn, not bloomed.** The plan named URP bloom; the mock's glow is a soft trail and halo
+  at a chosen strength, and drawing it reproduces that exactly, costs no full-screen pass in the browser,
+  and keeps bloom for the 4.x looks. Colours are `SchematicPalette`; a faint colour's alpha is corrected
+  (`Over`) because the project blends in linear space, where 35% over a dark ground looks far stronger
+  than in the browser the mock was chosen in.
+- **Checked.** `WorkbenchTests` holds the view-model to the recorded run (the glitch passing, the short
+  one swallowed and fading, a ring at its change's distance), the routes' geometry and the palette's
+  contrast; `WorkbenchPlayTests` opens it from the menu and reads back the colours the wires were
+  actually drawn in after the slider is dragged; reference shot 27 is the Schematic look's first.
+
 ---
 
 ## 11. The parts

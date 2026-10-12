@@ -368,10 +368,11 @@ Unity 6.3 LTS (6000.3.11f1).
   `TestResults.xml` in the save directory rather than from a `TestRunnerApi`
   callback, which does not survive the domain reload that entering play mode
   causes.
-- **BitSorter → Capture Reference Shots** screenshots twenty-six states of the
+- **BitSorter → Capture Reference Shots** screenshots twenty-seven states of the
   real game — menu, board, a run, both kinds of collision, the cards, free play,
   settings, the credits, the wider boards, the three levels that open on a broken
-  circuit, the timing diagram mid-run, a four-bit adder built from blocks — into
+  circuit, the timing diagram mid-run, a four-bit adder built from blocks, the 5.0
+  workbench preview — into
   the save directory. Two captures of the same code are identical
   to the pixel, so a change that claims to leave the look alone can be held to it.
   It needs the Game view.
