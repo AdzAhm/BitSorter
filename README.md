@@ -381,10 +381,11 @@ Unity 6.3 LTS (6000.3.11f1).
   csc's exit code rather than grepping for `error`, because a missing reference
   reports with no `path(line,col):` prefix, and append any source file added
   since Bee wrote the rsp, or it simply is not compiled.
-- **CI** runs the simulator's own tests on every push, with no Unity involved:
-  `Tools/ci/` builds `Assets/Scripts/LogicCore` for netstandard2.1 and runs the
-  test files that touch nothing else. Locally, the same run is
-  `dotnet test Tools/ci/LogicCore.Tests/LogicCore.Tests.csproj`.
+- **CI** runs everything that needs no Unity on every push: `Tools/ci/` builds
+  `Assets/Scripts/LogicCore` and 5.0's new pure layers for netstandard2.1, runs
+  the simulator's own tests and the repository's rules, and runs the oracle
+  designs under Icarus Verilog, which it installs. Locally, the same run is
+  `dotnet test Tools/ci/BitSorter.Ci.slnx`.
 
 ### Why it isn't a physics game
 

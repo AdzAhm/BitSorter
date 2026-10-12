@@ -51,7 +51,7 @@ until [ Library/ScriptAssemblies/BitSorter.View.dll -nt Assets/Scripts/View/Some
 grep -c "SomeNewMethodName" Library/ScriptAssemblies/BitSorter.View.dll
 ```
 
-The assemblies are `BitSorter.LogicCore.dll`, `BitSorter.View.dll`, `BitSorter.View.Editor.dll`, `BitSorter.LogicCore.Tests.dll` (Edit Mode tests), `BitSorter.PlayMode.Tests.dll` and `BitSorter.TestTools.dll`. Method and type names are ASCII in the DLL. **String literals are UTF-16 and a plain grep will not find them**, so grep for a method name instead. If nothing rebuilds, reimport the `.asmdef` (see CLAUDE.md).
+The assemblies are `BitSorter.LogicCore.dll`, 5.0's `BitSorter.Hdl.dll`, `BitSorter.Sim.dll` and `BitSorter.Board.dll`, `BitSorter.View.dll`, `BitSorter.View.Editor.dll`, `BitSorter.LogicCore.Tests.dll` (Edit Mode tests), `BitSorter.PlayMode.Tests.dll` and `BitSorter.TestTools.dll`. Method and type names are ASCII in the DLL. **String literals are UTF-16 and a plain grep will not find them**, so grep for a method name instead. If nothing rebuilds, reimport the `.asmdef` (see CLAUDE.md).
 
 ## 3. Run the tests: Edit Mode, then Play Mode
 
@@ -75,13 +75,16 @@ until ! grep -q RUNNING "$f"; do sleep 3; done; cat "$f"
 - **Only ever the menu's PlayMode run.** The Test Runner's *Player* tab builds a player, cannot read project files, and proves nothing (see CLAUDE.md).
 - Tests run under `SaveGuard`. **Never drive the real game against the real save** with ad-hoc RunCommand code, and never launch the Windows build for a smoke test. If you need a probe, write an `[Explicit]` Play Mode fixture that uses `SaveGuard`, run it by name, and delete it before committing.
 
-Pure-LogicCore tests also run without Unity, the way CI runs them:
+Everything that does not need Unity also runs without it, the way CI runs it — the 4.x LogicCore
+tests, the 5.0 pure layers built against netstandard2.1, the repository rules (privacy, layer purity)
+and the Icarus oracle:
 
 ```bash
-dotnet test "Tools/ci/LogicCore.Tests/LogicCore.Tests.csproj"
+dotnet test "Tools/ci/BitSorter.Ci.slnx" -c Release
 ```
 
-A new LogicCore test file has to be added to that `.csproj`'s list.
+A new LogicCore test file has to be added to `LogicCore.Tests.csproj`'s list. The 5.0 test projects pick
+up their own files. Before a commit, also run the `privacy-scan` skill; for the oracle, `oracle-compare`.
 
 ## 4. A visual change: capture and diff
 

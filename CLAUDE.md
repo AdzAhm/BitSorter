@@ -10,15 +10,36 @@ longer matches the code, say so and correct it in the same change. Do not
 quietly work around a stale paragraph, and do not treat one as binding
 just because it is written down here.
 
+## 5.0 is being built (branch `v5`)
+BitSorter is being re-founded as a SystemVerilog simulator for the course,
+with the thirty levels kept as side *Exercises* (the brief's decisions,
+2026-10-11). **`Docs/architecture-5.md` is the architecture, the data model
+and the parts -- read it before any 5.0 work.** 5.0 is built *beside* the
+4.x game, which stays playable until Part 15 replaces it and Part 16 deletes
+it, so most of this file still describes 4.x and is still true of it. Each
+part rewrites the paragraphs here that it makes stale, in the same change.
+
 ## Architecture rule (do not break this)
 - Assets/Scripts/LogicCore/ = pure C#, NO UnityEngine imports.
-  Deterministic tick-based simulator. Has its own asmdef.
+  Deterministic tick-based simulator. Has its own asmdef. The 4.x token
+  engine: frozen, and deleted in 5.0's Part 16.
+- Assets/Scripts/Hdl/, Sim/ and Board/ = 5.0's three pure layers -- the
+  language, the engine and the document -- each with its own asmdef: C# 9,
+  no engine references, no reflection, no threads, no file access of their
+  own, so they run unchanged under dotnet, IL2CPP and a browser. They point
+  one way, Hdl <- Sim <- Board <- View, and the view changes the document and
+  the engine only through their commands. `Tools/ci/Repo.Tests` holds all of
+  it: the asmdefs, what the CI builds actually reference, and the source.
 - Assets/Scripts/View/ = Unity MonoBehaviours. Reads sim state, renders it.
 - State flows LogicCore -> View only. The view never mutates the sim.
 - No Rigidbody2D for bits. Physics is decoration only (sparks, debris).
 
 ## Conventions
-- Every LogicCore component gets a unit test with its truth table.
+- Every LogicCore component gets a unit test with its truth table. In the
+  5.0 layers every construct gets a test, and a comparison against Icarus
+  Verilog wherever the oracle can run it (`Tools/ci/Oracle`, the
+  `oracle-compare` skill). Where Icarus and the language standard disagree,
+  the standard wins and the difference is written down.
 - Levels are JSON in Assets/Resources/Levels/, and each one names its own
   `order` — play order is authored, not the ordinal sort of file names.
   Two levels claiming the same place are an error: `LevelCatalog` names them,
@@ -101,15 +122,38 @@ Explain things as you go and tell me when I'm about to do something dumb.
 
 ## Syllabus scope
 
-What this game teaches, and what it deliberately leaves alone.
+What BitSorter teaches, what it only simulates or shows, and what it leaves
+alone. 5.0 changed this (the brief's D1, D10 and D11, 2026-10-11); the three
+paragraphs under the next heading are the 4.x token model's, and stay true of
+the 4.x game until it is retired.
 
-**In scope:** boolean algebra, K-map minimization, functional
+**Taught, in the Exercises:** boolean algebra, K-map minimization, functional
 completeness, propagation delay, combinational components, adders,
 flip-flops, FSMs, critical path, pipelining.
 
-**Out of scope:** assembly, the RISC-V datapath, memory addressing, and
-number representation. Those are a different game — don't reach for them
-even when a level looks like it could stretch that way.
+**Simulated, not taught:** the course's RISC-V hardware, multicycle included,
+with its memories and `$readmemh` (D10). The simulator has to run it; no
+Exercise has to teach it. This reverses what this section said until 5.0.
+
+**Shown, not taught:** hazards. In 5.0's 4-state model with gate delays a
+glitch is real and appears on screen, but no Exercise sets out to teach
+static or dynamic hazards (D1, reconfirmed after the syllabus listed them;
+the course's own simulation work does not ask students to guard against
+them).
+
+**Displayed, not taught:** number representation. A signal reads in binary,
+hex, or unsigned or signed decimal (D11); what two's complement *is* stays a
+different game.
+
+**Out of scope:** assembly programming and memory addressing -- software,
+not hardware. Don't reach for them even when an Exercise looks like it could
+stretch that way.
+
+### Under the 4.x token engine
+
+True of the token model, and so of the 4.x game until Part 16. In 5.0's
+engine the first is reversed, the second becomes a real clock signal, and
+the third is revisited when static timing arrives (Part 14).
 
 **Hazards are not expressible.** Static and dynamic hazards need a
 continuous signal model; bits here are discrete tokens, so a glitch has
@@ -375,6 +419,19 @@ failure side.
   differ and a hunk stager. This section says why; the skill says how. **One
   editor serves every session on this machine**, and a compile during another
   session's test run kills it (2026-09-28), so agree who drives first.
+- **Everything that does not need Unity runs with `dotnet test
+  Tools/ci/BitSorter.Ci.slnx`**, as CI runs it: the 4.x simulator's tests,
+  5.0's pure layers built against netstandard2.1 (Unity's profile, so an API
+  Unity lacks fails here first), the repository rules, and the Icarus oracle.
+  CI installs Icarus and sets `BITSORTER_REQUIRE_ICARUS`, so a skipped oracle
+  there is a failure rather than a quiet pass.
+- **Nothing from the course comes into this repository.** Its files hold
+  student ID numbers and the university's own code, the repository is public,
+  and git keeps everything. Examples are written from scratch in the course's
+  style. `Tools/ci/Repo.Tests` scans every hand-written file for anything that
+  looks like an ID; the `privacy-scan` skill also checks the working tree and
+  all of history against the course folder itself, and is run before every
+  push. A number it finds in a commit is a stop: ask before pushing anything.
 - Use Plan mode for anything touching more than one file.
 - Every new LogicCore component ships with its Edit Mode tests in the
   same change. No component without a truth-table test.
@@ -1231,6 +1288,10 @@ failure side.
   at 1080 and to at least 90% at 930.
 
 ## Not yet
+**5.0 was asked for by name** (2026-10-11), and its parts are listed in
+`Docs/architecture-5.md`: building them in order is not building ahead.
+What follows describes 4.x.
+
 Do not build ahead of me. The logic core, the view layer, the level
 format, the thirty levels, the canvas interface, sound, level select,
 saved progress, analytics, the sandbox, board undo, the settings screen and

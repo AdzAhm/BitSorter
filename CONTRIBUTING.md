@@ -144,8 +144,10 @@ not the Player tab, which builds a whole player first.
   the same code are identical to the pixel, so a change that claims not to move
   anything can be held to it. Say in the pull request which shots changed and why.
 
-CI runs the simulator's own tests on every push without Unity; locally that is
-`dotnet test Tools/ci/LogicCore.Tests/LogicCore.Tests.csproj`.
+CI runs everything that needs no Unity on every push -- the simulator's tests,
+the repository's rules and the Icarus Verilog oracle; locally that is
+`dotnet test Tools/ci/BitSorter.Ci.slnx` (install Icarus Verilog for the oracle
+tests, or they are skipped).
 
 ## Forking and pull requests
 
