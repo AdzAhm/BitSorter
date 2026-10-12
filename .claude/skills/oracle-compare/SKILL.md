@@ -51,6 +51,15 @@ Follow `Tools/ci/Oracle/corpus/README.md`: **original only** (written in the cou
 from it), no ID numbers even as operands, a header comment saying what it exercises, one idea per design.
 Then run the `privacy-scan` skill: its private check compares the corpus line by line with the course folder.
 
+## Generated cases: the operator oracle (Part 1)
+
+`OperatorOracleTests` shows the pattern for checking many small facts at once without a corpus file:
+generate the cases in C#, write one testbench that assigns literal operands and `$display`s each
+result as `"<index> %b"`, run it once, and compare every printed line with BitSorter's own answer. It
+writes the generated file to a temp folder and deletes it, so nothing generated lands in the repo.
+Declare each result exactly as wide as the operator's own result, so SystemVerilog's context sizing
+does not widen the expression behind your back.
+
 ## Comparing with BitSorter's engine (from Part 2)
 
 From Part 2 the same design runs in both, and the two VCDs are compared per signal, normalised to the
