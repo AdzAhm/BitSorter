@@ -126,6 +126,23 @@ namespace BitSorter.Ci
         public static string Normalise(string text) => DigitUnderscore.Replace(text, "");
 
         /// <summary>
+        /// Whether a run of digits is only 0s and 1s: binary, which 5.0's code and tests are full of
+        /// (<c>8'b11111101</c>), and 11 of the 256 eight-digit binary runs pass the check digit
+        /// (counted 2026-10-12). A nine-digit number of nothing but 0s and 1s is one in about two
+        /// million, and the private rule still catches the real numbers whatever their digits.
+        /// </summary>
+        public static bool IsBinary(string digits)
+        {
+            foreach (char c in digits)
+            {
+                if (c != '0' && c != '1')
+                    return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
         /// Every number in <paramref name="text"/> the generic rule objects to, with its line and rule.
         /// </summary>
         /// <remarks>The number is returned for the allowlist's sake. Callers must not print it.</remarks>
@@ -136,14 +153,17 @@ namespace BitSorter.Ci
             for (int i = 0; i < lines.Length; i++)
             {
                 foreach (Match match in NineDigits.Matches(lines[i]))
-                    yield return (i + 1, match.Value, NineDigitRule);
+                {
+                    if (!IsBinary(match.Value))
+                        yield return (i + 1, match.Value, NineDigitRule);
+                }
 
                 if (hexImage)
                     continue;
 
                 foreach (Match match in EightDigits.Matches(lines[i]))
                 {
-                    if (PassesIdCheckDigit(match.Value))
+                    if (!IsBinary(match.Value) && PassesIdCheckDigit(match.Value))
                         yield return (i + 1, match.Value, CheckDigitRule);
                 }
             }

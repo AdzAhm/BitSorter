@@ -102,6 +102,7 @@ namespace BitSorter.Ci.Tests
         [TestCase("1234567", TestName = "Seven digits")]
         [TestCase("32'h{0}", TestName = "Eight digits that fail the check digit")]
         [TestCase("x * 0.{0}9", TestName = "The fraction of a decimal")]
+        [TestCase("8'b11111101 9'b{0}", TestName = "Binary digits")]
         public void NotEveryLongNumber_IsAnId(string template)
         {
             string eight = Join("1234", "5678");
