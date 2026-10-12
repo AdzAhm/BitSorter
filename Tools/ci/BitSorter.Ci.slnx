@@ -5,6 +5,7 @@
   </Folder>
   <Folder Name="/5.0/">
     <Project Path="SystemVerilog/SystemVerilog.csproj" />
+    <Project Path="SystemVerilog.Tests/SystemVerilog.Tests.csproj" />
     <Project Path="Sim/Sim.csproj" />
     <Project Path="Board/Board.csproj" />
     <Project Path="Repo.Tests/Repo.Tests.csproj" />

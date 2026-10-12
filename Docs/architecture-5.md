@@ -196,6 +196,28 @@ Printer       syntax tree -> SystemVerilog in the course's style (section 7)
 Diagnostic    severity, file, line, column, code, message
 ```
 
+**Values, as built in Part 1.** `Logic4`, `LogicVec`, `Literal`, `Radix` in `Assets/Scripts/SystemVerilog`.
+
+- **Storage.** Up to 64 bits a value is two words inside the struct and no operator allocates — a
+  guardrail test measures every one at zero bytes. A wider value keeps both planes in one array that is
+  never written after it is made, so copies share it.
+- **Width.** An operator works at its operands' width: a binary one extends both to the wider,
+  sign-extending only when both are signed (IEEE 1800, 11.8.1). Sizing an expression by its context —
+  `r = a + b` adds at the widest of r, a and b — is the elaborator's job (Parts 4 and 5), done with
+  `Extend` before the operator runs.
+- **x and z.** A z operand bit reads as x. Bitwise operators follow the standard's truth tables, so a
+  known 0 still wins an AND; arithmetic with any unknown bit, or division by zero, is all x; `==` is 0
+  as soon as a known bit differs and x only when unknown bits could decide it; `===` is never x; a
+  condition with a known 1 is true; an unknown condition merges the two choices bit by bit; an unknown
+  shift amount or index gives x; `>>>` fills with the sign only on a signed value.
+- **Literals.** IEEE 1800, 5.7.1: plain decimals are signed and 32 bits, a short literal pads with x or
+  z only when its leftmost digit is x or z, and truncation warns when it loses a bit. `'0 '1 'x 'z`
+  are reported as filling their context.
+- **Checked three ways.** Worked examples of each rule; a slow second implementation written from the
+  standard's tables and `BigInteger`, held equal on thousands of random values of widths 1 to 130
+  (`Tools/ci/SystemVerilog.Tests`); and about 1,600 generated cases run under Icarus and compared bit
+  for bit (`Tools/ci/Oracle/OperatorOracleTests`). Icarus agreed on every one.
+
 ### The engine (`Sim`)
 
 ```

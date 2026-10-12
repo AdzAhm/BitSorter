@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The tests of BitSorter 5.0's SystemVerilog layer: its 4-state values and operators first, its
+    lexer, parser and printer as later parts add them. They need nothing but the layer itself, so
+    they live here and run under dotnet, in CI and locally in seconds; Unity builds the layer too,
+    which proves its compiler accepts it.
+
+    ReferenceVec is a second, deliberately slow implementation of every operator, written bit by bit
+    from the standard's own tables, that the fast one is held to on random values.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <AssemblyName>BitSorter.SystemVerilog.Tests</AssemblyName>
+    <RootNamespace>BitSorter.SystemVerilog.Tests</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../SystemVerilog/SystemVerilog.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
+    <PackageReference Include="NUnit" Version="3.14.0" />
+    <PackageReference Include="NUnit3TestAdapter" Version="6.3.0" />
+  </ItemGroup>
+
+</Project>
