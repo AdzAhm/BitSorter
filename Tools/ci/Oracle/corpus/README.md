@@ -23,5 +23,9 @@ and `Docs/oracle-notes.md` (from Part 2) for where Icarus and the language stand
 | --- | --- |
 | `smoke/` | Proves the harness works and pins the first facts down. |
 | `delays/` | How gate and assignment delays behave: the probes `Docs/oracle-notes.md` describes. Each has a C# twin in `Tools/ci/Sim.Tests/Probes.cs` until the front end can read the file itself. |
+| `structural/` | Designs in the shape of the course's first simulation exercises: BitSorter's own cell library with `Tpdlh` and `Tpdhl` parameters, a mux with a static hazard, a full adder, an ALU slice and a 64-bit ALU built with `generate` and a 65-bit carry. Files include each other, behind include guards. Part 4b runs them against Icarus. |
+| `behavioural/` | Behavioural designs and testbenches: a Moore machine with a `typedef enum`, `always_ff` with an asynchronous reset and `always_comb` with defaults. Part 5 runs them. |
 
-Later parts add folders for the structural, behavioural and processor corpora.
+Every file here is also read by the SystemVerilog reader's tests, which hold each to reading with no
+diagnostic and printing to a fixed point (`Tools/ci/SystemVerilog.Tests/Syntax/PrinterTests.cs`). A
+later part adds the processor corpus.
