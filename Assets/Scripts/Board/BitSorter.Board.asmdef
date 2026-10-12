@@ -1,0 +1,17 @@
+{
+    "name": "BitSorter.Board",
+    "rootNamespace": "BitSorter.Board",
+    "references": [
+        "BitSorter.Hdl",
+        "BitSorter.Sim"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": true
+}

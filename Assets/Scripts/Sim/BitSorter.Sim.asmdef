@@ -1,0 +1,16 @@
+{
+    "name": "BitSorter.Sim",
+    "rootNamespace": "BitSorter.Sim",
+    "references": [
+        "BitSorter.Hdl"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": true
+}

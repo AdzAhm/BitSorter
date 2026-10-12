@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Rules about the repository itself rather than about any one part of the game: no student ID
+    number and no copied course material anywhere in it (PrivacyScanTests), and the three pure layers
+    of BitSorter 5.0 staying pure and pointing one way (PureLayerRulesTests).
+
+    Its own tests live here rather than in Assets, because none of them is anything Unity needs to run.
+    It references the layers so that building it builds them, against netstandard2.1 as Unity does.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <AssemblyName>BitSorter.Repo.Tests</AssemblyName>
+    <RootNamespace>BitSorter.Ci.Tests</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../Shared/*.cs" Link="Shared/%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Board/Board.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
+    <PackageReference Include="NUnit" Version="3.14.0" />
+    <PackageReference Include="NUnit3TestAdapter" Version="6.3.0" />
+  </ItemGroup>
+
+</Project>

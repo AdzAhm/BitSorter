@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    BitSorter 5.0's language layer, built without Unity, exactly as LogicCore.csproj builds the old
+    engine: the same source files, netstandard2.1 and C# 9, so code the editor would refuse is refused
+    here too. Docs/architecture-5.md says what the layer is for.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <AssemblyName>BitSorter.Hdl</AssemblyName>
+    <RootNamespace>BitSorter.Hdl</RootNamespace>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../../../Assets/Scripts/Hdl/**/*.cs" />
+  </ItemGroup>
+
+</Project>

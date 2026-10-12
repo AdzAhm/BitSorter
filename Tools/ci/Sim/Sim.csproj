@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    BitSorter 5.0's engine layer, built without Unity: netstandard2.1 and C# 9, as Unity builds it.
+    It references the language layer and nothing else, which is the direction the layers point in.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <AssemblyName>BitSorter.Sim</AssemblyName>
+    <RootNamespace>BitSorter.Sim</RootNamespace>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../../../Assets/Scripts/Sim/**/*.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Hdl/Hdl.csproj" />
+  </ItemGroup>
+
+</Project>
