@@ -22,5 +22,6 @@ and `Docs/oracle-notes.md` (from Part 2) for where Icarus and the language stand
 | Folder | What is in it |
 | --- | --- |
 | `smoke/` | Proves the harness works and pins the first facts down. |
+| `delays/` | How gate and assignment delays behave: the probes `Docs/oracle-notes.md` describes. Each has a C# twin in `Tools/ci/Sim.Tests/Probes.cs` until the front end can read the file itself. |
 
 Later parts add folders for the structural, behavioural and processor corpora.

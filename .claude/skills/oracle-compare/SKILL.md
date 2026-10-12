@@ -60,7 +60,17 @@ writes the generated file to a temp folder and deletes it, so nothing generated 
 Declare each result exactly as wide as the operator's own result, so SystemVerilog's context sizing
 does not widen the expression behind your back.
 
-## Comparing with BitSorter's engine (from Part 2)
+## Comparing with BitSorter's engine (Part 2 on)
 
-From Part 2 the same design runs in both, and the two VCDs are compared per signal, normalised to the
-last value per (time, signal). This section gets the exact calls when that lands.
+`EngineOracleTests` runs a corpus design under Icarus and the same circuit in the engine, and compares
+the two waveforms signal by signal:
+
+- The design dumps a VCD itself: `$dumpfile("name.vcd"); $dumpvars(0, top);`. It lands in the run's
+  folder (`IcarusRun.Folder`); read it with `VcdReader.Read`, which keeps the value each time step
+  settled on and drops repeats.
+- The engine's side is `History.SettledChanges`, formatted "time bits"; a full name is the top module,
+  a dot, and the signal's name.
+- **Until the front end exists (Part 4) a circuit is written twice**: SystemVerilog in the corpus, and
+  the same circuit in C# with `NetlistBuilder` (`Tools/ci/Sim.Tests/Probes.cs` is the pair of
+  `corpus/delays/probes.sv`). Keep names identical. From Part 4 the engine reads the corpus file itself.
+- When they disagree, first decide who is right by the standard, then write it in `Docs/oracle-notes.md`.

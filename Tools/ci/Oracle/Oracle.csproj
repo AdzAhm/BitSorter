@@ -24,10 +24,13 @@
     <Compile Include="../Shared/*.cs" Link="Shared/%(Filename)%(Extension)" />
     <!-- The same weighted random values the SystemVerilog layer's own tests use. -->
     <Compile Include="../SystemVerilog.Tests/RandomValues.cs" Link="Shared/RandomValues.cs" />
+    <!-- The delay probes as C#, the pair of corpus/delays/probes.sv. -->
+    <Compile Include="../Sim.Tests/Probes.cs" Link="Shared/Probes.cs" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="../SystemVerilog/SystemVerilog.csproj" />
+    <ProjectReference Include="../Sim/Sim.csproj" />
   </ItemGroup>
 
   <ItemGroup>
