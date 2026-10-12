@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The oracle: designs run under Icarus Verilog, so BitSorter's own simulator can be checked against
+    a real 4-state, event-driven one. From Part 2 of the 5.0 plan the same designs run in both and
+    their waveforms are compared; for now it proves the harness and pins the first facts down.
+
+    The designs live in corpus/, outside Assets, so Unity never imports them. Every one is original:
+    see corpus/README.md. Icarus missing is a skip, unless BITSORTER_REQUIRE_ICARUS=1 (CI sets it).
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <AssemblyName>BitSorter.Oracle.Tests</AssemblyName>
+    <RootNamespace>BitSorter.Ci.Oracle</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../Shared/*.cs" Link="Shared/%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
+    <PackageReference Include="NUnit" Version="3.14.0" />
+    <PackageReference Include="NUnit3TestAdapter" Version="6.3.0" />
+  </ItemGroup>
+
+</Project>

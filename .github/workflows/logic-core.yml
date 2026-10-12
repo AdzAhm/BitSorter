@@ -1,8 +1,14 @@
-# Runs the simulator's own tests on every push and pull request.
+# Runs everything that does not need Unity, on every push and pull request.
 #
-# No Unity here: Assets/Scripts/LogicCore has no engine references, so Tools/ci builds it with the
-# plain .NET SDK and runs the test files that touch nothing else. The rest of the suite -- the view
-# layer, the levels and the Play Mode tests -- still runs in the editor.
+# No Unity here. The 4.x simulator (Assets/Scripts/LogicCore) and the three pure layers of 5.0
+# (Assets/Scripts/Hdl, Sim and Board) have no engine references, so Tools/ci builds them with the plain
+# .NET SDK against netstandard2.1, the profile Unity compiles them against. One solution runs:
+#   - LogicCore.Tests, the 4.x simulator's own tests;
+#   - Repo.Tests, the rules about the repository: no ID numbers, and the pure layers stay pure;
+#   - Oracle, designs run under Icarus Verilog, the second simulator 5.0's engine is checked against.
+# The rest of the suite -- the view layer, the levels and the Play Mode tests -- runs in the editor.
+#
+# The workflow and job keep their 4.x names, so a check that was required stays required.
 name: LogicCore tests
 
 on:
@@ -25,5 +31,12 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
+      - name: Install Icarus Verilog
+        run: sudo apt-get update && sudo apt-get install -y iverilog
+
+      # BITSORTER_REQUIRE_ICARUS turns "Icarus not found" from a skip into a failure, so a green run
+      # here always means the oracle tests really ran.
       - name: Test
-        run: dotnet test Tools/ci/LogicCore.Tests/LogicCore.Tests.csproj --configuration Release
+        run: dotnet test Tools/ci/BitSorter.Ci.slnx --configuration Release
+        env:
+          BITSORTER_REQUIRE_ICARUS: "1"

@@ -8,5 +8,6 @@
     <Project Path="Sim/Sim.csproj" />
     <Project Path="Board/Board.csproj" />
     <Project Path="Repo.Tests/Repo.Tests.csproj" />
+    <Project Path="Oracle/Oracle.csproj" />
   </Folder>
 </Solution>
