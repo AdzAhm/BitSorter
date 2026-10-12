@@ -625,6 +625,14 @@ failure side.
   colours when they build. The board tile bakes its colours in, so it is cached
   per palette.
 
+  **5.0's workbench draws from `SchematicPalette`**, the Schematic look's own set,
+  under the same rules: it draws values, x, z and buses rather than tokens, and
+  borrowing fields named for sources and sinks would make two looks share colours
+  by accident. Part 8 decides how the two sit together when the look becomes a
+  choice. Its faint colours go through `SchematicPalette.Over`, because the project
+  blends in linear space and a glow at 35% over a dark ground would otherwise look
+  nearer 60% (`Docs/architecture-5.md`, section 10).
+
   **The game is drawn in `Looks.NeonBoard`**, `Look.Default`, chosen out of three
   directions rendered side by side. `Look.Classic` is 2.0's look, kept so a change
   that claims to touch no look can be held to Classic's reference shots, pixel

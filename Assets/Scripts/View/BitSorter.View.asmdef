@@ -3,6 +3,8 @@
     "rootNamespace": "BitSorter.View",
     "references": [
         "BitSorter.LogicCore",
+        "BitSorter.Sim",
+        "BitSorter.SystemVerilog",
         "Unity.InputSystem",
         "UnityEngine.UI",
         "Unity.TextMeshPro",
