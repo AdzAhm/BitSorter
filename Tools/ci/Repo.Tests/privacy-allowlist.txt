@@ -1,0 +1,11 @@
+# Numbers the privacy scan would object to that are known not to be anybody's ID.
+#
+# One entry a line: the file, the number, then why it is harmless. An entry is a claim that someone
+# looked at the number and knows where it came from -- never add one just to make the test pass. An
+# entry that stops matching anything fails a test of its own, so this list cannot rot.
+#
+# A number from the private course folder can never be excused here: that check reads the folder
+# itself and has no allowlist.
+
+Assets/Tests/EditMode/MusicTests.cs 123456789 a random seed, the digits counted out in order
+Assets/Tests/EditMode/SceneWiringTests.cs 794885924 a Unity fileID the test looks for in the saved scene
