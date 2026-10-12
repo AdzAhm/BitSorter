@@ -4,7 +4,7 @@
     <Project Path="LogicCore.Tests/LogicCore.Tests.csproj" />
   </Folder>
   <Folder Name="/5.0/">
-    <Project Path="Hdl/Hdl.csproj" />
+    <Project Path="SystemVerilog/SystemVerilog.csproj" />
     <Project Path="Sim/Sim.csproj" />
     <Project Path="Board/Board.csproj" />
     <Project Path="Repo.Tests/Repo.Tests.csproj" />

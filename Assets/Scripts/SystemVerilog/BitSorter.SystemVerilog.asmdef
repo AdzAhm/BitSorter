@@ -1,6 +1,6 @@
 {
-    "name": "BitSorter.Hdl",
-    "rootNamespace": "BitSorter.Hdl",
+    "name": "BitSorter.SystemVerilog",
+    "rootNamespace": "BitSorter.SystemVerilog",
     "references": [],
     "includePlatforms": [],
     "excludePlatforms": [],

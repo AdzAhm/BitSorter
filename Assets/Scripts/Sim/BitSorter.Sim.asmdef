@@ -2,7 +2,7 @@
     "name": "BitSorter.Sim",
     "rootNamespace": "BitSorter.Sim",
     "references": [
-        "BitSorter.Hdl"
+        "BitSorter.SystemVerilog"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

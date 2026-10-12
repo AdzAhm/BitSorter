@@ -10,7 +10,7 @@ using NUnit.Framework;
 namespace BitSorter.Ci.Tests
 {
     /// <summary>
-    /// The three pure layers of BitSorter 5.0 stay pure, and point one way: Hdl, then Sim, then Board.
+    /// The three pure layers of BitSorter 5.0 stay pure, and point one way: SystemVerilog, then Sim, then Board.
     /// </summary>
     /// <remarks>
     /// Held three ways, because each catches what the others cannot. The asmdef is what Unity builds
@@ -24,15 +24,15 @@ namespace BitSorter.Ci.Tests
         /// <summary>Each pure layer's folder under Assets/Scripts, and the only assemblies it may use.</summary>
         private static readonly Dictionary<string, string[]> Allowed = new Dictionary<string, string[]>
         {
-            ["Hdl"] = new string[0],
-            ["Sim"] = new[] { "BitSorter.Hdl" },
-            ["Board"] = new[] { "BitSorter.Hdl", "BitSorter.Sim" },
+            ["SystemVerilog"] = new string[0],
+            ["Sim"] = new[] { "BitSorter.SystemVerilog" },
+            ["Board"] = new[] { "BitSorter.SystemVerilog", "BitSorter.Sim" },
 
             // The 4.x engine, frozen until it is deleted. Held to the asmdef rule only.
             ["LogicCore"] = new string[0],
         };
 
-        private static readonly string[] NewLayers = { "Hdl", "Sim", "Board" };
+        private static readonly string[] NewLayers = { "SystemVerilog", "Sim", "Board" };
 
         private static IEnumerable<string> AllLayers => Allowed.Keys;
 
@@ -59,7 +59,7 @@ namespace BitSorter.Ci.Tests
         {
             var assemblies = new Dictionary<string, Assembly>
             {
-                ["Hdl"] = typeof(BitSorter.Hdl.HdlLayer).Assembly,
+                ["SystemVerilog"] = typeof(BitSorter.SystemVerilog.SystemVerilogLayer).Assembly,
                 ["Sim"] = typeof(BitSorter.Sim.SimLayer).Assembly,
                 ["Board"] = typeof(BitSorter.Board.BoardLayer).Assembly,
             };

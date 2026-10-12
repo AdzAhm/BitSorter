@@ -6,7 +6,7 @@ namespace BitSorter.Board
     /// course's analyses.
     /// </summary>
     /// <remarks>
-    /// The top of three pure layers. It may use <c>BitSorter.Hdl</c> and <c>BitSorter.Sim</c>; the
+    /// The top of three pure layers. It may use <c>BitSorter.SystemVerilog</c> and <c>BitSorter.Sim</c>; the
     /// view uses it, and nothing in it knows the view exists. A drawn board reaches the engine as the
     /// same syntax tree its exported SystemVerilog is printed from, so what the code panel shows is
     /// what runs. Docs/architecture-5.md has the data model.

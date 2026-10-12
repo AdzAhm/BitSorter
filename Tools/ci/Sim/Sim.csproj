@@ -2,7 +2,7 @@
 
   <!--
     BitSorter 5.0's engine layer, built without Unity: netstandard2.1 and C# 9, as Unity builds it.
-    It references the language layer and nothing else, which is the direction the layers point in.
+    It references the SystemVerilog layer and nothing else, which is the direction the layers point in.
   -->
 
   <PropertyGroup>
@@ -19,7 +19,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../Hdl/Hdl.csproj" />
+    <ProjectReference Include="../SystemVerilog/SystemVerilog.csproj" />
   </ItemGroup>
 
 </Project>

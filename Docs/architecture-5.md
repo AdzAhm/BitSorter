@@ -72,15 +72,16 @@ where simple and friendly conflicts with exact, simple and friendly wins.
       |            import and export, migration of older saves, the course's analyses
  BitSorter.Sim     the engine: elaboration, scheduler, processes, system tasks, history, VCD
       |
- BitSorter.Hdl     the language: 4-state values, lexer, preprocessor, parser, syntax tree, printer
+ BitSorter.SystemVerilog   the language itself: its 4-state values, lexer, preprocessor, parser,
+                           syntax tree and printer
 
  BitSorter.LogicCore   the 4.x token engine: frozen, deleted when 5.0 is finished
 ```
 
-- **`Hdl`, `Sim` and `Board` are pure C# 9** — no engine references, no reflection, no threads, no file
+- **`SystemVerilog`, `Sim` and `Board` are pure C# 9** — no engine references, no reflection, no threads, no file
   access of their own (files go through interfaces the host provides). They have to run unchanged under
   the plain .NET SDK, Unity's IL2CPP and a single-threaded browser.
-- **The layers point one way**: `Hdl ← Sim ← Board ← View`. The view never changes the engine or the
+- **The layers point one way**: `SystemVerilog ← Sim ← Board ← View`. The view never changes the engine or the
   document except through the document's editing commands and the engine session's controls (run,
   pause, step, seek, restart).
 - **Held by tests, not by good intentions.** `Tools/ci/Repo.Tests` checks each layer's asmdef, the
@@ -96,7 +97,7 @@ costs.
 
 ### ADR-1 — New layers beside the old engine, not a rewrite of it
 
-- **Decision.** New assemblies `Hdl`, `Sim` and `Board` are built alongside `LogicCore`, which is frozen
+- **Decision.** New assemblies `SystemVerilog`, `Sim` and `Board` are built alongside `LogicCore`, which is frozen
   and deleted once the Exercises replace the old levels.
 - **Rejected.** Rewriting `LogicCore` in place would break more than a hundred test files and the game
   for the whole branch. A new repository would lose the history, CI and the interface machinery that
@@ -182,7 +183,7 @@ costs.
 
 ## 5. The data model
 
-### The language (`Hdl`)
+### SystemVerilog (`SystemVerilog`)
 
 ```
 Logic4        0 | 1 | x | z
@@ -220,7 +221,7 @@ VCD           written for export, read for the oracle comparison
 Project     name, modules, the top, the testbench, settings (time unit; default gate delay 1)
 Module      name, drawn or written, ports
               drawn:   parts, connections, layout
-              written: SystemVerilog source, parsed by Hdl
+              written: SystemVerilog source, parsed by the SystemVerilog layer
 Port        name, direction, width, comment
 Part        id, name (g1, g2 ...), kind, parameters, terminals
               gates (and, or, nand, nor, xor, xnor, not, buf; tri-state later), constant, clock, reset,
