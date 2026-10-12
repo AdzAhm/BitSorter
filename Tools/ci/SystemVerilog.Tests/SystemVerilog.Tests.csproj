@@ -25,6 +25,11 @@
     <ProjectReference Include="../SystemVerilog/SystemVerilog.csproj" />
   </ItemGroup>
 
+  <!-- The syntax tests read the oracle corpus, which RepoRoot finds from wherever the tests run. -->
+  <ItemGroup>
+    <Compile Include="../Shared/RepoRoot.cs" Link="Shared/RepoRoot.cs" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
     <PackageReference Include="NUnit" Version="3.14.0" />

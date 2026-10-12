@@ -336,6 +336,41 @@ BitSorter's **own** cell files beside it; named association; one module per file
 `always_comb` with defaults first; `always_ff` with an asynchronous reset; enums for states; testbenches
 with `initial` steps or `forever #half clk = ~clk;`.
 
+**Reading, as built in Part 4a** (`Assets/Scripts/SystemVerilog/Syntax`). The tiers above say what the
+simulator *runs*, part by part; the reader reads the whole of tiers A to C at once, because the course
+writes `always_comb` from its second workshop and a parser split by tier would be rewritten twice. Ahmad
+asked for it to read the course and general SystemVerilog alike (2026-10-12).
+
+- **Lexer** (`Lexer`): a sized literal is one token however it is spaced (`8 'h FF`); a `//` comment
+  later on a line is kept on the token before it, so a port's comment survives; characters copied out of
+  a slide -- `’` for an apostrophe, `–` for a minus -- are read as what they look like, with a warning.
+- **Preprocessor** (`Preprocessor`): `` `include `` through `ISourceFiles` (never the disk), looked for
+  beside the including file and then as written, with cycles and depth caught; `` `define `` without
+  arguments, `` `ifdef `` / `` `ifndef `` / `` `elsif `` / `` `else `` / `` `endif `` (so include guards
+  work), `` `undef ``, and `` `timescale `` noted. A macro with arguments is refused with the way out.
+- **Syntax tree** (`SyntaxTree.cs`): modules with ANSI or non-ANSI ports, header and body parameters,
+  declarations of any keyword type, net type or typedef name, enums, generate regions, for- and
+  if-generate, primitives with delays, module instances by name or position, continuous assigns,
+  `initial` / `always` / `always_comb` / `always_ff` / `always_latch`, functions and tasks, and every
+  statement the workshops use and the common general ones (`for`, `while`, `do`, `forever`, `repeat`,
+  `wait`, `case` / `casez` / `casex` with `unique` and `priority`, delay and event controls, system task
+  calls). Every node knows its file, line and column.
+- **Parser** (`Parser`, recursive descent): the course's operator table, plus `**` and the wildcard
+  equalities. A name followed by a name is a declaration of a typedef's type or an instance, told apart by
+  what follows. It never throws and never hangs: after an error it skips to a `;` or a keyword that starts
+  something; every loop makes progress; nesting deeper than 200 stops the read with a message rather than
+  the browser's stack. A missing `;` is reported on the line it is missing from. Classes, interfaces,
+  packages, assertions, `defparam`, `fork`, drive strengths and the switch primitives are refused where
+  they stand, their text kept.
+- **Printer** (`Printer`): the course's style -- four-space indents, one port per line with its comment,
+  connections one per line beyond three, `[N-1:0]` tight. Printing is a fixed point: print, read, print
+  gives the same text, and a tree built in code gets the parentheses its meaning needs.
+- **Checked.** 111 tests (`Tools/ci/SystemVerilog.Tests/Syntax`): each construct; the precedence table;
+  refusals and recovery; the fixed point over the whole oracle corpus; every corpus file cut off at three
+  hundred points, random tokens and characters, and nesting a hundred thousand deep, none of which may
+  throw or take more than a few seconds. Outside the repository, every one of the course's 53 source files
+  -- SIM1 to the multicycle processor of SIM3 -- read with no diagnostic and printed to a fixed point.
+
 ---
 
 ## 8. Saves and migration
