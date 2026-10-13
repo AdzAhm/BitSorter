@@ -439,6 +439,57 @@ Exercise    a stable id (analytics uses it), title, goal, hint, order, chapter; 
               scoring by gate count and settle time, never a ranking
 ```
 
+**The document, as built in Part 7a** (`Assets/Scripts/Board`).
+
+- **Immutable, all the way down.** `Project`, `Module`, `Part`, `Wire`, `Layout` and `Stimulus` are C# 9
+  records (`IsExternalInit.cs` gives netstandard2.1 what they need); an edit makes a new document that
+  shares everything it did not touch. A module gives each part and wire an id once, from `NextId`, and
+  never again.
+- **The parts built:** a port (`PortPart` -- a port is a pin on the board), a gate (the eight primitives,
+  one to eight inputs, any width, rise and fall), a constant, a register (`d`, `clk`, an optional
+  asynchronous active-high `rst` with its value, and a starting value), a mux of two, four or eight, a
+  splitter and a joiner bit by bit, a lamp, and a block of another module. Memory, select and written
+  blocks come with the parts that need them (Part 12); tri-state in Part 14.
+- **A clock is not a part.** The model above lists clock and reset parts; as built, a clock is an input
+  port that the stimulus drives as a clock (`ClockTrack`), and a reset is an input it gives a pulse. That is
+  how the course's testbenches make them, and it keeps a drawn module synthesizable: nothing in it
+  generates its own time. The canvas (Part 8) may draw such a port as a clock.
+- **Nets are worked out** (`Netlist`), by union-find over pins and wires, a tap joining the wire it is on.
+  They are named in three passes, so a made name never takes a chosen one: a port's name; then a name
+  the player gave a wire; then the pin that drives it, `g1_y`, which stays put as other parts come and go,
+  so a signal picked out in the waveform keeps its name across edits.
+- **One rule for every edit** (`BoardEditor`, `BoardRules`): the editor builds the document an edit would
+  make and checks it; an error it did not have before refuses the edit, with that error as the reason.
+  Widths that disagree, two drivers on a net, a bad or taken name, a module that contains itself, a
+  stimulus for a port that is not there. An input left open, or a vector gate with different rise and
+  fall (where simulators part, section 6), is a warning. Renaming a port renames it on every block of its
+  module and in the stimulus; renaming a module renames its blocks and the top.
+- **Undo keeps whole documents**: a reference each, a drag one step, a refused edit none, two hundred
+  deep.
+- **Compiled to one syntax tree** (`BoardCompiler`), which `Printer` prints and `Elaborator` runs: in the
+  course's style, an ideal one-bit gate as a primitive, one with delay as a cell of BitSorter's library
+  (`CellLibrary`, inputs A to D, out Z, `Tpdlh` and `Tpdhl`), anything wider as an `assign`, a register as
+  `always_ff`, a block as an instance by name, an output sharing an input's net fed by an `assign`, and the
+  stimulus as a testbench (`<top>_tb`, `dut`, `always #half clk = ~clk;`, steps in an `initial`, `$stop`).
+  An open pin reads a net of its own, x; a block's open pin is left open, `.a()`. A register with a
+  starting value whose q is a port gets a variable of its own, because a port cannot be given one.
+- **Printed a module a file** (`BoardPrinter`), the cells in `bitsorter_cells.sv`, in the order a
+  simulator reads them; `SyntaxReader.ReadAll` reads such a list back as one design.
+- **The first importer** (`BoardImporter`): structural SystemVerilog drawn as a board -- ports, nets,
+  primitives, the course's cells with their delays, instances of other modules, and the shapes of
+  `assign` and `always_ff` the printer writes. A net keeps the name it was written with. Anything else is
+  refused with what and where (a module with behaviour comes in as written code, Part 12).
+- **Checked.** 55 tests (`Tools/ci/Board.Tests`): nets and names, every refusal, undo, the printed text,
+  and the sample boards -- a half adder ideal and with delays, a full adder of two half-adder blocks, a
+  Johnson counter on a clock with a reset, buses through a mux, splitter and joiner, a four-way mux. Each
+  is printed, read back and run with **the same history, change for change**, as compiled and run
+  (invariant 4); imported from its own print and printed again to **the same text**; and run under
+  **Icarus** from its printed files, every signal of design and testbench agreeing (`BoardOracleTests`).
+  The corpus's hand-written `mux2.sv` imports as its gates and runs as the file does, glitch included.
+- **Found on the way:** the printer put an `if` with an `else` on its head's line, the `else` adrift; the
+  reader dropped the comment on a port-less module's header; and Icarus's rule for a vector's delay is the
+  longest delay of the bits that change, not the lowest bit (`Docs/oracle-notes.md`).
+
 ---
 
 ## 6. Time and delay
