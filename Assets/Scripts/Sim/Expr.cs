@@ -79,6 +79,49 @@ namespace BitSorter.Sim
         public static Expr Resize(Expr a, int width, bool signExtend) =>
             a.Width == width ? a : new ResizeExpr(a, width, signExtend);
 
+        /// <summary>
+        /// <c>mem[i]</c> with <c>i</c> known only as the design runs: the word <paramref name="offset"/>
+        /// after <paramref name="first"/>, or x when the offset is unknown or past the memory's
+        /// <paramref name="depth"/> words. It reads every word, so it is evaluated again when any changes.
+        /// </summary>
+        public static Expr WordOf(SignalId first, int depth, int width, Expr offset) => new WordExpr(first.Index, depth, width, offset);
+
+        private sealed class WordExpr : Expr
+        {
+            private readonly int _first;
+            private readonly int _depth;
+            private readonly int _width;
+            private readonly Expr _offset;
+            private readonly LogicVec _unknown;
+
+            public WordExpr(int first, int depth, int width, Expr offset)
+            {
+                _first = first;
+                _depth = depth;
+                _width = width;
+                _offset = offset ?? throw new ArgumentNullException(nameof(offset));
+                _unknown = LogicVec.AllX(width);
+            }
+
+            public override int Width => _width;
+
+            public override LogicVec Evaluate(LogicVec[] values)
+            {
+                LogicVec offset = _offset.Evaluate(values);
+                if (!offset.IsKnown || (offset.IsSigned && offset[offset.Width - 1] == Logic4.One))
+                    return _unknown;
+
+                return offset.TryGetUInt64(out ulong at) && at < (ulong)_depth ? values[_first + (int)at] : _unknown;
+            }
+
+            public override void CollectReads(ICollection<int> reads)
+            {
+                _offset.CollectReads(reads);
+                for (int i = 0; i < _depth; i++)
+                    reads.Add(_first + i);
+            }
+        }
+
         /// <summary><c>$signed(a)</c> or <c>$unsigned(a)</c>: the same bits, read with another signedness.</summary>
         public static Expr WithSignedness(Expr a, bool signed) => new SignednessExpr(a, signed);
 

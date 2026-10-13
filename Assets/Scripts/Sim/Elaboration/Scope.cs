@@ -40,9 +40,21 @@ namespace BitSorter.Sim
         public LogicVec? Value;
     }
 
-    /// <summary>An instance's or a generate block's name: taken, but not a value.</summary>
+    /// <summary>An instance's or a generate block's name: not a value, but a scope a hierarchical name can reach into.</summary>
     internal sealed class InstanceEntry : Entry
     {
+        /// <summary>The names inside it, once it has been elaborated; null before, or for a named block in a process.</summary>
+        public Scope Scope;
+    }
+
+    /// <summary>A memory, <c>logic [7:0] mem [0:255]</c>: its words, and the range each word is declared with.</summary>
+    internal sealed class MemoryEntry : Entry
+    {
+        public MemoryInfo Memory;
+        public string FullName;
+
+        /// <summary>A word's declared range, <c>[Msb:Lsb]</c>, which a select inside a word counts against.</summary>
+        public int Msb, Lsb;
     }
 
     /// <summary>A typedef's type: its width, signedness and range.</summary>
@@ -79,6 +91,24 @@ namespace BitSorter.Sim
 
         /// <summary>How many generate constructs this scope has met, for naming unnamed ones genblk1, genblk2...</summary>
         public int GenerateConstructs;
+
+        /// <summary>On the outermost scope: where <c>$time</c> comes from, and the top module's scope, which a full hierarchical name starts at.</summary>
+        public Func<Expr> TimeSource;
+
+        /// <inheritdoc cref="TimeSource"/>
+        public Scope Top;
+
+        /// <summary>The outermost scope, which every scope leads up to.</summary>
+        public Scope Root
+        {
+            get
+            {
+                Scope s = this;
+                while (s.Parent != null)
+                    s = s.Parent;
+                return s;
+            }
+        }
 
         public bool TryDeclare(string name, Entry entry)
         {

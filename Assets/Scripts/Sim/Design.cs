@@ -38,7 +38,7 @@ namespace BitSorter.Sim
     /// <summary>One signal: its hierarchical name, width, kind and signedness.</summary>
     public sealed class SignalInfo
     {
-        internal SignalInfo(string name, int width, SignalKind kind, bool signed, bool local = false, LogicVec? initial = null)
+        internal SignalInfo(string name, int width, SignalKind kind, bool signed, bool local = false, LogicVec? initial = null, MemoryInfo memory = null)
         {
             Name = name;
             Width = width;
@@ -46,6 +46,7 @@ namespace BitSorter.Sim
             Signed = signed;
             Local = local;
             Initial = initial;
+            Memory = memory;
         }
 
         /// <summary>Its full name, dot-separated through the hierarchy: <c>uut.sum</c>.</summary>
@@ -64,7 +65,58 @@ namespace BitSorter.Sim
         /// <summary>The value a variable is declared with, <c>logic a = 0;</c>, which it holds from before time 0.</summary>
         public LogicVec? Initial { get; }
 
+        /// <summary>The memory this is one word of, or null. Words are left out of a VCD, as Icarus leaves them.</summary>
+        public MemoryInfo Memory { get; }
+
         public override string ToString() => $"{Kind} {Name} [{Width}]";
+    }
+
+    /// <summary>
+    /// A memory, <c>logic [31:0] mem [0:1023];</c>: an unpacked array of words, each a variable of its
+    /// own in <see cref="Design.Signals"/>, side by side, named <c>mem[0]</c>, <c>mem[1]</c> and so on.
+    /// </summary>
+    public sealed class MemoryInfo
+    {
+        internal MemoryInfo(string name, int left, int right, int width, bool signed)
+        {
+            Name = name;
+            Left = left;
+            Right = right;
+            Width = width;
+            Signed = signed;
+        }
+
+        /// <summary>Its full name: <c>cpu.ram</c>.</summary>
+        public string Name { get; }
+
+        /// <summary>The declared range, <c>[Left:Right]</c>; <c>[1024]</c> is <c>[0:1023]</c>.</summary>
+        public int Left { get; }
+
+        /// <inheritdoc cref="Left"/>
+        public int Right { get; }
+
+        public int Lowest => Math.Min(Left, Right);
+        public int Highest => Math.Max(Left, Right);
+        public int Depth => Highest - Lowest + 1;
+
+        /// <summary>Each word's width and signedness.</summary>
+        public int Width { get; }
+
+        /// <inheritdoc cref="Width"/>
+        public bool Signed { get; }
+
+        /// <summary>The signal of the lowest word; word <c>i</c> is the one <c>i - Lowest</c> after it.</summary>
+        public SignalId First { get; internal set; }
+
+        /// <summary>The signal holding word <paramref name="index"/>, counted as declared.</summary>
+        public SignalId Word(int index)
+        {
+            if (index < Lowest || index > Highest)
+                throw new ArgumentOutOfRangeException(nameof(index), index, $"{Name} has words {Lowest} to {Highest}.");
+            return new SignalId(First.Index + index - Lowest);
+        }
+
+        public override string ToString() => $"{Name} [{Left}:{Right}] of {Width} bits";
     }
 
     /// <summary>Something that drives a signal continuously: a gate primitive or a continuous assignment.</summary>
@@ -170,12 +222,15 @@ namespace BitSorter.Sim
     {
         private readonly Dictionary<string, SignalId> _byName;
 
-        internal Design(string name, List<SignalInfo> signals, List<DriverInfo> drivers, List<ProcessInfo> processes)
+        internal Design(string name, List<SignalInfo> signals, List<DriverInfo> drivers, List<ProcessInfo> processes,
+            List<MemoryInfo> memories, SignalId? time)
         {
             Name = name;
             Signals = signals.ToArray();
             Drivers = drivers.ToArray();
             Processes = processes.ToArray();
+            Memories = memories.ToArray();
+            Time = time;
 
             _byName = new Dictionary<string, SignalId>(StringComparer.Ordinal);
             for (int i = 0; i < Signals.Count; i++)
@@ -191,6 +246,14 @@ namespace BitSorter.Sim
 
         /// <summary>The processes, in the order they start at time 0: an instance's before its parent's own, then as written.</summary>
         public IReadOnlyList<ProcessInfo> Processes { get; }
+
+        public IReadOnlyList<MemoryInfo> Memories { get; }
+
+        /// <summary>
+        /// The signal <c>$time</c> reads, if the design reads it: the engine sets it as time moves, with
+        /// no event, so only what runs anyway sees it change -- as the standard has it.
+        /// </summary>
+        public SignalId? Time { get; }
 
         public SignalInfo this[SignalId signal] => Signals[signal.Index];
 
@@ -230,6 +293,8 @@ namespace BitSorter.Sim
         /// <summary>Which bits of each variable a continuous driver already drives: a second may not overlap them.</summary>
         private readonly Dictionary<int, bool[]> _drivenBits = new Dictionary<int, bool[]>();
         private readonly List<ProcessInfo> _processes = new List<ProcessInfo>();
+        private readonly List<MemoryInfo> _memories = new List<MemoryInfo>();
+        private SignalId? _time;
 
         /// <summary>The variables a process writes, and which: none of them may also be driven continuously.</summary>
         private readonly Dictionary<int, ProcessInfo> _procedural = new Dictionary<int, ProcessInfo>();
@@ -254,6 +319,40 @@ namespace BitSorter.Sim
             if (initial.IsEmpty)
                 throw new ArgumentException("A starting value needs a value.", nameof(initial));
             return Add(name, width, SignalKind.Variable, signed, local: false, initial);
+        }
+
+        /// <summary>
+        /// A memory: <c>logic [width-1:0] name [left:right]</c>, one variable a word. Every word starts at x
+        /// until something writes it -- a process, or <c>$readmemh</c>.
+        /// </summary>
+        public MemoryInfo Memory(string name, int width, bool signed, int left, int right)
+        {
+            if (Math.Abs((long)left - right) + 1 > MaxMemoryWords)
+                throw new ArgumentOutOfRangeException(nameof(right), $"{name} would have more than {MaxMemoryWords} words.");
+
+            var memory = new MemoryInfo(name, left, right, width, signed);
+            SignalId first = default;
+            for (int i = memory.Lowest; i <= memory.Highest; i++)
+            {
+                SignalId word = Add($"{name}[{i}]", width, SignalKind.Variable, signed, memory: memory);
+                if (i == memory.Lowest)
+                    first = word;
+            }
+
+            memory.First = first;
+            _memories.Add(memory);
+            return memory;
+        }
+
+        /// <summary>The most words one memory may have: a million, four times the course's largest.</summary>
+        public const int MaxMemoryWords = 1 << 20;
+
+        /// <summary>The signal <c>$time</c> reads, made the first time it is asked for.</summary>
+        public SignalId Time()
+        {
+            if (_time == null)
+                _time = Add("$time", 64, SignalKind.Variable, false, local: true);
+            return _time.Value;
         }
 
         /// <summary>A process's own working variable: not recorded, not in a VCD (see <see cref="SignalInfo.Local"/>).</summary>
@@ -361,9 +460,9 @@ namespace BitSorter.Sim
         /// <summary>An expression reading a signal of this design, at its own width.</summary>
         public Expr Read(SignalId signal) => Expr.Read(signal, _signals[signal.Index].Width);
 
-        public Design Build() => new Design(_name, _signals, _drivers, _processes);
+        public Design Build() => new Design(_name, _signals, _drivers, _processes, _memories, _time);
 
-        private SignalId Add(string name, int width, SignalKind kind, bool signed, bool local = false, LogicVec? initial = null)
+        private SignalId Add(string name, int width, SignalKind kind, bool signed, bool local = false, LogicVec? initial = null, MemoryInfo memory = null)
         {
             if (string.IsNullOrEmpty(name))
                 throw new ArgumentException("A signal needs a name.", nameof(name));
@@ -372,7 +471,7 @@ namespace BitSorter.Sim
             if (width < 1 || width > LogicVec.MaxWidth)
                 throw new ArgumentOutOfRangeException(nameof(width), width, $"A signal's width must be from 1 to {LogicVec.MaxWidth}.");
 
-            _signals.Add(new SignalInfo(name, width, kind, signed, local, initial));
+            _signals.Add(new SignalInfo(name, width, kind, signed, local, initial, memory));
             return new SignalId(_signals.Count - 1);
         }
 

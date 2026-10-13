@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text;
 using BitSorter.SystemVerilog;
 using BitSorter.SystemVerilog.Syntax;
 
@@ -24,7 +25,10 @@ namespace BitSorter.Sim
         /// - A variable declared in a named block is a signal of that block's scope, recorded like any
         ///   other; one declared in an unnamed block, a <c>for</c> loop's <c>int i</c>, and the counters
         ///   the compiler needs are the process's own (<see cref="SignalInfo.Local"/>).
-        /// - <c>$display</c> and its kind print, which arrives in Part 6, and are skipped with a warning;
+        /// - <c>$display</c>, <c>$write</c>, <c>$strobe</c>, <c>$monitor</c> (with their <c>b</c>, <c>h</c>
+        ///   and <c>o</c> forms), <c>$info</c>, <c>$warning</c>, <c>$error</c> and <c>$fatal</c> print into
+        ///   the transcript; their formats are read here, once. <c>$readmemh</c>, <c>$readmemb</c>,
+        ///   <c>$writememh</c> and <c>$writememb</c> load and save memories through the run's files.
         ///   <c>$dumpfile</c> and <c>$dumpvars</c> are skipped silently, since every signal is recorded
         ///   anyway. <c>$finish</c>, <c>$stop</c> and <c>$fatal</c> end the run.
         /// </remarks>
@@ -32,10 +36,36 @@ namespace BitSorter.Sim
         {
             private readonly HashSet<string> _ignoredTasks = new HashSet<string>(StringComparer.Ordinal);
 
-            private static readonly HashSet<string> PrintTasks = new HashSet<string>(StringComparer.Ordinal)
+            /// <summary>The print tasks: when each prints, how an argument with no format is written, and how its line is marked.</summary>
+            private static readonly Dictionary<string, (PrintKind Kind, char Radix, Severity Severity)> PrintTasks =
+                new Dictionary<string, (PrintKind, char, Severity)>(StringComparer.Ordinal)
+                {
+                    ["$display"] = (PrintKind.Display, 'd', Severity.Info),
+                    ["$displayb"] = (PrintKind.Display, 'b', Severity.Info),
+                    ["$displayh"] = (PrintKind.Display, 'h', Severity.Info),
+                    ["$displayo"] = (PrintKind.Display, 'o', Severity.Info),
+                    ["$write"] = (PrintKind.Write, 'd', Severity.Info),
+                    ["$writeb"] = (PrintKind.Write, 'b', Severity.Info),
+                    ["$writeh"] = (PrintKind.Write, 'h', Severity.Info),
+                    ["$writeo"] = (PrintKind.Write, 'o', Severity.Info),
+                    ["$strobe"] = (PrintKind.Strobe, 'd', Severity.Info),
+                    ["$strobeb"] = (PrintKind.Strobe, 'b', Severity.Info),
+                    ["$strobeh"] = (PrintKind.Strobe, 'h', Severity.Info),
+                    ["$strobeo"] = (PrintKind.Strobe, 'o', Severity.Info),
+                    ["$monitor"] = (PrintKind.Monitor, 'd', Severity.Info),
+                    ["$monitorb"] = (PrintKind.Monitor, 'b', Severity.Info),
+                    ["$monitorh"] = (PrintKind.Monitor, 'h', Severity.Info),
+                    ["$monitoro"] = (PrintKind.Monitor, 'o', Severity.Info),
+                    ["$monitoron"] = (PrintKind.MonitorOn, 'd', Severity.Info),
+                    ["$monitoroff"] = (PrintKind.MonitorOff, 'd', Severity.Info),
+                    ["$info"] = (PrintKind.Display, 'd', Severity.Info),
+                    ["$warning"] = (PrintKind.Display, 'd', Severity.Warning),
+                    ["$error"] = (PrintKind.Display, 'd', Severity.Error),
+                };
+
+            /// <summary>Tasks that only change how time is printed, which BitSorter does not yet: skipped with a warning.</summary>
+            private static readonly HashSet<string> SkippedTasks = new HashSet<string>(StringComparer.Ordinal)
             {
-                "$display", "$displayb", "$displayh", "$displayo", "$write", "$writeb", "$writeh", "$writeo",
-                "$strobe", "$monitor", "$monitoron", "$monitoroff", "$info", "$warning", "$error",
                 "$timeformat", "$printtimescale",
             };
 
@@ -164,8 +194,23 @@ namespace BitSorter.Sim
                     ins.Value?.CollectReads(reads);
                     ins.Other?.CollectReads(reads);
                     if (ins.Target != null)
+                    {
                         foreach (LPiece piece in ins.Target)
+                        {
                             piece.Offset?.CollectReads(reads);
+                            piece.Word?.CollectReads(reads);
+                        }
+                    }
+
+                    if (ins.Memory != null)
+                    {
+                        ins.Memory.Start?.CollectReads(reads);
+                        ins.Memory.End?.CollectReads(reads);
+                    }
+
+                    if (ins.Print != null)
+                        foreach (PrintSegment segment in ins.Print.Segments)
+                            segment.Argument?.CollectReads(reads);
                 }
 
                 reads.ExceptWith(p.Locals);
@@ -259,7 +304,7 @@ namespace BitSorter.Sim
                     }
 
                     case CallStatement call:
-                        Call(p, call);
+                        Call(p, scope, call);
                         return;
 
                     case JumpStatement j:
@@ -327,7 +372,7 @@ namespace BitSorter.Sim
                         {
                             if (declarator.Unpacked.Count > 0)
                             {
-                                NotYet(declarator.Location, $"{declarator.Name} is an array -- a memory -- which arrives in Part 6.");
+                                NotYet(declarator.Location, $"{declarator.Name} is a memory declared inside a process, which BitSorter does not support; declare it in the module.");
                                 p.Failed = true;
                                 continue;
                             }
@@ -415,8 +460,13 @@ namespace BitSorter.Sim
                 var target = new LPiece[parts.Count];
                 for (int i = 0; i < parts.Count; i++)
                 {
-                    target[i] = new LPiece(parts[i].Signal.Signal.Index, parts[i].Lowest, parts[i].Width, parts[i].Offset);
-                    p.Writes.Add(parts[i].Signal.Signal.Index);
+                    ExpressionBuilder.ProcPart part = parts[i];
+                    int depth = part.Word != null ? part.Memory.Depth : 0;
+                    target[i] = new LPiece(part.Signal.Signal.Index, part.Lowest, part.Width, part.Offset, part.Word, depth);
+
+                    // A word picked as the process runs may be any of them.
+                    for (int w = 0; w < Math.Max(1, depth); w++)
+                        p.Writes.Add(part.Signal.Signal.Index + w);
                 }
 
                 switch (a.IntraAssignment)
@@ -752,25 +802,60 @@ namespace BitSorter.Sim
                 return Condition(p, scope, delay.Values[0]);
             }
 
-            private void Call(Proc p, CallStatement call)
+            private void Call(Proc p, Scope scope, CallStatement call)
             {
+                string where = $"{call.Location.File}:{call.Location.Line}";
+
                 switch (call.Name)
                 {
                     case "$finish":
                     case "$stop":
+                        p.Emit(new Instruction { Op = OpCode.Finish, Text = $"{call.Name} ({where})" });
+                        return;
+
                     case "$fatal":
-                        p.Emit(new Instruction { Op = OpCode.Finish, Text = $"{call.Name} ({call.Location.File}:{call.Location.Line})" });
+                    {
+                        // $fatal(finish_number, "message", ...): the number is how much to report, which BitSorter does not vary.
+                        int first = call.Arguments.Count > 0 && !(call.Arguments[0] is StringLiteral) ? 1 : 0;
+                        PrintSegment[] segments = PrintSegments(p, scope, call, first, 'd');
+                        p.Emit(new Instruction
+                        {
+                            Op = OpCode.Print,
+                            Print = new PrintSpec { Kind = PrintKind.Display, Severity = Severity.Error, Segments = Labelled(segments, call.Name) },
+                        });
+                        p.Emit(new Instruction { Op = OpCode.Finish, Text = $"{call.Name} ({where})" });
+                        return;
+                    }
+
+                    case "$readmemh":
+                    case "$readmemb":
+                    case "$writememh":
+                    case "$writememb":
+                        MemoryCall(p, scope, call, where);
                         return;
                 }
 
                 if (DumpTasks.Contains(call.Name))
                     return;
 
-                if (PrintTasks.Contains(call.Name))
+                if (PrintTasks.TryGetValue(call.Name, out (PrintKind Kind, char Radix, Severity Severity) task))
+                {
+                    PrintSegment[] segments = PrintSegments(p, scope, call, 0, task.Radix);
+                    if (task.Kind == PrintKind.Display && task.Severity != Severity.Info || call.Name == "$info")
+                        segments = Labelled(segments, call.Name);
+
+                    p.Emit(new Instruction
+                    {
+                        Op = OpCode.Print,
+                        Print = new PrintSpec { Kind = task.Kind, Severity = task.Severity, Segments = segments },
+                    });
+                    return;
+                }
+
+                if (SkippedTasks.Contains(call.Name))
                 {
                     if (_ignoredTasks.Add(call.Name))
-                        Warning(call.Location, ElaborationCodes.Ignored,
-                            $"{call.Name} prints, which arrives in Part 6; until then BitSorter skips it.");
+                        Warning(call.Location, ElaborationCodes.Ignored, $"{call.Name} changes how time is printed, which BitSorter does not do yet; it is skipped.");
                     return;
                 }
 
@@ -778,6 +863,205 @@ namespace BitSorter.Sim
                     ? $"{call.Name} is not supported by BitSorter yet."
                     : $"Calling the task {call.Name} is not supported by BitSorter.");
                 p.Failed = true;
+            }
+
+            /// <summary>An <c>$error</c> with no message still says something: the task's own name.</summary>
+            private static PrintSegment[] Labelled(PrintSegment[] segments, string task) =>
+                segments.Length > 0 ? segments : new[] { new PrintSegment { Text = task } };
+
+            /// <summary>
+            /// A print task's arguments, from <paramref name="first"/>, as the line's pieces: a string
+            /// is a format for the arguments after it (IEEE 1800, 21.2.1); any other argument is written
+            /// in <paramref name="radix"/> at its default width.
+            /// </summary>
+            private PrintSegment[] PrintSegments(Proc p, Scope scope, CallStatement call, int first, char radix)
+            {
+                var builder = new ExpressionBuilder(scope, _diagnostics, constantOnly: false);
+                var segments = new List<PrintSegment>();
+                List<Expression> args = call.Arguments;
+
+                for (int i = first; i < args.Count;)
+                {
+                    Expression arg = args[i];
+
+                    if (arg is StringLiteral format)
+                    {
+                        i = Format(p, scope, builder, format, args, i + 1, segments);
+                        continue;
+                    }
+
+                    if (arg != null)
+                        segments.Add(new PrintSegment { Conversion = radix, Argument = builder.Build(arg, 0), Untracked = IsTime(arg) });
+                    i++;
+                }
+
+                if (builder.Failed)
+                    p.Failed = true;
+
+                return segments.ToArray();
+            }
+
+            private static bool IsTime(Expression e) =>
+                e is CallExpression c && (c.Name == "$time" || c.Name == "$stime" || c.Name == "$realtime");
+
+            /// <summary>One format string: its text, and a piece for each conversion, taking the arguments from <paramref name="next"/>. Returns the next unused argument.</summary>
+            private int Format(Proc p, Scope scope, ExpressionBuilder builder, StringLiteral format, List<Expression> args, int next, List<PrintSegment> segments)
+            {
+                string f = format.Value;
+                var text = new StringBuilder();
+
+                void Flush()
+                {
+                    if (text.Length == 0)
+                        return;
+                    segments.Add(new PrintSegment { Text = text.ToString() });
+                    text.Clear();
+                }
+
+                for (int k = 0; k < f.Length; k++)
+                {
+                    char c = f[k];
+                    if (c != '%' || k + 1 >= f.Length)
+                    {
+                        text.Append(c);
+                        continue;
+                    }
+
+                    if (f[k + 1] == '%')
+                    {
+                        text.Append('%');
+                        k++;
+                        continue;
+                    }
+
+                    int j = k + 1;
+                    bool left = false;
+                    if (f[j] == '-')
+                    {
+                        left = true;
+                        j++;
+                    }
+
+                    int digits = j;
+                    while (j < f.Length && char.IsDigit(f[j]))
+                        j++;
+
+                    int width = -1;
+                    bool zero = false;
+                    if (j > digits)
+                    {
+                        string w = f.Substring(digits, j - digits);
+                        width = Math.Min(int.Parse(w, System.Globalization.CultureInfo.InvariantCulture), 1000);
+                        zero = w.Length > 1 && w[0] == '0';
+                    }
+
+                    if (j >= f.Length)
+                    {
+                        Warning(format.Location, ElaborationCodes.BadFormat, $"The format \"{f}\" ends in the middle of a %; it is printed as written.");
+                        text.Append(f, k, f.Length - k);
+                        break;
+                    }
+
+                    char conversion = char.ToLowerInvariant(f[j]);
+                    k = j;
+
+                    switch (conversion)
+                    {
+                        case 'm':
+                            Flush();
+                            segments.Add(new PrintSegment { Conversion = 'm', Text = scope.Path, Width = width, LeftAlign = left });
+                            continue;
+                        case 'x':
+                            conversion = 'h';
+                            break;
+                        case 'd': case 'b': case 'o': case 'h': case 'c': case 's': case 't':
+                            break;
+                        case 'e': case 'f': case 'g':
+                            NotYet(format.Location, $"%{f[j]} writes a real number; BitSorter simulates whole numbers only.");
+                            p.Failed = true;
+                            continue;
+                        default:
+                            NotYet(format.Location, $"%{f[j]} is not supported by BitSorter yet.");
+                            p.Failed = true;
+                            continue;
+                    }
+
+                    if (next >= args.Count || args[next] == null)
+                    {
+                        Warning(format.Location, ElaborationCodes.BadFormat,
+                            $"The format \"{f}\" has more conversions than there are values after it; the %{f[j]} prints nothing.");
+                        next++;
+                        continue;
+                    }
+
+                    Expression value = args[next++];
+                    Flush();
+
+                    if (conversion == 's' && value is StringLiteral literal)
+                    {
+                        string written = width > literal.Value.Length ? (left ? literal.Value.PadRight(width) : literal.Value.PadLeft(width)) : literal.Value;
+                        segments.Add(new PrintSegment { Text = written });
+                        continue;
+                    }
+
+                    segments.Add(new PrintSegment
+                    {
+                        Conversion = conversion,
+                        Width = width,
+                        LeftAlign = left,
+                        ZeroPad = zero,
+                        Argument = builder.Build(value, 0),
+                        Untracked = IsTime(value),
+                    });
+                }
+
+                Flush();
+                return next;
+            }
+
+            /// <summary><c>$readmemh("file", mem [, start [, end]])</c> and the others: the file and the memory are read here, the bounds as the design runs.</summary>
+            private void MemoryCall(Proc p, Scope scope, CallStatement call, string where)
+            {
+                bool read = call.Name.StartsWith("$readmem", StringComparison.Ordinal);
+                var builder = new ExpressionBuilder(scope, _diagnostics, constantOnly: false);
+                List<Expression> args = call.Arguments;
+
+                if (args.Count < 2 || args.Count > 4 || !(args[0] is StringLiteral file))
+                {
+                    Error(call.Location, ElaborationCodes.BadFormat,
+                        $"{call.Name} takes a file name in quotes and a memory, and then a first and a last word if you want them: {call.Name}(\"image.hex\", mem).");
+                    p.Failed = true;
+                    return;
+                }
+
+                MemoryEntry memory = builder.MemoryNamed(args[1]);
+                Expr start = args.Count > 2 && args[2] != null ? builder.Build(args[2], 0) : null;
+                Expr end = args.Count > 3 && args[3] != null ? builder.Build(args[3], 0) : null;
+
+                if (memory == null || builder.Failed)
+                {
+                    p.Failed = true;
+                    return;
+                }
+
+                if (read)
+                    for (int w = 0; w < memory.Memory.Depth; w++)
+                        p.Writes.Add(memory.Memory.First.Index + w);
+
+                p.Emit(new Instruction
+                {
+                    Op = read ? OpCode.ReadMemory : OpCode.WriteMemory,
+                    Memory = new MemoryTask
+                    {
+                        Task = call.Name,
+                        Memory = memory.Memory,
+                        Hex = call.Name.EndsWith("h", StringComparison.Ordinal),
+                        File = file.Value,
+                        Start = start,
+                        End = end,
+                        Where = where,
+                    },
+                });
             }
 
             private void Jump(Proc p, JumpStatement j)

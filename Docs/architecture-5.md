@@ -278,7 +278,9 @@ VCD           written for export, read for the oracle comparison
   it, and by drivers in the next delta; so the drivers keep invariant 1, and processes -- which the
   language lets race -- run in an order that is the same on every run: **an instance's processes before
   its parent's own, and a module's own as written**, as Icarus starts them. A testbench that raises reset
-  at time 0 therefore reaches the flip-flops of the design it instantiates.
+  at time 0 therefore reaches the flip-flops of the design it instantiates. At time 0 the processes start
+  once what has no delay has settled from the starting values (from Part 6a, as Icarus starts them), so
+  an `initial` that reads a wire at time 0 sees it worked out, not x.
 - **Regions.** A nonblocking write is worked out when it runs and applied once nothing active is left in
   the time step; `#0` waits for that moment too, and runs before the nonblocking writes (IEEE 1800, 4.4).
   `q <= #3 d` takes `d` now and writes it three units on; `a = #3 b` takes `b` now, waits, and writes.
@@ -321,6 +323,37 @@ VCD           written for export, read for the oracle comparison
 - **Checked.** 11 more tests: the lint's cases, the course's `busy` pattern (released when `busy` really
   falls -- Icarus, given the same file, releases at the first dip), the same instant seen by a wait in the
   one module, as both simulators see it, and `$finish` settling its step.
+
+**Memories, files and the transcript, as built in Part 6a** (`Formatting.cs`, `MemoryImage.cs`,
+`SimFiles.cs`, and the elaborator's names).
+
+- **A memory is its words.** `logic [31:0] mem [0:1023];` (or `[1024]`, or `[1023:0]`) is a `MemoryInfo`
+  and one variable a word, side by side in `Design.Signals`, named `mem[0]` on. A write is a write to a
+  word, recorded and waking readers as any variable's is; `mem[i]` with `i` known only as the design runs
+  reads the word it picks, or x outside the memory, and is woken by a write to any word. A process may
+  write `mem[addr]` and a part of a word; an assign needs a constant word. A VCD leaves the words out, as
+  Icarus does.
+- **Files are the run's** (`ISimFiles`, in `SimOptions.Files`; `MemorySimFiles` in tests and the
+  browser). `$readmemh` and `$readmemb` load from the lowest word up (or a range given, either way),
+  with `@` addresses, `x`/`z`/`?` digits, underscores and both comments; `$writememh` and `$writememb`
+  write a word a line. A missing or malformed file is an error in the transcript and the run goes on, as
+  a testbench's file is the testbench's business; a short one, or one too long, is a warning.
+- **The transcript.** `$display`, `$write`, `$strobe` and `$monitor` (and their `b`, `h`, `o` forms),
+  `$info`, `$warning`, `$error` and `$fatal` write lines into the history's messages, marked by
+  severity. Formats are read when the design is built: `%d %b %o %h %x %c %s %t %m %%`, widths, `-` and
+  `0`, and every string argument a format for the ones after it. The widths and x/z digits are Icarus's,
+  and the oracle compares every line printed. `$strobe` and `$monitor` print once their step has
+  settled, the monitor first; `$monitor` only when a value other than the time changed.
+- **`$time`** (and `$stime`, `$realtime`) reads a hidden signal the engine sets as time moves, with no
+  event, so an assign of it is not woken by it -- as the standard has it.
+- **Names through the hierarchy**: `dut.ctl.state`, `slice[3].s.sum`, `top.x`, read and written, in
+  processes and assigns. Processes, and assigns that use such a name, are compiled once their module's
+  instances are in, so a testbench may name `dut.x` above the line that makes `dut`.
+- **A typed parameter is its value's context** (a Part 4b fault found here): `localparam [5:0] ONES = '1`
+  is six ones.
+- **Checked.** 30 tests (`SystemTaskTests`, two more elsewhere); and against Icarus,
+  `corpus/system/printing.sv` and `corpus/system/memories.sv` with their images, every signal and every
+  line printed agreeing.
 
 ### The document (`Board`)
 
@@ -475,17 +508,19 @@ lives in the engine's layer, which already sees the syntax tree, so the layers s
   uses its lowest, with a warning. An undeclared name where a net may be implied -- a port connection,
   the left of an assign, a gate terminal -- is a one-bit wire, with a warning.
 - **Refused, with the part it arrives in** (`SV0306`): functions and tasks (not supported, section 7's
-  table), arrays and memories (6), `inout` (14), packed arrays of more than one dimension, net types other
-  than `wire`, `tri`, `uwire` and the two supplies. Simulating a design without them would be simulating
-  something else, so they are errors, never warnings. Processes and declared starting values, refused in
-  Part 4b, run from Part 5a (section 5).
-- **Diagnostics** `SV0301` to `SV0321`, each at the item's file, line and column: no top, unknown module
+  table), `inout` (14), packed arrays of more than one dimension, arrays of more than one unpacked
+  dimension, arrays of wires, net types other than `wire`, `tri`, `uwire` and the two supplies. Simulating
+  a design without them would be simulating something else, so they are errors, never warnings. Processes
+  and declared starting values, refused in Part 4b, run from Part 5a; memories and hierarchical names from
+  Part 6a (section 5).
+- **Diagnostics** `SV0301` to `SV0322`, each at the item's file, line and column: no top, unknown module
   or name, not a constant, a width mismatch at a port (a warning), a bad port, parameter, select, delay or
   left side, two drivers on a variable's bit (with the way out: a wire), recursion, an implicit net and an
   unconnected input (warnings), a duplicate, an unsized number in `{ }`, and a design too large. A read
-  that failed is not elaborated, so the read's own errors stand alone. Part 5a adds three: a print task
-  skipped until Part 6 (a warning, once a task), a process that would never wait, and a `break` or
-  `continue` outside a loop.
+  that failed is not elaborated, so the read's own errors stand alone. Part 5a adds three: a task
+  skipped (a warning, once a task -- since Part 6a only `$timeformat`, `$printtimescale` and a `final`
+  block), a process that would never wait, and a `break` or `continue` outside a loop; Part 6a one
+  more, a format with too few values (a warning).
 - **Checked.** 44 tests (`Tools/ci/Sim.Tests/ElaboratorTests`): the sizing rules each by a design that
   shows the difference, parameters by name and position, body parameters, enums, `$clog2` and `**`,
   generate naming, every way of connecting a port, non-ANSI ports, every error code, and the hand-worked

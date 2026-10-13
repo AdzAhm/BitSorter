@@ -62,6 +62,12 @@ namespace BitSorter.Sim
 
         /// <summary>Whether transitions in flight are recorded, for the look to draw.</summary>
         public bool RecordTransitions { get; set; } = true;
+
+        /// <summary>
+        /// The files <c>$readmemh</c> reads and <c>$writememh</c> writes. Null, a design that asks for
+        /// one is told there are none, in the transcript.
+        /// </summary>
+        public ISimFiles Files { get; set; }
     }
 
     /// <summary>
@@ -97,6 +103,11 @@ namespace BitSorter.Sim
     /// **Finishing.** <c>$finish</c> ends the run at the end of the time step it runs in: the rest of
     /// that step -- other processes, nonblocking writes, <c>#0</c>, continuous assignments -- still
     /// happens, as Icarus does it, so the final values are consistent with each other.
+    ///
+    /// **The transcript.** <c>$display</c> and its kind write lines into the history's messages, at the
+    /// time they run; <c>$write</c> leaves its line open for the next. <c>$monitor</c> and <c>$strobe</c>
+    /// print once the time step has settled, the monitor first, as Icarus orders them; the monitor only
+    /// when one of its values other than the time changed.
     ///
     /// **Time 0.** Every variable starts at x, or at the value it was declared with; every net with a
     /// driver at x, every net without one at z. In the first delta every driver evaluates once, as the
@@ -190,6 +201,16 @@ namespace BitSorter.Sim
         private long _now;
         private int _delta;
 
+        /// <summary>The signal <c>$time</c> reads, or -1.</summary>
+        private readonly int _time;
+
+        /// <summary>A line <c>$write</c> has begun and nothing has ended yet.</summary>
+        private readonly StringBuilder _line = new StringBuilder();
+        private PrintSpec _monitor;
+        private LogicVec[] _monitorLast;
+        private bool _monitorOn = true;
+        private readonly List<PrintSpec> _strobes = new List<PrintSpec>();
+
         public Simulator(Design design, Stimulus stimulus = null, SimOptions options = null)
         {
             _design = design ?? throw new ArgumentNullException(nameof(design));
@@ -200,6 +221,7 @@ namespace BitSorter.Sim
             int processes = design.Processes.Count;
 
             _history = new History(signals);
+            _time = design.Time?.Index ?? -1;
             _values = new LogicVec[signals];
             _written = new LogicVec[signals];
             _signalStamp = new int[signals];
@@ -359,6 +381,9 @@ namespace BitSorter.Sim
             _now = time;
             long events = 0;
 
+            if (_time >= 0)
+                _values[_time] = _written[_time] = LogicVec.FromUInt64((ulong)time, 64);
+
             while (_heap.Count > 0 && _heap.Peek().Time == time)
             {
                 Event e = _heap.Pop();
@@ -510,15 +535,84 @@ namespace BitSorter.Sim
                     return events;
             }
 
+            Postponed();
+
             // $finish ends the run once its time step has settled -- every region, as Icarus finishes
             // it -- so the last values agree with each other: a port shows what it is connected to.
             if (_finishing)
             {
                 Finished = true;
                 Stopped = true;
+                EndLine(Severity.Info);
             }
 
             return events;
+        }
+
+        /// <summary>The postponed region: the monitor, then every strobe, with the values the step settled on.</summary>
+        private void Postponed()
+        {
+            if (_monitor != null && _monitorOn)
+            {
+                PrintSegment[] segments = _monitor.Segments;
+                bool changed = _monitorLast == null;
+                if (_monitorLast == null)
+                    _monitorLast = new LogicVec[segments.Length];
+
+                for (int i = 0; i < segments.Length; i++)
+                {
+                    PrintSegment segment = segments[i];
+                    if (segment.Argument == null || segment.Untracked)
+                        continue;
+
+                    LogicVec now = segment.Argument.Evaluate(_values);
+                    if (!changed && !Matching.SameBits(now, _monitorLast[i]))
+                        changed = true;
+                    _monitorLast[i] = now;
+                }
+
+                if (changed)
+                    Print(_monitor.Severity, _monitor.Render(_values), endLine: true);
+            }
+
+            if (_strobes.Count > 0)
+            {
+                foreach (PrintSpec strobe in _strobes)
+                    Print(strobe.Severity, strobe.Render(_values), endLine: true);
+                _strobes.Clear();
+            }
+        }
+
+        /// <summary>Text for the transcript: each line it completes becomes a message.</summary>
+        private void Print(Severity severity, string text, bool endLine)
+        {
+            _line.Append(text);
+
+            int start = 0;
+            string all = _line.ToString();
+            for (int i = 0; i < all.Length; i++)
+            {
+                if (all[i] != '\n')
+                    continue;
+                _history.Message(_now, severity, all.Substring(start, i - start));
+                start = i + 1;
+            }
+
+            _line.Clear();
+            _line.Append(all, start, all.Length - start);
+
+            if (endLine)
+                EndLine(severity, always: true);
+        }
+
+        /// <summary>Ends the line being written, if there is one, or an empty one if <paramref name="always"/>.</summary>
+        private void EndLine(Severity severity, bool always = false)
+        {
+            if (_line.Length == 0 && !always)
+                return;
+
+            _history.Message(_now, severity, _line.ToString());
+            _line.Clear();
         }
 
         /// <summary>Inertial scheduling: see the remarks on <see cref="Simulator"/>.</summary>
@@ -651,6 +745,21 @@ namespace BitSorter.Sim
                         StartWaiting(p, pc);
                         return;
 
+                    case OpCode.Print:
+                        RunPrint(ins.Print);
+                        pc++;
+                        break;
+
+                    case OpCode.ReadMemory:
+                        ReadMemory(ins.Memory);
+                        pc++;
+                        break;
+
+                    case OpCode.WriteMemory:
+                        WriteMemory(ins.Memory);
+                        pc++;
+                        break;
+
                     case OpCode.Finish:
                         _pc[p] = pc;
                         _done[p] = true;
@@ -664,6 +773,143 @@ namespace BitSorter.Sim
                         return;
                 }
             }
+        }
+
+        private void RunPrint(PrintSpec spec)
+        {
+            switch (spec.Kind)
+            {
+                case PrintKind.Display:
+                    Print(spec.Severity, spec.Render(_values), endLine: true);
+                    return;
+                case PrintKind.Write:
+                    Print(spec.Severity, spec.Render(_values), endLine: false);
+                    return;
+                case PrintKind.Strobe:
+                    _strobes.Add(spec);
+                    return;
+                case PrintKind.Monitor:
+                    // A new $monitor replaces the one before, and prints at the end of this step.
+                    _monitor = spec;
+                    _monitorLast = null;
+                    return;
+                case PrintKind.MonitorOn:
+                    _monitorOn = true;
+                    _monitorLast = null;
+                    return;
+                case PrintKind.MonitorOff:
+                    _monitorOn = false;
+                    return;
+            }
+        }
+
+        /// <summary>A whole-number task argument, or <paramref name="fallback"/> when there is none or it is unknown.</summary>
+        private long Number(Expr e, long fallback)
+        {
+            if (e == null)
+                return fallback;
+
+            LogicVec value = e.Evaluate(_values);
+            return value.IsKnown && value.TryGetInt64(out long n) ? n : fallback;
+        }
+
+        private void ReadMemory(MemoryTask task)
+        {
+            MemoryInfo memory = task.Memory;
+            string text = null;
+
+            if (_options.Files == null || !_options.Files.TryRead(task.File, out text))
+            {
+                _history.Message(_now, Severity.Error,
+                    $"{task.Task} ({task.Where}): there is no file called {task.File}, so {memory.Name} is left as it was.");
+                return;
+            }
+
+            var items = new List<MemoryImage.Item>();
+            if (!MemoryImage.TryRead(text, task.Hex, memory.Width, items, out string error))
+            {
+                _history.Message(_now, Severity.Error, $"{task.Task}({task.File}) {error}; {memory.Name} is left as it was.");
+                return;
+            }
+
+            long start = Number(task.Start, memory.Lowest);
+            long end = Number(task.End, memory.Highest);
+            long low = Math.Min(start, end), high = Math.Max(start, end);
+
+            if (low < memory.Lowest || high > memory.Highest)
+            {
+                _history.Message(_now, Severity.Error,
+                    $"{task.Task}({task.File}): words {start} to {end} are outside {memory.Name}, which has {memory.Lowest} to {memory.Highest}.");
+                return;
+            }
+
+            long step = start <= end ? 1 : -1;
+            long at = start;
+            int loaded = 0;
+            bool addressed = false;
+
+            foreach (MemoryImage.Item item in items)
+            {
+                if (item.IsAddress)
+                {
+                    addressed = true;
+                    at = item.Address;
+                    if (at < low || at > high)
+                    {
+                        _history.Message(_now, Severity.Error,
+                            $"{task.Task}({task.File}) line {item.Line}: @{item.Address:x} is outside the words being loaded, {low} to {high}.");
+                        return;
+                    }
+
+                    continue;
+                }
+
+                if (at < low || at > high)
+                {
+                    _history.Message(_now, Severity.Warning,
+                        $"{task.Task}({task.File}) line {item.Line}: more words than {memory.Name} has room for from {start}; the rest are not loaded.");
+                    return;
+                }
+
+                Write(memory.First.Index + (int)(at - memory.Lowest), 0, item.Word);
+                loaded++;
+                at += step;
+            }
+
+            if (!addressed && loaded < high - low + 1)
+                _history.Message(_now, Severity.Warning,
+                    $"{task.Task}({task.File}): the file has {loaded} words for the {high - low + 1} of {memory.Name}; the rest are left as they were.");
+        }
+
+        private void WriteMemory(MemoryTask task)
+        {
+            MemoryInfo memory = task.Memory;
+            long start = Number(task.Start, memory.Lowest);
+            long end = Number(task.End, memory.Highest);
+
+            if (Math.Min(start, end) < memory.Lowest || Math.Max(start, end) > memory.Highest)
+            {
+                _history.Message(_now, Severity.Error,
+                    $"{task.Task}({task.File}): words {start} to {end} are outside {memory.Name}, which has {memory.Lowest} to {memory.Highest}.");
+                return;
+            }
+
+            if (_options.Files == null)
+            {
+                _history.Message(_now, Severity.Error, $"{task.Task} ({task.Where}): there is nowhere to write {task.File}.");
+                return;
+            }
+
+            var words = new List<LogicVec>();
+            long step = start <= end ? 1 : -1;
+            for (long at = start; ; at += step)
+            {
+                words.Add(_values[memory.First.Index + (int)(at - memory.Lowest)]);
+                if (at == end)
+                    break;
+            }
+
+            _options.Files.Write(task.File, MemoryImage.Write(words, task.Hex));
         }
 
         private void StartWaiting(int p, int pc)
@@ -730,8 +976,25 @@ namespace BitSorter.Sim
                 if (piece.Offset != null && !TryOffset(piece.Offset, out lowest))
                     continue;
 
-                Write(piece.Signal, lowest, part);
+                if (!TryWord(piece, out int signal))
+                    continue;
+
+                Write(signal, lowest, part);
             }
+        }
+
+        /// <summary>The signal a piece writes: its own, or the word of a memory its index picks; false if that is unknown or outside.</summary>
+        private bool TryWord(in LPiece piece, out int signal)
+        {
+            signal = piece.Signal;
+            if (piece.Word == null)
+                return true;
+
+            if (!TryOffset(piece.Word, out int word) || word < 0 || word >= piece.Depth)
+                return false;
+
+            signal += word;
+            return true;
         }
 
         private void Write(int s, int lowest, LogicVec part)
@@ -772,10 +1035,13 @@ namespace BitSorter.Sim
                 if (piece.Offset != null && !TryOffset(piece.Offset, out lowest))
                     continue;
 
-                if (!Clip(_design.Signals[piece.Signal].Width, ref lowest, ref part))
+                if (!TryWord(piece, out int signal))
                     continue;
 
-                var e = new Event { Time = _now + delay, Seq = ++_seq, Kind = EventKind.Nba, Index = piece.Signal, Lowest = lowest, Value = part };
+                if (!Clip(_design.Signals[signal].Width, ref lowest, ref part))
+                    continue;
+
+                var e = new Event { Time = _now + delay, Seq = ++_seq, Kind = EventKind.Nba, Index = signal, Lowest = lowest, Value = part };
                 if (delay == 0)
                     _nba.Add(e);
                 else

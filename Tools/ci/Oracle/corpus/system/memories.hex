@@ -1,0 +1,6 @@
+// A memory image for memories.sv, written for BitSorter: two words, then a jump to word 4,
+// an underscore, an unknown digit, and an all-z word after a block comment.
+0A 0b
+@4 ff
+1_2 x3
+/* the last */ zz

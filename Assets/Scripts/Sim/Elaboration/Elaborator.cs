@@ -81,6 +81,13 @@ namespace BitSorter.Sim
             private int _unnamed;
             private bool _stopped;
 
+            /// <summary>
+            /// What waits for the instance being elaborated to be complete: its processes, and the
+            /// assigns that name something through the hierarchy, which may reach into an instance
+            /// written after them. Done in the order written, once everything else is in.
+            /// </summary>
+            private List<Action> _deferred;
+
             /// <summary>The processes of the instance being elaborated, and of the instances inside it, kept apart to be ordered.</summary>
             private List<ProcessInfo> _ownProcesses;
             private List<ProcessInfo> _childProcesses;
@@ -111,6 +118,7 @@ namespace BitSorter.Sim
                 if (root != null)
                 {
                     _unit = new Scope(root.Name, null, null);
+                    _unit.TimeSource = () => Expr.Read(_builder.Time(), 64);
                     DeclareUnitItems();
 
                     _builder = new NetlistBuilder(root.Name);
@@ -314,12 +322,16 @@ namespace BitSorter.Sim
 
                 _active.Add(module.Name);
                 List<ProcessInfo> outerOwn = _ownProcesses, outerChildren = _childProcesses;
+                List<Action> outerDeferred = _deferred;
                 _ownProcesses = new List<ProcessInfo>();
                 _childProcesses = new List<ProcessInfo>();
+                _deferred = new List<Action>();
 
                 try
                 {
                     var scope = new Scope(path, _unit, module);
+                    if (isTop)
+                        _unit.Top = scope;
 
                     // Header parameters first, in order: each may use the ones before it.
                     var used = new HashSet<string>(StringComparer.Ordinal);
@@ -364,11 +376,16 @@ namespace BitSorter.Sim
                     }
 
                     BuildPass(scope, module.Items, depth);
+
+                    foreach (Action later in _deferred)
+                        later();
+
                     return scope;
                 }
                 finally
                 {
                     _active.Remove(module.Name);
+                    _deferred = outerDeferred;
 
                     // An instance's processes start before its parent's own, as Icarus starts them.
                     List<ProcessInfo> ordered = _childProcesses;
@@ -832,7 +849,7 @@ namespace BitSorter.Sim
 
                     if (declarator.Unpacked.Count > 0)
                     {
-                        NotYet(declarator.Location, $"{declarator.Name} is an array -- a memory -- which arrives in Part 6.");
+                        DeclareMemory(scope, d, declarator, shape, kind);
                         continue;
                     }
 
@@ -852,6 +869,84 @@ namespace BitSorter.Sim
 
                     DeclareSignal(scope, declarator.Name, declarator.Location, shape, kind, null, initial);
                 }
+            }
+
+            /// <summary><c>logic [7:0] mem [0:255];</c> or <c>[256]</c>: a memory, one variable a word.</summary>
+            private void DeclareMemory(Scope scope, DataDeclaration d, Declarator declarator, Shape shape, SignalKind kind)
+            {
+                if (kind != SignalKind.Variable)
+                {
+                    NotYet(declarator.Location, $"{declarator.Name} is an array of wires, which BitSorter does not support yet; declare it logic.");
+                    return;
+                }
+
+                if (declarator.Unpacked.Count > 1)
+                {
+                    NotYet(declarator.Unpacked[1].Location, $"{declarator.Name} has more than one unpacked dimension, which BitSorter does not support yet.");
+                    return;
+                }
+
+                if (declarator.Initializer != null)
+                {
+                    NotYet(declarator.Initializer.Location,
+                        $"Giving the memory {declarator.Name} starting values in its declaration is not supported yet; load it with $readmemh, or in an initial block.");
+                    return;
+                }
+
+                Dimension range = declarator.Unpacked[0];
+                long left, right;
+
+                if (range.Right == null)
+                {
+                    if (!ExpressionBuilder.TryInteger(range.Left, scope, _diagnostics, "a memory's size", out long size))
+                        return;
+                    if (size < 1)
+                    {
+                        Error(range.Location, ElaborationCodes.BadSelect, $"A memory needs at least one word, and {declarator.Name} is given {size}.");
+                        return;
+                    }
+
+                    left = 0;
+                    right = size - 1;
+                }
+                else if (!ExpressionBuilder.TryInteger(range.Left, scope, _diagnostics, "a memory's bound", out left) ||
+                         !ExpressionBuilder.TryInteger(range.Right, scope, _diagnostics, "a memory's bound", out right))
+                {
+                    return;
+                }
+
+                if (Math.Abs(left - right) + 1 > NetlistBuilder.MaxMemoryWords || Math.Abs(left) > int.MaxValue / 2 || Math.Abs(right) > int.MaxValue / 2)
+                {
+                    Error(range.Location, ElaborationCodes.TooLarge, $"{declarator.Name} would have more than {NetlistBuilder.MaxMemoryWords} words.");
+                    return;
+                }
+
+                if (scope.Own(declarator.Name) != null)
+                {
+                    Error(declarator.Location, ElaborationCodes.Duplicate, $"{declarator.Name} is declared twice here.");
+                    return;
+                }
+
+                string fullName = scope.Path + "." + declarator.Name;
+                MemoryInfo memory;
+                try
+                {
+                    memory = _builder.Memory(fullName, shape.Width, shape.Signed, (int)left, (int)right);
+                }
+                catch (ArgumentException ex)
+                {
+                    Error(declarator.Location, ElaborationCodes.Duplicate, ex.Message);
+                    return;
+                }
+
+                scope.TryDeclare(declarator.Name, new MemoryEntry
+                {
+                    Memory = memory,
+                    FullName = fullName,
+                    Msb = shape.Msb,
+                    Lsb = shape.Lsb,
+                    Declared = declarator.Location,
+                });
             }
 
             private void DeclarePortItem(Scope scope, PortItemDeclaration p, ModuleDeclaration module, bool isTop)
@@ -943,7 +1038,12 @@ namespace BitSorter.Sim
 
                         case ContinuousAssign assign:
                             foreach (Assignment a in assign.Assignments)
-                                BuildAssign(scope, a.Target, a.Value, assign.Delay, a.Location);
+                            {
+                                if (Hierarchical(a.Target) || Hierarchical(a.Value))
+                                    _deferred.Add(() => BuildAssign(scope, a.Target, a.Value, assign.Delay, a.Location));
+                                else
+                                    BuildAssign(scope, a.Target, a.Value, assign.Delay, a.Location);
+                            }
                             break;
 
                         case DataDeclaration d when d.NetType != null:
@@ -983,20 +1083,43 @@ namespace BitSorter.Sim
                         }
 
                         case ProceduralBlock process:
-                        {
-                            ProcessInfo compiled = CompileProcess(scope, process);
-                            if (compiled != null)
+                            // Compiled once the module's instances are in, so dut.ctl.state can be reached.
+                            _deferred.Add(() =>
                             {
-                                _ownProcesses.Add(compiled);
-                                _processAt[compiled] = process.Location;
-                            }
+                                ProcessInfo compiled = CompileProcess(scope, process);
+                                if (compiled != null)
+                                {
+                                    _ownProcesses.Add(compiled);
+                                    _processAt[compiled] = process.Location;
+                                }
+                            });
                             break;
-                        }
 
                         case SubroutineDeclaration s:
                             NotYet(s.Location, $"The {(s.IsTask ? "task" : "function")} {s.Name} arrives with behavioural code, in Part 5.");
                             break;
                     }
+                }
+            }
+
+            /// <summary>Whether an expression names anything through the hierarchy: <c>dut.ctl.state</c>, <c>slice[3].s.y</c>.</summary>
+            private static bool Hierarchical(Expression e)
+            {
+                switch (e)
+                {
+                    case NameExpression n: return n.Path.Count > 1;
+                    case MemberExpression _: return true;
+                    case IndexExpression i: return Hierarchical(i.Target) || Hierarchical(i.Index);
+                    case RangeSelectExpression r: return Hierarchical(r.Target) || Hierarchical(r.Left) || Hierarchical(r.Right);
+                    case ConcatenationExpression c: return c.Items.Exists(Hierarchical);
+                    case ReplicationExpression r: return Hierarchical(r.Count) || Hierarchical(r.Value);
+                    case UnaryExpression u: return Hierarchical(u.Operand);
+                    case BinaryExpression b: return Hierarchical(b.Left) || Hierarchical(b.Right);
+                    case ConditionalExpression c: return Hierarchical(c.Condition) || Hierarchical(c.WhenTrue) || Hierarchical(c.WhenFalse);
+                    case ParenthesizedExpression p: return Hierarchical(p.Inner);
+                    case CallExpression c: return c.Arguments.Exists(a => a != null && Hierarchical(a));
+                    case CastExpression c: return Hierarchical(c.Value);
+                    default: return false;
                 }
             }
 
@@ -1237,7 +1360,8 @@ namespace BitSorter.Sim
 
                     string path = scope.Path + "." + instance.Name;
 
-                    if (!scope.TryDeclare(instance.Name, new InstanceEntry { Declared = instance.Location }))
+                    var entry = new InstanceEntry { Declared = instance.Location };
+                    if (!scope.TryDeclare(instance.Name, entry))
                     {
                         Error(instance.Location, ElaborationCodes.Duplicate, $"{instance.Name} is the name of something else here already.");
                         continue;
@@ -1246,6 +1370,8 @@ namespace BitSorter.Sim
                     Scope child = ElaborateModule(module, path, overrides, scope, instance.Location, isTop: false, depth: depth + 1);
                     if (child == null)
                         continue;
+
+                    entry.Scope = child;
 
                     Connect(scope, child, module, instance);
                 }
@@ -1408,13 +1534,15 @@ namespace BitSorter.Sim
 
             private void BuildBlock(Scope scope, GenerateBlock block, string name, int depth, string genvar = null, LogicVec genvarValue = default)
             {
-                if (!scope.TryDeclare(name, new InstanceEntry { Declared = block.Location }))
+                var entry = new InstanceEntry { Declared = block.Location };
+                if (!scope.TryDeclare(name, entry))
                 {
                     Error(block.Location, ElaborationCodes.Duplicate, $"{name} is the name of something else here already.");
                     return;
                 }
 
                 var inner = new Scope(scope.Path + "." + name, scope, scope.Module);
+                entry.Scope = inner;
                 if (genvar != null)
                     inner.Set(genvar, new GenvarEntry { Value = genvarValue, Declared = block.Location });
 

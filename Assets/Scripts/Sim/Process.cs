@@ -67,6 +67,15 @@ namespace BitSorter.Sim
         /// <summary><c>$finish</c> or <c>$stop</c>: the run ends.</summary>
         Finish,
 
+        /// <summary><c>$display</c> and its kind: a line for the transcript (<see cref="Instruction.Print"/>).</summary>
+        Print,
+
+        /// <summary><c>$readmemh</c> or <c>$readmemb</c>: a memory image into a memory (<see cref="Instruction.Memory"/>).</summary>
+        ReadMemory,
+
+        /// <summary><c>$writememh</c> or <c>$writememb</c>: a memory out to a file.</summary>
+        WriteMemory,
+
         /// <summary>The process has nothing left to do.</summary>
         End,
     }
@@ -95,23 +104,50 @@ namespace BitSorter.Sim
     /// <summary>
     /// One piece of what an assignment writes: bits of a variable from <see cref="Lowest"/>, this
     /// many, or from wherever <see cref="Offset"/> says when the select is worked out at run time
-    /// (<c>y[i] = a</c>). A piece whose place is unknown or outside the variable writes nothing, as the
-    /// standard has it.
+    /// (<c>y[i] = a</c>). In a memory, the word is <see cref="Word"/> after <see cref="Signal"/>, worked
+    /// out at run time too (<c>mem[addr] &lt;= d</c>). A piece whose place is unknown or outside the
+    /// variable or the memory writes nothing, as the standard has it.
     /// </summary>
     internal readonly struct LPiece
     {
-        public LPiece(int signal, int lowest, int width, Expr offset)
+        public LPiece(int signal, int lowest, int width, Expr offset, Expr word = null, int depth = 0)
         {
             Signal = signal;
             Lowest = lowest;
             Width = width;
             Offset = offset;
+            Word = word;
+            Depth = depth;
         }
 
         public readonly int Signal;
         public readonly int Lowest;
         public readonly int Width;
         public readonly Expr Offset;
+
+        /// <summary>Which word of a memory, counted from its lowest; null when the piece is not in one.</summary>
+        public readonly Expr Word;
+
+        /// <summary>How many words the memory has.</summary>
+        public readonly int Depth;
+    }
+
+    /// <summary>A <c>$readmemh</c>, <c>$readmemb</c>, <c>$writememh</c> or <c>$writememb</c>.</summary>
+    internal sealed class MemoryTask
+    {
+        public string Task;
+        public MemoryInfo Memory;
+        public bool Hex;
+        public string File;
+
+        /// <summary>The first and last word to load or write, as declared; null for the memory's own ends.</summary>
+        public Expr Start;
+
+        /// <inheritdoc cref="Start"/>
+        public Expr End;
+
+        /// <summary>Where the call is written, for messages.</summary>
+        public string Where;
     }
 
     internal struct Instruction
@@ -130,6 +166,9 @@ namespace BitSorter.Sim
 
         /// <summary>For <see cref="OpCode.Finish"/>: which task, and where it is written.</summary>
         public string Text;
+
+        public PrintSpec Print;
+        public MemoryTask Memory;
     }
 
     /// <summary>

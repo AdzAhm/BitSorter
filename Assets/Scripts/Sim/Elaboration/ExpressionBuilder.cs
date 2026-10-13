@@ -123,22 +123,21 @@ namespace BitSorter.Sim
                 case NumberLiteral n:
                     return n.FillsContext ? new TypeInfo(1, false) : new TypeInfo(n.Value.Width, n.Value.IsSigned);
 
-                case NameExpression name:
-                {
-                    if (name.Path.Count > 1)
-                        return new TypeInfo(1, false);
-
-                    switch (_scope.Lookup(name.Name))
+                case NameExpression _:
+                case MemberExpression _:
+                    switch (Resolve(e, report: false))
                     {
                         case SignalEntry s: return new TypeInfo(s.Width, s.Signed);
                         case ConstantEntry c: return new TypeInfo(c.Value.Width, c.Value.IsSigned);
                         case GenvarEntry _: return new TypeInfo(32, true);
+                        case MemoryEntry m: return new TypeInfo(m.Memory.Width, m.Memory.Signed);
                         default: return new TypeInfo(1, false);
                     }
-                }
 
-                case IndexExpression _:
-                    return new TypeInfo(1, false);
+                case IndexExpression index:
+                    return MemoryOf(index.Target) is MemoryEntry memory
+                        ? new TypeInfo(memory.Memory.Width, memory.Memory.Signed)
+                        : new TypeInfo(1, false);
 
                 case RangeSelectExpression r:
                     return new TypeInfo(SelectWidth(r), false);
@@ -191,6 +190,8 @@ namespace BitSorter.Sim
                         case "$signed": return call.Arguments.Count == 1 && call.Arguments[0] != null ? new TypeInfo(TypeOf(call.Arguments[0]).Width, true) : new TypeInfo(1, true);
                         case "$unsigned": return call.Arguments.Count == 1 && call.Arguments[0] != null ? new TypeInfo(TypeOf(call.Arguments[0]).Width, false) : new TypeInfo(1, false);
                         case "$clog2": case "$bits": return new TypeInfo(32, true);
+                        case "$time": case "$realtime": return new TypeInfo(64, false);
+                        case "$stime": return new TypeInfo(32, false);
                         default: return new TypeInfo(1, false);
                     }
 
@@ -297,7 +298,7 @@ namespace BitSorter.Sim
                     return Expr.Constant(n.FillsContext ? LogicVec.Fill(n.Value[0], 1) : n.Value);
 
                 case NameExpression name:
-                    return BuildName(name);
+                    return BuildNamed(name);
 
                 case IndexExpression index:
                     return BuildIndex(index);
@@ -376,8 +377,7 @@ namespace BitSorter.Sim
                     return Expr.Constant(LogicVec.AllX(1));
 
                 case MemberExpression m:
-                    Error(m.Location, ElaborationCodes.NotYet, $"{Printer.Print(m)} reaches into a generate block or an instance, which BitSorter does not support yet.");
-                    return Expr.Constant(LogicVec.AllX(1));
+                    return BuildNamed(m);
 
                 case AssignmentPatternExpression p:
                     Error(p.Location, ElaborationCodes.NotYet, "'{...} is not supported by BitSorter yet.");
@@ -400,22 +400,19 @@ namespace BitSorter.Sim
             return Expr.Slice(e, 0, width);
         }
 
-        private Expr BuildName(NameExpression name)
+        /// <summary>A name used as a value: a signal, a parameter, a genvar -- here, or through the hierarchy.</summary>
+        private Expr BuildNamed(Expression e)
         {
-            if (name.Path.Count > 1)
-            {
-                Error(name.Location, ElaborationCodes.NotYet,
-                    $"{string.Join(".", name.Path)} is a hierarchical name, which BitSorter supports from Part 6.");
-                return Expr.Constant(LogicVec.AllX(1));
-            }
+            string text = Printer.Print(e);
+            bool simple = e is NameExpression one && one.Path.Count == 1;
 
-            switch (_scope.Lookup(name.Name))
+            switch (Resolve(e, report: false))
             {
                 case SignalEntry s:
                     if (_constant)
                     {
-                        Error(name.Location, ElaborationCodes.NotConstant,
-                            $"{name.Name} is a signal, but a value known before the run is needed here -- a number or a parameter.");
+                        Error(e.Location, ElaborationCodes.NotConstant,
+                            $"{text} is a signal, but a value known before the run is needed here -- a number or a parameter.");
                         return Expr.Constant(LogicVec.AllX(s.Width));
                     }
 
@@ -427,31 +424,195 @@ namespace BitSorter.Sim
                 case GenvarEntry g:
                     if (g.Value.HasValue)
                         return Expr.Constant(g.Value.Value);
-                    Error(name.Location, ElaborationCodes.NotConstant, $"Genvar {name.Name} only has a value inside its generate loop.");
+                    Error(e.Location, ElaborationCodes.NotConstant, $"Genvar {text} only has a value inside its generate loop.");
                     return Expr.Constant(LogicVec.AllX(32));
 
+                case MemoryEntry m:
+                    Error(e.Location, ElaborationCodes.BadSelect, $"{text} is a memory, read a word at a time: {text}[i].");
+                    return Expr.Constant(LogicVec.AllX(m.Memory.Width));
+
                 case TypeEntry _:
-                    Error(name.Location, ElaborationCodes.UnknownName, $"{name.Name} is a type, not a value.");
+                    Error(e.Location, ElaborationCodes.UnknownName, $"{text} is a type, not a value.");
                     return Expr.Constant(LogicVec.AllX(1));
 
                 case InstanceEntry _:
-                    Error(name.Location, ElaborationCodes.UnknownName, $"{name.Name} is an instance or a generate block, not a signal.");
+                    Error(e.Location, ElaborationCodes.UnknownName, $"{text} is an instance or a generate block, not a signal.");
                     return Expr.Constant(LogicVec.AllX(1));
 
                 default:
-                    Error(name.Location, ElaborationCodes.UnknownName,
-                        $"There is no signal or parameter called {name.Name} here. Is it declared above, and spelled the same?");
+                    if (simple)
+                        Error(e.Location, ElaborationCodes.UnknownName,
+                            $"There is no signal or parameter called {text} here. Is it declared above, and spelled the same?");
+                    else
+                        Resolve(e, report: true);
+                    Failed = true;
                     return Expr.Constant(LogicVec.AllX(1));
             }
         }
 
+        /// <summary><c>mem[i]</c>: the word, or x outside the memory; a word picked as the design runs when <c>i</c> is not a constant.</summary>
+        private Expr BuildWord(MemoryEntry memory, IndexExpression index)
+        {
+            MemoryInfo info = memory.Memory;
+            if (_constant)
+            {
+                Error(index.Location, ElaborationCodes.NotConstant, $"{Printer.Print(index)} is a word of a memory, known only as the design runs.");
+                return Expr.Constant(LogicVec.AllX(info.Width));
+            }
+
+            var quiet = new DiagnosticBag();
+            if (TryInteger(index.Index, _scope, quiet, "an index", out long k))
+                return k < info.Lowest || k > info.Highest
+                    ? Expr.Constant(LogicVec.AllX(info.Width, info.Signed))
+                    : Expr.Read(info.Word((int)k), info.Width);
+
+            return Expr.WordOf(info.First, info.Depth, info.Width, WordOffset(BuildSelf(index.Index), info));
+        }
+
+        /// <summary>Which word an index picks, counted from the memory's lowest.</summary>
+        private static Expr WordOffset(Expr index, MemoryInfo info)
+        {
+            Expr wide = Expr.Resize(index, Math.Max(index.Width, 32), false);
+            return info.Lowest == 0 ? wide : Expr.Apply(BinaryOp.Subtract, wide, Expr.Constant(LogicVec.FromInt64(info.Lowest, wide.Width)));
+        }
+
+        // -----------------------------------------------------------------
+        // Names through the hierarchy
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// What a name means: a simple one looked up from here outwards; a hierarchical one --
+        /// <c>dut.ctl.state</c>, <c>slice[3].s.sum</c> -- followed down through instances and generate
+        /// blocks, starting from one visible here or from the top module. Null when it means nothing,
+        /// having said why if <paramref name="report"/>.
+        /// </summary>
+        private Entry Resolve(Expression e, bool report)
+        {
+            switch (e)
+            {
+                case NameExpression n when n.Path.Count == 1:
+                    return _scope.Lookup(n.Name);
+
+                case NameExpression n:
+                    return ResolvePath(n.Path, n.Location, report);
+
+                case MemberExpression m:
+                {
+                    var parts = new List<string>();
+                    if (TryPathOf(m, parts))
+                        return ResolvePath(parts, m.Location, report);
+                    if (report)
+                        Error(m.Location, ElaborationCodes.BadSelect,
+                            $"{Printer.Print(m)} reaches through a generate block by an index known only as the design runs; give it a constant.");
+                    return null;
+                }
+
+                default:
+                    return null;
+            }
+        }
+
+        /// <summary>A name's parts, a generate block's index written into its part as Icarus names it: <c>slice[3]</c>.</summary>
+        private bool TryPathOf(Expression e, List<string> parts)
+        {
+            switch (e)
+            {
+                case NameExpression n:
+                    parts.AddRange(n.Path);
+                    return true;
+
+                case MemberExpression m:
+                    if (!TryPathOf(m.Target, parts))
+                        return false;
+                    parts.Add(m.Member);
+                    return true;
+
+                case IndexExpression i:
+                {
+                    if (!TryPathOf(i.Target, parts))
+                        return false;
+                    var quiet = new DiagnosticBag();
+                    if (!TryInteger(i.Index, _scope, quiet, "an index", out long k))
+                        return false;
+                    parts[parts.Count - 1] += $"[{k}]";
+                    return true;
+                }
+
+                default:
+                    return false;
+            }
+        }
+
+        private Entry ResolvePath(List<string> parts, SourceLocation at, bool report)
+        {
+            string whole = string.Join(".", parts);
+            Scope scope;
+
+            Entry first = _scope.Lookup(parts[0]);
+            if (first is InstanceEntry instance && instance.Scope != null)
+            {
+                scope = instance.Scope;
+            }
+            else if (_scope.Root.Top != null && _scope.Root.Top.Path == parts[0])
+            {
+                scope = _scope.Root.Top;
+            }
+            else
+            {
+                if (report)
+                    Error(at, ElaborationCodes.UnknownName, first is InstanceEntry
+                        ? $"{whole} reaches into {parts[0]}, which is not built at this point."
+                        : $"There is no instance called {parts[0]} here, so {whole} leads nowhere.");
+                return null;
+            }
+
+            for (int i = 1; i < parts.Count - 1; i++)
+            {
+                if (!(scope.Own(parts[i]) is InstanceEntry next) || next.Scope == null)
+                {
+                    if (report)
+                        Error(at, ElaborationCodes.UnknownName,
+                            $"{string.Join(".", parts.GetRange(0, i))} has no instance or generate block called {parts[i]}, so {whole} leads nowhere.");
+                    return null;
+                }
+
+                scope = next.Scope;
+            }
+
+            Entry last = scope.Own(parts[parts.Count - 1]);
+            if (last == null && report)
+                Error(at, ElaborationCodes.UnknownName, $"{string.Join(".", parts.GetRange(0, parts.Count - 1))} has nothing called {parts[parts.Count - 1]}.");
+            return last;
+        }
+
+        /// <summary>The memory a system task's argument names, or null having said it names none.</summary>
+        public MemoryEntry MemoryNamed(Expression e)
+        {
+            if (Resolve(e, report: false) is MemoryEntry memory)
+                return memory;
+
+            Error(e?.Location ?? default, ElaborationCodes.BadSelect, $"{(e == null ? "Nothing" : Printer.Print(e))} is not a memory, which this task needs.");
+            return null;
+        }
+
+        /// <summary>The memory <paramref name="target"/> names, if it names one.</summary>
+        private MemoryEntry MemoryOf(Expression target) =>
+            target is NameExpression || target is MemberExpression ? Resolve(target, report: false) as MemoryEntry : null;
+
         /// <summary>The declared range a select on <paramref name="target"/> counts against.</summary>
         private void RangeOf(Expression target, Expr built, out int msb, out int lsb)
         {
-            if (target is NameExpression name && name.Path.Count == 1 && _scope.Lookup(name.Name) is SignalEntry s)
+            if (Resolve(target, report: false) is SignalEntry s)
             {
                 msb = s.Msb;
                 lsb = s.Lsb;
+                return;
+            }
+
+            if (target is IndexExpression word && MemoryOf(word.Target) is MemoryEntry memory)
+            {
+                msb = memory.Msb;
+                lsb = memory.Lsb;
                 return;
             }
 
@@ -464,6 +625,9 @@ namespace BitSorter.Sim
 
         private Expr BuildIndex(IndexExpression index)
         {
+            if (MemoryOf(index.Target) is MemoryEntry memory)
+                return BuildWord(memory, index);
+
             Expr target = BuildSelf(index.Target);
             RangeOf(index.Target, target, out int msb, out int lsb);
 
@@ -715,6 +879,28 @@ namespace BitSorter.Sim
                     return Expr.Constant(LogicVec.FromInt64(bits, 32, true));
                 }
 
+                case "$time":
+                case "$stime":
+                case "$realtime":
+                {
+                    if (_constant)
+                    {
+                        Error(call.Location, ElaborationCodes.NotConstant, $"{call.Name} is known only as the design runs.");
+                        return Expr.Constant(LogicVec.AllX(64));
+                    }
+
+                    Func<Expr> source = _scope.Root.TimeSource;
+                    if (source == null)
+                    {
+                        Error(call.Location, ElaborationCodes.NotYet, $"{call.Name} cannot be read here.");
+                        return Expr.Constant(LogicVec.AllX(64));
+                    }
+
+                    // $realtime is $time: time here is a whole number of units.
+                    Expr time = source();
+                    return call.Name == "$stime" ? Expr.Slice(time, 0, 32) : time;
+                }
+
                 case "$bits":
                     if (call.Arguments.Count == 1 && call.Arguments[0] != null)
                         return Expr.Constant(LogicVec.FromInt64(TypeOf(call.Arguments[0]).Width, 32, true));
@@ -761,6 +947,8 @@ namespace BitSorter.Sim
         /// <summary>
         /// One piece of what a process writes: bits of a variable, from <see cref="Lowest"/> or, when the
         /// select is only known as the process runs (<c>y[i] = a</c>), from where <see cref="Offset"/> says.
+        /// In a memory, <see cref="Word"/> picks the word as the process runs (<c>mem[addr] &lt;= d</c>);
+        /// <see cref="Signal"/> is then the lowest word.
         /// </summary>
         public readonly struct ProcPart
         {
@@ -768,132 +956,17 @@ namespace BitSorter.Sim
             public readonly int Lowest;
             public readonly int Width;
             public readonly Expr Offset;
+            public readonly Expr Word;
+            public readonly MemoryInfo Memory;
 
-            public ProcPart(SignalEntry signal, int lowest, int width, Expr offset)
+            public ProcPart(SignalEntry signal, int lowest, int width, Expr offset, Expr word = null, MemoryInfo memory = null)
             {
                 Signal = signal;
                 Lowest = lowest;
                 Width = width;
                 Offset = offset;
-            }
-        }
-
-        /// <summary>
-        /// What a procedural assignment writes, most significant piece first: a variable, a bit or part
-        /// of one -- at a place known now or only as the process runs -- or a concatenation of those.
-        /// </summary>
-        public bool TryProceduralTarget(Expression target, List<ProcPart> into)
-        {
-            switch (target)
-            {
-                case ParenthesizedExpression p:
-                    return TryProceduralTarget(p.Inner, into);
-
-                case ConcatenationExpression c:
-                {
-                    bool ok = true;
-                    foreach (Expression item in c.Items)
-                        ok &= TryProceduralTarget(item, into);
-                    return ok;
-                }
-
-                case NameExpression name when name.Path.Count == 1:
-                {
-                    if (!(VariableNamed(name.Name, name.Location) is SignalEntry s))
-                        return false;
-                    into.Add(new ProcPart(s, 0, s.Width, null));
-                    return true;
-                }
-
-                case IndexExpression index when index.Target is NameExpression n && n.Path.Count == 1:
-                {
-                    if (!(VariableNamed(n.Name, n.Location) is SignalEntry s))
-                        return false;
-
-                    var quiet = new DiagnosticBag();
-                    if (TryInteger(index.Index, _scope, quiet, "an index", out long constant))
-                    {
-                        long position = Position(constant, s.Msb, s.Lsb);
-                        if (position < 0 || position >= s.Width)
-                        {
-                            Error(index.Location, ElaborationCodes.BadSelect, $"{Printer.Print(index)} is outside {n.Name}, which is [{s.Msb}:{s.Lsb}].");
-                            return false;
-                        }
-
-                        into.Add(new ProcPart(s, (int)position, 1, null));
-                        return true;
-                    }
-
-                    Expr i = BuildSelf(index.Index);
-                    if (Failed)
-                        return false;
-                    into.Add(new ProcPart(s, 0, 1, OffsetFrom(i, s.Msb, s.Lsb)));
-                    return true;
-                }
-
-                case RangeSelectExpression range when range.Target is NameExpression n && n.Path.Count == 1:
-                {
-                    if (!(VariableNamed(n.Name, n.Location) is SignalEntry s))
-                        return false;
-
-                    if (range.Kind != RangeKind.Constant)
-                    {
-                        if (!TryInteger(range.Right, _scope, _diagnostics, "an indexed part-select's width", out long w) || w < 1)
-                        {
-                            Failed = true;
-                            return false;
-                        }
-
-                        var quiet = new DiagnosticBag();
-                        if (!TryInteger(range.Left, _scope, quiet, "a part-select's base", out _))
-                        {
-                            if (s.Msb < s.Lsb)
-                            {
-                                Error(range.Location, ElaborationCodes.NotYet, "A variable part-select of a vector declared low to high is not supported by BitSorter yet.");
-                                return false;
-                            }
-
-                            Expr offset = OffsetFrom(BuildSelf(range.Left), s.Msb, s.Lsb);
-                            if (range.Kind == RangeKind.IndexedDown)
-                                offset = Expr.Apply(BinaryOp.Subtract, offset, Expr.Constant(LogicVec.FromInt64(w - 1, offset.Width)));
-                            if (Failed)
-                                return false;
-
-                            into.Add(new ProcPart(s, 0, (int)w, offset));
-                            return true;
-                        }
-                    }
-
-                    var parts = new List<Part>();
-                    if (!TryTarget(range, parts, null))
-                        return false;
-                    into.Add(new ProcPart(s, parts[0].Lowest, parts[0].Width, null));
-                    return true;
-                }
-
-                default:
-                    Error(target.Location, ElaborationCodes.BadLValue,
-                        $"{Printer.Print(target)} cannot be assigned: the left side must be a variable, a bit or a part of one, or a {{ }} of those.");
-                    return false;
-            }
-        }
-
-        /// <summary>The variable of that name, or null having said why there is none a process can write.</summary>
-        private SignalEntry VariableNamed(string name, SourceLocation at)
-        {
-            switch (_scope.Lookup(name))
-            {
-                case SignalEntry s when s.Kind == SignalKind.Variable:
-                    return s;
-                case SignalEntry _:
-                    Error(at, ElaborationCodes.BadLValue, $"{name} is a wire, and a process can only write a variable. Declare it logic.");
-                    return null;
-                case null:
-                    Error(at, ElaborationCodes.UnknownName, $"There is no variable called {name} here to assign.");
-                    return null;
-                default:
-                    Error(at, ElaborationCodes.BadLValue, $"{name} is not a variable, so a process cannot assign it.");
-                    return null;
+                Word = word;
+                Memory = memory;
             }
         }
 
@@ -913,8 +986,37 @@ namespace BitSorter.Sim
         }
 
         /// <summary>
+        /// What a procedural assignment writes, most significant piece first: a variable, a bit or part
+        /// of one -- at a place known now or only as the process runs -- a word of a memory, or a
+        /// concatenation of those; here or through the hierarchy.
+        /// </summary>
+        public bool TryProceduralTarget(Expression target, List<ProcPart> into)
+        {
+            switch (target)
+            {
+                case ParenthesizedExpression p:
+                    return TryProceduralTarget(p.Inner, into);
+
+                case ConcatenationExpression c:
+                {
+                    bool ok = true;
+                    foreach (Expression item in c.Items)
+                        ok &= TryProceduralTarget(item, into);
+                    return ok;
+                }
+            }
+
+            if (!TryLocate(target, procedural: true, null, out ProcPart at))
+                return false;
+
+            into.Add(at);
+            return true;
+        }
+
+        /// <summary>
         /// What an assignment's left side drives, most significant piece first: a signal, a bit or a
-        /// constant part of one, or a concatenation of those. False, having reported why, otherwise.
+        /// constant part of one, a word of a memory, or a concatenation of those. False, having reported
+        /// why, otherwise.
         /// </summary>
         public bool TryTarget(Expression target, List<Part> into, Func<NameExpression, SignalEntry> implicitNet)
         {
@@ -923,82 +1025,6 @@ namespace BitSorter.Sim
                 case ParenthesizedExpression p:
                     return TryTarget(p.Inner, into, implicitNet);
 
-                case NameExpression name when name.Path.Count == 1:
-                {
-                    Entry entry = _scope.Lookup(name.Name);
-                    SignalEntry signal = entry as SignalEntry;
-
-                    if (entry == null && implicitNet != null)
-                        signal = implicitNet(name);
-
-                    if (signal == null)
-                    {
-                        Error(name.Location, entry == null ? ElaborationCodes.UnknownName : ElaborationCodes.BadLValue,
-                            entry == null ? $"There is no signal called {name.Name} here to assign." : $"{name.Name} is not a signal, so nothing can be assigned to it.");
-                        return false;
-                    }
-
-                    into.Add(new Part(signal, 0, signal.Width));
-                    return true;
-                }
-
-                case IndexExpression index when index.Target is NameExpression n && n.Path.Count == 1 && _scope.Lookup(n.Name) is SignalEntry s:
-                {
-                    if (!TryInteger(index.Index, _scope, _diagnostics, $"the index into {n.Name}", out long i))
-                    {
-                        Failed = true;
-                        return false;
-                    }
-
-                    long position = Position(i, s.Msb, s.Lsb);
-                    if (position < 0 || position >= s.Width)
-                    {
-                        Error(index.Location, ElaborationCodes.BadSelect, $"{Printer.Print(index)} is outside {n.Name}, which is [{s.Msb}:{s.Lsb}].");
-                        return false;
-                    }
-
-                    into.Add(new Part(s, (int)position, 1));
-                    return true;
-                }
-
-                case RangeSelectExpression range when range.Target is NameExpression n && n.Path.Count == 1 && _scope.Lookup(n.Name) is SignalEntry s:
-                {
-                    long left, right;
-                    if (range.Kind == RangeKind.Constant)
-                    {
-                        if (!TryInteger(range.Left, _scope, _diagnostics, "a part-select's bound", out left) ||
-                            !TryInteger(range.Right, _scope, _diagnostics, "a part-select's bound", out right))
-                        {
-                            Failed = true;
-                            return false;
-                        }
-                    }
-                    else
-                    {
-                        if (!TryInteger(range.Left, _scope, _diagnostics, "a part-select's base", out long b) ||
-                            !TryInteger(range.Right, _scope, _diagnostics, "a part-select's width", out long w))
-                        {
-                            Failed = true;
-                            return false;
-                        }
-
-                        left = range.Kind == RangeKind.IndexedUp ? b + w - 1 : b;
-                        right = range.Kind == RangeKind.IndexedUp ? b : b - w + 1;
-                    }
-
-                    long low = Math.Min(Position(left, s.Msb, s.Lsb), Position(right, s.Msb, s.Lsb));
-                    int width = (int)(Math.Abs(left - right) + 1);
-
-                    if (low < 0 || low + width > s.Width)
-                    {
-                        Error(range.Location, ElaborationCodes.BadSelect, $"{Printer.Print(range)} reaches outside {n.Name}, which is [{s.Msb}:{s.Lsb}].");
-                        return false;
-                    }
-
-                    into.Add(new Part(s, (int)low, width));
-                    return true;
-                }
-
                 case ConcatenationExpression c:
                 {
                     bool ok = true;
@@ -1006,12 +1032,233 @@ namespace BitSorter.Sim
                         ok &= TryTarget(item, into, implicitNet);
                     return ok;
                 }
-
-                default:
-                    Error(target.Location, ElaborationCodes.BadLValue,
-                        $"{Printer.Print(target)} cannot be assigned: the left side must be a signal, a bit or a part of one, or a {{ }} of those.");
-                    return false;
             }
+
+            if (!TryLocate(target, procedural: false, implicitNet, out ProcPart at))
+                return false;
+
+            into.Add(new Part(at.Signal, at.Lowest, at.Width));
+            return true;
         }
+
+        /// <summary>
+        /// The signal -- or word of a memory -- one piece of a target writes, and which of its bits. A
+        /// select only known as the design runs is allowed in a process alone.
+        /// </summary>
+        private bool TryLocate(Expression target, bool procedural, Func<NameExpression, SignalEntry> implicitNet, out ProcPart at)
+        {
+            at = default;
+            Expression subject = target;
+            Expression select = null;
+
+            // The last select picks bits -- unless it is the one picking a memory's word.
+            if (target is IndexExpression || target is RangeSelectExpression)
+            {
+                Expression inner = target is IndexExpression i ? i.Target : ((RangeSelectExpression)target).Target;
+                if (!(target is IndexExpression && MemoryOf(inner) != null))
+                {
+                    subject = inner;
+                    select = target;
+                }
+            }
+
+            SignalEntry signal;
+            Expr word = null;
+            MemoryInfo memory = null;
+
+            if (subject is IndexExpression pick && MemoryOf(pick.Target) is MemoryEntry m)
+            {
+                memory = m.Memory;
+                var quiet = new DiagnosticBag();
+
+                if (TryInteger(pick.Index, _scope, quiet, "an index", out long k))
+                {
+                    if (k < memory.Lowest || k > memory.Highest)
+                    {
+                        Error(pick.Location, ElaborationCodes.BadSelect,
+                            $"{Printer.Print(pick)} is outside {Printer.Print(pick.Target)}, which has words {memory.Lowest} to {memory.Highest}.");
+                        return false;
+                    }
+
+                    signal = WordEntry(m, memory.Word((int)k));
+                    memory = null;
+                }
+                else if (!procedural)
+                {
+                    Error(pick.Location, ElaborationCodes.BadSelect,
+                        $"{Printer.Print(pick)} picks its word as the design runs, which only a process may write; an assign needs a constant index.");
+                    return false;
+                }
+                else
+                {
+                    Expr index = BuildSelf(pick.Index);
+                    if (Failed)
+                        return false;
+                    word = WordOffset(index, memory);
+                    signal = WordEntry(m, memory.First);
+                }
+            }
+            else
+            {
+                Entry entry = Resolve(subject, report: false);
+                if (entry == null && implicitNet != null && select == null && subject is NameExpression bare && bare.Path.Count == 1)
+                    entry = implicitNet(bare);
+
+                string name = Printer.Print(subject);
+                switch (entry)
+                {
+                    case SignalEntry s when !procedural || s.Kind == SignalKind.Variable:
+                        signal = s;
+                        break;
+
+                    case SignalEntry _:
+                        Error(subject.Location, ElaborationCodes.BadLValue, $"{name} is a wire, and a process can only write a variable. Declare it logic.");
+                        return false;
+
+                    case MemoryEntry _:
+                        Error(subject.Location, ElaborationCodes.BadLValue, $"{name} is a memory: write it a word at a time, as {name}[i].");
+                        return false;
+
+                    case null when subject is NameExpression one && one.Path.Count == 1:
+                        Error(subject.Location, ElaborationCodes.UnknownName,
+                            $"There is no {(procedural ? "variable" : "signal")} called {name} here to assign.");
+                        return false;
+
+                    case null when subject is NameExpression || subject is MemberExpression:
+                        Resolve(subject, report: true);
+                        Failed = true;
+                        return false;
+
+                    case null:
+                        Error(target.Location, ElaborationCodes.BadLValue,
+                            $"{Printer.Print(target)} cannot be assigned: the left side must be a {(procedural ? "variable" : "signal")}, a bit or a part of one, or a {{ }} of those.");
+                        return false;
+
+                    default:
+                        Error(subject.Location, ElaborationCodes.BadLValue,
+                            $"{name} is not a {(procedural ? "variable" : "signal")}, so nothing can be assigned to it.");
+                        return false;
+                }
+            }
+
+            if (select == null)
+            {
+                at = new ProcPart(signal, 0, signal.Width, null, word, memory);
+                return true;
+            }
+
+            return TrySelect(select, signal, procedural, word, memory, out at);
+        }
+
+        /// <summary>A bit or part select on the signal or word a target writes.</summary>
+        private bool TrySelect(Expression select, SignalEntry s, bool procedural, Expr word, MemoryInfo memory, out ProcPart at)
+        {
+            at = default;
+            string name = Printer.Print(select is IndexExpression ix ? ix.Target : ((RangeSelectExpression)select).Target);
+            var quiet = new DiagnosticBag();
+
+            if (select is IndexExpression index)
+            {
+                if (TryInteger(index.Index, _scope, quiet, "an index", out long constant))
+                {
+                    long position = Position(constant, s.Msb, s.Lsb);
+                    if (position < 0 || position >= s.Width)
+                    {
+                        Error(index.Location, ElaborationCodes.BadSelect, $"{Printer.Print(index)} is outside {name}, which is [{s.Msb}:{s.Lsb}].");
+                        return false;
+                    }
+
+                    at = new ProcPart(s, (int)position, 1, null, word, memory);
+                    return true;
+                }
+
+                if (!procedural)
+                {
+                    TryInteger(index.Index, _scope, _diagnostics, $"the index into {name}", out _);
+                    Failed = true;
+                    return false;
+                }
+
+                Expr i = BuildSelf(index.Index);
+                if (Failed)
+                    return false;
+                at = new ProcPart(s, 0, 1, OffsetFrom(i, s.Msb, s.Lsb), word, memory);
+                return true;
+            }
+
+            var range = (RangeSelectExpression)select;
+            long left, right;
+
+            if (range.Kind == RangeKind.Constant)
+            {
+                if (!TryInteger(range.Left, _scope, _diagnostics, "a part-select's bound", out left) ||
+                    !TryInteger(range.Right, _scope, _diagnostics, "a part-select's bound", out right))
+                {
+                    Failed = true;
+                    return false;
+                }
+            }
+            else
+            {
+                if (!TryInteger(range.Right, _scope, _diagnostics, "an indexed part-select's width", out long w) || w < 1)
+                {
+                    Failed = true;
+                    return false;
+                }
+
+                if (!TryInteger(range.Left, _scope, quiet, "a part-select's base", out long b))
+                {
+                    if (!procedural)
+                    {
+                        TryInteger(range.Left, _scope, _diagnostics, "a part-select's base", out _);
+                        Failed = true;
+                        return false;
+                    }
+
+                    if (s.Msb < s.Lsb)
+                    {
+                        Error(range.Location, ElaborationCodes.NotYet, "A variable part-select of a vector declared low to high is not supported by BitSorter yet.");
+                        return false;
+                    }
+
+                    Expr offset = OffsetFrom(BuildSelf(range.Left), s.Msb, s.Lsb);
+                    if (range.Kind == RangeKind.IndexedDown)
+                        offset = Expr.Apply(BinaryOp.Subtract, offset, Expr.Constant(LogicVec.FromInt64(w - 1, offset.Width)));
+                    if (Failed)
+                        return false;
+
+                    at = new ProcPart(s, 0, (int)w, offset, word, memory);
+                    return true;
+                }
+
+                left = range.Kind == RangeKind.IndexedUp ? b + w - 1 : b;
+                right = range.Kind == RangeKind.IndexedUp ? b : b - w + 1;
+            }
+
+            long low = Math.Min(Position(left, s.Msb, s.Lsb), Position(right, s.Msb, s.Lsb));
+            int width = (int)(Math.Abs(left - right) + 1);
+
+            if (low < 0 || low + width > s.Width)
+            {
+                Error(range.Location, ElaborationCodes.BadSelect, $"{Printer.Print(range)} reaches outside {name}, which is [{s.Msb}:{s.Lsb}].");
+                return false;
+            }
+
+            at = new ProcPart(s, (int)low, width, null, word, memory);
+            return true;
+        }
+
+        /// <summary>A word of a memory, as a signal a select can count against.</summary>
+        private static SignalEntry WordEntry(MemoryEntry memory, SignalId word) => new SignalEntry
+        {
+            Signal = word,
+            FullName = memory.FullName,
+            Width = memory.Memory.Width,
+            Msb = memory.Msb,
+            Lsb = memory.Lsb,
+            Signed = memory.Memory.Signed,
+            Kind = SignalKind.Variable,
+            Declared = memory.Declared,
+        };
     }
 }

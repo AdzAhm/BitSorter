@@ -11,30 +11,41 @@ namespace BitSorter.Ci.Oracle
 {
     /// <summary>
     /// Behavioural designs with their own testbenches -- <c>initial</c> blocks, clocks, <c>always_ff</c>,
-    /// <c>always_comb</c> -- run in both simulators from the same file, and every signal compared.
+    /// <c>always_comb</c>, memories and printing -- run in both simulators from the same file, and every
+    /// signal compared, and every line the testbench prints.
     /// </summary>
     /// <remarks>
     /// The testbench is the top in both. Icarus needs to be told to dump, so a second top module that
     /// only calls <c>$dumpvars</c> is compiled beside it, from a temporary folder deleted after; the
     /// corpus file itself is untouched. BitSorter records everything anyway. A process's own working
-    /// variables (a loop's <c>int i</c>) are BitSorter's alone and are not compared.
+    /// variables (a loop's <c>int i</c>) are BitSorter's alone, and a memory's words are left out of a
+    /// dump by Icarus, so neither is compared as a signal -- the words are, through what the testbench
+    /// prints of them. Icarus's own remarks on its standard output (where its dump went, its warnings,
+    /// "$finish called") are not the design's, and are left out of the transcript compared.
     /// </remarks>
     public class BehaviouralOracleTests
     {
-        [TestCase("behavioural/scheduling.sv", "scheduling", null)]
-        [TestCase("behavioural/traffic_light.sv", "traffic_light_tb", null)]
-        [TestCase("delays/probes.sv", "probes", "probes.vcd")]
-        [TestCase("behavioural/multiplier.sv", "multiplier_tb", null)]
-        public void TheTestbench_AgreesWithIcarus_OnEverySignal(string file, string top, string ownDump)
+        [TestCase("behavioural/scheduling.sv", "scheduling", null, null)]
+        [TestCase("behavioural/traffic_light.sv", "traffic_light_tb", null, null)]
+        [TestCase("delays/probes.sv", "probes", "probes.vcd", null)]
+        [TestCase("behavioural/multiplier.sv", "multiplier_tb", null, null)]
+        [TestCase("system/printing.sv", "printing", null, null)]
+        [TestCase("system/memories.sv", "memories_tb", null, "system/memories.hex,system/memories.bin")]
+        public void TheTestbench_AgreesWithIcarus_OnEverySignal(string file, string top, string ownDump, string data)
         {
             Icarus icarus = Icarus.Require();
+            string[] dataFiles = data == null ? new string[0] : data.Split(',').Select(Corpus.File).ToArray();
+
+            var files = new MemorySimFiles();
+            foreach (string path in dataFiles)
+                files.Add(Path.GetFileName(path), File.ReadAllText(path));
 
             Design design = Elaborate(file, top);
-            var sim = new Simulator(design);
+            var sim = new Simulator(design, null, new SimOptions { Files = files });
             RunResult result = sim.RunTo(1_000_000);
             Assert.AreEqual(RunStatus.Finished, result.Status, string.Join("\n", sim.History.Messages));
 
-            Dictionary<string, VcdTrace> theirs = RunIcarus(icarus, file, top, ownDump);
+            (Dictionary<string, VcdTrace> theirs, string printed) = RunIcarus(icarus, file, top, ownDump, dataFiles);
 
             // Icarus's dump loses the time step a $stop ends the run in (Docs/oracle-notes.md); with
             // $finish it keeps it. So after a $stop, that last step is BitSorter's alone.
@@ -47,7 +58,7 @@ namespace BitSorter.Ci.Oracle
             for (int s = 0; s < design.Signals.Count; s++)
             {
                 SignalInfo info = design.Signals[s];
-                if (info.Local)
+                if (info.Local || info.Memory != null)
                     continue;
 
                 if (!theirs.TryGetValue(info.Name, out VcdTrace trace))
@@ -68,8 +79,33 @@ namespace BitSorter.Ci.Oracle
                     wrong.Add($"{info.Name}\n      BitSorter {string.Join(", ", bitSorterChanges)}\n      Icarus    {string.Join(", ", icarusChanges)}");
             }
 
-            TestContext.WriteLine($"{top}: finished at {result.Time}; {compared} signals, {changes} settled changes compared");
+            // The transcript: what the testbench printed, line by line.
+            string[] icarusLines = printed.Replace("\r", "").Split('\n')
+                .Where(line => !line.StartsWith("VCD info:", StringComparison.Ordinal)
+                    && !line.StartsWith("WARNING:", StringComparison.Ordinal)
+                    && !line.Contains(": $finish called at ")
+                    && !line.Contains(": $stop called at "))
+                .ToArray();
+            if (icarusLines.Length > 0 && icarusLines[icarusLines.Length - 1].Length == 0)
+                icarusLines = icarusLines.Take(icarusLines.Length - 1).ToArray();
+
+            string[] bitSorterLines = sim.History.Messages
+                .Where(m => m.Severity == Severity.Info && !m.Text.StartsWith("$finish", StringComparison.Ordinal) && !m.Text.StartsWith("$stop", StringComparison.Ordinal))
+                .Select(m => m.Text)
+                .ToArray();
+
+            var misprinted = new List<string>();
+            for (int i = 0; i < Math.Max(icarusLines.Length, bitSorterLines.Length); i++)
+            {
+                string ours = i < bitSorterLines.Length ? bitSorterLines[i] : "(nothing)";
+                string theirsLine = i < icarusLines.Length ? icarusLines[i] : "(nothing)";
+                if (ours != theirsLine)
+                    misprinted.Add($"line {i + 1}\n      BitSorter [{ours}]\n      Icarus    [{theirsLine}]");
+            }
+
+            TestContext.WriteLine($"{top}: finished at {result.Time}; {compared} signals, {changes} settled changes, {bitSorterLines.Length} lines printed compared");
             Assert.IsEmpty(wrong, $"{wrong.Count} signals disagree with Icarus:\n  " + string.Join("\n  ", wrong.Take(16)));
+            Assert.IsEmpty(misprinted, $"{misprinted.Count} printed lines differ from Icarus's:\n  " + string.Join("\n  ", misprinted.Take(16)));
             Assert.Greater(compared, 0);
         }
 
@@ -85,8 +121,11 @@ namespace BitSorter.Ci.Oracle
             return elaboration.Design;
         }
 
-        /// <summary>Icarus's dump of the design: the one it writes itself, named <paramref name="ownDump"/>, or one asked for beside it.</summary>
-        private static Dictionary<string, VcdTrace> RunIcarus(Icarus icarus, string file, string top, string ownDump)
+        /// <summary>
+        /// Icarus's dump of the design -- the one it writes itself, named <paramref name="ownDump"/>, or one
+        /// asked for beside it -- and what it printed.
+        /// </summary>
+        private static (Dictionary<string, VcdTrace>, string) RunIcarus(Icarus icarus, string file, string top, string ownDump, string[] dataFiles)
         {
             string folder = Path.Combine(Path.GetTempPath(), "bitsorter-oracle-generated", Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(folder);
@@ -101,11 +140,11 @@ namespace BitSorter.Ci.Oracle
             {
                 string design = Corpus.File(file);
                 string[] sources = ownDump != null ? new[] { design } : new[] { design, dump };
-                using IcarusRun run = icarus.Simulate(sources, null, new[] { Path.GetDirectoryName(design) }, TimeSpan.FromMinutes(2));
+                using IcarusRun run = icarus.Simulate(sources, null, new[] { Path.GetDirectoryName(design) }, TimeSpan.FromMinutes(2), dataFiles);
                 Assert.IsTrue(run.Succeeded, run.Explain());
 
                 using var vcd = new StreamReader(Path.Combine(run.Folder, ownDump ?? "oracle.vcd"));
-                return VcdReader.Read(vcd);
+                return (VcdReader.Read(vcd), run.Simulate.StandardOutput);
             }
             finally
             {

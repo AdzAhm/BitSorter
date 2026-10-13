@@ -17,8 +17,9 @@ namespace BitSorter.Sim
     /// (<see cref="VcdReader"/>). Hierarchical names become nested scopes under the design's top
     /// module -- whether the name already starts with it, as an elaborated design's do
     /// (<c>alu64.slice[3].s.y</c>), or not, as a circuit built in code may. A process's own working
-    /// variables (<see cref="SignalInfo.Local"/>) are left out. Writes to a <see cref="TextWriter"/>
-    /// the caller opens: this layer touches no files.
+    /// variables (<see cref="SignalInfo.Local"/>) are left out, and so are a memory's words, as Icarus
+    /// leaves them out of <c>$dumpvars</c>. Writes to a <see cref="TextWriter"/> the caller opens: this
+    /// layer touches no files.
     /// </remarks>
     public static class VcdWriter
     {
@@ -31,7 +32,7 @@ namespace BitSorter.Sim
             int count = design.Signals.Count;
             var ids = new string[count];
             for (int i = 0, next = 0; i < count; i++)
-                ids[i] = design.Signals[i].Local ? null : IdCode(next++);
+                ids[i] = design.Signals[i].Local || design.Signals[i].Memory != null ? null : IdCode(next++);
 
             output.WriteLine("$version BitSorter $end");
             output.WriteLine($"$timescale {timescale} $end");

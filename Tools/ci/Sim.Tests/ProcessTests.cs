@@ -528,7 +528,7 @@ endmodule");
         }
 
         [Test]
-        public void Display_IsSkippedWithAWarningOnce_AndDumpingSilently()
+        public void Display_PrintsIntoTheTranscript_AndDumpingIsSkippedSilently()
         {
             Elaboration e = Elaborate(@"
 module t;
@@ -536,13 +536,15 @@ module t;
         $dumpfile(""t.vcd"");
         $dumpvars(0, t);
         $display(""one"");
-        $display(""two"");
+        #5 $display(""two"");
         $finish;
     end
 endmodule");
 
-            CollectionAssert.AreEqual(new[] { ElaborationCodes.Ignored }, Codes(e));
-            Assert.IsNotNull(e.Design);
+            Assert.IsEmpty(e.Diagnostics, string.Join("\n", e.Diagnostics));
+            Simulator sim = Run(e.Design, 100);
+            CollectionAssert.AreEqual(new[] { "0 one", "5 two" },
+                sim.History.Messages.Where(m => !m.Text.StartsWith("$finish", StringComparison.Ordinal)).Select(m => $"{m.Time} {m.Text}"));
         }
 
         [Test]

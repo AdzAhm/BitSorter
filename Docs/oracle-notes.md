@@ -165,3 +165,33 @@ with Icarus; `ProcessTests` holds BitSorter to the course's pattern.
 `$finish` ends the run at the end of the time step it runs in. Probed: at the instant a testbench
 calls it, Icarus still applies that instant's nonblocking writes, runs the processes waiting on `#0`, and
 settles continuous assignments, so the values it ends on agree with each other. BitSorter does the same.
+
+## Memories and printing (probed 2026-10-13, Part 6a)
+
+`corpus/system/printing.sv` and `corpus/system/memories.sv` run in both, and every line they print is
+compared with Icarus's, as well as every signal. They agree. What the probes pinned down:
+
+| Question | Icarus, and so BitSorter |
+| --- | --- |
+| `%d` with no width | padded to the widest value the bits hold: 2 places for 4 bits, 3 for 8, 4 for a signed byte (`-128`), 11 for an `integer` |
+| `%h`, `%o`, `%b` with no width | every digit, leading zeros kept; `%0h` drops them |
+| a digit with unknown bits | `x` all x, `z` all z, `X` some x, `Z` some z; `%d` treats the whole number as one digit |
+| `%t` | padded to 20; `%0t` not |
+| `%5d`, `%-5d`, `%05d`, `%3h`, `%10s` | padded with spaces, left-aligned, with zeros, and so on |
+| an argument with no format, `$display("a", x)` | written as `%d` at its default width; every string argument is a format for the ones after it |
+| `$strobe` and `$monitor` in one step | both at the end of it, the monitor first; `$monitor` only when a value other than `$time` changed |
+| `$readmemh` with no range | from the lowest word up, whichever way the array is declared (the 1364-2005 rule; Icarus warns that 1364-2001 differed) |
+| `@4` in an image | the next word goes to word 4 of the memory, counted as declared |
+| an image shorter than the memory | the rest is left as it was; Icarus warns, and BitSorter does too |
+
+### Time 0: processes start once the wires have settled
+
+Icarus works out every continuous assignment from the starting values before any process runs, so an
+`initial` that prints a wire at time 0 prints its value. BitSorter started its processes in the first
+delta of time 0 until Part 6a, and printed x. Both are allowed; Icarus's is plainly what a student
+expects, so BitSorter now does the same (`ProcessTests.AtTimeZero_ProcessesStart_...`).
+
+### What `$writememh` writes
+
+Icarus heads its file with a comment (`// 0x00000000`); BitSorter writes the words alone, one a line.
+Either reads back with `$readmemh`. The oracle does not compare the files.
