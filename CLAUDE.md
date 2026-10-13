@@ -425,8 +425,11 @@ failure side.
   deleted from the library or made again under the same name. A level's board
   is restored from the level's own block of that name instead, as it takes the
   level's current budget. Free play's library is `ProgressFile.blocks`. Every
-  key is new, with no version field, so an older save reads them as absent;
-  `WholeSaveMigrationTests` takes a 3.0.2 file the whole way to now.
+  key is new, so an older save reads them as absent; `WholeSaveMigrationTests`
+  takes a 3.0.2 file the whole way to now, and `Release400MigrationTests` a
+  4.0.0 one. 4.x had no version field; **5.0 writes `format: 5`** and keeps its
+  documents in `projects`, beside these keys rather than instead of them, since
+  the 4.x game reads them until Part 16 (`Docs/architecture-5.md`, section 8).
 
 ## Working agreement
 - **The loop below, with its exact calls, is the `unity-test-loop` skill**

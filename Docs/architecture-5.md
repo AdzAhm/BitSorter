@@ -651,11 +651,46 @@ lives in the engine's layer, which already sees the syntax tree, so the layers s
   with a stimulus track; a bin becomes an output pin.
 - **Delay moves by rule.** In 4.x delay lived on wires and gates took no time; in 5.0 it lives on gates
   and wires are ideal. Each migrated gate gets the cell default of 1; a wire of delay d above 1 gets a
-  buffer of delay d − 1 on its route. Registers become flip-flops on one clock part whose period is the
-  old `clockPeriod`; blocks become modules.
+  buffer of delay d − 1 on its route. Registers become flip-flops on one clock port; blocks become
+  modules.
 - **What migration promises is every output's settled value after each vector, not the exact tick.**
   A board that only worked by collision or stalling has no meaning in the new model; it still loads,
   and shows what it now does. Every shipped level's own circuit is migrated and checked.
+
+**As built in Part 7b** (`Assets/Scripts/Board/Migration`, `Save`; `View/Level/LegacyCircuits`,
+`SaveMigration`).
+
+- **The seam is `LegacyCircuit`**: a 4.x board in its level as plain fields -- fixtures with their
+  streams, gates by kind name, blocks with their contents, wires by cell and port index, expectations as
+  the level writes them. The view fills one from a `LevelDefinition` and a `CircuitBlueprint`
+  (`LegacyCircuits`); `Migrator` makes it a `Project` without Unity, and is tested without it.
+- **One cycle a vector, long enough for anything to settle**: twice the sum of every delay on the board
+  (each block counted where it is placed), at least ten. A vector's inputs change at its start; the clock
+  -- an input port the stimulus drives, `clk` -- rises half-way; outputs are read just before that edge
+  (`MigrationResult.SampleTime`). So a register, a flip-flop starting at 0 as every 4.x register did,
+  hands on during a vector the bit it was given in the one before -- 4.x's "its k-th output is the bit it
+  was given on cycle k-1". **The plan said the period would be the old `clockPeriod`;** that was the
+  spacing of tokens, and means nothing once gates take time, so it is kept on the circuit and not used.
+- **Names come across as SystemVerilog takes them** (`Migrator.NameFrom`): free play's bin `OUT 1` is
+  `OUT_1`, a fixture called `and` is `and_`, a level's file name `half-adder` is the module `half_adder`,
+  and a block called `OR2` steps aside for the cell of that name.
+- **Two wires into one input are two drivers**, an error the document explains when it loads; the
+  migration does not guess which to keep. Nothing else is refused: a wire to nothing is left out with a
+  note.
+- **The save** gains `format` (5 when 5.0 writes; absent, so 0, in every 4.x file) and `projects`, each
+  document under its board's key -- a level's name, or `free-play/` and the board's name -- as
+  `ProjectRecord`: plain fields in the shape `JsonUtility` needs, a part one record with a `kind`, values as
+  literals. The 4.x keys stay as they were, because the 4.x game reads them until Part 16.
+  `SaveMigration.MigrateAll` migrates every board with no document yet, rebuilding each exactly as the
+  game would, so a document edited in 5.0 is never replaced by its old board.
+- **Checked.** In `Board.Tests`, a board each way a 4.x board could be -- gates, a slow wire, a register
+  in a loop, a block placed twice, names, two drivers -- run on the engine and read at each vector; and
+  every sample board through the save format and back to the same text. In Edit Mode,
+  **every one of the thirty shipped levels' own solutions** -- the one its tests solve it with -- first
+  passing in 4.x, then migrated and reading what the level expects at every vector (`MigrationTests`); a
+  document through `JsonUtility` and back; the 3.0.2 save and a 4.0.0 one (named free-play boards, a block
+  from the library, four at once's blocks) migrated whole, written as format 5 and read back, the 4.x
+  keys intact (`WholeSaveMigrationTests`, `Release400MigrationTests`).
 
 ---
 
