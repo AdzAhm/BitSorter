@@ -31,6 +31,7 @@ namespace BitSorter.Ci.Oracle
         [TestCase("behavioural/multiplier.sv", "multiplier_tb", null, null)]
         [TestCase("system/printing.sv", "printing", null, null)]
         [TestCase("system/memories.sv", "memories_tb", null, "system/memories.hex,system/memories.bin")]
+        [TestCase("processor/mcpu.sv", "mcpu_tb", null, "processor/mcpu_program.hex,processor/mcpu_data.hex,processor/mcpu_expected.hex")]
         public void TheTestbench_AgreesWithIcarus_OnEverySignal(string file, string top, string ownDump, string data)
         {
             Icarus icarus = Icarus.Require();
@@ -113,7 +114,7 @@ namespace BitSorter.Ci.Oracle
         {
             string root = RepoRoot.Combine(Corpus.Folder);
             var files = new MemorySourceFiles();
-            foreach (string path in Directory.GetFiles(root, "*.sv", SearchOption.AllDirectories))
+            foreach (string path in Directory.GetFiles(root, "*.sv*", SearchOption.AllDirectories))
                 files.Add(Path.GetRelativePath(root, path).Replace('\\', '/'), File.ReadAllText(path));
 
             Elaboration elaboration = Elaborator.Elaborate(SyntaxReader.Read(file, files), top);

@@ -195,3 +195,22 @@ expects, so BitSorter now does the same (`ProcessTests.AtTimeZero_ProcessesStart
 
 Icarus heads its file with a comment (`// 0x00000000`); BitSorter writes the words alone, one a line.
 Either reads back with `$readmemh`. The oracle does not compare the files.
+
+## The processor (Part 6b)
+
+`corpus/processor/mcpu.sv` is an original multicycle RV32I processor -- a state-machine controller, a
+datapath with registers between the steps, 1,024-word instruction and data memories loaded with
+`$readmemh` from images named by a string parameter, and the opcodes and ALU operations in an included
+`localparam` file. Its program sorts, sums, multiplies, counts Fibonacci and takes every kind of branch;
+its testbench checks 23 results against `mcpu_expected.hex`, worked out by an independent RV32I emulator,
+and against Icarus it agrees: done after 2,716 cycles at 27,160, every one of its 98 signals and some
+125,000 settled changes the same, and the same three lines printed.
+
+Two things Icarus does that the corpus works around, neither a difference in what the design does:
+
+- **An enum takes a `?:` only with a cast.** `state_next = c ? MEM_READ : MEM_WRITE;`, both choices
+  of `state_t`, is an error in Icarus ("requires an explicit cast"). BitSorter does not check enum
+  assignments yet; the corpus writes it as an `if`.
+- **`always_comb` sensitivity is whole vectors.** A constant select in an `always_comb`
+  (`b[4:0]`) draws a "sorry: ... all bits will be included" from Icarus: it wakes the block on any bit of
+  `b`, which only means waking it more often than needed, and changes no value.

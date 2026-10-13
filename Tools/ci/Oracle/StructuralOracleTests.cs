@@ -88,7 +88,7 @@ namespace BitSorter.Ci.Oracle
         {
             string root = RepoRoot.Combine(Corpus.Folder);
             var files = new MemorySourceFiles();
-            foreach (string path in Directory.GetFiles(root, "*.sv", SearchOption.AllDirectories))
+            foreach (string path in Directory.GetFiles(root, "*.sv*", SearchOption.AllDirectories))
                 files.Add(Path.GetRelativePath(root, path).Replace('\\', '/'), File.ReadAllText(path));
 
             SyntaxTree tree = SyntaxReader.Read(file, files);

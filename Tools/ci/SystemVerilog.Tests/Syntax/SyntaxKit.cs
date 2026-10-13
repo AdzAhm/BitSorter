@@ -51,13 +51,16 @@ namespace BitSorter.SystemVerilog.Tests.Syntax
                 .OrderBy(p => p);
         }
 
-        /// <summary>The corpus as files a read can include from, keyed by their path under the corpus folder.</summary>
+        /// <summary>
+        /// The corpus as files a read can include from, keyed by their path under the corpus folder:
+        /// the .sv files and the .svh headers they include.
+        /// </summary>
         public static MemorySourceFiles CorpusSources()
         {
             string root = RepoRoot.Combine(Path.Combine("Tools", "ci", "Oracle", "corpus"));
             var files = new MemorySourceFiles();
-            foreach (string relative in CorpusFiles())
-                files.Add(relative, File.ReadAllText(Path.Combine(root, relative)));
+            foreach (string path in Directory.GetFiles(root, "*.sv*", SearchOption.AllDirectories))
+                files.Add(Path.GetRelativePath(root, path).Replace('\\', '/'), File.ReadAllText(path));
             return files;
         }
     }

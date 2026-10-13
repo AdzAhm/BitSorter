@@ -102,12 +102,17 @@ always_comb for (int i = 0; i < 4; i++) y[i] = s[0] ^ a;")));
         }
 
         [Test]
-        public void TheBehaviouralCorpus_HasNoLatches()
+        public void TheBehaviouralCorpusAndTheProcessor_HaveNoLatches()
         {
-            string root = Ci.RepoRoot.Combine("Tools/ci/Oracle/corpus/behavioural");
-            foreach (string path in Directory.GetFiles(root, "*.sv"))
+            string root = Ci.RepoRoot.Combine("Tools/ci/Oracle/corpus");
+            var corpus = new MemorySourceFiles();
+            foreach (string path in Directory.GetFiles(root, "*.sv*", SearchOption.AllDirectories))
+                corpus.Add(Path.GetRelativePath(root, path).Replace('\\', '/'), File.ReadAllText(path));
+
+            foreach (string path in Directory.GetFiles(Path.Combine(root, "behavioural"), "*.sv").Concat(Directory.GetFiles(Path.Combine(root, "processor"), "*.sv")))
             {
-                Elaboration e = Elaborator.Elaborate(SyntaxReader.ReadText(File.ReadAllText(path), Path.GetFileName(path)),
+                string relative = Path.GetRelativePath(root, path).Replace('\\', '/');
+                Elaboration e = Elaborator.Elaborate(SyntaxReader.Read(relative, corpus),
                     Path.GetFileName(path) switch
                     {
                         "traffic_light.sv" => "traffic_light_tb",

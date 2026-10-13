@@ -1,0 +1,25 @@
+// What mcpu_tb expects at 0x200 on once mcpu's program is done, worked out by an independent
+// RV32I emulator. Written for BitSorter's oracle; not taken from any course material.
+00000017  // 0x200
+ffffffdb  // 0x204
+0000008f  // 0x208
+ffffffd6  // 0x20c
+0000005a  // 0x210
+00001a6d  // 0x214
+ffffff12  // 0x218
+0fffff12  // 0x21c
+fffffff1  // 0x220
+00000800  // 0x224
+00000001  // 0x228
+00000000  // 0x22c
+00000001  // 0x230
+00000001  // 0x234
+ffffff12  // 0x238
+0fffff12  // 0x23c
+10000000  // 0x240
+00000055  // 0x244
+00000023  // 0x248
+00000edc  // 0x24c
+00fffff1  // 0x250
+000000d8  // 0x254
+00000445  // 0x258

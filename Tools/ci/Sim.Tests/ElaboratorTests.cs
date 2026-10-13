@@ -62,7 +62,7 @@ namespace BitSorter.Sim.Tests
         {
             string root = RepoRoot.Combine("Tools/ci/Oracle/corpus");
             var files = new MemorySourceFiles();
-            foreach (string path in Directory.GetFiles(root, "*.sv", SearchOption.AllDirectories))
+            foreach (string path in Directory.GetFiles(root, "*.sv*", SearchOption.AllDirectories))
                 files.Add(Path.GetRelativePath(root, path).Replace('\\', '/'), File.ReadAllText(path));
             return files;
         }

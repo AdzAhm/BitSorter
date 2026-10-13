@@ -1,0 +1,123 @@
+// mcpu's program, assembled from the listing beside each word. Written for BitSorter's oracle;
+// not taken from any course material. Word n is the instruction at byte address 4n.
+00001137  // 000: lui   sp, 0x1
+ff010113  // 004: addi  sp, sp, -16
+05a00413  // 008: addi  s0, zero, 0x5a
+10000513  // 00c: addi  a0, zero, 0x100
+00800593  // 010: addi  a1, zero, 8
+14c000ef  // 014: jal   ra, sort
+00000293  // 018: addi  t0, zero, 0
+00000313  // 01c: addi  t1, zero, 0
+00000393  // 020: addi  t2, zero, 0
+00229e13  // 024: slli  t3, t0, 2
+00ae0e33  // 028: add   t3, t3, a0
+000e2e83  // 02c: lw    t4, 0(t3)
+01d30333  // 030: add   t1, t1, t4
+01d3c3b3  // 034: xor   t2, t2, t4
+00128293  // 038: addi  t0, t0, 1
+feb2c4e3  // 03c: blt   t0, a1, sum_loop
+20602023  // 040: sw    t1, 0x200(zero)
+20702223  // 044: sw    t2, 0x204(zero)
+00d00513  // 048: addi  a0, zero, 13
+00b00593  // 04c: addi  a1, zero, 11
+15c000ef  // 050: jal   ra, multiply
+20a02423  // 054: sw    a0, 0x208(zero)
+ff900513  // 058: addi  a0, zero, -7
+00600593  // 05c: addi  a1, zero, 6
+14c000ef  // 060: jal   ra, multiply
+20a02623  // 064: sw    a0, 0x20c(zero)
+20802823  // 068: sw    s0, 0x210(zero)
+00000293  // 06c: addi  t0, zero, 0
+00100313  // 070: addi  t1, zero, 1
+01400393  // 074: addi  t2, zero, 20
+00628e33  // 078: add   t3, t0, t1
+00030293  // 07c: addi  t0, t1, 0
+000e0313  // 080: addi  t1, t3, 0
+fff38393  // 084: addi  t2, t2, -1
+fe0398e3  // 088: bne   t2, zero, fib
+20502a23  // 08c: sw    t0, 0x214(zero)
+fffff2b7  // 090: lui   t0, 0xfffff
+12328293  // 094: addi  t0, t0, 0x123
+00800e93  // 098: addi  t4, zero, 8
+4042d313  // 09c: srai  t1, t0, 4
+0042d393  // 0a0: srli  t2, t0, 4
+41d2de33  // 0a4: sra   t3, t0, t4
+01de9f33  // 0a8: sll   t5, t4, t4
+0002afb3  // 0ac: slt   t6, t0, zero
+0002b4b3  // 0b0: sltu  s1, t0, zero
+009eb913  // 0b4: sltiu s2, t4, 9
+f9c2a993  // 0b8: slti  s3, t0, -100
+00736a33  // 0bc: or    s4, t1, t2
+00737ab3  // 0c0: and   s5, t1, t2
+40638b33  // 0c4: sub   s6, t2, t1
+05506b93  // 0c8: ori   s7, zero, 0x55
+0ff2fc13  // 0cc: andi  s8, t0, 0xff
+fff2cc93  // 0d0: xori  s9, t0, -1
+01d2dd33  // 0d4: srl   s10, t0, t4
+00000d97  // 0d8: auipc s11, 0
+20602c23  // 0dc: sw    t1, 0x218(zero)
+20702e23  // 0e0: sw    t2, 0x21c(zero)
+23c02023  // 0e4: sw    t3, 0x220(zero)
+23e02223  // 0e8: sw    t5, 0x224(zero)
+23f02423  // 0ec: sw    t6, 0x228(zero)
+22902623  // 0f0: sw    s1, 0x22c(zero)
+23202823  // 0f4: sw    s2, 0x230(zero)
+23302a23  // 0f8: sw    s3, 0x234(zero)
+23402c23  // 0fc: sw    s4, 0x238(zero)
+23502e23  // 100: sw    s5, 0x23c(zero)
+25602023  // 104: sw    s6, 0x240(zero)
+25702223  // 108: sw    s7, 0x244(zero)
+25802423  // 10c: sw    s8, 0x248(zero)
+25902623  // 110: sw    s9, 0x24c(zero)
+25a02823  // 114: sw    s10, 0x250(zero)
+25b02a23  // 118: sw    s11, 0x254(zero)
+00000613  // 11c: addi  a2, zero, 0
+01d2e463  // 120: bltu  t0, t4, skip1
+00160613  // 124: addi  a2, a2, 1
+01d2f463  // 128: bgeu  t0, t4, skip2
+01060613  // 12c: addi  a2, a2, 16
+01de8463  // 130: beq   t4, t4, skip3
+10060613  // 134: addi  a2, a2, 256
+01de9463  // 138: bne   t4, t4, skip4
+00460613  // 13c: addi  a2, a2, 4
+005ec463  // 140: blt   t4, t0, skip5
+04060613  // 144: addi  a2, a2, 64
+01d2d463  // 148: bge   t0, t4, skip6
+40060613  // 14c: addi  a2, a2, 1024
+24c02c23  // 150: sw    a2, 0x258(zero)
+00100293  // 154: addi  t0, zero, 1
+7e502e23  // 158: sw    t0, 2044(zero)
+0000006f  // 15c: jal   zero, halt
+ffc10113  // 160: addi  sp, sp, -4
+00112023  // 164: sw    ra, 0(sp)
+00000293  // 168: addi  t0, zero, 0
+00100313  // 16c: addi  t1, zero, 1
+02b35663  // 170: bge   t1, a1, end_inner
+00231393  // 174: slli  t2, t1, 2
+00a383b3  // 178: add   t2, t2, a0
+ffc3ae03  // 17c: lw    t3, -4(t2)
+0003ae83  // 180: lw    t4, 0(t2)
+01ced863  // 184: bge   t4, t3, no_swap
+ffd3ae23  // 188: sw    t4, -4(t2)
+01c3a023  // 18c: sw    t3, 0(t2)
+00100293  // 190: addi  t0, zero, 1
+00130313  // 194: addi  t1, t1, 1
+fd9ff06f  // 198: jal   zero, inner
+fc0296e3  // 19c: bne   t0, zero, outer
+00012083  // 1a0: lw    ra, 0(sp)
+00410113  // 1a4: addi  sp, sp, 4
+00008067  // 1a8: jalr  zero, 0(ra)
+ffc10113  // 1ac: addi  sp, sp, -4
+00812023  // 1b0: sw    s0, 0(sp)
+00000413  // 1b4: addi  s0, zero, 0
+00058e63  // 1b8: beq   a1, zero, mul_done
+0015f313  // 1bc: andi  t1, a1, 1
+00030463  // 1c0: beq   t1, zero, mul_skip
+00a40433  // 1c4: add   s0, s0, a0
+00151513  // 1c8: slli  a0, a0, 1
+0015d593  // 1cc: srli  a1, a1, 1
+fe9ff06f  // 1d0: jal   zero, mul_loop
+00040513  // 1d4: addi  a0, s0, 0
+00012403  // 1d8: lw    s0, 0(sp)
+00410113  // 1dc: addi  sp, sp, 4
+00008067  // 1e0: jalr  zero, 0(ra)

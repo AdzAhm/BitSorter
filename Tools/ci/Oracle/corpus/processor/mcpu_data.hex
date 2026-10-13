@@ -1,0 +1,11 @@
+// The eight signed words mcpu's program sorts, at byte address 0x100 (word 0x40). Written for
+// BitSorter's oracle; not taken from any course material.
+@40
+0000002a  // 42
+fffffffb  // -5
+00000011  // 17
+00000000  // 0
+ffffff80  // -128
+00000063  // 99
+00000003  // 3
+fffffffb  // -5
