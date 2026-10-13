@@ -289,7 +289,8 @@ VCD           written for export, read for the oracle comparison
   on everything its statement reads.
 - **Never hangs.** A process that runs a million steps without waiting stops the run with its name, and
   so does a zero-delay loop of processes at the delta limit. `$finish`, `$stop` and `$fatal` end the run
-  (`RunStatus.Finished`) with a message saying which and where.
+  (`RunStatus.Finished`) with a message saying which and where, once the time step they ran in has
+  settled -- every region, as Icarus finishes it -- so the last values agree with each other.
 - **Variables** may be declared with a value (`logic a = 0;`), held from before time 0. A process's own
   working variables -- a `for` loop's `int i`, a `repeat`'s count, a value held across an intra-assignment
   delay -- are `Local`: not recorded, not in a VCD. A variable takes its value from processes or from one
@@ -298,6 +299,28 @@ VCD           written for export, read for the oracle comparison
   start order, intra-assignment delays, the stops, and every refusal. Against Icarus
   (`BehaviouralOracleTests`): the scheduling probes (`corpus/behavioural/scheduling.sv`), the traffic
   light's own testbench, and the delay probes read from their SystemVerilog, every signal agreeing.
+
+**The multiplier and the first lint check, as built in Part 5b.**
+
+- **Ports keep a process's passing values to themselves.** An `always_comb` that gives `busy` a default
+  of 0 and then sets it to 1 has it at 0 for an instant each time it runs. A port is a continuous
+  assignment, so a testbench waiting on `@(negedge busy)` across it never sees that instant -- which is
+  what the course's own exercise needs, and what ModelSim must do for it to run. Icarus joins ports into
+  one net and lets it through; the standard and the course win (`Docs/oracle-notes.md`).
+- **The corpus multiplier** (`corpus/behavioural/multiplier.sv`, written from scratch in the shape of the
+  course's second exercise): a Mealy controller and a shift-and-add datapath in a top module, and a
+  testbench with a clock generator, reset held for four cycles, inputs on the falling edge, and a wait on
+  `@(negedge busy)` after each of four products. It agrees with Icarus on every one of its 36 signals.
+- **Lint: a latch where logic was meant to be combinational** (`Elaborator.Lint.cs`, `SV0401`, a
+  warning). An `always_comb` or `always @*` that assigns a variable on some paths and not on others makes
+  it hold its value. The check follows `if` and `case`, names each such variable, and gives the way out:
+  a value at the top of the block. It errs towards silence -- a `case` is complete with a `default`, as
+  `unique` or `priority`, or when its labels name every value of its subject (an enum missing a state is
+  a latch); a `for` loop that runs at least once counts; `always_latch` is left alone.
+- **A cast to a typedef** (`state_t'(n)`) sizes and signs the value as the type says.
+- **Checked.** 11 more tests: the lint's cases, the course's `busy` pattern (released when `busy` really
+  falls -- Icarus, given the same file, releases at the first dip), the same instant seen by a wait in the
+  one module, as both simulators see it, and `$finish` settling its step.
 
 ### The document (`Board`)
 

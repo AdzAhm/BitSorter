@@ -27,6 +27,9 @@ namespace BitSorter.Sim
         public const string Ignored = "SV0319";
         public const string NeverWaits = "SV0320";
         public const string Misplaced = "SV0321";
+
+        // Lint: warnings about designs that run, but likely not as meant.
+        public const string LatchProne = "SV0401";
     }
 
     /// <summary>One port of the top module, as elaborated: what a testbench or the workbench drives and watches.</summary>

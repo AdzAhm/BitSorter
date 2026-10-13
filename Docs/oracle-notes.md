@@ -130,3 +130,38 @@ the assign a delta later, when the `always` is waiting again, and `count` climbs
 allowed**: the standard lets a simulator interleave an assignment's update with a process or not (IEEE
 1800, 4.7). The corpus keeps out of it. A course design meets it only by feeding a process's output back
 to its own sensitivity through a wire, which is a combinational loop either way.
+
+### A busy given a default and then set (Part 5b)
+
+```systemverilog
+always_comb begin
+    busy = 1'b0;                          // the default, first
+    if (running && count <= 4) busy = 1'b1;
+end
+// ...and in the testbench, across the module's port:
+@(negedge busy) ...
+```
+
+Each time the `always_comb` runs, `busy` is 0 for an instant inside it before it is set back to 1.
+**Icarus lets that instant through to the testbench**: it joins a port and what it connects to into one
+net, so the testbench's `busy` dips as well, and `@(negedge busy)` fires the first time the block runs
+again -- at 25, in `ProcessTests`' version, when `busy` really falls at 65. **BitSorter does not**: a
+port is a continuous assignment, as the standard makes a variable port, and by the time it is evaluated
+`busy` is 1 again. The testbench is released at 65.
+
+This is the course's own pattern, so it decides the question. The course's second simulation exercise
+has two designs that give `busy` a default of 0 in an `always_comb` and set it to 1 in eight places, and
+two testbenches that wait on `@(negedge busy)` (counted on 2026-10-13, never copied). Those run in
+ModelSim, so ModelSim does not let the instant through either; under Icarus they would race ahead.
+BitSorter follows the standard and the course's simulator. Within one module, a process waiting on the
+same variable the `always_comb` writes does see the instant, in BitSorter as the standard has it -- it is
+the port that hides it.
+
+The corpus multiplier writes its `busy` once, from the state, so the oracle can compare the rest of it
+with Icarus; `ProcessTests` holds BitSorter to the course's pattern.
+
+### `$finish` lets its time step settle
+
+`$finish` ends the run at the end of the time step it runs in. Probed: at the instant a testbench
+calls it, Icarus still applies that instant's nonblocking writes, runs the processes waiting on `#0`, and
+settles continuous assignments, so the values it ends on agree with each other. BitSorter does the same.

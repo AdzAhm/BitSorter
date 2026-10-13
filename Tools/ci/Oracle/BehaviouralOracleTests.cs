@@ -24,6 +24,7 @@ namespace BitSorter.Ci.Oracle
         [TestCase("behavioural/scheduling.sv", "scheduling", null)]
         [TestCase("behavioural/traffic_light.sv", "traffic_light_tb", null)]
         [TestCase("delays/probes.sv", "probes", "probes.vcd")]
+        [TestCase("behavioural/multiplier.sv", "multiplier_tb", null)]
         public void TheTestbench_AgreesWithIcarus_OnEverySignal(string file, string top, string ownDump)
         {
             Icarus icarus = Icarus.Require();

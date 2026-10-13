@@ -355,6 +355,72 @@ endmodule");
         }
 
         [Test]
+        public void ABusyGivenADefaultAndThenSet_DoesNotDipAcrossAPort_SoNegedgeWaitsForTheRealFall()
+        {
+            // The course's own pattern (its SIM2 design and testbench, counted, not copied): busy is 0
+            // by default in an always_comb and 1 in the busy state, and the testbench waits on
+            // @(negedge busy). Every time the always_comb runs, busy is 0 for an instant inside it. A
+            // port is a continuous assignment, so the testbench's busy never sees that instant -- as the
+            // course's testbench needs in ModelSim. Icarus joins the ports into one net and lets it
+            // through (Docs/oracle-notes.md).
+            Simulator sim = Run(Clean(@"
+module worker (input logic clk, start, output logic busy);
+    logic [2:0] count = 0;
+    logic running = 0;
+    always_ff @(posedge clk)
+        if (start) begin running <= 1; count <= 0; end
+        else if (running) begin count <= count + 3'd1; if (count == 3'd4) running <= 0; end
+    always_comb begin
+        busy = 1'b0;
+        if (running && count <= 3'd4) busy = 1'b1;   // reads count, so it runs again every cycle
+    end
+endmodule
+
+module t;
+    logic clk = 0, start = 0, busy;
+    logic [7:0] released;
+    worker w (.clk(clk), .start(start), .busy(busy));
+    always #5 clk = ~clk;
+    initial begin
+        @(negedge clk) start = 1;
+        @(negedge clk) start = 0;
+        @(negedge busy) released = 8'd1;
+    end
+endmodule"), 200);
+
+            CollectionAssert.AreEqual(new[] { "0 0", "15 1", "65 0" }, Changes(sim, "w.busy"));
+            CollectionAssert.AreEqual(new[] { "0 0", "15 1", "65 0" }, Changes(sim, "busy"));
+            CollectionAssert.AreEqual(new[] { "0 xxxxxxxx", "65 00000001" }, Changes(sim, "released"),
+                "released when busy really fell; Icarus, given this file, releases at 25, the first time the always_comb runs again");
+        }
+
+        [Test]
+        public void WithinOneModule_AWaitOnTheSameVariable_DoesSeeTheInstant()
+        {
+            // The standard's update event: busy did go to 0, if only for an instant. It is the port
+            // in the test above that hides it, not the engine.
+            Simulator sim = Run(Clean(@"
+module t;
+    logic clk = 0, running = 0, busy;
+    logic [2:0] count = 0;
+    logic [7:0] released;
+    always #5 clk = ~clk;
+    always_ff @(posedge clk) begin running <= 1; count <= count + 3'd1; end
+    always_comb begin
+        busy = 1'b0;
+        if (running && count <= 3'd6) busy = 1'b1;
+    end
+    initial begin
+        wait (busy);
+        @(negedge busy) released = 8'd1;
+    end
+endmodule"), 100);
+
+            CollectionAssert.AreEqual(new[] { "0 xxxxxxxx", "15 00000001" }, Changes(sim, "released"),
+                "busy rose at 5; at 15 the always_comb ran again and busy was 0 for an instant inside it");
+        }
+
+        [Test]
         public void Finish_LetsItsTimeStepSettle_BeforeTheRunEnds()
         {
             // As Icarus does: the nonblocking write, the #0 and the continuous assignment of the

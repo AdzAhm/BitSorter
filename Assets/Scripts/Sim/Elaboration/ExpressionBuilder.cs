@@ -201,6 +201,7 @@ namespace BitSorter.Sim
                         return new TypeInfo((int)Math.Max(1, Math.Min(LogicVec.MaxWidth, ConstantOf(cast.Width, report: false))), inner.Signed);
                     if (cast.TargetText == "signed") return new TypeInfo(inner.Width, true);
                     if (cast.TargetText == "unsigned") return new TypeInfo(inner.Width, false);
+                    if (_scope.Lookup(cast.TargetText) is TypeEntry type) return new TypeInfo(type.Width, type.Signed);
                     return inner;
                 }
 
@@ -744,6 +745,10 @@ namespace BitSorter.Sim
 
             if (cast.TargetText == "signed") return Expr.WithSignedness(value, true);
             if (cast.TargetText == "unsigned") return Expr.WithSignedness(value, false);
+
+            // state_t'(n): the value at the type's width, then read with its signedness.
+            if (_scope.Lookup(cast.TargetText) is TypeEntry type)
+                return Expr.WithSignedness(Extend(value, type.Width, inner.Signed), type.Signed);
 
             Error(cast.Location, ElaborationCodes.NotYet, $"A cast to {cast.TargetText} is not supported by BitSorter yet.");
             return value;

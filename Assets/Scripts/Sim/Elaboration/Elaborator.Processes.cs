@@ -139,6 +139,8 @@ namespace BitSorter.Sim
                 if (p.Failed)
                     return null;
 
+                LintLatches(scope, block);
+
                 var writes = new List<int>(p.Writes);
                 writes.Sort();
                 return new ProcessInfo(p.Name, kind, p.Code.ToArray(), writes.ToArray());
