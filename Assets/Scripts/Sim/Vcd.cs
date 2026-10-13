@@ -15,7 +15,9 @@ namespace BitSorter.Sim
     /// Each signal's settled value per time step is written, never the deltas within one: a waveform
     /// shows the value a time step ends on, and so does Icarus's dump once read back
     /// (<see cref="VcdReader"/>). Hierarchical names become nested scopes under the design's top
-    /// module. Writes to a <see cref="TextWriter"/> the caller opens: this layer touches no files.
+    /// module -- whether the name already starts with it, as an elaborated design's do
+    /// (<c>alu64.slice[3].s.y</c>), or not, as a circuit built in code may. Writes to a
+    /// <see cref="TextWriter"/> the caller opens: this layer touches no files.
     /// </remarks>
     public static class VcdWriter
     {
@@ -32,9 +34,7 @@ namespace BitSorter.Sim
 
             output.WriteLine("$version BitSorter $end");
             output.WriteLine($"$timescale {timescale} $end");
-            output.WriteLine($"$scope module {design.Name} $end");
             WriteScopes(output, design, ids);
-            output.WriteLine("$upscope $end");
             output.WriteLine("$enddefinitions $end");
 
             // Every settled change after time 0, by time.
@@ -72,11 +72,15 @@ namespace BitSorter.Sim
                 output.WriteLine($"#{endTime}");
         }
 
-        /// <summary>Signals grouped into nested scopes by the dots in their names.</summary>
+        /// <summary>Signals grouped into nested scopes by the dots in their names, all under the top.</summary>
         private static void WriteScopes(TextWriter output, Design design, string[] ids)
         {
+            string prefix = design.Name + ".";
+            string FullName(int i) =>
+                design.Signals[i].Name.StartsWith(prefix, StringComparison.Ordinal) ? design.Signals[i].Name : prefix + design.Signals[i].Name;
+
             var order = Enumerable.Range(0, design.Signals.Count)
-                .OrderBy(i => design.Signals[i].Name, StringComparer.Ordinal)
+                .OrderBy(FullName, StringComparer.Ordinal)
                 .ToList();
 
             var open = new List<string>();
@@ -84,7 +88,7 @@ namespace BitSorter.Sim
             foreach (int i in order)
             {
                 SignalInfo info = design.Signals[i];
-                string[] path = info.Name.Split('.');
+                string[] path = FullName(i).Split('.');
                 int depth = path.Length - 1;
 
                 int keep = 0;
