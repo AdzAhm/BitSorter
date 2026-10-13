@@ -312,6 +312,8 @@ namespace BitSorter.SystemVerilog.Syntax
 
             if (!Expect(";", $"after the header of module {module.Name}"))
                 SkipToItemEnd();
+            else if (module.Comment == null && !module.HasPortList)
+                module.Comment = Previous.TrailingComment;   // module tb; // what it is
 
             ParseItems(module.Items, "endmodule");
 
