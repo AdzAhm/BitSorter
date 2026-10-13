@@ -1,5 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using BitSorter.Board;
 using BitSorter.View;
 using NUnit.Framework;
 using UnityEngine;
@@ -161,6 +164,68 @@ namespace BitSorter.LogicCore.Tests
             Assert.AreEqual(0, again.Library.Count);
             Assert.AreEqual(2, again.BestGates("half-adder"));
             Assert.IsTrue(again.HasMilestone(ChapterCard.Milestone));
+        }
+
+        // -----------------------------------------------------------------
+        // On to 5.0: format 5
+        // -----------------------------------------------------------------
+
+        [Test]
+        public void EveryBoard_BecomesADocument_AndTheFileIsFormat5_With4xsKeysAsTheyWere()
+        {
+            ProgressStore store = Read();
+            Assert.AreEqual(0, store.LoadedFormat, "a 4.x file has no format");
+
+            SaveMigration.MigrateAll(store);
+
+            string freePlay = SaveMigration.FreePlayKey + BoardNames.First;
+            CollectionAssert.AreEquivalent(new[] { "flip-on-one", "half-adder", freePlay }, store.ProjectKeys());
+
+            var printed = new Dictionary<string, string[]>();
+            foreach (string key in store.ProjectKeys())
+            {
+                var problems = new List<string>();
+                Assert.IsTrue(store.TryGetProject(key, out Project project, problems));
+                Assert.IsEmpty(problems, key);
+                Assert.IsTrue(BoardCompiler.Compile(project).Succeeded, $"{key} does not compile");
+                printed[key] = BoardPrinter.Print(project).Select(p => p.Text).ToArray();
+            }
+
+            // The half adder on the save is the level's solution, and still solves it.
+            LevelDefinition level = LevelLoader.Load("half-adder", LevelTestFixtures.Board).Level;
+            LegacyCircuit circuit = LegacyCircuits.From("half-adder", level, Restored(store, "half-adder", out int _));
+            Assert.IsEmpty(Migrator.Migrate(circuit).Mismatches(circuit.expected));
+
+            store.Save();
+            ProgressStore again = Read();
+
+            Assert.AreEqual(ProjectRecord.Format, again.LoadedFormat);
+            foreach (string key in printed.Keys)
+            {
+                Assert.IsTrue(again.TryGetProject(key, out Project read, new List<string>()), key);
+                CollectionAssert.AreEqual(printed[key], BoardPrinter.Print(read).Select(p => p.Text).ToArray(), key);
+            }
+
+            // And 4.x's own keys are there for 4.x to read, as they were.
+            Assert.AreEqual(3, again.CompletedCount);
+            Assert.AreEqual(2, Restored(again, "half-adder", out int dropped).Placements.Count);
+            Assert.AreEqual(0, dropped);
+            Assert.AreEqual(1, again.FreePlayCount);
+        }
+
+        [Test]
+        public void MigratingAgain_ChangesNothing_AndNeverReplacesADocument()
+        {
+            ProgressStore store = Read();
+            SaveMigration.MigrateAll(store);
+
+            Project edited = Project.New("mine");
+            store.SetProject("half-adder", edited);
+            SaveMigration.MigrateAll(store);
+
+            Assert.IsTrue(store.TryGetProject("half-adder", out Project kept, new List<string>()));
+            Assert.AreEqual("mine", kept.Top, "a document edited in 5.0 is the player's, not the old board's");
+            Assert.AreEqual(3, store.ProjectKeys().Length);
         }
     }
 }

@@ -4,6 +4,7 @@
     "references": [
         "BitSorter.LogicCore",
         "BitSorter.Sim",
+        "BitSorter.Board",
         "BitSorter.SystemVerilog",
         "BitSorter.View",
         "UnityEngine.TestRunner",

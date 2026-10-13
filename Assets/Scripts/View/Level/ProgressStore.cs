@@ -1,4 +1,5 @@
 using System;
+using BitSorter.Board;
 using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
@@ -61,6 +62,27 @@ namespace BitSorter.View
         /// reaches a board already built.
         /// </remarks>
         public SavedBlock[] blocks;
+
+        /// <summary>The save's format: <see cref="ProjectRecord.Format"/> from 5.0 on, and absent -- 0 -- in every 4.x file.</summary>
+        public int format;
+
+        /// <summary>
+        /// 5.0's documents, each under the key of the board it was made from: a level's name, or
+        /// <see cref="SaveMigration.FreePlayKey"/> and a free-play board's name.
+        /// </summary>
+        /// <remarks>
+        /// Beside the 4.x keys, not instead of them: the 4.x game keeps its boards until Part 16 retires
+        /// it, and a 4.x build reading this file passes over a key it does not know.
+        /// </remarks>
+        public SavedProject[] projects;
+    }
+
+    /// <summary>One document in the save, under the key of the board it belongs to.</summary>
+    [Serializable]
+    public sealed class SavedProject
+    {
+        public string key;
+        public ProjectRecord project;
     }
 
     /// <summary>Free play's named boards, as the save file holds them.</summary>
@@ -120,6 +142,9 @@ namespace BitSorter.View
 
         /// <summary>Free play's library of blocks, in the order they were made.</summary>
         private readonly List<SavedBlock> _library = new List<SavedBlock>();
+
+        /// <summary>5.0's documents, by the key of the board each belongs to, in the order they were put in.</summary>
+        private readonly List<SavedProject> _projects = new List<SavedProject>();
 
         public ProgressStore(string path)
         {
@@ -228,6 +253,8 @@ namespace BitSorter.View
             _freePlay.Clear();
             _activeFreePlay = 0;
             _library.Clear();
+            _projects.Clear();
+            LoadedFormat = 0;
 
             string source = null;
 
@@ -297,6 +324,18 @@ namespace BitSorter.View
                     {
                         if (block != null && !string.IsNullOrEmpty(block.name))
                             _library.Add(block);
+                    }
+                }
+
+                LoadedFormat = file.format;
+
+                // Absent in every 4.x file, so null; guarded like every key before it.
+                if (file.projects != null)
+                {
+                    foreach (SavedProject saved in file.projects)
+                    {
+                        if (saved != null && !string.IsNullOrEmpty(saved.key) && saved.project != null)
+                            Put(saved.key, saved.project);
                     }
                 }
             }
@@ -380,6 +419,8 @@ namespace BitSorter.View
                         saves = _freePlay.ToArray(),
                     },
                     blocks = _library.ToArray(),
+                    format = ProjectRecord.Format,
+                    projects = _projects.ToArray(),
                 };
 
                 _completed.CopyTo(file.completed);
@@ -415,6 +456,7 @@ namespace BitSorter.View
             _freePlay.Clear();
             _activeFreePlay = 0;
             _library.Clear();
+            _projects.Clear();
             Save();
         }
 
@@ -464,6 +506,66 @@ namespace BitSorter.View
         /// saves and restores boards -- <see cref="ProgressTracker"/>, the setup panel -- goes on
         /// asking for one board by one key, and only the store knows there are several.
         /// </remarks>
+        /// <summary>The level names of every level board saved, free play's apart.</summary>
+        public string[] BoardLevels()
+        {
+            var levels = new string[_boards.Count];
+            _boards.Keys.CopyTo(levels, 0);
+            Array.Sort(levels, StringComparer.Ordinal);
+            return levels;
+        }
+
+        /// <summary>The format of the file last read: 0 for a 4.x save, <see cref="ProjectRecord.Format"/> for one 5.0 wrote.</summary>
+        public int LoadedFormat { get; private set; }
+
+        /// <summary>The keys of every document held, in the order they were put in.</summary>
+        public string[] ProjectKeys()
+        {
+            var keys = new string[_projects.Count];
+            for (int i = 0; i < keys.Length; i++)
+                keys[i] = _projects[i].key;
+            return keys;
+        }
+
+        public bool HasProject(string key) => IndexOfProject(key) >= 0;
+
+        /// <summary>
+        /// The document under <paramref name="key"/>, if there is one; anything in it that could not be
+        /// read goes into <paramref name="problems"/> rather than failing the read.
+        /// </summary>
+        public bool TryGetProject(string key, out Project project, List<string> problems)
+        {
+            int index = IndexOfProject(key);
+            project = index < 0 ? null : _projects[index].project.ToProject(problems ?? new List<string>());
+            return project != null;
+        }
+
+        /// <summary>Keeps <paramref name="project"/> under <paramref name="key"/>, in place of any there was. Not written until <see cref="Save"/>.</summary>
+        public void SetProject(string key, Project project)
+        {
+            if (string.IsNullOrEmpty(key) || project == null)
+                return;
+            Put(key, ProjectRecord.From(project));
+        }
+
+        private void Put(string key, ProjectRecord file)
+        {
+            int index = IndexOfProject(key);
+            var saved = new SavedProject { key = key, project = file };
+            if (index >= 0)
+                _projects[index] = saved;
+            else
+                _projects.Add(saved);
+        }
+
+        private int IndexOfProject(string key)
+        {
+            for (int i = 0; i < _projects.Count; i++)
+                if (string.Equals(_projects[i].key, key, StringComparison.Ordinal))
+                    return i;
+            return -1;
+        }
+
         public SavedBoard BoardFor(string level)
         {
             if (string.IsNullOrEmpty(level))
