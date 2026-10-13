@@ -480,16 +480,24 @@ namespace BitSorter.Sim
 
             private void DeclareParameter(Scope scope, ParameterDeclaration p, Expression overrideValue, Scope overrideScope)
             {
+                // A parameter with a type takes it; one with none keeps the value's own (IEEE 1800, 6.20.2).
+                // The type comes first: it is the context the value is sized in, so '1 fills it.
+                DataType type = p.Type;
+                bool typed = type != null && !(type.IsImplicit && type.Packed.Count == 0);
+                Shape shape = default;
+                if (typed && !TryShape(type, scope, out shape))
+                    return;
+
                 LogicVec value;
 
                 if (overrideValue != null)
                 {
-                    if (!ExpressionBuilder.TryConstant(overrideValue, overrideScope ?? scope, _diagnostics, out value))
+                    if (!ExpressionBuilder.TryConstant(overrideValue, overrideScope ?? scope, _diagnostics, out value, typed ? shape.Width : 0))
                         return;
                 }
                 else if (p.Value != null)
                 {
-                    if (!ExpressionBuilder.TryConstant(p.Value, scope, _diagnostics, out value))
+                    if (!ExpressionBuilder.TryConstant(p.Value, scope, _diagnostics, out value, typed ? shape.Width : 0))
                         return;
                 }
                 else
@@ -498,12 +506,8 @@ namespace BitSorter.Sim
                     return;
                 }
 
-                // A parameter with a type takes it; one with none keeps the value's own (IEEE 1800, 6.20.2).
-                DataType type = p.Type;
-                if (type != null && !(type.IsImplicit && type.Packed.Count == 0))
+                if (typed)
                 {
-                    if (!TryShape(type, scope, out Shape shape))
-                        return;
                     value = value.Extend(shape.Width, value.IsSigned);
                     value = shape.Signed ? value.AsSigned() : value.AsUnsigned();
                 }
