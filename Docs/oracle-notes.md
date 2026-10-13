@@ -68,3 +68,24 @@ declares a variable. Two gates on one `logic` are refused the same way. Conseque
   with the reason and the way out: declare it a wire.
 - **Export** declares a net with more than one driver as `wire`, not `logic`, or the exported code
   would not compile in ModelSim either. "Two drivers read x" is still a lesson the canvas can show.
+
+## Structural designs, read by both (Part 4b)
+
+From Part 4b both simulators read the same SystemVerilog: `StructuralOracleTests` elaborates each
+design of `Tools/ci/Oracle/corpus/structural` in BitSorter, writes one random stimulus out twice -- as a
+testbench for Icarus and as writes for BitSorter -- and compares every signal of the design by its place
+in the hierarchy (`oracle_tb.dut.slice[3].s.fa.sum` against `alu64.slice[3].s.fa.sum`). The writes
+include all-x, all-z and stray unknown bits, and gaps shorter than the design's slowest path.
+
+**They agree on every signal**: the mux, the full adder, the ALU slice and the 64-bit ALU, 2,062 signals
+and more than 77,000 settled changes (2026-10-13). Nothing in this tier departs from the standard.
+
+**One difference in how, not what.** Icarus joins a port and what it is connected to into one net;
+BitSorter keeps the port a signal of its own, driven by a zero-delay assignment, which takes a delta
+cycle. The value every time step settles on is the same, and that is what both the oracle and the
+waveform compare; only a delta-by-delta trace would tell them apart.
+
+**Unnamed generate blocks are named alike.** Probed: a module whose first generate construct is an
+unnamed loop and whose second an unnamed `if` gives `genblk1[0]`, `genblk1[1]` and `genblk2` in Icarus's
+VCD -- the standard's rule, numbering every generate construct in the scope, named or not -- and the
+same in BitSorter (`ElaboratorTests.AGenerateLoopWithNoLabel_...`).
