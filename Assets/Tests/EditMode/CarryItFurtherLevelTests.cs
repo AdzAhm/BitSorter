@@ -71,7 +71,7 @@ namespace BitSorter.LogicCore.Tests
         /// <param name="bit2TakesC0">Bit 2's carry in taken from bit 0, skipping bit 1.</param>
         /// <param name="generate2Delay">The wire bit 2's generate takes to the last OR.</param>
         /// <param name="coutWire">The wire into COUT's bin.</param>
-        private static CircuitBlueprint Adder(
+        internal static CircuitBlueprint Adder(
             Vector2Int? orAt = null, bool bit2TakesC0 = false, int generate2Delay = 4, int coutWire = 1)
         {
             var blueprint = new CircuitBlueprint();

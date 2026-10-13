@@ -42,7 +42,7 @@ namespace BitSorter.LogicCore.Tests
         /// The machine: one register keeps the previous bit, the other keeps "the one before that
         /// was a 1 and the previous one a 0", and the answer is that with the current bit.
         /// </summary>
-        private static CircuitBlueprint Detector(int intoFirstAnd = 2, int straightToDetect = 3)
+        internal static CircuitBlueprint Detector(int intoFirstAnd = 2, int straightToDetect = 3)
         {
             var blueprint = new CircuitBlueprint();
             blueprint.Place(Previous, GateKind.Register);

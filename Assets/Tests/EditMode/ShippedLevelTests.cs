@@ -81,18 +81,23 @@ namespace BitSorter.LogicCore.Tests
             Assert.IsTrue(result.IsValid, result.Error);
 
             LevelDefinition level = result.Level;
+            Assert.AreEqual(1, level.BudgetFor(GateKind.Not), "the budget the solution relies on");
+
+            RunVerdict verdict = LevelTestFixtures.RunAndGrade(level, RouteTheBit());
+
+            Assert.IsTrue(verdict.IsPass, verdict.ToString());
+        }
+
+        /// <summary>Level 1's intended solution: one NOT, from the source to the bin above it.</summary>
+        internal static CircuitBlueprint RouteTheBit()
+        {
             var blueprint = new CircuitBlueprint();
             var gate = new Vector2Int(0, 0);
-
-            Assert.AreEqual(1, level.BudgetFor(GateKind.Not), "the budget the solution relies on");
 
             blueprint.Place(gate, GateKind.Not);
             LevelTestFixtures.Wire(blueprint, new Vector2Int(-3, 0), gate);
             LevelTestFixtures.Wire(blueprint, gate, new Vector2Int(3, 1));
-
-            RunVerdict verdict = LevelTestFixtures.RunAndGrade(level, blueprint);
-
-            Assert.IsTrue(verdict.IsPass, verdict.ToString());
+            return blueprint;
         }
 
         [Test]

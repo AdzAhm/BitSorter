@@ -48,7 +48,7 @@ namespace BitSorter.LogicCore.Tests
         /// it takes off the left edge has to wait one tick longer than the last one did. The staircase
         /// is the whole design: the arithmetic is not a single sum the player can guess.
         /// </remarks>
-        private static CircuitBlueprint Wiring(
+        internal static CircuitBlueprint Wiring(
             int cToSecondXor = 2, int aToAnd = 3, int bToOr = 4, int firstXorToSecond = 1)
         {
             var blueprint = new CircuitBlueprint();

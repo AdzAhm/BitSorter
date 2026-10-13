@@ -63,13 +63,18 @@ namespace BitSorter.LogicCore.Tests
         [Test]
         public void TakingTheHighToggleFromItsOwnRegister_Passes()
         {
-            CircuitBlueprint board = LevelTestFixtures.FromStart(_level);
-            LevelTestFixtures.Unwire(board, LowRegister, HighXor, toPort: 0);
-            LevelTestFixtures.Wire(board, HighRegister, HighXor, toPort: 0);
-
-            RunVerdict verdict = LevelTestFixtures.RunAndGrade(_level, board);
+            RunVerdict verdict = LevelTestFixtures.RunAndGrade(_level, Fixed(_level));
 
             Assert.IsTrue(verdict.IsPass, verdict.ToString());
+        }
+
+        /// <summary>The start, mended: the high toggle taken from its own register, not the low one's.</summary>
+        internal static CircuitBlueprint Fixed(LevelDefinition level)
+        {
+            CircuitBlueprint board = LevelTestFixtures.FromStart(level);
+            LevelTestFixtures.Unwire(board, LowRegister, HighXor, toPort: 0);
+            LevelTestFixtures.Wire(board, HighRegister, HighXor, toPort: 0);
+            return board;
         }
 
         /// <summary>The right wire added beside the wrong one, rather than instead of it, collides.</summary>

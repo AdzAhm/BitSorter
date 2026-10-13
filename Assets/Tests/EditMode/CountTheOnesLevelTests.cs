@@ -40,7 +40,7 @@ namespace BitSorter.LogicCore.Tests
         /// The counter. <paramref name="carryOnTheLowBitAlone"/> builds the mistake instead: the
         /// high bit toggling whenever the low bit is 1, rather than when it is 1 and rolling over.
         /// </summary>
-        private static CircuitBlueprint Counter(bool carryOnTheLowBitAlone = false)
+        internal static CircuitBlueprint Counter(bool carryOnTheLowBitAlone = false)
         {
             var blueprint = new CircuitBlueprint();
             blueprint.Place(LowXor, GateKind.Xor);

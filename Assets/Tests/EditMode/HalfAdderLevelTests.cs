@@ -44,18 +44,29 @@ namespace BitSorter.LogicCore.Tests
         /// The intended solution. Each source output feeds both gates, which is the fan-out the
         /// cell-addressed blueprint has to support: one port as the source of several wires.
         /// </summary>
-        private void SolveHalfAdder(Vector2Int sumTarget, Vector2Int carryTarget)
+        private void SolveHalfAdder(Vector2Int sumTarget, Vector2Int carryTarget) =>
+            Solve(_blueprint, sumTarget, carryTarget);
+
+        /// <summary>The intended solution, on a board of its own.</summary>
+        internal static CircuitBlueprint Solution()
         {
-            _blueprint.Place(XorCell, GateKind.Xor);
-            _blueprint.Place(AndCell, GateKind.And);
+            var blueprint = new CircuitBlueprint();
+            Solve(blueprint, SumSink, CarrySink);
+            return blueprint;
+        }
 
-            LevelTestFixtures.Wire(_blueprint, SourceA, XorCell, toPort: 0);
-            LevelTestFixtures.Wire(_blueprint, SourceB, XorCell, toPort: 1);
-            LevelTestFixtures.Wire(_blueprint, SourceA, AndCell, toPort: 0);
-            LevelTestFixtures.Wire(_blueprint, SourceB, AndCell, toPort: 1);
+        private static void Solve(CircuitBlueprint blueprint, Vector2Int sumTarget, Vector2Int carryTarget)
+        {
+            blueprint.Place(XorCell, GateKind.Xor);
+            blueprint.Place(AndCell, GateKind.And);
 
-            LevelTestFixtures.Wire(_blueprint, XorCell, sumTarget);
-            LevelTestFixtures.Wire(_blueprint, AndCell, carryTarget);
+            LevelTestFixtures.Wire(blueprint, SourceA, XorCell, toPort: 0);
+            LevelTestFixtures.Wire(blueprint, SourceB, XorCell, toPort: 1);
+            LevelTestFixtures.Wire(blueprint, SourceA, AndCell, toPort: 0);
+            LevelTestFixtures.Wire(blueprint, SourceB, AndCell, toPort: 1);
+
+            LevelTestFixtures.Wire(blueprint, XorCell, sumTarget);
+            LevelTestFixtures.Wire(blueprint, AndCell, carryTarget);
         }
 
         [Test]

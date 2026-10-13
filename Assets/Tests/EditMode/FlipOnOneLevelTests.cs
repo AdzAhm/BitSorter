@@ -40,7 +40,7 @@ namespace BitSorter.LogicCore.Tests
         /// The toggle: the kept bit and the arriving bit meet at the gate, and the answer is both
         /// the bin's and the register's next value.
         /// </summary>
-        private static CircuitBlueprint Toggle(int intoRegister = 1, bool outputFromRegister = false)
+        internal static CircuitBlueprint Toggle(int intoRegister = 1, bool outputFromRegister = false)
         {
             var blueprint = new CircuitBlueprint();
             blueprint.Place(XorCell, GateKind.Xor);

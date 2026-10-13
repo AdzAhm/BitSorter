@@ -44,7 +44,7 @@ namespace BitSorter.LogicCore.Tests
         /// The adder. <paramref name="withTheCarry"/> false leaves the carry out entirely, which is
         /// the mistake: two bits added at a time, and every column that overflows forgotten.
         /// </summary>
-        private static CircuitBlueprint Adder(bool withTheCarry = true)
+        internal static CircuitBlueprint Adder(bool withTheCarry = true)
         {
             var blueprint = new CircuitBlueprint();
             blueprint.Place(FirstXor, GateKind.Xor);

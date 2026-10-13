@@ -35,7 +35,7 @@ namespace BitSorter.LogicCore.Tests
         }
 
         /// <summary>The textbook mux: (D AND EN) OR (Q AND NOT EN), back into the register.</summary>
-        private static CircuitBlueprint Textbook(int intoRegister = 1)
+        internal static CircuitBlueprint Textbook(int intoRegister = 1)
         {
             var not = new Vector2Int(-1, -1);
             var andData = new Vector2Int(0, 1);

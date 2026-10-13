@@ -41,14 +41,19 @@ namespace BitSorter.LogicCore.Tests
         [Test]
         public void ARegisterBetweenTheSourceAndTheBin_Passes()
         {
+            RunVerdict verdict = LevelTestFixtures.RunAndGrade(_level, Solution());
+
+            Assert.IsTrue(verdict.IsPass, verdict.ToString());
+        }
+
+        /// <summary>The intended solution: a register between the source and the bin.</summary>
+        internal static CircuitBlueprint Solution()
+        {
             var blueprint = new CircuitBlueprint();
             blueprint.Place(RegisterCell, GateKind.Register);
             LevelTestFixtures.Wire(blueprint, SourceCell, RegisterCell);
             LevelTestFixtures.Wire(blueprint, RegisterCell, OutCell);
-
-            RunVerdict verdict = LevelTestFixtures.RunAndGrade(_level, blueprint);
-
-            Assert.IsTrue(verdict.IsPass, verdict.ToString());
+            return blueprint;
         }
 
         // -----------------------------------------------------------------

@@ -66,7 +66,7 @@ namespace BitSorter.LogicCore.Tests
         /// <param name="level">The level whose blocks to place.</param>
         /// <param name="highLookahead">Whether COUT comes from LA_high, or rippled out of FA3.</param>
         /// <param name="highCarryFromCin">LA_high given CIN, timed to meet it, in place of LA_low's carry.</param>
-        private static CircuitBlueprint Lookahead(
+        internal static CircuitBlueprint Lookahead(
             LevelDefinition level, bool highLookahead = true, bool highCarryFromCin = false)
         {
             var board = new CircuitBlueprint();

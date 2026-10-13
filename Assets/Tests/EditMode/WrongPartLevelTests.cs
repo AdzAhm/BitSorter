@@ -37,9 +37,9 @@ namespace BitSorter.LogicCore.Tests
         /// The start with its join replaced, as a player does it: off, a new part on, and the three
         /// wires drawn again.
         /// </summary>
-        private CircuitBlueprint Replaced(GateKind join, int firstCarryDelay = 2)
+        internal static CircuitBlueprint Replaced(LevelDefinition level, GateKind join, int firstCarryDelay = 2)
         {
-            CircuitBlueprint board = LevelTestFixtures.FromStart(_level);
+            CircuitBlueprint board = LevelTestFixtures.FromStart(level);
 
             Assert.IsTrue(board.RemoveAt(Join), "sanity: no part on the join's cell");
             Assert.AreEqual(9, board.Wires.Count, "sanity: taking the join off should take its three wires");
@@ -70,7 +70,7 @@ namespace BitSorter.LogicCore.Tests
         [Test]
         public void AnOrJoiningTheCarries_Passes()
         {
-            CircuitBlueprint board = Replaced(GateKind.Or);
+            CircuitBlueprint board = Replaced(_level, GateKind.Or);
 
             RunVerdict verdict = LevelTestFixtures.RunAndGrade(_level, board);
 
@@ -82,7 +82,7 @@ namespace BitSorter.LogicCore.Tests
         [Test]
         public void AnXorJoiningTheCarries_AlsoPasses()
         {
-            Assert.IsTrue(LevelTestFixtures.RunAndGrade(_level, Replaced(GateKind.Xor)).IsPass);
+            Assert.IsTrue(LevelTestFixtures.RunAndGrade(_level, Replaced(_level, GateKind.Xor)).IsPass);
         }
 
         /// <summary>
@@ -92,7 +92,7 @@ namespace BitSorter.LogicCore.Tests
         [Test]
         public void RedrawingTheFirstCarryAtOneTick_DestroysBits()
         {
-            RunVerdict verdict = LevelTestFixtures.RunAndGrade(_level, Replaced(GateKind.Or, firstCarryDelay: 1));
+            RunVerdict verdict = LevelTestFixtures.RunAndGrade(_level, Replaced(_level, GateKind.Or, firstCarryDelay: 1));
 
             Assert.AreEqual(RunOutcome.Corrupted, verdict.Outcome, verdict.ToString());
         }

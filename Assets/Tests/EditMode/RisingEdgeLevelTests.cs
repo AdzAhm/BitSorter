@@ -38,7 +38,7 @@ namespace BitSorter.LogicCore.Tests
         /// <summary>
         /// The detector, with the direct wire's length as the one thing a player gets wrong.
         /// </summary>
-        private static CircuitBlueprint Detector(int directDelay)
+        internal static CircuitBlueprint Detector(int directDelay)
         {
             var blueprint = new CircuitBlueprint();
             blueprint.Place(RegisterCell, GateKind.Register);

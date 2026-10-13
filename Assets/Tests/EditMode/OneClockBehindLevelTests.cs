@@ -38,7 +38,7 @@ namespace BitSorter.LogicCore.Tests
         }
 
         /// <summary>The edge detector, with or without the register that holds its answer.</summary>
-        private static CircuitBlueprint Detector(bool reportThroughARegister)
+        internal static CircuitBlueprint Detector(bool reportThroughARegister)
         {
             var blueprint = new CircuitBlueprint();
             blueprint.Place(Previous, GateKind.Register);

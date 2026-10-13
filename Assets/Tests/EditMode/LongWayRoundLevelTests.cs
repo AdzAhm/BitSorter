@@ -42,7 +42,7 @@ namespace BitSorter.LogicCore.Tests
         // -----------------------------------------------------------------
 
         /// <summary>NOT (A AND B): the AND fires at level 1, the NOT at level 2, the bin at 3.</summary>
-        private static CircuitBlueprint AndThenNot()
+        internal static CircuitBlueprint AndThenNot()
         {
             var blueprint = new CircuitBlueprint();
             blueprint.Place(UpperCell, GateKind.And);

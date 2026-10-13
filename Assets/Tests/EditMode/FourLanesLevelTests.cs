@@ -60,7 +60,7 @@ namespace BitSorter.LogicCore.Tests
         /// <param name="selectsSwapped">s1 chooses within the pairs and s0 between them.</param>
         /// <param name="bareSelectDelay">The wire bare s1 takes to the last stage.</param>
         /// <param name="outWire">The wire into the bin.</param>
-        private static CircuitBlueprint Tree(bool selectsSwapped = false, int bareSelectDelay = 4, int outWire = 1)
+        internal static CircuitBlueprint Tree(bool selectsSwapped = false, int bareSelectDelay = 4, int outWire = 1)
         {
             Vector2Int inner = selectsSwapped ? SourceS1 : SourceS0;
             Vector2Int outer = selectsSwapped ? SourceS0 : SourceS1;

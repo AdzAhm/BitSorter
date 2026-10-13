@@ -37,9 +37,9 @@ namespace BitSorter.LogicCore.Tests
         }
 
         /// <summary>The start, re-timed the right way: the NOT's wire back to 1, D's out to 2.</summary>
-        private CircuitBlueprint Fixed()
+        internal static CircuitBlueprint Fixed(LevelDefinition level)
         {
-            CircuitBlueprint board = LevelTestFixtures.FromStart(_level);
+            CircuitBlueprint board = LevelTestFixtures.FromStart(level);
             LevelTestFixtures.Retime(board, Not, LowerAnd, toPort: 0, delay: 1);
             LevelTestFixtures.Retime(board, SourceD, LowerAnd, toPort: 1, delay: 2);
             return board;
@@ -86,7 +86,7 @@ namespace BitSorter.LogicCore.Tests
         [Test]
         public void ReTimingTheLowerAnd_Passes_WithinTheBudget()
         {
-            CircuitBlueprint board = Fixed();
+            CircuitBlueprint board = Fixed(_level);
 
             RunVerdict verdict = LevelTestFixtures.RunAndGrade(_level, board);
 
@@ -99,7 +99,7 @@ namespace BitSorter.LogicCore.Tests
         public void TheFix_MovesNoPartAndNoWire()
         {
             CircuitBlueprint start = LevelTestFixtures.FromStart(_level);
-            CircuitBlueprint board = Fixed();
+            CircuitBlueprint board = Fixed(_level);
 
             Assert.AreEqual(start.Placements.Count, board.Placements.Count);
             Assert.AreEqual(start.Wires.Count, board.Wires.Count);
