@@ -298,6 +298,22 @@ endmodule");
         }
 
         [Test]
+        public void ATypedParameter_IsTheContextItsValueIsSizedIn()
+        {
+            Design design = Clean(@"
+module k (output logic [5:0] ones, output logic [7:0] wide);
+    localparam [5:0] ONES = '1;           // '1 fills the parameter's six bits
+    localparam logic [7:0] SUM = 4'hF + 4'h1;   // the addition is done at eight bits, keeping the carry
+    assign ones = ONES;
+    assign wide = SUM;
+endmodule");
+
+            Simulator sim = Settle(design);
+            Assert.AreEqual("111111", Bits(sim, "ones"));
+            Assert.AreEqual("00010000", Bits(sim, "wide"));
+        }
+
+        [Test]
         public void ConstantFunctions_AndPower_AreWorkedOutBeforeTheRun()
         {
             Design design = Clean(@"
