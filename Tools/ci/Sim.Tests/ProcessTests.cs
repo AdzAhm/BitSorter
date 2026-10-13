@@ -172,6 +172,21 @@ endmodule"), 10);
         }
 
         [Test]
+        public void AtTimeZero_ProcessesStart_OnceWhatHasNoDelayHasSettled()
+        {
+            // As Icarus starts them: an initial reading a wire at time 0 sees it worked out from the
+            // starting values, not the x it has before its assign has run.
+            Simulator sim = Run(Clean(@"
+module t;
+    logic [3:0] a = 4'd5, seen;
+    wire [3:0] y = a + 4'd1;
+    initial seen = y;
+endmodule"), 10);
+
+            CollectionAssert.AreEqual(new[] { "0 0110" }, Changes(sim, "seen"));
+        }
+
+        [Test]
         public void HashZero_LetsTheRestOfTheInstantRunFirst()
         {
             Simulator sim = Run(Clean(@"
