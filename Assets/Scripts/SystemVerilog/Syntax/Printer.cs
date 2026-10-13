@@ -516,6 +516,17 @@ namespace BitSorter.SystemVerilog.Syntax
                     return;
                 }
 
+                case IfStatement i when lead.Length > 0:
+                    // On a line of its own under the head, so its else lines up with it:
+                    // always_ff @(posedge clk, posedge rst)
+                    //     if (rst) ...
+                    //     else ...
+                    Line(head);
+                    _level++;
+                    IfText(i, string.Empty);
+                    _level--;
+                    return;
+
                 case IfStatement i:
                     IfText(i, lead);
                     return;
