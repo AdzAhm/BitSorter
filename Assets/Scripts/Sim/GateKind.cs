@@ -54,20 +54,29 @@ namespace BitSorter.Sim
         /// </summary>
         public static LogicVec Evaluate(GateKind kind, LogicVec[] values, int[] inputs)
         {
+            var gathered = new LogicVec[inputs.Length];
+            for (int i = 0; i < inputs.Length; i++)
+                gathered[i] = values[inputs[i]];
+            return Evaluate(kind, gathered);
+        }
+
+        /// <summary>The gate's output for its inputs' values, in order: data first, then a tri-state's control.</summary>
+        public static LogicVec Evaluate(GateKind kind, LogicVec[] inputs)
+        {
             switch (kind)
             {
-                case GateKind.Buf: return Buffer(values[inputs[0]]);
-                case GateKind.Not: return LogicVec.Not(values[inputs[0]]);
-                case GateKind.Bufif1: return TriState(values[inputs[0]], values[inputs[1]], enableOn: Logic4.One, invert: false);
-                case GateKind.Bufif0: return TriState(values[inputs[0]], values[inputs[1]], enableOn: Logic4.Zero, invert: false);
-                case GateKind.Notif1: return TriState(values[inputs[0]], values[inputs[1]], enableOn: Logic4.One, invert: true);
-                case GateKind.Notif0: return TriState(values[inputs[0]], values[inputs[1]], enableOn: Logic4.Zero, invert: true);
+                case GateKind.Buf: return Buffer(inputs[0]);
+                case GateKind.Not: return LogicVec.Not(inputs[0]);
+                case GateKind.Bufif1: return TriState(inputs[0], inputs[1], enableOn: Logic4.One, invert: false);
+                case GateKind.Bufif0: return TriState(inputs[0], inputs[1], enableOn: Logic4.Zero, invert: false);
+                case GateKind.Notif1: return TriState(inputs[0], inputs[1], enableOn: Logic4.One, invert: true);
+                case GateKind.Notif0: return TriState(inputs[0], inputs[1], enableOn: Logic4.Zero, invert: true);
             }
 
-            LogicVec result = values[inputs[0]];
+            LogicVec result = inputs[0];
             for (int i = 1; i < inputs.Length; i++)
             {
-                LogicVec next = values[inputs[i]];
+                LogicVec next = inputs[i];
                 switch (kind)
                 {
                     case GateKind.And: case GateKind.Nand: result = LogicVec.And(result, next); break;

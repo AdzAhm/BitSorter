@@ -247,10 +247,13 @@ VCD           written for export, read for the oracle comparison
   shuffled orders. It also gives Icarus's answer where a pulse exactly as long as a delay meets it.
 - **Inertial delay** as section 6 says, each driver with at most one change on its way; a cancelled one
   is recorded as swallowed where it was cancelled.
-- **Drivers, nets and variables.** A gate or continuous assignment drives one signal. A net resolves its
-  drivers (`LogicVec.ResolveWire`) and reads z with none; a variable takes at most one continuous driver,
-  and `NetlistBuilder` refuses a second with the way out. Every signal starts at x, an undriven net at z,
-  and every driver evaluates once at time 0.
+- **Drivers, nets and variables.** A gate or continuous assignment drives one signal, or a slice of one
+  (Part 4b): `assign y[3] = a`, a gate whose output is a bit of a vector, a module output connected to
+  part of one. A gate's inputs are one-bit expressions, so it reads a bit of a vector directly. A net
+  resolves its drivers (`LogicVec.ResolveWire`), each contributing z outside its slice, and reads z with
+  none; a variable's bits take at most one continuous driver each, and `NetlistBuilder` refuses a second
+  with the way out. Every signal starts at x, an undriven net at z, and a net driven in slices at x where a
+  driver reaches and z where none does -- as Icarus shows it. Every driver evaluates once at time 0.
 - **Running.** `RunTo` runs whole time steps until a time or an event budget, so the browser can run in
   slices; a delta limit stops a zero-delay loop with a message naming what was still changing. Testbench
   writes are `Stimulus` until procedural code arrives (Part 5).

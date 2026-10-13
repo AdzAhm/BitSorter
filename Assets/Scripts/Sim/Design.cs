@@ -59,10 +59,12 @@ namespace BitSorter.Sim
     /// <summary>Something that drives a signal continuously: a gate primitive or a continuous assignment.</summary>
     public abstract class DriverInfo
     {
-        internal DriverInfo(string name, SignalId target, Delay delay)
+        internal DriverInfo(string name, SignalId target, int targetLowest, int targetWidth, Delay delay)
         {
             Name = name;
             Target = target;
+            TargetLowest = targetLowest;
+            TargetWidth = targetWidth;
             Delay = delay;
         }
 
@@ -71,6 +73,16 @@ namespace BitSorter.Sim
 
         /// <summary>The signal it drives.</summary>
         public SignalId Target { get; }
+
+        /// <summary>
+        /// The bits of <see cref="Target"/> it drives: from <see cref="TargetLowest"/>, this many. The whole
+        /// signal for most drivers; a slice for <c>assign y[3] = a;</c>, for a gate whose output is one bit
+        /// of a vector, and for a module output connected to part of one.
+        /// </summary>
+        public int TargetWidth { get; }
+
+        /// <inheritdoc cref="TargetWidth"/>
+        public int TargetLowest { get; }
 
         public Delay Delay { get; }
 
@@ -82,41 +94,56 @@ namespace BitSorter.Sim
     }
 
     /// <summary>A gate primitive: <c>and #(2, 3) g1 (y, a, b);</c>.</summary>
+    /// <remarks>
+    /// Each input is a one-bit expression, so <c>and g (y, in[0], sel)</c> reads a bit of a vector
+    /// directly. The inputs' values are gathered into an array the gate keeps, so evaluating one
+    /// allocates nothing.
+    /// </remarks>
     public sealed class GateDriver : DriverInfo
     {
-        private readonly int[] _inputs;
+        private readonly Expr[] _inputs;
+        private readonly LogicVec[] _scratch;
 
-        internal GateDriver(string name, GateKind kind, SignalId output, Delay delay, SignalId[] inputs)
-            : base(name, output, delay)
+        internal GateDriver(string name, GateKind kind, SignalId output, int outputBit, Delay delay, Expr[] inputs)
+            : base(name, output, outputBit, 1, delay)
         {
             Kind = kind;
-            _inputs = Array.ConvertAll(inputs, s => s.Index);
+            _inputs = inputs;
+            _scratch = new LogicVec[inputs.Length];
         }
 
         public GateKind Kind { get; }
 
         public int InputCount => _inputs.Length;
 
-        public SignalId Input(int i) => new SignalId(_inputs[i]);
+        /// <summary>What drives one of its inputs.</summary>
+        public Expr Input(int i) => _inputs[i];
 
-        internal override LogicVec Evaluate(LogicVec[] values) => Gates.Evaluate(Kind, values, _inputs);
+        internal override LogicVec Evaluate(LogicVec[] values)
+        {
+            for (int i = 0; i < _inputs.Length; i++)
+                _scratch[i] = _inputs[i].Evaluate(values);
+
+            return Gates.Evaluate(Kind, _scratch);
+        }
 
         internal override void CollectReads(ICollection<int> reads)
         {
-            foreach (int input in _inputs)
-                reads.Add(input);
+            foreach (Expr input in _inputs)
+                input.CollectReads(reads);
         }
     }
 
     /// <summary>A continuous assignment: <c>assign #3 y = a &amp; b;</c>.</summary>
     public sealed class AssignDriver : DriverInfo
     {
-        internal AssignDriver(string name, SignalId target, Delay delay, Expr value) : base(name, target, delay)
+        internal AssignDriver(string name, SignalId target, int targetLowest, int targetWidth, Delay delay, Expr value)
+            : base(name, target, targetLowest, targetWidth, delay)
         {
             Value = value;
         }
 
-        /// <summary>The expression, already sized to the target's width.</summary>
+        /// <summary>The expression, already sized to the width it drives.</summary>
         public Expr Value { get; }
 
         internal override LogicVec Evaluate(LogicVec[] values) => Value.Evaluate(values);
@@ -184,7 +211,8 @@ namespace BitSorter.Sim
         private readonly List<SignalInfo> _signals = new List<SignalInfo>();
         private readonly List<DriverInfo> _drivers = new List<DriverInfo>();
         private readonly HashSet<string> _names = new HashSet<string>(StringComparer.Ordinal);
-        private readonly Dictionary<int, int> _driverCount = new Dictionary<int, int>();
+        /// <summary>Which bits of each variable a continuous driver already drives: a second may not overlap them.</summary>
+        private readonly Dictionary<int, bool[]> _drivenBits = new Dictionary<int, bool[]>();
 
         public NetlistBuilder(string name = "top")
         {
@@ -207,8 +235,25 @@ namespace BitSorter.Sim
             foreach (SignalId input in inputs)
                 RequireOneBit(input, $"an input of {name}");
 
-            CountDriver(output, name);
-            _drivers.Add(new GateDriver(name, kind, output, delay, inputs));
+            Gate(kind, name, output, 0, delay, Array.ConvertAll(inputs, Read));
+        }
+
+        /// <summary>
+        /// A gate primitive driving bit <paramref name="outputBit"/> of <paramref name="output"/>, each
+        /// input a one-bit expression: <c>and g (y[2], in[0], sel)</c>.
+        /// </summary>
+        public void Gate(GateKind kind, string name, SignalId output, int outputBit, Delay delay, params Expr[] inputs)
+        {
+            if (inputs == null || !Gates.AcceptsInputCount(kind, inputs.Length))
+                throw new ArgumentException($"A {kind} gate cannot take {inputs?.Length ?? 0} inputs.", nameof(inputs));
+
+            foreach (Expr input in inputs)
+                if (input == null || input.Width != 1)
+                    throw new ArgumentException($"A gate primitive's terminals are one bit, and an input of {name} is {input?.Width ?? 0}.");
+
+            RequireBits(output, outputBit, 1, $"the output of {name}");
+            CountDriver(output, outputBit, 1, name);
+            _drivers.Add(new GateDriver(name, kind, output, outputBit, delay, inputs));
         }
 
         /// <summary>
@@ -226,8 +271,27 @@ namespace BitSorter.Sim
                 : value;
 
             string driverName = name ?? $"assign {_signals[target.Index].Name}";
-            CountDriver(target, driverName);
-            _drivers.Add(new AssignDriver(driverName, target, delay, sized));
+            CountDriver(target, 0, width, driverName);
+            _drivers.Add(new AssignDriver(driverName, target, 0, width, delay, sized));
+        }
+
+        /// <summary>
+        /// <c>assign #delay target[lowest +: width] = value;</c>: drives only those bits, sizing the value
+        /// to them as an assignment does.
+        /// </summary>
+        public void AssignSlice(SignalId target, int lowest, int width, Expr value, Delay delay, bool signExtend = false, string name = null)
+        {
+            if (value == null) throw new ArgumentNullException(nameof(value));
+
+            RequireBits(target, lowest, width, "the assignment's target");
+
+            Expr sized = value.Width < width ? Expr.Resize(value, width, signExtend)
+                : value.Width > width ? Expr.Slice(value, 0, width)
+                : value;
+
+            string driverName = name ?? $"assign {_signals[target.Index].Name}[{lowest + width - 1}:{lowest}]";
+            CountDriver(target, lowest, width, driverName);
+            _drivers.Add(new AssignDriver(driverName, target, lowest, width, delay, sized));
         }
 
         /// <summary>An expression reading a signal of this design, at its own width.</summary>
@@ -254,17 +318,35 @@ namespace BitSorter.Sim
                 throw new ArgumentException($"A gate primitive's terminals are one bit, and {what}, {_signals[signal.Index].Name}, is {_signals[signal.Index].Width}.");
         }
 
-        private void CountDriver(SignalId target, string driver)
+        private void RequireBits(SignalId signal, int lowest, int width, string what)
         {
-            _driverCount.TryGetValue(target.Index, out int count);
+            SignalInfo info = _signals[signal.Index];
+            if (lowest < 0 || width < 1 || lowest + width > info.Width)
+                throw new ArgumentOutOfRangeException(nameof(lowest),
+                    $"{what} drives bits {lowest + width - 1}..{lowest} of {info.Name}, which has {info.Width}.");
+        }
+
+        /// <summary>
+        /// A variable's bits may each have one continuous driver (IEEE 1800, 6.5): different drivers may
+        /// share a variable only by driving different bits of it. A wire may have any number.
+        /// </summary>
+        private void CountDriver(SignalId target, int lowest, int width, string driver)
+        {
             SignalInfo info = _signals[target.Index];
+            if (info.Kind != SignalKind.Variable)
+                return;
 
-            if (count >= 1 && info.Kind == SignalKind.Variable)
-                throw new InvalidOperationException(
-                    $"{info.Name} is a variable (logic), and only one continuous assignment or gate may drive a variable; " +
-                    $"{driver} would be the second. Declare it as a wire to give it several drivers.");
+            if (!_drivenBits.TryGetValue(target.Index, out bool[] driven))
+                _drivenBits[target.Index] = driven = new bool[info.Width];
 
-            _driverCount[target.Index] = count + 1;
+            for (int bit = lowest; bit < lowest + width; bit++)
+            {
+                if (driven[bit])
+                    throw new InvalidOperationException(
+                        $"{info.Name} is a variable (logic), and only one continuous assignment or gate may drive each of its bits; " +
+                        $"{driver} would be the second on bit {bit}. Declare it as a wire to give it several drivers.");
+                driven[bit] = true;
+            }
         }
     }
 }

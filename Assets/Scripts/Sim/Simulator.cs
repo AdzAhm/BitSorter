@@ -106,6 +106,9 @@ namespace BitSorter.Sim
         private readonly LogicVec[] _values;
         private readonly LogicVec[] _written;
         private readonly int[][] _driversOf;
+
+        /// <summary>Whether a signal has a driver that drives only some of its bits.</summary>
+        private readonly bool[] _sliced;
         private readonly int[][] _fanout;
 
         private readonly DriverInfo[] _drivers;
@@ -161,7 +164,7 @@ namespace BitSorter.Sim
             {
                 DriverInfo driver = design.Drivers[d];
                 _drivers[d] = driver;
-                _output[d] = LogicVec.AllX(design[driver.Target].Width);
+                _output[d] = LogicVec.AllX(driver.TargetWidth);
                 _pendingTransition[d] = -1;
                 driversOf[driver.Target.Index].Add(d);
 
@@ -174,11 +177,22 @@ namespace BitSorter.Sim
             _driversOf = Array.ConvertAll(driversOf, l => l.ToArray());
             _fanout = Array.ConvertAll(fanout, l => l.ToArray());
 
+            _sliced = new bool[signals];
+            for (int s = 0; s < signals; s++)
+                foreach (int d in _driversOf[s])
+                    if (_drivers[d].TargetLowest != 0 || _drivers[d].TargetWidth != design.Signals[s].Width)
+                        _sliced[s] = true;
+
             for (int s = 0; s < signals; s++)
             {
                 SignalInfo info = design.Signals[s];
                 bool undrivenNet = info.Kind == SignalKind.Net && _driversOf[s].Length == 0;
-                LogicVec start = Shape(LogicVec.Fill(undrivenNet ? Logic4.Z : Logic4.X, info.Width), info);
+
+                // A signal driven in slices starts from its slices: x where a driver reaches, and on a
+                // wire z where none does -- as Icarus shows a wire with assign y[0] = a alone, zzzx.
+                LogicVec start = _sliced[s]
+                    ? Shape(ResolveSlices(info, _driversOf[s]), info)
+                    : Shape(LogicVec.Fill(undrivenNet ? Logic4.Z : Logic4.X, info.Width), info);
 
                 _values[s] = start;
                 _written[s] = start;
@@ -322,7 +336,7 @@ namespace BitSorter.Sim
                 {
                     int d = _toEvaluate[i];
                     LogicVec output = _drivers[d].Evaluate(_values);
-                    Schedule(d, Fit(output, _design[_drivers[d].Target].Width), time);
+                    Schedule(d, Fit(output, _drivers[d].TargetWidth), time);
                 }
 
                 _toEvaluate.Clear();
@@ -381,11 +395,53 @@ namespace BitSorter.Sim
             if (drivers.Length == 0)
                 return info.Kind == SignalKind.Variable ? _written[s] : _values[s];
 
+            if (_sliced[s])
+                return Shape(ResolveSlices(info, drivers), info);
+
             LogicVec value = _output[drivers[0]];
             for (int i = 1; i < drivers.Length; i++)
                 value = LogicVec.ResolveWire(value, _output[drivers[i]]);
 
             return Shape(value, info);
+        }
+
+        /// <summary>
+        /// A signal some of whose drivers drive only some of its bits. On a wire every driver
+        /// contributes z outside its slice and the contributions resolve as drivers do; a variable's
+        /// slices never overlap (the builder refuses that), so each is put in place, and a bit no
+        /// driver reaches is x.
+        /// </summary>
+        private LogicVec ResolveSlices(SignalInfo info, int[] drivers)
+        {
+            if (info.Kind == SignalKind.Variable)
+            {
+                LogicVec composed = LogicVec.AllX(info.Width);
+                foreach (int d in drivers)
+                    composed = Splice(composed, _drivers[d].TargetLowest, _output[d]);
+                return composed;
+            }
+
+            LogicVec undriven = LogicVec.Fill(Logic4.Z, info.Width);
+            LogicVec value = Splice(undriven, _drivers[drivers[0]].TargetLowest, _output[drivers[0]]);
+            for (int i = 1; i < drivers.Length; i++)
+                value = LogicVec.ResolveWire(value, Splice(undriven, _drivers[drivers[i]].TargetLowest, _output[drivers[i]]));
+
+            return value;
+        }
+
+        /// <summary><paramref name="into"/> with <paramref name="part"/> in place of its bits from <paramref name="lowest"/>.</summary>
+        private static LogicVec Splice(LogicVec into, int lowest, LogicVec part)
+        {
+            int width = into.Width;
+            int top = lowest + part.Width;
+            LogicVec result = part;
+
+            if (top < width)
+                result = LogicVec.Concat(into.Slice(top, width - top), result);
+            if (lowest > 0)
+                result = LogicVec.Concat(result, into.Slice(0, lowest));
+
+            return result;
         }
 
         private void StopOnLoop(long time)
