@@ -116,6 +116,24 @@ namespace BitSorter.SystemVerilog.Tests.Syntax
         }
 
         [Test]
+        public void AnIfAfterAProcessHead_GoesOnALineOfItsOwn_SoItsElseLinesUp()
+        {
+            // Part 7a: a register with a reset, as the board prints one. It was "... @(...) if (rst)" on
+            // one line and the else at the always_ff's own indent.
+            const string source =
+                "module r(input logic clk, rst, d, output logic q);\n" +
+                "always_ff @(posedge clk, posedge rst) if (rst) q <= 1'b0; else q <= d;\n" +
+                "endmodule";
+
+            StringAssert.Contains(
+                "    always_ff @(posedge clk, posedge rst)\n" +
+                "        if (rst)\n" +
+                "            q <= 1'b0;\n" +
+                "        else\n" +
+                "            q <= d;\n", FixedPoint(source));
+        }
+
+        [Test]
         public void StatementsOfEveryKind_ReachAFixedPoint()
         {
             FixedPoint(
