@@ -354,6 +354,28 @@ endmodule");
             Assert.AreEqual(1, vcd.ToString().Split("$scope module t ").Length - 1, "the top's scope once, not twice");
         }
 
+        [Test]
+        public void Finish_LetsItsTimeStepSettle_BeforeTheRunEnds()
+        {
+            // As Icarus does: the nonblocking write, the #0 and the continuous assignment of the
+            // instant $finish runs in all still happen.
+            Simulator sim = Run(Clean(@"
+module t;
+    logic clk = 0, q = 0, late = 0;
+    wire w = ~clk;
+    always #5 clk = ~clk;
+    always @(posedge clk) q <= ~q;
+    always @(posedge clk) #0 late = ~late;
+    initial begin repeat (2) @(posedge clk); $finish; end
+endmodule"), 100);
+
+            Assert.IsTrue(sim.Finished);
+            Assert.AreEqual(15, sim.Now);
+            CollectionAssert.AreEqual(new[] { "0 0", "5 1", "15 0" }, Changes(sim, "q"));
+            CollectionAssert.AreEqual(new[] { "0 0", "5 1", "15 0" }, Changes(sim, "late"));
+            CollectionAssert.AreEqual(new[] { "0 1", "5 0", "10 1", "15 0" }, Changes(sim, "w"));
+        }
+
         // -----------------------------------------------------------------
         // Runs that cannot go on
         // -----------------------------------------------------------------
