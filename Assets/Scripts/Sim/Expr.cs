@@ -79,6 +79,31 @@ namespace BitSorter.Sim
         public static Expr Resize(Expr a, int width, bool signExtend) =>
             a.Width == width ? a : new ResizeExpr(a, width, signExtend);
 
+        /// <summary><c>$signed(a)</c> or <c>$unsigned(a)</c>: the same bits, read with another signedness.</summary>
+        public static Expr WithSignedness(Expr a, bool signed) => new SignednessExpr(a, signed);
+
+        private sealed class SignednessExpr : Expr
+        {
+            private readonly Expr _a;
+            private readonly bool _signed;
+
+            public SignednessExpr(Expr a, bool signed)
+            {
+                _a = a ?? throw new ArgumentNullException(nameof(a));
+                _signed = signed;
+            }
+
+            public override int Width => _a.Width;
+
+            public override LogicVec Evaluate(LogicVec[] values)
+            {
+                LogicVec v = _a.Evaluate(values);
+                return _signed ? v.AsSigned() : v.AsUnsigned();
+            }
+
+            public override void CollectReads(ICollection<int> reads) => _a.CollectReads(reads);
+        }
+
         // -----------------------------------------------------------------
         // The nodes
         // -----------------------------------------------------------------

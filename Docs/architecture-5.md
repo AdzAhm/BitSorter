@@ -203,8 +203,8 @@ Diagnostic    severity, file, line, column, code, message
   never written after it is made, so copies share it.
 - **Width.** An operator works at its operands' width: a binary one extends both to the wider,
   sign-extending only when both are signed (IEEE 1800, 11.8.1). Sizing an expression by its context —
-  `r = a + b` adds at the widest of r, a and b — is the elaborator's job (Parts 4 and 5), done with
-  `Extend` before the operator runs.
+  `r = a + b` adds at the widest of r, a and b — is the elaborator's job, done by extending each operand
+  before the operator runs (`ExpressionBuilder`, Part 4b; section 7).
 - **x and z.** A z operand bit reads as x. Bitwise operators follow the standard's truth tables, so a
   known 0 still wins an AND; arithmetic with any unknown bit, or division by zero, is all x; `==` is 0
   as soon as a known bit differs and x only when unknown bits could decide it; `===` is never x; a
@@ -310,7 +310,9 @@ The contract the engine is tested against, by hand-computed waveforms first and 
 | Order inside a region | Stable, by creation, the same on every run. Where Icarus and the standard disagree, the standard wins, and the difference is written down in `Docs/oracle-notes.md`. |
 
 **Confirmed against Icarus** (`Docs/oracle-notes.md`): eleven probe circuits, from a pulse swallowed to
-the reference visual's glitch, give the same waveform in both, signal by signal. The first fact pinned,
+the reference visual's glitch, give the same waveform in both, signal by signal; and from Part 4b the
+structural corpus, read from its SystemVerilog by both, under random 4-state stimulus with gaps shorter
+than its slowest path (section 7). The first fact pinned,
 in Part 0: an XOR with rise 2 and fall 3, inputs at 0 from time 0, reads `x` until time 3 (a fall),
 rises at 12 when an input rises at 10, falls at 23 when it falls at 20.
 
@@ -373,6 +375,67 @@ asked for it to read the course and general SystemVerilog alike (2026-10-12).
   hundred points, random tokens and characters, and nesting a hundred thousand deep, none of which may
   throw or take more than a few seconds. Outside the repository, every one of the course's 53 source files
   -- SIM1 to the multicycle processor of SIM3 -- read with no diagnostic and printed to a fixed point.
+
+**Elaborating, as built in Part 4b** (`Assets/Scripts/Sim/Elaboration`). `Elaborator.Elaborate(tree, top)`
+turns a syntax tree into a flattened `Design` and the top's ports, or into diagnostics and no design. It
+lives in the engine's layer, which already sees the syntax tree, so the layers still point one way.
+
+- **The top** is the module named, or the one nothing instantiates. A file that includes a cell library
+  leaves its unused cells uninstantiated too, so among several such modules the one that instantiates
+  something wins, as a testbench does; if that still leaves more than one, it names them and asks.
+- **One instance at a time, in the standard's order**: header parameters (each overridden by the
+  instance's `#( )`, worked out in the parent), the ANSI ports, the body's parameters and typedefs, every
+  other declaration, and then everything that drives something -- so a use before a declaration in the
+  body still finds it. A body `parameter` is settable only when the header has no `#( )` list, as the
+  course's cells are written; with one, it is a localparam (IEEE 1800, 6.20.1). Parameters with no type
+  keep their value's own; typed ones are converted to it.
+- **Names are places in the hierarchy**, as Icarus writes them in a VCD: `alu64.slice[3].s.fa.sum`. An
+  unnamed generate block is `genblk<n>`, *n* counting every generate construct in its scope.
+- **Ports are signals of their own, joined by zero-delay assignments.** An input is a wire in the child,
+  driven from the parent's expression; an output drives the parent's signal, or the bits of it a select or
+  a concatenation names, from the child's port. Icarus joins the two into one net instead, which takes no
+  delta cycle -- the values every time step settles on are the same, and those are what the oracle
+  compares. The top's inputs are variables nothing drives, so a `Stimulus` (and later the workbench's
+  switches) can write them; every other input is a wire, as the standard makes an `input logic` port. An
+  output is a variable when it has a data type (`output logic`) and a wire with a net type or none.
+- **Expressions are sized as the standard sizes them** (`ExpressionBuilder`; IEEE 1800, 11.6 and 11.8),
+  in two passes: each node's own width and signedness bottom up, then the context's width pushed into
+  every operand the operator's width depends on -- arithmetic, bitwise, `?:`'s two choices, a shift's
+  left side -- each extended before the operator runs, with its sign only when the whole expression is
+  signed (a signed operand of an unsigned expression is read unsigned, so `(s1 / s2) < u` divides without
+  the sign). A comparison's operands are sized against each other, never the context; a shift amount,
+  a condition, a reduction's operand and a concatenation's items are self-determined. That is what keeps
+  the carry in `{cout, sum} = a + b`. A select counts against the declared range, either way round; a
+  variable index or `+:` base becomes the engine's bit-select or a shift, and reads x past the vector.
+  An unsized number inside `{ }` is an error, as the standard makes it.
+- **Constants are the same expressions, evaluated** with no signal values: parameters, ranges, delays,
+  replication counts, generate bounds. `$clog2`, `$bits` and `**` between constants are worked out here.
+- **Generate** loops are unrolled with the genvar a constant in each block, capped at 65,536 rounds and
+  refusing a loop that comes back to a value; an `if` picks its block, and an `else if` chain is one
+  construct. Instances may nest 64 deep, and a module that instantiates itself is refused.
+- **Drivers**: an assign or a primitive whose target is a concatenation or a slice drives each piece
+  from its bits of the value. `buf` and `not` may have several outputs; a gate's input wider than a bit
+  uses its lowest, with a warning. An undeclared name where a net may be implied -- a port connection,
+  the left of an assign, a gate terminal -- is a one-bit wire, with a warning.
+- **Refused, with the part it arrives in** (`SV0306`): processes, functions and tasks (5), arrays and
+  memories (6), `inout` (14), a variable with a starting value (5), packed arrays of more than one
+  dimension, net types other than `wire`, `tri`, `uwire` and the two supplies. Simulating a design
+  without them would be simulating something else, so they are errors, never warnings.
+- **Diagnostics** `SV0301` to `SV0318`, each at the item's file, line and column: no top, unknown module
+  or name, not a constant, a width mismatch at a port (a warning), a bad port, parameter, select, delay or
+  left side, two drivers on a variable's bit (with the way out: a wire), recursion, an implicit net and an
+  unconnected input (warnings), a duplicate, an unsized number in `{ }`, and a design too large. A read
+  that failed is not elaborated, so the read's own errors stand alone.
+- **Checked.** 44 tests (`Tools/ci/Sim.Tests/ElaboratorTests`): the sizing rules each by a design that
+  shows the difference, parameters by name and position, body parameters, enums, `$clog2` and `**`,
+  generate naming, every way of connecting a port, non-ANSI ports, every error code, and the hand-worked
+  delays of the corpus's mux (y falls 5 after s rises: the inverter's 3 and two NANDs) and 64-bit ALU
+  (the carry ripples two units a slice, out at 328 for a change at 200). Every corpus file, and 400
+  mangled copies of the structural ones, elaborate or say why without throwing. Against Icarus
+  (`Tools/ci/Oracle/StructuralOracleTests`): the mux, full adder, ALU slice and 64-bit ALU, read from the
+  corpus by both and driven by the same random 4-state writes -- all x, all z, stray unknown bits, gaps
+  shorter than the slowest path -- agree on every one of 2,062 signals, every port of every instance
+  down to the cells, over more than 77,000 settled changes.
 
 ---
 

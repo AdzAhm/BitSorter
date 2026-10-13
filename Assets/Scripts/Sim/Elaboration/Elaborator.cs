@@ -1,0 +1,1486 @@
+using System;
+using System.Collections.Generic;
+using BitSorter.SystemVerilog;
+using BitSorter.SystemVerilog.Syntax;
+
+namespace BitSorter.Sim
+{
+    /// <summary>
+    /// Turns a syntax tree into a flattened <see cref="Design"/>: every instance expanded, every
+    /// parameter worked out, every generate loop unrolled, every port joined up -- what Part 4b adds,
+    /// for the structural subset (Tier A of <c>Docs/architecture-5.md</c>, section 7).
+    /// </summary>
+    /// <remarks>
+    /// **A signal's name is its place in the hierarchy**: <c>alu64.slice[3].s.fa.sum</c>, as Icarus
+    /// writes it in a VCD, so the oracle compares the two by name.
+    ///
+    /// **A port is a signal of its own, joined by a zero-delay assignment.** An input is a wire in the
+    /// child driven from the parent's expression; an output drives the parent's signal from the
+    /// child's port. Icarus joins them into one net instead, which takes no delta cycle; the values
+    /// settled at every time step are the same, and those are what the oracle compares.
+    ///
+    /// **The top module's inputs are variables**, undriven, so a stimulus -- and later the
+    /// workbench's switches -- can write them. Every other input is a wire, as the standard makes an
+    /// <c>input logic</c> port.
+    ///
+    /// Nothing behavioural is simulated yet: an <c>always</c>, an <c>initial</c>, a function is
+    /// reported as arriving in Part 5, as an error, because simulating the design without it would be
+    /// simulating something else.
+    /// </remarks>
+    public static class Elaborator
+    {
+        /// <summary>How deep instances may nest before the design is taken to be runaway.</summary>
+        public const int MaxDepth = 64;
+
+        /// <summary>How many times one generate loop may go round.</summary>
+        public const int MaxIterations = 65536;
+
+        /// <summary>How many instances a whole design may have.</summary>
+        public const int MaxInstances = 200000;
+
+        /// <summary>
+        /// Elaborates <paramref name="tree"/> from <paramref name="top"/>, or from the one module that
+        /// nothing instantiates when no top is named.
+        /// </summary>
+        public static Elaboration Elaborate(SyntaxTree tree, string top = null)
+        {
+            if (tree == null) throw new ArgumentNullException(nameof(tree));
+            return new Run(tree).Elaborate(top);
+        }
+
+        private readonly struct Shape
+        {
+            public readonly int Width;
+            public readonly int Msb;
+            public readonly int Lsb;
+            public readonly bool Signed;
+
+            public Shape(int msb, int lsb, bool signed)
+            {
+                Msb = msb;
+                Lsb = lsb;
+                Width = Math.Abs(msb - lsb) + 1;
+                Signed = signed;
+            }
+        }
+
+        private sealed class Run
+        {
+            private readonly SyntaxTree _tree;
+            private readonly DiagnosticBag _diagnostics = new DiagnosticBag();
+            private readonly Dictionary<string, ModuleDeclaration> _modules = new Dictionary<string, ModuleDeclaration>(StringComparer.Ordinal);
+            private readonly HashSet<string> _active = new HashSet<string>(StringComparer.Ordinal);
+            private readonly HashSet<(Scope, EnumType)> _enumsDeclared = new HashSet<(Scope, EnumType)>();
+            private NetlistBuilder _builder;
+            private Scope _unit;
+            private int _instances;
+            private int _unnamed;
+            private bool _stopped;
+
+            public Run(SyntaxTree tree) => _tree = tree;
+
+            public Elaboration Elaborate(string top)
+            {
+                var diagnostics = new List<Diagnostic>(_tree.Diagnostics);
+
+                if (_tree.HasErrors)
+                    return new Elaboration(null, top, diagnostics, new List<ElaboratedPort>());
+
+                foreach (ModuleDeclaration module in _tree.Modules)
+                {
+                    if (_modules.ContainsKey(module.Name))
+                        Error(module.Location, ElaborationCodes.Duplicate, $"There are two modules called {module.Name}; rename one.");
+                    else
+                        _modules[module.Name] = module;
+                }
+
+                ModuleDeclaration root = ChooseTop(top);
+                var ports = new List<ElaboratedPort>();
+                Design design = null;
+
+                if (root != null)
+                {
+                    _unit = new Scope(root.Name, null, null);
+                    DeclareUnitItems();
+
+                    _builder = new NetlistBuilder(root.Name);
+                    Scope scope = ElaborateModule(root, root.Name, new Dictionary<string, Expression>(), null, root.Location, isTop: true, depth: 0);
+
+                    if (scope != null)
+                    {
+                        foreach (string name in PortOrder(root))
+                        {
+                            if (scope.Own(name) is SignalEntry s && s.Port.HasValue)
+                                ports.Add(new ElaboratedPort(name, s.Port.Value, s.Signal, s.Width, s.Signed));
+                        }
+                    }
+
+                    if (!_diagnostics.HasErrors)
+                        design = _builder.Build();
+                }
+
+                diagnostics.AddRange(_diagnostics.Items);
+                return new Elaboration(design, root?.Name ?? top, diagnostics, ports);
+            }
+
+            // -----------------------------------------------------------------
+            // Diagnostics
+            // -----------------------------------------------------------------
+
+            private void Error(SourceLocation at, string code, string message) => _diagnostics.Error(at, code, message);
+            private void Warning(SourceLocation at, string code, string message) => _diagnostics.Warning(at, code, message);
+
+            private void NotYet(SourceLocation at, string message) => Error(at, ElaborationCodes.NotYet, message);
+
+            // -----------------------------------------------------------------
+            // The top
+            // -----------------------------------------------------------------
+
+            /// <summary>
+            /// The named module, or the one nothing instantiates. A file that includes a cell library
+            /// leaves the unused cells uninstantiated too, so among several such modules the one that
+            /// instantiates something is the top, as a testbench is.
+            /// </summary>
+            private ModuleDeclaration ChooseTop(string top)
+            {
+                if (top != null)
+                {
+                    if (_modules.TryGetValue(top, out ModuleDeclaration named))
+                        return named;
+
+                    Error(default, ElaborationCodes.UnknownModule, $"There is no module called {top} to start from.");
+                    return null;
+                }
+
+                if (_modules.Count == 0)
+                {
+                    Error(default, ElaborationCodes.NoTop, "There is no module to simulate.");
+                    return null;
+                }
+
+                var instantiated = new HashSet<string>(StringComparer.Ordinal);
+                var parents = new HashSet<string>(StringComparer.Ordinal);
+
+                foreach (ModuleDeclaration module in _tree.Modules)
+                {
+                    foreach (string child in Instantiated(module.Items))
+                    {
+                        instantiated.Add(child);
+                        parents.Add(module.Name);
+                    }
+                }
+
+                var candidates = new List<ModuleDeclaration>();
+                foreach (ModuleDeclaration module in _tree.Modules)
+                    if (!instantiated.Contains(module.Name) && _modules[module.Name] == module)
+                        candidates.Add(module);
+
+                if (candidates.Count > 1)
+                {
+                    var withChildren = candidates.FindAll(m => parents.Contains(m.Name));
+                    if (withChildren.Count >= 1)
+                        candidates = withChildren;
+                }
+
+                if (candidates.Count == 1)
+                    return candidates[0];
+
+                if (candidates.Count == 0)
+                {
+                    Error(_tree.Modules[0].Location, ElaborationCodes.NoTop,
+                        "Every module is instantiated by another, so none of them is the top. Is one instantiating itself?");
+                    return null;
+                }
+
+                Error(candidates[1].Location, ElaborationCodes.NoTop,
+                    $"Any of {string.Join(", ", candidates.ConvertAll(m => m.Name))} could be the top, since nothing instantiates them; say which to start from.");
+                return null;
+            }
+
+            private static IEnumerable<string> Instantiated(List<ModuleItem> items)
+            {
+                foreach (ModuleItem item in items)
+                {
+                    switch (item)
+                    {
+                        case ModuleInstantiation mi:
+                            yield return mi.Module;
+                            break;
+                        case GenerateRegion region:
+                            foreach (string name in Instantiated(region.Items)) yield return name;
+                            break;
+                        case GenerateBlock block:
+                            foreach (string name in Instantiated(block.Items)) yield return name;
+                            break;
+                        case LoopGenerate loop when loop.Body != null:
+                            foreach (string name in Instantiated(loop.Body.Items)) yield return name;
+                            break;
+                        case IfGenerate g:
+                            if (g.Then != null) foreach (string name in Instantiated(g.Then.Items)) yield return name;
+                            if (g.Else != null) foreach (string name in Instantiated(g.Else.Items)) yield return name;
+                            break;
+                    }
+                }
+            }
+
+            /// <summary>Typedefs and parameters written outside every module, which every module sees.</summary>
+            private void DeclareUnitItems()
+            {
+                foreach (ModuleItem item in _tree.UnitItems)
+                {
+                    switch (item)
+                    {
+                        case ParameterDeclaration p:
+                            DeclareParameter(_unit, p, null, null);
+                            break;
+                        case TypedefDeclaration t:
+                            DeclareTypedef(_unit, t);
+                            break;
+                        case SubroutineDeclaration s:
+                            NotYet(s.Location, $"The {(s.IsTask ? "task" : "function")} {s.Name} arrives with behavioural code, in Part 5.");
+                            break;
+                        case UnsupportedItem _:
+                            break;
+                        default:
+                            NotYet(item.Location, "Only typedefs and parameters can be declared outside a module in BitSorter.");
+                            break;
+                    }
+                }
+            }
+
+            // -----------------------------------------------------------------
+            // A module, as one instance of it
+            // -----------------------------------------------------------------
+
+            private static List<string> PortOrder(ModuleDeclaration module)
+            {
+                if (module.Ports.Count > 0)
+                    return module.Ports.ConvertAll(p => p.Name);
+                return new List<string>(module.PortNames);
+            }
+
+            /// <summary>
+            /// One instance of <paramref name="module"/> at <paramref name="path"/>: its parameters
+            /// (with <paramref name="overrides"/>, worked out in <paramref name="overrideScope"/>), its
+            /// signals, and everything inside. The instance's scope, or null when it could not be made.
+            /// </summary>
+            private Scope ElaborateModule(ModuleDeclaration module, string path, Dictionary<string, Expression> overrides,
+                Scope overrideScope, SourceLocation at, bool isTop, int depth)
+            {
+                if (_stopped)
+                    return null;
+
+                if (_active.Contains(module.Name))
+                {
+                    Error(at, ElaborationCodes.Recursion, $"{module.Name} instantiates itself, through {path}; that would never end.");
+                    return null;
+                }
+
+                if (depth > MaxDepth)
+                {
+                    Error(at, ElaborationCodes.Recursion, $"Instances nest more than {MaxDepth} deep at {path}.");
+                    return null;
+                }
+
+                if (++_instances > MaxInstances)
+                {
+                    Error(at, ElaborationCodes.TooLarge, $"The design has more than {MaxInstances} instances, more than BitSorter will simulate.");
+                    _stopped = true;
+                    return null;
+                }
+
+                _active.Add(module.Name);
+                try
+                {
+                    var scope = new Scope(path, _unit, module);
+
+                    // Header parameters first, in order: each may use the ones before it.
+                    var used = new HashSet<string>(StringComparer.Ordinal);
+                    foreach (ParameterDeclaration p in module.HeaderParameters)
+                        DeclareParameter(scope, p, p.IsLocal ? null : Override(p, overrides, used), overrideScope);
+
+                    // Then the ANSI ports, whose widths may use only those (IEEE 1800, 23.2.2.2).
+                    foreach (PortDeclaration port in module.Ports)
+                        DeclareAnsiPort(scope, port, isTop);
+
+                    // Then the body's parameters and typedefs, which a non-ANSI port's width may use.
+                    foreach (ModuleItem item in Flatten(module.Items))
+                    {
+                        if (item is ParameterDeclaration p)
+                        {
+                            // With a #( ) list in the header, a body parameter is a localparam (IEEE 1800, 6.20.1).
+                            bool overridable = !p.IsLocal && !module.HasParameterList;
+                            DeclareParameter(scope, p, overridable ? Override(p, overrides, used) : null, overrideScope);
+                        }
+                        else if (item is TypedefDeclaration t)
+                        {
+                            DeclareTypedef(scope, t);
+                        }
+                    }
+
+                    foreach (KeyValuePair<string, Expression> o in overrides)
+                    {
+                        if (!used.Contains(o.Key))
+                            Error(o.Value?.Location ?? at, ElaborationCodes.BadParameter, IsLocalParameter(module, o.Key)
+                                ? $"{o.Key} is a localparam of {module.Name}, so an instance cannot set it."
+                                : $"{module.Name} has no parameter called {o.Key}.");
+                    }
+
+                    // Every other declaration, then everything that drives something.
+                    DeclarePass(scope, module.Items, module, isTop);
+
+                    foreach (string name in module.PortNames)
+                    {
+                        if (!(scope.Own(name) is SignalEntry s && s.Port.HasValue))
+                            Error(module.Location, ElaborationCodes.BadPort,
+                                $"Port {name} of {module.Name} is in its port list but never declared input or output.");
+                    }
+
+                    BuildPass(scope, module.Items, depth);
+                    return scope;
+                }
+                finally
+                {
+                    _active.Remove(module.Name);
+                }
+            }
+
+            /// <summary>The module's items with every <c>generate ... endgenerate</c> region opened up.</summary>
+            private static IEnumerable<ModuleItem> Flatten(List<ModuleItem> items)
+            {
+                foreach (ModuleItem item in items)
+                {
+                    if (item is GenerateRegion region)
+                    {
+                        foreach (ModuleItem inner in Flatten(region.Items))
+                            yield return inner;
+                    }
+                    else
+                    {
+                        yield return item;
+                    }
+                }
+            }
+
+            private static bool IsLocalParameter(ModuleDeclaration module, string name)
+            {
+                foreach (ParameterDeclaration p in module.HeaderParameters)
+                    if (p.Name == name)
+                        return p.IsLocal;
+                foreach (ModuleItem item in Flatten(module.Items))
+                    if (item is ParameterDeclaration p && p.Name == name)
+                        return p.IsLocal || module.HasParameterList;
+                return false;
+            }
+
+            private static Expression Override(ParameterDeclaration p, Dictionary<string, Expression> overrides, HashSet<string> used)
+            {
+                if (overrides != null && overrides.TryGetValue(p.Name, out Expression value))
+                {
+                    used.Add(p.Name);
+                    return value;
+                }
+
+                return null;
+            }
+
+            /// <summary>An instantiation's <c>#( )</c>, by name: positional values matched to the parameters an instance may set.</summary>
+            private Dictionary<string, Expression> Overrides(ModuleDeclaration module, ModuleInstantiation mi)
+            {
+                var result = new Dictionary<string, Expression>(StringComparer.Ordinal);
+                var settable = new List<string>();
+
+                foreach (ParameterDeclaration p in module.HeaderParameters)
+                    if (!p.IsLocal)
+                        settable.Add(p.Name);
+
+                if (!module.HasParameterList)
+                    foreach (ModuleItem item in Flatten(module.Items))
+                        if (item is ParameterDeclaration p && !p.IsLocal)
+                            settable.Add(p.Name);
+
+                int position = 0;
+                bool named = false, positional = false;
+
+                foreach (ParameterValue value in mi.Parameters)
+                {
+                    if (value.Name == null)
+                    {
+                        positional = true;
+                        if (position >= settable.Count)
+                        {
+                            Error(value.Location, ElaborationCodes.BadParameter,
+                                $"{module.Name} has {settable.Count} parameter{(settable.Count == 1 ? "" : "s")} an instance can set, and this is value {position + 1}.");
+                            continue;
+                        }
+
+                        result[settable[position++]] = value.Value;
+                    }
+                    else
+                    {
+                        named = true;
+                        if (result.ContainsKey(value.Name))
+                            Error(value.Location, ElaborationCodes.Duplicate, $"{value.Name} is given twice.");
+                        else if (value.Value != null)
+                            result[value.Name] = value.Value;
+                    }
+                }
+
+                if (named && positional)
+                    Error(mi.Location, ElaborationCodes.BadParameter, "Give the parameters all by name or all in order, not some of each.");
+
+                // A positional value left empty keeps the default.
+                var drop = new List<string>();
+                foreach (KeyValuePair<string, Expression> kv in result)
+                    if (kv.Value == null)
+                        drop.Add(kv.Key);
+                foreach (string key in drop)
+                    result.Remove(key);
+
+                return result;
+            }
+
+            // -----------------------------------------------------------------
+            // Parameters and types
+            // -----------------------------------------------------------------
+
+            private void DeclareParameter(Scope scope, ParameterDeclaration p, Expression overrideValue, Scope overrideScope)
+            {
+                LogicVec value;
+
+                if (overrideValue != null)
+                {
+                    if (!ExpressionBuilder.TryConstant(overrideValue, overrideScope ?? scope, _diagnostics, out value))
+                        return;
+                }
+                else if (p.Value != null)
+                {
+                    if (!ExpressionBuilder.TryConstant(p.Value, scope, _diagnostics, out value))
+                        return;
+                }
+                else
+                {
+                    Error(p.Location, ElaborationCodes.BadParameter, $"Parameter {p.Name} has no value: give it a default, or set it at every instance.");
+                    return;
+                }
+
+                // A parameter with a type takes it; one with none keeps the value's own (IEEE 1800, 6.20.2).
+                DataType type = p.Type;
+                if (type != null && !(type.IsImplicit && type.Packed.Count == 0))
+                {
+                    if (!TryShape(type, scope, out Shape shape))
+                        return;
+                    value = value.Extend(shape.Width, value.IsSigned);
+                    value = shape.Signed ? value.AsSigned() : value.AsUnsigned();
+                }
+                else if (type != null && type.Signed)
+                {
+                    value = value.AsSigned();
+                }
+
+                if (!scope.TryDeclare(p.Name, new ConstantEntry { Value = value, Declared = p.Location }))
+                    Error(p.Location, ElaborationCodes.Duplicate, $"{p.Name} is declared twice here.");
+            }
+
+            private void DeclareTypedef(Scope scope, TypedefDeclaration t)
+            {
+                if (!TryShape(t.Type, scope, out Shape shape))
+                    return;
+
+                if (!scope.TryDeclare(t.Name, new TypeEntry { Width = shape.Width, Signed = shape.Signed, Msb = shape.Msb, Lsb = shape.Lsb, Declared = t.Location }))
+                    Error(t.Location, ElaborationCodes.Duplicate, $"{t.Name} is declared twice here.");
+            }
+
+            /// <summary>
+            /// The width, range and signedness a type gives: <c>logic [7:0]</c>, <c>int</c>, a typedef's
+            /// name, an enum (whose names it declares as constants in <paramref name="scope"/>).
+            /// </summary>
+            private bool TryShape(DataType type, Scope scope, out Shape shape)
+            {
+                shape = new Shape(0, 0, false);
+
+                if (type == null)
+                    return true;
+
+                if (type.Enum != null)
+                    return TryEnum(type.Enum, scope, out shape);
+
+                bool signed = type.Signed;
+                int baseWidth = 1;
+                bool integerType = false;
+
+                if (type.Name != null)
+                {
+                    if (!(scope.Lookup(type.Name) is TypeEntry named))
+                    {
+                        Error(type.Location, ElaborationCodes.UnknownName, $"There is no type called {type.Name} here. Is its typedef above?");
+                        return false;
+                    }
+
+                    if (type.Packed.Count > 0)
+                    {
+                        NotYet(type.Location, $"A vector of {type.Name} is a packed array, which BitSorter does not support yet.");
+                        return false;
+                    }
+
+                    shape = new Shape(named.Msb, named.Lsb, type.Unsigned ? false : named.Signed || type.Signed);
+                    return true;
+                }
+
+                switch (type.Keyword)
+                {
+                    case null:
+                    case "logic":
+                    case "reg":
+                    case "bit":
+                        break;
+                    case "int":
+                    case "integer":
+                        baseWidth = 32; signed = !type.Unsigned; integerType = true;
+                        break;
+                    case "shortint":
+                        baseWidth = 16; signed = !type.Unsigned; integerType = true;
+                        break;
+                    case "longint":
+                        baseWidth = 64; signed = !type.Unsigned; integerType = true;
+                        break;
+                    case "byte":
+                        baseWidth = 8; signed = !type.Unsigned; integerType = true;
+                        break;
+                    case "time":
+                        baseWidth = 64; signed = type.Signed; integerType = true;
+                        break;
+                    case "real":
+                    case "realtime":
+                    case "shortreal":
+                        NotYet(type.Location, $"A {type.Keyword} holds a real number; BitSorter simulates whole numbers only.");
+                        return false;
+                    default:
+                        NotYet(type.Location, $"A {type.Keyword} is not supported by BitSorter yet.");
+                        return false;
+                }
+
+                if (integerType)
+                {
+                    if (type.Packed.Count > 0)
+                    {
+                        Error(type.Packed[0].Location, ElaborationCodes.BadSelect, $"An {type.Keyword} has its own width and takes no range.");
+                        return false;
+                    }
+
+                    shape = new Shape(baseWidth - 1, 0, signed);
+                    return true;
+                }
+
+                if (type.Packed.Count == 0)
+                {
+                    shape = new Shape(0, 0, signed);
+                    return true;
+                }
+
+                if (type.Packed.Count > 1)
+                {
+                    NotYet(type.Packed[1].Location, "A vector with more than one range, logic [3:0][7:0], is a packed array, which BitSorter does not support yet.");
+                    return false;
+                }
+
+                Dimension d = type.Packed[0];
+                if (d.Right == null)
+                {
+                    Error(d.Location, ElaborationCodes.BadSelect, "A vector's range needs both ends: [7:0].");
+                    return false;
+                }
+
+                if (!ExpressionBuilder.TryInteger(d.Left, scope, _diagnostics, "a range's bound", out long msb) ||
+                    !ExpressionBuilder.TryInteger(d.Right, scope, _diagnostics, "a range's bound", out long lsb))
+                    return false;
+
+                if (Math.Abs(msb - lsb) + 1 > LogicVec.MaxWidth || Math.Abs(msb) > int.MaxValue / 2 || Math.Abs(lsb) > int.MaxValue / 2)
+                {
+                    Error(d.Location, ElaborationCodes.TooLarge, $"[{msb}:{lsb}] is wider than BitSorter allows ({LogicVec.MaxWidth} bits).");
+                    return false;
+                }
+
+                shape = new Shape((int)msb, (int)lsb, signed);
+                return true;
+            }
+
+            private bool TryEnum(EnumType e, Scope scope, out Shape shape)
+            {
+                shape = new Shape(31, 0, true);
+
+                if (e.BaseType != null && !TryShape(e.BaseType, scope, out shape))
+                    return false;
+
+                if (!_enumsDeclared.Add((scope, e)))
+                    return true;
+
+                LogicVec next = LogicVec.FromInt64(0, shape.Width, shape.Signed);
+                LogicVec one = LogicVec.FromInt64(1, shape.Width, shape.Signed);
+
+                foreach (EnumMember member in e.Members)
+                {
+                    LogicVec value = next;
+                    if (member.Value != null)
+                    {
+                        if (!ExpressionBuilder.TryConstant(member.Value, scope, _diagnostics, out LogicVec given))
+                            return false;
+                        value = given.Extend(shape.Width, given.IsSigned);
+                        value = shape.Signed ? value.AsSigned() : value.AsUnsigned();
+                    }
+
+                    if (!scope.TryDeclare(member.Name, new ConstantEntry { Value = value, Declared = member.Location }))
+                        Error(member.Location, ElaborationCodes.Duplicate, $"{member.Name} is declared twice here.");
+
+                    next = LogicVec.Add(value, one);
+                }
+
+                return true;
+            }
+
+            // -----------------------------------------------------------------
+            // Signals
+            // -----------------------------------------------------------------
+
+            private SignalEntry DeclareSignal(Scope scope, string name, SourceLocation at, Shape shape, SignalKind kind, PortDirection? port)
+            {
+                if (scope.Own(name) != null)
+                {
+                    Error(at, ElaborationCodes.Duplicate, $"{name} is declared twice here.");
+                    return null;
+                }
+
+                string fullName = scope.Path + "." + name;
+                SignalId id;
+
+                try
+                {
+                    id = kind == SignalKind.Net
+                        ? _builder.Net(fullName, shape.Width, shape.Signed)
+                        : _builder.Variable(fullName, shape.Width, shape.Signed);
+                }
+                catch (ArgumentException ex)
+                {
+                    Error(at, ElaborationCodes.Duplicate, ex.Message);
+                    return null;
+                }
+
+                var entry = new SignalEntry
+                {
+                    Signal = id,
+                    FullName = fullName,
+                    Width = shape.Width,
+                    Msb = shape.Msb,
+                    Lsb = shape.Lsb,
+                    Signed = shape.Signed,
+                    Kind = kind,
+                    Port = port,
+                    Declared = at,
+                };
+
+                scope.TryDeclare(name, entry);
+                return entry;
+            }
+
+            /// <summary>
+            /// What kind of signal a port is: the top's inputs are variables, for the stimulus to write;
+            /// every other input is a wire; an output is a variable when it has a data type
+            /// (<c>output logic</c>) and a wire when it has a net type or none.
+            /// </summary>
+            private bool TryPortKind(PortDirection direction, string netType, DataType type, bool isTop, SourceLocation at, out SignalKind kind)
+            {
+                kind = SignalKind.Net;
+
+                if (direction == PortDirection.Inout)
+                {
+                    NotYet(at, "An inout port drives both ways, which BitSorter supports from Part 14, with tri-state buses.");
+                    return false;
+                }
+
+                if (direction == PortDirection.Input)
+                {
+                    kind = isTop ? SignalKind.Variable : SignalKind.Net;
+                    return true;
+                }
+
+                kind = netType == null && type != null && !type.IsImplicit ? SignalKind.Variable : SignalKind.Net;
+                return true;
+            }
+
+            private void DeclareAnsiPort(Scope scope, PortDeclaration port, bool isTop)
+            {
+                if (port.Unpacked.Count > 0)
+                {
+                    NotYet(port.Location, $"Port {port.Name} is an array, which arrives in Part 6.");
+                    return;
+                }
+
+                if (!CheckNetType(port.NetType, port.Location))
+                    return;
+
+                if (!TryPortKind(port.Direction, port.NetType, port.Type, isTop, port.Location, out SignalKind kind))
+                    return;
+
+                if (!TryShape(port.Type, scope, out Shape shape))
+                    return;
+
+                DeclareSignal(scope, port.Name, port.Location, shape, kind, port.Direction);
+            }
+
+            private bool CheckNetType(string netType, SourceLocation at)
+            {
+                switch (netType)
+                {
+                    case null:
+                    case "wire":
+                    case "tri":
+                    case "uwire":
+                    case "supply0":
+                    case "supply1":
+                        return true;
+                    default:
+                        NotYet(at, $"A {netType} net resolves its drivers its own way, which BitSorter does not support yet; use wire.");
+                        return false;
+                }
+            }
+
+            /// <summary>Declarations: signals, non-ANSI ports, genvars. Parameters and typedefs are already in.</summary>
+            private void DeclarePass(Scope scope, List<ModuleItem> items, ModuleDeclaration module, bool isTop)
+            {
+                foreach (ModuleItem item in Flatten(items))
+                {
+                    switch (item)
+                    {
+                        case DataDeclaration d:
+                            DeclareData(scope, d, module);
+                            break;
+
+                        case PortItemDeclaration p:
+                            DeclarePortItem(scope, p, module, isTop);
+                            break;
+
+                        case GenvarDeclaration g:
+                            foreach (string name in g.Names)
+                                if (!scope.TryDeclare(name, new GenvarEntry { Declared = g.Location }))
+                                    Error(g.Location, ElaborationCodes.Duplicate, $"{name} is declared twice here.");
+                            break;
+                    }
+                }
+            }
+
+            private void DeclareData(Scope scope, DataDeclaration d, ModuleDeclaration module)
+            {
+                if (d.IsConst)
+                {
+                    NotYet(d.Location, "A const variable is not supported by BitSorter yet; use a localparam.");
+                    return;
+                }
+
+                if (!CheckNetType(d.NetType, d.Location))
+                    return;
+
+                if (!TryShape(d.Type, scope, out Shape shape))
+                    return;
+
+                SignalKind kind = d.NetType != null ? SignalKind.Net : SignalKind.Variable;
+
+                foreach (Declarator declarator in d.Declarators)
+                {
+                    // A non-ANSI port's type given again (output y; reg y;) was taken with the port.
+                    if (module != null && module.PortNames.Contains(declarator.Name))
+                        continue;
+
+                    if (declarator.Unpacked.Count > 0)
+                    {
+                        NotYet(declarator.Location, $"{declarator.Name} is an array -- a memory -- which arrives in Part 6.");
+                        continue;
+                    }
+
+                    if (d.Delay != null && declarator.Initializer == null)
+                    {
+                        NotYet(d.Location, "A delay on a net with no assignment is not supported by BitSorter yet; put it on the assign.");
+                        continue;
+                    }
+
+                    if (declarator.Initializer != null && kind == SignalKind.Variable)
+                    {
+                        NotYet(declarator.Location,
+                            $"Giving the variable {declarator.Name} a starting value arrives with initial blocks, in Part 5; declare it as a wire to assign it continuously.");
+                        continue;
+                    }
+
+                    DeclareSignal(scope, declarator.Name, declarator.Location, shape, kind, null);
+                }
+            }
+
+            private void DeclarePortItem(Scope scope, PortItemDeclaration p, ModuleDeclaration module, bool isTop)
+            {
+                if (!CheckNetType(p.NetType, p.Location))
+                    return;
+
+                foreach (Declarator declarator in p.Declarators)
+                {
+                    if (!module.PortNames.Contains(declarator.Name))
+                    {
+                        Error(declarator.Location, ElaborationCodes.BadPort,
+                            $"{declarator.Name} is declared {p.Direction.ToString().ToLowerInvariant()}, but it is not in {module.Name}'s port list.");
+                        continue;
+                    }
+
+                    if (declarator.Unpacked.Count > 0)
+                    {
+                        NotYet(declarator.Location, $"Port {declarator.Name} is an array, which arrives in Part 6.");
+                        continue;
+                    }
+
+                    // output [3:0] y; reg [3:0] y; -- the second declaration says what kind it is.
+                    DataDeclaration again = Redeclaration(module, declarator.Name);
+                    string netType = p.NetType;
+                    DataType type = p.Type;
+
+                    if (again != null)
+                    {
+                        netType = again.NetType ?? netType;
+                        if (type == null || (type.IsImplicit && type.Packed.Count == 0 && !type.Signed))
+                            type = again.Type;
+                        else if (again.NetType == null && type.IsImplicit)
+                            type = WithKeyword(type, again.Type?.Keyword ?? "logic", type.Signed || (again.Type?.Signed ?? false));
+                    }
+
+                    if (!TryPortKind(p.Direction, netType, type, isTop, declarator.Location, out SignalKind kind))
+                        continue;
+
+                    if (!TryShape(type, scope, out Shape shape))
+                        continue;
+
+                    DeclareSignal(scope, declarator.Name, declarator.Location, shape, kind, p.Direction);
+                }
+            }
+
+            /// <summary><paramref name="from"/>'s range and signedness on a data type: <c>output [3:0] y; reg y;</c> is a <c>reg [3:0]</c>.</summary>
+            private static DataType WithKeyword(DataType from, string keyword, bool signed)
+            {
+                var type = new DataType { Location = from.Location, Keyword = keyword, Signed = signed };
+                type.Packed.AddRange(from.Packed);
+                return type;
+            }
+
+            private static DataDeclaration Redeclaration(ModuleDeclaration module, string name)
+            {
+                foreach (ModuleItem item in Flatten(module.Items))
+                    if (item is DataDeclaration d)
+                        foreach (Declarator declarator in d.Declarators)
+                            if (declarator.Name == name)
+                                return d;
+                return null;
+            }
+
+            /// <summary>An undeclared name used where a net may be implied: a one-bit wire, with a warning (IEEE 1800, 6.10).</summary>
+            private SignalEntry ImplicitNet(Scope scope, NameExpression name)
+            {
+                Warning(name.Location, ElaborationCodes.ImplicitNet,
+                    $"{name.Name} is not declared, so it is taken to be a one-bit wire. Declare it; a misspelt name ends up here too.");
+                return DeclareSignal(scope, name.Name, name.Location, new Shape(0, 0, false), SignalKind.Net, null);
+            }
+
+            // -----------------------------------------------------------------
+            // Everything that drives something
+            // -----------------------------------------------------------------
+
+            private void BuildPass(Scope scope, List<ModuleItem> items, int depth)
+            {
+                foreach (ModuleItem item in items)
+                {
+                    if (_stopped)
+                        return;
+
+                    switch (item)
+                    {
+                        case GenerateRegion region:
+                            BuildPass(scope, region.Items, depth);
+                            break;
+
+                        case ContinuousAssign assign:
+                            foreach (Assignment a in assign.Assignments)
+                                BuildAssign(scope, a.Target, a.Value, assign.Delay, a.Location);
+                            break;
+
+                        case DataDeclaration d when d.NetType != null:
+                            foreach (Declarator declarator in d.Declarators)
+                            {
+                                if (declarator.Initializer != null && scope.Own(declarator.Name) is SignalEntry)
+                                    BuildAssign(scope, new NameExpression { Location = declarator.Location, Path = { declarator.Name } }, declarator.Initializer, d.Delay, declarator.Location);
+
+                                if ((d.NetType == "supply0" || d.NetType == "supply1") && scope.Own(declarator.Name) is SignalEntry supply)
+                                    Drive(new List<ExpressionBuilder.Part> { new ExpressionBuilder.Part(supply, 0, supply.Width) },
+                                        Expr.Constant(LogicVec.Fill(d.NetType == "supply1" ? Logic4.One : Logic4.Zero, supply.Width)),
+                                        Delay.Zero, false, declarator.Location, d.NetType + " " + supply.FullName);
+                            }
+                            break;
+
+                        case PrimitiveInstantiation p:
+                            BuildPrimitives(scope, p);
+                            break;
+
+                        case ModuleInstantiation mi:
+                            BuildInstances(scope, mi, depth);
+                            break;
+
+                        case LoopGenerate loop:
+                            BuildLoop(scope, loop, depth);
+                            break;
+
+                        case IfGenerate g:
+                            BuildIf(scope, g, ++scope.GenerateConstructs, depth);
+                            break;
+
+                        case GenerateBlock block:
+                        {
+                            int number = ++scope.GenerateConstructs;
+                            BuildBlock(scope, block, block.Label ?? "genblk" + number, depth);
+                            break;
+                        }
+
+                        case ProceduralBlock process:
+                            NotYet(process.Location, $"{ProcessName(process.Kind)} blocks arrive with behavioural code, in Part 5.");
+                            break;
+
+                        case SubroutineDeclaration s:
+                            NotYet(s.Location, $"The {(s.IsTask ? "task" : "function")} {s.Name} arrives with behavioural code, in Part 5.");
+                            break;
+                    }
+                }
+            }
+
+            private static string ProcessName(ProcessKind kind)
+            {
+                switch (kind)
+                {
+                    case ProcessKind.Initial: return "initial";
+                    case ProcessKind.Final: return "final";
+                    case ProcessKind.AlwaysComb: return "always_comb";
+                    case ProcessKind.AlwaysFf: return "always_ff";
+                    case ProcessKind.AlwaysLatch: return "always_latch";
+                    default: return "always";
+                }
+            }
+
+            private bool TryDelay(DelayControl control, Scope scope, out Delay delay)
+            {
+                delay = Delay.Zero;
+                if (control == null)
+                    return true;
+
+                if (control.Values.Count < 1 || control.Values.Count > 3)
+                {
+                    Error(control.Location, ElaborationCodes.BadDelay, "A delay has one, two or three values: #d, #(rise, fall) or #(rise, fall, turn-off).");
+                    return false;
+                }
+
+                var values = new long[control.Values.Count];
+                for (int i = 0; i < values.Length; i++)
+                {
+                    if (!ExpressionBuilder.TryInteger(control.Values[i], scope, _diagnostics, "a delay", out values[i]))
+                        return false;
+
+                    if (values[i] < 0)
+                    {
+                        Error(control.Values[i].Location, ElaborationCodes.BadDelay, $"A delay cannot be negative, and this one is {values[i]}.");
+                        return false;
+                    }
+                }
+
+                delay = values.Length == 1 ? Delay.Of(values[0])
+                    : values.Length == 2 ? Delay.Of(values[0], values[1])
+                    : Delay.Of(values[0], values[1], values[2]);
+                return true;
+            }
+
+            private void BuildAssign(Scope scope, Expression target, Expression value, DelayControl delayControl, SourceLocation at)
+            {
+                if (!TryDelay(delayControl, scope, out Delay delay))
+                    return;
+
+                var builder = new ExpressionBuilder(scope, _diagnostics, constantOnly: false);
+                var parts = new List<ExpressionBuilder.Part>();
+                if (!builder.TryTarget(target, parts, name => ImplicitNet(scope, name)))
+                    return;
+
+                int width = 0;
+                foreach (ExpressionBuilder.Part part in parts)
+                    width += part.Width;
+
+                ExpressionBuilder.TypeInfo type = builder.TypeOf(value);
+                Expr built = builder.Build(value, width);
+                if (builder.Failed)
+                    return;
+
+                Drive(parts, built, delay, type.Signed, at, null);
+            }
+
+            /// <summary>
+            /// Drives each piece of a target from its bits of <paramref name="value"/>: the last piece
+            /// from the lowest bits, as a concatenation on the left of an assignment takes them.
+            /// </summary>
+            private void Drive(List<ExpressionBuilder.Part> parts, Expr value, Delay delay, bool signExtend, SourceLocation at, string name)
+            {
+                int total = 0;
+                foreach (ExpressionBuilder.Part part in parts)
+                    total += part.Width;
+
+                if (value.Width < total)
+                    value = Expr.Resize(value, total, signExtend);
+
+                int offset = total;
+                foreach (ExpressionBuilder.Part part in parts)
+                {
+                    offset -= part.Width;
+                    Expr piece = offset == 0 && value.Width == part.Width ? value : Expr.Slice(value, offset, part.Width);
+
+                    try
+                    {
+                        _builder.AssignSlice(part.Signal.Signal, part.Lowest, part.Width, piece, delay, false, name);
+                    }
+                    catch (InvalidOperationException ex)
+                    {
+                        Error(at, ElaborationCodes.Drivers, ex.Message);
+                    }
+                    catch (ArgumentException ex)
+                    {
+                        Error(at, ElaborationCodes.BadSelect, ex.Message);
+                    }
+                }
+            }
+
+            // -----------------------------------------------------------------
+            // Gate primitives
+            // -----------------------------------------------------------------
+
+            private static bool TryGateKind(string primitive, out GateKind kind)
+            {
+                switch (primitive)
+                {
+                    case "and": kind = GateKind.And; return true;
+                    case "nand": kind = GateKind.Nand; return true;
+                    case "or": kind = GateKind.Or; return true;
+                    case "nor": kind = GateKind.Nor; return true;
+                    case "xor": kind = GateKind.Xor; return true;
+                    case "xnor": kind = GateKind.Xnor; return true;
+                    case "buf": kind = GateKind.Buf; return true;
+                    case "not": kind = GateKind.Not; return true;
+                    case "bufif0": kind = GateKind.Bufif0; return true;
+                    case "bufif1": kind = GateKind.Bufif1; return true;
+                    case "notif0": kind = GateKind.Notif0; return true;
+                    case "notif1": kind = GateKind.Notif1; return true;
+                    default: kind = default; return false;
+                }
+            }
+
+            private void BuildPrimitives(Scope scope, PrimitiveInstantiation p)
+            {
+                if (!TryGateKind(p.Primitive, out GateKind kind))
+                {
+                    NotYet(p.Location, $"The {p.Primitive} primitive is not supported by BitSorter yet.");
+                    return;
+                }
+
+                if (!TryDelay(p.Delay, scope, out Delay delay))
+                    return;
+
+                foreach (PrimitiveInstance instance in p.Instances)
+                {
+                    if (instance.Array != null)
+                    {
+                        NotYet(instance.Location, "An array of gates is not supported by BitSorter yet; use a generate loop.");
+                        continue;
+                    }
+
+                    string name = instance.Name != null ? scope.Path + "." + instance.Name : $"{scope.Path}.{p.Primitive}${++_unnamed}";
+
+                    // buf and not may drive several outputs from their one input; every other gate has one output.
+                    bool manyOutputs = kind == GateKind.Buf || kind == GateKind.Not;
+                    int outputs = manyOutputs ? instance.Terminals.Count - 1 : 1;
+                    int inputs = instance.Terminals.Count - outputs;
+
+                    if (outputs < 1 || !Gates.AcceptsInputCount(kind, inputs))
+                    {
+                        Error(instance.Location, ElaborationCodes.BadPort, kind == GateKind.Buf || kind == GateKind.Not
+                            ? $"A {p.Primitive} gate is written ({p.Primitive} (out, in)), with an output and then its input."
+                            : kind >= GateKind.Bufif1
+                                ? $"A {p.Primitive} gate is written ({p.Primitive} (out, data, control)): three terminals, and this has {instance.Terminals.Count}."
+                                : $"A {p.Primitive} gate needs an output and at least two inputs, and this has {instance.Terminals.Count} terminal{(instance.Terminals.Count == 1 ? "" : "s")}.");
+                        continue;
+                    }
+
+                    var builder = new ExpressionBuilder(scope, _diagnostics, constantOnly: false);
+                    var inputExprs = new Expr[inputs];
+                    for (int i = 0; i < inputs; i++)
+                    {
+                        Expression terminal = instance.Terminals[outputs + i];
+                        if (terminal is NameExpression n && n.Path.Count == 1 && scope.Lookup(n.Name) == null)
+                            ImplicitNet(scope, n);
+
+                        Expr e = builder.Build(terminal, 1);
+                        if (e.Width != 1)
+                        {
+                            if (!(terminal is NumberLiteral))
+                                Warning(terminal.Location, ElaborationCodes.WidthMismatch,
+                                    $"{Printer.Print(terminal)} is {e.Width} bits, and a gate's input is one: only its lowest bit is used.");
+                            e = Expr.Slice(e, 0, 1);
+                        }
+
+                        inputExprs[i] = e;
+                    }
+
+                    if (builder.Failed)
+                        continue;
+
+                    for (int o = 0; o < outputs; o++)
+                    {
+                        var parts = new List<ExpressionBuilder.Part>();
+                        if (!builder.TryTarget(instance.Terminals[o], parts, n => ImplicitNet(scope, n)))
+                            continue;
+
+                        if (parts.Count != 1 || parts[0].Width != 1)
+                        {
+                            Error(instance.Terminals[o].Location, ElaborationCodes.BadPort,
+                                $"A gate's output is one bit, and {Printer.Print(instance.Terminals[o])} is wider. Connect it to one bit, such as y[0].");
+                            continue;
+                        }
+
+                        try
+                        {
+                            _builder.Gate(kind, name, parts[0].Signal.Signal, parts[0].Lowest, delay, inputExprs);
+                        }
+                        catch (InvalidOperationException ex)
+                        {
+                            Error(instance.Location, ElaborationCodes.Drivers, ex.Message);
+                        }
+                        catch (ArgumentException ex)
+                        {
+                            Error(instance.Location, ElaborationCodes.BadPort, ex.Message);
+                        }
+                    }
+                }
+            }
+
+            // -----------------------------------------------------------------
+            // Instances
+            // -----------------------------------------------------------------
+
+            private void BuildInstances(Scope scope, ModuleInstantiation mi, int depth)
+            {
+                if (!_modules.TryGetValue(mi.Module, out ModuleDeclaration module))
+                {
+                    Error(mi.Location, ElaborationCodes.UnknownModule,
+                        $"There is no module called {mi.Module}. Is its file included, and the name spelt the same?");
+                    return;
+                }
+
+                Dictionary<string, Expression> overrides = Overrides(module, mi);
+
+                foreach (ModuleInstance instance in mi.Instances)
+                {
+                    if (instance.Array != null)
+                    {
+                        NotYet(instance.Location, "An array of instances is not supported by BitSorter yet; use a generate loop.");
+                        continue;
+                    }
+
+                    string path = scope.Path + "." + instance.Name;
+
+                    if (!scope.TryDeclare(instance.Name, new InstanceEntry { Declared = instance.Location }))
+                    {
+                        Error(instance.Location, ElaborationCodes.Duplicate, $"{instance.Name} is the name of something else here already.");
+                        continue;
+                    }
+
+                    Scope child = ElaborateModule(module, path, overrides, scope, instance.Location, isTop: false, depth: depth + 1);
+                    if (child == null)
+                        continue;
+
+                    Connect(scope, child, module, instance);
+                }
+            }
+
+            private void Connect(Scope scope, Scope child, ModuleDeclaration module, ModuleInstance instance)
+            {
+                List<string> ports = PortOrder(module);
+                var connections = new Dictionary<string, PortConnection>(StringComparer.Ordinal);
+                bool wildcard = false, named = false, positional = false;
+                int position = 0;
+
+                foreach (PortConnection c in instance.Connections)
+                {
+                    if (c.IsWildcard)
+                    {
+                        wildcard = true;
+                        continue;
+                    }
+
+                    if (c.Name == null)
+                    {
+                        positional = true;
+                        if (position >= ports.Count)
+                        {
+                            if (c.Value != null)
+                                Error(c.Location, ElaborationCodes.BadPort,
+                                    $"{module.Name} has {ports.Count} port{(ports.Count == 1 ? "" : "s")}, and {instance.Name} connects more.");
+                            position++;
+                            continue;
+                        }
+
+                        connections[ports[position++]] = c;
+                        continue;
+                    }
+
+                    named = true;
+                    if (!ports.Contains(c.Name))
+                        Error(c.Location, ElaborationCodes.BadPort, $"{module.Name} has no port called {c.Name}.");
+                    else if (connections.ContainsKey(c.Name))
+                        Error(c.Location, ElaborationCodes.Duplicate, $"Port {c.Name} is connected twice.");
+                    else
+                        connections[c.Name] = c;
+                }
+
+                if (named && positional)
+                    Error(instance.Location, ElaborationCodes.BadPort, "Connect the ports all by name or all in order, not some of each.");
+
+                foreach (string port in ports)
+                {
+                    if (!(child.Own(port) is SignalEntry childPort) || !childPort.Port.HasValue)
+                        continue;
+
+                    Expression expression;
+                    SourceLocation at;
+
+                    if (connections.TryGetValue(port, out PortConnection c))
+                    {
+                        at = c.Location;
+                        if (c.IsShorthand)
+                        {
+                            if (!(scope.Lookup(port) is SignalEntry))
+                            {
+                                Error(c.Location, ElaborationCodes.UnknownName, $".{port} connects to a signal called {port}, and there is none here.");
+                                continue;
+                            }
+
+                            expression = new NameExpression { Location = c.Location, Path = { port } };
+                        }
+                        else
+                        {
+                            expression = c.Value;
+                        }
+                    }
+                    else if (wildcard)
+                    {
+                        at = instance.Location;
+                        if (!(scope.Lookup(port) is SignalEntry))
+                        {
+                            Error(instance.Location, ElaborationCodes.UnknownName,
+                                $".* connects port {port} of {instance.Name} to a signal called {port}, and there is none here.");
+                            continue;
+                        }
+
+                        expression = new NameExpression { Location = instance.Location, Path = { port } };
+                    }
+                    else
+                    {
+                        at = instance.Location;
+                        expression = null;
+                    }
+
+                    if (expression == null)
+                    {
+                        if (childPort.Port == PortDirection.Input)
+                            Warning(at, ElaborationCodes.Unconnected,
+                                $"Input {port} of {instance.Name} is not connected, so it reads z.");
+                        continue;
+                    }
+
+                    if (childPort.Port == PortDirection.Input)
+                        ConnectInput(scope, childPort, expression, instance.Name, at);
+                    else
+                        ConnectOutput(scope, childPort, expression, instance.Name, at);
+                }
+            }
+
+            private void ConnectInput(Scope scope, SignalEntry port, Expression expression, string instance, SourceLocation at)
+            {
+                if (expression is NameExpression n && n.Path.Count == 1 && scope.Lookup(n.Name) == null)
+                    ImplicitNet(scope, n);
+
+                var builder = new ExpressionBuilder(scope, _diagnostics, constantOnly: false);
+                ExpressionBuilder.TypeInfo type = builder.TypeOf(expression);
+                Expr value = builder.Build(expression, port.Width);
+                if (builder.Failed)
+                    return;
+
+                if (type.Width != port.Width && !(Bare(expression) is NumberLiteral))
+                    Warning(at, ElaborationCodes.WidthMismatch,
+                        $"Input {LastName(port)} of {instance} is {port.Width} bit{(port.Width == 1 ? "" : "s")}, and {Printer.Print(expression)} is {type.Width}.");
+
+                Drive(new List<ExpressionBuilder.Part> { new ExpressionBuilder.Part(port, 0, port.Width) }, value, Delay.Zero, type.Signed, at, "port " + port.FullName);
+            }
+
+            private void ConnectOutput(Scope scope, SignalEntry port, Expression expression, string instance, SourceLocation at)
+            {
+                var builder = new ExpressionBuilder(scope, _diagnostics, constantOnly: false);
+                var parts = new List<ExpressionBuilder.Part>();
+                if (!builder.TryTarget(expression, parts, n => ImplicitNet(scope, n)))
+                    return;
+
+                int width = 0;
+                foreach (ExpressionBuilder.Part part in parts)
+                    width += part.Width;
+
+                if (width != port.Width)
+                    Warning(at, ElaborationCodes.WidthMismatch,
+                        $"Output {LastName(port)} of {instance} is {port.Width} bit{(port.Width == 1 ? "" : "s")}, and {Printer.Print(expression)} is {width}.");
+
+                Drive(parts, Expr.Read(port.Signal, port.Width), Delay.Zero, port.Signed, at, "port " + port.FullName);
+            }
+
+            private static Expression Bare(Expression e)
+            {
+                while (e is ParenthesizedExpression p)
+                    e = p.Inner;
+                return e;
+            }
+
+            private static string LastName(SignalEntry s)
+            {
+                int dot = s.FullName.LastIndexOf('.');
+                return dot < 0 ? s.FullName : s.FullName.Substring(dot + 1);
+            }
+
+            // -----------------------------------------------------------------
+            // Generate
+            // -----------------------------------------------------------------
+
+            private void BuildBlock(Scope scope, GenerateBlock block, string name, int depth, string genvar = null, LogicVec genvarValue = default)
+            {
+                if (!scope.TryDeclare(name, new InstanceEntry { Declared = block.Location }))
+                {
+                    Error(block.Location, ElaborationCodes.Duplicate, $"{name} is the name of something else here already.");
+                    return;
+                }
+
+                var inner = new Scope(scope.Path + "." + name, scope, scope.Module);
+                if (genvar != null)
+                    inner.Set(genvar, new GenvarEntry { Value = genvarValue, Declared = block.Location });
+
+                foreach (ModuleItem item in Flatten(block.Items))
+                {
+                    if (item is ParameterDeclaration p)
+                        DeclareParameter(inner, p, null, null);
+                    else if (item is TypedefDeclaration t)
+                        DeclareTypedef(inner, t);
+                }
+
+                DeclarePass(inner, block.Items, null, isTop: false);
+                BuildPass(inner, block.Items, depth);
+            }
+
+            private void BuildIf(Scope scope, IfGenerate g, int number, int depth)
+            {
+                if (!ExpressionBuilder.TryConstant(g.Condition, scope, _diagnostics, out LogicVec condition))
+                    return;
+
+                GenerateBlock chosen = LogicVec.Truth(condition) == Logic4.One ? g.Then : g.Else;
+                if (chosen == null)
+                    return;
+
+                // else if (...): the chain is one construct, and the block chosen in it takes its number.
+                if (!chosen.HasBeginEnd && chosen.Items.Count == 1 && chosen.Items[0] is IfGenerate next)
+                {
+                    BuildIf(scope, next, number, depth);
+                    return;
+                }
+
+                BuildBlock(scope, chosen, chosen.Label ?? "genblk" + number, depth);
+            }
+
+            private void BuildLoop(Scope scope, LoopGenerate loop, int depth)
+            {
+                int number = ++scope.GenerateConstructs;
+                string genvar = loop.Variable;
+
+                if (!loop.DeclaresGenvar && !(scope.Lookup(genvar) is GenvarEntry))
+                {
+                    Error(loop.Location, scope.Lookup(genvar) == null ? ElaborationCodes.UnknownName : ElaborationCodes.BadParameter,
+                        $"A generate loop counts with a genvar: declare genvar {genvar}; first, or write for (genvar {genvar} = ...).");
+                    return;
+                }
+
+                if (loop.Body == null)
+                    return;
+
+                if (!ExpressionBuilder.TryInteger(loop.Start, scope, _diagnostics, "the loop's start", out long value))
+                    return;
+
+                string name = loop.Body.Label ?? "genblk" + number;
+                var seen = new HashSet<long>();
+
+                for (int iterations = 0; ; iterations++)
+                {
+                    if (_stopped)
+                        return;
+
+                    var here = new Scope(scope.Path, scope, scope.Module);
+                    here.Set(genvar, new GenvarEntry { Value = LogicVec.FromInt64(value, 32, true), Declared = loop.Location });
+
+                    if (!ExpressionBuilder.TryConstant(loop.Condition, here, _diagnostics, out LogicVec condition))
+                        return;
+
+                    if (LogicVec.Truth(condition) != Logic4.One)
+                        return;
+
+                    if (iterations >= MaxIterations)
+                    {
+                        Error(loop.Location, ElaborationCodes.TooLarge, $"This generate loop goes round more than {MaxIterations} times.");
+                        return;
+                    }
+
+                    if (!seen.Add(value))
+                    {
+                        Error(loop.Location, ElaborationCodes.BadParameter, $"This generate loop comes back to {genvar} = {value}, so it would never end.");
+                        return;
+                    }
+
+                    BuildBlock(scope, loop.Body, $"{name}[{value}]", depth, genvar, LogicVec.FromInt64(value, 32, true));
+
+                    if (!TryStep(loop, here, value, out value))
+                        return;
+                }
+            }
+
+            private bool TryStep(LoopGenerate loop, Scope here, long value, out long next)
+            {
+                next = value;
+                switch (loop.StepOperator)
+                {
+                    case "++": next = value + 1; return true;
+                    case "--": next = value - 1; return true;
+                }
+
+                if (loop.StepValue == null)
+                    return false;
+
+                if (!ExpressionBuilder.TryInteger(loop.StepValue, here, _diagnostics, "the loop's step", out long step))
+                    return false;
+
+                switch (loop.StepOperator)
+                {
+                    case "=": next = step; return true;
+                    case "+=": next = value + step; return true;
+                    case "-=": next = value - step; return true;
+                    case "*=": next = value * step; return true;
+                    default:
+                        NotYet(loop.Location, $"A generate loop stepping with {loop.StepOperator} is not supported by BitSorter yet.");
+                        return false;
+                }
+            }
+        }
+    }
+}
