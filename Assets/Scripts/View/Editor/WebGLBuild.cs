@@ -42,7 +42,35 @@ namespace BitSorter.View.Editor
             string target = Path.Combine(root, OutputFolder);
 
             Directory.CreateDirectory(target);
+            Configure();
 
+            var options = new BuildPlayerOptions
+            {
+                scenes = new[] { Scene },
+                locationPathName = target,
+                target = BuildTarget.WebGL,
+                options = BuildOptions.None,
+            };
+
+            BuildReport report = BuildPipeline.BuildPlayer(options);
+            BuildSummary summary = report.summary;
+
+            if (summary.result != BuildResult.Succeeded)
+            {
+                Debug.LogError($"BitSorter: WebGL build {summary.result}, {summary.totalErrors} errors.");
+                return;
+            }
+
+            Debug.Log($"BitSorter: WebGL built to {target} " +
+                      $"({summary.totalSize / (1024 * 1024)} MB before server compression)");
+        }
+
+        /// <summary>
+        /// The browser build's settings, shared with <see cref="BenchmarkBuild"/> so the engine is
+        /// measured as it ships.
+        /// </summary>
+        public static void Configure()
+        {
             PlayerSettings.WebGL.compressionFormat = WebGLCompressionFormat.Brotli;
             PlayerSettings.WebGL.decompressionFallback = true;
             PlayerSettings.WebGL.dataCaching = true;
@@ -66,26 +94,6 @@ namespace BitSorter.View.Editor
             PlayerSettings.SetIl2CppCodeGeneration(UnityEditor.Build.NamedBuildTarget.WebGL,
                 UnityEditor.Build.Il2CppCodeGeneration.OptimizeSize);
             PlayerSettings.SetManagedStrippingLevel(UnityEditor.Build.NamedBuildTarget.WebGL, ManagedStrippingLevel.Low);
-
-            var options = new BuildPlayerOptions
-            {
-                scenes = new[] { Scene },
-                locationPathName = target,
-                target = BuildTarget.WebGL,
-                options = BuildOptions.None,
-            };
-
-            BuildReport report = BuildPipeline.BuildPlayer(options);
-            BuildSummary summary = report.summary;
-
-            if (summary.result != BuildResult.Succeeded)
-            {
-                Debug.LogError($"BitSorter: WebGL build {summary.result}, {summary.totalErrors} errors.");
-                return;
-            }
-
-            Debug.Log($"BitSorter: WebGL built to {target} " +
-                      $"({summary.totalSize / (1024 * 1024)} MB before server compression)");
         }
     }
 }

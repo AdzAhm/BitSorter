@@ -355,6 +355,64 @@ VCD           written for export, read for the oracle comparison
   `corpus/system/printing.sv` and `corpus/system/memories.sv` with their images, every signal and every
   line printed agreeing.
 
+**The processor and the browser's budget, as built in Part 6b** (`corpus/processor/`, `SimBenchmark`,
+`BenchmarkBuild`).
+
+- **An original multicycle processor** (`corpus/processor/mcpu.sv`, written from the published RISC-V
+  specification in the shape of the course's third exercise, nothing taken from it): a controller that is
+  an eleven-state machine, a datapath with its instruction, A, B, ALU-out and data registers between the
+  steps, a register file, and instruction and data memories of 1,024 words each, loaded with `$readmemh`
+  from images an instance names by parameter. Its opcodes and ALU operations are `localparam`s in an
+  included file (`mcpu_defs.svh`). It runs the RV32I a program needs -- `lui`, `auipc`, `jal`, `jalr`,
+  every branch, `lw`, `sw`, and every arithmetic, logic and shift operation -- and its program sorts eight
+  signed words, sums them, multiplies by shift and add, counts Fibonacci, and takes every kind of branch.
+- **It says it is done by a write**, as the course's processors do: the program stores to `0x7fc`, and the
+  testbench, watching the data memory on the falling edge, prints the cycles taken, checks the 23 results
+  against `mcpu_expected.hex` through the hierarchy (`dut.dmem.mem[128+i]`), prints PASS or FAIL and
+  finishes. A timeout ends a program that never gets there.
+- **A string is a value** (IEEE 1800, 5.9): eight bits a character, the first in the top byte, padded and
+  cut on the left as any unsigned value is. That is what lets `parameter IMAGE = "mcpu_program.hex"` carry
+  a file name to `$readmemh(IMAGE, mem)`; a string had been refused until now.
+- **Agreement.** Icarus and BitSorter both run it 2,716 cycles, to its finish at 27,160, and agree on
+  every one of its 98 signals' 124,783 settled changes and on the three lines it prints.
+- **The performance gate.** Read, elaborated and run to its end with everything recorded, as the workbench
+  will run it -- 111,141 events. Measured on 2026-10-13 on a laptop (an i9-13900H) with other heavy work
+  running, so each figure is a range: most of the spread is which core a single thread lands on, a
+  performance core or an efficiency core.
+
+  | Where | Read and elaborate | Simulate | Cycles a second | Events a second |
+  | --- | --- | --- | --- | --- |
+  | .NET 10, Release (CI's test, best of five) | 8--9 ms | 188--206 ms | 13,000--14,500 | 540,000--590,000 |
+  | Browser: WebGL, one thread, the game's own build settings (best of five, four loads) | 9--21 ms | 77--194 ms | 14,000--35,000 | 570,000--1,440,000 |
+
+  A page's first run is slower while its code warms: 36--77 ms to elaborate, 109--236 ms to simulate.
+  Elaborating is one piece of work on a compile, not sliced; at these sizes it fits in a frame or two.
+
+  **Sliced, as the workbench must run it.** Run again in slices of what the load's own best rate does in
+  8 ms (4,583 to 11,547 events), the processor took 10 to 25 frames, and the longest slice 10 to 16 ms:
+  inside a 60 Hz frame, so the page kept drawing, but up to twice the aim. An event count is a poor
+  clock -- the first slice also reads the memory images, and a slice that lands on a slower core takes
+  longer. **So the workbench slices by its own clock** (Part 9): `RunTo(time, maxEvents)` in chunks of
+  about a thousand events, as many as fit in 8 ms of the frame, which can overshoot by one chunk -- a
+  millisecond or two -- and never by a slow machine's whole frame.
+
+  **Memory.** The history keeps about 80 bytes an entry -- a value change, a transition or a line printed
+  -- and this run keeps about 230,000, 19 MB; the page's whole managed heap after six runs was 46 MB. A
+  browser build may have 2 GB, and a testbench with no `$finish` run to a far-off time would fill it and
+  take the page down. **`SimOptions.MaxRecorded`** stops a run that has kept more than 4 million entries,
+  about 320 MB, with a message in the transcript saying so and the way out -- run to an earlier time, or
+  end the testbench with `$finish` -- which is invariant 2 extended to memory.
+
+  **The budget, set from this:** a course processor's program of a few thousand cycles finishes in the
+  browser in under half a second at the slowest figure measured, drawing every frame as it runs.
+  `TheCorpusProcessor_RunsFastEnough` holds .NET above 2,000 cycles a second, a seventh of the slowest
+  measured, generous for a shared CI machine. The browser's figure is measured, not tested: build
+  `BitSorter/Benchmark/Build WebGL Benchmark` (or `BenchmarkBuild.BuildFromCommandLine` in batch mode),
+  serve the folder, open it with the page in front, and read the console's `BitSorter benchmark:` line.
+- **Checked.** The processor against Icarus (`BehaviouralOracleTests`), the latch check over it
+  (`LintTests`), its rate and the history's cap (`GuardrailTests`), and a string as a value naming a
+  memory's file through a parameter, in a width that is not whole bytes too (`SystemTaskTests`).
+
 ### The document (`Board`)
 
 ```

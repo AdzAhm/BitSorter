@@ -94,3 +94,8 @@ desktop.ini
 /[Aa]ssets/[Rr]esources/PerformanceTestRun*.json
 /[Aa]ssets/[Rr]esources/PerformanceTestRun*.json.meta
 /[Pp]roject[Ss]ettings/PerformanceTestSettings.json
+
+# The benchmark build (BenchmarkBuild) makes its scene in Assets/BenchmarkTemp and deletes it after;
+# a build that is killed part-way leaves it, and it is never anything to keep.
+/[Aa]ssets/BenchmarkTemp/
+/[Aa]ssets/BenchmarkTemp.meta

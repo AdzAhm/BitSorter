@@ -126,6 +126,53 @@ endmodule", "counter.sv")).Design;
         }
 
         /// <summary>
+        /// The corpus processor, read, elaborated and run to its end with everything recorded, as the
+        /// workbench will run it: the best of five. The floor is generous, for a slow CI machine; the
+        /// measured rate is printed, and Docs/architecture-5.md keeps the browser's.
+        /// </summary>
+        [Test]
+        public void TheCorpusProcessor_RunsFastEnough()
+        {
+            string root = Ci.RepoRoot.Combine("Tools/ci/Oracle/corpus");
+            var sources = new SystemVerilog.Syntax.MemorySourceFiles();
+            foreach (string path in System.IO.Directory.GetFiles(root, "*.sv*", System.IO.SearchOption.AllDirectories))
+                sources.Add(System.IO.Path.GetRelativePath(root, path).Replace('\\', '/'), System.IO.File.ReadAllText(path));
+
+            var files = new MemorySimFiles();
+            foreach (string image in new[] { "mcpu_program.hex", "mcpu_data.hex", "mcpu_expected.hex" })
+                files.Add(image, System.IO.File.ReadAllText(System.IO.Path.Combine(root, "processor", image)));
+
+            double best = double.MaxValue, bestElaborate = double.MaxValue, bestSimulate = double.MaxValue;
+            long events = 0;
+            Simulator sim = null;
+
+            for (int run = 0; run < 5; run++)
+            {
+                var clock = Stopwatch.StartNew();
+                Design design = Elaborator.Elaborate(SystemVerilog.Syntax.SyntaxReader.Read("processor/mcpu.sv", sources)).Design;
+                double elaborated = clock.Elapsed.TotalSeconds;
+                sim = new Simulator(design, null, new SimOptions { Files = files });
+                RunResult result = sim.RunTo(1_000_000);
+                clock.Stop();
+
+                Assert.AreEqual(RunStatus.Finished, result.Status);
+                best = Math.Min(best, clock.Elapsed.TotalSeconds);
+                bestElaborate = Math.Min(bestElaborate, elaborated);
+                bestSimulate = Math.Min(bestSimulate, clock.Elapsed.TotalSeconds - elaborated);
+                events = result.Events;
+            }
+
+            const int Cycles = 2716;
+            TestContext.WriteLine($"mcpu: {Cycles} cycles, {events} events, best {best * 1000:F0} ms: " +
+                $"{Cycles / best:F0} cycles and {events / best:F0} events a second, reading and elaborating included; " +
+                $"best read and elaborate {bestElaborate * 1000:F0} ms, best simulate {bestSimulate * 1000:F0} ms: " +
+                $"{Cycles / bestSimulate:F0} cycles and {events / bestSimulate:F0} events a second simulating");
+
+            Assert.IsTrue(sim.History.Messages.Any(m => m.Text.StartsWith("PASS", StringComparison.Ordinal)), "sanity: the program ran to its end and passed");
+            Assert.Greater(Cycles / best, 2000, "the engine is far slower than it should be on the processor");
+        }
+
+        /// <summary>
         /// A 64-bit ripple-carry adder of gates -- 320 of them -- run through 200 random additions.
         /// The floor is generous, to hold on a slow CI machine; the measured rate is printed.
         /// </summary>
