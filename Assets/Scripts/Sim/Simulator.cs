@@ -100,7 +100,9 @@ namespace BitSorter.Sim
     ///
     /// **Time 0.** Every variable starts at x, or at the value it was declared with; every net with a
     /// driver at x, every net without one at z. In the first delta every driver evaluates once, as the
-    /// standard has gates and continuous assignments do, and every process starts.
+    /// standard has gates and continuous assignments do; once what has no delay has settled, every
+    /// process starts. Icarus does the same, so an <c>initial</c> that prints a wire at time 0 sees it
+    /// worked out from the starting values rather than x.
     ///
     /// **Allocation.** Events live in a heap array and lists that grow and then stay; once they have
     /// grown, a run with recording off allocates nothing on values of 64 bits or fewer (a test holds
@@ -183,6 +185,7 @@ namespace BitSorter.Sim
         private long _seq;
         private long _tokens;
         private bool _started;
+        private bool _processesStarted;
         private bool _finishing;
         private long _now;
         private int _delta;
@@ -372,8 +375,16 @@ namespace BitSorter.Sim
             {
                 if (!first && _current.Count == 0 && _toEvaluate.Count == 0 && _runnable.Count == 0)
                 {
-                    // Nothing active is left: the inactive region (#0) next, then the NBA region.
-                    if (_inactive.Count > 0)
+                    // Nothing active is left. At time 0 the processes start now, once the continuous
+                    // logic has settled from its starting values, as Icarus starts them; otherwise the
+                    // inactive region (#0) runs next, then the NBA region.
+                    if (!_processesStarted)
+                    {
+                        for (int p = 0; p < _processes.Length; p++)
+                            _runnable.Add(p);
+                        _processesStarted = true;
+                    }
+                    else if (_inactive.Count > 0)
                     {
                         _runnable.AddRange(_inactive);
                         _inactive.Clear();
@@ -463,8 +474,6 @@ namespace BitSorter.Sim
                 {
                     for (int d = 0; d < _drivers.Length; d++)
                         MarkToEvaluate(d);
-                    for (int p = 0; p < _processes.Length; p++)
-                        _runnable.Add(p);
                     first = false;
                 }
 
