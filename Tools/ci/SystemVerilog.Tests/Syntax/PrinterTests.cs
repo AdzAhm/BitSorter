@@ -134,6 +134,18 @@ namespace BitSorter.SystemVerilog.Tests.Syntax
         }
 
         [Test]
+        public void ACommentOnAModuleWithNoPorts_IsKept()
+        {
+            // A testbench's header: the comment rides on the ';', not on the name.
+            const string source = "module tb; // drives the design\nendmodule\n";
+
+            SyntaxTree read = SyntaxReader.ReadText(source, "tb.sv");
+
+            Assert.AreEqual("drives the design", read.Modules[0].Comment);
+            StringAssert.Contains("module tb; // drives the design", FixedPoint(source));
+        }
+
+        [Test]
         public void StatementsOfEveryKind_ReachAFixedPoint()
         {
             FixedPoint(
