@@ -1026,10 +1026,21 @@ namespace BitSorter.Sim
                 var builder = new ExpressionBuilder(scope, _diagnostics, constantOnly: false);
                 List<Expression> args = call.Arguments;
 
-                if (args.Count < 2 || args.Count > 4 || !(args[0] is StringLiteral file))
+                // The file is named in quotes, or by a parameter holding the name: #(.IMAGE("prog.hex")).
+                string file = null;
+                if (args.Count >= 2 && args.Count <= 4 && args[0] != null)
+                {
+                    var quiet = new DiagnosticBag();
+                    if (args[0] is StringLiteral literal)
+                        file = literal.Value;
+                    else if (ExpressionBuilder.TryConstant(args[0], scope, quiet, out LogicVec named) && ExpressionBuilder.TryString(named, out string spelled) && spelled.Length > 0)
+                        file = spelled;
+                }
+
+                if (file == null)
                 {
                     Error(call.Location, ElaborationCodes.BadFormat,
-                        $"{call.Name} takes a file name in quotes and a memory, and then a first and a last word if you want them: {call.Name}(\"image.hex\", mem).");
+                        $"{call.Name} takes a file name -- in quotes, or a parameter holding one -- and a memory, and then a first and a last word if you want them: {call.Name}(\"image.hex\", mem).");
                     p.Failed = true;
                     return;
                 }
@@ -1056,7 +1067,7 @@ namespace BitSorter.Sim
                         Task = call.Name,
                         Memory = memory.Memory,
                         Hex = call.Name.EndsWith("h", StringComparison.Ordinal),
-                        File = file.Value,
+                        File = file,
                         Start = start,
                         End = end,
                         Where = where,

@@ -206,6 +206,43 @@ endmodule"), files);
             Assert.AreEqual("10110000\n1111xxxx\n", bin);
         }
 
+        [Test]
+        public void AString_IsEightBitsACharacter_SoAParameterCanNameAMemorysFile()
+        {
+            // Part 6b. The course's memories take their image as a parameter, so the file name is a
+            // value: the first character in the top byte, padded with zeros on the left and cut from
+            // the left, as any unsigned value is (IEEE 1800, 5.9).
+            Simulator sim = Run(Clean(@"
+module rom #(parameter IMAGE = ""none.hex"") (output logic [7:0] first);
+    logic [7:0] mem [0:1];
+    initial $readmemh(IMAGE, mem);
+    assign first = mem[0];
+endmodule
+
+// Seven characters in 60 bits: four zeros on top that are not a character of their own.
+module odd_rom #(parameter [59:0] IMAGE = ""x.hex"") (output logic [7:0] first);
+    logic [7:0] mem [0:1];
+    initial $readmemh(IMAGE, mem);
+    assign first = mem[1];
+endmodule
+
+module t;
+    logic [15:0] exact = ""AB"";
+    logic [19:0] wider = ""AB"";
+    logic [7:0] narrower = ""AB"";
+    logic [7:0] first, second;
+    rom #(.IMAGE(""rom.hex"")) r (.first(first));
+    odd_rom #(.IMAGE(""rom.hex"")) o (.first(second));
+endmodule", "t"), new MemorySimFiles().Add("rom.hex", "a5 5a"));
+
+            Assert.AreEqual("0100000101000010", Now(sim, "exact"), "A is 41 and B 42");
+            Assert.AreEqual("00000100000101000010", Now(sim, "wider"));
+            Assert.AreEqual("01000010", Now(sim, "narrower"), "the A cut away");
+            Assert.AreEqual("10100101", Now(sim, "first"), "rom.hex, named by the instance's parameter, was read");
+            Assert.AreEqual("01011010", Now(sim, "second"), "and named by one wider than its name");
+            Assert.IsEmpty(Printed(sim));
+        }
+
         // -----------------------------------------------------------------
         // The transcript
         // -----------------------------------------------------------------

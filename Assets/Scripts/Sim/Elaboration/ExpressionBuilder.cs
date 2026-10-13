@@ -369,8 +369,7 @@ namespace BitSorter.Sim
                     return BuildCast(cast);
 
                 case StringLiteral s:
-                    Error(s.Location, ElaborationCodes.NotYet, "A string cannot drive a signal.");
-                    return Expr.Constant(LogicVec.AllX(1));
+                    return Expr.Constant(StringBits(s.Value));
 
                 case RealLiteral r:
                     Error(r.Location, ElaborationCodes.NotYet, $"{r.Text} is a real number; BitSorter simulates whole numbers only.");
@@ -391,6 +390,43 @@ namespace BitSorter.Sim
                     Error(e.Location, ElaborationCodes.NotYet, "BitSorter cannot simulate this expression yet.");
                     return Expr.Constant(LogicVec.AllX(1));
             }
+        }
+
+        /// <summary>
+        /// A string literal as a value: its characters eight bits each, the first the most significant
+        /// (IEEE 1800, 5.9) -- so <c>parameter IMAGE = "prog.hex"</c> holds the name. "" is one zero byte.
+        /// </summary>
+        public static LogicVec StringBits(string text)
+        {
+            if (string.IsNullOrEmpty(text))
+                return LogicVec.FromUInt64(0, 8);
+
+            var bits = new System.Text.StringBuilder(text.Length * 8);
+            foreach (char c in text)
+                for (int b = 7; b >= 0; b--)
+                    bits.Append(((c & 0xFF) >> b & 1) == 1 ? '1' : '0');
+            return LogicVec.FromBinary(bits.ToString());
+        }
+
+        /// <summary>The string a value's bits spell, eight at a time, leading zero bytes dropped; false if any bit is unknown.</summary>
+        public static bool TryString(LogicVec value, out string text)
+        {
+            text = null;
+            if (!value.IsKnown)
+                return false;
+
+            // A string sits in the lowest bits, a character a byte from bit 0 up; a width that is not
+            // a whole number of bytes leaves its odd bits in the top one.
+            var chars = new System.Text.StringBuilder();
+            for (int lowest = (value.Width - 1) / 8 * 8; lowest >= 0; lowest -= 8)
+            {
+                value.Slice(lowest, Math.Min(8, value.Width - lowest)).TryGetUInt64(out ulong code);
+                if (code != 0 || chars.Length > 0)
+                    chars.Append((char)code);
+            }
+
+            text = chars.ToString();
+            return true;
         }
 
         private static Expr Extend(Expr e, int width, bool signed)
