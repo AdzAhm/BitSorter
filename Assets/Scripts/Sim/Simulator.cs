@@ -94,6 +94,10 @@ namespace BitSorter.Sim
     /// schedules the new value, unless the output already has it. So a pulse shorter than the delay
     /// never reaches the output.
     ///
+    /// **Finishing.** <c>$finish</c> ends the run at the end of the time step it runs in: the rest of
+    /// that step -- other processes, nonblocking writes, <c>#0</c>, continuous assignments -- still
+    /// happens, as Icarus does it, so the final values are consistent with each other.
+    ///
     /// **Time 0.** Every variable starts at x, or at the value it was declared with; every net with a
     /// driver at x, every net without one at z. In the first delta every driver evaluates once, as the
     /// standard has gates and continuous assignments do, and every process starts.
@@ -483,7 +487,7 @@ namespace BitSorter.Sim
                     _running = run;
                     _running.Sort();
 
-                    for (int i = 0; i < _running.Count && !_finishing && !Stopped; i++)
+                    for (int i = 0; i < _running.Count && !Stopped; i++)
                         RunProcess(_running[i]);
 
                     _running.Clear();
@@ -495,13 +499,14 @@ namespace BitSorter.Sim
 
                 if (Stopped)
                     return events;
+            }
 
-                if (_finishing)
-                {
-                    Finished = true;
-                    Stopped = true;
-                    return events;
-                }
+            // $finish ends the run once its time step has settled -- every region, as Icarus finishes
+            // it -- so the last values agree with each other: a port shows what it is connected to.
+            if (_finishing)
+            {
+                Finished = true;
+                Stopped = true;
             }
 
             return events;
