@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Text;
 using BitSorter.SystemVerilog;
 
@@ -56,6 +57,15 @@ namespace BitSorter.Sim
         /// <c>always</c> or a loop with no delay or event control in it would otherwise never hand back.
         /// </summary>
         public long MaxProcessSteps { get; set; } = 1_000_000;
+
+        /// <summary>
+        /// The most a run may keep in its history -- value changes, transitions and lines printed
+        /// together -- before it stops. Each costs about 80 bytes, so the default holds a history near
+        /// 320 MB, well inside a browser tab's 2 GB: a testbench with no <c>$finish</c>, run to a
+        /// far-off time, must stop with a message rather than take the page and the student's work
+        /// down. The corpus processor keeps about 230,000 in its 2,716 cycles.
+        /// </summary>
+        public long MaxRecorded { get; set; } = 4_000_000;
 
         /// <summary>Whether every value change is recorded. Off, only the starting values are.</summary>
         public bool RecordChanges { get; set; } = true;
@@ -370,6 +380,9 @@ namespace BitSorter.Sim
                     return new RunResult(RunStatus.Paused, _now, processed);
 
                 processed += RunTimeStep(next);
+
+                if (!Stopped && _history.Recorded > _options.MaxRecorded)
+                    StopOnFullHistory();
             }
 
             return new RunResult(Finished ? RunStatus.Finished : RunStatus.Stopped, _now, processed);
@@ -1195,6 +1208,15 @@ namespace BitSorter.Sim
             _history.Message(_now, Severity.Error,
                 $"At t = {_now} {_processes[p].Name} ran {_options.MaxProcessSteps:N0} steps without waiting: a loop with no " +
                 "delay or event control never hands back. Give it a #delay or an @(...).");
+        }
+
+        private void StopOnFullHistory()
+        {
+            Stopped = true;
+            _history.Message(_now, Severity.Error,
+                $"At t = {_now} the run had kept {_history.Recorded.ToString("N0", CultureInfo.InvariantCulture)} changes, " +
+                $"transitions and lines printed, more than the {_options.MaxRecorded.ToString("N0", CultureInfo.InvariantCulture)} " +
+                "a run may keep. Run to an earlier time, or end the testbench with $finish.");
         }
 
         private void MarkDirty(int s)

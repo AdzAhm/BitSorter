@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.Linq;
 using BitSorter.SystemVerilog;
 using NUnit.Framework;
 
@@ -7,7 +8,8 @@ namespace BitSorter.Sim.Tests
 {
     /// <summary>
     /// What keeps the engine safe to run in a browser tab: a loop that never settles stops with a
-    /// message rather than hanging, a run allocates nothing once warm, and it is fast enough.
+    /// message rather than hanging, so does a run that would keep more than the tab can hold, a run
+    /// allocates nothing once warm, and it is fast enough.
     /// </summary>
     public class GuardrailTests
     {
@@ -36,6 +38,23 @@ namespace BitSorter.Sim.Tests
             Assert.AreEqual(1, sim.History.Messages.Count);
             StringAssert.Contains("y", sim.History.Messages[0].Text);
             Assert.AreEqual(RunStatus.Stopped, sim.RunTo(200).Status, "a stopped run stays stopped");
+        }
+
+        [Test]
+        public void ARunThatWouldKeepTooMuch_StopsWithAMessage_InsteadOfFillingTheTab()
+        {
+            // An oscillator with nothing to end it, run far: a change and a transition every tick.
+            (Design design, Stimulus stimulus, _) = Ring(Delay.Of(1));
+            var sim = new Simulator(design, stimulus, new SimOptions { MaxRecorded = 1000 });
+
+            RunResult result = sim.RunTo(1_000_000);
+
+            Assert.AreEqual(RunStatus.Stopped, result.Status);
+            Assert.Less(result.Time, 1000, "it stops near where the history filled, not at the end time");
+            Assert.LessOrEqual(sim.History.Recorded, 1010, "a time step's worth over, and the message");
+            StringAssert.Contains("more than the 1,000 a run may keep", sim.History.Messages.Last().Text);
+            StringAssert.Contains("$finish", sim.History.Messages.Last().Text, "and says the way out");
+            Assert.AreEqual(RunStatus.Stopped, sim.RunTo(2_000_000).Status, "a stopped run stays stopped");
         }
 
         [Test]

@@ -560,7 +560,8 @@ These take the place of 4.x's core decisions as each part lands.
    lets race, run in one fixed order (section 5), so a design with a race in it still gives the same
    history on every run.
 2. **The engine never throws on a design.** A broken design is a diagnostic; a runaway one ends with a
-   message (delta limit, event budget, end time). Nothing hangs a browser tab.
+   message (delta limit, a process that never waits, a history grown past its cap) or pauses (event
+   budget, end time). Nothing hangs a browser tab or fills its memory.
 3. **The view does not change** the engine or the document except through their commands.
 4. **Printing loses nothing.** Print, parse and print again gives the same text, and running the
    printed text gives the same history as running the board.

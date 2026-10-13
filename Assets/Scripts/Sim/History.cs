@@ -201,15 +201,25 @@ namespace BitSorter.Sim
 
         public IReadOnlyList<SimMessage> Messages => _messages;
 
+        /// <summary>
+        /// Everything kept so far -- value changes, transitions and messages together -- which
+        /// <see cref="SimOptions.MaxRecorded"/> bounds.
+        /// </summary>
+        public long Recorded { get; private set; }
+
         // -----------------------------------------------------------------
         // Recording, for the simulator
         // -----------------------------------------------------------------
 
-        internal void RecordChange(int signal, long time, int delta, LogicVec value) =>
+        internal void RecordChange(int signal, long time, int delta, LogicVec value)
+        {
             _changes[signal].Add(new ValueChange(time, delta, value));
+            Recorded++;
+        }
 
         internal int BeginTransition(int driver, SignalId target, long scheduledAt, long dueAt, LogicVec value)
         {
+            Recorded++;
             _transitions.Add(new Transition
             {
                 Driver = driver,
@@ -230,7 +240,11 @@ namespace BitSorter.Sim
             t.EndedAt = at;
         }
 
-        internal void Message(long time, Severity severity, string text) => _messages.Add(new SimMessage(time, severity, text));
+        internal void Message(long time, Severity severity, string text)
+        {
+            _messages.Add(new SimMessage(time, severity, text));
+            Recorded++;
+        }
     }
 
     /// <summary>
