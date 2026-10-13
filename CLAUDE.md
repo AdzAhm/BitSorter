@@ -289,6 +289,10 @@ failure side.
   removed node or edge reports Id -1, so capture an id before removing
   rather than reading it back off the object. Bits lost to a removal are
   not corruption and must never touch CorruptedCount.
+  5.0's document keeps the same promise for its own ids: a module gives a
+  part or a wire an id once, from `Module.NextId`, and never again, so a
+  layout, an undo step or a picked signal keyed by id never lands on
+  something else (`Docs/architecture-5.md`, section 5).
 
 - **Undo is a stack of whole-board snapshots, not inverse operations.**
   `BlueprintSnapshot` copies the blueprint's three lists -- gates, blocks
@@ -305,6 +309,11 @@ failure side.
   `LevelLoaded`, so the board `ProgressTracker` restores is the baseline
   rather than a step the player can reverse past, and on a level that opens
   on a circuit with nothing saved, that circuit is.
+  **5.0's document takes the idea further** (`BoardEditor`): the whole
+  document is immutable, so a snapshot is a reference rather than a copy,
+  and every edit is checked by building the document it would make --
+  one that adds an error is refused with that error, and leaves no step.
+  A drag is one step, as a run of scroll notches is here.
 
 - **START OVER is CLEAR ALL on a level that opens on a circuit**, and it puts
   that circuit back rather than leaving an empty board -- one undo step, like
