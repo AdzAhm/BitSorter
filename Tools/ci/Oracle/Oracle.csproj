@@ -26,11 +26,14 @@
     <Compile Include="../SystemVerilog.Tests/RandomValues.cs" Link="Shared/RandomValues.cs" />
     <!-- The delay probes as C#, the pair of corpus/delays/probes.sv. -->
     <Compile Include="../Sim.Tests/Probes.cs" Link="Shared/Probes.cs" />
+    <!-- The sample boards the document layer's tests compile, run here as printed. -->
+    <Compile Include="../Board.Tests/SampleBoards.cs" Link="Shared/SampleBoards.cs" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="../SystemVerilog/SystemVerilog.csproj" />
     <ProjectReference Include="../Sim/Sim.csproj" />
+    <ProjectReference Include="../Board/Board.csproj" />
   </ItemGroup>
 
   <ItemGroup>

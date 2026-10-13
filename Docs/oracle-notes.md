@@ -42,17 +42,23 @@ assign #(2, 5, 7) y = a;   // y and a are 4 bits
 ```
 
 The standard (IEEE 1800, 28.16) decides by the whole value: from nonzero to all zeros takes the fall
-delay, to all z the turn-off delay, anything else the rise delay. Icarus decides by something like the
-lowest bit:
+delay, to all z the turn-off delay, anything else the rise delay. Icarus takes **the longest delay of
+the bits that change**, each bit's by its own change:
 
 | Change | Standard | Icarus |
 | --- | --- | --- |
-| `0101` → `0100` | 2 (rise: nonzero to nonzero) | 5 |
-| `zzzz` → `1z00` | 2 (rise) | 5 |
+| `0101` → `0100` | 2 (rise: nonzero to nonzero) | 5 (the one bit falls) |
+| `zzzz` → `1z00` | 2 (rise) | 5 (one bit rises, two fall) |
 | `0110` → `0000`, `0000` → `0101`, `0x00` → `zzzz` | 5, 2, 7 | the same |
 
+This note once said Icarus decided "by something like the lowest bit". Part 7a's printed buses, with
+`assign #(2, 1)` on a four-bit XOR, ruled that out: `1101` → `0101` took 1 and `1011` → `0101` took 2,
+the lowest bit unchanged in both. The longest-changing-bit rule fits those and every row above.
+
 BitSorter follows the standard (`Delay.For`, `WaveformTests.AVectorAssignment_...`). The oracle corpus
-keeps out of this case. **It does not reach students**: the course puts delays only on one-bit cells.
+keeps out of this case, and so do the sample boards the oracle runs. **It barely reaches students**: the
+course puts delays only on one-bit cells, and a board warns when a gate wider than a bit is given
+different rise and fall delays, since its export would then run differently elsewhere.
 
 ## Two drivers
 
