@@ -20,6 +20,27 @@ namespace BitSorter.SystemVerilog.Syntax
             return ReadText(text, path, files);
         }
 
+        /// <summary>
+        /// Reads several files into one tree, as a simulator compiles a list of files: every module of
+        /// each, in the order given, and every diagnostic. Each file is read on its own, so a
+        /// <c>`define</c> in one does not reach the next.
+        /// </summary>
+        public static SyntaxTree ReadAll(System.Collections.Generic.IEnumerable<string> paths, ISourceFiles files)
+        {
+            var all = new SyntaxTree();
+            foreach (string path in paths)
+            {
+                SyntaxTree one = Read(path, files);
+                all.Modules.AddRange(one.Modules);
+                all.UnitItems.AddRange(one.UnitItems);
+                all.Diagnostics.AddRange(one.Diagnostics);
+                all.Files.AddRange(one.Files);
+                all.Timescale = all.Timescale ?? one.Timescale;
+            }
+
+            return all;
+        }
+
         /// <summary>Reads <paramref name="text"/> as the file <paramref name="path"/>; its includes come from <paramref name="files"/>.</summary>
         public static SyntaxTree ReadText(string text, string path = "input.sv", ISourceFiles files = null)
         {

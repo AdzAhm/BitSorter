@@ -24,6 +24,23 @@ namespace BitSorter.SystemVerilog.Tests.Syntax
         }
 
         [Test]
+        public void SeveralFiles_ReadAsOneDesign_EachOnItsOwn()
+        {
+            // As a simulator compiles a list of files: every module of each, in order, and a `define in
+            // one does not reach the next.
+            var files = new MemorySourceFiles()
+                .Add("cells.sv", "`define WIDTH 4\nmodule INV (input logic A, output logic Z); not (Z, A); endmodule\n")
+                .Add("top.sv", "module top; logic a, y; INV g1 (.A(a), .Z(y)); logic [`WIDTH-1:0] w; endmodule\n");
+
+            SyntaxTree tree = SyntaxReader.ReadAll(new[] { "cells.sv", "top.sv", "nowhere.sv" }, files);
+
+            CollectionAssert.AreEqual(new[] { "INV", "top" }, tree.Modules.Select(m => m.Name));
+            CollectionAssert.AreEqual(new[] { "cells.sv", "top.sv" }, tree.Files);
+            Assert.IsTrue(tree.Diagnostics.Any(d => d.Message.Contains("WIDTH")), "the macro stayed in cells.sv");
+            Assert.IsTrue(tree.Diagnostics.Any(d => d.Message.Contains("nowhere.sv")), "and a file that is not there is said");
+        }
+
+        [Test]
         public void AMissingInclude_SaysWhichFile()
         {
             SyntaxTree tree = Read("`include \"nowhere.sv\"\nmodule m; endmodule");
