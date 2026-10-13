@@ -16,8 +16,9 @@ namespace BitSorter.Sim
     /// shows the value a time step ends on, and so does Icarus's dump once read back
     /// (<see cref="VcdReader"/>). Hierarchical names become nested scopes under the design's top
     /// module -- whether the name already starts with it, as an elaborated design's do
-    /// (<c>alu64.slice[3].s.y</c>), or not, as a circuit built in code may. Writes to a
-    /// <see cref="TextWriter"/> the caller opens: this layer touches no files.
+    /// (<c>alu64.slice[3].s.y</c>), or not, as a circuit built in code may. A process's own working
+    /// variables (<see cref="SignalInfo.Local"/>) are left out. Writes to a <see cref="TextWriter"/>
+    /// the caller opens: this layer touches no files.
     /// </remarks>
     public static class VcdWriter
     {
@@ -29,8 +30,8 @@ namespace BitSorter.Sim
 
             int count = design.Signals.Count;
             var ids = new string[count];
-            for (int i = 0; i < count; i++)
-                ids[i] = IdCode(i);
+            for (int i = 0, next = 0; i < count; i++)
+                ids[i] = design.Signals[i].Local ? null : IdCode(next++);
 
             output.WriteLine("$version BitSorter $end");
             output.WriteLine($"$timescale {timescale} $end");
@@ -41,6 +42,9 @@ namespace BitSorter.Sim
             var changes = new List<(long Time, int Signal, LogicVec Value)>();
             for (int s = 0; s < count; s++)
             {
+                if (ids[s] == null)
+                    continue;
+
                 foreach (ValueChange change in history.SettledChanges(new SignalId(s)))
                 {
                     if (change.Time > 0 && change.Time <= endTime)
@@ -53,7 +57,8 @@ namespace BitSorter.Sim
             output.WriteLine("#0");
             output.WriteLine("$dumpvars");
             for (int s = 0; s < count; s++)
-                output.WriteLine(ValueText(history.ValueAt(new SignalId(s), 0), ids[s]));
+                if (ids[s] != null)
+                    output.WriteLine(ValueText(history.ValueAt(new SignalId(s), 0), ids[s]));
             output.WriteLine("$end");
 
             long current = 0;
@@ -80,6 +85,7 @@ namespace BitSorter.Sim
                 design.Signals[i].Name.StartsWith(prefix, StringComparison.Ordinal) ? design.Signals[i].Name : prefix + design.Signals[i].Name;
 
             var order = Enumerable.Range(0, design.Signals.Count)
+                .Where(i => ids[i] != null)
                 .OrderBy(FullName, StringComparer.Ordinal)
                 .ToList();
 

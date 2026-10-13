@@ -63,6 +63,38 @@ namespace BitSorter.Sim.Tests
         }
 
         [Test]
+        public void ProcessesOnceWarm_AllocateNothingEither()
+        {
+            // A clock from an always, a counter in always_ff with its NBA, a decoder in always_comb
+            // with a case: every kind of instruction the scheduler runs on every edge.
+            Design design = Elaborator.Elaborate(SystemVerilog.Syntax.SyntaxReader.ReadText(@"
+module counter;
+    logic clk = 0;
+    logic [7:0] q = 0;
+    logic [1:0] phase;
+    always #5 clk = ~clk;
+    always_ff @(posedge clk) q <= q + 8'd1;
+    always_comb
+        case (q[1:0])
+            2'd0: phase = 2'd3;
+            2'd1: phase = 2'd2;
+            default: phase = q[1:0] - 2'd2;
+        endcase
+endmodule", "counter.sv")).Design;
+
+            var sim = new Simulator(design, null, new SimOptions { RecordChanges = false, RecordTransitions = false });
+            sim.RunTo(5000);
+            LogicVec counted = sim.Value(design.Find("counter.q"));
+
+            long before = GC.GetAllocatedBytesForCurrentThread();
+            sim.RunTo(50000);
+            long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+            Assert.AreEqual(0, allocated, "running processes allocated once warm");
+            Assert.AreNotEqual(counted, sim.Value(design.Find("counter.q")), "and it really ran: 4,500 more edges");
+        }
+
+        [Test]
         public void TheCounter_SeesRecordingAllocate()
         {
             (Design design, Stimulus stimulus, _) = Ring(Delay.Of(1));

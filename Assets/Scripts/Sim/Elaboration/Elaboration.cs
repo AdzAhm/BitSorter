@@ -24,6 +24,9 @@ namespace BitSorter.Sim
         public const string UnsizedInConcatenation = "SV0316";
         public const string BadParameter = "SV0317";
         public const string TooLarge = "SV0318";
+        public const string Ignored = "SV0319";
+        public const string NeverWaits = "SV0320";
+        public const string Misplaced = "SV0321";
     }
 
     /// <summary>One port of the top module, as elaborated: what a testbench or the workbench drives and watches.</summary>

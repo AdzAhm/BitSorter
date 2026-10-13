@@ -255,8 +255,9 @@ VCD           written for export, read for the oracle comparison
   with the way out. Every signal starts at x, an undriven net at z, and a net driven in slices at x where a
   driver reaches and z where none does -- as Icarus shows it. Every driver evaluates once at time 0.
 - **Running.** `RunTo` runs whole time steps until a time or an event budget, so the browser can run in
-  slices; a delta limit stops a zero-delay loop with a message naming what was still changing. Testbench
-  writes are `Stimulus` until procedural code arrives (Part 5).
+  slices; a delta limit stops a zero-delay loop with a message naming what was still changing. A
+  `Stimulus` writes inputs from outside, as the oracle's structural runs do; from Part 5a a testbench's
+  own `initial` blocks do it instead.
 - **Recorded.** Every value change with its delta, every transition with its outcome; rewind and step
   back read them. Once its arrays have grown, a run with recording off allocates nothing (a test holds
   it), and recording grows its buffers by doubling. On the development machine a 64-bit ripple adder of
@@ -264,6 +265,39 @@ VCD           written for export, read for the oracle comparison
 - **Checked.** The probe circuits' waveforms by hand and against Icarus's VCD, signal by signal
   (`Docs/oracle-notes.md`); wire resolution and every primitive by table; replay, slicing and VCD
   round trips; the zero-delay loop; allocation and throughput floors (`Tools/ci/Sim.Tests`).
+
+**Processes, as built in Part 5a** (`Process.cs`, `Simulator`, `Elaboration/Elaborator.Processes.cs`).
+
+- **A process is instructions and a counter** (ADR-5): a blocking write, a nonblocking write, a jump
+  (`if`, `case`, the loops), a delay, an event control, `wait`, `$finish`, the end. Expressions are the
+  same `Expr` trees continuous assignments evaluate, so a process allocates nothing either once warm (a
+  test holds it). A select worked out as the process runs (`y[i] = a`) writes where it lands, and nothing
+  if that is unknown or outside the variable.
+- **A third phase each delta.** Drivers are evaluated first, then every process woken runs, in a fixed
+  order, until it waits or ends. A blocking write is seen at once by the process and the processes after
+  it, and by drivers in the next delta; so the drivers keep invariant 1, and processes -- which the
+  language lets race -- run in an order that is the same on every run: **an instance's processes before
+  its parent's own, and a module's own as written**, as Icarus starts them. A testbench that raises reset
+  at time 0 therefore reaches the flip-flops of the design it instantiates.
+- **Regions.** A nonblocking write is worked out when it runs and applied once nothing active is left in
+  the time step; `#0` waits for that moment too, and runs before the nonblocking writes (IEEE 1800, 4.4).
+  `q <= #3 d` takes `d` now and writes it three units on; `a = #3 b` takes `b` now, waits, and writes.
+- **Waiting.** Every wait's signals are known when the design is built, so a change wakes exactly the
+  processes waiting on it, with no list that grows. An edge is the standard's on the lowest bit, x and z
+  included; an event on an expression of several signals is judged once every change of the delta is in.
+  `always_comb` runs once at time 0 and then on any change of what it reads but does not write; `@*` waits
+  on everything its statement reads.
+- **Never hangs.** A process that runs a million steps without waiting stops the run with its name, and
+  so does a zero-delay loop of processes at the delta limit. `$finish`, `$stop` and `$fatal` end the run
+  (`RunStatus.Finished`) with a message saying which and where.
+- **Variables** may be declared with a value (`logic a = 0;`), held from before time 0. A process's own
+  working variables -- a `for` loop's `int i`, a `repeat`'s count, a value held across an intra-assignment
+  delay -- are `Local`: not recorded, not in a VCD. A variable takes its value from processes or from one
+  continuous driver, never both, and only a variable can be written by a process.
+- **Checked.** 30 tests (`ProcessTests`, and a guardrail): each statement, the regions, the edges, the
+  start order, intra-assignment delays, the stops, and every refusal. Against Icarus
+  (`BehaviouralOracleTests`): the scheduling probes (`corpus/behavioural/scheduling.sv`), the traffic
+  light's own testbench, and the delay probes read from their SystemVerilog, every signal agreeing.
 
 ### The document (`Board`)
 
@@ -417,15 +451,18 @@ lives in the engine's layer, which already sees the syntax tree, so the layers s
   from its bits of the value. `buf` and `not` may have several outputs; a gate's input wider than a bit
   uses its lowest, with a warning. An undeclared name where a net may be implied -- a port connection,
   the left of an assign, a gate terminal -- is a one-bit wire, with a warning.
-- **Refused, with the part it arrives in** (`SV0306`): processes, functions and tasks (5), arrays and
-  memories (6), `inout` (14), a variable with a starting value (5), packed arrays of more than one
-  dimension, net types other than `wire`, `tri`, `uwire` and the two supplies. Simulating a design
-  without them would be simulating something else, so they are errors, never warnings.
-- **Diagnostics** `SV0301` to `SV0318`, each at the item's file, line and column: no top, unknown module
+- **Refused, with the part it arrives in** (`SV0306`): functions and tasks (not supported, section 7's
+  table), arrays and memories (6), `inout` (14), packed arrays of more than one dimension, net types other
+  than `wire`, `tri`, `uwire` and the two supplies. Simulating a design without them would be simulating
+  something else, so they are errors, never warnings. Processes and declared starting values, refused in
+  Part 4b, run from Part 5a (section 5).
+- **Diagnostics** `SV0301` to `SV0321`, each at the item's file, line and column: no top, unknown module
   or name, not a constant, a width mismatch at a port (a warning), a bad port, parameter, select, delay or
   left side, two drivers on a variable's bit (with the way out: a wire), recursion, an implicit net and an
   unconnected input (warnings), a duplicate, an unsized number in `{ }`, and a design too large. A read
-  that failed is not elaborated, so the read's own errors stand alone.
+  that failed is not elaborated, so the read's own errors stand alone. Part 5a adds three: a print task
+  skipped until Part 6 (a warning, once a task), a process that would never wait, and a `break` or
+  `continue` outside a loop.
 - **Checked.** 44 tests (`Tools/ci/Sim.Tests/ElaboratorTests`): the sizing rules each by a design that
   shows the difference, parameters by name and position, body parameters, enums, `$clog2` and `**`,
   generate naming, every way of connecting a port, non-ANSI ports, every error code, and the hand-worked
@@ -460,8 +497,10 @@ lives in the engine's layer, which already sees the syntax tree, so the layers s
 These take the place of 4.x's core decisions as each part lands.
 
 1. **Determinism.** The same design and stimulus give the same history — value changes and transitions
-   — whatever order the design was built in. The engine gets it from its two phases a delta (section 5),
-   and a test holds it by building random circuits in shuffled orders.
+   — whatever order its drivers were built in. The engine gets it from its phases a delta (section 5),
+   and a test holds it by building random circuits in shuffled orders. Processes, which the language
+   lets race, run in one fixed order (section 5), so a design with a race in it still gives the same
+   history on every run.
 2. **The engine never throws on a design.** A broken design is a diagnostic; a runaway one ends with a
    message (delta limit, event budget, end time). Nothing hangs a browser tab.
 3. **The view does not change** the engine or the document except through their commands.

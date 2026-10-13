@@ -22,9 +22,9 @@ and `Docs/oracle-notes.md` (from Part 2) for where Icarus and the language stand
 | Folder | What is in it |
 | --- | --- |
 | `smoke/` | Proves the harness works and pins the first facts down. |
-| `delays/` | How gate and assignment delays behave: the probes `Docs/oracle-notes.md` describes. Each has a C# twin in `Tools/ci/Sim.Tests/Probes.cs`: the front end reads the file, but its stimulus is `initial` blocks, which run from Part 5. |
+| `delays/` | How gate and assignment delays behave: the probes `Docs/oracle-notes.md` describes. Each has a C# twin in `Tools/ci/Sim.Tests/Probes.cs`, so the engine is checked with and without the front end: `EngineOracleTests` runs the twin, `BehaviouralOracleTests` the file itself. |
 | `structural/` | Designs in the shape of the course's first simulation exercises: BitSorter's own cell library with `Tpdlh` and `Tpdhl` parameters, a mux with a static hazard, a full adder, an ALU slice and a 64-bit ALU built with `generate` and a 65-bit carry. Files include each other, behind include guards. `StructuralOracleTests` reads and elaborates each in BitSorter, generates one random stimulus as a testbench for Icarus and as writes for BitSorter, and compares every signal of the design. |
-| `behavioural/` | Behavioural designs and testbenches: a Moore machine with a `typedef enum`, `always_ff` with an asynchronous reset and `always_comb` with defaults. Part 5 runs them. |
+| `behavioural/` | Behavioural designs and testbenches: a Moore machine with a `typedef enum`, `always_ff` with an asynchronous reset and `always_comb` with defaults; and `scheduling.sv`, where processes run relative to each other -- the start order at time 0, nonblocking against blocking, `#0`, `always_comb` against `@*`. `BehaviouralOracleTests` runs each testbench in both and compares every signal. **Races only on purpose**: where the standard lets two simulators differ, the corpus either pins the order BitSorter chose to match Icarus -- the start order at time 0, in `scheduling.sv` -- or keeps out, and `Docs/oracle-notes.md` says which. |
 
 Every file here is also read by the SystemVerilog reader's tests, which hold each to reading with no
 diagnostic and printing to a fixed point (`Tools/ci/SystemVerilog.Tests/Syntax/PrinterTests.cs`). A

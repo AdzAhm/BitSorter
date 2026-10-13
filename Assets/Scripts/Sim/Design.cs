@@ -38,12 +38,14 @@ namespace BitSorter.Sim
     /// <summary>One signal: its hierarchical name, width, kind and signedness.</summary>
     public sealed class SignalInfo
     {
-        internal SignalInfo(string name, int width, SignalKind kind, bool signed)
+        internal SignalInfo(string name, int width, SignalKind kind, bool signed, bool local = false, LogicVec? initial = null)
         {
             Name = name;
             Width = width;
             Kind = kind;
             Signed = signed;
+            Local = local;
+            Initial = initial;
         }
 
         /// <summary>Its full name, dot-separated through the hierarchy: <c>uut.sum</c>.</summary>
@@ -52,6 +54,15 @@ namespace BitSorter.Sim
         public int Width { get; }
         public SignalKind Kind { get; }
         public bool Signed { get; }
+
+        /// <summary>
+        /// A process's own working variable -- a <c>for</c> loop's <c>int i</c>, a <c>repeat</c>'s count
+        /// -- which nothing outside it reads. Its changes are not recorded and a VCD leaves it out.
+        /// </summary>
+        public bool Local { get; }
+
+        /// <summary>The value a variable is declared with, <c>logic a = 0;</c>, which it holds from before time 0.</summary>
+        public LogicVec? Initial { get; }
 
         public override string ToString() => $"{Kind} {Name} [{Width}]";
     }
@@ -159,11 +170,12 @@ namespace BitSorter.Sim
     {
         private readonly Dictionary<string, SignalId> _byName;
 
-        internal Design(string name, List<SignalInfo> signals, List<DriverInfo> drivers)
+        internal Design(string name, List<SignalInfo> signals, List<DriverInfo> drivers, List<ProcessInfo> processes)
         {
             Name = name;
             Signals = signals.ToArray();
             Drivers = drivers.ToArray();
+            Processes = processes.ToArray();
 
             _byName = new Dictionary<string, SignalId>(StringComparer.Ordinal);
             for (int i = 0; i < Signals.Count; i++)
@@ -176,6 +188,9 @@ namespace BitSorter.Sim
         public IReadOnlyList<SignalInfo> Signals { get; }
 
         public IReadOnlyList<DriverInfo> Drivers { get; }
+
+        /// <summary>The processes, in the order they start at time 0: an instance's before its parent's own, then as written.</summary>
+        public IReadOnlyList<ProcessInfo> Processes { get; }
 
         public SignalInfo this[SignalId signal] => Signals[signal.Index];
 
@@ -202,8 +217,9 @@ namespace BitSorter.Sim
     /// </summary>
     /// <remarks>
     /// It refuses what SystemVerilog refuses, with the reason: a second continuous driver on a
-    /// variable (only a <c>wire</c> may have several, IEEE 1800 6.5 -- Icarus refuses it too), a gate
-    /// input or output that is not one bit, the wrong number of inputs, a duplicate name.
+    /// variable (only a <c>wire</c> may have several, IEEE 1800 6.5 -- Icarus refuses it too), a
+    /// variable written both by a process and continuously, a process writing a wire, a gate input or
+    /// output that is not one bit, the wrong number of inputs, a duplicate name.
     /// </remarks>
     public sealed class NetlistBuilder
     {
@@ -213,6 +229,13 @@ namespace BitSorter.Sim
         private readonly HashSet<string> _names = new HashSet<string>(StringComparer.Ordinal);
         /// <summary>Which bits of each variable a continuous driver already drives: a second may not overlap them.</summary>
         private readonly Dictionary<int, bool[]> _drivenBits = new Dictionary<int, bool[]>();
+        private readonly List<ProcessInfo> _processes = new List<ProcessInfo>();
+
+        /// <summary>The variables a process writes, and which: none of them may also be driven continuously.</summary>
+        private readonly Dictionary<int, ProcessInfo> _procedural = new Dictionary<int, ProcessInfo>();
+
+        /// <summary>The signals with at least one continuous driver.</summary>
+        private readonly HashSet<int> _driven = new HashSet<int>();
 
         public NetlistBuilder(string name = "top")
         {
@@ -224,6 +247,47 @@ namespace BitSorter.Sim
 
         /// <summary>A <c>logic</c>.</summary>
         public SignalId Variable(string name, int width = 1, bool signed = false) => Add(name, width, SignalKind.Variable, signed);
+
+        /// <summary>A <c>logic</c> declared with a value, <c>logic a = 0;</c>: it holds it from before time 0.</summary>
+        public SignalId Variable(string name, int width, bool signed, LogicVec initial)
+        {
+            if (initial.IsEmpty)
+                throw new ArgumentException("A starting value needs a value.", nameof(initial));
+            return Add(name, width, SignalKind.Variable, signed, local: false, initial);
+        }
+
+        /// <summary>A process's own working variable: not recorded, not in a VCD (see <see cref="SignalInfo.Local"/>).</summary>
+        public SignalId Local(string name, int width = 1, bool signed = false, LogicVec? initial = null) =>
+            Add(name, width, SignalKind.Variable, signed, local: true, initial);
+
+        /// <summary>
+        /// A process. Every signal it writes must be a variable that nothing drives continuously: a
+        /// variable takes its value from processes or from one continuous driver, never both (IEEE
+        /// 1800, 6.5).
+        /// </summary>
+        public void Process(ProcessInfo process)
+        {
+            if (process == null) throw new ArgumentNullException(nameof(process));
+
+            foreach (int s in process.Writes)
+            {
+                SignalInfo info = _signals[s];
+                if (info.Kind != SignalKind.Variable)
+                    throw new InvalidOperationException(
+                        $"{process.Name} writes {info.Name}, which is a wire; a process can only write a variable. Declare it logic.");
+
+                if (_driven.Contains(s))
+                    throw new InvalidOperationException(
+                        $"{info.Name} is written by {process.Name} and driven continuously as well; a variable takes one or the other. " +
+                        "Give the assign or the gate a wire of its own.");
+            }
+
+            foreach (int s in process.Writes)
+                if (!_procedural.ContainsKey(s))
+                    _procedural[s] = process;
+
+            _processes.Add(process);
+        }
 
         /// <summary>A gate primitive driving <paramref name="output"/> from <paramref name="inputs"/>.</summary>
         public void Gate(GateKind kind, string name, SignalId output, Delay delay, params SignalId[] inputs)
@@ -297,9 +361,9 @@ namespace BitSorter.Sim
         /// <summary>An expression reading a signal of this design, at its own width.</summary>
         public Expr Read(SignalId signal) => Expr.Read(signal, _signals[signal.Index].Width);
 
-        public Design Build() => new Design(_name, _signals, _drivers);
+        public Design Build() => new Design(_name, _signals, _drivers, _processes);
 
-        private SignalId Add(string name, int width, SignalKind kind, bool signed)
+        private SignalId Add(string name, int width, SignalKind kind, bool signed, bool local = false, LogicVec? initial = null)
         {
             if (string.IsNullOrEmpty(name))
                 throw new ArgumentException("A signal needs a name.", nameof(name));
@@ -308,7 +372,7 @@ namespace BitSorter.Sim
             if (width < 1 || width > LogicVec.MaxWidth)
                 throw new ArgumentOutOfRangeException(nameof(width), width, $"A signal's width must be from 1 to {LogicVec.MaxWidth}.");
 
-            _signals.Add(new SignalInfo(name, width, kind, signed));
+            _signals.Add(new SignalInfo(name, width, kind, signed, local, initial));
             return new SignalId(_signals.Count - 1);
         }
 
@@ -333,6 +397,14 @@ namespace BitSorter.Sim
         private void CountDriver(SignalId target, int lowest, int width, string driver)
         {
             SignalInfo info = _signals[target.Index];
+
+            if (_procedural.TryGetValue(target.Index, out ProcessInfo writer))
+                throw new InvalidOperationException(
+                    $"{info.Name} is written by {writer.Name}, so {driver} cannot drive it too; a variable takes one or the other. " +
+                    "Give the assign or the gate a wire of its own.");
+
+            _driven.Add(target.Index);
+
             if (info.Kind != SignalKind.Variable)
                 return;
 

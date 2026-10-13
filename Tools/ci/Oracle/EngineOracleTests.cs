@@ -12,10 +12,12 @@ namespace BitSorter.Ci.Oracle
     /// by signal, change by change.
     /// </summary>
     /// <remarks>
-    /// Until the front end exists (Part 4) a circuit has to be written twice: once in SystemVerilog
-    /// for Icarus, in the corpus, and once in C# with <see cref="NetlistBuilder"/>. Probes.cs and
-    /// corpus/delays/probes.sv are that pair. Icarus dumps a VCD; <see cref="VcdReader"/> reads it into
-    /// the value each time step settled on, which is exactly what the engine's history keeps.
+    /// The engine checked without the front end: the circuits written in C# with
+    /// <see cref="NetlistBuilder"/> (Probes.cs), against Icarus running their SystemVerilog
+    /// (corpus/delays/probes.sv). Since Part 5 the front end reads that file itself too
+    /// (<see cref="BehaviouralOracleTests"/>); the C# twin stays so a fault can be placed on one side of
+    /// the front end or the other. Icarus dumps a VCD; <see cref="VcdReader"/> reads it into the value
+    /// each time step settled on, which is exactly what the engine's history keeps.
     /// </remarks>
     public class EngineOracleTests
     {

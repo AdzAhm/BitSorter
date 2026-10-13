@@ -89,3 +89,44 @@ waveform compare; only a delta-by-delta trace would tell them apart.
 unnamed loop and whose second an unnamed `if` gives `genblk1[0]`, `genblk1[1]` and `genblk2` in Icarus's
 VCD -- the standard's rule, numbering every generate construct in the scope, named or not -- and the
 same in BitSorter (`ElaboratorTests.AGenerateLoopWithNoLabel_...`).
+
+## Processes (probed 2026-10-13, Part 5a)
+
+`BehaviouralOracleTests` runs a testbench in both simulators from the same file and compares every
+signal: `corpus/behavioural/scheduling.sv`, the traffic light's own testbench, and the delay probes,
+now read from their SystemVerilog. They agree. What the probes pinned down:
+
+| Question | Icarus, and so BitSorter | The standard |
+| --- | --- | --- |
+| An `initial` raises a signal at time 0 that an `always` in the same module waits on | the `always` sees the edge if it is written first, and misses it if it is written after | leaves the start order open |
+| The same, with the `always` inside an instance | the instance's processes start first, wherever the instance is written: a reset raised at time 0 reaches its flip-flops | leaves it open |
+| `a <= b; b <= a;` on a clock edge | they swap; with `=` the second copies the first's new value | the same |
+| `always_comb` against `always @*` on an input that never changes | `always_comb` runs once at time 0; `@*` waits and never runs | the same |
+| `#0` | the process runs again after the rest of the instant's processes, before the nonblocking writes | the inactive region |
+| `a = #5 b`, `q <= #3 d` | the value is taken when the statement runs and written after the delay | the same |
+
+So BitSorter starts processes in Icarus's order -- an instance's before its parent's own, a module's own
+as written -- and holds to it on every run (`Docs/architecture-5.md`, section 5).
+
+### The last time step of a `$stop`
+
+With `vvp -n`, as the oracle runs it, `$stop` ends the run like `$finish` does, **but Icarus's VCD
+loses every change of the time step it ran in**: the time is written, the values are not. `$finish`
+keeps them. The values did change -- in the traffic light's testbench the clock's rise at 155 is what
+woke the process that called `$stop` -- so BitSorter's history keeps them, and after a `$stop` the
+oracle compares up to the step before.
+
+### A process that hears its own write back through an assign
+
+```systemverilog
+logic [3:0] count = 0;
+wire  [3:0] next = count + 1;
+always @(next) if (next < 9) count = next;
+```
+
+Icarus pushes a blocking write through continuous assignments at once, so `next` has changed before the
+`always` is back at its `@(next)`, and the loop stops after one step: `count` is 1. BitSorter evaluates
+the assign a delta later, when the `always` is waiting again, and `count` climbs to 8. **Both are
+allowed**: the standard lets a simulator interleave an assignment's update with a process or not (IEEE
+1800, 4.7). The corpus keeps out of it. A course design meets it only by feeding a process's output back
+to its own sensitivity through a wire, which is a combinational loop either way.

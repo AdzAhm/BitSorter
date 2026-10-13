@@ -23,11 +23,15 @@ namespace BitSorter.Sim
     /// workbench's switches -- can write them. Every other input is a wire, as the standard makes an
     /// <c>input logic</c> port.
     ///
-    /// Nothing behavioural is simulated yet: an <c>always</c>, an <c>initial</c>, a function is
-    /// reported as arriving in Part 5, as an error, because simulating the design without it would be
-    /// simulating something else.
+    /// **Processes** (<c>initial</c> and every kind of <c>always</c>) are compiled to instructions
+    /// (<c>Elaborator.Processes.cs</c>) and start in the order Icarus starts them: an instance's
+    /// processes before its parent's own, and a module's own as written. So a testbench that raises
+    /// reset at time 0 is seen by the flip-flops of the design it instantiates.
+    ///
+    /// What is not simulated yet -- a function, a task, a memory -- is an error naming the part it
+    /// arrives in, because simulating the design without it would be simulating something else.
     /// </remarks>
-    public static class Elaborator
+    public static partial class Elaborator
     {
         /// <summary>How deep instances may nest before the design is taken to be runaway.</summary>
         public const int MaxDepth = 64;
@@ -64,7 +68,7 @@ namespace BitSorter.Sim
             }
         }
 
-        private sealed class Run
+        private sealed partial class Run
         {
             private readonly SyntaxTree _tree;
             private readonly DiagnosticBag _diagnostics = new DiagnosticBag();
@@ -76,6 +80,12 @@ namespace BitSorter.Sim
             private int _instances;
             private int _unnamed;
             private bool _stopped;
+
+            /// <summary>The processes of the instance being elaborated, and of the instances inside it, kept apart to be ordered.</summary>
+            private List<ProcessInfo> _ownProcesses;
+            private List<ProcessInfo> _childProcesses;
+            private readonly List<ProcessInfo> _allProcesses = new List<ProcessInfo>();
+            private readonly Dictionary<ProcessInfo, SourceLocation> _processAt = new Dictionary<ProcessInfo, SourceLocation>();
 
             public Run(SyntaxTree tree) => _tree = tree;
 
@@ -105,6 +115,19 @@ namespace BitSorter.Sim
 
                     _builder = new NetlistBuilder(root.Name);
                     Scope scope = ElaborateModule(root, root.Name, new Dictionary<string, Expression>(), null, root.Location, isTop: true, depth: 0);
+
+                    // Last, so every continuous driver is in when the builder checks what each writes.
+                    foreach (ProcessInfo process in _allProcesses)
+                    {
+                        try
+                        {
+                            _builder.Process(process);
+                        }
+                        catch (InvalidOperationException ex)
+                        {
+                            Error(_processAt[process], ElaborationCodes.Drivers, ex.Message);
+                        }
+                    }
 
                     if (scope != null)
                     {
@@ -290,6 +313,10 @@ namespace BitSorter.Sim
                 }
 
                 _active.Add(module.Name);
+                List<ProcessInfo> outerOwn = _ownProcesses, outerChildren = _childProcesses;
+                _ownProcesses = new List<ProcessInfo>();
+                _childProcesses = new List<ProcessInfo>();
+
                 try
                 {
                     var scope = new Scope(path, _unit, module);
@@ -342,6 +369,13 @@ namespace BitSorter.Sim
                 finally
                 {
                     _active.Remove(module.Name);
+
+                    // An instance's processes start before its parent's own, as Icarus starts them.
+                    List<ProcessInfo> ordered = _childProcesses;
+                    ordered.AddRange(_ownProcesses);
+                    _ownProcesses = outerOwn;
+                    _childProcesses = outerChildren;
+                    (outerChildren ?? _allProcesses).AddRange(ordered);
                 }
             }
 
@@ -642,7 +676,8 @@ namespace BitSorter.Sim
             // Signals
             // -----------------------------------------------------------------
 
-            private SignalEntry DeclareSignal(Scope scope, string name, SourceLocation at, Shape shape, SignalKind kind, PortDirection? port)
+            private SignalEntry DeclareSignal(Scope scope, string name, SourceLocation at, Shape shape, SignalKind kind, PortDirection? port,
+                LogicVec? initial = null, bool local = false)
             {
                 if (scope.Own(name) != null)
                 {
@@ -650,13 +685,14 @@ namespace BitSorter.Sim
                     return null;
                 }
 
-                string fullName = scope.Path + "." + name;
+                string fullName = local ? $"{scope.Path}.{name}#{++_unnamed}" : scope.Path + "." + name;
                 SignalId id;
 
                 try
                 {
-                    id = kind == SignalKind.Net
-                        ? _builder.Net(fullName, shape.Width, shape.Signed)
+                    id = kind == SignalKind.Net ? _builder.Net(fullName, shape.Width, shape.Signed)
+                        : local ? _builder.Local(fullName, shape.Width, shape.Signed, initial)
+                        : initial.HasValue ? _builder.Variable(fullName, shape.Width, shape.Signed, initial.Value)
                         : _builder.Variable(fullName, shape.Width, shape.Signed);
                 }
                 catch (ArgumentException ex)
@@ -802,14 +838,15 @@ namespace BitSorter.Sim
                         continue;
                     }
 
+                    LogicVec? initial = null;
                     if (declarator.Initializer != null && kind == SignalKind.Variable)
                     {
-                        NotYet(declarator.Location,
-                            $"Giving the variable {declarator.Name} a starting value arrives with initial blocks, in Part 5; declare it as a wire to assign it continuously.");
-                        continue;
+                        if (!TryStartingValue(scope, declarator, shape, out LogicVec value))
+                            continue;
+                        initial = value;
                     }
 
-                    DeclareSignal(scope, declarator.Name, declarator.Location, shape, kind, null);
+                    DeclareSignal(scope, declarator.Name, declarator.Location, shape, kind, null, initial);
                 }
             }
 
@@ -942,8 +979,15 @@ namespace BitSorter.Sim
                         }
 
                         case ProceduralBlock process:
-                            NotYet(process.Location, $"{ProcessName(process.Kind)} blocks arrive with behavioural code, in Part 5.");
+                        {
+                            ProcessInfo compiled = CompileProcess(scope, process);
+                            if (compiled != null)
+                            {
+                                _ownProcesses.Add(compiled);
+                                _processAt[compiled] = process.Location;
+                            }
                             break;
+                        }
 
                         case SubroutineDeclaration s:
                             NotYet(s.Location, $"The {(s.IsTask ? "task" : "function")} {s.Name} arrives with behavioural code, in Part 5.");
