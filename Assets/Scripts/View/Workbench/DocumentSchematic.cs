@@ -178,7 +178,13 @@ namespace BitSorter.View
                 foreach (BoardPoint junction in net.Junctions)
                     junctions.Add(frame.ToStage(junction));
 
-                nets.Add(new NetLayout(net.Net.Name, signal, aliases, net.Net.Width, junctions, branches));
+                var loads = new List<string>();
+                foreach (NetBranch branch in net.Branches)
+                    loads.Add(Describe(module, branch.Load));
+                string name = net.Net.Width > 1 ? net.Net.Name + "[" + (net.Net.Width - 1).ToString(CultureInfo.InvariantCulture) + ":0]" : net.Net.Name;
+                string says = name + "   from " + Describe(module, net.Source) + " to " + string.Join(", ", loads);
+
+                nets.Add(new NetLayout(net.Net.Name, signal, aliases, net.Net.Width, junctions, branches, says));
             }
 
             // A row per port, in the order they stand on the board: top to bottom, then left to
@@ -196,6 +202,15 @@ namespace BitSorter.View
                 rows.Add(new WaveRow(Label(port), path + "." + port.Name));
 
             return new SchematicLayout(size, nets, parts, ports, rows);
+        }
+
+        /// <summary>A pin as hovering names it: <c>input a</c> for a port, <c>g1.y (NOT)</c> for a part's.</summary>
+        private static string Describe(Module module, PinRef pin)
+        {
+            Part part = module.FindPart(pin.Part);
+            if (part is PortPart port)
+                return (port.Direction == PortDirection.Output ? "output " : "input ") + port.Name;
+            return part.Name + "." + pin.Pin + " (" + NameOf(part) + ")";
         }
 
         /// <summary>Whether a gate prints as one of BitSorter's cells, as <see cref="BoardCompiler"/> decides.</summary>

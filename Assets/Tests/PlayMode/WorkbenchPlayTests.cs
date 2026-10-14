@@ -185,6 +185,34 @@ namespace BitSorter.PlayMode.Tests
         }
 
         [UnityTest]
+        public IEnumerator PointingAtAWire_LightsItsNet_AndSaysWhatDrivesIt()
+        {
+            yield return TestScene.Load();
+            yield return OpenTheWorkbench();
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.Pause();
+            int notA = workbench.Model.Layout.NetNamed("na");
+            Route wire = workbench.Model.Layout.Nets[notA].Branches[0];
+
+            var mouse = InputSystem.GetDevice<Mouse>();
+            mouse.MakeCurrent();
+            Move(mouse.position, workbench.ScreenPointOf(wire.PointAt(wire.Length * 0.5f)));
+            yield return null;
+            yield return null;
+
+            Assert.AreEqual(notA, workbench.HoveredNet, "the pointer on NOT A's wire did not light it");
+            Assert.AreEqual(workbench.Model.Layout.Nets[notA].Says, workbench.HoverText, "the chip should say what drives it and what reads it");
+
+            Move(mouse.position, new Vector2(4f, 4f));
+            yield return null;
+            yield return null;
+
+            Assert.AreEqual(-1, workbench.HoveredNet, "nothing should stay lit with the pointer off the circuit");
+            Assert.IsNull(workbench.HoverText);
+        }
+
+        [UnityTest]
         public IEnumerator TheWheel_ZoomsAboutTheCursor_ADragMovesTheCircuit_AndFitPutsItBack()
         {
             yield return TestScene.Load();

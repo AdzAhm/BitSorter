@@ -25,6 +25,9 @@ namespace BitSorter.View
         /// <summary>The run and the moment it is showing.</summary>
         public WorkbenchModel Model { get; set; }
 
+        /// <summary>The net the pointer is on, lit; -1 for none. The wires layer's alone.</summary>
+        public int Highlighted { get; set; } = -1;
+
         private readonly VectorPainter _painter = new VectorPainter();
 
         /// <summary>The colour each net was last drawn in, by its index in the layout.</summary>
@@ -76,7 +79,7 @@ namespace BitSorter.View
                 case Layer.Wires:
                     if (_drawn.Length != Model.Layout.Nets.Count)
                         _drawn = new Color[Model.Layout.Nets.Count];
-                    WorkbenchDrawing.Wires(_painter, Model, palette, _drawn);
+                    WorkbenchDrawing.Wires(_painter, Model, palette, _drawn, Highlighted);
                     break;
 
                 case Layer.Parts:

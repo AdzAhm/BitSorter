@@ -851,6 +851,32 @@ namespace BitSorter.PlayMode.Tests
             yield return Capture("28-workbench-zoomed");
         }
 
+        /// <summary>The same moment with the pointer on NOT B's wire: the whole net lit, and the chip saying what drives it and what reads it.</summary>
+        [UnityTest]
+        public IEnumerator Shot29_WorkbenchHover()
+        {
+            yield return LoadTheGame();
+            yield return Frames(2);
+
+            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            yield return Frames(2);
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.Pause();
+            workbench.Seek(13.5);
+
+            int notB = workbench.Model.Layout.NetNamed("nb");
+            Route wire = workbench.Model.Layout.Nets[notB].Branches[0];
+            Mouse mouse = InputSystem.GetDevice<Mouse>();
+            mouse.MakeCurrent();
+            Set(mouse.position, workbench.ScreenPointOf(wire.PointAt(wire.Length * 0.3f)));
+            yield return Frames(30);
+
+            Assert.AreEqual(notB, workbench.HoveredNet, "sanity: the pointer should be on NOT B's wire");
+
+            yield return Capture("29-workbench-hover");
+        }
+
         private static IEnumerator OpensOnItsCircuit(string level, string fixture, string shot)
         {
             yield return LoadTheGame();

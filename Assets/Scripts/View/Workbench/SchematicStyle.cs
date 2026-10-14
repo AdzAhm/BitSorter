@@ -24,6 +24,18 @@ namespace BitSorter.View
         /// <summary>The glow the canvas is drawn with now: the current look's, or none at all when motion is reduced.</summary>
         public static float Glow => ReducedMotion.IsOn ? 0f : Look.Current.CanvasGlow;
 
+        /// <summary>A net pointed at: a soft band of its own colour under every wire of it, this wide, this soft, this strong.</summary>
+        public const float HoverWidth = 9f;
+
+        /// <inheritdoc cref="HoverWidth"/>
+        public const float HoverBlur = 7f;
+
+        /// <inheritdoc cref="HoverWidth"/>
+        public const float HoverStrength = 0.4f;
+
+        /// <summary>How near a wire the pointer has to be, in screen-sized stage units, for the wire to count as pointed at.</summary>
+        public const float HoverReach = 8f;
+
         /// <summary>How far into its flash a gate is drawn, given how far it is: not at all when motion is reduced.</summary>
         public static float Flash(float flash) => ReducedMotion.IsOn ? 0f : flash;
 

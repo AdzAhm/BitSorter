@@ -112,7 +112,7 @@ namespace BitSorter.View
         // -----------------------------------------------------------------
 
         /// <summary>Draws every wire in the value it holds, then every change travelling, and records each wire's colour.</summary>
-        public static void Wires(VectorPainter painter, WorkbenchModel model, SchematicPalette palette, Color[] drawn)
+        public static void Wires(VectorPainter painter, WorkbenchModel model, SchematicPalette palette, Color[] drawn, int highlighted = -1)
         {
             SchematicLayout layout = model.Layout;
 
@@ -122,6 +122,15 @@ namespace BitSorter.View
                 LogicVec value = model.NetValue(i);
                 Color colour = palette.Of(value);
                 drawn[i] = colour;
+
+                // The net pointed at: a soft band of its own colour under every wire of it, so the
+                // whole of it reads as one thing, from its driver to every load.
+                if (i == highlighted)
+                {
+                    Color lit = palette.Over(colour, SchematicStyle.HoverStrength);
+                    foreach (Route branch in net.Branches)
+                        painter.Glow(branch, 0f, branch.Length, SchematicStyle.HoverWidth, SchematicStyle.HoverBlur, lit);
+                }
 
                 foreach (Route branch in net.Branches)
                     Wire(painter, branch, 0f, branch.Length, net.Width, value, colour, palette, 1f);

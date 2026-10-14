@@ -15,8 +15,10 @@ namespace BitSorter.View
     /// <summary>A net as the schematic draws it: its branches from its driver to each load, and where its wires meet.</summary>
     public sealed class NetLayout
     {
-        public NetLayout(string name, string signal, IReadOnlyList<string> aliases, int width, IReadOnlyList<Vector2> junctions, IReadOnlyList<Route> branches)
+        public NetLayout(string name, string signal, IReadOnlyList<string> aliases, int width, IReadOnlyList<Vector2> junctions, IReadOnlyList<Route> branches,
+            string says)
         {
+            Says = says;
             Name = name;
             Signal = signal;
             Aliases = aliases;
@@ -45,6 +47,9 @@ namespace BitSorter.View
 
         /// <summary>Each branch from the driver to one load. A change travels down all of them at once.</summary>
         public IReadOnlyList<Route> Branches { get; }
+
+        /// <summary>What pointing at it says: its name, what drives it and what reads it. Written once, so hovering formats nothing.</summary>
+        public string Says { get; }
     }
 
     /// <summary>A part as the schematic draws it: its symbol, where it stands, and what is written beside it.</summary>
@@ -181,6 +186,41 @@ namespace BitSorter.View
         public IReadOnlyList<WaveRow> Rows { get; }
 
         /// <summary>The net of this name, by its index; -1 when there is none drawn.</summary>
+        /// <summary>
+        /// The net with a wire within <paramref name="within"/> of <paramref name="point"/> (stage
+        /// units, y down), the nearest if several are, or -1.
+        /// </summary>
+        public int NetAt(Vector2 point, float within)
+        {
+            int best = -1;
+            float bestSquared = within * within;
+
+            for (int n = 0; n < Nets.Count; n++)
+            {
+                foreach (Route branch in Nets[n].Branches)
+                {
+                    for (int i = 1; i < branch.PointCount; i++)
+                    {
+                        float squared = SquaredDistance(point, branch.Point(i - 1), branch.Point(i));
+                        if (squared <= bestSquared)
+                        {
+                            bestSquared = squared;
+                            best = n;
+                        }
+                    }
+                }
+            }
+
+            return best;
+        }
+
+        private static float SquaredDistance(Vector2 p, Vector2 a, Vector2 b)
+        {
+            Vector2 ab = b - a;
+            float along = ab.sqrMagnitude > 1e-8f ? Mathf.Clamp01(Vector2.Dot(p - a, ab) / ab.sqrMagnitude) : 0f;
+            return (a + ab * along - p).sqrMagnitude;
+        }
+
         public int NetNamed(string name)
         {
             for (int i = 0; i < Nets.Count; i++)

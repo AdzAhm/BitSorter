@@ -310,6 +310,32 @@ namespace BitSorter.LogicCore.Tests
 
         // Every look's canvas colours answer the brief in LookBriefTests, which holds them all.
 
+        // -----------------------------------------------------------------
+        // Pointing at a wire
+        // -----------------------------------------------------------------
+
+        [Test]
+        public void PointingAtAWire_FindsItsNet_AndNothingAwayFromEveryWire()
+        {
+            SchematicLayout layout = Shared.Layout;
+            Route wire = layout.Nets[NotA].Branches[0];
+
+            Assert.AreEqual(NotA, layout.NetAt(wire.PointAt(wire.Length * 0.5f) + new Vector2(0f, 3f), 8f), "beside NOT A's wire");
+            Assert.AreEqual(-1, layout.NetAt(new Vector2(-500f, -500f), 8f), "far from every wire");
+        }
+
+        [Test]
+        public void ANetPointedAt_SaysWhatDrivesIt_AndWhatReadsIt()
+        {
+            string notA = Shared.Layout.Nets[NotA].Says;
+            StringAssert.StartsWith("na ", notA);
+            StringAssert.Contains(".y (NOT)", notA, "driven by the NOT's output");
+            StringAssert.Contains(".b (AND)", notA, "read by the AND's second input");
+
+            StringAssert.Contains("from input a to ", Shared.Layout.Nets[A].Says);
+            StringAssert.StartsWith("s[3:0] ", Shared.Layout.Nets[Shared.Layout.NetNamed("s")].Says, "a bus is named with its width");
+        }
+
         [Test]
         public void AFaintColour_TakesLessAlphaInLinearSpace_ThanABrowserWould()
         {

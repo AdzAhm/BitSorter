@@ -24,6 +24,9 @@ namespace BitSorter.View
     /// while it is anything but whole -- puts it back. Its window clips it, so a zoomed circuit never
     /// runs over the waveform or the card's edge.
     ///
+    /// **A wire pointed at lights its whole net** and a chip beside the pointer says what drives
+    /// it and what reads it (<see cref="NetLayout.Says"/>).
+    ///
     /// **The run is made once, to its end, when the panel first opens**; playing, replaying and
     /// dragging the slider back are the model answering for another moment (ADR-6). Nothing
     /// re-runs, which is why rewinding is free.
@@ -135,6 +138,9 @@ namespace BitSorter.View
         private Button _fit;
 
         private SchematicView _viewState;
+        private Image _hoverChip;
+        private TextMeshProUGUI _hoverLabel;
+        private int _hovered = -1;
         private bool _dragging, _wasHeld;
         private Vector2 _dragFrom;
         private TextMeshProUGUI _timeLabel, _chipLabel, _playLabel, _playheadLabel;
@@ -171,6 +177,12 @@ namespace BitSorter.View
 
         /// <summary>The run being shown; null until the panel has first opened.</summary>
         public WorkbenchModel Model => _model;
+
+        /// <summary>The net the pointer is on, or -1.</summary>
+        public int HoveredNet => _hovered;
+
+        /// <summary>What the chip beside the pointer says, or null when it is not up.</summary>
+        public string HoverText => _hoverChip != null && _hoverChip.gameObject.activeSelf ? _hoverLabel.text : null;
 
         /// <summary>How far the circuit is zoomed in: 1 is the whole of it.</summary>
         public float Zoom => _viewState != null ? _viewState.Zoom : 1f;
@@ -284,6 +296,42 @@ namespace BitSorter.View
                 ApplyView();
         }
 
+        /// <summary>
+        /// Lights the net under the pointer and puts the chip naming it beside the pointer; none while
+        /// the circuit is being dragged, or with the pointer off it.
+        /// </summary>
+        private void Hover(Vector2 screenPoint)
+        {
+            int net = -1;
+            if (!_dragging && InView(screenPoint, out Vector2 inView) &&
+                RectTransformUtility.ScreenPointToLocalPointInRectangle(_schematic, screenPoint, null, out Vector2 local))
+            {
+                net = _model.Layout.NetAt(new Vector2(local.x, -local.y), SchematicStyle.HoverReach / _viewState.Zoom);
+
+                if (net >= 0)
+                {
+                    // Below and right of the pointer, kept inside the window.
+                    RectTransform chip = _hoverChip.rectTransform;
+                    float x = Mathf.Min(inView.x + 14f, ViewSize.x - chip.sizeDelta.x - 4f);
+                    chip.anchoredPosition = new Vector2(Mathf.Max(4f, x), -(inView.y + 18f));
+                }
+            }
+
+            if (net == _hovered)
+                return;
+
+            _hovered = net;
+            _wires.Highlighted = net;
+            _wires.SetVerticesDirty();
+
+            Show(_hoverChip, net >= 0);
+            if (net >= 0)
+            {
+                _hoverLabel.text = _model.Layout.Nets[net].Says;
+                _hoverChip.rectTransform.sizeDelta = new Vector2(_hoverLabel.preferredWidth + 20f, 26f);
+            }
+        }
+
         /// <summary>Where a point on the screen is in the circuit's window, y down; true when it is inside it.</summary>
         private bool InView(Vector2 screenPoint, out Vector2 at)
         {
@@ -369,6 +417,7 @@ namespace BitSorter.View
                 Vector2 pointer = mouse.position.ReadValue();
                 TakeWheel(pointer, mouse.scroll.ReadValue());
                 TakeDrag(pointer, mouse.leftButton.isPressed || mouse.middleButton.isPressed || mouse.rightButton.isPressed);
+                Hover(pointer);
             }
 
             if (_playing)
@@ -519,6 +568,14 @@ namespace BitSorter.View
             TopRight(_fit.GetComponent<RectTransform>(), new Vector2(-8f, 8f), new Vector2(72f, 32f));
             _fit.onClick.AddListener(() => { FitView(); UiTheme.Defocus(); });
             Show(_fit, false);
+
+            // The chip that names the net under the pointer, over everything else in the window.
+            _hoverChip = CanvasChip("hover", _view, palette);
+            TopLeft(_hoverChip.rectTransform, Vector2.zero, new Vector2(200f, 26f));
+            _hoverChip.raycastTarget = false;
+            _hoverLabel = UiTheme.Label("text", _hoverChip.transform, UiType.Caption, palette.Text, TextAlignmentOptions.MidlineLeft);
+            UiTheme.Stretch(_hoverLabel.rectTransform, 10f);
+            Show(_hoverChip, false);
 
             float waveHeight = WorkbenchDrawing.WaveHeight(layout.Rows.Count);
             _waveform = UiTheme.Rect("waveform", _stage);
