@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using BitSorter.Board;
 using BitSorter.SystemVerilog;
 using UnityEngine;
 
@@ -19,14 +21,11 @@ namespace BitSorter.View
         // The waveform's geometry, shared with the panel's labels
         // -----------------------------------------------------------------
 
-        /// <summary>The waveform's width, and where its time axis runs from and to.</summary>
-        public const float WaveWidth = 750f;
-
-        /// <inheritdoc cref="WaveWidth"/>
+        /// <summary>Where the time axis starts, past the rows' names and values.</summary>
         public const float WaveLeft = 132f;
 
-        /// <inheritdoc cref="WaveWidth"/>
-        public const float WaveRight = 742f;
+        /// <summary>Where the time axis ends, in a waveform <paramref name="width"/> wide.</summary>
+        public static float WaveRight(float width) => width - 8f;
 
         /// <summary>Where the first row's top is, under the tick numbers, and how tall a row is.</summary>
         public const float WaveTop = 30f;
@@ -47,8 +46,11 @@ namespace BitSorter.View
         public static float WaveHeight(int rows) => WaveTop + rows * RowHeight + 22f;
 
         /// <summary>Where a moment sits on the time axis.</summary>
-        public static float WaveX(double time, long end) =>
-            WaveLeft + (WaveRight - WaveLeft) * (float)(time / end);
+        public static float WaveX(double time, long end, float width) =>
+            WaveLeft + (WaveRight(width) - WaveLeft) * (float)(time / end);
+
+        /// <summary>How far apart the time axis's ticks are: about a dozen across the run, whatever its length.</summary>
+        public static long TickEvery(long end) => System.Math.Max(1, (end + 12) / 13);
 
         /// <summary>The middle of a row.</summary>
         public static float RowMiddle(int row) => WaveTop + RowHeight * 0.5f + row * RowHeight;
@@ -124,8 +126,8 @@ namespace BitSorter.View
                 foreach (Route branch in net.Branches)
                     Wire(painter, branch, 0f, branch.Length, net.Width, value, colour, palette, 1f);
 
-                if (net.Junction.HasValue)
-                    painter.Disc(net.Junction.Value, SchematicStyle.JunctionRadius, colour);
+                foreach (Vector2 junction in net.Junctions)
+                    painter.Disc(junction, SchematicStyle.JunctionRadius, colour);
 
                 // A bus's width, as a schematic marks one: a short slash across it.
                 if (net.Width > 1)
@@ -250,31 +252,68 @@ namespace BitSorter.View
         // Parts
         // -----------------------------------------------------------------
 
-        /// <summary>Draws every gate, flashing as its output flips, and every port box.</summary>
+        /// <summary>Draws every part as its symbol, flashing as its output flips, and every port box.</summary>
+        /// <remarks>
+        /// A symbol is written in the part's own cells, centred and facing right, and every point goes
+        /// through <see cref="PartLayout.ToStage"/> -- so a part turned or mirrored on the board is drawn
+        /// turned or mirrored, by the same arithmetic that put its pins where its wires end.
+        /// </remarks>
         public static void Parts(VectorPainter painter, WorkbenchModel model, SchematicPalette palette)
         {
             SchematicLayout layout = model.Layout;
             float k = SchematicStyle.GlowStrength;
 
-            for (int i = 0; i < layout.Gates.Count; i++)
+            for (int i = 0; i < layout.Parts.Count; i++)
             {
-                GateLayout gate = layout.Gates[i];
+                PartLayout part = layout.Parts[i];
                 float flash = model.GateFlash(i, out LogicVec value);
                 Color stroke = flash > 0f ? palette.Of(value) : palette.Outline;
                 float width = SchematicStyle.OutlineWidth + flash * SchematicStyle.FlashExtraWidth;
                 bool tinted = flash > 0f && k > 0f;
 
-                Symbol(Shape, gate);
-                painter.Fill(Shape, palette.Ground);
-                if (tinted)
+                Leads(painter, part, palette.Outline);
+
+                if (part.Symbol == PartSymbol.Splitter || part.Symbol == PartSymbol.Joiner)
+                {
+                    double bar = part.Local.Top - 0.1;
+                    painter.Line(part.ToStage(0, bar), part.ToStage(0, -bar), 4f, stroke, roundCaps: true);
+                    continue;
+                }
+
+                Body(Shape, part);
+                Color fill = part.Symbol == PartSymbol.Lamp ? palette.Of(model.PartValue(i)) : palette.Ground;
+                painter.Fill(Shape, fill);
+                if (tinted && part.Symbol != PartSymbol.Lamp)
                     painter.Fill(Shape, palette.Over(stroke, SchematicStyle.FlashTint * k * flash));
                 painter.Outline(Shape, width, stroke);
                 if (tinted)
                     painter.Outline(Shape, SchematicStyle.OutlineWidth, WithAlpha(palette.Outline, 1f - flash));
 
-                if (gate.Shape == PartShape.Not)
+                // The XOR family's second back curve, a little behind the first.
+                if (part.Symbol == PartSymbol.Xor || part.Symbol == PartSymbol.Xnor)
                 {
-                    Vector2 bubble = gate.At + new Vector2(38f, 0f);
+                    double half = PartGeometry.Half(part.Local.Pins.Count - 1);
+                    Vector2 previous = part.ToStage(BackX(-0.62, -half, half), -half);
+                    for (int s = 1; s <= 12; s++)
+                    {
+                        double v = -half + 2 * half * s / 12.0;
+                        Vector2 next = part.ToStage(BackX(-0.62, v, half), v);
+                        painter.Line(previous, next, width, stroke, roundCaps: true);
+                        previous = next;
+                    }
+                }
+
+                if (part.Symbol == PartSymbol.Register)
+                {
+                    // The clock's wedge on the left edge, at clk's height.
+                    Vector2 top = part.ToStage(-0.6, -0.1), point = part.ToStage(-0.42, -0.25), bottom = part.ToStage(-0.6, -0.4);
+                    painter.Line(top, point, width, stroke, roundCaps: true);
+                    painter.Line(point, bottom, width, stroke, roundCaps: true);
+                }
+
+                if (Inverts(part.Symbol))
+                {
+                    Vector2 bubble = part.ToStage(Tip(part.Symbol) + Bubble(part), 0);
                     VectorPainter.Circle(Shape, bubble, SchematicStyle.BubbleRadius, 24);
                     painter.Fill(Shape, palette.Ground);
                     painter.Outline(Shape, width, stroke);
@@ -283,44 +322,191 @@ namespace BitSorter.View
 
             foreach (PortLayout port in layout.Ports)
             {
-                VectorPainter.RoundedRect(Shape, port.At.x, port.At.y - SchematicStyle.PortHeight * 0.5f,
-                    port.Width, SchematicStyle.PortHeight, SchematicStyle.PortCorner);
+                VectorPainter.RoundedRect(Shape, port.Box.x, port.Box.y, port.Box.width, port.Box.height, SchematicStyle.PortCorner);
                 painter.Fill(Shape, palette.Ground);
                 painter.Outline(Shape, SchematicStyle.OutlineWidth, palette.Outline);
             }
         }
 
-        /// <summary>A gate's outline, as the textbook draws its kind.</summary>
-        private static void Symbol(List<Vector2> into, GateLayout gate)
+        private static bool Inverts(PartSymbol symbol) =>
+            symbol == PartSymbol.Not || symbol == PartSymbol.Nand || symbol == PartSymbol.Nor ||
+            symbol == PartSymbol.Xnor || symbol == PartSymbol.TriInverter;
+
+        private static bool Shield(PartSymbol symbol) =>
+            symbol == PartSymbol.Or || symbol == PartSymbol.Nor || symbol == PartSymbol.Xor || symbol == PartSymbol.Xnor;
+
+        /// <summary>Where a gate's body ends at the front, in cells: a bubble, if any, sits just past it.</summary>
+        private static double Tip(PartSymbol symbol) =>
+            symbol == PartSymbol.Not || symbol == PartSymbol.Buffer || symbol == PartSymbol.TriBuffer || symbol == PartSymbol.TriInverter
+                ? 0.25 : 0.5;
+
+        /// <summary>How far past the tip a bubble's middle is, in cells.</summary>
+        private static double Bubble(PartLayout part) => SchematicStyle.BubbleRadius / part.Cell;
+
+        /// <summary>The OR family's hollow back, <paramref name="at"/> cells from the middle at its ends, bowed in by a seventh of a cell.</summary>
+        private static double BackX(double at, double v, double half) => at + 0.15 * (1 - (v * v) / (half * half));
+
+        /// <summary>
+        /// The short lead of each pin nothing is wired to, from the pin to the body. A wired pin's lead
+        /// is the end of its wire (<see cref="DocumentSchematic"/> runs every wire on to the body), so
+        /// it is drawn in the value the wire holds rather than as a grey stub the wire stops short of.
+        /// </summary>
+        private static void Leads(VectorPainter painter, PartLayout part, Color colour)
+        {
+            foreach (PinSpot pin in part.Local.Pins)
+            {
+                if (part.IsWired(pin.Pin))
+                    continue;
+                (double x, double y) = LeadEnd(part, pin);
+                if (Math.Abs(x - pin.At.X) + Math.Abs(y - pin.At.Y) < 1e-6)
+                    continue;
+                painter.Line(part.ToStage(pin.At.X, pin.At.Y), part.ToStage(x, y), SchematicStyle.OutlineWidth, colour);
+            }
+        }
+
+        /// <summary>Where a pin's lead meets the body, in the part's own cells: where its symbol's outline is, which is this drawing's to say.</summary>
+        internal static (double X, double Y) LeadEnd(PartLayout part, PinSpot pin)
+        {
+            double x = pin.At.X, y = pin.At.Y;
+            bool left = pin.Facing == Facing.Left, down = pin.Facing == Facing.Down;
+
+            switch (part.Symbol)
+            {
+                case PartSymbol.Register:
+                    return down ? (x, -0.75) : (left ? -0.6 : 0.6, y);
+
+                case PartSymbol.Mux:
+                {
+                    double half = PartGeometry.Half(part.Local.Pins.Count - 2) + 0.25;
+                    return down ? (x, -(half - 0.15)) : (left ? -0.5 : 0.5, y);
+                }
+
+                case PartSymbol.Constant:
+                    return (x, y);
+
+                case PartSymbol.Splitter:
+                case PartSymbol.Joiner:
+                    return (0, y);
+
+                case PartSymbol.Lamp:
+                    return (-0.3, y);
+
+                case PartSymbol.Block:
+                    return (left ? -1.25 : 1.25, y);
+
+                case PartSymbol.TriBuffer:
+                case PartSymbol.TriInverter:
+                    // The control meets the triangle's lower edge where it crosses the middle.
+                    if (down)
+                        return (x, -0.32 + 0.32 * (x + 0.5) / (Tip(part.Symbol) + 0.5));
+                    return left ? (-0.5, y) : (Tip(part.Symbol) + (Inverts(part.Symbol) ? 2 * Bubble(part) : 0), y);
+
+                default:
+                    if (left)
+                        return (Shield(part.Symbol) ? BackX(-0.5, y, PartGeometry.Half(part.Local.Pins.Count - 1)) : -0.5, y);
+                    return (Tip(part.Symbol) + (Inverts(part.Symbol) ? 2 * Bubble(part) : 0), y);
+            }
+        }
+
+        /// <summary>A part's outline, as the textbook draws its kind, into <paramref name="into"/> on the stage.</summary>
+        private static void Body(List<Vector2> into, PartLayout part)
         {
             into.Clear();
-            float x = gate.At.x, y = gate.At.y;
+            double half = PartGeometry.Half(part.Local.Pins.Count - 1);
 
-            switch (gate.Shape)
+            switch (part.Symbol)
             {
-                case PartShape.And:
+                case PartSymbol.And:
+                case PartSymbol.Nand:
                     // The D: a flat back, straight top and bottom, a round front.
-                    into.Add(new Vector2(x, y - 24f));
+                    into.Add(part.ToStage(-0.5, half));
                     for (int i = 0; i <= 16; i++)
                     {
-                        float angle = (-90f + 180f * i / 16f) * Mathf.Deg2Rad;
-                        into.Add(new Vector2(x + 22f + Mathf.Cos(angle) * 24f, y + Mathf.Sin(angle) * 24f));
+                        double angle = Math.PI / 2 - Math.PI * i / 16;
+                        into.Add(part.ToStage(0.5 * Math.Cos(angle), half * Math.Sin(angle)));
                     }
-                    into.Add(new Vector2(x, y + 24f));
+                    into.Add(part.ToStage(-0.5, -half));
                     break;
 
-                case PartShape.Not:
-                    into.Add(new Vector2(x, y - 15f));
-                    into.Add(new Vector2(x + 32f, y));
-                    into.Add(new Vector2(x, y + 15f));
+                case PartSymbol.Or:
+                case PartSymbol.Nor:
+                case PartSymbol.Xor:
+                case PartSymbol.Xnor:
+                    // The shield: two curves from the back corners to a point at the front, and a hollow back.
+                    for (int i = 0; i <= 12; i++)
+                    {
+                        double u = i / 12.0;
+                        into.Add(part.ToStage(-0.5 + u, half * (1 - u * u)));
+                    }
+                    for (int i = 11; i >= 0; i--)
+                    {
+                        double u = i / 12.0;
+                        into.Add(part.ToStage(-0.5 + u, -half * (1 - u * u)));
+                    }
+                    for (int i = 1; i < 12; i++)
+                    {
+                        double v = -half + 2 * half * i / 12.0;
+                        into.Add(part.ToStage(BackX(-0.5, v, half), v));
+                    }
+                    break;
+
+                case PartSymbol.Not:
+                case PartSymbol.Buffer:
+                case PartSymbol.TriBuffer:
+                case PartSymbol.TriInverter:
+                    into.Add(part.ToStage(-0.5, 0.32));
+                    into.Add(part.ToStage(Tip(part.Symbol), 0));
+                    into.Add(part.ToStage(-0.5, -0.32));
+                    break;
+
+                case PartSymbol.Mux:
+                {
+                    double tall = PartGeometry.Half(part.Local.Pins.Count - 2) + 0.25;
+                    into.Add(part.ToStage(-0.5, tall));
+                    into.Add(part.ToStage(0.5, tall - 0.3));
+                    into.Add(part.ToStage(0.5, -(tall - 0.3)));
+                    into.Add(part.ToStage(-0.5, -tall));
+                    break;
+                }
+
+                case PartSymbol.Register:
+                    Box(into, part, -0.6, -0.75, 0.6, 0.75, 0.06);
+                    break;
+
+                case PartSymbol.Constant:
+                    Box(into, part, part.Local.Left, -0.3, 0.5, 0.3, 0.12);
+                    break;
+
+                case PartSymbol.Lamp:
+                    for (int i = 0; i < 24; i++)
+                    {
+                        double angle = Math.PI * 2 * i / 24;
+                        into.Add(part.ToStage(0.3 * Math.Cos(angle), 0.3 * Math.Sin(angle)));
+                    }
                     break;
 
                 default:
-                    into.Add(new Vector2(x, y - 16f));
-                    into.Add(new Vector2(x + 32f, y));
-                    into.Add(new Vector2(x, y + 16f));
+                    Box(into, part, -1.25, part.Local.Bottom, 1.25, part.Local.Top, 0.12);
                     break;
             }
+        }
+
+        /// <summary>A box with rounded corners, in the part's own cells, so it turns with the part.</summary>
+        private static void Box(List<Vector2> into, PartLayout part, double x0, double y0, double x1, double y1, double corner)
+        {
+            void Arc(double cx, double cy, double start)
+            {
+                for (int i = 0; i <= 4; i++)
+                {
+                    double angle = (start + 90.0 * i / 4) * Math.PI / 180;
+                    into.Add(part.ToStage(cx + corner * Math.Cos(angle), cy + corner * Math.Sin(angle)));
+                }
+            }
+
+            Arc(x1 - corner, y1 - corner, 0);
+            Arc(x0 + corner, y1 - corner, 90);
+            Arc(x0 + corner, y0 + corner, 180);
+            Arc(x1 - corner, y0 + corner, 270);
         }
 
         // -----------------------------------------------------------------
@@ -328,15 +514,15 @@ namespace BitSorter.View
         // -----------------------------------------------------------------
 
         /// <summary>The time grid, each row's waveform in its values' colours, the swallowed glitches and the playhead.</summary>
-        public static void Timing(VectorPainter painter, WorkbenchModel model, SchematicPalette palette)
+        public static void Timing(VectorPainter painter, WorkbenchModel model, SchematicPalette palette, float width)
         {
             int rows = model.Layout.Rows.Count;
             float bottom = WaveHeight(rows) - 6f;
             long end = model.End;
 
-            for (long t = 0; t <= end; t += 2)
+            for (long t = 0; t <= end; t += TickEvery(end))
             {
-                float x = WaveX(t, end);
+                float x = WaveX(t, end, width);
                 painter.Line(new Vector2(x, WaveTop - 4f), new Vector2(x, bottom), 1f, palette.Grid);
             }
 
@@ -346,26 +532,26 @@ namespace BitSorter.View
                 model.RowSegments(row, Segments);
 
                 if (model.RowIsBus(row))
-                    BusRow(painter, palette, end, middle, high, low);
+                    BusRow(painter, palette, end, width, middle, high, low);
                 else
-                    BitRow(painter, palette, end, middle, high, low);
+                    BitRow(painter, palette, end, width, middle, high, low);
 
                 model.RowSwallowed(row, Swallowed);
                 foreach (double at in Swallowed)
-                    painter.Cross(new Vector2(WaveX(at, end), middle), 4f, 1.6f, palette.Unknown);
+                    painter.Cross(new Vector2(WaveX(at, end, width), middle), 4f, 1.6f, palette.Unknown);
             }
 
-            float now = WaveX(model.Time, end);
+            float now = WaveX(model.Time, end, width);
             painter.Line(new Vector2(now, WaveTop - 2f), new Vector2(now, bottom), 1.3f, palette.Playhead);
         }
 
-        private static void BitRow(VectorPainter painter, SchematicPalette palette, long end, float middle, float high, float low)
+        private static void BitRow(VectorPainter painter, SchematicPalette palette, long end, float width, float middle, float high, float low)
         {
             float? previous = null;
 
             foreach (WaveSegment segment in Segments)
             {
-                float x0 = WaveX(segment.From, end), x1 = WaveX(segment.To, end);
+                float x0 = WaveX(segment.From, end, width), x1 = WaveX(segment.To, end, width);
 
                 switch (segment.Value[0])
                 {
@@ -395,11 +581,11 @@ namespace BitSorter.View
             }
         }
 
-        private static void BusRow(VectorPainter painter, SchematicPalette palette, long end, float middle, float high, float low)
+        private static void BusRow(VectorPainter painter, SchematicPalette palette, long end, float width, float middle, float high, float low)
         {
             foreach (WaveSegment segment in Segments)
             {
-                float x0 = WaveX(segment.From, end), x1 = WaveX(segment.To, end);
+                float x0 = WaveX(segment.From, end, width), x1 = WaveX(segment.To, end, width);
                 if (x1 - x0 < 0.5f)
                     continue;
 

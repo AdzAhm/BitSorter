@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using BitSorter.Board;
 using BitSorter.Sim;
 using BitSorter.SystemVerilog;
 using UnityEngine;
@@ -65,10 +66,18 @@ namespace BitSorter.View
     public sealed class WorkbenchModel
     {
         private readonly History _history;
-        private readonly SignalId[] _netSignals;
-        private readonly SignalId[] _gateOutputs;
-        private readonly SignalId[] _rowSignals;
-        private readonly SignalId[] _portSignals;
+
+        /// <summary>Signal indices, -1 where the layout names a signal the design does not have.</summary>
+        private readonly int[] _netSignals;
+
+        /// <inheritdoc cref="_netSignals"/>
+        private readonly int[] _partOutputs;
+
+        /// <inheritdoc cref="_netSignals"/>
+        private readonly int[] _rowSignals;
+
+        /// <inheritdoc cref="_netSignals"/>
+        private readonly int[] _portSignals;
 
         /// <summary>Each signal's settled changes, and their text, by signal index.</summary>
         private readonly ValueChange[][] _settled;
@@ -92,28 +101,34 @@ namespace BitSorter.View
             _history = session.History;
 
             Design design = session.Design;
+            int Index(string name) => name != null && design.TryFind(name, out SignalId id) ? id.Index : -1;
 
-            _netSignals = new SignalId[layout.Nets.Count];
+            _netSignals = new int[layout.Nets.Count];
             _netOfSignal = new int[design.Signals.Count];
             for (int i = 0; i < _netOfSignal.Length; i++) _netOfSignal[i] = -1;
 
             for (int i = 0; i < layout.Nets.Count; i++)
             {
-                _netSignals[i] = design.Find(layout.Nets[i].Signal);
-                _netOfSignal[_netSignals[i].Index] = i;
+                _netSignals[i] = Index(layout.Nets[i].Signal);
+                foreach (string alias in layout.Nets[i].Aliases)
+                {
+                    int signal = Index(alias);
+                    if (signal >= 0)
+                        _netOfSignal[signal] = i;
+                }
             }
 
-            _gateOutputs = new SignalId[layout.Gates.Count];
-            for (int i = 0; i < layout.Gates.Count; i++)
-                _gateOutputs[i] = design.Find(layout.Gates[i].Output);
+            _partOutputs = new int[layout.Parts.Count];
+            for (int i = 0; i < layout.Parts.Count; i++)
+                _partOutputs[i] = Index(layout.Parts[i].Output);
 
-            _rowSignals = new SignalId[layout.Rows.Count];
+            _rowSignals = new int[layout.Rows.Count];
             for (int i = 0; i < layout.Rows.Count; i++)
-                _rowSignals[i] = design.Find(layout.Rows[i].Signal);
+                _rowSignals[i] = Index(layout.Rows[i].Signal);
 
-            _portSignals = new SignalId[layout.Ports.Count];
+            _portSignals = new int[layout.Ports.Count];
             for (int i = 0; i < layout.Ports.Count; i++)
-                _portSignals[i] = design.Find(layout.Ports[i].Signal);
+                _portSignals[i] = Index(layout.Ports[i].Signal);
 
             _settled = new ValueChange[design.Signals.Count][];
             _settledText = new string[design.Signals.Count][];
@@ -129,6 +144,27 @@ namespace BitSorter.View
 
             SettledAt = FindSettledAt();
             Seek(0);
+        }
+
+        /// <summary>
+        /// A document compiled, elaborated, run to the end of its stimulus and laid out: what the
+        /// workbench shows of it. Throws when the document does not compile; the workbench only opens
+        /// one that does.
+        /// </summary>
+        public static WorkbenchModel Of(Project project)
+        {
+            CompiledProject compiled = BoardCompiler.Compile(project);
+            if (!compiled.Succeeded)
+                throw new InvalidOperationException("The document does not compile: " + string.Join("; ", compiled.Diagnostics));
+
+            Elaboration elaboration = Elaborator.Elaborate(compiled.Tree, compiled.Top);
+            if (elaboration.HasErrors)
+                throw new InvalidOperationException("The document does not elaborate: " + string.Join("; ", elaboration.Diagnostics));
+
+            long end = project.Stimulus?.End ?? 100;
+            var session = new SimSession(elaboration.Design, null);
+            session.RunTo(end);
+            return new WorkbenchModel(session, DocumentSchematic.Build(project, compiled), end);
         }
 
         public SimSession Session { get; }
@@ -158,10 +194,13 @@ namespace BitSorter.View
         // -----------------------------------------------------------------
 
         /// <summary>The value a net holds now.</summary>
-        public LogicVec NetValue(int net) => ValueAt(_netSignals[net], Time);
+        public LogicVec NetValue(int net) => ValueAt(_netSignals[net], Layout.Nets[net].Width, Time);
+
+        /// <summary>The value a part's signal holds now: a lamp's, what it shows.</summary>
+        public LogicVec PartValue(int part) => ValueAt(_partOutputs[part], 1, Time);
 
         /// <summary>The value a port's signal holds now.</summary>
-        public LogicVec PortValue(int port) => ValueAt(_portSignals[port], Time);
+        public LogicVec PortValue(int port) => ValueAt(_portSignals[port], 1, Time);
 
         /// <summary>
         /// How far into its flash a gate is: 1 the moment its output flips, falling to 0 over
@@ -169,9 +208,12 @@ namespace BitSorter.View
         /// </summary>
         public float GateFlash(int gate, out LogicVec value)
         {
-            ValueChange[] changes = _settled[_gateOutputs[gate].Index];
             float flash = 0f;
             value = default;
+            if (_partOutputs[gate] < 0)
+                return 0f;
+
+            ValueChange[] changes = _settled[_partOutputs[gate]];
 
             for (int i = 1; i < changes.Length; i++)
             {
@@ -210,20 +252,28 @@ namespace BitSorter.View
         /// <summary>A row's value now, and its text.</summary>
         public LogicVec RowValue(int row, out string text)
         {
-            int signal = _rowSignals[row].Index;
+            int signal = _rowSignals[row];
+            if (signal < 0)
+            {
+                text = "x";
+                return LogicVec.AllX(1);
+            }
+
             int i = IndexAt(_settled[signal], Time);
             text = _settledText[signal][i];
             return _settled[signal][i].Value;
         }
 
         /// <summary>Whether a row is a bus.</summary>
-        public bool RowIsBus(int row) => Session.Design[_rowSignals[row]].Width > 1;
+        public bool RowIsBus(int row) => _rowSignals[row] >= 0 && Session.Design.Signals[_rowSignals[row]].Width > 1;
 
         /// <summary>A row's waveform up to now, oldest first.</summary>
         public void RowSegments(int row, List<WaveSegment> into)
         {
             into.Clear();
-            int signal = _rowSignals[row].Index;
+            int signal = _rowSignals[row];
+            if (signal < 0)
+                return;
             ValueChange[] changes = _settled[signal];
 
             for (int i = 0; i < changes.Length; i++)
@@ -243,18 +293,18 @@ namespace BitSorter.View
         public void RowSwallowed(int row, List<double> into)
         {
             into.Clear();
-            SignalId signal = _rowSignals[row];
+            int signal = _rowSignals[row];
 
             for (int i = 0; i < _history.TransitionCount; i++)
             {
                 Transition t = _history.TransitionAt(i);
-                if (t.Target.Equals(signal) && t.Outcome == TransitionOutcome.Swallowed && Time >= t.EndedAt)
+                if (t.Target.Index == signal && t.Outcome == TransitionOutcome.Swallowed && Time >= t.EndedAt)
                     into.Add(t.EndedAt);
             }
         }
 
         /// <summary>The changes a row's signal ever makes: how many waveform segments it can have.</summary>
-        public int RowChangeCount(int row) => _settled[_rowSignals[row].Index].Length;
+        public int RowChangeCount(int row) => _rowSignals[row] < 0 ? 0 : _settled[_rowSignals[row]].Length;
 
         // -----------------------------------------------------------------
         // Text
@@ -285,9 +335,11 @@ namespace BitSorter.View
         // Reading the history
         // -----------------------------------------------------------------
 
-        private LogicVec ValueAt(SignalId signal, double time)
+        private LogicVec ValueAt(int signal, int width, double time)
         {
-            ValueChange[] changes = _settled[signal.Index];
+            if (signal < 0)
+                return LogicVec.AllX(Math.Max(1, width));
+            ValueChange[] changes = _settled[signal];
             return changes[IndexAt(changes, time)].Value;
         }
 

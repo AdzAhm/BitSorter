@@ -18,12 +18,22 @@ namespace BitSorter.LogicCore.Tests
     /// </remarks>
     public class WorkbenchTests
     {
-        private const int A = 0, NotA = 1, Y = 2, NotB = 4, Y2 = 5;
-        private const int AndOne = 1;
-        private const int YRow = 1, SRow = 4, QRow = 7;
+        private static readonly WorkbenchModel Shared = ReferenceCircuit.Model();
 
-        private static WorkbenchModel Model() =>
-            new WorkbenchModel(ReferenceCircuit.Run(), ReferenceCircuit.Layout, ReferenceCircuit.EndTime);
+        // Nets, the first AND and waveform rows, found by name in the document's layout rather than by
+        // where they happen to fall in its lists.
+        private static int A => Shared.Layout.NetNamed("a");
+        private static int NotA => Shared.Layout.NetNamed("na");
+        private static int Y => Shared.Layout.NetNamed("y");
+        private static int Y2 => Shared.Layout.NetNamed("y2");
+        private static int AndOne => Shared.Layout.Parts.ToList().FindIndex(p => p.Symbol == PartSymbol.And);
+        private static int YRow => Row("y");
+        private static int SRow => Row("s[3:0]");
+        private static int QRow => Row("q");
+
+        private static int Row(string label) => Shared.Layout.Rows.ToList().FindIndex(r => r.Label == label);
+
+        private static WorkbenchModel Model() => ReferenceCircuit.Model();
 
         private static Logic4 Bit(WorkbenchModel model, int net, double time)
         {
@@ -70,7 +80,7 @@ namespace BitSorter.LogicCore.Tests
         public void TheShortGlitch_IsSwallowed_AndDiesOnItsWire()
         {
             WorkbenchModel model = Model();
-            Route wire = ReferenceCircuit.Layout.Nets[Y2].Branches[0];
+            Route wire = model.Layout.Nets[Y2].Branches[0];
 
             model.Seek(13.5);
             ChangeMarker travelling = model.Markers.Single(m => m.Net == Y2);
@@ -99,14 +109,14 @@ namespace BitSorter.LogicCore.Tests
             model.Seek(7.5);
 
             ChangeMarker notA = model.Markers.Single(m => m.Net == NotA);
-            Route wire = ReferenceCircuit.Layout.Nets[NotA].Branches[0];
+            Route wire = model.Layout.Nets[NotA].Branches[0];
 
             Assert.AreEqual(0.5f * wire.Length, notA.Distance, 1e-3f, "1.5 ns into the NOT's 3");
             Assert.AreEqual(wire.PointAt(notA.Distance), notA.Point);
             Assert.AreEqual("0", notA.Text);
 
             ChangeMarker y = model.Markers.Single(m => m.Net == Y);
-            Assert.AreEqual(0.75f * ReferenceCircuit.Layout.Nets[Y].Branches[0].Length, y.Distance, 1e-3f,
+            Assert.AreEqual(0.75f * model.Layout.Nets[Y].Branches[0].Length, y.Distance, 1e-3f,
                 "1.5 ns into the AND's 2 ns rise");
         }
 
@@ -195,7 +205,7 @@ namespace BitSorter.LogicCore.Tests
         [Test]
         public void APointAlongARoute_MovesForwardAsTheDistanceGrows()
         {
-            Route route = ReferenceCircuit.Layout.Nets[NotA].Branches[0];
+            Route route = Shared.Layout.Nets[NotA].Branches[0];
             float previous = -1f;
 
             for (float d = 0f; d <= route.Length; d += route.Length / 40f)

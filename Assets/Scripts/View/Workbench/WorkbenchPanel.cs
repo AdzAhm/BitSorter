@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using BitSorter.SystemVerilog;
@@ -13,10 +14,10 @@ namespace BitSorter.View
     /// drawn in the Schematic look, with its waveform under it. Reached from the main menu.
     /// </summary>
     /// <remarks>
-    /// Part 3 of 5.0, the walking skeleton (<c>Docs/architecture-5.md</c>): the first time the new
-    /// engine is on screen, long before the parser or the editor exist, so the render-from-history
-    /// idea is proven early. The circuit is <see cref="ReferenceCircuit"/>, built in code; Part 8
-    /// feeds the same drawing from the board document instead.
+    /// Part 3 of 5.0 put the new engine on screen early, from a circuit written in code; since Part 8
+    /// everything drawn comes from a board document -- <see cref="ReferenceCircuit"/> is one, drawn
+    /// through the editor -- by way of <see cref="DocumentSchematic"/>, its parts as their symbols and
+    /// its wires where the document's geometry routes them.
     ///
     /// **The run is made once, to its end, when the panel first opens**; playing, replaying and
     /// dragging the slider back are the model answering for another moment (ADR-6). Nothing
@@ -51,7 +52,7 @@ namespace BitSorter.View
 
         /// <summary>What the panel says it is, under its title.</summary>
         public const string Description =
-            "The look reference's circuit on BitSorter's 5.0 engine: every value, and every change on its way, is the engine's.";
+            "The look reference's circuit as a board document, run on BitSorter's 5.0 engine: every value, and every change on its way, is the engine's.";
 
         /// <summary>The line along the bottom.</summary>
         public const string HelpLine = "drag the slider to go back in time, escape to go back";
@@ -60,17 +61,23 @@ namespace BitSorter.View
         // The stage: the card holding the schematic and the waveform, in its own units
         // -----------------------------------------------------------------
 
-        /// <summary>The stage's size, and where the schematic and the waveform sit on it.</summary>
-        public const float StageWidth = 760f;
+        /// <summary>The narrowest the stage is, and where the schematic sits on it.</summary>
+        public const float MinStageWidth = 760f;
 
-        /// <inheritdoc cref="StageWidth"/>
+        /// <inheritdoc cref="MinStageWidth"/>
         public static readonly Vector2 SchematicAt = new Vector2(20f, 14f);
 
-        /// <inheritdoc cref="StageWidth"/>
-        public static readonly Vector2 WaveformAt = new Vector2(5f, 388f);
+        /// <summary>The stage's width: room for the schematic as its document lays it out, and never less than the waveform's.</summary>
+        private float StageWidth => _model == null ? MinStageWidth : Mathf.Max(MinStageWidth, _model.Layout.Size.x + 2f * SchematicAt.x);
 
-        private static float StageHeight =>
-            WaveformAt.y + WorkbenchDrawing.WaveHeight(ReferenceCircuit.Layout.Rows.Count) + WorkbenchDrawing.LegendHeight;
+        /// <summary>Where the waveform sits: under the schematic, however tall that is.</summary>
+        private Vector2 WaveformAt => new Vector2(5f, SchematicAt.y + (_model == null ? 360f : _model.Layout.Size.y) + 14f);
+
+        /// <summary>The waveform's width: the stage's, less its margin either side.</summary>
+        private float WaveWidth => StageWidth - 2f * WaveformAt.x;
+
+        private float StageHeight =>
+            WaveformAt.y + WorkbenchDrawing.WaveHeight(_model == null ? 0 : _model.Layout.Rows.Count) + WorkbenchDrawing.LegendHeight;
 
         /// <summary>The legend's names for the four values, and what the rings and crosses mean.</summary>
         public const string LegendText = "A digit on a wire is a change travelling along it; a cross is one swallowed on the way.";
@@ -254,7 +261,7 @@ namespace BitSorter.View
         {
             SchematicPalette palette = SchematicPalette.Current;
 
-            _model = new WorkbenchModel(ReferenceCircuit.Run(), ReferenceCircuit.Layout, ReferenceCircuit.EndTime);
+            _model = ReferenceCircuit.Model();
             MakeTexts();
 
             Image scrim = UiTheme.Scrim(RootName, _canvas.transform, palette.Ground);
@@ -318,7 +325,7 @@ namespace BitSorter.View
             TopLeft(play.GetComponent<RectTransform>(), new Vector2(132f, 0f), new Vector2(110f, UiTheme.ButtonHeight));
             play.onClick.AddListener(() => { TogglePlay(); UiTheme.Defocus(); });
 
-            _slider = UiTheme.Slider_(TimeSlider, _controls, 0, (int)ReferenceCircuit.EndTime);
+            _slider = UiTheme.Slider_(TimeSlider, _controls, 0, (int)_model.End);
             _slider.wholeNumbers = false;
             RectTransform sliderRect = _slider.GetComponent<RectTransform>();
             sliderRect.anchorMin = new Vector2(0f, 0f);
@@ -359,8 +366,8 @@ namespace BitSorter.View
 
             float waveHeight = WorkbenchDrawing.WaveHeight(layout.Rows.Count);
             _waveform = UiTheme.Rect("waveform", _stage);
-            TopLeft(_waveform, WaveformAt, new Vector2(WorkbenchDrawing.WaveWidth, waveHeight));
-            _timing = Layer("timing", _waveform, WorkbenchGraphic.Layer.Timing, Vector2.zero, new Vector2(WorkbenchDrawing.WaveWidth, waveHeight));
+            TopLeft(_waveform, WaveformAt, new Vector2(WaveWidth, waveHeight));
+            _timing = Layer("timing", _waveform, WorkbenchGraphic.Layer.Timing, Vector2.zero, new Vector2(WaveWidth, waveHeight));
             BuildWaveLabels(palette);
 
             // The legend's words; its swatches are the card's.
@@ -389,22 +396,51 @@ namespace BitSorter.View
         {
             SchematicLayout layout = _model.Layout;
 
-            foreach (GateLayout gate in layout.Gates)
+            foreach (PartLayout part in layout.Parts)
             {
-                // An AND's name inside its body; a NOT's under it; a buffer's over it, clear of the
-                // enable wire coming up from below.
-                Vector2 nameAt = gate.Shape == PartShape.And ? gate.At + new Vector2(20f, 0f)
-                    : gate.Shape == PartShape.Not ? gate.At + new Vector2(16f, 28f)
-                    : gate.At + new Vector2(16f, -26f);
-                StageLabel(_schematic, gate.Name, nameAt, UiType.Micro, palette.TextDim, TextAlignmentOptions.Center, 80f);
+                Rect bounds = StageBounds(part);
 
-                Vector2 delayAt = gate.At + new Vector2(gate.Shape == PartShape.And ? 58f : 60f, -15f);
-                StageLabel(_schematic, gate.Delay, delayAt, UiType.Micro, palette.Muted, TextAlignmentOptions.MidlineLeft, 140f);
+                if (part.Symbol == PartSymbol.Constant)
+                {
+                    // A constant's value is its label, inside its box.
+                    StageLabel(_schematic, part.Name, bounds.center, UiType.Micro, palette.Text, TextAlignmentOptions.Center, bounds.width);
+                    continue;
+                }
+
+                // A gate's kind inside its body, as the reference writes it; other names over the part.
+                if (PartLayout.NamedInside(part.Symbol))
+                    StageLabel(_schematic, part.Name, part.ToStage(0.05, 0), UiType.Micro, palette.TextDim,
+                        TextAlignmentOptions.Center, part.Cell);
+                else if (PartLayout.NameAbove(part.Symbol))
+                    StageLabel(_schematic, part.Name, new Vector2(bounds.center.x, bounds.yMin - 9f), UiType.Micro, palette.TextDim,
+                        TextAlignmentOptions.Center, Mathf.Max(80f, bounds.width + 40f));
+
+                // Its delay just past its output, over the wire leaving it: under or over the body it
+                // lands on an enable wire or the part below.
+                if (part.Delay.Length > 0)
+                {
+                    const float delayWidth = 160f;
+                    Vector2 at = part.ToStage(0.55, 0.3);
+                    bool leftward = (part.ToStage(1, 0) - part.ToStage(0, 0)).x < -0.5f * part.Cell;
+                    StageLabel(_schematic, part.Delay, leftward ? at - new Vector2(delayWidth, 0f) : at, UiType.Micro, palette.Muted,
+                        leftward ? TextAlignmentOptions.MidlineRight : TextAlignmentOptions.MidlineLeft, delayWidth);
+                }
+
+                if (part.Symbol == PartSymbol.Block)
+                {
+                    // A block's ports are named inside it, beside their pins.
+                    foreach (BitSorter.Board.PinSpot pin in part.Local.Pins)
+                    {
+                        bool input = pin.Facing == BitSorter.Board.Facing.Left;
+                        Vector2 at = part.ToStage(input ? -1.15 : 1.15, pin.At.Y);
+                        StageLabel(_schematic, pin.Pin, at, UiType.Micro, palette.TextDim,
+                            input ? TextAlignmentOptions.MidlineLeft : TextAlignmentOptions.MidlineRight, 60f);
+                    }
+                }
             }
 
             foreach (PortLayout port in layout.Ports)
-                StageLabel(_schematic, port.Name, port.At + new Vector2(port.Width * 0.5f, 0f), UiType.Caption, palette.Text,
-                    TextAlignmentOptions.Center, port.Width);
+                StageLabel(_schematic, port.Name, port.Box.center, UiType.Caption, palette.Text, TextAlignmentOptions.Center, port.Width);
 
             foreach (NetLayout net in layout.Nets)
             {
@@ -417,13 +453,20 @@ namespace BitSorter.View
             }
         }
 
+        /// <summary>Where a part's outline is drawn on the stage, turned and all: what its labels are placed round.</summary>
+        private static Rect StageBounds(PartLayout part)
+        {
+            Vector2 a = part.ToStage(part.Local.Left, part.Local.Bottom), b = part.ToStage(part.Local.Right, part.Local.Top);
+            return Rect.MinMaxRect(Mathf.Min(a.x, b.x), Mathf.Min(a.y, b.y), Mathf.Max(a.x, b.x), Mathf.Max(a.y, b.y));
+        }
+
         /// <summary>The waveform's tick numbers and row names, and the labels that follow the run.</summary>
         private void BuildWaveLabels(SchematicPalette palette)
         {
             long end = _model.End;
-            for (long t = 0; t <= end; t += 2)
+            for (long t = 0; t <= end; t += WorkbenchDrawing.TickEvery(end))
                 StageLabel(_waveform, t.ToString(CultureInfo.InvariantCulture),
-                    new Vector2(WorkbenchDrawing.WaveX(t, end), WorkbenchDrawing.WaveTop - 14f),
+                    new Vector2(WorkbenchDrawing.WaveX(t, end, WaveWidth), WorkbenchDrawing.WaveTop - 14f),
                     UiType.Micro, palette.Muted, TextAlignmentOptions.Center, 30f);
 
             int rows = _model.Layout.Rows.Count;
@@ -570,8 +613,8 @@ namespace BitSorter.View
                     for (int i = 0; i < labels.Length; i++)
                     {
                         bool shown = i < _segments.Count && !_segments[i].Value.IsAllZ;
-                        float x0 = shown ? WorkbenchDrawing.WaveX(_segments[i].From, end) : 0f;
-                        float x1 = shown ? WorkbenchDrawing.WaveX(_segments[i].To, end) : 0f;
+                        float x0 = shown ? WorkbenchDrawing.WaveX(_segments[i].From, end, WaveWidth) : 0f;
+                        float x1 = shown ? WorkbenchDrawing.WaveX(_segments[i].To, end, WaveWidth) : 0f;
                         shown &= x1 - x0 > 22f;
                         Show(labels[i], shown);
 
@@ -593,13 +636,13 @@ namespace BitSorter.View
 
                     TextMeshProUGUI label = _glitchLabels[glitches++];
                     Show(label, true);
-                    label.rectTransform.anchoredPosition = new Vector2(WorkbenchDrawing.WaveX(at, end) + 8f, -(middle - 7f));
+                    label.rectTransform.anchoredPosition = new Vector2(WorkbenchDrawing.WaveX(at, end, WaveWidth) + 8f, -(middle - 7f));
                 }
             }
 
             for (int i = glitches; i < _glitchLabels.Count; i++) Show(_glitchLabels[i], false);
 
-            float x = Mathf.Min(WorkbenchDrawing.WaveX(_model.Time, end) + 5f, WorkbenchDrawing.WaveRight - 52f);
+            float x = Mathf.Min(WorkbenchDrawing.WaveX(_model.Time, end, WaveWidth) + 5f, WorkbenchDrawing.WaveRight(WaveWidth) - 52f);
             _playheadLabel.rectTransform.anchoredPosition = new Vector2(x, -(WorkbenchDrawing.WaveTop + 4f));
             SetText(_playheadLabel, _playheadTexts[step]);
         }

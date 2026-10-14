@@ -42,7 +42,7 @@ namespace BitSorter.View
 
             for (int i = 0; i < Model.Layout.Nets.Count && i < _drawn.Length; i++)
             {
-                if (Model.Layout.Nets[i].Signal == signal)
+                if (Model.Layout.Nets[i].Signal == signal || Model.Layout.Nets[i].Name == signal)
                 {
                     colour = _drawn[i];
                     return true;
@@ -84,7 +84,7 @@ namespace BitSorter.View
                     break;
 
                 case Layer.Timing:
-                    WorkbenchDrawing.Timing(_painter, Model, palette);
+                    WorkbenchDrawing.Timing(_painter, Model, palette, rectTransform.rect.width);
                     break;
             }
         }
