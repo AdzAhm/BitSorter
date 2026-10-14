@@ -308,24 +308,7 @@ namespace BitSorter.LogicCore.Tests
         // Colours
         // -----------------------------------------------------------------
 
-        [Test]
-        public void EveryValue_IsDrawnClearOfTheGround()
-        {
-            SchematicPalette p = SchematicPalette.Dark;
-
-            foreach ((string what, Color colour) in new[] { ("0", p.Zero), ("1", p.One), ("x", p.Unknown), ("z", p.HighZ), ("a bus", p.Bus), ("an outline", p.Outline) })
-                Assert.GreaterOrEqual(SchematicPalette.Contrast(colour, p.Ground), 3f, $"{what} is not 3:1 against the ground");
-
-            foreach ((string what, Color colour) in new[] { ("text", p.Text), ("secondary text", p.TextDim), ("a delay", p.Muted), ("the playhead's time", p.Accent) })
-                Assert.GreaterOrEqual(SchematicPalette.Contrast(colour, p.Ground), 4.5f, $"{what} is not 4.5:1 against the ground");
-        }
-
-        [Test]
-        public void ZeroAndOne_DifferByMoreThanColour()
-        {
-            Assert.AreNotEqual(SchematicPalette.Dark.Zero, SchematicPalette.Dark.One);
-            Assert.Greater(SchematicStyle.OneWidth, SchematicStyle.ZeroWidth, "a 1 is drawn a little heavier than a 0");
-        }
+        // Every look's canvas colours answer the brief in LookBriefTests, which holds them all.
 
         [Test]
         public void AFaintColour_TakesLessAlphaInLinearSpace_ThanABrowserWould()

@@ -106,8 +106,15 @@ namespace BitSorter.View
         /// <inheritdoc cref="SoundButton"/>
         public const string CreditsButton = "Credits";
 
+        /// <inheritdoc cref="SoundButton"/>
+        public const string MotionButton = "Motion setting";
+
+        /// <summary>The name of the button that chooses a look.</summary>
+        public static string LookButton(Look look) => "Look " + look.Name;
+
         public const string AudioHeading = "AUDIO";
         public const string DisplayHeading = "DISPLAY";
+        public const string StyleHeading = "STYLE";
         public const string PrivacyHeading = "PRIVACY";
         public const string ProgressHeading = "PROGRESS";
         public const string AboutHeading = "ABOUT";
@@ -120,7 +127,7 @@ namespace BitSorter.View
         public static IReadOnlyList<string> Headings => Sections;
 
         private static readonly string[] Sections =
-            { AudioHeading, DisplayHeading, PrivacyHeading, ProgressHeading, AboutHeading };
+            { AudioHeading, DisplayHeading, StyleHeading, PrivacyHeading, ProgressHeading, AboutHeading };
 
         /// <summary>
         /// The switches DISPLAY holds, left to right: on a desktop build fullscreen, vertical sync and
@@ -154,6 +161,13 @@ namespace BitSorter.View
         /// <summary>DISPLAY's line in a browser, where the counter is the section's one switch.</summary>
         public const string BrowserDisplayText =
             "The browser sets the frame rate here. The counter shows what it is.";
+
+        /// <summary>
+        /// STYLE's line: what a look changes, that choosing one loads the game again, and what reduced
+        /// motion leaves out.
+        /// </summary>
+        public const string StyleText =
+            "How the workbench is drawn; the game loads again to switch. Reduced motion drops its glow and flashes.";
 
         public const string PrivacyText =
             "Reports which levels people get stuck on. The README lists exactly what is sent.";
@@ -377,6 +391,9 @@ namespace BitSorter.View
 
             column.Space(SectionGap);
 
+            BuildStyle(block, column);
+            column.Space(SectionGap);
+
             Section(block, column, PrivacyHeading, PrivacyText);
             Button data = Control(block, column, DataButton, out _dataLabel, ButtonRole.Secondary);
             data.onClick.AddListener(() => Fire(ToggleData));
@@ -410,6 +427,47 @@ namespace BitSorter.View
                 new Vector2(0f, 36f), new Vector2(600f, UiTheme.HelpLineHeight));
             help.text = "escape to go back";
         }
+
+        /// <summary>How wide a look's button is, two to a row, and the gap between them and between the rows.</summary>
+        private const float LookWidth = (ColumnWidth - LookGap) / 2f;
+
+        /// <inheritdoc cref="LookWidth"/>
+        private const float LookGap = 12f;
+
+        /// <summary>
+        /// STYLE: a button for every look, two to a row, the one in use chosen; then reduced motion.
+        /// </summary>
+        /// <remarks>
+        /// Two to a row because a look's name is longer than a switch's caption -- SCHEMATIC LIGHT --
+        /// and four across the column left none of them room. Choosing one loads the game again in
+        /// it (<see cref="LookSwitch"/>), so its buttons are coloured once, as they are built.
+        /// </remarks>
+        private void BuildStyle(RectTransform block, UiColumn column)
+        {
+            Section(block, column, StyleHeading, StyleText);
+
+            IReadOnlyList<Look> looks = Look.All;
+            float top = 0f;
+            for (int i = 0; i < looks.Count; i++)
+            {
+                if (i % 2 == 0)
+                    top = column.Take(UiTheme.ButtonHeight, i + 2 < looks.Count ? LookGap : 0f);
+
+                Look look = looks[i];
+                Button button = UiTheme.Button_(LookButton(look), block, look.Title, out TextMeshProUGUI _, UiType.Body,
+                    ButtonRole.Secondary);
+                PlaceLeft(button.GetComponent<RectTransform>(), top, (i % 2) * (LookWidth + LookGap), LookWidth, UiTheme.ButtonHeight);
+                button.GetComponent<Image>().color = UiTheme.SelectedFill(look == Look.Current);
+                button.onClick.AddListener(() => Fire(() => LookSwitch.To(look)));
+            }
+
+            column.Space(VolumeGap);
+            Button motion = UiTheme.Button_(MotionButton, block, string.Empty, out _motionLabel, UiType.Body, ButtonRole.Secondary);
+            PlaceLeft(motion.GetComponent<RectTransform>(), column.Take(UiTheme.ButtonHeight), 0f, LookWidth, UiTheme.ButtonHeight);
+            motion.onClick.AddListener(() => Fire(() => ReducedMotion.Set(!ReducedMotion.IsOn)));
+        }
+
+        private TextMeshProUGUI _motionLabel;
 
         /// <summary>A heading with a rule under it, then the line saying what the section is for.</summary>
         private static void Section(RectTransform block, UiColumn column, string title, string text)
@@ -610,6 +668,9 @@ namespace BitSorter.View
             UiTheme.SetEnabled(_musicButton, _musicLabel, sound);
             UiTheme.SetEnabled(_effectsButton, _effectsLabel, sound);
             _dataLabel.text = GameAnalytics.Reporting ? "DATA  ON" : "DATA  OFF";
+
+            if (_motionLabel != null)
+                _motionLabel.text = ReducedMotion.IsOn ? "REDUCED MOTION  ON" : "REDUCED MOTION  OFF";
 
             if (_fullscreenLabel != null)
                 _fullscreenLabel.text = Screen.fullScreen ? "FULLSCREEN  ON" : "FULLSCREEN  OFF";

@@ -138,7 +138,7 @@ namespace BitSorter.View
                 }
             }
 
-            float k = SchematicStyle.GlowStrength;
+            float k = SchematicStyle.Glow;
             IReadOnlyList<ChangeMarker> markers = model.Markers;
 
             for (int i = 0; i < markers.Count; i++)
@@ -261,12 +261,12 @@ namespace BitSorter.View
         public static void Parts(VectorPainter painter, WorkbenchModel model, SchematicPalette palette)
         {
             SchematicLayout layout = model.Layout;
-            float k = SchematicStyle.GlowStrength;
+            float k = SchematicStyle.Glow;
 
             for (int i = 0; i < layout.Parts.Count; i++)
             {
                 PartLayout part = layout.Parts[i];
-                float flash = model.GateFlash(i, out LogicVec value);
+                float flash = SchematicStyle.Flash(model.GateFlash(i, out LogicVec value));
                 Color stroke = flash > 0f ? palette.Of(value) : palette.Outline;
                 float width = SchematicStyle.OutlineWidth + flash * SchematicStyle.FlashExtraWidth;
                 bool tinted = flash > 0f && k > 0f;

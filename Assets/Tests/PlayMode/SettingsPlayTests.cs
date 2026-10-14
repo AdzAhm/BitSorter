@@ -157,6 +157,52 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsTrue(Find<MainMenu>().IsOpen, "BACK left the player on the board instead of the menu");
         }
 
+        /// <summary>
+        /// STYLE: choosing a look loads the game again in it, keeps the choice, and puts Settings back
+        /// up where it was made; the workbench then draws in that look's canvas.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator ChoosingALook_LoadsTheGameAgainInIt_AndComesBackToSettings()
+        {
+            yield return TestScene.Load();
+            yield return OpenSettings();
+
+            try
+            {
+                Assert.AreSame(Look.Default, Look.Current, "sanity: the tests draw in the default look");
+
+                yield return Click(SettingsPanel.LookButton(Looks.SchematicLight));
+                Assert.IsTrue(LookSwitch.Busy, "choosing a look did nothing");
+
+                // A cover up and down and a load between: generous, and loud if it never ends.
+                for (int frame = 0; frame < 600 && LookSwitch.Busy; frame++)
+                    yield return null;
+                Assert.IsFalse(LookSwitch.Busy, "the switch never finished");
+
+                Assert.AreSame(Looks.SchematicLight, Look.Current, "the game did not come back in the look chosen");
+                Assert.AreEqual(Looks.SchematicLight.Code, Preferences.GetInt(Look.PreferenceKey, 0), "the choice was not kept");
+                Assert.IsTrue(Find<SettingsPanel>().IsOpen, "the switch did not come back to Settings");
+                Assert.IsFalse(Find<MainMenu>().IsOpen, "the menu came up over Settings");
+                Assert.AreEqual(UiTheme.SelectedFill(true),
+                    OnScreen(SettingsPanel.LookButton(Looks.SchematicLight)).GetComponent<Image>().color,
+                    "the look in use should be the chosen button");
+
+                yield return Click(SettingsPanel.BackButton);
+                yield return Click(MainMenu.WorkbenchButton);
+                WorkbenchPanel workbench = Find<WorkbenchPanel>();
+                workbench.Seek(20.0);
+                yield return null;
+                yield return null;
+
+                Assert.IsTrue(workbench.TryDrawnColour("a", out Color a), "the workbench drew no wire a");
+                Assert.AreEqual(SchematicPalette.Light.One, a, "at 20 a is 1, drawn in the light canvas's 1");
+            }
+            finally
+            {
+                Look.Use(null);
+            }
+        }
+
         /// <summary>Sound moved from the menu to here, and still switches the sound.</summary>
         [UnityTest]
         public IEnumerator TheSoundSetting_SwitchesTheSound()

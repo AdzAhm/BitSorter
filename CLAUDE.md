@@ -641,24 +641,37 @@ failure side.
   colours when they build. The board tile bakes its colours in, so it is cached
   per palette.
 
-  **5.0's workbench draws from `SchematicPalette`**, the Schematic look's own set,
-  under the same rules: it draws values, x, z and buses rather than tokens, and
-  borrowing fields named for sources and sinks would make two looks share colours
-  by accident. Part 8 decides how the two sit together when the look becomes a
-  choice. Its faint colours go through `SchematicPalette.Over`, because the project
-  blends in linear space and a glow at 35% over a dark ground would otherwise look
-  nearer 60% (`Docs/architecture-5.md`, section 10).
+  **Every look draws 5.0's workbench as well, from a `SchematicPalette` of its
+  own** (`Look.Canvas`, and its glow `Look.CanvasGlow`), under the same rules: the
+  canvas draws values, x, z and buses rather than tokens, and borrowing fields
+  named for sources and sinks would make two looks share colours by accident.
+  Schematic's is the reference's, as Ahmad chose it; Schematic Light is the same
+  on paper, for a report's screenshots; Neon Board's and Classic's are made from
+  their own boards' colours. **The workbench's own buttons, chips and slider take
+  the canvas's colours too**: Neon Board's bordered panels darken a body whatever
+  colour it is given, and on paper every button came out a dark slab. Faint
+  colours go through `SchematicPalette.Over`, because the project blends in linear
+  space and a glow at 35% over a dark ground would otherwise look nearer 60%
+  (`Docs/architecture-5.md`, section 10).
 
-  **The game is drawn in `Looks.NeonBoard`**, `Look.Default`, chosen out of three
-  directions rendered side by side. `Look.Classic` is 2.0's look, kept so a change
-  that claims to touch no look can be held to Classic's reference shots, pixel
-  for pixel. A look's bloom lives in the scene's volume profile, which holds
-  Classic's values, so `LookBoot` puts the current look's on every scene as it
-  loads. `LookBriefTests` holds every look but Classic to the brief it was drawn
-  against: no state colour on the board, a 1 in a colour of its own, a 0 that
-  glows in its own colour rather than white or the wire's, panels that cover,
-  text at 4.5:1 on every kind of button as well as every panel, and a chosen
-  button that stands out.
+  **The game is drawn in `Looks.Schematic`, `Look.Default`, unless the player
+  chooses another under STYLE in Settings.** Schematic and Schematic Light keep
+  Neon Board's board, interface and bloom -- Neon Board was chosen out of three
+  directions rendered side by side -- and differ from it only on the canvas: the
+  4.x board is retired in Part 15, and drawing it a third way for one part's life
+  would be work thrown away. So making Schematic the default moved no pixel of the
+  game (Ahmad approved it with the plan, 2026-10-12; Part 8's review confirms it).
+  `Look.Classic` is 2.0's look, kept so a change that claims to touch no look can
+  be held to Classic's reference shots, pixel for pixel. A look's bloom lives in
+  the scene's volume profile, which holds Classic's values, so `LookBoot` puts the
+  current look's on every scene as it loads. `LookBriefTests` holds every look but
+  Classic to the board's brief it was drawn against: no state colour on the board,
+  a 1 in a colour of its own, a 0 that glows in its own colour rather than white or
+  the wire's, panels that cover, text at 4.5:1 on every kind of button as well as
+  every panel, and a chosen button that stands out. **And every look, Classic's
+  included, to the canvas's brief**: every value and outline at 3:1 on its ground,
+  every word at 4.5:1, a 0 and a 1 apart by weight as well as colour, an undriven
+  wire apart from both, and reduced motion leaving out the glow and the flashes.
 
   **Bloom is for a bit in flight**, in every look. The threshold is 1 and only
   a travelling bit is lifted over it (`BitVisuals.Emission`); gates, fixtures,
@@ -1607,9 +1620,23 @@ waited for a card that had already come and gone. `PresentedThisRun` is set in
 the call that presents the card, so there is nothing to catch.
 
 **Settings is sound and its volume, fullscreen, vertical sync, a frame cap and a
-frame-rate counter, the data switch, starting over, and the credits.** `SettingsPanel` is reached only from the main menu and goes
+frame-rate counter, the look and reduced motion, the data switch, starting over,
+and the credits.** `SettingsPanel` is reached only from the main menu and goes
 back to it, and it plays the menu's music. Sound and Data were rows of the menu
 until it existed.
+
+**STYLE chooses the look, and the game loads again in it** (`LookSwitch`). A
+palette is never changed in place, so the whole scene is built again under a cover
+of the ground's colour -- the open board written first, since a reload is not a
+quit -- and Settings is put back up where the choice was made; the music starts
+again with the scene. The choice is kept as the look's own number (`Look.Code`),
+never its place in the list, so a look added later cannot move anyone's choice,
+and it is put on before the first scene in a build, **never in the editor**, as
+the frame cap is: every test and reference shot would otherwise be drawn in
+whatever the developer last picked. **REDUCED MOTION leaves out the workbench's
+glow and its gates' flashes** (`ReducedMotion`); a change still travels its wire,
+because where it has got to is what the workbench shows. Read where it is drawn,
+so it needs no reload; the 4.x board keeps its motion until Part 15.
 
 **It shrinks to fit a short window** (`SettingsPanel.FitScale`). The canvas
 scales halfway between width and height, so a wide window gives less than the

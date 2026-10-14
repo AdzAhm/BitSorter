@@ -173,6 +173,9 @@ namespace BitSorter.View
                 SaveTheOpenBoard();
         }
 
+        /// <summary>Writes the open board now, rather than once it has stopped changing: before the game is loaded again.</summary>
+        public void SaveNow() => SaveTheOpenBoard();
+
         private void SaveTheOpenBoard()
         {
             _savedRevision = _seenRevision;

@@ -20,9 +20,10 @@ namespace BitSorter.View
     /// nothing here opens PlayerPrefs at all -- so there is no state to put back, and an interrupted
     /// run leaves the real settings untouched because they were never read.
     ///
-    /// Not a general settings system, and not worth becoming one. Two keys, both ints, both
-    /// booleans in practice. Progress lives in <see cref="ProgressStore"/>, which is a file, because
-    /// it travels with the player; these two do not.
+    /// Not a general settings system, and not worth becoming one: every key is an int -- a switch, a
+    /// volume, a frame rate, a look's number. This said two keys, both booleans, until there were ten.
+    /// Progress lives in <see cref="ProgressStore"/>, which is a file, because it travels with the
+    /// player; settings do not.
     /// </remarks>
     public static class Preferences
     {

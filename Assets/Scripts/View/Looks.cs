@@ -6,6 +6,13 @@ namespace BitSorter.View
     /// The looks the game ships with, beyond <see cref="Look.Classic"/>.
     /// </summary>
     /// <remarks>
+    /// **The two Schematic looks are a canvas, not a board.** They draw the 5.0 workbench in the
+    /// look Ahmad chose for it (and on paper), and keep Neon Board's board, interface and bloom:
+    /// the 4.x board is retired in Part 15, when the levels move onto the canvas, and drawing it a
+    /// third way for one part's life would be work thrown away. So they answer the board's brief
+    /// exactly as Neon Board does.
+    /// </remarks>
+    /// <remarks>
     /// Chosen out of three directions rendered side by side -- Instrument, Neon and Tactile -- and a
     /// second round on the one picked, which kept most of Neon and took Tactile's physical cues.
     /// The directions that were not chosen live on the looks-round-1 branch, not here: a look nobody
@@ -132,6 +139,59 @@ namespace BitSorter.View
             look.TrailLength = 0.45f;
             look.GateGlow = 0.7f;
             look.FixtureGlow = 0.2f;
+
+            // The canvas in the board's own colours: its black-violet ground and ruled traces, a 1
+            // in the board's magenta, a 0 a lighter indigo than the board's bit -- which is lit by
+            // bloom, where a wire is not -- a bus in the cyan of the board's wire marks, the gates
+            // outlined in its trace colour, and twice the Schematic look's glow, since glow is what
+            // the look is.
+            look.Title = "NEON BOARD";
+            look.Code = 2;
+            Palette board = look.Colours;
+            look.Canvas = SchematicPalette.Dark.Derive("neon-board", c =>
+            {
+                c.Ground = board.Ground;
+                c.CardEdge = board.GroundTrace;
+                c.Outline = board.WireCore;
+
+                c.Text = board.Text;
+                c.TextDim = board.TextDim;
+                c.Muted = Hex(0x7383AA);
+                c.Accent = board.Accent;
+
+                c.Zero = Hex(0x7A6CFF);
+                c.One = board.BitOne;
+                c.Unknown = board.Scorch;
+                c.HighZ = board.TextDim;
+                c.Bus = board.WireMark;
+
+                c.Playhead = board.Accent;
+                c.Grid = board.GroundTrace;
+                c.Chip = Hex(0x0E0B1E);
+                c.ChipEdge = board.GroundTrace;
+            });
+            look.CanvasGlow = 0.7f;
+        });
+
+        /// <summary>
+        /// The 5.0 workbench as the look reference draws it, made better (Ahmad's choice, 2026-10-12:
+        /// Quiet with a touch of Lively). Neon Board's board and interface.
+        /// </summary>
+        public static Look Schematic { get; } = NeonBoard.Derive("schematic", look =>
+        {
+            look.Title = "SCHEMATIC";
+            look.Code = 3;
+            look.Canvas = SchematicPalette.Dark;
+            look.CanvasGlow = SchematicStyle.GlowStrength;
+        });
+
+        /// <summary>The Schematic look on paper, for a report's screenshots, with a little less glow, as glow is light.</summary>
+        public static Look SchematicLight { get; } = NeonBoard.Derive("schematic-light", look =>
+        {
+            look.Title = "SCHEMATIC LIGHT";
+            look.Code = 4;
+            look.Canvas = SchematicPalette.Light;
+            look.CanvasGlow = 0.25f;
         });
     }
 }

@@ -298,6 +298,97 @@ namespace BitSorter.LogicCore.Tests
             return Color.Lerp(ground.linear, body.linear, tint.a).gamma;
         }
 
+        // -----------------------------------------------------------------
+        // The canvas's brief: every look's, Classic's included -- its canvas is new, not 2.0's
+        // -----------------------------------------------------------------
+
+        /// <summary>A wire in any value, and a part's outline, stand 3:1 off the ground (WCAG's for graphics).</summary>
+        [Test]
+        public void OnTheCanvas_EveryValueAndEveryOutline_StandsClearOfTheGround()
+        {
+            foreach (Look look in Look.All)
+            {
+                SchematicPalette c = look.Canvas;
+                Assert.IsNotNull(c, $"{look.Name} has no canvas");
+
+                foreach ((string what, Color colour) in new[]
+                         { ("0", c.Zero), ("1", c.One), ("x", c.Unknown), ("z", c.HighZ), ("a bus", c.Bus), ("an outline", c.Outline) })
+                {
+                    Assert.GreaterOrEqual(SchematicPalette.Contrast(colour, c.Ground), 3f,
+                        $"{look.Name}: {what} is not 3:1 against the canvas's ground");
+                }
+            }
+        }
+
+        /// <summary>Every word on the canvas reads at 4.5:1 (WCAG's for text), the quietest included.</summary>
+        [Test]
+        public void OnTheCanvas_TextIsReadable()
+        {
+            foreach (Look look in Look.All)
+            {
+                SchematicPalette c = look.Canvas;
+
+                foreach ((string what, Color colour) in new[]
+                         { ("text", c.Text), ("secondary text", c.TextDim), ("a delay", c.Muted), ("the playhead's time", c.Accent) })
+                {
+                    Assert.GreaterOrEqual(SchematicPalette.Contrast(colour, c.Ground), 4.5f,
+                        $"{look.Name}: {what} is not 4.5:1 against the canvas's ground");
+                }
+            }
+        }
+
+        /// <summary>
+        /// A 0 and a 1 differ by more than colour: a 1 is drawn heavier, and every ring holds its
+        /// digit. And by colour as well, by a good margin.
+        /// </summary>
+        [Test]
+        public void OnTheCanvas_AZeroAndAOne_DifferByWeightAsWellAsColour()
+        {
+            Assert.Greater(SchematicStyle.OneWidth, SchematicStyle.ZeroWidth, "a 1 is drawn a little heavier than a 0");
+
+            foreach (Look look in Look.All)
+                Assert.GreaterOrEqual(Distance(look.Canvas.Zero, look.Canvas.One), 0.3f, $"{look.Name}: a 0 and a 1 are too alike");
+        }
+
+        /// <summary>An undriven wire is dashed, and not in a 0's or a 1's colour either.</summary>
+        [Test]
+        public void OnTheCanvas_AnUndrivenWire_IsNotTakenForAValue()
+        {
+            foreach (Look look in Look.All)
+            {
+                SchematicPalette c = look.Canvas;
+                Assert.GreaterOrEqual(Distance(c.HighZ, c.Zero), 0.2f, $"{look.Name}: z is too like a 0");
+                Assert.GreaterOrEqual(Distance(c.HighZ, c.One), 0.2f, $"{look.Name}: z is too like a 1");
+            }
+        }
+
+        /// <summary>Reduced motion leaves out the canvas's glow and its gates' flashes, whatever the look.</summary>
+        [Test]
+        public void ReducedMotion_LeavesOutTheGlowAndTheFlash()
+        {
+            Preferences.Redirected = new Dictionary<string, int>();
+            try
+            {
+                foreach (Look look in Look.All)
+                {
+                    Look.Use(look);
+
+                    ReducedMotion.Set(false);
+                    Assert.AreEqual(look.CanvasGlow, SchematicStyle.Glow, $"{look.Name}: its own glow, with motion in full");
+                    Assert.AreEqual(0.5f, SchematicStyle.Flash(0.5f));
+
+                    ReducedMotion.Set(true);
+                    Assert.AreEqual(0f, SchematicStyle.Glow, $"{look.Name}: glow left with motion reduced");
+                    Assert.AreEqual(0f, SchematicStyle.Flash(0.5f), $"{look.Name}: a gate flashed with motion reduced");
+                }
+            }
+            finally
+            {
+                Look.Use(null);
+                Preferences.Redirected = null;
+            }
+        }
+
         /// <summary>WCAG contrast ratio between two opaque colours.</summary>
         private static float Contrast(Color a, Color b)
         {

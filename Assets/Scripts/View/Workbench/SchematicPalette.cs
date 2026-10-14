@@ -4,8 +4,8 @@ using UnityEngine;
 namespace BitSorter.View
 {
     /// <summary>
-    /// The Schematic look's colours: what the 5.0 workbench draws with, as <see cref="Palette"/> is
-    /// what the 4.x board draws with.
+    /// The canvas's colours: what the 5.0 workbench draws with, as <see cref="Palette"/> is what the
+    /// 4.x board draws with. Every <see cref="Look"/> has one (<see cref="Look.Canvas"/>).
     /// </summary>
     /// <remarks>
     /// A set of its own rather than more fields on <see cref="Palette"/>: the workbench draws
@@ -13,11 +13,12 @@ namespace BitSorter.View
     /// fields named for sources, sinks and registers would make two looks share colours by accident,
     /// which is how every 4.x source once came out the error colour. Palette's rules hold all the
     /// same: every colour the workbench draws is here and none is a literal where it is drawn, and a
-    /// palette is never changed in place. Part 8 makes the look a choice in Settings and decides
-    /// how this and <see cref="Palette"/> sit together.
+    /// palette is never changed in place -- <see cref="Derive"/> a new one.
     ///
-    /// The values are the look reference's ground, value colours and grey labels, as the mock Ahmad
-    /// chose has them (Quiet with a touch of Lively, 2026-10-12). Where the mock wrote a white at
+    /// <see cref="Dark"/> is the Schematic look: the look reference's ground, value colours and grey
+    /// labels, as the mock Ahmad chose has them (Quiet with a touch of Lively, 2026-10-12).
+    /// <see cref="Light"/> is the same on paper, for a report's screenshots; Neon Board's and
+    /// Classic's canvases are made from their own boards' colours. Where the mock wrote a white at
     /// some opacity over the ground -- an outline, the card's hairline, the grid -- the colour here
     /// is what that blend came to, written out opaque: a translucent colour blends differently in
     /// this project's linear colour space than in a browser, and an opaque one is the same in both.
@@ -80,8 +81,80 @@ namespace BitSorter.View
             ChipEdge = Rgb(44, 44, 44),
         };
 
-        /// <summary>The palette the workbench draws with. One until Part 8 adds the light variant.</summary>
-        public static SchematicPalette Current => Dark;
+        /// <summary>
+        /// The Schematic look on paper, for screenshots in a report: the same value colours taken
+        /// dark enough to hold 3:1 on a light ground, grey labels at 4.5:1, and a bus drawn dark.
+        /// </summary>
+        public static SchematicPalette Light { get; } = new SchematicPalette
+        {
+            Name = "schematic-light",
+
+            Ground = Rgb(247, 246, 242),
+            CardEdge = Rgb(214, 212, 204),
+            Outline = Rgb(110, 110, 106),
+
+            Text = Rgb(30, 30, 28),
+            TextDim = Rgb(74, 73, 68),
+            Muted = Rgb(102, 101, 96),
+            Accent = Rgb(36, 99, 170),
+
+            Zero = Rgb(92, 82, 201),
+            One = Rgb(194, 57, 108),
+            Unknown = Rgb(208, 46, 52),
+            HighZ = Rgb(128, 128, 124),
+            Bus = Rgb(58, 57, 53),
+
+            Playhead = Rgb(194, 57, 108),
+            Grid = Rgb(230, 228, 222),
+            Chip = Rgb(238, 236, 230),
+            ChipEdge = Rgb(214, 212, 204),
+        };
+
+        /// <summary>
+        /// Classic's canvas: 2.0's board drawn as a schematic -- its navy ground, its slate 0 and
+        /// yellow 1, its teal wires as the outlines and its pale teal for a bus. Made from
+        /// <see cref="Palette.Classic"/>, so the two cannot drift apart.
+        /// </summary>
+        public static SchematicPalette Classic { get; } = FromClassic(Palette.Classic);
+
+        private static SchematicPalette FromClassic(Palette p) => new SchematicPalette
+        {
+            Name = "classic",
+
+            Ground = p.Ground,
+            CardEdge = Opaque(p.PanelEdge),
+            Outline = p.WireCore,
+
+            Text = p.Text,
+            TextDim = p.TextDim,
+            // A little under TextDim and still 4.5:1: Classic has no third grey of its own.
+            Muted = new Color(0.47f, 0.52f, 0.60f),
+            Accent = p.Accent,
+
+            Zero = p.BitZero,
+            One = p.BitOne,
+            Unknown = p.Scorch,
+            // Classic's 0 is already a grey-blue, so an undriven wire is a plain light grey -- and dashed.
+            HighZ = new Color(0.70f, 0.70f, 0.70f),
+            Bus = p.WireMark,
+
+            Playhead = p.Accent,
+            Grid = p.GroundTrace,
+            Chip = Opaque(p.Panel),
+            ChipEdge = Opaque(p.PanelEdge),
+        };
+
+        /// <summary>The palette the workbench draws with: the current look's canvas.</summary>
+        public static SchematicPalette Current => Look.Current.Canvas ?? Dark;
+
+        /// <summary>A copy of this palette under a new name, changed by <paramref name="change"/>.</summary>
+        public SchematicPalette Derive(string name, System.Action<SchematicPalette> change)
+        {
+            var copy = (SchematicPalette)MemberwiseClone();
+            copy.Name = name;
+            change?.Invoke(copy);
+            return copy;
+        }
 
         /// <summary>The colour a value is drawn in: 0, 1, x or z for one bit; for a bus, x if any bit is unknown, z if all are undriven.</summary>
         public Color Of(LogicVec value)
@@ -139,5 +212,7 @@ namespace BitSorter.View
         }
 
         private static Color Rgb(int r, int g, int b) => new Color(r / 255f, g / 255f, b / 255f);
+
+        private static Color Opaque(Color colour) => new Color(colour.r, colour.g, colour.b, 1f);
     }
 }

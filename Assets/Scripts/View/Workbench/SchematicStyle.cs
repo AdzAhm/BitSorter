@@ -15,10 +15,17 @@ namespace BitSorter.View
     public static class SchematicStyle
     {
         /// <summary>
-        /// How much of Lively's glow the look keeps: 0 is Quiet, 1 is Lively. Ahmad's choice, 35%.
-        /// It scales the trail, the halo and the gate's tint together.
+        /// How much of Lively's glow the Schematic look keeps: 0 is Quiet, 1 is Lively. Ahmad's
+        /// choice, 35%. It scales the trail, the halo and the gate's tint together. Every look has
+        /// its own (<see cref="Look.CanvasGlow"/>); this is the Schematic look's.
         /// </summary>
         public const float GlowStrength = 0.35f;
+
+        /// <summary>The glow the canvas is drawn with now: the current look's, or none at all when motion is reduced.</summary>
+        public static float Glow => ReducedMotion.IsOn ? 0f : Look.Current.CanvasGlow;
+
+        /// <summary>How far into its flash a gate is drawn, given how far it is: not at all when motion is reduced.</summary>
+        public static float Flash(float flash) => ReducedMotion.IsOn ? 0f : flash;
 
         /// <summary>A wire holding 0, and holding 1 or x: a 1 is a little heavier, so 0 and 1 differ by more than colour.</summary>
         public const float ZeroWidth = 3f;

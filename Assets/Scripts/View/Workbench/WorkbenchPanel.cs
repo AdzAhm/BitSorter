@@ -413,7 +413,7 @@ namespace BitSorter.View
             BuildControls(palette);
             BuildStage(palette);
 
-            Button back = UiTheme.Button_(BackButton, Root, "BACK", out TextMeshProUGUI _, UiType.Body, ButtonRole.Quiet);
+            Button back = CanvasButton(BackButton, Root, "BACK", out TextMeshProUGUI _, UiType.Body, palette);
             UiTheme.Anchor(back.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(1f, 1f),
                 new Vector2(-UiTheme.Margin, -UiTheme.Margin), new Vector2(BackWidth, UiTheme.ButtonHeight));
             back.onClick.AddListener(() => { Back(); UiTheme.Defocus(); });
@@ -437,7 +437,7 @@ namespace BitSorter.View
 
             float titleWidth = UiTheme.TextWidth(title.text, UiType.Heading) * 1.08f;
 
-            Image chip = UiTheme.Panel_("preview chip", _header, palette.Chip);
+            Image chip = CanvasChip("preview chip", _header, palette);
             TopLeft(chip.rectTransform, new Vector2(titleWidth + 14f, 8f), new Vector2(86f, 24f));
             TextMeshProUGUI chipText = UiTheme.Label("text", chip.transform, UiType.Micro, palette.Muted, TextAlignmentOptions.Center);
             UiTheme.Stretch(chipText.rectTransform);
@@ -458,15 +458,16 @@ namespace BitSorter.View
         {
             _controls = TopStrip("controls", ControlsTop, UiTheme.ButtonHeight);
 
-            Button replay = UiTheme.Button_(ReplayButton, _controls, "REPLAY", out TextMeshProUGUI _, UiType.Body, ButtonRole.Secondary);
+            Button replay = CanvasButton(ReplayButton, _controls, "REPLAY", out TextMeshProUGUI _, UiType.Body, palette);
             TopLeft(replay.GetComponent<RectTransform>(), Vector2.zero, new Vector2(120f, UiTheme.ButtonHeight));
             replay.onClick.AddListener(() => { Replay(); UiTheme.Defocus(); });
 
-            Button play = UiTheme.Button_(PlayButton, _controls, "PAUSE", out _playLabel, UiType.Body, ButtonRole.Quiet);
+            Button play = CanvasButton(PlayButton, _controls, "PAUSE", out _playLabel, UiType.Body, palette);
             TopLeft(play.GetComponent<RectTransform>(), new Vector2(132f, 0f), new Vector2(110f, UiTheme.ButtonHeight));
             play.onClick.AddListener(() => { TogglePlay(); UiTheme.Defocus(); });
 
             _slider = UiTheme.Slider_(TimeSlider, _controls, 0, (int)_model.End);
+            InCanvasColours(_slider, palette);
             _slider.wholeNumbers = false;
             RectTransform sliderRect = _slider.GetComponent<RectTransform>();
             sliderRect.anchorMin = new Vector2(0f, 0f);
@@ -479,7 +480,7 @@ namespace BitSorter.View
             _timeLabel = UiTheme.Label("time", _controls, UiType.Body, palette.Text, TextAlignmentOptions.MidlineRight);
             TopRight(_timeLabel.rectTransform, new Vector2(-224f, 0f), new Vector2(136f, UiTheme.ButtonHeight));
 
-            Image chip = UiTheme.Panel_("chip", _controls, palette.Chip);
+            Image chip = CanvasChip("chip", _controls, palette);
             TopRight(chip.rectTransform, new Vector2(0f, 9f), new Vector2(210f, 26f));
             _chipLabel = UiTheme.Label("text", chip.transform, UiType.Caption, palette.TextDim, TextAlignmentOptions.Center);
             UiTheme.Stretch(_chipLabel.rectTransform);
@@ -514,7 +515,7 @@ namespace BitSorter.View
             BuildSchematicLabels(palette);
 
             // FIT, in the window's top-right corner, for whenever the circuit is not whole.
-            _fit = UiTheme.Button_(FitButton, _view, "FIT", out TextMeshProUGUI _, UiType.Caption, ButtonRole.Quiet);
+            _fit = CanvasButton(FitButton, _view, "FIT", out TextMeshProUGUI _, UiType.Caption, palette);
             TopRight(_fit.GetComponent<RectTransform>(), new Vector2(-8f, 8f), new Vector2(72f, 32f));
             _fit.onClick.AddListener(() => { FitView(); UiTheme.Defocus(); });
             Show(_fit, false);
@@ -846,6 +847,61 @@ namespace BitSorter.View
         // -----------------------------------------------------------------
         // Small helpers
         // -----------------------------------------------------------------
+
+        // -----------------------------------------------------------------
+        // The workbench's own controls, in the canvas's colours
+        // -----------------------------------------------------------------
+
+        /// <summary>How wide an outlined control's edge is.</summary>
+        private const float EdgeWidth = 1.5f;
+
+        /// <summary>
+        /// A button as the reference draws REPLAY: a thin outline round the ground, its caption in the
+        /// text colour. In the canvas's colours rather than the game's, which in Neon Board's
+        /// bordered style darkens a button's body whatever colour it is given -- on the light canvas
+        /// every button came out a dark slab.
+        /// </summary>
+        private static Button CanvasButton(string name, Transform parent, string caption, out TextMeshProUGUI label, UiType type,
+            SchematicPalette palette)
+        {
+            Button button = UiTheme.Button_(name, parent, caption, out label, type, ButtonRole.Secondary);
+            Outline((Image)button.targetGraphic, palette.Outline, palette.Ground);
+            label.color = palette.Text;
+            label.transform.SetAsLastSibling();
+            return button;
+        }
+
+        /// <summary>A small rounded chip in the canvas's colours: its edge, and its fill inside.</summary>
+        private static Image CanvasChip(string name, Transform parent, SchematicPalette palette)
+        {
+            Image chip = UiTheme.Panel_(name, parent, palette.ChipEdge);
+            Outline(chip, palette.ChipEdge, palette.Chip);
+            return chip;
+        }
+
+        /// <summary>
+        /// Makes <paramref name="image"/> a filled rounded shape in <paramref name="edge"/> with one a
+        /// hair smaller in <paramref name="fill"/> over it: an outline that is the same on any ground.
+        /// </summary>
+        private static void Outline(Image image, Color edge, Color fill)
+        {
+            image.sprite = ProceduralSprites.Panel(PanelStyle.Filled);
+            image.type = Image.Type.Sliced;
+            image.color = edge;
+
+            Image inside = UiTheme.Panel_("fill", image.transform, fill);
+            inside.sprite = ProceduralSprites.Panel(PanelStyle.Filled);
+            inside.raycastTarget = false;
+            UiTheme.Stretch(inside.rectTransform, EdgeWidth);
+        }
+
+        /// <summary>The time slider as the reference draws it: the playhead's colour up to the moment shown, an outline's grey after, a thumb in the text colour.</summary>
+        private static void InCanvasColours(Slider slider, SchematicPalette palette)
+        {
+            slider.fillRect.GetComponent<Image>().color = palette.Playhead;
+            slider.handleRect.GetComponent<Image>().color = palette.Text;
+            slider.transform.Find("track").GetComponent<Image>().color = palette.Outline;
+        }
 
         /// <summary>A strip across the top of the screen, as wide as the stage is drawn, for the header and the controls.</summary>
         private RectTransform TopStrip(string name, float top, float height)

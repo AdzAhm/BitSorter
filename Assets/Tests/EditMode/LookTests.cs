@@ -115,6 +115,63 @@ namespace BitSorter.LogicCore.Tests
             Assert.IsNull(Look.Named("no such look"));
         }
 
+        /// <summary>
+        /// The player's choice is kept as a number of the look's own, so no two looks share one and a
+        /// look added or moved in the list cannot change anyone's choice.
+        /// </summary>
+        [Test]
+        public void EveryLook_IsKeptAsANumberOfItsOwn_AndOffersItselfByName()
+        {
+            var codes = new System.Collections.Generic.HashSet<int>();
+            foreach (Look look in Look.All)
+            {
+                Assert.IsTrue(codes.Add(look.Code), $"{look.Name} shares its number with another look");
+                Assert.IsFalse(string.IsNullOrEmpty(look.Title), $"{look.Name} has nothing for Settings to call it");
+            }
+
+            CollectionAssert.AreEqual(new[] { 3, 4, 2, 1 }, System.Linq.Enumerable.Select(Look.All, l => l.Code),
+                "the numbers are what players' choices were kept as; never renumber one");
+        }
+
+        [Test]
+        public void TheChosenLook_IsTheOneStored_OrTheDefault()
+        {
+            Preferences.Redirected = new System.Collections.Generic.Dictionary<string, int>();
+            try
+            {
+                Assert.AreSame(Look.Default, Look.Chosen, "nothing chosen yet");
+
+                Preferences.SetInt(Look.PreferenceKey, Looks.SchematicLight.Code);
+                Assert.AreSame(Looks.SchematicLight, Look.Chosen);
+
+                Preferences.SetInt(Look.PreferenceKey, 99);
+                Assert.AreSame(Look.Default, Look.Chosen, "a look this build does not have is the default, never nothing");
+            }
+            finally
+            {
+                Preferences.Redirected = null;
+            }
+        }
+
+        /// <summary>
+        /// The default is the workbench as Ahmad chose it -- its canvas, at his glow -- on Neon
+        /// Board's board, so making it the default moved no pixel of the game.
+        /// </summary>
+        [Test]
+        public void TheDefault_IsSchematic_OnNeonBoardsBoard()
+        {
+            Assert.AreSame(Looks.Schematic, Look.Default);
+            Assert.AreSame(SchematicPalette.Dark, Looks.Schematic.Canvas);
+            Assert.AreEqual(SchematicStyle.GlowStrength, Looks.Schematic.CanvasGlow);
+
+            foreach (Look schematic in new[] { Looks.Schematic, Looks.SchematicLight })
+            {
+                Assert.AreSame(Looks.NeonBoard.Colours, schematic.Colours, $"{schematic.Name} should keep Neon Board's board");
+                Assert.AreEqual(Looks.NeonBoard.Bodies, schematic.Bodies);
+                Assert.AreEqual(Looks.NeonBoard.BloomIntensity, schematic.BloomIntensity);
+            }
+        }
+
         /// <summary>Nothing and everything are the same written as seen.</summary>
         [Test]
         public void Seen_KeepsTheEnds()
