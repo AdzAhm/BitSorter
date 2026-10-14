@@ -3,6 +3,7 @@ using NUnit.Framework;
 using BitSorter.View;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.Controls;
 using UnityEngine.TestTools;
 using UnityEngine.UI;
 using Object = UnityEngine.Object;
@@ -182,6 +183,50 @@ namespace BitSorter.PlayMode.Tests
         {
             Assert.AreEqual(expected.x, actual.x, 0.5f, message + $" (across: {expected} against {actual})");
             Assert.AreEqual(expected.y, actual.y, 0.5f, message + $" (up and down: {expected} against {actual})");
+        }
+
+        private IEnumerator Tap(KeyControl key)
+        {
+            Press(key);
+            yield return null;
+            Release(key);
+            yield return null;
+        }
+
+        /// <summary>Every control has a key: Space, R, the arrows, plus and minus, F.</summary>
+        [UnityTest]
+        public IEnumerator TheKeys_PlayReplayStepZoomAndFit()
+        {
+            yield return TestScene.Load();
+            yield return OpenTheWorkbench();
+            yield return null;
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            Assert.IsTrue(workbench.Playing, "sanity: it opens playing");
+
+            yield return Tap(_keyboard.spaceKey);
+            Assert.IsFalse(workbench.Playing, "Space did not pause");
+
+            workbench.Seek(5.0);
+            yield return Tap(_keyboard.rightArrowKey);
+            Assert.AreEqual(6.0, workbench.Time, 1e-6, "the right arrow should step a nanosecond on");
+            yield return Tap(_keyboard.leftArrowKey);
+            yield return Tap(_keyboard.leftArrowKey);
+            Assert.AreEqual(4.0, workbench.Time, 1e-6, "the left arrow should step a nanosecond back");
+
+            yield return Tap(_keyboard.equalsKey);
+            Assert.Greater(workbench.Zoom, 1f, "plus did not zoom in");
+            yield return Tap(_keyboard.minusKey);
+            Assert.IsTrue(workbench.IsFitted, "minus, as many times as plus, should be the whole circuit again");
+
+            yield return Tap(_keyboard.equalsKey);
+            yield return Tap(_keyboard.equalsKey);
+            yield return Tap(_keyboard.fKey);
+            Assert.IsTrue(workbench.IsFitted, "F did not fit");
+
+            yield return Tap(_keyboard.rKey);
+            Assert.IsTrue(workbench.Playing, "R did not replay");
+            Assert.Less(workbench.Time, 1.0, "R did not go back to the start");
         }
 
         [UnityTest]

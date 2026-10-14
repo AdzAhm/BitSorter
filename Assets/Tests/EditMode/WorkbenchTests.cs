@@ -311,6 +311,22 @@ namespace BitSorter.LogicCore.Tests
         // Every look's canvas colours answer the brief in LookBriefTests, which holds them all.
 
         // -----------------------------------------------------------------
+        // The stage in a window
+        // -----------------------------------------------------------------
+
+        [Test]
+        public void TheStage_FillsATallWindow_ButNeverShrinksItsWordsInAShortOne_AndScrollsInstead()
+        {
+            var stage = new Vector2(1000f, 900f);
+
+            Assert.AreEqual(1.2f, WorkbenchPanel.StageScale(new Vector2(1800f, 1080f), stage), 1e-4f, "a tall window: as large as fits");
+            Assert.AreEqual(1f, WorkbenchPanel.StageScale(new Vector2(1800f, 700f), stage), 1e-4f,
+                "a short window keeps the stage at its own size, its words at theirs");
+            Assert.AreEqual(200f, WorkbenchPanel.Overflow(700f, 900f, 1f), 1e-3f, "and scrolls what it cannot show");
+            Assert.AreEqual(0f, WorkbenchPanel.Overflow(1080f, 900f, 1.2f), 1e-3f, "a stage that fits does not scroll");
+        }
+
+        // -----------------------------------------------------------------
         // Pointing at a wire
         // -----------------------------------------------------------------
 

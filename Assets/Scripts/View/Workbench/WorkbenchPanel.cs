@@ -27,6 +27,10 @@ namespace BitSorter.View
     /// **A wire pointed at lights its whole net** and a chip beside the pointer says what drives
     /// it and what reads it (<see cref="NetLayout.Says"/>).
     ///
+    /// **Every control has a key**, drawn over its button as the 4.x HUD draws RUN's: Space plays or
+    /// pauses, R replays, the arrows step through time, plus and minus zoom, F fits, and up and down
+    /// move the page when it is taller than the window.
+    ///
     /// **The run is made once, to its end, when the panel first opens**; playing, replaying and
     /// dragging the slider back are the model answering for another moment (ADR-6). Nothing
     /// re-runs, which is why rewinding is free.
@@ -66,7 +70,7 @@ namespace BitSorter.View
             "The look reference's circuit as a board document, run on BitSorter's 5.0 engine: every value, and every change on its way, is the engine's.";
 
         /// <summary>The line along the bottom.</summary>
-        public const string HelpLine = "scroll to zoom, drag to move the circuit, drag the slider to go back in time, escape to go back";
+        public const string HelpLine = "scroll or + and - to zoom, drag to move the circuit, arrows to step through time, escape to go back";
 
         // -----------------------------------------------------------------
         // The stage: the card holding the schematic and the waveform, in its own units
@@ -108,10 +112,20 @@ namespace BitSorter.View
         private const float DescriptionTop = 64f;
 
         /// <inheritdoc cref="TitleTop"/>
-        private const float ControlsTop = 102f;
+        /// <remarks>Low enough under the description for a key's cap to sit over each button.</remarks>
+        private const float ControlsTop = 122f;
 
         /// <inheritdoc cref="TitleTop"/>
-        private const float StageTop = 160f;
+        private const float StageTop = 180f;
+
+        /// <summary>
+        /// The least the stage is drawn at. Its words are sized for 1, and a browser tab 1920 by 800,
+        /// fitted, took every delay and row name to under ten units; shorter than that, the page scrolls.
+        /// </summary>
+        public const float MinStageScale = 1f;
+
+        /// <summary>How far one notch of the wheel, or one press of up or down, moves a page that scrolls.</summary>
+        public const float ScrollStep = 60f;
 
         /// <summary>Room kept under the stage for the help line.</summary>
         private const float BottomRoom = 76f;
@@ -128,6 +142,9 @@ namespace BitSorter.View
         private RectTransform _header;
         private RectTransform _controls;
         private RectTransform _stage;
+        private RectTransform _page;
+        private Image _scrollThumb;
+        private float _overflow, _pageScroll;
         private RectTransform _view;
         private RectTransform _schematic;
         private RectTransform _waveform;
@@ -224,6 +241,53 @@ namespace BitSorter.View
             Fit();
             FitView();
             Replay();
+        }
+
+        /// <summary>
+        /// The workbench's keys: Space plays or pauses, R replays, the arrows step through time -- a
+        /// nanosecond, or a tenth with Shift -- plus and minus zoom about the window's middle, F fits,
+        /// and up and down move the page when it is taller than the window.
+        /// </summary>
+        private void TakeKeys(Keyboard keyboard)
+        {
+            if (keyboard.spaceKey.wasPressedThisFrame)
+                TogglePlay();
+            if (keyboard.rKey.wasPressedThisFrame)
+                Replay();
+
+            double step = keyboard.shiftKey.isPressed ? 0.1 : 1.0;
+            if (keyboard.rightArrowKey.wasPressedThisFrame)
+                StepBy(step);
+            if (keyboard.leftArrowKey.wasPressedThisFrame)
+                StepBy(-step);
+
+            if (keyboard.equalsKey.wasPressedThisFrame || keyboard.numpadPlusKey.wasPressedThisFrame)
+                ZoomAboutTheMiddle(1);
+            if (keyboard.minusKey.wasPressedThisFrame || keyboard.numpadMinusKey.wasPressedThisFrame)
+                ZoomAboutTheMiddle(-1);
+            if (keyboard.fKey.wasPressedThisFrame)
+                FitView();
+
+            if (keyboard.upArrowKey.wasPressedThisFrame || keyboard.pageUpKey.wasPressedThisFrame)
+                ScrollPageBy(-ScrollStep);
+            if (keyboard.downArrowKey.wasPressedThisFrame || keyboard.pageDownKey.wasPressedThisFrame)
+                ScrollPageBy(ScrollStep);
+        }
+
+        /// <summary>Pauses, and moves the moment shown by <paramref name="nanoseconds"/>, within the run.</summary>
+        public void StepBy(double nanoseconds)
+        {
+            if (_model == null)
+                return;
+
+            Pause();
+            Seek(Math.Max(0.0, Math.Min(_model.End, _model.Time + nanoseconds)));
+        }
+
+        private void ZoomAboutTheMiddle(int notches)
+        {
+            if (_viewState != null && _viewState.ZoomAbout(ViewSize * 0.5f, notches))
+                ApplyView();
         }
 
         /// <summary>Shows the whole circuit again, where it belongs.</summary>
@@ -411,11 +475,19 @@ namespace BitSorter.View
                 return;
             }
 
+            if (keyboard != null && !OpenedThisFrame)
+                TakeKeys(keyboard);
+
             Mouse mouse = Mouse.current;
             if (mouse != null && !OpenedThisFrame)
             {
+                // Over the circuit the wheel zooms; anywhere else on the stage it moves a page that scrolls.
                 Vector2 pointer = mouse.position.ReadValue();
-                TakeWheel(pointer, mouse.scroll.ReadValue());
+                Vector2 scroll = mouse.scroll.ReadValue();
+                if (InView(pointer, out _))
+                    TakeWheel(pointer, scroll);
+                else
+                    TakeScroll(pointer, scroll);
                 TakeDrag(pointer, mouse.leftButton.isPressed || mouse.middleButton.isPressed || mouse.rightButton.isPressed);
                 Hover(pointer);
             }
@@ -508,10 +580,12 @@ namespace BitSorter.View
             _controls = TopStrip("controls", ControlsTop, UiTheme.ButtonHeight);
 
             Button replay = CanvasButton(ReplayButton, _controls, "REPLAY", out TextMeshProUGUI _, UiType.Body, palette);
+            KeyOver(replay, "R", palette);
             TopLeft(replay.GetComponent<RectTransform>(), Vector2.zero, new Vector2(120f, UiTheme.ButtonHeight));
             replay.onClick.AddListener(() => { Replay(); UiTheme.Defocus(); });
 
             Button play = CanvasButton(PlayButton, _controls, "PAUSE", out _playLabel, UiType.Body, palette);
+            KeyOver(play, "SPACE", palette);
             TopLeft(play.GetComponent<RectTransform>(), new Vector2(132f, 0f), new Vector2(110f, UiTheme.ButtonHeight));
             play.onClick.AddListener(() => { TogglePlay(); UiTheme.Defocus(); });
 
@@ -537,11 +611,28 @@ namespace BitSorter.View
 
         private void BuildStage(SchematicPalette palette)
         {
-            _stage = UiTheme.Rect("stage", Root);
+            // The page the stage is seen through, under the controls: it clips the stage and scrolls it
+            // when the window is too short for it at its own size (Fit).
+            _page = UiTheme.Rect("page", Root);
+            _page.anchorMin = Vector2.zero;
+            _page.anchorMax = Vector2.one;
+            _page.offsetMin = new Vector2(0f, BottomRoom);
+            _page.offsetMax = new Vector2(0f, -StageTop);
+            _page.gameObject.AddComponent<RectMask2D>();
+
+            _stage = UiTheme.Rect("stage", _page);
             _stage.anchorMin = _stage.anchorMax = new Vector2(0.5f, 1f);
             _stage.pivot = new Vector2(0.5f, 1f);
-            _stage.anchoredPosition = new Vector2(0f, -StageTop);
+            _stage.anchoredPosition = Vector2.zero;
             _stage.sizeDelta = new Vector2(StageWidth, StageHeight);
+
+            // Where a page that scrolls is: a thin bar down the right, there only when it scrolls.
+            _scrollThumb = UiTheme.Panel_("scroll", _page, palette.Muted);
+            _scrollThumb.sprite = null;
+            _scrollThumb.raycastTarget = false;
+            _scrollThumb.rectTransform.anchorMin = _scrollThumb.rectTransform.anchorMax = new Vector2(1f, 1f);
+            _scrollThumb.rectTransform.pivot = new Vector2(1f, 1f);
+            Show(_scrollThumb, false);
 
             _card = Layer("card", _stage, WorkbenchGraphic.Layer.Card, Vector2.zero, new Vector2(StageWidth, StageHeight));
 
@@ -565,6 +656,7 @@ namespace BitSorter.View
 
             // FIT, in the window's top-right corner, for whenever the circuit is not whole.
             _fit = CanvasButton(FitButton, _view, "FIT", out TextMeshProUGUI _, UiType.Caption, palette);
+            KeyBeside(_fit, "F", palette);
             TopRight(_fit.GetComponent<RectTransform>(), new Vector2(-8f, 8f), new Vector2(72f, 32f));
             _fit.onClick.AddListener(() => { FitView(); UiTheme.Defocus(); });
             Show(_fit, false);
@@ -891,9 +983,15 @@ namespace BitSorter.View
         /// </summary>
         private void Fit()
         {
-            float roomWidth = Root.rect.width - 4f * UiTheme.Margin;
-            float roomHeight = Root.rect.height - StageTop - BottomRoom;
-            float scale = Mathf.Max(0.1f, Mathf.Min(roomWidth / StageWidth, roomHeight / StageHeight));
+            var room = new Vector2(Root.rect.width - 4f * UiTheme.Margin, _page.rect.height);
+            float scale = StageScale(room, new Vector2(StageWidth, StageHeight));
+
+            float overflow = Overflow(room.y, StageHeight, scale);
+            if (!Mathf.Approximately(overflow, _overflow))
+            {
+                _overflow = overflow;
+                ScrollPageBy(0f);
+            }
 
             if (Mathf.Approximately(scale, _scale))
                 return;
@@ -908,6 +1006,58 @@ namespace BitSorter.View
             _wires.SetVerticesDirty();
             _parts.SetVerticesDirty();
             _timing.SetVerticesDirty();
+        }
+
+        /// <summary>
+        /// The scale the stage is drawn at in <paramref name="room"/>: as large as fits, but never under
+        /// <see cref="MinStageScale"/> for the height -- a page too short for the stage scrolls instead.
+        /// </summary>
+        public static float StageScale(Vector2 room, Vector2 stage) =>
+            Mathf.Max(0.1f, Mathf.Min(room.x / stage.x, Mathf.Max(MinStageScale, room.y / stage.y)));
+
+        /// <summary>How much of a stage <paramref name="stageHeight"/> tall, drawn at <paramref name="scale"/>, a page <paramref name="room"/> tall cannot show.</summary>
+        public static float Overflow(float room, float stageHeight, float scale) => Mathf.Max(0f, stageHeight * scale - room);
+
+        /// <summary>How far the page is scrolled, and how far it can be.</summary>
+        public float PageScroll => _pageScroll;
+
+        /// <inheritdoc cref="PageScroll"/>
+        public float PageOverflow => _overflow;
+
+        /// <summary>A turn of the wheel off the circuit: moves a page that scrolls, a notch at a time. True when it moved.</summary>
+        public bool TakeScroll(Vector2 screenPoint, Vector2 scroll)
+        {
+            if (_overflow <= 0f || Mathf.Abs(scroll.y) < 0.01f || _page == null ||
+                !RectTransformUtility.RectangleContainsScreenPoint(_page, screenPoint, null))
+            {
+                return false;
+            }
+
+            return ScrollPageBy(scroll.y > 0f ? -ScrollStep : ScrollStep);
+        }
+
+        /// <summary>Moves the page by <paramref name="units"/>, within what it can scroll, and its bar with it. True when it moved.</summary>
+        private bool ScrollPageBy(float units)
+        {
+            if (_page == null)
+                return false;
+
+            float scroll = Mathf.Clamp(_pageScroll + units, 0f, _overflow);
+            bool moved = !Mathf.Approximately(scroll, _pageScroll);
+            _pageScroll = scroll;
+            _stage.anchoredPosition = new Vector2(0f, _pageScroll);
+
+            bool scrolls = _overflow > 0.5f;
+            Show(_scrollThumb, scrolls);
+            if (scrolls)
+            {
+                float room = _page.rect.height;
+                float thumb = Mathf.Max(24f, room * room / (room + _overflow));
+                _scrollThumb.rectTransform.sizeDelta = new Vector2(4f, thumb);
+                _scrollThumb.rectTransform.anchoredPosition = new Vector2(-UiTheme.Margin, -(room - thumb) * (_pageScroll / _overflow));
+            }
+
+            return moved;
         }
 
         // -----------------------------------------------------------------
@@ -935,6 +1085,30 @@ namespace BitSorter.View
             label.color = palette.Text;
             label.transform.SetAsLastSibling();
             return button;
+        }
+
+        /// <summary>A button's key in a cap just over it, in the canvas's colours, as the 4.x HUD draws RUN's.</summary>
+        private static void KeyOver(Button button, string key, SchematicPalette palette)
+        {
+            RectTransform cap = KeyCap(button, key, palette);
+            UiTheme.Anchor(cap, new Vector2(0.5f, 1f), new Vector2(0.5f, 0f), new Vector2(0f, 4f), cap.sizeDelta);
+        }
+
+        /// <summary>A button's key in a cap just left of it, for one with no room over it.</summary>
+        private static void KeyBeside(Button button, string key, SchematicPalette palette)
+        {
+            RectTransform cap = KeyCap(button, key, palette);
+            UiTheme.Anchor(cap, new Vector2(0f, 0.5f), new Vector2(1f, 0.5f), new Vector2(-6f, 0f), cap.sizeDelta);
+        }
+
+        private static RectTransform KeyCap(Button button, string key, SchematicPalette palette)
+        {
+            RectTransform cap = UiTheme.KeyCap("key", button.transform, key);
+            TextMeshProUGUI label = cap.GetComponentInChildren<TextMeshProUGUI>();
+            Outline(cap.GetComponent<Image>(), palette.ChipEdge, palette.Chip);
+            label.color = palette.TextDim;
+            label.transform.SetAsLastSibling();
+            return cap;
         }
 
         /// <summary>A small rounded chip in the canvas's colours: its edge, and its fill inside.</summary>
