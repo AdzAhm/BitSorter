@@ -217,6 +217,94 @@ namespace BitSorter.LogicCore.Tests
         }
 
         // -----------------------------------------------------------------
+        // Zooming and moving the circuit
+        // -----------------------------------------------------------------
+
+        /// <summary>A window 800 by 400, the drawing 760 by 360 sitting 20 in from its corner.</summary>
+        private static SchematicView View() => new SchematicView(new Vector2(800, 400), new Vector2(20, 20), new Vector2(760, 360));
+
+        /// <summary>The point of the drawing under a point of the window.</summary>
+        private static Vector2 Under(SchematicView view, Vector2 at) => (at - view.Offset) / view.Zoom;
+
+        [Test]
+        public void TheCircuit_StartsWhole_WhereItWasBuilt()
+        {
+            SchematicView view = View();
+
+            Assert.IsTrue(view.IsFitted);
+            Assert.AreEqual(1f, view.Zoom);
+            Assert.AreEqual(view.Home, view.Offset);
+        }
+
+        [Test]
+        public void TheWheel_ZoomsIn_KeepingThePointUnderTheCursorWhereItIs()
+        {
+            SchematicView view = View();
+            var cursor = new Vector2(300, 150);
+            Vector2 under = Under(view, cursor);
+
+            Assert.IsTrue(view.ZoomAbout(cursor, 2));
+            Assert.AreEqual(SchematicView.NotchFactor * SchematicView.NotchFactor, view.Zoom, 1e-5f);
+            Assert.AreEqual(under.x, Under(view, cursor).x, 1e-3f, "the point under the cursor moved across");
+            Assert.AreEqual(under.y, Under(view, cursor).y, 1e-3f, "the point under the cursor moved up or down");
+            Assert.IsFalse(view.IsFitted);
+        }
+
+        [Test]
+        public void ZoomingIn_StopsAtItsLimit()
+        {
+            SchematicView view = View();
+
+            view.ZoomAbout(new Vector2(400, 200), 50);
+            Assert.AreEqual(SchematicView.MaxZoom, view.Zoom, 1e-5f);
+            Assert.IsFalse(view.ZoomAbout(new Vector2(400, 200), 1), "a notch past the limit changes nothing");
+        }
+
+        [Test]
+        public void ZoomingOut_StopsAtTheWholeCircuit_AndPutsItBackWhereItBelongs()
+        {
+            SchematicView view = View();
+            view.ZoomAbout(new Vector2(700, 50), 3);
+            view.Pan(new Vector2(-120, 40));
+
+            view.ZoomAbout(new Vector2(100, 300), -3);
+
+            Assert.IsTrue(view.IsFitted, "as many notches out as in should be the whole circuit, exactly, where it was built");
+            Assert.IsFalse(view.ZoomAbout(new Vector2(100, 300), -1), "and no further");
+        }
+
+        [Test]
+        public void ADrag_MovesTheCircuit_ButNeverOutOfTheWindow()
+        {
+            SchematicView view = View();
+            view.ZoomAbout(new Vector2(400, 200), 2);
+            Vector2 before = view.Offset;
+
+            Assert.IsTrue(view.Pan(new Vector2(30, -10)));
+            Assert.AreEqual(before + new Vector2(30, -10), view.Offset);
+
+            foreach (Vector2 far in new[] { new Vector2(5000, 0), new Vector2(-5000, 0), new Vector2(0, 5000), new Vector2(0, -5000) })
+            {
+                view.Pan(far);
+                Vector2 middle = Under(view, view.Window * 0.5f);
+                Assert.IsTrue(middle.x >= 0f && middle.x <= view.Drawing.x && middle.y >= 0f && middle.y <= view.Drawing.y,
+                    $"dragged by {far}, the window's middle is off the circuit");
+            }
+        }
+
+        [Test]
+        public void Fit_PutsBackTheWholeCircuit()
+        {
+            SchematicView view = View();
+            view.ZoomAbout(new Vector2(10, 10), 4);
+            view.Pan(new Vector2(50, 50));
+
+            view.Fit();
+
+            Assert.IsTrue(view.IsFitted);
+        }
+
+        // -----------------------------------------------------------------
         // Colours
         // -----------------------------------------------------------------
 

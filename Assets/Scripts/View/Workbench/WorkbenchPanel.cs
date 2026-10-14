@@ -19,6 +19,11 @@ namespace BitSorter.View
     /// through the editor -- by way of <see cref="DocumentSchematic"/>, its parts as their symbols and
     /// its wires where the document's geometry routes them.
     ///
+    /// **The circuit zooms and moves, the waveform does not** (<see cref="SchematicView"/>): the
+    /// wheel over the circuit zooms in about the cursor, a drag moves it, and FIT -- shown only
+    /// while it is anything but whole -- puts it back. Its window clips it, so a zoomed circuit never
+    /// runs over the waveform or the card's edge.
+    ///
     /// **The run is made once, to its end, when the panel first opens**; playing, replaying and
     /// dragging the slider back are the model answering for another moment (ADR-6). Nothing
     /// re-runs, which is why rewinding is free.
@@ -50,12 +55,15 @@ namespace BitSorter.View
         /// <inheritdoc cref="RootName"/>
         public const string TimeSlider = "Workbench time";
 
+        /// <inheritdoc cref="RootName"/>
+        public const string FitButton = "Workbench fit";
+
         /// <summary>What the panel says it is, under its title.</summary>
         public const string Description =
             "The look reference's circuit as a board document, run on BitSorter's 5.0 engine: every value, and every change on its way, is the engine's.";
 
         /// <summary>The line along the bottom.</summary>
-        public const string HelpLine = "drag the slider to go back in time, escape to go back";
+        public const string HelpLine = "scroll to zoom, drag to move the circuit, drag the slider to go back in time, escape to go back";
 
         // -----------------------------------------------------------------
         // The stage: the card holding the schematic and the waveform, in its own units
@@ -72,6 +80,12 @@ namespace BitSorter.View
 
         /// <summary>Where the waveform sits: under the schematic, however tall that is.</summary>
         private Vector2 WaveformAt => new Vector2(5f, SchematicAt.y + (_model == null ? 360f : _model.Layout.Size.y) + 14f);
+
+        /// <summary>The window the schematic is seen through: the card above the waveform, inside its edge.</summary>
+        private static readonly Vector2 ViewAt = new Vector2(4f, 4f);
+
+        /// <inheritdoc cref="ViewAt"/>
+        private Vector2 ViewSize => new Vector2(StageWidth - 2f * ViewAt.x, WaveformAt.y - 2f * ViewAt.y);
 
         /// <summary>The waveform's width: the stage's, less its margin either side.</summary>
         private float WaveWidth => StageWidth - 2f * WaveformAt.x;
@@ -111,12 +125,18 @@ namespace BitSorter.View
         private RectTransform _header;
         private RectTransform _controls;
         private RectTransform _stage;
+        private RectTransform _view;
         private RectTransform _schematic;
         private RectTransform _waveform;
         private RectTransform _rings;
 
         private WorkbenchGraphic _card, _wires, _parts, _timing;
         private Slider _slider;
+        private Button _fit;
+
+        private SchematicView _viewState;
+        private bool _dragging, _wasHeld;
+        private Vector2 _dragFrom;
         private TextMeshProUGUI _timeLabel, _chipLabel, _playLabel, _playheadLabel;
 
         private readonly List<TextMeshProUGUI> _digits = new List<TextMeshProUGUI>();
@@ -152,6 +172,20 @@ namespace BitSorter.View
         /// <summary>The run being shown; null until the panel has first opened.</summary>
         public WorkbenchModel Model => _model;
 
+        /// <summary>How far the circuit is zoomed in: 1 is the whole of it.</summary>
+        public float Zoom => _viewState != null ? _viewState.Zoom : 1f;
+
+        /// <summary>Whether the circuit is shown whole, where it belongs.</summary>
+        public bool IsFitted => _viewState == null || _viewState.IsFitted;
+
+        /// <summary>Where a point of the circuit's drawing, in its own units (y down), is on the screen now.</summary>
+        public Vector2 ScreenPointOf(Vector2 drawingPoint) =>
+            RectTransformUtility.WorldToScreenPoint(null, _schematic.TransformPoint(new Vector3(drawingPoint.x, -drawingPoint.y, 0f)));
+
+        /// <summary>The middle of the circuit's window, on the screen: somewhere a zoom or a drag can start.</summary>
+        public Vector2 ViewMiddleOnScreen =>
+            RectTransformUtility.WorldToScreenPoint(null, _view.TransformPoint(_view.rect.center));
+
         /// <summary>The colour a signal's wire was drawn in last: what the screen shows.</summary>
         public bool TryDrawnColour(string signal, out Color colour)
         {
@@ -176,7 +210,106 @@ namespace BitSorter.View
 
             SetShowing(true);
             Fit();
+            FitView();
             Replay();
+        }
+
+        /// <summary>Shows the whole circuit again, where it belongs.</summary>
+        public void FitView()
+        {
+            if (_viewState == null)
+                return;
+
+            _viewState.Fit();
+            ApplyView();
+        }
+
+        /// <summary>
+        /// A turn of the wheel at a point on the screen: over the circuit, up zooms in about the point
+        /// under the cursor and down zooms back out, as far as the whole circuit. True when the view
+        /// changed. Only the sign is read, as everywhere the wheel is: a notch is 120 on Windows and 1
+        /// elsewhere.
+        /// </summary>
+        /// <remarks>
+        /// Public so a test can turn the wheel without a mouse: a wheel's movement is cleared as each
+        /// frame's input arrives, before a fixture's own could be read. Each frame the panel hands it
+        /// the real one's.
+        /// </remarks>
+        public bool TakeWheel(Vector2 screenPoint, Vector2 scroll)
+        {
+            if (_viewState == null || Mathf.Abs(scroll.y) < 0.01f || !InView(screenPoint, out Vector2 at))
+                return false;
+
+            if (!_viewState.ZoomAbout(at, scroll.y > 0f ? 1 : -1))
+                return false;
+
+            ApplyView();
+            return true;
+        }
+
+        /// <summary>
+        /// The mouse's buttons this frame: a press on the circuit's window starts a drag that moves the
+        /// circuit with the pointer until the button is let go.
+        /// </summary>
+        /// <remarks>
+        /// Only a press that lands on the window starts one, so the slider dragged down over the
+        /// circuit stays a drag of the slider, and FIT over it stays a click.
+        /// </remarks>
+        private void TakeDrag(Vector2 screenPoint, bool held)
+        {
+            bool pressed = held && !_wasHeld;
+            _wasHeld = held;
+
+            if (!held)
+            {
+                _dragging = false;
+                return;
+            }
+
+            if (pressed)
+            {
+                _dragging = InView(screenPoint, out _) && !OverFit(screenPoint);
+                _dragFrom = screenPoint;
+                return;
+            }
+
+            if (!_dragging || screenPoint == _dragFrom)
+                return;
+
+            InView(_dragFrom, out Vector2 from);
+            InView(screenPoint, out Vector2 to);
+            _dragFrom = screenPoint;
+
+            if (_viewState.Pan(to - from))
+                ApplyView();
+        }
+
+        /// <summary>Where a point on the screen is in the circuit's window, y down; true when it is inside it.</summary>
+        private bool InView(Vector2 screenPoint, out Vector2 at)
+        {
+            at = default;
+            if (_view == null || !RectTransformUtility.ScreenPointToLocalPointInRectangle(_view, screenPoint, null, out Vector2 local))
+                return false;
+
+            // The window's pivot is its top-left corner, so local x runs right and y up from there.
+            at = new Vector2(local.x, -local.y);
+            return _view.rect.Contains(local);
+        }
+
+        private bool OverFit(Vector2 screenPoint) =>
+            _fit != null && _fit.gameObject.activeSelf &&
+            RectTransformUtility.RectangleContainsScreenPoint(_fit.GetComponent<RectTransform>(), screenPoint, null);
+
+        /// <summary>Puts the schematic where the view says, at its zoom, and FIT up while it is anything but whole.</summary>
+        private void ApplyView()
+        {
+            _schematic.anchoredPosition = new Vector2(_viewState.Offset.x, -_viewState.Offset.y);
+            _schematic.localScale = new Vector3(_viewState.Zoom, _viewState.Zoom, 1f);
+            Show(_fit, !_viewState.IsFitted);
+
+            // The edges' smoothing is a pixel wide, and a zoom changes how many units a pixel is.
+            _wires.SetVerticesDirty();
+            _parts.SetVerticesDirty();
         }
 
         /// <summary>Starts the run again from 0, playing.</summary>
@@ -228,6 +361,14 @@ namespace BitSorter.View
             {
                 Back();
                 return;
+            }
+
+            Mouse mouse = Mouse.current;
+            if (mouse != null && !OpenedThisFrame)
+            {
+                Vector2 pointer = mouse.position.ReadValue();
+                TakeWheel(pointer, mouse.scroll.ReadValue());
+                TakeDrag(pointer, mouse.leftButton.isPressed || mouse.middleButton.isPressed || mouse.rightButton.isPressed);
             }
 
             if (_playing)
@@ -355,14 +496,28 @@ namespace BitSorter.View
             _card = Layer("card", _stage, WorkbenchGraphic.Layer.Card, Vector2.zero, new Vector2(StageWidth, StageHeight));
 
             SchematicLayout layout = _model.Layout;
-            _schematic = UiTheme.Rect("schematic", _stage);
-            TopLeft(_schematic, SchematicAt, layout.Size);
+
+            // The window the circuit is seen through, which clips whatever a zoom or a drag takes
+            // past its edges.
+            _view = UiTheme.Rect("schematic view", _stage);
+            TopLeft(_view, ViewAt, ViewSize);
+            _view.gameObject.AddComponent<RectMask2D>();
+            _viewState = new SchematicView(ViewSize, SchematicAt - ViewAt, layout.Size);
+
+            _schematic = UiTheme.Rect("schematic", _view);
+            TopLeft(_schematic, _viewState.Offset, layout.Size);
 
             _wires = Layer("wires", _schematic, WorkbenchGraphic.Layer.Wires, Vector2.zero, layout.Size);
             _rings = UiTheme.Rect("ring digits", _schematic);
             TopLeft(_rings, Vector2.zero, layout.Size);
             _parts = Layer("parts", _schematic, WorkbenchGraphic.Layer.Parts, Vector2.zero, layout.Size);
             BuildSchematicLabels(palette);
+
+            // FIT, in the window's top-right corner, for whenever the circuit is not whole.
+            _fit = UiTheme.Button_(FitButton, _view, "FIT", out TextMeshProUGUI _, UiType.Caption, ButtonRole.Quiet);
+            TopRight(_fit.GetComponent<RectTransform>(), new Vector2(-8f, 8f), new Vector2(72f, 32f));
+            _fit.onClick.AddListener(() => { FitView(); UiTheme.Defocus(); });
+            Show(_fit, false);
 
             float waveHeight = WorkbenchDrawing.WaveHeight(layout.Rows.Count);
             _waveform = UiTheme.Rect("waveform", _stage);

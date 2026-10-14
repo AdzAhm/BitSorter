@@ -177,5 +177,68 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsTrue(workbench.Playing, "REPLAY did not play");
             Assert.Less(workbench.Time, 1.0, "REPLAY did not go back to the start");
         }
+
+        private static void AssertNear(Vector2 expected, Vector2 actual, string message)
+        {
+            Assert.AreEqual(expected.x, actual.x, 0.5f, message + $" (across: {expected} against {actual})");
+            Assert.AreEqual(expected.y, actual.y, 0.5f, message + $" (up and down: {expected} against {actual})");
+        }
+
+        [UnityTest]
+        public IEnumerator TheWheel_ZoomsAboutTheCursor_ADragMovesTheCircuit_AndFitPutsItBack()
+        {
+            yield return TestScene.Load();
+            yield return OpenTheWorkbench();
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            Assert.IsTrue(workbench.IsFitted, "the circuit should open whole");
+            Assert.IsNull(GameObject.Find(WorkbenchPanel.FitButton), "FIT is for a circuit that is not whole");
+
+            // A point of the drawing, and where it is on the screen.
+            Vector2 point = workbench.Model.Layout.Size * 0.4f;
+            Vector2 cursor = workbench.ScreenPointOf(point);
+
+            // The wheel is handed over as the real one's is each frame: a fixture's own scroll is
+            // cleared as the next frame's input arrives, before the panel could read it.
+            Assert.IsTrue(workbench.TakeWheel(cursor, new Vector2(0f, 120f)), "a notch up over the circuit did not zoom");
+            yield return null;
+            Assert.Greater(workbench.Zoom, 1f);
+            AssertNear(cursor, workbench.ScreenPointOf(point), "the point under the cursor moved as the circuit zoomed");
+            Assert.IsNotNull(GameObject.Find(WorkbenchPanel.FitButton), "FIT should be up once the circuit is zoomed");
+
+            // A drag on the circuit takes it with the pointer, through the real mouse.
+            var mouse = InputSystem.GetDevice<Mouse>();
+            mouse.MakeCurrent();
+            var drag = new Vector2(60f, -40f);
+            Move(mouse.position, cursor);
+            yield return null;
+            Press(mouse.leftButton);
+            yield return null;
+            Move(mouse.position, cursor + drag);
+            yield return null;
+            Release(mouse.leftButton);
+            yield return null;
+            AssertNear(cursor + drag, workbench.ScreenPointOf(point), "the circuit did not follow the drag");
+
+            // A press on the slider, dragged on over the circuit, is the slider's and not a drag of the circuit.
+            Vector2 dragged = workbench.ScreenPointOf(point);
+            Vector2 slider = RectTransformUtility.WorldToScreenPoint(null, GameObject.Find(WorkbenchPanel.TimeSlider).transform.position);
+            Move(mouse.position, slider);
+            yield return null;
+            Press(mouse.leftButton);
+            yield return null;
+            Move(mouse.position, workbench.ViewMiddleOnScreen);
+            yield return null;
+            Move(mouse.position, workbench.ViewMiddleOnScreen + new Vector2(50f, 50f));
+            yield return null;
+            Release(mouse.leftButton);
+            yield return null;
+            AssertNear(dragged, workbench.ScreenPointOf(point), "a press on the slider moved the circuit");
+
+            yield return Click(WorkbenchPanel.FitButton);
+            Assert.IsTrue(workbench.IsFitted, "FIT did not put the whole circuit back");
+            AssertNear(cursor, workbench.ScreenPointOf(point), "FIT did not put the circuit back where it was");
+            Assert.IsNull(GameObject.Find(WorkbenchPanel.FitButton), "FIT should go once the circuit is whole");
+        }
     }
 }

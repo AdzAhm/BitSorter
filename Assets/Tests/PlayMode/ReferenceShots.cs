@@ -1,5 +1,6 @@
 using System.Collections;
 using System.IO;
+using System.Linq;
 using NUnit.Framework;
 using BitSorter.LogicCore;
 using BitSorter.View;
@@ -823,6 +824,31 @@ namespace BitSorter.PlayMode.Tests
             Assert.AreEqual(2, workbench.Model.InFlight, "sanity: two changes should be on their way at 13.5");
 
             yield return Capture("27-workbench");
+        }
+
+        /// <summary>The same moment, zoomed in on the AND that swallows the short glitch: the window's clip, the edges at twice the size, and FIT.</summary>
+        [UnityTest]
+        public IEnumerator Shot28_WorkbenchZoomed()
+        {
+            yield return LoadTheGame();
+            yield return Frames(2);
+
+            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            yield return Frames(2);
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.Pause();
+            workbench.Seek(13.5);
+
+            PartLayout secondAnd = workbench.Model.Layout.Parts.Where(p => p.Symbol == PartSymbol.And).ElementAt(1);
+            Vector2 cursor = workbench.ScreenPointOf(secondAnd.ToStage(0, 0));
+            for (int notch = 0; notch < 3; notch++)
+                workbench.TakeWheel(cursor, new Vector2(0f, 120f));
+            yield return Frames(30);
+
+            Assert.Greater(workbench.Zoom, 1.9f, "sanity: three notches in should be nearly twice the size");
+
+            yield return Capture("28-workbench-zoomed");
         }
 
         private static IEnumerator OpensOnItsCircuit(string level, string fixture, string shot)
