@@ -240,8 +240,13 @@ namespace BitSorter.Board
 
                 case GatePart gate:
                     Width(gate.Width, "width");
-                    if (gate.Kind == GateKind.Bufif0 || gate.Kind == GateKind.Bufif1 || gate.Kind == GateKind.Notif0 || gate.Kind == GateKind.Notif1)
-                        Error($"{gate.Name} is a tri-state gate; those arrive in Part 14.");
+                    if (gate.IsTriState)
+                    {
+                        if (gate.Inputs != 2)
+                            Error($"{gate.Name} is a {Primitive(gate.Kind)} gate, which has two inputs, the data and the control, not {gate.Inputs}.");
+                        if (gate.Width != 1)
+                            Error($"{gate.Name} is a {Primitive(gate.Kind)} gate, which is one bit wide.");
+                    }
                     else if (gate.Kind == GateKind.Not || gate.Kind == GateKind.Buf)
                     {
                         if (gate.Inputs != 1)

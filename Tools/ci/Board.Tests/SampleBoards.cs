@@ -16,7 +16,7 @@ namespace BitSorter.Board.Tests
     {
         public static IEnumerable<string> Names => new[]
         {
-            "half_adder", "half_adder_delayed", "full_adder", "johnson", "buses", "mux4",
+            "half_adder", "half_adder_delayed", "full_adder", "johnson", "buses", "mux4", "tristate",
         };
 
         public static Project Build(string name)
@@ -29,6 +29,7 @@ namespace BitSorter.Board.Tests
                 case "johnson": return Johnson();
                 case "buses": return Buses();
                 case "mux4": return Mux4();
+                case "tristate": return TriState();
                 default: throw new ArgumentException(name);
             }
         }
@@ -217,6 +218,36 @@ namespace BitSorter.Board.Tests
                     new Track { Port = "s", Steps = steps["s"] },
                 },
                 End = 100,
+            }));
+            return editor.Project;
+        }
+
+        /// <summary>
+        /// Tri-state gates, each the one driver of its net: q is d while en is 1 and z otherwise, through
+        /// a bufif1 with delay; nq is d inverted while en is 0, through an ideal notif0.
+        /// </summary>
+        private static Project TriState()
+        {
+            var editor = new BoardEditor(Project.New("tristate"));
+            var b = new Builder(editor, "tristate");
+            int d = b.In("d"), en = b.In("en"), q = b.Out("q"), nq = b.Out("nq");
+            int buf = b.Add(new GatePart { Kind = GateKind.Bufif1, Inputs = 2, Rise = 1, Fall = 2 });
+            int inv = b.Add(new GatePart { Kind = GateKind.Notif0, Inputs = 2 });
+            b.Wire(d, "out", buf, "a");
+            b.Wire(en, "out", buf, "en");
+            b.Wire(buf, "y", q, "in");
+            b.Wire(d, "out", inv, "a");
+            b.Wire(en, "out", inv, "en");
+            b.Wire(inv, "y", nq, "in");
+
+            Must(editor.SetStimulus(new Stimulus
+            {
+                Tracks = new[]
+                {
+                    new Track { Port = "d", Steps = new[] { new Step(0, Bits(1, 1)), new Step(9, Bits(0, 1)), new Step(14, Bits(1, 1)) } },
+                    new Track { Port = "en", Steps = new[] { new Step(0, Bits(0, 1)), new Step(5, Bits(1, 1)), new Step(12, Bits(0, 1)) } },
+                },
+                End = 20,
             }));
             return editor.Project;
         }

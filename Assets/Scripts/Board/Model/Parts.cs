@@ -99,14 +99,27 @@ namespace BitSorter.Board
 
         public bool IsIdeal => Rise == 0 && Fall == 0;
 
+        /// <summary>
+        /// Whether it is a tri-state gate -- <c>bufif0</c>, <c>bufif1</c>, <c>notif0</c>, <c>notif1</c> --
+        /// whose output is z while its control says so. One bit, one driver of its net: buses with
+        /// several drivers arrive in Part 14.
+        /// </summary>
+        public bool IsTriState => IsTriStateKind(Kind);
+
+        public static bool IsTriStateKind(GateKind kind) =>
+            kind == GateKind.Bufif0 || kind == GateKind.Bufif1 || kind == GateKind.Notif0 || kind == GateKind.Notif1;
+
         /// <summary>The <paramref name="index"/>th input's name: a, b, c ...</summary>
         public static string InputName(int index) => ((char)('a' + index)).ToString();
+
+        /// <summary>The <paramref name="index"/>th input of a gate of <paramref name="kind"/>: a, b, c ..., or a tri-state gate's a and en.</summary>
+        public static string InputPin(GateKind kind, int index) => IsTriStateKind(kind) && index == 1 ? "en" : InputName(index);
 
         public override IReadOnlyList<Pin> Pins(Project project)
         {
             var pins = new Pin[Inputs + 1];
             for (int i = 0; i < Inputs; i++)
-                pins[i] = new Pin(InputName(i), PinDirection.In, Width);
+                pins[i] = new Pin(InputPin(Kind, i), PinDirection.In, IsTriState ? 1 : Width);
             pins[Inputs] = new Pin("y", PinDirection.Out, Width);
             return pins;
         }

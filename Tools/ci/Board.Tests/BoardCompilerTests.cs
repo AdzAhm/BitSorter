@@ -115,6 +115,24 @@ namespace BitSorter.Board.Tests
         }
 
         [Test]
+        public void ATriStateGate_PrintsAsItsPrimitive_AndIsZWhileItsControlSaysSo()
+        {
+            Project project = SampleBoards.Build("tristate");
+            string text = Printed(project, "tristate.sv");
+            TestContext.WriteLine(text);
+
+            StringAssert.Contains("bufif1 #(1, 2) g1 (q, d, en);", text, "no cell: a primitive with its delay");
+            StringAssert.Contains("notif0 g2 (nq, d, en);", text);
+
+            Simulator sim = Run(BoardCompiler.Compile(project));
+            string At(string signal, long time) => sim.History.ValueAt(sim.Design.Find("tristate_tb." + signal), time).Format(Radix.Binary);
+            Assert.AreEqual("z", At("q", 3), "en is 0: q is let go");
+            Assert.AreEqual("1", At("q", 7), "en is 1: q is d, a rise of 1 after");
+            Assert.AreEqual("0", At("nq", 3), "notif0 drives while en is 0, inverted");
+            Assert.AreEqual("z", At("nq", 7));
+        }
+
+        [Test]
         public void ABlockPinWithNothingOnIt_IsLeftOpen()
         {
             var b = new Bench("top");

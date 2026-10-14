@@ -56,6 +56,25 @@ namespace BitSorter.Board.Tests
             StringAssert.Contains("Two parts are called g1", result.Refusal);
         }
 
+        [Test]
+        public void ATriStateGate_TakesItsDataAndItsControl_OneBitEach()
+        {
+            var b = new Bench();
+            int g = b.Gate(GateKind.Bufif1);
+
+            CollectionAssert.AreEqual(new[] { "a", "en", "y" }, b.Current.FindPart(g).Pins(b.Project).Select(p => p.Name),
+                "the second input is the control, named as the primitive's is");
+
+            var gate = (GatePart)b.Current.FindPart(g);
+            EditResult three = b.Editor.Change(b.Module, gate with { Inputs = 3 });
+            Assert.IsFalse(three.Done);
+            StringAssert.Contains("bufif1 gate, which has two inputs, the data and the control, not 3", three.Refusal);
+
+            EditResult wide = b.Editor.Change(b.Module, gate with { Width = 4 });
+            Assert.IsFalse(wide.Done);
+            StringAssert.Contains("bufif1 gate, which is one bit wide", wide.Refusal);
+        }
+
         // -----------------------------------------------------------------
         // Wiring
         // -----------------------------------------------------------------

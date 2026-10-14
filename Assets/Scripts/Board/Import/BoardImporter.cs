@@ -296,7 +296,7 @@ namespace BitSorter.Board
 
             private void Primitive(PrimitiveInstantiation primitive)
             {
-                if (!Enum.TryParse(primitive.Primitive, true, out GateKind kind) || kind > GateKind.Not)
+                if (!Enum.TryParse(primitive.Primitive, true, out GateKind kind))
                 {
                     Problem(primitive, $"a {primitive.Primitive} primitive cannot be drawn yet.");
                     return;
@@ -340,7 +340,7 @@ namespace BitSorter.Board
 
                 Net(output).Pins.Add(Endpoint.At(id, "y"));
                 for (int i = 0; i < inputs.Count; i++)
-                    Net(inputs[i]).Pins.Add(Endpoint.At(id, GatePart.InputName(i)));
+                    Net(inputs[i]).Pins.Add(Endpoint.At(id, GatePart.InputPin(kind, i)));
             }
 
             private void Instances(ModuleInstantiation instantiation)

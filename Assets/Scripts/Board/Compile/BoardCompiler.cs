@@ -277,7 +277,7 @@ namespace BitSorter.Board
             {
                 var inputs = new List<Expression>();
                 for (int i = 0; i < gate.Inputs; i++)
-                    inputs.Add(At(gate, GatePart.InputName(i)));
+                    inputs.Add(At(gate, GatePart.InputPin(gate.Kind, i)));
                 Expression output = At(gate, "y");
 
                 if (gate.Width == 1)
