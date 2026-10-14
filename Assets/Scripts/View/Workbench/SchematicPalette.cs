@@ -73,7 +73,9 @@ namespace BitSorter.View
             One = Rgb(212, 83, 126),
             Unknown = Rgb(229, 72, 77),
             HighZ = Rgb(138, 138, 134),
-            Bus = Rgb(214, 211, 201),
+            // A warm sand rather than the near-white the reference's text is: at Part 8's review the
+            // bus was the brightest thing on the screen.
+            Bus = Rgb(180, 174, 156),
 
             Playhead = Rgb(212, 83, 126),
             Grid = Rgb(40, 40, 40),
@@ -102,7 +104,8 @@ namespace BitSorter.View
             One = Rgb(194, 57, 108),
             Unknown = Rgb(208, 46, 52),
             HighZ = Rgb(128, 128, 124),
-            Bus = Rgb(58, 57, 53),
+            // A warm grey rather than a near-black slab, the light look's answer to the same review.
+            Bus = Rgb(120, 116, 104),
 
             Playhead = Rgb(194, 57, 108),
             Grid = Rgb(230, 228, 222),
@@ -136,7 +139,8 @@ namespace BitSorter.View
             Unknown = p.Scorch,
             // Classic's 0 is already a grey-blue, so an undriven wire is a plain light grey -- and dashed.
             HighZ = new Color(0.70f, 0.70f, 0.70f),
-            Bus = p.WireMark,
+            // Between the board's wire and its marks: its marks' own pale teal was the loudest stroke.
+            Bus = new Color(0.46f, 0.66f, 0.74f),
 
             Playhead = p.Accent,
             Grid = p.GroundTrace,

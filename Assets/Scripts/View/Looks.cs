@@ -142,7 +142,7 @@ namespace BitSorter.View
 
             // The canvas in the board's own colours: its black-violet ground and ruled traces, a 1
             // in the board's magenta, a 0 a lighter indigo than the board's bit -- which is lit by
-            // bloom, where a wire is not -- a bus in the cyan of the board's wire marks, the gates
+            // bloom, where a wire is not -- a bus in a cyan of the board's wires, the gates
             // outlined in its trace colour, and twice the Schematic look's glow, since glow is what
             // the look is.
             look.Title = "NEON BOARD";
@@ -163,7 +163,9 @@ namespace BitSorter.View
                 c.One = board.BitOne;
                 c.Unknown = board.Scorch;
                 c.HighZ = board.TextDim;
-                c.Bus = board.WireMark;
+                // A mid cyan, between the board's wire and its marks: the marks' own was the loudest
+                // stroke on the screen at Part 8's review.
+                c.Bus = Hex(0x3FA9C9);
 
                 c.Playhead = board.Accent;
                 c.Grid = board.GroundTrace;

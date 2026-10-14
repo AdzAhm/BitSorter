@@ -48,8 +48,12 @@ namespace BitSorter.View
         /// <summary>A wire nothing drives: thin, and dashed.</summary>
         public const float HighZWidth = 2f;
 
-        /// <summary>A bus, whatever it holds.</summary>
-        public const float BusWidth = 6.5f;
+        /// <summary>
+        /// A bus, whatever it holds: still the heaviest wire, so it reads as many wires in one, but not
+        /// by so much that it outshouts the one-bit wires and their changes. It was 6.5, and at Part 8's
+        /// review the bus was the loudest stroke on the screen.
+        /// </summary>
+        public const float BusWidth = 5f;
 
         /// <summary>The dashes of an undriven wire.</summary>
         public const float DashOn = 6f;

@@ -625,8 +625,14 @@ namespace BitSorter.View
                     StageLabel(_schematic, part.Name, part.ToStage(0.05, 0), UiType.Micro, palette.TextDim,
                         TextAlignmentOptions.Center, part.Cell);
                 else if (PartLayout.NameAbove(part.Symbol))
-                    StageLabel(_schematic, part.Name, new Vector2(bounds.center.x, bounds.yMin - 9f), UiType.Micro, palette.TextDim,
+                {
+                    // Over what is drawn. A triangle is a third of a cell tall where its outline is half,
+                    // and placed from the outline its name floated as near the row above as its own
+                    // part (Part 8's review); over the triangle's taller back it is plainly the part's.
+                    Vector2 over = Triangle(part.Symbol) ? part.ToStage(-0.2, 0.32) : new Vector2(bounds.center.x, bounds.yMin);
+                    StageLabel(_schematic, part.Name, new Vector2(over.x, over.y - 9f), UiType.Micro, palette.TextDim,
                         TextAlignmentOptions.Center, Mathf.Max(80f, bounds.width + 40f));
+                }
 
                 // Its delay just past its output, over the wire leaving it: under or over the body it
                 // lands on an enable wire or the part below.
@@ -665,6 +671,9 @@ namespace BitSorter.View
                     UiType.Micro, palette.Muted, TextAlignmentOptions.MidlineLeft, 30f);
             }
         }
+
+        private static bool Triangle(PartSymbol symbol) =>
+            symbol == PartSymbol.Not || symbol == PartSymbol.Buffer || symbol == PartSymbol.TriBuffer || symbol == PartSymbol.TriInverter;
 
         /// <summary>Where a part's outline is drawn on the stage, turned and all: what its labels are placed round.</summary>
         private static Rect StageBounds(PartLayout part)
