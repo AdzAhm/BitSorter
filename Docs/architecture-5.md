@@ -811,6 +811,43 @@ Precise, and no casing under the wires.
 - **Found on the way:** an automatic route into an enable pin from less than a stub below went past it
   and came back up, and from above ran through the part.
 
+**As built in Part 8b**: the looks, and the choice of one.
+
+- **Every look draws the canvas** (`Look.Canvas`, `Look.CanvasGlow`). Four, in the order Settings
+  offers them: **Schematic**, the reference made better as Ahmad chose it (Quiet with a touch of
+  Lively, glow 35%); **Schematic Light**, the same on paper for a report's screenshots, its value
+  colours taken dark enough for 3:1 on a light ground and a bus drawn dark; **Neon Board**, made from
+  its board's colours -- the black-violet ground, cyan outlines and buses, a magenta 1, a lighter
+  indigo 0 than the board's bloom-lit bit, and twice Schematic's glow, since glow is what the look is;
+  and **Classic**, 2.0's navy ground, yellow 1, slate 0 and teal.
+- **The Schematic looks are a canvas, not a board.** They keep Neon Board's board, interface and bloom,
+  because the 4.x board is retired in Part 15 when the levels move onto the canvas, and drawing it a
+  third way for one part's life would be thrown away. So **Schematic became `Look.Default`** -- the
+  plan's proposal, approved with it and confirmed at this part's review -- and moved no pixel of the
+  game: every board shot is the same in Schematic and in Neon Board.
+- **The workbench's own controls are the canvas's** -- buttons outlined as the reference outlines
+  REPLAY, chips with a hairline edge, the slider in the playhead's colour with a thumb in the text's.
+  They were the game's, and Neon Board's bordered panels darken a body whatever colour it is given:
+  on paper every button and chip came out a dark slab, and the chips' grey words could not be read.
+- **STYLE in Settings switches the look by loading the game again** (`LookSwitch`, ADR-8): under a
+  cover the open board is written, the look put on and the scene loaded, then Settings comes back up
+  and the cover fades. The choice is kept as the look's own number (`Look.Code`), never its place in
+  the list, and put on before the first scene in a build, never in the editor, as the frame cap is.
+- **Reduced motion** (`ReducedMotion`, a switch under the looks) leaves out the canvas's glow and its
+  gates' flashes; a change still travels its wire, since where it has got to is what the canvas shows.
+  Read where it is drawn, so it needs no reload. The 4.x board keeps its motion until Part 15.
+- **A wire pointed at lights its whole net** -- a soft band of its own colour under every branch, driver
+  to every load -- and a chip by the pointer says what drives it and what reads it (`na   from g3.y
+  (NOT) to g4.b (AND)`), written once per net so hovering formats nothing. The last of the canvas items
+  Part 8a listed.
+- **Checked.** `LookBriefTests` holds every look's canvas, Classic's included, to the brief of section
+  5: every value and outline 3:1 on its ground, every word 4.5:1, a 0 and a 1 apart by weight as well
+  as colour, z apart from both, and reduced motion leaving out glow and flash. `LookTests` holds the
+  stored numbers, the chosen look and the default; `SettingsPlayTests` chooses Schematic Light through
+  the real reload and finds Settings back up and the workbench drawn in it; `WorkbenchPlayTests` points
+  the fixture's mouse at a wire. Reference shot 29 is a wire pointed at, and every shot is captured in
+  all four looks (`BitSorter.Capture.Look`).
+
 ---
 
 ## 11. The parts
