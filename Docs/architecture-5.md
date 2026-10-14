@@ -847,6 +847,21 @@ Precise, and no casing under the wires.
   the real reload and finds Settings back up and the workbench drawn in it; `WorkbenchPlayTests` points
   the fixture's mouse at a wire. Reference shot 29 is a wire pointed at, and every shot is captured in
   all four looks (`BitSorter.Capture.Look`).
+- **Reviewed and signed off, 2026-10-14.** The reference beside the four looks, with a design critique
+  and an accessibility review of the shots; Ahmad confirmed **Schematic as the default** and asked for
+  every finding fixed before the part merged:
+  - a triangle's name (BUF, BUFIF1) is placed over the drawn triangle -- placed from its outline, half a
+    cell tall to the triangle's third, it floated as near the row above as its own part;
+  - the bus is quieter, 5 units rather than 6.5 and a sand, a warm grey, a mid cyan or a mid teal by
+    look -- it had been the loudest stroke on the screen;
+  - the stage never draws under its own size for the height (`WorkbenchPanel.MinStageScale`): a 1920 by
+    800 browser tab, fitted, took every delay and row name under ten units, so a short window scrolls
+    the page instead, by the wheel off the circuit or up and down;
+  - every control has a key, drawn over its button as the 4.x HUD draws RUN's: Space plays or pauses,
+    R replays, the arrows step a nanosecond (a tenth with Shift), plus and minus zoom, F fits.
+  Left as they are, and why: a chip's hairline edge and the slider's fill are below 3:1, but neither is
+  how anything is told apart -- the words in a chip are 4.8:1 and over, and the slider's thumb stands on
+  the ground at 15:1. uGUI shows nothing to a screen reader, which no part of 5.0 can change.
 
 ---
 

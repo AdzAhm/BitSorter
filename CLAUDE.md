@@ -660,7 +660,8 @@ failure side.
   directions rendered side by side -- and differ from it only on the canvas: the
   4.x board is retired in Part 15, and drawing it a third way for one part's life
   would be work thrown away. So making Schematic the default moved no pixel of the
-  game (Ahmad approved it with the plan, 2026-10-12; Part 8's review confirms it).
+  game (Ahmad approved it with the plan, 2026-10-12, and confirmed it at Part 8's
+  review, 2026-10-14).
   `Look.Classic` is 2.0's look, kept so a change that claims to touch no look can
   be held to Classic's reference shots, pixel for pixel. A look's bloom lives in
   the scene's volume profile, which holds Classic's values, so `LookBoot` puts the
