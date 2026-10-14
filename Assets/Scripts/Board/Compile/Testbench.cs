@@ -13,7 +13,10 @@ namespace BitSorter.Board
     /// </summary>
     internal static class Testbench
     {
-        public static ModuleDeclaration Build(Project project, HashSet<string> taken)
+        public static ModuleDeclaration Build(Project project, HashSet<string> taken) => Build(project, taken, out _);
+
+        /// <summary>The testbench, and what it calls the design it drives: <c>dut</c>, unless a port is called that.</summary>
+        public static ModuleDeclaration Build(Project project, HashSet<string> taken, out string dutName)
         {
             Module top = project.TopModule;
             Stimulus stimulus = project.Stimulus;
@@ -57,6 +60,7 @@ namespace BitSorter.Board
 
             // The design, every port by name.
             var dut = new ModuleInstance { Name = Unique("dut", names) };
+            dutName = dut.Name;
             foreach (PortPart port in ports)
                 dut.Connections.Add(Sv.Connect(port.Name, Sv.Name(port.Name)));
             var instantiation = new ModuleInstantiation { Module = top.Name };

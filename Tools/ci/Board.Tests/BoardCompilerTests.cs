@@ -90,6 +90,21 @@ namespace BitSorter.Board.Tests
         }
 
         [Test]
+        public void TheDesignPath_IsTheDesignUnderItsTestbench_OrTheTopModuleWithoutOne()
+        {
+            Project project = SampleBoards.Build("half_adder_delayed");
+            CompiledProject compiled = BoardCompiler.Compile(project);
+            Assert.AreEqual("half_adder_tb.dut", compiled.DesignPath);
+
+            Simulator sim = Run(compiled);
+            Assert.IsTrue(sim.Design.TryFind(compiled.DesignPath + ".s", out _), "a net's signal is the path, a dot and the net's name");
+            Assert.IsTrue(sim.Design.TryFind(compiled.DesignPath + ".g1." + CellLibrary.Output, out _),
+                "and a gate printed as a cell has its own output under the gate's name");
+
+            Assert.AreEqual("half_adder", BoardCompiler.Compile(project with { Stimulus = null }).DesignPath);
+        }
+
+        [Test]
         public void AHalfAdderWithDelays_RunsToItsTruthTable_EachChangeLateByItsDelay()
         {
             Simulator sim = Run(BoardCompiler.Compile(SampleBoards.Build("half_adder_delayed")));

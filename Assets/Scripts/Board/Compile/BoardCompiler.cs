@@ -24,12 +24,13 @@ namespace BitSorter.Board
     /// <summary>A whole project, compiled: one syntax tree, ready to print and to elaborate.</summary>
     public sealed class CompiledProject
     {
-        internal CompiledProject(SyntaxTree tree, string top, string testbench, IReadOnlyList<CompiledModule> modules,
+        internal CompiledProject(SyntaxTree tree, string top, string testbench, string designPath, IReadOnlyList<CompiledModule> modules,
             IReadOnlyList<string> cells, IReadOnlyList<BoardDiagnostic> diagnostics)
         {
             Tree = tree;
             Top = top;
             Testbench = testbench;
+            DesignPath = designPath;
             Modules = modules;
             Cells = cells;
             Diagnostics = diagnostics;
@@ -43,6 +44,12 @@ namespace BitSorter.Board
 
         /// <summary>The testbench's name, or null when the project has no stimulus.</summary>
         public string Testbench { get; }
+
+        /// <summary>
+        /// Where the top module's own signals are in the elaborated design: <c>half_adder_tb.dut</c> under
+        /// a testbench, <c>half_adder</c> without one. A net's signal is this, a dot, and the net's name.
+        /// </summary>
+        public string DesignPath { get; }
 
         /// <summary>Each module of the project, children before the modules that use them.</summary>
         public IReadOnlyList<CompiledModule> Modules { get; }
@@ -87,7 +94,7 @@ namespace BitSorter.Board
             List<BoardDiagnostic> diagnostics = BoardRules.Check(project);
             foreach (BoardDiagnostic d in diagnostics)
                 if (d.IsError)
-                    return new CompiledProject(null, null, null, Array.Empty<CompiledModule>(), Array.Empty<string>(), diagnostics);
+                    return new CompiledProject(null, null, null, null, Array.Empty<CompiledModule>(), Array.Empty<string>(), diagnostics);
 
             var cells = new SortedSet<string>(StringComparer.Ordinal);
             var compiled = new List<CompiledModule>();
@@ -103,15 +110,16 @@ namespace BitSorter.Board
             foreach (CompiledModule module in compiled)
                 tree.Modules.Add(module.Declaration);
 
-            string testbench = null;
+            string testbench = null, designPath = project.Top;
             if (project.Stimulus != null)
             {
-                ModuleDeclaration bench = Testbench.Build(project, Taken(project));
+                ModuleDeclaration bench = Testbench.Build(project, Taken(project), out string dut);
                 tree.Modules.Add(bench);
                 testbench = bench.Name;
+                designPath = testbench + "." + dut;
             }
 
-            return new CompiledProject(tree, testbench ?? project.Top, testbench, compiled, new List<string>(cells), diagnostics);
+            return new CompiledProject(tree, testbench ?? project.Top, testbench, designPath, compiled, new List<string>(cells), diagnostics);
         }
 
         /// <summary>The modules, each after every module it uses.</summary>
