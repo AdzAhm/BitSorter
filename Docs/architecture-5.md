@@ -422,7 +422,7 @@ Module      name, drawn or written, ports
               written: SystemVerilog source, parsed by the SystemVerilog layer
 Port        name, direction, width, comment
 Part        id, name (g1, g2 ...), kind, parameters, terminals
-              gates (and, or, nand, nor, xor, xnor, not, buf; tri-state later), constant, clock, reset,
+              gates (and, or, nand, nor, xor, xnor, not, buf, bufif0/1, notif0/1), constant, clock, reset,
               lamp, splitter, joiner, select, mux, register, memory, a block, a written block
               a gate's delay is rise and fall: 0 prints as a primitive, more as a library cell
 Connection  from a terminal to a terminal, or to a tap on another wire (a junction dot);
@@ -449,7 +449,10 @@ Exercise    a stable id (analytics uses it), title, goal, hint, order, chapter; 
   one to eight inputs, any width, rise and fall), a constant, a register (`d`, `clk`, an optional
   asynchronous active-high `rst` with its value, and a starting value), a mux of two, four or eight, a
   splitter and a joiner bit by bit, a lamp, and a block of another module. Memory, select and written
-  blocks come with the parts that need them (Part 12); tri-state in Part 14.
+  blocks come with the parts that need them (Part 12). The four tri-state gates came in Part 8, so the
+  canvas could show a z: a data input `a` and a control `en`, one bit wide, printed as the primitive
+  with its delay (`bufif1 #(1, 2) g1 (q, d, en);`) because no cell of the library is one. A net with
+  more than one driver -- a bus -- is still refused until Part 14.
 - **A clock is not a part.** The model above lists clock and reset parts; as built, a clock is an input
   port that the stimulus drives as a clock (`ClockTrack`), and a reset is an input it gives a pulse. That is
   how the course's testbenches make them, and it keeps a drawn module synthesizable: nothing in it
@@ -529,7 +532,7 @@ patterns, and no tri-state, `function`, `task`, `$display`, `` `timescale ``, `d
 | A — structural | modules and ANSI ports; `logic` and vectors; `parameter` and `localparam`, in `#(parameter ...)` headers too; gate primitives with `#(rise, fall)`; `assign`; instances, by name and by position, with `#(.P(v))`; `generate for` with `genvar` and a named block; `` `include ``; concatenation and `{n{x}}`; bit and part selects; sized and unsized literals | 4 |
 | B — behavioural | `always_ff @(posedge clk, posedge rst)`; `always_comb`; `initial`; plain `always`; `begin`/`end`; `if`/`else`; `case` with `default`; `for`, `repeat`, `forever`; `=` and `<=`; `#delay`; `@(posedge` and `negedge)`; `typedef enum`; `?:`; arithmetic, shifts, comparisons, bitwise and reduction operators | 5 |
 | C — the processor | memories; `$readmemh` and `$writememh`; `casex`; `signed` and `>>>`; `$info`, `$error`, `$stop`, `$finish` with `%X %d %b %h`; hierarchical references; timeouts | 6 |
-| Syllabus extras | tri-state (`bufif`, `notif`, `tri`), `integer`, `$time`, `` `timescale `` read as a display hint, `**` | 14 and later |
+| Syllabus extras | tri-state (`bufif`, `notif`, `tri`), `integer`, `$time`, `` `timescale `` read as a display hint, `**` | 14 and later; a `bufif` or `notif` alone on its net is drawn, printed and imported from 8 |
 | Not supported | `function`, `task`, interfaces, structs, classes, `fork`, `defparam`, DPI — each refused with file, line and a plain message |
 
 **Written in the course's style:** an ANSI header with inputs first and outputs last, one commented
@@ -745,8 +748,8 @@ Precise, and no casing under the wires.
   made once to its end, and answers for any moment: each net's value, the changes on their way and how
   far down their wires they have got, a gate's flash, the waveform so far. Playing, replaying and
   dragging the slider back are `Seek`; nothing re-runs (ADR-6). It formats every value once, so a frame
-  of playback makes no garbage. The circuit and where it is drawn are `ReferenceCircuit`, the stand-in
-  Part 8 replaces with the board document and its layout.
+  of playback makes no garbage. The circuit and where it is drawn were `ReferenceCircuit`, written in
+  code, the stand-in Part 8 replaced with a board document and its layout (below).
 - **Drawn as anti-aliased meshes.** `VectorPainter` writes strokes, discs, rings, glows and filled
   shapes into UI meshes, each edge carrying a strip about a pixel wide that fades out — smooth at any
   size, and in a browser build, which has no MSAA. The picture is four layers (card, wires, parts,
@@ -762,6 +765,51 @@ Precise, and no casing under the wires.
   one swallowed and fading, a ring at its change's distance), the routes' geometry and the palette's
   contrast; `WorkbenchPlayTests` opens it from the menu and reads back the colours the wires were
   actually drawn in after the slider is dragged; reference shot 27 is the Schematic look's first.
+
+**As built in Part 8a**: the canvas on the real document.
+
+- **Drawn from a document.** `ReferenceCircuit` is now a `Project` put together through `BoardEditor`
+  like any board, compiled, elaborated and run; `DocumentSchematic` turns its top module into what the
+  drawing reads (`SchematicLayout`): every part as its symbol, every net as the branches a change takes
+  from its driver to each load, the ports as boxes and again as the waveform's rows. Nothing about the
+  circuit is written in the view.
+- **Where things go is the document's, in `Board/Geometry`**, pure like the rest of the layer, so the
+  editor of Part 10 and any other view share it. `PartGeometry`: cells with y up, a part centred on its
+  placement facing right, mirrored then turned a quarter at a time; every pin on the quarter-cell grid,
+  inputs half a cell apart; a tri-state's control and a mux's select from underneath, a register's reset
+  too. `WireGeometry`: a wire is its bend points, or an automatic route at right angles with half-cell
+  stubs out of its pins -- round the parts when it runs backwards, and into a pin facing up or down from
+  the side that pin faces, never through the body or past the pin and back. A net is traced from its
+  driver's pin to each load through the wires, cut where a tap joins one, and a tap is a junction dot.
+- **The names are the engine's.** A net's signal is the compiled design's own, under
+  `CompiledProject.DesignPath` (`half_adder_tb.dut` under a testbench). A gate with delay prints as a
+  library cell, whose output changes before the cell's port hands the change on, so that output is one of
+  the net's aliases and the ring travels the drawn wire all the same.
+- **Every symbol, as the textbook draws it**: the AND family's D and the OR family's shield, with the
+  XOR's second back and the bubble on the inverting kinds; NOT and BUF; the tri-state's triangle with
+  its control coming up into it; the mux's trapezoid; the register's box with its clock wedge; a
+  constant's box holding its value; a lamp; a splitter's and a joiner's bar; a block's box naming its
+  ports. Turned and mirrored by the same arithmetic as their pins.
+- **A wire runs on into the body.** A pin's short lead is the end of its wire, so it is in the wire's
+  value and a change leaves the gate that made it; only a pin with nothing on it keeps a grey stub. A
+  first build drew every lead grey, and every wire looked as if it stopped short of its gate.
+- **Labels where the reference puts them**: a gate's kind inside the D and the shield, over a triangle
+  or a block; the delay just past the output, over the wire leaving it -- under the part it had landed on
+  the tri-state's enable wire. A row per port in the order they stand on the board, top to bottom, so
+  each output reads beside its input; the waveform as wide as the stage.
+- **Pan, zoom and fit** (`SchematicView`). The wheel over the circuit zooms in about the cursor, a
+  notch a quarter, to four times, and back out no further than the whole circuit; a drag moves it, never
+  so far that the window's middle leaves it; FIT, up only while the circuit is not whole, puts it back.
+  The circuit's window clips it, and the waveform does not move. The view's zoom lives in the view, not
+  in the document's layout as section 5 planned: a preview has nothing to save it for, and Part 10
+  decides whether a project remembers it.
+- **Checked.** `GeometryTests` (pins, turns and mirrors, every sample board's pins on the grid, the
+  routes, a branch per load, taps), the tri-state sample against Icarus and the design path in
+  `BoardCompilerTests`, the view's rules in `WorkbenchTests`, the wheel, a real drag and FIT in
+  `WorkbenchPlayTests`, and reference shots 27 and 28 -- the second zoomed in on the AND that swallows
+  the short glitch.
+- **Found on the way:** an automatic route into an enable pin from less than a stub below went past it
+  and came back up, and from above ran through the part.
 
 ---
 
