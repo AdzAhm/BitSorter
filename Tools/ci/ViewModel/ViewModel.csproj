@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    BitSorter 5.0's view-model, built without Unity: netstandard2.1 and C# 9, as Unity builds it.
+    It references the SystemVerilog, engine and document layers, and nothing references it but the view.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <AssemblyName>BitSorter.ViewModel</AssemblyName>
+    <RootNamespace>BitSorter.ViewModel</RootNamespace>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../../../Assets/Scripts/ViewModel/**/*.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../SystemVerilog/SystemVerilog.csproj" />
+    <ProjectReference Include="../Sim/Sim.csproj" />
+    <ProjectReference Include="../Board/Board.csproj" />
+  </ItemGroup>
+
+</Project>

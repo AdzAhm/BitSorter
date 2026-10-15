@@ -67,6 +67,9 @@ where simple and friendly conflicts with exact, simple and friendly wins.
 
 ```
  BitSorter.View    Unity: everything on screen. The only code that touches UnityEngine.
+      |  reads; turns values into colours and positions into meshes
+ BitSorter.ViewModel   the workbench's view-model (Part 9): a run read at a moment, the schematic's
+      |                layout and routes, pan and zoom, the waveform's arithmetic
       |  reads, and edits through commands
  BitSorter.Board   the document: modules, parts, wires, layout, stimulus, editing commands, undo,
       |            import and export, migration of older saves, the course's analyses
@@ -78,10 +81,16 @@ where simple and friendly conflicts with exact, simple and friendly wins.
  BitSorter.LogicCore   the 4.x token engine: frozen, deleted when 5.0 is finished
 ```
 
-- **`SystemVerilog`, `Sim` and `Board` are pure C# 9** — no engine references, no reflection, no threads, no file
-  access of their own (files go through interfaces the host provides). They have to run unchanged under
-  the plain .NET SDK, Unity's IL2CPP and a single-threaded browser.
-- **The layers point one way**: `SystemVerilog ← Sim ← Board ← View`. The view never changes the engine or the
+- **`SystemVerilog`, `Sim`, `Board` and `ViewModel` are pure C# 9** — no engine references, no reflection, no
+  threads, no file access of their own (files go through interfaces the host provides). They have to run
+  unchanged under the plain .NET SDK, Unity's IL2CPP and a single-threaded browser.
+- **The view-model's points are its own `Vec2`**, which is Unity's `Vector2` arithmetic operation for
+  operation, so a position worked out under `dotnet test` is the float the editor and the browser draw.
+  The plan named `System.Numerics.Vector2`; it is implemented twice, in the .NET CI runs and in the older
+  class library Unity ships, and the two have not always rounded `Lerp` or a division alike. An Edit Mode
+  test compares every member with Unity's, bit for bit, over a million random cases; it found `Distance`
+  rounding its sum where Unity's does not, and `Distance` is now the difference's `magnitude`.
+- **The layers point one way**: `SystemVerilog ← Sim ← Board ← ViewModel ← View`. The view never changes the engine or the
   document except through the document's editing commands and the engine session's controls (run,
   pause, step, seek, restart).
 - **Held by tests, not by good intentions.** `Tools/ci/Repo.Tests` checks each layer's asmdef, the
@@ -174,7 +183,11 @@ costs.
 ### ADR-8 — Render from a view-model; a look switch reloads the scene
 
 - **Decision.** The renderer reads a view-model built from the document, the layout and the history.
-  Choosing a look in Settings stores it and reloads the scene behind a fade.
+  Choosing a look in Settings stores it and reloads the scene behind a fade. Since Part 9 the view-model is
+  a layer of its own, `BitSorter.ViewModel`, so it is tested by `dotnet test` in seconds; the view keeps
+  only what needs Unity -- the meshes, the colours, the labels, and the player's look and reduced motion
+  (`CanvasMotion`). `Tools/ci/Repo.Tests` refuses a file under `View/Workbench` that uses no Unity at all,
+  unless it is listed there with its reason.
 - **Rejected.** Rebuilding every renderer in place: each caches its colours as it builds, and the rule
   that a palette is never changed in place stays.
 - **Cost.** A reload, with the session restored after it.
@@ -948,7 +961,7 @@ the part that builds it, as every part rewrites what it makes stale.
 
 | # | What | Part |
 | --- | --- | --- |
-| 1 | The workbench's view-model -- its layout, routes, the run read at a moment, pan and zoom, and later the editing gestures and the shell's state -- in a layer of its own, as pure as the three below it, so `dotnet test` and CI hold it without the editor | 9 to 11 |
+| 1 | The workbench's view-model -- its layout, routes, the run read at a moment, pan and zoom, and later the editing gestures and the shell's state -- in a layer of its own, as pure as the three below it, so `dotnet test` and CI hold it without the editor | 9 to 11; the layer and the move built in 9a |
 | 2 | Still and moving drawn apart, in chunks under uGUI's vertex limit, the waveform revealed by a mask (section 10) | 8, built |
 | 3 | A levelized path for logic with no delay at all, only if a design measured in the browser goes over Part 6's budget and the time is in delta cycles; the same settled history as the event engine, held to it by a differential test | whichever measurement asks; most likely 13 |
 | 4 | The shell in UI Toolkit, the canvas staying uGUI; code edited in a CodeMirror editor laid over the canvas in the browser, bundled with the build, and in a TextMesh Pro field on the desktop | 11, 12 |

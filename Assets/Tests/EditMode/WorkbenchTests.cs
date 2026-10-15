@@ -1,355 +1,21 @@
-using System.Linq;
-using BitSorter.SystemVerilog;
 using BitSorter.View;
+using BitSorter.ViewModel;
 using NUnit.Framework;
 using UnityEngine;
 
 namespace BitSorter.LogicCore.Tests
 {
     /// <summary>
-    /// The 5.0 workbench preview's view-model, its wire geometry and its colours: what the screen is
-    /// told to draw at a moment, checked against the run the engine recorded.
+    /// The parts of the 5.0 workbench that need Unity: how its stage fits a window, its colours, and
+    /// the claim the view-model's arithmetic rests on.
     /// </summary>
     /// <remarks>
-    /// Every expected value here is the reference circuit's own history (<see cref="ReferenceCircuit"/>):
-    /// A rises at 6 and the NOT takes 3 to follow, so the AND's 2 ns rise puts Y at 1 from 8 until the
-    /// NOT's fall reaches it, 3 ns after 9; B rises at 13 and its NOT takes 1, a glitch shorter than
-    /// the second AND's 2 ns, which swallows it at 14.
+    /// The view-model itself -- the run read at a moment, the routes, pan and zoom, pointing at a
+    /// wire, the chunking -- is tested under <c>dotnet test</c> (<c>Tools/ci/ViewModel.Tests</c>),
+    /// where twenty-three of these tests went when it left Unity in Part 9.
     /// </remarks>
     public class WorkbenchTests
     {
-        private static readonly WorkbenchModel Shared = ReferenceCircuit.Model();
-
-        // Nets, the first AND and waveform rows, found by name in the document's layout rather than by
-        // where they happen to fall in its lists.
-        private static int A => Shared.Layout.NetNamed("a");
-        private static int NotA => Shared.Layout.NetNamed("na");
-        private static int Y => Shared.Layout.NetNamed("y");
-        private static int Y2 => Shared.Layout.NetNamed("y2");
-        private static int AndOne => Shared.Layout.Parts.ToList().FindIndex(p => p.Symbol == PartSymbol.And);
-        private static int YRow => Row("y");
-        private static int SRow => Row("s[3:0]");
-        private static int QRow => Row("q");
-
-        private static int Row(string label) => Shared.Layout.Rows.ToList().FindIndex(r => r.Label == label);
-
-        private static WorkbenchModel Model() => ReferenceCircuit.Model();
-
-        private static Logic4 Bit(WorkbenchModel model, int net, double time)
-        {
-            model.Seek(time);
-            return model.NetValue(net)[0];
-        }
-
-        // -----------------------------------------------------------------
-        // The run
-        // -----------------------------------------------------------------
-
-        [Test]
-        public void TheReferenceCircuit_RunsToTheEnd_AndSettlesAt21()
-        {
-            WorkbenchModel model = Model();
-
-            Assert.AreEqual(ReferenceCircuit.EndTime, model.End);
-            Assert.GreaterOrEqual(model.Session.Reached, ReferenceCircuit.EndTime, "the engine stopped short of the end");
-            Assert.AreEqual(21, model.SettledAt, "the last thing that happens is OUT taking 5, at 21");
-        }
-
-        [Test]
-        public void TheGlitch_PassesTheFirstAnd()
-        {
-            WorkbenchModel model = Model();
-
-            Assert.AreEqual(Logic4.Zero, Bit(model, Y, 7.9));
-            Assert.AreEqual(Logic4.One, Bit(model, Y, 8.0), "A rose at 6 and the AND rises in 2");
-            Assert.AreEqual(Logic4.One, Bit(model, Y, 11.9));
-            Assert.AreEqual(Logic4.Zero, Bit(model, Y, 12.0), "NOT A fell at 9 and the AND falls in 3");
-        }
-
-        [Test]
-        public void EverythingDriven_IsUnknownUntilItsDriverHasHadItsDelay()
-        {
-            WorkbenchModel model = Model();
-
-            Assert.AreEqual(Logic4.X, Bit(model, NotA, 2.9), "NOT A is x before its 3 ns are up");
-            Assert.AreEqual(Logic4.One, Bit(model, NotA, 3.0));
-            Assert.AreEqual(Logic4.Zero, Bit(model, A, 0.0), "an input is what the testbench wrote at once");
-        }
-
-        [Test]
-        public void TheShortGlitch_IsSwallowed_AndDiesOnItsWire()
-        {
-            WorkbenchModel model = Model();
-            Route wire = model.Layout.Nets[Y2].Branches[0];
-
-            model.Seek(13.5);
-            ChangeMarker travelling = model.Markers.Single(m => m.Net == Y2);
-            Assert.IsFalse(travelling.Swallowed, "at 13.5 the change is still on its way");
-            Assert.AreEqual(0.25f * wire.Length, travelling.Distance, 1e-3f, "half a ns into its 2 ns");
-            Assert.AreEqual("1", travelling.Text);
-            Assert.AreEqual(2, model.InFlight, "NOT B's fall and the AND's doomed rise");
-
-            model.Seek(14.6);
-            ChangeMarker dying = model.Markers.Single(m => m.Net == Y2);
-            Assert.IsTrue(dying.Swallowed, "the AND's input fell at 14 and cancelled it");
-            Assert.AreEqual(0.5f * wire.Length, dying.Distance, 1e-3f, "it stopped where it was at 14");
-            Assert.AreEqual(0.5f, dying.Alpha, 1e-3f, "and fades over 1.2 ns");
-
-            model.Seek(15.3);
-            Assert.IsFalse(model.Markers.Any(m => m.Net == Y2), "gone once it has faded");
-
-            foreach (double time in new[] { 13.5, 14.6, 15.3, 20.0 })
-                Assert.AreEqual(Logic4.Zero, Bit(model, Y2, time), $"Y2 never moved, at {time}");
-        }
-
-        /// <summary>
-        /// The glitch the AND swallows is marked on y2's row of the waveform, where it would have
-        /// arrived: a gate with delay prints as a library cell, so the change was on its way to the
-        /// cell's own output, which is one of the net's names rather than the port's.
-        /// </summary>
-        [Test]
-        public void TheShortGlitch_IsMarkedOnItsRow_WhenItIsSwallowed()
-        {
-            WorkbenchModel model = Model();
-            var swallowed = new System.Collections.Generic.List<double>();
-            int row = Row("y2");
-
-            model.RowSwallowed(row, swallowed, model.End);
-            CollectionAssert.AreEqual(new[] { 14.0 }, swallowed, "the AND's input fell at 14 and cancelled the change");
-
-            model.RowSwallowed(row, swallowed, 13.9);
-            CollectionAssert.IsEmpty(swallowed, "not before it was swallowed");
-            Assert.AreEqual(1, model.RowSwallowedCount(row));
-        }
-
-        [Test]
-        public void ARing_IsWhereItsChangeHasGot()
-        {
-            WorkbenchModel model = Model();
-            model.Seek(7.5);
-
-            ChangeMarker notA = model.Markers.Single(m => m.Net == NotA);
-            Route wire = model.Layout.Nets[NotA].Branches[0];
-
-            Assert.AreEqual(0.5f * wire.Length, notA.Distance, 1e-3f, "1.5 ns into the NOT's 3");
-            Assert.AreEqual(wire.PointAt(notA.Distance), notA.Point);
-            Assert.AreEqual("0", notA.Text);
-
-            ChangeMarker y = model.Markers.Single(m => m.Net == Y);
-            Assert.AreEqual(0.75f * model.Layout.Nets[Y].Branches[0].Length, y.Distance, 1e-3f,
-                "1.5 ns into the AND's 2 ns rise");
-        }
-
-        [Test]
-        public void AGate_FlashesForAMoment_AsItsOutputFlips()
-        {
-            WorkbenchModel model = Model();
-
-            model.Seek(8.2);
-            Assert.Greater(model.GateFlash(AndOne, out LogicVec value), 0f, "Y flipped at 8");
-            Assert.AreEqual(Logic4.One, value[0]);
-
-            model.Seek(8.75);
-            Assert.AreEqual(0f, model.GateFlash(AndOne, out _), "the flash is over after 0.7 ns");
-        }
-
-        [Test]
-        public void NothingIsOnItsWay_OnceTheRunHasSettled()
-        {
-            WorkbenchModel model = Model();
-            model.Seek(22);
-
-            Assert.AreEqual(0, model.InFlight);
-            Assert.IsEmpty(model.Markers);
-        }
-
-        [Test]
-        public void TheWaveform_WritesABusInHex_AndUndrivenAsZ()
-        {
-            WorkbenchModel model = Model();
-
-            model.Seek(0.5);
-            model.RowValue(SRow, out string before);
-            Assert.AreEqual("x", before, "S is unknown until the testbench writes it at 1");
-
-            model.Seek(10.5);
-            model.RowValue(SRow, out string written);
-            Assert.AreEqual("A", written);
-
-            model.Seek(5);
-            model.RowValue(QRow, out string q);
-            Assert.AreEqual("z", q, "the tri-state is off until its enable rises at 17");
-
-            Assert.AreEqual("A", WorkbenchModel.TextOf(LogicVec.FromUInt64(0xA, 4)));
-            Assert.AreEqual("x", WorkbenchModel.TextOf(LogicVec.FromBinary("1x01")));
-        }
-
-        [Test]
-        public void TheWaveform_EndsAtTheMomentShown()
-        {
-            WorkbenchModel model = Model();
-            var segments = new System.Collections.Generic.List<WaveSegment>();
-
-            model.Seek(9.0);
-            model.RowSegments(YRow, segments);
-
-            Assert.AreEqual(3, segments.Count, "x, then 0 from 3, then 1 from 8");
-            Assert.AreEqual(9.0, segments[2].To, 1e-9);
-        }
-
-        // -----------------------------------------------------------------
-        // Routes
-        // -----------------------------------------------------------------
-
-        [Test]
-        public void AStraightRoute_IsAsLongAsTheLineBetweenItsEnds()
-        {
-            var route = new Route(new Vector2(0, 0), new Vector2(100, 0));
-
-            Assert.AreEqual(100f, route.Length, 1e-3f);
-            Assert.AreEqual(new Vector2(50, 0), route.PointAt(50));
-        }
-
-        [Test]
-        public void ARunStraightThroughItsPinsAndStubs_IsOneStraightPiece()
-        {
-            // Body, pin, stub, stub, pin, body: what a wire between two gates on one row is made of.
-            var route = new Route(new Vector2(0, 0), new Vector2(6, 0), new Vector2(20, 0), new Vector2(80, 0),
-                new Vector2(94, 0), new Vector2(100, 0));
-
-            Assert.AreEqual(2, route.PointCount, "a corner it runs straight through is no corner, and is not bent");
-            Assert.AreEqual(100f, route.Length, 1e-3f);
-            Assert.AreEqual(new Vector2(50, 0), route.PointAt(50));
-        }
-
-        [Test]
-        public void ARouteThatDoublesBack_StillBendsWhereItTurns()
-        {
-            var route = new Route(new Vector2(0, 0), new Vector2(100, 0), new Vector2(40, 0));
-
-            Assert.Greater(route.PointCount, 2, "turning back is a corner, however straight the line");
-        }
-
-        [Test]
-        public void ARoundedBend_IsShorterThanTheCorner_ButNotByMuch()
-        {
-            var route = new Route(new Vector2(0, 0), new Vector2(100, 0), new Vector2(100, 100));
-
-            Assert.Less(route.Length, 200f, "the bend cuts the corner");
-            Assert.Greater(route.Length, 195f, "by a few units, not a diagonal");
-            Assert.AreEqual(new Vector2(0, 0), route.PointAt(0));
-            Assert.AreEqual(new Vector2(100, 100), route.PointAt(route.Length));
-            Assert.AreEqual(new Vector2(100, 100), route.PointAt(route.Length + 50f), "clamped past the end");
-        }
-
-        [Test]
-        public void APointAlongARoute_MovesForwardAsTheDistanceGrows()
-        {
-            Route route = Shared.Layout.Nets[NotA].Branches[0];
-            float previous = -1f;
-
-            for (float d = 0f; d <= route.Length; d += route.Length / 40f)
-            {
-                Vector2 p = route.PointAt(d);
-                Assert.GreaterOrEqual(p.x, previous - 1e-3f, "the NOT's output runs left to right throughout");
-                previous = p.x;
-            }
-        }
-
-        // -----------------------------------------------------------------
-        // Zooming and moving the circuit
-        // -----------------------------------------------------------------
-
-        /// <summary>A window 800 by 400, the drawing 760 by 360 sitting 20 in from its corner.</summary>
-        private static SchematicView View() => new SchematicView(new Vector2(800, 400), new Vector2(20, 20), new Vector2(760, 360));
-
-        /// <summary>The point of the drawing under a point of the window.</summary>
-        private static Vector2 Under(SchematicView view, Vector2 at) => (at - view.Offset) / view.Zoom;
-
-        [Test]
-        public void TheCircuit_StartsWhole_WhereItWasBuilt()
-        {
-            SchematicView view = View();
-
-            Assert.IsTrue(view.IsFitted);
-            Assert.AreEqual(1f, view.Zoom);
-            Assert.AreEqual(view.Home, view.Offset);
-        }
-
-        [Test]
-        public void TheWheel_ZoomsIn_KeepingThePointUnderTheCursorWhereItIs()
-        {
-            SchematicView view = View();
-            var cursor = new Vector2(300, 150);
-            Vector2 under = Under(view, cursor);
-
-            Assert.IsTrue(view.ZoomAbout(cursor, 2));
-            Assert.AreEqual(SchematicView.NotchFactor * SchematicView.NotchFactor, view.Zoom, 1e-5f);
-            Assert.AreEqual(under.x, Under(view, cursor).x, 1e-3f, "the point under the cursor moved across");
-            Assert.AreEqual(under.y, Under(view, cursor).y, 1e-3f, "the point under the cursor moved up or down");
-            Assert.IsFalse(view.IsFitted);
-        }
-
-        [Test]
-        public void ZoomingIn_StopsAtItsLimit()
-        {
-            SchematicView view = View();
-
-            view.ZoomAbout(new Vector2(400, 200), 50);
-            Assert.AreEqual(SchematicView.MaxZoom, view.Zoom, 1e-5f);
-            Assert.IsFalse(view.ZoomAbout(new Vector2(400, 200), 1), "a notch past the limit changes nothing");
-        }
-
-        [Test]
-        public void ZoomingOut_StopsAtTheWholeCircuit_AndPutsItBackWhereItBelongs()
-        {
-            SchematicView view = View();
-            view.ZoomAbout(new Vector2(700, 50), 3);
-            view.Pan(new Vector2(-120, 40));
-
-            view.ZoomAbout(new Vector2(100, 300), -3);
-
-            Assert.IsTrue(view.IsFitted, "as many notches out as in should be the whole circuit, exactly, where it was built");
-            Assert.IsFalse(view.ZoomAbout(new Vector2(100, 300), -1), "and no further");
-        }
-
-        [Test]
-        public void ADrag_MovesTheCircuit_ButNeverOutOfTheWindow()
-        {
-            SchematicView view = View();
-            view.ZoomAbout(new Vector2(400, 200), 2);
-            Vector2 before = view.Offset;
-
-            Assert.IsTrue(view.Pan(new Vector2(30, -10)));
-            Assert.AreEqual(before + new Vector2(30, -10), view.Offset);
-
-            foreach (Vector2 far in new[] { new Vector2(5000, 0), new Vector2(-5000, 0), new Vector2(0, 5000), new Vector2(0, -5000) })
-            {
-                view.Pan(far);
-                Vector2 middle = Under(view, view.Window * 0.5f);
-                Assert.IsTrue(middle.x >= 0f && middle.x <= view.Drawing.x && middle.y >= 0f && middle.y <= view.Drawing.y,
-                    $"dragged by {far}, the window's middle is off the circuit");
-            }
-        }
-
-        [Test]
-        public void Fit_PutsBackTheWholeCircuit()
-        {
-            SchematicView view = View();
-            view.ZoomAbout(new Vector2(10, 10), 4);
-            view.Pan(new Vector2(50, 50));
-
-            view.Fit();
-
-            Assert.IsTrue(view.IsFitted);
-        }
-
-        // -----------------------------------------------------------------
-        // Colours
-        // -----------------------------------------------------------------
-
-        // Every look's canvas colours answer the brief in LookBriefTests, which holds them all.
-
         // -----------------------------------------------------------------
         // The stage in a window
         // -----------------------------------------------------------------
@@ -367,30 +33,10 @@ namespace BitSorter.LogicCore.Tests
         }
 
         // -----------------------------------------------------------------
-        // Pointing at a wire
+        // Colours
         // -----------------------------------------------------------------
 
-        [Test]
-        public void PointingAtAWire_FindsItsNet_AndNothingAwayFromEveryWire()
-        {
-            SchematicLayout layout = Shared.Layout;
-            Route wire = layout.Nets[NotA].Branches[0];
-
-            Assert.AreEqual(NotA, layout.NetAt(wire.PointAt(wire.Length * 0.5f) + new Vector2(0f, 3f), 8f), "beside NOT A's wire");
-            Assert.AreEqual(-1, layout.NetAt(new Vector2(-500f, -500f), 8f), "far from every wire");
-        }
-
-        [Test]
-        public void ANetPointedAt_SaysWhatDrivesIt_AndWhatReadsIt()
-        {
-            string notA = Shared.Layout.Nets[NotA].Says;
-            StringAssert.StartsWith("na ", notA);
-            StringAssert.Contains(".y (NOT)", notA, "driven by the NOT's output");
-            StringAssert.Contains(".b (AND)", notA, "read by the AND's second input");
-
-            StringAssert.Contains("from input a to ", Shared.Layout.Nets[A].Says);
-            StringAssert.StartsWith("s[3:0] ", Shared.Layout.Nets[Shared.Layout.NetNamed("s")].Says, "a bus is named with its width");
-        }
+        // Every look's canvas colours answer the brief in LookBriefTests, which holds them all.
 
         [Test]
         public void AFaintColour_TakesLessAlphaInLinearSpace_ThanABrowserWould()
@@ -404,10 +50,61 @@ namespace BitSorter.LogicCore.Tests
             Assert.Greater(p.Over(p.One, 0.35f).a, 0f);
         }
 
+        // -----------------------------------------------------------------
+        // The view-model's arithmetic is Unity's
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// <see cref="Vec2"/> computes what Unity's <c>Vector2</c> computes, to the last bit, for every
+        /// operation the workbench uses -- the claim that lets the view-model's tests under
+        /// <c>dotnet test</c> speak for what the editor and the browser draw, and the shots stay
+        /// identical to the pixel.
+        /// </summary>
         [Test]
-        public void TheGlow_IsAhmadsChoice()
+        public void Vec2_ComputesWhatUnitysVector2Computes_ToTheBit()
         {
-            Assert.AreEqual(0.35f, SchematicStyle.GlowStrength, "chosen on the mock's slider, 2026-10-12");
+            var random = new System.Random(20261015);
+            int differ = 0;
+
+            for (int i = 0; i < 1000000; i++)
+            {
+                float ax = Next(random), ay = Next(random), bx = Next(random), by = Next(random);
+                float d = (float)(random.NextDouble() * 50 + 0.01), t = (float)(random.NextDouble() * 1.4 - 0.2);
+                var ua = new Vector2(ax, ay);
+                var ub = new Vector2(bx, by);
+                var va = new Vec2(ax, ay);
+                var vb = new Vec2(bx, by);
+
+                if (!Same(ua + ub, va + vb) || !Same(ua - ub, va - vb) || !Same(ua * d, va * d) || !Same(d * ua, d * va) ||
+                    !Same(ua / d, va / d) || !Same(-ua, -va) || !Same(ua * ub, va * vb) ||
+                    !Same(ua.normalized, va.normalized) ||
+                    !Same(Vector2.Lerp(ua, ub, t), Vec2.Lerp(va, vb, t)) ||
+                    !Same(Vector2.LerpUnclamped(ua, ub, t), Vec2.LerpUnclamped(va, vb, t)) ||
+                    !Bits(Vector2.Distance(ua, ub), Vec2.Distance(va, vb)) || !Bits(Vector2.Dot(ua, ub), Vec2.Dot(va, vb)) ||
+                    !Bits(ua.magnitude, va.magnitude) || !Bits(ua.sqrMagnitude, va.sqrMagnitude) ||
+                    (ua == ub) != (va == vb) ||
+                    !Bits(Mathf.Clamp(ax, -100f, 100f), Arith.Clamp(ax, -100f, 100f)) || !Bits(Mathf.Clamp01(t), Arith.Clamp01(t)) ||
+                    !Bits(Mathf.Min(ax, bx), Arith.Min(ax, bx)) || !Bits(Mathf.Max(ax, bx), Arith.Max(ax, bx)) ||
+                    !Bits(Mathf.Pow(d, t), Arith.Pow(d, t)))
+                {
+                    differ++;
+                }
+            }
+
+            Assert.AreEqual(0, differ, "of a million random cases, these computed a different float from Unity's");
+
+            // And the edges: no length at all, and two points a hair apart.
+            Assert.IsTrue(Same(Vector2.zero.normalized, Vec2.zero.normalized));
+            Assert.IsTrue(Same(new Vector2(1e-6f, 0f).normalized, new Vec2(1e-6f, 0f).normalized));
+            Assert.AreEqual(new Vector2(1f, 1f) == new Vector2(1f + 5e-6f, 1f), new Vec2(1f, 1f) == new Vec2(1f + 5e-6f, 1f));
         }
+
+        private static float Next(System.Random random) =>
+            random.Next(10) == 0 ? random.Next(-3, 4) : (float)(random.NextDouble() * 2000 - 1000);
+
+        private static bool Same(Vector2 u, Vec2 v) => Bits(u.x, v.x) && Bits(u.y, v.y);
+
+        private static bool Bits(float a, float b) =>
+            System.BitConverter.SingleToInt32Bits(a) == System.BitConverter.SingleToInt32Bits(b);
     }
 }

@@ -10,7 +10,8 @@ using NUnit.Framework;
 namespace BitSorter.Ci.Tests
 {
     /// <summary>
-    /// The three pure layers of BitSorter 5.0 stay pure, and point one way: SystemVerilog, then Sim, then Board.
+    /// The four pure layers of BitSorter 5.0 stay pure, and point one way: SystemVerilog, then Sim, then
+    /// Board, then the view-model.
     /// </summary>
     /// <remarks>
     /// Held three ways, because each catches what the others cannot. The asmdef is what Unity builds
@@ -27,12 +28,13 @@ namespace BitSorter.Ci.Tests
             ["SystemVerilog"] = new string[0],
             ["Sim"] = new[] { "BitSorter.SystemVerilog" },
             ["Board"] = new[] { "BitSorter.SystemVerilog", "BitSorter.Sim" },
+            ["ViewModel"] = new[] { "BitSorter.SystemVerilog", "BitSorter.Sim", "BitSorter.Board" },
 
             // The 4.x engine, frozen until it is deleted. Held to the asmdef rule only.
             ["LogicCore"] = new string[0],
         };
 
-        private static readonly string[] NewLayers = { "SystemVerilog", "Sim", "Board" };
+        private static readonly string[] NewLayers = { "SystemVerilog", "Sim", "Board", "ViewModel" };
 
         private static IEnumerable<string> AllLayers => Allowed.Keys;
 
@@ -62,6 +64,7 @@ namespace BitSorter.Ci.Tests
                 ["SystemVerilog"] = typeof(BitSorter.SystemVerilog.SystemVerilogLayer).Assembly,
                 ["Sim"] = typeof(BitSorter.Sim.SimLayer).Assembly,
                 ["Board"] = typeof(BitSorter.Board.BoardLayer).Assembly,
+                ["ViewModel"] = typeof(BitSorter.ViewModel.ViewModelLayer).Assembly,
             };
 
             foreach (KeyValuePair<string, Assembly> layer in assemblies)
@@ -119,6 +122,42 @@ namespace BitSorter.Ci.Tests
             }
 
             Assert.IsEmpty(offences, string.Join("\n", offences));
+        }
+
+        /// <summary>
+        /// The workbench files in the view that need no Unity of their own, each with the reason it
+        /// stays: what it reads is the view's.
+        /// </summary>
+        private static readonly Dictionary<string, string> UnityFreeButTheViews = new Dictionary<string, string>
+        {
+            ["CanvasMotion.cs"] = "it reads the player's look and reduced motion, which are the view's settings",
+        };
+
+        /// <summary>
+        /// A file under <c>View/Workbench</c> that never mentions Unity belongs in the view-model, where
+        /// <c>dotnet test</c> can reach it -- the view-model left Unity in Part 9 so that the
+        /// workbench's logic would be tested in seconds, and a Unity-free file left behind in the view is
+        /// logic that went back to needing the editor.
+        /// </summary>
+        [Test]
+        public void AWorkbenchFileWithNoUnityInIt_BelongsInTheViewModel()
+        {
+            string folder = RepoRoot.Combine("Assets/Scripts/View/Workbench");
+            var misplaced = new List<string>();
+
+            foreach (string file in Directory.EnumerateFiles(folder, "*.cs", SearchOption.AllDirectories))
+            {
+                string code = CommentsAndLiterals.Replace(File.ReadAllText(file), " ");
+                if (!code.Contains("UnityEngine", StringComparison.Ordinal) && !UnityFreeButTheViews.ContainsKey(Path.GetFileName(file)))
+                    misplaced.Add(Path.GetFileName(file));
+            }
+
+            Assert.IsEmpty(misplaced,
+                "these use no Unity, so they belong in Assets/Scripts/ViewModel: " + string.Join(", ", misplaced) +
+                ". If one must stay, add it to UnityFreeButTheViews with the reason.");
+
+            foreach (string kept in UnityFreeButTheViews.Keys)
+                Assert.IsTrue(File.Exists(Path.Combine(folder, kept)), $"{kept} is excused from this rule but no longer exists");
         }
 
         [Test]

@@ -5,6 +5,7 @@ using BitSorter.Board;
 using BitSorter.SystemVerilog;
 using BitSorter.SystemVerilog.Syntax;
 using BitSorter.View;
+using BitSorter.ViewModel;
 using NUnit.Framework;
 using UnityEngine;
 using BoardStimulus = BitSorter.Board.Stimulus;
@@ -121,8 +122,8 @@ namespace BitSorter.LogicCore.Tests
             waveform.SetParent(canvas.transform, false);
 
             var layers = new WorkbenchLayers(model);
-            layers.BuildWires(schematic, model.Layout.Size);
-            layers.BuildParts(schematic, model.Layout.Size);
+            layers.BuildWires(schematic, model.Layout.Size.ToUnity());
+            layers.BuildParts(schematic, model.Layout.Size.ToUnity());
             layers.BuildTiming(waveform, new Vector2(1000f, 40f + 30f * model.Layout.Rows.Count));
             return (model, layers, canvas);
         }
@@ -207,7 +208,7 @@ namespace BitSorter.LogicCore.Tests
                 UnityEngine.Debug.Log("[WorkbenchPerformance] drawing a frame, by layer:" + byLayer);
 
                 Assert.Greater(layers.MostVertices, 0, "sanity: nothing was drawn");
-                Assert.Greater(SchematicStyle.Glow, 0f, "sanity: drawn with its glow, as it ships");
+                Assert.Greater(CanvasMotion.Glow, 0f, "sanity: drawn with its glow, as it ships");
                 Assert.Greater(WorkbenchGraphic.VerticesByLayer[(int)WorkbenchGraphic.Layer.Changes], 0, "sanity: the changes in flight were redrawn");
                 Assert.GreaterOrEqual(most, 100, "sanity: 100 changes in flight");
                 Assert.LessOrEqual(median, Budget, $"a frame of playback took {median:0.00} ms at best, over the canvas's {Budget} ms");
@@ -390,7 +391,7 @@ namespace BitSorter.LogicCore.Tests
             try
             {
                 var layers = new WorkbenchLayers(model);
-                layers.BuildParts(schematic, model.Layout.Size);
+                layers.BuildParts(schematic, model.Layout.Size.ToUnity());
                 int part = model.Layout.Parts.ToList().FindIndex(p => p.Symbol == PartSymbol.Lamp);
                 WorkbenchGraphic lit = layers.All.Single(g => g.Draws == WorkbenchGraphic.Layer.Flashes && g.From <= part && part < g.From + g.Count);
 

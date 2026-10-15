@@ -7,7 +7,7 @@ using BitSorter.SystemVerilog.Syntax;
 using BoardStimulus = BitSorter.Board.Stimulus;
 using BoardTrack = BitSorter.Board.Track;
 
-namespace BitSorter.View
+namespace BitSorter.ViewModel
 {
     /// <summary>
     /// The workbench preview's circuit, as a document: the look reference's glitch, A AND NOT A, beside

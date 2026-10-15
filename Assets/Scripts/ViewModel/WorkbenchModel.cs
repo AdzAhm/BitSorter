@@ -3,9 +3,8 @@ using System.Collections.Generic;
 using BitSorter.Board;
 using BitSorter.Sim;
 using BitSorter.SystemVerilog;
-using UnityEngine;
 
-namespace BitSorter.View
+namespace BitSorter.ViewModel
 {
     /// <summary>A change on its way down one branch of a wire, as the schematic draws it at the current moment.</summary>
     public struct ChangeMarker
@@ -14,13 +13,13 @@ namespace BitSorter.View
         public int Net;
 
         /// <summary>The branch it is on.</summary>
-        public Route Branch;
+        public StageRoute Branch;
 
         /// <summary>How far along the branch it has got.</summary>
         public float Distance;
 
         /// <summary>Where that is.</summary>
-        public Vector2 Point;
+        public Vec2 Point;
 
         /// <summary>The value it carries, and that value as its ring shows it.</summary>
         public LogicVec Value;
@@ -446,7 +445,7 @@ namespace BitSorter.View
                     continue;
                 }
 
-                IReadOnlyList<Route> branches = Layout.Nets[net].Branches;
+                IReadOnlyList<StageRoute> branches = Layout.Nets[net].Branches;
                 for (int b = 0; b < branches.Count; b++)
                 {
                     float distance = (float)along * branches[b].Length;

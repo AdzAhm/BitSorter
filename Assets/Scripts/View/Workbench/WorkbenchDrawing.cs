@@ -2,7 +2,12 @@ using System;
 using System.Collections.Generic;
 using BitSorter.Board;
 using BitSorter.SystemVerilog;
+using BitSorter.ViewModel;
 using UnityEngine;
+using static BitSorter.ViewModel.SymbolGeometry;
+// The stage's points are the view-model's Vec2, Unity's own Vector2 arithmetic without Unity, so
+// what is drawn here is worked out in the same floats the layout and its tests use.
+using Vector2 = BitSorter.ViewModel.Vec2;
 
 namespace BitSorter.View
 {
@@ -135,11 +140,11 @@ namespace BitSorter.View
                 if (i == highlighted)
                 {
                     Color lit = palette.Over(colour, SchematicStyle.HoverStrength);
-                    foreach (Route branch in net.Branches)
+                    foreach (StageRoute branch in net.Branches)
                         painter.Glow(branch, 0f, branch.Length, SchematicStyle.HoverWidth, SchematicStyle.HoverBlur, lit);
                 }
 
-                foreach (Route branch in net.Branches)
+                foreach (StageRoute branch in net.Branches)
                     Wire(painter, branch, 0f, branch.Length, net.Width, value, colour, palette, 1f);
 
                 foreach (Vector2 junction in net.Junctions)
@@ -148,7 +153,7 @@ namespace BitSorter.View
                 // A bus's width, as a schematic marks one: a short slash across it.
                 if (net.Width > 1)
                 {
-                    Route first = net.Branches[0];
+                    StageRoute first = net.Branches[0];
                     Vector2 at = first.PointAt(first.Length * 0.28f);
                     painter.Line(at + new Vector2(-5f, 8f), at + new Vector2(5f, -8f), 1.5f, palette.Muted);
                 }
@@ -171,7 +176,7 @@ namespace BitSorter.View
         {
             SchematicLayout layout = model.Layout;
             int last = Last(from, count, layout.Nets.Count);
-            float k = SchematicStyle.Glow;
+            float k = CanvasMotion.Glow;
             IReadOnlyList<ChangeMarker> markers = model.Markers;
             IReadOnlyList<int> nets = model.MarkerNets;
 
@@ -226,7 +231,7 @@ namespace BitSorter.View
         }
 
         /// <summary>One stretch of one wire, drawn as the value it holds says.</summary>
-        private static void Wire(VectorPainter painter, Route route, float from, float to, int width,
+        private static void Wire(VectorPainter painter, StageRoute route, float from, float to, int width,
             LogicVec value, Color colour, SchematicPalette palette, float alpha)
         {
             colour = WithAlpha(colour, alpha * colour.a);
@@ -265,7 +270,7 @@ namespace BitSorter.View
         /// An unknown wire's hatching: a faint band a little wider than the wire, crossed every few
         /// units by a short bar at 45 degrees -- so x reads by its texture, not by red alone.
         /// </summary>
-        private static void Hatch(VectorPainter painter, Route route, float from, float to, float band,
+        private static void Hatch(VectorPainter painter, StageRoute route, float from, float to, float band,
             Color colour, SchematicPalette palette, float alpha)
         {
             Color tint = palette.Over(colour, 0.2f);
@@ -285,7 +290,7 @@ namespace BitSorter.View
             }
         }
 
-        private static void DashedStretch(VectorPainter painter, Route route, float from, float to, float width, Color colour)
+        private static void DashedStretch(VectorPainter painter, StageRoute route, float from, float to, float width, Color colour)
         {
             for (float s = from; s < to; s += SchematicStyle.DashOn + SchematicStyle.DashOff)
                 painter.Stroke(route, s, Mathf.Min(s + SchematicStyle.DashOn, to), width, colour, roundCaps: false);
@@ -305,7 +310,7 @@ namespace BitSorter.View
             bool flashes = false)
         {
             SchematicLayout layout = model.Layout;
-            float k = SchematicStyle.Glow;
+            float k = CanvasMotion.Glow;
             int last = Last(from, count, layout.Parts.Count);
 
             for (int i = from; i < last; i++)
@@ -319,7 +324,7 @@ namespace BitSorter.View
                 // A lamp's body is all value, so it is drawn by the second pass alone, over its leads:
                 // drawn by both, its outline's soft edge was laid down twice.
                 LogicVec value = default;
-                float flash = flashes ? SchematicStyle.Flash(model.GateFlash(i, out value)) : 0f;
+                float flash = flashes ? CanvasMotion.Flash(model.GateFlash(i, out value)) : 0f;
                 if (flashes && flash <= 0f && !lamp)
                     continue;
                 if (!flashes && lamp)
@@ -402,24 +407,6 @@ namespace BitSorter.View
             }
         }
 
-        private static bool Inverts(PartSymbol symbol) =>
-            symbol == PartSymbol.Not || symbol == PartSymbol.Nand || symbol == PartSymbol.Nor ||
-            symbol == PartSymbol.Xnor || symbol == PartSymbol.TriInverter;
-
-        private static bool Shield(PartSymbol symbol) =>
-            symbol == PartSymbol.Or || symbol == PartSymbol.Nor || symbol == PartSymbol.Xor || symbol == PartSymbol.Xnor;
-
-        /// <summary>Where a gate's body ends at the front, in cells: a bubble, if any, sits just past it.</summary>
-        private static double Tip(PartSymbol symbol) =>
-            symbol == PartSymbol.Not || symbol == PartSymbol.Buffer || symbol == PartSymbol.TriBuffer || symbol == PartSymbol.TriInverter
-                ? 0.25 : 0.5;
-
-        /// <summary>How far past the tip a bubble's middle is, in cells.</summary>
-        private static double Bubble(PartLayout part) => SchematicStyle.BubbleRadius / part.Cell;
-
-        /// <summary>The OR family's hollow back, <paramref name="at"/> cells from the middle at its ends, bowed in by a seventh of a cell.</summary>
-        private static double BackX(double at, double v, double half) => at + 0.15 * (1 - (v * v) / (half * half));
-
         /// <summary>
         /// The short lead of each pin nothing is wired to, from the pin to the body. A wired pin's lead
         /// is the end of its wire (<see cref="DocumentSchematic"/> runs every wire on to the body), so
@@ -435,50 +422,6 @@ namespace BitSorter.View
                 if (Math.Abs(x - pin.At.X) + Math.Abs(y - pin.At.Y) < 1e-6)
                     continue;
                 painter.Line(part.ToStage(pin.At.X, pin.At.Y), part.ToStage(x, y), SchematicStyle.OutlineWidth, colour);
-            }
-        }
-
-        /// <summary>Where a pin's lead meets the body, in the part's own cells: where its symbol's outline is, which is this drawing's to say.</summary>
-        internal static (double X, double Y) LeadEnd(PartLayout part, PinSpot pin)
-        {
-            double x = pin.At.X, y = pin.At.Y;
-            bool left = pin.Facing == Facing.Left, down = pin.Facing == Facing.Down;
-
-            switch (part.Symbol)
-            {
-                case PartSymbol.Register:
-                    return down ? (x, -0.75) : (left ? -0.6 : 0.6, y);
-
-                case PartSymbol.Mux:
-                {
-                    double half = PartGeometry.Half(part.Local.Pins.Count - 2) + 0.25;
-                    return down ? (x, -(half - 0.15)) : (left ? -0.5 : 0.5, y);
-                }
-
-                case PartSymbol.Constant:
-                    return (x, y);
-
-                case PartSymbol.Splitter:
-                case PartSymbol.Joiner:
-                    return (0, y);
-
-                case PartSymbol.Lamp:
-                    return (-0.3, y);
-
-                case PartSymbol.Block:
-                    return (left ? -1.25 : 1.25, y);
-
-                case PartSymbol.TriBuffer:
-                case PartSymbol.TriInverter:
-                    // The control meets the triangle's lower edge where it crosses the middle.
-                    if (down)
-                        return (x, -0.32 + 0.32 * (x + 0.5) / (Tip(part.Symbol) + 0.5));
-                    return left ? (-0.5, y) : (Tip(part.Symbol) + (Inverts(part.Symbol) ? 2 * Bubble(part) : 0), y);
-
-                default:
-                    if (left)
-                        return (Shield(part.Symbol) ? BackX(-0.5, y, PartGeometry.Half(part.Local.Pins.Count - 1)) : -0.5, y);
-                    return (Tip(part.Symbol) + (Inverts(part.Symbol) ? 2 * Bubble(part) : 0), y);
             }
         }
 
@@ -687,7 +630,7 @@ namespace BitSorter.View
         public static int NetVertices(NetLayout net)
         {
             int vertices = 64 + VectorPainter.LineVertices;
-            foreach (Route branch in net.Branches)
+            foreach (StageRoute branch in net.Branches)
             {
                 int bars = (int)(branch.Length / 6f) + 1, dashes = (int)(branch.Length / 11f) + 1;
                 vertices += 2 * StrokeVertices(branch.PointCount) + branch.PointCount * 4 + bars * VectorPainter.LineVertices
@@ -705,7 +648,7 @@ namespace BitSorter.View
         public static int ChangeVertices(NetLayout net)
         {
             int vertices = 0;
-            foreach (Route branch in net.Branches)
+            foreach (StageRoute branch in net.Branches)
             {
                 int bars = (int)(branch.Length / 6f) + 1;
                 vertices += 2 * (3 * StrokeVertices(branch.PointCount) + bars * VectorPainter.LineVertices

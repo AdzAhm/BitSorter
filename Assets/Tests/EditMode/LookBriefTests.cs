@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using NUnit.Framework;
 using BitSorter.View;
+using BitSorter.ViewModel;
 using UnityEngine;
 
 namespace BitSorter.LogicCore.Tests
@@ -374,12 +375,12 @@ namespace BitSorter.LogicCore.Tests
                     Look.Use(look);
 
                     ReducedMotion.Set(false);
-                    Assert.AreEqual(look.CanvasGlow, SchematicStyle.Glow, $"{look.Name}: its own glow, with motion in full");
-                    Assert.AreEqual(0.5f, SchematicStyle.Flash(0.5f));
+                    Assert.AreEqual(look.CanvasGlow, CanvasMotion.Glow, $"{look.Name}: its own glow, with motion in full");
+                    Assert.AreEqual(0.5f, CanvasMotion.Flash(0.5f));
 
                     ReducedMotion.Set(true);
-                    Assert.AreEqual(0f, SchematicStyle.Glow, $"{look.Name}: glow left with motion reduced");
-                    Assert.AreEqual(0f, SchematicStyle.Flash(0.5f), $"{look.Name}: a gate flashed with motion reduced");
+                    Assert.AreEqual(0f, CanvasMotion.Glow, $"{look.Name}: glow left with motion reduced");
+                    Assert.AreEqual(0f, CanvasMotion.Flash(0.5f), $"{look.Name}: a gate flashed with motion reduced");
                 }
             }
             finally

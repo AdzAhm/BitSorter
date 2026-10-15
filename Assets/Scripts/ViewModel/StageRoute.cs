@@ -1,8 +1,7 @@
 using System;
 using System.Collections.Generic;
-using UnityEngine;
 
-namespace BitSorter.View
+namespace BitSorter.ViewModel
 {
     /// <summary>
     /// A wire as the schematic draws it: straight runs between corners, every bend rounded, sampled
@@ -12,8 +11,12 @@ namespace BitSorter.View
     /// In the stage's own units, y down, as the layout is written. A bend is the quadratic curve the
     /// mock drew -- from <see cref="CornerRadius"/> before the corner, pulled towards it, to as far
     /// after -- so the two are the same shape and a change sits at the same place on both.
+    ///
+    /// A stage route rather than a route: the document's <c>Board.Route</c> is a wire's bends and
+    /// tap as the board stores them, and this is what they are drawn as. The two were one name in
+    /// two namespaces while this lived in the view, which never needed both.
     /// </remarks>
-    public sealed class Route
+    public sealed class StageRoute
     {
         /// <summary>How far before and after a corner its bend begins and ends.</summary>
         public const float CornerRadius = 8f;
@@ -21,21 +24,21 @@ namespace BitSorter.View
         /// <summary>How many straight pieces a bend is drawn with: enough that none shows as a facet.</summary>
         private const int CornerSteps = 8;
 
-        private readonly Vector2[] _points;
+        private readonly Vec2[] _points;
         private readonly float[] _distances;
-        private readonly Vector2[] _normals;
+        private readonly Vec2[] _normals;
 
-        public Route(params Vector2[] corners)
+        public StageRoute(params Vec2[] corners)
         {
             if (corners == null || corners.Length < 2)
                 throw new ArgumentException("A route needs at least two points.", nameof(corners));
 
-            var points = new List<Vector2> { corners[0] };
+            var points = new List<Vec2> { corners[0] };
 
             for (int i = 1; i < corners.Length - 1; i++)
             {
-                Vector2 previous = corners[i - 1], corner = corners[i], next = corners[i + 1];
-                float into = Vector2.Distance(previous, corner), outOf = Vector2.Distance(corner, next);
+                Vec2 previous = corners[i - 1], corner = corners[i], next = corners[i + 1];
+                float into = Vec2.Distance(previous, corner), outOf = Vec2.Distance(corner, next);
 
                 if (into < 1e-4f || outOf < 1e-4f)
                 {
@@ -46,12 +49,12 @@ namespace BitSorter.View
                 // A corner the wire runs straight through -- a pin, or a stub's end, on a straight
                 // run -- is no corner: bent, it was nine points on a line, and a straight wire from
                 // a gate's body to the next was 38 points, drawn and walked every frame of playback.
-                Vector2 inward = (corner - previous) / into, onward = (next - corner) / outOf;
-                if (Mathf.Abs(inward.x * onward.y - inward.y * onward.x) < 1e-5f && Vector2.Dot(inward, onward) > 0f)
+                Vec2 inward = (corner - previous) / into, onward = (next - corner) / outOf;
+                if (Arith.Abs(inward.x * onward.y - inward.y * onward.x) < 1e-5f && Vec2.Dot(inward, onward) > 0f)
                     continue;
 
-                Vector2 entry = corner + (previous - corner) * (Mathf.Min(CornerRadius, into * 0.5f) / into);
-                Vector2 exit = corner + (next - corner) * (Mathf.Min(CornerRadius, outOf * 0.5f) / outOf);
+                Vec2 entry = corner + (previous - corner) * (Arith.Min(CornerRadius, into * 0.5f) / into);
+                Vec2 exit = corner + (next - corner) * (Arith.Min(CornerRadius, outOf * 0.5f) / outOf);
 
                 for (int s = 0; s <= CornerSteps; s++)
                 {
@@ -66,11 +69,11 @@ namespace BitSorter.View
             _distances = new float[_points.Length];
 
             for (int i = 1; i < _points.Length; i++)
-                _distances[i] = _distances[i - 1] + Vector2.Distance(_points[i - 1], _points[i]);
+                _distances[i] = _distances[i - 1] + Vec2.Distance(_points[i - 1], _points[i]);
 
             Length = _distances[_distances.Length - 1];
 
-            _normals = new Vector2[_points.Length];
+            _normals = new Vec2[_points.Length];
             for (int i = 0; i < _points.Length; i++)
             {
                 bool hasPrevious = i > 0, hasNext = i < _points.Length - 1;
@@ -83,16 +86,16 @@ namespace BitSorter.View
         public float Length { get; }
 
         /// <summary>Where it begins: the driver's end.</summary>
-        public Vector2 Start => _points[0];
+        public Vec2 Start => _points[0];
 
         /// <summary>Where it ends: the load's end.</summary>
-        public Vector2 End => _points[_points.Length - 1];
+        public Vec2 End => _points[_points.Length - 1];
 
         /// <summary>How many points it is sampled into.</summary>
         public int PointCount => _points.Length;
 
         /// <summary>One of its sampled points, in order from the start.</summary>
-        public Vector2 Point(int index) => _points[index];
+        public Vec2 Point(int index) => _points[index];
 
         /// <summary>How far along the route a sampled point is.</summary>
         public float DistanceAt(int index) => _distances[index];
@@ -102,29 +105,29 @@ namespace BitSorter.View
         /// round it: what a stroke along the route is drawn from. Worked out once, since the points
         /// never move and a change in flight strokes its wire behind it on every frame.
         /// </summary>
-        public Vector2 NormalAt(int index) => _normals[index];
+        public Vec2 NormalAt(int index) => _normals[index];
 
         /// <summary>
         /// The mitred normal at <paramref name="point"/>, between the points before and after it --
         /// either missing at an end of an open line, where the one segment there decides it.
         /// </summary>
-        internal static Vector2 MitredNormal(Vector2 previous, Vector2 point, Vector2 next, bool hasPrevious, bool hasNext)
+        public static Vec2 MitredNormal(Vec2 previous, Vec2 point, Vec2 next, bool hasPrevious, bool hasNext)
         {
-            Vector2 into = hasPrevious ? (point - previous).normalized : Vector2.zero;
-            Vector2 outOf = hasNext ? (next - point).normalized : Vector2.zero;
+            Vec2 into = hasPrevious ? (point - previous).normalized : Vec2.zero;
+            Vec2 outOf = hasNext ? (next - point).normalized : Vec2.zero;
 
             if (!hasPrevious) into = outOf;
             if (!hasNext) outOf = into;
 
-            Vector2 n1 = new Vector2(-into.y, into.x), n2 = new Vector2(-outOf.y, outOf.x);
-            Vector2 mitre = (n1 + n2);
+            Vec2 n1 = new Vec2(-into.y, into.x), n2 = new Vec2(-outOf.y, outOf.x);
+            Vec2 mitre = (n1 + n2);
 
             if (mitre.sqrMagnitude < 1e-6f)
                 return n1;
 
             mitre.Normalize();
-            float cos = Vector2.Dot(mitre, n1);
-            return mitre / Mathf.Max(cos, 0.5f);
+            float cos = Vec2.Dot(mitre, n1);
+            return mitre / Arith.Max(cos, 0.5f);
         }
 
         /// <summary>The first sampled point further along than <paramref name="distance"/>; <see cref="PointCount"/> if none is.</summary>
@@ -142,7 +145,7 @@ namespace BitSorter.View
         }
 
         /// <summary>The point <paramref name="distance"/> along the route, clamped to its ends.</summary>
-        public Vector2 PointAt(float distance)
+        public Vec2 PointAt(float distance)
         {
             if (distance <= 0f) return _points[0];
             if (distance >= Length) return End;
@@ -157,10 +160,10 @@ namespace BitSorter.View
 
             float span = _distances[high] - _distances[low];
             float u = span > 0f ? (distance - _distances[low]) / span : 0f;
-            return Vector2.LerpUnclamped(_points[low], _points[high], u);
+            return Vec2.LerpUnclamped(_points[low], _points[high], u);
         }
 
-        private static void Add(List<Vector2> points, Vector2 point)
+        private static void Add(List<Vec2> points, Vec2 point)
         {
             if ((points[points.Count - 1] - point).sqrMagnitude > 1e-8f)
                 points.Add(point);

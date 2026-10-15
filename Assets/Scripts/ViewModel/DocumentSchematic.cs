@@ -5,10 +5,9 @@ using BitSorter.Board;
 using BitSorter.Sim;
 using EngineGate = BitSorter.Sim.GateKind;
 using BitSorter.SystemVerilog.Syntax;
-using UnityEngine;
 using BoardPoint = BitSorter.Board.Point;
 
-namespace BitSorter.View
+namespace BitSorter.ViewModel
 {
     /// <summary>
     /// A document's top module as the workbench draws it (Part 8): every part as its symbol, every
@@ -79,7 +78,7 @@ namespace BitSorter.View
                 left = right = bottom = topY = 0;
 
             var frame = new SchematicLayout.Frame(Cell, left, topY, Margin);
-            var size = new Vector2((float)(right - left) * Cell + 2 * Margin, (float)(topY - bottom) * Cell + 2 * Margin);
+            var size = new Vec2((float)(right - left) * Cell + 2 * Margin, (float)(topY - bottom) * Cell + 2 * Margin);
 
             // Which pins a wire reaches: their leads are the wires' ends, not stubs of the part.
             var wired = new Dictionary<int, List<string>>();
@@ -111,9 +110,9 @@ namespace BitSorter.View
                 if (part is PortPart port)
                 {
                     PartOutline placed = outlines[part.Id];
-                    Vector2 a = frame.ToStage(new BoardPoint(placed.Left, placed.Top));
-                    Vector2 b = frame.ToStage(new BoardPoint(placed.Right, placed.Bottom));
-                    var box = Rect.MinMaxRect(Mathf.Min(a.x, b.x), Mathf.Min(a.y, b.y), Mathf.Max(a.x, b.x), Mathf.Max(a.y, b.y));
+                    Vec2 a = frame.ToStage(new BoardPoint(placed.Left, placed.Top));
+                    Vec2 b = frame.ToStage(new BoardPoint(placed.Right, placed.Bottom));
+                    var box = Rect2.MinMaxRect(Arith.Min(a.x, b.x), Arith.Min(a.y, b.y), Arith.Max(a.x, b.x), Arith.Max(a.y, b.y));
                     ports.Add(new PortLayout(Label(port), path + "." + port.Name, box, port.Direction == PortDirection.Output));
                     continue;
                 }
@@ -137,12 +136,12 @@ namespace BitSorter.View
             }
 
             // Where a wire meets a part's body, past its pin: a port's pin is on its box already.
-            bool TryBody(PinRef pin, out Vector2 at)
+            bool TryBody(PinRef pin, out Vec2 at)
             {
                 at = default;
                 if (!partsById.TryGetValue(pin.Part, out PartLayout part) || !part.Local.TryPin(pin.Pin, out PinSpot spot))
                     return false;
-                (double x, double y) = WorkbenchDrawing.LeadEnd(part, spot);
+                (double x, double y) = SymbolGeometry.LeadEnd(part, spot);
                 at = part.ToStage(x, y);
                 return true;
             }
@@ -160,21 +159,21 @@ namespace BitSorter.View
 
                 // Each branch runs from the driver's body to the load's, so a change leaves the gate
                 // that made it and is in the wire's colour all the way in.
-                bool fromBody = TryBody(net.Source, out Vector2 source);
-                var branches = new List<Route>();
+                bool fromBody = TryBody(net.Source, out Vec2 source);
+                var branches = new List<StageRoute>();
                 foreach (NetBranch branch in net.Branches)
                 {
-                    var points = new List<Vector2>(branch.Points.Count + 2);
+                    var points = new List<Vec2>(branch.Points.Count + 2);
                     if (fromBody)
                         points.Add(source);
                     foreach (BoardPoint p in branch.Points)
                         points.Add(frame.ToStage(p));
-                    if (TryBody(branch.Load, out Vector2 load))
+                    if (TryBody(branch.Load, out Vec2 load))
                         points.Add(load);
-                    branches.Add(new Route(points.ToArray()));
+                    branches.Add(new StageRoute(points.ToArray()));
                 }
 
-                var junctions = new List<Vector2>();
+                var junctions = new List<Vec2>();
                 foreach (BoardPoint junction in net.Junctions)
                     junctions.Add(frame.ToStage(junction));
 

@@ -1,9 +1,8 @@
 using System.Collections.Generic;
 using BitSorter.Board;
-using UnityEngine;
 using BoardPoint = BitSorter.Board.Point;
 
-namespace BitSorter.View
+namespace BitSorter.ViewModel
 {
     /// <summary>The symbols the schematic draws a part as.</summary>
     public enum PartSymbol
@@ -15,7 +14,7 @@ namespace BitSorter.View
     /// <summary>A net as the schematic draws it: its branches from its driver to each load, and where its wires meet.</summary>
     public sealed class NetLayout
     {
-        public NetLayout(string name, string signal, IReadOnlyList<string> aliases, int width, IReadOnlyList<Vector2> junctions, IReadOnlyList<Route> branches,
+        public NetLayout(string name, string signal, IReadOnlyList<string> aliases, int width, IReadOnlyList<Vec2> junctions, IReadOnlyList<StageRoute> branches,
             string says)
         {
             Says = says;
@@ -43,10 +42,10 @@ namespace BitSorter.View
         public int Width { get; }
 
         /// <summary>Where one of its wires taps another: a dot.</summary>
-        public IReadOnlyList<Vector2> Junctions { get; }
+        public IReadOnlyList<Vec2> Junctions { get; }
 
         /// <summary>Each branch from the driver to one load. A change travels down all of them at once.</summary>
-        public IReadOnlyList<Route> Branches { get; }
+        public IReadOnlyList<StageRoute> Branches { get; }
 
         /// <summary>What pointing at it says: its name, what drives it and what reads it. Written once, so hovering formats nothing.</summary>
         public string Says { get; }
@@ -115,7 +114,7 @@ namespace BitSorter.View
             symbol != PartSymbol.Splitter && symbol != PartSymbol.Joiner;
 
         /// <summary>A point of the part's own drawing, in cells, where it lands on the stage.</summary>
-        public Vector2 ToStage(double x, double y) => _frame.ToStage(PartGeometry.Transform(Placement, new BoardPoint(x, y)));
+        public Vec2 ToStage(double x, double y) => _frame.ToStage(PartGeometry.Transform(Placement, new BoardPoint(x, y)));
 
         /// <summary>How many stage units a cell is.</summary>
         public float Cell => _frame.Cell;
@@ -124,7 +123,7 @@ namespace BitSorter.View
     /// <summary>A port: a rounded box, an input's on the left of its pin and an output's on the right.</summary>
     public sealed class PortLayout
     {
-        public PortLayout(string name, string signal, Rect box, bool output)
+        public PortLayout(string name, string signal, Rect2 box, bool output)
         {
             Name = name;
             Signal = signal;
@@ -138,12 +137,12 @@ namespace BitSorter.View
         public string Signal { get; }
 
         /// <summary>The box on the stage, y down.</summary>
-        public Rect Box { get; }
+        public Rect2 Box { get; }
 
         public bool Output { get; }
 
         /// <summary>The box's left edge, at its middle, as the reference's ports were placed.</summary>
-        public Vector2 At => new Vector2(Box.xMin, Box.center.y);
+        public Vec2 At => new Vec2(Box.xMin, Box.center.y);
 
         public float Width => Box.width;
     }
@@ -168,7 +167,7 @@ namespace BitSorter.View
     /// </summary>
     public sealed class SchematicLayout
     {
-        public SchematicLayout(Vector2 size, IReadOnlyList<NetLayout> nets, IReadOnlyList<PartLayout> parts, IReadOnlyList<PortLayout> ports, IReadOnlyList<WaveRow> rows)
+        public SchematicLayout(Vec2 size, IReadOnlyList<NetLayout> nets, IReadOnlyList<PartLayout> parts, IReadOnlyList<PortLayout> ports, IReadOnlyList<WaveRow> rows)
         {
             Size = size;
             Nets = nets;
@@ -178,7 +177,7 @@ namespace BitSorter.View
         }
 
         /// <summary>The schematic's extent.</summary>
-        public Vector2 Size { get; }
+        public Vec2 Size { get; }
 
         public IReadOnlyList<NetLayout> Nets { get; }
         public IReadOnlyList<PartLayout> Parts { get; }
@@ -190,14 +189,14 @@ namespace BitSorter.View
         /// The net with a wire within <paramref name="within"/> of <paramref name="point"/> (stage
         /// units, y down), the nearest if several are, or -1.
         /// </summary>
-        public int NetAt(Vector2 point, float within)
+        public int NetAt(Vec2 point, float within)
         {
             int best = -1;
             float bestSquared = within * within;
 
             for (int n = 0; n < Nets.Count; n++)
             {
-                foreach (Route branch in Nets[n].Branches)
+                foreach (StageRoute branch in Nets[n].Branches)
                 {
                     for (int i = 1; i < branch.PointCount; i++)
                     {
@@ -214,10 +213,10 @@ namespace BitSorter.View
             return best;
         }
 
-        private static float SquaredDistance(Vector2 p, Vector2 a, Vector2 b)
+        private static float SquaredDistance(Vec2 p, Vec2 a, Vec2 b)
         {
-            Vector2 ab = b - a;
-            float along = ab.sqrMagnitude > 1e-8f ? Mathf.Clamp01(Vector2.Dot(p - a, ab) / ab.sqrMagnitude) : 0f;
+            Vec2 ab = b - a;
+            float along = ab.sqrMagnitude > 1e-8f ? Arith.Clamp01(Vec2.Dot(p - a, ab) / ab.sqrMagnitude) : 0f;
             return (a + ab * along - p).sqrMagnitude;
         }
 
@@ -245,8 +244,8 @@ namespace BitSorter.View
             public double Top { get; }
             public float Margin { get; }
 
-            public Vector2 ToStage(BoardPoint p) =>
-                new Vector2(Margin + (float)(p.X - Left) * Cell, Margin + (float)(Top - p.Y) * Cell);
+            public Vec2 ToStage(BoardPoint p) =>
+                new Vec2(Margin + (float)(p.X - Left) * Cell, Margin + (float)(Top - p.Y) * Cell);
         }
     }
 }

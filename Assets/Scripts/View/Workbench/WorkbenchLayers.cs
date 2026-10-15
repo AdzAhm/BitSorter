@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using BitSorter.ViewModel;
 using UnityEngine;
 
 namespace BitSorter.View
@@ -38,11 +39,16 @@ namespace BitSorter.View
     /// waveform revealed. A canvas for every chunk, to keep uGUI from re-batching them all, made it 50:
     /// tried and taken out. The rest was the drawing itself, and the test's remarks give it step by
     /// step: about 3.3 ms in the editor and 5.5 in a batch run (2026-10-14), against the 6 ms the
-    /// canvas is allowed of a 60 Hz frame, at a canvas scale of 1.
+    /// canvas is allowed of a 60 Hz frame, at a canvas scale of 1 -- and 4.5 to 5.5 in the editor once
+    /// meshes were handed over the way a browser can draw them (<see cref="MeshBuffer.FillMesh"/>,
+    /// 2026-10-15).
     ///
     /// **Cut by estimates, held by <see cref="VectorPainter.Fits"/>.** How many changes a wire carries
     /// at once has no bound, so no estimate can promise a chunk fits a mesh; a chunk that outgrows one
     /// draws as many whole items as fit and says so once, rather than drawing nothing.
+    ///
+    /// The cutting itself is <see cref="Chunks.Cut"/>, in the view-model, where it is tested without
+    /// the editor; the budgets are here, since they are uGUI's.
     ///
     /// Built in drawing order -- every wires chunk, then every changes chunk, so no wire is drawn over
     /// a change on another chunk's wire -- and the panel puts the ring digits and the parts after them.
@@ -102,46 +108,18 @@ namespace BitSorter.View
             }
         }
 
-        /// <summary>
-        /// Cuts items 0 to <paramref name="count"/> into runs whose estimates stay under
-        /// <paramref name="budget"/>, the first run carrying <paramref name="first"/> besides. An item
-        /// over the budget alone is a run of its own.
-        /// </summary>
-        public static List<Vector2Int> Cut(int count, System.Func<int, int> vertices, int budget = VertexBudget, int first = 0)
-        {
-            var runs = new List<Vector2Int>();
-            int start = 0, sum = first;
-
-            for (int i = 0; i < count; i++)
-            {
-                int cost = vertices(i);
-                if (i > start && sum + cost > budget)
-                {
-                    runs.Add(new Vector2Int(start, i - start));
-                    start = i;
-                    sum = 0;
-                }
-
-                sum += cost;
-            }
-
-            if (count > start || runs.Count == 0)
-                runs.Add(new Vector2Int(start, count - start));
-            return runs;
-        }
-
         /// <summary>The wires' chunks and then the changes', under <paramref name="parent"/>.</summary>
         public void BuildWires(RectTransform parent, Vector2 size)
         {
             SchematicLayout layout = _model.Layout;
 
-            foreach (Vector2Int run in Cut(layout.Nets.Count, i => WorkbenchDrawing.NetVertices(layout.Nets[i]), WireBudget))
+            foreach ((int Start, int Count) run in Chunks.Cut(layout.Nets.Count, i => WorkbenchDrawing.NetVertices(layout.Nets[i]), WireBudget))
                 _wires.Add(Create("wires", parent, WorkbenchGraphic.Layer.Wires, size, run));
 
             _changesOfNet = new int[layout.Nets.Count];
-            foreach (Vector2Int run in Cut(layout.Nets.Count, i => WorkbenchDrawing.ChangeVertices(layout.Nets[i])))
+            foreach ((int Start, int Count) run in Chunks.Cut(layout.Nets.Count, i => WorkbenchDrawing.ChangeVertices(layout.Nets[i]), VertexBudget))
             {
-                for (int i = run.x; i < run.x + run.y; i++)
+                for (int i = run.Start; i < run.Start + run.Count; i++)
                     _changesOfNet[i] = _changes.Count;
                 _changes.Add(Create("changes", parent, WorkbenchGraphic.Layer.Changes, size, run));
             }
@@ -154,10 +132,10 @@ namespace BitSorter.View
         public void BuildParts(RectTransform parent, Vector2 size)
         {
             SchematicLayout layout = _model.Layout;
-            List<Vector2Int> runs = Cut(layout.Parts.Count, i => WorkbenchDrawing.PartVertices(layout.Parts[i]), first: WorkbenchDrawing.PortVertices(layout));
-            foreach (Vector2Int run in runs)
+            List<(int Start, int Count)> runs = Chunks.Cut(layout.Parts.Count, i => WorkbenchDrawing.PartVertices(layout.Parts[i]), VertexBudget, first: WorkbenchDrawing.PortVertices(layout));
+            foreach ((int Start, int Count) run in runs)
                 _parts.Add(Create("parts", parent, WorkbenchGraphic.Layer.Parts, size, run));
-            foreach (Vector2Int run in runs)
+            foreach ((int Start, int Count) run in runs)
                 _flashes.Add(Create("flashes", parent, WorkbenchGraphic.Layer.Flashes, size, run));
             _wasFlashing = new bool[_flashes.Count];
             _lampShown = new Color[layout.Parts.Count];
@@ -170,7 +148,7 @@ namespace BitSorter.View
         public void BuildTiming(RectTransform parent, Vector2 size)
         {
             _waveSize = size;
-            _grid = Create("grid", parent, WorkbenchGraphic.Layer.Grid, size, new Vector2Int(0, 0));
+            _grid = Create("grid", parent, WorkbenchGraphic.Layer.Grid, size, (0, 0));
 
             _reveal = UiTheme.Rect("reveal", parent);
             _reveal.anchorMin = _reveal.anchorMax = new Vector2(0f, 1f);
@@ -179,14 +157,14 @@ namespace BitSorter.View
             _reveal.sizeDelta = size;
             _reveal.gameObject.AddComponent<UnityEngine.UI.RectMask2D>();
 
-            foreach (Vector2Int run in Cut(_model.Layout.Rows.Count, row => WorkbenchDrawing.RowVertices(_model, row)))
+            foreach ((int Start, int Count) run in Chunks.Cut(_model.Layout.Rows.Count, row => WorkbenchDrawing.RowVertices(_model, row), VertexBudget))
                 _timing.Add(Create("timing", _reveal, WorkbenchGraphic.Layer.Timing, size, run));
 
-            foreach (Vector2Int run in Cut(_model.Layout.Rows.Count, row => WorkbenchDrawing.GlitchVertices(_model, row)))
+            foreach ((int Start, int Count) run in Chunks.Cut(_model.Layout.Rows.Count, row => WorkbenchDrawing.GlitchVertices(_model, row), VertexBudget))
                 _glitches.Add(Create("glitches", parent, WorkbenchGraphic.Layer.Glitches, size, run));
             _glitchesShown = new int[_glitches.Count];
 
-            _playhead = Create("playhead", parent, WorkbenchGraphic.Layer.Playhead, size, new Vector2Int(0, 0));
+            _playhead = Create("playhead", parent, WorkbenchGraphic.Layer.Playhead, size, (0, 0));
         }
 
         /// <summary>
@@ -241,7 +219,7 @@ namespace BitSorter.View
                     if (layout.Parts[i].Symbol == PartSymbol.Lamp)
                         relit |= palette.Of(_model.PartValue(i)) != _lampShown[i];
                     else if (!moving)
-                        moving = SchematicStyle.Flash(_model.GateFlash(i, out _)) > 0f;
+                        moving = CanvasMotion.Flash(_model.GateFlash(i, out _)) > 0f;
                 }
 
                 if (all || moving || relit || _wasFlashing[k])
@@ -330,7 +308,7 @@ namespace BitSorter.View
 
         private static bool Holds(WorkbenchGraphic chunk, int item) => item >= chunk.From && item < chunk.From + chunk.Count;
 
-        private WorkbenchGraphic Create(string name, RectTransform parent, WorkbenchGraphic.Layer draws, Vector2 size, Vector2Int run)
+        private WorkbenchGraphic Create(string name, RectTransform parent, WorkbenchGraphic.Layer draws, Vector2 size, (int Start, int Count) run)
         {
             RectTransform rect = UiTheme.Rect(name, parent);
             rect.anchorMin = rect.anchorMax = new Vector2(0f, 1f);
@@ -341,8 +319,8 @@ namespace BitSorter.View
             var graphic = rect.gameObject.AddComponent<WorkbenchGraphic>();
             graphic.Draws = draws;
             graphic.Model = _model;
-            graphic.From = run.x;
-            graphic.Count = run.y;
+            graphic.From = run.Start;
+            graphic.Count = run.Count;
             graphic.raycastTarget = false;
             return graphic;
         }

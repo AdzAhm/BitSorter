@@ -1,4 +1,5 @@
 using UnityEngine;
+using BitSorter.ViewModel;
 
 namespace BitSorter.View
 {

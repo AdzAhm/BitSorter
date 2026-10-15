@@ -1,6 +1,7 @@
 using System.Collections;
 using NUnit.Framework;
 using BitSorter.View;
+using BitSorter.ViewModel;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Controls;
@@ -238,7 +239,7 @@ namespace BitSorter.PlayMode.Tests
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             workbench.Pause();
             int notA = workbench.Model.Layout.NetNamed("na");
-            Route wire = workbench.Model.Layout.Nets[notA].Branches[0];
+            StageRoute wire = workbench.Model.Layout.Nets[notA].Branches[0];
 
             var mouse = InputSystem.GetDevice<Mouse>();
             mouse.MakeCurrent();
@@ -268,7 +269,7 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsNull(GameObject.Find(WorkbenchPanel.FitButton), "FIT is for a circuit that is not whole");
 
             // A point of the drawing, and where it is on the screen.
-            Vector2 point = workbench.Model.Layout.Size * 0.4f;
+            Vec2 point = workbench.Model.Layout.Size * 0.4f;
             Vector2 cursor = workbench.ScreenPointOf(point);
 
             // The wheel is handed over as the real one's is each frame: a fixture's own scroll is

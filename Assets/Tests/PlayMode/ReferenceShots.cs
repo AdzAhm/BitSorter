@@ -4,6 +4,7 @@ using System.Linq;
 using NUnit.Framework;
 using BitSorter.LogicCore;
 using BitSorter.View;
+using BitSorter.ViewModel;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.TestTools;
@@ -866,7 +867,7 @@ namespace BitSorter.PlayMode.Tests
             workbench.Seek(13.5);
 
             int notB = workbench.Model.Layout.NetNamed("nb");
-            Route wire = workbench.Model.Layout.Nets[notB].Branches[0];
+            StageRoute wire = workbench.Model.Layout.Nets[notB].Branches[0];
             Mouse mouse = InputSystem.GetDevice<Mouse>();
             mouse.MakeCurrent();
             Set(mouse.position, workbench.ScreenPointOf(wire.PointAt(wire.Length * 0.3f)));

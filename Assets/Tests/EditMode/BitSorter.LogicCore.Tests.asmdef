@@ -5,6 +5,7 @@
         "BitSorter.LogicCore",
         "BitSorter.Sim",
         "BitSorter.Board",
+        "BitSorter.ViewModel",
         "BitSorter.SystemVerilog",
         "BitSorter.View",
         "UnityEngine.TestRunner",

@@ -1,8 +1,8 @@
-namespace BitSorter.View
+namespace BitSorter.ViewModel
 {
     /// <summary>
     /// The Schematic look's measurements: how thick a wire is for each value, how strong the glow on
-    /// a change in flight is, how long a gate's flash lasts. Its colours are <see cref="SchematicPalette"/>.
+    /// a change in flight is, how long a gate's flash lasts. Its colours are the view's <c>SchematicPalette</c>.
     /// </summary>
     /// <remarks>
     /// Ahmad chose the look on 2026-10-12 from three variants drawn side by side in an HTML mock
@@ -17,12 +17,11 @@ namespace BitSorter.View
         /// <summary>
         /// How much of Lively's glow the Schematic look keeps: 0 is Quiet, 1 is Lively. Ahmad's
         /// choice, 35%. It scales the trail, the halo and the gate's tint together. Every look has
-        /// its own (<see cref="Look.CanvasGlow"/>); this is the Schematic look's.
+        /// its own (the view's <c>Look.CanvasGlow</c>); this is the Schematic look's. The glow the
+        /// canvas is drawn with now -- that look's, or none when motion is reduced -- is the view's
+        /// to say, in <c>CanvasMotion</c>.
         /// </summary>
         public const float GlowStrength = 0.35f;
-
-        /// <summary>The glow the canvas is drawn with now: the current look's, or none at all when motion is reduced.</summary>
-        public static float Glow => ReducedMotion.IsOn ? 0f : Look.Current.CanvasGlow;
 
         /// <summary>A net pointed at: a soft band of its own colour under every wire of it, this wide, this soft, this strong.</summary>
         public const float HoverWidth = 9f;
@@ -35,9 +34,6 @@ namespace BitSorter.View
 
         /// <summary>How near a wire the pointer has to be, in screen-sized stage units, for the wire to count as pointed at.</summary>
         public const float HoverReach = 8f;
-
-        /// <summary>How far into its flash a gate is drawn, given how far it is: not at all when motion is reduced.</summary>
-        public static float Flash(float flash) => ReducedMotion.IsOn ? 0f : flash;
 
         /// <summary>A wire holding 0, and holding 1 or x: a 1 is a little heavier, so 0 and 1 differ by more than colour.</summary>
         public const float ZeroWidth = 3f;

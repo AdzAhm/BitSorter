@@ -2,7 +2,7 @@
 
   <!--
     Rules about the repository itself rather than about any one part of the game: no student ID
-    number and no copied course material anywhere in it (PrivacyScanTests), and the three pure layers
+    number and no copied course material anywhere in it (PrivacyScanTests), and the four pure layers
     of BitSorter 5.0 staying pure and pointing one way (PureLayerRulesTests).
 
     Its own tests live here rather than in Assets, because none of them is anything Unity needs to run.
@@ -26,6 +26,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../Board/Board.csproj" />
+    <ProjectReference Include="../ViewModel/ViewModel.csproj" />
   </ItemGroup>
 
   <ItemGroup>

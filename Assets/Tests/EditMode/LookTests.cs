@@ -1,5 +1,6 @@
 using NUnit.Framework;
 using BitSorter.View;
+using BitSorter.ViewModel;
 
 namespace BitSorter.LogicCore.Tests
 {

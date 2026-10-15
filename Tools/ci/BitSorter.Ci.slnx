@@ -10,6 +10,8 @@
     <Project Path="Sim.Tests/Sim.Tests.csproj" />
     <Project Path="Board/Board.csproj" />
     <Project Path="Board.Tests/Board.Tests.csproj" />
+    <Project Path="ViewModel/ViewModel.csproj" />
+    <Project Path="ViewModel.Tests/ViewModel.Tests.csproj" />
     <Project Path="Repo.Tests/Repo.Tests.csproj" />
     <Project Path="Oracle/Oracle.csproj" />
   </Folder>

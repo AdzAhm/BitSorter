@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using BitSorter.SystemVerilog;
+using BitSorter.ViewModel;
 using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -212,7 +213,7 @@ namespace BitSorter.View
         public bool IsFitted => _viewState == null || _viewState.IsFitted;
 
         /// <summary>Where a point of the circuit's drawing, in its own units (y down), is on the screen now.</summary>
-        public Vector2 ScreenPointOf(Vector2 drawingPoint) =>
+        public Vector2 ScreenPointOf(Vec2 drawingPoint) =>
             RectTransformUtility.WorldToScreenPoint(null, _schematic.TransformPoint(new Vector3(drawingPoint.x, -drawingPoint.y, 0f)));
 
         /// <summary>The middle of the circuit's window, on the screen: somewhere a zoom or a drag can start.</summary>
@@ -290,7 +291,7 @@ namespace BitSorter.View
 
         private void ZoomAboutTheMiddle(int notches)
         {
-            if (_viewState != null && _viewState.ZoomAbout(ViewSize * 0.5f, notches))
+            if (_viewState != null && _viewState.ZoomAbout((ViewSize * 0.5f).ToStage(), notches))
                 ApplyView();
         }
 
@@ -320,7 +321,7 @@ namespace BitSorter.View
             if (_viewState == null || Mathf.Abs(scroll.y) < 0.01f || !InView(screenPoint, out Vector2 at))
                 return false;
 
-            if (!_viewState.ZoomAbout(at, scroll.y > 0f ? 1 : -1))
+            if (!_viewState.ZoomAbout(at.ToStage(), scroll.y > 0f ? 1 : -1))
                 return false;
 
             ApplyView();
@@ -360,7 +361,7 @@ namespace BitSorter.View
             InView(screenPoint, out Vector2 to);
             _dragFrom = screenPoint;
 
-            if (_viewState.Pan(to - from))
+            if (_viewState.Pan((to - from).ToStage()))
                 ApplyView();
         }
 
@@ -374,7 +375,7 @@ namespace BitSorter.View
             if (!_dragging && InView(screenPoint, out Vector2 inView) &&
                 RectTransformUtility.ScreenPointToLocalPointInRectangle(_schematic, screenPoint, null, out Vector2 local))
             {
-                net = _model.Layout.NetAt(new Vector2(local.x, -local.y), SchematicStyle.HoverReach / _viewState.Zoom);
+                net = _model.Layout.NetAt(new Vec2(local.x, -local.y), SchematicStyle.HoverReach / _viewState.Zoom);
 
                 if (net >= 0)
                 {
@@ -650,18 +651,18 @@ namespace BitSorter.View
             _view = UiTheme.Rect("schematic view", _stage);
             TopLeft(_view, ViewAt, ViewSize);
             _view.gameObject.AddComponent<RectMask2D>();
-            _viewState = new SchematicView(ViewSize, SchematicAt - ViewAt, layout.Size);
+            _viewState = new SchematicView(ViewSize.ToStage(), (SchematicAt - ViewAt).ToStage(), layout.Size);
 
             _schematic = UiTheme.Rect("schematic", _view);
-            TopLeft(_schematic, _viewState.Offset, layout.Size);
+            TopLeft(_schematic, _viewState.Offset.ToUnity(), layout.Size.ToUnity());
 
             // Every layer of the drawing cut into chunks a mesh each can hold (WorkbenchLayers).
             _layers = new WorkbenchLayers(_model);
             _drawnZoom = _viewState.Zoom;
-            _layers.BuildWires(_schematic, layout.Size);
+            _layers.BuildWires(_schematic, layout.Size.ToUnity());
             _rings = UiTheme.Rect("ring digits", _schematic);
-            TopLeft(_rings, Vector2.zero, layout.Size);
-            _layers.BuildParts(_schematic, layout.Size);
+            TopLeft(_rings, Vector2.zero, layout.Size.ToUnity());
+            _layers.BuildParts(_schematic, layout.Size.ToUnity());
             BuildSchematicLabels(palette);
 
             // FIT, in the window's top-right corner, for whenever the circuit is not whole.
@@ -724,14 +725,14 @@ namespace BitSorter.View
 
                 // A gate's kind inside its body, as the reference writes it; other names over the part.
                 if (PartLayout.NamedInside(part.Symbol))
-                    StageLabel(_schematic, part.Name, part.ToStage(0.05, 0), UiType.Micro, palette.TextDim,
+                    StageLabel(_schematic, part.Name, part.ToStage(0.05, 0).ToUnity(), UiType.Micro, palette.TextDim,
                         TextAlignmentOptions.Center, part.Cell);
                 else if (PartLayout.NameAbove(part.Symbol))
                 {
                     // Over what is drawn. A triangle is a third of a cell tall where its outline is half,
                     // and placed from the outline its name floated as near the row above as its own
                     // part (Part 8's review); over the triangle's taller back it is plainly the part's.
-                    Vector2 over = Triangle(part.Symbol) ? part.ToStage(-0.2, 0.32) : new Vector2(bounds.center.x, bounds.yMin);
+                    Vector2 over = Triangle(part.Symbol) ? part.ToStage(-0.2, 0.32).ToUnity() : new Vector2(bounds.center.x, bounds.yMin);
                     StageLabel(_schematic, part.Name, new Vector2(over.x, over.y - 9f), UiType.Micro, palette.TextDim,
                         TextAlignmentOptions.Center, Mathf.Max(80f, bounds.width + 40f));
                 }
@@ -741,7 +742,7 @@ namespace BitSorter.View
                 if (part.Delay.Length > 0)
                 {
                     const float delayWidth = 160f;
-                    Vector2 at = part.ToStage(0.55, 0.3);
+                    Vector2 at = part.ToStage(0.55, 0.3).ToUnity();
                     bool leftward = (part.ToStage(1, 0) - part.ToStage(0, 0)).x < -0.5f * part.Cell;
                     StageLabel(_schematic, part.Delay, leftward ? at - new Vector2(delayWidth, 0f) : at, UiType.Micro, palette.Muted,
                         leftward ? TextAlignmentOptions.MidlineRight : TextAlignmentOptions.MidlineLeft, delayWidth);
@@ -753,7 +754,7 @@ namespace BitSorter.View
                     foreach (BitSorter.Board.PinSpot pin in part.Local.Pins)
                     {
                         bool input = pin.Facing == BitSorter.Board.Facing.Left;
-                        Vector2 at = part.ToStage(input ? -1.15 : 1.15, pin.At.Y);
+                        Vector2 at = part.ToStage(input ? -1.15 : 1.15, pin.At.Y).ToUnity();
                         StageLabel(_schematic, pin.Pin, at, UiType.Micro, palette.TextDim,
                             input ? TextAlignmentOptions.MidlineLeft : TextAlignmentOptions.MidlineRight, 60f);
                     }
@@ -761,14 +762,14 @@ namespace BitSorter.View
             }
 
             foreach (PortLayout port in layout.Ports)
-                StageLabel(_schematic, port.Name, port.Box.center, UiType.Caption, palette.Text, TextAlignmentOptions.Center, port.Width);
+                StageLabel(_schematic, port.Name, port.Box.center.ToUnity(), UiType.Caption, palette.Text, TextAlignmentOptions.Center, port.Width);
 
             foreach (NetLayout net in layout.Nets)
             {
                 if (net.Width <= 1)
                     continue;
 
-                Vector2 at = net.Branches[0].PointAt(net.Branches[0].Length * 0.28f);
+                Vector2 at = net.Branches[0].PointAt(net.Branches[0].Length * 0.28f).ToUnity();
                 StageLabel(_schematic, net.Width.ToString(CultureInfo.InvariantCulture), at + new Vector2(4f, -15f),
                     UiType.Micro, palette.Muted, TextAlignmentOptions.MidlineLeft, 30f);
             }
@@ -780,7 +781,7 @@ namespace BitSorter.View
         /// <summary>Where a part's outline is drawn on the stage, turned and all: what its labels are placed round.</summary>
         private static Rect StageBounds(PartLayout part)
         {
-            Vector2 a = part.ToStage(part.Local.Left, part.Local.Bottom), b = part.ToStage(part.Local.Right, part.Local.Top);
+            Vector2 a = part.ToStage(part.Local.Left, part.Local.Bottom).ToUnity(), b = part.ToStage(part.Local.Right, part.Local.Top).ToUnity();
             return Rect.MinMaxRect(Mathf.Min(a.x, b.x), Mathf.Min(a.y, b.y), Mathf.Max(a.x, b.x), Mathf.Max(a.y, b.y));
         }
 

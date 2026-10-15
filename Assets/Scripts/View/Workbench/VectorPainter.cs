@@ -1,6 +1,10 @@
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using BitSorter.ViewModel;
 using UnityEngine;
+// The stage's points are the view-model's Vec2, Unity's own Vector2 arithmetic without Unity, so
+// what is drawn here is worked out in the same floats the layout and its tests use.
+using Vector2 = BitSorter.ViewModel.Vec2;
 
 namespace BitSorter.View
 {
@@ -64,7 +68,7 @@ namespace BitSorter.View
         // -----------------------------------------------------------------
 
         /// <summary>The stretch of <paramref name="route"/> from <paramref name="from"/> to <paramref name="to"/>, stroked.</summary>
-        public void Stroke(Route route, float from, float to, float width, Color colour, bool roundCaps = true)
+        public void Stroke(StageRoute route, float from, float to, float width, Color colour, bool roundCaps = true)
         {
             if (!Slice(route, from, to, out int first))
                 return;
@@ -73,13 +77,13 @@ namespace BitSorter.View
         }
 
         /// <summary>A whole route, stroked.</summary>
-        public void Stroke(Route route, float width, Color colour) => Stroke(route, 0f, route.Length, width, colour);
+        public void Stroke(StageRoute route, float width, Color colour) => Stroke(route, 0f, route.Length, width, colour);
 
         /// <summary>
         /// A soft glow along part of a route: a core <paramref name="width"/> wide and a falloff of
         /// <paramref name="blur"/> each side, like a stroke under a blur filter.
         /// </summary>
-        public void Glow(Route route, float from, float to, float width, float blur, Color colour)
+        public void Glow(StageRoute route, float from, float to, float width, float blur, Color colour)
         {
             if (!Slice(route, from, to, out int first))
                 return;
@@ -88,7 +92,7 @@ namespace BitSorter.View
         }
 
         /// <summary>A route drawn in dashes, as an undriven wire is.</summary>
-        public void Dashed(Route route, float width, Color colour, float on, float off)
+        public void Dashed(StageRoute route, float width, Color colour, float on, float off)
         {
             for (float s = 0f; s < route.Length; s += on + off)
                 Stroke(route, s, Mathf.Min(s + on, route.Length), width, colour, roundCaps: false);
@@ -269,7 +273,7 @@ namespace BitSorter.View
         /// the points beside them are worked out here.
         /// </remarks>
         private void Strip(List<Vector2> points, bool closed, float width, Color colour, float blur, bool roundCaps,
-            Route route = null, int first = 0)
+            StageRoute route = null, int first = 0)
         {
             int count = points.Count;
             if (count < 2)
@@ -372,7 +376,7 @@ namespace BitSorter.View
 
             Vector2 previous = hasPrevious ? points[(i - 1 + count) % count] : points[i];
             Vector2 next = hasNext ? points[(i + 1) % count] : points[i];
-            return Route.MitredNormal(previous, points[i], next, hasPrevious, hasNext);
+            return StageRoute.MitredNormal(previous, points[i], next, hasPrevious, hasNext);
         }
 
         /// <summary>A half disc on a stroke's end, pointing along <paramref name="outward"/>.</summary>
@@ -489,7 +493,7 @@ namespace BitSorter.View
         /// The stretch of a route between two distances, as points, into <see cref="_path"/>, and the
         /// route's index of the first point between the two cut ends. False when there is nothing to draw.
         /// </summary>
-        private bool Slice(Route route, float from, float to, out int first)
+        private bool Slice(StageRoute route, float from, float to, out int first)
         {
             first = 0;
             from = Mathf.Max(0f, from);

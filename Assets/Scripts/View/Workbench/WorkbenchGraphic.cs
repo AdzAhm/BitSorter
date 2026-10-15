@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
+using BitSorter.ViewModel;
 
 namespace BitSorter.View
 {
@@ -163,7 +164,7 @@ namespace BitSorter.View
 
             if (Draws == Layer.Card)
             {
-                WorkbenchDrawing.Card(_painter, rectTransform.rect.size, palette);
+                WorkbenchDrawing.Card(_painter, rectTransform.rect.size.ToStage(), palette);
                 return;
             }
 

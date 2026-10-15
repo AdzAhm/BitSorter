@@ -23,13 +23,18 @@ part rewrites the paragraphs here that it makes stale, in the same change.
 - Assets/Scripts/LogicCore/ = pure C#, NO UnityEngine imports.
   Deterministic tick-based simulator. Has its own asmdef. The 4.x token
   engine: frozen, and deleted in 5.0's Part 16.
-- Assets/Scripts/SystemVerilog/, Sim/ and Board/ = 5.0's three pure layers --
-  SystemVerilog, the engine and the document -- each with its own asmdef: C# 9,
-  no engine references, no reflection, no threads, no file access of their
-  own, so they run unchanged under dotnet, IL2CPP and a browser. They point
-  one way, SystemVerilog <- Sim <- Board <- View, and the view changes the document and
-  the engine only through their commands. `Tools/ci/Repo.Tests` holds all of
-  it: the asmdefs, what the CI builds actually reference, and the source.
+- Assets/Scripts/SystemVerilog/, Sim/, Board/ and ViewModel/ = 5.0's four pure
+  layers -- SystemVerilog, the engine, the document and the workbench's
+  view-model -- each with its own asmdef: C# 9, no engine references, no
+  reflection, no threads, no file access of their own, so they run unchanged
+  under dotnet, IL2CPP and a browser. They point one way, SystemVerilog <- Sim
+  <- Board <- ViewModel <- View, and the view changes the document and the
+  engine only through their commands. `Tools/ci/Repo.Tests` holds all of it:
+  the asmdefs, what the CI builds actually reference, and the source -- and
+  refuses a file under View/Workbench that uses no Unity, which belongs in the
+  view-model. **The view-model's points are `Vec2`, not Unity's `Vector2` nor
+  `System.Numerics`'**: Unity's arithmetic to the bit, held by an Edit Mode test
+  against the real thing, so a test under dotnet speaks for what is drawn.
 - Assets/Scripts/View/ = Unity MonoBehaviours. Reads sim state, renders it.
 - State flows LogicCore -> View only. The view never mutates the sim.
 - No Rigidbody2D for bits. Physics is decoration only (sparks, debris).
