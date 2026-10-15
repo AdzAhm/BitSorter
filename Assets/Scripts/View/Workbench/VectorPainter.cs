@@ -1,8 +1,6 @@
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using UnityEngine;
-using UnityEngine.Rendering;
 
 namespace BitSorter.View
 {
@@ -152,15 +150,16 @@ namespace BitSorter.View
             float cx = centre.x, cy = centre.y;
 
             int first = _mesh.Reserve(steps * 4, steps * 18);
-            MeshBuffer.Vertex[] vs = _mesh.Vertices;
+            Vector3[] ps = _mesh.Positions;
+            Color32[] cs = _mesh.Colours;
             int v = first;
             for (int i = 0; i < steps; i++)
             {
                 Vector2 u = circle[i];
-                vs[v].Position = new Vector3(cx + u.x * r0, -(cy + u.y * r0), 0f); vs[v++].Colour = edge;
-                vs[v].Position = new Vector3(cx + u.x * r1, -(cy + u.y * r1), 0f); vs[v++].Colour = solid;
-                vs[v].Position = new Vector3(cx + u.x * r2, -(cy + u.y * r2), 0f); vs[v++].Colour = solid;
-                vs[v].Position = new Vector3(cx + u.x * r3, -(cy + u.y * r3), 0f); vs[v++].Colour = edge;
+                ps[v] = new Vector3(cx + u.x * r0, -(cy + u.y * r0), 0f); cs[v++] = edge;
+                ps[v] = new Vector3(cx + u.x * r1, -(cy + u.y * r1), 0f); cs[v++] = solid;
+                ps[v] = new Vector3(cx + u.x * r2, -(cy + u.y * r2), 0f); cs[v++] = solid;
+                ps[v] = new Vector3(cx + u.x * r3, -(cy + u.y * r3), 0f); cs[v++] = edge;
             }
 
             _mesh.VertexCount = v;
@@ -283,7 +282,8 @@ namespace BitSorter.View
             int segments = closed ? count : count - 1;
 
             int start = _mesh.Reserve(count * 4, segments * 18);
-            MeshBuffer.Vertex[] vs = _mesh.Vertices;
+            Vector3[] ps = _mesh.Positions;
+            Color32[] cs = _mesh.Colours;
             int v = start;
             for (int i = 0; i < count; i++)
             {
@@ -291,10 +291,10 @@ namespace BitSorter.View
                 Vector2 p = points[i];
                 float ox = normal.x * outer, oy = normal.y * outer, ix = normal.x * inner, iy = normal.y * inner;
 
-                vs[v].Position = new Vector3(p.x + ox, -(p.y + oy), 0f); vs[v++].Colour = edge;
-                vs[v].Position = new Vector3(p.x + ix, -(p.y + iy), 0f); vs[v++].Colour = solid;
-                vs[v].Position = new Vector3(p.x - ix, -(p.y - iy), 0f); vs[v++].Colour = solid;
-                vs[v].Position = new Vector3(p.x - ox, -(p.y - oy), 0f); vs[v++].Colour = edge;
+                ps[v] = new Vector3(p.x + ox, -(p.y + oy), 0f); cs[v++] = edge;
+                ps[v] = new Vector3(p.x + ix, -(p.y + iy), 0f); cs[v++] = solid;
+                ps[v] = new Vector3(p.x - ix, -(p.y - iy), 0f); cs[v++] = solid;
+                ps[v] = new Vector3(p.x - ox, -(p.y - oy), 0f); cs[v++] = edge;
             }
 
             _mesh.VertexCount = v;
@@ -341,7 +341,7 @@ namespace BitSorter.View
         /// </summary>
         private void Bands(int first, int points, int segments)
         {
-            ushort[] ix = _mesh.Indices;
+            int[] ix = _mesh.Indices;
             int n = _mesh.IndexCount;
             for (int i = 0; i < segments; i++)
             {
@@ -350,12 +350,12 @@ namespace BitSorter.View
 
                 for (int k = 0; k < 3; k++)
                 {
-                    ix[n] = (ushort)(a + k);
-                    ix[n + 1] = (ushort)(b + k);
-                    ix[n + 2] = (ushort)(b + k + 1);
-                    ix[n + 3] = (ushort)(a + k);
-                    ix[n + 4] = (ushort)(b + k + 1);
-                    ix[n + 5] = (ushort)(a + k + 1);
+                    ix[n] = a + k;
+                    ix[n + 1] = b + k;
+                    ix[n + 2] = b + k + 1;
+                    ix[n + 3] = a + k;
+                    ix[n + 4] = b + k + 1;
+                    ix[n + 5] = a + k + 1;
                     n += 6;
                 }
             }
@@ -389,26 +389,27 @@ namespace BitSorter.View
             float cx = centre.x, cy = centre.y;
 
             int first = _mesh.Reserve(1 + (steps + 1) * 2, steps * 9);
-            MeshBuffer.Vertex[] vs = _mesh.Vertices;
+            Vector3[] ps = _mesh.Positions;
+            Color32[] cs = _mesh.Colours;
             int v = first;
-            vs[v].Position = new Vector3(cx, -cy, 0f); vs[v++].Colour = solid;
+            ps[v] = new Vector3(cx, -cy, 0f); cs[v++] = solid;
             for (int i = 0; i <= steps; i++)
             {
                 Vector2 d = half[i];
-                vs[v].Position = new Vector3(cx + d.x * inner, -(cy + d.y * inner), 0f); vs[v++].Colour = solid;
-                vs[v].Position = new Vector3(cx + d.x * outer, -(cy + d.y * outer), 0f); vs[v++].Colour = edge;
+                ps[v] = new Vector3(cx + d.x * inner, -(cy + d.y * inner), 0f); cs[v++] = solid;
+                ps[v] = new Vector3(cx + d.x * outer, -(cy + d.y * outer), 0f); cs[v++] = edge;
             }
 
             _mesh.VertexCount = v;
 
-            ushort[] ix = _mesh.Indices;
+            int[] ix = _mesh.Indices;
             int n = _mesh.IndexCount;
             for (int i = 0; i < steps; i++)
             {
                 int a = first + 1 + i * 2, b = a + 2;
-                ix[n] = (ushort)first; ix[n + 1] = (ushort)a; ix[n + 2] = (ushort)b;
-                ix[n + 3] = (ushort)a; ix[n + 4] = (ushort)(a + 1); ix[n + 5] = (ushort)(b + 1);
-                ix[n + 6] = (ushort)a; ix[n + 7] = (ushort)(b + 1); ix[n + 8] = (ushort)b;
+                ix[n] = first; ix[n + 1] = a; ix[n + 2] = b;
+                ix[n + 3] = a; ix[n + 4] = a + 1; ix[n + 5] = b + 1;
+                ix[n + 6] = a; ix[n + 7] = b + 1; ix[n + 8] = b;
                 n += 9;
             }
 
@@ -426,24 +427,25 @@ namespace BitSorter.View
             float cx = centre.x, cy = centre.y;
 
             int first = _mesh.Reserve(steps + 1, steps * 3);
-            MeshBuffer.Vertex[] vs = _mesh.Vertices;
+            Vector3[] ps = _mesh.Positions;
+            Color32[] cs = _mesh.Colours;
             int v = first;
-            vs[v].Position = new Vector3(cx, -cy, 0f); vs[v++].Colour = fill;
+            ps[v] = new Vector3(cx, -cy, 0f); cs[v++] = fill;
             for (int i = 0; i < steps; i++)
             {
                 Vector2 c = circle[i];
-                vs[v].Position = new Vector3(cx + c.x * radius, -(cy + c.y * radius), 0f); vs[v++].Colour = fill;
+                ps[v] = new Vector3(cx + c.x * radius, -(cy + c.y * radius), 0f); cs[v++] = fill;
             }
 
             _mesh.VertexCount = v;
 
-            ushort[] ix = _mesh.Indices;
+            int[] ix = _mesh.Indices;
             int n = _mesh.IndexCount;
             for (int i = 0; i < steps; i++)
             {
-                ix[n] = (ushort)first;
-                ix[n + 1] = (ushort)(first + 1 + i);
-                ix[n + 2] = (ushort)(first + 1 + (i + 1) % steps);
+                ix[n] = first;
+                ix[n + 1] = first + 1 + i;
+                ix[n + 2] = first + 1 + (i + 1) % steps;
                 n += 3;
             }
 
@@ -458,24 +460,25 @@ namespace BitSorter.View
             float cx = centre.x, cy = centre.y;
 
             int first = _mesh.Reserve(steps * 2, steps * 6);
-            MeshBuffer.Vertex[] vs = _mesh.Vertices;
+            Vector3[] ps = _mesh.Positions;
+            Color32[] cs = _mesh.Colours;
             int v = first;
             for (int i = 0; i < steps; i++)
             {
                 Vector2 d = circle[i];
-                vs[v].Position = new Vector3(cx + d.x * inner, -(cy + d.y * inner), 0f); vs[v++].Colour = near;
-                vs[v].Position = new Vector3(cx + d.x * outer, -(cy + d.y * outer), 0f); vs[v++].Colour = far;
+                ps[v] = new Vector3(cx + d.x * inner, -(cy + d.y * inner), 0f); cs[v++] = near;
+                ps[v] = new Vector3(cx + d.x * outer, -(cy + d.y * outer), 0f); cs[v++] = far;
             }
 
             _mesh.VertexCount = v;
 
-            ushort[] ix = _mesh.Indices;
+            int[] ix = _mesh.Indices;
             int n = _mesh.IndexCount;
             for (int i = 0; i < steps; i++)
             {
                 int a = first + i * 2, b = first + ((i + 1) % steps) * 2;
-                ix[n] = (ushort)a; ix[n + 1] = (ushort)(a + 1); ix[n + 2] = (ushort)(b + 1);
-                ix[n + 3] = (ushort)a; ix[n + 4] = (ushort)(b + 1); ix[n + 5] = (ushort)b;
+                ix[n] = a; ix[n + 1] = a + 1; ix[n + 2] = b + 1;
+                ix[n + 3] = a; ix[n + 4] = b + 1; ix[n + 5] = b;
                 n += 6;
             }
 
@@ -609,10 +612,12 @@ namespace BitSorter.View
     /// **It replaces uGUI's <c>VertexHelper</c>, for speed**: a frame of playback on 300 wires went from
     /// 35 ms to 22 when it did (<c>WorkbenchPerformanceTests</c>). That keeps eight channels for every
     /// vertex -- position, colour, four sets of texture coordinates, a normal and a tangent -- in eight
-    /// lists, a call deep each, and copies all eight into a mesh before the renderer copies them again. The workbench draws in flat colour on
-    /// the canvas's white texture, so it needs two: a position and a colour. Arrays rather than lists,
-    /// grown as needed and kept, so a frame makes no garbage; and one buffer serves every graphic,
-    /// as uGUI's own helper does, since a renderer keeps a copy of what it was given.
+    /// lists, a call deep each, and copies all eight into a mesh before the renderer copies them
+    /// again. The workbench draws in flat colour on the canvas's white texture, so it needs two: a
+    /// position and a colour. Arrays rather than lists, grown as needed and kept, so a frame makes no
+    /// garbage; and one buffer serves every graphic, as uGUI's own helper does, since a renderer keeps
+    /// a copy of what it was given. How the mesh is filled matters in a browser: see
+    /// <see cref="FillMesh"/>.
     ///
     /// Handing a mesh over this way changes nothing in it: the same vertices in the same order, the
     /// same triangles, each colour turned into bytes exactly as <c>VertexHelper.AddVert</c> was handed
@@ -621,25 +626,9 @@ namespace BitSorter.View
     /// </remarks>
     internal sealed class MeshBuffer
     {
-        /// <summary>One vertex as the mesh holds it: a position and a colour, interleaved, 16 bytes.</summary>
-        [StructLayout(LayoutKind.Sequential)]
-        public struct Vertex
-        {
-            public Vector3 Position;
-            public Color32 Colour;
-        }
-
-        private static readonly VertexAttributeDescriptor[] Layout =
-        {
-            new VertexAttributeDescriptor(VertexAttribute.Position, VertexAttributeFormat.Float32, 3),
-            new VertexAttributeDescriptor(VertexAttribute.Color, VertexAttributeFormat.UNorm8, 4),
-        };
-
-        /// <summary>Nothing to check: every index was written here, against vertices written here.</summary>
-        private const MeshUpdateFlags Unchecked = MeshUpdateFlags.DontValidateIndices | MeshUpdateFlags.DontNotifyMeshUsers;
-
-        private Vertex[] _vertices = new Vertex[4096];
-        private ushort[] _indices = new ushort[12288];
+        private Vector3[] _positions = new Vector3[4096];
+        private Color32[] _colours = new Color32[4096];
+        private int[] _indices = new int[12288];
 
         /// <summary>How many vertices have been written since <see cref="Clear"/>.</summary>
         public int VertexCount;
@@ -648,15 +637,18 @@ namespace BitSorter.View
         public int IndexCount;
 
         /// <summary>
-        /// The vertices and the triangle corners, written straight into by the painter after a
-        /// <see cref="Reserve"/>: a shape drawn for every change on every frame cannot afford a call and
-        /// a bounds check for each vertex. Only the first <see cref="VertexCount"/> and
-        /// <see cref="IndexCount"/> are drawn.
+        /// The vertices' positions and colours and the triangle corners, written straight into by the
+        /// painter after a <see cref="Reserve"/>: a shape drawn for every change on every frame cannot
+        /// afford a call and a bounds check for each vertex. Only the first <see cref="VertexCount"/>
+        /// and <see cref="IndexCount"/> are drawn.
         /// </summary>
-        public Vertex[] Vertices => _vertices;
+        public Vector3[] Positions => _positions;
 
-        /// <inheritdoc cref="Vertices"/>
-        public ushort[] Indices => _indices;
+        /// <inheritdoc cref="Positions"/>
+        public Color32[] Colours => _colours;
+
+        /// <inheritdoc cref="Positions"/>
+        public int[] Indices => _indices;
 
         public void Clear()
         {
@@ -670,8 +662,13 @@ namespace BitSorter.View
         /// </summary>
         public int Reserve(int vertices, int indices)
         {
-            if (VertexCount + vertices > _vertices.Length)
-                System.Array.Resize(ref _vertices, Mathf.Max(_vertices.Length * 2, VertexCount + vertices));
+            if (VertexCount + vertices > _positions.Length)
+            {
+                int size = Mathf.Max(_positions.Length * 2, VertexCount + vertices);
+                System.Array.Resize(ref _positions, size);
+                System.Array.Resize(ref _colours, size);
+            }
+
             if (IndexCount + indices > _indices.Length)
                 System.Array.Resize(ref _indices, Mathf.Max(_indices.Length * 2, IndexCount + indices));
             return VertexCount;
@@ -680,40 +677,48 @@ namespace BitSorter.View
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Vert(Vector3 position, Color32 colour)
         {
-            if (VertexCount == _vertices.Length)
-                System.Array.Resize(ref _vertices, _vertices.Length * 2);
+            if (VertexCount == _positions.Length)
+                Reserve(1, 0);
 
-            ref Vertex v = ref _vertices[VertexCount++];
-            v.Position = position;
-            v.Colour = colour;
+            _positions[VertexCount] = position;
+            _colours[VertexCount] = colour;
+            VertexCount++;
         }
 
         /// <summary>
-        /// A triangle between three vertices. Held as 16-bit indices, a mesh's own format: a chunk over
-        /// <see cref="WorkbenchGraphic.MeshLimit"/> vertices is never handed over, so none is cut short.
+        /// A triangle between three vertices. A chunk over <see cref="WorkbenchGraphic.MeshLimit"/>
+        /// vertices is never handed over, so every index fits a mesh's 16-bit index buffer.
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Triangle(int a, int b, int c)
         {
             if (IndexCount + 3 > _indices.Length)
-                System.Array.Resize(ref _indices, _indices.Length * 2);
+                Reserve(0, 3);
 
-            _indices[IndexCount] = (ushort)a;
-            _indices[IndexCount + 1] = (ushort)b;
-            _indices[IndexCount + 2] = (ushort)c;
+            _indices[IndexCount] = a;
+            _indices[IndexCount + 1] = b;
+            _indices[IndexCount + 2] = c;
             IndexCount += 3;
         }
 
-        /// <summary>Puts what has been drawn into <paramref name="mesh"/>, its bounds worked out from it, as uGUI's helper does.</summary>
+        /// <summary>
+        /// Puts what has been drawn into <paramref name="mesh"/>, its bounds worked out from it, as
+        /// uGUI's helper does.
+        /// </summary>
+        /// <remarks>
+        /// **Through <c>SetVertices</c>, <c>SetColors</c> and <c>SetIndices</c>, never one interleaved
+        /// stream.** A mesh filled with <c>SetVertexBufferData</c> -- a position and a colour
+        /// interleaved, 16-bit indices from <c>SetIndexBufferData</c> -- drew in the editor and drew
+        /// nothing at all in the browser build: every chunk of the workbench was blank there, with no
+        /// error, from Part 8 until it was found on 2026-10-15. The editor's tests and reference
+        /// shots cannot see this; only a browser build can, so a change here is smoke-tested in one.
+        /// </remarks>
         public void FillMesh(Mesh mesh)
         {
             mesh.Clear();
-            mesh.SetVertexBufferParams(VertexCount, Layout);
-            mesh.SetVertexBufferData(_vertices, 0, 0, VertexCount, 0, Unchecked);
-            mesh.SetIndexBufferParams(IndexCount, IndexFormat.UInt16);
-            mesh.SetIndexBufferData(_indices, 0, 0, IndexCount, Unchecked);
-            mesh.subMeshCount = 1;
-            mesh.SetSubMesh(0, new SubMeshDescriptor(0, IndexCount), MeshUpdateFlags.DontValidateIndices);
+            mesh.SetVertices(_positions, 0, VertexCount);
+            mesh.SetColors(_colours, 0, VertexCount);
+            mesh.SetIndices(_indices, 0, IndexCount, MeshTopology.Triangles, 0, calculateBounds: true);
         }
     }
 }
