@@ -210,11 +210,12 @@ namespace BitSorter.View
                     chunk.SetVerticesDirty();
             }
 
-            // A changes chunk, while a change is on one of its nets, and once more as the last arrives.
+            // A changes chunk, while a change is on one of its nets, and once more as the last arrives
+            // (none, when only the waveform was built).
             for (int k = 0; k < _hasChanges.Length; k++)
                 _hasChanges[k] = false;
             IReadOnlyList<int> nets = _model.MarkerNets;
-            for (int m = 0; m < nets.Count; m++)
+            for (int m = 0; m < nets.Count && _changes.Count > 0; m++)
                 _hasChanges[_changesOfNet[nets[m]]] = true;
             for (int k = 0; k < _changes.Count; k++)
             {

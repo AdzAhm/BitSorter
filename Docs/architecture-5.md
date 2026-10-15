@@ -901,7 +901,10 @@ Precise, and no casing under the wires.
   - **Reviewed before it merged**: three reviews of the change, by geometry, by what is redrawn and
     by runtime, found the glitch marks shown early, every chunk redrawn on every frame of a drag, the
     estimates called bounds, a lamp's outline drawn twice and the test reading the machine's own
-    settings, all fixed here.
+    settings, all fixed here; and one bug from Part 8a, fixed with its own test: no glitch was ever
+    marked on a row of a board document, since a gate with delay prints as a library cell and its
+    changes go to the cell's own output, one of the net's names rather than the port's. A row now
+    marks a change swallowed on its way to any name of its net.
   - **What the test does not time**: the ring digits and the waveform's words (TextMeshPro labels the
     panel moves), uGUI's batching and the GPU. Nor is it the browser: the canvas has not been timed in
     a browser build yet, and Part 16's performance check is where it will be. (At Part 6 the browser

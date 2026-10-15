@@ -93,6 +93,7 @@ namespace BitSorter.View
 
         private readonly List<ChangeMarker> _markers = new List<ChangeMarker>(16);
         private readonly List<int> _markerNets = new List<int>(16);
+        /// <summary>Where each row's swallowed changes died, by row: see the constructor.</summary>
         private readonly double[][] _swallowedOf;
 
         public WorkbenchModel(SimSession session, SchematicLayout layout, long end)
@@ -144,20 +145,30 @@ namespace BitSorter.View
             for (int i = 0; i < _transitionText.Length; i++)
                 _transitionText[i] = TextOf(_history.TransitionAt(i).Value);
 
-            // Where each signal's swallowed changes died, in the order they happened: the waveform asks
+            // Where each row's swallowed changes died, in the order they happened: the waveform asks
             // for every row's on every frame, and walking the whole run's transitions each time was
-            // the run's length times the rows.
-            var swallowed = new List<double>[design.Signals.Count];
-            for (int i = 0; i < _history.TransitionCount; i++)
+            // the run's length times the rows. A change counts for a row when it was on its way to any
+            // name of the row's net, not only the port's: a gate with delay prints as a library cell,
+            // and its changes go to the cell's own output, which is one of the net's aliases.
+            _swallowedOf = new double[layout.Rows.Count][];
+            var swallowed = new List<double>();
+            for (int row = 0; row < _swallowedOf.Length; row++)
             {
-                Transition t = _history.TransitionAt(i);
-                if (t.Outcome == TransitionOutcome.Swallowed && t.Target.Index >= 0 && t.Target.Index < swallowed.Length)
-                    (swallowed[t.Target.Index] ??= new List<double>()).Add(t.EndedAt);
-            }
+                swallowed.Clear();
+                int signal = _rowSignals[row];
+                int net = signal >= 0 ? _netOfSignal[signal] : -1;
 
-            _swallowedOf = new double[design.Signals.Count][];
-            for (int i = 0; i < _swallowedOf.Length; i++)
-                _swallowedOf[i] = swallowed[i]?.ToArray() ?? Array.Empty<double>();
+                for (int i = 0; i < _history.TransitionCount && signal >= 0; i++)
+                {
+                    Transition t = _history.TransitionAt(i);
+                    int target = t.Target.Index;
+                    bool toThisRow = target == signal || (net >= 0 && target >= 0 && target < _netOfSignal.Length && _netOfSignal[target] == net);
+                    if (t.Outcome == TransitionOutcome.Swallowed && toThisRow)
+                        swallowed.Add(t.EndedAt);
+                }
+
+                _swallowedOf[row] = swallowed.ToArray();
+            }
 
             SettledAt = FindSettledAt();
             Seek(0);
@@ -322,26 +333,19 @@ namespace BitSorter.View
         public void RowSwallowed(int row, List<double> into, double until)
         {
             into.Clear();
-            int signal = _rowSignals[row];
-            if (signal < 0)
-                return;
-
-            foreach (double ended in _swallowedOf[signal])
+            foreach (double ended in _swallowedOf[row])
                 if (until >= ended)
                     into.Add(ended);
         }
 
         /// <summary>How many changes on their way to a row's signal are swallowed in the whole run: what its glitch marks can cost.</summary>
-        public int RowSwallowedCount(int row) => _rowSignals[row] < 0 ? 0 : _swallowedOf[_rowSignals[row]].Length;
+        public int RowSwallowedCount(int row) => _swallowedOf[row].Length;
 
         /// <summary>How many of them have been swallowed by now: how many marks the row's glitches show.</summary>
         public int RowSwallowedSoFar(int row)
         {
-            if (_rowSignals[row] < 0)
-                return 0;
-
             int count = 0;
-            foreach (double ended in _swallowedOf[_rowSignals[row]])
+            foreach (double ended in _swallowedOf[row])
                 if (Time >= ended)
                     count++;
             return count;
