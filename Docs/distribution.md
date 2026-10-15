@@ -48,8 +48,10 @@ config.autoSyncPersistentDataPath = true;
 ```
 
 `WebGLBuild` selects it with `PlayerSettings.WebGL.template = "PROJECT:BitSorter"`.
-That template exists for that one line — if it is ever regenerated from Unity's
-stock copy, this must be re-applied.
+The template was made for that line, and does two more things the stock one does
+not: it fits the canvas to the window as the window changes, and it caps the
+device pixel ratio at 1.5. If it is ever regenerated from Unity's stock copy, all
+three must be re-applied.
 
 **Still worth testing by hand**, because it depends on the browser: solve level 1,
 reload the page, and check the tick is still in the level list. Private/incognito
@@ -68,10 +70,10 @@ In practice this is harmless here: the game opens on the main menu, and the firs
 thing anyone does is click it. The effect is that music begins at the first click
 rather than at load.
 
-### Music generation stalls the first frame
+### Music generation stalled the first frame — fixed
 
-`ProceduralAudio` builds every clip sample by sample at startup. Measured in the
-editor:
+`ProceduralAudio` built every clip sample by sample at startup. Measured in the
+editor, before the fix:
 
 | Cue | Time | Length |
 |---|---|---|
@@ -87,10 +89,11 @@ voices. It runs synchronously in `Start()`, so it is a hard stall on the first
 frame, and WebAssembly is slower than the editor's Mono at this kind of tight
 float loop — expect it to be worse in a browser.
 
-**Not fixed, deliberately.** It happens once, behind the main menu, on a screen
-where nothing is moving yet. If it turns out to be visible, the fix is to
-generate the music lazily on the first unmuted frame, or to build it in slices
-across several frames.
+**Fixed by building it in slices** (`MusicBake`): a track is rendered a slice at a
+time, 2 ms a frame, bit-identical to rendering it in one go, and `GameAudio` builds
+the next track before it is needed. If a change arrives before its track is
+ready, the music already playing carries on while the build finishes at 8 ms a
+frame. CLAUDE.md has the details.
 
 ### Quit — fixed
 
@@ -104,7 +107,8 @@ sitting in the menu doing nothing.
   types. It behaves identically.
 - **Keyboard and mouse** work through the Input System as they do on desktop.
 - **Procedural sprites and audio** are generated with plain maths and
-  `Texture2D` / `AudioClip.Create`, all supported.
+  `Texture2D` / `AudioClip.Create`, all supported. The menu's two recorded tracks
+  are imported clips, played compressed through the browser's own `<audio>`.
 - **Mute setting** uses `PlayerPrefs`, which Unity backs with the same IndexedDB
   store — and which the persistence fix above also covers.
 
@@ -147,10 +151,10 @@ serving `.br` with the right `Content-Encoding` gives a faster start.
 
 ## The sandbox, when describing the game
 
-Store pages ask what is in the game, and the answer is no longer only the nine
+Store pages ask what is in the game, and the answer is not only the thirty
 levels: there is a free-play sandbox with player-configured sources and sinks and
-no grading. Worth a line on itch.io and Unity Play, because "nine puzzle levels"
-undersells it and a screenshot of the sandbox looks like a tenth level otherwise.
+no grading. Worth a line on itch.io and Unity Play, because "thirty puzzle levels"
+undersells it and a screenshot of the sandbox looks like one more level otherwise.
 
 It ships inside the same build and needs nothing from any host. It is built in
 code rather than authored under `Resources/Levels`, so it adds no file to package
@@ -164,8 +168,8 @@ The game reports to Unity Analytics. **The README's "What it collects" section i
 the canonical list of what is sent** — this section covers only what publishing it
 requires.
 
-`GameAnalytics` initialises Unity Services and calls `StartDataCollection()`, then
-reports `levelStarted` and `levelSolved`. It hangs off
+`GameAnalytics` initialises Unity Services, applies the player's consent through
+`EndUserConsent`, then reports `levelStarted` and `levelSolved`. It hangs off
 `[RuntimeInitializeOnLoadMethod]` rather than a scene component, because
 `HalfAdderDemoSceneBuilder` owns scene contents and a component would mean
 regenerating and re-verifying the scene for something that needs no inspector
@@ -224,8 +228,8 @@ Two things to know:
 
 - itch serves static files without custom headers, which is exactly the case the
   decompression fallback exists for. With it on, the build works there.
-- itch pages are `https`. Nothing here makes network calls, so there is nothing
-  to break.
+- itch pages are `https`. The one network call the game makes is analytics, to
+  Unity Services over `https`, so mixed content has nothing to break.
 
 **What only you can provide:** a cover image (630 × 500), screenshots, the
 description, a price or "no payments", and whether the page is public or

@@ -671,7 +671,8 @@ namespace BitSorter.View
         /// same track -- the track changes only when the level does. Any other level clip this
         /// replaces is destroyed: nothing caches tracks, so one left behind would be three megabytes
         /// held until the game closed. A menu track is an imported asset and is never destroyed;
-        /// leaving it unloads its decoded audio instead, which in a browser is most of its cost.
+        /// leaving it unloads its audio data instead -- compressed, never decoded: in a browser the
+        /// file the <c>audio</c> element plays, which is most of its cost there.
         /// </remarks>
         private void SwapTo(bool menu)
         {
