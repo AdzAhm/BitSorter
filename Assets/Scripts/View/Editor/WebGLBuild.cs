@@ -84,6 +84,12 @@ namespace BitSorter.View.Editor
             // relies on catching engine-level faults.
             PlayerSettings.WebGL.exceptionSupport = WebGLExceptionSupport.ExplicitlyThrownExceptionsOnly;
 
+            // WebAssembly 2023 (2026-10-15): native WebAssembly exceptions, bulk memory, BigInt,
+            // SIMD and the rest, where the original feature set did them with JavaScript trampolines.
+            // Smaller code, and it needs Chrome 91, Firefox 89 or Safari 16.4 or newer (2021, 2021
+            // and March 2023), which every browser a course's students use has long passed.
+            PlayerSettings.WebGL.wasm2023 = true;
+
             // Built for a small download rather than a quick build (2026-10-06, before 4.0.0): the
             // wasm was half of it. Set here because the code optimization lives in Library/, per
             // machine, and would otherwise be whatever this editor last had -- it was BuildTimes.
