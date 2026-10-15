@@ -102,6 +102,26 @@ namespace BitSorter.LogicCore.Tests
                 Assert.AreEqual(Logic4.Zero, Bit(model, Y2, time), $"Y2 never moved, at {time}");
         }
 
+        /// <summary>
+        /// The glitch the AND swallows is marked on y2's row of the waveform, where it would have
+        /// arrived: a gate with delay prints as a library cell, so the change was on its way to the
+        /// cell's own output, which is one of the net's names rather than the port's.
+        /// </summary>
+        [Test]
+        public void TheShortGlitch_IsMarkedOnItsRow_WhenItIsSwallowed()
+        {
+            WorkbenchModel model = Model();
+            var swallowed = new System.Collections.Generic.List<double>();
+            int row = Row("y2");
+
+            model.RowSwallowed(row, swallowed, model.End);
+            CollectionAssert.AreEqual(new[] { 14.0 }, swallowed, "the AND's input fell at 14 and cancelled the change");
+
+            model.RowSwallowed(row, swallowed, 13.9);
+            CollectionAssert.IsEmpty(swallowed, "not before it was swallowed");
+            Assert.AreEqual(1, model.RowSwallowedCount(row));
+        }
+
         [Test]
         public void ARing_IsWhereItsChangeHasGot()
         {

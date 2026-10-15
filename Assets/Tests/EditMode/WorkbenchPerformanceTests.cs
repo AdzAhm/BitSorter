@@ -336,6 +336,41 @@ namespace BitSorter.LogicCore.Tests
             }
         }
 
+        /// <summary>
+        /// A glitch's mark on the waveform appears when the glitch is swallowed and not before -- not
+        /// even the arm of its cross that reaches back before that moment.
+        /// </summary>
+        [Test]
+        public void AGlitchMark_AppearsWhenItsGlitchIsSwallowed_AndNotBefore()
+        {
+            WorkbenchModel model = ReferenceCircuit.Model();
+            int row = Enumerable.Range(0, model.Layout.Rows.Count).FirstOrDefault(r => model.RowSwallowedCount(r) > 0);
+            Assert.Greater(model.RowSwallowedCount(row), 0, "sanity: the reference circuit swallows a glitch on a row it shows");
+
+            var swallowed = new List<double>();
+            model.RowSwallowed(row, swallowed, model.End);
+            double at = swallowed.Min();
+
+            GameObject canvas = OwnCanvas(out RectTransform waveform);
+            try
+            {
+                var layers = new WorkbenchLayers(model);
+                layers.BuildTiming(waveform, new Vector2(1000f, 40f + 30f * model.Layout.Rows.Count));
+                WorkbenchGraphic marks = layers.All.Single(g => g.Draws == WorkbenchGraphic.Layer.Glitches && g.From <= row && row < g.From + g.Count);
+
+                Show(model, layers, 0.0, all: true);
+                int none = marks.VertexCount;
+                Show(model, layers, at - 0.05);
+                Assert.AreEqual(none, marks.VertexCount, $"just before {at} ns the glitch is still on its way");
+                Show(model, layers, at);
+                Assert.Greater(marks.VertexCount, none, $"at {at} ns it is swallowed, and marked");
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
         /// <summary>A lamp's chunk is redrawn when the lamp's value changes colour, and not for a moment that leaves it be.</summary>
         [Test]
         public void ALamp_IsRedrawnWhenItsValueChanges_AndOnlyThen()
