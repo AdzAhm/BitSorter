@@ -111,17 +111,24 @@ namespace BitSorter.View
         // Wires, and the changes on their way down them
         // -----------------------------------------------------------------
 
-        /// <summary>Draws every wire in the value it holds, then every change travelling, and records each wire's colour.</summary>
-        public static void Wires(VectorPainter painter, WorkbenchModel model, SchematicPalette palette, Color[] drawn, int highlighted = -1)
+        /// <summary>
+        /// Draws the wires of nets <paramref name="from"/> to <paramref name="from"/> +
+        /// <paramref name="count"/>, each in the value it holds -- with its junctions, a bus's slash and,
+        /// for the net pointed at, its band -- and records each one's colour in <paramref name="drawn"/>,
+        /// net <paramref name="from"/> first. The changes on their way down them are <see cref="Changes"/>.
+        /// </summary>
+        public static void Wires(VectorPainter painter, WorkbenchModel model, SchematicPalette palette, Color[] drawn, int highlighted = -1,
+            int from = 0, int count = int.MaxValue)
         {
             SchematicLayout layout = model.Layout;
+            int last = Last(from, count, layout.Nets.Count);
 
-            for (int i = 0; i < layout.Nets.Count; i++)
+            for (int i = from; i < last; i++)
             {
+                (int, int) mark = painter.Mark();
                 NetLayout net = layout.Nets[i];
                 LogicVec value = model.NetValue(i);
                 Color colour = palette.Of(value);
-                drawn[i] = colour;
 
                 // The net pointed at: a soft band of its own colour under every wire of it, so the
                 // whole of it reads as one thing, from its driver to every load.
@@ -145,14 +152,38 @@ namespace BitSorter.View
                     Vector2 at = first.PointAt(first.Length * 0.28f);
                     painter.Line(at + new Vector2(-5f, 8f), at + new Vector2(5f, -8f), 1.5f, palette.Muted);
                 }
-            }
 
+                if (!painter.Fits(mark))
+                    break;
+                drawn[i - from] = colour;
+            }
+        }
+
+        /// <summary>
+        /// Draws the changes on their way down the wires of nets <paramref name="from"/> onwards: the new
+        /// value behind each, its trail and halo, its ring, and a cross over one swallowed.
+        /// </summary>
+        /// <remarks>
+        /// A layer of their own, over every wire: they move every frame of playback, the wires only when
+        /// a value arrives, so a wire's mesh is not rebuilt for a ring passing along it.
+        /// </remarks>
+        public static void Changes(VectorPainter painter, WorkbenchModel model, SchematicPalette palette, int from = 0, int count = int.MaxValue)
+        {
+            SchematicLayout layout = model.Layout;
+            int last = Last(from, count, layout.Nets.Count);
             float k = SchematicStyle.Glow;
             IReadOnlyList<ChangeMarker> markers = model.Markers;
+            IReadOnlyList<int> nets = model.MarkerNets;
 
             for (int i = 0; i < markers.Count; i++)
             {
+                int on = nets[i];
+                if (on < from || on >= last)
+                    continue;
+
+                (int, int) mark = painter.Mark();
                 ChangeMarker m = markers[i];
+
                 NetLayout net = layout.Nets[m.Net];
                 Color colour = palette.Of(m.Value);
 
@@ -188,6 +219,9 @@ namespace BitSorter.View
                     float half = 6f + 3f * (1f - m.Alpha);
                     painter.Cross(m.Point, half, 2f, WithAlpha(palette.Text, m.Alpha));
                 }
+
+                if (!painter.Fits(mark))
+                    break;
             }
         }
 
@@ -267,20 +301,41 @@ namespace BitSorter.View
         /// through <see cref="PartLayout.ToStage"/> -- so a part turned or mirrored on the board is drawn
         /// turned or mirrored, by the same arithmetic that put its pins where its wires end.
         /// </remarks>
-        public static void Parts(VectorPainter painter, WorkbenchModel model, SchematicPalette palette)
+        public static void Parts(VectorPainter painter, WorkbenchModel model, SchematicPalette palette, int from = 0, int count = int.MaxValue,
+            bool flashes = false)
         {
             SchematicLayout layout = model.Layout;
             float k = SchematicStyle.Glow;
+            int last = Last(from, count, layout.Parts.Count);
 
-            for (int i = 0; i < layout.Parts.Count; i++)
+            for (int i = from; i < last; i++)
             {
                 PartLayout part = layout.Parts[i];
-                float flash = SchematicStyle.Flash(model.GateFlash(i, out LogicVec value));
+                bool lamp = part.Symbol == PartSymbol.Lamp;
+                (int, int) mark = painter.Mark();
+
+                // Two passes: every part at rest, which never changes, and over it only what moves --
+                // a gate as it flashes, a lamp showing its value -- so a frame redraws the few that do.
+                // A lamp's body is all value, so it is drawn by the second pass alone, over its leads:
+                // drawn by both, its outline's soft edge was laid down twice.
+                LogicVec value = default;
+                float flash = flashes ? SchematicStyle.Flash(model.GateFlash(i, out value)) : 0f;
+                if (flashes && flash <= 0f && !lamp)
+                    continue;
+                if (!flashes && lamp)
+                {
+                    Leads(painter, part, palette.Outline);
+                    if (!painter.Fits(mark))
+                        break;
+                    continue;
+                }
+
                 Color stroke = flash > 0f ? palette.Of(value) : palette.Outline;
                 float width = SchematicStyle.OutlineWidth + flash * SchematicStyle.FlashExtraWidth;
                 bool tinted = flash > 0f && k > 0f;
 
-                Leads(painter, part, palette.Outline);
+                if (!flashes)
+                    Leads(painter, part, palette.Outline);
 
                 if (part.Symbol == PartSymbol.Splitter || part.Symbol == PartSymbol.Joiner)
                 {
@@ -290,9 +345,9 @@ namespace BitSorter.View
                 }
 
                 Body(Shape, part);
-                Color fill = part.Symbol == PartSymbol.Lamp ? palette.Of(model.PartValue(i)) : palette.Ground;
-                painter.Fill(Shape, fill);
-                if (tinted && part.Symbol != PartSymbol.Lamp)
+                if (!flashes || lamp)
+                    painter.Fill(Shape, lamp && flashes ? palette.Of(model.PartValue(i)) : palette.Ground);
+                if (tinted && !lamp)
                     painter.Fill(Shape, palette.Over(stroke, SchematicStyle.FlashTint * k * flash));
                 painter.Outline(Shape, width, stroke);
                 if (tinted)
@@ -327,13 +382,23 @@ namespace BitSorter.View
                     painter.Fill(Shape, palette.Ground);
                     painter.Outline(Shape, width, stroke);
                 }
+
+                if (!painter.Fits(mark))
+                    break;
             }
+
+            // The ports are drawn by the first of the parts' chunks, at rest.
+            if (from > 0 || flashes)
+                return;
 
             foreach (PortLayout port in layout.Ports)
             {
+                (int, int) mark = painter.Mark();
                 VectorPainter.RoundedRect(Shape, port.Box.x, port.Box.y, port.Box.width, port.Box.height, SchematicStyle.PortCorner);
                 painter.Fill(Shape, palette.Ground);
                 painter.Outline(Shape, SchematicStyle.OutlineWidth, palette.Outline);
+                if (!painter.Fits(mark))
+                    break;
             }
         }
 
@@ -522,37 +587,163 @@ namespace BitSorter.View
         // The waveform
         // -----------------------------------------------------------------
 
-        /// <summary>The time grid, each row's waveform in its values' colours, the swallowed glitches and the playhead.</summary>
-        public static void Timing(VectorPainter painter, WorkbenchModel model, SchematicPalette palette, float width)
+        /// <summary>
+        /// Each row's waveform for the whole run, in its values' colours: drawn once, and revealed up to
+        /// the moment by <see cref="WorkbenchLayers"/>, as a pen draws, so a frame of playback rebuilds
+        /// nothing here. The grid, the swallowed glitches' marks and the playhead are
+        /// <see cref="Grid"/>, <see cref="Glitches"/> and <see cref="Playhead"/>.
+        /// </summary>
+        public static void Timing(VectorPainter painter, WorkbenchModel model, SchematicPalette palette, float width,
+            int from = 0, int count = int.MaxValue)
         {
             int rows = model.Layout.Rows.Count;
-            float bottom = WaveHeight(rows) - 6f;
             long end = model.End;
+            int last = Last(from, count, rows);
 
-            for (long t = 0; t <= end; t += TickEvery(end))
+            for (int row = from; row < last; row++)
             {
-                float x = WaveX(t, end, width);
-                painter.Line(new Vector2(x, WaveTop - 4f), new Vector2(x, bottom), 1f, palette.Grid);
-            }
-
-            for (int row = 0; row < rows; row++)
-            {
+                (int, int) mark = painter.Mark();
                 float middle = RowMiddle(row), high = middle - LevelOffset, low = middle + LevelOffset;
-                model.RowSegments(row, Segments);
+                model.RowSegments(row, Segments, end);
 
                 if (model.RowIsBus(row))
                     BusRow(painter, palette, end, width, middle, high, low);
                 else
                     BitRow(painter, palette, end, width, middle, high, low);
 
+                if (!painter.Fits(mark))
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// A cross on each row of <paramref name="from"/> on where a change on its way to it was
+        /// swallowed, once it has been: drawn up to the moment, never revealed with the rows. A cross
+        /// reaches either side of its moment, so the reveal showed one early and cut it in half at its
+        /// own moment; and the marks are few, so redrawing them as they appear costs little.
+        /// </summary>
+        public static void Glitches(VectorPainter painter, WorkbenchModel model, SchematicPalette palette, float width,
+            int from = 0, int count = int.MaxValue)
+        {
+            long end = model.End;
+            int last = Last(from, count, model.Layout.Rows.Count);
+
+            for (int row = from; row < last; row++)
+            {
+                (int, int) mark = painter.Mark();
+                float middle = RowMiddle(row);
                 model.RowSwallowed(row, Swallowed);
                 foreach (double at in Swallowed)
                     painter.Cross(new Vector2(WaveX(at, end, width), middle), 4f, 1.6f, palette.Unknown);
-            }
 
-            float now = WaveX(model.Time, end, width);
+                if (!painter.Fits(mark))
+                    break;
+            }
+        }
+
+        /// <summary>The waveform's time grid, under its rows: drawn once.</summary>
+        public static void Grid(VectorPainter painter, WorkbenchModel model, SchematicPalette palette, float width)
+        {
+            float bottom = WaveHeight(model.Layout.Rows.Count) - 6f;
+            long end = model.End;
+            for (long t = 0; t <= end; t += TickEvery(end))
+            {
+                float x = WaveX(t, end, width);
+                painter.Line(new Vector2(x, WaveTop - 4f), new Vector2(x, bottom), 1f, palette.Grid);
+            }
+        }
+
+        /// <summary>The playhead over the waveform's rows: a line, redrawn with every moment.</summary>
+        public static void Playhead(VectorPainter painter, WorkbenchModel model, SchematicPalette palette, float width)
+        {
+            float bottom = WaveHeight(model.Layout.Rows.Count) - 6f;
+            float now = WaveX(model.Time, model.End, width);
             painter.Line(new Vector2(now, WaveTop - 2f), new Vector2(now, bottom), 1.3f, palette.Playhead);
         }
+
+        /// <summary>One past the last item of a range, kept inside the list.</summary>
+        private static int Last(int from, int count, int total) => (int)System.Math.Min((long)from + count, total);
+
+        // -----------------------------------------------------------------
+        // How much a chunk can hold
+        // -----------------------------------------------------------------
+
+        // These are estimates, for deciding where a chunk is cut: each shape is counted as it is when
+        // its curves are cut as finely as they ever are (VectorPainter.CapVertices and its kind), but
+        // how many changes a wire carries at once has no bound -- a fast input into a slow gate leaves
+        // one swallowed after another fading -- so none of them can promise a chunk fits a mesh. What
+        // does is VectorPainter.Fits: a chunk that outgrows one draws as many whole items as fit.
+
+        /// <summary>A stroke along a route of <paramref name="points"/>, with its two round caps.</summary>
+        private static int StrokeVertices(int points) => points * 4 + 2 * VectorPainter.CapVertices;
+
+        /// <summary>A cross: two strokes with round caps.</summary>
+        private const int CrossVertices = 2 * (VectorPainter.LineVertices + 2 * VectorPainter.CapVertices);
+
+        /// <summary>
+        /// About the most vertices a net's wires take: every wire stroked, hatched as x with a bar every
+        /// six units, dashed as z and lit by the pointer at once, and every junction a disc.
+        /// </summary>
+        public static int NetVertices(NetLayout net)
+        {
+            int vertices = 64 + VectorPainter.LineVertices;
+            foreach (Route branch in net.Branches)
+            {
+                int bars = (int)(branch.Length / 6f) + 1, dashes = (int)(branch.Length / 11f) + 1;
+                vertices += 2 * StrokeVertices(branch.PointCount) + branch.PointCount * 4 + bars * VectorPainter.LineVertices
+                    + (branch.PointCount + 2 * dashes) * 4;
+            }
+
+            return vertices + net.Junctions.Count * VectorPainter.DiscVertices;
+        }
+
+        /// <summary>
+        /// About the most vertices a net's changes in flight take with two on each of its wires at once,
+        /// the most a wire usually carries: each with its stretch of new value, hatched, its trail, halo,
+        /// disc and ring, and a cross for one swallowed.
+        /// </summary>
+        public static int ChangeVertices(NetLayout net)
+        {
+            int vertices = 0;
+            foreach (Route branch in net.Branches)
+            {
+                int bars = (int)(branch.Length / 6f) + 1;
+                vertices += 2 * (3 * StrokeVertices(branch.PointCount) + bars * VectorPainter.LineVertices
+                    + 2 * VectorPainter.DiscVertices + VectorPainter.RingVertices + CrossVertices);
+            }
+
+            return vertices;
+        }
+
+        /// <summary>
+        /// About the most vertices a part takes, at rest or flashing: its leads, its body filled and
+        /// tinted, outlined twice, and whatever its symbol adds -- the XOR's second back, a register's
+        /// clock wedge, a bubble.
+        /// </summary>
+        public static int PartVertices(PartLayout part)
+        {
+            Body(Shape, part);
+            int outline = Shape.Count;
+            int vertices = 64 + part.Local.Pins.Count * VectorPainter.LineVertices + 2 * (outline + 1) + 2 * outline * 4;
+
+            if (part.Symbol == PartSymbol.Xor || part.Symbol == PartSymbol.Xnor)
+                vertices += 12 * (VectorPainter.LineVertices + 2 * VectorPainter.CapVertices);
+            if (part.Symbol == PartSymbol.Register || part.Symbol == PartSymbol.Splitter || part.Symbol == PartSymbol.Joiner)
+                vertices += 2 * (VectorPainter.LineVertices + 2 * VectorPainter.CapVertices);
+            if (Inverts(part.Symbol))
+                vertices += 2 * (24 + 1) + 24 * 4;
+            return vertices;
+        }
+
+        /// <summary>About the most vertices the ports take, drawn by the first chunk of the parts.</summary>
+        public static int PortVertices(SchematicLayout layout) => layout.Ports.Count * 400;
+
+        /// <summary>About the most vertices a row of the waveform takes: every change a step, and its x hatched.</summary>
+        public static int RowVertices(WorkbenchModel model, int row) => 1200 + model.RowChangeCount(row) * 160;
+
+        /// <summary>The most vertices a row's glitch marks take: a cross for every change on its way to it that is swallowed.</summary>
+        public static int GlitchVertices(WorkbenchModel model, int row) => 64 + model.RowSwallowedCount(row) * CrossVertices;
+
 
         private static void BitRow(VectorPainter painter, SchematicPalette palette, long end, float width, float middle, float high, float low)
         {

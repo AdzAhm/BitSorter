@@ -862,6 +862,50 @@ Precise, and no casing under the wires.
   Left as they are, and why: a chip's hairline edge and the slider's fill are below 3:1, but neither is
   how anything is told apart -- the words in a chip are 4.8:1 and over, and the slider's thumb stands on
   the ground at 15:1. uGUI shows nothing to a screen reader, which no part of 5.0 can change.
+- **Fast: the plan's 60 frames a second with 300 wires, met** (`WorkbenchPerformanceTests`, 2026-10-14).
+  The test plays thirty chains of nine NOTs -- 300 wires, about 200 changes in flight, twice the plan's
+  hundred, and every wire routed backwards round four bends because its gates are two cells apart --
+  and holds a frame of playback to 6 ms, the canvas's share of a 60 Hz frame, by the best of three
+  runs' medians, with motion as it ships whatever the machine's own setting. A frame was 61 ms when
+  every layer was one mesh redrawn whole; it is about 3 ms in the editor and 5.5 in a batch run, at a
+  canvas scale of 1. How:
+  - **Still and moving, drawn apart** (`WorkbenchLayers`). Every layer is cut into chunks a mesh each,
+    under uGUI's 65,000 vertices -- one mesh a layer went over that on this board, and threw. The wires
+    and the parts at rest, and the waveform's rows for the whole run, are drawn once and redrawn only
+    when what they show changes; the changes in flight, the gates flashing and the playhead are redrawn
+    with the moment, a lamp when its value changes colour, and a row's glitch marks as each appears. The
+    waveform is revealed up to the playhead by a `RectMask2D`, as a pen draws; its glitch marks are
+    not, since a cross reaches either side of its moment and would show early. A pan redraws nothing
+    and a zoom the schematic alone: the edges' smoothing is a pixel wide, and only a zoom changes
+    what a pixel is.
+  - **Cut by estimates, held by a guard** (`VectorPainter.Fits`). How many changes a wire carries at
+    once has no bound -- a fast input into a slow gate leaves one swallowed after another fading -- so
+    no estimate can promise a chunk fits a mesh. A chunk that outgrows one draws as many whole items
+    as fit, a wire, a change, a part or a row at a time, and says so once; it used to draw nothing.
+  - **Meshes written directly** (`MeshBuffer`): positions and colours in one interleaved stream with
+    16-bit triangles, in place of uGUI's `VertexHelper`, which keeps eight channels a vertex and copies
+    them twice; and every shape written straight into the arrays after one reservation. The same
+    vertices in the same order -- the shots of every board are identical to the pixel.
+  - **Less work per shape.** A wire run straight through a pin or a stub is no longer bent at it (it
+    was nine points on a line, and a straight wire 38 points); a ring is drawn round its radius from a
+    table of unit circles rather than through a mitred stroke; a route's points keep their normals; a
+    level or upright cap keeps its directions; each chunk finds its own changes from a list of their
+    nets; and a swallowed change's mark is indexed by signal once rather than found by walking the run.
+  - **Reduced motion is read once** (`ReducedMotion`): it was read from PlayerPrefs for every part on
+    every frame, some five hundred reads, and a frame went from 22 ms to 13 in the editor, where
+    PlayerPrefs is the registry, once it was kept.
+  - **One thing a reference shot shows.** Revealed, a bus's box runs on under the playhead rather than
+    closing in a point there, which it did when each row was drawn up to the moment: the value has not
+    ended, so the open box is the truer picture. Shots 27 to 29 differ there and nowhere else but for
+    float rounding -- 35 pixels at most by 2 levels, from the straightened corners and the ring.
+  - **Reviewed before it merged**: three reviews of the change, by geometry, by what is redrawn and
+    by runtime, found the glitch marks shown early, every chunk redrawn on every frame of a drag, the
+    estimates called bounds, a lamp's outline drawn twice and the test reading the machine's own
+    settings, all fixed here.
+  - **What the test does not time**: the ring digits and the waveform's words (TextMeshPro labels the
+    panel moves), uGUI's batching and the GPU. Nor is it the browser: the canvas has not been timed in
+    a browser build yet, and Part 16's performance check is where it will be. (At Part 6 the browser
+    build ran the engine as fast as .NET did, or faster.)
 
 ---
 

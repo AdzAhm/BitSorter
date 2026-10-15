@@ -23,6 +23,7 @@ namespace BitSorter.View
 
         private readonly Vector2[] _points;
         private readonly float[] _distances;
+        private readonly Vector2[] _normals;
 
         public Route(params Vector2[] corners)
         {
@@ -41,6 +42,13 @@ namespace BitSorter.View
                     Add(points, corner);
                     continue;
                 }
+
+                // A corner the wire runs straight through -- a pin, or a stub's end, on a straight
+                // run -- is no corner: bent, it was nine points on a line, and a straight wire from
+                // a gate's body to the next was 38 points, drawn and walked every frame of playback.
+                Vector2 inward = (corner - previous) / into, onward = (next - corner) / outOf;
+                if (Mathf.Abs(inward.x * onward.y - inward.y * onward.x) < 1e-5f && Vector2.Dot(inward, onward) > 0f)
+                    continue;
 
                 Vector2 entry = corner + (previous - corner) * (Mathf.Min(CornerRadius, into * 0.5f) / into);
                 Vector2 exit = corner + (next - corner) * (Mathf.Min(CornerRadius, outOf * 0.5f) / outOf);
@@ -61,6 +69,14 @@ namespace BitSorter.View
                 _distances[i] = _distances[i - 1] + Vector2.Distance(_points[i - 1], _points[i]);
 
             Length = _distances[_distances.Length - 1];
+
+            _normals = new Vector2[_points.Length];
+            for (int i = 0; i < _points.Length; i++)
+            {
+                bool hasPrevious = i > 0, hasNext = i < _points.Length - 1;
+                _normals[i] = MitredNormal(hasPrevious ? _points[i - 1] : _points[i], _points[i],
+                    hasNext ? _points[i + 1] : _points[i], hasPrevious, hasNext);
+            }
         }
 
         /// <summary>The route's length along all its runs and bends.</summary>
@@ -80,6 +96,50 @@ namespace BitSorter.View
 
         /// <summary>How far along the route a sampled point is.</summary>
         public float DistanceAt(int index) => _distances[index];
+
+        /// <summary>
+        /// The direction a sampled point's sides lie in, mitred at a bend so a stroke keeps its width
+        /// round it: what a stroke along the route is drawn from. Worked out once, since the points
+        /// never move and a change in flight strokes its wire behind it on every frame.
+        /// </summary>
+        public Vector2 NormalAt(int index) => _normals[index];
+
+        /// <summary>
+        /// The mitred normal at <paramref name="point"/>, between the points before and after it --
+        /// either missing at an end of an open line, where the one segment there decides it.
+        /// </summary>
+        internal static Vector2 MitredNormal(Vector2 previous, Vector2 point, Vector2 next, bool hasPrevious, bool hasNext)
+        {
+            Vector2 into = hasPrevious ? (point - previous).normalized : Vector2.zero;
+            Vector2 outOf = hasNext ? (next - point).normalized : Vector2.zero;
+
+            if (!hasPrevious) into = outOf;
+            if (!hasNext) outOf = into;
+
+            Vector2 n1 = new Vector2(-into.y, into.x), n2 = new Vector2(-outOf.y, outOf.x);
+            Vector2 mitre = (n1 + n2);
+
+            if (mitre.sqrMagnitude < 1e-6f)
+                return n1;
+
+            mitre.Normalize();
+            float cos = Vector2.Dot(mitre, n1);
+            return mitre / Mathf.Max(cos, 0.5f);
+        }
+
+        /// <summary>The first sampled point further along than <paramref name="distance"/>; <see cref="PointCount"/> if none is.</summary>
+        public int FirstAfter(float distance)
+        {
+            int low = 0, high = _distances.Length;
+            while (low < high)
+            {
+                int mid = (low + high) >> 1;
+                if (_distances[mid] > distance) high = mid;
+                else low = mid + 1;
+            }
+
+            return low;
+        }
 
         /// <summary>The point <paramref name="distance"/> along the route, clamped to its ends.</summary>
         public Vector2 PointAt(float distance)

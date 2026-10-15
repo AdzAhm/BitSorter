@@ -150,7 +150,11 @@ namespace BitSorter.View
         private RectTransform _waveform;
         private RectTransform _rings;
 
-        private WorkbenchGraphic _card, _wires, _parts, _timing;
+        private WorkbenchGraphic _card;
+        private WorkbenchLayers _layers;
+
+        /// <summary>The zoom the schematic's chunks were last drawn at.</summary>
+        private float _drawnZoom = 1f;
         private Slider _slider;
         private Button _fit;
 
@@ -219,7 +223,7 @@ namespace BitSorter.View
         public bool TryDrawnColour(string signal, out Color colour)
         {
             colour = default;
-            return _wires != null && _wires.TryDrawnColour(signal, out colour);
+            return _layers != null && _layers.TryDrawnColour(signal, out colour);
         }
 
         private void Awake()
@@ -385,8 +389,7 @@ namespace BitSorter.View
                 return;
 
             _hovered = net;
-            _wires.Highlighted = net;
-            _wires.SetVerticesDirty();
+            _layers.Highlight(net);
 
             Show(_hoverChip, net >= 0);
             if (net >= 0)
@@ -419,9 +422,13 @@ namespace BitSorter.View
             _schematic.localScale = new Vector3(_viewState.Zoom, _viewState.Zoom, 1f);
             Show(_fit, !_viewState.IsFitted);
 
-            // The edges' smoothing is a pixel wide, and a zoom changes how many units a pixel is.
-            _wires.SetVerticesDirty();
-            _parts.SetVerticesDirty();
+            // The edges' smoothing is a pixel wide, and a zoom changes how many units a pixel is; a pan
+            // changes neither, and every frame of a drag is one.
+            if (_viewState.Zoom != _drawnZoom)
+            {
+                _drawnZoom = _viewState.Zoom;
+                _layers.RefreshSchematic();
+            }
         }
 
         /// <summary>Starts the run again from 0, playing.</summary>
@@ -648,10 +655,13 @@ namespace BitSorter.View
             _schematic = UiTheme.Rect("schematic", _view);
             TopLeft(_schematic, _viewState.Offset, layout.Size);
 
-            _wires = Layer("wires", _schematic, WorkbenchGraphic.Layer.Wires, Vector2.zero, layout.Size);
+            // Every layer of the drawing cut into chunks a mesh each can hold (WorkbenchLayers).
+            _layers = new WorkbenchLayers(_model);
+            _drawnZoom = _viewState.Zoom;
+            _layers.BuildWires(_schematic, layout.Size);
             _rings = UiTheme.Rect("ring digits", _schematic);
             TopLeft(_rings, Vector2.zero, layout.Size);
-            _parts = Layer("parts", _schematic, WorkbenchGraphic.Layer.Parts, Vector2.zero, layout.Size);
+            _layers.BuildParts(_schematic, layout.Size);
             BuildSchematicLabels(palette);
 
             // FIT, in the window's top-right corner, for whenever the circuit is not whole.
@@ -672,7 +682,7 @@ namespace BitSorter.View
             float waveHeight = WorkbenchDrawing.WaveHeight(layout.Rows.Count);
             _waveform = UiTheme.Rect("waveform", _stage);
             TopLeft(_waveform, WaveformAt, new Vector2(WaveWidth, waveHeight));
-            _timing = Layer("timing", _waveform, WorkbenchGraphic.Layer.Timing, Vector2.zero, new Vector2(WaveWidth, waveHeight));
+            _layers.BuildTiming(_waveform, new Vector2(WaveWidth, waveHeight));
             BuildWaveLabels(palette);
 
             // The legend's words; its swatches are the card's.
@@ -840,9 +850,7 @@ namespace BitSorter.View
             if (_model == null || Root == null)
                 return;
 
-            _wires.SetVerticesDirty();
-            _parts.SetVerticesDirty();
-            _timing.SetVerticesDirty();
+            _layers.Refresh();
 
             if (_slider != null)
                 _slider.SetValueWithoutNotify((float)_model.Time);
@@ -1003,9 +1011,7 @@ namespace BitSorter.View
 
             // The edges' smoothing is a pixel wide, and how many units a pixel is just changed.
             _card.SetVerticesDirty();
-            _wires.SetVerticesDirty();
-            _parts.SetVerticesDirty();
-            _timing.SetVerticesDirty();
+            _layers.Refresh(all: true);
         }
 
         /// <summary>

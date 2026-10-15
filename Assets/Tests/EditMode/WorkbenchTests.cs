@@ -191,6 +191,26 @@ namespace BitSorter.LogicCore.Tests
         }
 
         [Test]
+        public void ARunStraightThroughItsPinsAndStubs_IsOneStraightPiece()
+        {
+            // Body, pin, stub, stub, pin, body: what a wire between two gates on one row is made of.
+            var route = new Route(new Vector2(0, 0), new Vector2(6, 0), new Vector2(20, 0), new Vector2(80, 0),
+                new Vector2(94, 0), new Vector2(100, 0));
+
+            Assert.AreEqual(2, route.PointCount, "a corner it runs straight through is no corner, and is not bent");
+            Assert.AreEqual(100f, route.Length, 1e-3f);
+            Assert.AreEqual(new Vector2(50, 0), route.PointAt(50));
+        }
+
+        [Test]
+        public void ARouteThatDoublesBack_StillBendsWhereItTurns()
+        {
+            var route = new Route(new Vector2(0, 0), new Vector2(100, 0), new Vector2(40, 0));
+
+            Assert.Greater(route.PointCount, 2, "turning back is a corner, however straight the line");
+        }
+
+        [Test]
         public void ARoundedBend_IsShorterThanTheCorner_ButNotByMuch()
         {
             var route = new Route(new Vector2(0, 0), new Vector2(100, 0), new Vector2(100, 100));

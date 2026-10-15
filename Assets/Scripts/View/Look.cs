@@ -181,8 +181,8 @@ namespace BitSorter.View
 
         /// <summary>The look the game is drawn in unless the player chooses another.</summary>
         /// <remarks>
-        /// Schematic, as the plan proposed and Ahmad approved (2026-10-12), to be confirmed at Part
-        /// 8's review. Its board is Neon Board's, so making it the default moved no pixel of the game.
+        /// Schematic, as the plan proposed and Ahmad approved (2026-10-12), and confirmed at Part 8's
+        /// review (2026-10-14). Its board is Neon Board's, so making it the default moved no pixel of the game.
         /// </remarks>
         public static Look Default => Looks.Schematic;
 
