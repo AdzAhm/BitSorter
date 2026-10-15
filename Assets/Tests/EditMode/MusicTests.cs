@@ -712,6 +712,29 @@ namespace BitSorter.LogicCore.Tests
         }
 
         /// <summary>
+        /// Neither menu recording is loaded before it is put on: either may open the menu, and the one
+        /// not playing has its audio unloaded, so preloading one would hold it from start-up for nothing.
+        /// </summary>
+        /// <remarks>
+        /// Dream was preloaded when it always opened the menu, and the flag outlived that by the
+        /// same day: a session that opened on Woodland Fantasy kept Dream loaded until the menu
+        /// swapped to it.
+        /// </remarks>
+        [Test]
+        public void NeitherMenuRecording_IsLoadedBeforeItIsPutOn()
+        {
+            string[] tracks = UnityEditor.AssetDatabase.FindAssets("t:AudioClip", new[] { "Assets/Audio/Music" })
+                .Select(UnityEditor.AssetDatabase.GUIDToAssetPath).ToArray();
+            Assert.AreEqual(2, tracks.Length, "sanity: the menu's two recordings");
+
+            foreach (string path in tracks)
+            {
+                var import = (UnityEditor.AudioImporter)UnityEditor.AssetImporter.GetAtPath(path);
+                Assert.IsFalse(import.defaultSampleSettings.preloadAudioData, path + " is preloaded");
+            }
+        }
+
+        /// <summary>
         /// Either track opens the menu about as often as the other.
         /// </summary>
         /// <remarks>
