@@ -709,7 +709,8 @@ namespace BitSorter.PlayMode.Tests
                         yield return null;
 
                     var middle = new Vector2Int(0, 0);
-                    Assert.IsTrue(session.TryPlaceGate(GateKind.Register, middle), "could not place the register");
+                    Assert.IsTrue(session.TryPlaceGate(GateKind.Register, middle),
+                        $"{look.Name}: could not place the register");
                     int register = NodeOn(runner, middle);
 
                     yield return null;
@@ -723,6 +724,12 @@ namespace BitSorter.PlayMode.Tests
                     Assert.GreaterOrEqual(contrast, 3f,
                         $"{look.Name}: a 0 inside a register is {contrast:F2}:1 against what it is drawn on " +
                         $"({detail})");
+
+                    // The tracker writes the board once it has gone half a second unchanged, by real
+                    // time, so whether this register is in the save when the next look loads depends on
+                    // how long the frames above took. Written now, as it is whenever they are slow:
+                    // the next look has to start from an empty board all the same.
+                    Find<ProgressTracker>().SaveNow();
                 }
             }
             finally
