@@ -867,8 +867,8 @@ Precise, and no casing under the wires.
   hundred, and every wire routed backwards round four bends because its gates are two cells apart --
   and holds a frame of playback to 6 ms, the canvas's share of a 60 Hz frame, by the best of three
   runs' medians, with motion as it ships whatever the machine's own setting. A frame was 61 ms when
-  every layer was one mesh redrawn whole; it is about 3 ms in the editor and 5.5 in a batch run, at a
-  canvas scale of 1. How:
+  every layer was one mesh redrawn whole; it is 4.5 to 5.5 ms in the editor from run to run, at a
+  canvas scale of 1 (3.3, and 5.5 in a batch run, before the browser's fix below). How:
   - **Still and moving, drawn apart** (`WorkbenchLayers`). Every layer is cut into chunks a mesh each,
     under uGUI's 65,000 vertices -- one mesh a layer went over that on this board, and threw. The wires
     and the parts at rest, and the waveform's rows for the whole run, are drawn once and redrawn only
@@ -882,10 +882,17 @@ Precise, and no casing under the wires.
     once has no bound -- a fast input into a slow gate leaves one swallowed after another fading -- so
     no estimate can promise a chunk fits a mesh. A chunk that outgrows one draws as many whole items
     as fit, a wire, a change, a part or a row at a time, and says so once; it used to draw nothing.
-  - **Meshes written directly** (`MeshBuffer`): positions and colours in one interleaved stream with
-    16-bit triangles, in place of uGUI's `VertexHelper`, which keeps eight channels a vertex and copies
-    them twice; and every shape written straight into the arrays after one reservation. The same
-    vertices in the same order -- the shots of every board are identical to the pixel.
+  - **Meshes written directly** (`MeshBuffer`): an array of positions and one of colours, in place of
+    uGUI's `VertexHelper`, which keeps eight channels a vertex and copies them twice; and every shape
+    written straight into the arrays after one reservation. The same vertices in the same order --
+    the shots of every board are identical to the pixel. **Handed over through `SetVertices`,
+    `SetColors` and `SetIndices`, never one interleaved stream**: a mesh filled with
+    `SetVertexBufferData` and 16-bit `SetIndexBufferData` drew in the editor and drew nothing at all
+    in the browser build, every chunk of the workbench blank with no error, from this part until it
+    was found on 2026-10-15 (`5701303`). The editor's tests and shots cannot see that; a browser build
+    can, so a change to how a mesh is handed over is smoke-tested in one. The classic calls cost
+    about twice as much to hand a mesh over, and the frame the gate measures went from 3.3 ms to
+    4.5--5.5 in the editor: inside the budget, with less room than it had.
   - **Less work per shape.** A wire run straight through a pin or a stub is no longer bent at it (it
     was nine points on a line, and a straight wire 38 points); a ring is drawn round its radius from a
     table of unit circles rather than through a mitred stroke; a route's points keep their normals; a
@@ -945,4 +952,27 @@ the part that builds it, as every part rewrites what it makes stale.
 | 2 | Still and moving drawn apart, in chunks under uGUI's vertex limit, the waveform revealed by a mask (section 10) | 8, built |
 | 3 | A levelized path for logic with no delay at all, only if a design measured in the browser goes over Part 6's budget and the time is in delta cycles; the same settled history as the event engine, held to it by a differential test | whichever measurement asks; most likely 13 |
 | 4 | The shell in UI Toolkit, the canvas staying uGUI; code edited in a CodeMirror editor laid over the canvas in the browser, bundled with the build, and in a TextMesh Pro field on the desktop | 11, 12 |
-| 5 | A smaller download: what goes with the 4.x game, and the build's settings, each measured before and after; the 4.0.0 build is 16,931,273 bytes | 16 |
+| 5 | A smaller download: what goes with the 4.x game, and the build's settings, each measured before and after; the 4.0.0 build is 16,931,273 bytes | 16, settings begun early |
+
+**The build's settings went first** (2026-10-15, from the web, audio and TextMesh Pro audits after
+Part 8). The download went from 17,208,015 bytes to 14,402,572:
+
+| Change | Bytes saved |
+| --- | --- |
+| The fonts' atlases not readable, and TextMesh Pro's fallback and emoji out of `Resources` | 312,733 |
+| No Unity splash screen | 91,020 |
+| The menu's recordings at 96 kbps in the browser build | 1,215,108 |
+| Managed stripping at Medium | 924,404 |
+| WebAssembly 2023 | 268,496 |
+
+Each change that alters how the code runs was smoke-tested in a browser build first. Doing so found
+the workbench blank in the browser since Part 8, which `5701303` fixed, for 6,318 bytes back.
+
+**The rest waits for Part 16, as one pass over everything**, with the 4.x game gone and every byte
+it leaves measured again (Ahmad's choice, 2026-10-15). The largest single item known now: the
+menu's two recordings are about 3.6 MB of the 6.7 MB data file, all of it downloaded before the
+first frame. They could come after start-up instead -- an asset bundle built with their own import
+settings, so their loudness figures still hold -- with the menu silent until one arrives. A
+browser plays nothing before the first click anyway. The cost is a loader and a little engine
+code. The analytics package's code stays: it is what reports the one measurement the game
+collects, and removing it would break what players were told.

@@ -127,7 +127,8 @@ last clicked:
 | Exception support | Explicitly thrown only | Full support costs size and speed; nothing here catches engine faults |
 | Code optimization | **Disk size, with LTO** | The wasm is half the download. Lives in `Library/`, per machine, which is why the script sets it |
 | IL2CPP code generation | Optimize size | Smaller wasm, at a small cost in speed the game does not need |
-| Managed stripping | Low | Removes code nothing reaches; at Minimal every package went in whole. Low is the conservative level, and no runtime script uses reflection |
+| Managed stripping | Medium | Removes code nothing reaches; at Minimal every package went in whole. It was Low, the conservative level, until 2026-10-15: no runtime script uses reflection, and the browser build was smoke-tested at Medium before it was kept, since the risks are in packages (Unity Services, the Input System, `JsonUtility`) |
+| WebAssembly 2023 | **On** | Native exceptions, bulk memory, BigInt and SIMD where the original feature set used JavaScript trampolines. Needs Chrome 91, Firefox 89 or Safari 16.4 |
 
 URP's film-grain noise textures are left out too: the renderer points at a copy of URP's
 post-processing data, `Assets/Settings/PostProcessData.asset`, with its film-grain list emptied.
@@ -250,7 +251,9 @@ and agreement to their content terms.
 Unity Play enforces an upload size limit that has changed over time — check the
 current figure when you upload. For reference the 4.0.0 build is about 16 MB of
 compressed payload (16.8 MB zipped), which is small by their standards; 3.0.1's
-was about 20 MB, before the size settings above.
+was about 20 MB, before the size settings above. 5.0's is about 14.4 MB so far
+(measured 2026-10-15, after the menu music went to 96 kbps in the browser build
+and the stripping and WebAssembly 2023 rows above).
 
 ## GitHub Pages
 
