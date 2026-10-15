@@ -926,12 +926,23 @@ Each part is one pull request into `v5`, ends with every suite green, and leaves
 | 5 | Behavioural SystemVerilog and processes (tier B), checked against Icarus |
 | 6 | The processor tier (C), and a measured performance budget in the browser |
 | 7 | The board document: compile, print, undo, and migration of every 4.x board |
-| 8 | The canvas on the real document, and the looks with a Settings switch |
-| 9 | The waveform and run controls |
+| 8 | The canvas on the real document, still and moving layers drawn apart, and the looks with a Settings switch |
+| 9 | The waveform and run controls; the workbench's view-model in a Unity-free layer of its own |
 | 10 | Editing on the free canvas |
-| 11 | The workbench shell: toolbar, panels, transcript |
-| 12 | Hierarchy, and written blocks |
-| 13 | Export and import |
+| 11 | The workbench shell, in UI Toolkit: toolbar, panels, transcript |
+| 12 | Hierarchy, and written blocks, edited in CodeMirror in a browser |
+| 13 | Export and import (and a levelized path in the engine, only if a measurement asks for it) |
 | 14 | The course's tools: path delays, static timing, gate-library mode, step tests, lint, tri-state |
 | 15 | The Exercises and the tutorial |
-| 16 | The old game retired; 5.0.0 released |
+| 16 | The old game retired, and a smaller download; 5.0.0 released |
+
+**Agreed after the plan, 2026-10-14: five optimizations**, each to be written into this document by
+the part that builds it, as every part rewrites what it makes stale.
+
+| # | What | Part |
+| --- | --- | --- |
+| 1 | The workbench's view-model -- its layout, routes, the run read at a moment, pan and zoom, and later the editing gestures and the shell's state -- in a layer of its own, as pure as the three below it, so `dotnet test` and CI hold it without the editor | 9 to 11 |
+| 2 | Still and moving drawn apart, in chunks under uGUI's vertex limit, the waveform revealed by a mask (section 10) | 8, built |
+| 3 | A levelized path for logic with no delay at all, only if a design measured in the browser goes over Part 6's budget and the time is in delta cycles; the same settled history as the event engine, held to it by a differential test | whichever measurement asks; most likely 13 |
+| 4 | The shell in UI Toolkit, the canvas staying uGUI; code edited in a CodeMirror editor laid over the canvas in the browser, bundled with the build, and in a TextMesh Pro field on the desktop | 11, 12 |
+| 5 | A smaller download: what goes with the 4.x game, and the build's settings, each measured before and after; the 4.0.0 build is 16,931,273 bytes | 16 |
