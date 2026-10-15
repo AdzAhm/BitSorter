@@ -61,7 +61,15 @@ namespace BitSorter.PlayMode.Tests
             yield return null;
         }
 
-        /// <summary>Leaves an empty scene active and the game gone.</summary>
+        /// <summary>Leaves an empty scene active, the game gone, and no save behind it.</summary>
+        /// <remarks>
+        /// The save is deleted here, after the unload, because the game writes it until it is gone.
+        /// Every fixture also deletes it in its [TearDown], and Unity Test Framework runs that before
+        /// the [UnityTearDown] that calls this -- with the game still loaded, so a write in the frames
+        /// the unload took was there for the next test's load. <c>ProgressTracker</c> writes the
+        /// board half a second after it last changed, by real time, so that leak would have come and
+        /// gone with how long frames took rather than with anything in the tests.
+        /// </remarks>
         internal static IEnumerator Clear()
         {
             // An empty scene has to exist and be active before the game can be unloaded: Unity
@@ -79,6 +87,9 @@ namespace BitSorter.PlayMode.Tests
             }
 
             yield return null;
+
+            // Nothing is left to write it now.
+            SaveGuard.Clear();
 
             // Real time back, whatever step the test left: the next fixture may not load the game.
             Time.captureDeltaTime = 0f;

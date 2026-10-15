@@ -16,7 +16,8 @@ namespace BitSorter.PlayMode.Tests
     /// deleted with the game still loaded, and anything the game wrote while it was being unloaded
     /// was there for the next test's load. <c>ProgressTracker</c> writes the board half a second
     /// after it last changed, by real time, and at once when the window loses focus: both can land
-    /// in the frames an unload takes.
+    /// in the frames an unload takes. <see cref="TestScene.Clear"/> deletes the save itself now,
+    /// once the game is gone.
     ///
     /// The write here comes from <c>OnDestroy</c>, the last moment anything in the game can write
     /// at all, so the test does not depend on how long a frame takes.

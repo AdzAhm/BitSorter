@@ -97,6 +97,10 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>Removes anything a previous test in the same fixture planted or the game wrote.</summary>
+        /// <remarks>
+        /// <see cref="TestScene.Clear"/> calls this once the game is gone, which is the call that
+        /// holds: a fixture's [TearDown] runs while the game is still loaded and can still write.
+        /// </remarks>
         internal static void Clear()
         {
             if (File.Exists(Scratch))

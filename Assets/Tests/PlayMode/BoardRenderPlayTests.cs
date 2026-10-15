@@ -689,11 +689,10 @@ namespace BitSorter.PlayMode.Tests
                     if (look == Look.Classic)
                         continue;
 
-                    // Each look starts as a test of its own does: the game gone, then the save it was
-                    // writing -- in that order, because the game writes until it is gone. Loaded
-                    // straight over the last look, the board came back with that look's register on it.
+                    // Each look starts as a test of its own does: the game gone, and the save it was
+                    // writing with it. Loaded straight over the last look, the board came back with
+                    // that look's register on it.
                     yield return TestScene.Clear();
-                    SaveGuard.Clear();
 
                     Look.Use(look);
                     yield return TestScene.Load();

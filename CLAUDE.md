@@ -496,13 +496,16 @@ failure side.
   therefore over UI at every coordinate. A test leaking into another test is worse
   than either failing: the red lands in the fixture that is still correct.
 
-  **A test that loads the game more than once puts it back between loads too** --
-  `TestScene.Clear`, then `SaveGuard.Clear`, in that order, because the game
-  writes the save until it is gone. `ProgressTracker` writes the board half a
-  second after it last changed, by real time, so a board from one load reaches the
-  next whenever a frame runs slow. The register contrast test loads once per look,
-  and from the day there were three looks it failed once in four full runs, on a
-  register restored where it was about to place one (2026-10-15).
+  **`TestScene.Clear` takes the save with the game**, deleting it after the
+  unload, because the game writes the save until it is gone. `ProgressTracker`
+  writes the board half a second after it last changed, by real time, so a board
+  from one load reaches the next whenever a frame runs slow. A fixture's own
+  `[TearDown]` cannot do it: Unity Test Framework runs it before the
+  `[UnityTearDown]` that unloads, with the game still loaded. And a test that
+  loads the game more than once clears it between loads too. The register
+  contrast test loads once per look, and from the day there were three looks it
+  failed once in four full runs, on a register restored where it was about to
+  place one (2026-10-15).
 
   **They would also touch the player's own files.** `SaveGuard.Redirect` points
   the save and the PlayerPrefs settings at scratch copies before the scene loads
