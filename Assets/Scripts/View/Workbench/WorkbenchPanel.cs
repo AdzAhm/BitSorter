@@ -490,14 +490,17 @@ namespace BitSorter.View
             Seek(0.0);
         }
 
-        /// <summary>Plays or pauses; from the end, plays again from the start.</summary>
+        /// <summary>Plays or pauses; from the end, plays again from the start, as a replay does, a zoomed waveform following it again.</summary>
         public void TogglePlay()
         {
             if (_model == null)
                 return;
 
             if (!_playing && _model.Time >= _model.End)
+            {
+                _wave?.Restart(0.0);
                 Seek(0.0);
+            }
 
             _playing = !_playing;
             RefreshPlayLabel();
