@@ -456,5 +456,64 @@ namespace BitSorter.PlayMode.Tests
             Assert.AreEqual(reference.End, workbench.Model.End, "the reference's run again");
             Assert.IsTrue(workbench.Playing, "played from the start");
         }
+
+        /// <summary>
+        /// A block's port names are written inside its box, each beside its pin -- its outputs' as well
+        /// as its inputs'. Read from what TextMeshPro laid out, against the part's outline.
+        /// </summary>
+        /// <remarks>
+        /// The full adder's two half adders are the first blocks a sample shows. Their outputs' names
+        /// were placed by the label box's right edge where the label is given by its left one, and came
+        /// out past the box, over the wire leaving it.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator ABlocksPortNames_AreWrittenInsideItsBox()
+        {
+            yield return TestScene.Load();
+            yield return OpenTheWorkbench();
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowSample(1);
+            workbench.Pause();
+            yield return null;
+            yield return null;
+
+            TextMeshProUGUI[] labels = Object.FindObjectsByType<TextMeshProUGUI>(FindObjectsSortMode.None)
+                .Where(label => label.transform.parent != null && label.transform.parent.name == "schematic")
+                .ToArray();
+            Assert.IsNotEmpty(labels, "sanity: the circuit's labels are under its drawing");
+            RectTransform schematic = (RectTransform)labels[0].transform.parent;
+
+            // Where a point of a label is in the drawing's own units, y down.
+            Vec2 InDrawing(TextMeshProUGUI label, Vector3 local)
+            {
+                Vector3 at = schematic.InverseTransformPoint(label.rectTransform.TransformPoint(local));
+                return new Vec2(at.x, -at.y);
+            }
+
+            int pins = 0;
+            foreach (PartLayout part in workbench.Model.Layout.Parts.Where(p => p.Symbol == PartSymbol.Block))
+            {
+                Vec2 corner = part.ToStage(part.Local.Left, part.Local.Bottom), across = part.ToStage(part.Local.Right, part.Local.Top);
+                float left = Mathf.Min(corner.x, across.x), right = Mathf.Max(corner.x, across.x);
+
+                foreach (BitSorter.Board.PinSpot pin in part.Local.Pins)
+                {
+                    Vec2 spot = part.ToStage(pin.At.X, pin.At.Y);
+                    TextMeshProUGUI label = labels.Where(l => l.text == pin.Pin)
+                        .OrderBy(l => (InDrawing(l, Vector3.zero) - spot).magnitude).First();
+
+                    label.ForceMeshUpdate();
+                    Bounds text = label.textBounds;
+                    float from = InDrawing(label, text.min).x, to = InDrawing(label, text.max).x;
+
+                    Assert.GreaterOrEqual(from, left - 0.5f, $"{part.Name}'s '{pin.Pin}' starts left of its box ({from:0.#} against {left:0.#})");
+                    Assert.LessOrEqual(to, right + 0.5f, $"{part.Name}'s '{pin.Pin}' runs on past its box ({to:0.#} against {right:0.#})");
+                    pins++;
+                }
+            }
+
+            Assert.AreEqual(8, pins, "sanity: two half adders, four ports each");
+        }
     }
 }

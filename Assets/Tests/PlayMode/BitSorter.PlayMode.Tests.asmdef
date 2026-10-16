@@ -3,6 +3,7 @@
     "rootNamespace": "BitSorter.PlayMode.Tests",
     "references": [
         "BitSorter.LogicCore",
+        "BitSorter.Board",
         "BitSorter.Sim",
         "BitSorter.SystemVerilog",
         "BitSorter.ViewModel",
