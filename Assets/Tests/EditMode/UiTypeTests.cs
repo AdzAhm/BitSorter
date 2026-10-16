@@ -78,7 +78,10 @@ namespace BitSorter.LogicCore.Tests
         public void NoButtonCaption_IsSmallerThanBody()
         {
             string root = Path.Combine(Application.dataPath, "Scripts", "View");
-            var small = new Regex(@"Button_\([^;]*?UiType\.(Micro|Caption|Label)", RegexOptions.Singleline);
+            // CanvasButton is the workbench's own, in the canvas's colours, and takes its caption's type
+            // as Button_ does. The \b was once a backspace character, which nothing matches, so for
+            // a while this looked at every button and found none (Part 9b-2a).
+            var small = new Regex(@"(Button_|CanvasButton)\([^;]*?UiType\.(Micro|Caption|Label)\b", RegexOptions.Singleline);
 
             string[] offenders = Directory.GetFiles(root, "*.cs", SearchOption.AllDirectories)
                 .Where(path => small.IsMatch(File.ReadAllText(path)))
