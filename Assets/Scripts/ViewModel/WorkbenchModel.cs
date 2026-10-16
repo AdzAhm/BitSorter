@@ -86,8 +86,20 @@ namespace BitSorter.ViewModel
         /// <inheritdoc cref="_netSignals"/>
         private readonly int[] _partOutputs;
 
-        /// <inheritdoc cref="_netSignals"/>
-        private readonly int[] _rowSignals;
+        /// <summary>The signal each row of the waveform shows, -1 for a row with none (a group's header); and in what radix.</summary>
+        private int[] _rowSignals;
+
+        /// <inheritdoc cref="_rowSignals"/>
+        private WaveRadix[] _rowRadix;
+
+        /// <summary>The radix a change on each net is written in on its ring: the radix of the first row showing its node, or the default.</summary>
+        private WaveRadix[] _netRadix;
+
+        /// <summary>The node each net's signal is in, -1 where the design does not have it.</summary>
+        private readonly int[] _netNode;
+
+        /// <summary>Texts in a radix other than the default: a row's changes keyed by signal, a ring's transitions by -1 - net.</summary>
+        private readonly TextCache _texts = new TextCache();
 
         /// <inheritdoc cref="_netSignals"/>
         private readonly int[] _portSignals;
@@ -110,10 +122,10 @@ namespace BitSorter.ViewModel
         /// the port's: a gate with delay prints as a library cell, and its changes go to the cell's own
         /// output, which is one of the net's aliases.
         /// </summary>
-        private readonly List<(int Transition, double Ended)>[] _swallowedOf;
+        private List<(int Transition, double Ended)>[] _swallowedOf;
 
         /// <summary>The same moments, in time order: what a row's count so far is a binary search of.</summary>
-        private readonly List<double>[] _swallowedTimes;
+        private List<double>[] _swallowedTimes;
 
         /// <summary>Transitions still on their way when last read, by index: any may be swallowed since.</summary>
         private readonly List<int> _pending = new List<int>();
@@ -158,9 +170,14 @@ namespace BitSorter.ViewModel
             for (int i = 0; i < layout.Parts.Count; i++)
                 _partOutputs[i] = Index(layout.Parts[i].Output);
 
-            _rowSignals = new int[layout.Rows.Count];
+            Aliases = SignalAliases.Of(design);
+            _netNode = new int[layout.Nets.Count];
+            for (int i = 0; i < layout.Nets.Count; i++)
+                _netNode[i] = Aliases.NodeOf(_netSignals[i]);
+
+            var rows = new int[layout.Rows.Count];
             for (int i = 0; i < layout.Rows.Count; i++)
-                _rowSignals[i] = Index(layout.Rows[i].Signal);
+                rows[i] = Index(layout.Rows[i].Signal);
 
             _portSignals = new int[layout.Ports.Count];
             for (int i = 0; i < layout.Ports.Count; i++)
@@ -176,19 +193,104 @@ namespace BitSorter.ViewModel
 
             foreach (int signal in _netSignals) Track(signal);
             foreach (int signal in _partOutputs) Track(signal);
-            foreach (int signal in _rowSignals) Track(signal);
             foreach (int signal in _portSignals) Track(signal);
 
-            _swallowedOf = new List<(int, double)>[layout.Rows.Count];
-            _swallowedTimes = new List<double>[layout.Rows.Count];
-            for (int row = 0; row < _swallowedOf.Length; row++)
-            {
-                _swallowedOf[row] = new List<(int, double)>();
-                _swallowedTimes[row] = new List<double>();
-            }
-
+            SetRows(rows);
             Grow(complete);
             Seek(0);
+        }
+
+        /// <summary>
+        /// Which node every signal is in (<see cref="SignalAliases"/>): what decides which rows a
+        /// swallowed change is marked on.
+        /// </summary>
+        public SignalAliases Aliases { get; }
+
+        /// <summary>
+        /// Sets what the waveform's rows show: a signal each, by its index in the design (-1 for a row
+        /// with none, as a group's header has), each in its <paramref name="radixes"/>' radix or its
+        /// own default (<see cref="DefaultRadix"/>). A signal not read before gets its track, read
+        /// as far as the run has got, and every row its glitch marks so far; the moment stays.
+        /// </summary>
+        /// <remarks>
+        /// The default rows are the layout's, one per port (<see cref="SchematicLayout.Rows"/>). Rows
+        /// are chosen by the list the view keeps (<see cref="WaveList"/>); the model only answers for
+        /// whichever signals they are. A net's rings are written in the radix of the first row showing
+        /// any name of its node, so a bus read as unsigned in the waveform reads unsigned on its wire.
+        /// </remarks>
+        public void SetRows(IReadOnlyList<int> signals, IReadOnlyList<WaveRadix> radixes = null)
+        {
+            if (signals == null)
+                throw new ArgumentNullException(nameof(signals));
+            if (radixes != null && radixes.Count != signals.Count)
+                throw new ArgumentException("A radix for every row, or none.", nameof(radixes));
+
+            Design design = Session.Design;
+            int count = signals.Count;
+            _rowSignals = new int[count];
+            _rowRadix = new WaveRadix[count];
+            _swallowedOf = new List<(int, double)>[count];
+            _swallowedTimes = new List<double>[count];
+
+            for (int row = 0; row < count; row++)
+            {
+                int signal = signals[row];
+                if (signal < -1 || signal >= design.Signals.Count)
+                    throw new ArgumentOutOfRangeException(nameof(signals), signal, "A row shows a signal of the design, or -1 for none.");
+
+                _rowSignals[row] = signal;
+                _rowRadix[row] = radixes != null ? radixes[row] : DefaultRadix(signal);
+                _swallowedOf[row] = new List<(int, double)>();
+                _swallowedTimes[row] = new List<double>();
+
+                if (signal >= 0 && _tracks[signal] == null)
+                {
+                    _tracks[signal] = new SignalTrack(_history, design.SignalAt(signal), TextOf);
+                    _tracks[signal].Grow();
+                }
+            }
+
+            // Every change swallowed so far, marked on the rows that show its node.
+            for (int i = 0; i < _transitionsRead; i++)
+            {
+                Transition t = _history.TransitionAt(i);
+                if (t.Outcome == TransitionOutcome.Swallowed)
+                    Swallowed(i, t);
+            }
+
+            _netRadix = new WaveRadix[_netSignals.Length];
+            for (int net = 0; net < _netRadix.Length; net++)
+            {
+                _netRadix[net] = DefaultRadix(_netSignals[net]);
+                for (int row = 0; row < count; row++)
+                {
+                    if (_netNode[net] >= 0 && Aliases.NodeOf(_rowSignals[row]) == _netNode[net])
+                    {
+                        _netRadix[net] = _rowRadix[row];
+                        break;
+                    }
+                }
+            }
+
+            RowsVersion++;
+            PlaceMarkers();
+        }
+
+        /// <summary>Counts every <see cref="SetRows"/>: what tells the view its rows have changed.</summary>
+        public int RowsVersion { get; private set; }
+
+        /// <summary>
+        /// The radix a signal is written in until a row says otherwise: an enum's names, a bus in hex,
+        /// a bit as 0, 1, x or z.
+        /// </summary>
+        public WaveRadix DefaultRadix(int signal)
+        {
+            if (signal < 0)
+                return WaveRadix.Binary;
+            SignalInfo info = Session.Design.Signals[signal];
+            if (info.Enum != null)
+                return WaveRadix.Symbolic;
+            return info.Width > 1 ? WaveRadix.Hex : WaveRadix.Binary;
         }
 
         /// <summary>
@@ -395,9 +497,48 @@ namespace BitSorter.ViewModel
 
             SignalTrack track = _tracks[signal];
             int i = track.IndexAt(Time);
-            text = track.Text(i);
+            text = RowText(row, i);
             return track[i].Value;
         }
+
+        /// <summary>How many rows the waveform has.</summary>
+        public int RowCount => _rowSignals.Length;
+
+        /// <summary>The signal a row shows, by its index in the design; -1 for none.</summary>
+        public int RowSignal(int row) => _rowSignals[row];
+
+        /// <summary>The radix a row is written in.</summary>
+        public WaveRadix RowRadix(int row) => _rowRadix[row];
+
+        /// <summary>
+        /// A row's change <paramref name="change"/> as the row writes it: formatted once, in the row's
+        /// radix, so a frame of playback formats nothing.
+        /// </summary>
+        public string RowText(int row, int change)
+        {
+            int signal = _rowSignals[row];
+            SignalTrack track = _tracks[signal];
+            WaveRadix radix = _rowRadix[row];
+            if (radix == DefaultRadix(signal) && Session.Design.Signals[signal].Enum == null)
+                return track.Text(change);
+            return _texts.Get(signal, change, track[change].Value, radix, Session.Design.Signals[signal].Enum);
+        }
+
+        /// <summary>The drawn net showing a row's signal -- any name of its node -- or -1: what selecting a row lights.</summary>
+        public int NetOfRow(int row)
+        {
+            int node = Aliases.NodeOf(_rowSignals[row]);
+            if (node < 0)
+                return -1;
+            for (int net = 0; net < _netNode.Length; net++)
+                if (_netNode[net] == node)
+                    return net;
+            return -1;
+        }
+
+        /// <summary>Whether a row shows a net's signal, by any name of its node: what pointing at a wire lights.</summary>
+        public bool RowShowsNet(int row, int net) =>
+            net >= 0 && net < _netNode.Length && _netNode[net] >= 0 && Aliases.NodeOf(_rowSignals[row]) == _netNode[net];
 
         /// <summary>Whether a row is a bus.</summary>
         public bool RowIsBus(int row) => _rowSignals[row] >= 0 && Session.Design.Signals[_rowSignals[row]].Width > 1;
@@ -424,7 +565,7 @@ namespace BitSorter.ViewModel
                 if (from > until) break;
 
                 double to = i + 1 < track.Count ? Math.Min(track[i + 1].Time, End) : End;
-                into.Add(new WaveSegment { From = from, To = Math.Min(to, until), Value = track[i].Value, Text = track.Text(i) });
+                into.Add(new WaveSegment { From = from, To = Math.Min(to, until), Value = track[i].Value, Text = RowText(row, i) });
             }
         }
 
@@ -499,24 +640,33 @@ namespace BitSorter.ViewModel
             return track[track.IndexAt(time)].Value;
         }
 
+        /// <summary>A transition's value as a ring on <paramref name="net"/> writes it: in the radix of the row showing the net, if one does.</summary>
+        private string RingText(int net, int transition, LogicVec value)
+        {
+            WaveRadix radix = _netRadix[net];
+            int signal = _netSignals[net];
+            if (radix == DefaultRadix(signal) && (signal < 0 || Session.Design.Signals[signal].Enum == null))
+                return _transitionText[transition];
+            return _texts.Get(-1 - net, transition, value, radix, signal >= 0 ? Session.Design.Signals[signal].Enum : null);
+        }
+
         /// <summary>When a transition stopped travelling: on arrival, or where it was swallowed.</summary>
         private static double Ended(Transition t) =>
             t.Outcome == TransitionOutcome.Swallowed ? t.EndedAt : t.DueAt;
 
-        /// <summary>A swallowed transition, marked on every row whose net it was on its way to.</summary>
+        /// <summary>
+        /// A swallowed transition, marked on every row showing any name of the node it was on its way
+        /// to (<see cref="SignalAliases"/>): a gate with delay prints as a library cell, so its changes
+        /// go to the cell's own output, which the net it drives is joined to -- and, inside a block,
+        /// to the block's port and the parent's net beyond it.
+        /// </summary>
         private void Swallowed(int index, Transition t)
         {
             int target = t.Target.Index;
 
             for (int row = 0; row < _swallowedOf.Length; row++)
             {
-                int signal = _rowSignals[row];
-                if (signal < 0)
-                    continue;
-
-                int net = _netOfSignal[signal];
-                bool toThisRow = target == signal || (net >= 0 && target >= 0 && target < _netOfSignal.Length && _netOfSignal[target] == net);
-                if (!toThisRow)
+                if (!Aliases.SameNode(target, _rowSignals[row]))
                     continue;
 
                 // In the order the transitions were recorded, as a run made in one go lists them; a
@@ -622,7 +772,7 @@ namespace BitSorter.ViewModel
                         Distance = distance,
                         Point = branches[b].PointAt(distance),
                         Value = t.Value,
-                        Text = _transitionText[i],
+                        Text = RingText(net, i, t.Value),
                         Alpha = alpha,
                         Swallowed = swallowed && Time >= ended,
                     });
