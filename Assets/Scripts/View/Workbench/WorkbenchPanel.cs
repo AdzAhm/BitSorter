@@ -681,7 +681,7 @@ namespace BitSorter.View
             BuildSchematicLabels(palette);
 
             // FIT, in the window's top-right corner, for whenever the circuit is not whole.
-            _fit = CanvasButton(FitButton, _view, "FIT", out TextMeshProUGUI _, UiType.Caption, palette);
+            _fit = CanvasButton(FitButton, _view, "FIT", out TextMeshProUGUI _, UiType.Body, palette);
             KeyBeside(_fit, "F", palette);
             TopRight(_fit.GetComponent<RectTransform>(), new Vector2(-8f, 8f), new Vector2(72f, 32f));
             _fit.onClick.AddListener(() => { FitView(); UiTheme.Defocus(); });
