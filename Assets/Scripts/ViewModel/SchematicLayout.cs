@@ -167,14 +167,26 @@ namespace BitSorter.ViewModel
     /// </summary>
     public sealed class SchematicLayout
     {
-        public SchematicLayout(Vec2 size, IReadOnlyList<NetLayout> nets, IReadOnlyList<PartLayout> parts, IReadOnlyList<PortLayout> ports, IReadOnlyList<WaveRow> rows)
+        public SchematicLayout(Vec2 size, IReadOnlyList<NetLayout> nets, IReadOnlyList<PartLayout> parts, IReadOnlyList<PortLayout> ports, IReadOnlyList<WaveRow> rows,
+            string designPath = null, IReadOnlyList<string> cells = null)
         {
             Size = size;
             Nets = nets;
             Parts = parts;
             Ports = ports;
             Rows = rows;
+            DesignPath = designPath;
+            Cells = cells ?? System.Array.Empty<string>();
         }
+
+        /// <summary>
+        /// Where the drawn module's signals are in the elaborated design (<see cref="Board.CompiledProject.DesignPath"/>):
+        /// what every signal's key is relative to (<see cref="SignalIndex"/>). Null for a layout not made from a document.
+        /// </summary>
+        public string DesignPath { get; }
+
+        /// <summary>The library cells the board's gates print as, by module name: the scopes a signal list hides unless asked.</summary>
+        public IReadOnlyList<string> Cells { get; }
 
         /// <summary>The schematic's extent.</summary>
         public Vec2 Size { get; }

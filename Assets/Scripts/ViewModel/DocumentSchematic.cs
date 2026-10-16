@@ -200,7 +200,7 @@ namespace BitSorter.ViewModel
             foreach (PortPart port in ordered)
                 rows.Add(new WaveRow(Label(port), path + "." + port.Name));
 
-            return new SchematicLayout(size, nets, parts, ports, rows);
+            return new SchematicLayout(size, nets, parts, ports, rows, compiled.DesignPath, compiled.Cells);
         }
 
         /// <summary>A pin as hovering names it: <c>input a</c> for a port, <c>g1.y (NOT)</c> for a part's.</summary>

@@ -171,6 +171,7 @@ namespace BitSorter.ViewModel
                 _partOutputs[i] = Index(layout.Parts[i].Output);
 
             Aliases = SignalAliases.Of(design);
+            Signals = layout.DesignPath != null ? SignalIndex.Of(design, layout.DesignPath, layout.Cells) : null;
             _netNode = new int[layout.Nets.Count];
             for (int i = 0; i < layout.Nets.Count; i++)
                 _netNode[i] = Aliases.NodeOf(_netSignals[i]);
@@ -205,6 +206,12 @@ namespace BitSorter.ViewModel
         /// swallowed change is marked on.
         /// </summary>
         public SignalAliases Aliases { get; }
+
+        /// <summary>
+        /// Every signal a row can show, as the design is built and as a list to search
+        /// (<see cref="SignalIndex"/>); null for a layout that does not say where the design is.
+        /// </summary>
+        public SignalIndex Signals { get; }
 
         /// <summary>
         /// Sets what the waveform's rows show: a signal each, by its index in the design (-1 for a row
