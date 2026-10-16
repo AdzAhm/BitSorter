@@ -14,6 +14,12 @@ namespace BitSorter.Sim
     /// **A signal's name is its place in the hierarchy**: <c>alu64.slice[3].s.fa.sum</c>, as Icarus
     /// writes it in a VCD, so the oracle compares the two by name.
     ///
+    /// **The hierarchy is kept as well as flattened** (Part 9b): each scope is recorded as it is made --
+    /// the top, an instance, a generate block, a named block in a process -- in
+    /// <see cref="Design.Scopes"/>, and each signal says which it was declared in, with its declared
+    /// range, its enum and its port direction, so the waveform lists and names signals from what the
+    /// source said rather than by taking their names apart.
+    ///
     /// **A port is a signal of its own, joined by a zero-delay assignment.** An input is a wire in the
     /// child driven from the parent's expression; an output drives the parent's signal from the
     /// child's port. Icarus joins them into one net instead, which takes no delta cycle; the values
@@ -59,12 +65,16 @@ namespace BitSorter.Sim
             public readonly int Lsb;
             public readonly bool Signed;
 
-            public Shape(int msb, int lsb, bool signed)
+            /// <summary>The enum, when the type is one, in place or through a typedef: what a signal of it carries.</summary>
+            public readonly EnumInfo Enum;
+
+            public Shape(int msb, int lsb, bool signed, EnumInfo @enum = null)
             {
                 Msb = msb;
                 Lsb = lsb;
                 Width = Math.Abs(msb - lsb) + 1;
                 Signed = signed;
+                Enum = @enum;
             }
         }
 
@@ -74,7 +84,12 @@ namespace BitSorter.Sim
             private readonly DiagnosticBag _diagnostics = new DiagnosticBag();
             private readonly Dictionary<string, ModuleDeclaration> _modules = new Dictionary<string, ModuleDeclaration>(StringComparer.Ordinal);
             private readonly HashSet<string> _active = new HashSet<string>(StringComparer.Ordinal);
-            private readonly HashSet<(Scope, EnumType)> _enumsDeclared = new HashSet<(Scope, EnumType)>();
+            /// <summary>
+            /// Every enum whose members are declared, by the scope they are declared in, with what a signal
+            /// of it carries: one type may be met twice in a scope (a non-ANSI port's, given again), and
+            /// both uses are the same enum. Null where a member's value could not be worked out.
+            /// </summary>
+            private readonly Dictionary<(Scope, EnumType), EnumInfo> _enumsDeclared = new Dictionary<(Scope, EnumType), EnumInfo>();
             private NetlistBuilder _builder;
             private Scope _unit;
             private int _instances;
@@ -122,7 +137,7 @@ namespace BitSorter.Sim
                     DeclareUnitItems();
 
                     _builder = new NetlistBuilder(root.Name);
-                    Scope scope = ElaborateModule(root, root.Name, new Dictionary<string, Expression>(), null, root.Location, isTop: true, depth: 0);
+                    Scope scope = ElaborateModule(root, root.Name, new Dictionary<string, Expression>(), null, root.Location, isTop: true, depth: 0, within: null);
 
                     // Last, so every continuous driver is in when the builder checks what each writes.
                     foreach (ProcessInfo process in _allProcesses)
@@ -291,12 +306,18 @@ namespace BitSorter.Sim
             }
 
             /// <summary>
-            /// One instance of <paramref name="module"/> at <paramref name="path"/>: its parameters
-            /// (with <paramref name="overrides"/>, worked out in <paramref name="overrideScope"/>), its
-            /// signals, and everything inside. The instance's scope, or null when it could not be made.
+            /// One instance of <paramref name="module"/> at <paramref name="path"/>, made in
+            /// <paramref name="within"/> (null for the top): its parameters (with
+            /// <paramref name="overrides"/>, worked out in <paramref name="overrideScope"/>), its signals,
+            /// and everything inside. The instance's scope, or null when it could not be made.
             /// </summary>
+            /// <remarks>
+            /// <paramref name="within"/> is its parent in the hierarchy, which a scope's own parent is not:
+            /// names inside a module are never looked up in the instance around it, so an instance's scope
+            /// leads up to the compilation unit instead.
+            /// </remarks>
             private Scope ElaborateModule(ModuleDeclaration module, string path, Dictionary<string, Expression> overrides,
-                Scope overrideScope, SourceLocation at, bool isTop, int depth)
+                Scope overrideScope, SourceLocation at, bool isTop, int depth, Scope within)
             {
                 if (_stopped)
                     return null;
@@ -332,6 +353,9 @@ namespace BitSorter.Sim
                     var scope = new Scope(path, _unit, module);
                     if (isTop)
                         _unit.Top = scope;
+
+                    // Recorded before anything inside it, so every scope comes after its parent.
+                    scope.Index = _builder.Scope(path, module.Name, isTop ? ScopeKind.Top : ScopeKind.Instance, isTop ? -1 : within.Recorded);
 
                     // Header parameters first, in order: each may use the ones before it.
                     var used = new HashSet<string>(StringComparer.Ordinal);
@@ -539,18 +563,20 @@ namespace BitSorter.Sim
 
             private void DeclareTypedef(Scope scope, TypedefDeclaration t)
             {
-                if (!TryShape(t.Type, scope, out Shape shape))
+                if (!TryShape(t.Type, scope, out Shape shape, t.Name))
                     return;
 
-                if (!scope.TryDeclare(t.Name, new TypeEntry { Width = shape.Width, Signed = shape.Signed, Msb = shape.Msb, Lsb = shape.Lsb, Declared = t.Location }))
+                if (!scope.TryDeclare(t.Name, new TypeEntry { Width = shape.Width, Signed = shape.Signed, Msb = shape.Msb, Lsb = shape.Lsb, Enum = shape.Enum, Declared = t.Location }))
                     Error(t.Location, ElaborationCodes.Duplicate, $"{t.Name} is declared twice here.");
             }
 
             /// <summary>
             /// The width, range and signedness a type gives: <c>logic [7:0]</c>, <c>int</c>, a typedef's
-            /// name, an enum (whose names it declares as constants in <paramref name="scope"/>).
+            /// name, an enum (whose names it declares as constants in <paramref name="scope"/>, and which
+            /// the shape carries). <paramref name="typedefName"/> is the name a typedef gives the type, which
+            /// an enum declared by it is known by.
             /// </summary>
-            private bool TryShape(DataType type, Scope scope, out Shape shape)
+            private bool TryShape(DataType type, Scope scope, out Shape shape, string typedefName = null)
             {
                 shape = new Shape(0, 0, false);
 
@@ -558,7 +584,7 @@ namespace BitSorter.Sim
                     return true;
 
                 if (type.Enum != null)
-                    return TryEnum(type.Enum, scope, out shape);
+                    return TryEnum(type.Enum, scope, typedefName, out shape);
 
                 bool signed = type.Signed;
                 int baseWidth = 1;
@@ -578,7 +604,7 @@ namespace BitSorter.Sim
                         return false;
                     }
 
-                    shape = new Shape(named.Msb, named.Lsb, type.Unsigned ? false : named.Signed || type.Signed);
+                    shape = new Shape(named.Msb, named.Lsb, type.Unsigned ? false : named.Signed || type.Signed, named.Enum);
                     return true;
                 }
 
@@ -660,18 +686,32 @@ namespace BitSorter.Sim
                 return true;
             }
 
-            private bool TryEnum(EnumType e, Scope scope, out Shape shape)
+            /// <summary>
+            /// An enum's shape -- its base type's, <c>int</c> when it names none -- with its members
+            /// declared as constants in <paramref name="scope"/>, each the one before plus one unless it is
+            /// given a value, and gathered into the <see cref="EnumInfo"/> a signal of the type carries,
+            /// known by <paramref name="typedefName"/> (null in place).
+            /// </summary>
+            private bool TryEnum(EnumType e, Scope scope, string typedefName, out Shape shape)
             {
                 shape = new Shape(31, 0, true);
 
                 if (e.BaseType != null && !TryShape(e.BaseType, scope, out shape))
                     return false;
 
-                if (!_enumsDeclared.Add((scope, e)))
+                // Met again in the same scope: the members are in already, and it is the same enum.
+                if (_enumsDeclared.TryGetValue((scope, e), out EnumInfo known))
+                {
+                    shape = new Shape(shape.Msb, shape.Lsb, shape.Signed, known);
                     return true;
+                }
+
+                // Marked before the members are worked out, so a member that fails says so once.
+                _enumsDeclared[(scope, e)] = null;
 
                 LogicVec next = LogicVec.FromInt64(0, shape.Width, shape.Signed);
                 LogicVec one = LogicVec.FromInt64(1, shape.Width, shape.Signed);
+                var members = new List<EnumMemberInfo>(e.Members.Count);
 
                 foreach (EnumMember member in e.Members)
                 {
@@ -687,9 +727,14 @@ namespace BitSorter.Sim
                     if (!scope.TryDeclare(member.Name, new ConstantEntry { Value = value, Declared = member.Location }))
                         Error(member.Location, ElaborationCodes.Duplicate, $"{member.Name} is declared twice here.");
 
+                    members.Add(new EnumMemberInfo(member.Name, value));
                     next = LogicVec.Add(value, one);
                 }
 
+                // The base type's own enum, if it named one, is not this one: the shape carries only this.
+                var info = new EnumInfo(typedefName, shape.Width, members);
+                _enumsDeclared[(scope, e)] = info;
+                shape = new Shape(shape.Msb, shape.Lsb, shape.Signed, info);
                 return true;
             }
 
@@ -711,10 +756,9 @@ namespace BitSorter.Sim
 
                 try
                 {
-                    id = kind == SignalKind.Net ? _builder.Net(fullName, shape.Width, shape.Signed)
-                        : local ? _builder.Local(fullName, shape.Width, shape.Signed, initial)
-                        : initial.HasValue ? _builder.Variable(fullName, shape.Width, shape.Signed, initial.Value)
-                        : _builder.Variable(fullName, shape.Width, shape.Signed);
+                    // Everything the declaration said goes with it, for a waveform to list and name it by.
+                    id = _builder.Declare(fullName, shape.Width, kind, shape.Signed, local, initial,
+                        shape.Msb, shape.Lsb, shape.Enum, port, scope.Recorded);
                 }
                 catch (ArgumentException ex)
                 {
@@ -931,7 +975,7 @@ namespace BitSorter.Sim
                 MemoryInfo memory;
                 try
                 {
-                    memory = _builder.Memory(fullName, shape.Width, shape.Signed, (int)left, (int)right);
+                    memory = _builder.Memory(fullName, shape.Width, shape.Signed, (int)left, (int)right, shape.Msb, shape.Lsb, shape.Enum, scope.Recorded);
                 }
                 catch (ArgumentException ex)
                 {
@@ -1367,7 +1411,7 @@ namespace BitSorter.Sim
                         continue;
                     }
 
-                    Scope child = ElaborateModule(module, path, overrides, scope, instance.Location, isTop: false, depth: depth + 1);
+                    Scope child = ElaborateModule(module, path, overrides, scope, instance.Location, isTop: false, depth: depth + 1, within: scope);
                     if (child == null)
                         continue;
 
@@ -1542,6 +1586,7 @@ namespace BitSorter.Sim
                 }
 
                 var inner = new Scope(scope.Path + "." + name, scope, scope.Module);
+                inner.Index = _builder.Scope(inner.Path, null, ScopeKind.Generate, scope.Recorded);
                 entry.Scope = inner;
                 if (genvar != null)
                     inner.Set(genvar, new GenvarEntry { Value = genvarValue, Declared = block.Location });

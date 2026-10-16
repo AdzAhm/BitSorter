@@ -57,12 +57,18 @@ namespace BitSorter.Sim
         public int Msb, Lsb;
     }
 
-    /// <summary>A typedef's type: its width, signedness and range.</summary>
+    /// <summary>A typedef's type: its width, signedness and range, and its enum when it is one.</summary>
     internal sealed class TypeEntry : Entry
     {
         public int Width;
         public bool Signed;
         public int Msb, Lsb;
+
+        /// <summary>
+        /// The enum, for <c>typedef enum logic [1:0] {IDLE, RUN} state_t;</c>: carried here so a signal
+        /// declared <c>state_t s;</c> gets it, as one declared with the enum in place does. Null otherwise.
+        /// </summary>
+        public EnumInfo Enum;
     }
 
     /// <summary>
@@ -91,6 +97,29 @@ namespace BitSorter.Sim
 
         /// <summary>How many generate constructs this scope has met, for naming unnamed ones genblk1, genblk2...</summary>
         public int GenerateConstructs;
+
+        /// <summary>
+        /// Its index in <see cref="Design.Scopes"/>, when it is a scope of the hierarchy: a module's
+        /// instance, a generate block, a named block in a process. -1 for one that only gathers names --
+        /// a <c>for</c> loop's, an unnamed <c>begin</c> with declarations, a generate loop's genvar -- whose
+        /// path is its parent's, and for the compilation unit.
+        /// </summary>
+        public int Index = -1;
+
+        /// <summary>
+        /// The scope of the hierarchy what is declared here belongs to: this one, or the nearest around it
+        /// that is one. Its index in <see cref="Design.Scopes"/>, or -1 in the compilation unit.
+        /// </summary>
+        public int Recorded
+        {
+            get
+            {
+                for (Scope s = this; s != null; s = s.Parent)
+                    if (s.Index >= 0)
+                        return s.Index;
+                return -1;
+            }
+        }
 
         /// <summary>On the outermost scope: where <c>$time</c> comes from, and the top module's scope, which a full hierarchical name starts at.</summary>
         public Func<Expr> TimeSource;

@@ -333,13 +333,19 @@ namespace BitSorter.Sim
 
                 if (b.Label != null || b.Declarations.Count > 0)
                 {
-                    if (b.Label != null && !scope.TryDeclare(b.Label, new InstanceEntry { Declared = b.Location }))
+                    bool named = b.Label != null;
+                    if (named && !scope.TryDeclare(b.Label, new InstanceEntry { Declared = b.Location }))
                     {
                         Error(b.Location, ElaborationCodes.Duplicate, $"{b.Label} is the name of something else here already.");
                         p.Failed = true;
+                        named = false;
                     }
 
                     inner = new Scope(b.Label != null ? scope.Path + "." + b.Label : scope.Path, scope, scope.Module);
+
+                    // A named block is a scope of the hierarchy: what it declares is recorded under its name.
+                    if (named)
+                        inner.Index = _builder.Scope(inner.Path, null, ScopeKind.Block, scope.Recorded);
 
                     foreach (ModuleItem declaration in b.Declarations)
                         DeclareInBlock(p, inner, declaration, recorded: b.Label != null);

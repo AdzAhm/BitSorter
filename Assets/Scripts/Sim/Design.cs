@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using BitSorter.SystemVerilog;
+using BitSorter.SystemVerilog.Syntax;
 
 namespace BitSorter.Sim
 {
@@ -35,10 +36,20 @@ namespace BitSorter.Sim
         Variable,
     }
 
-    /// <summary>One signal: its hierarchical name, width, kind and signedness.</summary>
+    /// <summary>
+    /// One signal: its hierarchical name, width, kind and signedness -- and what its declaration said,
+    /// which a waveform needs to list it and write its values: the range, the enum, whether it is a
+    /// port, and the scope it was declared in.
+    /// </summary>
+    /// <remarks>
+    /// A circuit built in code (<see cref="NetlistBuilder"/>'s public methods) declares nothing beyond its
+    /// width, so its signals read as <c>[Width-1:0]</c>, with no enum, no port and no scope. The
+    /// elaborator fills them all in from the source.
+    /// </remarks>
     public sealed class SignalInfo
     {
-        internal SignalInfo(string name, int width, SignalKind kind, bool signed, bool local = false, LogicVec? initial = null, MemoryInfo memory = null)
+        internal SignalInfo(string name, int width, SignalKind kind, bool signed, bool local = false, LogicVec? initial = null, MemoryInfo memory = null,
+            int? msb = null, int? lsb = null, EnumInfo @enum = null, PortDirection? port = null, int scope = -1)
         {
             Name = name;
             Width = width;
@@ -47,6 +58,11 @@ namespace BitSorter.Sim
             Local = local;
             Initial = initial;
             Memory = memory;
+            Msb = msb ?? width - 1;
+            Lsb = lsb ?? 0;
+            Enum = @enum;
+            Port = port;
+            Scope = scope;
         }
 
         /// <summary>Its full name, dot-separated through the hierarchy: <c>uut.sum</c>.</summary>
@@ -55,6 +71,39 @@ namespace BitSorter.Sim
         public int Width { get; }
         public SignalKind Kind { get; }
         public bool Signed { get; }
+
+        /// <summary>
+        /// The range it was declared with, <c>[Msb:Lsb]</c>, as written: <c>[7:0]</c> is 7 and 0, <c>[0:7]</c>
+        /// is 0 and 7, a scalar 0 and 0, an <c>int</c> 31 and 0. Always <see cref="Width"/> bits apart, end
+        /// to end. The value itself does not know the range: its bit 0 is the bit <see cref="Lsb"/> names,
+        /// whichever way the range runs. This is what a waveform labels a bus with, and what <c>s[3]</c>
+        /// in the source is counted against.
+        /// </summary>
+        public int Msb { get; }
+
+        /// <inheritdoc cref="Msb"/>
+        public int Lsb { get; }
+
+        /// <summary>
+        /// The enum it was declared with -- <c>state_t s;</c> through a typedef, or <c>enum {A, B} s;</c> in
+        /// place -- or null for any other type. A memory of an enum type gives it to every word.
+        /// </summary>
+        public EnumInfo Enum { get; }
+
+        /// <summary>
+        /// Its direction when it is a port of the module it is declared in -- <c>dut.a</c> of an instance,
+        /// or the top's own -- and null for anything else, including the parent's signal a port is
+        /// connected to: that is the parent's, and a port is a signal of its own (see <see cref="Elaborator"/>).
+        /// </summary>
+        public PortDirection? Port { get; }
+
+        /// <summary>
+        /// The scope it was declared in, an index into <see cref="Design.Scopes"/>; its name is that
+        /// scope's <see cref="ScopeInfo.Path"/>, a dot, and its own. -1 for a signal no scope of the
+        /// source declares: <c>$time</c>, the engine's own working variables, and every signal of a
+        /// circuit built in code.
+        /// </summary>
+        public int Scope { get; }
 
         /// <summary>
         /// A process's own working variable -- a <c>for</c> loop's <c>int i</c>, a <c>repeat</c>'s count
@@ -117,6 +166,78 @@ namespace BitSorter.Sim
         }
 
         public override string ToString() => $"{Name} [{Left}:{Right}] of {Width} bits";
+    }
+
+    /// <summary>What made a scope of the hierarchy.</summary>
+    public enum ScopeKind
+    {
+        /// <summary>The top module: the testbench, or the design itself when it is simulated alone.</summary>
+        Top,
+
+        /// <summary>An instance of a module: <c>dut</c>, <c>dut.h1</c>.</summary>
+        Instance,
+
+        /// <summary>
+        /// A generate block, named or not: <c>slice[3]</c> for each pass of a loop, <c>genblk1</c> for an
+        /// unnamed one, the block an <c>if</c> chose -- named as Icarus names them.
+        /// </summary>
+        Generate,
+
+        /// <summary>
+        /// A named block in a process, <c>begin : check ... end</c>. What it declares is recorded under its
+        /// name, as a generate block's is, so it is a scope as well (IEEE 1800, 9.3.4).
+        /// </summary>
+        Block,
+    }
+
+    /// <summary>
+    /// One scope of the elaborated hierarchy -- the top, an instance, a generate block, a named block --
+    /// so a waveform can list the signals as the design is built, not as one long list of dotted names.
+    /// </summary>
+    /// <remarks>
+    /// **Its path is exactly its signals' prefix.** A signal declared in it is named <see cref="Path"/>, a
+    /// dot, and its own name, and <see cref="SignalInfo.Scope"/> says which scope that is, so nothing
+    /// has to split names on dots to find it -- a name that splits wrongly would be found in the wrong
+    /// place, and a generate block's <c>slice[3]</c> is one level, not two.
+    ///
+    /// **Every scope comes after its parent** in <see cref="Design.Scopes"/>, the top first: they are
+    /// recorded as the elaboration makes them, and a scope is made inside its parent's elaboration. So
+    /// the tree can be built in one pass, parents first. A scope may hold no signals at all -- a
+    /// generate block holding only an instance, say -- and is still one, since the instance's path runs
+    /// through it.
+    /// </remarks>
+    public sealed class ScopeInfo
+    {
+        internal ScopeInfo(string path, string name, string module, ScopeKind kind, int parent)
+        {
+            Path = path;
+            Name = name;
+            Module = module;
+            Kind = kind;
+            Parent = parent;
+        }
+
+        /// <summary>Its full, dot-separated path: <c>full_adder_tb.dut.h1</c>, <c>alu64.slice[3]</c>.</summary>
+        public string Path { get; }
+
+        /// <summary>
+        /// Its own part of <see cref="Path"/>, after its parent's: <c>h1</c>, <c>slice[3]</c>; the whole
+        /// path for the top. What a tree of scopes labels it with.
+        /// </summary>
+        public string Name { get; }
+
+        /// <summary>
+        /// The module it is an instance of, for <see cref="ScopeKind.Top"/> and <see cref="ScopeKind.Instance"/>;
+        /// null for a generate block or a named block, which belong to their module's instance.
+        /// </summary>
+        public string Module { get; }
+
+        public ScopeKind Kind { get; }
+
+        /// <summary>The scope it is inside, an index into <see cref="Design.Scopes"/> and always below its own; -1 for the top.</summary>
+        public int Parent { get; }
+
+        public override string ToString() => Module != null ? $"{Kind} {Path} ({Module})" : $"{Kind} {Path}";
     }
 
     /// <summary>Something that drives a signal continuously: a gate primitive or a continuous assignment.</summary>
@@ -223,7 +344,7 @@ namespace BitSorter.Sim
         private readonly Dictionary<string, SignalId> _byName;
 
         internal Design(string name, List<SignalInfo> signals, List<DriverInfo> drivers, List<ProcessInfo> processes,
-            List<MemoryInfo> memories, SignalId? time)
+            List<MemoryInfo> memories, SignalId? time, List<ScopeInfo> scopes = null)
         {
             Name = name;
             Signals = signals.ToArray();
@@ -231,6 +352,7 @@ namespace BitSorter.Sim
             Processes = processes.ToArray();
             Memories = memories.ToArray();
             Time = time;
+            Scopes = scopes != null ? scopes.ToArray() : Array.Empty<ScopeInfo>();
 
             _byName = new Dictionary<string, SignalId>(StringComparer.Ordinal);
             for (int i = 0; i < Signals.Count; i++)
@@ -248,6 +370,13 @@ namespace BitSorter.Sim
         public IReadOnlyList<ProcessInfo> Processes { get; }
 
         public IReadOnlyList<MemoryInfo> Memories { get; }
+
+        /// <summary>
+        /// Every scope the elaboration made -- the top, each instance, each generate block, each named
+        /// block in a process -- the top first and every scope after its parent (see <see cref="ScopeInfo"/>).
+        /// Empty for a circuit built in code, which has a name for its top and nothing else.
+        /// </summary>
+        public IReadOnlyList<ScopeInfo> Scopes { get; }
 
         /// <summary>
         /// The signal <c>$time</c> reads, if the design reads it: the engine sets it as time moves, with
@@ -294,6 +423,7 @@ namespace BitSorter.Sim
         private readonly Dictionary<int, bool[]> _drivenBits = new Dictionary<int, bool[]>();
         private readonly List<ProcessInfo> _processes = new List<ProcessInfo>();
         private readonly List<MemoryInfo> _memories = new List<MemoryInfo>();
+        private readonly List<ScopeInfo> _scopes = new List<ScopeInfo>();
         private SignalId? _time;
 
         /// <summary>The variables a process writes, and which: none of them may also be driven continuously.</summary>
@@ -325,7 +455,14 @@ namespace BitSorter.Sim
         /// A memory: <c>logic [width-1:0] name [left:right]</c>, one variable a word. Every word starts at x
         /// until something writes it -- a process, or <c>$readmemh</c>.
         /// </summary>
-        public MemoryInfo Memory(string name, int width, bool signed, int left, int right)
+        public MemoryInfo Memory(string name, int width, bool signed, int left, int right) =>
+            Memory(name, width, signed, left, right, width - 1, 0, null, -1);
+
+        /// <summary>
+        /// A memory as the elaborator declares it: each word with the range and enum its type gives,
+        /// <c>state_t trail [0:3]</c>, in the scope it is declared in.
+        /// </summary>
+        internal MemoryInfo Memory(string name, int width, bool signed, int left, int right, int msb, int lsb, EnumInfo @enum, int scope)
         {
             if (Math.Abs((long)left - right) + 1 > MaxMemoryWords)
                 throw new ArgumentOutOfRangeException(nameof(right), $"{name} would have more than {MaxMemoryWords} words.");
@@ -334,7 +471,7 @@ namespace BitSorter.Sim
             SignalId first = default;
             for (int i = memory.Lowest; i <= memory.Highest; i++)
             {
-                SignalId word = Add($"{name}[{i}]", width, SignalKind.Variable, signed, memory: memory);
+                SignalId word = Add($"{name}[{i}]", width, SignalKind.Variable, signed, memory: memory, msb: msb, lsb: lsb, @enum: @enum, scope: scope);
                 if (i == memory.Lowest)
                     first = word;
             }
@@ -358,6 +495,57 @@ namespace BitSorter.Sim
         /// <summary>A process's own working variable: not recorded, not in a VCD (see <see cref="SignalInfo.Local"/>).</summary>
         public SignalId Local(string name, int width = 1, bool signed = false, LogicVec? initial = null) =>
             Add(name, width, SignalKind.Variable, signed, local: true, initial);
+
+        /// <summary>
+        /// A signal as the elaborator declares it, with everything its declaration said: what
+        /// <see cref="Net"/>, <see cref="Variable(string, int, bool)"/> and <see cref="Local"/> make, and
+        /// its range, enum, port direction and scope besides. A wire takes neither a starting value nor
+        /// <paramref name="local"/>, as <see cref="Net"/> takes neither.
+        /// </summary>
+        internal SignalId Declare(string name, int width, SignalKind kind, bool signed, bool local, LogicVec? initial,
+            int msb, int lsb, EnumInfo @enum, PortDirection? port, int scope)
+        {
+            bool net = kind == SignalKind.Net;
+            if (!net && !local && initial.HasValue && initial.Value.IsEmpty)
+                throw new ArgumentException("A starting value needs a value.", nameof(initial));
+
+            return Add(name, width, kind, signed, local: !net && local, initial: net ? null : initial, memory: null,
+                msb: msb, lsb: lsb, @enum: @enum, port: port, scope: scope);
+        }
+
+        /// <summary>
+        /// A scope of the hierarchy, at <paramref name="path"/> inside <paramref name="parent"/> (an index
+        /// into the scopes made so far, -1 for the top): the elaborator records one as it makes each, so
+        /// every scope comes after its parent. The first is the top and the only one without a parent,
+        /// and a child's path is its parent's, a dot, and its own name. Its index, for
+        /// <see cref="SignalInfo.Scope"/> and the scopes inside it.
+        /// </summary>
+        internal int Scope(string path, string module, ScopeKind kind, int parent)
+        {
+            if (string.IsNullOrEmpty(path))
+                throw new ArgumentException("A scope needs a path.", nameof(path));
+
+            string name;
+            if (_scopes.Count == 0)
+            {
+                if (parent != -1 || kind != ScopeKind.Top)
+                    throw new ArgumentException($"The first scope is the top, and {path} is not.", nameof(kind));
+                name = path;
+            }
+            else
+            {
+                if (parent < 0 || parent >= _scopes.Count || kind == ScopeKind.Top)
+                    throw new ArgumentOutOfRangeException(nameof(parent), parent, $"{path} needs a parent among the {_scopes.Count} scopes made so far, and only the first is the top.");
+
+                string prefix = _scopes[parent].Path + ".";
+                if (!path.StartsWith(prefix, StringComparison.Ordinal) || path.Length == prefix.Length)
+                    throw new ArgumentException($"{path} is not inside {_scopes[parent].Path}.", nameof(path));
+                name = path.Substring(prefix.Length);
+            }
+
+            _scopes.Add(new ScopeInfo(path, name, module, kind, parent));
+            return _scopes.Count - 1;
+        }
 
         /// <summary>
         /// A process. Every signal it writes must be a variable that nothing drives continuously: a
@@ -460,9 +648,10 @@ namespace BitSorter.Sim
         /// <summary>An expression reading a signal of this design, at its own width.</summary>
         public Expr Read(SignalId signal) => Expr.Read(signal, _signals[signal.Index].Width);
 
-        public Design Build() => new Design(_name, _signals, _drivers, _processes, _memories, _time);
+        public Design Build() => new Design(_name, _signals, _drivers, _processes, _memories, _time, _scopes);
 
-        private SignalId Add(string name, int width, SignalKind kind, bool signed, bool local = false, LogicVec? initial = null, MemoryInfo memory = null)
+        private SignalId Add(string name, int width, SignalKind kind, bool signed, bool local = false, LogicVec? initial = null, MemoryInfo memory = null,
+            int? msb = null, int? lsb = null, EnumInfo @enum = null, PortDirection? port = null, int scope = -1)
         {
             if (string.IsNullOrEmpty(name))
                 throw new ArgumentException("A signal needs a name.", nameof(name));
@@ -470,8 +659,12 @@ namespace BitSorter.Sim
                 throw new ArgumentException($"There is already a signal called '{name}'.", nameof(name));
             if (width < 1 || width > LogicVec.MaxWidth)
                 throw new ArgumentOutOfRangeException(nameof(width), width, $"A signal's width must be from 1 to {LogicVec.MaxWidth}.");
+            if ((msb.HasValue || lsb.HasValue) && Math.Abs((long)(msb ?? 0) - (lsb ?? 0)) + 1 != width)
+                throw new ArgumentOutOfRangeException(nameof(msb), $"[{msb}:{lsb}] is not {width} bits, the width given for {name}.");
+            if (scope < -1 || scope >= _scopes.Count)
+                throw new ArgumentOutOfRangeException(nameof(scope), scope, $"There are {_scopes.Count} scopes for {name} to be declared in.");
 
-            _signals.Add(new SignalInfo(name, width, kind, signed, local, initial, memory));
+            _signals.Add(new SignalInfo(name, width, kind, signed, local, initial, memory, msb, lsb, @enum, port, scope));
             return new SignalId(_signals.Count - 1);
         }
 
