@@ -407,6 +407,23 @@ namespace BitSorter.PlayMode.Tests
             yield return Click(WorkbenchPanel.ReplayButton);
             Assert.IsTrue(wave.Following, "a replay should follow the playhead again");
             Assert.IsTrue(wave.Shows(workbench.Time), "with the playhead in view");
+
+            // PLAY at the end of the run plays it again from the start, and is a replay as much as
+            // REPLAY is: moved away from the playhead, the view follows it again.
+            workbench.Seek(0.0);
+            for (int i = 0; i < 200 && workbench.TakeWaveWheel(workbench.WaveScreenPointOf(wave.Start + wave.Shown * 0.5), new Vector2(0f, -120f), true); i++)
+            {
+            }
+
+            workbench.Pause();
+            workbench.Seek(workbench.Model.End);
+            Assert.IsFalse(wave.Shows(0.0), "sanity: moved on to the end, the start is out of view");
+            Assert.IsFalse(wave.Following, "sanity: and the view is not following the playhead");
+            yield return Click(WorkbenchPanel.PlayButton);
+            Assert.IsTrue(workbench.Playing, "sanity: PLAY at the end plays");
+            Assert.Less(workbench.Time, 1.0, "sanity: from the start");
+            Assert.IsTrue(wave.Following, "PLAY from the end should follow the playhead again, as REPLAY does");
+            Assert.IsTrue(wave.Shows(workbench.Time), "with the playhead in view");
         }
 
         private static bool Captioned(string button, string caption) =>
