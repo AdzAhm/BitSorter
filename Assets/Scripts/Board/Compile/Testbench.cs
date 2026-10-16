@@ -109,7 +109,7 @@ namespace BitSorter.Board
             }
 
             Statement stop = new CallStatement { Name = "$stop" };
-            long end = Math.Max(stimulus.End, now);
+            long end = stimulus.StopTime;   // Math.Max(End, now): the last step is the latest of them all
             body.Statements.Add(end > now ? After(end - now, stop) : stop);
             return body;
         }

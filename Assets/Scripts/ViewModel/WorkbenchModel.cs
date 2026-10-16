@@ -174,7 +174,7 @@ namespace BitSorter.ViewModel
         }
 
         /// <summary>
-        /// A document compiled, elaborated, run to the end of its stimulus and laid out: what the
+        /// A document compiled, elaborated, run to where its testbench stops and laid out: what the
         /// workbench shows of it. Throws when the document does not compile; the workbench only opens
         /// one that does.
         /// </summary>
@@ -188,7 +188,7 @@ namespace BitSorter.ViewModel
             if (elaboration.HasErrors)
                 throw new InvalidOperationException("The document does not elaborate: " + string.Join("; ", elaboration.Diagnostics));
 
-            long end = project.Stimulus?.End ?? 100;
+            long end = project.Stimulus?.StopTime ?? 100;   // the end, or a step after it: where the testbench stops
             var session = new SimSession(elaboration.Design, null);
             session.RunTo(end);
             return new WorkbenchModel(session, DocumentSchematic.Build(project, compiled), end);

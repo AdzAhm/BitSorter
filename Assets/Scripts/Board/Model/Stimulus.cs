@@ -45,7 +45,26 @@ namespace BitSorter.Board
         public IReadOnlyList<Track> Tracks { get; init; } = Array.Empty<Track>();
         public IReadOnlyList<ClockTrack> Clocks { get; init; } = Array.Empty<ClockTrack>();
 
-        /// <summary>When the run stops.</summary>
+        /// <summary>When the run is meant to stop: the testbench stops here, or at its last step if that is later (<see cref="StopTime"/>).</summary>
         public long End { get; init; } = 100;
+
+        /// <summary>
+        /// When the testbench calls <c>$stop</c>: at <see cref="End"/>, or at the last step of any track
+        /// if one comes later -- <c>BoardRules</c> allows a step after the end, and the testbench plays
+        /// it rather than cutting it off. The workbench runs to here, so what it shows and what the
+        /// printed testbench does are the same run.
+        /// </summary>
+        public long StopTime
+        {
+            get
+            {
+                long stop = End;
+                foreach (Track track in Tracks)
+                    foreach (Step step in track.Steps)
+                        if (step.Time > stop)
+                            stop = step.Time;
+                return stop;
+            }
+        }
     }
 }

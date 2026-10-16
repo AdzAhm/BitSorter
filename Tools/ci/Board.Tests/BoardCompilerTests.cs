@@ -89,6 +89,25 @@ namespace BitSorter.Board.Tests
             StringAssert.Contains("#10 $stop;", text);
         }
 
+        /// <summary>
+        /// A step after the stimulus's end is played, and the testbench stops on it: the run is made to
+        /// <see cref="Stimulus.StopTime"/>, which the workbench reads too, so what it shows and what
+        /// the printed testbench does are the same run (Part 9b).
+        /// </summary>
+        [Test]
+        public void AStepAfterTheEnd_IsPlayed_AndTheTestbenchStopsOnIt()
+        {
+            var stimulus = new Stimulus
+            {
+                Tracks = new[] { new Track { Port = "a", Steps = new[] { new Step(5, LogicVec.FromUInt64(1, 1)), new Step(40, LogicVec.FromUInt64(0, 1)) } } },
+                End = 30,
+            };
+
+            Assert.AreEqual(40, stimulus.StopTime, "the last step is later than the end");
+            Assert.AreEqual(30, (stimulus with { Tracks = new[] { stimulus.Tracks[0] with { Steps = new[] { stimulus.Tracks[0].Steps[0] } } } }).StopTime,
+                "without one, it is the end");
+        }
+
         [Test]
         public void TheDesignPath_IsTheDesignUnderItsTestbench_OrTheTopModuleWithoutOne()
         {
