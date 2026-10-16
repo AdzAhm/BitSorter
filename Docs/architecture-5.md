@@ -409,6 +409,22 @@ VCD           written for export, read for the oracle comparison
   about a thousand events, as many as fit in 8 ms of the frame, which can overshoot by one chunk -- a
   millisecond or two -- and never by a slow machine's whole frame.
 
+  **Built in Part 9b-1** (`ViewModel/RunSlicer`, `RunSession`), with three rules found on the way:
+  - **The clock is handed in**, so a test drives it; the view passes real time.
+  - **The horizon is always finite.** `RunTo(long.MaxValue, budget)` never returns on a design whose events
+    run out without a `$finish`: with nothing queued the next event is at `long.MaxValue`, never past the
+    time asked for, and each step runs nothing, so no budget is spent. The workbench runs to where the
+    testbench stops, `Stimulus.StopTime`: the end, or a step after it.
+  - **The model follows the run as it is made** (`WorkbenchModel.Grow`, `SignalTrack`): a slice ends only
+    between time steps, so each signal's settled changes can be read a piece at a time and come out as
+    `History.SettledChanges` gives them. A moment past where the run has got waits for it, and a model
+    grown at slices of one event answers every moment as one made in one go (`Tools/ci/ViewModel.Tests`).
+  - **The reference circuit is made in its first slice**, inside the call that opens it, so it opens
+    exactly as before.
+  - **The waveform's rows are drawn again only when the moment passes where they were drawn to**: nothing a
+    run adds is earlier than where it had got, so redrawing them each slice cost 3 ms a frame for nothing.
+    A frame while the run is being made is 3.9 ms on the 300-wire board, inside the canvas's 6.
+
   **Memory.** The history keeps about 80 bytes an entry -- a value change, a transition or a line printed
   -- and this run keeps about 230,000, 19 MB; the page's whole managed heap after six runs was 46 MB. A
   browser build may have 2 GB, and a testbench with no `$finish` run to a far-off time would fill it and

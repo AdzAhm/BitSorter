@@ -109,9 +109,11 @@ namespace BitSorter.LogicCore.Tests
         }
 
         /// <summary>The model, and its picture in chunks on a canvas of its own.</summary>
-        private static (WorkbenchModel Model, WorkbenchLayers Layers, GameObject Canvas) Bench()
+        private static (WorkbenchModel Model, WorkbenchLayers Layers, GameObject Canvas) Bench() => Bench(WorkbenchModel.Of(Board()));
+
+        /// <inheritdoc cref="Bench()"/>
+        private static (WorkbenchModel Model, WorkbenchLayers Layers, GameObject Canvas) Bench(WorkbenchModel model)
         {
-            WorkbenchModel model = WorkbenchModel.Of(Board());
             Assert.GreaterOrEqual(model.Layout.Nets.Sum(n => n.Branches.Count), 300, "sanity: 300 wires");
 
             var canvas = new GameObject("performance canvas", typeof(Canvas));
@@ -217,6 +219,76 @@ namespace BitSorter.LogicCore.Tests
             {
                 Object.DestroyImmediate(canvas);
             }
+        }
+
+        /// <summary>
+        /// A frame while the run is still being made (Part 9b), as the panel has one: a slice of the run,
+        /// the rows cut again if they must be, and the moment moved on as playback moves it -- from the
+        /// same busy moment as the playback test above, a tenth of a nanosecond a frame. The slice has its
+        /// own 8 ms; the rest is held to the canvas's share by the best of three runs' medians, as the
+        /// playback test is, and as the rows grow no chunk outgrows a mesh.
+        /// </summary>
+        [Test]
+        public void AFrameWhileTheRunIsStillBeingMade_FitsInItsShare_AndNoChunkOutgrowsAMesh()
+        {
+            var medians = new List<double>();
+            int frames = 0;
+            double growing = 0;
+
+            for (int attempt = 0; attempt < 3; attempt++)
+            {
+                // A clock a hundred milliseconds on at every read: one chunk a slice, so the run takes many frames.
+                double now = 0;
+                RunSession run = RunSession.Open(Board(), () => now += 100.0, chunkEvents: 100);
+
+                // Made as far as the moment playback starts from, so that moment can be shown.
+                while (!run.Done && run.Model.Reached < 24)
+                    run.Frame();
+                Assert.IsFalse(run.Done, "sanity: the rest of the run is still to be made");
+
+                (WorkbenchModel model, WorkbenchLayers layers, GameObject canvas) = Bench(run.Model);
+                try
+                {
+                    Show(model, layers, 19.9, all: true);
+
+                    var times = new List<double>();
+                    var clock = new Stopwatch();
+                    double t = 20;
+                    while (!run.Done && times.Count < 5000)
+                    {
+                        run.Frame();
+
+                        clock.Restart();
+                        layers.Grew();
+                        growing += clock.Elapsed.TotalMilliseconds;
+                        model.Seek(t);
+                        layers.Refresh();
+                        Canvas.ForceUpdateCanvases();
+                        clock.Stop();
+
+                        times.Add(clock.Elapsed.TotalMilliseconds);
+                        t += 0.1;
+                        Assert.LessOrEqual(layers.MostVertices, WorkbenchGraphic.MeshLimit, $"at {model.Reached} ns a chunk outgrew a mesh");
+                    }
+
+                    Assert.IsTrue(run.Done, "the run was made");
+                    Assert.Greater(times.Count, 5, "sanity: made over many frames");
+
+                    frames += times.Count;
+                    times.Sort();
+                    medians.Add(times[times.Count / 2]);
+                }
+                finally
+                {
+                    Object.DestroyImmediate(canvas);
+                }
+            }
+
+            double median = medians.Min();
+            UnityEngine.Debug.Log($"[WorkbenchPerformance] while the run is made: median {median:0.00} ms, the best of " +
+                $"{string.Join(", ", medians.Select(m => m.ToString("0.00")))} over {frames} frames (cutting the rows again " +
+                $"{growing / frames:0.00} ms on average)");
+            Assert.LessOrEqual(median, Budget, $"a frame while the run is made took {median:0.00} ms at best, over the canvas's {Budget} ms");
         }
 
         /// <summary>

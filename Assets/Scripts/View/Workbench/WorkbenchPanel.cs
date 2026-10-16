@@ -138,6 +138,9 @@ namespace BitSorter.View
         // -----------------------------------------------------------------
 
         private WorkbenchModel _model;
+
+        /// <summary>The run being shown, made a slice a frame until it is done.</summary>
+        private RunSession _run;
         private bool _playing;
 
         private RectTransform _header;
@@ -170,7 +173,7 @@ namespace BitSorter.View
         private readonly List<TextMeshProUGUI> _digits = new List<TextMeshProUGUI>();
         private readonly List<TextMeshProUGUI> _swallowedLabels = new List<TextMeshProUGUI>();
         private TextMeshProUGUI[] _readouts;
-        private TextMeshProUGUI[][] _busLabels;
+        private List<TextMeshProUGUI>[] _busLabels;
         private readonly List<TextMeshProUGUI> _glitchLabels = new List<TextMeshProUGUI>();
 
         private readonly List<WaveSegment> _segments = new List<WaveSegment>(16);
@@ -500,10 +503,19 @@ namespace BitSorter.View
                 Hover(pointer);
             }
 
+            // The run is made a slice a frame until it is done; a moment past where it has got waits.
+            if (!_run.Done && _run.Frame())
+            {
+                _layers.Grew();
+                if (_run.Done)
+                    _settledText = SettledText();
+                Redraw();
+            }
+
             if (_playing)
             {
                 double next = _model.Time + UnityEngine.Time.deltaTime * SchematicStyle.NanosecondsPerSecond;
-                if (next >= _model.End)
+                if (next >= _model.End && _model.Complete)
                 {
                     next = _model.End;
                     _playing = false;
@@ -531,7 +543,10 @@ namespace BitSorter.View
         {
             SchematicPalette palette = SchematicPalette.Current;
 
-            _model = ReferenceCircuit.Model();
+            // Made a slice a frame, timed by real time: the reference circuit is made in its first
+            // slice, inside this call, so it opens exactly as it did when it was made in one go.
+            _run = RunSession.Open(ReferenceCircuit.Document(), () => UnityEngine.Time.realtimeSinceStartupAsDouble * 1000.0);
+            _model = _run.Model;
             MakeTexts();
 
             Image scrim = UiTheme.Scrim(RootName, _canvas.transform, palette.Ground);
@@ -796,7 +811,7 @@ namespace BitSorter.View
 
             int rows = _model.Layout.Rows.Count;
             _readouts = new TextMeshProUGUI[rows];
-            _busLabels = new TextMeshProUGUI[rows][];
+            _busLabels = new List<TextMeshProUGUI>[rows];
 
             for (int row = 0; row < rows; row++)
             {
@@ -809,16 +824,19 @@ namespace BitSorter.View
 
                 if (_model.RowIsBus(row))
                 {
-                    _busLabels[row] = new TextMeshProUGUI[_model.RowChangeCount(row)];
-                    for (int i = 0; i < _busLabels[row].Length; i++)
-                        _busLabels[row][i] = StageLabel(_waveform, "", new Vector2(0f, middle), UiType.Micro, palette.Text,
-                            TextAlignmentOptions.Center, 60f);
+                    _busLabels[row] = new List<TextMeshProUGUI>(_model.RowChangeCount(row));
+                    while (_busLabels[row].Count < _model.RowChangeCount(row))
+                        _busLabels[row].Add(BusLabel(palette, middle));
                 }
             }
 
             _playheadLabel = StageLabel(_waveform, "", new Vector2(0f, WorkbenchDrawing.WaveTop + 4f), UiType.Micro, palette.Accent,
                 TextAlignmentOptions.MidlineLeft, 80f);
         }
+
+        /// <summary>A bus segment's value, written over its box.</summary>
+        private TextMeshProUGUI BusLabel(SchematicPalette palette, float middle) =>
+            StageLabel(_waveform, "", new Vector2(0f, middle), UiType.Micro, palette.Text, TextAlignmentOptions.Center, 60f);
 
         private void MakeTexts()
         {
@@ -839,8 +857,12 @@ namespace BitSorter.View
             for (int i = 2; i < _inFlightTexts.Length; i++)
                 _inFlightTexts[i] = i.ToString(CultureInfo.InvariantCulture) + " changes in flight";
 
-            _settledText = "settled at t = " + _model.SettledAt.ToString(CultureInfo.InvariantCulture) + " ns";
+            _settledText = SettledText();
         }
+
+        /// <summary>What the chip says once nothing more happens: known once the run is made.</summary>
+        private string SettledText() =>
+            _model.Complete ? "settled at t = " + _model.SettledAt.ToString(CultureInfo.InvariantCulture) + " ns" : "";
 
         // -----------------------------------------------------------------
         // Drawing a moment
@@ -931,9 +953,13 @@ namespace BitSorter.View
                 if (bus)
                 {
                     _model.RowSegments(row, _segments);
-                    TextMeshProUGUI[] labels = _busLabels[row];
+                    List<TextMeshProUGUI> labels = _busLabels[row];
 
-                    for (int i = 0; i < labels.Length; i++)
+                    // A run still being made gains changes, and a label for each as it comes.
+                    while (labels.Count < _segments.Count)
+                        labels.Add(BusLabel(palette, middle));
+
+                    for (int i = 0; i < labels.Count; i++)
                     {
                         bool shown = i < _segments.Count && !_segments[i].Value.IsAllZ;
                         float x0 = shown ? WorkbenchDrawing.WaveX(_segments[i].From, end, WaveWidth) : 0f;

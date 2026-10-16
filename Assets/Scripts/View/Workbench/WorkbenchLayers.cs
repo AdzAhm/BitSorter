@@ -69,8 +69,11 @@ namespace BitSorter.View
         private readonly List<WorkbenchGraphic> _glitches = new List<WorkbenchGraphic>();
         private readonly List<WorkbenchGraphic> _flashes = new List<WorkbenchGraphic>();
         private WorkbenchGraphic _grid, _playhead;
-        private RectTransform _reveal;
+        private RectTransform _reveal, _timingParent;
         private Vector2 _waveSize;
+
+        /// <summary>How far the run had got when the waveform's rows were last drawn: past it, they are out of date.</summary>
+        private double _rowsDrawnTo = double.MaxValue;
 
         private int[] _changesOfNet = new int[0];
         private bool[] _hadChanges = new bool[0], _hasChanges = new bool[0], _wasFlashing = new bool[0];
@@ -148,6 +151,8 @@ namespace BitSorter.View
         public void BuildTiming(RectTransform parent, Vector2 size)
         {
             _waveSize = size;
+            _timingParent = parent;
+            _rowsDrawnTo = RowsReach;
             _grid = Create("grid", parent, WorkbenchGraphic.Layer.Grid, size, (0, 0));
 
             _reveal = UiTheme.Rect("reveal", parent);
@@ -165,6 +170,78 @@ namespace BitSorter.View
             _glitchesShown = new int[_glitches.Count];
 
             _playhead = Create("playhead", parent, WorkbenchGraphic.Layer.Playhead, size, (0, 0));
+        }
+
+        /// <summary>
+        /// The run has grown (Part 9b): the waveform's rows are cut into chunks again when what they now
+        /// hold no longer cuts the same way, and drawn again only once the moment shown passes where the
+        /// run had got when they were last drawn (<see cref="Refresh"/>).
+        /// </summary>
+        /// <remarks>
+        /// The rows are cut by their estimates when they are built, and a row's estimate grows with
+        /// its changes: left as they were cut, the chunks of a run still being made would outgrow their
+        /// meshes, and <see cref="VectorPainter.Fits"/> would draw only what fitted.
+        ///
+        /// **They are not drawn again every time the run grows**, which cost 3 ms a frame on the
+        /// performance test's board. Nothing a run adds is earlier than where it had got, the rows are
+        /// revealed only up to the moment, and the moment can never pass where the run has got -- so
+        /// what the rows show changes only once the moment moves past where they were drawn to. During
+        /// playback the run is made far faster than it is played, and that is seldom. The rest of the
+        /// picture depends only on the moment shown, not on how far the run has got.
+        /// </remarks>
+        public void Grew()
+        {
+            if (_reveal == null)
+                return;
+
+            int rows = _model.Layout.Rows.Count;
+            if (Recut(_timing, Chunks.Cut(rows, row => WorkbenchDrawing.RowVertices(_model, row), VertexBudget),
+                    "timing", _reveal, WorkbenchGraphic.Layer.Timing, redraw: false))
+                _rowsDrawnTo = RowsReach;
+
+            if (Recut(_glitches, Chunks.Cut(rows, row => WorkbenchDrawing.GlitchVertices(_model, row), VertexBudget),
+                    "glitches", _timingParent, WorkbenchGraphic.Layer.Glitches, redraw: false))
+            {
+                _glitchesShown = new int[_glitches.Count];
+                _playhead.transform.SetAsLastSibling();   // still over every glitch mark
+            }
+        }
+
+        /// <summary>How far the rows reach when drawn now: the whole run once it is made.</summary>
+        private double RowsReach => _model.Complete ? double.MaxValue : _model.Reached;
+
+        /// <summary>
+        /// Puts <paramref name="chunks"/> on <paramref name="runs"/>, made again where they are not cut
+        /// the same -- a new chunk draws itself -- and, where they are, marked for drawing again if
+        /// <paramref name="redraw"/>. True when they were made again.
+        /// </summary>
+        private bool Recut(List<WorkbenchGraphic> chunks, List<(int Start, int Count)> runs, string name, RectTransform parent,
+            WorkbenchGraphic.Layer draws, bool redraw)
+        {
+            bool same = runs.Count == chunks.Count;
+            for (int i = 0; i < runs.Count && same; i++)
+                same = runs[i].Start == chunks[i].From && runs[i].Count == chunks[i].Count;
+
+            if (same)
+            {
+                if (redraw)
+                    foreach (WorkbenchGraphic chunk in chunks)
+                        chunk.SetVerticesDirty();
+                return false;
+            }
+
+            foreach (WorkbenchGraphic chunk in chunks)
+            {
+                if (Application.isPlaying)
+                    Object.Destroy(chunk.gameObject);
+                else
+                    Object.DestroyImmediate(chunk.gameObject);
+            }
+
+            chunks.Clear();
+            foreach ((int Start, int Count) run in runs)
+                chunks.Add(Create(name, parent, draws, _waveSize, run));
+            return true;
         }
 
         /// <summary>
@@ -234,14 +311,17 @@ namespace BitSorter.View
             }
 
             // The waveform's rows and grid are drawn once and revealed up to the moment; the playhead
-            // is a line, redrawn with it.
-            if (all)
+            // is a line, redrawn with it. The rows of a run still being made are drawn again when the
+            // moment passes where the run had got when they were last drawn: see Grew.
+            if (all || _model.Time > _rowsDrawnTo)
             {
                 foreach (WorkbenchGraphic chunk in _timing)
                     chunk.SetVerticesDirty();
-                if (_grid != null)
-                    _grid.SetVerticesDirty();
+                _rowsDrawnTo = RowsReach;
             }
+
+            if (all && _grid != null)
+                _grid.SetVerticesDirty();
 
             // A row's glitch marks, as one appears or goes: drawn up to the moment, never revealed.
             for (int k = 0; k < _glitches.Count; k++)
