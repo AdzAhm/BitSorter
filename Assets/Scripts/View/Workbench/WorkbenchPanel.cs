@@ -884,13 +884,15 @@ namespace BitSorter.View
 
                 if (part.Symbol == PartSymbol.Block)
                 {
-                    // A block's ports are named inside it, beside their pins.
+                    // A block's ports are named inside it, beside their pins: an output's name ends
+                    // at its pin, so its label, given by its left edge, starts a label's width before.
+                    const float pinWidth = 60f;
                     foreach (BitSorter.Board.PinSpot pin in part.Local.Pins)
                     {
                         bool input = pin.Facing == BitSorter.Board.Facing.Left;
                         Vector2 at = part.ToStage(input ? -1.15 : 1.15, pin.At.Y).ToUnity();
-                        StageLabel(_schematic, pin.Pin, at, UiType.Micro, palette.TextDim,
-                            input ? TextAlignmentOptions.MidlineLeft : TextAlignmentOptions.MidlineRight, 60f);
+                        StageLabel(_schematic, pin.Pin, input ? at : at - new Vector2(pinWidth, 0f), UiType.Micro, palette.TextDim,
+                            input ? TextAlignmentOptions.MidlineLeft : TextAlignmentOptions.MidlineRight, pinWidth);
                     }
                 }
             }
