@@ -1,6 +1,9 @@
 using System.Collections.Generic;
 using System.Linq;
+using BitSorter.Board;
 using BitSorter.SystemVerilog;
+using BoardStimulus = BitSorter.Board.Stimulus;
+using BoardTrack = BitSorter.Board.Track;
 using NUnit.Framework;
 
 namespace BitSorter.ViewModel.Tests
@@ -191,6 +194,29 @@ namespace BitSorter.ViewModel.Tests
 
             Assert.AreEqual(3, segments.Count, "x, then 0 from 3, then 1 from 8");
             Assert.AreEqual(9.0, segments[2].To, 1e-9);
+        }
+
+        /// <summary>
+        /// A step after the stimulus's end is played: the testbench stops at its last step, so the
+        /// workbench's run goes on to it rather than cutting it off at the end.
+        /// </summary>
+        [Test]
+        public void ARunGoesOnToAStepAfterTheEnd_AsTheTestbenchDoes()
+        {
+            var editor = new BoardEditor(ReferenceCircuit.Document());
+            BoardStimulus stimulus = editor.Project.Stimulus;
+            var tracks = stimulus.Tracks.ToList();
+            int a = tracks.FindIndex(t => t.Port == "a");
+            tracks[a] = tracks[a] with { Steps = tracks[a].Steps.Concat(new[] { new Step(30, LogicVec.FromUInt64(0, 1)) }).ToArray() };
+            Assert.IsTrue(editor.SetStimulus(stimulus with { Tracks = tracks.ToArray() }).Done, "sanity: a step after the end is allowed");
+
+            WorkbenchModel model = WorkbenchModel.Of(editor.Project);
+
+            Assert.AreEqual(30, model.End, "the testbench stops at its last step, not at End (26)");
+            int row = model.Layout.Rows.ToList().FindIndex(r => r.Label == "a");
+            model.Seek(30);
+            model.RowValue(row, out string late);
+            Assert.AreEqual("0", late, "the step at 30 is shown, not cut off");
         }
 
         [Test]
