@@ -180,7 +180,9 @@ namespace BitSorter.ViewModel.Tests
             Assert.AreEqual("z", q, "the tri-state is off until its enable rises at 17");
 
             Assert.AreEqual("A", WorkbenchModel.TextOf(LogicVec.FromUInt64(0xA, 4)));
-            Assert.AreEqual("x", WorkbenchModel.TextOf(LogicVec.FromBinary("1x01")));
+            Assert.AreEqual("X", WorkbenchModel.TextOf(LogicVec.FromBinary("1x01")), "a digit partly unknown, as $display writes it");
+            Assert.AreEqual("0X", WorkbenchModel.TextOf(LogicVec.FromBinary("00001x01")), "and the known digits still say so");
+            Assert.AreEqual("x", WorkbenchModel.TextOf(LogicVec.AllX(4)));
         }
 
         [Test]

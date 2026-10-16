@@ -469,25 +469,17 @@ namespace BitSorter.ViewModel
         // -----------------------------------------------------------------
 
         /// <summary>
-        /// A value as the workbench writes it: 0, 1, x or z for one bit; a bus in hex, x if any bit
-        /// is unknown and z if all are undriven.
+        /// A value as the workbench writes it by default: 0, 1, x or z for one bit, a bus in hex
+        /// (<see cref="ValueText"/>). A hex digit is <c>x</c> or <c>z</c> when all its bits are, and
+        /// <c>X</c> or <c>Z</c> when only some are, as <c>$display</c> writes it.
         /// </summary>
-        public static string TextOf(LogicVec value)
-        {
-            if (value.Width == 1)
-            {
-                switch (value[0])
-                {
-                    case Logic4.Zero: return "0";
-                    case Logic4.One: return "1";
-                    case Logic4.Z: return "z";
-                    default: return "x";
-                }
-            }
-
-            if (value.IsAllZ) return "z";
-            return value.IsKnown ? value.Format(Radix.Hex).ToUpperInvariant() : "x";
-        }
+        /// <remarks>
+        /// A bus with any unknown bit used to read plain <c>x</c> whatever else it held (Part 9b-2a
+        /// changed that): <c>4'b1x01</c> is now <c>X</c>, and <c>8'b0000_1x01</c> is <c>0X</c>, so the
+        /// digits that are known still say so.
+        /// </remarks>
+        public static string TextOf(LogicVec value) =>
+            ValueText.Of(value, value.Width > 1 ? WaveRadix.Hex : WaveRadix.Binary);
 
         // -----------------------------------------------------------------
         // Reading the history
