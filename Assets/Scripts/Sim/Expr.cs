@@ -45,6 +45,18 @@ namespace BitSorter.Sim
         /// <summary>Adds the signals it reads -- what it is sensitive to -- to <paramref name="reads"/>.</summary>
         public abstract void CollectReads(ICollection<int> reads);
 
+        /// <summary>
+        /// Whether it is a read of one whole signal and nothing more -- <c>a</c>, never <c>~a</c>, <c>a[0]</c>
+        /// or <c>{a, b}</c> -- and of which. A port connected to a net is joined to it by a zero-delay
+        /// assignment of exactly this kind, which is how a waveform finds every name one node has, down
+        /// through the blocks (Part 9b-2b).
+        /// </summary>
+        public virtual bool TryRead(out SignalId signal)
+        {
+            signal = default;
+            return false;
+        }
+
         // -----------------------------------------------------------------
         // Building expressions
         // -----------------------------------------------------------------
@@ -165,6 +177,12 @@ namespace BitSorter.Sim
             public override int Width => _width;
             public override LogicVec Evaluate(LogicVec[] values) => values[_signal];
             public override void CollectReads(ICollection<int> reads) => reads.Add(_signal);
+
+            public override bool TryRead(out SignalId signal)
+            {
+                signal = new SignalId(_signal);
+                return true;
+            }
         }
 
         private sealed class ConstantExpr : Expr

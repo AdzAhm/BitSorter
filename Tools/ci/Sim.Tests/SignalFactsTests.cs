@@ -36,6 +36,36 @@ namespace BitSorter.Sim.Tests
         private static string Describe(ScopeInfo s) => $"{s.Path} {s.Kind} {s.Module ?? "-"} {s.Parent}";
 
         // -----------------------------------------------------------------
+        // Port joins
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// A port connected to a net is joined to it by a zero-delay assignment that reads the one whole
+        /// signal, inputs into the instance and outputs out of it; an expression does not read as one.
+        /// </summary>
+        [Test]
+        public void APortJoin_ReadsOneWholeSignal_AndAnExpressionDoesNot()
+        {
+            Design design = Clean(Ripple, "full_adder");
+
+            DriverInfo Into(string target) => design.Drivers.Single(d => design[d.Target].Name == target);
+            string Read(DriverInfo driver) =>
+                driver is AssignDriver assign && assign.Value.TryRead(out SignalId read) ? design[read].Name : null;
+
+            DriverInfo input = Into("full_adder.h2.a");
+            Assert.IsTrue(input.Delay.IsZero, "sanity: a port join takes no time");
+            Assert.AreEqual("full_adder.s1", Read(input), "h2's a is joined to the net it is connected to");
+
+            Assert.AreEqual("full_adder.h1.s", Read(Into("full_adder.s1")), "and s1 to the output of h1 that drives it");
+
+            Assert.IsNull(Read(Into("full_adder.h1.s")), "h1's own s is a ^ b, an expression, not a join");
+            Assert.IsNull(Read(Into("full_adder.cout")), "nor is c1 | c2");
+
+            Assert.IsFalse(Expr.Apply(UnaryOp.Not, Expr.Read(design.Find("full_adder.a"), 1)).TryRead(out _), "~a reads a, but is not a");
+            Assert.IsFalse(Expr.Slice(Expr.Read(design.Find("full_adder.a"), 1), 0, 1).TryRead(out _), "nor is a bit of it");
+        }
+
+        // -----------------------------------------------------------------
         // Scopes
         // -----------------------------------------------------------------
 
