@@ -271,6 +271,20 @@ namespace BitSorter.ViewModel
         }
 
         /// <summary>
+        /// The run started again, the playhead at <paramref name="playhead"/>: the view follows it again
+        /// whatever it had been moved to, and pages to it if it is out of view. True when the view moved.
+        /// </summary>
+        /// <remarks>
+        /// As 4.x's timing diagram did: a new run keeps the zoom and follows the playhead. Without it a
+        /// view panned away would stay there through a replay, with the playhead out of sight.
+        /// </remarks>
+        public bool Restart(double playhead)
+        {
+            Following = true;
+            return Follow(playhead);
+        }
+
+        /// <summary>
         /// Where <paramref name="time"/> is drawn, in pixels from the left edge: the start taken away in
         /// double first, so a moment late in a long run is placed as exactly as one at its beginning.
         /// </summary>

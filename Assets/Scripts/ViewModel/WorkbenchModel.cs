@@ -461,6 +461,12 @@ namespace BitSorter.ViewModel
             return low;
         }
 
+        /// <summary>
+        /// A row's signal's settled changes so far, each with its text: what the waveform draws a window
+        /// of (<see cref="WaveView.Spans"/>). Null for a row whose signal the design does not have.
+        /// </summary>
+        public SignalTrack RowTrack(int row) => _rowSignals[row] < 0 ? null : _tracks[_rowSignals[row]];
+
         /// <summary>The changes a row's signal makes so far: how many waveform segments it can have.</summary>
         public int RowChangeCount(int row) => _rowSignals[row] < 0 ? 0 : _tracks[_rowSignals[row]].Count;
 

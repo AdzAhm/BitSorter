@@ -49,6 +49,9 @@ namespace BitSorter.View
         /// <summary>The run and the moment it is showing.</summary>
         public WorkbenchModel Model { get; set; }
 
+        /// <summary>The time the waveform's layers show, and how it is laid across them; none for the schematic's.</summary>
+        public WaveView Wave { get; set; }
+
         /// <summary>The net the pointer is on, lit; -1 for none. The wires layer's alone.</summary>
         public int Highlighted { get; set; } = -1;
 
@@ -171,6 +174,10 @@ namespace BitSorter.View
             if (Model == null)
                 return;
 
+            bool wave = Draws == Layer.Grid || Draws == Layer.Timing || Draws == Layer.Glitches || Draws == Layer.Playhead;
+            if (wave && Wave == null)
+                return;
+
             switch (Draws)
             {
                 case Layer.Wires:
@@ -193,19 +200,19 @@ namespace BitSorter.View
                     break;
 
                 case Layer.Grid:
-                    WorkbenchDrawing.Grid(_painter, Model, palette, rectTransform.rect.width);
+                    WorkbenchDrawing.Grid(_painter, Model, Wave, palette);
                     break;
 
                 case Layer.Timing:
-                    WorkbenchDrawing.Timing(_painter, Model, palette, rectTransform.rect.width, From, Count);
+                    WorkbenchDrawing.Timing(_painter, Model, Wave, palette, From, Count);
                     break;
 
                 case Layer.Glitches:
-                    WorkbenchDrawing.Glitches(_painter, Model, palette, rectTransform.rect.width, From, Count);
+                    WorkbenchDrawing.Glitches(_painter, Model, Wave, palette, From, Count);
                     break;
 
                 case Layer.Playhead:
-                    WorkbenchDrawing.Playhead(_painter, Model, palette, rectTransform.rect.width);
+                    WorkbenchDrawing.Playhead(_painter, Model, Wave, palette);
                     break;
             }
         }

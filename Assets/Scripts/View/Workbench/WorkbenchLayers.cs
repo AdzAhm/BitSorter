@@ -26,9 +26,16 @@ namespace BitSorter.View
     /// with the rows, since a cross reaches either side of its moment. A lamp's chunk is redrawn when a
     /// lamp in it changes colour. A circuit with nothing moving redraws the playhead and nothing else.
     ///
-    /// **A pan redraws nothing, and a zoom only the schematic** (<see cref="RefreshSchematic"/>): the
-    /// edges' smoothing is a pixel wide, so a change of scale redraws what was scaled, and the waveform,
-    /// which no zoom reaches, is left as it is. Fitting the stage to the window redraws everything.
+    /// **A pan of the circuit redraws nothing, and a zoom of it only the schematic**
+    /// (<see cref="RefreshSchematic"/>): the edges' smoothing is a pixel wide, so a change of scale
+    /// redraws what was scaled, and the waveform is left as it is. Fitting the stage to the window
+    /// redraws everything.
+    ///
+    /// **The waveform has a zoom of its own, in time** (<see cref="Wave"/>, Part 9b-2a), and its rows
+    /// are drawn for the window it shows rather than for the whole run, since zoomed in a run can be
+    /// millions of pixels long. When the window moves -- a zoom, a pan, or the view paging on after the
+    /// playhead -- the rows, the grid and the glitch marks are drawn again, and nothing of the
+    /// schematic is. While it stays put, playback still redraws only the playhead.
     ///
     /// **Revealed, a bus's box runs on under the playhead** rather than closing in a point there, as it
     /// did when each row was drawn up to the moment: the box's value has not ended, so it is the truer
@@ -71,6 +78,10 @@ namespace BitSorter.View
         private WorkbenchGraphic _grid, _playhead;
         private RectTransform _reveal, _timingParent;
         private Vector2 _waveSize;
+        private WaveView _wave;
+
+        /// <summary>The window of time the waveform's rows were last drawn for: once the view shows another, they are out of date.</summary>
+        private double _drawnStart = double.NaN, _drawnPixelsPerUnit = double.NaN;
 
         /// <summary>How far the run had got when the waveform's rows were last drawn: past it, they are out of date.</summary>
         private double _rowsDrawnTo = double.MaxValue;
@@ -82,6 +93,9 @@ namespace BitSorter.View
         private int _highlighted = -1;
 
         public WorkbenchLayers(WorkbenchModel model) => _model = model;
+
+        /// <summary>The time the waveform shows (<see cref="BuildTiming"/>): what its zoom and pan move. Null until it is built.</summary>
+        public WaveView Wave => _wave;
 
         /// <summary>Every chunk, in drawing order within each layer.</summary>
         public IEnumerable<WorkbenchGraphic> All
@@ -146,13 +160,24 @@ namespace BitSorter.View
 
         /// <summary>
         /// The waveform under <paramref name="parent"/>: its grid, its rows in chunks behind a mask that
-        /// reveals them up to the moment, their glitch marks, and the playhead over them.
+        /// reveals them up to the moment, their glitch marks, and the playhead over them. They show the
+        /// time <paramref name="wave"/> does, or the whole run if none is given.
         /// </summary>
-        public void BuildTiming(RectTransform parent, Vector2 size)
+        public void BuildTiming(RectTransform parent, Vector2 size, WaveView wave = null)
         {
             _waveSize = size;
             _timingParent = parent;
             _rowsDrawnTo = RowsReach;
+
+            if (wave == null)
+            {
+                wave = new WaveView(Mathf.Max(1f, WorkbenchDrawing.AxisWidth(size.x)));
+                wave.Fit(_model.End);
+            }
+
+            _wave = wave;
+            _drawnStart = wave.Start;
+            _drawnPixelsPerUnit = wave.PixelsPerUnit;
             _grid = Create("grid", parent, WorkbenchGraphic.Layer.Grid, size, (0, 0));
 
             _reveal = UiTheme.Rect("reveal", parent);
@@ -162,7 +187,7 @@ namespace BitSorter.View
             _reveal.sizeDelta = size;
             _reveal.gameObject.AddComponent<UnityEngine.UI.RectMask2D>();
 
-            foreach ((int Start, int Count) run in Chunks.Cut(_model.Layout.Rows.Count, row => WorkbenchDrawing.RowVertices(_model, row), VertexBudget))
+            foreach ((int Start, int Count) run in Chunks.Cut(_model.Layout.Rows.Count, row => WorkbenchDrawing.RowVertices(_model, row, _wave.Width), VertexBudget))
                 _timing.Add(Create("timing", _reveal, WorkbenchGraphic.Layer.Timing, size, run));
 
             foreach ((int Start, int Count) run in Chunks.Cut(_model.Layout.Rows.Count, row => WorkbenchDrawing.GlitchVertices(_model, row), VertexBudget))
@@ -195,7 +220,7 @@ namespace BitSorter.View
                 return;
 
             int rows = _model.Layout.Rows.Count;
-            if (Recut(_timing, Chunks.Cut(rows, row => WorkbenchDrawing.RowVertices(_model, row), VertexBudget),
+            if (Recut(_timing, Chunks.Cut(rows, row => WorkbenchDrawing.RowVertices(_model, row, _wave.Width), VertexBudget),
                     "timing", _reveal, WorkbenchGraphic.Layer.Timing, redraw: false))
                 _rowsDrawnTo = RowsReach;
 
@@ -310,17 +335,25 @@ namespace BitSorter.View
                 _wasFlashing[k] = moving;
             }
 
-            // The waveform's rows and grid are drawn once and revealed up to the moment; the playhead
-            // is a line, redrawn with it. The rows of a run still being made are drawn again when the
-            // moment passes where the run had got when they were last drawn: see Grew.
-            if (all || _model.Time > _rowsDrawnTo)
+            // The waveform's rows and grid are drawn for the window of time it shows and revealed up
+            // to the moment; the playhead is a line, redrawn with it. They are drawn again when the
+            // window moves, and the rows of a run still being made when the moment passes where the
+            // run had got when they were last drawn: see Grew.
+            bool moved = _wave != null && (_wave.Start != _drawnStart || _wave.PixelsPerUnit != _drawnPixelsPerUnit);
+            if (moved)
+            {
+                _drawnStart = _wave.Start;
+                _drawnPixelsPerUnit = _wave.PixelsPerUnit;
+            }
+
+            if (all || moved || _model.Time > _rowsDrawnTo)
             {
                 foreach (WorkbenchGraphic chunk in _timing)
                     chunk.SetVerticesDirty();
                 _rowsDrawnTo = RowsReach;
             }
 
-            if (all && _grid != null)
+            if ((all || moved) && _grid != null)
                 _grid.SetVerticesDirty();
 
             // A row's glitch marks, as one appears or goes: drawn up to the moment, never revealed.
@@ -330,14 +363,14 @@ namespace BitSorter.View
                 int shown = 0, last = Mathf.Min(chunk.From + chunk.Count, layout.Rows.Count);
                 for (int row = chunk.From; row < last; row++)
                     shown += _model.RowSwallowedSoFar(row);
-                if (all || shown != _glitchesShown[k])
+                if (all || moved || shown != _glitchesShown[k])
                     chunk.SetVerticesDirty();
                 _glitchesShown[k] = shown;
             }
 
             if (_reveal != null)
             {
-                float now = WorkbenchDrawing.WaveX(_model.Time, _model.End, _waveSize.x);
+                float now = WorkbenchDrawing.WaveX(_model.Time, _wave);
                 // Up to the moment and no further: the cut is under the playhead's own line.
                 _reveal.sizeDelta = new Vector2(Mathf.Clamp(now, 0f, _waveSize.x), _waveSize.y);
                 _playhead.SetVerticesDirty();
@@ -399,6 +432,7 @@ namespace BitSorter.View
             var graphic = rect.gameObject.AddComponent<WorkbenchGraphic>();
             graphic.Draws = draws;
             graphic.Model = _model;
+            graphic.Wave = _wave;
             graphic.From = run.Start;
             graphic.Count = run.Count;
             graphic.raycastTarget = false;

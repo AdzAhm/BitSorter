@@ -543,5 +543,125 @@ namespace BitSorter.LogicCore.Tests
                 Object.DestroyImmediate(canvas);
             }
         }
+
+        /// <summary>
+        /// The waveform zoomed or moved in time draws its rows, its grid and its glitch marks again for
+        /// the window it now shows, and none of the schematic's wires or parts: a zoom of the waveform
+        /// reaches no wire. Left where it is, the next frame draws none of them again.
+        /// </summary>
+        /// <remarks>
+        /// At a moment inside the window. A moment before it has the rows masked off whole, and uGUI
+        /// leaves a graphic its mask hides wholly undrawn until it shows -- which is right, and is not
+        /// what this asks. The changes in flight and the flashing parts are not asked about: they
+        /// follow the moment, and are drawn again while anything moves whatever the waveform does.
+        /// </remarks>
+        [Test]
+        public void AMoveOfTheWaveformsWindow_RedrawsTheWaveform_AndNoneOfTheSchematic()
+        {
+            (WorkbenchModel model, WorkbenchLayers layers, GameObject canvas) = Bench();
+            try
+            {
+                const double moment = 30.0;
+                Show(model, layers, moment, all: true);
+
+                var waveform = new[] { WorkbenchGraphic.Layer.Grid, WorkbenchGraphic.Layer.Timing, WorkbenchGraphic.Layer.Glitches };
+                var schematic = new[] { WorkbenchGraphic.Layer.Wires, WorkbenchGraphic.Layer.Parts };
+
+                HashSet<WorkbenchGraphic.Layer> Redrawn()
+                {
+                    Dictionary<WorkbenchGraphic, int> before = layers.All.ToDictionary(g => g, g => g.Rebuilds);
+                    Show(model, layers, moment);
+                    return new HashSet<WorkbenchGraphic.Layer>(layers.All.Where(g => g.Rebuilds != before[g]).Select(g => g.Draws));
+                }
+
+                // About the middle of the axis, which is 30 ns fitted: the moment stays in the window.
+                Assert.IsTrue(layers.Wave.ZoomAbout(layers.Wave.Width * 0.5f, 4), "sanity: the waveform zooms");
+                Assert.IsTrue(layers.Wave.Shows(moment), "sanity: the moment is still in view");
+                HashSet<WorkbenchGraphic.Layer> zoomed = Redrawn();
+                foreach (WorkbenchGraphic.Layer layer in waveform)
+                    Assert.IsTrue(zoomed.Contains(layer), $"a zoom should redraw the waveform's {layer}");
+                foreach (WorkbenchGraphic.Layer layer in schematic)
+                    Assert.IsFalse(zoomed.Contains(layer), $"a zoom of the waveform redrew the schematic's {layer}");
+
+                Assert.IsTrue(layers.Wave.Pan(1), "sanity: a zoomed waveform pans");
+                Assert.IsTrue(layers.Wave.Shows(moment), "sanity: the moment is still in view");
+                HashSet<WorkbenchGraphic.Layer> panned = Redrawn();
+                foreach (WorkbenchGraphic.Layer layer in waveform)
+                    Assert.IsTrue(panned.Contains(layer), $"a pan should redraw the waveform's {layer}");
+                foreach (WorkbenchGraphic.Layer layer in schematic)
+                    Assert.IsFalse(panned.Contains(layer), $"a pan of the waveform redrew the schematic's {layer}");
+
+                HashSet<WorkbenchGraphic.Layer> still = Redrawn();
+                foreach (WorkbenchGraphic.Layer layer in waveform.Concat(schematic))
+                    Assert.IsFalse(still.Contains(layer), $"with the window left where it is, {layer} was drawn again");
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
+        /// <summary>
+        /// A clock far faster than the waveform's pixels -- twenty thousand edges across 860 of them --
+        /// is drawn as a busy block in a few vertices, where an edge for each would be over five times
+        /// what a mesh holds; and zoomed in to the most the wheel allows, the window shows its edges
+        /// one by one. No zoom between outgrows a mesh.
+        /// </summary>
+        [Test]
+        public void AClockFasterThanThePixels_IsDrawnAsABusyBlock_AndEveryZoomFitsAMesh()
+        {
+            var editor = new BoardEditor(Project.New("fast"));
+            const string m = "fast";
+            int Add(Part part, double x, double y)
+            {
+                EditResult added = editor.Add(m, part, new Placement(x, y));
+                Assert.IsTrue(added.Done, added.Refusal);
+                return added.Id;
+            }
+
+            int clk = Add(new PortPart { Name = "clk", Width = 1 }, 1, 0);
+            int not = Add(new GatePart { Kind = EngineGate.Not, Inputs = 1, Rise = 1, Fall = 1 }, 3, 0);
+            int y = Add(new PortPart { Name = "y", Direction = PortDirection.Output, Width = 1 }, 5, 0);
+            Assert.IsTrue(editor.Connect(m, Endpoint.At(clk, "out"), Endpoint.At(not, "a")).Done);
+            Assert.IsTrue(editor.Connect(m, Endpoint.At(not, "y"), Endpoint.At(y, "in")).Done);
+            EditResult set = editor.SetStimulus(new BoardStimulus
+            {
+                Clocks = new[] { new ClockTrack { Port = "clk", Period = 2 } },
+                End = 20000,
+            });
+            Assert.IsTrue(set.Done, set.Refusal);
+
+            WorkbenchModel model = WorkbenchModel.Of(editor.Project);
+            GameObject canvas = OwnCanvas(out RectTransform waveform);
+            try
+            {
+                var layers = new WorkbenchLayers(model);
+                layers.BuildTiming(waveform, new Vector2(1000f, 40f + 30f * model.Layout.Rows.Count));
+                int rows = model.Layout.Rows.Count;
+                Assert.Greater(Enumerable.Range(0, rows).Min(r => model.RowChangeCount(r)), 19000, "sanity: every row changes every nanosecond");
+
+                Show(model, layers, model.End, all: true);
+                int fitted = layers.All.Where(g => g.Draws == WorkbenchGraphic.Layer.Timing).Sum(g => g.VertexCount);
+                Assert.Less(fitted, 2000, $"fitted, the fast rows should be a busy block each, not {fitted} vertices of edges");
+
+                int most = 0;
+                for (int notch = 0; notch < 60 && layers.Wave.ZoomAbout(layers.Wave.Width * 0.5f, 1); notch++)
+                {
+                    Show(model, layers, model.End);
+                    most = Mathf.Max(most, layers.MostVertices);
+                    Assert.LessOrEqual(layers.MostVertices, WorkbenchGraphic.MeshLimit, $"at {layers.Wave.PixelsPerUnit:0.###} px/ns a chunk outgrew a mesh");
+                }
+
+                Assert.AreEqual(WaveView.MaxPixelsPerUnit, layers.Wave.PixelsPerUnit, 1e-6, "sanity: zoomed in as far as the wheel goes");
+                Assert.Less(layers.Wave.Shown, 2.0, "sanity: about a nanosecond and a half in view");
+                int zoomed = layers.All.Where(g => g.Draws == WorkbenchGraphic.Layer.Timing).Sum(g => g.VertexCount);
+                Assert.Greater(zoomed, 0, "zoomed in, the window still draws its edges");
+                UnityEngine.Debug.Log($"[WorkbenchPerformance] a 20,000-edge clock: {fitted} vertices fitted, at most {most} in a chunk while zooming in");
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
     }
 }

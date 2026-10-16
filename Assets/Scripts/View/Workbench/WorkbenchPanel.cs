@@ -11,8 +11,9 @@ using UnityEngine.UI;
 namespace BitSorter.View
 {
     /// <summary>
-    /// The 5.0 workbench, as a preview: the look reference's circuit run on BitSorter's own engine,
-    /// drawn in the Schematic look, with its waveform under it. Reached from the main menu.
+    /// The 5.0 workbench, as a preview: a circuit run on BitSorter's own engine, drawn in the
+    /// Schematic look, with its waveform under it -- the look reference's circuit, or one of the
+    /// samples the SAMPLE chip steps through (<see cref="WorkbenchSamples"/>). Reached from the main menu.
     /// </summary>
     /// <remarks>
     /// Part 3 of 5.0 put the new engine on screen early, from a circuit written in code; since Part 8
@@ -20,21 +21,30 @@ namespace BitSorter.View
     /// through the editor -- by way of <see cref="DocumentSchematic"/>, its parts as their symbols and
     /// its wires where the document's geometry routes them.
     ///
-    /// **The circuit zooms and moves, the waveform does not** (<see cref="SchematicView"/>): the
-    /// wheel over the circuit zooms in about the cursor, a drag moves it, and FIT -- shown only
-    /// while it is anything but whole -- puts it back. Its window clips it, so a zoomed circuit never
-    /// runs over the waveform or the card's edge.
+    /// **The circuit zooms and moves** (<see cref="SchematicView"/>): the wheel over the circuit
+    /// zooms in about the cursor, a drag moves it, and FIT -- shown only while it is anything but
+    /// whole -- puts it back. Its window clips it, so a zoomed circuit never runs over the waveform or
+    /// the card's edge. **The waveform zooms and moves in time** (<see cref="WaveformView"/>, Part
+    /// 9b-2a): the wheel over it zooms about the cursor, and with Shift, or sideways, moves through
+    /// the run.
+    ///
+    /// **The SAMPLE chip steps through the circuits it can show** -- the reference, a full adder of
+    /// two half-adder blocks, a clocked counter -- and S with it. Each is a document of its own, so a
+    /// step builds the stage again round it and plays its run from the start.
     ///
     /// **A wire pointed at lights its whole net** and a chip beside the pointer says what drives
     /// it and what reads it (<see cref="NetLayout.Says"/>).
     ///
     /// **Every control has a key**, drawn over its button as the 4.x HUD draws RUN's: Space plays or
-    /// pauses, R replays, the arrows step through time, plus and minus zoom, F fits, and up and down
-    /// move the page when it is taller than the window.
+    /// pauses, R replays, S steps to the next sample, the arrows step through time, plus and minus
+    /// zoom, F fits, and up and down move the page when it is taller than the window.
     ///
-    /// **The run is made once, to its end, when the panel first opens**; playing, replaying and
-    /// dragging the slider back are the model answering for another moment (ADR-6). Nothing
-    /// re-runs, which is why rewinding is free.
+    /// **The controls are two rows**: the buttons, then the time -- the slider and where it is. The
+    /// run controls of Part 9b-3 go on the first row, beside the ones there now.
+    ///
+    /// **The run is made once, a slice a frame from when its circuit is shown** (<see cref="RunSession"/>);
+    /// playing, replaying and dragging the slider back are the model answering for another moment
+    /// (ADR-6). Nothing re-runs, which is why rewinding is free.
     ///
     /// A full-screen panel like Settings, and for the same reasons: it covers the 4.x board, which
     /// stays exactly as it was, takes Escape back to the menu, and hides the HUD while it is up.
@@ -66,12 +76,15 @@ namespace BitSorter.View
         /// <inheritdoc cref="RootName"/>
         public const string FitButton = "Workbench fit";
 
-        /// <summary>What the panel says it is, under its title.</summary>
-        public const string Description =
-            "The look reference's circuit as a board document, run on BitSorter's 5.0 engine: every value, and every change on its way, is the engine's.";
+        /// <inheritdoc cref="RootName"/>
+        public const string SampleButton = "Workbench sample";
 
         /// <summary>The line along the bottom.</summary>
-        public const string HelpLine = "scroll or + and - to zoom, drag to move the circuit, arrows to step through time, escape to go back";
+        public const string HelpLine =
+            "scroll to zoom the circuit or the waveform, shift and scroll to move through time, drag to move the circuit, arrows to step, escape to go back";
+
+        /// <summary>What the SAMPLE chip says for a sample: its name, under the word for what the chip steps through.</summary>
+        public static string SampleCaption(int sample) => "SAMPLE: " + WorkbenchSamples.All[sample].Name.ToUpperInvariant();
 
         // -----------------------------------------------------------------
         // The stage: the card holding the schematic and the waveform, in its own units
@@ -117,7 +130,11 @@ namespace BitSorter.View
         private const float ControlsTop = 122f;
 
         /// <inheritdoc cref="TitleTop"/>
-        private const float StageTop = 180f;
+        /// <remarks>The second row of the controls: the time, under the buttons.</remarks>
+        private const float TimelineTop = ControlsTop + UiTheme.ButtonHeight + 12f;
+
+        /// <inheritdoc cref="TitleTop"/>
+        private const float StageTop = TimelineTop + UiTheme.ButtonHeight + 14f;
 
         /// <summary>
         /// The least the stage is drawn at. Its words are sized for 1, and a browser tab 1920 by 800,
@@ -143,15 +160,19 @@ namespace BitSorter.View
         private RunSession _run;
         private bool _playing;
 
+        /// <summary>Which of <see cref="WorkbenchSamples.All"/> is shown.</summary>
+        private int _sample;
+
         private RectTransform _header;
         private RectTransform _controls;
+        private RectTransform _timeline;
         private RectTransform _stage;
         private RectTransform _page;
         private Image _scrollThumb;
         private float _overflow, _pageScroll;
         private RectTransform _view;
         private RectTransform _schematic;
-        private RectTransform _waveform;
+        private WaveformView _wave;
         private RectTransform _rings;
 
         private WorkbenchGraphic _card;
@@ -168,16 +189,10 @@ namespace BitSorter.View
         private int _hovered = -1;
         private bool _dragging, _wasHeld;
         private Vector2 _dragFrom;
-        private TextMeshProUGUI _timeLabel, _chipLabel, _playLabel, _playheadLabel;
+        private TextMeshProUGUI _timeLabel, _chipLabel, _playLabel, _description, _sampleLabel;
 
         private readonly List<TextMeshProUGUI> _digits = new List<TextMeshProUGUI>();
         private readonly List<TextMeshProUGUI> _swallowedLabels = new List<TextMeshProUGUI>();
-        private TextMeshProUGUI[] _readouts;
-        private List<TextMeshProUGUI>[] _busLabels;
-        private readonly List<TextMeshProUGUI> _glitchLabels = new List<TextMeshProUGUI>();
-
-        private readonly List<WaveSegment> _segments = new List<WaveSegment>(16);
-        private readonly List<double> _swallowed = new List<double>(4);
 
         /// <summary>The scale the stage was last drawn at, so the edges' smoothing is redone only when it changes.</summary>
         private float _scale = -1f;
@@ -185,7 +200,6 @@ namespace BitSorter.View
         // Text, made once: a frame of playback formats nothing.
         private string[] _timeTexts, _playheadTexts, _inFlightTexts;
         private string _settledText;
-        private readonly Dictionary<string, string> _hexReadouts = new Dictionary<string, string>();
 
         // -----------------------------------------------------------------
         // What the tests and the reference shots ask
@@ -214,6 +228,18 @@ namespace BitSorter.View
 
         /// <summary>Whether the circuit is shown whole, where it belongs.</summary>
         public bool IsFitted => _viewState == null || _viewState.IsFitted;
+
+        /// <summary>Which sample is shown, as its place in <see cref="WorkbenchSamples.All"/>.</summary>
+        public int Sample => _sample;
+
+        /// <summary>The time the waveform shows; null until the panel has first opened.</summary>
+        public WaveView Wave => _wave != null ? _wave.View : null;
+
+        /// <summary>The time axis's numbers shown now, left to right.</summary>
+        public IEnumerable<string> TickTexts => _wave != null ? _wave.TickTexts : Array.Empty<string>();
+
+        /// <summary>Where a moment of the run is on the screen, over the waveform's first row: somewhere the wheel can zoom time.</summary>
+        public Vector2 WaveScreenPointOf(double time) => _wave.ScreenPointOf(time);
 
         /// <summary>Where a point of the circuit's drawing, in its own units (y down), is on the screen now.</summary>
         public Vector2 ScreenPointOf(Vec2 drawingPoint) =>
@@ -252,12 +278,18 @@ namespace BitSorter.View
         }
 
         /// <summary>
-        /// The workbench's keys: Space plays or pauses, R replays, the arrows step through time -- a
-        /// nanosecond, or a tenth with Shift -- plus and minus zoom about the window's middle, F fits,
-        /// and up and down move the page when it is taller than the window.
+        /// The workbench's keys: Space plays or pauses, R replays, S steps to the next sample, the
+        /// arrows step through time -- a nanosecond, or a tenth with Shift -- plus and minus zoom about
+        /// the window's middle, F fits, and up and down move the page when it is taller than the window.
         /// </summary>
         private void TakeKeys(Keyboard keyboard)
         {
+            if (keyboard.sKey.wasPressedThisFrame)
+            {
+                ShowSample(_sample + 1);
+                return;
+            }
+
             if (keyboard.spaceKey.wasPressedThisFrame)
                 TogglePlay();
             if (keyboard.rKey.wasPressedThisFrame)
@@ -328,6 +360,21 @@ namespace BitSorter.View
                 return false;
 
             ApplyView();
+            return true;
+        }
+
+        /// <summary>
+        /// A turn of the wheel at a point on the screen: over the waveform's time axis, up zooms in about
+        /// the time under the cursor and down zooms back out, as far as the whole run; with
+        /// <paramref name="shift"/>, or scrolled sideways, it moves through time. True when the view
+        /// changed. Public, as <see cref="TakeWheel"/> is, so a test can turn it.
+        /// </summary>
+        public bool TakeWaveWheel(Vector2 screenPoint, Vector2 scroll, bool shift)
+        {
+            if (_wave == null || !_wave.TakeWheel(screenPoint, scroll, shift))
+                return false;
+
+            Redraw();
             return true;
         }
 
@@ -435,10 +482,11 @@ namespace BitSorter.View
             }
         }
 
-        /// <summary>Starts the run again from 0, playing.</summary>
+        /// <summary>Starts the run again from 0, playing, with a zoomed waveform following it again.</summary>
         public void Replay()
         {
             _playing = true;
+            _wave?.Restart(0.0);
             Seek(0.0);
         }
 
@@ -492,11 +540,14 @@ namespace BitSorter.View
             Mouse mouse = Mouse.current;
             if (mouse != null && !OpenedThisFrame)
             {
-                // Over the circuit the wheel zooms; anywhere else on the stage it moves a page that scrolls.
+                // Over the circuit the wheel zooms it, over the waveform's time axis it zooms time, and
+                // anywhere else on the stage it moves a page that scrolls.
                 Vector2 pointer = mouse.position.ReadValue();
                 Vector2 scroll = mouse.scroll.ReadValue();
                 if (InView(pointer, out _))
                     TakeWheel(pointer, scroll);
+                else if (_wave.Over(pointer, out _))
+                    TakeWaveWheel(pointer, scroll, keyboard != null && keyboard.shiftKey.isPressed);
                 else
                     TakeScroll(pointer, scroll);
                 TakeDrag(pointer, mouse.leftButton.isPressed || mouse.middleButton.isPressed || mouse.rightButton.isPressed);
@@ -543,11 +594,7 @@ namespace BitSorter.View
         {
             SchematicPalette palette = SchematicPalette.Current;
 
-            // Made a slice a frame, timed by real time: the reference circuit is made in its first
-            // slice, inside this call, so it opens exactly as it did when it was made in one go.
-            _run = RunSession.Open(ReferenceCircuit.Document(), () => UnityEngine.Time.realtimeSinceStartupAsDouble * 1000.0);
-            _model = _run.Model;
-            MakeTexts();
+            OpenRun();
 
             Image scrim = UiTheme.Scrim(RootName, _canvas.transform, palette.Ground);
             Root = scrim.GetComponent<RectTransform>();
@@ -555,6 +602,7 @@ namespace BitSorter.View
 
             BuildHeader(palette);
             BuildControls(palette);
+            BuildTimeline(palette);
             BuildStage(palette);
 
             Button back = CanvasButton(BackButton, Root, "BACK", out TextMeshProUGUI _, UiType.Body, palette);
@@ -564,10 +612,67 @@ namespace BitSorter.View
 
             TextMeshProUGUI help = UiTheme.Label("help", Root, UiTheme.HelpLineType, palette.TextDim, TextAlignmentOptions.Center);
             UiTheme.Anchor(help.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
-                new Vector2(0f, 30f), new Vector2(900f, UiTheme.HelpLineHeight));
+                new Vector2(0f, 30f), new Vector2(1300f, UiTheme.HelpLineHeight));
             help.text = HelpLine;
 
             Root.gameObject.SetActive(false);
+        }
+
+        /// <summary>
+        /// The run of the sample shown, made a slice a frame and timed by real time: the reference
+        /// circuit is made in its first slice, inside this call, so it opens exactly as it did when it
+        /// was made in one go.
+        /// </summary>
+        private void OpenRun()
+        {
+            _run = RunSession.Open(WorkbenchSamples.All[_sample].Build(), () => UnityEngine.Time.realtimeSinceStartupAsDouble * 1000.0);
+            _model = _run.Model;
+            MakeTexts();
+        }
+
+        /// <summary>
+        /// Shows sample <paramref name="sample"/> of <see cref="WorkbenchSamples.All"/>, counted round:
+        /// the stage is built again round its document and its run plays from the start. The title,
+        /// the controls and the help line stay as they are.
+        /// </summary>
+        public void ShowSample(int sample)
+        {
+            if (Root == null)
+                return;
+
+            int count = WorkbenchSamples.All.Count;
+            _sample = ((sample % count) + count) % count;
+
+            // Out of sight at once, though it is destroyed only at the end of the frame, so nothing
+            // finds two of anything meanwhile.
+            int place = _page.GetSiblingIndex();
+            _page.gameObject.SetActive(false);
+            if (Application.isPlaying)
+                Destroy(_page.gameObject);
+            else
+                DestroyImmediate(_page.gameObject);
+
+            _digits.Clear();
+            _swallowedLabels.Clear();
+            _hovered = -1;
+            _dragging = false;
+            _pageScroll = 0f;
+            _overflow = 0f;
+
+            OpenRun();
+            SchematicPalette palette = SchematicPalette.Current;
+            BuildStage(palette);
+            _page.SetSiblingIndex(place);
+
+            _description.text = WorkbenchSamples.All[_sample].Says;
+            _sampleLabel.text = SampleCaption(_sample);
+            _slider.maxValue = _model.End;
+
+            // A circuit of another size: the stage is fitted again, header and controls with it.
+            _scale = -1f;
+            Fit();
+            FitView();
+            Replay();
         }
 
         private void BuildHeader(SchematicPalette palette)
@@ -595,9 +700,11 @@ namespace BitSorter.View
             line.pivot = new Vector2(0f, 1f);
             line.anchoredPosition = new Vector2(0f, -(DescriptionTop - TitleTop));
             line.sizeDelta = new Vector2(0f, 24f);
-            description.text = Description;
+            description.text = WorkbenchSamples.All[_sample].Says;
+            _description = description;
         }
 
+        /// <summary>The first row of the controls: the buttons, and the chip saying what the run is doing.</summary>
         private void BuildControls(SchematicPalette palette)
         {
             _controls = TopStrip("controls", ControlsTop, UiTheme.ButtonHeight);
@@ -612,24 +719,40 @@ namespace BitSorter.View
             TopLeft(play.GetComponent<RectTransform>(), new Vector2(132f, 0f), new Vector2(110f, UiTheme.ButtonHeight));
             play.onClick.AddListener(() => { TogglePlay(); UiTheme.Defocus(); });
 
-            _slider = UiTheme.Slider_(TimeSlider, _controls, 0, (int)_model.End);
+            // As wide as the longest sample's caption, so stepping through them never resizes it.
+            float sampleWidth = 0f;
+            for (int i = 0; i < WorkbenchSamples.All.Count; i++)
+                sampleWidth = Mathf.Max(sampleWidth, UiTheme.TextWidth(SampleCaption(i), UiType.Body));
+
+            Button sample = CanvasButton(SampleButton, _controls, SampleCaption(_sample), out _sampleLabel, UiType.Body, palette);
+            KeyOver(sample, "S", palette);
+            TopLeft(sample.GetComponent<RectTransform>(), new Vector2(254f, 0f), new Vector2(sampleWidth + 48f, UiTheme.ButtonHeight));
+            sample.onClick.AddListener(() => { ShowSample(_sample + 1); UiTheme.Defocus(); });
+
+            Image chip = CanvasChip("chip", _controls, palette);
+            TopRight(chip.rectTransform, new Vector2(0f, 9f), new Vector2(210f, 26f));
+            _chipLabel = UiTheme.Label("text", chip.transform, UiType.Caption, palette.TextDim, TextAlignmentOptions.Center);
+            UiTheme.Stretch(_chipLabel.rectTransform);
+        }
+
+        /// <summary>The second row of the controls: the slider through the run, and the moment it is at.</summary>
+        private void BuildTimeline(SchematicPalette palette)
+        {
+            _timeline = TopStrip("timeline", TimelineTop, UiTheme.ButtonHeight);
+
+            _slider = UiTheme.Slider_(TimeSlider, _timeline, 0, (int)_model.End);
             InCanvasColours(_slider, palette);
             _slider.wholeNumbers = false;
             RectTransform sliderRect = _slider.GetComponent<RectTransform>();
             sliderRect.anchorMin = new Vector2(0f, 0f);
             sliderRect.anchorMax = new Vector2(1f, 1f);
             sliderRect.pivot = new Vector2(0.5f, 0.5f);
-            sliderRect.offsetMin = new Vector2(262f, 0f);
-            sliderRect.offsetMax = new Vector2(-370f, 0f);
+            sliderRect.offsetMin = new Vector2(0f, 0f);
+            sliderRect.offsetMax = new Vector2(-160f, 0f);
             _slider.onValueChanged.AddListener(value => { Pause(); Seek(value); });
 
-            _timeLabel = UiTheme.Label("time", _controls, UiType.Body, palette.Text, TextAlignmentOptions.MidlineRight);
-            TopRight(_timeLabel.rectTransform, new Vector2(-224f, 0f), new Vector2(136f, UiTheme.ButtonHeight));
-
-            Image chip = CanvasChip("chip", _controls, palette);
-            TopRight(chip.rectTransform, new Vector2(0f, 9f), new Vector2(210f, 26f));
-            _chipLabel = UiTheme.Label("text", chip.transform, UiType.Caption, palette.TextDim, TextAlignmentOptions.Center);
-            UiTheme.Stretch(_chipLabel.rectTransform);
+            _timeLabel = UiTheme.Label("time", _timeline, UiType.Body, palette.Text, TextAlignmentOptions.MidlineRight);
+            TopRight(_timeLabel.rectTransform, Vector2.zero, new Vector2(136f, UiTheme.ButtonHeight));
         }
 
         private void BuildStage(SchematicPalette palette)
@@ -695,11 +818,7 @@ namespace BitSorter.View
             UiTheme.Stretch(_hoverLabel.rectTransform, 10f);
             Show(_hoverChip, false);
 
-            float waveHeight = WorkbenchDrawing.WaveHeight(layout.Rows.Count);
-            _waveform = UiTheme.Rect("waveform", _stage);
-            TopLeft(_waveform, WaveformAt, new Vector2(WaveWidth, waveHeight));
-            _layers.BuildTiming(_waveform, new Vector2(WaveWidth, waveHeight));
-            BuildWaveLabels(palette);
+            _wave = new WaveformView(_model, _layers, _stage, WaveformAt, WaveWidth, palette);
 
             // The legend's words; its swatches are the card's.
             float legend = WorkbenchDrawing.LegendMiddle(StageHeight);
@@ -800,44 +919,6 @@ namespace BitSorter.View
             return Rect.MinMaxRect(Mathf.Min(a.x, b.x), Mathf.Min(a.y, b.y), Mathf.Max(a.x, b.x), Mathf.Max(a.y, b.y));
         }
 
-        /// <summary>The waveform's tick numbers and row names, and the labels that follow the run.</summary>
-        private void BuildWaveLabels(SchematicPalette palette)
-        {
-            long end = _model.End;
-            for (long t = 0; t <= end; t += WorkbenchDrawing.TickEvery(end))
-                StageLabel(_waveform, t.ToString(CultureInfo.InvariantCulture),
-                    new Vector2(WorkbenchDrawing.WaveX(t, end, WaveWidth), WorkbenchDrawing.WaveTop - 14f),
-                    UiType.Micro, palette.Muted, TextAlignmentOptions.Center, 30f);
-
-            int rows = _model.Layout.Rows.Count;
-            _readouts = new TextMeshProUGUI[rows];
-            _busLabels = new List<TextMeshProUGUI>[rows];
-
-            for (int row = 0; row < rows; row++)
-            {
-                float middle = WorkbenchDrawing.RowMiddle(row);
-                StageLabel(_waveform, _model.Layout.Rows[row].Label, new Vector2(WorkbenchDrawing.NameRight - 120f, middle),
-                    UiType.Micro, palette.TextDim, TextAlignmentOptions.MidlineRight, 120f);
-
-                _readouts[row] = StageLabel(_waveform, "", new Vector2(WorkbenchDrawing.ReadoutLeft, middle),
-                    UiType.Micro, palette.Text, TextAlignmentOptions.MidlineLeft, 60f);
-
-                if (_model.RowIsBus(row))
-                {
-                    _busLabels[row] = new List<TextMeshProUGUI>(_model.RowChangeCount(row));
-                    while (_busLabels[row].Count < _model.RowChangeCount(row))
-                        _busLabels[row].Add(BusLabel(palette, middle));
-                }
-            }
-
-            _playheadLabel = StageLabel(_waveform, "", new Vector2(0f, WorkbenchDrawing.WaveTop + 4f), UiType.Micro, palette.Accent,
-                TextAlignmentOptions.MidlineLeft, 80f);
-        }
-
-        /// <summary>A bus segment's value, written over its box.</summary>
-        private TextMeshProUGUI BusLabel(SchematicPalette palette, float middle) =>
-            StageLabel(_waveform, "", new Vector2(0f, middle), UiType.Micro, palette.Text, TextAlignmentOptions.Center, 60f);
-
         private void MakeTexts()
         {
             int steps = (int)(_model.End * 10) + 1;
@@ -873,6 +954,8 @@ namespace BitSorter.View
             if (_model == null || Root == null)
                 return;
 
+            // A zoomed waveform pages on after the playhead before anything is drawn for the moment.
+            _wave.Follow(_model.Time);
             _layers.Refresh();
 
             if (_slider != null)
@@ -887,7 +970,7 @@ namespace BitSorter.View
 
             RefreshPlayLabel();
             PlaceDigits();
-            PlaceWaveLabels(step);
+            _wave.Place(_playheadTexts[step]);
         }
 
         private void RefreshPlayLabel()
@@ -934,80 +1017,6 @@ namespace BitSorter.View
             for (int i = swallowed; i < _swallowedLabels.Count; i++) Show(_swallowedLabels[i], false);
         }
 
-        /// <summary>The waveform's readouts, the values inside its bus boxes, the glitch marks' words and the playhead's time.</summary>
-        private void PlaceWaveLabels(int step)
-        {
-            SchematicPalette palette = SchematicPalette.Current;
-            long end = _model.End;
-            int glitches = 0;
-
-            for (int row = 0; row < _readouts.Length; row++)
-            {
-                float middle = WorkbenchDrawing.RowMiddle(row);
-                LogicVec value = _model.RowValue(row, out string text);
-                bool bus = _model.RowIsBus(row);
-
-                SetText(_readouts[row], bus ? HexReadout(text) : text);
-                _readouts[row].color = palette.Of(value);
-
-                if (bus)
-                {
-                    _model.RowSegments(row, _segments);
-                    List<TextMeshProUGUI> labels = _busLabels[row];
-
-                    // A run still being made gains changes, and a label for each as it comes.
-                    while (labels.Count < _segments.Count)
-                        labels.Add(BusLabel(palette, middle));
-
-                    for (int i = 0; i < labels.Count; i++)
-                    {
-                        bool shown = i < _segments.Count && !_segments[i].Value.IsAllZ;
-                        float x0 = shown ? WorkbenchDrawing.WaveX(_segments[i].From, end, WaveWidth) : 0f;
-                        float x1 = shown ? WorkbenchDrawing.WaveX(_segments[i].To, end, WaveWidth) : 0f;
-                        shown &= x1 - x0 > 22f;
-                        Show(labels[i], shown);
-
-                        if (!shown)
-                            continue;
-
-                        SetText(labels[i], _segments[i].Text);
-                        labels[i].color = _segments[i].Value.IsKnown ? palette.Text : palette.Unknown;
-                        labels[i].rectTransform.anchoredPosition = new Vector2((x0 + x1) * 0.5f, -middle);
-                    }
-                }
-
-                _model.RowSwallowed(row, _swallowed);
-                foreach (double at in _swallowed)
-                {
-                    if (glitches == _glitchLabels.Count)
-                        _glitchLabels.Add(StageLabel(_waveform, "glitch swallowed", Vector2.zero, UiType.Micro, palette.TextDim,
-                            TextAlignmentOptions.MidlineLeft, 140f));
-
-                    TextMeshProUGUI label = _glitchLabels[glitches++];
-                    Show(label, true);
-                    label.rectTransform.anchoredPosition = new Vector2(WorkbenchDrawing.WaveX(at, end, WaveWidth) + 8f, -(middle - 7f));
-                }
-            }
-
-            for (int i = glitches; i < _glitchLabels.Count; i++) Show(_glitchLabels[i], false);
-
-            float x = Mathf.Min(WorkbenchDrawing.WaveX(_model.Time, end, WaveWidth) + 5f, WorkbenchDrawing.WaveRight(WaveWidth) - 52f);
-            _playheadLabel.rectTransform.anchoredPosition = new Vector2(x, -(WorkbenchDrawing.WaveTop + 4f));
-            SetText(_playheadLabel, _playheadTexts[step]);
-        }
-
-        /// <summary>A bus's readout: its hex digits marked as hex, "3h", as ModelSim marks them. Made once per value.</summary>
-        private string HexReadout(string digits)
-        {
-            if (digits == "x" || digits == "z")
-                return digits;
-
-            if (!_hexReadouts.TryGetValue(digits, out string readout))
-                _hexReadouts[digits] = readout = digits + "h";
-
-            return readout;
-        }
-
         // -----------------------------------------------------------------
         // Fitting the stage to the window
         // -----------------------------------------------------------------
@@ -1035,6 +1044,7 @@ namespace BitSorter.View
             _stage.localScale = new Vector3(scale, scale, 1f);
             _header.sizeDelta = new Vector2(StageWidth * scale, _header.sizeDelta.y);
             _controls.sizeDelta = new Vector2(StageWidth * scale, _controls.sizeDelta.y);
+            _timeline.sizeDelta = new Vector2(StageWidth * scale, _timeline.sizeDelta.y);
 
             // The edges' smoothing is a pixel wide, and how many units a pixel is just changed.
             _card.SetVerticesDirty();
@@ -1188,7 +1198,7 @@ namespace BitSorter.View
         }
 
         /// <summary>A label on the stage, its pivot at <paramref name="at"/> (stage units, y down) as its alignment says.</summary>
-        private static TextMeshProUGUI StageLabel(RectTransform parent, string text, Vector2 at, UiType type, Color colour,
+        internal static TextMeshProUGUI StageLabel(RectTransform parent, string text, Vector2 at, UiType type, Color colour,
             TextAlignmentOptions alignment, float width)
         {
             TextMeshProUGUI label = UiTheme.Label(text.Length > 0 ? text : "label", parent, type, colour, alignment);
@@ -1208,7 +1218,7 @@ namespace BitSorter.View
         }
 
         /// <summary>Places a rect by its top-left corner, <paramref name="at"/> in y-down units from its parent's top-left.</summary>
-        private static void TopLeft(RectTransform rect, Vector2 at, Vector2 size)
+        internal static void TopLeft(RectTransform rect, Vector2 at, Vector2 size)
         {
             rect.anchorMin = rect.anchorMax = new Vector2(0f, 1f);
             rect.pivot = new Vector2(0f, 1f);
@@ -1225,12 +1235,12 @@ namespace BitSorter.View
             rect.sizeDelta = size;
         }
 
-        private static void SetText(TextMeshProUGUI label, string text)
+        internal static void SetText(TextMeshProUGUI label, string text)
         {
             if (!ReferenceEquals(label.text, text))
                 label.text = text;
         }
 
-        private static void Show(Component part, bool shown) => UiTheme.SetShown(part, shown);
+        internal static void Show(Component part, bool shown) => UiTheme.SetShown(part, shown);
     }
 }

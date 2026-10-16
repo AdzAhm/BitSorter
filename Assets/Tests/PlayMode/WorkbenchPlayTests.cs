@@ -1,7 +1,9 @@
 using System.Collections;
+using System.Linq;
 using NUnit.Framework;
 using BitSorter.View;
 using BitSorter.ViewModel;
+using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Controls;
@@ -313,6 +315,146 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsTrue(workbench.IsFitted, "FIT did not put the whole circuit back");
             AssertNear(cursor, workbench.ScreenPointOf(point), "FIT did not put the circuit back where it was");
             Assert.IsNull(GameObject.Find(WorkbenchPanel.FitButton), "FIT should go once the circuit is whole");
+        }
+
+        /// <summary>
+        /// The wheel over the waveform zooms time about the cursor, as far in as the cap and back out
+        /// to the whole run, and with Shift, or sideways, moves through it; the axis's numbers follow,
+        /// in fractions of a nanosecond once a tick is one; and the circuit's own zoom is left alone.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator TheWheelOverTheWaveform_ZoomsTimeAboutTheCursor_AndShiftMovesThroughIt()
+        {
+            yield return TestScene.Load();
+            yield return OpenTheWorkbench();
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.Pause();
+            workbench.Seek(4.0);
+            yield return null;
+
+            WaveView wave = workbench.Wave;
+            Assert.IsTrue(wave.IsFitted, "the waveform should open on the whole run");
+            string[] fitted = workbench.TickTexts.ToArray();
+            Assert.AreEqual("0", fitted.FirstOrDefault(), $"the fitted axis should start at 0, not read {string.Join(" ", fitted)}");
+            Assert.IsFalse(fitted.Any(t => t.Contains(".")), "fitted, the reference's run is ticked in whole nanoseconds");
+
+            // The wheel is handed over as the real one's is each frame, as for the circuit's.
+            Vector2 cursor = workbench.WaveScreenPointOf(13.0);
+            Assert.IsTrue(workbench.TakeWaveWheel(cursor, new Vector2(0f, 120f), false), "a notch up over the waveform did not zoom time");
+            yield return null;
+            Assert.Greater(wave.Zoom, 1.0);
+            AssertNear(cursor, workbench.WaveScreenPointOf(13.0), "the moment under the cursor moved as time zoomed");
+            Assert.IsTrue(workbench.IsFitted, "a zoom of the waveform should leave the circuit as it was");
+
+            for (int i = 0; i < 60 && workbench.TakeWaveWheel(cursor, new Vector2(0f, 120f), false); i++)
+                yield return null;
+            Assert.AreEqual(WaveView.MaxPixelsPerUnit, wave.PixelsPerUnit, 1e-6, "the wheel should zoom in as far as the cap, and stop");
+            AssertNear(cursor, workbench.WaveScreenPointOf(13.0), "the moment under the cursor moved as time zoomed in all the way");
+            string[] zoomed = workbench.TickTexts.ToArray();
+            Assert.IsTrue(zoomed.Any(t => t.Contains(".")), $"zoomed in, the axis should be ticked in fractions of a nanosecond, not {string.Join(" ", zoomed)}");
+
+            double start = wave.Start;
+            Assert.IsTrue(workbench.TakeWaveWheel(cursor, new Vector2(0f, -120f), true), "Shift and the wheel down should move through time");
+            Assert.Greater(wave.Start, start, "Shift and the wheel down should move later");
+            Assert.IsTrue(workbench.TakeWaveWheel(cursor, new Vector2(-120f, 0f), false), "a sideways scroll should move through time");
+            Assert.AreEqual(start, wave.Start, 1e-9, "a notch later and a sideways notch earlier should come back where they were");
+
+            for (int i = 0; i < 80 && workbench.TakeWaveWheel(cursor, new Vector2(0f, -120f), false); i++)
+                yield return null;
+            Assert.IsTrue(wave.IsFitted, "the wheel down, as far as it goes, should be the whole run again");
+            CollectionAssert.AreEqual(fitted, workbench.TickTexts.ToArray(), "with the fitted axis's numbers");
+            Assert.IsTrue(workbench.IsFitted, "and the circuit still whole");
+        }
+
+        /// <summary>
+        /// Zoomed in on a run that plays, the waveform pages on after the playhead and never loses it;
+        /// moved away from it, it stays where it is put; and a replay follows the playhead again.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator AZoomedWaveform_PagesOnAfterThePlayhead_AndAReplayFollowsItAgain()
+        {
+            yield return TestScene.Load();
+            yield return OpenTheWorkbench();
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.Pause();
+            workbench.Seek(0.0);
+            WaveView wave = workbench.Wave;
+            for (int i = 0; i < 6; i++)
+                workbench.TakeWaveWheel(workbench.WaveScreenPointOf(0.0), new Vector2(0f, 120f), false);
+            Assert.Greater(wave.Zoom, 2.0, "sanity: zoomed in on the start");
+            Assert.IsTrue(wave.Following, "sanity: zoomed in about the playhead, it still follows it");
+
+            for (double t = 0; t <= workbench.Model.End; t += 0.25)
+            {
+                workbench.Seek(t);
+                Assert.IsTrue(wave.Shows(t), $"at {t} ns the playhead went out of view");
+            }
+
+            Assert.Greater(wave.Start, 0.0, "the view should have paged on after the playhead");
+            yield return null;
+
+            for (int i = 0; i < 100 && workbench.TakeWaveWheel(workbench.WaveScreenPointOf(wave.Start + wave.Shown * 0.5), new Vector2(0f, 120f), true); i++)
+            {
+            }
+
+            Assert.AreEqual(0.0, wave.Start, "sanity: Shift and the wheel up moved back to the start");
+            Assert.IsFalse(wave.Following, "moved away from the playhead, it should stop following it");
+            workbench.Seek(workbench.Model.End - 1.0);
+            Assert.AreEqual(0.0, wave.Start, "a view moved away from the playhead should stay where it was put");
+
+            yield return Click(WorkbenchPanel.ReplayButton);
+            Assert.IsTrue(wave.Following, "a replay should follow the playhead again");
+            Assert.IsTrue(wave.Shows(workbench.Time), "with the playhead in view");
+        }
+
+        private static bool Captioned(string button, string caption) =>
+            GameObject.Find(button).GetComponentsInChildren<TextMeshProUGUI>().Any(label => label.text == caption);
+
+        /// <summary>
+        /// SAMPLE, and S, step through the reference, the full adder and the counter and round again:
+        /// each its own run, played from the start, with the slider its length and the waveform its
+        /// whole run, and nothing left on the stage from the circuit before.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator TheSampleChip_StepsThroughTheSamples_EachPlayedFromTheStart()
+        {
+            yield return TestScene.Load();
+            yield return OpenTheWorkbench();
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            Assert.AreEqual(0, workbench.Sample, "the workbench should open on the reference circuit");
+            Assert.IsTrue(Captioned(WorkbenchPanel.SampleButton, WorkbenchPanel.SampleCaption(0)), "the chip should say it is the reference");
+            WorkbenchModel reference = workbench.Model;
+
+            yield return Click(WorkbenchPanel.SampleButton);
+            Assert.AreEqual(1, workbench.Sample, "SAMPLE should step to the full adder");
+            Assert.AreNotSame(reference, workbench.Model, "a new sample is a run of its own");
+            Assert.AreEqual(WorkbenchSamples.FullAdderEnd, workbench.Model.End, "the full adder's run");
+            Slider slider = GameObject.Find(WorkbenchPanel.TimeSlider).GetComponent<Slider>();
+            Assert.AreEqual(WorkbenchSamples.FullAdderEnd, slider.maxValue, 1e-6, "the slider should run the length of the new run");
+            Assert.IsTrue(workbench.Playing, "a new sample should play");
+            Assert.Less(workbench.Time, 1.0, "from the start");
+            Assert.IsTrue(workbench.Wave.IsFitted, "its waveform should show the whole of its run");
+            Assert.IsTrue(Captioned(WorkbenchPanel.SampleButton, WorkbenchPanel.SampleCaption(1)), "the chip should say which sample");
+
+            foreach (WorkbenchGraphic graphic in Object.FindObjectsByType<WorkbenchGraphic>(FindObjectsSortMode.None))
+                if (graphic.Model != null)
+                    Assert.AreSame(workbench.Model, graphic.Model, $"'{graphic.name}' is left over from the circuit before");
+
+            yield return Tap(_keyboard.sKey);
+            Assert.AreEqual(2, workbench.Sample, "S should step to the counter");
+            Assert.AreEqual(WorkbenchSamples.CounterEnd, workbench.Model.End, "the counter's run");
+
+            yield return DragTo(20f);
+            Assert.AreEqual(20.0, workbench.Time, 1e-6, "the counter's slider should show the moment it is dragged to");
+            Assert.IsFalse(workbench.Playing, "and pause there");
+
+            yield return Tap(_keyboard.sKey);
+            Assert.AreEqual(0, workbench.Sample, "past the last sample, S should come back to the first");
+            Assert.AreEqual(reference.End, workbench.Model.End, "the reference's run again");
+            Assert.IsTrue(workbench.Playing, "played from the start");
         }
     }
 }

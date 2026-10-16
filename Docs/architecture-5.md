@@ -278,6 +278,17 @@ VCD           written for export, read for the oracle comparison
 - **Checked.** The probe circuits' waveforms by hand and against Icarus's VCD, signal by signal
   (`Docs/oracle-notes.md`); wire resolution and every primitive by table; replay, slicing and VCD
   round trips; the zero-delay loop; allocation and throughput floors (`Tools/ci/Sim.Tests`).
+- **What the waveform needs to know about a signal** (Part 9b-2a), kept by the elaborator, which until
+  then kept only the flattened, dotted names. `Design.Scopes` lists every scope it made, in the order it
+  made them, each after its parent: the top, each instance, each generate block (`slice[0]`, `genblk2`)
+  and each named block in a process -- a fourth kind beyond the plan's three, since what such a block
+  declares has no other scope whose path is its prefix. A `ScopeInfo` has its `Path`, exactly its
+  signals' prefix, its `Name` in its parent, its `Module` (an instance's or the top's) and its `Parent`.
+  A `SignalInfo` gains its range as written (`Msb`, `Lsb`: `[0:7]` is 0 and 7), its `Port` direction or
+  none, its `Scope`, and its `Enum` (`EnumInfo`: the type's members in order, `TryName` finding the one a
+  value holds bit for bit), through a typedef or in place, made per instance since a parameter can change
+  the members' values. A circuit built in code has none of them: `[Width-1:0]`, no scope, no enum. None
+  of it touches the run, the history or the VCD (`SignalFactsTests`).
 
 **Processes, as built in Part 5a** (`Process.cs`, `Simulator`, `Elaboration/Elaborator.Processes.cs`).
 
@@ -829,7 +840,7 @@ Precise, and no casing under the wires.
 - **Pan, zoom and fit** (`SchematicView`). The wheel over the circuit zooms in about the cursor, a
   notch a quarter, to four times, and back out no further than the whole circuit; a drag moves it, never
   so far that the window's middle leaves it; FIT, up only while the circuit is not whole, puts it back.
-  The circuit's window clips it, and the waveform does not move. The view's zoom lives in the view, not
+  The circuit's window clips it; the waveform has a zoom of its own, in time, since Part 9b-2a. The view's zoom lives in the view, not
   in the document's layout as section 5 planned: a preview has nothing to save it for, and Part 10
   decides whether a project remembers it.
 - **Checked.** `GeometryTests` (pins, turns and mirrors, every sample board's pins on the grid, the
@@ -900,13 +911,13 @@ Precise, and no casing under the wires.
   canvas scale of 1 (3.3, and 5.5 in a batch run, before the browser's fix below). How:
   - **Still and moving, drawn apart** (`WorkbenchLayers`). Every layer is cut into chunks a mesh each,
     under uGUI's 65,000 vertices -- one mesh a layer went over that on this board, and threw. The wires
-    and the parts at rest, and the waveform's rows for the whole run, are drawn once and redrawn only
-    when what they show changes; the changes in flight, the gates flashing and the playhead are redrawn
+    and the parts at rest, and the waveform's rows for the window of time it shows (the whole run until
+    Part 9b-2a gave it a zoom), are drawn once and redrawn only when what they show changes; the changes in flight, the gates flashing and the playhead are redrawn
     with the moment, a lamp when its value changes colour, and a row's glitch marks as each appears. The
     waveform is revealed up to the playhead by a `RectMask2D`, as a pen draws; its glitch marks are
-    not, since a cross reaches either side of its moment and would show early. A pan redraws nothing
-    and a zoom the schematic alone: the edges' smoothing is a pixel wide, and only a zoom changes
-    what a pixel is.
+    not, since a cross reaches either side of its moment and would show early. A pan of the circuit
+    redraws nothing and a zoom of it the schematic alone: the edges' smoothing is a pixel wide, and only
+    a zoom changes what a pixel is. A zoom or a pan of the waveform redraws the waveform alone.
   - **Cut by estimates, held by a guard** (`VectorPainter.Fits`). How many changes a wire carries at
     once has no bound -- a fast input into a slow gate leaves one swallowed after another fading -- so
     no estimate can promise a chunk fits a mesh. A chunk that outgrows one draws as many whole items
@@ -945,6 +956,45 @@ Precise, and no casing under the wires.
     panel moves), uGUI's batching and the GPU. Nor is it the browser: the canvas has not been timed in
     a browser build yet, and Part 16's performance check is where it will be. (At Part 6 the browser
     build ran the engine as fast as .NET did, or faster.)
+
+**As built in Part 9b-2a**: the waveform's signals and drawing.
+
+- **The waveform zooms and moves in time** (`ViewModel/WaveView`, under dotnet; `View/Workbench/WaveformView`).
+  The 4.x timing diagram's gestures: the wheel over the time axis zooms about the cursor, a notch 1.25
+  times, in to 640 pixels a unit and back out to the whole run; with Shift, or sideways, it moves an
+  eighth of the window a notch. While the run plays, a zoomed view pages on once the playhead passes 90%
+  of it and lands it at 10%, and stops following once it is moved away; a replay follows it again. The
+  axis is ticked on the 1-2-5 ladder at least 40 pixels apart, in the step's own decimals (`TimeText`,
+  which writes into a buffer and reads no culture), so the reference's run is ticked every 2 ns fitted as
+  it was before and every 0.1 ns zoomed in to the full.
+- **Only the window is drawn.** Zoomed in, a run can be millions of pixels long, so the rows are drawn
+  for the time in view and drawn again when it moves, and nothing of the schematic is. Changes closer than
+  a pixel and a half are one busy block, hatched if any of them is x, so what is drawn is bounded by the
+  window's pixels rather than the run's changes: a clock with 20,000 edges across 860 pixels is 1,184
+  vertices fitted, and no zoom between that and its edges one by one outgrows a mesh. A box the window cuts
+  is square at the cut. The words over a bus's boxes come from the same stretches, pooled per row.
+- **Values in the course's radixes** (`ValueText`, `TextCache`): binary, octal, hex, unsigned, signed and
+  an enum's names, every bus the same length whatever its value, as `MaxChars` says. The waveform writes
+  a bus in hex as before, with one deliberate change: a digit partly unknown is `X`, as `$display` writes
+  it, where the whole value used to read `x` -- `8'b0000_1x01` is `0X`. The radix chosen per row, and the
+  rings' radix with it, are Part 9b-2b's, with the list they are chosen from.
+- **The samples** (`ViewModel/WorkbenchSamples`): the reference, a full adder of two half-adder blocks for
+  hierarchy, and a three-bit counter with an asynchronous reset for a clock, each a board document of its
+  own, laid out with no wire through a part or a label and each crossing counted
+  (`Tools/ci/ViewModel.Tests/SampleTests`). The SAMPLE chip, and S, steps through them; a step builds
+  the stage again round the new document and plays its run from the start.
+- **The controls are two rows** -- REPLAY, PLAY and SAMPLE over the slider and the time -- so Part 9b-3's
+  run controls have a row to go on and the reference shots moved once. FIT's caption went to Body: the
+  caption check in `UiTypeTests` had a backspace character where `\b` was meant, matched nothing, and
+  never looked at the workbench's own buttons.
+- **Moved to Part 9b-2b**, where the add-signal list, groups and the row menu use them: the signal index
+  and its search, the rows' list (`WaveList`), and the aliases that carry a glitch mark through a block's
+  ports. The header did not become a toolbar of its own; Part 11's shell is where it will.
+- **Checked.** `WaveViewTests` (17 and a replay's), `TextTests` (35), `SampleTests` (33) and
+  `SignalFactsTests` (12) under dotnet; in Edit Mode, a move of the window redrawing the waveform and none
+  of the schematic, and the 20,000-edge clock; in Play Mode, the wheel over the waveform, a zoomed view
+  following the playhead and a replay, and the chip stepping through the samples; reference shots 27 to 29,
+  moved by the second row of controls and nothing else.
 
 ---
 

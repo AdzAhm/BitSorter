@@ -296,6 +296,36 @@ namespace BitSorter.ViewModel.Tests
         }
 
         [Test]
+        public void ARestart_FollowsAgain_FromAViewPannedAway()
+        {
+            WaveView view = AtTheStart();
+            for (double t = 0; t < 300; t += 1)
+                view.Follow(t);
+            Assert.IsTrue(view.Pan(-16));
+            Assert.IsFalse(view.Following, "sanity: panned away from the playhead");
+
+            // Panned to the start already, where a run started again would be in view: it follows, no page.
+            Assert.IsTrue(view.Pan(-1000) || view.Start == 0.0);
+            Assert.IsFalse(view.Restart(0.0), "the start is in view: nothing to page to");
+            Assert.IsTrue(view.Following, "but it follows the new run");
+
+            double held = view.Start;
+            for (double t = 0; t < 300; t += 1)
+                view.Follow(t);
+            Assert.Greater(view.Start, held, "and pages after it as it plays");
+
+            Assert.IsTrue(view.Pan(1000));
+            Assert.IsFalse(view.Following, "sanity: panned to the end, away from the playhead");
+            Assert.IsTrue(view.Restart(0.0), "a restart out of view pages back to it");
+            Assert.AreEqual(0.0, view.Start, "held inside the run, the playhead at its very start");
+            Assert.IsTrue(view.Following);
+
+            WaveView fitted = Fitted(1000);
+            Assert.IsFalse(fitted.Restart(500.0), "a fitted view shows everything and never moves");
+            Assert.IsTrue(fitted.Following);
+        }
+
+        [Test]
         public void AZoomAwayFromThePlayhead_StopsFollowing_AndZoomingOutToTheFitFollowsAgain()
         {
             WaveView view = Fitted(1000);

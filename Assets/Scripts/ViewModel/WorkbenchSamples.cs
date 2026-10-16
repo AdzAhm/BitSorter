@@ -37,13 +37,23 @@ namespace BitSorter.ViewModel
     /// </remarks>
     public static class WorkbenchSamples
     {
-        /// <summary>What the chip offers, in its order: the reference, the full adder, the counter.</summary>
-        public static readonly IReadOnlyList<(string Name, Func<Project> Build)> All = Array.AsReadOnly(new (string Name, Func<Project> Build)[]
-        {
-            ("Reference", ReferenceCircuit.Document),
-            ("Full adder", FullAdder),
-            ("Counter", Counter),
-        });
+        /// <summary>
+        /// What the chip offers, in its order: the reference, the full adder, the counter -- each with
+        /// its name, the line the workbench says it with under its title, and its document.
+        /// </summary>
+        public static readonly IReadOnlyList<(string Name, string Says, Func<Project> Build)> All =
+            Array.AsReadOnly(new (string Name, string Says, Func<Project> Build)[]
+            {
+                ("Reference",
+                    "The look reference's circuit as a board document, run on BitSorter's 5.0 engine: every value, and every change on its way, is the engine's.",
+                    ReferenceCircuit.Document),
+                ("Full adder",
+                    "A full adder of two half-adder blocks and an OR, stepped through all eight inputs: where the two paths to s differ, it glitches.",
+                    FullAdder),
+                ("Counter",
+                    "A three-bit counter: a register with an asynchronous reset, counting on each rising edge of its clock and wrapping round to 0.",
+                    Counter),
+            });
 
         /// <summary>How long the full adder's testbench holds each combination of its inputs, in nanoseconds.</summary>
         public const long FullAdderStep = 6;

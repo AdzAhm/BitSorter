@@ -50,19 +50,34 @@ namespace BitSorter.View
         /// <summary>How tall the waveform is for <paramref name="rows"/> rows, tick numbers and margin included.</summary>
         public static float WaveHeight(int rows) => WaveTop + rows * RowHeight + 22f;
 
-        /// <summary>Where a moment sits on the time axis.</summary>
-        public static float WaveX(double time, long end, float width) =>
-            WaveLeft + (WaveRight(width) - WaveLeft) * (float)(time / end);
+        /// <summary>How wide the time axis is in a waveform <paramref name="width"/> wide: the width its <see cref="WaveView"/> shows time across.</summary>
+        public static float AxisWidth(float width) => WaveRight(width) - WaveLeft;
 
-        /// <summary>How far apart the time axis's ticks are: about a dozen across the run, whatever its length.</summary>
-        public static long TickEvery(long end) => System.Math.Max(1, (end + 12) / 13);
+        /// <summary>Where a moment sits on the time axis, as <paramref name="view"/> shows time: off it either side when the view does not reach it.</summary>
+        public static float WaveX(double time, WaveView view) => WaveLeft + view.X(time);
+
+        /// <summary>
+        /// The least room between two of the time axis's ticks, so their numbers stay apart: the step is
+        /// the finest on the 1-2-5 ladder at least this far apart (<see cref="WaveView.TickStep"/>). The
+        /// reference circuit's run, fitted, is ticked every 2 ns as it was before the axis could zoom.
+        /// </summary>
+        public const float TickPixels = 40f;
 
         /// <summary>The middle of a row.</summary>
         public static float RowMiddle(int row) => WaveTop + RowHeight * 0.5f + row * RowHeight;
 
         private static readonly List<Vector2> Shape = new List<Vector2>(64);
-        private static readonly List<WaveSegment> Segments = new List<WaveSegment>(16);
+        private static readonly List<WaveSpan> Spans = new List<WaveSpan>(64);
         private static readonly List<double> Swallowed = new List<double>(4);
+
+        /// <summary>
+        /// The track whose spans are being drawn, and the one delegate that reads its times: made once,
+        /// since a lambda capturing a track would be made again, garbage and all, every time it was written.
+        /// </summary>
+        private static SignalTrack _track;
+
+        /// <inheritdoc cref="_track"/>
+        private static readonly Func<int, double> TrackTime = i => _track[i].Time;
 
         // -----------------------------------------------------------------
         // The card
@@ -531,32 +546,53 @@ namespace BitSorter.View
         // -----------------------------------------------------------------
 
         /// <summary>
-        /// Each row's waveform for the whole run, in its values' colours: drawn once, and revealed up to
-        /// the moment by <see cref="WorkbenchLayers"/>, as a pen draws, so a frame of playback rebuilds
-        /// nothing here. The grid, the swallowed glitches' marks and the playhead are
-        /// <see cref="Grid"/>, <see cref="Glitches"/> and <see cref="Playhead"/>.
+        /// Each row's waveform across the time <paramref name="view"/> shows, in its values' colours:
+        /// drawn when the view moves, and revealed up to the moment by <see cref="WorkbenchLayers"/>,
+        /// as a pen draws, so a frame of playback rebuilds nothing here. The grid, the swallowed
+        /// glitches' marks and the playhead are <see cref="Grid"/>, <see cref="Glitches"/> and
+        /// <see cref="Playhead"/>.
         /// </summary>
-        public static void Timing(VectorPainter painter, WorkbenchModel model, SchematicPalette palette, float width,
+        /// <remarks>
+        /// **Only the window is drawn** (Part 9b-2a): a run zoomed in can be millions of pixels long,
+        /// and the changes drawn are bounded by the window's pixels rather than by the run's, since
+        /// changes closer than <see cref="WaveView.BusyPixels"/> are drawn as one busy block
+        /// (<see cref="WaveView.Spans"/>). A box the window cuts is drawn square at the cut, so it
+        /// does not look as if the value changed there.
+        /// </remarks>
+        public static void Timing(VectorPainter painter, WorkbenchModel model, WaveView view, SchematicPalette palette,
             int from = 0, int count = int.MaxValue)
         {
-            int rows = model.Layout.Rows.Count;
-            long end = model.End;
-            int last = Last(from, count, rows);
+            int last = Last(from, count, model.Layout.Rows.Count);
+            double start = view.Start, end = Math.Min(view.End, model.End);
 
             for (int row = from; row < last; row++)
             {
                 (int, int) mark = painter.Mark();
                 float middle = RowMiddle(row), high = middle - LevelOffset, low = middle + LevelOffset;
-                model.RowSegments(row, Segments, end);
+                RowSpans(model, view, row, start, end, Spans);
 
                 if (model.RowIsBus(row))
-                    BusRow(painter, palette, end, width, middle, high, low);
+                    BusRow(painter, palette, view, model.End, middle, high, low);
                 else
-                    BitRow(painter, palette, end, width, middle, high, low);
+                    BitRow(painter, palette, view, middle, high, low);
 
                 if (!painter.Fits(mark))
                     break;
             }
+        }
+
+        /// <summary>
+        /// A row's stretches from <paramref name="from"/> to <paramref name="to"/>, as
+        /// <paramref name="view"/> can draw them (<see cref="WaveView.Spans"/>): what the rows are drawn
+        /// from, and what the panel writes the buses' values over. Each span's value is its track's
+        /// change <see cref="WaveSpan.First"/> (<see cref="WorkbenchModel.RowTrack"/>).
+        /// </summary>
+        public static void RowSpans(WorkbenchModel model, WaveView view, int row, double from, double to, List<WaveSpan> into)
+        {
+            into.Clear();
+            _track = model.RowTrack(row);
+            if (_track != null)
+                WaveView.Spans(view, TrackTime, _track.Count, from, to, into);
         }
 
         /// <summary>
@@ -565,10 +601,9 @@ namespace BitSorter.View
         /// reaches either side of its moment, so the reveal showed one early and cut it in half at its
         /// own moment; and the marks are few, so redrawing them as they appear costs little.
         /// </summary>
-        public static void Glitches(VectorPainter painter, WorkbenchModel model, SchematicPalette palette, float width,
+        public static void Glitches(VectorPainter painter, WorkbenchModel model, WaveView view, SchematicPalette palette,
             int from = 0, int count = int.MaxValue)
         {
-            long end = model.End;
             int last = Last(from, count, model.Layout.Rows.Count);
 
             for (int row = from; row < last; row++)
@@ -577,30 +612,40 @@ namespace BitSorter.View
                 float middle = RowMiddle(row);
                 model.RowSwallowed(row, Swallowed);
                 foreach (double at in Swallowed)
-                    painter.Cross(new Vector2(WaveX(at, end, width), middle), 4f, 1.6f, palette.Unknown);
+                    if (view.Shows(at))
+                        painter.Cross(new Vector2(WaveX(at, view), middle), 4f, 1.6f, palette.Unknown);
 
                 if (!painter.Fits(mark))
                     break;
             }
         }
 
-        /// <summary>The waveform's time grid, under its rows: drawn once.</summary>
-        public static void Grid(VectorPainter painter, WorkbenchModel model, SchematicPalette palette, float width)
+        /// <summary>The waveform's time grid, under its rows: a line at each tick the view shows (<see cref="TickPixels"/>), drawn when it moves.</summary>
+        public static void Grid(VectorPainter painter, WorkbenchModel model, WaveView view, SchematicPalette palette)
         {
             float bottom = WaveHeight(model.Layout.Rows.Count) - 6f;
-            long end = model.End;
-            for (long t = 0; t <= end; t += TickEvery(end))
+            double step = view.TickStep(TickPixels);
+            (long first, long last) = view.TicksInView(step);
+
+            for (long k = first; k <= last; k++)
             {
-                float x = WaveX(t, end, width);
+                double t = k * step;
+                if (t > model.End + 1e-9)
+                    break;
+
+                float x = WaveX(t, view);
                 painter.Line(new Vector2(x, WaveTop - 4f), new Vector2(x, bottom), 1f, palette.Grid);
             }
         }
 
-        /// <summary>The playhead over the waveform's rows: a line, redrawn with every moment.</summary>
-        public static void Playhead(VectorPainter painter, WorkbenchModel model, SchematicPalette palette, float width)
+        /// <summary>The playhead over the waveform's rows: a line, redrawn with every moment, and none while the view does not reach it.</summary>
+        public static void Playhead(VectorPainter painter, WorkbenchModel model, WaveView view, SchematicPalette palette)
         {
+            if (!view.Shows(model.Time))
+                return;
+
             float bottom = WaveHeight(model.Layout.Rows.Count) - 6f;
-            float now = WaveX(model.Time, model.End, width);
+            float now = WaveX(model.Time, view);
             painter.Line(new Vector2(now, WaveTop - 2f), new Vector2(now, bottom), 1.3f, palette.Playhead);
         }
 
@@ -681,22 +726,40 @@ namespace BitSorter.View
         /// <summary>About the most vertices the ports take, drawn by the first chunk of the parts.</summary>
         public static int PortVertices(SchematicLayout layout) => layout.Ports.Count * 400;
 
-        /// <summary>About the most vertices a row of the waveform takes: every change a step, and its x hatched.</summary>
-        public static int RowVertices(WorkbenchModel model, int row) => 1200 + model.RowChangeCount(row) * 160;
+        /// <summary>
+        /// About the most vertices a row of the waveform takes across a time axis <paramref name="axis"/>
+        /// wide: every stretch its own step or box, hatched where it is x. Bounded by the axis as well
+        /// as by the changes, since a window draws no more stretches than it has pixels for -- one
+        /// at least <see cref="WaveView.BusyPixels"/> wide, then perhaps a busy block, and so on.
+        /// </summary>
+        public static int RowVertices(WorkbenchModel model, int row, float axis)
+        {
+            long most = 2L * (long)(axis / WaveView.BusyPixels) + 2;
+            long spans = Math.Min(model.RowChangeCount(row), most);
+            return (int)Math.Min(int.MaxValue, 1200 + (long)(axis * 1.5f) + spans * 96);
+        }
 
         /// <summary>The most vertices a row's glitch marks take: a cross for every change on its way to it that is swallowed.</summary>
         public static int GlitchVertices(WorkbenchModel model, int row) => 64 + model.RowSwallowedCount(row) * CrossVertices;
 
 
-        private static void BitRow(VectorPainter painter, SchematicPalette palette, long end, float width, float middle, float high, float low)
+        private static void BitRow(VectorPainter painter, SchematicPalette palette, WaveView view, float middle, float high, float low)
         {
             float? previous = null;
 
-            foreach (WaveSegment segment in Segments)
+            foreach (WaveSpan span in Spans)
             {
-                float x0 = WaveX(segment.From, end, width), x1 = WaveX(segment.To, end, width);
+                float x0 = WaveX(span.From, view), x1 = WaveX(span.To, view);
 
-                switch (segment.Value[0])
+                if (span.Busy)
+                {
+                    BusyBlock(painter, palette, span, palette.One, x0, x1, high, low);
+                    previous = null;
+                    continue;
+                }
+
+                LogicVec value = _track[span.First].Value;
+                switch (value[0])
                 {
                     case Logic4.X:
                         HatchedRect(painter, palette, x0, high, x1, low);
@@ -709,7 +772,7 @@ namespace BitSorter.View
                         break;
 
                     default:
-                        bool one = segment.Value[0] == Logic4.One;
+                        bool one = value[0] == Logic4.One;
                         float level = one ? high : low;
                         Color colour = one ? palette.One : palette.Zero;
 
@@ -724,35 +787,81 @@ namespace BitSorter.View
             }
         }
 
-        private static void BusRow(VectorPainter painter, SchematicPalette palette, long end, float width, float middle, float high, float low)
+        private static void BusRow(VectorPainter painter, SchematicPalette palette, WaveView view, long runEnd, float middle, float high, float low)
         {
-            foreach (WaveSegment segment in Segments)
+            foreach (WaveSpan span in Spans)
             {
-                float x0 = WaveX(segment.From, end, width), x1 = WaveX(segment.To, end, width);
+                float x0 = WaveX(span.From, view), x1 = WaveX(span.To, view);
+
+                if (span.Busy)
+                {
+                    BusyBlock(painter, palette, span, palette.Bus, x0, x1, high, low);
+                    continue;
+                }
+
                 if (x1 - x0 < 0.5f)
                     continue;
 
-                if (segment.Value.IsAllZ)
+                LogicVec value = _track[span.First].Value;
+                if (value.IsAllZ)
                 {
                     DashedLine(painter, x0, x1, middle, 1f, palette.HighZ);
                     continue;
                 }
 
+                // Square where the window cuts the value off rather than where it changes: its value
+                // began before the window, or goes on past it. The run's own end closes the box.
+                bool cutLeft = _track[span.First].Time < span.From - 1e-9;
+                bool cutRight = span.To < runEnd - 1e-9 &&
+                    (span.First + 1 >= _track.Count || _track[span.First + 1].Time > span.To + 1e-9);
+
                 float chamfer = Mathf.Min(4f, (x1 - x0) * 0.5f);
+                float left = cutLeft ? 0f : chamfer, right = cutRight ? 0f : chamfer;
+
+                // Clockwise from the left end: a point where a value begins or ends, a square corner
+                // pair where the window cuts it.
                 Shape.Clear();
-                Shape.Add(new Vector2(x0, middle));
-                Shape.Add(new Vector2(x0 + chamfer, high));
-                Shape.Add(new Vector2(x1 - chamfer, high));
-                Shape.Add(new Vector2(x1, middle));
-                Shape.Add(new Vector2(x1 - chamfer, low));
-                Shape.Add(new Vector2(x0 + chamfer, low));
+                if (cutLeft)
+                    Shape.Add(new Vector2(x0, low));
+                else
+                    Shape.Add(new Vector2(x0, middle));
+                Shape.Add(new Vector2(x0 + left, high));
+                Shape.Add(new Vector2(x1 - right, high));
+                if (!cutRight)
+                    Shape.Add(new Vector2(x1, middle));
+                Shape.Add(new Vector2(x1 - right, low));
+                if (!cutLeft)
+                    Shape.Add(new Vector2(x0 + left, low));
 
-                bool unknown = !segment.Value.IsKnown;
-                if (unknown)
-                    HatchedRect(painter, palette, x0 + chamfer, high, x1 - chamfer, low);
+                if (!value.IsKnown)
+                    HatchedRect(painter, palette, x0 + left, high, x1 - right, low);
 
-                painter.Outline(Shape, 1.1f, palette.Of(segment.Value));
+                painter.Outline(Shape, 1.1f, palette.Of(value));
             }
+        }
+
+        /// <summary>
+        /// Changes too close together to draw apart (<see cref="WaveView.BusyPixels"/>): one block from
+        /// the first to the last, at least a pixel wide, filled faintly in the row's colour between its
+        /// two levels -- or hatched as x if any of them is unknown, since an x is never hidden.
+        /// </summary>
+        private static void BusyBlock(VectorPainter painter, SchematicPalette palette, WaveSpan span, Color colour,
+            float x0, float x1, float high, float low)
+        {
+            x1 = Mathf.Max(x1, x0 + painter.Pixel);
+
+            for (int i = span.First; i <= span.Last; i++)
+            {
+                if (!_track[i].Value.IsKnown)
+                {
+                    HatchedRect(painter, palette, x0, high, Mathf.Max(x1, x0 + 0.5f), low);
+                    return;
+                }
+            }
+
+            painter.Rect(x0, high, x1, low, palette.Over(colour, 0.45f));
+            painter.Line(new Vector2(x0, high), new Vector2(x1, high), 1.1f, colour);
+            painter.Line(new Vector2(x0, low), new Vector2(x1, low), 1.1f, colour);
         }
 
         /// <summary>A stretch of unknown on the waveform: a faint red box crossed by diagonal bars.</summary>
