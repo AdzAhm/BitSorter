@@ -309,8 +309,8 @@ namespace BitSorter.ViewModel
         {
             (Design design, SchematicLayout layout, long horizon) = Prepare(project);
             var session = new SimSession(design, null);
-            session.RunTo(horizon);
-            return new WorkbenchModel(session, layout, horizon);
+            RunResult result = session.RunTo(horizon);
+            return new WorkbenchModel(session, layout, horizon, result.Status != RunStatus.Suspended || result.Time >= horizon);
         }
 
         /// <summary>
@@ -334,8 +334,58 @@ namespace BitSorter.ViewModel
         public SimSession Session { get; }
         public SchematicLayout Layout { get; }
 
-        /// <summary>The end of the timeline: where the run is made to.</summary>
-        public long End { get; }
+        /// <summary>The end of the timeline: where the run is made to. It grows when the run is run on past it (<see cref="Extend"/>).</summary>
+        public long End { get; private set; }
+
+        /// <summary>
+        /// Changes each time the model reads more of the run, or its timeline grows: what an answer worked
+        /// out from the run, and kept, is checked against.
+        /// </summary>
+        public int RunVersion { get; private set; }
+
+        /// <summary>
+        /// How fast the run is played, in time units a second. A gate's flash and a swallowed change's fade
+        /// last as many seconds at any speed: <see cref="SchematicStyle.FlashTime"/> and
+        /// <see cref="SchematicStyle.FadeTime"/> are how long they last at the reference's
+        /// <see cref="SchematicStyle.NanosecondsPerSecond"/>, and at any other they last that many times
+        /// longer or shorter in time units. At the reference the ratio is exactly 1, so nothing moves.
+        /// </summary>
+        public double UnitsPerSecond
+        {
+            get => _unitsPerSecond;
+            set
+            {
+                if (!(value > 0.0) || double.IsInfinity(value))
+                    throw new ArgumentOutOfRangeException(nameof(value), value, "A speed is some finite time a second.");
+                if (value == _unitsPerSecond)
+                    return;
+
+                _unitsPerSecond = value;
+                double scale = value / SchematicStyle.NanosecondsPerSecond;
+                _flashTime = SchematicStyle.FlashTime * scale;
+                _fadeTime = SchematicStyle.FadeTime * scale;
+                PlaceMarkers();
+            }
+        }
+
+        private double _unitsPerSecond = SchematicStyle.NanosecondsPerSecond;
+        private double _flashTime = SchematicStyle.FlashTime;
+        private double _fadeTime = SchematicStyle.FadeTime;
+
+        /// <summary>
+        /// The timeline grows to <paramref name="end"/>, the run being run on to it: it is no longer
+        /// made, and nothing past where the run has got can be shown until it is.
+        /// </summary>
+        public void Extend(long end)
+        {
+            if (end <= End)
+                return;
+
+            End = end;
+            Complete = false;
+            _settledAt = long.MaxValue;
+            RunVersion++;
+        }
 
         /// <summary>Whether the run is made: no moment of the timeline is still to come.</summary>
         public bool Complete { get; private set; }
@@ -425,7 +475,11 @@ namespace BitSorter.ViewModel
             }
 
             if (grew)
+            {
+                RunVersion++;
                 PlaceMarkers();
+            }
+
             return grew;
         }
 
@@ -444,7 +498,8 @@ namespace BitSorter.ViewModel
 
         /// <summary>
         /// How far into its flash a gate is: 1 the moment its output flips, falling to 0 over
-        /// <see cref="SchematicStyle.FlashTime"/>; 0 when it is not flashing. Its new value comes out too.
+        /// <see cref="SchematicStyle.FlashTime"/> at the reference's speed (<see cref="UnitsPerSecond"/>); 0
+        /// when it is not flashing. Its new value comes out too.
         /// </summary>
         /// <remarks>
         /// Only the gate's last flip at or before now can be flashing: changes come in time order, so if
@@ -463,11 +518,11 @@ namespace BitSorter.ViewModel
                 return 0f;
 
             double at = track[i].Time;
-            if (at <= 0 || Time >= at + SchematicStyle.FlashTime)
+            if (at <= 0 || Time >= at + _flashTime)
                 return 0f;
 
             value = track[i].Value;
-            return (float)(1.0 - (Time - at) / SchematicStyle.FlashTime);
+            return (float)(1.0 - (Time - at) / _flashTime);
         }
 
         /// <summary>How many changes are on their way: one per transition, however many branches it takes.</summary>
@@ -618,6 +673,44 @@ namespace BitSorter.ViewModel
         /// <summary>The changes a row's signal makes so far: how many waveform segments it can have.</summary>
         public int RowChangeCount(int row) => _rowSignals[row] < 0 ? 0 : _tracks[_rowSignals[row]].Count;
 
+        /// <summary>A signal's settled changes so far, by its index in the design; null for one nothing here reads.</summary>
+        public SignalTrack TrackOf(int signal) => signal >= 0 && signal < _tracks.Length ? _tracks[signal] : null;
+
+        /// <summary>
+        /// The first edge after <paramref name="time"/> on any of <paramref name="rows"/>, as far as the run
+        /// has got, or null: where STEP goes (Part 9b-3).
+        /// </summary>
+        public long? NextEdgeAfter(IReadOnlyList<int> rows, double time)
+        {
+            long whole = (long)Math.Floor(time + 1e-9);
+            long? next = null;
+            foreach (int row in rows)
+            {
+                SignalTrack track = RowTrack(row);
+                long? edge = track?.NextEdgeAfter(whole);
+                if (edge.HasValue && (next == null || edge.Value < next.Value))
+                    next = edge;
+            }
+
+            return next;
+        }
+
+        /// <summary>The last edge before <paramref name="time"/> on any of <paramref name="rows"/>, after time 0, or null: where STEP BACK goes.</summary>
+        public long? LastEdgeBefore(IReadOnlyList<int> rows, double time)
+        {
+            long whole = (long)Math.Ceiling(time - 1e-9);
+            long? last = null;
+            foreach (int row in rows)
+            {
+                SignalTrack track = RowTrack(row);
+                long? edge = track?.LastEdgeBefore(whole);
+                if (edge.HasValue && (last == null || edge.Value > last.Value))
+                    last = edge;
+            }
+
+            return last;
+        }
+
         // -----------------------------------------------------------------
         // Text
         // -----------------------------------------------------------------
@@ -708,7 +801,7 @@ namespace BitSorter.ViewModel
                 return;
             }
 
-            double earliest = Time - _longestSpan - SchematicStyle.FadeTime - 1.0;
+            double earliest = Time - _longestSpan - _fadeTime - 1.0;
 
             int low = 0, high = count;
             while (low < high)
@@ -757,10 +850,10 @@ namespace BitSorter.ViewModel
                 {
                     along = (Time - t.ScheduledAt) / span;
                 }
-                else if (swallowed && Time >= ended && Time < ended + SchematicStyle.FadeTime)
+                else if (swallowed && Time >= ended && Time < ended + _fadeTime)
                 {
                     along = (ended - t.ScheduledAt) / span;
-                    alpha = (float)(1.0 - (Time - ended) / SchematicStyle.FadeTime);
+                    alpha = (float)(1.0 - (Time - ended) / _fadeTime);
                 }
                 else
                 {

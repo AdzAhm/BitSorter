@@ -19,6 +19,10 @@ namespace BitSorter.ViewModel
     ///
     /// A slice always runs at least one chunk, however little time is left, so a run moves on every
     /// frame and cannot be starved by a frame that was already slow.
+    ///
+    /// **A run made can be made further** (<see cref="RunOn"/>, Part 9b-3): after a <c>$stop</c> suspended
+    /// it, as ModelSim's RUN carries on past one, or once it reached its horizon. One the design finished,
+    /// or that had to stop, cannot.
     /// </remarks>
     public sealed class RunSlicer
     {
@@ -49,7 +53,7 @@ namespace BitSorter.ViewModel
         }
 
         /// <summary>The time the run is made to.</summary>
-        public long Horizon { get; }
+        public long Horizon { get; private set; }
 
         /// <summary>Whether the run is made: it reached the horizon, or the design ended it, or it had to stop.</summary>
         public bool Done { get; private set; }
@@ -91,6 +95,27 @@ namespace BitSorter.ViewModel
 
             Chunks += ran;
             return ran;
+        }
+
+        /// <summary>
+        /// Makes the run on, to <paramref name="horizon"/> or the horizon it had, whichever is later: after a
+        /// <c>$stop</c> suspended it, or once it reached its horizon. False, and nothing changes, while it is
+        /// still being made, once the design finished it or it had to stop, or when it reached its horizon
+        /// and is asked for no later one.
+        /// </summary>
+        public bool RunOn(long horizon)
+        {
+            if (horizon == long.MaxValue)
+                throw new ArgumentOutOfRangeException(nameof(horizon), horizon, "A run needs a finite end: see the remarks.");
+            if (!Done || (Ended != RunStatus.Suspended && Ended != RunStatus.ReachedTime))
+                return false;
+            if (Ended == RunStatus.ReachedTime && horizon <= Horizon)
+                return false;
+
+            Horizon = Math.Max(Horizon, horizon);
+            Done = false;
+            Ended = null;
+            return true;
         }
 
         /// <summary>Makes the whole run now, without slicing: what a test or a capture that needs it finished does.</summary>

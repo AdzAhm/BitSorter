@@ -19,6 +19,10 @@ namespace BitSorter.ViewModel
     /// of the last change recorded is finished, and that change is the last of its time. The rule is
     /// <see cref="History.SettledChanges"/>' own, applied a piece at a time; a test grows a track after
     /// every slice, at slices of one event and up, and holds it to the one-shot list.
+    ///
+    /// **The one step that can go on is the one a <c>$stop</c> suspended** (Part 9b-3): running on carries
+    /// it on at the same time, so a change can come at the time of the last one read. It then replaces
+    /// what the step had settled on, as the one-shot list would have it.
     /// </remarks>
     public sealed class SignalTrack
     {
@@ -48,7 +52,7 @@ namespace BitSorter.ViewModel
 
         /// <summary>
         /// Takes in whatever the history recorded since the last call. Only between slices of a run:
-        /// see the remarks. True when a settled change was added.
+        /// see the remarks. True when the settled changes are different.
         /// </summary>
         public bool Grow()
         {
@@ -56,7 +60,7 @@ namespace BitSorter.ViewModel
             if (count == _read)
                 return false;
 
-            int before = _settled.Count;
+            bool changed = false;
 
             for (int i = _read; i < count; i++)
             {
@@ -68,15 +72,25 @@ namespace BitSorter.ViewModel
                 if (!lastOfItsTime)
                     continue;
 
+                // A step a $stop suspended, carried on: what it settles on now replaces what it had.
+                int last = _settled.Count - 1;
+                if (last >= 0 && _settled[last].Time == change.Time)
+                {
+                    _settled.RemoveAt(last);
+                    _texts.RemoveAt(last);
+                    changed = true;
+                }
+
                 if (_settled.Count > 0 && _settled[_settled.Count - 1].Value.Equals(change.Value))
                     continue;
 
                 _settled.Add(change);
                 _texts.Add(_text(change.Value));
+                changed = true;
             }
 
             _read = count;
-            return _settled.Count != before;
+            return changed;
         }
 
         /// <summary>

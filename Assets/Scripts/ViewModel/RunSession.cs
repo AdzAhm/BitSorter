@@ -16,6 +16,11 @@ namespace BitSorter.ViewModel
     /// **The first slice runs inside <see cref="Open"/>**, so a small document is made before the
     /// first frame is drawn -- the reference circuit is, and opens exactly as it did when it was made
     /// in one go -- and the model never reads a history whose first step has not run.
+    ///
+    /// **A <c>$stop</c> suspends it** (Part 9b-3), and <see cref="RunOn"/> carries it on, the timeline
+    /// growing with it when it runs past its end. The timeline is made only once the run has reached its
+    /// end: a run suspended short of it is not, and a moment past where it was suspended waits for it to
+    /// be run on.
     /// </remarks>
     public sealed class RunSession
     {
@@ -37,8 +42,12 @@ namespace BitSorter.ViewModel
             var slicer = new RunSlicer(session, horizon, nowMilliseconds, chunkEvents, budgetMilliseconds);
 
             slicer.Slice();
-            return new RunSession(new WorkbenchModel(session, layout, horizon, slicer.Done), slicer);
+            return new RunSession(new WorkbenchModel(session, layout, horizon, Made(slicer, horizon)), slicer);
         }
+
+        /// <summary>Whether the slicer has made the whole of a timeline to <paramref name="end"/>: done, and not suspended short of it.</summary>
+        private static bool Made(RunSlicer slicer, long end) =>
+            slicer.Done && (slicer.Ended != RunStatus.Suspended || slicer.Reached >= end);
 
         public WorkbenchModel Model { get; }
 
@@ -46,6 +55,26 @@ namespace BitSorter.ViewModel
 
         /// <summary>Whether the run is made and the model has read all of it.</summary>
         public bool Done => Model.Complete;
+
+        /// <summary>Whether a <c>$stop</c> has suspended the run where it has got to: <see cref="RunOn"/> carries it on.</summary>
+        public bool Suspended => Slicer.Done && Slicer.Ended == RunStatus.Suspended;
+
+        /// <summary>How the run ended, once it has -- for now, if a <c>$stop</c> suspended it; null while it is being made.</summary>
+        public RunStatus? Ended => Slicer.Ended;
+
+        /// <summary>
+        /// Carries the run on to <paramref name="horizon"/> or its own end, whichever is later, the timeline
+        /// growing to it: after a <c>$stop</c>, or once the run reached its end. False when it cannot go on.
+        /// </summary>
+        public bool RunOn(long horizon)
+        {
+            if (!Slicer.RunOn(horizon))
+                return false;
+
+            if (Slicer.Horizon > Model.End)
+                Model.Extend(Slicer.Horizon);
+            return true;
+        }
 
         /// <summary>
         /// One frame's share of making the run: a slice, then the model reads what it recorded. True
@@ -57,7 +86,7 @@ namespace BitSorter.ViewModel
                 return false;
 
             Slicer.Slice();
-            return Model.Grow(Slicer.Done);
+            return Model.Grow(Made(Slicer, Model.End));
         }
 
         /// <summary>Makes the rest of the run now: what a capture or a test that needs all of it does.</summary>
@@ -67,7 +96,7 @@ namespace BitSorter.ViewModel
                 return;
 
             Slicer.Finish();
-            Model.Grow(true);
+            Model.Grow(Made(Slicer, Model.End));
         }
     }
 }

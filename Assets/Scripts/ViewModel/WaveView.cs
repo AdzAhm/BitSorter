@@ -178,6 +178,31 @@ namespace BitSorter.ViewModel
         }
 
         /// <summary>
+        /// The run grew to <paramref name="span"/> (Part 9b-3: run on past a <c>$stop</c>). A fitted view
+        /// fits the new run; a zoomed one keeps the width of a unit and where it starts, so what is in view
+        /// stays where it was. True when the view changed.
+        /// </summary>
+        public bool Extend(long span)
+        {
+            double grown = span < 1 ? 1.0 : span;
+            if (grown <= Span)
+                return false;
+
+            if (IsFitted)
+            {
+                Span = grown;
+                SetZoom(1.0);
+                return true;
+            }
+
+            double ppu = PixelsPerUnit;
+            Span = grown;
+            SetZoom(ppu * Span / Width);
+            Start = Clamp(Start, 0.0, Span - Shown);
+            return true;
+        }
+
+        /// <summary>
         /// Zooms by whole notches, in for more than zero, keeping the moment under
         /// <paramref name="x"/> under it. Never out past the fit and never in past
         /// <see cref="MaxZoom"/>; all the way out is the fit exactly, following. True when the view moved.
