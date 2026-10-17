@@ -1043,6 +1043,34 @@ half adds the add-signal list, groups, full names and Alt+click on a wire.
   unsigned and out signed, the playhead at 11 and C2 at 20, out's change on its wire as -6; shots 27 to 29
   moved only along the help line.
 
+**As built in Part 9b-2b, its second half**: any signal on the waveform, groups and names.
+
+- **+ SIGNAL, or A**, opens a search over every signal the design has (`WaveSignalPicker` over
+  `SignalIndex.Search`): its best ten hits as buttons, a click adding one at the end of the rows -- a
+  block's inside as readily as a port -- selected and read at once. It stays up to add another; Enter adds
+  the best hit; CELLS shows a library cell's pins, which are hidden; a click off it or Escape closes it.
+- **Alt and a click on a wire** adds the wire's signal, or selects its row if it has one: a net no port
+  shows, such as NOT A's output, becomes a row.
+- **GROUP, or G**, puts the selected rows under a header where the first of them was -- a row of its own,
+  bold, marked - while open and + while shut, with no wave -- and a click on it opens and shuts it. The
+  row menu groups, ungroups a selected group, and renames a row or a group (`WaveRenameField`; an empty
+  name gives a row its own back).
+- **NAMES, or L**, names every row by its whole path, as ModelSim does (`/full_adder_tb/dut/h1/s`), and back.
+  **The names column is as wide as its longest name**, from the reference's 58 units to 260, a longer name
+  cut from its start behind "..."; the waves start further right by as much, so the time view is made
+  again at the new width.
+- **The waveform's toolbar** holds + SIGNAL, GROUP and NAMES, each with its key beside it, over the rows
+  (`WaveformView.ToolbarHeight`), so the stage grew by it and shots 27 to 30 moved once more.
+- **The popups are built side by side with their blockers**, not inside them, so a click on a popup's own
+  ground stays the popup's; and each counts as a control for `WorkbenchControlSample`, so a click on it never
+  seeks or selects what is under it. While a field holds the keyboard the game's keys are off (`UiText`) and
+  the field answers Enter and Escape itself.
+- **Checked.** In Play Mode: the list searching, adding h1's sum with its value, staying up, closing on a
+  click off it without seeking, its toolbar button, and CELLS; Alt and a click adding NOT A's output; G, a
+  header opened and shut by a click, and UNGROUP; L and NAMES widening and narrowing the names column; and
+  RENAME and an empty name. Reference shots 31 (the full adder's carries grouped under full names) and 32
+  (the add list searching h1), new in all four looks; 27 to 30 moved by the toolbar; 1 to 26 the same.
+
 ---
 
 ## 11. The parts

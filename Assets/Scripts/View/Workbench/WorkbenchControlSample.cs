@@ -55,7 +55,8 @@ namespace BitSorter.View
                 return false;
 
             GameObject top = _hits[0].gameObject;
-            return top.GetComponentInParent<Selectable>() != null || top.GetComponentInParent<WaveRowMenu>() != null;
+            return top.GetComponentInParent<Selectable>() != null || top.GetComponentInParent<WaveRowMenu>() != null
+                || top.GetComponentInParent<WaveSignalPicker>() != null || top.GetComponentInParent<WaveRenameField>() != null;
         }
     }
 }

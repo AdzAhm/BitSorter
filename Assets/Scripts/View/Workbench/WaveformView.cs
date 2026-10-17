@@ -34,8 +34,16 @@ namespace BitSorter.View
     /// it is selected, or, fainter, that the pointer is on its wire. The second cursor's time is
     /// written at its top, as the playhead's is, and the time between them over the bracket under the
     /// rows (<see cref="WorkbenchDrawing.Playhead"/>).
+    ///
+    /// **A group's header is a row of its own**, its name after a <c>-</c> while it is open and a
+    /// <c>+</c> while it is shut, with no wave. **The names column is as wide as its longest name**,
+    /// from the 58 units the reference's names take up to 260, and a longer name is cut from its start,
+    /// where a full path repeats what every row shares: the waves start further right by as much.
+    ///
+    /// **Its toolbar is over it** -- + SIGNAL, GROUP and NAMES, each with its key beside it -- so the
+    /// waveform is one piece Part 11 can dock, its own buttons with it.
     /// </remarks>
-    internal sealed class WaveformView
+    public sealed class WaveformView
     {
         private readonly WorkbenchModel _model;
         private readonly float _width;
@@ -66,21 +74,56 @@ namespace BitSorter.View
         /// <summary>How tall it is: its rows, its numbers and its margin.</summary>
         public float Height { get; }
 
+        /// <summary>How tall the toolbar over it is, and the room the names column may take.</summary>
+        public const float ToolbarHeight = 44f;
+
+        /// <inheritdoc cref="ToolbarHeight"/>
+        public const float MostNamesWidth = 260f;
+
+        /// <summary>The toolbar's buttons' names, which the tests look for.</summary>
+        public const string AddButton = "Workbench add signal", GroupButton = "Workbench group", NamesButton = "Workbench names";
+
+        /// <summary>How tall the waveform and its toolbar are for <paramref name="rows"/> rows: what the stage leaves for them.</summary>
+        public static float HeightFor(int rows) => ToolbarHeight + WorkbenchDrawing.WaveHeight(rows);
+
+        /// <summary>How much wider than the reference's the names column is: how far right the waves start.</summary>
+        public float NamesExtra { get; }
+
+        /// <summary>What row <paramref name="row"/>'s name says, as drawn.</summary>
+        public string NameOf(int row) => _names[row].text;
+
+        private readonly TextMeshProUGUI[] _names;
+
         /// <summary>
         /// The waveform of <paramref name="model"/>'s rows, named <paramref name="names"/>,
         /// <paramref name="width"/> wide at <paramref name="at"/> on <paramref name="parent"/> (y down),
         /// drawn by <paramref name="layers"/>; showing the time <paramref name="view"/> does, or the whole run.
         /// </summary>
         public WaveformView(WorkbenchModel model, WorkbenchLayers layers, RectTransform parent, Vector2 at, float width,
-            SchematicPalette palette, IReadOnlyList<string> names, WaveView view = null)
+            SchematicPalette palette, IReadOnlyList<string> names, WaveView view = null, IReadOnlyList<bool> headers = null,
+            System.Action<WorkbenchCommand> onToolbar = null, WaveNames namesStyle = WaveNames.Short)
         {
             _model = model;
-            _width = width;
             int rows = model.RowCount;
             Height = WorkbenchDrawing.WaveHeight(rows);
 
+            BuildToolbar(parent, at, palette, onToolbar, namesStyle);
+
+            // The names column as wide as its longest name, within reason: the waves move right by as much.
+            var shown = new string[rows];
+            float longest = 0f;
+            for (int row = 0; row < rows; row++)
+            {
+                shown[row] = FitName(row < names.Count ? names[row] : "", MostNamesWidth - 8f);
+                longest = Mathf.Max(longest, UiTheme.TextWidth(shown[row], UiType.Micro));
+            }
+
+            NamesExtra = Mathf.Clamp(longest + 8f, WorkbenchDrawing.NameRight, MostNamesWidth) - WorkbenchDrawing.NameRight;
+            width -= NamesExtra;
+            _width = width;
+
             Rect = UiTheme.Rect("waveform", parent);
-            WorkbenchPanel.TopLeft(Rect, at, new Vector2(width, Height));
+            WorkbenchPanel.TopLeft(Rect, at + new Vector2(NamesExtra, ToolbarHeight), new Vector2(width, Height));
 
             if (view == null || view.Width != Mathf.Max(1f, WorkbenchDrawing.AxisWidth(width)))
             {
@@ -90,15 +133,15 @@ namespace BitSorter.View
 
             View = view;
 
-            // Behind everything the waveform draws, a band a row: shown for a selected row.
+            // Behind everything the waveform draws, a band a row, the names' column included: shown for a selected row.
             _bands = new Image[rows];
             for (int row = 0; row < rows; row++)
             {
                 Image band = UiTheme.Panel_("band", Rect, palette.Selection);
                 band.sprite = null;
                 band.raycastTarget = false;
-                WorkbenchPanel.TopLeft(band.rectTransform, new Vector2(0f, WorkbenchDrawing.WaveTop + row * WorkbenchDrawing.RowHeight),
-                    new Vector2(width, WorkbenchDrawing.RowHeight));
+                WorkbenchPanel.TopLeft(band.rectTransform, new Vector2(-NamesExtra, WorkbenchDrawing.WaveTop + row * WorkbenchDrawing.RowHeight),
+                    new Vector2(width + NamesExtra, WorkbenchDrawing.RowHeight));
                 WorkbenchPanel.Show(band, false);
                 _bands[row] = band;
             }
@@ -109,12 +152,17 @@ namespace BitSorter.View
             _busLabels = new List<TextMeshProUGUI>[rows];
             _readoutOf = new string[rows];
             _readout = new string[rows];
+            _names = new TextMeshProUGUI[rows];
 
+            float namesWidth = WorkbenchDrawing.NameRight + NamesExtra;
             for (int row = 0; row < rows; row++)
             {
                 float middle = WorkbenchDrawing.RowMiddle(row);
-                WorkbenchPanel.StageLabel(Rect, row < names.Count ? names[row] : "", new Vector2(WorkbenchDrawing.NameRight - 120f, middle),
-                    UiType.Micro, palette.TextDim, TextAlignmentOptions.MidlineRight, 120f);
+                bool header = headers != null && row < headers.Count && headers[row];
+                _names[row] = WorkbenchPanel.StageLabel(Rect, shown[row], new Vector2(WorkbenchDrawing.NameRight - namesWidth, middle),
+                    UiType.Micro, header ? palette.Text : palette.TextDim, TextAlignmentOptions.MidlineRight, namesWidth);
+                if (header)
+                    _names[row].fontStyle = FontStyles.Bold;
 
                 _readouts[row] = WorkbenchPanel.StageLabel(Rect, "", new Vector2(WorkbenchDrawing.ReadoutLeft, middle),
                     UiType.Micro, palette.Text, TextAlignmentOptions.MidlineLeft, 60f);
@@ -135,6 +183,46 @@ namespace BitSorter.View
 
         /// <summary>How many rows it shows.</summary>
         public int Rows => _readouts.Length;
+
+        /// <summary>
+        /// The toolbar over the waveform: + SIGNAL, GROUP and NAMES, each with its key beside it, each
+        /// asking <paramref name="onToolbar"/> for what its key does.
+        /// </summary>
+        private static void BuildToolbar(RectTransform parent, Vector2 at, SchematicPalette palette, System.Action<WorkbenchCommand> onToolbar,
+            WaveNames namesStyle)
+        {
+            RectTransform bar = UiTheme.Rect("waveform toolbar", parent);
+            WorkbenchPanel.TopLeft(bar, at, new Vector2(600f, ToolbarHeight));
+
+            float x = 34f;
+            void Add(string name, string caption, WorkbenchCommand command, float width)
+            {
+                Button button = WorkbenchPanel.CanvasButton(name, bar, caption, out TextMeshProUGUI _, UiType.Body, palette);
+                WorkbenchPanel.KeyBeside(button, WorkbenchKeys.For(command).Cap, palette);
+                WorkbenchPanel.TopLeft(button.GetComponent<RectTransform>(), new Vector2(x, 4f), new Vector2(width, 34f));
+                button.onClick.AddListener(() => { onToolbar?.Invoke(command); UiTheme.Defocus(); });
+                x += width + 46f;
+            }
+
+            Add(AddButton, "+ SIGNAL", WorkbenchCommand.AddSignal, 130f);
+            Add(GroupButton, "GROUP", WorkbenchCommand.Group, 100f);
+            Add(NamesButton, namesStyle == WaveNames.Full ? "NAMES: FULL" : "NAMES: SHORT", WorkbenchCommand.Names, 170f);
+        }
+
+        /// <summary>A name cut from its start, behind "...", until it is no wider than <paramref name="most"/> units.</summary>
+        private static string FitName(string name, float most)
+        {
+            if (UiTheme.TextWidth(name, UiType.Micro) <= most)
+                return name;
+            for (int cut = 1; cut < name.Length; cut++)
+            {
+                string shorter = "..." + name.Substring(cut);
+                if (UiTheme.TextWidth(shorter, UiType.Micro) <= most)
+                    return shorter;
+            }
+
+            return name;
+        }
 
         /// <summary>What row <paramref name="row"/>'s readout says now: what a test reads.</summary>
         public string ReadoutOf(int row) => _readouts[row].text;
@@ -184,7 +272,7 @@ namespace BitSorter.View
                 return false;
 
             float x = local.x, y = -local.y;
-            if (x < 0f || x > _width || y < WorkbenchDrawing.WaveTop - 20f || y > Height)
+            if (x < -NamesExtra || x > _width || y < WorkbenchDrawing.WaveTop - 20f || y > Height)
                 return false;
 
             float rowsTop = WorkbenchDrawing.WaveTop, rowsBottom = WorkbenchDrawing.WaveTop + Rows * WorkbenchDrawing.RowHeight;

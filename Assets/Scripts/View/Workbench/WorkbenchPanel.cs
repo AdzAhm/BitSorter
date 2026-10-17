@@ -35,6 +35,12 @@ namespace BitSorter.View
     /// the selected rows through the radixes and Delete takes them out. A change of rows builds the
     /// stage again round them, the circuit's zoom and the waveform's kept.
     ///
+    /// **Any signal can be a row**, a block's inside included: + SIGNAL, or A, opens a search over every
+    /// signal the design has (<see cref="WaveSignalPicker"/>), and Alt and a click on a wire adds its
+    /// signal. GROUP, or G, puts the selected rows under a header a click opens and shuts; NAMES, or L,
+    /// names every row by its whole path; a row's menu renames it. The waveform's own toolbar holds
+    /// those three buttons.
+    ///
     /// **The playhead is cursor 1** (Ahmad's choice, 2026-10-16): a click on the waves moves it there,
     /// snapped to an edge of the row under the pointer within 8 px or else to a whole unit
     /// (<see cref="WaveSnap"/>), and a drag scrubs. Shift and a click places C2, a drag near it moves
@@ -98,7 +104,7 @@ namespace BitSorter.View
 
         /// <summary>The line along the bottom.</summary>
         public const string HelpLine =
-            "scroll to zoom, shift and scroll to move through time, click the waves to seek, shift-click for a second cursor, right-click a row for its radix, escape to go back";
+            "scroll to zoom, shift and scroll to move through time, click the waves to seek, shift-click for a second cursor, right-click a row, alt-click a wire to add it";
 
         /// <summary>What the SAMPLE chip says for a sample: its name, under the word for what the chip steps through.</summary>
         public static string SampleCaption(int sample) => "SAMPLE: " + WorkbenchSamples.All[sample].Name.ToUpperInvariant();
@@ -129,7 +135,7 @@ namespace BitSorter.View
         private float WaveWidth => StageWidth - 2f * WaveformAt.x;
 
         private float StageHeight =>
-            WaveformAt.y + WorkbenchDrawing.WaveHeight(_model == null ? 0 : _model.RowCount) + WorkbenchDrawing.LegendHeight;
+            WaveformAt.y + WaveformView.HeightFor(_model == null ? 0 : _model.RowCount) + WorkbenchDrawing.LegendHeight;
 
         /// <summary>The legend's names for the four values, and what the rings and crosses mean.</summary>
         public const string LegendText = "A digit on a wire is a change travelling along it; a cross is one swallowed on the way.";
@@ -196,6 +202,8 @@ namespace BitSorter.View
         private int[] _appliedSignals = new int[0];
         private WaveRadix[] _appliedRadixes = new WaveRadix[0];
         private string[] _appliedNames = new string[0];
+        private bool[] _appliedHeaders = new bool[0];
+        private WaveNames _appliedStyle = WaveNames.Short;
         private readonly List<int> _rowSignals = new List<int>();
         private readonly List<WaveRadix> _rowRadixes = new List<WaveRadix>();
         private readonly List<bool> _rowsSelected = new List<bool>();
@@ -208,6 +216,9 @@ namespace BitSorter.View
         private double _movedTo = double.NaN;
 
         private WaveRowMenu _rowMenu;
+        private WaveSignalPicker _picker;
+        private WaveRenameField _rename;
+        private int _renaming = -1;
         private WorkbenchControlSample _controlSample;
 
         /// <summary>Each binding's key, as the Input System has it, and whether a binding of the same key needs Shift.</summary>
@@ -295,6 +306,18 @@ namespace BitSorter.View
 
         /// <summary>Whether a row's menu is up.</summary>
         public bool RowMenuOpen => _rowMenu != null && _rowMenu.IsOpen;
+
+        /// <summary>The + SIGNAL list, and the rename field; null until the panel has first opened.</summary>
+        public WaveSignalPicker Picker => _picker;
+
+        /// <inheritdoc cref="Picker"/>
+        public WaveRenameField RenameField => _rename;
+
+        /// <summary>What row <paramref name="row"/>'s name says, as drawn.</summary>
+        public string NameOf(int row) => _wave.NameOf(row);
+
+        /// <summary>How much wider than the reference's the names column is drawn.</summary>
+        public float NamesExtra => _wave.NamesExtra;
 
         /// <summary>Where a row's name is on the screen: somewhere to click it.</summary>
         public Vector2 RowNameOnScreen(int row) =>
@@ -396,11 +419,9 @@ namespace BitSorter.View
                     break;
                 case WorkbenchCommand.RemoveRows: RemoveRows(); break;
 
-                // The add list, groups and names come in Part 9b-2b's second half.
-                case WorkbenchCommand.AddSignal:
-                case WorkbenchCommand.Group:
-                case WorkbenchCommand.Names:
-                    break;
+                case WorkbenchCommand.AddSignal: OpenPicker(); break;
+                case WorkbenchCommand.Group: GroupRows(); break;
+                case WorkbenchCommand.Names: ToggleNames(); break;
             }
         }
 
@@ -564,6 +585,8 @@ namespace BitSorter.View
                     press.Region = region;
                     press.Row = row;
                     press.Time = Snapped(time, row);
+                    // A press on a group's header opens or shuts it; its menu is the right button's.
+                    press.OnGroupMark = row >= 0 && row < _list.Lines.Count && _list.Lines[row].IsHeader;
                     if (_cursors.Second.HasValue)
                         press.FromSecond = _wave.PixelsBetween(time, _cursors.Second.Value);
                 }
@@ -625,14 +648,112 @@ namespace BitSorter.View
                 case WaveGesture.RowMenu:
                     if (!_list.Lines[command.Row].Selected)
                         _list.Select(command.Row);
-                    _rowMenu.Open(pointer, SelectedRowsAreEnums());
+                    _renaming = command.Row;
+                    _rowMenu.Open(pointer, SelectedRowsAreEnums(), _list.SelectedSignals().Count > 0, SelectedGroup() != null);
                     break;
 
-                // Groups and adding a wire's signal come in Part 9b-2b's second half.
                 case WaveGesture.ToggleGroup:
+                    _list.Toggle(_list.Lines[command.Row].Group);
+                    RowsChanged();
+                    break;
+
                 case WaveGesture.AddWireSignal:
+                    AddWire();
                     break;
             }
+        }
+
+        /// <summary>The first group whose header is selected, or null: what UNGROUP takes apart.</summary>
+        private WaveGroup SelectedGroup()
+        {
+            foreach (WaveLine line in _list.Lines)
+                if (line.IsHeader && line.Selected)
+                    return line.Group;
+            return null;
+        }
+
+        /// <summary>What a row's menu does besides a radix.</summary>
+        private void RowAction(WaveRowAction action)
+        {
+            switch (action)
+            {
+                case WaveRowAction.Group:
+                    GroupRows();
+                    break;
+
+                case WaveRowAction.Ungroup:
+                    WaveGroup group = SelectedGroup();
+                    if (group != null)
+                    {
+                        _list.Ungroup(group);
+                        RowsChanged();
+                    }
+
+                    break;
+
+                case WaveRowAction.Rename:
+                    if (_renaming >= 0 && _renaming < _list.Lines.Count)
+                    {
+                        WaveLine line = _list.Lines[_renaming];
+                        _rename.Open(line.IsHeader ? line.Group.Name : line.Signal.Rename ?? "", RowNameOnScreen(_renaming));
+                    }
+
+                    break;
+
+                case WaveRowAction.Remove:
+                    RemoveRows();
+                    break;
+            }
+        }
+
+        /// <summary>Gives the row the menu was opened on the name typed, from the rename field.</summary>
+        private void RenameRow(string name)
+        {
+            if (_renaming < 0 || _renaming >= _list.Lines.Count)
+                return;
+            _list.Rename(_renaming, name);
+            RowsChanged();
+        }
+
+        /// <summary>Puts the selected rows under a header of their own, named for how many groups there are.</summary>
+        public void GroupRows()
+        {
+            int groups = 0;
+            foreach (WaveLine line in _list.Lines)
+                if (line.IsHeader)
+                    groups++;
+            if (_list.GroupSelected("group " + (groups + 1).ToString(CultureInfo.InvariantCulture)) != null)
+                RowsChanged();
+        }
+
+        /// <summary>Names every row by its whole path, or by its short name again.</summary>
+        public void ToggleNames()
+        {
+            _list.Names = _list.Names == WaveNames.Short ? WaveNames.Full : WaveNames.Short;
+            RowsChanged();
+        }
+
+        /// <summary>Opens the + SIGNAL list over the waveform's toolbar.</summary>
+        public void OpenPicker()
+        {
+            Vector2 at = RectTransformUtility.WorldToScreenPoint(null, _wave.Rect.TransformPoint(new Vector3(-_wave.NamesExtra, 0f, 0f)));
+            _picker.Open(_model.Signals, at);
+        }
+
+        /// <summary>Adds a signal to the waveform, from the list or a wire: at the end, selected, or selected where it is already.</summary>
+        public void AddSignal(int signal)
+        {
+            if (_list.Add(signal) >= 0)
+                RowsChanged();
+        }
+
+        /// <summary>Adds the signal of the wire under the pointer, as Alt and a click there does.</summary>
+        private void AddWire()
+        {
+            if (_hovered < 0)
+                return;
+            if (_model.Session.Design.TryFind(_model.Layout.Nets[_hovered].Signal, out SignalId id))
+                AddSignal(id.Index);
         }
 
         /// <summary>Whether every selected row is of an enum's type: what offers NAMES on its menu.</summary>
@@ -872,7 +993,9 @@ namespace BitSorter.View
             help.text = HelpLine;
 
             // Over everything else on the workbench, when it is up.
-            _rowMenu = WaveRowMenu.Build(Root, palette, ChooseRadix, RemoveRows);
+            _rowMenu = WaveRowMenu.Build(Root, palette, ChooseRadix, RowAction);
+            _picker = WaveSignalPicker.Build(Root, palette, AddSignal);
+            _rename = WaveRenameField.Build(Root, palette, RenameRow);
 
             Root.gameObject.SetActive(false);
         }
@@ -892,6 +1015,7 @@ namespace BitSorter.View
             _list = DefaultList(_model);
             _cursors.Clear();
             _appliedNames = new string[0];
+            _appliedHeaders = new bool[0];
             ApplyRows();
         }
 
@@ -913,22 +1037,31 @@ namespace BitSorter.View
         {
             _list.Rows(_rowSignals, _rowRadixes, _model.DefaultRadix);
             IReadOnlyList<WaveLine> lines = _list.Lines;
-            bool same = _rowSignals.Count == _appliedSignals.Length && _appliedNames.Length == lines.Count;
+            bool same = _rowSignals.Count == _appliedSignals.Length && _appliedNames.Length == lines.Count && _appliedStyle == _list.Names;
             for (int i = 0; same && i < _rowSignals.Count; i++)
-                same = _rowSignals[i] == _appliedSignals[i] && _rowRadixes[i] == _appliedRadixes[i] && _list.LabelOf(lines[i]) == _appliedNames[i];
+                same = _rowSignals[i] == _appliedSignals[i] && _rowRadixes[i] == _appliedRadixes[i] && Shown(lines[i]) == _appliedNames[i];
             if (same)
                 return false;
 
             _appliedSignals = _rowSignals.ToArray();
             _appliedRadixes = _rowRadixes.ToArray();
+            _appliedStyle = _list.Names;
             _appliedNames = new string[lines.Count];
+            _appliedHeaders = new bool[lines.Count];
             for (int i = 0; i < lines.Count; i++)
-                _appliedNames[i] = _list.LabelOf(lines[i]);
+            {
+                _appliedNames[i] = Shown(lines[i]);
+                _appliedHeaders[i] = lines[i].IsHeader;
+            }
 
             _model.SetRows(_appliedSignals, _appliedRadixes);
             _bandsVersion = -1;
             return true;
         }
+
+        /// <summary>A line's name as its row shows it: a group's header marked - while it is open and + while it is shut.</summary>
+        private string Shown(WaveLine line) =>
+            line.IsHeader ? (line.Group.Expanded ? "- " : "+ ") + _list.LabelOf(line) : _list.LabelOf(line);
 
         /// <summary>The list changed: the rows are given to the model, and the stage built again round them if they are new.</summary>
         private void RowsChanged()
@@ -997,6 +1130,8 @@ namespace BitSorter.View
             _sample = ((sample % count) + count) % count;
 
             _rowMenu.Close();
+            _picker.Close();
+            _rename.Close();
             OpenRun();
             RebuildStage(keepViews: false);
 
@@ -1189,7 +1324,8 @@ namespace BitSorter.View
             UiTheme.Stretch(_hoverLabel.rectTransform, 10f);
             Show(_hoverChip, false);
 
-            _wave = new WaveformView(_model, _layers, _stage, WaveformAt, WaveWidth, palette, _appliedNames, keepWave);
+            _wave = new WaveformView(_model, _layers, _stage, WaveformAt, WaveWidth, palette, _appliedNames, keepWave, _appliedHeaders, Do,
+                _list.Names);
 
             // The legend's words; its swatches are the card's.
             float legend = WorkbenchDrawing.LegendMiddle(StageHeight);
@@ -1511,7 +1647,40 @@ namespace BitSorter.View
         }
 
         /// <summary>A button's key in a cap just left of it, for one with no room over it.</summary>
-        private static void KeyBeside(Button button, string key, SchematicPalette palette)
+        /// <summary>
+        /// A single-line text field in the canvas's colours: an outlined box, a masked area for the text
+        /// to scroll in, the text and a quiet <paramref name="placeholder"/> -- the pieces
+        /// <see cref="TMP_InputField"/> needs handed to it, as <c>NameBoardPanel</c> hands them. While it
+        /// holds the keyboard the game's keys are off (<see cref="UiText"/>).
+        /// </summary>
+        internal static TMP_InputField CanvasField(string name, Transform parent, SchematicPalette palette, string placeholder)
+        {
+            Image box = CanvasChip(name, parent, palette);
+            RectTransform area = UiTheme.Rect("text area", box.transform);
+            UiTheme.Stretch(area, 10f);
+            area.gameObject.AddComponent<RectMask2D>();
+
+            TextMeshProUGUI hint = UiTheme.Label("placeholder", area, UiType.Body, palette.Muted, TextAlignmentOptions.MidlineLeft);
+            UiTheme.Stretch(hint.rectTransform, 0f);
+            hint.text = placeholder;
+
+            TextMeshProUGUI text = UiTheme.Label("text", area, UiType.Body, palette.Text, TextAlignmentOptions.MidlineLeft);
+            UiTheme.Stretch(text.rectTransform, 0f);
+
+            TMP_InputField field = box.gameObject.AddComponent<TMP_InputField>();
+            field.textViewport = area;
+            field.textComponent = text;
+            field.placeholder = hint;
+            field.lineType = TMP_InputField.LineType.SingleLine;
+            field.caretColor = palette.Text;
+            field.customCaretColor = true;
+            Color selection = palette.Accent;
+            selection.a = 0.35f;
+            field.selectionColor = selection;
+            return field;
+        }
+
+        internal static void KeyBeside(Button button, string key, SchematicPalette palette)
         {
             RectTransform cap = KeyCap(button, key, palette);
             UiTheme.Anchor(cap, new Vector2(0f, 0.5f), new Vector2(1f, 0.5f), new Vector2(-6f, 0f), cap.sizeDelta);

@@ -715,5 +715,182 @@ namespace BitSorter.PlayMode.Tests
             Assert.AreEqual(rows - 1, workbench.Model.RowCount, "Delete takes the selected row out");
             Assert.IsFalse(workbench.List.AllSignals.Any(r => r.Key == "a"));
         }
+
+        // -----------------------------------------------------------------
+        // Adding signals, groups and names (Part 9b-2b, second half)
+        // -----------------------------------------------------------------
+
+        private static int SignalKeyed(WorkbenchPanel workbench, string key)
+        {
+            Assert.IsTrue(workbench.Model.Signals.TryFind(key, out int signal), $"the design has no {key}");
+            return signal;
+        }
+
+        /// <summary>
+        /// A searches every signal the design has; the hit chosen is added at the end of the rows, a
+        /// block's inside as readily as a port, selected and showing its values; and a click off the list closes it.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator PlusSignal_SearchesEverySignal_AndAddsTheOneChosen()
+        {
+            yield return TestScene.Load();
+            yield return OpenTheWorkbench();
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowSample(1);
+            yield return null;
+            workbench.Pause();
+            workbench.Seek(17.0);
+            int rows = workbench.Model.RowCount;
+
+            yield return Tap(_keyboard.aKey);
+            Assert.IsTrue(workbench.Picker.IsOpen, "A opens the + SIGNAL list");
+
+            workbench.Picker.Search("h1.s");
+            yield return null;
+            Assert.AreEqual("h1.s", workbench.Picker.Found.First().Key, "h1's sum first, as its whole name");
+
+            workbench.Picker.AddFirst();
+            yield return null;
+            Assert.AreEqual(rows + 1, workbench.Model.RowCount, "added as a row");
+            int added = rows;
+            Assert.AreEqual("h1.s", workbench.NameOf(added));
+            Assert.IsTrue(workbench.List.Lines[added].Selected, "selected");
+            Assert.AreEqual("1", workbench.ReadoutOf(added), "and reading its value: a XOR b with a = 0 and b = 1");
+            Assert.IsTrue(workbench.Picker.IsOpen, "the list stays up to add another");
+
+            yield return ClickAt(workbench.WaveScreenPointOf(30.0, 0));
+            Assert.IsFalse(workbench.Picker.IsOpen, "a click off it closes it");
+            Assert.AreEqual(17.0, workbench.Time, 1e-9, "and is the list's: the waves under it were not clicked");
+
+            yield return Click(WaveformView.AddButton);
+            Assert.IsTrue(workbench.Picker.IsOpen, "+ SIGNAL on the waveform's toolbar opens it too");
+            workbench.Picker.Search("Z");
+            yield return null;
+            Assert.IsFalse(workbench.Picker.Found.Any(h => h.Key.EndsWith(".Z")), "a cell's pins are hidden");
+            yield return Click(WaveSignalPicker.CellsButton);
+            Assert.IsTrue(workbench.Picker.Found.Any(h => h.Key == "h1.g1.Z"), "until CELLS is on");
+            workbench.Picker.Close();
+        }
+
+        /// <summary>Alt and a click on a wire adds its signal -- an inside net no port shows -- selected, its wire lit.</summary>
+        [UnityTest]
+        public IEnumerator AltAndAClickOnAWire_AddsItsSignal()
+        {
+            yield return TestScene.Load();
+            yield return OpenTheWorkbench();
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.Pause();
+            int rows = workbench.Model.RowCount;
+            int na = workbench.Model.Layout.NetNamed("na");
+            StageRoute wire = workbench.Model.Layout.Nets[na].Branches[0];
+
+            var mouse = InputSystem.GetDevice<Mouse>();
+            mouse.MakeCurrent();
+            Move(mouse.position, workbench.ScreenPointOf(wire.PointAt(wire.Length * 0.5f)));
+            yield return null;
+            yield return null;
+            Assert.AreEqual(na, workbench.HoveredNet, "sanity: the pointer is on NOT A's wire");
+
+            Press(_keyboard.altKey);
+            yield return null;
+            Press(mouse.leftButton);
+            yield return null;
+            Release(mouse.leftButton);
+            yield return null;
+            Release(_keyboard.altKey);
+            yield return null;
+
+            Assert.AreEqual(rows + 1, workbench.Model.RowCount, "Alt and a click on the wire adds a row");
+            Assert.AreEqual("na", workbench.NameOf(rows), "of NOT A's output, which no port shows");
+            Assert.IsTrue(workbench.List.Lines[rows].Selected);
+            Assert.IsTrue(workbench.IsFitted, "and the circuit did not move with the click");
+        }
+
+        /// <summary>G puts the selected rows under a header; a click on the header shuts and opens it; UNGROUP puts them back.</summary>
+        [UnityTest]
+        public IEnumerator Grouping_PutsRowsUnderAHeader_AClickShutsIt_AndUngroupPutsThemBack()
+        {
+            yield return TestScene.Load();
+            yield return OpenTheWorkbench();
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowSample(1);
+            yield return null;
+            workbench.Pause();
+            foreach (string key in new[] { "h1.s", "h1.c", "h2.c" })
+                workbench.AddSignal(SignalKeyed(workbench, key));
+            int ports = workbench.Model.RowCount - 3;
+            workbench.List.Select(ports);
+            workbench.List.Select(ports + 2, extend: true);
+
+            yield return Tap(_keyboard.gKey);
+            Assert.IsTrue(workbench.List.Lines[ports].IsHeader, "G puts them under a header, where the first was");
+            Assert.AreEqual(-1, workbench.Model.RowSignal(ports), "a header is a row with no signal");
+            Assert.AreEqual("- group 1", workbench.NameOf(ports), "named, and marked open");
+            Assert.AreEqual(ports + 4, workbench.Model.RowCount);
+
+            yield return ClickAt(workbench.RowNameOnScreen(ports));
+            Assert.AreEqual("+ group 1", workbench.NameOf(ports), "a click on the header shuts it");
+            Assert.AreEqual(ports + 1, workbench.Model.RowCount, "and its rows leave the waveform");
+
+            yield return ClickAt(workbench.RowNameOnScreen(ports));
+            Assert.AreEqual(ports + 4, workbench.Model.RowCount, "and again opens it");
+
+            var mouse = InputSystem.GetDevice<Mouse>();
+            yield return ClickAt(workbench.RowNameOnScreen(ports), mouse.rightButton);
+            yield return Click(WaveRowMenu.ActionItem + WaveRowAction.Ungroup);
+            Assert.IsFalse(workbench.List.Lines.Any(l => l.IsHeader), "UNGROUP puts the rows back");
+            Assert.AreEqual(ports + 3, workbench.Model.RowCount);
+        }
+
+        /// <summary>L names every row by its whole path, as ModelSim does, and the names column widens to take them; L again puts the short names back.</summary>
+        [UnityTest]
+        public IEnumerator FullNames_NameEveryRowByItsPath_AndWidenTheColumn()
+        {
+            yield return TestScene.Load();
+            yield return OpenTheWorkbench();
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.Pause();
+            Assert.AreEqual(0f, workbench.NamesExtra, "sanity: the short names fit the reference's column");
+            string shortName = workbench.NameOf(0);
+
+            yield return Tap(_keyboard.lKey);
+            StringAssert.StartsWith("/", workbench.NameOf(0), "L names the row by its path");
+            StringAssert.EndsWith("/dut/" + shortName, workbench.NameOf(0));
+            Assert.Greater(workbench.NamesExtra, 0f, "and the column widens for it");
+
+            yield return Click(WaveformView.NamesButton);
+            Assert.AreEqual(shortName, workbench.NameOf(0), "NAMES on the toolbar puts the short names back");
+            Assert.AreEqual(0f, workbench.NamesExtra);
+        }
+
+        /// <summary>RENAME on a row's menu gives it a name of its own; an empty name gives it its own back.</summary>
+        [UnityTest]
+        public IEnumerator Rename_GivesARowANameOfItsOwn()
+        {
+            yield return TestScene.Load();
+            yield return OpenTheWorkbench();
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.Pause();
+            int a = RowLabelled(workbench, "a");
+            var mouse = InputSystem.GetDevice<Mouse>();
+
+            yield return ClickAt(workbench.RowNameOnScreen(a), mouse.rightButton);
+            yield return Click(WaveRowMenu.ActionItem + WaveRowAction.Rename);
+            Assert.IsTrue(workbench.RenameField.IsOpen, "RENAME opens the field");
+            workbench.RenameField.Confirm("in a");
+            yield return null;
+            Assert.AreEqual("in a", workbench.NameOf(a));
+
+            yield return ClickAt(workbench.RowNameOnScreen(a), mouse.rightButton);
+            yield return Click(WaveRowMenu.ActionItem + WaveRowAction.Rename);
+            workbench.RenameField.Confirm("");
+            yield return null;
+            Assert.AreEqual("a", workbench.NameOf(a), "empty gives it its own back");
+        }
     }
 }

@@ -730,7 +730,7 @@ failure side.
   counts from it -- the win celebration once pulsed on the game clock and a solve
   could land at the bottom of its swell.
 - **Visual changes are checked against the reference shots.**
-  `BitSorter/Capture Reference Shots` captures thirty states (menu, a built
+  `BitSorter/Capture Reference Shots` captures thirty-two states (menu, a built
   board, bits in flight, a collision one tick out and one that takes both bits,
   the solved card, the level list, free play, the help panel, the chapter card, a
   clocked level, the tutorial's intro and its closing card, a first-time hint, a
@@ -740,8 +740,9 @@ failure side.
   three levels that open on a broken circuit, as they open, the timing
   diagram mid-run with a picked wire's collisions crossed, Four at once
   built and running, its carry passing between the boxes, and 5.0's workbench
-  preview with two changes on their way, whole, zoomed in, with a wire pointed at, and with two rows in other
-  radixes and a second cursor 9 ns on) as an Explicit Play
+  preview with two changes on their way, whole, zoomed in, with a wire pointed at, with two rows in other
+  radixes and a second cursor 9 ns on, with a block's inside grouped under full names, and with the
+  add list searching) as an Explicit Play
   Mode fixture, so it runs under `SaveGuard` --
   driving the real game for a screenshot by hand once marked a level solved on
   the developer's own save. Frame time is fixed, particle systems are seeded,
@@ -839,8 +840,8 @@ failure side.
   narrower one -- is the topmost thing under the pointer a control: a button, the
   slider, the row menu -- and asks it at `-30000` too, for the same tap; and the
   panel reads its mouse as gestures (`WavePointer`), where a press on a control is
-  never one. The row menu holds Escape (`IHoldsEscape`), and the panel closes on
-  Escape only when nothing does.
+  never one. The row menu, the add list and the rename field each hold Escape
+  (`IHoldsEscape`), and the panel closes on Escape only when nothing does.
 - **`UiText` arbitrates the keyboard, as `PointerGate` does the mouse.** Naming a
   free-play board put the first text field into a game that binds N, M, Q, E, H,
   R, Space, Enter and Escape in seventeen places, so typing "Adder" would have

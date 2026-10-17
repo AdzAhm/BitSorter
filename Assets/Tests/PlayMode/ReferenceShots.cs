@@ -910,6 +910,72 @@ namespace BitSorter.PlayMode.Tests
             yield return Capture("30-workbench-radix-cursors");
         }
 
+        /// <summary>
+        /// The full adder with h1's sum and carry and h2's carry -- a block's inside -- grouped as
+        /// carries, and every row named by its whole path: hierarchy, groups and full names (Part 9b-2b).
+        /// </summary>
+        [UnityTest]
+        public IEnumerator Shot31_WorkbenchHierarchy()
+        {
+            yield return LoadTheGame();
+            yield return Frames(2);
+
+            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            yield return Frames(2);
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowSample(1);
+            yield return Frames(2);
+            workbench.Pause();
+
+            foreach (string key in new[] { "h1.s", "h1.c", "h2.c" })
+            {
+                Assert.IsTrue(workbench.Model.Signals.TryFind(key, out int signal), $"sanity: the full adder has {key}");
+                workbench.AddSignal(signal);
+            }
+
+            WaveList list = workbench.List;
+            int first = list.Lines.Count - 3;
+            list.Select(first);
+            list.Select(first + 2, extend: true);
+            workbench.GroupRows();
+            list.Rename(first, "carries");
+            workbench.ToggleNames();
+            list.ClearSelection();
+            workbench.Seek(40.0);
+            yield return Frames(30);
+
+            Assert.IsTrue(list.Lines[first].IsHeader, "sanity: the three are under a header");
+
+            yield return Capture("31-workbench-hierarchy");
+        }
+
+        /// <summary>The + SIGNAL list open over the full adder, h1 searched: h1's own signals, ranked, the cells' pins left out.</summary>
+        [UnityTest]
+        public IEnumerator Shot32_WorkbenchAddSignal()
+        {
+            yield return LoadTheGame();
+            yield return Frames(2);
+
+            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            yield return Frames(2);
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowSample(1);
+            yield return Frames(2);
+            workbench.Pause();
+            workbench.Seek(40.0);
+            workbench.OpenPicker();
+            workbench.Picker.Search("h1");
+            UiTheme.Defocus();
+            yield return Frames(30);
+
+            Assert.IsTrue(workbench.Picker.IsOpen, "sanity: the list is up");
+            Assert.Greater(workbench.Picker.Found.Count, 3, "sanity: h1 finds h1's signals");
+
+            yield return Capture("32-workbench-add-signal");
+        }
+
         private static IEnumerator OpensOnItsCircuit(string level, string fixture, string shot)
         {
             yield return LoadTheGame();
