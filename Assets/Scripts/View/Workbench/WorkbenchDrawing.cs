@@ -562,7 +562,7 @@ namespace BitSorter.View
         public static void Timing(VectorPainter painter, WorkbenchModel model, WaveView view, SchematicPalette palette,
             int from = 0, int count = int.MaxValue)
         {
-            int last = Last(from, count, model.Layout.Rows.Count);
+            int last = Last(from, count, model.RowCount);
             double start = view.Start, end = Math.Min(view.End, model.End);
 
             for (int row = from; row < last; row++)
@@ -604,7 +604,7 @@ namespace BitSorter.View
         public static void Glitches(VectorPainter painter, WorkbenchModel model, WaveView view, SchematicPalette palette,
             int from = 0, int count = int.MaxValue)
         {
-            int last = Last(from, count, model.Layout.Rows.Count);
+            int last = Last(from, count, model.RowCount);
 
             for (int row = from; row < last; row++)
             {
@@ -623,7 +623,7 @@ namespace BitSorter.View
         /// <summary>The waveform's time grid, under its rows: a line at each tick the view shows (<see cref="TickPixels"/>), drawn when it moves.</summary>
         public static void Grid(VectorPainter painter, WorkbenchModel model, WaveView view, SchematicPalette palette)
         {
-            float bottom = WaveHeight(model.Layout.Rows.Count) - 6f;
+            float bottom = WaveHeight(model.RowCount) - 6f;
             double step = view.TickStep(TickPixels);
             (long first, long last) = view.TicksInView(step);
 
@@ -638,16 +638,50 @@ namespace BitSorter.View
             }
         }
 
-        /// <summary>The playhead over the waveform's rows: a line, redrawn with every moment, and none while the view does not reach it.</summary>
-        public static void Playhead(VectorPainter painter, WorkbenchModel model, WaveView view, SchematicPalette palette)
+        /// <summary>
+        /// The playhead over the waveform's rows, and the second cursor and the bracket between them
+        /// when it is placed (<paramref name="cursors"/>): lines, redrawn with every moment, and each
+        /// left out while the view does not reach it.
+        /// </summary>
+        /// <remarks>
+        /// The bracket runs along the margin under the rows, from one cursor to the other, cut at the
+        /// edges of the axis when either is out of view; the time it spans is the panel's label over
+        /// it. C2 is in its own colour (<see cref="SchematicPalette.Cursor"/>), never red, which means x.
+        /// </remarks>
+        public static void Playhead(VectorPainter painter, WorkbenchModel model, WaveView view, SchematicPalette palette, WaveCursors cursors = null)
         {
-            if (!view.Shows(model.Time))
+            float bottom = WaveHeight(model.RowCount) - 6f;
+            if (view.Shows(model.Time))
+            {
+                float now = WaveX(model.Time, view);
+                painter.Line(new Vector2(now, WaveTop - 2f), new Vector2(now, bottom), 1.3f, palette.Playhead);
+            }
+
+            if (cursors?.Second == null)
                 return;
 
-            float bottom = WaveHeight(model.Layout.Rows.Count) - 6f;
-            float now = WaveX(model.Time, view);
-            painter.Line(new Vector2(now, WaveTop - 2f), new Vector2(now, bottom), 1.3f, palette.Playhead);
+            double second = cursors.Second.Value;
+            if (view.Shows(second))
+            {
+                float x = WaveX(second, view);
+                painter.Line(new Vector2(x, WaveTop - 2f), new Vector2(x, bottom), 1.3f, palette.Cursor);
+            }
+
+            // The bracket, from the earlier cursor to the later, kept to the axis.
+            float left = WaveLeft, right = WaveLeft + view.Width;
+            float a = Mathf.Clamp(WaveX(Math.Min(second, model.Time), view), left, right);
+            float b = Mathf.Clamp(WaveX(Math.Max(second, model.Time), view), left, right);
+            if (b - a < 1f)
+                return;
+
+            float y = BracketY(model.RowCount);
+            painter.Line(new Vector2(a, y), new Vector2(b, y), 1.1f, palette.Cursor);
+            painter.Line(new Vector2(a, y - 4f), new Vector2(a, y + 4f), 1.1f, palette.Cursor);
+            painter.Line(new Vector2(b, y - 4f), new Vector2(b, y + 4f), 1.1f, palette.Cursor);
         }
+
+        /// <summary>Where the bracket between the cursors runs: in the margin under the last row.</summary>
+        public static float BracketY(int rows) => WaveTop + rows * RowHeight + 8f;
 
         /// <summary>One past the last item of a range, kept inside the list.</summary>
         private static int Last(int from, int count, int total) => (int)System.Math.Min((long)from + count, total);

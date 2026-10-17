@@ -92,7 +92,14 @@ namespace BitSorter.View
         private Color[] _lampShown = new Color[0];
         private int _highlighted = -1;
 
-        public WorkbenchLayers(WorkbenchModel model) => _model = model;
+        public WorkbenchLayers(WorkbenchModel model, WaveCursors cursors = null)
+        {
+            _model = model;
+            Cursors = cursors;
+        }
+
+        /// <summary>The second cursor the playhead's layer draws, if there is one to draw.</summary>
+        public WaveCursors Cursors { get; }
 
         /// <summary>The time the waveform shows (<see cref="BuildTiming"/>): what its zoom and pan move. Null until it is built.</summary>
         public WaveView Wave => _wave;
@@ -187,10 +194,10 @@ namespace BitSorter.View
             _reveal.sizeDelta = size;
             _reveal.gameObject.AddComponent<UnityEngine.UI.RectMask2D>();
 
-            foreach ((int Start, int Count) run in Chunks.Cut(_model.Layout.Rows.Count, row => WorkbenchDrawing.RowVertices(_model, row, _wave.Width), VertexBudget))
+            foreach ((int Start, int Count) run in Chunks.Cut(_model.RowCount, row => WorkbenchDrawing.RowVertices(_model, row, _wave.Width), VertexBudget))
                 _timing.Add(Create("timing", _reveal, WorkbenchGraphic.Layer.Timing, size, run));
 
-            foreach ((int Start, int Count) run in Chunks.Cut(_model.Layout.Rows.Count, row => WorkbenchDrawing.GlitchVertices(_model, row), VertexBudget))
+            foreach ((int Start, int Count) run in Chunks.Cut(_model.RowCount, row => WorkbenchDrawing.GlitchVertices(_model, row), VertexBudget))
                 _glitches.Add(Create("glitches", parent, WorkbenchGraphic.Layer.Glitches, size, run));
             _glitchesShown = new int[_glitches.Count];
 
@@ -219,7 +226,7 @@ namespace BitSorter.View
             if (_reveal == null)
                 return;
 
-            int rows = _model.Layout.Rows.Count;
+            int rows = _model.RowCount;
             if (Recut(_timing, Chunks.Cut(rows, row => WorkbenchDrawing.RowVertices(_model, row, _wave.Width), VertexBudget),
                     "timing", _reveal, WorkbenchGraphic.Layer.Timing, redraw: false))
                 _rowsDrawnTo = RowsReach;
@@ -360,7 +367,7 @@ namespace BitSorter.View
             for (int k = 0; k < _glitches.Count; k++)
             {
                 WorkbenchGraphic chunk = _glitches[k];
-                int shown = 0, last = Mathf.Min(chunk.From + chunk.Count, layout.Rows.Count);
+                int shown = 0, last = Mathf.Min(chunk.From + chunk.Count, _model.RowCount);
                 for (int row = chunk.From; row < last; row++)
                     shown += _model.RowSwallowedSoFar(row);
                 if (all || moved || shown != _glitchesShown[k])
@@ -433,6 +440,7 @@ namespace BitSorter.View
             graphic.Draws = draws;
             graphic.Model = _model;
             graphic.Wave = _wave;
+            graphic.Cursors = Cursors;
             graphic.From = run.Start;
             graphic.Count = run.Count;
             graphic.raycastTarget = false;

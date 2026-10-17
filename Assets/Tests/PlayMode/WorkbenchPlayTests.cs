@@ -532,5 +532,188 @@ namespace BitSorter.PlayMode.Tests
 
             Assert.AreEqual(8, pins, "sanity: two half adders, four ports each");
         }
+
+        // -----------------------------------------------------------------
+        // Cursors, rows and their menu (Part 9b-2b)
+        // -----------------------------------------------------------------
+
+        private static int RowLabelled(WorkbenchPanel workbench, string label)
+        {
+            WaveList list = workbench.List;
+            int row = Enumerable.Range(0, list.Lines.Count).Single(i => list.LabelOf(list.Lines[i]) == label);
+            return row;
+        }
+
+        private IEnumerator ClickAt(Vector2 point, ButtonControl button = null)
+        {
+            var mouse = InputSystem.GetDevice<Mouse>();
+            mouse.MakeCurrent();
+            Move(mouse.position, point);
+            yield return null;
+            Press(button ?? mouse.leftButton);
+            yield return null;
+            Release(button ?? mouse.leftButton);
+            yield return null;
+        }
+
+        /// <summary>Every key the workbench's table names is one the Input System has, by that name: the panel reads its keys from it as it opens.</summary>
+        [Test]
+        public void EveryKeyInTheTable_IsAnInputSystemKey()
+        {
+            foreach (KeyBinding binding in WorkbenchKeys.All)
+                Assert.IsTrue(System.Enum.TryParse(binding.Key, out Key key) && key != Key.None, $"{binding.Key} is not a key the Input System knows");
+        }
+
+        /// <summary>
+        /// A click on the waves moves the playhead there and pauses: onto an edge of the row under it
+        /// within 8 px, or else onto a whole unit.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator AClickOnTheWaves_SeeksThePlayhead_SnappedToAnEdgeOrAWholeUnit()
+        {
+            yield return TestScene.Load();
+            yield return OpenTheWorkbench();
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            int a = RowLabelled(workbench, "a");
+            SignalTrack track = workbench.Model.RowTrack(a);
+            double edge = track[1].Time;
+            Assert.Greater(workbench.Wave.PixelsPerUnit, 10.0, "sanity: a unit is wide enough for 0.2 of one to be within 8 px");
+
+            yield return ClickAt(workbench.WaveScreenPointOf(edge + 0.2, a));
+            Assert.IsFalse(workbench.Playing, "a click on the waves pauses");
+            Assert.AreEqual(edge, workbench.Time, 1e-9, "a click just past a's edge lands on it");
+
+            yield return ClickAt(workbench.WaveScreenPointOf(20.4, a));
+            Assert.AreEqual(20.0, workbench.Time, 1e-9, "and with no edge near, on the nearest whole unit");
+        }
+
+        /// <summary>Shift and a click places the second cursor; its time and the span from the playhead are written; C takes it away.</summary>
+        [UnityTest]
+        public IEnumerator ShiftAndAClick_PlacesTheSecondCursor_AndTheSpanIsWritten()
+        {
+            yield return TestScene.Load();
+            yield return OpenTheWorkbench();
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.Pause();
+            workbench.Seek(10.0);
+            int en = RowLabelled(workbench, "en");
+            Assert.IsNull(workbench.SecondText, "sanity: no second cursor yet");
+
+            Press(_keyboard.shiftKey);
+            yield return null;
+            yield return ClickAt(workbench.WaveScreenPointOf(19.2, en));
+            Release(_keyboard.shiftKey);
+            yield return null;
+
+            Assert.AreEqual(19.0, workbench.Cursors.Second, "placed on the whole unit nearest the click");
+            Assert.AreEqual(10.0, workbench.Time, 1e-9, "and the playhead left where it was");
+            Assert.AreEqual("19 ns", workbench.SecondText);
+            Assert.AreEqual("9 ns", workbench.SpanText, "the time from the playhead to it");
+
+            yield return Tap(_keyboard.cKey);
+            Assert.IsNull(workbench.Cursors.Second, "C takes it away");
+            Assert.IsNull(workbench.SecondText);
+            Assert.IsNull(workbench.SpanText);
+        }
+
+        /// <summary>
+        /// A right-click on a row opens its menu; a radix chosen there rewrites the row's value, and X
+        /// steps it to the next; REMOVE takes the row out.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator ARowsMenu_SetsItsRadix_XStepsIt_AndRemoveTakesItOut()
+        {
+            yield return TestScene.Load();
+            yield return OpenTheWorkbench();
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.Pause();
+            workbench.Seek(13.5);
+            int s = RowLabelled(workbench, "s[3:0]");
+            yield return null;
+            Assert.AreEqual("Ah", workbench.ReadoutOf(s), "sanity: s is A, in hex");
+
+            var mouse = InputSystem.GetDevice<Mouse>();
+            yield return ClickAt(workbench.RowNameOnScreen(s), mouse.rightButton);
+            Assert.IsTrue(workbench.RowMenuOpen, "a right-click on a row's name opens its menu");
+            Assert.IsTrue(workbench.List.Lines[s].Selected, "and selects the row");
+
+            yield return Click(WaveRowMenu.RadixItem + WaveRadix.Unsigned);
+            Assert.IsFalse(workbench.RowMenuOpen, "choosing closes it");
+            Assert.AreEqual(WaveRadix.Unsigned, workbench.Model.RowRadix(s));
+            Assert.AreEqual("10", workbench.ReadoutOf(s), "A, unsigned");
+
+            yield return Tap(_keyboard.xKey);
+            Assert.AreEqual(WaveRadix.Signed, workbench.Model.RowRadix(s), "X steps the selected row on to signed");
+            Assert.AreEqual("-6", workbench.ReadoutOf(s), "4'b1010, signed");
+
+            int rows = workbench.Model.RowCount;
+            yield return ClickAt(workbench.RowNameOnScreen(s), mouse.rightButton);
+            yield return Click(WaveRowMenu.RemoveItem);
+            Assert.AreEqual(rows - 1, workbench.Model.RowCount, "REMOVE takes the row out");
+            Assert.IsFalse(workbench.List.AllSignals.Any(r => r.Key == "s"));
+        }
+
+        /// <summary>Escape closes the row menu first, and only then the workbench; and the click that closes the menu never seeks.</summary>
+        [UnityTest]
+        public IEnumerator Escape_ClosesTheRowMenuFirst_AndAClickOffItNeverSeeks()
+        {
+            yield return TestScene.Load();
+            yield return OpenTheWorkbench();
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.Pause();
+            workbench.Seek(5.0);
+            int y = RowLabelled(workbench, "y");
+            var mouse = InputSystem.GetDevice<Mouse>();
+
+            yield return ClickAt(workbench.RowNameOnScreen(y), mouse.rightButton);
+            Assert.IsTrue(workbench.RowMenuOpen, "sanity: the menu is up");
+            yield return Tap(_keyboard.escapeKey);
+            Assert.IsFalse(workbench.RowMenuOpen, "Escape closes the menu");
+            Assert.IsTrue(workbench.IsOpen, "and leaves the workbench up");
+
+            yield return ClickAt(workbench.RowNameOnScreen(y), mouse.rightButton);
+            Assert.IsTrue(workbench.RowMenuOpen);
+            yield return ClickAt(workbench.WaveScreenPointOf(20.0, y + 2));
+            Assert.IsFalse(workbench.RowMenuOpen, "a click off the menu closes it");
+            Assert.AreEqual(5.0, workbench.Time, 1e-9, "and is the menu's: the waves under it were not clicked");
+
+            yield return Tap(_keyboard.escapeKey);
+            Assert.IsFalse(workbench.IsOpen, "with nothing over it, Escape closes the workbench");
+        }
+
+        /// <summary>Selecting a row lights its wire; pointing at a wire lights its row; Delete takes a selected row out.</summary>
+        [UnityTest]
+        public IEnumerator ARowAndItsWire_LightEachOther_AndDeleteTakesTheRowOut()
+        {
+            yield return TestScene.Load();
+            yield return OpenTheWorkbench();
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.Pause();
+            int a = RowLabelled(workbench, "a");
+            yield return ClickAt(workbench.RowNameOnScreen(a));
+            Assert.IsTrue(workbench.List.Lines[a].Selected, "a click on a row's name selects it");
+            Assert.IsTrue(workbench.RowBandShown(a), "and puts up its band");
+            Assert.AreEqual(workbench.Model.NetOfRow(a), workbench.LitNet, "and lights its wire");
+
+            int y = RowLabelled(workbench, "y");
+            int yNet = workbench.Model.NetOfRow(y);
+            StageRoute wire = workbench.Model.Layout.Nets[yNet].Branches[0];
+            var mouse = InputSystem.GetDevice<Mouse>();
+            Move(mouse.position, workbench.ScreenPointOf(wire.PointAt(wire.Length * 0.5f)));
+            yield return null;
+            yield return null;
+            Assert.AreEqual(yNet, workbench.LitNet, "pointing at y's wire lights it, over the selected row's");
+            Assert.IsTrue(workbench.RowBandShown(y), "and puts up y's row's band");
+
+            int rows = workbench.Model.RowCount;
+            yield return Tap(_keyboard.deleteKey);
+            Assert.AreEqual(rows - 1, workbench.Model.RowCount, "Delete takes the selected row out");
+            Assert.IsFalse(workbench.List.AllSignals.Any(r => r.Key == "a"));
+        }
     }
 }

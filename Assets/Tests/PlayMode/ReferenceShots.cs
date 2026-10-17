@@ -878,6 +878,38 @@ namespace BitSorter.PlayMode.Tests
             yield return Capture("29-workbench-hover");
         }
 
+        /// <summary>
+        /// The reference with s read as unsigned and out as signed, the playhead at 11 and the second
+        /// cursor at 20: the radix in the readouts, the boxes and the rings -- out's change to A halfway
+        /// down its wire as -6 -- C2 in its own colour, and 9 ns over the bracket between them (Part 9b-2b).
+        /// </summary>
+        [UnityTest]
+        public IEnumerator Shot30_WorkbenchRadixAndCursors()
+        {
+            yield return LoadTheGame();
+            yield return Frames(2);
+
+            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            yield return Frames(2);
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.Pause();
+            WaveList list = workbench.List;
+            int s = Enumerable.Range(0, list.Lines.Count).Single(i => list.LabelOf(list.Lines[i]) == "s[3:0]");
+            int o = Enumerable.Range(0, list.Lines.Count).Single(i => list.LabelOf(list.Lines[i]) == "out[3:0]");
+            workbench.SetRadix(s, WaveRadix.Unsigned);
+            workbench.SetRadix(o, WaveRadix.Signed);
+            list.ClearSelection();
+            workbench.Seek(11.0);
+            workbench.PlaceSecond(20.0);
+            yield return Frames(30);
+
+            Assert.AreEqual("9 ns", workbench.SpanText, "sanity: the second cursor is 9 ns on");
+            Assert.AreEqual(WaveRadix.Signed, workbench.Model.RowRadix(o), "sanity: out is signed");
+
+            yield return Capture("30-workbench-radix-cursors");
+        }
+
         private static IEnumerator OpensOnItsCircuit(string level, string fixture, string shot)
         {
             yield return LoadTheGame();

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using BitSorter.Sim;
 using BitSorter.SystemVerilog;
 using BitSorter.ViewModel;
 using TMPro;
@@ -28,6 +29,20 @@ namespace BitSorter.View
     /// 9b-2a): the wheel over it zooms about the cursor, and with Shift, or sideways, moves through
     /// the run.
     ///
+    /// **The waveform's rows are a list the student arranges** (<see cref="WaveList"/>, Part 9b-2b):
+    /// a click on a row's name selects it -- and lights its wire, as pointing at a wire lights its rows
+    /// -- and a right-click opens its menu, the radix its value is written in or taking it out; X steps
+    /// the selected rows through the radixes and Delete takes them out. A change of rows builds the
+    /// stage again round them, the circuit's zoom and the waveform's kept.
+    ///
+    /// **The playhead is cursor 1** (Ahmad's choice, 2026-10-16): a click on the waves moves it there,
+    /// snapped to an edge of the row under the pointer within 8 px or else to a whole unit
+    /// (<see cref="WaveSnap"/>), and a drag scrubs. Shift and a click places C2, a drag near it moves
+    /// it, C takes it away, and the time between them is written over a bracket under the rows. The
+    /// mouse is read as gestures (<see cref="WavePointer"/>), and a press on a control is never one: the
+    /// controls are sampled before anything reacts to the frame (<see cref="WorkbenchControlSample"/>),
+    /// so the click that closes the row menu never seeks.
+    ///
     /// **The SAMPLE chip steps through the circuits it can show** -- the reference, a full adder of
     /// two half-adder blocks, a clocked counter -- and S with it. Each is a document of its own, so a
     /// step builds the stage again round it and plays its run from the start.
@@ -35,9 +50,11 @@ namespace BitSorter.View
     /// **A wire pointed at lights its whole net** and a chip beside the pointer says what drives
     /// it and what reads it (<see cref="NetLayout.Says"/>).
     ///
-    /// **Every control has a key**, drawn over its button as the 4.x HUD draws RUN's: Space plays or
-    /// pauses, R replays, S steps to the next sample, the arrows step through time, plus and minus
-    /// zoom, F fits, and up and down move the page when it is taller than the window.
+    /// **Every control has a key**, drawn over its button as the 4.x HUD draws RUN's, and every key is
+    /// read from one table (<see cref="WorkbenchKeys"/>), which refuses a key the rest of the game or
+    /// a browser owns: Space plays or pauses, R replays, S steps to the next sample, the arrows step
+    /// through time, plus and minus zoom, F fits, up and down move the page, X and Delete the rows, C
+    /// the second cursor.
     ///
     /// **The controls are two rows**: the buttons, then the time -- the slider and where it is. The
     /// run controls of Part 9b-3 go on the first row, beside the ones there now.
@@ -81,7 +98,7 @@ namespace BitSorter.View
 
         /// <summary>The line along the bottom.</summary>
         public const string HelpLine =
-            "scroll to zoom the circuit or the waveform, shift and scroll to move through time, drag to move the circuit, arrows to step, escape to go back";
+            "scroll to zoom, shift and scroll to move through time, click the waves to seek, shift-click for a second cursor, right-click a row for its radix, escape to go back";
 
         /// <summary>What the SAMPLE chip says for a sample: its name, under the word for what the chip steps through.</summary>
         public static string SampleCaption(int sample) => "SAMPLE: " + WorkbenchSamples.All[sample].Name.ToUpperInvariant();
@@ -112,7 +129,7 @@ namespace BitSorter.View
         private float WaveWidth => StageWidth - 2f * WaveformAt.x;
 
         private float StageHeight =>
-            WaveformAt.y + WorkbenchDrawing.WaveHeight(_model == null ? 0 : _model.Layout.Rows.Count) + WorkbenchDrawing.LegendHeight;
+            WaveformAt.y + WorkbenchDrawing.WaveHeight(_model == null ? 0 : _model.RowCount) + WorkbenchDrawing.LegendHeight;
 
         /// <summary>The legend's names for the four values, and what the rings and crosses mean.</summary>
         public const string LegendText = "A digit on a wire is a change travelling along it; a cross is one swallowed on the way.";
@@ -173,6 +190,29 @@ namespace BitSorter.View
         private RectTransform _view;
         private RectTransform _schematic;
         private WaveformView _wave;
+
+        /// <summary>The waveform's rows as the student arranges them, and what the model and the stage were last given of them.</summary>
+        private WaveList _list;
+        private int[] _appliedSignals = new int[0];
+        private WaveRadix[] _appliedRadixes = new WaveRadix[0];
+        private string[] _appliedNames = new string[0];
+        private readonly List<int> _rowSignals = new List<int>();
+        private readonly List<WaveRadix> _rowRadixes = new List<WaveRadix>();
+        private readonly List<bool> _rowsSelected = new List<bool>();
+        private int _bandsVersion = -1, _bandsLit = -2, _lit = -1;
+
+        /// <summary>The second cursor, the mouse as gestures, and what this frame's gestures ask for.</summary>
+        private readonly WaveCursors _cursors = new WaveCursors();
+        private readonly WavePointer _pointer = new WavePointer();
+        private readonly List<WaveCommand> _commands = new List<WaveCommand>(4);
+        private double _movedTo = double.NaN;
+
+        private WaveRowMenu _rowMenu;
+        private WorkbenchControlSample _controlSample;
+
+        /// <summary>Each binding's key, as the Input System has it, and whether a binding of the same key needs Shift.</summary>
+        private Key[] _keys;
+        private bool[] _keyHasShifted;
         private RectTransform _rings;
 
         private WorkbenchGraphic _card;
@@ -232,6 +272,37 @@ namespace BitSorter.View
         /// <summary>Which sample is shown, as its place in <see cref="WorkbenchSamples.All"/>.</summary>
         public int Sample => _sample;
 
+        /// <summary>The waveform's rows as arranged; null until the panel has first opened.</summary>
+        public WaveList List => _list;
+
+        /// <summary>The second cursor.</summary>
+        public WaveCursors Cursors => _cursors;
+
+        /// <summary>What the second cursor's time, and the span from the playhead to it, say; null while there is none.</summary>
+        public string SecondText => _wave?.SecondText;
+
+        /// <inheritdoc cref="SecondText"/>
+        public string SpanText => _wave?.SpanText;
+
+        /// <summary>What row <paramref name="row"/>'s value says now, as the screen shows it.</summary>
+        public string ReadoutOf(int row) => _wave.ReadoutOf(row);
+
+        /// <summary>Whether row <paramref name="row"/>'s band is up: selected, or its wire pointed at.</summary>
+        public bool RowBandShown(int row) => _wave.BandShown(row);
+
+        /// <summary>The net lit on the circuit -- the one pointed at, or else a selected row's -- or -1.</summary>
+        public int LitNet => _lit;
+
+        /// <summary>Whether a row's menu is up.</summary>
+        public bool RowMenuOpen => _rowMenu != null && _rowMenu.IsOpen;
+
+        /// <summary>Where a row's name is on the screen: somewhere to click it.</summary>
+        public Vector2 RowNameOnScreen(int row) =>
+            RectTransformUtility.WorldToScreenPoint(null, _wave.Rect.TransformPoint(new Vector3(WorkbenchDrawing.NameRight - 20f, -WorkbenchDrawing.RowMiddle(row), 0f)));
+
+        /// <summary>Where a moment is on the screen, over row <paramref name="row"/>'s wave.</summary>
+        public Vector2 WaveScreenPointOf(double time, int row) => _wave.ScreenPointOf(time, row);
+
         /// <summary>The time the waveform shows; null until the panel has first opened.</summary>
         public WaveView Wave => _wave != null ? _wave.View : null;
 
@@ -278,40 +349,59 @@ namespace BitSorter.View
         }
 
         /// <summary>
-        /// The workbench's keys: Space plays or pauses, R replays, S steps to the next sample, the
-        /// arrows step through time -- a nanosecond, or a tenth with Shift -- plus and minus zoom about
-        /// the window's middle, F fits, and up and down move the page when it is taller than the window.
+        /// The workbench's keys, read from <see cref="WorkbenchKeys"/>: each binding fires when its key
+        /// goes down with its modifiers held -- Shift only where another binding of the key needs it, so
+        /// plus is plus with or without Shift, and Shift and an arrow is a tenth of a step.
         /// </summary>
         private void TakeKeys(Keyboard keyboard)
         {
-            if (keyboard.sKey.wasPressedThisFrame)
+            bool shift = keyboard.shiftKey.isPressed, ctrl = keyboard.ctrlKey.isPressed;
+            IReadOnlyList<KeyBinding> all = WorkbenchKeys.All;
+
+            for (int i = 0; i < all.Count; i++)
             {
-                ShowSample(_sample + 1);
-                return;
+                KeyBinding binding = all[i];
+                if (binding.Ctrl != ctrl || (binding.Shift != shift && (binding.Shift || _keyHasShifted[i])))
+                    continue;
+                if (!keyboard[_keys[i]].wasPressedThisFrame)
+                    continue;
+
+                Do(binding.Command);
+                if (binding.Command == WorkbenchCommand.NextSample)
+                    return;
             }
+        }
 
-            if (keyboard.spaceKey.wasPressedThisFrame)
-                TogglePlay();
-            if (keyboard.rKey.wasPressedThisFrame)
-                Replay();
+        /// <summary>What a key does.</summary>
+        private void Do(WorkbenchCommand command)
+        {
+            switch (command)
+            {
+                case WorkbenchCommand.PlayPause: TogglePlay(); break;
+                case WorkbenchCommand.Replay: Replay(); break;
+                case WorkbenchCommand.NextSample: ShowSample(_sample + 1); break;
+                case WorkbenchCommand.StepForward: StepBy(1.0); break;
+                case WorkbenchCommand.StepBack: StepBy(-1.0); break;
+                case WorkbenchCommand.StepForwardFine: StepBy(0.1); break;
+                case WorkbenchCommand.StepBackFine: StepBy(-0.1); break;
+                case WorkbenchCommand.ZoomIn: ZoomAboutTheMiddle(1); break;
+                case WorkbenchCommand.ZoomOut: ZoomAboutTheMiddle(-1); break;
+                case WorkbenchCommand.Fit: FitView(); break;
+                case WorkbenchCommand.PageUp: ScrollPageBy(-ScrollStep); break;
+                case WorkbenchCommand.PageDown: ScrollPageBy(ScrollStep); break;
+                case WorkbenchCommand.Radix: StepRadix(); break;
+                case WorkbenchCommand.ClearCursor:
+                    if (_cursors.Clear())
+                        Redraw();
+                    break;
+                case WorkbenchCommand.RemoveRows: RemoveRows(); break;
 
-            double step = keyboard.shiftKey.isPressed ? 0.1 : 1.0;
-            if (keyboard.rightArrowKey.wasPressedThisFrame)
-                StepBy(step);
-            if (keyboard.leftArrowKey.wasPressedThisFrame)
-                StepBy(-step);
-
-            if (keyboard.equalsKey.wasPressedThisFrame || keyboard.numpadPlusKey.wasPressedThisFrame)
-                ZoomAboutTheMiddle(1);
-            if (keyboard.minusKey.wasPressedThisFrame || keyboard.numpadMinusKey.wasPressedThisFrame)
-                ZoomAboutTheMiddle(-1);
-            if (keyboard.fKey.wasPressedThisFrame)
-                FitView();
-
-            if (keyboard.upArrowKey.wasPressedThisFrame || keyboard.pageUpKey.wasPressedThisFrame)
-                ScrollPageBy(-ScrollStep);
-            if (keyboard.downArrowKey.wasPressedThisFrame || keyboard.pageDownKey.wasPressedThisFrame)
-                ScrollPageBy(ScrollStep);
+                // The add list, groups and names come in Part 9b-2b's second half.
+                case WorkbenchCommand.AddSignal:
+                case WorkbenchCommand.Group:
+                case WorkbenchCommand.Names:
+                    break;
+            }
         }
 
         /// <summary>Pauses, and moves the moment shown by <paramref name="nanoseconds"/>, within the run.</summary>
@@ -399,7 +489,9 @@ namespace BitSorter.View
 
             if (pressed)
             {
-                _dragging = InView(screenPoint, out _) && !OverFit(screenPoint);
+                Keyboard keyboard = UiText.Keyboard;
+                bool alt = keyboard != null && keyboard.altKey.isPressed;
+                _dragging = InView(screenPoint, out _) && !OverFit(screenPoint) && !_controlSample.OverControl && !alt;
                 _dragFrom = screenPoint;
                 return;
             }
@@ -440,14 +532,151 @@ namespace BitSorter.View
                 return;
 
             _hovered = net;
-            _layers.Highlight(net);
-
             Show(_hoverChip, net >= 0);
             if (net >= 0)
             {
                 _hoverLabel.text = _model.Layout.Nets[net].Says;
                 _hoverChip.rectTransform.sizeDelta = new Vector2(_hoverLabel.preferredWidth + 20f, 26f);
             }
+        }
+
+        /// <summary>
+        /// The mouse's buttons as gestures (<see cref="WavePointer"/>): a press says where it landed --
+        /// a control, the circuit, a row's name or value, the waves or the axis -- with the moment
+        /// there snapped (<see cref="WaveSnap"/>), and a drag goes on until the button is let go.
+        /// </summary>
+        private void TakePointer(Mouse mouse, Vector2 pointer, Keyboard keyboard, bool overControl)
+        {
+            bool shift = keyboard != null && keyboard.shiftKey.isPressed;
+            bool ctrl = keyboard != null && keyboard.ctrlKey.isPressed;
+            bool alt = keyboard != null && keyboard.altKey.isPressed;
+            bool left = mouse.leftButton.wasPressedThisFrame, right = mouse.rightButton.wasPressedThisFrame;
+
+            if (left || right)
+            {
+                var press = new WavePress { Button = left ? 0 : 1, Shift = shift, Ctrl = ctrl, Alt = alt, Row = -1 };
+                if (overControl)
+                    press.Region = WaveRegion.Control;
+                else if (InView(pointer, out _))
+                    press.Region = WaveRegion.Schematic;
+                else if (_wave.RegionAt(pointer, out WaveRegion region, out int row, out double time))
+                {
+                    press.Region = region;
+                    press.Row = row;
+                    press.Time = Snapped(time, row);
+                    if (_cursors.Second.HasValue)
+                        press.FromSecond = _wave.PixelsBetween(time, _cursors.Second.Value);
+                }
+
+                _movedTo = double.NaN;
+                _pointer.Press(press, _commands);
+            }
+            else if (_pointer.Dragging && mouse.leftButton.isPressed)
+            {
+                _wave.RegionAt(pointer, out _, out int row, out _);
+                double time = Snapped(_wave.TimeAtScreen(pointer), row);
+                if (time != _movedTo)
+                {
+                    _movedTo = time;
+                    _pointer.Move(time, _commands);
+                }
+            }
+
+            if (!mouse.leftButton.isPressed && !left)
+                _pointer.Release();
+
+            for (int i = 0; i < _commands.Count; i++)
+            {
+                Do(_commands[i], pointer);
+                if (_wave == null)
+                    break;
+            }
+
+            _commands.Clear();
+        }
+
+        /// <summary>A moment as a click there means it: on an edge of the row under the pointer within 8 px, else a whole unit, within the run.</summary>
+        private double Snapped(double time, int row)
+        {
+            SignalTrack track = row >= 0 && row < _model.RowCount ? _model.RowTrack(row) : null;
+            return Math.Min(_model.End, WaveSnap.Snap(time, _wave.View.PixelsPerUnit, track));
+        }
+
+        /// <summary>What a gesture asks for.</summary>
+        private void Do(WaveCommand command, Vector2 pointer)
+        {
+            switch (command.Gesture)
+            {
+                case WaveGesture.Seek:
+                    Pause();
+                    Seek(command.Time);
+                    break;
+
+                case WaveGesture.PlaceSecond:
+                case WaveGesture.MoveSecond:
+                    if (_cursors.Place(command.Time))
+                        Redraw();
+                    break;
+
+                case WaveGesture.SelectRow:
+                    _list.Select(command.Row, command.Extend, command.Toggle);
+                    break;
+
+                case WaveGesture.RowMenu:
+                    if (!_list.Lines[command.Row].Selected)
+                        _list.Select(command.Row);
+                    _rowMenu.Open(pointer, SelectedRowsAreEnums());
+                    break;
+
+                // Groups and adding a wire's signal come in Part 9b-2b's second half.
+                case WaveGesture.ToggleGroup:
+                case WaveGesture.AddWireSignal:
+                    break;
+            }
+        }
+
+        /// <summary>Whether every selected row is of an enum's type: what offers NAMES on its menu.</summary>
+        private bool SelectedRowsAreEnums()
+        {
+            List<WaveSignal> selected = _list.SelectedSignals();
+            if (selected.Count == 0)
+                return false;
+            foreach (WaveSignal row in selected)
+                if (row.Signal < 0 || _model.Session.Design.Signals[row.Signal].Enum == null)
+                    return false;
+            return true;
+        }
+
+        /// <summary>
+        /// Lights the wire pointed at, or else the first selected row's, and puts up the bands of the
+        /// selected rows and of the rows showing the lit wire: each only when it changed.
+        /// </summary>
+        private void Light()
+        {
+            int lit = _hovered;
+            if (lit < 0)
+            {
+                IReadOnlyList<WaveLine> lines = _list.Lines;
+                for (int row = 0; row < lines.Count && row < _model.RowCount && lit < 0; row++)
+                    if (lines[row].Selected)
+                        lit = _model.NetOfRow(row);
+            }
+
+            if (lit != _lit)
+            {
+                _lit = lit;
+                _layers.Highlight(lit);
+            }
+
+            if (_list.Version == _bandsVersion && _hovered == _bandsLit)
+                return;
+
+            _bandsVersion = _list.Version;
+            _bandsLit = _hovered;
+            _rowsSelected.Clear();
+            foreach (WaveLine line in _list.Lines)
+                _rowsSelected.Add(line.Selected);
+            _wave.SetBands(_rowsSelected, _hovered);
         }
 
         /// <summary>Where a point on the screen is in the circuit's window, y down; true when it is inside it.</summary>
@@ -530,8 +759,10 @@ namespace BitSorter.View
 
             Fit();
 
+            // Escape closes what is on top of the workbench first -- the row menu -- and the workbench only
+            // when nothing is.
             Keyboard keyboard = UiText.Keyboard;
-            if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame && !OpenedThisFrame)
+            if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame && !OpenedThisFrame && !UiEscape.AnyHolds)
             {
                 Back();
                 return;
@@ -547,15 +778,26 @@ namespace BitSorter.View
                 // anywhere else on the stage it moves a page that scrolls.
                 Vector2 pointer = mouse.position.ReadValue();
                 Vector2 scroll = mouse.scroll.ReadValue();
-                if (InView(pointer, out _))
+                bool overControl = _controlSample.OverControl;
+                if (overControl)
+                {
+                    // The wheel over a control -- the row menu over the waves -- is the control's.
+                }
+                else if (InView(pointer, out _))
                     TakeWheel(pointer, scroll);
                 else if (_wave.Over(pointer, out _))
                     TakeWaveWheel(pointer, scroll, keyboard != null && keyboard.shiftKey.isPressed);
                 else
                     TakeScroll(pointer, scroll);
+
+                TakePointer(mouse, pointer, keyboard, overControl);
+                if (_wave == null)
+                    return;
                 TakeDrag(pointer, mouse.leftButton.isPressed || mouse.middleButton.isPressed || mouse.rightButton.isPressed);
                 Hover(pointer);
             }
+
+            Light();
 
             // The run is made a slice a frame until it is done; a moment past where it has got waits.
             if (!_run.Done && _run.Frame())
@@ -602,6 +844,17 @@ namespace BitSorter.View
             Image scrim = UiTheme.Scrim(RootName, _canvas.transform, palette.Ground);
             Root = scrim.GetComponent<RectTransform>();
             UiTheme.Stretch(Root);
+            _controlSample = Root.gameObject.AddComponent<WorkbenchControlSample>();
+
+            IReadOnlyList<KeyBinding> bindings = WorkbenchKeys.All;
+            _keys = new Key[bindings.Count];
+            _keyHasShifted = new bool[bindings.Count];
+            for (int i = 0; i < bindings.Count; i++)
+            {
+                _keys[i] = (Key)Enum.Parse(typeof(Key), bindings[i].Key);
+                for (int j = 0; j < bindings.Count; j++)
+                    _keyHasShifted[i] |= bindings[j].Key == bindings[i].Key && bindings[j].Shift && bindings[j].Ctrl == bindings[i].Ctrl;
+            }
 
             BuildHeader(palette);
             BuildControls(palette);
@@ -618,6 +871,9 @@ namespace BitSorter.View
                 new Vector2(0f, 30f), new Vector2(1300f, UiTheme.HelpLineHeight));
             help.text = HelpLine;
 
+            // Over everything else on the workbench, when it is up.
+            _rowMenu = WaveRowMenu.Build(Root, palette, ChooseRadix, RemoveRows);
+
             Root.gameObject.SetActive(false);
         }
 
@@ -631,6 +887,100 @@ namespace BitSorter.View
             _run = RunSession.Open(WorkbenchSamples.All[_sample].Build(), () => UnityEngine.Time.realtimeSinceStartupAsDouble * 1000.0);
             _model = _run.Model;
             MakeTexts();
+
+            // Its rows start as the layout's, one per port, each in its own radix, and no second cursor.
+            _list = DefaultList(_model);
+            _cursors.Clear();
+            _appliedNames = new string[0];
+            ApplyRows();
+        }
+
+        /// <summary>A model's default rows as a list: its layout's ports, by their keys.</summary>
+        private static WaveList DefaultList(WorkbenchModel model)
+        {
+            var keys = new List<string>();
+            foreach (WaveRow row in model.Layout.Rows)
+                if (model.Session.Design.TryFind(row.Signal, out SignalId id))
+                    keys.Add(model.Signals.KeyOf(id.Index));
+            return new WaveList(model.Signals, keys);
+        }
+
+        /// <summary>
+        /// Gives the model the list's rows, if they are not what it was last given: which signals, in
+        /// which radix, under which names. True when they had changed.
+        /// </summary>
+        private bool ApplyRows()
+        {
+            _list.Rows(_rowSignals, _rowRadixes, _model.DefaultRadix);
+            IReadOnlyList<WaveLine> lines = _list.Lines;
+            bool same = _rowSignals.Count == _appliedSignals.Length && _appliedNames.Length == lines.Count;
+            for (int i = 0; same && i < _rowSignals.Count; i++)
+                same = _rowSignals[i] == _appliedSignals[i] && _rowRadixes[i] == _appliedRadixes[i] && _list.LabelOf(lines[i]) == _appliedNames[i];
+            if (same)
+                return false;
+
+            _appliedSignals = _rowSignals.ToArray();
+            _appliedRadixes = _rowRadixes.ToArray();
+            _appliedNames = new string[lines.Count];
+            for (int i = 0; i < lines.Count; i++)
+                _appliedNames[i] = _list.LabelOf(lines[i]);
+
+            _model.SetRows(_appliedSignals, _appliedRadixes);
+            _bandsVersion = -1;
+            return true;
+        }
+
+        /// <summary>The list changed: the rows are given to the model, and the stage built again round them if they are new.</summary>
+        private void RowsChanged()
+        {
+            if (ApplyRows() && _page != null)
+                RebuildStage(keepViews: true);
+            else
+                Redraw();
+        }
+
+        /// <summary>Selects row <paramref name="row"/> alone and writes it in <paramref name="radix"/>, as its menu does.</summary>
+        public void SetRadix(int row, WaveRadix radix)
+        {
+            _list.Select(row);
+            ChooseRadix(radix);
+        }
+
+        /// <summary>Places the second cursor at <paramref name="time"/>, as Shift and a click there does.</summary>
+        public void PlaceSecond(double time)
+        {
+            if (_cursors.Place(time))
+                Redraw();
+        }
+
+        /// <summary>Sets the selected rows' radix, from the row menu.</summary>
+        private void ChooseRadix(WaveRadix radix)
+        {
+            _list.SetRadix(radix);
+            RowsChanged();
+        }
+
+        /// <summary>Steps the selected rows to the radix after the first one's: binary, octal, hex, unsigned, signed, and an enum's names for one.</summary>
+        private void StepRadix()
+        {
+            List<WaveSignal> selected = _list.SelectedSignals();
+            if (selected.Count == 0 || selected[0].Signal < 0)
+                return;
+
+            WaveSignal first = selected[0];
+            WaveRadix current = first.Radix ?? _model.DefaultRadix(first.Signal);
+            bool names = _model.Session.Design.Signals[first.Signal].Enum != null;
+            WaveRadix next = current == WaveRadix.Signed ? (names ? WaveRadix.Symbolic : WaveRadix.Binary)
+                : current == WaveRadix.Symbolic ? WaveRadix.Binary
+                : current + 1;
+            ChooseRadix(next);
+        }
+
+        /// <summary>Takes the selected rows out of the waveform.</summary>
+        private void RemoveRows()
+        {
+            if (_list.RemoveSelected())
+                RowsChanged();
         }
 
         /// <summary>
@@ -646,6 +996,26 @@ namespace BitSorter.View
             int count = WorkbenchSamples.All.Count;
             _sample = ((sample % count) + count) % count;
 
+            _rowMenu.Close();
+            OpenRun();
+            RebuildStage(keepViews: false);
+
+            _description.text = WorkbenchSamples.All[_sample].Says;
+            _sampleLabel.text = SampleCaption(_sample);
+            _slider.maxValue = _model.End;
+            FitView();
+            Replay();
+        }
+
+        /// <summary>
+        /// Builds the stage again round the model as it is now -- another circuit, or other rows --
+        /// keeping the circuit's zoom and the waveform's when <paramref name="keepViews"/>.
+        /// </summary>
+        private void RebuildStage(bool keepViews)
+        {
+            SchematicView view = keepViews ? _viewState : null;
+            WaveView wave = keepViews && _wave != null ? _wave.View : null;
+
             // Out of sight at once, though it is destroyed only at the end of the frame, so nothing
             // finds two of anything meanwhile.
             int place = _page.GetSiblingIndex();
@@ -658,24 +1028,22 @@ namespace BitSorter.View
             _digits.Clear();
             _swallowedLabels.Clear();
             _hovered = -1;
+            _lit = -1;
+            _bandsVersion = -1;
             _dragging = false;
-            _pageScroll = 0f;
+            if (!keepViews)
+                _pageScroll = 0f;
             _overflow = 0f;
 
-            OpenRun();
-            SchematicPalette palette = SchematicPalette.Current;
-            BuildStage(palette);
+            BuildStage(SchematicPalette.Current, view, wave);
             _page.SetSiblingIndex(place);
 
-            _description.text = WorkbenchSamples.All[_sample].Says;
-            _sampleLabel.text = SampleCaption(_sample);
-            _slider.maxValue = _model.End;
-
-            // A circuit of another size: the stage is fitted again, header and controls with it.
+            // The stage may be another size: fitted again, header and controls with it.
             _scale = -1f;
             Fit();
-            FitView();
-            Replay();
+            ScrollPageBy(0f);
+            ApplyView();
+            Redraw();
         }
 
         private void BuildHeader(SchematicPalette palette)
@@ -758,7 +1126,7 @@ namespace BitSorter.View
             TopRight(_timeLabel.rectTransform, Vector2.zero, new Vector2(136f, UiTheme.ButtonHeight));
         }
 
-        private void BuildStage(SchematicPalette palette)
+        private void BuildStage(SchematicPalette palette, SchematicView keepView = null, WaveView keepWave = null)
         {
             // The page the stage is seen through, under the controls: it clips the stage and scrolls it
             // when the window is too short for it at its own size (Fit).
@@ -792,13 +1160,13 @@ namespace BitSorter.View
             _view = UiTheme.Rect("schematic view", _stage);
             TopLeft(_view, ViewAt, ViewSize);
             _view.gameObject.AddComponent<RectMask2D>();
-            _viewState = new SchematicView(ViewSize.ToStage(), (SchematicAt - ViewAt).ToStage(), layout.Size);
+            _viewState = keepView ?? new SchematicView(ViewSize.ToStage(), (SchematicAt - ViewAt).ToStage(), layout.Size);
 
             _schematic = UiTheme.Rect("schematic", _view);
             TopLeft(_schematic, _viewState.Offset.ToUnity(), layout.Size.ToUnity());
 
             // Every layer of the drawing cut into chunks a mesh each can hold (WorkbenchLayers).
-            _layers = new WorkbenchLayers(_model);
+            _layers = new WorkbenchLayers(_model, _cursors);
             _drawnZoom = _viewState.Zoom;
             _layers.BuildWires(_schematic, layout.Size.ToUnity());
             _rings = UiTheme.Rect("ring digits", _schematic);
@@ -821,7 +1189,7 @@ namespace BitSorter.View
             UiTheme.Stretch(_hoverLabel.rectTransform, 10f);
             Show(_hoverChip, false);
 
-            _wave = new WaveformView(_model, _layers, _stage, WaveformAt, WaveWidth, palette);
+            _wave = new WaveformView(_model, _layers, _stage, WaveformAt, WaveWidth, palette, _appliedNames, keepWave);
 
             // The legend's words; its swatches are the card's.
             float legend = WorkbenchDrawing.LegendMiddle(StageHeight);
@@ -975,7 +1343,7 @@ namespace BitSorter.View
 
             RefreshPlayLabel();
             PlaceDigits();
-            _wave.Place(_playheadTexts[step]);
+            _wave.Place(_playheadTexts[step], _cursors);
         }
 
         private void RefreshPlayLabel()
@@ -1125,7 +1493,7 @@ namespace BitSorter.View
         /// bordered style darkens a button's body whatever colour it is given -- on the light canvas
         /// every button came out a dark slab.
         /// </summary>
-        private static Button CanvasButton(string name, Transform parent, string caption, out TextMeshProUGUI label, UiType type,
+        internal static Button CanvasButton(string name, Transform parent, string caption, out TextMeshProUGUI label, UiType type,
             SchematicPalette palette)
         {
             Button button = UiTheme.Button_(name, parent, caption, out label, type, ButtonRole.Secondary);
@@ -1160,7 +1528,7 @@ namespace BitSorter.View
         }
 
         /// <summary>A small rounded chip in the canvas's colours: its edge, and its fill inside.</summary>
-        private static Image CanvasChip(string name, Transform parent, SchematicPalette palette)
+        internal static Image CanvasChip(string name, Transform parent, SchematicPalette palette)
         {
             Image chip = UiTheme.Panel_(name, parent, palette.ChipEdge);
             Outline(chip, palette.ChipEdge, palette.Chip);

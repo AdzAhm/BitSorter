@@ -996,6 +996,53 @@ Precise, and no casing under the wires.
   following the playhead and a replay, and the chip stepping through the samples; reference shots 27 to 29,
   moved by the second row of controls and nothing else.
 
+**As built in Part 9b-2b, its first half**: cursors, rows of any signal, and their radix. The second
+half adds the add-signal list, groups, full names and Alt+click on a wire.
+
+- **Rows of any signal** (`WorkbenchModel.SetRows`). The model's rows were the layout's ports, fixed when
+  it was made; now they are any signals of the design -- a block's inside, the testbench's, -1 for a
+  group's header -- each in a radix of its own, set at any moment, the run still being made included.
+  A signal not read before gets its track read as far as the run has got, and every row its glitch
+  marks so far: a model whose rows were set mid-run marks them as one set after it.
+- **One node, every name** (`SignalAliases`). A port connected to a net is a zero-delay assignment that
+  reads the whole net (`Expr.TryRead`, new in Sim), so following those joins gives each electrical node
+  all its names, through any depth of blocks: h1's XOR output, h1.s, the parent's h1_s and h2's input are
+  one. A swallowed change is marked on every row showing its node -- the rule `DocumentSchematic` wrote for
+  the top module's nets and the cells driving them, now down through blocks, so a row inside the counter
+  shows the two changes that die on d2's wire.
+- **Radix on every word.** A row's radix writes its readout (`3h`, `1010b`, `10`, `-6`), its boxes, and the
+  rings on its wire: a net's rings take the radix of the first row showing its node, so out read as signed
+  reads -6 on its wire where it read A. Texts in another radix are made once, through a `TextCache`.
+- **Arranged as a list** (`WaveList`, with `SignalIndex` for the keys): each row kept by where its signal is
+  below the design (`h1.s`), so a design built again, under a renamed testbench too, finds every row again.
+  In this half a click on a row's name selects it, a right-click opens its menu -- a radix, or REMOVE
+  (`WaveRowMenu`) -- X steps the selected rows through the radixes and Delete takes them out. A change of
+  rows builds the stage again round them, the circuit's zoom and the waveform's kept.
+- **A row and its wire light each other.** Selecting a row lights its net on the circuit, and pointing at a
+  wire puts a faint band behind every row showing it (`SchematicPalette.Selection`, opaque, with every
+  word 4.5:1 and every value 3:1 on it in all four looks).
+- **The playhead is cursor 1** (Ahmad's choice). A click on the waves seeks there and pauses, snapped to an
+  edge of the row under it within 8 px or else to a whole unit (`WaveSnap`); a drag scrubs. Shift and a
+  click places C2, a press within 6 px of it takes hold of it, and C takes it away; the time from the
+  playhead to it is written over a bracket under the rows. C2 is in its own colour (`SchematicPalette.Cursor`:
+  amber, olive on paper, Neon's gold, and Classic's text white, its 1 being yellow), 3:1 on the ground and
+  apart from every value and the playhead. The font has no Δ, so the bracket says only the time.
+- **The mouse as gestures** (`WavePointer`, tested from scripted events under dotnet), and **a press on a
+  control is never one**: `WorkbenchControlSample` samples, before anything reacts to the frame, whether
+  the topmost thing under the pointer is a control, as `PointerGate` samples the interface for the board,
+  so the click that closes the row menu never seeks. The menu holds Escape (`IHoldsEscape`), and the
+  workbench closes on Escape only when nothing does.
+- **Every key from one table** (`WorkbenchKeys`), which refuses N, M, H, F2, F8 and Escape (the rest of the
+  game's), Ctrl with R, W, S, T, N or L (a browser's), and every function key. The radix key is X, since
+  H is help. A, G and L are bound now and answered in the second half.
+- **Checked.** `RowsTests` (9), `SignalListTests` (16), `CursorTests` (12) and Sim's `APortJoin` under dotnet;
+  the cursor and selection colours in `LookBriefTests`; in Play Mode a click seeking onto an edge or a
+  whole unit, Shift and a click placing C2 with its words, the row menu's radix and X and REMOVE, Escape
+  closing the menu first and a click off it not seeking, a row and its wire lighting each other, Delete,
+  and every key in the table being one the Input System has. Reference shot 30, new: the reference with s
+  unsigned and out signed, the playhead at 11 and C2 at 20, out's change on its wire as -6; shots 27 to 29
+  moved only along the help line.
+
 ---
 
 ## 11. The parts

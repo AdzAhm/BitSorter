@@ -52,6 +52,9 @@ namespace BitSorter.View
         /// <summary>The time the waveform's layers show, and how it is laid across them; none for the schematic's.</summary>
         public WaveView Wave { get; set; }
 
+        /// <summary>The second cursor, which the playhead's layer draws with the playhead; null for none.</summary>
+        public WaveCursors Cursors { get; set; }
+
         /// <summary>The net the pointer is on, lit; -1 for none. The wires layer's alone.</summary>
         public int Highlighted { get; set; } = -1;
 
@@ -212,7 +215,7 @@ namespace BitSorter.View
                     break;
 
                 case Layer.Playhead:
-                    WorkbenchDrawing.Playhead(_painter, Model, Wave, palette);
+                    WorkbenchDrawing.Playhead(_painter, Model, Wave, palette, Cursors);
                     break;
             }
         }
