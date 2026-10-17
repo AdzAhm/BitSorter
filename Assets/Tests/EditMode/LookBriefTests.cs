@@ -363,6 +363,41 @@ namespace BitSorter.LogicCore.Tests
             }
         }
 
+        /// <summary>
+        /// The second cursor stands 3:1 off the ground and apart from every value's colour and the
+        /// playhead's, so it is never read as a wire or the moment shown (Part 9b-2b).
+        /// </summary>
+        [Test]
+        public void OnTheCanvas_TheCursor_IsNoValueAndNotThePlayhead()
+        {
+            foreach (Look look in Look.All)
+            {
+                SchematicPalette c = look.Canvas;
+                Assert.GreaterOrEqual(SchematicPalette.Contrast(c.Cursor, c.Ground), 3f, $"{look.Name}: the cursor is not 3:1 against the ground");
+
+                foreach ((string what, Color colour) in new[]
+                         { ("a 0", c.Zero), ("a 1", c.One), ("x", c.Unknown), ("z", c.HighZ), ("a bus", c.Bus), ("the playhead", c.Playhead) })
+                    Assert.GreaterOrEqual(Distance(c.Cursor, colour), 0.2f, $"{look.Name}: the cursor is too like {what}");
+            }
+        }
+
+        /// <summary>A selected row's band leaves its name readable at 4.5:1 and its wave at 3:1, and is not the ground.</summary>
+        [Test]
+        public void OnTheCanvas_ASelectedRow_StaysReadable()
+        {
+            foreach (Look look in Look.All)
+            {
+                SchematicPalette c = look.Canvas;
+                Assert.Greater(Distance(c.Selection, c.Ground), 0.03f, $"{look.Name}: the selection band is the ground");
+
+                foreach ((string what, Color colour) in new[] { ("text", c.Text), ("a row's name", c.TextDim), ("the playhead's time", c.Accent) })
+                    Assert.GreaterOrEqual(SchematicPalette.Contrast(colour, c.Selection), 4.5f, $"{look.Name}: {what} on the selection band");
+
+                foreach ((string what, Color colour) in new[] { ("0", c.Zero), ("1", c.One), ("x", c.Unknown), ("z", c.HighZ), ("a bus", c.Bus), ("the cursor", c.Cursor) })
+                    Assert.GreaterOrEqual(SchematicPalette.Contrast(colour, c.Selection), 3f, $"{look.Name}: {what} on the selection band");
+            }
+        }
+
         /// <summary>Reduced motion leaves out the canvas's glow and its gates' flashes, whatever the look.</summary>
         [Test]
         public void ReducedMotion_LeavesOutTheGlowAndTheFlash()

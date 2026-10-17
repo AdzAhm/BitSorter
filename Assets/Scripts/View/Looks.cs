@@ -172,6 +172,8 @@ namespace BitSorter.View
                 c.Grid = board.GroundTrace;
                 c.Chip = Hex(0x0E0B1E);
                 c.ChipEdge = board.GroundTrace;
+                c.Cursor = Hex(0xFFD166);
+                c.Selection = Color.Lerp(board.Ground, board.Accent, 0.16f);
             });
             look.CanvasGlow = 0.7f;
         });

@@ -55,6 +55,19 @@ namespace BitSorter.View
         /// <summary>A small rounded chip: its fill and its edge.</summary>
         public Color Chip, ChipEdge;
 
+        /// <summary>
+        /// The second cursor's line and its time (Part 9b-2b): a colour no value, nor the playhead,
+        /// is drawn in, so a cursor is never read as a wire or the moment shown -- and never red, which
+        /// means x.
+        /// </summary>
+        public Color Cursor;
+
+        /// <summary>
+        /// The band behind a selected row, and behind the rows of the wire the pointer is on: the
+        /// accent faintly over the ground, written out opaque, with every word and value still readable on it.
+        /// </summary>
+        public Color Selection;
+
         /// <summary>The look on its dark ground, as the reference draws it.</summary>
         public static SchematicPalette Dark { get; } = new SchematicPalette
         {
@@ -81,6 +94,8 @@ namespace BitSorter.View
             Grid = Rgb(40, 40, 40),
             Chip = Rgb(29, 29, 28),
             ChipEdge = Rgb(44, 44, 44),
+            Cursor = Rgb(230, 196, 92),
+            Selection = Rgb(39, 47, 55),
         };
 
         /// <summary>
@@ -111,6 +126,8 @@ namespace BitSorter.View
             Grid = Rgb(230, 228, 222),
             Chip = Rgb(238, 236, 230),
             ChipEdge = Rgb(214, 212, 204),
+            Cursor = Rgb(156, 112, 0),
+            Selection = Rgb(224, 232, 241),
         };
 
         /// <summary>
@@ -146,6 +163,9 @@ namespace BitSorter.View
             Grid = p.GroundTrace,
             Chip = Opaque(p.Panel),
             ChipEdge = Opaque(p.PanelEdge),
+            // Classic's 1 is the yellow a cursor would be anywhere else, so its cursor is its text's white.
+            Cursor = p.Text,
+            Selection = Color.Lerp(p.Ground, p.Accent, 0.16f),
         };
 
         /// <summary>The palette the workbench draws with: the current look's canvas.</summary>
