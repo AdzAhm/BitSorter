@@ -317,6 +317,97 @@ endmodule");
         }
 
         [Test]
+        public void Stop_SuspendsTheRun_AtTheEndOfItsTimeStep_AndRunningOnCarriesOnAfterIt()
+        {
+            Design design = Clean(@"
+module t;
+    logic clk = 0;
+    logic [3:0] n = 0;
+    logic after;
+    always #5 clk = ~clk;
+    initial begin
+        #12 n <= 4'd3;
+        $stop;
+        after = 1;
+        #8 n = 4'd7;
+        #5 $finish;
+    end
+endmodule");
+
+            var sim = new Simulator(design);
+            RunResult result = sim.RunTo(1000);
+
+            Assert.AreEqual(RunStatus.Suspended, result.Status);
+            Assert.AreEqual(12, result.Time);
+            Assert.IsTrue(sim.Suspended);
+            Assert.IsFalse(sim.Stopped, "suspended is not stopped: the run can go on");
+            Assert.IsFalse(sim.Finished);
+            CollectionAssert.AreEqual(new long[] { 12 }, sim.History.Suspensions);
+            StringAssert.Contains("$stop (test.sv:9)", sim.History.Messages.Single().Text);
+            CollectionAssert.AreEqual(new[] { "0 0000", "12 0011" }, Changes(sim, "n"), "the rest of its step happened: the nonblocking write is in");
+            Assert.AreEqual("x", Now(sim, "after"), "and the statement after the $stop has not run");
+
+            result = sim.RunTo(1000);
+
+            Assert.AreEqual(RunStatus.Finished, result.Status, "running on carries on after the $stop");
+            Assert.AreEqual(25, result.Time);
+            CollectionAssert.AreEqual(new[] { "0 x", "12 1" }, Changes(sim, "after"), "in the same time step");
+            CollectionAssert.AreEqual(new[] { "0 0000", "12 0011", "20 0111" }, Changes(sim, "n"));
+            CollectionAssert.AreEqual(new[] { "0 0", "5 1", "10 0", "15 1", "20 0", "25 1" }, Changes(sim, "clk"));
+            CollectionAssert.AreEqual(new long[] { 12 }, sim.History.Suspensions);
+
+            // The step it carried on is numbered on from the one it suspended, so the last change of the
+            // time is still the one the time settled on.
+            SignalId nId = design.Find("t.n"), afterId = design.Find("t.after");
+            int nAt12 = sim.History.ChangeCount(nId) - 2;
+            int afterAt12 = sim.History.ChangeCount(afterId) - 1;
+            Assert.AreEqual(12, sim.History.Change(nId, nAt12).Time, "sanity: n's change at 12");
+            Assert.Greater(sim.History.Change(afterId, afterAt12).Delta, sim.History.Change(nId, nAt12).Delta);
+        }
+
+        [Test]
+        public void Stop_EachTime_SuspendsTheRunAgain_AndARunWithNoneLeftReachesItsTime()
+        {
+            Design design = Clean(@"
+module t;
+    logic c = 0;
+    always #1 c = ~c;
+    initial begin
+        #5 $stop;
+        #5 $stop;
+    end
+endmodule");
+
+            var sim = new Simulator(design);
+            Assert.AreEqual(RunStatus.Suspended, sim.RunTo(100).Status);
+            Assert.AreEqual(5, sim.Now);
+            Assert.AreEqual(RunStatus.Suspended, sim.RunTo(100).Status);
+            Assert.AreEqual(10, sim.Now);
+
+            RunResult result = sim.RunTo(100);
+            Assert.AreEqual(RunStatus.ReachedTime, result.Status);
+            Assert.AreEqual(100, result.Time);
+            CollectionAssert.AreEqual(new long[] { 5, 10 }, sim.History.Suspensions);
+        }
+
+        [Test]
+        public void Stop_InTheTimeStepAFinishRunsIn_Finishes()
+        {
+            Design design = Clean(@"
+module t;
+    initial #5 $stop;
+    initial #5 $finish;
+endmodule");
+
+            var sim = new Simulator(design);
+            RunResult result = sim.RunTo(100);
+
+            Assert.AreEqual(RunStatus.Finished, result.Status, "$finish ends the run whatever else that step did");
+            Assert.AreEqual(5, result.Time);
+            Assert.IsFalse(sim.Suspended);
+        }
+
+        [Test]
         public void AWriteToABitAtAPlaceWorkedOutAsItRuns_LandsThere_OrNowhere()
         {
             Simulator sim = Run(Clean(@"
@@ -557,7 +648,7 @@ endmodule");
             var sim = new Simulator(e.Design);
             RunResult result = sim.RunTo(10_000);
 
-            Assert.AreEqual(RunStatus.Finished, result.Status);
+            Assert.AreEqual(RunStatus.Suspended, result.Status, "its testbench ends on $stop, which suspends the run");
             Assert.AreEqual(155, result.Time, "reset falls at 12; then eight rising edges (15 to 85), one more (95) and six (105 to 155)");
 
             // Out of reset the light goes red, red and amber, then green.

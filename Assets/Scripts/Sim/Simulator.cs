@@ -18,8 +18,14 @@ namespace BitSorter.Sim
         /// <summary>The run cannot go on: a zero-delay loop never settled, or a process never waited. The messages say where.</summary>
         Stopped,
 
-        /// <summary>The design ended its own run: <c>$finish</c> or <c>$stop</c>.</summary>
+        /// <summary>The design ended its own run: <c>$finish</c> or <c>$fatal</c>.</summary>
         Finished,
+
+        /// <summary>
+        /// The design called <c>$stop</c>: the run is suspended at the end of that time step, and the
+        /// next call carries on from the statement after it, as ModelSim's <c>run</c> does.
+        /// </summary>
+        Suspended,
     }
 
     /// <summary>What <see cref="Simulator.RunTo"/> did.</summary>
@@ -113,6 +119,14 @@ namespace BitSorter.Sim
     /// **Finishing.** <c>$finish</c> ends the run at the end of the time step it runs in: the rest of
     /// that step -- other processes, nonblocking writes, <c>#0</c>, continuous assignments -- still
     /// happens, as Icarus does it, so the final values are consistent with each other.
+    ///
+    /// **Suspending.** <c>$stop</c> suspends the run (IEEE 1800, 20.2) where <c>$finish</c> ends it:
+    /// the process that called it waits at the statement after it, the rest of the time step happens
+    /// as it would for <c>$finish</c>, and <see cref="RunTo"/> returns <see cref="RunStatus.Suspended"/>.
+    /// The next call carries on: that process runs on from where it waited, in the same time step --
+    /// its deltas numbered on from the suspended step's, so the history's last change of the time is
+    /// still the one it settled on -- and time moves on from there. Icarus, run as the oracle runs it
+    /// (<c>vvp -n</c>), ends the run at a <c>$stop</c> instead, so the two agree up to it.
     ///
     /// **The transcript.** <c>$display</c> and its kind write lines into the history's messages, at the
     /// time they run; <c>$write</c> leaves its line open for the next. <c>$monitor</c> and <c>$strobe</c>
@@ -210,6 +224,15 @@ namespace BitSorter.Sim
         private bool _finishing;
         private long _now;
         private int _delta;
+
+        /// <summary>The processes a <c>$stop</c> has suspended, which the next call to <see cref="RunTo"/> carries on.</summary>
+        private readonly List<int> _suspended = new List<int>();
+
+        /// <summary>Whether a <c>$stop</c> has run in the time step under way.</summary>
+        private bool _suspending;
+
+        /// <summary>Whether the next time step carries on the one a <c>$stop</c> suspended, its deltas numbered on from it.</summary>
+        private bool _carryingOn;
 
         /// <summary>The signal <c>$time</c> reads, or -1.</summary>
         private readonly int _time;
@@ -348,16 +371,20 @@ namespace BitSorter.Sim
         /// <summary>Whether the run has stopped for good: finished, or unable to go on.</summary>
         public bool Stopped { get; private set; }
 
-        /// <summary>Whether the design ended its own run, with <c>$finish</c> or <c>$stop</c>.</summary>
+        /// <summary>Whether the design ended its own run, with <c>$finish</c> or <c>$fatal</c>.</summary>
         public bool Finished { get; private set; }
+
+        /// <summary>Whether a <c>$stop</c> has suspended the run: the next call to <see cref="RunTo"/> carries on.</summary>
+        public bool Suspended { get; private set; }
 
         /// <summary>A signal's value now.</summary>
         public LogicVec Value(SignalId signal) => _values[signal.Index];
 
         /// <summary>
         /// Runs every event up to and including <paramref name="time"/>, unless
-        /// <paramref name="maxEvents"/> runs out first. A budget only pauses between time steps, so one
-        /// time step always finishes; the next call carries on exactly where this one stopped.
+        /// <paramref name="maxEvents"/> runs out first or a <c>$stop</c> suspends the run. A budget only
+        /// pauses between time steps, so one time step always finishes; the next call carries on exactly
+        /// where this one stopped, a suspended process included.
         /// </summary>
         public RunResult RunTo(long time, long maxEvents = long.MaxValue)
         {
@@ -365,6 +392,9 @@ namespace BitSorter.Sim
                 throw new ArgumentOutOfRangeException(nameof(time), time, "Time starts at 0.");
 
             long processed = 0;
+
+            if (Suspended && !Stopped)
+                CarryOn();
 
             while (!Stopped)
             {
@@ -383,14 +413,34 @@ namespace BitSorter.Sim
 
                 if (!Stopped && _history.Recorded > _options.MaxRecorded)
                     StopOnFullHistory();
+
+                if (Suspended && !Stopped)
+                    return new RunResult(RunStatus.Suspended, _now, processed);
             }
 
             return new RunResult(Finished ? RunStatus.Finished : RunStatus.Stopped, _now, processed);
         }
 
+        /// <summary>
+        /// Takes up a run a <c>$stop</c> suspended: each process it suspended runs again in the same time
+        /// step, which the next step carries on rather than begins.
+        /// </summary>
+        private void CarryOn()
+        {
+            Suspended = false;
+            foreach (int p in _suspended)
+                _heap.Push(new Event { Time = _now, Seq = ++_seq, Kind = EventKind.Resume, Index = p });
+            _suspended.Clear();
+            _carryingOn = true;
+        }
+
         /// <summary>Runs one time step to the end of its last delta. Returns the events it processed.</summary>
         private long RunTimeStep(long time)
         {
+            // A step a $stop suspended goes on where it left off, its deltas numbered after the ones it had.
+            int firstDelta = _carryingOn && time == _now ? _delta + 1 : 0;
+            _carryingOn = false;
+
             _now = time;
             long events = 0;
 
@@ -409,7 +459,7 @@ namespace BitSorter.Sim
             bool first = !_started;
             _started = true;
 
-            for (int delta = 0; ; delta++)
+            for (int delta = firstDelta; ; delta++)
             {
                 if (!first && _current.Count == 0 && _toEvaluate.Count == 0 && _runnable.Count == 0)
                 {
@@ -438,7 +488,7 @@ namespace BitSorter.Sim
                     }
                 }
 
-                if (delta >= _options.MaxDeltas)
+                if (delta - firstDelta >= _options.MaxDeltas)
                 {
                     StopOnLoop(time);
                     return events;
@@ -557,6 +607,12 @@ namespace BitSorter.Sim
                 Finished = true;
                 Stopped = true;
                 EndLine(Severity.Info);
+            }
+            else if (_suspending)
+            {
+                _suspending = false;
+                Suspended = true;
+                _history.Suspend(time);
             }
 
             return events;
@@ -778,6 +834,14 @@ namespace BitSorter.Sim
                         _done[p] = true;
                         _finishing = true;
                         _history.Message(_now, Severity.Info, $"{ins.Text} at t = {_now}: the run ends here.");
+                        return;
+
+                    case OpCode.Stop:
+                        // Suspended, not ended: it waits at the next statement for the run to carry on.
+                        _pc[p] = pc + 1;
+                        _suspended.Add(p);
+                        _suspending = true;
+                        _history.Message(_now, Severity.Info, $"{ins.Text} at t = {_now}: the run is suspended here, and carries on when run again.");
                         return;
 
                     default:

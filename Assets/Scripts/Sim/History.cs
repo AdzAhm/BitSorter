@@ -98,6 +98,7 @@ namespace BitSorter.Sim
         private readonly Buffer<ValueChange>[] _changes;
         private readonly Buffer<Transition> _transitions = new Buffer<Transition>(64);
         private readonly List<SimMessage> _messages = new List<SimMessage>();
+        private readonly List<long> _suspensions = new List<long>();
 
         internal History(int signalCount)
         {
@@ -245,6 +246,14 @@ namespace BitSorter.Sim
             _messages.Add(new SimMessage(time, severity, text));
             Recorded++;
         }
+
+        /// <summary>
+        /// Every time the run was suspended by <c>$stop</c>, in order: where a waveform played through
+        /// the run pauses again, as the run did.
+        /// </summary>
+        public IReadOnlyList<long> Suspensions => _suspensions;
+
+        internal void Suspend(long time) => _suspensions.Add(time);
     }
 
     /// <summary>

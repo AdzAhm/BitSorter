@@ -314,9 +314,15 @@ VCD           written for export, read for the oracle comparison
   `always_comb` runs once at time 0 and then on any change of what it reads but does not write; `@*` waits
   on everything its statement reads.
 - **Never hangs.** A process that runs a million steps without waiting stops the run with its name, and
-  so does a zero-delay loop of processes at the delta limit. `$finish`, `$stop` and `$fatal` end the run
+  so does a zero-delay loop of processes at the delta limit. `$finish` and `$fatal` end the run
   (`RunStatus.Finished`) with a message saying which and where, once the time step they ran in has
   settled -- every region, as Icarus finishes it -- so the last values agree with each other.
+- **`$stop` suspends the run** (`RunStatus.Suspended`, Part 9b-3; Ahmad's choice, 2026-10-16, as ModelSim
+  does it): the rest of its time step happens as it would for `$finish`, the process that called it waits
+  at the next statement, and the next `RunTo` carries on from there in the same time step, its deltas
+  numbered on from the suspended step's so the last change of the time is still the one it settled on.
+  `History.Suspensions` keeps every time it happened. Icarus under `vvp -n` ends the run at a `$stop`, so
+  the oracle, which compares up to it, sees no difference.
 - **Variables** may be declared with a value (`logic a = 0;`), held from before time 0. A process's own
   working variables -- a `for` loop's `int i`, a `repeat`'s count, a value held across an intra-assignment
   delay -- are `Local`: not recorded, not in a VCD. A variable takes its value from processes or from one

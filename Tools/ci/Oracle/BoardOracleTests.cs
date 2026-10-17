@@ -29,7 +29,7 @@ namespace BitSorter.Ci.Oracle
             Design design = elaboration.Design;
             var sim = new Simulator(design);
             RunResult result = sim.RunTo(1_000_000);
-            Assert.AreEqual(RunStatus.Finished, result.Status, string.Join("\n", sim.History.Messages));
+            Assert.AreEqual(RunStatus.Suspended, result.Status, string.Join("\n", sim.History.Messages));
 
             Dictionary<string, VcdTrace> theirs = RunIcarus(icarus, BoardPrinter.Print(compiled), compiled.Top);
 

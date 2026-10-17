@@ -122,6 +122,10 @@ keeps them. The values did change -- in the traffic light's testbench the clock'
 woke the process that called `$stop` -- so BitSorter's history keeps them, and after a `$stop` the
 oracle compares up to the step before.
 
+BitSorter suspends the run at a `$stop` rather than ending it (Part 9b-3), as ModelSim does and as
+Icarus does without `-n`, where it drops into its prompt. Up to the suspension the two runs are the
+same run, so the oracle compares them there and never runs on.
+
 ### A process that hears its own write back through an assign
 
 ```systemverilog

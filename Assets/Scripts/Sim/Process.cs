@@ -64,8 +64,11 @@ namespace BitSorter.Sim
         /// <summary><c>wait (c)</c>: goes on if <see cref="Instruction.Value"/> is true, else waits until it may be.</summary>
         WaitUntil,
 
-        /// <summary><c>$finish</c> or <c>$stop</c>: the run ends.</summary>
+        /// <summary><c>$finish</c> or <c>$fatal</c>: the run ends.</summary>
         Finish,
+
+        /// <summary><c>$stop</c>: the run is suspended, and carries on from the next statement when it is run again.</summary>
+        Stop,
 
         /// <summary><c>$display</c> and its kind: a line for the transcript (<see cref="Instruction.Print"/>).</summary>
         Print,

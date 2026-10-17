@@ -44,13 +44,14 @@ namespace BitSorter.Ci.Oracle
             Design design = Elaborate(file, top);
             var sim = new Simulator(design, null, new SimOptions { Files = files });
             RunResult result = sim.RunTo(1_000_000);
-            Assert.AreEqual(RunStatus.Finished, result.Status, string.Join("\n", sim.History.Messages));
+            Assert.That(result.Status, Is.EqualTo(RunStatus.Finished).Or.EqualTo(RunStatus.Suspended), string.Join("\n", sim.History.Messages));
 
             (Dictionary<string, VcdTrace> theirs, string printed) = RunIcarus(icarus, file, top, ownDump, dataFiles);
 
-            // Icarus's dump loses the time step a $stop ends the run in (Docs/oracle-notes.md); with
-            // $finish it keeps it. So after a $stop, that last step is BitSorter's alone.
-            bool stopped = sim.History.Messages.Any(m => m.Text.StartsWith("$stop", StringComparison.Ordinal));
+            // A $stop suspends the run here, and ends it under vvp -n, so the two agree up to it. Icarus's
+            // dump loses the time step a $stop ends the run in (Docs/oracle-notes.md); with $finish it
+            // keeps it. So after a $stop, that last step is BitSorter's alone.
+            bool stopped = result.Status == RunStatus.Suspended;
             long until = stopped ? result.Time - 1 : result.Time;
 
             var wrong = new List<string>();

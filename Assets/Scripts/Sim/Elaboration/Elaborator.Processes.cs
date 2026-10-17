@@ -30,7 +30,7 @@ namespace BitSorter.Sim
         ///   the transcript; their formats are read here, once. <c>$readmemh</c>, <c>$readmemb</c>,
         ///   <c>$writememh</c> and <c>$writememb</c> load and save memories through the run's files.
         ///   <c>$dumpfile</c> and <c>$dumpvars</c> are skipped silently, since every signal is recorded
-        ///   anyway. <c>$finish</c>, <c>$stop</c> and <c>$fatal</c> end the run.
+        ///   anyway. <c>$finish</c> and <c>$fatal</c> end the run; <c>$stop</c> suspends it.
         /// </remarks>
         private sealed partial class Run
         {
@@ -815,8 +815,11 @@ namespace BitSorter.Sim
                 switch (call.Name)
                 {
                     case "$finish":
-                    case "$stop":
                         p.Emit(new Instruction { Op = OpCode.Finish, Text = $"{call.Name} ({where})" });
+                        return;
+
+                    case "$stop":
+                        p.Emit(new Instruction { Op = OpCode.Stop, Text = $"{call.Name} ({where})" });
                         return;
 
                     case "$fatal":
