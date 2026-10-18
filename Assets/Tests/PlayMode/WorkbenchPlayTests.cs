@@ -1018,6 +1018,49 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
+        /// The RUN TO field gives the keyboard back once Enter or Escape is done with it. It stays on
+        /// screen, unlike every other field, and TextMesh Pro leaves a finished field selected, so in the
+        /// browser smoke test (2026-10-18) every workbench key was dead after Enter until a click
+        /// somewhere else. The Escape that cancels it must not close the workbench as well.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator TheRunToField_GivesTheKeysBack_AfterEnterAndAfterEscape()
+        {
+            yield return TestScene.Load();
+            yield return OpenTheWorkbench();
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.Pause();
+            TMP_InputField field = GameObject.Find(WorkbenchPanel.RunToField).GetComponent<TMP_InputField>();
+            RectTransform box = field.GetComponent<RectTransform>();
+            Canvas canvas = field.GetComponentInParent<Canvas>().rootCanvas;
+            Camera camera = canvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : canvas.worldCamera;
+            Vector2 centre = RectTransformUtility.WorldToScreenPoint(camera, box.TransformPoint(box.rect.center));
+
+            yield return ClickAt(centre);
+            Assert.IsTrue(UiText.Typing, "sanity: a click on RUN TO should give it the keyboard");
+
+            field.text = "12";
+            yield return Tap(_keyboard.enterKey);
+            yield return null;
+            Assert.AreEqual(12L, workbench.Playback.RunTo, "sanity: Enter should set RUN TO");
+            Assert.IsFalse(UiText.Typing, "RUN TO kept the keyboard after Enter, and every workbench key with it");
+
+            yield return Tap(_keyboard.spaceKey);
+            Assert.IsTrue(workbench.Playing, "Space after RUN TO did not play");
+            workbench.Pause();
+
+            yield return ClickAt(centre);
+            Assert.IsTrue(UiText.Typing, "sanity: a second click on RUN TO should give it the keyboard");
+            field.text = "30";
+            yield return Tap(_keyboard.escapeKey);
+            yield return null;
+            Assert.IsTrue(workbench.IsOpen, "the Escape that cancelled RUN TO closed the workbench as well");
+            Assert.AreEqual(12L, workbench.Playback.RunTo, "Escape set what was typed");
+            Assert.IsFalse(UiText.Typing, "RUN TO kept the keyboard after Escape");
+        }
+
+        /// <summary>
         /// BREAK ON VALUE on a row's menu sets a breakpoint on its signal: the playhead pauses where the
         /// signal changes into the value, and the chip names both; NO BREAKS takes it away.
         /// </summary>
