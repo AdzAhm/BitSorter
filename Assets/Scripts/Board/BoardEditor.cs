@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using BitSorter.SystemVerilog;
 using BitSorter.SystemVerilog.Syntax;
 
 namespace BitSorter.Board
@@ -300,6 +301,30 @@ namespace BitSorter.Board
 
         /// <summary>Sets what the testbench does; null for no testbench.</summary>
         public EditResult SetStimulus(Stimulus stimulus) => Commit(Project with { Stimulus = stimulus });
+
+        /// <summary>
+        /// Gives an input of the top module <paramref name="value"/> from <paramref name="from"/> until
+        /// <paramref name="until"/> (<see cref="StimulusEdits.TrySet"/>); one of the wrong width is refused
+        /// by the rules, as any edit is.
+        /// </summary>
+        public EditResult SetInput(string port, long from, long until, LogicVec value)
+        {
+            if (!StimulusEdits.TrySet(Project.Stimulus, port, from, until, value, out Stimulus edited, out string refusal))
+                return EditResult.Refused(refusal);
+            return Commit(Project with { Stimulus = edited });
+        }
+
+        /// <summary>Flips a one-bit input over the stretch <paramref name="at"/> is in (<see cref="StimulusEdits.TryInvert"/>).</summary>
+        public EditResult InvertInput(string port, long at) => InvertInput(port, at, out _);
+
+        /// <inheritdoc cref="InvertInput(string, long)"/>
+        /// <param name="from">Where the flipped stretch starts: from when the run changed.</param>
+        public EditResult InvertInput(string port, long at, out long from)
+        {
+            if (!StimulusEdits.TryInvert(Project.Stimulus, port, at, out Stimulus edited, out from, out string refusal))
+                return EditResult.Refused(refusal);
+            return Commit(Project with { Stimulus = edited });
+        }
 
         // -----------------------------------------------------------------
         // Settings
