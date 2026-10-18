@@ -1127,6 +1127,42 @@ second half (9b-3b) is the timescale's units and editing an input.
   `$stop` ran it on, a breakpoint set from the menu for a moment paused it there, and the speed changed. Reference shot 30 now has a flag at 26 ns
   and one on out going x; 27 to 32 moved by the controls; 1 to 26 the same in all four looks.
 
+**As built in Part 9b-3, its second half -- the layers (9b-3b-1)**: the time unit, an input edited, and
+the run replayed for it. The view of them -- the unit chip, every time written in the unit, a double-click
+on an input's row, undo and redo -- is 9b-3b-2.
+
+- **One list of units** (`SystemVerilog.TimeUnits`): s, ms, us, ns, ps and fs, exactly as SystemVerilog
+  writes them, used by the parser, the rules, the save and the importer. A field on screen reads them
+  more loosely (`TimeText`). The parser's warning for `#10ns` no longer says ns: the unit is the
+  design's, whatever it is.
+- **The unit relabels and rescales nothing** (invariant 7): a delay of 3 is 3 ps once the project is in
+  ps. `BoardEditor.SetSettings` sets it, `BoardRules` refuses one SystemVerilog does not have and a
+  default gate delay below 0, and a save holding one that is not a unit loads in ns with a word to say so.
+- **A project in a unit other than ns prints `` `timescale 1ps/1ps ``** at the top of every file, the
+  precision the unit itself since time is whole; one in ns prints none. D7 says export adds none unless
+  asked, and choosing a unit is the asking, while ModelSim reads a file with none in 1 ns, so an ns
+  project means the same with or without it. The importer reads a timescale of one whole unit back as
+  the project's; one of tens of a unit (`10ns/1ns`) has none a project can count in, and imports in ns.
+- **An input edited** (`StimulusEdits`, committed by `BoardEditor.SetInput` and `InvertInput`): a value
+  over a stretch, after which the input goes back to what it had, or a bit flipped over the stretch a
+  moment is in, between the steps either side. Each keeps the fewest steps that say it -- a step giving
+  the value already held is dropped, and an input is x before its first step, as the testbench's `logic`
+  is. A clock is refused, being a period and not steps; so is a bus or an x flipped, which have no one
+  other value; a value of the wrong width is refused by the rules, as any edit is.
+- **An edit is replayed beside the run it replaces** (`WorkbenchSession`, over the editor and two
+  `RunSession`s): the edited document compiled and run a slice a frame, taking over once it has reached
+  the moment shown -- run on as far as the shown run had been, past a `$stop` -- so the waveform never
+  goes blank and the playhead never jumps. The whole run is made again, since the testbench is one
+  `initial` block driving every input; an input changes nothing before it changes, and
+  `WorkbenchSessionTests` holds each replay to the shown run's history up to the edit, every value change
+  and every finished transition. The latest edit wins over a replay still being made; undo and redo are
+  replayed like edits; a change of unit is an edit too, since every time and delay on screen is written in
+  it. RESTART takes a replay at once (`TakeReplay`), 0 being made already. `Playback.Switch` moves
+  playing onto the new run, keeping the speed, the breakpoints, RUN TO, whether it plays and where.
+- **Checked.** Under dotnet: `TimeUnitsTests` (22, the parser's warning included), `ProjectSettingsTests`
+  (14: the rules, every printed file's first line, the import back, the save), `StimulusEditsTests` (13)
+  and `WorkbenchSessionTests` (12). Nothing on screen changed: reference shots 1 to 32 identical.
+
 ---
 
 ## 11. The parts

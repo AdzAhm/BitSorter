@@ -4,6 +4,7 @@ using System.Globalization;
 using BitSorter.Board;
 using BitSorter.Sim;
 using EngineGate = BitSorter.Sim.GateKind;
+using BitSorter.SystemVerilog;
 using BitSorter.SystemVerilog.Syntax;
 using BoardPoint = BitSorter.Board.Point;
 
@@ -39,6 +40,7 @@ namespace BitSorter.ViewModel
             CompiledModule top = compiled.Find(module.Name);
             Netlist netlist = top.Nets;
             string path = compiled.DesignPath;
+            string unit = project.Settings?.TimeUnit ?? TimeUnits.Default;
 
             var outlines = new Dictionary<int, PartOutline>();
             foreach (Part part in module.Parts)
@@ -65,7 +67,7 @@ namespace BitSorter.ViewModel
                 // And what is written round it: a name over it, a delay over the wire leaving it.
                 if (!(part is PortPart) && PartLayout.NameAbove(SymbolOf(part)))
                     Include(new BoardPoint((outline.Left + outline.Right) / 2, outline.Top + NameRoom));
-                if (DelayOf(part).Length > 0)
+                if (DelayOf(part, unit).Length > 0)
                     Include(PartGeometry.Transform(module.Layout.PlacementOf(part.Id), new BoardPoint(0.55, 0.3 + NameRoom / 2)));
             }
 
@@ -130,7 +132,7 @@ namespace BitSorter.ViewModel
                 }
 
                 string[] pinsWired = wired.TryGetValue(part.Id, out List<string> list) ? list.ToArray() : Array.Empty<string>();
-                var layout = new PartLayout(SymbolOf(part), part, placement, local, NameOf(part), DelayOf(part), output, pinsWired, frame);
+                var layout = new PartLayout(SymbolOf(part), part, placement, local, NameOf(part), DelayOf(part, unit), output, pinsWired, frame);
                 parts.Add(layout);
                 partsById[part.Id] = layout;
             }
@@ -200,7 +202,7 @@ namespace BitSorter.ViewModel
             foreach (PortPart port in ordered)
                 rows.Add(new WaveRow(Label(port), path + "." + port.Name));
 
-            return new SchematicLayout(size, nets, parts, ports, rows, compiled.DesignPath, compiled.Cells);
+            return new SchematicLayout(size, nets, parts, ports, rows, compiled.DesignPath, compiled.Cells, unit);
         }
 
         /// <summary>A pin as hovering names it: <c>input a</c> for a port, <c>g1.y (NOT)</c> for a part's.</summary>
@@ -261,13 +263,16 @@ namespace BitSorter.ViewModel
             }
         }
 
-        /// <summary>A gate's delay as written beside it: <c>rise 2 / fall 3 ns</c> when they differ, <c>3 ns</c> when not, nothing when ideal.</summary>
-        public static string DelayOf(Part part)
+        /// <summary>
+        /// A gate's delay as written beside it, in the project's <paramref name="unit"/>: <c>rise 2 / fall 3 ns</c>
+        /// when they differ, <c>3 ns</c> when not, nothing when ideal.
+        /// </summary>
+        public static string DelayOf(Part part, string unit = TimeUnits.Default)
         {
             if (!(part is GatePart gate) || gate.IsIdeal)
                 return "";
             string rise = gate.Rise.ToString(CultureInfo.InvariantCulture), fall = gate.Fall.ToString(CultureInfo.InvariantCulture);
-            return gate.Rise == gate.Fall ? rise + " ns" : "rise " + rise + " / fall " + fall + " ns";
+            return gate.Rise == gate.Fall ? rise + " " + unit : "rise " + rise + " / fall " + fall + " " + unit;
         }
 
         /// <summary>A port's name, with its range when it is a bus: <c>S[3:0]</c>.</summary>

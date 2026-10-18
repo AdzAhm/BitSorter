@@ -168,9 +168,10 @@ namespace BitSorter.ViewModel
     public sealed class SchematicLayout
     {
         public SchematicLayout(Vec2 size, IReadOnlyList<NetLayout> nets, IReadOnlyList<PartLayout> parts, IReadOnlyList<PortLayout> ports, IReadOnlyList<WaveRow> rows,
-            string designPath = null, IReadOnlyList<string> cells = null)
+            string designPath = null, IReadOnlyList<string> cells = null, string unit = null)
         {
             Size = size;
+            Unit = unit ?? BitSorter.SystemVerilog.TimeUnits.Default;
             Nets = nets;
             Parts = parts;
             Ports = ports;
@@ -184,6 +185,9 @@ namespace BitSorter.ViewModel
         /// what every signal's key is relative to (<see cref="SignalIndex"/>). Null for a layout not made from a document.
         /// </summary>
         public string DesignPath { get; }
+
+        /// <summary>The unit the document counts its time in, which every time on screen is written in (Part 9b-3).</summary>
+        public string Unit { get; }
 
         /// <summary>The library cells the board's gates print as, by module name: the scopes a signal list hides unless asked.</summary>
         public IReadOnlyList<string> Cells { get; }

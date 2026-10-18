@@ -70,8 +70,8 @@ namespace BitSorter.ViewModel
 
         private const double Epsilon = 1e-9;
 
-        private readonly RunSession _run;
-        private readonly Func<int, SignalTrack> _trackOf;
+        private RunSession _run;
+        private Func<int, SignalTrack> _trackOf;
 
         /// <summary>How long the first run was: how far PLAY at the end runs it on.</summary>
         private readonly long _runLength;
@@ -194,6 +194,33 @@ namespace BitSorter.ViewModel
                 Pause();
             else
                 Play();
+        }
+
+        /// <summary>
+        /// Plays <paramref name="run"/> from here on: the same document, edited and run again
+        /// (<see cref="WorkbenchSession"/>). The speed, the breakpoints, RUN TO and whether it is playing
+        /// carry over, and the playhead stays where it was, as far as the new run is made. Why it last
+        /// paused does not: it paused in a run that is gone. How far PLAY at the end runs it on stays the
+        /// first run's length, which an edit to an input does not change.
+        /// </summary>
+        public void Switch(RunSession run)
+        {
+            if (run == null)
+                throw new ArgumentNullException(nameof(run));
+            if (run == _run)
+                return;
+
+            double at = Model.Time;
+            _run = run;
+            _trackOf = run.Model.TrackOf;
+            _break = null;
+            _breakFrom = double.NaN;
+            _breakVersion = -1;
+            _breakRunVersion = -1;
+
+            SetSpeed(Speed);
+            ClearReason();
+            Model.Seek(Math.Min(at, Made));
         }
 
         /// <summary>Back to the start, playing.</summary>

@@ -334,6 +334,9 @@ namespace BitSorter.ViewModel
         public SimSession Session { get; }
         public SchematicLayout Layout { get; }
 
+        /// <summary>The unit the document counts its time in: what every time the workbench writes is in.</summary>
+        public string Unit => Layout.Unit;
+
         /// <summary>The end of the timeline: where the run is made to. It grows when the run is run on past it (<see cref="Extend"/>).</summary>
         public long End { get; private set; }
 
