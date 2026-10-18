@@ -265,6 +265,9 @@ namespace BitSorter.View
         private WaveSignalPicker _picker;
         private WaveRenameField _rename, _breakField;
         private TMP_InputField _runToField;
+
+        /// <summary>The frame RUN TO was last finished with, until <see cref="ReleaseRunTo"/> has given the keyboard back; -1 for none.</summary>
+        private int _runToEndedFrame = -1;
         private int _renaming = -1;
         private WorkbenchControlSample _controlSample;
 
@@ -861,6 +864,24 @@ namespace BitSorter.View
             Redraw();
         }
 
+        /// <summary>
+        /// Gives the keyboard back once RUN TO is finished with, a frame after Enter or Escape finished it.
+        /// TextMesh Pro leaves a finished field selected, which <see cref="UiText"/> reads as typing, and
+        /// RUN TO stays on screen where every other field closes with its panel -- so every workbench key
+        /// stayed dead until a click somewhere else. Not in the frame it finished, or the Escape that
+        /// cancelled it would close the workbench as well, whichever of the two updated first.
+        /// </summary>
+        private void ReleaseRunTo()
+        {
+            if (_runToEndedFrame < 0 || UnityEngine.Time.frameCount <= _runToEndedFrame)
+                return;
+
+            _runToEndedFrame = -1;
+            UnityEngine.EventSystems.EventSystem events = UnityEngine.EventSystems.EventSystem.current;
+            if (events != null && events.currentSelectedGameObject == _runToField.gameObject && !_runToField.isFocused)
+                UiTheme.Defocus();
+        }
+
         /// <summary>Gives the row the menu was opened on the name typed, from the rename field.</summary>
         private void RenameRow(string name)
         {
@@ -1111,6 +1132,7 @@ namespace BitSorter.View
                 return;
 
             Fit();
+            ReleaseRunTo();
 
             // Escape closes what is on top of the workbench first -- the row menu -- and the workbench only
             // when nothing is.
@@ -1528,6 +1550,7 @@ namespace BitSorter.View
             {
                 if (!_runToField.wasCanceled)
                     SetRunTo(text);
+                _runToEndedFrame = UnityEngine.Time.frameCount;
             });
             right += RunToFieldWidth + 6f + RunToCaptionWidth + RowGap * 2f;
 

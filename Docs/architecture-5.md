@@ -1105,6 +1105,9 @@ second half (9b-3b) is the timescale's units and editing an input.
   SLOWER and FASTER (the brackets) round the speed, a RUN TO field and the time; SAMPLE moved beside the
   title, with S. STEP goes to the next edge of the selected rows, every row's with none selected, and
   pauses. REPLAY became RESTART (`WorkbenchCommand.Restart`), since PLAY now does more than play again.
+  **RUN TO gives the keyboard back** a frame after Enter or Escape (`ReleaseRunTo`): TextMesh Pro leaves a
+  finished field selected, and RUN TO is the first field that stays on screen, so in the browser smoke
+  test every workbench key was dead after Enter until a click elsewhere.
 - **The chip says why playing stopped**: "$stop at 36 ns: PLAY runs on", "break: count = 3 at 12 ns",
   "ran to 10 ns", "$finish at 40 ns", "the run stopped at 5 ns"; a refused value or time until the next
   thing is done; otherwise, as before, the changes on their way or when the run settled. A reason's words
@@ -1118,8 +1121,10 @@ second half (9b-3b) is the timescale's units and editing an input.
   and a signal's in the gutter before its row's wave.
 - **Checked.** `PlaybackTests` (28), `ProcessTests`' stops and `CursorTests`' right button under dotnet;
   in Play Mode, playing to the testbench's `$stop` and PLAY running it on, the speed by key and by
-  button, STEP from edge to edge of a selected row, RUN TO, BREAK ON VALUE from the row menu, the menu for
-  a moment setting and taking away a breakpoint, and RESTART. Reference shot 30 now has a flag at 26 ns
+  button, STEP from edge to edge of a selected row, RUN TO, and its field giving the keys back after Enter
+  and Escape without the Escape closing the workbench, BREAK ON VALUE from the row menu, the menu for a
+  moment setting and taking away a breakpoint, and RESTART. In the browser build: PLAY at the reference's
+  `$stop` ran it on, a breakpoint set from the menu for a moment paused it there, and the speed changed. Reference shot 30 now has a flag at 26 ns
   and one on out going x; 27 to 32 moved by the controls; 1 to 26 the same in all four looks.
 
 ---

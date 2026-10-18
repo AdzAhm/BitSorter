@@ -855,6 +855,13 @@ failure side.
   flag that leaked would be a game whose keys do nothing. The field answers
   Enter and Escape itself while it holds the keys (`NameBoardPanel`), and the
   frame it closes is covered by `UiModal.OpenOrJustClosed` like any panel's.
+  **A field that stays on screen has to let go itself**: TextMesh Pro leaves a
+  finished field selected, and every other field let go only by closing with
+  its panel. The workbench's RUN TO kept every workbench key dead after Enter
+  until a click elsewhere (the 9b-3 browser smoke test), so it gives the
+  selection up a frame after Enter or Escape -- not in the same frame, or the
+  Escape that cancelled it could close the workbench too
+  (`WorkbenchPanel.ReleaseRunTo`).
 - **A panel's backdrop is nine-sliced, and a full-screen one is not a panel.**
   `ProceduralSprites.Panel` is a rounded rectangle cut with a ten-texel border,
   so every `Panel_` keeps ten-pixel corners and a solid middle at any size.
