@@ -58,16 +58,22 @@ namespace BitSorter.View
     ///
     /// **Every control has a key**, drawn over its button as the 4.x HUD draws RUN's, and every key is
     /// read from one table (<see cref="WorkbenchKeys"/>), which refuses a key the rest of the game or
-    /// a browser owns: Space plays or pauses, R replays, S steps to the next sample, the arrows step
-    /// through time, plus and minus zoom, F fits, up and down move the page, X and Delete the rows, C
-    /// the second cursor.
+    /// a browser owns: Space plays or pauses, R plays again from the start, period and comma step to
+    /// the next edge and the one before, the brackets play slower and faster, S steps to the next
+    /// sample, the arrows step through time, plus and minus zoom, F fits, up and down move the page, X
+    /// and Delete the rows, C the second cursor.
     ///
-    /// **The controls are two rows**: the buttons, then the time -- the slider and where it is. The
-    /// run controls of Part 9b-3 go on the first row, beside the ones there now.
+    /// **The controls are two rows** (Part 9b-3): RESTART, PLAY, STEP BACK and STEP, with the chip that
+    /// says why playing stopped; then the time -- the slider, the speed between SLOWER and FASTER, RUN TO
+    /// and where it is. SAMPLE is beside the title, over the line that describes the sample.
     ///
     /// **The run is made once, a slice a frame from when its circuit is shown** (<see cref="RunSession"/>);
     /// playing, replaying and dragging the slider back are the model answering for another moment
-    /// (ADR-6). Nothing re-runs, which is why rewinding is free.
+    /// (ADR-6). Nothing re-runs, which is why rewinding is free. **Playing it is <see cref="Playback"/>'s**:
+    /// it pauses by itself at a <c>$stop</c>, a breakpoint, RUN TO and the end, and PLAY at a <c>$stop</c>
+    /// runs the run on, as ModelSim does, the timeline growing with it. A right-click on a row sets a
+    /// breakpoint on its signal; one on the waves or the axis, at that moment. Each is flagged in the
+    /// cursor's colour.
     ///
     /// A full-screen panel like Settings, and for the same reasons: it covers the 4.x board, which
     /// stays exactly as it was, takes Escape back to the menu, and hides the HUD while it is up.
@@ -88,7 +94,22 @@ namespace BitSorter.View
         public const string BackButton = "Workbench back";
 
         /// <inheritdoc cref="RootName"/>
-        public const string ReplayButton = "Workbench replay";
+        public const string RestartButton = "Workbench restart";
+
+        /// <inheritdoc cref="RootName"/>
+        public const string StepButton = "Workbench step";
+
+        /// <inheritdoc cref="RootName"/>
+        public const string StepBackButton = "Workbench step back";
+
+        /// <inheritdoc cref="RootName"/>
+        public const string SlowerButton = "Workbench slower";
+
+        /// <inheritdoc cref="RootName"/>
+        public const string FasterButton = "Workbench faster";
+
+        /// <inheritdoc cref="RootName"/>
+        public const string RunToField = "Workbench run to";
 
         /// <inheritdoc cref="RootName"/>
         public const string PlayButton = "Workbench play";
@@ -104,10 +125,14 @@ namespace BitSorter.View
 
         /// <summary>The line along the bottom.</summary>
         public const string HelpLine =
-            "scroll to zoom, shift and scroll to move through time, click the waves to seek, shift-click for a second cursor, right-click a row, alt-click a wire to add it";
+            "scroll to zoom, shift and scroll to move through time, click the waves to seek, shift-click for a second cursor, right-click a row or the waves, alt-click a wire to add it";
 
         /// <summary>What the SAMPLE chip says for a sample: its name, under the word for what the chip steps through.</summary>
         public static string SampleCaption(int sample) => "SAMPLE: " + WorkbenchSamples.All[sample].Name.ToUpperInvariant();
+
+        /// <summary>What the speed between SLOWER and FASTER says for a place on the ladder.</summary>
+        public static string SpeedCaption(int speed) =>
+            speed >= Playback.InstantSpeed ? "INSTANT" : Playback.Speeds[speed].ToString("0.###", CultureInfo.InvariantCulture) + " ns/s";
 
         // -----------------------------------------------------------------
         // The stage: the card holding the schematic and the waveform, in its own units
@@ -181,7 +206,27 @@ namespace BitSorter.View
 
         /// <summary>The run being shown, made a slice a frame until it is done.</summary>
         private RunSession _run;
-        private bool _playing;
+
+        /// <summary>Playing the run: where the playhead goes each frame, and why it paused.</summary>
+        private Playback _playback;
+
+        /// <summary>The speed's place on the ladder, kept from one sample to the next.</summary>
+        private int _speed = Playback.DefaultSpeed;
+
+        /// <summary>The end of the timeline the texts, the slider and the waveform were made for.</summary>
+        private long _shownEnd;
+
+        /// <summary>Why playing last stopped, as the chip was last told it, and what the chip says for it.</summary>
+        private PauseReason _reasonShown;
+        private long _reasonShownAt = -1;
+        private string _reasonText;
+
+        /// <summary>A refusal the chip says until the next thing is done: a value or a time that did not read.</summary>
+        private string _notice;
+
+        /// <summary>The moment the menu for a moment was opened for.</summary>
+        private long _menuTime;
+        private readonly List<int> _stepRows = new List<int>();
 
         /// <summary>Which of <see cref="WorkbenchSamples.All"/> is shown.</summary>
         private int _sample;
@@ -216,8 +261,10 @@ namespace BitSorter.View
         private double _movedTo = double.NaN;
 
         private WaveRowMenu _rowMenu;
+        private WaveTimeMenu _timeMenu;
         private WaveSignalPicker _picker;
-        private WaveRenameField _rename;
+        private WaveRenameField _rename, _breakField;
+        private TMP_InputField _runToField;
         private int _renaming = -1;
         private WorkbenchControlSample _controlSample;
 
@@ -240,7 +287,7 @@ namespace BitSorter.View
         private int _hovered = -1;
         private bool _dragging, _wasHeld;
         private Vector2 _dragFrom;
-        private TextMeshProUGUI _timeLabel, _chipLabel, _playLabel, _description, _sampleLabel;
+        private TextMeshProUGUI _timeLabel, _chipLabel, _playLabel, _description, _sampleLabel, _speedLabel;
 
         private readonly List<TextMeshProUGUI> _digits = new List<TextMeshProUGUI>();
         private readonly List<TextMeshProUGUI> _swallowedLabels = new List<TextMeshProUGUI>();
@@ -263,7 +310,22 @@ namespace BitSorter.View
         public double Time => _model != null ? _model.Time : 0.0;
 
         /// <summary>Whether the run is playing.</summary>
-        public bool Playing => _playing;
+        public bool Playing => _playback != null && _playback.Playing;
+
+        /// <summary>Playing the run -- its speed, RUN TO, breakpoints and why it paused; null until the panel has first opened.</summary>
+        public Playback Playback => _playback;
+
+        /// <summary>What the chip by the controls says now.</summary>
+        public string ChipText => _chipLabel != null ? _chipLabel.text : null;
+
+        /// <summary>What the speed between SLOWER and FASTER says now.</summary>
+        public string SpeedText => _speedLabel != null ? _speedLabel.text : null;
+
+        /// <summary>The menu for a moment; null until the panel has first opened.</summary>
+        public WaveTimeMenu TimeMenu => _timeMenu;
+
+        /// <summary>The field BREAK ON VALUE asks in; null until the panel has first opened.</summary>
+        public WaveRenameField BreakValueField => _breakField;
 
         /// <summary>The run being shown; null until the panel has first opened.</summary>
         public WorkbenchModel Model => _model;
@@ -368,7 +430,7 @@ namespace BitSorter.View
             SetShowing(true);
             Fit();
             FitView();
-            Replay();
+            Restart();
         }
 
         /// <summary>
@@ -401,8 +463,12 @@ namespace BitSorter.View
             switch (command)
             {
                 case WorkbenchCommand.PlayPause: TogglePlay(); break;
-                case WorkbenchCommand.Replay: Replay(); break;
+                case WorkbenchCommand.Restart: Restart(); break;
                 case WorkbenchCommand.NextSample: ShowSample(_sample + 1); break;
+                case WorkbenchCommand.NextEdge: StepEdge(forward: true); break;
+                case WorkbenchCommand.PreviousEdge: StepEdge(forward: false); break;
+                case WorkbenchCommand.Slower: ChangeSpeed(-1); break;
+                case WorkbenchCommand.Faster: ChangeSpeed(1); break;
                 case WorkbenchCommand.StepForward: StepBy(1.0); break;
                 case WorkbenchCommand.StepBack: StepBy(-1.0); break;
                 case WorkbenchCommand.StepForwardFine: StepBy(0.1); break;
@@ -649,7 +715,14 @@ namespace BitSorter.View
                     if (!_list.Lines[command.Row].Selected)
                         _list.Select(command.Row);
                     _renaming = command.Row;
-                    _rowMenu.Open(pointer, SelectedRowsAreEnums(), _list.SelectedSignals().Count > 0, SelectedGroup() != null);
+                    bool breakable = RowSignalAt(command.Row, out int signal);
+                    _rowMenu.Open(pointer, SelectedRowsAreEnums(), _list.SelectedSignals().Count > 0, SelectedGroup() != null,
+                        breakable, breakable && _playback.Breakpoints.HasOn(signal));
+                    break;
+
+                case WaveGesture.TimeMenu:
+                    _menuTime = (long)Math.Round(command.Time);
+                    _timeMenu.Open(pointer, TimeText(_menuTime), _playback.Breakpoints.HasAt(_menuTime), _playback.Breakpoints.Count > 0);
                     break;
 
                 case WaveGesture.ToggleGroup:
@@ -703,7 +776,89 @@ namespace BitSorter.View
                 case WaveRowAction.Remove:
                     RemoveRows();
                     break;
+
+                case WaveRowAction.BreakOnX:
+                    if (RowSignalAt(_renaming, out int x) && _playback.Breakpoints.Add(Breakpoint.OnX(x)))
+                        Redraw();
+                    break;
+
+                case WaveRowAction.BreakOnValue:
+                    if (RowSignalAt(_renaming, out _))
+                        _breakField.Open("", RowNameOnScreen(_renaming));
+                    break;
+
+                case WaveRowAction.NoBreaks:
+                    if (RowSignalAt(_renaming, out int none) && _playback.Breakpoints.RemoveOn(none) > 0)
+                        Redraw();
+                    break;
             }
+        }
+
+        /// <summary>The signal row <paramref name="row"/> shows, if it is a signal's row and not a group's header.</summary>
+        private bool RowSignalAt(int row, out int signal)
+        {
+            signal = row >= 0 && row < _model.RowCount ? _model.RowSignal(row) : -1;
+            return signal >= 0;
+        }
+
+        /// <summary>
+        /// Sets a breakpoint on the signal of the row the menu was opened on, for the value typed: a
+        /// SystemVerilog literal fitted to the signal (<see cref="Breakpoints.TryParseValue"/>). One that
+        /// does not read is refused, and the chip says why.
+        /// </summary>
+        public void BreakOnValue(string text)
+        {
+            if (!RowSignalAt(_renaming, out int signal))
+                return;
+
+            if (Breakpoints.TryParseValue(text, _model.Session.Design.Signals[signal].Width, out LogicVec value, out string error))
+            {
+                _playback.Breakpoints.Add(Breakpoint.OnValue(signal, value));
+                _notice = null;
+            }
+            else
+            {
+                _notice = error;
+            }
+
+            Redraw();
+        }
+
+        /// <summary>What the menu for a moment does: a breakpoint there set or taken away, or every one taken away.</summary>
+        private void TimeAction(WaveTimeAction action)
+        {
+            if (action == WaveTimeAction.ToggleBreak)
+                _playback.Breakpoints.ToggleAt(_menuTime);
+            else
+                _playback.Breakpoints.Clear();
+            Redraw();
+        }
+
+        /// <summary>
+        /// Where playing pauses on its way, from the RUN TO field: a whole number of nanoseconds, or nothing
+        /// for nowhere. Anything else is refused, and the chip says why.
+        /// </summary>
+        public void SetRunTo(string text)
+        {
+            string typed = (text ?? "").Trim();
+            if (typed.Length == 0)
+            {
+                _playback.RunTo = null;
+                _notice = null;
+            }
+            else if (long.TryParse(typed, NumberStyles.None, CultureInfo.InvariantCulture, out long at))
+            {
+                _playback.RunTo = at;
+                _notice = null;
+            }
+            else
+            {
+                _notice = "RUN TO takes a whole number of ns";
+            }
+
+            if (_runToField != null)
+                _runToField.SetTextWithoutNotify(_playback.RunTo?.ToString(CultureInfo.InvariantCulture) ?? "");
+            Redraw();
         }
 
         /// <summary>Gives the row the menu was opened on the name typed, from the rename field.</summary>
@@ -833,34 +988,111 @@ namespace BitSorter.View
         }
 
         /// <summary>Starts the run again from 0, playing, with a zoomed waveform following it again.</summary>
-        public void Replay()
+        public void Restart()
         {
-            _playing = true;
-            _wave?.Restart(0.0);
-            Seek(0.0);
-        }
-
-        /// <summary>Plays or pauses; from the end, plays again from the start, as a replay does, a zoomed waveform following it again.</summary>
-        public void TogglePlay()
-        {
-            if (_model == null)
+            if (_playback == null)
                 return;
 
-            if (!_playing && _model.Time >= _model.End)
-            {
-                _wave?.Restart(0.0);
-                Seek(0.0);
-            }
+            _notice = null;
+            _wave?.Restart(0.0);
+            _playback.Restart();
+            Redraw();
+        }
 
-            _playing = !_playing;
-            RefreshPlayLabel();
+        /// <summary>
+        /// Plays or pauses. PLAY at a <c>$stop</c> runs the run on, and at an end the design gave plays it
+        /// again from the start (<see cref="Playback.Play"/>); either way a zoomed waveform follows it again.
+        /// </summary>
+        public void TogglePlay()
+        {
+            if (_playback == null)
+                return;
+
+            _notice = null;
+            bool fromTheEnd = !_playback.Playing && _model.Time >= _playback.Made - 1e-9;
+            _playback.Toggle();
+            if (fromTheEnd && _playback.Playing)
+                _wave?.Restart(_model.Time);
+            if (_model.End != _shownEnd)
+                TimelineGrew();
+            Redraw();
         }
 
         /// <summary>Stops playing where it is.</summary>
         public void Pause()
         {
-            _playing = false;
+            if (_playback == null)
+                return;
+
+            _playback.Pause();
             RefreshPlayLabel();
+        }
+
+        /// <summary>
+        /// To the next edge of the selected rows -- every row's, with none selected -- or to the one
+        /// before, paused, as STEP and STEP BACK do.
+        /// </summary>
+        public void StepEdge(bool forward)
+        {
+            if (_playback == null)
+                return;
+
+            _notice = null;
+            _stepRows.Clear();
+            IReadOnlyList<WaveLine> lines = _list.Lines;
+            for (int row = 0; row < lines.Count && row < _model.RowCount; row++)
+                if (lines[row].Selected && _model.RowSignal(row) >= 0)
+                    _stepRows.Add(row);
+            if (_stepRows.Count == 0)
+                for (int row = 0; row < _model.RowCount; row++)
+                    if (_model.RowSignal(row) >= 0)
+                        _stepRows.Add(row);
+
+            if (forward)
+                _playback.Step(_stepRows);
+            else
+                _playback.StepBack(_stepRows);
+            Redraw();
+        }
+
+        /// <summary>A speed by its place on the ladder (<see cref="Playback.Speeds"/>, then INSTANT), as SLOWER and FASTER pressed until it shows.</summary>
+        public void SetSpeed(int speed)
+        {
+            if (_playback == null)
+                return;
+
+            _playback.SetSpeed(speed);
+            _speed = speed;
+            SetText(_speedLabel, SpeedCaption(_speed));
+            Redraw();
+        }
+
+        /// <summary>A step along the speed's ladder: faster for more than zero. The speed is kept for the next sample.</summary>
+        public void ChangeSpeed(int steps)
+        {
+            if (_playback == null || steps == 0)
+                return;
+            if (!(steps > 0 ? _playback.Faster() : _playback.Slower()))
+                return;
+
+            _speed = _playback.Speed;
+            SetText(_speedLabel, SpeedCaption(_speed));
+            Redraw();
+        }
+
+        /// <summary>
+        /// The run was run on past the timeline's end: the texts, the slider and the waveform are made for
+        /// the longer one, and the waveform's rows drawn again.
+        /// </summary>
+        private void TimelineGrew()
+        {
+            _shownEnd = _model.End;
+            MakeTexts();
+            if (_slider != null)
+                _slider.maxValue = _model.End;
+            if (_wave != null)
+                _wave.View.Extend(_model.End);
+            _layers?.Extended();
         }
 
         /// <summary>Shows another moment of the run.</summary>
@@ -929,16 +1161,16 @@ namespace BitSorter.View
                 Redraw();
             }
 
-            if (_playing)
+            if (_playback.Playing)
             {
-                double next = _model.Time + UnityEngine.Time.deltaTime * SchematicStyle.NanosecondsPerSecond;
-                if (next >= _model.End && _model.Complete)
-                {
-                    next = _model.End;
-                    _playing = false;
-                }
+                _playback.Frame(UnityEngine.Time.deltaTime);
+                Redraw();
+            }
 
-                Seek(next);
+            if (_model.End != _shownEnd)
+            {
+                TimelineGrew();
+                Redraw();
             }
         }
 
@@ -994,8 +1226,11 @@ namespace BitSorter.View
 
             // Over everything else on the workbench, when it is up.
             _rowMenu = WaveRowMenu.Build(Root, palette, ChooseRadix, RowAction);
+            _timeMenu = WaveTimeMenu.Build(Root, palette, TimeAction);
             _picker = WaveSignalPicker.Build(Root, palette, AddSignal);
             _rename = WaveRenameField.Build(Root, palette, RenameRow);
+            _breakField = WaveRenameField.Build(Root, palette, BreakOnValue, WaveRenameField.BreakValueName, "BREAK ON VALUE",
+                "1, 4'b1010, 'hA or x");
 
             Root.gameObject.SetActive(false);
         }
@@ -1009,6 +1244,12 @@ namespace BitSorter.View
         {
             _run = RunSession.Open(WorkbenchSamples.All[_sample].Build(), () => UnityEngine.Time.realtimeSinceStartupAsDouble * 1000.0);
             _model = _run.Model;
+            _playback = new Playback(_run, _speed);
+            _shownEnd = _model.End;
+            _reasonText = null;
+            _notice = null;
+            if (_runToField != null)
+                _runToField.SetTextWithoutNotify("");
             MakeTexts();
 
             // Its rows start as the layout's, one per port, each in its own radix, and no second cursor.
@@ -1056,6 +1297,10 @@ namespace BitSorter.View
 
             _model.SetRows(_appliedSignals, _appliedRadixes);
             _bandsVersion = -1;
+
+            // A breakpoint on a signal no row shows would pause the run with nothing on screen saying why.
+            int[] shown = _appliedSignals;
+            _playback.Breakpoints.KeepOnly(signal => Array.IndexOf(shown, signal) >= 0);
             return true;
         }
 
@@ -1130,8 +1375,10 @@ namespace BitSorter.View
             _sample = ((sample % count) + count) % count;
 
             _rowMenu.Close();
+            _timeMenu.Close();
             _picker.Close();
             _rename.Close();
+            _breakField.Close();
             OpenRun();
             RebuildStage(keepViews: false);
 
@@ -1139,7 +1386,7 @@ namespace BitSorter.View
             _sampleLabel.text = SampleCaption(_sample);
             _slider.maxValue = _model.End;
             FitView();
-            Replay();
+            Restart();
         }
 
         /// <summary>
@@ -1208,43 +1455,98 @@ namespace BitSorter.View
             line.sizeDelta = new Vector2(0f, 24f);
             description.text = WorkbenchSamples.All[_sample].Says;
             _description = description;
-        }
 
-        /// <summary>The first row of the controls: the buttons, and the chip saying what the run is doing.</summary>
-        private void BuildControls(SchematicPalette palette)
-        {
-            _controls = TopStrip("controls", ControlsTop, UiTheme.ButtonHeight);
-
-            Button replay = CanvasButton(ReplayButton, _controls, "REPLAY", out TextMeshProUGUI _, UiType.Body, palette);
-            KeyOver(replay, "R", palette);
-            TopLeft(replay.GetComponent<RectTransform>(), Vector2.zero, new Vector2(120f, UiTheme.ButtonHeight));
-            replay.onClick.AddListener(() => { Replay(); UiTheme.Defocus(); });
-
-            Button play = CanvasButton(PlayButton, _controls, "PAUSE", out _playLabel, UiType.Body, palette);
-            KeyOver(play, "SPACE", palette);
-            TopLeft(play.GetComponent<RectTransform>(), new Vector2(132f, 0f), new Vector2(110f, UiTheme.ButtonHeight));
-            play.onClick.AddListener(() => { TogglePlay(); UiTheme.Defocus(); });
-
-            // As wide as the longest sample's caption, so stepping through them never resizes it.
+            // SAMPLE, at the header's right, over the line that describes the sample: short enough to
+            // leave that line its room, with its key beside it.
             float sampleWidth = 0f;
             for (int i = 0; i < WorkbenchSamples.All.Count; i++)
                 sampleWidth = Mathf.Max(sampleWidth, UiTheme.TextWidth(SampleCaption(i), UiType.Body));
 
-            Button sample = CanvasButton(SampleButton, _controls, SampleCaption(_sample), out _sampleLabel, UiType.Body, palette);
-            KeyOver(sample, "S", palette);
-            TopLeft(sample.GetComponent<RectTransform>(), new Vector2(254f, 0f), new Vector2(sampleWidth + 48f, UiTheme.ButtonHeight));
+            Button sample = CanvasButton(SampleButton, _header, SampleCaption(_sample), out _sampleLabel, UiType.Body, palette);
+            KeyBeside(sample, "S", palette);
+            TopRight(sample.GetComponent<RectTransform>(), Vector2.zero, new Vector2(sampleWidth + 40f, SampleHeight));
             sample.onClick.AddListener(() => { ShowSample(_sample + 1); UiTheme.Defocus(); });
+        }
+
+        /// <summary>How tall SAMPLE is: short of the description line under it.</summary>
+        private const float SampleHeight = 34f;
+
+        /// <summary>
+        /// The first row of the controls: RESTART, PLAY, STEP BACK and STEP, each with its key over it,
+        /// and the chip saying what the run is doing, or why playing stopped.
+        /// </summary>
+        private void BuildControls(SchematicPalette palette)
+        {
+            _controls = TopStrip("controls", ControlsTop, UiTheme.ButtonHeight);
+
+            Button Control(string name, string caption, string key, float x, float width, System.Action chosen, out TextMeshProUGUI label)
+            {
+                Button button = CanvasButton(name, _controls, caption, out label, UiType.Body, palette);
+                KeyOver(button, key, palette);
+                TopLeft(button.GetComponent<RectTransform>(), new Vector2(x, 0f), new Vector2(width, UiTheme.ButtonHeight));
+                button.onClick.AddListener(() => { chosen(); UiTheme.Defocus(); });
+                return button;
+            }
+
+            Control(RestartButton, "RESTART", "R", 0f, 120f, Restart, out _);
+            Control(PlayButton, "PAUSE", "SPACE", 132f, 110f, TogglePlay, out _playLabel);
+            Control(StepBackButton, "STEP BACK", ",", 254f, 120f, () => StepEdge(forward: false), out _);
+            Control(StepButton, "STEP", ".", 386f, 90f, () => StepEdge(forward: true), out _);
 
             Image chip = CanvasChip("chip", _controls, palette);
-            TopRight(chip.rectTransform, new Vector2(0f, 9f), new Vector2(210f, 26f));
+            TopRight(chip.rectTransform, new Vector2(0f, 9f), new Vector2(ChipWidth, 26f));
             _chipLabel = UiTheme.Label("text", chip.transform, UiType.Caption, palette.TextDim, TextAlignmentOptions.Center);
             UiTheme.Stretch(_chipLabel.rectTransform);
         }
 
-        /// <summary>The second row of the controls: the slider through the run, and the moment it is at.</summary>
+        /// <summary>How wide the chip is: room for the longest reason it gives, beside the four buttons on the narrowest stage.</summary>
+        private const float ChipWidth = 262f;
+
+        /// <summary>The second row's right-hand pieces: the speed between SLOWER and FASTER, and RUN TO's caption and field.</summary>
+        private const float SpeedButtonWidth = 36f, SpeedLabelWidth = 96f, RunToCaptionWidth = 64f, RunToFieldWidth = 84f, TimeWidth = 136f, RowGap = 12f;
+
+        /// <summary>
+        /// The second row of the controls: the slider through the run, the speed between SLOWER and FASTER
+        /// with their keys beside them, the RUN TO field, and the moment it is at.
+        /// </summary>
         private void BuildTimeline(SchematicPalette palette)
         {
             _timeline = TopStrip("timeline", TimelineTop, UiTheme.ButtonHeight);
+
+            // Right to left: the moment, RUN TO, the speed; the slider takes what is left.
+            float right = TimeWidth + RowGap;
+
+            TextMeshProUGUI runToCaption = UiTheme.Label("run to caption", _timeline, UiType.Caption, palette.TextDim, TextAlignmentOptions.MidlineRight);
+            TopRight(runToCaption.rectTransform, new Vector2(-(right + RunToFieldWidth + 6f), 0f), new Vector2(RunToCaptionWidth, UiTheme.ButtonHeight));
+            runToCaption.text = "RUN TO";
+
+            _runToField = CanvasField(RunToField, _timeline, palette, "ns");
+            TopRight(_runToField.GetComponent<RectTransform>(), new Vector2(-right, 4f), new Vector2(RunToFieldWidth, UiTheme.ButtonHeight - 8f));
+            _runToField.contentType = TMP_InputField.ContentType.IntegerNumber;
+            _runToField.onSubmit.AddListener(SetRunTo);
+            _runToField.onEndEdit.AddListener(text =>
+            {
+                if (!_runToField.wasCanceled)
+                    SetRunTo(text);
+            });
+            right += RunToFieldWidth + 6f + RunToCaptionWidth + RowGap * 2f;
+
+            Button faster = CanvasButton(FasterButton, _timeline, "+", out TextMeshProUGUI _, UiType.Body, palette);
+            KeyAfter(faster, "]", palette);
+            TopRight(faster.GetComponent<RectTransform>(), new Vector2(-(right + KeyRoom), 4f), new Vector2(SpeedButtonWidth, UiTheme.ButtonHeight - 8f));
+            faster.onClick.AddListener(() => { ChangeSpeed(1); UiTheme.Defocus(); });
+            right += KeyRoom + SpeedButtonWidth;
+
+            _speedLabel = UiTheme.Label("speed", _timeline, UiType.Caption, palette.Text, TextAlignmentOptions.Center);
+            TopRight(_speedLabel.rectTransform, new Vector2(-right, 0f), new Vector2(SpeedLabelWidth, UiTheme.ButtonHeight));
+            _speedLabel.text = SpeedCaption(_speed);
+            right += SpeedLabelWidth;
+
+            Button slower = CanvasButton(SlowerButton, _timeline, "-", out TextMeshProUGUI _, UiType.Body, palette);
+            KeyBeside(slower, "[", palette);
+            TopRight(slower.GetComponent<RectTransform>(), new Vector2(-right, 4f), new Vector2(SpeedButtonWidth, UiTheme.ButtonHeight - 8f));
+            slower.onClick.AddListener(() => { ChangeSpeed(-1); UiTheme.Defocus(); });
+            right += SpeedButtonWidth + KeyRoom + RowGap;
 
             _slider = UiTheme.Slider_(TimeSlider, _timeline, 0, (int)_model.End);
             InCanvasColours(_slider, palette);
@@ -1254,11 +1556,11 @@ namespace BitSorter.View
             sliderRect.anchorMax = new Vector2(1f, 1f);
             sliderRect.pivot = new Vector2(0.5f, 0.5f);
             sliderRect.offsetMin = new Vector2(0f, 0f);
-            sliderRect.offsetMax = new Vector2(-160f, 0f);
+            sliderRect.offsetMax = new Vector2(-right, 0f);
             _slider.onValueChanged.AddListener(value => { Pause(); Seek(value); });
 
             _timeLabel = UiTheme.Label("time", _timeline, UiType.Body, palette.Text, TextAlignmentOptions.MidlineRight);
-            TopRight(_timeLabel.rectTransform, Vector2.zero, new Vector2(136f, UiTheme.ButtonHeight));
+            TopRight(_timeLabel.rectTransform, Vector2.zero, new Vector2(TimeWidth, UiTheme.ButtonHeight));
         }
 
         private void BuildStage(SchematicPalette palette, SchematicView keepView = null, WaveView keepWave = null)
@@ -1301,7 +1603,7 @@ namespace BitSorter.View
             TopLeft(_schematic, _viewState.Offset.ToUnity(), layout.Size.ToUnity());
 
             // Every layer of the drawing cut into chunks a mesh each can hold (WorkbenchLayers).
-            _layers = new WorkbenchLayers(_model, _cursors);
+            _layers = new WorkbenchLayers(_model, _cursors, _playback.Breakpoints);
             _drawnZoom = _viewState.Zoom;
             _layers.BuildWires(_schematic, layout.Size.ToUnity());
             _rings = UiTheme.Rect("ring digits", _schematic);
@@ -1473,9 +1775,7 @@ namespace BitSorter.View
             int step = Mathf.Clamp(Mathf.RoundToInt((float)(_model.Time * 10.0)), 0, _timeTexts.Length - 1);
             SetText(_timeLabel, _timeTexts[step]);
 
-            int inFlight = _model.InFlight;
-            SetText(_chipLabel, _model.Time >= _model.SettledAt ? _settledText
-                : _inFlightTexts[Mathf.Min(inFlight, _inFlightTexts.Length - 1)]);
+            SetText(_chipLabel, ChipLine());
 
             RefreshPlayLabel();
             PlaceDigits();
@@ -1485,8 +1785,66 @@ namespace BitSorter.View
         private void RefreshPlayLabel()
         {
             if (_playLabel != null)
-                SetText(_playLabel, _playing ? "PAUSE" : "PLAY");
+                SetText(_playLabel, Playing ? "PAUSE" : "PLAY");
         }
+
+        /// <summary>
+        /// What the chip says: a refusal, until the next thing is done; else why playing stopped, while it
+        /// is stopped for a reason; else how many changes are on their way, or when the run settled. A
+        /// reason's words are made once, as it is first shown.
+        /// </summary>
+        private string ChipLine()
+        {
+            if (_notice != null)
+                return _notice;
+
+            PauseReason reason = _playback.Reason;
+            if (reason != PauseReason.None && reason != PauseReason.End)
+            {
+                if (_reasonText == null || reason != _reasonShown || _playback.ReasonTime != _reasonShownAt)
+                {
+                    _reasonShown = reason;
+                    _reasonShownAt = _playback.ReasonTime;
+                    _reasonText = ReasonText();
+                }
+
+                return _reasonText;
+            }
+
+            return _model.Time >= _model.SettledAt ? _settledText
+                : _inFlightTexts[Mathf.Min(_model.InFlight, _inFlightTexts.Length - 1)];
+        }
+
+        /// <summary>Why playing stopped, in words: where, and what stopped it.</summary>
+        private string ReasonText()
+        {
+            string at = TimeText(_playback.ReasonTime);
+            switch (_playback.Reason)
+            {
+                case PauseReason.Suspended: return "$stop at " + at + ": PLAY runs on";
+                case PauseReason.Breakpoint: return BreakText(_playback.ReasonBreak) + " at " + at;
+                case PauseReason.RunTo: return "ran to " + at;
+                case PauseReason.Finished: return "$finish at " + at;
+                case PauseReason.Stopped: return "the run stopped at " + at;
+                default: return "";
+            }
+        }
+
+        /// <summary>What a breakpoint waited for, as the chip says it fired.</summary>
+        private string BreakText(int index)
+        {
+            Breakpoints breakpoints = _playback.Breakpoints;
+            if (index < 0 || index >= breakpoints.Count || breakpoints[index].Kind == BreakKind.Time)
+                return "break";
+
+            Breakpoint b = breakpoints[index];
+            string name = _model.Signals != null ? _model.Signals.ShortName(b.Signal) : _model.Session.Design.Signals[b.Signal].Name;
+            return b.Kind == BreakKind.AnyX ? "break: " + name + " went x"
+                : "break: " + name + " = " + ValueText.Of(b.Value, _model.DefaultRadix(b.Signal));
+        }
+
+        /// <summary>A whole moment as the workbench writes it.</summary>
+        private static string TimeText(long time) => time.ToString(CultureInfo.InvariantCulture) + " ns";
 
         /// <summary>Each change's digit on its ring, and "swallowed" over one that never arrived.</summary>
         private void PlaceDigits()
@@ -1646,7 +2004,6 @@ namespace BitSorter.View
             UiTheme.Anchor(cap, new Vector2(0.5f, 1f), new Vector2(0.5f, 0f), new Vector2(0f, 4f), cap.sizeDelta);
         }
 
-        /// <summary>A button's key in a cap just left of it, for one with no room over it.</summary>
         /// <summary>
         /// A single-line text field in the canvas's colours: an outlined box, a masked area for the text
         /// to scroll in, the text and a quiet <paramref name="placeholder"/> -- the pieces
@@ -1680,11 +2037,22 @@ namespace BitSorter.View
             return field;
         }
 
+        /// <summary>A button's key in a cap just left of it, for one with no room over it.</summary>
         internal static void KeyBeside(Button button, string key, SchematicPalette palette)
         {
             RectTransform cap = KeyCap(button, key, palette);
             UiTheme.Anchor(cap, new Vector2(0f, 0.5f), new Vector2(1f, 0.5f), new Vector2(-6f, 0f), cap.sizeDelta);
         }
+
+        /// <summary>A button's key in a cap just right of it: FASTER's, whose pair has its key on the left.</summary>
+        private static void KeyAfter(Button button, string key, SchematicPalette palette)
+        {
+            RectTransform cap = KeyCap(button, key, palette);
+            UiTheme.Anchor(cap, new Vector2(1f, 0.5f), new Vector2(0f, 0.5f), new Vector2(6f, 0f), cap.sizeDelta);
+        }
+
+        /// <summary>The room a key's cap beside a button takes, gap included.</summary>
+        private const float KeyRoom = 34f;
 
         private static RectTransform KeyCap(Button button, string key, SchematicPalette palette)
         {

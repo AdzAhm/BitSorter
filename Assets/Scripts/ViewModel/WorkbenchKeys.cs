@@ -7,8 +7,12 @@ namespace BitSorter.ViewModel
     public enum WorkbenchCommand
     {
         PlayPause,
-        Replay,
+        Restart,
         NextSample,
+        NextEdge,
+        PreviousEdge,
+        Slower,
+        Faster,
         StepForward,
         StepBack,
         StepForwardFine,
@@ -79,7 +83,11 @@ namespace BitSorter.ViewModel
         public static readonly IReadOnlyList<KeyBinding> All = Array.AsReadOnly(new[]
         {
             new KeyBinding("Space", WorkbenchCommand.PlayPause, "SPACE", "play or pause"),
-            new KeyBinding("R", WorkbenchCommand.Replay, "R", "play again from the start"),
+            new KeyBinding("R", WorkbenchCommand.Restart, "R", "play again from the start"),
+            new KeyBinding("Period", WorkbenchCommand.NextEdge, ".", "to the next edge of the selected rows"),
+            new KeyBinding("Comma", WorkbenchCommand.PreviousEdge, ",", "to the edge before, on the selected rows"),
+            new KeyBinding("LeftBracket", WorkbenchCommand.Slower, "[", "play slower"),
+            new KeyBinding("RightBracket", WorkbenchCommand.Faster, "]", "play faster"),
             new KeyBinding("S", WorkbenchCommand.NextSample, "S", "show the next sample"),
             new KeyBinding("RightArrow", WorkbenchCommand.StepForward, "RIGHT", "a unit later"),
             new KeyBinding("LeftArrow", WorkbenchCommand.StepBack, "LEFT", "a unit earlier"),

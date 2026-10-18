@@ -741,7 +741,7 @@ failure side.
   diagram mid-run with a picked wire's collisions crossed, Four at once
   built and running, its carry passing between the boxes, and 5.0's workbench
   preview with two changes on their way, whole, zoomed in, with a wire pointed at, with two rows in other
-  radixes and a second cursor 9 ns on, with a block's inside grouped under full names, and with the
+  radixes, a second cursor 9 ns on and two breakpoints flagged, with a block's inside grouped under full names, and with the
   add list searching) as an Explicit Play
   Mode fixture, so it runs under `SaveGuard` --
   driving the real game for a screenshot by hand once marked a level solved on
@@ -838,10 +838,12 @@ failure side.
   panel, so the pointer is over the interface everywhere on it and `PointerGate`'s
   question cannot tell a button from the waves. `WorkbenchControlSample` asks the
   narrower one -- is the topmost thing under the pointer a control: a button, the
-  slider, the row menu -- and asks it at `-30000` too, for the same tap; and the
+  slider, a menu -- and asks it at `-30000` too, for the same tap; and the
   panel reads its mouse as gestures (`WavePointer`), where a press on a control is
-  never one. The row menu, the add list and the rename field each hold Escape
-  (`IHoldsEscape`), and the panel closes on Escape only when nothing does.
+  never one. The row menu, the menu for a moment (a right-click on the waves, for
+  a breakpoint there; Part 9b-3), the add list and the two fields -- RENAME and
+  BREAK ON VALUE -- each hold Escape (`IHoldsEscape`), and the panel closes on
+  Escape only when nothing does.
 - **`UiText` arbitrates the keyboard, as `PointerGate` does the mouse.** Naming a
   free-play board put the first text field into a game that binds N, M, Q, E, H,
   R, Space, Enter and Escape in seventeen places, so typing "Adder" would have

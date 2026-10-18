@@ -648,9 +648,13 @@ namespace BitSorter.View
         /// edges of the axis when either is out of view; the time it spans is the panel's label over
         /// it. C2 is in its own colour (<see cref="SchematicPalette.Cursor"/>), never red, which means x.
         /// </remarks>
-        public static void Playhead(VectorPainter painter, WorkbenchModel model, WaveView view, SchematicPalette palette, WaveCursors cursors = null)
+        public static void Playhead(VectorPainter painter, WorkbenchModel model, WaveView view, SchematicPalette palette, WaveCursors cursors = null,
+            Breakpoints breakpoints = null)
         {
             float bottom = WaveHeight(model.RowCount) - 6f;
+            if (breakpoints != null && breakpoints.Count > 0)
+                Flags(painter, model, view, palette, breakpoints, bottom);
+
             if (view.Shows(model.Time))
             {
                 float now = WaveX(model.Time, view);
@@ -678,6 +682,46 @@ namespace BitSorter.View
             painter.Line(new Vector2(a, y), new Vector2(b, y), 1.1f, palette.Cursor);
             painter.Line(new Vector2(a, y - 4f), new Vector2(a, y + 4f), 1.1f, palette.Cursor);
             painter.Line(new Vector2(b, y - 4f), new Vector2(b, y + 4f), 1.1f, palette.Cursor);
+        }
+
+        /// <summary>
+        /// Every breakpoint, in the cursor's colour because red is x's (Part 9b-3): a moment's as a flag on
+        /// the axis, between its numbers and the first row, over a thin pole down the waves, a signal's as a flag in the gutter before its row's wave.
+        /// </summary>
+        private static void Flags(VectorPainter painter, WorkbenchModel model, WaveView view, SchematicPalette palette, Breakpoints breakpoints,
+            float bottom)
+        {
+            for (int i = 0; i < breakpoints.Count; i++)
+            {
+                Breakpoint b = breakpoints[i];
+                if (b.Kind == BreakKind.Time)
+                {
+                    if (!view.Shows(b.Time))
+                        continue;
+                    float x = WaveX(b.Time, view);
+                    // Under the axis's number, never over it: a flag on a labelled moment hid half its digits.
+                    painter.Line(new Vector2(x, WaveTop - 2f), new Vector2(x, bottom), 0.8f, palette.Cursor);
+                    Flag(painter, new Vector2(x, WaveTop - 8f), palette.Cursor);
+                    continue;
+                }
+
+                for (int row = 0; row < model.RowCount; row++)
+                    if (model.RowSignal(row) == b.Signal)
+                        Flag(painter, new Vector2(WaveLeft - 12f, RowMiddle(row) - 6f), palette.Cursor);
+            }
+        }
+
+        private static readonly List<Vector2> FlagPoints = new List<Vector2>(3);
+
+        /// <summary>A flag on a short pole whose top is <paramref name="top"/>, flying right.</summary>
+        private static void Flag(VectorPainter painter, Vector2 top, Color colour)
+        {
+            painter.Line(top, top + new Vector2(0f, 12f), 1.2f, colour);
+            FlagPoints.Clear();
+            FlagPoints.Add(top);
+            FlagPoints.Add(top + new Vector2(8f, 3f));
+            FlagPoints.Add(top + new Vector2(0f, 6f));
+            painter.Fill(FlagPoints, colour);
         }
 
         /// <summary>Where the bracket between the cursors runs: in the margin under the last row.</summary>

@@ -1077,6 +1077,51 @@ half adds the add-signal list, groups, full names and Alt+click on a wire.
   RENAME and an empty name. Reference shots 31 (the full adder's carries grouped under full names) and 32
   (the add list searching h1), new in all four looks; 27 to 30 moved by the toolbar; 1 to 26 the same.
 
+**As built in Part 9b-3, its first half (9b-3a)**: running the run on, playing it, and breakpoints. The
+second half (9b-3b) is the timescale's units and editing an input.
+
+- **A run suspended by `$stop` can be run on** (`RunSession.RunOn`, over `RunSlicer.RunOn`), a slice a
+  frame like the first run, and **the timeline grows with it**: a signal's track grows in place
+  (`SignalTrack.Grow`), the model's end moves (`WorkbenchModel.Extend`, `RunVersion` counting each
+  growth), the time view keeps its zoom over the longer run (`WaveView.Extend`), and the panel makes its
+  texts, the slider and the rows again for the new end (`WorkbenchLayers.Extended`).
+- **Playing is `Playback`'s** (ViewModel, 28 tests under dotnet): the playhead moving at a speed and
+  pausing by itself at a `$stop`, a breakpoint, the RUN TO moment and the end, each looked for strictly
+  after the playhead in what is already recorded, so PLAY from where it paused goes on past it. **PLAY at
+  a `$stop` runs the run on**, as ModelSim's RUN does (Ahmad's choice, 2026-10-16): to the timeline's end,
+  or at the end, where a board's own testbench calls `$stop`, as long again as the first run, or to RUN
+  TO if that is later. PLAY at a `$finish`, or at an end the run had to stop at, plays it again from 0.
+- **Speed is a ladder that doubles**, 0.1 to 1638.4 ns a second, then INSTANT, which goes straight to
+  wherever playing would pause. The default is the reference's 1.6, and a speed chosen is kept from one
+  sample to the next. The model is told the speed (`WorkbenchModel.UnitsPerSecond`), so a gate's flash
+  lasts the same seconds at every speed.
+- **Breakpoints** (`Breakpoints`): at a moment; on a signal changing into a value, compared as `===`
+  compares, x and z included; and on a signal going x after time 0, when every variable starts at x. A
+  value is typed as a SystemVerilog literal fitted to the signal (`Breakpoints.TryParseValue`), and one
+  that does not read is refused with its reason on the chip. A breakpoint on a signal no row shows is
+  dropped when the rows change (`Breakpoints.KeepOnly`): it would pause the run with nothing on screen
+  saying why.
+- **The controls** are RESTART (R), PLAY (Space), STEP BACK (comma) and STEP (period) over the slider,
+  SLOWER and FASTER (the brackets) round the speed, a RUN TO field and the time; SAMPLE moved beside the
+  title, with S. STEP goes to the next edge of the selected rows, every row's with none selected, and
+  pauses. REPLAY became RESTART (`WorkbenchCommand.Restart`), since PLAY now does more than play again.
+- **The chip says why playing stopped**: "$stop at 36 ns: PLAY runs on", "break: count = 3 at 12 ns",
+  "ran to 10 ns", "$finish at 40 ns", "the run stopped at 5 ns"; a refused value or time until the next
+  thing is done; otherwise, as before, the changes on their way or when the run settled. A reason's words
+  are made once, as it is first shown.
+- **Setting one.** The row menu gains BREAK ON X, BREAK ON VALUE (a field, as RENAME's) and NO BREAKS. A
+  right-click on the waves or the axis (`WaveGesture.TimeMenu`) opens a menu for that moment
+  (`WaveTimeMenu`): BREAK AT, or NO BREAK AT, and NO BREAKS AT ALL. Both menus share `WaveMenu`: a blocker
+  beside the panel, Escape held, a control to `WorkbenchControlSample`.
+- **Flags, in the cursor's colour** because red is x's: a moment's on the axis, under its number with a
+  thin pole down the waves -- over the number at first, which a capture showed hiding half its digits --
+  and a signal's in the gutter before its row's wave.
+- **Checked.** `PlaybackTests` (28), `ProcessTests`' stops and `CursorTests`' right button under dotnet;
+  in Play Mode, playing to the testbench's `$stop` and PLAY running it on, the speed by key and by
+  button, STEP from edge to edge of a selected row, RUN TO, BREAK ON VALUE from the row menu, the menu for
+  a moment setting and taking away a breakpoint, and RESTART. Reference shot 30 now has a flag at 26 ns
+  and one on out going x; 27 to 32 moved by the controls; 1 to 26 the same in all four looks.
+
 ---
 
 ## 11. The parts

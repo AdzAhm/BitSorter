@@ -101,6 +101,7 @@ namespace BitSorter.ViewModel.Tests
             foreach (double t in moves)
                 pointer.Move(t, commands);   // after the release, nothing
             return string.Join(", ", commands.Select(c => c.Gesture + (c.Gesture == WaveGesture.Seek || c.Gesture == WaveGesture.PlaceSecond || c.Gesture == WaveGesture.MoveSecond
+                || c.Gesture == WaveGesture.TimeMenu
                 ? " " + c.Time : c.Row >= 0 ? " " + c.Row + (c.Extend ? "+" : "") + (c.Toggle ? "^" : "") : "")));
         }
 
@@ -149,7 +150,15 @@ namespace BitSorter.ViewModel.Tests
             var pointer = new WavePointer();
             Assert.AreEqual("", Run(pointer, On(WaveRegion.Control, 4, row: 2), 5, 6), "the slider dragged over the waves stays the slider's");
             Assert.AreEqual("", Run(pointer, On(WaveRegion.None, 4), 5));
-            Assert.AreEqual("", Run(pointer, On(WaveRegion.Waves, 4, button: 1), 5), "the right button on the waves, nothing yet");
+        }
+
+        [Test]
+        public void TheRightButtonOnTheWavesOrTheAxis_OpensTheMenuForThatMoment_AndNeverScrubs()
+        {
+            var pointer = new WavePointer();
+            Assert.AreEqual("TimeMenu 4", Run(pointer, On(WaveRegion.Waves, 4, button: 1), 5), "the right button on the waves");
+            Assert.AreEqual("TimeMenu 7", Run(pointer, On(WaveRegion.Axis, 7, button: 1), 8), "and on the axis");
+            Assert.IsFalse(pointer.Dragging);
         }
 
         // -----------------------------------------------------------------

@@ -55,6 +55,9 @@ namespace BitSorter.View
         /// <summary>The second cursor, which the playhead's layer draws with the playhead; null for none.</summary>
         public WaveCursors Cursors { get; set; }
 
+        /// <summary>The breakpoints the playhead's layer flags, if there are any to flag (Part 9b-3).</summary>
+        public Breakpoints Breakpoints { get; set; }
+
         /// <summary>The net the pointer is on, lit; -1 for none. The wires layer's alone.</summary>
         public int Highlighted { get; set; } = -1;
 
@@ -215,7 +218,7 @@ namespace BitSorter.View
                     break;
 
                 case Layer.Playhead:
-                    WorkbenchDrawing.Playhead(_painter, Model, Wave, palette, Cursors);
+                    WorkbenchDrawing.Playhead(_painter, Model, Wave, palette, Cursors, Breakpoints);
                     break;
             }
         }

@@ -20,6 +20,9 @@ namespace BitSorter.View
         /// <summary>The object's name, which the tests look for.</summary>
         public const string RootName = "Workbench rename";
 
+        /// <summary>The name of the same field asking for a breakpoint's value (Part 9b-3).</summary>
+        public const string BreakValueName = "Workbench break value";
+
         private const float Width = 320f, Pad = 12f;
 
         private RectTransform _panel;
@@ -33,10 +36,14 @@ namespace BitSorter.View
         /// <inheritdoc/>
         public bool HoldsEscapeNow => IsOpen || _closedFrame == Time.frameCount;
 
-        /// <summary>The field under <paramref name="root"/>, shut, naming through <paramref name="onRename"/>.</summary>
-        public static WaveRenameField Build(RectTransform root, SchematicPalette palette, Action<string> onRename)
+        /// <summary>
+        /// The field under <paramref name="root"/>, shut, naming through <paramref name="onRename"/> -- or,
+        /// named and titled otherwise, asking for any one line of text, as BREAK ON VALUE does.
+        /// </summary>
+        public static WaveRenameField Build(RectTransform root, SchematicPalette palette, Action<string> onRename,
+            string name = RootName, string titleText = "RENAME", string placeholder = "empty for its own name")
         {
-            RectTransform container = UiTheme.Rect(RootName, root);
+            RectTransform container = UiTheme.Rect(name, root);
             UiTheme.Stretch(container);
 
             Image blockerImage = UiTheme.Panel_("blocker", container, new Color(0f, 0f, 0f, 0f));
@@ -58,9 +65,9 @@ namespace BitSorter.View
 
             TextMeshProUGUI title = UiTheme.Label("title", rename._panel, UiType.Caption, palette.TextDim, TextAlignmentOptions.MidlineLeft);
             WorkbenchPanel.TopLeft(title.rectTransform, new Vector2(Pad, Pad), new Vector2(Width - 2f * Pad, 24f));
-            title.text = "RENAME";
+            title.text = titleText;
 
-            rename._field = WorkbenchPanel.CanvasField("name", rename._panel, palette, "empty for its own name");
+            rename._field = WorkbenchPanel.CanvasField("name", rename._panel, palette, placeholder);
             WorkbenchPanel.TopLeft(rename._field.GetComponent<RectTransform>(), new Vector2(Pad, Pad + 30f), new Vector2(Width - 2f * Pad, 38f));
             rename._field.onSubmit.AddListener(text => rename.Confirm(text));
             rename._field.onEndEdit.AddListener(_ =>

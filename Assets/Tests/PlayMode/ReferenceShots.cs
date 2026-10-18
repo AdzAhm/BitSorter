@@ -902,6 +902,11 @@ namespace BitSorter.PlayMode.Tests
             list.ClearSelection();
             workbench.Seek(11.0);
             workbench.PlaceSecond(20.0);
+
+            // A breakpoint at a moment, flagged on the axis, and one on out going x, flagged by its row (Part 9b-3).
+            workbench.Playback.Breakpoints.Add(Breakpoint.At(26));
+            workbench.Playback.Breakpoints.Add(Breakpoint.OnX(workbench.Model.RowSignal(o)));
+            workbench.Seek(11.0);
             yield return Frames(30);
 
             Assert.AreEqual("9 ns", workbench.SpanText, "sanity: the second cursor is 9 ns on");

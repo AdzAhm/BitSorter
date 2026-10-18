@@ -50,6 +50,9 @@ namespace BitSorter.ViewModel
 
         /// <summary>Add the signal of the wire under the pointer.</summary>
         AddWireSignal,
+
+        /// <summary>Open the menu for the moment <see cref="WaveCommand.Time"/>: a breakpoint there, set or taken away.</summary>
+        TimeMenu,
     }
 
     /// <summary>One thing a gesture asks for.</summary>
@@ -134,6 +137,12 @@ namespace BitSorter.ViewModel
             {
                 case WaveRegion.Waves:
                 case WaveRegion.Axis:
+                    if (press.Button == 1)
+                    {
+                        into.Add(new WaveCommand(WaveGesture.TimeMenu, press.Time));
+                        return;
+                    }
+
                     if (press.Button != 0)
                         return;
                     if (press.Shift)

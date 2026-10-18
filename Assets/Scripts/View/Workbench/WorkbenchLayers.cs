@@ -92,11 +92,15 @@ namespace BitSorter.View
         private Color[] _lampShown = new Color[0];
         private int _highlighted = -1;
 
-        public WorkbenchLayers(WorkbenchModel model, WaveCursors cursors = null)
+        public WorkbenchLayers(WorkbenchModel model, WaveCursors cursors = null, Breakpoints breakpoints = null)
         {
             _model = model;
             Cursors = cursors;
+            Breakpoints = breakpoints;
         }
+
+        /// <summary>The breakpoints the playhead's layer flags, if there are any to flag (Part 9b-3).</summary>
+        public Breakpoints Breakpoints { get; }
 
         /// <summary>The second cursor the playhead's layer draws, if there is one to draw.</summary>
         public WaveCursors Cursors { get; }
@@ -237,6 +241,16 @@ namespace BitSorter.View
                 _glitchesShown = new int[_glitches.Count];
                 _playhead.transform.SetAsLastSibling();   // still over every glitch mark
             }
+        }
+
+        /// <summary>
+        /// The timeline grew, the run run on past a <c>$stop</c> (Part 9b-3): what the rows were drawn to
+        /// is no longer the end of anything, so they are cut and drawn again at the next refresh.
+        /// </summary>
+        public void Extended()
+        {
+            _rowsDrawnTo = double.NegativeInfinity;
+            Grew();
         }
 
         /// <summary>How far the rows reach when drawn now: the whole run once it is made.</summary>
@@ -441,6 +455,7 @@ namespace BitSorter.View
             graphic.Model = _model;
             graphic.Wave = _wave;
             graphic.Cursors = Cursors;
+            graphic.Breakpoints = Breakpoints;
             graphic.From = run.Start;
             graphic.Count = run.Count;
             graphic.raycastTarget = false;

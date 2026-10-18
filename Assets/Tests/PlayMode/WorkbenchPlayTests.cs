@@ -167,7 +167,7 @@ namespace BitSorter.PlayMode.Tests
         }
 
         [UnityTest]
-        public IEnumerator Replay_StartsAgainFromNothing()
+        public IEnumerator Restart_StartsAgainFromNothing()
         {
             yield return TestScene.Load();
             yield return OpenTheWorkbench();
@@ -176,10 +176,10 @@ namespace BitSorter.PlayMode.Tests
             yield return DragTo(20f);
             Assert.IsFalse(workbench.Playing, "sanity: the drag should have stopped it");
 
-            yield return Click(WorkbenchPanel.ReplayButton);
+            yield return Click(WorkbenchPanel.RestartButton);
 
-            Assert.IsTrue(workbench.Playing, "REPLAY did not play");
-            Assert.Less(workbench.Time, 1.0, "REPLAY did not go back to the start");
+            Assert.IsTrue(workbench.Playing, "RESTART did not play");
+            Assert.Less(workbench.Time, 1.0, "RESTART did not go back to the start");
         }
 
         private static void AssertNear(Vector2 expected, Vector2 actual, string message)
@@ -404,12 +404,12 @@ namespace BitSorter.PlayMode.Tests
             workbench.Seek(workbench.Model.End - 1.0);
             Assert.AreEqual(0.0, wave.Start, "a view moved away from the playhead should stay where it was put");
 
-            yield return Click(WorkbenchPanel.ReplayButton);
-            Assert.IsTrue(wave.Following, "a replay should follow the playhead again");
+            yield return Click(WorkbenchPanel.RestartButton);
+            Assert.IsTrue(wave.Following, "a restart should follow the playhead again");
             Assert.IsTrue(wave.Shows(workbench.Time), "with the playhead in view");
 
-            // PLAY at the end of the run plays it again from the start, and is a replay as much as
-            // REPLAY is: moved away from the playhead, the view follows it again.
+            // PLAY at the end of the run -- where its testbench's $stop suspended it -- runs the run on
+            // (Part 9b-3), and like RESTART it follows the playhead again however the view was moved.
             workbench.Seek(0.0);
             for (int i = 0; i < 200 && workbench.TakeWaveWheel(workbench.WaveScreenPointOf(wave.Start + wave.Shown * 0.5), new Vector2(0f, -120f), true); i++)
             {
@@ -419,10 +419,11 @@ namespace BitSorter.PlayMode.Tests
             workbench.Seek(workbench.Model.End);
             Assert.IsFalse(wave.Shows(0.0), "sanity: moved on to the end, the start is out of view");
             Assert.IsFalse(wave.Following, "sanity: and the view is not following the playhead");
+            long end = workbench.Model.End;
             yield return Click(WorkbenchPanel.PlayButton);
             Assert.IsTrue(workbench.Playing, "sanity: PLAY at the end plays");
-            Assert.Less(workbench.Time, 1.0, "sanity: from the start");
-            Assert.IsTrue(wave.Following, "PLAY from the end should follow the playhead again, as REPLAY does");
+            Assert.AreEqual(2 * end, workbench.Model.End, "sanity: on past the $stop, as long again");
+            Assert.IsTrue(wave.Following, "PLAY from the end should follow the playhead again, as RESTART does");
             Assert.IsTrue(wave.Shows(workbench.Time), "with the playhead in view");
         }
 
@@ -891,6 +892,201 @@ namespace BitSorter.PlayMode.Tests
             workbench.RenameField.Confirm("");
             yield return null;
             Assert.AreEqual("a", workbench.NameOf(a), "empty gives it its own back");
+        }
+
+        // -----------------------------------------------------------------
+        // Running: $stop, the speed, STEP, RUN TO and breakpoints (Part 9b-3)
+        // -----------------------------------------------------------------
+
+        /// <summary>Frames until playing stops by itself, or the cap: what a test waits on, never a count of seconds.</summary>
+        private static IEnumerator UntilItPauses(WorkbenchPanel workbench, int cap = 600)
+        {
+            for (int i = 0; i < cap && workbench.Playing; i++)
+                yield return null;
+            Assert.IsFalse(workbench.Playing, "playing never stopped by itself");
+        }
+
+        /// <summary>
+        /// Played to the end, the run pauses at its testbench's $stop and the chip says so; PLAY there runs
+        /// the run on, as long again, and the timeline, the slider and the waveform grow with it.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator PlayingToTheTestbenchsStop_PausesThere_AndPlayRunsTheRunOn()
+        {
+            yield return TestScene.Load();
+            yield return OpenTheWorkbench();
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.SetSpeed(Playback.InstantSpeed);
+            long end = workbench.Model.End;
+
+            yield return Tap(_keyboard.rKey);
+            yield return UntilItPauses(workbench);
+            Assert.AreEqual(end, workbench.Time, 1e-9, "paused at the end");
+            Assert.AreEqual(PauseReason.Suspended, workbench.Playback.Reason);
+            StringAssert.StartsWith("$stop at " + end + " ns", workbench.ChipText, "and the chip says why");
+
+            yield return Click(WorkbenchPanel.PlayButton);
+            Assert.AreEqual(2 * end, workbench.Model.End, "PLAY at the $stop runs the run on, as long again");
+            Assert.AreEqual(2 * end, GameObject.Find(WorkbenchPanel.TimeSlider).GetComponent<Slider>().maxValue, 1e-6, "the slider with it");
+            Assert.AreEqual(2.0 * end, workbench.Wave.Span, 1e-9, "and the waveform");
+
+            yield return UntilItPauses(workbench);
+            Assert.AreEqual(2 * end, workbench.Time, 1e-9, "played on to the new end");
+            Assert.AreEqual(PauseReason.End, workbench.Playback.Reason);
+        }
+
+        /// <summary>The brackets and SLOWER and FASTER step the speed along its ladder, and the label says where it is.</summary>
+        [UnityTest]
+        public IEnumerator TheSpeed_StepsAlongItsLadder_ByKeyAndByButton()
+        {
+            yield return TestScene.Load();
+            yield return OpenTheWorkbench();
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            Assert.AreEqual("1.6 ns/s", workbench.SpeedText, "the reference's speed to begin with");
+
+            yield return Tap(_keyboard.rightBracketKey);
+            Assert.AreEqual("3.2 ns/s", workbench.SpeedText, "] plays faster");
+            Assert.AreEqual(3.2, workbench.Playback.UnitsPerSecond, 1e-9);
+
+            yield return Click(WorkbenchPanel.SlowerButton);
+            yield return Click(WorkbenchPanel.SlowerButton);
+            Assert.AreEqual("0.8 ns/s", workbench.SpeedText, "SLOWER, twice");
+
+            yield return Tap(_keyboard.leftBracketKey);
+            Assert.AreEqual("0.4 ns/s", workbench.SpeedText, "[ plays slower");
+
+            workbench.SetSpeed(Playback.InstantSpeed - 1);
+            yield return Click(WorkbenchPanel.FasterButton);
+            Assert.AreEqual("INSTANT", workbench.SpeedText, "and past the fastest, INSTANT");
+        }
+
+        /// <summary>Period and STEP go to the next edge of the selected row, comma and STEP BACK to the one before, paused.</summary>
+        [UnityTest]
+        public IEnumerator Step_GoesFromEdgeToEdge_OfTheSelectedRow()
+        {
+            yield return TestScene.Load();
+            yield return OpenTheWorkbench();
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowSample(2);
+            yield return null;
+            workbench.Pause();
+            workbench.Seek(0.0);
+            int count = RowLabelled(workbench, "count[2:0]");
+            SignalTrack track = workbench.Model.RowTrack(count);
+
+            yield return ClickAt(workbench.RowNameOnScreen(count));
+            Assert.IsTrue(workbench.List.Lines[count].Selected, "sanity: count is selected");
+
+            yield return Tap(_keyboard.periodKey);
+            Assert.AreEqual(track[1].Time, workbench.Time, 1e-9, "period goes to count's first edge");
+            yield return Click(WorkbenchPanel.StepButton);
+            Assert.AreEqual(track[2].Time, workbench.Time, 1e-9, "STEP to its next");
+            Assert.IsFalse(workbench.Playing, "a step pauses");
+
+            yield return Tap(_keyboard.commaKey);
+            Assert.AreEqual(track[1].Time, workbench.Time, 1e-9, "comma back to the one before");
+            yield return Click(WorkbenchPanel.StepBackButton);
+            Assert.AreEqual(track[1].Time, workbench.Time, 1e-9, "and STEP BACK goes nowhere before the first");
+        }
+
+        /// <summary>RUN TO pauses the playhead where it says, and refuses what is not a whole number of ns.</summary>
+        [UnityTest]
+        public IEnumerator RunTo_PausesThePlayheadThere()
+        {
+            yield return TestScene.Load();
+            yield return OpenTheWorkbench();
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.SetSpeed(Playback.InstantSpeed);
+            workbench.SetRunTo("10");
+            Assert.AreEqual(10L, workbench.Playback.RunTo);
+
+            workbench.Restart();
+            yield return UntilItPauses(workbench);
+            Assert.AreEqual(10.0, workbench.Time, 1e-9);
+            Assert.AreEqual("ran to 10 ns", workbench.ChipText);
+
+            workbench.SetRunTo("ten");
+            Assert.AreEqual("RUN TO takes a whole number of ns", workbench.ChipText, "a refusal, said");
+            Assert.AreEqual(10L, workbench.Playback.RunTo, "and RUN TO left as it was");
+
+            workbench.SetRunTo("");
+            Assert.IsNull(workbench.Playback.RunTo, "empty is nowhere");
+        }
+
+        /// <summary>
+        /// BREAK ON VALUE on a row's menu sets a breakpoint on its signal: the playhead pauses where the
+        /// signal changes into the value, and the chip names both; NO BREAKS takes it away.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator BreakOnValue_FromARowsMenu_PausesWhereTheSignalTakesIt()
+        {
+            yield return TestScene.Load();
+            yield return OpenTheWorkbench();
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.Pause();
+            workbench.SetSpeed(Playback.InstantSpeed);
+            int y = RowLabelled(workbench, "y");
+            SignalTrack track = workbench.Model.RowTrack(y);
+            long rises = Enumerable.Range(1, track.Count - 1).Select(i => track[i]).First(c => c.Value.Format(BitSorter.SystemVerilog.Radix.Binary) == "1").Time;
+            var mouse = InputSystem.GetDevice<Mouse>();
+
+            yield return ClickAt(workbench.RowNameOnScreen(y), mouse.rightButton);
+            yield return Click(WaveRowMenu.ActionItem + WaveRowAction.BreakOnValue);
+            Assert.IsTrue(workbench.BreakValueField.IsOpen, "BREAK ON VALUE asks for the value");
+            workbench.BreakValueField.Confirm("1");
+            yield return null;
+            Assert.AreEqual(1, workbench.Playback.Breakpoints.Count);
+
+            workbench.Restart();
+            yield return UntilItPauses(workbench);
+            Assert.AreEqual(rises, workbench.Time, 1e-9, "paused where y first goes to 1");
+            Assert.AreEqual("break: y = 1 at " + rises + " ns", workbench.ChipText);
+
+            yield return ClickAt(workbench.RowNameOnScreen(y), mouse.rightButton);
+            yield return Click(WaveRowMenu.ActionItem + WaveRowAction.NoBreaks);
+            Assert.AreEqual(0, workbench.Playback.Breakpoints.Count, "NO BREAKS takes it away");
+
+            yield return ClickAt(workbench.RowNameOnScreen(y), mouse.rightButton);
+            yield return Click(WaveRowMenu.ActionItem + WaveRowAction.BreakOnValue);
+            workbench.BreakValueField.Confirm("16");
+            yield return null;
+            Assert.AreEqual(0, workbench.Playback.Breakpoints.Count, "a value that does not fit is refused");
+            StringAssert.Contains("does not fit", workbench.ChipText, "and the chip says why");
+        }
+
+        /// <summary>A right-click on the waves offers a breakpoint at that moment; set, the playhead pauses there; again, it is taken away.</summary>
+        [UnityTest]
+        public IEnumerator TheMenuForAMoment_SetsABreakpointThere_AndTakesItAway()
+        {
+            yield return TestScene.Load();
+            yield return OpenTheWorkbench();
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.Pause();
+            workbench.SetSpeed(Playback.InstantSpeed);
+            var mouse = InputSystem.GetDevice<Mouse>();
+            int a = RowLabelled(workbench, "a");
+
+            yield return ClickAt(workbench.WaveScreenPointOf(17.0, a), mouse.rightButton);
+            Assert.IsTrue(workbench.TimeMenu.IsOpen, "a right-click on the waves opens the menu for that moment");
+            Assert.IsTrue(Captioned(WaveTimeMenu.ActionItem + WaveTimeAction.ToggleBreak, "BREAK AT 17 ns"));
+            yield return Click(WaveTimeMenu.ActionItem + WaveTimeAction.ToggleBreak);
+            Assert.IsTrue(workbench.Playback.Breakpoints.HasAt(17));
+
+            workbench.Restart();
+            yield return UntilItPauses(workbench);
+            Assert.AreEqual(17.0, workbench.Time, 1e-9);
+            Assert.AreEqual("break at 17 ns", workbench.ChipText);
+
+            yield return ClickAt(workbench.WaveScreenPointOf(17.0, a), mouse.rightButton);
+            Assert.IsTrue(Captioned(WaveTimeMenu.ActionItem + WaveTimeAction.ToggleBreak, "NO BREAK AT 17 ns"));
+            yield return Click(WaveTimeMenu.ActionItem + WaveTimeAction.ToggleBreak);
+            Assert.IsFalse(workbench.Playback.Breakpoints.HasAt(17), "and taken away again");
         }
     }
 }
