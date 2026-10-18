@@ -522,6 +522,7 @@ namespace BitSorter.View
                 case WorkbenchCommand.Unit: NextUnit(); break;
                 case WorkbenchCommand.Undo: UndoEdit(); break;
                 case WorkbenchCommand.Redo: RedoEdit(); break;
+                case WorkbenchCommand.Export: ExportVcd(); break;
             }
         }
 
@@ -1023,6 +1024,22 @@ namespace BitSorter.View
                 Said(BitSorter.Board.EditResult.Ok());
             else
                 Notice("nothing to redo");
+        }
+
+        /// <summary>
+        /// Saves the run, as far as it is made, as a VCD in its unit (<see cref="WaveExport"/>), as EXPORT
+        /// does: a download in a browser, a file in the Exports folder elsewhere (<see cref="FileSaver"/>).
+        /// The chip says what was saved and where. Returns the file's name.
+        /// </summary>
+        public string ExportVcd()
+        {
+            if (_model == null)
+                return null;
+
+            string name = WaveExport.FileName(WorkbenchSamples.All[_sample].Name, "vcd");
+            byte[] bytes = new System.Text.UTF8Encoding(false).GetBytes(WaveExport.Vcd(_model));
+            Notice("saved " + name + " " + FileSaver.Save(name, bytes, "text/plain"));
+            return name;
         }
 
         /// <summary>The chip says why an edit was refused, or nothing more once one is done.</summary>

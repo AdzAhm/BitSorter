@@ -83,7 +83,7 @@ namespace BitSorter.View
 
         /// <summary>The toolbar's buttons' names, which the tests look for.</summary>
         public const string AddButton = "Workbench add signal", GroupButton = "Workbench group", NamesButton = "Workbench names",
-            UnitButton = "Workbench unit";
+            UnitButton = "Workbench unit", ExportButton = "Workbench export";
 
         /// <summary>How tall the waveform and its toolbar are for <paramref name="rows"/> rows: what the stage leaves for them.</summary>
         public static float HeightFor(int rows) => ToolbarHeight + WorkbenchDrawing.WaveHeight(rows);
@@ -194,7 +194,7 @@ namespace BitSorter.View
             WaveNames namesStyle, string unit)
         {
             RectTransform bar = UiTheme.Rect("waveform toolbar", parent);
-            WorkbenchPanel.TopLeft(bar, at, new Vector2(780f, ToolbarHeight));
+            WorkbenchPanel.TopLeft(bar, at, new Vector2(960f, ToolbarHeight));
 
             float x = 34f;
             void Add(string name, string caption, WorkbenchCommand command, float width)
@@ -212,6 +212,9 @@ namespace BitSorter.View
 
             // The unit as SystemVerilog writes it, in lower case: MS would be megaseconds (Part 9b-3).
             Add(UnitButton, "UNIT: " + unit, WorkbenchCommand.Unit, 120f);
+
+            // The run as a file: a VCD, every signal, for GTKWave or anything else that reads one (Part 9b-4).
+            Add(ExportButton, "EXPORT", WorkbenchCommand.Export, 110f);
         }
 
         /// <summary>A name cut from its start, behind "...", until it is no wider than <paramref name="most"/> units.</summary>

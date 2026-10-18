@@ -40,6 +40,10 @@ namespace BitSorter.PlayMode.Tests
         private static string Scratch =>
             Path.Combine(Application.persistentDataPath, "progress.testrun.json");
 
+        /// <summary>The scratch folder a test's exports go to, never the player's Exports (Part 9b-4).</summary>
+        internal static string ScratchExports =>
+            Path.Combine(Application.persistentDataPath, "exports.testrun");
+
         private static bool _archived;
 
         /// <summary>
@@ -60,6 +64,10 @@ namespace BitSorter.PlayMode.Tests
 
             ProgressStore.Redirected = Scratch;
 
+            if (Directory.Exists(ScratchExports))
+                Directory.Delete(ScratchExports, true);
+            FileSaver.Redirected = ScratchExports;
+
             // The mute and the reporting setting live in PlayerPrefs, not in the save file, and the
             // fixtures need reporting off. They used to read the real value, overwrite it, and put
             // it back in OneTimeTearDown -- which made the developer's own settings depend on a run
@@ -76,9 +84,12 @@ namespace BitSorter.PlayMode.Tests
         {
             ProgressStore.Redirected = null;
             Preferences.Redirected = null;
+            FileSaver.Redirected = null;
 
             if (File.Exists(Scratch))
                 File.Delete(Scratch);
+            if (Directory.Exists(ScratchExports))
+                Directory.Delete(ScratchExports, true);
         }
 
         /// <summary>

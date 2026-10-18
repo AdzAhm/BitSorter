@@ -1240,6 +1240,39 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
+        /// E saves the run as a VCD -- in a test, into the scratch folder SaveGuard points exports at, never
+        /// the player's -- and the chip says where; read back, it holds the run's inputs and outputs, in
+        /// the run's unit. EXPORT on the toolbar does the same.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator E_SavesTheRunAsAVcd_AndTheChipSaysWhere()
+        {
+            yield return TestScene.Load();
+            yield return OpenTheWorkbench();
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.Pause();
+            workbench.Session.Finish();
+            StringAssert.StartsWith(System.IO.Path.GetFullPath(SaveGuard.ScratchExports), System.IO.Path.GetFullPath(FileSaver.Folder),
+                "sanity: a test's exports go to the scratch folder");
+
+            yield return Tap(_keyboard.eKey);
+            string file = System.IO.Path.Combine(FileSaver.Folder, "reference.vcd");
+            Assert.IsTrue(System.IO.File.Exists(file), "E saved no VCD");
+            StringAssert.StartsWith("saved reference.vcd in ", workbench.ChipText);
+
+            string vcd = System.IO.File.ReadAllText(file);
+            StringAssert.Contains("$timescale 1ns $end", vcd);
+            var traces = BitSorter.Sim.VcdReader.Read(new System.IO.StringReader(vcd));
+            string path = workbench.Model.Layout.DesignPath;
+            Assert.IsTrue(traces.ContainsKey(path + ".a") && traces.ContainsKey(path + ".y"), "the run's input and output are in it");
+
+            System.IO.File.Delete(file);
+            yield return Click(WaveformView.ExportButton);
+            Assert.IsTrue(System.IO.File.Exists(file), "EXPORT saved no VCD");
+        }
+
+        /// <summary>
         /// BREAK ON VALUE on a row's menu sets a breakpoint on its signal: the playhead pauses where the
         /// signal changes into the value, and the chip names both; NO BREAKS takes it away.
         /// </summary>
