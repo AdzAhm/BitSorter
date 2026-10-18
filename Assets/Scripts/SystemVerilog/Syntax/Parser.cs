@@ -1498,8 +1498,6 @@ namespace BitSorter.SystemVerilog.Syntax
         // Delays
         // -----------------------------------------------------------------
 
-        private static readonly HashSet<string> TimeUnits = new HashSet<string>(StringComparer.Ordinal) { "s", "ms", "us", "ns", "ps", "fs" };
-
         /// <summary><c>#5</c>, <c>#DELAY</c>, <c>#(2, 3)</c> or <c>#(Tpdlh, Tpdhl)</c>.</summary>
         private DelayControl ParseDelay()
         {
@@ -1536,11 +1534,12 @@ namespace BitSorter.SystemVerilog.Syntax
                 delay.Values.Add(ParsePrimary());
 
                 // A time unit written straight after the number: 10ns.
-                if (Current.Kind == TokenKind.Identifier && TimeUnits.Contains(Current.Text) &&
+                // The design's unit is its project's or its `timescale's, which this delay cannot change.
+                if (Current.Kind == TokenKind.Identifier && TimeUnits.IsUnit(Current.Text) &&
                     Current.Location.Line == value.Location.Line && Current.Location.Column == value.Location.Column + value.Text.Length)
                 {
                     _diagnostics.Warning(Current.Location, DiagnosticCodes.Unsupported,
-                        $"The unit in #{value.Text}{Current.Text} is ignored: delays count in the simulator's time unit (ns).");
+                        $"The unit in #{value.Text}{Current.Text} is ignored: a delay counts whole units of the design's own time unit.");
                     Next();
                 }
 
