@@ -38,9 +38,13 @@ namespace BitSorter.Board
             var printed = new List<PrintedSource>();
             var tree = compiled.Tree;
 
+            // A project not in ns says its unit at the top of every file, as the course's files do, so
+            // each file is read in it whichever order a simulator is given them in.
+            string head = tree.Timescale == null ? "" : "`timescale " + tree.Timescale + "\n\n";
+
             if (compiled.Cells.Count > 0)
             {
-                var cells = new StringBuilder();
+                var cells = new StringBuilder(head);
                 cells.Append("// BitSorter's cell library: one module a gate, each with a rise delay (Tpdlh, output\n");
                 cells.Append("// low to high) and a fall delay (Tpdhl) that an instance sets. Only the cells the\n");
                 cells.Append("// design uses are here.\n");
@@ -56,7 +60,7 @@ namespace BitSorter.Board
 
             foreach (CompiledModule module in compiled.Modules)
             {
-                var text = new StringBuilder();
+                var text = new StringBuilder(head);
                 text.Append("// ").Append(module.Module.Name).Append(": drawn in BitSorter.");
                 if (compiled.Cells.Count > 0)
                     text.Append(" Gates with a delay are cells of ").Append(CellLibrary.FileName).Append('.');
@@ -70,7 +74,7 @@ namespace BitSorter.Board
                 {
                     if (module.Name != compiled.Testbench)
                         continue;
-                    printed.Add(new PrintedSource(module.Name + ".sv", "// " + module.Name + ": made by BitSorter from the stimulus.\n\n" + Printer.Print(module)));
+                    printed.Add(new PrintedSource(module.Name + ".sv", head + "// " + module.Name + ": made by BitSorter from the stimulus.\n\n" + Printer.Print(module)));
                 }
             }
 

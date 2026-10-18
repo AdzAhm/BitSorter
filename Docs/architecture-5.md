@@ -31,7 +31,7 @@ where simple and friendly conflicts with exact, simple and friendly wins.
 | D4 | Wires smooth by default, with bend points, junction dots, and the whole net lit on hover. |
 | D5 | Testbenches in the course's style by default, with a switch that adds self-checks. |
 | D6 | The thirty levels kept as a side section, *Exercises*, reworked for the new model and ordered by the course. |
-| D7 | One time unit per tick. The display unit is a setting (ns by default). Export adds no `` `timescale `` unless asked. |
+| D7 | One time unit per tick. The display unit is a setting (ns by default). Export adds no `` `timescale `` unless asked -- and choosing a unit other than ns is the asking (Part 9b-3) |
 | D8 | 5.0.0 on a `v5` branch, in parts, a PR per part fast-forwarded, docs fixed in the same change, every saved board migrated. |
 | D9 | Blocks are either drawn (gates and wires) or written (SystemVerilog). Written blocks run, show their signals, and sit on the board like any block. |
 | D10 | Reach up to the course's multicycle RISC-V, memories and `$readmemh` included. The simulator runs it; the Exercises need not teach it. |

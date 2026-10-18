@@ -60,8 +60,11 @@ namespace BitSorter.Board
 
     public sealed record ProjectSettings
     {
-        /// <summary>What a time unit is called on screen; time itself is a whole number of them (invariant 7).</summary>
-        public string TimeUnit { get; init; } = "ns";
+        /// <summary>
+        /// The unit time is counted in, one of <see cref="SystemVerilog.TimeUnits.All"/>; time itself is a
+        /// whole number of them (invariant 7), so changing it relabels time and rescales nothing.
+        /// </summary>
+        public string TimeUnit { get; init; } = SystemVerilog.TimeUnits.Default;
 
         /// <summary>The rise and fall a newly placed gate takes: a library cell's, as the course's cells default to.</summary>
         public long DefaultGateDelay { get; init; } = 1;

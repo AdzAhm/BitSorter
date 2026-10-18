@@ -70,6 +70,11 @@ namespace BitSorter.Board
             foreach (ModuleDeclaration module in order)
                 new ModuleReader(editor, module, modules, problems).Read();
 
+            // A `timescale of one whole unit is the project's unit, as printing one wrote it. One in tens
+            // of a unit (10ns/1ns) has none a project can count in, and the delays are read as written.
+            if (TimeUnits.TryUnitOf(tree.Timescale, out string unit))
+                editor.SetSettings(editor.Project.Settings with { TimeUnit = unit });
+
             return problems.Count > 0 ? new ImportResult(null, problems) : new ImportResult(editor.Project, problems);
         }
 

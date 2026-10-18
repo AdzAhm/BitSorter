@@ -89,7 +89,29 @@ namespace BitSorter.Board
 
             CheckRecursion(project, found);
             CheckStimulus(project, found);
+            CheckSettings(project, found);
             return found;
+        }
+
+        /// <summary>
+        /// The project's settings: a time unit SystemVerilog has, since the unit is printed as a
+        /// <c>`timescale</c> (Part 9b-3), and a default gate delay a gate could have.
+        /// </summary>
+        private static void CheckSettings(Project project, List<BoardDiagnostic> found)
+        {
+            void Error(string message) => found.Add(new BoardDiagnostic(DiagnosticSeverity.Error, null, message));
+
+            ProjectSettings settings = project.Settings;
+            if (settings == null)
+            {
+                Error("The project has no settings.");
+                return;
+            }
+
+            if (!TimeUnits.IsUnit(settings.TimeUnit))
+                Error($"'{settings.TimeUnit}' is not a time unit: use {TimeUnits.Listed}.");
+            if (settings.DefaultGateDelay < 0)
+                Error("The default gate delay cannot be less than 0.");
         }
 
         /// <summary>The errors in <paramref name="after"/> that <paramref name="before"/> did not have: what an edit would add.</summary>

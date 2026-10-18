@@ -302,6 +302,17 @@ namespace BitSorter.Board
         public EditResult SetStimulus(Stimulus stimulus) => Commit(Project with { Stimulus = stimulus });
 
         // -----------------------------------------------------------------
+        // Settings
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// Sets the project's settings: the time unit its time is counted in, which relabels time and
+        /// rescales no number, and the delay a newly placed gate takes.
+        /// </summary>
+        public EditResult SetSettings(ProjectSettings settings) =>
+            settings == null ? EditResult.Refused("A project needs its settings.") : Commit(Project with { Settings = settings });
+
+        // -----------------------------------------------------------------
         // Undo
         // -----------------------------------------------------------------
 

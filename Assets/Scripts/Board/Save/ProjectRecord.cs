@@ -61,13 +61,22 @@ namespace BitSorter.Board
             foreach (ModuleRecord module in this.modules ?? new ModuleRecord[0])
                 modules.Add(module.ToModule(problems));
 
+            // A unit that is not one -- edited by hand, or written by something else -- would print as a
+            // `timescale no simulator reads, so it is counted in ns, and the player is told.
+            string unit = timeUnit ?? TimeUnits.Default;
+            if (!TimeUnits.IsUnit(unit))
+            {
+                problems.Add($"The time unit '{unit}' is not one SystemVerilog has, so this project counts in {TimeUnits.Default}.");
+                unit = TimeUnits.Default;
+            }
+
             return new Project
             {
                 Name = name,
                 Top = top,
                 Modules = modules,
                 Stimulus = hasStimulus ? stimulus?.ToStimulus(problems) : null,
-                Settings = new ProjectSettings { TimeUnit = timeUnit ?? "ns", DefaultGateDelay = defaultGateDelay },
+                Settings = new ProjectSettings { TimeUnit = unit, DefaultGateDelay = defaultGateDelay },
             };
         }
 
