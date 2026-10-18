@@ -1163,6 +1163,34 @@ on an input's row, undo and redo -- is 9b-3b-2.
   (14: the rules, every printed file's first line, the import back, the save), `StimulusEditsTests` (13)
   and `WorkbenchSessionTests` (12). Nothing on screen changed: reference shots 1 to 32 identical.
 
+**As built in Part 9b-3, its second half -- the view (9b-3b-2)**: the workbench edits its document.
+
+- **The panel runs a `WorkbenchSession`**, where it ran a `RunSession`: each frame makes a slice of the run
+  shown or of an edit's replay, and when a replay takes over the panel moves playing onto it
+  (`Playback.Switch`), finds every row again by its key (`WaveList.Resolve`) and builds the stage round the
+  new run with both zooms kept -- so rows, radixes, groups, names, breakpoints, the second cursor, the speed
+  and the moment all carry over. RESTART takes a replay at once.
+- **A double-click on an input's wave changes it** (`WaveGesture.EditInput`; the clicks counted by the panel
+  on the game's clock, which a test drives). A one-bit input that is 0 or 1 there is flipped over the stretch
+  the moment is in; a bus, or an x, is asked for a value in SET, a field titled with the stretch -- "SET s
+  FROM 10 ns TO 19 ns" -- that reads a literal as BREAK ON VALUE does. An output, a wire inside or a clock
+  is refused, and the chip says why. The moment is the pointer's own, not snapped: an edge snapped to could
+  be the far side of the stretch meant. The legend line says the gesture, since the help line had no room.
+- **UNIT on the waveform's toolbar, or U,** counts time in the next unit, s to fs and round, written as
+  SystemVerilog writes it -- lower case, since MS would be megaseconds. Every time on screen is written in
+  the run's unit: the moment, the axis's cursors and span, the chip's reasons, the speed (`1.6 ps/s`), the
+  gates' delays, and RUN TO's field, which now reads a time with a unit or without (`TimeText.TryParse`:
+  40, 40 ns, 1.5 us) and says why one does not read.
+- **Ctrl+Z and Ctrl+Y (or Ctrl+Shift+Z)** take an edit back and make it again, each replayed; the chip says
+  when there is nothing to. Neither is a browser's, and Ctrl with R, W, S, T, N and L stay refused.
+- **The chip takes the controls row's room right of STEP**, its words shrinking before they are cut short:
+  a refusal can run longer than any pause's reason.
+- **Checked.** Under dotnet, `CursorTests`' double-click. In Play Mode: a double-click flipping a bit and the
+  replay taking over with the rows and their radix kept; a double-click on a bus asking in SET and Enter
+  setting the stretch; an output and a clock refused, the chip saying why; UNIT and U relabelling the
+  speed, the moment and the delays, and RUN TO reading a time in another unit; Ctrl+Z and Ctrl+Y.
+  Reference shots 27 to 32 moved by UNIT, the wider chip and the legend; 1 to 26 the same in all four looks.
+
 ---
 
 ## 11. The parts

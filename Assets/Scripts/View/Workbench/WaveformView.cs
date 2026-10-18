@@ -63,7 +63,8 @@ namespace BitSorter.View
 
         // Each row's readout as last written, and the text it was made from: a new string only when the value changes.
         private readonly string[] _readoutOf, _readout;
-        private readonly char[] _timeText = new char[TimeText.MaxLength(1, "ns")];
+        // Every unit is two letters at most.
+        private readonly char[] _timeText = new char[TimeText.MaxLength(1, "ms")];
 
         /// <summary>The waveform's rect, its pivot at its top-left corner, in the stage's units.</summary>
         public RectTransform Rect { get; }
@@ -81,7 +82,8 @@ namespace BitSorter.View
         public const float MostNamesWidth = 260f;
 
         /// <summary>The toolbar's buttons' names, which the tests look for.</summary>
-        public const string AddButton = "Workbench add signal", GroupButton = "Workbench group", NamesButton = "Workbench names";
+        public const string AddButton = "Workbench add signal", GroupButton = "Workbench group", NamesButton = "Workbench names",
+            UnitButton = "Workbench unit";
 
         /// <summary>How tall the waveform and its toolbar are for <paramref name="rows"/> rows: what the stage leaves for them.</summary>
         public static float HeightFor(int rows) => ToolbarHeight + WorkbenchDrawing.WaveHeight(rows);
@@ -107,7 +109,7 @@ namespace BitSorter.View
             int rows = model.RowCount;
             Height = WorkbenchDrawing.WaveHeight(rows);
 
-            BuildToolbar(parent, at, palette, onToolbar, namesStyle);
+            BuildToolbar(parent, at, palette, onToolbar, namesStyle, model.Unit);
 
             // The names column as wide as its longest name, within reason: the waves move right by as much.
             var shown = new string[rows];
@@ -189,10 +191,10 @@ namespace BitSorter.View
         /// asking <paramref name="onToolbar"/> for what its key does.
         /// </summary>
         private static void BuildToolbar(RectTransform parent, Vector2 at, SchematicPalette palette, System.Action<WorkbenchCommand> onToolbar,
-            WaveNames namesStyle)
+            WaveNames namesStyle, string unit)
         {
             RectTransform bar = UiTheme.Rect("waveform toolbar", parent);
-            WorkbenchPanel.TopLeft(bar, at, new Vector2(600f, ToolbarHeight));
+            WorkbenchPanel.TopLeft(bar, at, new Vector2(780f, ToolbarHeight));
 
             float x = 34f;
             void Add(string name, string caption, WorkbenchCommand command, float width)
@@ -207,6 +209,9 @@ namespace BitSorter.View
             Add(AddButton, "+ SIGNAL", WorkbenchCommand.AddSignal, 130f);
             Add(GroupButton, "GROUP", WorkbenchCommand.Group, 100f);
             Add(NamesButton, namesStyle == WaveNames.Full ? "NAMES: FULL" : "NAMES: SHORT", WorkbenchCommand.Names, 170f);
+
+            // The unit as SystemVerilog writes it, in lower case: MS would be megaseconds (Part 9b-3).
+            Add(UnitButton, "UNIT: " + unit, WorkbenchCommand.Unit, 120f);
         }
 
         /// <summary>A name cut from its start, behind "...", until it is no wider than <paramref name="most"/> units.</summary>
@@ -463,7 +468,7 @@ namespace BitSorter.View
         private void WriteTime(TextMeshProUGUI label, double time)
         {
             int decimals = System.Math.Abs(time - System.Math.Round(time)) < 1e-9 ? 0 : 1;
-            label.SetCharArray(_timeText, 0, TimeText.Write(time, decimals, "ns", _timeText));
+            label.SetCharArray(_timeText, 0, TimeText.Write(time, decimals, _model.Unit, _timeText));
         }
 
         /// <summary>A bus row's values written over its boxes, up to the moment: a box too narrow for its value has none.</summary>

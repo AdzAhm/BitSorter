@@ -841,9 +841,12 @@ failure side.
   slider, a menu -- and asks it at `-30000` too, for the same tap; and the
   panel reads its mouse as gestures (`WavePointer`), where a press on a control is
   never one. The row menu, the menu for a moment (a right-click on the waves, for
-  a breakpoint there; Part 9b-3), the add list and the two fields -- RENAME and
-  BREAK ON VALUE -- each hold Escape (`IHoldsEscape`), and the panel closes on
-  Escape only when nothing does.
+  a breakpoint there; Part 9b-3), the add list and the three fields -- RENAME,
+  BREAK ON VALUE, and SET, which a double-click on a bus or an x asks an input's
+  value in -- each hold Escape (`IHoldsEscape`), and the panel closes on Escape
+  only when nothing does. **A double-click is counted on the game's clock**
+  (`Time.timeAsDouble`), which a test drives, so a test's double-click is one
+  however loaded the machine; nothing in the game changes the time scale.
 - **`UiText` arbitrates the keyboard, as `PointerGate` does the mouse.** Naming a
   free-play board put the first text field into a game that binds N, M, Q, E, H,
   R, Space, Enter and Escape in seventeen places, so typing "Adder" would have

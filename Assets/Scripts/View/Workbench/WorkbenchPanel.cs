@@ -131,8 +131,8 @@ namespace BitSorter.View
         public static string SampleCaption(int sample) => "SAMPLE: " + WorkbenchSamples.All[sample].Name.ToUpperInvariant();
 
         /// <summary>What the speed between SLOWER and FASTER says for a place on the ladder.</summary>
-        public static string SpeedCaption(int speed) =>
-            speed >= Playback.InstantSpeed ? "INSTANT" : Playback.Speeds[speed].ToString("0.###", CultureInfo.InvariantCulture) + " ns/s";
+        public static string SpeedCaption(int speed, string unit = TimeUnits.Default) =>
+            speed >= Playback.InstantSpeed ? "INSTANT" : Playback.Speeds[speed].ToString("0.###", CultureInfo.InvariantCulture) + " " + unit + "/s";
 
         // -----------------------------------------------------------------
         // The stage: the card holding the schematic and the waveform, in its own units
@@ -163,7 +163,7 @@ namespace BitSorter.View
             WaveformAt.y + WaveformView.HeightFor(_model == null ? 0 : _model.RowCount) + WorkbenchDrawing.LegendHeight;
 
         /// <summary>The legend's names for the four values, and what the rings and crosses mean.</summary>
-        public const string LegendText = "A digit on a wire is a change travelling along it; a cross is one swallowed on the way.";
+        public const string LegendText = "A digit on a wire is a change travelling along it; a cross is one swallowed on the way. Double-click an input to change it.";
 
         private static readonly string[] LegendNames = { "0", "1", "x", "z" };
 
@@ -206,6 +206,9 @@ namespace BitSorter.View
 
         /// <summary>The run being shown, made a slice a frame until it is done.</summary>
         private RunSession _run;
+
+        /// <summary>The document shown, kept for editing and undo, its run, and the run of it as edited while that is made (Part 9b-3).</summary>
+        private WorkbenchSession _session;
 
         /// <summary>Playing the run: where the playhead goes each frame, and why it paused.</summary>
         private Playback _playback;
@@ -268,6 +271,22 @@ namespace BitSorter.View
 
         /// <summary>The frame RUN TO was last finished with, until <see cref="ReleaseRunTo"/> has given the keyboard back; -1 for none.</summary>
         private int _runToEndedFrame = -1;
+
+        /// <summary>The input SET is asking a value for, how wide it is, and the stretch the value is for (Part 9b-3).</summary>
+        private string _setPort;
+        private int _setWidth;
+        private long _setFrom, _setUntil;
+        private WaveRenameField _setField;
+
+        /// <summary>
+        /// A double-click: a second left press this soon after the first and this near it. Counted on the
+        /// game's clock, which a test drives, so a test's double-click is one whatever the machine's load.
+        /// </summary>
+        private const double DoubleClickSeconds = 0.4;
+        private const float DoubleClickPixels = 6f;
+        private double _pressedAt = double.NegativeInfinity;
+        private Vector2 _pressedWhere;
+        private int _clicks;
         private int _renaming = -1;
         private WorkbenchControlSample _controlSample;
 
@@ -324,11 +343,20 @@ namespace BitSorter.View
         /// <summary>What the speed between SLOWER and FASTER says now.</summary>
         public string SpeedText => _speedLabel != null ? _speedLabel.text : null;
 
+        /// <summary>What the time label beside the slider says now: <c>t = 11.0 ns</c>.</summary>
+        public string MomentText => _timeLabel != null ? _timeLabel.text : null;
+
         /// <summary>The menu for a moment; null until the panel has first opened.</summary>
         public WaveTimeMenu TimeMenu => _timeMenu;
 
         /// <summary>The field BREAK ON VALUE asks in; null until the panel has first opened.</summary>
         public WaveRenameField BreakValueField => _breakField;
+
+        /// <summary>The document shown and its runs; null until the panel has first opened.</summary>
+        public WorkbenchSession Session => _session;
+
+        /// <summary>The field a double-click on a bus, or on an x, asks the input's value in; null until the panel has first opened.</summary>
+        public WaveRenameField SetValueField => _setField;
 
         /// <summary>The run being shown; null until the panel has first opened.</summary>
         public WorkbenchModel Model => _model;
@@ -491,6 +519,9 @@ namespace BitSorter.View
                 case WorkbenchCommand.AddSignal: OpenPicker(); break;
                 case WorkbenchCommand.Group: GroupRows(); break;
                 case WorkbenchCommand.Names: ToggleNames(); break;
+                case WorkbenchCommand.Unit: NextUnit(); break;
+                case WorkbenchCommand.Undo: UndoEdit(); break;
+                case WorkbenchCommand.Redo: RedoEdit(); break;
             }
         }
 
@@ -644,7 +675,18 @@ namespace BitSorter.View
 
             if (left || right)
             {
-                var press = new WavePress { Button = left ? 0 : 1, Shift = shift, Ctrl = ctrl, Alt = alt, Row = -1 };
+                // A double-click is a second left press soon after the first and near it; the count starts
+                // again after one, so a third press is a click of its own and flips nothing back.
+                if (left)
+                {
+                    double now = UnityEngine.Time.timeAsDouble;
+                    bool quick = now - _pressedAt <= DoubleClickSeconds && (pointer - _pressedWhere).sqrMagnitude <= DoubleClickPixels * DoubleClickPixels;
+                    _clicks = quick && _clicks < 2 ? _clicks + 1 : 1;
+                    _pressedAt = now;
+                    _pressedWhere = pointer;
+                }
+
+                var press = new WavePress { Button = left ? 0 : 1, Shift = shift, Ctrl = ctrl, Alt = alt, Row = -1, Clicks = left ? _clicks : 1 };
                 if (overControl)
                     press.Region = WaveRegion.Control;
                 else if (InView(pointer, out _))
@@ -725,7 +767,11 @@ namespace BitSorter.View
 
                 case WaveGesture.TimeMenu:
                     _menuTime = (long)Math.Round(command.Time);
-                    _timeMenu.Open(pointer, TimeText(_menuTime), _playback.Breakpoints.HasAt(_menuTime), _playback.Breakpoints.Count > 0);
+                    _timeMenu.Open(pointer, Moment(_menuTime), _playback.Breakpoints.HasAt(_menuTime), _playback.Breakpoints.Count > 0);
+                    break;
+
+                case WaveGesture.EditInput:
+                    EditInputAt(command.Row, _wave.TimeAtScreen(pointer), pointer);
                     break;
 
                 case WaveGesture.ToggleGroup:
@@ -849,14 +895,14 @@ namespace BitSorter.View
                 _playback.RunTo = null;
                 _notice = null;
             }
-            else if (long.TryParse(typed, NumberStyles.None, CultureInfo.InvariantCulture, out long at))
+            else if (ViewModel.TimeText.TryParse(typed, _model.Unit, out long at, out string why))
             {
                 _playback.RunTo = at;
                 _notice = null;
             }
             else
             {
-                _notice = "RUN TO takes a whole number of ns";
+                _notice = why;
             }
 
             if (_runToField != null)
@@ -880,6 +926,149 @@ namespace BitSorter.View
             UnityEngine.EventSystems.EventSystem events = UnityEngine.EventSystems.EventSystem.current;
             if (events != null && events.currentSelectedGameObject == _runToField.gameObject && !_runToField.isFocused)
                 UiTheme.Defocus();
+        }
+
+        // -----------------------------------------------------------------
+        // Editing the document: an input, the unit, undo (Part 9b-3)
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// Changes the input row <paramref name="row"/> shows, at <paramref name="time"/>, as a double-click
+        /// on its wave does: a one-bit input that is 0 or 1 there is flipped over the stretch the moment is
+        /// in, and any other -- a bus, an x -- is asked for a value for that stretch. What is not an input
+        /// of the design, and a clock, are refused, and the chip says why. The run is replayed beside the
+        /// one shown, and takes over once it reaches the moment shown.
+        /// </summary>
+        public void EditInputAt(int row, double time, Vector2 screenPoint)
+        {
+            if (_session == null || !RowSignalAt(row, out int signal))
+                return;
+
+            string port = InputOf(signal);
+            if (port == null)
+            {
+                Notice(_list.LabelOf(_list.Lines[row]) + " is not an input of the design, and only an input can be changed");
+                return;
+            }
+
+            BitSorter.Board.Stimulus stimulus = _session.Project.Stimulus;
+            long at = Math.Max(0L, (long)Math.Floor(time + 1e-9));
+            LogicVec? value = BitSorter.Board.StimulusEdits.ValueAt(stimulus, port, at);
+            int width = _model.Session.Design.Signals[signal].Width;
+
+            if (IsClock(stimulus, port) || (width == 1 && value.HasValue && value.Value.IsKnown))
+            {
+                Said(_session.InvertInput(port, at));
+                return;
+            }
+
+            (long from, long until) = BitSorter.Board.StimulusEdits.StretchAt(stimulus, port, at);
+            _setPort = port;
+            _setWidth = width;
+            _setFrom = from;
+            _setUntil = until;
+            _setField.Open("", screenPoint, "SET " + port + " FROM " + Moment(from) + (until == long.MaxValue ? " ON" : " TO " + Moment(until)));
+        }
+
+        /// <summary>
+        /// Gives the input SET was opened for the value typed, over its stretch: a SystemVerilog literal
+        /// fitted to the input, as BREAK ON VALUE reads one. One that does not read is refused, and the
+        /// chip says why.
+        /// </summary>
+        public void SetInputValue(string text)
+        {
+            if (_session == null || _setPort == null)
+                return;
+
+            if (!Breakpoints.TryParseValue(text, _setWidth, out LogicVec value, out string error))
+            {
+                Notice(error);
+                return;
+            }
+
+            Said(_session.SetInput(_setPort, _setFrom, _setUntil, value));
+        }
+
+        /// <summary>Counts time in the next unit, s to fs and round, as UNIT does: everything relabelled once the replay takes over, nothing rescaled.</summary>
+        public void NextUnit()
+        {
+            if (_session == null)
+                return;
+
+            IReadOnlyList<string> units = TimeUnits.All;
+            int at = 0;
+            for (int i = 0; i < units.Count; i++)
+                if (units[i] == _session.Unit)
+                    at = i;
+            Said(_session.SetUnit(units[(at + 1) % units.Count]));
+        }
+
+        /// <summary>Takes back the last edit -- to an input, or the unit -- and replays the run without it.</summary>
+        public void UndoEdit()
+        {
+            if (_session == null)
+                return;
+            if (_session.Undo())
+                Said(BitSorter.Board.EditResult.Ok());
+            else
+                Notice("nothing to undo");
+        }
+
+        /// <summary>Makes the edit last taken back again, and replays the run with it.</summary>
+        public void RedoEdit()
+        {
+            if (_session == null)
+                return;
+            if (_session.Redo())
+                Said(BitSorter.Board.EditResult.Ok());
+            else
+                Notice("nothing to redo");
+        }
+
+        /// <summary>The chip says why an edit was refused, or nothing more once one is done.</summary>
+        private void Said(BitSorter.Board.EditResult result)
+        {
+            _notice = result.Done ? null : result.Refusal;
+            Redraw();
+        }
+
+        private void Notice(string words)
+        {
+            _notice = words;
+            Redraw();
+        }
+
+        /// <summary>
+        /// The design's input <paramref name="signal"/> is, by its name, or null: the port inside the design,
+        /// or the testbench's signal of the same name that drives it.
+        /// </summary>
+        private string InputOf(int signal)
+        {
+            string name = _model.Session.Design.Signals[signal].Name;
+            string design = _model.Layout.DesignPath;
+            int dot = design == null ? -1 : design.LastIndexOf('.');
+            string bench = dot > 0 ? design.Substring(0, dot) : null;
+
+            foreach (PortLayout port in _model.Layout.Ports)
+            {
+                if (port.Output)
+                    continue;
+                string own = port.Signal.Substring(port.Signal.LastIndexOf('.') + 1);
+                if (name == port.Signal || (bench != null && name == bench + "." + own))
+                    return own;
+            }
+
+            return null;
+        }
+
+        private static bool IsClock(BitSorter.Board.Stimulus stimulus, string port)
+        {
+            if (stimulus == null)
+                return false;
+            foreach (BitSorter.Board.ClockTrack clock in stimulus.Clocks)
+                if (clock.Port == port)
+                    return true;
+            return false;
         }
 
         /// <summary>Gives the row the menu was opened on the name typed, from the rename field.</summary>
@@ -1015,6 +1204,8 @@ namespace BitSorter.View
                 return;
 
             _notice = null;
+            if (_session.TakeReplay())
+                SwitchRun();
             _wave?.Restart(0.0);
             _playback.Restart();
             Redraw();
@@ -1084,7 +1275,7 @@ namespace BitSorter.View
 
             _playback.SetSpeed(speed);
             _speed = speed;
-            SetText(_speedLabel, SpeedCaption(_speed));
+            SetText(_speedLabel, SpeedCaption(_speed, _model.Unit));
             Redraw();
         }
 
@@ -1097,7 +1288,7 @@ namespace BitSorter.View
                 return;
 
             _speed = _playback.Speed;
-            SetText(_speedLabel, SpeedCaption(_speed));
+            SetText(_speedLabel, SpeedCaption(_speed, _model.Unit));
             Redraw();
         }
 
@@ -1174,8 +1365,14 @@ namespace BitSorter.View
 
             Light();
 
-            // The run is made a slice a frame until it is done; a moment past where it has got waits.
-            if (!_run.Done && _run.Frame())
+            // The run is made a slice a frame until it is done, and a moment past where it has got waits;
+            // an edit's replay is made beside it and takes over once it reaches the moment shown.
+            SessionFrame made = _session.Frame(_model.Time);
+            if (made == SessionFrame.Switched)
+            {
+                SwitchRun();
+            }
+            else if (made == SessionFrame.Grew)
             {
                 _layers.Grew();
                 if (_run.Done)
@@ -1253,6 +1450,7 @@ namespace BitSorter.View
             _rename = WaveRenameField.Build(Root, palette, RenameRow);
             _breakField = WaveRenameField.Build(Root, palette, BreakOnValue, WaveRenameField.BreakValueName, "BREAK ON VALUE",
                 "1, 4'b1010, 'hA or x");
+            _setField = WaveRenameField.Build(Root, palette, SetInputValue, WaveRenameField.SetValueName, "SET", "1, 4'b1010, 'hA or x");
 
             Root.gameObject.SetActive(false);
         }
@@ -1264,7 +1462,8 @@ namespace BitSorter.View
         /// </summary>
         private void OpenRun()
         {
-            _run = RunSession.Open(WorkbenchSamples.All[_sample].Build(), () => UnityEngine.Time.realtimeSinceStartupAsDouble * 1000.0);
+            _session = new WorkbenchSession(WorkbenchSamples.All[_sample].Build(), () => UnityEngine.Time.realtimeSinceStartupAsDouble * 1000.0);
+            _run = _session.Run;
             _model = _run.Model;
             _playback = new Playback(_run, _speed);
             _shownEnd = _model.End;
@@ -1280,6 +1479,37 @@ namespace BitSorter.View
             _appliedNames = new string[0];
             _appliedHeaders = new bool[0];
             ApplyRows();
+        }
+
+        /// <summary>
+        /// An edit's replay took over (<see cref="WorkbenchSession"/>): playing moves onto it where it was,
+        /// the rows are found again in it by their keys, every time is written again in its unit, and the
+        /// stage is built round it with the circuit's zoom and the waveform's kept.
+        /// </summary>
+        private void SwitchRun()
+        {
+            _run = _session.Run;
+            _model = _run.Model;
+            _playback.Switch(_run);
+            _list.Resolve(_model.Signals);
+            _appliedSignals = new int[0];
+            ApplyRows();
+            _shownEnd = _model.End;
+            _reasonText = null;
+            MakeTexts();
+            Relabel();
+            if (_slider != null)
+                _slider.maxValue = _model.End;
+            RebuildStage(keepViews: true);
+        }
+
+        /// <summary>The words carrying the unit that are not made again with the stage: the speed, and RUN TO's.</summary>
+        private void Relabel()
+        {
+            if (_speedLabel != null)
+                SetText(_speedLabel, SpeedCaption(_speed, _model.Unit));
+            if (_runToField != null && _runToField.placeholder is TMP_Text placeholder)
+                placeholder.text = _model.Unit;
         }
 
         /// <summary>A model's default rows as a list: its layout's ports, by their keys.</summary>
@@ -1401,6 +1631,7 @@ namespace BitSorter.View
             _picker.Close();
             _rename.Close();
             _breakField.Close();
+            _setField.Close();
             OpenRun();
             RebuildStage(keepViews: false);
 
@@ -1515,14 +1746,26 @@ namespace BitSorter.View
             Control(StepBackButton, "STEP BACK", ",", 254f, 120f, () => StepEdge(forward: false), out _);
             Control(StepButton, "STEP", ".", 386f, 90f, () => StepEdge(forward: true), out _);
 
+            // The chip takes the row's room right of STEP: a refusal can run long -- "clk is a clock" --
+            // and its words shrink to fit before they are cut short.
             Image chip = CanvasChip("chip", _controls, palette);
-            TopRight(chip.rectTransform, new Vector2(0f, 9f), new Vector2(ChipWidth, 26f));
+            RectTransform chipRect = chip.rectTransform;
+            chipRect.anchorMin = new Vector2(0f, 1f);
+            chipRect.anchorMax = new Vector2(1f, 1f);
+            chipRect.pivot = new Vector2(0.5f, 1f);
+            chipRect.offsetMin = new Vector2(ChipLeft, -(9f + 26f));
+            chipRect.offsetMax = new Vector2(0f, -9f);
             _chipLabel = UiTheme.Label("text", chip.transform, UiType.Caption, palette.TextDim, TextAlignmentOptions.Center);
             UiTheme.Stretch(_chipLabel.rectTransform);
+            _chipLabel.enableAutoSizing = true;
+            _chipLabel.fontSizeMax = _chipLabel.fontSize;
+            _chipLabel.fontSizeMin = UiTheme.SizeOf(UiType.Micro);
+            _chipLabel.textWrappingMode = TextWrappingModes.NoWrap;
+            _chipLabel.overflowMode = TextOverflowModes.Ellipsis;
         }
 
-        /// <summary>How wide the chip is: room for the longest reason it gives, beside the four buttons on the narrowest stage.</summary>
-        private const float ChipWidth = 262f;
+        /// <summary>Where the chip starts: past STEP, the last of the row's buttons, and its key's room.</summary>
+        private const float ChipLeft = 500f;
 
         /// <summary>The second row's right-hand pieces: the speed between SLOWER and FASTER, and RUN TO's caption and field.</summary>
         private const float SpeedButtonWidth = 36f, SpeedLabelWidth = 96f, RunToCaptionWidth = 64f, RunToFieldWidth = 84f, TimeWidth = 136f, RowGap = 12f;
@@ -1542,9 +1785,10 @@ namespace BitSorter.View
             TopRight(runToCaption.rectTransform, new Vector2(-(right + RunToFieldWidth + 6f), 0f), new Vector2(RunToCaptionWidth, UiTheme.ButtonHeight));
             runToCaption.text = "RUN TO";
 
-            _runToField = CanvasField(RunToField, _timeline, palette, "ns");
+            // A time with a unit or without -- 40, 40 ns, 1.5 us -- read in the run's unit (TimeText).
+            _runToField = CanvasField(RunToField, _timeline, palette, _model.Unit);
             TopRight(_runToField.GetComponent<RectTransform>(), new Vector2(-right, 4f), new Vector2(RunToFieldWidth, UiTheme.ButtonHeight - 8f));
-            _runToField.contentType = TMP_InputField.ContentType.IntegerNumber;
+            _runToField.contentType = TMP_InputField.ContentType.Standard;
             _runToField.onSubmit.AddListener(SetRunTo);
             _runToField.onEndEdit.AddListener(text =>
             {
@@ -1562,7 +1806,7 @@ namespace BitSorter.View
 
             _speedLabel = UiTheme.Label("speed", _timeline, UiType.Caption, palette.Text, TextAlignmentOptions.Center);
             TopRight(_speedLabel.rectTransform, new Vector2(-right, 0f), new Vector2(SpeedLabelWidth, UiTheme.ButtonHeight));
-            _speedLabel.text = SpeedCaption(_speed);
+            _speedLabel.text = SpeedCaption(_speed, _model.Unit);
             right += SpeedLabelWidth;
 
             Button slower = CanvasButton(SlowerButton, _timeline, "-", out TextMeshProUGUI _, UiType.Body, palette);
@@ -1761,9 +2005,9 @@ namespace BitSorter.View
 
             for (int i = 0; i < steps; i++)
             {
-                string ns = (i / 10.0).ToString("0.0", CultureInfo.InvariantCulture);
-                _timeTexts[i] = "t = " + ns + " ns";
-                _playheadTexts[i] = ns + " ns";
+                string moment = (i / 10.0).ToString("0.0", CultureInfo.InvariantCulture);
+                _timeTexts[i] = "t = " + moment + " " + _model.Unit;
+                _playheadTexts[i] = moment + " " + _model.Unit;
             }
 
             _inFlightTexts = new string[33];
@@ -1777,7 +2021,7 @@ namespace BitSorter.View
 
         /// <summary>What the chip says once nothing more happens: known once the run is made.</summary>
         private string SettledText() =>
-            _model.Complete ? "settled at t = " + _model.SettledAt.ToString(CultureInfo.InvariantCulture) + " ns" : "";
+            _model.Complete ? "settled at t = " + _model.SettledAt.ToString(CultureInfo.InvariantCulture) + " " + _model.Unit : "";
 
         // -----------------------------------------------------------------
         // Drawing a moment
@@ -1841,7 +2085,7 @@ namespace BitSorter.View
         /// <summary>Why playing stopped, in words: where, and what stopped it.</summary>
         private string ReasonText()
         {
-            string at = TimeText(_playback.ReasonTime);
+            string at = Moment(_playback.ReasonTime);
             switch (_playback.Reason)
             {
                 case PauseReason.Suspended: return "$stop at " + at + ": PLAY runs on";
@@ -1866,8 +2110,8 @@ namespace BitSorter.View
                 : "break: " + name + " = " + ValueText.Of(b.Value, _model.DefaultRadix(b.Signal));
         }
 
-        /// <summary>A whole moment as the workbench writes it.</summary>
-        private static string TimeText(long time) => time.ToString(CultureInfo.InvariantCulture) + " ns";
+        /// <summary>A whole moment as the workbench writes it, in the run's unit.</summary>
+        private string Moment(long time) => time.ToString(CultureInfo.InvariantCulture) + " " + _model.Unit;
 
         /// <summary>Each change's digit on its ring, and "swallowed" over one that never arrived.</summary>
         private void PlaceDigits()

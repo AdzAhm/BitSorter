@@ -1010,7 +1010,7 @@ namespace BitSorter.PlayMode.Tests
             Assert.AreEqual("ran to 10 ns", workbench.ChipText);
 
             workbench.SetRunTo("ten");
-            Assert.AreEqual("RUN TO takes a whole number of ns", workbench.ChipText, "a refusal, said");
+            StringAssert.StartsWith("'ten' is not a time", workbench.ChipText, "a refusal, said");
             Assert.AreEqual(10L, workbench.Playback.RunTo, "and RUN TO left as it was");
 
             workbench.SetRunTo("");
@@ -1058,6 +1058,185 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsTrue(workbench.IsOpen, "the Escape that cancelled RUN TO closed the workbench as well");
             Assert.AreEqual(12L, workbench.Playback.RunTo, "Escape set what was typed");
             Assert.IsFalse(UiText.Typing, "RUN TO kept the keyboard after Escape");
+        }
+
+        // -----------------------------------------------------------------
+        // Editing an input, the unit, undo (Part 9b-3)
+        // -----------------------------------------------------------------
+
+        /// <summary>Frames until an edit's replay has taken over the run shown.</summary>
+        private static IEnumerator UntilReplayed(WorkbenchPanel workbench, int cap = 900)
+        {
+            for (int i = 0; i < cap && workbench.Session.Replaying; i++)
+                yield return null;
+            Assert.IsFalse(workbench.Session.Replaying, "the replay never took over");
+        }
+
+        /// <summary>What row <paramref name="row"/> shows at <paramref name="time"/>, in binary, as the model shown has it.</summary>
+        private static string ValueAt(WorkbenchPanel workbench, int row, double time)
+        {
+            SignalTrack track = workbench.Model.RowTrack(row);
+            int index = track.IndexAt(time);
+            return index < 0 ? "none" : track[index].Value.Format(BitSorter.SystemVerilog.Radix.Binary);
+        }
+
+        /// <summary>Two clicks in quick succession, as the fixture's own mouse makes them.</summary>
+        private IEnumerator DoubleClickAt(Vector2 point)
+        {
+            yield return ClickAt(point);
+            yield return ClickAt(point);
+        }
+
+        /// <summary>
+        /// A double-click on a one-bit input's wave flips it over the stretch it is in; the run is played
+        /// again beside the one shown, takes over without losing the rows, and shows the input flipped.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator ADoubleClickOnABitInput_FlipsIt_AndTheRunIsPlayedAgain()
+        {
+            yield return TestScene.Load();
+            yield return OpenTheWorkbench();
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.Pause();
+            workbench.Session.Finish();
+            int a = RowLabelled(workbench, "a");
+            int s = RowLabelled(workbench, "s[3:0]");
+            workbench.SetRadix(s, WaveRadix.Unsigned);
+            WorkbenchModel before = workbench.Model;
+            Assert.AreEqual("1", ValueAt(workbench, a, 10.0), "sanity: a rises at 6 and stays up");
+
+            yield return DoubleClickAt(workbench.WaveScreenPointOf(10.3, a));
+            Assert.IsTrue(workbench.Session.Replaying || workbench.Model != before, "the double-click edited nothing");
+            yield return UntilReplayed(workbench);
+
+            Assert.AreNotSame(before, workbench.Model, "the run shown is the one played again");
+            Assert.AreEqual("0", ValueAt(workbench, a, 10.0), "a is 0 over the stretch the double-click was in");
+            Assert.AreEqual("0", ValueAt(workbench, a, 3.0), "and was before it, as it always was");
+            Assert.AreEqual(RowLabelled(workbench, "s[3:0]"), s, "the rows are the ones shown before");
+            Assert.AreEqual(WaveRadix.Unsigned, workbench.List.Lines[s].Signal.Radix, "in the radix they were in");
+            StringAssert.DoesNotContain("not an input", workbench.ChipText ?? "", "and nothing was refused");
+        }
+
+        /// <summary>
+        /// A double-click on a bus asks for its value over the stretch, in a field that says which; Enter
+        /// sets it, and the run played again shows it there and what it had after.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator ADoubleClickOnABus_AsksForItsValue_AndSetsItOverTheStretch()
+        {
+            yield return TestScene.Load();
+            yield return OpenTheWorkbench();
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.Pause();
+            workbench.Session.Finish();
+            int s = RowLabelled(workbench, "s[3:0]");
+            string after = ValueAt(workbench, s, 20.0);
+
+            yield return DoubleClickAt(workbench.WaveScreenPointOf(12.4, s));
+            WaveRenameField field = workbench.SetValueField;
+            Assert.IsTrue(field.IsOpen, "a double-click on a bus did not ask for its value");
+            Assert.IsTrue(UiText.Typing, "and the field has the keyboard");
+            StringAssert.Contains("SET s FROM 10 ns TO 19 ns", field.GetComponentsInChildren<TMP_Text>(true).First(t => t.name == "title").text);
+
+            field.GetComponentInChildren<TMP_InputField>().text = "4'b1111";
+            yield return Tap(_keyboard.enterKey);
+            yield return null;
+            Assert.IsFalse(field.IsOpen);
+            yield return UntilReplayed(workbench);
+
+            Assert.AreEqual("1111", ValueAt(workbench, s, 12.0), "s is 1111 over the stretch");
+            Assert.AreEqual(after, ValueAt(workbench, s, 20.0), "and what it was from 19 on");
+        }
+
+        /// <summary>A double-click on an output, or on a clock, changes nothing, and the chip says why.</summary>
+        [UnityTest]
+        public IEnumerator ADoubleClickOnAnOutputOrAClock_IsRefused_AndTheChipSaysWhy()
+        {
+            yield return TestScene.Load();
+            yield return OpenTheWorkbench();
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.Pause();
+            workbench.Session.Finish();
+
+            yield return DoubleClickAt(workbench.WaveScreenPointOf(10.3, RowLabelled(workbench, "y")));
+            Assert.IsFalse(workbench.Session.Replaying, "an output was edited");
+            StringAssert.Contains("y is not an input", workbench.ChipText);
+
+            workbench.ShowSample(WorkbenchSamples.All.ToList().FindIndex(sample => sample.Name.Contains("ounter")));
+            workbench.Pause();
+            workbench.Session.Finish();
+            yield return null;
+            yield return DoubleClickAt(workbench.WaveScreenPointOf(12.3, RowLabelled(workbench, "clk")));
+            Assert.IsFalse(workbench.Session.Replaying, "a clock was edited");
+            StringAssert.Contains("clk is a clock", workbench.ChipText);
+        }
+
+        /// <summary>
+        /// UNIT counts time in the next unit, and U the one after: nothing is rescaled, and every time on
+        /// screen -- the speed, the moment, the gates' delays -- is written in it. RUN TO reads a time in any.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator TheUnit_ChangesByButtonAndByKey_AndEveryTimeIsWrittenInIt()
+        {
+            yield return TestScene.Load();
+            yield return OpenTheWorkbench();
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.Pause();
+            workbench.Seek(11.0);
+            Assert.AreEqual("1.6 ns/s", workbench.SpeedText, "sanity: in ns to begin with");
+
+            yield return Click(WaveformView.UnitButton);
+            yield return UntilReplayed(workbench);
+            Assert.AreEqual("ps", workbench.Model.Unit);
+            Assert.AreEqual("1.6 ps/s", workbench.SpeedText);
+            Assert.AreEqual("t = 11.0 ps", workbench.MomentText, "the moment, where it was");
+            StringAssert.EndsWith(" ps", workbench.Model.Layout.Parts.First(p => p.Delay.Length > 0).Delay, "and the gates' delays");
+            Assert.AreEqual("UNIT: ps", GameObject.Find(WaveformView.UnitButton).GetComponentInChildren<TMP_Text>().text);
+
+            yield return Tap(_keyboard.uKey);
+            yield return UntilReplayed(workbench);
+            Assert.AreEqual("fs", workbench.Model.Unit, "U, the unit after");
+
+            workbench.SetRunTo("0.012 ps");
+            Assert.AreEqual(12L, workbench.Playback.RunTo, "RUN TO reads a time in another unit, in the run's");
+        }
+
+        /// <summary>Ctrl+Z takes an edit back and Ctrl+Y makes it again, each played again.</summary>
+        [UnityTest]
+        public IEnumerator UndoAndRedo_ByKey_TakeAnEditBackAndMakeItAgain()
+        {
+            yield return TestScene.Load();
+            yield return OpenTheWorkbench();
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.Pause();
+            workbench.Session.Finish();
+            int a = RowLabelled(workbench, "a");
+
+            yield return DoubleClickAt(workbench.WaveScreenPointOf(10.3, a));
+            yield return UntilReplayed(workbench);
+            Assert.AreEqual("0", ValueAt(workbench, a, 10.0), "sanity: flipped");
+
+            Press(_keyboard.ctrlKey);
+            yield return Tap(_keyboard.zKey);
+            Release(_keyboard.ctrlKey);
+            yield return UntilReplayed(workbench);
+            Assert.AreEqual("1", ValueAt(workbench, a, 10.0), "Ctrl+Z took it back");
+
+            Press(_keyboard.ctrlKey);
+            yield return Tap(_keyboard.yKey);
+            Release(_keyboard.ctrlKey);
+            yield return UntilReplayed(workbench);
+            Assert.AreEqual("0", ValueAt(workbench, a, 10.0), "Ctrl+Y made it again");
+
+            Press(_keyboard.ctrlKey);
+            yield return Tap(_keyboard.yKey);
+            Release(_keyboard.ctrlKey);
+            Assert.AreEqual("nothing to redo", workbench.ChipText);
         }
 
         /// <summary>

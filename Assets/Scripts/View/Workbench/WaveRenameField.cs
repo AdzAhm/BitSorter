@@ -23,9 +23,13 @@ namespace BitSorter.View
         /// <summary>The name of the same field asking for a breakpoint's value (Part 9b-3).</summary>
         public const string BreakValueName = "Workbench break value";
 
+        /// <summary>The name of the same field asking for an input's value over a stretch (Part 9b-3).</summary>
+        public const string SetValueName = "Workbench set value";
+
         private const float Width = 320f, Pad = 12f;
 
         private RectTransform _panel;
+        private TextMeshProUGUI _title;
         private TMP_InputField _field;
         private Action<string> _onRename;
         private int _closedFrame = -1;
@@ -66,6 +70,7 @@ namespace BitSorter.View
             TextMeshProUGUI title = UiTheme.Label("title", rename._panel, UiType.Caption, palette.TextDim, TextAlignmentOptions.MidlineLeft);
             WorkbenchPanel.TopLeft(title.rectTransform, new Vector2(Pad, Pad), new Vector2(Width - 2f * Pad, 24f));
             title.text = titleText;
+            rename._title = title;
 
             rename._field = WorkbenchPanel.CanvasField("name", rename._panel, palette, placeholder);
             WorkbenchPanel.TopLeft(rename._field.GetComponent<RectTransform>(), new Vector2(Pad, Pad + 30f), new Vector2(Width - 2f * Pad, 38f));
@@ -81,9 +86,14 @@ namespace BitSorter.View
             return rename;
         }
 
-        /// <summary>Opens the field holding <paramref name="name"/>, its corner at <paramref name="screenPoint"/>, with the keyboard.</summary>
-        public void Open(string name, Vector2 screenPoint)
+        /// <summary>
+        /// Opens the field holding <paramref name="name"/>, its corner at <paramref name="screenPoint"/>, with
+        /// the keyboard -- titled <paramref name="title"/> when it says what it is for each time, as SET does.
+        /// </summary>
+        public void Open(string name, Vector2 screenPoint, string title = null)
         {
+            if (title != null)
+                _title.text = title;
             gameObject.SetActive(true);
             transform.SetAsLastSibling();
 
