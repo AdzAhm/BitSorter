@@ -28,6 +28,9 @@ namespace BitSorter.ViewModel
         Names,
         ClearCursor,
         RemoveRows,
+        Unit,
+        Undo,
+        Redo,
     }
 
     /// <summary>One key and what it does: the key by its Input System name, the modifiers held, and the words for it.</summary>
@@ -109,6 +112,10 @@ namespace BitSorter.ViewModel
             new KeyBinding("C", WorkbenchCommand.ClearCursor, "C", "take the second cursor away"),
             new KeyBinding("Delete", WorkbenchCommand.RemoveRows, "DEL", "take the selected rows out"),
             new KeyBinding("Backspace", WorkbenchCommand.RemoveRows, "DEL", "take the selected rows out"),
+            new KeyBinding("U", WorkbenchCommand.Unit, "U", "count time in the next unit"),
+            new KeyBinding("Z", WorkbenchCommand.Undo, "CTRL Z", "undo the last edit to an input", ctrl: true),
+            new KeyBinding("Y", WorkbenchCommand.Redo, "CTRL Y", "do it again", ctrl: true),
+            new KeyBinding("Z", WorkbenchCommand.Redo, "CTRL SHIFT Z", "do it again", shift: true, ctrl: true),
         });
 
         /// <summary>The first binding for <paramref name="command"/>: the one its button's cap shows.</summary>

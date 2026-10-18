@@ -53,6 +53,13 @@ namespace BitSorter.ViewModel
 
         /// <summary>Open the menu for the moment <see cref="WaveCommand.Time"/>: a breakpoint there, set or taken away.</summary>
         TimeMenu,
+
+        /// <summary>
+        /// Change the input <see cref="WaveCommand.Row"/> shows, where the pointer is: a bit flipped, or a
+        /// value asked for (Part 9b-3). The view works out the moment itself, unsnapped, since an edge
+        /// snapped to could be the far side of the stretch meant.
+        /// </summary>
+        EditInput,
     }
 
     /// <summary>One thing a gesture asks for.</summary>
@@ -97,6 +104,9 @@ namespace BitSorter.ViewModel
 
         /// <summary>How far from the second cursor the press is, in pixels; null while there is none.</summary>
         public float? FromSecond;
+
+        /// <summary>Which press of a quick run this is, as the view counts them: 2 for the second of a double-click.</summary>
+        public int Clicks;
     }
 
     /// <summary>
@@ -107,7 +117,8 @@ namespace BitSorter.ViewModel
     /// <remarks>
     /// - **On the waves or the axis:** a press seeks the playhead and a drag scrubs it; with Shift it
     ///   places the second cursor, and a press within <see cref="GrabPixels"/> of the second cursor
-    ///   takes hold of it, and a drag moves it.
+    ///   takes hold of it, and a drag moves it. A double-click on a row's wave changes the input it
+    ///   shows -- the first click has sought there already -- and scrubs nothing.
     /// - **On a row's name or value:** a press selects the row -- with Shift every row to it, with Ctrl
     ///   in or out of the selection -- and a press on a group's mark opens or shuts it. The right button
     ///   opens the row's menu.
@@ -145,6 +156,12 @@ namespace BitSorter.ViewModel
 
                     if (press.Button != 0)
                         return;
+                    if (press.Clicks >= 2 && !press.Shift && press.Row >= 0 && press.Region == WaveRegion.Waves)
+                    {
+                        into.Add(new WaveCommand(WaveGesture.EditInput, press.Time, press.Row));
+                        return;
+                    }
+
                     if (press.Shift)
                     {
                         into.Add(new WaveCommand(WaveGesture.PlaceSecond, press.Time));

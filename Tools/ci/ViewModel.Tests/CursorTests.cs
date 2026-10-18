@@ -88,8 +88,8 @@ namespace BitSorter.ViewModel.Tests
         // -----------------------------------------------------------------
 
         private static WavePress On(WaveRegion region, double time = 0, int row = -1, int button = 0, bool shift = false, bool ctrl = false,
-            bool alt = false, float? fromSecond = null, bool mark = false) =>
-            new WavePress { Region = region, Time = time, Row = row, Button = button, Shift = shift, Ctrl = ctrl, Alt = alt, FromSecond = fromSecond, OnGroupMark = mark };
+            bool alt = false, float? fromSecond = null, bool mark = false, int clicks = 1) =>
+            new WavePress { Region = region, Time = time, Row = row, Button = button, Shift = shift, Ctrl = ctrl, Alt = alt, FromSecond = fromSecond, OnGroupMark = mark, Clicks = clicks };
 
         private static string Run(WavePointer pointer, WavePress press, params double[] moves)
         {
@@ -150,6 +150,19 @@ namespace BitSorter.ViewModel.Tests
             var pointer = new WavePointer();
             Assert.AreEqual("", Run(pointer, On(WaveRegion.Control, 4, row: 2), 5, 6), "the slider dragged over the waves stays the slider's");
             Assert.AreEqual("", Run(pointer, On(WaveRegion.None, 4), 5));
+        }
+
+        [Test]
+        public void ADoubleClickOnARowsWave_AsksToEditItsInput_AndScrubsNothing()
+        {
+            var pointer = new WavePointer();
+            Assert.AreEqual("Seek 4", Run(pointer, On(WaveRegion.Waves, 4, row: 2)), "the first click seeks, as any does");
+            Assert.AreEqual("EditInput 2", Run(pointer, On(WaveRegion.Waves, 4, row: 2, clicks: 2), 5, 6), "the second asks to edit row 2, and its drag scrubs nothing");
+            Assert.IsFalse(pointer.Dragging);
+
+            Assert.AreEqual("Seek 4", Run(pointer, On(WaveRegion.Waves, 4, clicks: 2)), "below the rows there is no input to edit");
+            Assert.AreEqual("Seek 4", Run(pointer, On(WaveRegion.Axis, 4, row: 2, clicks: 2)), "nor on the axis");
+            Assert.AreEqual("PlaceSecond 4", Run(pointer, On(WaveRegion.Waves, 4, row: 2, shift: true, clicks: 2), 5).Split(',')[0], "Shift places the second cursor however quick");
         }
 
         [Test]
