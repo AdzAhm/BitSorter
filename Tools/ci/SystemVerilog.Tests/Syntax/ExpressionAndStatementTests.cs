@@ -99,6 +99,42 @@ namespace BitSorter.SystemVerilog.Tests.Syntax
         }
 
         [Test]
+        public void AStructOrAUnion_IsReadMemberByMember_AndPrintsAsWritten()
+        {
+            ModuleDeclaration m = OnlyModule(
+                "module m;\n  typedef struct packed signed { logic [3:0] op; logic [7:0] a, b; } instr_t;\n" +
+                "  union packed { logic [15:0] word; logic [1:0][7:0] bytes; } u;\nendmodule\n");
+
+            var typedef = (TypedefDeclaration)m.Items[0];
+            StructType s = typedef.Type.Struct;
+            Assert.IsNotNull(s);
+            Assert.IsTrue(s.Packed);
+            Assert.IsTrue(s.Signed);
+            Assert.IsFalse(s.IsUnion);
+            CollectionAssert.AreEqual(new[] { "op", "a", "b" }, s.Members.Select(x => x.Name));
+            Assert.AreSame(s.Members[1].Type, s.Members[2].Type, "a, b share their declaration's type");
+
+            var union = ((DataDeclaration)m.Items[1]).Type.Struct;
+            Assert.IsTrue(union.IsUnion);
+            Assert.AreEqual(2, union.Members[1].Type.Packed.Count, "a packed array of two bytes");
+
+            string printed = Printer.Print(Clean(Printer.Print(m)));
+            StringAssert.Contains("struct packed signed {logic [3:0] op; logic [7:0] a; logic [7:0] b;} instr_t", printed);
+            StringAssert.Contains("union packed {logic [15:0] word; logic [1:0] [7:0] bytes;} u", printed);
+        }
+
+        [Test]
+        public void AForeach_NamesAVariableForEachDimension_AndMaySkipOne()
+        {
+            var loop = (ForeachStatement)Statements("foreach (grid[i, , k]) sum += grid[i][0][k];").Single();
+            Assert.AreEqual("grid", loop.Array.Name);
+            CollectionAssert.AreEqual(new[] { "i", null, "k" }, loop.Variables);
+            Assert.IsInstanceOf<AssignmentStatement>(loop.Body);
+
+            StringAssert.Contains("foreach (mem[i])", Printer.Print(OnlyModule("module m;\n  initial foreach (mem[i]) mem[i] = 0;\nendmodule\n")));
+        }
+
+        [Test]
         public void ABinaryNandOrNor_IsReadWithAWarning_BindsAsAndOrOr_AndPrintsAsWritten()
         {
             // The course's first workshop writes X ~& Y; the standard has ~& and ~| only as reductions.

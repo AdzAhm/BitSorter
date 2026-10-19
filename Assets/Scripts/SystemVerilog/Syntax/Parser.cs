@@ -540,10 +540,7 @@ namespace BitSorter.SystemVerilog.Syntax
 
             if (Current.IsKeyword("struct") || Current.IsKeyword("union"))
             {
-                Error(Current.Location, DiagnosticCodes.Unsupported, $"A {Current.Text} is not supported by BitSorter yet; use separate signals.");
-                type.Keyword = Next().Text;
-                AcceptKeyword("packed");
-                SkipBalanced("{", "}");
+                type.Struct = ParseStruct();
             }
             else if (IsDataTypeStart(Current))
             {
@@ -570,6 +567,50 @@ namespace BitSorter.SystemVerilog.Syntax
                 type.Packed.Add(ParseDimension());
 
             return type;
+        }
+
+        /// <summary><c>struct packed signed { logic [3:0] op; logic [7:0] a, b; }</c>, or a union, its members each with a type.</summary>
+        private StructType ParseStruct()
+        {
+            var s = new StructType { Location = Current.Location, IsUnion = Next().Text == "union" };
+            AcceptKeyword("tagged");
+            s.Packed = AcceptKeyword("packed");
+            if (AcceptKeyword("signed"))
+                s.Signed = true;
+            else
+                AcceptKeyword("unsigned");
+
+            if (!Expect("{", $"to open the {(s.IsUnion ? "union" : "struct")}'s members"))
+                return s;
+
+            while (!AtEnd && !Current.Is("}") && !Current.IsKeyword("endmodule"))
+            {
+                int start = _at;
+                DataType memberType = ParseDataType();
+
+                do
+                {
+                    var member = new StructMember { Location = Current.Location, Type = memberType };
+                    member.Name = ExpectIdentifier("a member's name") ?? "?";
+                    if (Current.Is("["))
+                    {
+                        Error(Current.Location, DiagnosticCodes.Unsupported, $"{member.Name} is an unpacked array inside a struct, which BitSorter does not support; give it a packed range before its name.");
+                        ParseUnpacked(new List<Dimension>());
+                    }
+
+                    s.Members.Add(member);
+                }
+                while (Accept(","));
+
+                if (!Expect(";", "after a member of the struct"))
+                    SkipToItemEnd();
+
+                if (_at == start && !AtEnd)
+                    Next();
+            }
+
+            Expect("}", $"to close the {(s.IsUnion ? "union" : "struct")}");
+            return s;
         }
 
         private EnumType ParseEnum()

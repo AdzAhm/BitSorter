@@ -146,7 +146,7 @@ namespace BitSorter.SystemVerilog.Syntax
                         return SkipUnsupportedStatement("fork and join are not supported by BitSorter", "join");
 
                     case "foreach":
-                        return SkipUnsupportedStatement("foreach is not supported by BitSorter; use a for loop", null);
+                        return ParseForeach();
 
                     case "assert":
                     case "assume":
@@ -321,6 +321,38 @@ namespace BitSorter.SystemVerilog.Syntax
 
             ExpectKeyword("endcase", $"to close the {statement.Keyword}");
             return statement;
+        }
+
+        /// <summary><c>foreach (mem[i, j]) ...</c>: the array's name, then a variable a dimension, a place left empty to skip one.</summary>
+        private ForeachStatement ParseForeach()
+        {
+            var loop = new ForeachStatement { Location = Next().Location };
+            Expect("(", "after 'foreach'");
+
+            var array = new NameExpression { Location = Current.Location };
+            array.Path.Add(ExpectIdentifier("the array foreach walks") ?? "?");
+            while (Current.Is(".") && Peek(1).Kind == TokenKind.Identifier)
+            {
+                Next();
+                array.Path.Add(Next().Text);
+            }
+
+            loop.Array = array;
+
+            if (Expect("[", "to give foreach its loop variables, as foreach (mem[i])"))
+            {
+                do
+                {
+                    loop.Variables.Add(Current.Kind == TokenKind.Identifier ? Next().Text : null);
+                }
+                while (Accept(","));
+
+                Expect("]", "to close foreach's loop variables");
+            }
+
+            Expect(")", "to close foreach's array");
+            loop.Body = ParseStatement();
+            return loop;
         }
 
         private ForStatement ParseFor()

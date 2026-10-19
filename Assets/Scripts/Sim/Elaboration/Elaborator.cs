@@ -590,6 +590,12 @@ namespace BitSorter.Sim
                 if (type.Enum != null)
                     return TryEnum(type.Enum, scope, typedefName, out shape);
 
+                if (type.Struct != null)
+                {
+                    NotYet(type.Location, $"A {(type.Struct.IsUnion ? "union" : "struct")} is not supported by BitSorter yet; use separate signals.");
+                    return false;
+                }
+
                 bool signed = type.Signed;
                 int baseWidth = 1;
                 bool integerType = false;

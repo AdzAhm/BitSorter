@@ -108,7 +108,30 @@ namespace BitSorter.SystemVerilog.Syntax
         /// <summary>The enum, when the type is one.</summary>
         public EnumType Enum { get; set; }
 
-        public bool IsImplicit => Keyword == null && Name == null && Enum == null;
+        /// <summary>The struct or union, when the type is one (Part L4).</summary>
+        public StructType Struct { get; set; }
+
+        public bool IsImplicit => Keyword == null && Name == null && Enum == null && Struct == null;
+    }
+
+    /// <summary><c>struct packed { logic [3:0] op; logic [7:0] imm; }</c>, or a union (Part L4).</summary>
+    public sealed class StructType : SyntaxNode
+    {
+        public bool IsUnion { get; set; }
+
+        /// <summary>Whether <c>packed</c> was written: a packed struct is one vector, its first member at the top.</summary>
+        public bool Packed { get; set; }
+
+        public bool Signed { get; set; }
+
+        /// <summary>The members, in order, each with its own type: <c>logic [3:0] a, b;</c> is two.</summary>
+        public List<StructMember> Members { get; } = new List<StructMember>();
+    }
+
+    public sealed class StructMember : SyntaxNode
+    {
+        public DataType Type { get; set; }
+        public string Name { get; set; }
     }
 
     public sealed class EnumType : SyntaxNode
@@ -492,6 +515,21 @@ namespace BitSorter.SystemVerilog.Syntax
         public List<ForInitializer> Initializers { get; } = new List<ForInitializer>();
         public Expression Condition { get; set; }
         public List<Statement> Steps { get; } = new List<Statement>();
+        public Statement Body { get; set; }
+    }
+
+    /// <summary>
+    /// <c>foreach (mem[i, j]) ...</c> (Part L4): a loop over an array's indices, one variable to a
+    /// dimension, unpacked dimensions first; an empty place skips its dimension.
+    /// </summary>
+    public sealed class ForeachStatement : Statement
+    {
+        /// <summary>The array, as named: <c>mem</c>, <c>dut.table</c>.</summary>
+        public NameExpression Array { get; set; }
+
+        /// <summary>One name a dimension, null where the place is left empty: <c>mem[, j]</c>.</summary>
+        public List<string> Variables { get; } = new List<string>();
+
         public Statement Body { get; set; }
     }
 

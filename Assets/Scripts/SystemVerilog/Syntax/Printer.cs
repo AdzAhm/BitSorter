@@ -157,6 +157,8 @@ namespace BitSorter.SystemVerilog.Syntax
 
             if (type.Enum != null)
                 text.Append(EnumText(type.Enum));
+            else if (type.Struct != null)
+                text.Append(StructText(type.Struct));
             else if (type.Keyword != null)
                 text.Append(type.Keyword);
             else if (type.Name != null)
@@ -185,6 +187,22 @@ namespace BitSorter.SystemVerilog.Syntax
                 if (e.Members[i].Value != null)
                     text.Append(" = ").Append(ExpressionText(e.Members[i].Value));
             }
+            return text.Append("}").ToString();
+        }
+
+        /// <summary>A struct or union in place, its members on one line: <c>struct packed {logic [3:0] op; logic [7:0] imm;}</c>.</summary>
+        private static string StructText(StructType s)
+        {
+            var text = new StringBuilder(s.IsUnion ? "union" : "struct");
+            if (s.Packed)
+                text.Append(" packed");
+            if (s.Signed)
+                text.Append(" signed");
+            text.Append(" {");
+            foreach (StructMember member in s.Members)
+                text.Append(TypePrefix(member.Type)).Append(member.Name).Append("; ");
+            if (s.Members.Count > 0)
+                text.Length -= 1;
             return text.Append("}").ToString();
         }
 
@@ -559,6 +577,10 @@ namespace BitSorter.SystemVerilog.Syntax
 
                 case RepeatStatement r:
                     StatementAfter(lead + "repeat (" + ExpressionText(r.Count) + ")", r.Body);
+                    return;
+
+                case ForeachStatement f:
+                    StatementAfter(lead + "foreach (" + ExpressionText(f.Array) + "[" + string.Join(", ", f.Variables.ConvertAll(v => v ?? "")) + "])", f.Body);
                     return;
 
                 case WhileStatement w when !w.IsDoWhile:
