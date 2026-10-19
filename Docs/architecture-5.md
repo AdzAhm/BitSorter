@@ -612,7 +612,10 @@ asked for it to read the course and general SystemVerilog alike (2026-10-12).
   `wait`, `case` / `casez` / `casex` with `unique` and `priority`, delay and event controls, system task
   calls). Every node knows its file, line and column.
 - **Parser** (`Parser`, recursive descent): the course's operator table, plus `**` and the wildcard
-  equalities. A name followed by a name is a declaration of a typedef's type or an instance, told apart by
+  equalities -- and `~&` and `~|` between two operands, which the standard has only as reductions but the
+  course's first workshop writes (`assign Z = X ~& Y;`): they bind as `&` and `|`, run as NAND and NOR as
+  Icarus runs them, import as those gates, print as written, and draw warning SV0207 naming `~(X & Y)`
+  (Ahmad's choice, 2026-10-19). A name followed by a name is a declaration of a typedef's type or an instance, told apart by
   what follows. It never throws and never hangs: after an error it skips to a `;` or a keyword that starts
   something; every loop makes progress; nesting deeper than 200 stops the read with a message rather than
   the browser's stack. A missing `;` is reported on the line it is missing from. Classes, interfaces,

@@ -563,6 +563,24 @@ namespace BitSorter.Board
                 if (!(value is BinaryExpression binary))
                     return false;
 
+                // The course's first workshop's NAND, X ~& Y (not the standard's; the reader warns): two
+                // operands and never a chain, since a ~& b ~& c is (a ~& b) ~& c, not a 3-input NAND.
+                if (binary.Operator == "~&" || binary.Operator == "~|")
+                {
+                    if (Strip(binary.Left) is NameExpression left && left.Path.Count == 1 &&
+                        Strip(binary.Right) is NameExpression right && right.Path.Count == 1)
+                    {
+                        inputs.Add(left.Name);
+                        inputs.Add(right.Name);
+                        kind = binary.Operator == "~&"
+                            ? inverted ? GateKind.And : GateKind.Nand
+                            : inverted ? GateKind.Or : GateKind.Nor;
+                        return true;
+                    }
+
+                    return false;
+                }
+
                 string op = binary.Operator;
                 if (!Operands(binary, op, inputs) || inputs.Count < 2 || inputs.Count > GatePart.MaxInputs)
                     return false;

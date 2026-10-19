@@ -60,6 +60,15 @@ keeps out of this case, and so do the sample boards the oracle runs. **It barely
 course puts delays only on one-bit cells, and a board warns when a gate wider than a bit is given
 different rise and fall delays, since its export would then run differently elsewhere.
 
+### `~&` and `~|` between two operands
+
+The standard has `~&` and `~|` only as reductions (IEEE 1800, 11.4.9); there is no binary NAND or NOR
+operator. Icarus reads `X ~& Y` as NAND and `X ~| Y` as NOR anyway, binding them as `&` and `|`, and the
+course's first workshop writes `assign Z = X ~& Y;` as one of three ways to make a NAND. Here the course
+wins over the standard, with a warning: BitSorter reads them as Icarus does and says `~(X & Y)` is the
+portable spelling. `NonStandardOracleTests` runs the three NANDs, a NOR and a vector chain of both in
+the two simulators, outside the corpus, whose files must read with no diagnostics at all.
+
 ## Two drivers
 
 | Declaration | Two continuous drivers, 0 against 1 |

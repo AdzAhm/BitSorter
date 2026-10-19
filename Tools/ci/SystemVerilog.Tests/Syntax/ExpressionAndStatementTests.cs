@@ -51,6 +51,22 @@ namespace BitSorter.SystemVerilog.Tests.Syntax
         }
 
         [Test]
+        public void ABinaryNandOrNor_IsReadWithAWarning_BindsAsAndOrOr_AndPrintsAsWritten()
+        {
+            // The course's first workshop writes X ~& Y; the standard has ~& and ~| only as reductions.
+            SyntaxTree tree = Read("module m;\n  assign y = a | b ~& c;\n  assign w = a ~| b & c;\nendmodule\n");
+
+            CollectionAssert.AreEqual(new[] { DiagnosticCodes.NonStandardOperator, DiagnosticCodes.NonStandardOperator }, Codes(tree));
+            Assert.IsTrue(tree.Diagnostics.All(d => d.Severity == DiagnosticSeverity.Warning));
+            StringAssert.Contains("~(a & b)", tree.Diagnostics[0].Message, "the warning says what to write instead");
+
+            var assigns = tree.Modules.Single().Items.OfType<ContinuousAssign>().Select(a => a.Assignments.Single().Value).ToArray();
+            Assert.AreEqual("[a | [b ~& c]]", Show(assigns[0]));
+            Assert.AreEqual("[a ~| [b & c]]", Show(assigns[1]));
+            StringAssert.Contains("assign y = a | b ~& c;", Printer.Print(tree));
+        }
+
+        [Test]
         public void Primaries_OfEveryKind()
         {
             Assert.IsInstanceOf<NumberLiteral>(Expr("8'hFF"));

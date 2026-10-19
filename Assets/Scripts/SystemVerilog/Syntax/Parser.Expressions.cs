@@ -9,6 +9,11 @@ namespace BitSorter.SystemVerilog.Syntax
         /// own operator table, with <c>**</c> and the wildcard equalities it leaves out). All are left
         /// associative; <c>?:</c>, lower than every one of them, is the right-associative exception.
         /// </summary>
+        /// <remarks>
+        /// <c>~&amp;</c> and <c>~|</c> between two operands are not the standard's -- it has them only as
+        /// reductions -- but the course's first workshop writes <c>assign Z = X ~&amp; Y;</c>, and Icarus
+        /// reads it as NAND. They bind as <c>&amp;</c> and <c>|</c> do, and draw a warning.
+        /// </remarks>
         private static int BinaryPrecedence(Token token)
         {
             if (token.Kind != TokenKind.Symbol)
@@ -22,9 +27,9 @@ namespace BitSorter.SystemVerilog.Syntax
                 case "<<": case ">>": case "<<<": case ">>>": return 8;
                 case "<": case "<=": case ">": case ">=": return 7;
                 case "==": case "!=": case "===": case "!==": case "==?": case "!=?": return 6;
-                case "&": return 5;
+                case "&": case "~&": return 5;
                 case "^": case "~^": case "^~": return 4;
-                case "|": return 3;
+                case "|": case "~|": return 3;
                 case "&&": return 2;
                 case "||": return 1;
                 default: return -1;
@@ -73,6 +78,14 @@ namespace BitSorter.SystemVerilog.Syntax
                     return left;
 
                 Token op = Next();
+                if (op.Text == "~&" || op.Text == "~|")
+                {
+                    string plain = op.Text == "~&" ? "&" : "|";
+                    _diagnostics.Warning(op.Location, DiagnosticCodes.NonStandardOperator,
+                        $"'a {op.Text} b' is not standard SystemVerilog, where {op.Text} only reduces one value; " +
+                        $"BitSorter and some simulators read it as {(plain == "&" ? "NAND" : "NOR")}. ~(a {plain} b) is the same and works everywhere.");
+                }
+
                 Expression right = ParseBinary(precedence + 1);
                 left = new BinaryExpression { Location = left.Location, Operator = op.Text, Left = left, Right = right };
             }

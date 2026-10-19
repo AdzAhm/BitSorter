@@ -59,6 +59,7 @@ namespace BitSorter.SystemVerilog.Syntax
         public const string NotInModule = "SV0204";
         public const string AssignmentOutsideProcess = "SV0205";
         public const string MismatchedLabel = "SV0206";
+        public const string NonStandardOperator = "SV0207";
     }
 
     /// <summary>Diagnostics as they are gathered.</summary>

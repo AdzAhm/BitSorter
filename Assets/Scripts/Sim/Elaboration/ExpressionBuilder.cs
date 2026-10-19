@@ -166,7 +166,7 @@ namespace BitSorter.Sim
                     switch (b.Operator)
                     {
                         case "+": case "-": case "*": case "/": case "%":
-                        case "&": case "|": case "^": case "~^": case "^~":
+                        case "&": case "|": case "^": case "~^": case "^~": case "~&": case "~|":
                             return new TypeInfo(Math.Max(l.Width, r.Width), l.Signed && r.Signed);
                         case "<<": case ">>": case "<<<": case ">>>": case "**":
                             return new TypeInfo(l.Width, l.Signed);
@@ -815,6 +815,10 @@ namespace BitSorter.Sim
                 case "|": return Arithmetic(BinaryOp.Or, b, width, signed);
                 case "^": return Arithmetic(BinaryOp.Xor, b, width, signed);
                 case "~^": case "^~": return Arithmetic(BinaryOp.Xnor, b, width, signed);
+
+                // Not the standard's, but the course's first workshop writes them (the parser warns).
+                case "~&": return Expr.Apply(UnaryOp.Not, Arithmetic(BinaryOp.And, b, width, signed));
+                case "~|": return Expr.Apply(UnaryOp.Not, Arithmetic(BinaryOp.Or, b, width, signed));
 
                 case "<<": return Shift(BinaryOp.ShiftLeft, b, width, signed);
                 case ">>": return Shift(BinaryOp.ShiftRight, b, width, signed);

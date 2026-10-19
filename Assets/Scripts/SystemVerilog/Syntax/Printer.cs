@@ -745,9 +745,9 @@ namespace BitSorter.SystemVerilog.Syntax
                 case "<<": case ">>": case "<<<": case ">>>": return 8;
                 case "<": case "<=": case ">": case ">=": return 7;
                 case "==": case "!=": case "===": case "!==": case "==?": case "!=?": return 6;
-                case "&": return 5;
+                case "&": case "~&": return 5;
                 case "^": case "~^": case "^~": return 4;
-                case "|": return 3;
+                case "|": case "~|": return 3;
                 case "&&": return 2;
                 case "||": return 1;
                 default: return 1;

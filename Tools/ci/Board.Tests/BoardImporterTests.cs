@@ -115,6 +115,25 @@ namespace BitSorter.Board.Tests
             StringAssert.Contains("Part 12", imported.Problems.Single());
         }
 
+        [Test]
+        public void TheCoursesBinaryNand_ComesInAsANandGate()
+        {
+            // The course's first workshop: assign Z = X ~& Y. Not the standard's; read with a warning.
+            SyntaxTree tree = SyntaxReader.ReadText(
+                "module first (input logic X, input logic Y, output logic Z, output logic W, output logic V);\n" +
+                "    assign Z = X ~& Y;\n" +
+                "    assign W = X ~| Y;\n" +
+                "    assign V = ~(X ~& Y);\n" +
+                "endmodule\n", "first.sv");
+            Assert.IsTrue(tree.Diagnostics.All(d => d.Code == DiagnosticCodes.NonStandardOperator), string.Join("\n", tree.Diagnostics));
+
+            ImportResult imported = BoardImporter.Import(tree, "first");
+
+            Assert.IsTrue(imported.Succeeded, string.Join("\n", imported.Problems));
+            CollectionAssert.AreEquivalent(new[] { GateKind.Nand, GateKind.Nor, GateKind.And },
+                imported.Project.Find("first").Parts.OfType<GatePart>().Select(g => g.Kind));
+        }
+
         [TestCase("structural/full_adder.sv", "full_adder", "parameters in its header")]
         [TestCase("structural/alu_slice.sv", "alu_slice", "is not something the board draws")]
         public void WhatABoardCannotDraw_IsRefused_SayingWhatAndWhere(string file, string top, string said)
