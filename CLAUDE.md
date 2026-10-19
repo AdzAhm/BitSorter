@@ -742,7 +742,7 @@ failure side.
   diagram mid-run with a picked wire's collisions crossed, Four at once
   built and running, its carry passing between the boxes, and 5.0's workbench
   preview with two changes on their way, whole, zoomed in, with a wire pointed at, with two rows in other
-  radixes, a second cursor 9 ns on and two breakpoints flagged, with a block's inside grouped under full names, and with the
+  radixes, a second cursor 9 ps on and two breakpoints flagged, with a block's inside grouped under full names, and with the
   add list searching) as an Explicit Play
   Mode fixture, so it runs under `SaveGuard` --
   driving the real game for a screenshot by hand once marked a level solved on

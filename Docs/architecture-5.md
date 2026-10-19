@@ -31,7 +31,7 @@ where simple and friendly conflicts with exact, simple and friendly wins.
 | D4 | Wires smooth by default, with bend points, junction dots, and the whole net lit on hover. |
 | D5 | Testbenches in the course's style by default, with a switch that adds self-checks. |
 | D6 | The thirty levels kept as a side section, *Exercises*, reworked for the new model and ordered by the course. |
-| D7 | One time unit per tick. The display unit is a setting (ns by default). Export adds no `` `timescale `` unless asked -- and choosing a unit other than ns is the asking (Part 9b-3) |
+| D7 | One time unit per tick. The display unit is a setting (ps by default, as the course's ModelSim counts -- ns until the course audit, 2026-10-19). Export adds no `` `timescale `` unless asked -- and choosing a unit other than the default is the asking (Part 9b-3) |
 | D8 | 5.0.0 on a `v5` branch, in parts, a PR per part fast-forwarded, docs fixed in the same change, every saved board migrated. |
 | D9 | Blocks are either drawn (gates and wires) or written (SystemVerilog). Written blocks run, show their signals, and sit on the board like any block. |
 | D10 | Reach up to the course's multicycle RISC-V, memories and `$readmemh` included. The simulator runs it; the Exercises need not teach it. |
@@ -1145,12 +1145,16 @@ on an input's row, undo and redo -- is 9b-3b-2.
   design's, whatever it is.
 - **The unit relabels and rescales nothing** (invariant 7): a delay of 3 is 3 ps once the project is in
   ps. `BoardEditor.SetSettings` sets it, `BoardRules` refuses one SystemVerilog does not have and a
-  default gate delay below 0, and a save holding one that is not a unit loads in ns with a word to say so.
-- **A project in a unit other than ns prints `` `timescale 1ps/1ps ``** at the top of every file, the
-  precision the unit itself since time is whole; one in ns prints none. D7 says export adds none unless
-  asked, and choosing a unit is the asking, while ModelSim reads a file with none in 1 ns, so an ns
-  project means the same with or without it. The importer reads a timescale of one whole unit back as
-  the project's; one of tens of a unit (`10ns/1ns`) has none a project can count in, and imports in ns.
+  default gate delay below 0, and a save holding one that is not a unit loads in the default, ps, with a
+  word to say so.
+- **A project in a unit other than ps prints `` `timescale 1ns/1ns ``** (in its own unit) at the top of
+  every file, the precision the unit itself since time is whole; one in ps, the default, prints none. D7
+  says export adds none unless asked, and choosing a unit is the asking, while the course's ModelSim runs
+  a file with none in ps -- every waveform in its own simulation reports reads "145 ps" for 145 units --
+  so a ps project means the same with or without it. **The default was ns until the course audit
+  (2026-10-19)**, on the belief that ModelSim reads a file with none in 1 ns; the course's own screenshots
+  said otherwise, and Ahmad chose ps. The importer reads a timescale of one whole unit back as the
+  project's; one of tens of a unit (`10ns/1ns`) has none a project can count in, and imports in ps.
 - **An input edited** (`StimulusEdits`, committed by `BoardEditor.SetInput` and `InvertInput`): a value
   over a stretch, after which the input goes back to what it had, or a bit flipped over the stretch a
   moment is in, between the steps either side. Each keeps the fewest steps that say it -- a step giving
@@ -1181,7 +1185,7 @@ on an input's row, undo and redo -- is 9b-3b-2.
 - **A double-click on an input's wave changes it** (`WaveGesture.EditInput`; the clicks counted by the panel
   on the game's clock, which a test drives). A one-bit input that is 0 or 1 there is flipped over the stretch
   the moment is in; a bus, or an x, is asked for a value in SET, a field titled with the stretch -- "SET s
-  FROM 10 ns TO 19 ns" -- that reads a literal as BREAK ON VALUE does. An output, a wire inside or a clock
+  FROM 10 ps TO 19 ps" -- that reads a literal as BREAK ON VALUE does. An output, a wire inside or a clock
   is refused, and the chip says why. The moment is the pointer's own, not snapped: an edge snapped to could
   be the far side of the stretch meant. The legend line says the gesture, since the help line had no room.
 - **UNIT on the waveform's toolbar, or U,** counts time in the next unit, s to fs and round, written as
@@ -1220,7 +1224,7 @@ on an input's row, undo and redo -- is 9b-3b-2.
   the iframe Unity Play and itch.io run the game in; elsewhere a file in the Exports folder beside the save.
   `SaveGuard` points exports at a scratch folder for every fixture. The chip says what was saved and where.
 - **Checked.** `WaveExportTests` (12) and `WaveViewTests`' match under dotnet. In Play Mode: E offering the two
-  and VCD saving the run, read back with its input and output in ns, and EXPORT doing the same; the PNG as wide
+  and VCD saving the run, read back with its input and output in ps, and EXPORT doing the same; the PNG as wide
   and tall as it should be, its ground the paper's and its 1s in the paper's colour while the screen is in
   the dark look, and the screen's look its own again after. Reference shots 27 to 32 moved by EXPORT; 1 to 26
   the same in all four looks. In the browser build: E saved `reference.vcd` as a download, `$timescale 1ps`,

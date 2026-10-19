@@ -8,8 +8,8 @@ namespace BitSorter.Board.Tests
 {
     /// <summary>
     /// A project's settings (Part 9b-3): the time unit relabels time and rescales nothing, reaches the
-    /// printed SystemVerilog as a <c>`timescale</c> when it is not ns, comes back on import, and a saved
-    /// unit that is not one loads as ns with a word to say so.
+    /// printed SystemVerilog as a <c>`timescale</c> when it is not the default, ps, comes back on import,
+    /// and a saved unit that is not one loads as ps with a word to say so.
     /// </summary>
     public class ProjectSettingsTests
     {
@@ -21,8 +21,8 @@ namespace BitSorter.Board.Tests
             var editor = new BoardEditor(SampleBoards.Build("half_adder"));
             Project before = editor.Project;
 
-            Bench.Must(editor.SetSettings(editor.Project.Settings with { TimeUnit = "ps" }));
-            Assert.AreEqual("ps", editor.Project.Settings.TimeUnit);
+            Bench.Must(editor.SetSettings(editor.Project.Settings with { TimeUnit = "ns" }));
+            Assert.AreEqual("ns", editor.Project.Settings.TimeUnit);
             Assert.AreSame(before.Stimulus, editor.Project.Stimulus, "the stimulus's numbers are not rescaled");
 
             Assert.IsTrue(editor.Undo());
@@ -55,46 +55,47 @@ namespace BitSorter.Board.Tests
         }
 
         [Test]
-        public void AProjectInNs_PrintsNoTimescale()
+        public void AProjectInPs_TheDefault_PrintsNoTimescale()
         {
             foreach (PrintedSource file in BoardPrinter.Print(SampleBoards.Build("half_adder_delayed")))
                 StringAssert.DoesNotContain("`timescale", file.Text, file.Path);
         }
 
-        [TestCase("ps")]
+        [TestCase("ns")]
         [TestCase("us")]
         public void AProjectInAnotherUnit_SaysItAtTheTopOfEveryFile_AndOtherwisePrintsTheSame(string unit)
         {
-            Project ns = SampleBoards.Build("half_adder_delayed");
-            IReadOnlyList<PrintedSource> asNs = BoardPrinter.Print(ns);
-            IReadOnlyList<PrintedSource> asOther = BoardPrinter.Print(InUnit(ns, unit));
+            Project ps = SampleBoards.Build("half_adder_delayed");
+            Assert.AreEqual("ps", ps.Settings.TimeUnit, "sanity: a project counts in ps unless it says otherwise");
+            IReadOnlyList<PrintedSource> asPs = BoardPrinter.Print(ps);
+            IReadOnlyList<PrintedSource> asOther = BoardPrinter.Print(InUnit(ps, unit));
 
             string head = "`timescale 1" + unit + "/1" + unit + "\n\n";
-            CollectionAssert.AreEqual(asNs.Select(f => f.Path), asOther.Select(f => f.Path));
+            CollectionAssert.AreEqual(asPs.Select(f => f.Path), asOther.Select(f => f.Path));
             Assert.Greater(asOther.Count, 2, "sanity: the cells, the design and the testbench");
-            for (int i = 0; i < asNs.Count; i++)
+            for (int i = 0; i < asPs.Count; i++)
             {
                 StringAssert.StartsWith(head, asOther[i].Text, asOther[i].Path);
-                Assert.AreEqual(asNs[i].Text, asOther[i].Text.Substring(head.Length), asOther[i].Path + ": every number as it was, nothing rescaled");
+                Assert.AreEqual(asPs[i].Text, asOther[i].Text.Substring(head.Length), asOther[i].Path + ": every number as it was, nothing rescaled");
             }
         }
 
         [Test]
         public void APrintedProject_ImportsBackInItsUnit()
         {
-            Project original = InUnit(SampleBoards.Build("full_adder"), "ps");
+            Project original = InUnit(SampleBoards.Build("full_adder"), "ns");
             CompiledProject compiled = BoardCompiler.Compile(original);
             (MemorySourceFiles files, List<string> paths) = BoardPrinter.AsSources(BoardPrinter.Print(original));
             SyntaxTree read = SyntaxReader.ReadAll(paths.Where(p => p != compiled.Testbench + ".sv"), files);
 
             ImportResult imported = BoardImporter.Import(read, original.Top);
             Assert.IsTrue(imported.Succeeded, string.Join("\n", imported.Problems));
-            Assert.AreEqual("ps", imported.Project.Settings.TimeUnit);
+            Assert.AreEqual("ns", imported.Project.Settings.TimeUnit);
         }
 
         [TestCase("`timescale 10ns/1ns\n")]
         [TestCase("")]
-        public void ADesignWithNoOneUnitOfTime_ImportsInNs(string timescale)
+        public void ADesignWithNoOneUnitOfTime_ImportsInTheDefault(string timescale)
         {
             SyntaxTree tree = SyntaxReader.ReadText(timescale + "module flip(input logic a, output logic y);\n  assign y = ~a;\nendmodule\n");
             ImportResult imported = BoardImporter.Import(tree, "flip");
@@ -103,7 +104,7 @@ namespace BitSorter.Board.Tests
         }
 
         [Test]
-        public void ASavedUnitThatIsNotOne_LoadsAsNs_AndSaysSo()
+        public void ASavedUnitThatIsNotOne_LoadsAsTheDefault_AndSaysSo()
         {
             ProjectRecord file = ProjectRecord.From(SampleBoards.Build("half_adder"));
             file.timeUnit = "fortnights";
@@ -111,7 +112,7 @@ namespace BitSorter.Board.Tests
             var problems = new List<string>();
             Project read = file.ToProject(problems);
 
-            Assert.AreEqual("ns", read.Settings.TimeUnit);
+            Assert.AreEqual(TimeUnits.Default, read.Settings.TimeUnit);
             Assert.AreEqual(1, problems.Count, string.Join("\n", problems));
             StringAssert.Contains("'fortnights' is not one SystemVerilog has", problems[0]);
             Assert.IsFalse(BoardRules.Check(read).Any(d => d.IsError), "and the project loads clean");

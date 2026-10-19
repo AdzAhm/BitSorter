@@ -909,7 +909,7 @@ namespace BitSorter.PlayMode.Tests
             workbench.Seek(11.0);
             yield return Frames(30);
 
-            Assert.AreEqual("9 ns", workbench.SpanText, "sanity: the second cursor is 9 ns on");
+            Assert.AreEqual("9 ps", workbench.SpanText, "sanity: the second cursor is 9 ps on");
             Assert.AreEqual(WaveRadix.Signed, workbench.Model.RowRadix(o), "sanity: out is signed");
 
             yield return Capture("30-workbench-radix-cursors");

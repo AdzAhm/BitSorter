@@ -10,10 +10,10 @@ namespace BitSorter.SystemVerilog.Tests
     public class TimeUnitsTests
     {
         [Test]
-        public void TheUnits_AreSystemVerilogs_SToFs_AndNsIsTheDefault()
+        public void TheUnits_AreSystemVerilogs_SToFs_AndPsIsTheDefault_AsInTheCoursesModelSim()
         {
             CollectionAssert.AreEqual(new[] { "s", "ms", "us", "ns", "ps", "fs" }, TimeUnits.All.ToArray());
-            Assert.AreEqual("ns", TimeUnits.Default);
+            Assert.AreEqual("ps", TimeUnits.Default);
             Assert.IsTrue(TimeUnits.IsUnit(TimeUnits.Default));
         }
 

@@ -14,14 +14,16 @@ namespace BitSorter.SystemVerilog
     /// A field on screen reads them more loosely, in any case and with a micro sign
     /// (<c>ViewModel.TimeText</c>), since a field is not a source file.
     ///
-    /// **A project in ns prints no <c>`timescale</c>**, and one in any other unit prints
-    /// <c>`timescale 1ps/1ps</c> at the top of every file (<see cref="Timescale"/>): D7 says export adds
-    /// none unless asked, choosing a unit is the asking, and ModelSim reads a file with none in 1 ns.
+    /// **A project in ps prints no <c>`timescale</c>**, and one in any other unit prints
+    /// <c>`timescale 1ns/1ns</c> at the top of every file (<see cref="Timescale"/>): D7 says export adds
+    /// none unless asked, choosing a unit is the asking, and the course's ModelSim runs a file with none
+    /// in ps -- every waveform in the course's own simulation reports reads "145 ps" for 145 units
+    /// (checked 2026-10-19). So ps is the default, and a waveform here reads as one there does.
     /// </remarks>
     public static class TimeUnits
     {
-        /// <summary>What a project counts in unless it says otherwise.</summary>
-        public const string Default = "ns";
+        /// <summary>What a project counts in unless it says otherwise: ps, as the course's ModelSim does.</summary>
+        public const string Default = "ps";
 
         /// <summary>Every unit, longest first.</summary>
         public static readonly IReadOnlyList<string> All = Array.AsReadOnly(new[] { "s", "ms", "us", "ns", "ps", "fs" });

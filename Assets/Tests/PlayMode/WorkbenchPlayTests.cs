@@ -157,7 +157,7 @@ namespace BitSorter.PlayMode.Tests
 
             yield return DragTo(0.5f);
             Assert.AreEqual(palette.Unknown, Drawn("na"), "at 0.5 NOT A is still x");
-            Assert.AreEqual(palette.Unknown, Drawn("q"), "and so is Q, until the tri-state's 1 ns is up");
+            Assert.AreEqual(palette.Unknown, Drawn("q"), "and so is Q, until the tri-state's 1 ps is up");
 
             yield return DragTo(5f);
             Assert.AreEqual(palette.HighZ, Drawn("q"), "the tri-state is off: z");
@@ -337,7 +337,7 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsTrue(wave.IsFitted, "the waveform should open on the whole run");
             string[] fitted = workbench.TickTexts.ToArray();
             Assert.AreEqual("0", fitted.FirstOrDefault(), $"the fitted axis should start at 0, not read {string.Join(" ", fitted)}");
-            Assert.IsFalse(fitted.Any(t => t.Contains(".")), "fitted, the reference's run is ticked in whole nanoseconds");
+            Assert.IsFalse(fitted.Any(t => t.Contains(".")), "fitted, the reference's run is ticked in whole units");
 
             // The wheel is handed over as the real one's is each frame, as for the circuit's.
             Vector2 cursor = workbench.WaveScreenPointOf(13.0);
@@ -352,7 +352,7 @@ namespace BitSorter.PlayMode.Tests
             Assert.AreEqual(WaveView.MaxPixelsPerUnit, wave.PixelsPerUnit, 1e-6, "the wheel should zoom in as far as the cap, and stop");
             AssertNear(cursor, workbench.WaveScreenPointOf(13.0), "the moment under the cursor moved as time zoomed in all the way");
             string[] zoomed = workbench.TickTexts.ToArray();
-            Assert.IsTrue(zoomed.Any(t => t.Contains(".")), $"zoomed in, the axis should be ticked in fractions of a nanosecond, not {string.Join(" ", zoomed)}");
+            Assert.IsTrue(zoomed.Any(t => t.Contains(".")), $"zoomed in, the axis should be ticked in fractions of a unit, not {string.Join(" ", zoomed)}");
 
             double start = wave.Start;
             Assert.IsTrue(workbench.TakeWaveWheel(cursor, new Vector2(0f, -120f), true), "Shift and the wheel down should move through time");
@@ -389,7 +389,7 @@ namespace BitSorter.PlayMode.Tests
             for (double t = 0; t <= workbench.Model.End; t += 0.25)
             {
                 workbench.Seek(t);
-                Assert.IsTrue(wave.Shows(t), $"at {t} ns the playhead went out of view");
+                Assert.IsTrue(wave.Shows(t), $"at {t} ps the playhead went out of view");
             }
 
             Assert.Greater(wave.Start, 0.0, "the view should have paged on after the playhead");
@@ -610,8 +610,8 @@ namespace BitSorter.PlayMode.Tests
 
             Assert.AreEqual(19.0, workbench.Cursors.Second, "placed on the whole unit nearest the click");
             Assert.AreEqual(10.0, workbench.Time, 1e-9, "and the playhead left where it was");
-            Assert.AreEqual("19 ns", workbench.SecondText);
-            Assert.AreEqual("9 ns", workbench.SpanText, "the time from the playhead to it");
+            Assert.AreEqual("19 ps", workbench.SecondText);
+            Assert.AreEqual("9 ps", workbench.SpanText, "the time from the playhead to it");
 
             yield return Tap(_keyboard.cKey);
             Assert.IsNull(workbench.Cursors.Second, "C takes it away");
@@ -924,7 +924,7 @@ namespace BitSorter.PlayMode.Tests
             yield return UntilItPauses(workbench);
             Assert.AreEqual(end, workbench.Time, 1e-9, "paused at the end");
             Assert.AreEqual(PauseReason.Suspended, workbench.Playback.Reason);
-            StringAssert.StartsWith("$stop at " + end + " ns", workbench.ChipText, "and the chip says why");
+            StringAssert.StartsWith("$stop at " + end + " ps", workbench.ChipText, "and the chip says why");
 
             yield return Click(WorkbenchPanel.PlayButton);
             Assert.AreEqual(2 * end, workbench.Model.End, "PLAY at the $stop runs the run on, as long again");
@@ -944,18 +944,18 @@ namespace BitSorter.PlayMode.Tests
             yield return OpenTheWorkbench();
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
-            Assert.AreEqual("1.6 ns/s", workbench.SpeedText, "the reference's speed to begin with");
+            Assert.AreEqual("1.6 ps/s", workbench.SpeedText, "the reference's speed to begin with");
 
             yield return Tap(_keyboard.rightBracketKey);
-            Assert.AreEqual("3.2 ns/s", workbench.SpeedText, "] plays faster");
+            Assert.AreEqual("3.2 ps/s", workbench.SpeedText, "] plays faster");
             Assert.AreEqual(3.2, workbench.Playback.UnitsPerSecond, 1e-9);
 
             yield return Click(WorkbenchPanel.SlowerButton);
             yield return Click(WorkbenchPanel.SlowerButton);
-            Assert.AreEqual("0.8 ns/s", workbench.SpeedText, "SLOWER, twice");
+            Assert.AreEqual("0.8 ps/s", workbench.SpeedText, "SLOWER, twice");
 
             yield return Tap(_keyboard.leftBracketKey);
-            Assert.AreEqual("0.4 ns/s", workbench.SpeedText, "[ plays slower");
+            Assert.AreEqual("0.4 ps/s", workbench.SpeedText, "[ plays slower");
 
             workbench.SetSpeed(Playback.InstantSpeed - 1);
             yield return Click(WorkbenchPanel.FasterButton);
@@ -1007,7 +1007,7 @@ namespace BitSorter.PlayMode.Tests
             workbench.Restart();
             yield return UntilItPauses(workbench);
             Assert.AreEqual(10.0, workbench.Time, 1e-9);
-            Assert.AreEqual("ran to 10 ns", workbench.ChipText);
+            Assert.AreEqual("ran to 10 ps", workbench.ChipText);
 
             workbench.SetRunTo("ten");
             StringAssert.StartsWith("'ten' is not a time", workbench.ChipText, "a refusal, said");
@@ -1080,7 +1080,7 @@ namespace BitSorter.PlayMode.Tests
             yield return ClickAt(RectTransformUtility.WorldToScreenPoint(camera, box.TransformPoint(box.rect.center)));
 
             // As typing leaves it: a time longer than the field, the caret after its last character.
-            field.text = "12.0000 ns";
+            field.text = "12.0000 ps";
             field.caretPosition = field.text.Length;
             field.ForceLabelUpdate();
             yield return null;
@@ -1178,7 +1178,7 @@ namespace BitSorter.PlayMode.Tests
             WaveRenameField field = workbench.SetValueField;
             Assert.IsTrue(field.IsOpen, "a double-click on a bus did not ask for its value");
             Assert.IsTrue(UiText.Typing, "and the field has the keyboard");
-            StringAssert.Contains("SET s FROM 10 ns TO 19 ns", field.GetComponentsInChildren<TMP_Text>(true).First(t => t.name == "title").text);
+            StringAssert.Contains("SET s FROM 10 ps TO 19 ps", field.GetComponentsInChildren<TMP_Text>(true).First(t => t.name == "title").text);
 
             field.GetComponentInChildren<TMP_InputField>().text = "4'b1111";
             yield return Tap(_keyboard.enterKey);
@@ -1227,21 +1227,21 @@ namespace BitSorter.PlayMode.Tests
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             workbench.Pause();
             workbench.Seek(11.0);
-            Assert.AreEqual("1.6 ns/s", workbench.SpeedText, "sanity: in ns to begin with");
+            Assert.AreEqual("1.6 ps/s", workbench.SpeedText, "sanity: in ps to begin with, as the course's ModelSim counts");
 
             yield return Click(WaveformView.UnitButton);
             yield return UntilReplayed(workbench);
-            Assert.AreEqual("ps", workbench.Model.Unit);
-            Assert.AreEqual("1.6 ps/s", workbench.SpeedText);
-            Assert.AreEqual("t = 11.0 ps", workbench.MomentText, "the moment, where it was");
-            StringAssert.EndsWith(" ps", workbench.Model.Layout.Parts.First(p => p.Delay.Length > 0).Delay, "and the gates' delays");
-            Assert.AreEqual("UNIT: ps", GameObject.Find(WaveformView.UnitButton).GetComponentInChildren<TMP_Text>().text);
+            Assert.AreEqual("fs", workbench.Model.Unit);
+            Assert.AreEqual("1.6 fs/s", workbench.SpeedText);
+            Assert.AreEqual("t = 11.0 fs", workbench.MomentText, "the moment, where it was");
+            StringAssert.EndsWith(" fs", workbench.Model.Layout.Parts.First(p => p.Delay.Length > 0).Delay, "and the gates' delays");
+            Assert.AreEqual("UNIT: fs", GameObject.Find(WaveformView.UnitButton).GetComponentInChildren<TMP_Text>().text);
 
             yield return Tap(_keyboard.uKey);
             yield return UntilReplayed(workbench);
-            Assert.AreEqual("fs", workbench.Model.Unit, "U, the unit after");
+            Assert.AreEqual("s", workbench.Model.Unit, "U, the unit after, round from fs to s");
 
-            workbench.SetRunTo("0.012 ps");
+            workbench.SetRunTo("12000 ms");
             Assert.AreEqual(12L, workbench.Playback.RunTo, "RUN TO reads a time in another unit, in the run's");
         }
 
@@ -1305,7 +1305,7 @@ namespace BitSorter.PlayMode.Tests
             StringAssert.StartsWith("saved reference.vcd in ", workbench.ChipText);
 
             string vcd = System.IO.File.ReadAllText(file);
-            StringAssert.Contains("$timescale 1ns $end", vcd);
+            StringAssert.Contains("$timescale 1ps $end", vcd);
             var traces = BitSorter.Sim.VcdReader.Read(new System.IO.StringReader(vcd));
             string path = workbench.Model.Layout.DesignPath;
             Assert.IsTrue(traces.ContainsKey(path + ".a") && traces.ContainsKey(path + ".y"), "the run's input and output are in it");
@@ -1388,7 +1388,7 @@ namespace BitSorter.PlayMode.Tests
             workbench.Restart();
             yield return UntilItPauses(workbench);
             Assert.AreEqual(rises, workbench.Time, 1e-9, "paused where y first goes to 1");
-            Assert.AreEqual("break: y = 1 at " + rises + " ns", workbench.ChipText);
+            Assert.AreEqual("break: y = 1 at " + rises + " ps", workbench.ChipText);
 
             yield return ClickAt(workbench.RowNameOnScreen(y), mouse.rightButton);
             yield return Click(WaveRowMenu.ActionItem + WaveRowAction.NoBreaks);
@@ -1417,17 +1417,17 @@ namespace BitSorter.PlayMode.Tests
 
             yield return ClickAt(workbench.WaveScreenPointOf(17.0, a), mouse.rightButton);
             Assert.IsTrue(workbench.TimeMenu.IsOpen, "a right-click on the waves opens the menu for that moment");
-            Assert.IsTrue(Captioned(WaveTimeMenu.ActionItem + WaveTimeAction.ToggleBreak, "BREAK AT 17 ns"));
+            Assert.IsTrue(Captioned(WaveTimeMenu.ActionItem + WaveTimeAction.ToggleBreak, "BREAK AT 17 ps"));
             yield return Click(WaveTimeMenu.ActionItem + WaveTimeAction.ToggleBreak);
             Assert.IsTrue(workbench.Playback.Breakpoints.HasAt(17));
 
             workbench.Restart();
             yield return UntilItPauses(workbench);
             Assert.AreEqual(17.0, workbench.Time, 1e-9);
-            Assert.AreEqual("break at 17 ns", workbench.ChipText);
+            Assert.AreEqual("break at 17 ps", workbench.ChipText);
 
             yield return ClickAt(workbench.WaveScreenPointOf(17.0, a), mouse.rightButton);
-            Assert.IsTrue(Captioned(WaveTimeMenu.ActionItem + WaveTimeAction.ToggleBreak, "NO BREAK AT 17 ns"));
+            Assert.IsTrue(Captioned(WaveTimeMenu.ActionItem + WaveTimeAction.ToggleBreak, "NO BREAK AT 17 ps"));
             yield return Click(WaveTimeMenu.ActionItem + WaveTimeAction.ToggleBreak);
             Assert.IsFalse(workbench.Playback.Breakpoints.HasAt(17), "and taken away again");
         }

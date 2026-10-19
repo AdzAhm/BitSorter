@@ -180,7 +180,7 @@ namespace BitSorter.ViewModel.Tests
             Assert.IsFalse(session.InvertInput("s", 12).Done, "a bus has no one other value");
             Assert.IsFalse(session.SetUnit("weeks").Done);
             Assert.IsFalse(session.Replaying);
-            Assert.IsTrue(session.SetUnit("ns").Done, "the unit it is in already is no change");
+            Assert.IsTrue(session.SetUnit("ps").Done, "the unit it is in already is no change");
             Assert.IsFalse(session.Replaying, "and replays nothing");
         }
 
@@ -231,22 +231,22 @@ namespace BitSorter.ViewModel.Tests
         {
             WorkbenchSession session = Reference();
             RunSession before = session.Run;
-            Assert.AreEqual("ns", session.Run.Model.Unit);
+            Assert.AreEqual("ps", session.Run.Model.Unit, "a project counts in ps unless it says otherwise");
 
-            Bench(session.SetUnit("ps"));
+            Bench(session.SetUnit("ns"));
             session.Finish();
 
-            Assert.AreEqual("ps", session.Unit);
-            Assert.AreEqual("ps", session.Run.Model.Unit);
+            Assert.AreEqual("ns", session.Unit);
+            Assert.AreEqual("ns", session.Run.Model.Unit);
             string[] delays = session.Run.Model.Layout.Parts.Select(p => p.Delay).Where(d => d.Length > 0).ToArray();
             Assert.IsNotEmpty(delays, "sanity: the reference's gates have delays");
             foreach (string delay in delays)
-                StringAssert.EndsWith(" ps", delay);
+                StringAssert.EndsWith(" ns", delay);
             CollectionAssert.AreEqual(HistoryBefore(before, long.MaxValue), HistoryBefore(session.Run, long.MaxValue), "not one value moved");
 
             Assert.IsTrue(session.Undo());
             session.Finish();
-            Assert.AreEqual("ns", session.Run.Model.Unit, "and the unit undoes like any edit");
+            Assert.AreEqual("ps", session.Run.Model.Unit, "and the unit undoes like any edit");
         }
 
         // -----------------------------------------------------------------

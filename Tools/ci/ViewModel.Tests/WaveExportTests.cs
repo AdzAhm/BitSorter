@@ -41,7 +41,7 @@ namespace BitSorter.ViewModel.Tests
             string vcd = WaveExport.Vcd(model);
             Dictionary<string, VcdTrace> traces = ReadBack(vcd);
 
-            StringAssert.Contains("$timescale 1ns $end", vcd);
+            StringAssert.Contains("$timescale 1ps $end", vcd, "a project counts in ps unless it says otherwise");
             string path = model.Layout.DesignPath;
             foreach (string port in new[] { "a", "b", "s", "y", "out", "q" })
             {
@@ -57,17 +57,17 @@ namespace BitSorter.ViewModel.Tests
         [Test]
         public void ARunInAnotherUnit_HasThatTimescale_AndTheSameNumbers()
         {
-            var ns = new WorkbenchSession(ReferenceCircuit.Document(), Ticking(1.0));
-            ns.Finish();
-            string inNs = WaveExport.Vcd(ns.Run.Model);
-
             var ps = new WorkbenchSession(ReferenceCircuit.Document(), Ticking(1.0));
-            Assert.IsTrue(ps.SetUnit("ps").Done);
             ps.Finish();
             string inPs = WaveExport.Vcd(ps.Run.Model);
 
-            StringAssert.Contains("$timescale 1ps $end", inPs);
-            Assert.AreEqual(inNs.Replace("$timescale 1ns $end", "$timescale 1ps $end"), inPs, "every number as it was: the unit only labels them");
+            var ns = new WorkbenchSession(ReferenceCircuit.Document(), Ticking(1.0));
+            Assert.IsTrue(ns.SetUnit("ns").Done);
+            ns.Finish();
+            string inNs = WaveExport.Vcd(ns.Run.Model);
+
+            StringAssert.Contains("$timescale 1ns $end", inNs);
+            Assert.AreEqual(inPs.Replace("$timescale 1ps $end", "$timescale 1ns $end"), inNs, "every number as it was: the unit only labels them");
         }
 
         [Test]
