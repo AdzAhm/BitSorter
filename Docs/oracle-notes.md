@@ -224,3 +224,14 @@ Two things Icarus does that the corpus works around, neither a difference in wha
 - **`always_comb` sensitivity is whole vectors.** A constant select in an `always_comb`
   (`b[4:0]`) draws a "sorry: ... all bits will be included" from Icarus: it wakes the block on any bit of
   `b`, which only means waking it more often than needed, and changes no value.
+
+## 2-state types (the course audit, 2026-10-19)
+
+`bit`, `byte`, `shortint`, `int` and `longint` hold only 0 and 1 (IEEE 1800, 6.11.2), and so does an
+enum that names no base type, which is an `int`. Icarus starts them at 0 and turns an x or a z written to
+one into 0; BitSorter treated every type as 4-state until the course audit found it. The course meets it in
+its own state-machine template, `typedef enum {IDLE, ...}`: before the reset, the state reads IDLE in
+Icarus and in the course's ModelSim, and read x here. `corpus/behavioural/two_state.sv` holds the two
+to the same values -- a state machine on an `int` enum read before its reset, and x and z written into
+each 2-state type beside a `logic` that keeps them -- and `TwoStateTests` holds the rest. `integer` and
+`time` stay 4-state, as the standard has them.

@@ -69,6 +69,9 @@ namespace BitSorter.Sim
         /// declared <c>state_t s;</c> gets it, as one declared with the enum in place does. Null otherwise.
         /// </summary>
         public EnumInfo Enum;
+
+        /// <summary>Whether the type holds only 0 and 1, as <c>typedef bit [3:0] nibble_t;</c> or an enum on no base does.</summary>
+        public bool TwoState;
     }
 
     /// <summary>

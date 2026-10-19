@@ -1302,10 +1302,16 @@ namespace BitSorter.Sim
         }
 
         /// <summary>A value at a signal's width and signedness: how it is held.</summary>
+        /// <summary>
+        /// A value as <paramref name="info"/> holds it: at its width and signedness, and -- for a 2-state
+        /// signal -- with every x and z as 0. Every value a signal takes comes through here: its start,
+        /// what a stimulus, a process, a nonblocking write or its drivers give it.
+        /// </summary>
         private static LogicVec Shape(LogicVec value, SignalInfo info)
         {
             LogicVec sized = value.Width == info.Width ? value : value.Extend(info.Width, false);
-            return info.Signed ? sized.AsSigned() : sized.AsUnsigned();
+            LogicVec typed = info.Signed ? sized.AsSigned() : sized.AsUnsigned();
+            return info.TwoState ? typed.ToTwoState() : typed;
         }
 
         /// <summary>A driver's output at its target's width, as plain bits: signedness belongs to the signal.</summary>

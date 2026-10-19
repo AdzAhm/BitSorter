@@ -68,13 +68,17 @@ namespace BitSorter.Sim
             /// <summary>The enum, when the type is one, in place or through a typedef: what a signal of it carries.</summary>
             public readonly EnumInfo Enum;
 
-            public Shape(int msb, int lsb, bool signed, EnumInfo @enum = null)
+            /// <summary>Whether the type holds only 0 and 1: <c>bit</c>, <c>byte</c>, <c>shortint</c>, <c>int</c>, <c>longint</c>.</summary>
+            public readonly bool TwoState;
+
+            public Shape(int msb, int lsb, bool signed, EnumInfo @enum = null, bool twoState = false)
             {
                 Msb = msb;
                 Lsb = lsb;
                 Width = Math.Abs(msb - lsb) + 1;
                 Signed = signed;
                 Enum = @enum;
+                TwoState = twoState;
             }
         }
 
@@ -566,7 +570,7 @@ namespace BitSorter.Sim
                 if (!TryShape(t.Type, scope, out Shape shape, t.Name))
                     return;
 
-                if (!scope.TryDeclare(t.Name, new TypeEntry { Width = shape.Width, Signed = shape.Signed, Msb = shape.Msb, Lsb = shape.Lsb, Enum = shape.Enum, Declared = t.Location }))
+                if (!scope.TryDeclare(t.Name, new TypeEntry { Width = shape.Width, Signed = shape.Signed, Msb = shape.Msb, Lsb = shape.Lsb, Enum = shape.Enum, TwoState = shape.TwoState, Declared = t.Location }))
                     Error(t.Location, ElaborationCodes.Duplicate, $"{t.Name} is declared twice here.");
             }
 
@@ -604,29 +608,36 @@ namespace BitSorter.Sim
                         return false;
                     }
 
-                    shape = new Shape(named.Msb, named.Lsb, type.Unsigned ? false : named.Signed || type.Signed, named.Enum);
+                    shape = new Shape(named.Msb, named.Lsb, type.Unsigned ? false : named.Signed || type.Signed, named.Enum, named.TwoState);
                     return true;
                 }
 
+                // bit, byte, shortint, int and longint hold only 0 and 1; logic, reg, integer and time are
+                // 4-state (IEEE 1800, 6.11).
+                bool twoState = false;
                 switch (type.Keyword)
                 {
                     case null:
                     case "logic":
                     case "reg":
+                        break;
                     case "bit":
+                        twoState = true;
                         break;
                     case "int":
+                        baseWidth = 32; signed = !type.Unsigned; integerType = true; twoState = true;
+                        break;
                     case "integer":
                         baseWidth = 32; signed = !type.Unsigned; integerType = true;
                         break;
                     case "shortint":
-                        baseWidth = 16; signed = !type.Unsigned; integerType = true;
+                        baseWidth = 16; signed = !type.Unsigned; integerType = true; twoState = true;
                         break;
                     case "longint":
-                        baseWidth = 64; signed = !type.Unsigned; integerType = true;
+                        baseWidth = 64; signed = !type.Unsigned; integerType = true; twoState = true;
                         break;
                     case "byte":
-                        baseWidth = 8; signed = !type.Unsigned; integerType = true;
+                        baseWidth = 8; signed = !type.Unsigned; integerType = true; twoState = true;
                         break;
                     case "time":
                         baseWidth = 64; signed = type.Signed; integerType = true;
@@ -649,13 +660,13 @@ namespace BitSorter.Sim
                         return false;
                     }
 
-                    shape = new Shape(baseWidth - 1, 0, signed);
+                    shape = new Shape(baseWidth - 1, 0, signed, null, twoState);
                     return true;
                 }
 
                 if (type.Packed.Count == 0)
                 {
-                    shape = new Shape(0, 0, signed);
+                    shape = new Shape(0, 0, signed, null, twoState);
                     return true;
                 }
 
@@ -682,7 +693,7 @@ namespace BitSorter.Sim
                     return false;
                 }
 
-                shape = new Shape((int)msb, (int)lsb, signed);
+                shape = new Shape((int)msb, (int)lsb, signed, null, twoState);
                 return true;
             }
 
@@ -694,7 +705,8 @@ namespace BitSorter.Sim
             /// </summary>
             private bool TryEnum(EnumType e, Scope scope, string typedefName, out Shape shape)
             {
-                shape = new Shape(31, 0, true);
+                // With no base type, an enum is an int: 32 bits, signed, 2-state (IEEE 1800, 6.19).
+                shape = new Shape(31, 0, true, null, twoState: true);
 
                 if (e.BaseType != null && !TryShape(e.BaseType, scope, out shape))
                     return false;
@@ -702,7 +714,7 @@ namespace BitSorter.Sim
                 // Met again in the same scope: the members are in already, and it is the same enum.
                 if (_enumsDeclared.TryGetValue((scope, e), out EnumInfo known))
                 {
-                    shape = new Shape(shape.Msb, shape.Lsb, shape.Signed, known);
+                    shape = new Shape(shape.Msb, shape.Lsb, shape.Signed, known, shape.TwoState);
                     return true;
                 }
 
@@ -734,7 +746,7 @@ namespace BitSorter.Sim
                 // The base type's own enum, if it named one, is not this one: the shape carries only this.
                 var info = new EnumInfo(typedefName, shape.Width, members);
                 _enumsDeclared[(scope, e)] = info;
-                shape = new Shape(shape.Msb, shape.Lsb, shape.Signed, info);
+                shape = new Shape(shape.Msb, shape.Lsb, shape.Signed, info, shape.TwoState);
                 return true;
             }
 
@@ -758,7 +770,7 @@ namespace BitSorter.Sim
                 {
                     // Everything the declaration said goes with it, for a waveform to list and name it by.
                     id = _builder.Declare(fullName, shape.Width, kind, shape.Signed, local, initial,
-                        shape.Msb, shape.Lsb, shape.Enum, port, scope.Recorded);
+                        shape.Msb, shape.Lsb, shape.Enum, port, scope.Recorded, shape.TwoState);
                 }
                 catch (ArgumentException ex)
                 {
@@ -975,7 +987,7 @@ namespace BitSorter.Sim
                 MemoryInfo memory;
                 try
                 {
-                    memory = _builder.Memory(fullName, shape.Width, shape.Signed, (int)left, (int)right, shape.Msb, shape.Lsb, shape.Enum, scope.Recorded);
+                    memory = _builder.Memory(fullName, shape.Width, shape.Signed, (int)left, (int)right, shape.Msb, shape.Lsb, shape.Enum, scope.Recorded, shape.TwoState);
                 }
                 catch (ArgumentException ex)
                 {

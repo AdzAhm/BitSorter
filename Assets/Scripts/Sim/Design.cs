@@ -49,8 +49,9 @@ namespace BitSorter.Sim
     public sealed class SignalInfo
     {
         internal SignalInfo(string name, int width, SignalKind kind, bool signed, bool local = false, LogicVec? initial = null, MemoryInfo memory = null,
-            int? msb = null, int? lsb = null, EnumInfo @enum = null, PortDirection? port = null, int scope = -1)
+            int? msb = null, int? lsb = null, EnumInfo @enum = null, PortDirection? port = null, int scope = -1, bool twoState = false)
         {
+            TwoState = twoState;
             Name = name;
             Width = width;
             Kind = kind;
@@ -104,6 +105,15 @@ namespace BitSorter.Sim
         /// circuit built in code.
         /// </summary>
         public int Scope { get; }
+
+        /// <summary>
+        /// Whether it holds only 0 and 1 -- a <c>bit</c>, <c>byte</c>, <c>shortint</c>, <c>int</c> or
+        /// <c>longint</c>, or an enum with no base type, which is an <c>int</c>. It starts at 0 rather
+        /// than x, and an x or a z written to it is held as 0 (IEEE 1800, 6.11.2), as Icarus and the
+        /// course's ModelSim hold it: the course's <c>typedef enum {IDLE, ...}</c> reads IDLE before its
+        /// reset. <c>logic</c>, <c>integer</c> and <c>time</c> are 4-state.
+        /// </summary>
+        public bool TwoState { get; }
 
         /// <summary>
         /// A process's own working variable -- a <c>for</c> loop's <c>int i</c>, a <c>repeat</c>'s count
@@ -462,7 +472,7 @@ namespace BitSorter.Sim
         /// A memory as the elaborator declares it: each word with the range and enum its type gives,
         /// <c>state_t trail [0:3]</c>, in the scope it is declared in.
         /// </summary>
-        internal MemoryInfo Memory(string name, int width, bool signed, int left, int right, int msb, int lsb, EnumInfo @enum, int scope)
+        internal MemoryInfo Memory(string name, int width, bool signed, int left, int right, int msb, int lsb, EnumInfo @enum, int scope, bool twoState = false)
         {
             if (Math.Abs((long)left - right) + 1 > MaxMemoryWords)
                 throw new ArgumentOutOfRangeException(nameof(right), $"{name} would have more than {MaxMemoryWords} words.");
@@ -471,7 +481,7 @@ namespace BitSorter.Sim
             SignalId first = default;
             for (int i = memory.Lowest; i <= memory.Highest; i++)
             {
-                SignalId word = Add($"{name}[{i}]", width, SignalKind.Variable, signed, memory: memory, msb: msb, lsb: lsb, @enum: @enum, scope: scope);
+                SignalId word = Add($"{name}[{i}]", width, SignalKind.Variable, signed, memory: memory, msb: msb, lsb: lsb, @enum: @enum, scope: scope, twoState: twoState);
                 if (i == memory.Lowest)
                     first = word;
             }
@@ -503,14 +513,14 @@ namespace BitSorter.Sim
         /// <paramref name="local"/>, as <see cref="Net"/> takes neither.
         /// </summary>
         internal SignalId Declare(string name, int width, SignalKind kind, bool signed, bool local, LogicVec? initial,
-            int msb, int lsb, EnumInfo @enum, PortDirection? port, int scope)
+            int msb, int lsb, EnumInfo @enum, PortDirection? port, int scope, bool twoState = false)
         {
             bool net = kind == SignalKind.Net;
             if (!net && !local && initial.HasValue && initial.Value.IsEmpty)
                 throw new ArgumentException("A starting value needs a value.", nameof(initial));
 
             return Add(name, width, kind, signed, local: !net && local, initial: net ? null : initial, memory: null,
-                msb: msb, lsb: lsb, @enum: @enum, port: port, scope: scope);
+                msb: msb, lsb: lsb, @enum: @enum, port: port, scope: scope, twoState: twoState);
         }
 
         /// <summary>
@@ -651,7 +661,7 @@ namespace BitSorter.Sim
         public Design Build() => new Design(_name, _signals, _drivers, _processes, _memories, _time, _scopes);
 
         private SignalId Add(string name, int width, SignalKind kind, bool signed, bool local = false, LogicVec? initial = null, MemoryInfo memory = null,
-            int? msb = null, int? lsb = null, EnumInfo @enum = null, PortDirection? port = null, int scope = -1)
+            int? msb = null, int? lsb = null, EnumInfo @enum = null, PortDirection? port = null, int scope = -1, bool twoState = false)
         {
             if (string.IsNullOrEmpty(name))
                 throw new ArgumentException("A signal needs a name.", nameof(name));
@@ -664,7 +674,7 @@ namespace BitSorter.Sim
             if (scope < -1 || scope >= _scopes.Count)
                 throw new ArgumentOutOfRangeException(nameof(scope), scope, $"There are {_scopes.Count} scopes for {name} to be declared in.");
 
-            _signals.Add(new SignalInfo(name, width, kind, signed, local, initial, memory, msb, lsb, @enum, port, scope));
+            _signals.Add(new SignalInfo(name, width, kind, signed, local, initial, memory, msb, lsb, @enum, port, scope, twoState));
             return new SignalId(_signals.Count - 1);
         }
 

@@ -265,8 +265,11 @@ VCD           written for export, read for the oracle comparison
   part of one. A gate's inputs are one-bit expressions, so it reads a bit of a vector directly. A net
   resolves its drivers (`LogicVec.ResolveWire`), each contributing z outside its slice, and reads z with
   none; a variable's bits take at most one continuous driver each, and `NetlistBuilder` refuses a second
-  with the way out. Every signal starts at x, an undriven net at z, and a net driven in slices at x where a
-  driver reaches and z where none does -- as Icarus shows it. Every driver evaluates once at time 0.
+  with the way out. Every 4-state signal starts at x, an undriven net at z, and a net driven in slices at x
+  where a driver reaches and z where none does -- as Icarus shows it. A 2-state one (`bit`, `byte`,
+  `shortint`, `int`, `longint`, and an enum that names no base type, which is an `int`) starts at 0 and
+  holds an x or a z written to it as 0 (`SignalInfo.TwoState`, applied where every value a signal takes is
+  shaped; found by the course audit, 2026-10-19). Every driver evaluates once at time 0.
 - **Running.** `RunTo` runs whole time steps until a time or an event budget, so the browser can run in
   slices; a delta limit stops a zero-delay loop with a message naming what was still changing. A
   `Stimulus` writes inputs from outside, as the oracle's structural runs do; from Part 5a a testbench's
@@ -1096,7 +1099,7 @@ second half (9b-3b) is the timescale's units and editing an input.
   sample to the next. The model is told the speed (`WorkbenchModel.UnitsPerSecond`), so a gate's flash
   lasts the same seconds at every speed.
 - **Breakpoints** (`Breakpoints`): at a moment; on a signal changing into a value, compared as `===`
-  compares, x and z included; and on a signal going x after time 0, when every variable starts at x. A
+  compares, x and z included; and on a signal going x after time 0, when every 4-state variable starts at x. A
   value is typed as a SystemVerilog literal fitted to the signal (`Breakpoints.TryParseValue`), and one
   that does not read is refused with its reason on the chip. A breakpoint on a signal no row shows is
   dropped when the rows change (`Breakpoints.KeepOnly`): it would pause the run with nothing on screen
