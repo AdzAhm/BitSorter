@@ -15,6 +15,30 @@ namespace BitSorter.ViewModel.Tests
     /// </summary>
     public class WaveViewTests
     {
+        [Test]
+        public void AViewMatchingAnother_ShowsTheSameWindow_AcrossItsOwnWidth()
+        {
+            var screen = new WaveView(800f);
+            screen.Fit(100);
+            Assert.IsTrue(screen.ZoomAbout(300f, 3));
+            Assert.IsTrue(screen.Pan(2));
+
+            var picture = new WaveView(1600f);
+            picture.Match(screen);
+
+            Assert.AreEqual(screen.Start, picture.Start, 1e-9, "the same moment at the left edge");
+            Assert.AreEqual(screen.End, picture.End, 1e-9, "and at the right");
+            Assert.AreEqual(screen.PixelsPerUnit * 2.0, picture.PixelsPerUnit, 1e-9, "a unit twice as wide across twice the width");
+            Assert.IsFalse(picture.Following, "a picture follows nothing");
+
+            var fitted = new WaveView(1600f);
+            var whole = new WaveView(400f);
+            whole.Fit(40);
+            fitted.Match(whole);
+            Assert.IsTrue(fitted.IsFitted);
+            Assert.AreEqual(40.0, fitted.End, 1e-9, "a fitted view's match is the whole run");
+        }
+
         /// <summary>The 4.x strip's room for ticks at 1080: the width the rules were first tuned on.</summary>
         private const float Strip = 1660f;
 

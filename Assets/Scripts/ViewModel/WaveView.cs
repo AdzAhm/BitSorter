@@ -178,6 +178,23 @@ namespace BitSorter.ViewModel
         }
 
         /// <summary>
+        /// The window <paramref name="other"/> shows, across this view's own width: the same run, zoom and
+        /// start, not following (Part 9b-4: the waveform's PNG, drawn wider than the screen's, shows the
+        /// time the screen does). A unit is as wide as the widths' ratio makes it, within
+        /// <see cref="MaxPixelsPerUnit"/> as always.
+        /// </summary>
+        public void Match(WaveView other)
+        {
+            if (other == null)
+                throw new ArgumentNullException(nameof(other));
+
+            Span = other.Span;
+            Start = other.Start;
+            SetZoom(other.Zoom);
+            Following = false;
+        }
+
+        /// <summary>
         /// The run grew to <paramref name="span"/> (Part 9b-3: run on past a <c>$stop</c>). A fitted view
         /// fits the new run; a zoomed one keeps the width of a unit and where it starts, so what is in view
         /// stays where it was. True when the view changed.
