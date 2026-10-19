@@ -45,6 +45,12 @@ namespace BitSorter.Sim
 
         /// <summary>An argument whose change does not make <c>$monitor</c> print: <c>$time</c>.</summary>
         public bool Untracked;
+
+        /// <summary>
+        /// An argument that is a string -- an enum's <c>.name()</c> -- rather than a vector: <c>%s</c> writes
+        /// its text exactly, where a vector's leading zero bytes would be spaces.
+        /// </summary>
+        public bool IsString;
     }
 
     /// <summary>A compiled print task.</summary>
@@ -107,7 +113,15 @@ namespace BitSorter.Sim
                 case 'c':
                     return Pad(Character(value), segment);
                 case 's':
-                    return Pad(Characters(value), segment);
+                {
+                    // Every byte is a character, and a leading zero byte a space, as Icarus shows a
+                    // vector wider than its text; %0s drops them, and a width asked for pads the text.
+                    // A string -- an enum's .name() -- is its text exactly.
+                    string text = Characters(value);
+                    if (segment.Width < 0 && !segment.IsString)
+                        return text.PadLeft((value.Width + 7) / 8);
+                    return Pad(text, segment);
+                }
                 case 't':
                     digits = value.AsUnsigned().Format(Radix.Unsigned);
                     width = 20;

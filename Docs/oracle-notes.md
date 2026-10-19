@@ -206,6 +206,7 @@ compared with Icarus's, as well as every signal. They agree. What the probes pin
 | `%h`, `%o`, `%b` with no width | every digit, leading zeros kept; `%0h` drops them |
 | a digit with unknown bits | `x` all x, `z` all z, `X` some x, `Z` some z; `%d` treats the whole number as one digit |
 | `%t` | padded to 20; `%0t` not |
+| `%s` of a vector wider than its text | every byte a character, a leading zero byte a space: 40 bits holding `"RUN"` print as `  RUN`; `%0s` drops them, `%8s` pads the text (found in Part L3, which fixed it) |
 | `%5d`, `%-5d`, `%05d`, `%3h`, `%10s` | padded with spaces, left-aligned, with zeros, and so on |
 | an argument with no format, `$display("a", x)` | written as `%d` at its default width; every string argument is a format for the ones after it |
 | `$strobe` and `$monitor` in one step | both at the end of it, the monitor first; `$monitor` only when a value other than `$time` changed |
