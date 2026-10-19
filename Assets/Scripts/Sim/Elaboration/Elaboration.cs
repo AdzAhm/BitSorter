@@ -29,6 +29,9 @@ namespace BitSorter.Sim
         public const string Misplaced = "SV0321";
         public const string BadFormat = "SV0322";
 
+        /// <summary>A function or task called in a way it cannot be: a task inside an expression, the wrong arguments, a function that waits.</summary>
+        public const string BadCall = "SV0323";
+
         // Lint: warnings about designs that run, but likely not as meant.
         public const string LatchProne = "SV0401";
     }

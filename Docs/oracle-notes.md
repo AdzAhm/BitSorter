@@ -244,3 +244,17 @@ Icarus and in the course's ModelSim, and read x here. `corpus/behavioural/two_st
 to the same values -- a state machine on an `int` enum read before its reset, and x and z written into
 each 2-state type beside a `logic` that keeps them -- and `TwoStateTests` holds the rest. `integer` and
 `time` stay 4-state, as the standard has them.
+
+## Functions and tasks (Part L2, 2026-10-19)
+
+`corpus/behavioural/subroutines.sv` and `corpus/behavioural/function_sensitivity.sv` run in both and
+agree on every signal and line. One rule the second pins down, where it is easy to guess wrong:
+
+| A function reads a signal it is not given, and that signal changes | Icarus, and so BitSorter |
+| --- | --- |
+| called from an `always_comb` | evaluated again (IEEE 1800, 9.2.2.2.1: `always_comb` is sensitive to what the functions it calls read) |
+| called from an `always @*` | not evaluated again: `@*` waits on a call's arguments only |
+| called from a continuous assignment | not evaluated again: a call's operands are its arguments |
+
+BitSorter first evaluated the `assign` again as well, which reads as more helpful and is not what either
+the standard or Icarus does; the corpus design is the reason it no longer does.

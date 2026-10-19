@@ -192,7 +192,11 @@ namespace BitSorter.Sim
                         case "$clog2": case "$bits": return new TypeInfo(32, true);
                         case "$time": case "$realtime": return new TypeInfo(64, false);
                         case "$stime": return new TypeInfo(32, false);
-                        default: return new TypeInfo(1, false);
+                        default:
+                            // A function written in the design: its return type.
+                            return !call.Name.StartsWith("$", StringComparison.Ordinal) && _scope.LookupSubroutine(call.Name) is SubroutineEntry routine && !routine.IsVoid
+                                ? new TypeInfo(routine.Width, routine.Signed)
+                                : new TypeInfo(1, false);
                     }
 
                 case CastExpression cast:
@@ -947,10 +951,117 @@ namespace BitSorter.Sim
                     break;
             }
 
-            Error(call.Location, ElaborationCodes.NotYet, call.Name.StartsWith("$", StringComparison.Ordinal)
-                ? $"{call.Name} is not supported here by BitSorter yet."
-                : $"Calling the function {call.Name} arrives with behavioural code, in Part 5.");
+            if (!call.Name.StartsWith("$", StringComparison.Ordinal))
+            {
+                // Parameters are worked out before a module's functions are declared, so say why here.
+                if (_constant)
+                {
+                    Error(call.Location, ElaborationCodes.NotConstant,
+                        $"{call.Name}(...) calls a function, which BitSorter does not work out before the run yet; a constant here is made of numbers and parameters.");
+                    return Expr.Constant(LogicVec.AllX(1));
+                }
+
+                SubroutineEntry routine = _scope.LookupSubroutine(call.Name);
+                if (routine != null)
+                    return BuildFunctionCall(call, routine);
+
+                Error(call.Location, ElaborationCodes.UnknownName, $"There is no function called {call.Name} here. Is it declared in this module, and spelt the same?");
+                return Expr.Constant(LogicVec.AllX(1));
+            }
+
+            Error(call.Location, ElaborationCodes.NotYet, $"{call.Name} is not supported here by BitSorter yet.");
             return Expr.Constant(LogicVec.AllX(1));
+        }
+
+        /// <summary>
+        /// A function written in the design, called in an expression (Part L2): its arguments, each
+        /// sized as an assignment to its argument is, and a node that runs the function where the
+        /// expression is evaluated.
+        /// </summary>
+        private Expr BuildFunctionCall(CallExpression call, SubroutineEntry routine)
+        {
+            Expr unknown = Expr.Constant(LogicVec.AllX(routine.Width, routine.Signed));
+
+            if (routine.IsTask)
+            {
+                Error(call.Location, ElaborationCodes.BadCall,
+                    $"{call.Name} is a task, which is called as a statement of its own, not inside an expression.");
+                return unknown;
+            }
+
+            if (routine.IsVoid)
+            {
+                Error(call.Location, ElaborationCodes.BadCall,
+                    $"{call.Name} is a void function: it gives no value, so it is called as a statement of its own.");
+                return unknown;
+            }
+
+            if (_constant)
+            {
+                Error(call.Location, ElaborationCodes.NotConstant,
+                    $"{call.Name}(...) calls a function, which BitSorter does not work out before the run yet; a constant here is made of numbers and parameters.");
+                return unknown;
+            }
+
+            FunctionInfo function = routine.Compile(routine);
+            if (function == null)
+            {
+                Failed = true;
+                return unknown;
+            }
+
+            var arguments = new List<Expr>();
+            for (int i = 0; i < routine.Arguments.Count; i++)
+            {
+                (SignalEntry formal, PortDirection direction, Expression fallback) = routine.Arguments[i];
+                Expression given = i < call.Arguments.Count ? call.Arguments[i] : null;
+
+                if (direction != PortDirection.Input)
+                {
+                    Error(call.Location, ElaborationCodes.BadCall,
+                        $"{call.Name} has an {direction.ToString().ToLowerInvariant()} argument, {Short(formal)}, which a call inside an expression cannot take; call it as a statement of its own.");
+                    return unknown;
+                }
+
+                ExpressionBuilder builder = this;
+                if (given == null)
+                {
+                    if (fallback == null)
+                    {
+                        Error(call.Location, ElaborationCodes.BadCall, $"{call.Name} needs a value for {Short(formal)}, its argument {i + 1}.");
+                        return unknown;
+                    }
+
+                    // An argument left out takes its default, worked out where the function is declared.
+                    given = fallback;
+                    builder = new ExpressionBuilder(routine.Scope, _diagnostics, constantOnly: false);
+                }
+
+                Expr built = builder.Build(given, formal.Width);
+                if (builder.Failed)
+                    Failed = true;
+                arguments.Add(built.Width > formal.Width ? Expr.Slice(built, 0, formal.Width) : built);
+            }
+
+            if (call.Arguments.Count > routine.Arguments.Count)
+            {
+                Error(call.Location, ElaborationCodes.BadCall,
+                    $"{call.Name} takes {routine.Arguments.Count} argument{(routine.Arguments.Count == 1 ? "" : "s")}, and this call gives {call.Arguments.Count}.");
+                return unknown;
+            }
+
+            return Expr.Call(function, arguments.ToArray(), routine.Width, routine.Signed);
+        }
+
+        /// <summary>A signal's own name, without its scope's path or a working variable's number: <c>x</c> for <c>alu.double.x#12</c>.</summary>
+        internal static string Short(SignalEntry signal)
+        {
+            string name = signal.FullName;
+            int hash = name.IndexOf('#');
+            if (hash >= 0)
+                name = name.Substring(0, hash);
+            int dot = name.LastIndexOf('.');
+            return dot >= 0 ? name.Substring(dot + 1) : name;
         }
 
         private Expr BuildCast(CastExpression cast)

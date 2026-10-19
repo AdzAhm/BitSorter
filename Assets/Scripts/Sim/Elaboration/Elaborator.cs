@@ -287,7 +287,7 @@ namespace BitSorter.Sim
                             DeclareTypedef(_unit, t);
                             break;
                         case SubroutineDeclaration s:
-                            NotYet(s.Location, $"The {(s.IsTask ? "task" : "function")} {s.Name} arrives with behavioural code, in Part 5.");
+                            DeclareSubroutine(_unit, s);
                             break;
                         case UnsupportedItem _:
                             break;
@@ -877,6 +877,10 @@ namespace BitSorter.Sim
                                 if (!scope.TryDeclare(name, new GenvarEntry { Declared = g.Location }))
                                     Error(g.Location, ElaborationCodes.Duplicate, $"{name} is declared twice here.");
                             break;
+
+                        case SubroutineDeclaration s:
+                            DeclareSubroutine(scope, s);
+                            break;
                     }
                 }
             }
@@ -1151,8 +1155,8 @@ namespace BitSorter.Sim
                             });
                             break;
 
-                        case SubroutineDeclaration s:
-                            NotYet(s.Location, $"The {(s.IsTask ? "task" : "function")} {s.Name} arrives with behavioural code, in Part 5.");
+                        case SubroutineDeclaration _:
+                            // Declared in the first pass; compiled where it is called.
                             break;
                     }
                 }

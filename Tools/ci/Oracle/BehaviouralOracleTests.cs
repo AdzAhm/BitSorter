@@ -30,6 +30,8 @@ namespace BitSorter.Ci.Oracle
         [TestCase("delays/probes.sv", "probes", "probes.vcd", null)]
         [TestCase("behavioural/multiplier.sv", "multiplier_tb", null, null)]
         [TestCase("behavioural/two_state.sv", "two_state_tb", null, null)]
+        [TestCase("behavioural/subroutines.sv", "subroutines_tb", null, null)]
+        [TestCase("behavioural/function_sensitivity.sv", "function_sensitivity", null, null)]
         [TestCase("system/printing.sv", "printing", null, null)]
         [TestCase("system/memories.sv", "memories_tb", null, "system/memories.hex,system/memories.bin")]
         [TestCase("processor/mcpu.sv", "mcpu_tb", null, "processor/mcpu_program.hex,processor/mcpu_data.hex,processor/mcpu_expected.hex")]

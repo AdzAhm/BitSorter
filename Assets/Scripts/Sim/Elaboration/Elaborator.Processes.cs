@@ -85,6 +85,9 @@ namespace BitSorter.Sim
                 public readonly HashSet<int> Locals = new HashSet<int>();
                 public readonly List<Loop> Loops = new List<Loop>();
 
+                /// <summary>The functions and tasks whose statements are being written in, innermost last: where a return goes.</summary>
+                public readonly List<Frame> Frames = new List<Frame>();
+
                 /// <summary>Whether anything in it waits: a delay, an event control, a <c>wait</c>.</summary>
                 public bool Waits;
                 public bool Failed;
@@ -184,7 +187,59 @@ namespace BitSorter.Sim
             private WaitSpec Sensitivity(Proc p, int from, int to, bool excludeWritten)
             {
                 var reads = new SortedSet<int>();
+                CollectReads(p, from, to, reads);
 
+                // always_comb also waits on what the functions it calls read; @* only on their arguments
+                // (IEEE 1800, 9.2.2.2.1).
+                if (excludeWritten)
+                    CollectFunctionReads(p, from, to, reads);
+
+                reads.ExceptWith(p.Locals);
+                if (excludeWritten)
+                    reads.ExceptWith(p.Writes);
+
+                var items = new List<EventItem>();
+                foreach (int s in reads)
+                    items.Add(new EventItem(EdgeKind.Any, _builder.Read(new SignalId(s))));
+
+                return new WaitSpec(items.ToArray());
+            }
+
+            /// <summary>What the functions the instructions call read in their statements: their <see cref="FunctionInfo.BodyReads"/>.</summary>
+            private static void CollectFunctionReads(Proc p, int from, int to, ISet<int> reads)
+            {
+                var calls = new HashSet<FunctionInfo>();
+                for (int i = from; i < to; i++)
+                {
+                    Instruction ins = p.Code[i];
+                    if (ins.Op == OpCode.WaitEvent || ins.Op == OpCode.WaitUntil)
+                        continue;
+
+                    ins.Value?.CollectCalls(calls);
+                    ins.Other?.CollectCalls(calls);
+                    if (ins.Target != null)
+                    {
+                        foreach (LPiece piece in ins.Target)
+                        {
+                            piece.Offset?.CollectCalls(calls);
+                            piece.Word?.CollectCalls(calls);
+                        }
+                    }
+
+                    if (ins.Print != null)
+                        foreach (PrintSegment segment in ins.Print.Segments)
+                            segment.Argument?.CollectCalls(calls);
+                }
+
+                foreach (FunctionInfo call in calls)
+                    if (call.BodyReads != null)
+                        foreach (int s in call.BodyReads)
+                            reads.Add(s);
+            }
+
+            /// <summary>Every signal the instructions from <paramref name="from"/> to <paramref name="to"/> read, wait and event expressions left out.</summary>
+            private static void CollectReads(Proc p, int from, int to, ISet<int> reads)
+            {
                 for (int i = from; i < to; i++)
                 {
                     Instruction ins = p.Code[i];
@@ -212,16 +267,6 @@ namespace BitSorter.Sim
                         foreach (PrintSegment segment in ins.Print.Segments)
                             segment.Argument?.CollectReads(reads);
                 }
-
-                reads.ExceptWith(p.Locals);
-                if (excludeWritten)
-                    reads.ExceptWith(p.Writes);
-
-                var items = new List<EventItem>();
-                foreach (int s in reads)
-                    items.Add(new EventItem(EdgeKind.Any, _builder.Read(new SignalId(s))));
-
-                return new WaitSpec(items.ToArray());
             }
 
             // -----------------------------------------------------------------
@@ -312,8 +357,7 @@ namespace BitSorter.Sim
                         return;
 
                     case ReturnStatement r:
-                        NotYet(r.Location, "return belongs to functions and tasks, which BitSorter does not support.");
-                        p.Failed = true;
+                        Return(p, scope, r);
                         return;
 
                     case UnsupportedStatement _:
@@ -463,17 +507,7 @@ namespace BitSorter.Sim
                     return;
                 }
 
-                var target = new LPiece[parts.Count];
-                for (int i = 0; i < parts.Count; i++)
-                {
-                    ExpressionBuilder.ProcPart part = parts[i];
-                    int depth = part.Word != null ? part.Memory.Depth : 0;
-                    target[i] = new LPiece(part.Signal.Signal.Index, part.Lowest, part.Width, part.Offset, part.Word, depth);
-
-                    // A word picked as the process runs may be any of them.
-                    for (int w = 0; w < Math.Max(1, depth); w++)
-                        p.Writes.Add(part.Signal.Signal.Index + w);
-                }
+                LPiece[] target = Pieces(p, parts);
 
                 switch (a.IntraAssignment)
                 {
@@ -512,6 +546,24 @@ namespace BitSorter.Sim
                         p.Failed = true;
                         return;
                 }
+            }
+
+            /// <summary>What an assignment writes, piece by piece, each signal it may write counted as the process's.</summary>
+            private static LPiece[] Pieces(Proc p, List<ExpressionBuilder.ProcPart> parts)
+            {
+                var target = new LPiece[parts.Count];
+                for (int i = 0; i < parts.Count; i++)
+                {
+                    ExpressionBuilder.ProcPart part = parts[i];
+                    int depth = part.Word != null ? part.Memory.Depth : 0;
+                    target[i] = new LPiece(part.Signal.Signal.Index, part.Lowest, part.Width, part.Offset, part.Word, depth);
+
+                    // A word picked as the process runs may be any of them.
+                    for (int w = 0; w < Math.Max(1, depth); w++)
+                        p.Writes.Add(part.Signal.Signal.Index + w);
+                }
+
+                return target;
             }
 
             /// <summary>An expression at a target's width: widened as its own sizing says, or cut to the low bits.</summary>
@@ -868,9 +920,22 @@ namespace BitSorter.Sim
                     return;
                 }
 
-                NotYet(call.Location, call.IsSystem
-                    ? $"{call.Name} is not supported by BitSorter yet."
-                    : $"Calling the task {call.Name} is not supported by BitSorter.");
+                if (!call.IsSystem)
+                {
+                    SubroutineEntry routine = scope.LookupSubroutine(call.Name);
+                    if (routine != null)
+                    {
+                        Inline(p, scope, call, routine);
+                        return;
+                    }
+
+                    Error(call.Location, ElaborationCodes.UnknownName,
+                        $"There is no task or function called {call.Name} here. Is it declared in this module, and spelt the same?");
+                    p.Failed = true;
+                    return;
+                }
+
+                NotYet(call.Location, $"{call.Name} is not supported by BitSorter yet.");
                 p.Failed = true;
             }
 

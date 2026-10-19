@@ -584,7 +584,8 @@ patterns, and no tri-state, `function`, `task`, `$display`, `` `timescale ``, `d
 | B — behavioural | `always_ff @(posedge clk, posedge rst)`; `always_comb`; `initial`; plain `always`; `begin`/`end`; `if`/`else`; `case` with `default`; `for`, `repeat`, `forever`; `=` and `<=`; `#delay`; `@(posedge` and `negedge)`; `typedef enum`; `?:`; arithmetic, shifts, comparisons, bitwise and reduction operators | 5 |
 | C — the processor | memories; `$readmemh` and `$writememh`; `casex`; `signed` and `>>>`; `$info`, `$error`, `$stop`, `$finish` with `%X %d %b %h`; hierarchical references; timeouts | 6 |
 | Syllabus extras | tri-state (`bufif`, `notif`, `tri`), `integer`, `$time`, `` `timescale `` read as a display hint, `**` | 14 and later; a `bufif` or `notif` alone on its net is drawn, printed and imported from 8 |
-| Not supported | `function`, `task`, interfaces, structs, classes, `fork`, `defparam`, DPI — each refused with file, line and a plain message |
+| Functions and tasks | `function` and `task`, static and automatic, ANSI and old-style arguments, defaults, `return`, `void` functions, recursion inside an expression | L2 |
+| Not supported | interfaces, structs, classes, `fork`, `defparam`, DPI — each refused with file, line and a plain message, until the language part that brings it (section 11) |
 
 **Written in the course's style:** an ANSI header with inputs first and outputs last, one commented
 port per line; `logic` everywhere, except a net with more than one driver, which must be a `wire` to
@@ -673,20 +674,20 @@ lives in the engine's layer, which already sees the syntax tree, so the layers s
   from its bits of the value. `buf` and `not` may have several outputs; a gate's input wider than a bit
   uses its lowest, with a warning. An undeclared name where a net may be implied -- a port connection,
   the left of an assign, a gate terminal -- is a one-bit wire, with a warning.
-- **Refused, with the part it arrives in** (`SV0306`): functions and tasks (not supported, section 7's
-  table), `inout` (14), packed arrays of more than one dimension, arrays of more than one unpacked
+- **Refused, with the part it arrives in** (`SV0306`): `inout` (14), packed arrays of more than one dimension, arrays of more than one unpacked
   dimension, arrays of wires, net types other than `wire`, `tri`, `uwire` and the two supplies. Simulating
   a design without them would be simulating something else, so they are errors, never warnings. Processes
   and declared starting values, refused in Part 4b, run from Part 5a; memories and hierarchical names from
   Part 6a (section 5).
-- **Diagnostics** `SV0301` to `SV0322`, each at the item's file, line and column: no top, unknown module
+- **Diagnostics** `SV0301` to `SV0323`, each at the item's file, line and column: no top, unknown module
   or name, not a constant, a width mismatch at a port (a warning), a bad port, parameter, select, delay or
   left side, two drivers on a variable's bit (with the way out: a wire), recursion, an implicit net and an
   unconnected input (warnings), a duplicate, an unsized number in `{ }`, and a design too large. A read
   that failed is not elaborated, so the read's own errors stand alone. Part 5a adds three: a task
   skipped (a warning, once a task -- since Part 6a only `$timeformat`, `$printtimescale` and a `final`
   block), a process that would never wait, and a `break` or `continue` outside a loop; Part 6a one
-  more, a format with too few values (a warning).
+  more, a format with too few values (a warning); L2 one more, a function or task called in a way it
+  cannot be (`SV0323`).
 - **Checked.** 44 tests (`Tools/ci/Sim.Tests/ElaboratorTests`): the sizing rules each by a design that
   shows the difference, parameters by name and position, body parameters, enums, `$clog2` and `**`,
   generate naming, every way of connecting a port, non-ANSI ports, every error code, and the hand-worked
@@ -1269,7 +1270,7 @@ course first, then general SystemVerilog, before Part 10 -- and much of the rest
 | Part | What it delivers |
 | --- | --- |
 | L1 | The course's gaps: 2-state types (`int`, `bit`, an enum on no base) start at 0 and hold no x; `X ~& Y` and `X ~\| Y` read with a warning; a top input nothing drives reads z; time counted in ps by default, as the course's ModelSim counts it |
-| L2 | Functions and tasks |
+| L2 | Functions and tasks -- **built**, see "As built, L2" below |
 | L3 | Expressions: `inside` and `case inside`, casts, enum methods, `$countones` and its kin, `$random` |
 | L4 | Data types: packed structs and unions, packed and unpacked arrays of more than one dimension, `foreach` |
 | L5 | Testbench control: `fork`/`join`, named events and `wait`, `disable`, `force`/`release`, immediate assertions |
@@ -1280,6 +1281,34 @@ course first, then general SystemVerilog, before Part 10 -- and much of the rest
 Classes, constraints and random stimulus, concurrent assertions, coverage and DPI wait until after
 5.0.0. What L2 to L8 add runs in the engine and is written in code; it does not become a part on the
 canvas, and Part 12's written blocks are where it is edited.
+
+**As built, L2: functions and tasks** (`Function.cs`, `Elaborator.Subroutines.cs`). Two ways in, because
+two kinds of call need them:
+
+- **A function called inside an expression** -- an `assign`, a condition, an `always_comb` -- is compiled
+  once into a `FunctionInfo` and run by a node of the expression (`Expr.Call`) where it is evaluated, all at
+  once, as the standard has a function (IEEE 1800, 13.4). It may compute, branch, loop and call functions,
+  and call itself when it is automatic; it may write only its own signals, and it may not wait, make a
+  nonblocking write or print -- each refused with why (`SV0323`).
+- **A task, or a function called as a statement**, has its statements written into the calling process
+  where the call stands, between its arguments copied in and its outputs copied back (13.3). So a task's
+  time is its caller's: it may wait, print and write the design's signals, and a `void` function may print.
+  A task that calls itself is refused (`SV0309`): written in place it would never end.
+- **Its own signals are the design's own working variables**, made once, the first time a call needs them,
+  and shared by every call: static storage, the standard's default, with an automatic function or task
+  starting each call from its locals' starting values. A function called again while it is running --
+  recursion -- keeps the running call's signals aside and puts them back after, so each call has its own;
+  only such a call copies anything.
+- **What a call waits on is its arguments.** A continuous assignment and `@*` are evaluated again when an
+  argument changes, never when something the function's statements read does; an `always_comb` waits on
+  those as well (9.2.2.2.1), transitively through the functions it calls. Icarus agrees on all three
+  (`corpus/behavioural/function_sensitivity.sv`), and `corpus/behavioural/subroutines.sv` -- a function in
+  an `assign` and an `always_comb`, one with a loop and locals, the old style of argument, a default, a
+  recursive one, a static one that keeps a local, a task that waits and gives values back, a `void` one
+  that prints -- agrees with Icarus on every signal and every line.
+- **Not yet:** a function in a constant expression (a parameter's value), arrays inside a function or a
+  task, output arguments of a function called inside an expression, a task called through the hierarchy
+  (`dut.task()`), and `disable` of a task (L5).
 
 **Agreed after the plan, 2026-10-14: five optimizations**, each to be written into this document by
 the part that builds it, as every part rewrites what it makes stale.

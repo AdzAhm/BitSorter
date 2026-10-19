@@ -28,6 +28,51 @@ namespace BitSorter.Sim
         public PortDirection? Port;
     }
 
+    /// <summary>
+    /// A function or a task (Part L2), declared where it was written. Its own signals -- arguments, result
+    /// and locals -- are made once, the first time a call needs them (<see cref="Frame"/>), and every
+    /// call uses the same ones: static storage, as the standard's default is, with an automatic one
+    /// starting each call afresh.
+    /// </summary>
+    internal sealed class SubroutineEntry : Entry
+    {
+        public SubroutineDeclaration Declaration;
+
+        /// <summary>Where it was declared: its body's names are looked up from here.</summary>
+        public Scope Scope;
+
+        /// <summary>A function's result, as its return type gives it; width 1 for a task or a void function.</summary>
+        public int Width = 1;
+        public bool Signed;
+
+        public bool IsTask => Declaration.IsTask;
+        public bool IsVoid => Declaration.IsTask || Declaration.IsVoid;
+
+        /// <summary>Its own signals' scope, once made: the arguments, the result (named as the function) and the locals.</summary>
+        public Scope Frame;
+
+        /// <summary>The arguments, in order, with their directions and defaults.</summary>
+        public List<(SignalEntry Signal, PortDirection Direction, Expression Default)> Arguments;
+
+        /// <summary>The result's signal; null for a task or a void function.</summary>
+        public SignalEntry Result;
+
+        /// <summary>Every signal of its own, the arguments and the result among them.</summary>
+        public List<SignalEntry> Own;
+
+        /// <summary>Compiled to run inside an expression, once a call there has asked for it.</summary>
+        public FunctionInfo Compiled;
+
+        /// <summary>Whether it is being compiled now: a call met then is a call back into itself.</summary>
+        public bool Compiling;
+
+        /// <summary>Whether its signals or its statements could not be made, which has been said once already.</summary>
+        public bool Failed;
+
+        /// <summary>Compiles it for an expression's call, the elaborator's own work: null if it cannot be.</summary>
+        public Func<SubroutineEntry, FunctionInfo> Compile;
+    }
+
     /// <summary>A parameter, a localparam or an enum's name: a value known before the run.</summary>
     internal sealed class ConstantEntry : Entry
     {
@@ -158,6 +203,18 @@ namespace BitSorter.Sim
             for (Scope s = this; s != null; s = s.Parent)
                 if (s._names.TryGetValue(name, out Entry entry))
                     return entry;
+            return null;
+        }
+
+        /// <summary>
+        /// The function or task a call names, past anything else of that name in between: inside a
+        /// function its own name is its result, and a call of it is still a call.
+        /// </summary>
+        public SubroutineEntry LookupSubroutine(string name)
+        {
+            for (Scope s = this; s != null; s = s.Parent)
+                if (s._names.TryGetValue(name, out Entry entry) && entry is SubroutineEntry subroutine)
+                    return subroutine;
             return null;
         }
 
