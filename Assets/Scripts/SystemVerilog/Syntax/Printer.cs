@@ -579,6 +579,34 @@ namespace BitSorter.SystemVerilog.Syntax
                     StatementAfter(lead + "repeat (" + ExpressionText(r.Count) + ")", r.Body);
                     return;
 
+                case ForkStatement f:
+                {
+                    Line(lead + "fork" + (f.Label != null ? " : " + f.Label : ""), f.Comment);
+                    _level++;
+                    foreach (ModuleItem d in f.Declarations) Item(d);
+                    foreach (Statement s in f.Branches) Statement(s);
+                    _level--;
+                    Line(f.Join + (f.Label != null ? " : " + f.Label : ""));
+                    return;
+                }
+
+                case AssertionStatement a:
+                {
+                    string check = lead + (a.Label != null ? a.Label + ": " : "") + a.Keyword + " (" + ExpressionText(a.Condition) + ")";
+                    if (a.Pass == null && a.Fail == null)
+                        Line(check + ";", a.Comment);
+                    else if (a.Pass == null)
+                        StatementAfter(check + " else", a.Fail);
+                    else
+                    {
+                        StatementAfter(check, a.Pass);
+                        if (a.Fail != null)
+                            StatementAfter("else", a.Fail);
+                    }
+
+                    return;
+                }
+
                 case ForeachStatement f:
                     StatementAfter(lead + "foreach (" + ExpressionText(f.Array) + "[" + string.Join(", ", f.Variables.ConvertAll(v => v ?? "")) + "])", f.Body);
                     return;
@@ -673,6 +701,15 @@ namespace BitSorter.SystemVerilog.Syntax
 
                 case JumpStatement j:
                     return j.Target != null ? j.Keyword + " " + j.Target : j.Keyword;
+
+                case WaitForkStatement _:
+                    return "wait fork";
+
+                case EventTriggerStatement e:
+                    return (e.Nonblocking ? "->> " : "-> ") + ExpressionText(e.Target);
+
+                case ForceStatement f:
+                    return f.Keyword + " " + ExpressionText(f.Target) + (f.Value != null ? " = " + ExpressionText(f.Value) : "");
 
                 default:
                     return string.Empty;

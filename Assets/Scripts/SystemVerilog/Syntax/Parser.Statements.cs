@@ -103,6 +103,12 @@ namespace BitSorter.SystemVerilog.Syntax
                         Next();
                         return new ForeverStatement { Location = t.Location, Body = ParseStatement() };
 
+                    case "wait" when Peek(1).IsKeyword("fork"):
+                        Next();
+                        Next();
+                        Expect(";", "after wait fork");
+                        return new WaitForkStatement { Location = t.Location, Comment = Previous.TrailingComment };
+
                     case "wait":
                     {
                         var wait = new WaitStatement { Location = t.Location };
@@ -143,7 +149,7 @@ namespace BitSorter.SystemVerilog.Syntax
                     }
 
                     case "fork":
-                        return SkipUnsupportedStatement("fork and join are not supported by BitSorter", "join");
+                        return ParseFork(null);
 
                     case "foreach":
                         return ParseForeach();
@@ -151,12 +157,23 @@ namespace BitSorter.SystemVerilog.Syntax
                     case "assert":
                     case "assume":
                     case "cover":
-                        return SkipUnsupportedStatement("Assertions are not supported by BitSorter", null);
+                        return ParseAssertion(null);
 
                     case "force":
                     case "release":
+                    {
+                        Next();
+                        var force = new ForceStatement { Location = t.Location, Keyword = t.Text, Target = ParseLValue() };
+                        if (t.Text == "force" && Expect("=", "after what force overrides"))
+                            force.Value = ParseExpression();
+                        if (!Expect(";", $"after {t.Text}"))
+                            SkipStatementEnd();
+                        force.Comment = Previous.TrailingComment;
+                        return force;
+                    }
+
                     case "deassign":
-                        return SkipUnsupportedStatement($"'{t.Text}' is not supported by BitSorter", null);
+                        return SkipUnsupportedStatement($"'{t.Text}' is not supported by BitSorter; use force and release", null);
 
                     case "void":
                         return SkipUnsupportedStatement("void'(...) is not supported by BitSorter; call the function as a statement", null);
@@ -184,7 +201,42 @@ namespace BitSorter.SystemVerilog.Syntax
             }
 
             if (t.Is("->") || t.Is("->>"))
-                return SkipUnsupportedStatement("Named events are not supported by BitSorter", null);
+            {
+                Next();
+                var trigger = new EventTriggerStatement { Location = t.Location, Nonblocking = t.Text == "->>", Target = ParseLValue() };
+                if (!Expect(";", $"after {t.Text} and its event"))
+                    SkipStatementEnd();
+                trigger.Comment = Previous.TrailingComment;
+                return trigger;
+            }
+
+            // A label before a statement: check: assert (...), name: begin ... end, name: fork ... join.
+            if (t.Kind == TokenKind.Identifier && Peek(1).Is(":") && Peek(2).Kind == TokenKind.Keyword)
+            {
+                switch (Peek(2).Text)
+                {
+                    case "assert":
+                    case "assume":
+                    case "cover":
+                        Next();
+                        Next();
+                        return ParseAssertion(t.Text);
+
+                    case "begin":
+                    {
+                        Next();
+                        Next();
+                        BlockStatement block = ParseBlock();
+                        block.Label = block.Label ?? t.Text;
+                        return block;
+                    }
+
+                    case "fork":
+                        Next();
+                        Next();
+                        return ParseFork(t.Text);
+                }
+            }
 
             if (t.Is("++") || t.Is("--"))
             {
@@ -205,6 +257,81 @@ namespace BitSorter.SystemVerilog.Syntax
             if (!AtHardStop && !Current.IsKeyword("end"))
                 Next();
             return new NullStatement { Location = t.Location };
+        }
+
+        /// <summary><c>fork [: name] declarations statements join | join_any | join_none [: name]</c>: each statement a branch.</summary>
+        private ForkStatement ParseFork(string label)
+        {
+            var fork = new ForkStatement { Location = Next().Location, Label = label };
+            if (Accept(":"))
+                fork.Label = ExpectIdentifier("the fork's name");
+
+            while (!AtEnd && !AtHardStop && !Current.IsKeyword("join") && !Current.IsKeyword("join_any") &&
+                   !Current.IsKeyword("join_none") && !Current.IsKeyword("end"))
+            {
+                int start = _at;
+
+                if (IsDeclarationStart())
+                    ParseLocalDeclaration(fork.Declarations);
+                else
+                    fork.Branches.Add(ParseStatement());
+
+                if (_at == start && !AtEnd)
+                    Next();
+            }
+
+            if (Current.IsKeyword("join") || Current.IsKeyword("join_any") || Current.IsKeyword("join_none"))
+            {
+                fork.Join = Next().Text;
+                if (Accept(":"))
+                {
+                    string closing = ExpectIdentifier($"the fork's name after {fork.Join}");
+                    if (closing != null && closing != fork.Label)
+                        _diagnostics.Warning(Previous.Location, DiagnosticCodes.MismatchedLabel, $"'{fork.Join} : {closing}' closes fork {fork.Label ?? "(unnamed)"}.");
+                }
+            }
+            else
+            {
+                Error(Current.Location, DiagnosticCodes.Expected, $"Expected join, join_any or join_none to close the fork, but found {Describe(Current)}.");
+            }
+
+            return fork;
+        }
+
+        /// <summary>
+        /// <c>assert (c) pass; else fail;</c>, <c>assume</c> and <c>cover</c>, immediate. A concurrent one --
+        /// <c>assert property</c> -- and a deferred one -- <c>assert #0</c>, <c>assert final</c> -- are refused.
+        /// </summary>
+        private Statement ParseAssertion(string label)
+        {
+            Token keyword = Current;
+            Token after = Peek(1);
+            if (after.IsKeyword("property") || after.IsKeyword("sequence"))
+                return SkipUnsupportedStatement($"Concurrent assertions ({keyword.Text} property) are not supported by BitSorter; an immediate one, {keyword.Text} (...), is", null);
+            if (after.Is("#") || after.IsKeyword("final"))
+                return SkipUnsupportedStatement($"Deferred assertions ({keyword.Text} #0, {keyword.Text} final) are not supported by BitSorter yet; an immediate one, {keyword.Text} (...), is", null);
+
+            Next();
+            var assertion = new AssertionStatement { Location = keyword.Location, Keyword = keyword.Text, Label = label };
+
+            if (Expect("(", $"after '{keyword.Text}'"))
+            {
+                assertion.Condition = ParseExpression();
+                Expect(")", $"to close what {keyword.Text} checks");
+            }
+            else
+            {
+                assertion.Condition = new ErrorExpression { Location = Current.Location };
+            }
+
+            // The pass action may be a lone ; and the else still follow it (IEEE 1800, 16.3).
+            if (!Accept(";") && !Current.IsKeyword("else"))
+                assertion.Pass = ParseStatement();
+
+            if (keyword.Text != "cover" && AcceptKeyword("else"))
+                assertion.Fail = ParseStatement();
+
+            return assertion;
         }
 
         private UnsupportedStatement SkipUnsupportedStatement(string message, string end)

@@ -597,6 +597,59 @@ namespace BitSorter.SystemVerilog.Syntax
         public string Target { get; set; }
     }
 
+    /// <summary>
+    /// <c>fork ... join</c> (Part L5): each statement in it a process of its own, all started together.
+    /// <c>join</c> waits for every one of them, <c>join_any</c> for the first to end, <c>join_none</c> for none.
+    /// </summary>
+    public sealed class ForkStatement : Statement
+    {
+        public string Label { get; set; }
+        public List<ModuleItem> Declarations { get; } = new List<ModuleItem>();
+        public List<Statement> Branches { get; } = new List<Statement>();
+
+        /// <summary><c>join</c>, <c>join_any</c> or <c>join_none</c>.</summary>
+        public string Join { get; set; } = "join";
+    }
+
+    /// <summary><c>wait fork;</c>: until every process this one has forked has ended.</summary>
+    public sealed class WaitForkStatement : Statement { }
+
+    /// <summary><c>-&gt; e;</c> triggers a named event; <c>-&gt;&gt; e;</c> triggers it in the time step's NBA region.</summary>
+    public sealed class EventTriggerStatement : Statement
+    {
+        public Expression Target { get; set; }
+        public bool Nonblocking { get; set; }
+    }
+
+    /// <summary>
+    /// An immediate assertion (Part L5): <c>assert (c) pass; else fail;</c>, <c>assume</c> the same, and
+    /// <c>cover (c) pass;</c>, any of them with a label before it.
+    /// </summary>
+    public sealed class AssertionStatement : Statement
+    {
+        /// <summary><c>assert</c>, <c>assume</c> or <c>cover</c>.</summary>
+        public string Keyword { get; set; }
+        public string Label { get; set; }
+        public Expression Condition { get; set; }
+
+        /// <summary>What runs when it holds, and when it does not; null for none.</summary>
+        public Statement Pass { get; set; }
+
+        /// <inheritdoc cref="Pass"/>
+        public Statement Fail { get; set; }
+    }
+
+    /// <summary><c>force y = a &amp; b;</c> and <c>release y;</c>: a value laid over a signal's own until it is released.</summary>
+    public sealed class ForceStatement : Statement
+    {
+        /// <summary><c>force</c> or <c>release</c>.</summary>
+        public string Keyword { get; set; }
+        public Expression Target { get; set; }
+
+        /// <summary>The value forced; null for <c>release</c>.</summary>
+        public Expression Value { get; set; }
+    }
+
     /// <summary>A lone <c>;</c>, or nothing after a timing control.</summary>
     public sealed class NullStatement : Statement { }
 

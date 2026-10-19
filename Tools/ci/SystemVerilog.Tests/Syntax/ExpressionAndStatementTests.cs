@@ -152,6 +152,57 @@ namespace BitSorter.SystemVerilog.Tests.Syntax
         }
 
         [Test]
+        public void AFork_TakesEachStatementAsABranch_ItsDeclarations_AndItsJoin_AndPrintsAsWritten()
+        {
+            var fork = (ForkStatement)Statements("fork : race\n  int n;\n  #1 a = 1;\n  begin #2 b = 1; end\njoin_any : race").Single();
+            Assert.AreEqual("race", fork.Label);
+            Assert.AreEqual("join_any", fork.Join);
+            Assert.AreEqual(1, fork.Declarations.Count);
+            Assert.AreEqual(2, fork.Branches.Count);
+            Assert.IsInstanceOf<BlockStatement>(fork.Branches[1]);
+
+            string printed = Printer.Print(OnlyModule("module m;\n  initial fork\n    #1 a = 1;\n    b = 2;\n  join_none\nendmodule\n"));
+            StringAssert.Contains("fork", printed);
+            StringAssert.Contains("join_none", printed);
+
+            Assert.IsInstanceOf<WaitForkStatement>(Statements("wait fork;").Single());
+            var disable = (JumpStatement)Statements("disable fork;").Single();
+            Assert.AreEqual("fork", disable.Target);
+        }
+
+        [Test]
+        public void EventsForcesAndAssertions_AreReadAndPrintedAsWritten()
+        {
+            var trigger = (EventTriggerStatement)Statements("->> done;").Single();
+            Assert.IsTrue(trigger.Nonblocking);
+            Assert.AreEqual("done", Printer.Print(trigger.Target));
+
+            var force = (ForceStatement)Statements("force dut.y[1] = a & b;").Single();
+            Assert.AreEqual("force", force.Keyword);
+            Assert.AreEqual("dut.y[1]", Printer.Print(force.Target));
+            Assert.AreEqual("a & b", Printer.Print(force.Value));
+            Assert.IsNull(((ForceStatement)Statements("release y;").Single()).Value);
+
+            var check = (AssertionStatement)Statements("ready: assert (a == b) $display(\"ok\"); else $error(\"bad\");").Single();
+            Assert.AreEqual("ready", check.Label);
+            Assert.AreEqual("assert", check.Keyword);
+            Assert.IsInstanceOf<CallStatement>(check.Pass);
+            Assert.IsInstanceOf<CallStatement>(check.Fail);
+
+            var bare = (AssertionStatement)Statements("assert (v); else $error(\"v\");").Single();
+            Assert.IsNull(bare.Pass, "a lone ; is the pass action, and the else still belongs to it");
+            Assert.IsNotNull(bare.Fail);
+
+            string printed = Printer.Print(Clean(Printer.Print(OnlyModule(
+                "module m;\n  initial begin\n    -> go;\n    force y = 1;\n    release y;\n    ready: assert (a) $display(\"ok\");\n    else $error(\"bad\");\n    cover (b);\n  end\nendmodule\n"))));
+            StringAssert.Contains("-> go;", printed);
+            StringAssert.Contains("force y = 1;", printed);
+            StringAssert.Contains("release y;", printed);
+            StringAssert.Contains("ready: assert (a)", printed);
+            StringAssert.Contains("cover (b);", printed);
+        }
+
+        [Test]
         public void ABinaryNandOrNor_IsReadWithAWarning_BindsAsAndOrOr_AndPrintsAsWritten()
         {
             // The course's first workshop writes X ~& Y; the standard has ~& and ~| only as reductions.
