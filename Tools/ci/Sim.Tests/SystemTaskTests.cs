@@ -47,6 +47,29 @@ namespace BitSorter.Sim.Tests
             sim.Value(sim.Design.Find(sim.Design.Name + "." + name)).Format(Radix.Binary);
 
         // -----------------------------------------------------------------
+        // Characters
+        // -----------------------------------------------------------------
+
+        [Test]
+        public void PercentS_OfAVectorWiderThanItsText_ShowsTheLeadingZeroBytesAsSpaces_AsIcarusDoes()
+        {
+            // Probed in Icarus, 2026-10-19: a 40-bit vector holding "RUN" prints as "  RUN" with %s, as
+            // "RUN" with %0s, and padded to the width asked for with %8s.
+            Simulator sim = Run(Clean(@"
+module t;
+    logic [39:0] v;
+    initial begin
+        v = ""RUN"";
+        $display(""[%s] [%0s] [%8s]"", v, v, v);
+        v = 40'h0;
+        $display(""[%s] [%0s]"", v, v);
+    end
+endmodule"));
+
+            CollectionAssert.AreEqual(new[] { "[  RUN] [RUN] [     RUN]", "[     ] []" }, Printed(sim));
+        }
+
+        // -----------------------------------------------------------------
         // Memories
         // -----------------------------------------------------------------
 
