@@ -51,6 +51,54 @@ namespace BitSorter.SystemVerilog.Tests.Syntax
         }
 
         [Test]
+        public void Inside_TakesValuesAndRanges_BindsAsAComparison_AndPrintsAsWritten()
+        {
+            var inside = (InsideExpression)Expr("v inside {1, 3, [6:9]}");
+            Assert.AreEqual("v", Printer.Print(inside.Value));
+            Assert.AreEqual(3, inside.Set.Count);
+            var range = (ValueRange)inside.Set[2];
+            Assert.AreEqual("6", Printer.Print(range.Low));
+            Assert.AreEqual("9", Printer.Print(range.High));
+
+            var both = (BinaryExpression)Expr("a && v inside {2} == 1'b1");
+            Assert.AreEqual("&&", both.Operator, "inside binds tighter than && ...");
+            var equality = (BinaryExpression)both.Right;
+            Assert.AreEqual("==", equality.Operator, "... and tighter than ==");
+            Assert.IsInstanceOf<InsideExpression>(equality.Left);
+
+            Assert.AreEqual("v inside {1, 3, [6:9]}", Printer.Print(inside));
+        }
+
+        [Test]
+        public void AMethod_IsCalledOnANameOrOnWhatCameBefore()
+        {
+            var name = (MethodCallExpression)Expr("dut.state.name()");
+            Assert.AreEqual("name", name.Method);
+            Assert.AreEqual(new[] { "dut", "state" }, ((NameExpression)name.Target).Path.ToArray());
+
+            var chained = (MethodCallExpression)Expr("s.next(2).name()");
+            Assert.AreEqual("name", chained.Method);
+            var next = (MethodCallExpression)chained.Target;
+            Assert.AreEqual("next", next.Method);
+            Assert.AreEqual("2", Printer.Print(next.Arguments.Single()));
+
+            Assert.AreEqual("s.next(2).name()", Printer.Print(chained));
+        }
+
+        [Test]
+        public void ACaseInside_TakesRangesAsLabels_AndPrintsAsWritten()
+        {
+            var c = (CaseStatement)Statements("case (v) inside\n  [0:3]: y = 0;\n  5, [7:9]: y = 1;\n  default: y = 2;\nendcase").Single();
+            Assert.IsTrue(c.Inside);
+            Assert.IsInstanceOf<ValueRange>(c.Items[0].Labels.Single());
+            Assert.AreEqual(2, c.Items[1].Labels.Count);
+
+            string printed = Printer.Print(OnlyModule("module m;\n  initial case (v) inside\n    [0:3]: y = 0;\n    default: y = 2;\n  endcase\nendmodule\n"));
+            StringAssert.Contains("case (v) inside", printed);
+            StringAssert.Contains("[0:3]: y = 0;", printed);
+        }
+
+        [Test]
         public void ABinaryNandOrNor_IsReadWithAWarning_BindsAsAndOrOr_AndPrintsAsWritten()
         {
             // The course's first workshop writes X ~& Y; the standard has ~& and ~| only as reductions.

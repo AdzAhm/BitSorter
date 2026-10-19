@@ -467,6 +467,12 @@ namespace BitSorter.SystemVerilog.Syntax
         /// <summary><c>case</c>, <c>casez</c> or <c>casex</c>.</summary>
         public string Keyword { get; set; }
 
+        /// <summary>
+        /// <c>case (x) inside</c>: each label is a member of an <c>inside</c> set -- a value, matched as
+        /// <c>==?</c> matches, or a range <c>[low:high]</c> (IEEE 1800, 12.5.4).
+        /// </summary>
+        public bool Inside { get; set; }
+
         public Expression Subject { get; set; }
         public List<CaseItem> Items { get; } = new List<CaseItem>();
     }
@@ -660,6 +666,31 @@ namespace BitSorter.SystemVerilog.Syntax
         public string Name { get; set; }
         public bool HasParentheses { get; set; }
         public List<Expression> Arguments { get; } = new List<Expression>();
+    }
+
+    /// <summary><c>s.name()</c>, <c>s.next(2)</c>: a method of a value -- an enum's, in BitSorter (Part L3).</summary>
+    public sealed class MethodCallExpression : Expression
+    {
+        public Expression Target { get; set; }
+        public string Method { get; set; }
+        public bool HasParentheses { get; set; }
+        public List<Expression> Arguments { get; } = new List<Expression>();
+    }
+
+    /// <summary><c>v inside {1, 3, [6:9]}</c>: whether a value is one of a set (IEEE 1800, 11.4.13).</summary>
+    public sealed class InsideExpression : Expression
+    {
+        public Expression Value { get; set; }
+
+        /// <summary>The members: values, and ranges as <see cref="ValueRange"/>.</summary>
+        public List<Expression> Set { get; } = new List<Expression>();
+    }
+
+    /// <summary><c>[low:high]</c>, a range of values in an <c>inside</c> set or a <c>case inside</c> label.</summary>
+    public sealed class ValueRange : Expression
+    {
+        public Expression Low { get; set; }
+        public Expression High { get; set; }
     }
 
     /// <summary><c>signed'(x)</c>, <c>8'(x)</c>, <c>state_t'(n)</c>.</summary>

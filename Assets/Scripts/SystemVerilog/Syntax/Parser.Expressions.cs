@@ -67,12 +67,22 @@ namespace BitSorter.SystemVerilog.Syntax
             }
         }
 
+        /// <summary><c>inside</c> binds as the relational operators do (IEEE 1800, table 11-2).</summary>
+        private const int InsidePrecedence = 7;
+
         private Expression ParseBinary(int minimum)
         {
             Expression left = ParseUnary();
 
             while (true)
             {
+                if (Current.IsKeyword("inside") && InsidePrecedence >= minimum)
+                {
+                    Next();
+                    left = ParseInsideSet(left);
+                    continue;
+                }
+
                 int precedence = BinaryPrecedence(Current);
                 if (precedence < minimum)
                     return left;
@@ -89,6 +99,37 @@ namespace BitSorter.SystemVerilog.Syntax
                 Expression right = ParseBinary(precedence + 1);
                 left = new BinaryExpression { Location = left.Location, Operator = op.Text, Left = left, Right = right };
             }
+        }
+
+        /// <summary>The set after <c>inside</c>: <c>{1, 3, [6:9]}</c>.</summary>
+        private Expression ParseInsideSet(Expression value)
+        {
+            var inside = new InsideExpression { Location = value.Location, Value = value };
+            if (!Expect("{", "to open the set after 'inside'"))
+                return inside;
+
+            do
+            {
+                inside.Set.Add(ParseSetMember());
+            }
+            while (Accept(","));
+
+            Expect("}", "to close the set after 'inside'");
+            return inside;
+        }
+
+        /// <summary>A member of an <c>inside</c> set or a <c>case inside</c> label: a value, or a range <c>[low:high]</c>.</summary>
+        internal Expression ParseSetMember()
+        {
+            if (!Current.Is("["))
+                return ParseExpression();
+
+            var range = new ValueRange { Location = Next().Location };
+            range.Low = ParseExpression();
+            Expect(":", "between the ends of the range");
+            range.High = ParseExpression();
+            Expect("]", "to close the range");
+            return range;
         }
 
         private Expression ParseUnary()
@@ -267,6 +308,16 @@ namespace BitSorter.SystemVerilog.Syntax
                 name.Path.Add(Next().Text);
             }
 
+            // A method of the value the rest names: s.name(), dut.state.next(2).
+            if (name.Path.Count > 1 && Current.Is("("))
+            {
+                string method = name.Path[name.Path.Count - 1];
+                name.Path.RemoveAt(name.Path.Count - 1);
+                var call = new MethodCallExpression { Location = name.Location, Target = name, Method = method, HasParentheses = true };
+                ParseArguments(call.Arguments, out bool _, method);
+                return call;
+            }
+
             return name;
         }
 
@@ -342,7 +393,18 @@ namespace BitSorter.SystemVerilog.Syntax
                 if (Current.Is(".") && Peek(1).Kind == TokenKind.Identifier)
                 {
                     Next();
-                    expression = new MemberExpression { Location = expression.Location, Target = expression, Member = Next().Text };
+                    string member = Next().Text;
+
+                    // s.next().name(): a method of what came before.
+                    if (Current.Is("("))
+                    {
+                        var call = new MethodCallExpression { Location = expression.Location, Target = expression, Method = member, HasParentheses = true };
+                        ParseArguments(call.Arguments, out bool _, member);
+                        expression = call;
+                        continue;
+                    }
+
+                    expression = new MemberExpression { Location = expression.Location, Target = expression, Member = member };
                     continue;
                 }
 

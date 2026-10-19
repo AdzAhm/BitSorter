@@ -533,7 +533,7 @@ namespace BitSorter.SystemVerilog.Syntax
 
                 case CaseStatement c:
                 {
-                    Line(lead + (c.Qualifier != null ? c.Qualifier + " " : "") + c.Keyword + " (" + ExpressionText(c.Subject) + ")", c.Comment);
+                    Line(lead + (c.Qualifier != null ? c.Qualifier + " " : "") + c.Keyword + " (" + ExpressionText(c.Subject) + ")" + (c.Inside ? " inside" : ""), c.Comment);
                     _level++;
                     foreach (CaseItem item in c.Items)
                     {
@@ -729,6 +729,7 @@ namespace BitSorter.SystemVerilog.Syntax
             switch (e)
             {
                 case BinaryExpression b: return BinaryPrecedence(b.Operator);
+                case InsideExpression _: return 7;   // as the relational operators bind
                 case UnaryExpression _: return UnaryPrecedence;
                 case ConditionalExpression _: return ConditionalPrecedence;
                 default: return Primary;
@@ -857,6 +858,32 @@ namespace BitSorter.SystemVerilog.Syntax
                     text.Append(c.Name);
                     if (c.HasParentheses)
                         text.Append('(').Append(ArgumentsText(c.Arguments)).Append(')');
+                    return;
+
+                case MethodCallExpression m:
+                    WriteOperand(text, m.Target, Primary, compact);
+                    text.Append('.').Append(m.Method);
+                    if (m.HasParentheses)
+                        text.Append('(').Append(ArgumentsText(m.Arguments)).Append(')');
+                    return;
+
+                case InsideExpression inside:
+                    WriteOperand(text, inside.Value, 8, compact);
+                    text.Append(" inside {");
+                    for (int i = 0; i < inside.Set.Count; i++)
+                    {
+                        if (i > 0) text.Append(", ");
+                        Write(text, inside.Set[i], compact);
+                    }
+                    text.Append('}');
+                    return;
+
+                case ValueRange range:
+                    text.Append('[');
+                    Write(text, range.Low, compact);
+                    text.Append(':');
+                    Write(text, range.High, compact);
+                    text.Append(']');
                     return;
 
                 case CastExpression c:

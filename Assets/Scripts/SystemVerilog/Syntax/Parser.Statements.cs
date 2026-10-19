@@ -281,7 +281,12 @@ namespace BitSorter.SystemVerilog.Syntax
                 statement.Subject = new ErrorExpression { Location = Current.Location };
             }
 
-            if (Current.IsKeyword("inside") || Current.IsKeyword("matches"))
+            if (Current.IsKeyword("inside"))
+            {
+                Next();
+                statement.Inside = true;
+            }
+            else if (Current.IsKeyword("matches"))
             {
                 Error(Current.Location, DiagnosticCodes.Unsupported, $"'case ... {Current.Text}' is not supported by BitSorter.");
                 Next();
@@ -300,7 +305,7 @@ namespace BitSorter.SystemVerilog.Syntax
                 {
                     do
                     {
-                        item.Labels.Add(ParseExpression());
+                        item.Labels.Add(statement.Inside ? ParseSetMember() : ParseExpression());
                     }
                     while (Accept(","));
 
