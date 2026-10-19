@@ -270,6 +270,22 @@ agree on every signal and line. One rule the second pins down, where it is easy 
 BitSorter first evaluated the `assign` again as well, which reads as more helpful and is not what either
 the standard or Icarus does; the corpus design is the reason it no longer does.
 
+## Data types (Part L4, 2026-10-19)
+
+`corpus/behavioural/data_types.sv` runs in both and agrees on every signal and line: packed structs, a
+union, packed arrays of two and three dimensions and of structs, a memory of two dimensions, `foreach`
+over memories, and selects at indices known only as the run goes, inside and outside. Where Icarus 12
+parts from the standard, BitSorter follows the standard, and `DataTypeTests` holds it:
+
+| Question | Icarus 12 | The standard, and BitSorter |
+| --- | --- | --- |
+| `'{...}` on a packed struct or array | "sorry: I do not know how to elaborate assignment patterns", in an `assign` and a process alike; keys and `default:` are a syntax error | laid out on the target's type (10.9) |
+| `$bits(s.head.imm)`, a member of a member, 8 bits | 15, the whole outer struct's width -- so `%h` prints it four digits wide; the value is right | 8 |
+| `foreach (b[i])` with `logic [3:0] b` | i = 0, 1, 2, 3 | 3, 2, 1, 0: from the left bound to the right (12.7.3), as ModelSim counts |
+| `sb[1]` of `logic signed [1:0][7:0] sb` | signed: 8'hFF reads -1 | unsigned, 255: an element is signed only when its own type is (7.4.1) |
+| `a.st.name()`, a method of a member | "Method name nesting is not supported yet" | the member's enum's name |
+| `v[i][3:0]`, `prog[i].op`: a select after an index known only as the run goes | "must be constant here" | supported |
+
 ## Expressions (Part L3, 2026-10-19)
 
 `corpus/behavioural/expressions.sv` runs in both and agrees on every line: `==?` and `!=?`, the bit

@@ -586,7 +586,8 @@ patterns, and no tri-state, `function`, `task`, `$display`, `` `timescale ``, `d
 | Syllabus extras | tri-state (`bufif`, `notif`, `tri`), `integer`, `$time`, `` `timescale `` read as a display hint, `**` | 14 and later; a `bufif` or `notif` alone on its net is drawn, printed and imported from 8 |
 | Functions and tasks | `function` and `task`, static and automatic, ANSI and old-style arguments, defaults, `return`, `void` functions, recursion inside an expression | L2 |
 | Expressions | `inside` and `case inside`, `==?` and `!=?`, casts to the built-in types and to typedefs, an enum's methods, `$countones`, `$onehot`, `$onehot0`, `$isunknown`, `$random`, `$urandom`, `$urandom_range` | L3 |
-| Not supported | interfaces, structs, classes, `fork`, `defparam`, DPI — each refused with file, line and a plain message, until the language part that brings it (section 11) |
+| Data types | packed `struct` and `union`, their members read and written (`pkt.kind`, `prog[i].op`); packed arrays of any number of dimensions, of structs and of typedefs; memories of more than one dimension; `foreach`; assignment patterns, `'{...}`, in order, by member, by index and with `default:`; `$bits` of a type or a memory | L4 |
+| Not supported | interfaces, unpacked structs, classes, `fork`, `defparam`, DPI — each refused with file, line and a plain message, until the language part that brings it (section 11) |
 
 **Written in the course's style:** an ANSI header with inputs first and outputs last, one commented
 port per line; `logic` everywhere, except a net with more than one driver, which must be a `wire` to
@@ -675,8 +676,8 @@ lives in the engine's layer, which already sees the syntax tree, so the layers s
   from its bits of the value. `buf` and `not` may have several outputs; a gate's input wider than a bit
   uses its lowest, with a warning. An undeclared name where a net may be implied -- a port connection,
   the left of an assign, a gate terminal -- is a one-bit wire, with a warning.
-- **Refused, with the part it arrives in** (`SV0306`): `inout` (14), packed arrays of more than one dimension, arrays of more than one unpacked
-  dimension, arrays of wires, net types other than `wire`, `tri`, `uwire` and the two supplies. Simulating
+- **Refused, with the part it arrives in** (`SV0306`): `inout` (14), arrays of wires, unpacked arrays as
+  ports, unpacked structs and unions, net types other than `wire`, `tri`, `uwire` and the two supplies. Simulating
   a design without them would be simulating something else, so they are errors, never warnings. Processes
   and declared starting values, refused in Part 4b, run from Part 5a; memories and hierarchical names from
   Part 6a (section 5).
@@ -1273,7 +1274,7 @@ course first, then general SystemVerilog, before Part 10 -- and much of the rest
 | L1 | The course's gaps: 2-state types (`int`, `bit`, an enum on no base) start at 0 and hold no x; `X ~& Y` and `X ~\| Y` read with a warning; a top input nothing drives reads z; time counted in ps by default, as the course's ModelSim counts it |
 | L2 | Functions and tasks -- **built**, see "As built, L2" below |
 | L3 | Expressions: `inside` and `case inside`, casts, enum methods, `$countones` and its kin, `$random` -- **built**, see "As built, L3" below |
-| L4 | Data types: packed structs and unions, packed and unpacked arrays of more than one dimension, `foreach` |
+| L4 | Data types: packed structs and unions, packed and unpacked arrays of more than one dimension, `foreach` -- **built**, see "As built, L4" below |
 | L5 | Testbench control: `fork`/`join`, named events and `wait`, `disable`, `force`/`release`, immediate assertions |
 | L6 | Packages and `import`, macros with arguments, strings and `$sformatf`, writing files |
 | L7 | `real` numbers, and delays in fractions of a unit |
@@ -1343,6 +1344,40 @@ two kinds of call need them:
   where Icarus prints spaces (`oracle-notes.md`, printing). And `OperatorOracleTests` met, for the first
   time, an Icarus departure from the standard: z kept where an ambiguous `?:` should give x
   (`oracle-notes.md`).
+
+**As built, L4: data types** (`PackedType.cs`, `ExpressionBuilder`'s selects and patterns).
+
+- **Every packed value is still one vector in the engine.** What changed is the elaborator's map of it:
+  a `PackedType` says what a signal's bits are -- a vector, a packed array of elements (`logic [3:0][7:0]`
+  is four bytes, the first range the outermost), or a struct or a union of members (IEEE 1800, 7.2.1,
+  7.3.1, 7.4.1) -- and every select and member access walks it to find its bits and the type of what it
+  found. A struct's first member is its top bits; a union's members all start at bit 0 and must be the
+  same width. A waveform shows a struct or a packed array as the flat vector, `[Width-1:0]`.
+- **`pkt.kind` reads as a hierarchical name does**, so a dotted name is looked up through the hierarchy
+  first and, where that leads nowhere, as members of the signal its first parts name -- here or through
+  an instance, `dut.pkt.kind`. After an index, `prog[i].op`, it is a member of the element.
+- **An element is unsigned unless its own type is signed** (7.4.1): `logic signed [3:0][7:0]` reads
+  signed as a whole and each byte unsigned; a packed array of a signed typedef has signed elements.
+- **An index known only as the run goes** is the engine's `Expr.Part` for an element, x where it falls
+  outside; written, an index outside its own element writes nothing, rather than the bits of the element
+  beside it. A variable part-select now works on a vector declared low to high too.
+- **A memory of several dimensions** (`grid [0:3][0:7]`) is one memory of every word, row by row, each
+  word named as written (`grid[1][2]`); a word picked outside any dimension reads x and is not written.
+  `$readmemh` into one is refused for now.
+- **`foreach`** (12.7.3) is a loop per dimension named, a memory's unpacked dimensions first and then
+  its words' packed ones, each from its left bound to its right as declared -- `[3:0]` counts 3 down to
+  0 -- with its own `int`; an empty place, `grid[, c]`, walks no loop. `break` and `continue` belong to
+  the innermost loop.
+- **An assignment pattern** (10.9) is laid out on what it is assigned to -- a procedural assignment, an
+  `assign`, a declaration's value, a parameter, an argument or a `return`: a struct's members or a packed
+  array's elements all in order, or by name or index with `default:` for the rest, each sized as an
+  assignment to its member is and itself perhaps a pattern. A pattern anywhere else, or for a union, is
+  refused with why.
+- **Icarus 12 parts from the standard four times here** (`oracle-notes.md`, "Data types"), so
+  `corpus/behavioural/data_types.sv` holds what both agree on and `DataTypeTests` the rest by the standard.
+- **Not yet:** unpacked structs and unions, unpacked arrays as ports, a slice of a memory, `$readmemh`
+  into a memory of several dimensions, `$size`, `$left`, `$right`, `$low` and `$high`, type keys in a
+  pattern (`'{int: 0}`), and a waveform that lists a struct's members.
 
 **Agreed after the plan, 2026-10-14: five optimizations**, each to be written into this document by
 the part that builds it, as every part rewrites what it makes stale.
