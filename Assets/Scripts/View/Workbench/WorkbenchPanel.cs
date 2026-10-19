@@ -911,7 +911,15 @@ namespace BitSorter.View
             }
 
             if (_runToField != null)
+            {
                 _runToField.SetTextWithoutNotify(_playback.RunTo?.ToString(CultureInfo.InvariantCulture) ?? "");
+
+                // Typing scrolls the field's text left to keep the caret in view, and the shorter moment put
+                // back stayed scrolled -- 12 showed as ".2" in the browser. The text is put back at its start;
+                // the caret alone does not do it, since an unfocused field draws none to scroll to.
+                _runToField.MoveTextStart(false);
+                _runToField.textComponent.rectTransform.anchoredPosition = Vector2.zero;
+            }
             Redraw();
         }
 
