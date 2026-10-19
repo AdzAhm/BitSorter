@@ -142,6 +142,16 @@ namespace BitSorter.Sim
                     case ForeachStatement f:
                         return Walk(f.Body, scope);   // every dimension has at least one index, so the body runs
 
+                    case AssertionStatement a:
+                    {
+                        // As an if: the pass statement on one path, the else on the other.
+                        Paths pass = Walk(a.Pass, scope);
+                        Paths fail = a.Fail != null ? Walk(a.Fail, scope) : Paths.None;
+                        pass.Always.IntersectWith(fail.Always);
+                        pass.Some.UnionWith(fail.Some);
+                        return pass;
+                    }
+
                     case RepeatStatement r:
                     {
                         Paths body = Walk(r.Body, scope);

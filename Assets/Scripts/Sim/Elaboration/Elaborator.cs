@@ -155,6 +155,9 @@ namespace BitSorter.Sim
                     _builder = new NetlistBuilder(root.Name);
                     Scope scope = ElaborateModule(root, root.Name, new Dictionary<string, Expression>(), null, root.Location, isTop: true, depth: 0, within: null);
 
+                    // What each disable names, now that every process it may reach is compiled.
+                    ResolveDisables();
+
                     // Last, so every continuous driver is in when the builder checks what each writes.
                     foreach (ProcessInfo process in _allProcesses)
                     {
@@ -1083,6 +1086,13 @@ namespace BitSorter.Sim
                 if (!CheckNetType(d.NetType, d.Location))
                     return;
 
+                if (d.Type != null && d.Type.Keyword == "event")
+                {
+                    foreach (Declarator declarator in d.Declarators)
+                        DeclareEvent(scope, declarator);
+                    return;
+                }
+
                 if (!TryShape(d.Type, scope, out Shape shape))
                     return;
 
@@ -1116,6 +1126,28 @@ namespace BitSorter.Sim
 
                     DeclareSignal(scope, declarator.Name, declarator.Location, shape, kind, null, initial);
                 }
+            }
+
+            /// <summary>
+            /// <c>event e;</c> (Part L5): a bit of the design's own that every <c>-&gt; e</c> turns over, so <c>@(e)</c>
+            /// wakes on a trigger as on any change, and the time of the last trigger plus one, for <c>e.triggered</c>.
+            /// Neither is recorded: a trigger is a moment, not a value.
+            /// </summary>
+            private void DeclareEvent(Scope scope, Declarator declarator)
+            {
+                if (declarator.Unpacked.Count > 0 || declarator.Initializer != null)
+                {
+                    NotYet(declarator.Location, $"{declarator.Name} is an array of events, or an event given another; BitSorter supports a single event e; so far.");
+                    return;
+                }
+
+                var bit = new Shape(0, 0, false, null, twoState: true);
+                SignalEntry e = DeclareSignal(scope, declarator.Name, declarator.Location, bit, SignalKind.Variable, null, LogicVec.FromUInt64(0, 1), local: true);
+                if (e == null)
+                    return;
+
+                e.IsEvent = true;
+                e.Triggered = _builder.Local($"{e.FullName}.triggered", 64, signed: false, LogicVec.FromUInt64(0, 64));
             }
 
             /// <summary>
@@ -1341,11 +1373,15 @@ namespace BitSorter.Sim
                             // Compiled once the module's instances are in, so dut.ctl.state can be reached.
                             _deferred.Add(() =>
                             {
-                                ProcessInfo compiled = CompileProcess(scope, process);
+                                List<ProcessInfo> compiled = CompileProcess(scope, process);
                                 if (compiled != null)
                                 {
-                                    _ownProcesses.Add(compiled);
-                                    _processAt[compiled] = process.Location;
+                                    // The process, then its forks' branches (Part L5).
+                                    foreach (ProcessInfo info in compiled)
+                                    {
+                                        _ownProcesses.Add(info);
+                                        _processAt[info] = process.Location;
+                                    }
                                 }
                             });
                             break;

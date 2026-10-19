@@ -299,6 +299,21 @@ namespace BitSorter.Sim
                             why = $"{name} prints, which BitSorter does not do from a function called inside an expression yet. Call it as a statement of its own to print, or print where it is called.";
                             break;
 
+                        case OpCode.Fork:
+                        case OpCode.WaitFork:
+                        case OpCode.DisableFork:
+                            why = $"{name} forks, which a function cannot: it gives its value at once. A task can fork.";
+                            break;
+
+                        case OpCode.Disable:
+                            why = $"{name} disables a block or a task, which BitSorter does not do inside a function called in an expression yet. Leave its loop with break, or call it as a statement of its own.";
+                            break;
+
+                        case OpCode.Force:
+                        case OpCode.Release:
+                            why = $"{name} forces or releases a signal, which a function cannot. A task can.";
+                            break;
+
                         default:
                             why = $"{name} calls a system task that cannot run inside an expression. Call it as a statement of its own, or make it a task.";
                             break;
@@ -427,6 +442,7 @@ namespace BitSorter.Sim
                 p.Loops.Clear();
                 var frame = new Frame(r);
                 p.Frames.Add(frame);
+                int body = p.Here;
 
                 foreach (Statement statement in s.Statements)
                     Statement(p, r.Frame, statement);
@@ -439,6 +455,11 @@ namespace BitSorter.Sim
 
                 foreach ((SignalEntry formal, Expression target) in outputs)
                     CopyOut(p, scope, target, formal);
+
+                // Where this call is, for a disable of the task: past its outputs, which the standard leaves open.
+                var range = new BlockRange { Start = body, End = p.Here };
+                r.Inlined.Add(range);
+                p.Ranges.Add(range);
             }
 
             /// <summary>An output argument's value, given back to what the call names for it, as an assignment would.</summary>

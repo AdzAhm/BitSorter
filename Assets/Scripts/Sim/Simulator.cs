@@ -145,7 +145,8 @@ namespace BitSorter.Sim
     /// </remarks>
     public sealed class Simulator
     {
-        private enum EventKind : byte { DriverUpdate, Write, Resume, Nba }
+        /// <summary>What an event is; a <see cref="EventKind.Resume"/> carries its process's generation in <see cref="Event.Token"/>.</summary>
+        private enum EventKind : byte { DriverUpdate, Write, Resume, Nba, ForceUpdate }
 
         private struct Event
         {
@@ -197,6 +198,41 @@ namespace BitSorter.Sim
 
         /// <summary>Each process's event expressions' values when it began to wait, to tell an edge from them.</summary>
         private readonly LogicVec[][] _last;
+
+        /// <summary>For a fork's branch, the process that forks it; -1 for every other (Part L5).</summary>
+        private readonly int[] _parent;
+
+        /// <summary>The branches of every fork in each process: what <c>wait fork</c> and <c>disable fork</c> reach.</summary>
+        private readonly int[][] _children;
+
+        /// <summary>The fork a process is joining, by its counter; <see cref="JoiningAll"/> for <c>wait fork</c>; -1 for none.</summary>
+        private readonly int[] _joinPc;
+
+        /// <summary>
+        /// Moves on each time a process starts again or is ended from outside, so a resumption it had been
+        /// given before -- a delay running out -- is known for stale and dropped.
+        /// </summary>
+        private readonly int[] _generation;
+
+        /// <summary>The instruction each process is held at -- a wait, a delay, a join -- for <c>disable</c> to tell whether it is inside a block.</summary>
+        private readonly int[] _blockedAt;
+
+        /// <summary>Where phase 3 has got to in <see cref="_running"/>: a fork's branches go in straight after it.</summary>
+        private int _runningAt;
+
+        private const int JoiningAll = -2;
+
+        /// <summary>The values <c>force</c> lays over each signal, and for each signal the forces that read it; null until there is one.</summary>
+        private List<ForceRecord>[] _forces, _forceReaders;
+
+        /// <summary>One <c>force</c>: its expression's bits from <see cref="Offset"/>, over the target's bits from <see cref="Lowest"/>.</summary>
+        private sealed class ForceRecord
+        {
+            public int Signal, Lowest, Width, Offset, Total;
+            public Expr Value;
+            public int[] Reads;
+            public LogicVec Current;
+        }
 
         /// <summary>For each signal, the waits that read it.</summary>
         private readonly Waiter[][] _waitersOf;
@@ -295,6 +331,11 @@ namespace BitSorter.Sim
             _waitingAt = new int[processes];
             _done = new bool[processes];
             _last = new LogicVec[processes][];
+            _parent = new int[processes];
+            _joinPc = new int[processes];
+            _generation = new int[processes];
+            _blockedAt = new int[processes];
+            var children = new List<int>[processes];
             var procedural = new bool[signals];
 
             for (int p = 0; p < processes; p++)
@@ -303,6 +344,14 @@ namespace BitSorter.Sim
                 _processes[p] = process;
                 _waitingAt[p] = -1;
                 _last[p] = new LogicVec[process.MaxItems];
+                _joinPc[p] = -1;
+                _blockedAt[p] = -1;
+                children[p] = new List<int>();
+
+                // A branch waits for its fork, as though it had ended.
+                _done[p] = process.Dormant;
+                _parent[p] = process.Parent != null && process.Parent.Index >= 0 && process.Parent.Index < processes &&
+                             design.Processes[process.Parent.Index] == process.Parent ? process.Parent.Index : -1;
 
                 foreach (int s in process.Writes)
                     procedural[s] = true;
@@ -315,6 +364,11 @@ namespace BitSorter.Sim
                         waiters[s].Add(new Waiter(p, pc));
                 }
             }
+
+            for (int p = 0; p < processes; p++)
+                if (_parent[p] >= 0)
+                    children[_parent[p]].Add(p);
+            _children = Array.ConvertAll(children, l => l.ToArray());
 
             _driversOf = Array.ConvertAll(driversOf, l => l.ToArray());
             _fanout = Array.ConvertAll(fanout, l => l.ToArray());
@@ -433,7 +487,7 @@ namespace BitSorter.Sim
         {
             Suspended = false;
             foreach (int p in _suspended)
-                _heap.Push(new Event { Time = _now, Seq = ++_seq, Kind = EventKind.Resume, Index = p });
+                _heap.Push(new Event { Time = _now, Seq = ++_seq, Kind = EventKind.Resume, Index = p, Token = _generation[p] });
             _suspended.Clear();
             _carryingOn = true;
         }
@@ -473,7 +527,8 @@ namespace BitSorter.Sim
                     if (!_processesStarted)
                     {
                         for (int p = 0; p < _processes.Length; p++)
-                            _runnable.Add(p);
+                            if (!_processes[p].Dormant)
+                                _runnable.Add(p);
                         _processesStarted = true;
                     }
                     else if (_inactive.Count > 0)
@@ -520,7 +575,13 @@ namespace BitSorter.Sim
                             continue;
 
                         case EventKind.Resume:
-                            _runnable.Add(e.Index);
+                            // Dropped if the process has since been ended, or disabled out of its delay.
+                            if (e.Token == _generation[e.Index])
+                                _runnable.Add(e.Index);
+                            continue;
+
+                        case EventKind.ForceUpdate:
+                            MarkDirty(e.Index);
                             continue;
                     }
 
@@ -589,7 +650,10 @@ namespace BitSorter.Sim
                     _running.Sort();
 
                     for (int i = 0; i < _running.Count && !Stopped; i++)
+                    {
+                        _runningAt = i;
                         RunProcess(_running[i]);
+                    }
 
                     _running.Clear();
                 }
@@ -731,6 +795,16 @@ namespace BitSorter.Sim
             foreach (int reader in _fanout[s])
                 MarkToEvaluate(reader);
 
+            // A force follows its expression, as a continuous assignment would, in the next delta.
+            if (_forceReaders != null && _forceReaders[s] != null)
+            {
+                foreach (ForceRecord force in _forceReaders[s])
+                {
+                    Evaluate(force);
+                    _next.Add(new Event { Time = _now, Seq = ++_seq, Kind = EventKind.ForceUpdate, Index = force.Signal });
+                }
+            }
+
             foreach (Waiter w in _waitersOf[s])
             {
                 if (_waitingAt[w.Process] == w.Pc && Fired(w.Process, w.Pc))
@@ -795,15 +869,17 @@ namespace BitSorter.Sim
                     {
                         long delay = DelayOf(ins.Value.Evaluate(_values));
                         _pc[p] = pc + 1;
+                        _blockedAt[p] = pc;
                         if (delay == 0)
                             _inactive.Add(p);
                         else
-                            _heap.Push(new Event { Time = _now + delay, Seq = ++_seq, Kind = EventKind.Resume, Index = p });
+                            _heap.Push(new Event { Time = _now + delay, Seq = ++_seq, Kind = EventKind.Resume, Index = p, Token = _generation[p] });
                         return;
                     }
 
                     case OpCode.WaitEvent:
                         _pc[p] = pc + 1;
+                        _blockedAt[p] = pc;
                         StartWaiting(p, pc);
                         return;
 
@@ -815,8 +891,82 @@ namespace BitSorter.Sim
                         }
 
                         _pc[p] = pc;
+                        _blockedAt[p] = pc;
                         StartWaiting(p, pc);
                         return;
+
+                    case OpCode.Fork:
+                    {
+                        ProcessInfo[] branches = ins.Fork.Branches;
+                        foreach (ProcessInfo branch in branches)
+                        {
+                            if (!_done[branch.Index])
+                            {
+                                _pc[p] = pc;
+                                StopOnForkAgain(p, branch.Index);
+                                return;
+                            }
+                        }
+
+                        // The branches run once this process waits, in the order they are written (IEEE 1800, 9.3.2).
+                        int at = _runningAt + 1;
+                        foreach (ProcessInfo branch in branches)
+                        {
+                            int b = branch.Index;
+                            _pc[b] = 0;
+                            _done[b] = false;
+                            _waitingAt[b] = -1;
+                            _joinPc[b] = -1;
+                            _blockedAt[b] = -1;
+                            _generation[b]++;
+                            _running.Insert(at++, b);
+                        }
+
+                        if (ins.Fork.Join == JoinKind.None || branches.Length == 0)
+                        {
+                            pc++;
+                            break;
+                        }
+
+                        _pc[p] = pc + 1;
+                        _blockedAt[p] = pc;
+                        _joinPc[p] = pc;
+                        return;
+                    }
+
+                    case OpCode.WaitFork:
+                        if (AllDone(_children[p]))
+                        {
+                            pc++;
+                            break;
+                        }
+
+                        _pc[p] = pc + 1;
+                        _blockedAt[p] = pc;
+                        _joinPc[p] = JoiningAll;
+                        return;
+
+                    case OpCode.DisableFork:
+                        foreach (int child in _children[p])
+                            Kill(child);
+                        pc++;
+                        break;
+
+                    case OpCode.Disable:
+                        pc = RunDisable(p, pc, ins.Disable);
+                        if (_done[p])
+                            return;   // it was inside what it disabled: a branch of a fork in the block
+                        break;
+
+                    case OpCode.Force:
+                        Force(ref ins);
+                        pc++;
+                        break;
+
+                    case OpCode.Release:
+                        Release(ins.Target);
+                        pc++;
+                        break;
 
                     case OpCode.Print:
                         RunPrint(ins.Print);
@@ -843,6 +993,7 @@ namespace BitSorter.Sim
                     case OpCode.Stop:
                         // Suspended, not ended: it waits at the next statement for the run to carry on.
                         _pc[p] = pc + 1;
+                        _blockedAt[p] = pc;
                         _suspended.Add(p);
                         _suspending = true;
                         _history.Message(_now, Severity.Info, $"{ins.Text} at t = {_now}: the run is suspended here, and carries on when run again.");
@@ -851,9 +1002,268 @@ namespace BitSorter.Sim
                     default:
                         _pc[p] = pc;
                         _done[p] = true;
+                        _blockedAt[p] = -1;
+                        Ended(p);
                         return;
                 }
             }
+        }
+
+        // -----------------------------------------------------------------
+        // fork, disable and force (Part L5)
+        // -----------------------------------------------------------------
+
+        private bool AllDone(int[] processes)
+        {
+            foreach (int p in processes)
+                if (!_done[p])
+                    return false;
+            return true;
+        }
+
+        /// <summary>A branch has ended: the process that forked it goes on if its join was waiting for that.</summary>
+        private void Ended(int child)
+        {
+            int parent = _parent[child];
+            if (parent < 0 || _done[parent])
+                return;
+
+            int at = _joinPc[parent];
+            if (at == -1)
+                return;
+
+            bool goesOn;
+            if (at == JoiningAll)
+            {
+                goesOn = AllDone(_children[parent]);
+            }
+            else
+            {
+                ForkSpec fork = _processes[parent].Code[at].Fork;
+                if (Array.IndexOf(fork.Branches, _processes[child]) < 0)
+                    return;
+
+                goesOn = fork.Join == JoinKind.Any;
+                if (!goesOn)
+                {
+                    goesOn = true;
+                    foreach (ProcessInfo branch in fork.Branches)
+                        goesOn &= _done[branch.Index];
+                }
+            }
+
+            if (!goesOn)
+                return;
+
+            _joinPc[parent] = -1;
+            _blockedAt[parent] = -1;
+            _runnable.Add(parent);
+        }
+
+        /// <summary>Takes a process out of whatever it was waiting for, and out of the lists that would run it.</summary>
+        private void Cancel(int p)
+        {
+            _waitingAt[p] = -1;
+            _joinPc[p] = -1;
+            _generation[p]++;
+            Remove(_runnable, p, 0);
+            Remove(_inactive, p, 0);
+            Remove(_running, p, _runningAt + 1);
+            _suspended.Remove(p);
+        }
+
+        private static void Remove(List<int> list, int p, int from)
+        {
+            for (int i = list.Count - 1; i >= from; i--)
+                if (list[i] == p)
+                    list.RemoveAt(i);
+        }
+
+        /// <summary>Ends a process from outside -- <c>disable fork</c>, or the block that forked it disabled -- and every one it forked.</summary>
+        private void Kill(int p)
+        {
+            if (!_done[p])
+            {
+                Cancel(p);
+                _done[p] = true;
+                _blockedAt[p] = -1;
+            }
+
+            foreach (int child in _children[p])
+                Kill(child);
+        }
+
+        /// <summary>Ends the branches of every fork from <paramref name="range"/> in process <paramref name="p"/>.</summary>
+        private void KillForksIn(int p, BlockRange range)
+        {
+            Instruction[] code = _processes[p].Code;
+            for (int i = Math.Max(0, range.Start); i < Math.Min(code.Length, range.End); i++)
+                if (code[i].Op == OpCode.Fork)
+                    foreach (ProcessInfo branch in code[i].Fork.Branches)
+                        Kill(branch.Index);
+        }
+
+        /// <summary>
+        /// <c>disable</c> a named block or a task (IEEE 1800, 9.6.2): every process inside one of its places
+        /// goes on after it -- this one at once, any other in the next delta -- and the processes a fork in it
+        /// started end. Returns the counter this process goes on from.
+        /// </summary>
+        private int RunDisable(int p, int pc, DisableSpec spec)
+        {
+            int next = pc + 1;
+            foreach (BlockRange range in spec.Ranges)
+            {
+                ProcessInfo owner = range.Process;
+                int q = owner?.Index ?? -1;
+                if (q < 0 || q >= _processes.Length || _processes[q] != owner)
+                    continue;
+
+                if (range.Fork)
+                    KillForksIn(q, range);
+
+                if (q == p)
+                {
+                    if (next == pc + 1 && pc >= range.Start && pc < range.End)
+                    {
+                        KillForksIn(p, range);
+                        next = range.End;
+                    }
+
+                    continue;
+                }
+
+                if (_done[q] || _blockedAt[q] < range.Start || _blockedAt[q] >= range.End)
+                    continue;
+
+                KillForksIn(q, range);
+                Cancel(q);
+                _pc[q] = range.End;
+                _blockedAt[q] = -1;
+                _runnable.Add(q);
+            }
+
+            return next;
+        }
+
+        private void StopOnForkAgain(int p, int branch)
+        {
+            Stopped = true;
+            _history.Message(_now, Severity.Error,
+                $"At t = {_now} {_processes[p].Name} forked {_processes[branch].Name} again while it was still running from the fork " +
+                "before, and BitSorter runs one of each branch at a time. Wait for it first (join, wait fork), or end it (disable fork).");
+        }
+
+        /// <summary><c>force</c> (IEEE 1800, 10.6.2): each piece of the target takes its bits of the value, and keeps following it.</summary>
+        private void Force(ref Instruction ins)
+        {
+            int signals = _values.Length;
+            if (_forces == null)
+            {
+                _forces = new List<ForceRecord>[signals];
+                _forceReaders = new List<ForceRecord>[signals];
+            }
+
+            var reads = new HashSet<int>();
+            ins.Value.CollectReads(reads);
+            var readList = new int[reads.Count];
+            reads.CopyTo(readList);
+
+            int offset = ins.TargetWidth;
+            foreach (LPiece piece in ins.Target)
+            {
+                offset -= piece.Width;
+                Unforce(piece.Signal, piece.Lowest, piece.Width);
+
+                var force = new ForceRecord
+                {
+                    Signal = piece.Signal,
+                    Lowest = piece.Lowest,
+                    Width = piece.Width,
+                    Offset = offset,
+                    Total = ins.TargetWidth,
+                    Value = ins.Value,
+                    Reads = readList,
+                };
+
+                (_forces[piece.Signal] ?? (_forces[piece.Signal] = new List<ForceRecord>())).Add(force);
+                foreach (int s in readList)
+                    (_forceReaders[s] ?? (_forceReaders[s] = new List<ForceRecord>())).Add(force);
+
+                Evaluate(force);
+                Refresh(piece.Signal);
+            }
+        }
+
+        /// <summary>
+        /// <c>release</c>: a wire goes back to what drives it; a variable nothing drives keeps the value it
+        /// was forced to until it is next written (IEEE 1800, 10.6.2).
+        /// </summary>
+        private void Release(LPiece[] target)
+        {
+            foreach (LPiece piece in target)
+            {
+                if (!Unforce(piece.Signal, piece.Lowest, piece.Width))
+                    continue;
+
+                int s = piece.Signal;
+                SignalInfo info = _design.Signals[s];
+                if (info.Kind == SignalKind.Variable && _driversOf[s].Length == 0)
+                    _written[s] = Shape(Splice(_written[s], piece.Lowest, _values[s].Slice(piece.Lowest, piece.Width)), info);
+
+                Refresh(s);
+            }
+        }
+
+        /// <summary>Takes away every force on the bits given; whether there was one.</summary>
+        private bool Unforce(int s, int lowest, int width)
+        {
+            List<ForceRecord> forces = _forces?[s];
+            if (forces == null)
+                return false;
+
+            bool any = false;
+            for (int i = forces.Count - 1; i >= 0; i--)
+            {
+                ForceRecord force = forces[i];
+                if (force.Lowest >= lowest + width || force.Lowest + force.Width <= lowest)
+                    continue;
+
+                forces.RemoveAt(i);
+                foreach (int read in force.Reads)
+                    _forceReaders[read]?.Remove(force);
+                any = true;
+            }
+
+            return any;
+        }
+
+        private void Evaluate(ForceRecord force) =>
+            force.Current = Fit(force.Value.Evaluate(_values), force.Total).Slice(force.Offset, force.Width);
+
+        /// <summary>A signal's forces laid over its own value.</summary>
+        private LogicVec Overlay(int s, LogicVec value)
+        {
+            List<ForceRecord> forces = _forces?[s];
+            if (forces == null || forces.Count == 0)
+                return value;
+
+            foreach (ForceRecord force in forces)
+                value = Splice(value, force.Lowest, force.Current);
+            return Shape(value, _design.Signals[s]);
+        }
+
+        /// <summary>A signal's value worked out again now, as a blocking write's is: what a force or a release changes.</summary>
+        private void Refresh(int s)
+        {
+            LogicVec value = Resolve(s);
+            if (value.Equals(_values[s]))
+                return;
+
+            _values[s] = value;
+            if (_options.RecordChanges && !_design.Signals[s].Local)
+                _history.RecordChange(s, _now, _delta, value);
+
+            Changed(s);
         }
 
         private void RunPrint(PrintSpec spec)
@@ -1087,6 +1497,10 @@ namespace BitSorter.Sim
             LogicVec next = Shape(Splice(_written[s], lowest, part), info);
             _written[s] = next;
 
+            // A forced variable takes the write underneath, and shows the force until it is released.
+            if (_forces != null)
+                next = Overlay(s, next);
+
             if (next.Equals(_values[s]))
                 return;
 
@@ -1179,8 +1593,11 @@ namespace BitSorter.Sim
         // Values
         // -----------------------------------------------------------------
 
+        /// <summary>A signal's value from its drivers or from what was last written, with any force laid over it.</summary>
+        private LogicVec Resolve(int s) => _forces == null ? ResolveOwn(s) : Overlay(s, ResolveOwn(s));
+
         /// <summary>A signal's value from its drivers -- resolved as a wire if it has several -- or from what was last written.</summary>
-        private LogicVec Resolve(int s)
+        private LogicVec ResolveOwn(int s)
         {
             SignalInfo info = _design.Signals[s];
             int[] drivers = _driversOf[s];

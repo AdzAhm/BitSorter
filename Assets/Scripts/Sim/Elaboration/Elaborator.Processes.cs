@@ -92,6 +92,18 @@ namespace BitSorter.Sim
                 public bool Waits;
                 public bool Failed;
 
+                /// <summary>Whether it forks (Part L5): its forks' branches, then those and every branch they fork in turn.</summary>
+                public bool Forks;
+
+                /// <inheritdoc cref="Forks"/>
+                public readonly List<ProcessInfo> Branches = new List<ProcessInfo>();
+
+                /// <inheritdoc cref="Forks"/>
+                public readonly List<ProcessInfo> Spawned = new List<ProcessInfo>();
+
+                /// <summary>Its named blocks and forks and the tasks written into it, for <c>disable</c>: given the process once it is made.</summary>
+                public readonly List<BlockRange> Ranges = new List<BlockRange>();
+
                 public int Here => Code.Count;
 
                 public int Emit(Instruction instruction)
@@ -117,7 +129,10 @@ namespace BitSorter.Sim
                 public readonly List<int> Continues = new List<int>();
             }
 
-            private ProcessInfo CompileProcess(Scope scope, ProceduralBlock block)
+            /// <summary>What each <c>disable</c> names, resolved once every process is compiled (<see cref="ResolveDisables"/>).</summary>
+            private readonly List<(DisableSpec Spec, Scope Scope, JumpStatement Statement)> _disables = new List<(DisableSpec, Scope, JumpStatement)>();
+
+            private List<ProcessInfo> CompileProcess(Scope scope, ProceduralBlock block)
             {
                 string kind = ProcessName(block.Kind);
 
@@ -141,6 +156,13 @@ namespace BitSorter.Sim
                     case ProcessKind.AlwaysLatch:
                     {
                         Statement(p, scope, block.Body);
+                        if (p.Forks)
+                        {
+                            Error(block.Location, ElaborationCodes.NeverWaits,
+                                $"An {kind} may not fork: it runs all at once whenever what it reads changes. Fork in an initial or an always.");
+                            return null;
+                        }
+
                         if (p.Waits)
                         {
                             Error(block.Location, ElaborationCodes.NeverWaits,
@@ -173,10 +195,27 @@ namespace BitSorter.Sim
                     return null;
 
                 LintLatches(scope, block);
+                return Made(p, kind);
+            }
 
+            /// <summary>
+            /// A compiled process, followed by its forks' branches, each before the branches of its own forks
+            /// (Part L5): every one a process of the design, in the order written.
+            /// </summary>
+            private static List<ProcessInfo> Made(Proc p, string kind)
+            {
                 var writes = new List<int>(p.Writes);
                 writes.Sort();
-                return new ProcessInfo(p.Name, kind, p.Code.ToArray(), writes.ToArray());
+                var info = new ProcessInfo(p.Name, kind, p.Code.ToArray(), writes.ToArray());
+
+                foreach (ProcessInfo branch in p.Branches)
+                    branch.Parent = info;
+                foreach (BlockRange range in p.Ranges)
+                    range.Process = info;
+
+                var all = new List<ProcessInfo> { info };
+                all.AddRange(p.Spawned);
+                return all;
             }
 
             /// <summary>
@@ -315,6 +354,27 @@ namespace BitSorter.Sim
                         Foreach(p, scope, f);
                         return;
 
+                    case ForkStatement f:
+                        Fork(p, scope, f);
+                        return;
+
+                    case WaitForkStatement _:
+                        p.Emit(OpCode.WaitFork);
+                        p.Waits = true;
+                        return;
+
+                    case EventTriggerStatement t:
+                        Trigger(p, scope, t);
+                        return;
+
+                    case AssertionStatement a:
+                        Assertion(p, scope, a);
+                        return;
+
+                    case ForceStatement f:
+                        Force(p, scope, f);
+                        return;
+
                     case RepeatStatement r:
                         Repeat(p, scope, r);
                         return;
@@ -357,7 +417,7 @@ namespace BitSorter.Sim
                         return;
 
                     case JumpStatement j:
-                        Jump(p, j);
+                        Jump(p, scope, j);
                         return;
 
                     case ReturnStatement r:
@@ -379,14 +439,18 @@ namespace BitSorter.Sim
             {
                 Scope inner = scope;
 
+                InstanceEntry entry = null;
                 if (b.Label != null || b.Declarations.Count > 0)
                 {
                     bool named = b.Label != null;
-                    if (named && !scope.TryDeclare(b.Label, new InstanceEntry { Declared = b.Location }))
+                    if (named)
+                        entry = new InstanceEntry { Declared = b.Location, Ranges = new List<BlockRange>() };
+                    if (named && !scope.TryDeclare(b.Label, entry))
                     {
                         Error(b.Location, ElaborationCodes.Duplicate, $"{b.Label} is the name of something else here already.");
                         p.Failed = true;
                         named = false;
+                        entry = null;
                     }
 
                     inner = new Scope(b.Label != null ? scope.Path + "." + b.Label : scope.Path, scope, scope.Module);
@@ -399,14 +463,28 @@ namespace BitSorter.Sim
                         DeclareInBlock(p, inner, declaration, recorded: b.Label != null);
                 }
 
+                int start = p.Here;
                 foreach (Statement statement in b.Statements)
                     Statement(p, inner, statement);
+
+                // Where it is, for a disable of it.
+                if (entry != null)
+                {
+                    var range = new BlockRange { Start = start, End = p.Here };
+                    entry.Ranges.Add(range);
+                    p.Ranges.Add(range);
+                }
             }
 
             private void DeclareInBlock(Proc p, Scope scope, ModuleItem item, bool recorded)
             {
                 switch (item)
                 {
+                    case DataDeclaration d when d.Type != null && d.Type.Keyword == "event":
+                        NotYet(d.Location, "An event declared inside a process is not supported by BitSorter yet; declare it in the module.");
+                        p.Failed = true;
+                        return;
+
                     case DataDeclaration d:
                     {
                         if (d.NetType != null)
@@ -918,6 +996,229 @@ namespace BitSorter.Sim
             private static NumberLiteral Number(long value, SourceLocation at) =>
                 new NumberLiteral { Location = at, Text = value.ToString(System.Globalization.CultureInfo.InvariantCulture), Value = LogicVec.FromInt64(value, 32, true) };
 
+            /// <summary>
+            /// <c>fork ... join</c> (IEEE 1800, 9.3.2; Part L5): each statement a process of its own, compiled
+            /// here and started by the fork, which then waits for every one of them, for the first, or for none.
+            /// What it declares is shared by its branches.
+            /// </summary>
+            private void Fork(Proc p, Scope scope, ForkStatement f)
+            {
+                p.Forks = true;
+                Scope inner = scope;
+                InstanceEntry entry = null;
+
+                if (f.Label != null || f.Declarations.Count > 0)
+                {
+                    if (f.Label != null)
+                    {
+                        entry = new InstanceEntry { Declared = f.Location, Ranges = new List<BlockRange>() };
+                        if (!scope.TryDeclare(f.Label, entry))
+                        {
+                            Error(f.Location, ElaborationCodes.Duplicate, $"{f.Label} is the name of something else here already.");
+                            p.Failed = true;
+                            entry = null;
+                        }
+                    }
+
+                    inner = new Scope(f.Label != null ? scope.Path + "." + f.Label : scope.Path, scope, scope.Module);
+                    if (entry != null)
+                        inner.Index = _builder.Scope(inner.Path, null, ScopeKind.Block, scope.Recorded);
+
+                    foreach (ModuleItem declaration in f.Declarations)
+                        DeclareInBlock(p, inner, declaration, recorded: f.Label != null);
+                }
+
+                var branches = new ProcessInfo[f.Branches.Count];
+                for (int i = 0; i < f.Branches.Count; i++)
+                {
+                    var branch = new Proc($"{p.Name}.fork@{f.Location.Line}[{i + 1}]");
+                    Statement(branch, inner, f.Branches[i]);
+                    branch.Emit(OpCode.End);
+                    if (branch.Failed)
+                    {
+                        p.Failed = true;
+                        continue;
+                    }
+
+                    List<ProcessInfo> made = Made(branch, "fork");
+                    made[0].Dormant = true;
+                    branches[i] = made[0];
+                    p.Branches.Add(made[0]);
+                    p.Spawned.AddRange(made);
+                }
+
+                if (p.Failed)
+                    return;
+
+                JoinKind join = f.Join == "join_any" ? JoinKind.Any : f.Join == "join_none" ? JoinKind.None : JoinKind.All;
+                int at = p.Emit(new Instruction { Op = OpCode.Fork, Fork = new ForkSpec(branches, join) });
+                if (join != JoinKind.None)
+                    p.Waits = true;
+
+                if (entry != null)
+                {
+                    var range = new BlockRange { Start = at, End = at + 1, Fork = true };
+                    entry.Ranges.Add(range);
+                    p.Ranges.Add(range);
+                }
+            }
+
+            /// <summary>
+            /// <c>-&gt; e</c> and <c>-&gt;&gt; e</c> (IEEE 1800, 15.5.1): the event's bit turned over, which wakes
+            /// every <c>@(e)</c>, and the time noted for <c>e.triggered</c> -- at once, or in the NBA region.
+            /// </summary>
+            private void Trigger(Proc p, Scope scope, EventTriggerStatement t)
+            {
+                var builder = Builder(p, scope);
+                var parts = new List<ExpressionBuilder.ProcPart>();
+                if (!builder.TryProceduralTarget(t.Target, parts))
+                {
+                    p.Failed = true;
+                    return;
+                }
+
+                if (parts.Count != 1 || !parts[0].Signal.IsEvent || parts[0].Offset != null || parts[0].Word != null)
+                {
+                    Error(t.Location, ElaborationCodes.BadLValue, $"{Printer.Print(t.Target)} is not an event: {(t.Nonblocking ? "->>" : "->")} triggers one, declared event e;.");
+                    p.Failed = true;
+                    return;
+                }
+
+                SignalEntry e = parts[0].Signal;
+                OpCode op = t.Nonblocking ? OpCode.AssignLater : OpCode.Assign;
+                p.Writes.Add(e.Signal.Index);
+                p.Writes.Add(e.Triggered.Index);
+
+                p.Emit(new Instruction
+                {
+                    Op = op,
+                    Target = new[] { new LPiece(e.Signal.Index, 0, 1, null) },
+                    TargetWidth = 1,
+                    Value = Expr.Apply(UnaryOp.Not, _builder.Read(e.Signal)),
+                });
+
+                p.Emit(new Instruction
+                {
+                    Op = op,
+                    Target = new[] { new LPiece(e.Triggered.Index, 0, 64, null) },
+                    TargetWidth = 64,
+                    Value = Expr.Apply(BinaryOp.Add, scope.Root.TimeSource(), Expr.Constant(LogicVec.FromUInt64(1, 64))),
+                });
+            }
+
+            /// <summary>
+            /// An immediate assertion (IEEE 1800, 16.3): its pass statement when the condition is 1, its else
+            /// when it is 0, x or z -- an <c>$error</c> saying which, when it has none. A <c>cover</c> has no else.
+            /// </summary>
+            private void Assertion(Proc p, Scope scope, AssertionStatement a)
+            {
+                Expr condition = Condition(p, scope, a.Condition);
+                int toFail = p.Emit(OpCode.JumpUnless, condition);
+                Statement(p, scope, a.Pass);
+
+                if (a.Keyword == "cover")
+                {
+                    p.Patch(toFail, p.Here);
+                    return;
+                }
+
+                int toEnd = p.Emit(OpCode.Jump);
+                p.Patch(toFail, p.Here);
+
+                if (a.Fail != null)
+                {
+                    Statement(p, scope, a.Fail);
+                }
+                else
+                {
+                    string text = $"{(a.Label != null ? a.Label + ": " : "")}{a.Keyword} ({Printer.Print(a.Condition)}) failed ({a.Location.File}:{a.Location.Line})";
+                    p.Emit(new Instruction
+                    {
+                        Op = OpCode.Print,
+                        Print = new PrintSpec { Kind = PrintKind.Display, Severity = Severity.Error, Segments = new[] { new PrintSegment { Text = text } } },
+                    });
+                }
+
+                p.Patch(toEnd, p.Here);
+            }
+
+            /// <summary>
+            /// <c>force</c> and <c>release</c> (IEEE 1800, 10.6.2): a whole variable, or a wire or bits of one,
+            /// given a value that overrides every driver and every write until it is released.
+            /// </summary>
+            private void Force(Proc p, Scope scope, ForceStatement f)
+            {
+                var builder = Builder(p, scope);
+                var parts = new List<ExpressionBuilder.Part>();
+                if (!builder.TryTarget(f.Target, parts, null))
+                {
+                    p.Failed = true;
+                    return;
+                }
+
+                int width = 0;
+                var pieces = new LPiece[parts.Count];
+                for (int i = 0; i < parts.Count; i++)
+                {
+                    ExpressionBuilder.Part part = parts[i];
+                    if (part.Signal.IsEvent || part.Signal.Kind == SignalKind.Variable && (part.Lowest != 0 || part.Width != part.Signal.Width))
+                    {
+                        Error(f.Target.Location, ElaborationCodes.BadLValue,
+                            $"{f.Keyword} takes a whole variable, or a wire or bits of one, and {Printer.Print(f.Target)} is {(part.Signal.IsEvent ? "an event" : "bits of a variable")}.");
+                        p.Failed = true;
+                        return;
+                    }
+
+                    pieces[i] = new LPiece(part.Signal.Signal.Index, part.Lowest, part.Width, null);
+                    width += part.Width;
+                }
+
+                Expr value = null;
+                if (f.Value != null)
+                {
+                    value = Sized(builder, f.Value, width, parts.Count == 1 ? builder.TypeAt(f.Target) : null);
+                    if (builder.Failed)
+                    {
+                        p.Failed = true;
+                        return;
+                    }
+                }
+
+                p.Emit(new Instruction { Op = f.Keyword == "force" ? OpCode.Force : OpCode.Release, Target = pieces, TargetWidth = width, Value = value });
+            }
+
+            /// <summary>
+            /// What each <c>disable</c> names, once every process is compiled: a named block or fork -- here or
+            /// in another process -- or a task, wherever it is written in. Every place of it goes in.
+            /// </summary>
+            private void ResolveDisables()
+            {
+                foreach ((DisableSpec spec, Scope scope, JumpStatement j) in _disables)
+                {
+                    switch (scope.Lookup(j.Target))
+                    {
+                        case InstanceEntry block when block.Ranges != null:
+                            spec.Ranges = block.Ranges;
+                            continue;
+
+                        case InstanceEntry _:
+                            Error(j.Location, ElaborationCodes.BadSelect, $"{j.Target} is an instance or a generate block; disable ends a named block, a fork or a task.");
+                            continue;
+                    }
+
+                    SubroutineEntry routine = scope.LookupSubroutine(j.Target);
+                    if (routine != null && routine.IsTask)
+                    {
+                        spec.Ranges = routine.Inlined;
+                        continue;
+                    }
+
+                    Error(j.Location, ElaborationCodes.UnknownName, routine != null
+                        ? $"{j.Target} is a function; disable ends a named block, a fork or a task."
+                        : $"There is no named block, fork or task called {j.Target} here to disable.");
+                }
+            }
+
             private void Repeat(Proc p, Scope scope, RepeatStatement r)
             {
                 var builder = Builder(p, scope);
@@ -1028,6 +1329,7 @@ namespace BitSorter.Sim
             private WaitSpec Events(Proc p, Scope scope, EventControl control)
             {
                 var builder = Builder(p, scope);
+                builder.AllowEvents = true;   // @(e) waits on an event's bit
                 var items = new List<EventItem>();
 
                 foreach (EventExpression e in control.Events)
@@ -1354,12 +1656,21 @@ namespace BitSorter.Sim
                 });
             }
 
-            private void Jump(Proc p, JumpStatement j)
+            private void Jump(Proc p, Scope scope, JumpStatement j)
             {
                 if (j.Keyword == "disable")
                 {
-                    NotYet(j.Location, "disable is not supported by BitSorter yet; use a flag the loop tests.");
-                    p.Failed = true;
+                    if (j.Target == "fork")
+                    {
+                        p.Emit(OpCode.DisableFork);
+                        return;
+                    }
+
+                    // A block or a fork may be in a process compiled later, and a task is written into every
+                    // process that calls it: what the name reaches is filled in once every process is compiled.
+                    var spec = new DisableSpec { Name = j.Target };
+                    p.Emit(new Instruction { Op = OpCode.Disable, Disable = spec });
+                    _disables.Add((spec, scope, j));
                     return;
                 }
 

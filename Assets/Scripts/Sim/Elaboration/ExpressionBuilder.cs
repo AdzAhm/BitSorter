@@ -46,6 +46,9 @@ namespace BitSorter.Sim
         /// </summary>
         public Func<CallExpression, Expr> Random { get; set; }
 
+        /// <summary>Whether a named event may be read: in an event control, <c>@(e)</c>, which waits on its bit (Part L5).</summary>
+        public bool AllowEvents { get; set; }
+
         public readonly struct TypeInfo
         {
             public readonly int Width;
@@ -485,6 +488,10 @@ namespace BitSorter.Sim
 
             switch (Resolve(e, report: false))
             {
+                case SignalEntry s when s.IsEvent && !AllowEvents:
+                    Error(e.Location, ElaborationCodes.BadSelect, $"{text} is an event, which has no value: wait for it with @({text}), or test {text}.triggered.");
+                    return Expr.Constant(LogicVec.AllX(1));
+
                 case SignalEntry s:
                     if (_constant)
                     {
@@ -515,6 +522,9 @@ namespace BitSorter.Sim
                 case InstanceEntry _:
                     Error(e.Location, ElaborationCodes.UnknownName, $"{text} is an instance or a generate block, not a signal.");
                     return Expr.Constant(LogicVec.AllX(1));
+
+                case null when e is NameExpression trigger && TryEventOf(trigger, out SignalEntry triggered):
+                    return Triggered(trigger, triggered);
 
                 case null when e is NameExpression path && path.Path.Count > 1 && SignalPrefix(path, out _) != null:
                     return BuildMembers(path);
@@ -858,6 +868,31 @@ namespace BitSorter.Sim
                 names.Add(field.Name);
             string list = names.Count == 1 ? names[0] : string.Join(", ", names.GetRange(0, names.Count - 1)) + " and " + names[names.Count - 1];
             Error(at, ElaborationCodes.UnknownName, $"{target} has no member called {member}; its members are {list}.");
+        }
+
+        /// <summary><c>e.triggered</c>: the event its first parts name, when its last is <c>triggered</c>.</summary>
+        private bool TryEventOf(NameExpression n, out SignalEntry e)
+        {
+            e = null;
+            if (n.Path.Count < 2 || n.Name != "triggered" || !(SignalPrefix(n, out int parts) is SignalEntry signal) || !signal.IsEvent || parts != n.Path.Count - 1)
+                return false;
+
+            e = signal;
+            return true;
+        }
+
+        /// <summary><c>e.triggered</c> (IEEE 1800, 15.5.3): 1 from a trigger of the event until its time step ends.</summary>
+        private Expr Triggered(Expression at, SignalEntry e)
+        {
+            Func<Expr> time = _scope.Root.TimeSource;
+            if (_constant || time == null)
+            {
+                Error(at.Location, ElaborationCodes.NotConstant, $"{Printer.Print(at)} is known only as the design runs.");
+                return Expr.Constant(LogicVec.AllX(1));
+            }
+
+            Expr now = Expr.Apply(BinaryOp.Add, time(), Expr.Constant(LogicVec.FromUInt64(1, 64)));
+            return Expr.Apply(BinaryOp.Equal, Expr.Read(e.Triggered, 64), now);
         }
 
         /// <summary>A struct's member read: <c>pkt.kind</c>, the bits of the signal the member is.</summary>
@@ -1625,6 +1660,9 @@ namespace BitSorter.Sim
         /// <summary>An enum's methods (IEEE 1800, 6.19.5): <c>first()</c>, <c>last()</c>, <c>next(n)</c>, <c>prev(n)</c>, <c>num()</c>, <c>name()</c>.</summary>
         private Expr BuildMethod(MethodCallExpression m)
         {
+            if (m.Method == "triggered" && m.Target is NameExpression named && Resolve(named, report: false) is SignalEntry ev && ev.IsEvent)
+                return Triggered(m, ev);
+
             if (!TryEnumOf(m.Target, out EnumInfo @enum, out bool twoState))
             {
                 Error(m.Location, ElaborationCodes.NotYet,

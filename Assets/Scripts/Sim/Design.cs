@@ -634,6 +634,7 @@ namespace BitSorter.Sim
                 if (!_procedural.ContainsKey(s))
                     _procedural[s] = process;
 
+            process.Index = _processes.Count;
             _processes.Add(process);
         }
 

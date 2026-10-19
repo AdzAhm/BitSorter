@@ -38,6 +38,15 @@ namespace BitSorter.Sim
         /// a member access finds its way through. Never null; a plain vector is <c>[Msb:Lsb]</c> of bits.
         /// </summary>
         public PackedType Type;
+
+        /// <summary>
+        /// A named event (Part L5): a bit every trigger turns over, which <c>@(e)</c> waits on and nothing may
+        /// read as a value, and <see cref="Triggered"/>, the time of its last trigger plus one.
+        /// </summary>
+        public bool IsEvent;
+
+        /// <inheritdoc cref="IsEvent"/>
+        public SignalId Triggered;
     }
 
     /// <summary>
@@ -83,6 +92,9 @@ namespace BitSorter.Sim
 
         /// <summary>Compiles it for an expression's call, the elaborator's own work: null if it cannot be.</summary>
         public Func<SubroutineEntry, FunctionInfo> Compile;
+
+        /// <summary>Every place a call of it is written into a process, for <c>disable</c> (Part L5).</summary>
+        public readonly List<BlockRange> Inlined = new List<BlockRange>();
     }
 
     /// <summary>A parameter, a localparam or an enum's name: a value known before the run.</summary>
@@ -102,6 +114,9 @@ namespace BitSorter.Sim
     {
         /// <summary>The names inside it, once it has been elaborated; null before, or for a named block in a process.</summary>
         public Scope Scope;
+
+        /// <summary>For a named block or fork in a process, where it is, for <c>disable</c> (Part L5); null for an instance or a generate block.</summary>
+        public List<BlockRange> Ranges;
     }
 
     /// <summary>A memory, <c>logic [7:0] mem [0:255]</c>: its words, and the range each word is declared with.</summary>

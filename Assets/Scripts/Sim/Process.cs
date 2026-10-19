@@ -79,8 +79,79 @@ namespace BitSorter.Sim
         /// <summary><c>$writememh</c> or <c>$writememb</c>: a memory out to a file.</summary>
         WriteMemory,
 
+        /// <summary>
+        /// <c>fork</c> (Part L5): starts its branches (<see cref="Instruction.Fork"/>), each a process of its own,
+        /// right after this one in the time step, then waits for them as its join says.
+        /// </summary>
+        Fork,
+
+        /// <summary><c>wait fork</c>: waits until every process this one has forked has ended.</summary>
+        WaitFork,
+
+        /// <summary><c>disable fork</c>: ends every process this one has forked, and every one they have.</summary>
+        DisableFork,
+
+        /// <summary><c>disable</c> a named block or a task (<see cref="Instruction.Disable"/>): a process inside it goes on after it.</summary>
+        Disable,
+
+        /// <summary><c>force</c>: <see cref="Instruction.Value"/> laid over the bits of <see cref="Instruction.Target"/>, following it, until released.</summary>
+        Force,
+
+        /// <summary><c>release</c>: the bits of <see cref="Instruction.Target"/> go back to their own value.</summary>
+        Release,
+
         /// <summary>The process has nothing left to do.</summary>
         End,
+    }
+
+    /// <summary>How a <c>fork</c> waits for its branches.</summary>
+    internal enum JoinKind : byte
+    {
+        /// <summary><c>join</c>: until every branch has ended.</summary>
+        All,
+
+        /// <summary><c>join_any</c>: until one has.</summary>
+        Any,
+
+        /// <summary><c>join_none</c>: not at all.</summary>
+        None,
+    }
+
+    /// <summary>A <c>fork</c>'s branches, each a process of its own that starts when the fork runs (<see cref="ProcessInfo.Dormant"/>).</summary>
+    internal sealed class ForkSpec
+    {
+        public ForkSpec(ProcessInfo[] branches, JoinKind join)
+        {
+            Branches = branches ?? throw new ArgumentNullException(nameof(branches));
+            Join = join;
+        }
+
+        public ProcessInfo[] Branches { get; }
+        public JoinKind Join { get; }
+    }
+
+    /// <summary>
+    /// Where a named block, or one call of a task written into a process, is in that process: the
+    /// instructions from <see cref="Start"/> up to <see cref="End"/>. <c>disable</c> sends a process that is
+    /// inside it to <see cref="End"/>.
+    /// </summary>
+    internal sealed class BlockRange
+    {
+        /// <summary>The process it is in, once that is made.</summary>
+        public ProcessInfo Process;
+
+        public int Start;
+        public int End;
+
+        /// <summary>A named fork: disabling it ends its branches wherever its own process has got to.</summary>
+        public bool Fork;
+    }
+
+    /// <summary>What a <c>disable</c> names: every place its block or task is, in whichever process.</summary>
+    internal sealed class DisableSpec
+    {
+        public string Name;
+        public List<BlockRange> Ranges = new List<BlockRange>();
     }
 
     /// <summary>One expression of an event control: <c>posedge clk</c>.</summary>
@@ -172,6 +243,8 @@ namespace BitSorter.Sim
 
         public PrintSpec Print;
         public MemoryTask Memory;
+        public ForkSpec Fork;
+        public DisableSpec Disable;
     }
 
     /// <summary>
@@ -210,6 +283,18 @@ namespace BitSorter.Sim
 
         /// <summary>The most expressions any one of its event controls waits on.</summary>
         internal int MaxItems { get; }
+
+        /// <summary>
+        /// A <c>fork</c>'s branch (Part L5): it starts when its fork runs, not at time 0, and may run again
+        /// each time the fork does once it has ended.
+        /// </summary>
+        internal bool Dormant { get; set; }
+
+        /// <summary>For a branch, the process whose fork starts it.</summary>
+        internal ProcessInfo Parent { get; set; }
+
+        /// <summary>Its place in <see cref="Design.Processes"/>, given as it is added; -1 before.</summary>
+        internal int Index { get; set; } = -1;
 
         /// <summary>Every signal its expressions read, for the scheduler to wake it on.</summary>
         internal void CollectWaitReads(int pc, ICollection<int> reads)
