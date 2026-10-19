@@ -11,9 +11,11 @@ namespace BitSorter.SystemVerilog.Syntax
     /// <remarks>
     /// - **An included file keeps its own name on its tokens**, so a diagnostic inside it points into
     ///   it, not at the <c>`include</c>.
-    /// - **A macro is a name for tokens, with no arguments.** That is what a course file and most
-    ///   simple designs use; a macro with arguments is refused with a plain message rather than
-    ///   half-expanded.
+    /// - **A macro is a name for tokens, which may take arguments** (Part L6): <c>`define MAX(a, b = 0)
+    ///   ((a) &gt; (b) ? (a) : (b))</c>, used as <c>`MAX(x, y)</c> -- its arguments perhaps over several
+    ///   lines, each given or left to its default. <c>``</c> joins two tokens into one and <c>`"...`"</c> is
+    ///   a string with the arguments put in it (IEEE 1800, 22.5.1). What a use gives is expanded again, so
+    ///   a macro may use another.
     /// - <c>`timescale</c> only labels time (Docs/architecture-5.md, section 6), so it is recorded and
     ///   the time unit stays the simulator's own.
     /// - It never throws: a missing file, a cycle or a runaway macro is a diagnostic.
@@ -25,7 +27,19 @@ namespace BitSorter.SystemVerilog.Syntax
 
         private readonly ISourceFiles _files;
         private readonly DiagnosticBag _diagnostics;
-        private readonly Dictionary<string, List<Token>> _macros = new Dictionary<string, List<Token>>();
+        private readonly Dictionary<string, Macro> _macros = new Dictionary<string, Macro>();
+
+        /// <summary>A <c>`define</c>: its body, and its arguments' names and defaults when it takes any.</summary>
+        private sealed class Macro
+        {
+            public List<Token> Body;
+
+            /// <summary>Null for a macro with no argument list.</summary>
+            public List<string> Parameters;
+
+            /// <summary>Each argument's default, null where it has none.</summary>
+            public List<List<Token>> Defaults;
+        }
         private readonly Stack<Conditional> _conditionals = new Stack<Conditional>();
         private readonly List<Token> _output = new List<Token>();
         private readonly List<string> _includeStack = new List<string>();
@@ -157,13 +171,19 @@ namespace BitSorter.SystemVerilog.Syntax
                             break;
                         }
 
-                        consumed = Directive(token, rest, macroDepth, depth);
+                        consumed = IsLineDirective(token.Text) || IsBareDirective(token.Text)
+                            ? Directive(token, rest, macroDepth, depth)
+                            : UseMacro(token, tokens, i, macroDepth, depth);
                         break;
                 }
 
                 i += consumed;
             }
         }
+
+        private static bool IsBareDirective(string name) =>
+            name == "`resetall" || name == "`celldefine" || name == "`endcelldefine" || name == "`nounconnected_drive" ||
+            name == "`end_keywords" || name == "`unconnected_drive";
 
         private static bool IsLineDirective(string name) =>
             name == "`include" || name == "`define" || name == "`undef" || name == "`timescale" ||
@@ -209,7 +229,7 @@ namespace BitSorter.SystemVerilog.Syntax
                     return token.Text == "`end_keywords" ? 0 : rest.Count;
 
                 default:
-                    return UseMacro(token, macroDepth, depth);
+                    return 0;
             }
         }
 
@@ -265,19 +285,70 @@ namespace BitSorter.SystemVerilog.Syntax
             if (rest.Count > 1 && rest[1].Is("(") && rest[1].Location.Line == name.Location.Line &&
                 rest[1].Location.Column == name.Location.Column + name.Text.Length)
             {
-                _diagnostics.Error(token.Location, DiagnosticCodes.MacroWithArguments,
-                    $"`define {name.Text}(...) takes arguments, which BitSorter does not expand yet. A localparam or a function usually does the same job.");
+                var macro = new Macro { Parameters = new List<string>(), Defaults = new List<List<Token>>() };
+                int at = 2;
+                while (at < rest.Count && !rest[at].Is(")"))
+                {
+                    if (rest[at].Kind != TokenKind.Identifier)
+                    {
+                        _diagnostics.Error(rest[at].Location, DiagnosticCodes.MacroArguments,
+                            $"`define {name.Text}(...) names its arguments, as `define {name.Text}(a, b); {Describe(rest[at])} is not a name.");
+                        return;
+                    }
+
+                    macro.Parameters.Add(rest[at++].Text);
+                    List<Token> fallback = null;
+                    if (at < rest.Count && rest[at].Is("="))
+                    {
+                        at++;
+                        fallback = new List<Token>();
+                        for (int nest = 0; at < rest.Count && !(nest == 0 && (rest[at].Is(",") || rest[at].Is(")"))); at++)
+                        {
+                            nest += Opens(rest[at]) ? 1 : Closes(rest[at]) ? -1 : 0;
+                            fallback.Add(rest[at]);
+                        }
+                    }
+
+                    macro.Defaults.Add(fallback);
+                    if (at < rest.Count && rest[at].Is(","))
+                        at++;
+                }
+
+                if (at >= rest.Count)
+                {
+                    _diagnostics.Error(token.Location, DiagnosticCodes.MacroArguments, $"`define {name.Text}( lists its arguments, and needs a ) to close them.");
+                    return;
+                }
+
+                macro.Body = rest.Skip(at + 1).ToList();
+                _macros[name.Text] = macro;
                 return;
             }
 
-            _macros[name.Text] = rest.Skip(1).ToList();
+            _macros[name.Text] = new Macro { Body = rest.Skip(1).ToList() };
         }
 
-        private int UseMacro(Token token, int macroDepth, int depth)
+        private static bool Opens(Token t) => t.Is("(") || t.Is("[") || t.Is("{") || t.Is("'{");
+        private static bool Closes(Token t) => t.Is(")") || t.Is("]") || t.Is("}");
+
+        private static string Describe(Token t) => t.Kind == TokenKind.String ? $"\"{t.Text}\"" : $"'{t.Text}'";
+
+        /// <summary>
+        /// A use of a macro: its body, with what the use gives for each argument put in, expanded again.
+        /// Returns how many tokens after <paramref name="index"/> the use took -- its arguments, which may
+        /// run over several lines.
+        /// </summary>
+        private int UseMacro(Token token, List<Token> tokens, int index, int macroDepth, int depth)
         {
             string name = token.Text.Substring(1);
 
-            if (!_macros.TryGetValue(name, out List<Token> body))
+            if (name == "`" || name.StartsWith("\"", System.StringComparison.Ordinal))
+            {
+                _diagnostics.Error(token.Location, DiagnosticCodes.Expected, $"{(name == "`" ? "``" : "`\"")} belongs in the body of a `define.");
+                return 0;
+            }
+
+            if (!_macros.TryGetValue(name, out Macro macro))
             {
                 _diagnostics.Error(token.Location, DiagnosticCodes.UndefinedMacro,
                     $"{token.Text} is not defined here. Is the `define above it, or in a file that is `included first?");
@@ -290,9 +361,165 @@ namespace BitSorter.SystemVerilog.Syntax
                 return 0;
             }
 
+            List<Token> body = macro.Body;
+            int consumed = 0;
+
+            if (macro.Parameters != null)
+            {
+                if (!TryArguments(token, tokens, index, out List<List<Token>> arguments, out consumed))
+                    return consumed;
+
+                if (arguments.Count == 1 && arguments[0].Count == 0 && macro.Parameters.Count == 0)
+                    arguments.Clear();
+
+                if (arguments.Count > macro.Parameters.Count)
+                {
+                    _diagnostics.Error(token.Location, DiagnosticCodes.MacroArguments,
+                        $"{token.Text} takes {macro.Parameters.Count} argument{(macro.Parameters.Count == 1 ? "" : "s")}, and this use gives {arguments.Count}.");
+                    return consumed;
+                }
+
+                body = Substitute(token, macro, arguments);
+            }
+
             var withEnd = new List<Token>(body) { new Token(TokenKind.EndOfFile, string.Empty, token.Location, token.LogicalLine) };
             Process(withEnd, macroDepth + 1, depth + 1);
-            return 0;
+            return consumed;
+        }
+
+        /// <summary>A use's arguments, <c>(a, f(b, c), {d, e})</c>: split at the commas outside brackets.</summary>
+        private bool TryArguments(Token use, List<Token> tokens, int index, out List<List<Token>> arguments, out int consumed)
+        {
+            arguments = new List<List<Token>>();
+            consumed = 0;
+            int at = index + 1;
+
+            if (at >= tokens.Count || !tokens[at].Is("("))
+            {
+                _diagnostics.Error(use.Location, DiagnosticCodes.MacroArguments, $"{use.Text} takes arguments: {use.Text}(...).");
+                return false;
+            }
+
+            var current = new List<Token>();
+            int nest = 0;
+            for (at++; at < tokens.Count && tokens[at].Kind != TokenKind.EndOfFile; at++)
+            {
+                Token t = tokens[at];
+                if (nest == 0 && t.Is(")"))
+                    break;
+
+                if (nest == 0 && t.Is(","))
+                {
+                    arguments.Add(current);
+                    current = new List<Token>();
+                    continue;
+                }
+
+                nest += Opens(t) ? 1 : Closes(t) ? -1 : 0;
+                current.Add(t);
+            }
+
+            if (at >= tokens.Count || !tokens[at].Is(")"))
+            {
+                _diagnostics.Error(use.Location, DiagnosticCodes.MacroArguments, $"{use.Text}( gives its arguments, and needs a ) to close them.");
+                consumed = at - index - 1;
+                return false;
+            }
+
+            arguments.Add(current);
+            consumed = at - index;
+            return true;
+        }
+
+        /// <summary>A macro's body with each argument put in, <c>``</c> joined, and <c>`"...`"</c> made a string.</summary>
+        private List<Token> Substitute(Token use, Macro macro, List<List<Token>> arguments)
+        {
+            var actual = new List<Token>[macro.Parameters.Count];
+            for (int i = 0; i < actual.Length; i++)
+            {
+                List<Token> given = i < arguments.Count ? arguments[i] : null;
+                actual[i] = given != null && given.Count > 0 ? given : macro.Defaults[i] ?? given;
+                if (actual[i] == null)
+                {
+                    _diagnostics.Error(use.Location, DiagnosticCodes.MacroArguments, $"{use.Text} needs a value for its argument {macro.Parameters[i]}, which has no default.");
+                    actual[i] = new List<Token>();
+                }
+            }
+
+            var output = new List<Token>();
+            foreach (Token t in macro.Body)
+            {
+                if (t.Kind == TokenKind.Directive && t.Text.StartsWith("`\"", System.StringComparison.Ordinal))
+                {
+                    output.Add(new Token(TokenKind.String, Stringify(t.Text.Substring(2), macro.Parameters, actual), t.Location, t.LogicalLine));
+                    continue;
+                }
+
+                int parameter = t.Kind == TokenKind.Identifier ? macro.Parameters.IndexOf(t.Text) : -1;
+                if (parameter >= 0)
+                    output.AddRange(actual[parameter]);
+                else
+                    output.Add(t);
+            }
+
+            // `` joins what is either side of it into one token: a name made of two, a``_reg.
+            for (int i = output.Count - 2; i >= 1; i--)
+            {
+                if (!(output[i].Kind == TokenKind.Directive && output[i].Text == "``"))
+                    continue;
+
+                Token left = output[i - 1], right = output[i + 1];
+                string joined = left.Text + right.Text;
+                TokenKind kind = Keywords.IsKeyword(joined) ? TokenKind.Keyword : left.Kind == TokenKind.Number && right.Kind == TokenKind.Number ? TokenKind.Number : TokenKind.Identifier;
+                output[i - 1] = new Token(kind, joined, left.Location, left.LogicalLine);
+                output.RemoveRange(i, 2);
+                i--;
+            }
+
+            return output;
+        }
+
+        /// <summary>The text of <c>`"...`"</c> with each argument's name, as a whole word, replaced by what the use gave.</summary>
+        private static string Stringify(string raw, List<string> parameters, List<Token>[] actual)
+        {
+            var text = new System.Text.StringBuilder();
+            for (int i = 0; i < raw.Length;)
+            {
+                if (char.IsLetter(raw[i]) || raw[i] == '_')
+                {
+                    int start = i;
+                    while (i < raw.Length && (char.IsLetterOrDigit(raw[i]) || raw[i] == '_' || raw[i] == '$'))
+                        i++;
+                    string word = raw.Substring(start, i - start);
+                    int parameter = parameters.IndexOf(word);
+                    text.Append(parameter >= 0 ? Spell(actual[parameter]) : word);
+                    continue;
+                }
+
+                text.Append(raw[i++]);
+            }
+
+            return text.ToString();
+        }
+
+        /// <summary>Tokens as text, a space between two that had one between them where they were written.</summary>
+        private static string Spell(List<Token> tokens)
+        {
+            var text = new System.Text.StringBuilder();
+            for (int i = 0; i < tokens.Count; i++)
+            {
+                Token t = tokens[i];
+                if (i > 0)
+                {
+                    Token before = tokens[i - 1];
+                    if (before.Location.Line != t.Location.Line || before.Location.Column + before.Text.Length < t.Location.Column)
+                        text.Append(' ');
+                }
+
+                text.Append(t.Kind == TokenKind.String ? "\"" + t.Text + "\"" : t.Text);
+            }
+
+            return text.ToString();
         }
 
         /// <summary>The tokens after <paramref name="index"/> on the same logical line of the same file.</summary>

@@ -186,6 +186,41 @@ namespace BitSorter.SystemVerilog.Syntax
                     return;
                 }
 
+                // In a macro's body: `` joins the tokens either side of it into one, and `"...`" is a string
+                // the macro's arguments are put into (IEEE 1800, 22.5.1), kept as written until then.
+                if (c == '`' && Peek(1) == '`')
+                {
+                    Advance();
+                    Advance();
+                    Add(TokenKind.Directive, "``", start, logical);
+                    return;
+                }
+
+                if (c == '`' && Peek(1) == '"')
+                {
+                    Advance();
+                    Advance();
+                    var raw = new StringBuilder();
+                    while (_at < _text.Length && !(_text[_at] == '`' && Peek(1) == '"') && _text[_at] != '\n')
+                    {
+                        raw.Append(_text[_at]);
+                        Advance();
+                    }
+
+                    if (_at < _text.Length && _text[_at] == '`')
+                    {
+                        Advance();
+                        Advance();
+                    }
+                    else
+                    {
+                        _diagnostics.Error(start, DiagnosticCodes.Expected, "`\" starts a string in a macro, which needs a `\" to close it on the same line.");
+                    }
+
+                    Add(TokenKind.Directive, "`\"" + raw, start, logical);
+                    return;
+                }
+
                 if (c == '`' && IsIdentifierStart(Peek(1)))
                 {
                     Advance();

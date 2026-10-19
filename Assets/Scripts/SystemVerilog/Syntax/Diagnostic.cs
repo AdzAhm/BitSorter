@@ -47,7 +47,7 @@ namespace BitSorter.SystemVerilog.Syntax
         public const string IncludeCycle = "SV0102";
         public const string IncludeTooDeep = "SV0103";
         public const string UndefinedMacro = "SV0104";
-        public const string MacroWithArguments = "SV0105";
+        public const string MacroArguments = "SV0105";   // a macro's arguments: too many, too few, not closed (Part L6)
         public const string UnbalancedConditional = "SV0106";
         public const string UnsupportedDirective = "SV0107";
         public const string MacroTooDeep = "SV0108";

@@ -78,10 +78,37 @@ namespace BitSorter.SystemVerilog.Tests.Syntax
         }
 
         [Test]
-        public void AMacroWithArguments_IsRefusedPlainly()
+        public void AMacroWithArguments_PutsInWhatAUseGives_ItsDefaults_JoinedNames_AndStrings()
         {
-            SyntaxTree tree = Read("`define MAX(a, b) ((a) > (b) ? (a) : (b))\nmodule m; endmodule");
-            Assert.AreEqual(DiagnosticCodes.MacroWithArguments, tree.Diagnostics.Single().Code);
+            var items = Items(
+                "`define MAX(a, b = 0) ((a) > (b) ? (a) : (b))\n" +
+                "`define REG(name, w = 4) logic [w-1:0] name``_q;\n" +
+                "`define SAY(x) $display(`\"x is %0d`\", x)\n" +
+                "`REG(count)\n" +
+                "assign y = `MAX(p,\n    q + 1);\n" +
+                "assign z = `MAX(`MAX(r), {s, t});\n" +
+                "initial `SAY(count_q);");
+
+            var reg = (DataDeclaration)items[0];
+            Assert.AreEqual("count_q", reg.Declarators.Single().Name, "`` joins the argument to _q");
+            Assert.AreEqual("logic [4-1:0] count_q;", Printer.Print(Clean(Printer.Print(OnlyModule("module m;\n`define REG(name, w = 4) logic [w-1:0] name``_q;\n`REG(count)\nendmodule\n")))).Split('\n')[1].Trim());
+
+            Assert.AreEqual("((p) > (q + 1) ? (p) : (q + 1))", Printer.Print(((ContinuousAssign)items[1]).Assignments[0].Value), "an argument may run over lines");
+            Assert.AreEqual("((((r) > (0) ? (r) : (0))) > ({s, t}) ? (((r) > (0) ? (r) : (0))) : ({s, t}))",
+                Printer.Print(((ContinuousAssign)items[2]).Assignments[0].Value), "a use inside a use, and a comma inside braces");
+
+            var say = (CallStatement)((ProceduralBlock)items[3]).Body;
+            Assert.AreEqual("count_q is %0d", ((StringLiteral)say.Arguments[0]).Value, "`\"...`\" is a string with the argument put in");
+        }
+
+        [TestCase("`define TWO(a, b) a + b\nmodule m; assign y = `TWO(1, 2, 3); endmodule")]
+        [TestCase("`define TWO(a, b) a + b\nmodule m; assign y = `TWO(1); endmodule")]
+        [TestCase("`define TWO(a, b) a + b\nmodule m; assign y = `TWO; endmodule")]
+        [TestCase("`define TWO(a, b a + b\nmodule m; endmodule")]
+        public void AMacroUsedWithTheWrongArguments_IsReportedPlainly(string text)
+        {
+            SyntaxTree tree = Read(text);
+            Assert.Contains(DiagnosticCodes.MacroArguments, Codes(tree), string.Join("\n", tree.Diagnostics));
         }
 
         [Test]
