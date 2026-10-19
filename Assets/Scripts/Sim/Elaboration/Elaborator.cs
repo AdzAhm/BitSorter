@@ -71,7 +71,14 @@ namespace BitSorter.Sim
             /// <summary>Whether the type holds only 0 and 1: <c>bit</c>, <c>byte</c>, <c>shortint</c>, <c>int</c>, <c>longint</c>.</summary>
             public readonly bool TwoState;
 
-            public Shape(int msb, int lsb, bool signed, EnumInfo @enum = null, bool twoState = false)
+            /// <summary>
+            /// What its bits are: a vector, a packed array, a struct (Part L4). For a packed array or a struct,
+            /// <see cref="Msb"/> and <see cref="Lsb"/> are its bits as one flat vector, <c>[Width-1:0]</c>, which
+            /// is how a waveform and the engine see it; the dimensions themselves are here.
+            /// </summary>
+            public readonly PackedType Type;
+
+            public Shape(int msb, int lsb, bool signed, EnumInfo @enum = null, bool twoState = false, PackedType type = null)
             {
                 Msb = msb;
                 Lsb = lsb;
@@ -79,7 +86,12 @@ namespace BitSorter.Sim
                 Signed = signed;
                 Enum = @enum;
                 TwoState = twoState;
+                Type = type ?? PackedType.Bits(msb, lsb, signed, twoState, @enum);
             }
+
+            /// <summary>A packed array's or a struct's shape: flat bits, with the type that maps them.</summary>
+            public static Shape Of(PackedType type) =>
+                new Shape(type.Width - 1, 0, type.Signed, type.Enum, type.TwoState, type);
         }
 
         private sealed partial class Run
@@ -537,12 +549,12 @@ namespace BitSorter.Sim
 
                 if (overrideValue != null)
                 {
-                    if (!ExpressionBuilder.TryConstant(overrideValue, overrideScope ?? scope, _diagnostics, out value, typed ? shape.Width : 0))
+                    if (!ExpressionBuilder.TryConstantFor(overrideValue, typed ? shape.Type : null, overrideScope ?? scope, _diagnostics, typed ? shape.Width : 0, out value))
                         return;
                 }
                 else if (p.Value != null)
                 {
-                    if (!ExpressionBuilder.TryConstant(p.Value, scope, _diagnostics, out value, typed ? shape.Width : 0))
+                    if (!ExpressionBuilder.TryConstantFor(p.Value, typed ? shape.Type : null, scope, _diagnostics, typed ? shape.Width : 0, out value))
                         return;
                 }
                 else
@@ -570,7 +582,7 @@ namespace BitSorter.Sim
                 if (!TryShape(t.Type, scope, out Shape shape, t.Name))
                     return;
 
-                if (!scope.TryDeclare(t.Name, new TypeEntry { Width = shape.Width, Signed = shape.Signed, Msb = shape.Msb, Lsb = shape.Lsb, Enum = shape.Enum, TwoState = shape.TwoState, Declared = t.Location }))
+                if (!scope.TryDeclare(t.Name, new TypeEntry { Width = shape.Width, Signed = shape.Signed, Msb = shape.Msb, Lsb = shape.Lsb, Enum = shape.Enum, TwoState = shape.TwoState, Type = shape.Type, Declared = t.Location }))
                     Error(t.Location, ElaborationCodes.Duplicate, $"{t.Name} is declared twice here.");
             }
 
@@ -592,8 +604,13 @@ namespace BitSorter.Sim
 
                 if (type.Struct != null)
                 {
-                    NotYet(type.Location, $"A {(type.Struct.IsUnion ? "union" : "struct")} is not supported by BitSorter yet; use separate signals.");
-                    return false;
+                    // A struct, and maybe a packed array of them: struct packed {...} [1:0] pair.
+                    if (!TryStruct(type.Struct, scope, out PackedType layout) ||
+                        !TryDimensions(type.Packed, scope, layout, false, layout.TwoState, null, out PackedType whole))
+                        return false;
+
+                    shape = Shape.Of(whole);
+                    return true;
                 }
 
                 bool signed = type.Signed;
@@ -610,8 +627,18 @@ namespace BitSorter.Sim
 
                     if (type.Packed.Count > 0)
                     {
-                        NotYet(type.Location, $"A vector of {type.Name} is a packed array, which BitSorter does not support yet.");
-                        return false;
+                        // A packed array of the type: instr_t [3:0] program.
+                        if (!TryDimensions(type.Packed, scope, named.Type, type.Signed, named.TwoState, null, out PackedType array))
+                            return false;
+
+                        shape = Shape.Of(array);
+                        return true;
+                    }
+
+                    if (named.Type != null && (named.Type.Struct != null || named.Type.Element != null))
+                    {
+                        shape = Shape.Of(named.Type);
+                        return true;
                     }
 
                     shape = new Shape(named.Msb, named.Lsb, type.Unsigned ? false : named.Signed || type.Signed, named.Enum, named.TwoState);
@@ -678,8 +705,12 @@ namespace BitSorter.Sim
 
                 if (type.Packed.Count > 1)
                 {
-                    NotYet(type.Packed[1].Location, "A vector with more than one range, logic [3:0][7:0], is a packed array, which BitSorter does not support yet.");
-                    return false;
+                    // A packed array: logic [3:0][7:0] is four bytes, the first range the outermost.
+                    if (!TryDimensions(type.Packed, scope, null, signed, twoState, null, out PackedType array))
+                        return false;
+
+                    shape = Shape.Of(array);
+                    return true;
                 }
 
                 Dimension d = type.Packed[0];
@@ -700,6 +731,153 @@ namespace BitSorter.Sim
                 }
 
                 shape = new Shape((int)msb, (int)lsb, signed, null, twoState);
+                return true;
+            }
+
+            /// <summary>
+            /// A packed struct or union's layout (IEEE 1800, 7.2.1 and 7.3.1): a struct's members one after
+            /// another, the first at the top; a union's all from bit 0, all the same width. 2-state only when
+            /// every member is. An unpacked struct is refused: BitSorter keeps every value one vector.
+            /// </summary>
+            private bool TryStruct(StructType s, Scope scope, out PackedType type)
+            {
+                type = null;
+                string kind = s.IsUnion ? "union" : "struct";
+
+                if (!s.Packed)
+                {
+                    NotYet(s.Location, $"An unpacked {kind} is not supported by BitSorter yet; write {kind} packed, which keeps its members in one vector.");
+                    return false;
+                }
+
+                var members = new List<(string Name, PackedType Type, SourceLocation At)>();
+                var names = new HashSet<string>(StringComparer.Ordinal);
+                bool ok = true, twoState = true;
+
+                foreach (StructMember member in s.Members)
+                {
+                    if (!TryShape(member.Type, scope, out Shape memberShape))
+                    {
+                        ok = false;
+                        continue;
+                    }
+
+                    if (!names.Add(member.Name))
+                    {
+                        Error(member.Location, ElaborationCodes.Duplicate, $"The {kind} has two members called {member.Name}.");
+                        ok = false;
+                        continue;
+                    }
+
+                    members.Add((member.Name, memberShape.Type, member.Location));
+                    twoState &= memberShape.TwoState;
+                }
+
+                if (!ok)
+                    return false;
+
+                if (members.Count == 0)
+                {
+                    Error(s.Location, ElaborationCodes.BadSelect, $"A {kind} needs at least one member.");
+                    return false;
+                }
+
+                var fields = new List<StructField>(members.Count);
+                int width;
+
+                if (s.IsUnion)
+                {
+                    width = members[0].Type.Width;
+                    foreach ((string name, PackedType memberType, SourceLocation at) in members)
+                    {
+                        if (memberType.Width != width)
+                        {
+                            Error(at, ElaborationCodes.WidthMismatch,
+                                $"Every member of a packed union is the same width, and {name} is {memberType.Width} bits where {members[0].Name} is {width}.");
+                            return false;
+                        }
+
+                        fields.Add(new StructField(name, 0, memberType));
+                    }
+                }
+                else
+                {
+                    width = 0;
+                    foreach ((string _, PackedType memberType, SourceLocation _) in members)
+                        width += memberType.Width;
+
+                    if (width > LogicVec.MaxWidth)
+                    {
+                        Error(s.Location, ElaborationCodes.TooLarge, $"The struct is wider than BitSorter allows ({LogicVec.MaxWidth} bits).");
+                        return false;
+                    }
+
+                    int lowest = width;
+                    foreach ((string name, PackedType memberType, SourceLocation _) in members)
+                    {
+                        lowest -= memberType.Width;
+                        fields.Add(new StructField(name, lowest, memberType));
+                    }
+                }
+
+                type = new PackedType(width - 1, 0, s.Signed, null, new StructLayout(s.IsUnion, fields), null, twoState);
+                return true;
+            }
+
+            /// <summary>
+            /// Packed dimensions around an element, the first the outermost: <c>[3:0][7:0]</c> of bits is four
+            /// bytes. The whole is signed as declared; its elements are not, unless they are of a signed type
+            /// of their own (IEEE 1800, 7.4.1). No dimensions gives the element itself, or a bit.
+            /// </summary>
+            private bool TryDimensions(List<Dimension> dims, Scope scope, PackedType element, bool signed, bool twoState, EnumInfo @enum, out PackedType type)
+            {
+                type = element;
+                if (dims.Count == 0)
+                {
+                    type = element ?? PackedType.Bits(0, 0, signed, twoState, @enum);
+                    return true;
+                }
+
+                var bounds = new List<(int Msb, int Lsb)>(dims.Count);
+                foreach (Dimension d in dims)
+                {
+                    if (d.Right == null)
+                    {
+                        Error(d.Location, ElaborationCodes.BadSelect, "A packed range needs both ends: [7:0].");
+                        return false;
+                    }
+
+                    if (!ExpressionBuilder.TryInteger(d.Left, scope, _diagnostics, "a range's bound", out long msb) ||
+                        !ExpressionBuilder.TryInteger(d.Right, scope, _diagnostics, "a range's bound", out long lsb))
+                        return false;
+
+                    if (Math.Abs(msb) > int.MaxValue / 2 || Math.Abs(lsb) > int.MaxValue / 2)
+                    {
+                        Error(d.Location, ElaborationCodes.TooLarge, $"[{msb}:{lsb}] is wider than BitSorter allows ({LogicVec.MaxWidth} bits).");
+                        return false;
+                    }
+
+                    bounds.Add(((int)msb, (int)lsb));
+                }
+
+                long width = element?.Width ?? 1;
+                foreach ((int msb, int lsb) in bounds)
+                    width *= Math.Abs((long)msb - lsb) + 1;
+
+                if (width > LogicVec.MaxWidth)
+                {
+                    Error(dims[0].Location, ElaborationCodes.TooLarge, $"The packed array is wider than BitSorter allows ({LogicVec.MaxWidth} bits).");
+                    return false;
+                }
+
+                PackedType inner = element;
+                for (int k = bounds.Count - 1; k >= 0; k--)
+                {
+                    bool outermost = k == 0;
+                    inner = new PackedType(bounds[k].Msb, bounds[k].Lsb, outermost && signed, inner, null, outermost && inner == null ? @enum : null, twoState);
+                }
+
+                type = inner;
                 return true;
             }
 
@@ -796,6 +974,7 @@ namespace BitSorter.Sim
                     Port = port,
                     Enum = shape.Enum,
                     TwoState = shape.TwoState,
+                    Type = shape.Type,
                     Declared = at,
                 };
 
@@ -939,18 +1118,15 @@ namespace BitSorter.Sim
                 }
             }
 
-            /// <summary><c>logic [7:0] mem [0:255];</c> or <c>[256]</c>: a memory, one variable a word.</summary>
+            /// <summary>
+            /// <c>logic [7:0] mem [0:255];</c> or <c>[256]</c>: a memory, one variable a word. More than one
+            /// dimension, <c>[0:3][0:7]</c>, is one memory of every word, row by row (Part L4).
+            /// </summary>
             private void DeclareMemory(Scope scope, DataDeclaration d, Declarator declarator, Shape shape, SignalKind kind)
             {
                 if (kind != SignalKind.Variable)
                 {
                     NotYet(declarator.Location, $"{declarator.Name} is an array of wires, which BitSorter does not support yet; declare it logic.");
-                    return;
-                }
-
-                if (declarator.Unpacked.Count > 1)
-                {
-                    NotYet(declarator.Unpacked[1].Location, $"{declarator.Name} has more than one unpacked dimension, which BitSorter does not support yet.");
                     return;
                 }
 
@@ -961,32 +1137,41 @@ namespace BitSorter.Sim
                     return;
                 }
 
-                Dimension range = declarator.Unpacked[0];
-                long left, right;
+                var dims = new (int Left, int Right)[declarator.Unpacked.Count];
+                long words = 1;
 
-                if (range.Right == null)
+                for (int k = 0; k < dims.Length; k++)
                 {
-                    if (!ExpressionBuilder.TryInteger(range.Left, scope, _diagnostics, "a memory's size", out long size))
-                        return;
-                    if (size < 1)
+                    Dimension range = declarator.Unpacked[k];
+                    long left, right;
+
+                    if (range.Right == null)
                     {
-                        Error(range.Location, ElaborationCodes.BadSelect, $"A memory needs at least one word, and {declarator.Name} is given {size}.");
+                        if (!ExpressionBuilder.TryInteger(range.Left, scope, _diagnostics, "a memory's size", out long size))
+                            return;
+                        if (size < 1)
+                        {
+                            Error(range.Location, ElaborationCodes.BadSelect, $"A memory needs at least one word, and {declarator.Name} is given {size}.");
+                            return;
+                        }
+
+                        left = 0;
+                        right = size - 1;
+                    }
+                    else if (!ExpressionBuilder.TryInteger(range.Left, scope, _diagnostics, "a memory's bound", out left) ||
+                             !ExpressionBuilder.TryInteger(range.Right, scope, _diagnostics, "a memory's bound", out right))
+                    {
                         return;
                     }
 
-                    left = 0;
-                    right = size - 1;
-                }
-                else if (!ExpressionBuilder.TryInteger(range.Left, scope, _diagnostics, "a memory's bound", out left) ||
-                         !ExpressionBuilder.TryInteger(range.Right, scope, _diagnostics, "a memory's bound", out right))
-                {
-                    return;
-                }
+                    words *= Math.Min(Math.Abs(left - right) + 1, (long)NetlistBuilder.MaxMemoryWords + 1);
+                    if (words > NetlistBuilder.MaxMemoryWords || Math.Abs(left) > int.MaxValue / 2 || Math.Abs(right) > int.MaxValue / 2)
+                    {
+                        Error(range.Location, ElaborationCodes.TooLarge, $"{declarator.Name} would have more than {NetlistBuilder.MaxMemoryWords} words.");
+                        return;
+                    }
 
-                if (Math.Abs(left - right) + 1 > NetlistBuilder.MaxMemoryWords || Math.Abs(left) > int.MaxValue / 2 || Math.Abs(right) > int.MaxValue / 2)
-                {
-                    Error(range.Location, ElaborationCodes.TooLarge, $"{declarator.Name} would have more than {NetlistBuilder.MaxMemoryWords} words.");
-                    return;
+                    dims[k] = ((int)left, (int)right);
                 }
 
                 if (scope.Own(declarator.Name) != null)
@@ -999,7 +1184,7 @@ namespace BitSorter.Sim
                 MemoryInfo memory;
                 try
                 {
-                    memory = _builder.Memory(fullName, shape.Width, shape.Signed, (int)left, (int)right, shape.Msb, shape.Lsb, shape.Enum, scope.Recorded, shape.TwoState);
+                    memory = _builder.Memory(fullName, shape.Width, shape.Signed, dims, shape.Msb, shape.Lsb, shape.Enum, scope.Recorded, shape.TwoState);
                 }
                 catch (ArgumentException ex)
                 {
@@ -1013,6 +1198,8 @@ namespace BitSorter.Sim
                     FullName = fullName,
                     Msb = shape.Msb,
                     Lsb = shape.Lsb,
+                    Type = shape.Type,
+                    Dims = dims,
                     Declared = declarator.Location,
                 });
             }
@@ -1249,8 +1436,9 @@ namespace BitSorter.Sim
                 foreach (ExpressionBuilder.Part part in parts)
                     width += part.Width;
 
+                // assign pkt = '{...} lays the pattern out on the target's type (Part L4).
                 ExpressionBuilder.TypeInfo type = builder.TypeOf(value);
-                Expr built = builder.Build(value, width);
+                Expr built = builder.BuildAssigned(value, parts.Count == 1 ? builder.TypeAt(target) : null, width);
                 if (builder.Failed)
                     return;
 

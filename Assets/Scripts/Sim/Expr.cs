@@ -100,6 +100,14 @@ namespace BitSorter.Sim
         /// <summary><c>a[index]</c>.</summary>
         public static Expr Bit(Expr a, Expr index) => new BitExpr(a, index);
 
+        /// <summary>
+        /// An element of a packed array, <c>a[i]</c>, or an indexed part-select, <c>a[i +: 4]</c>, with
+        /// <c>i</c> known only as the design runs (Part L4): the <paramref name="width"/> bits from bit
+        /// <paramref name="offset"/> times <paramref name="step"/>. A bit outside <paramref name="a"/> reads
+        /// x, and every bit does when the offset is unknown; a signed offset may be below 0.
+        /// </summary>
+        public static Expr Part(Expr a, Expr offset, int step, int width) => new PartExpr(a, offset, step, width);
+
         /// <summary><c>condition ? whenTrue : whenFalse</c>.</summary>
         public static Expr Conditional(Expr condition, Expr whenTrue, Expr whenFalse) =>
             new ConditionalExpr(condition, whenTrue, whenFalse);
@@ -437,6 +445,75 @@ namespace BitSorter.Sim
             {
                 _a.CollectCalls(calls);
                 _index.CollectCalls(calls);
+            }
+        }
+
+        private sealed class PartExpr : Expr
+        {
+            private readonly Expr _a;
+            private readonly Expr _offset;
+            private readonly int _step;
+            private readonly int _width;
+            private readonly LogicVec _unknown;
+
+            public PartExpr(Expr a, Expr offset, int step, int width)
+            {
+                if (step < 1)
+                    throw new ArgumentOutOfRangeException(nameof(step), step, "A step is at least one bit.");
+
+                _a = a ?? throw new ArgumentNullException(nameof(a));
+                _offset = offset ?? throw new ArgumentNullException(nameof(offset));
+                _step = step;
+                _width = width;
+                _unknown = LogicVec.AllX(width);
+            }
+
+            public override int Width => _width;
+
+            public override LogicVec Evaluate(LogicVec[] values)
+            {
+                LogicVec offset = _offset.Evaluate(values);
+                if (!offset.IsKnown)
+                    return _unknown;
+
+                long at;
+                if (offset.IsSigned)
+                {
+                    if (!offset.TryGetInt64(out at))
+                        return _unknown;
+                }
+                else if (offset.TryGetUInt64(out ulong unsigned) && unsigned <= long.MaxValue)
+                {
+                    at = (long)unsigned;
+                }
+                else
+                {
+                    return _unknown;
+                }
+
+                // Far enough past either end, nothing of the value is in it; that also keeps the product small.
+                LogicVec value = _a.Evaluate(values);
+                long reach = (value.Width + (long)_width) / _step + 1;
+                if (at > reach || at < -reach)
+                    return _unknown;
+
+                long lowest = at * _step;
+                if (lowest >= value.Width || lowest + _width <= 0)
+                    return _unknown;
+
+                return value.Slice((int)lowest, _width);
+            }
+
+            public override void CollectReads(ICollection<int> reads)
+            {
+                _a.CollectReads(reads);
+                _offset.CollectReads(reads);
+            }
+
+            internal override void CollectCalls(ICollection<FunctionInfo> calls)
+            {
+                _a.CollectCalls(calls);
+                _offset.CollectCalls(calls);
             }
         }
 

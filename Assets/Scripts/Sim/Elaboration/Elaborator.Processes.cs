@@ -311,6 +311,10 @@ namespace BitSorter.Sim
                         For(p, scope, f);
                         return;
 
+                    case ForeachStatement f:
+                        Foreach(p, scope, f);
+                        return;
+
                     case RepeatStatement r:
                         Repeat(p, scope, r);
                         return;
@@ -467,7 +471,7 @@ namespace BitSorter.Sim
             /// <summary>A variable's declared starting value, sized to it; a constant, worked out before the run.</summary>
             private bool TryStartingValue(Scope scope, Declarator declarator, Shape shape, out LogicVec value)
             {
-                if (!ExpressionBuilder.TryConstant(declarator.Initializer, scope, _diagnostics, out LogicVec given, shape.Width))
+                if (!ExpressionBuilder.TryConstantFor(declarator.Initializer, shape.Type, scope, _diagnostics, shape.Width, out LogicVec given))
                 {
                     value = default;
                     return false;
@@ -500,7 +504,7 @@ namespace BitSorter.Sim
                     value = new BinaryExpression { Location = a.Location, Operator = a.Operator.Substring(0, a.Operator.Length - 1), Left = a.Target, Right = a.Value };
                 }
 
-                Expr built = Sized(builder, value, width);
+                Expr built = Sized(builder, value, width, parts.Count == 1 ? builder.TypeAt(a.Target) : null);
                 if (builder.Failed)
                 {
                     p.Failed = true;
@@ -566,12 +570,12 @@ namespace BitSorter.Sim
                 return target;
             }
 
-            /// <summary>An expression at a target's width: widened as its own sizing says, or cut to the low bits.</summary>
-            private static Expr Sized(ExpressionBuilder builder, Expression value, int width)
-            {
-                Expr built = builder.Build(value, width);
-                return built.Width > width ? Expr.Slice(built, 0, width) : built;
-            }
+            /// <summary>
+            /// An expression at a target's width: widened as its own sizing says, or cut to the low bits -- or a
+            /// <c>'{...}</c> laid out on the target's <paramref name="type"/> (Part L4).
+            /// </summary>
+            private static Expr Sized(ExpressionBuilder builder, Expression value, int width, PackedType type = null) =>
+                builder.BuildAssigned(value, type, width);
 
             /// <summary>An expression builder for a statement of this process: one that can call <c>$random</c> and its kin.</summary>
             private ExpressionBuilder Builder(Proc p, Scope scope) =>
@@ -818,6 +822,101 @@ namespace BitSorter.Sim
                     p.Patch(exit, p.Here);
                 CloseLoop(p, loop, next, p.Here);
             }
+
+            /// <summary>
+            /// <c>foreach (grid[r, c])</c> (Part L4): a loop for each dimension named, the first the outermost,
+            /// each from its left bound to its right as declared -- <c>[7:0]</c> counts down -- with its own
+            /// <c>int</c>. A place left empty, <c>grid[, c]</c>, walks no loop for its dimension.
+            /// </summary>
+            private void Foreach(Proc p, Scope scope, ForeachStatement f)
+            {
+                var builder = Builder(p, scope);
+                if (!builder.TryLoopDimensions(f.Array, out List<(int Left, int Right)> dims))
+                {
+                    p.Failed = true;
+                    return;
+                }
+
+                if (f.Variables.Count > dims.Count)
+                {
+                    Error(f.Location, ElaborationCodes.BadSelect,
+                        $"This foreach names {f.Variables.Count} dimensions, and {Printer.Print(f.Array)} has {dims.Count}.");
+                    p.Failed = true;
+                    return;
+                }
+
+                var inner = new Scope(scope.Path, scope, scope.Module);
+                if (!DeclareLoopVariables(p, inner, f))
+                    return;
+
+                Loops(p, inner, f, dims, 0);
+            }
+
+            private bool DeclareLoopVariables(Proc p, Scope inner, ForeachStatement f)
+            {
+                var integer = new Shape(31, 0, signed: true, null, twoState: true);
+                foreach (string name in f.Variables)
+                {
+                    if (name == null)
+                        continue;
+
+                    SignalEntry variable = DeclareSignal(inner, name, f.Location, integer, SignalKind.Variable, null, local: true);
+                    if (variable == null)
+                    {
+                        p.Failed = true;
+                        return false;
+                    }
+
+                    p.Locals.Add(variable.Signal.Index);
+                }
+
+                return true;
+            }
+
+            /// <summary>The loops from dimension <paramref name="k"/> in, and the body inside the innermost.</summary>
+            private void Loops(Proc p, Scope scope, ForeachStatement f, List<(int Left, int Right)> dims, int k)
+            {
+                while (k < f.Variables.Count && f.Variables[k] == null)
+                    k++;
+
+                if (k >= f.Variables.Count)
+                {
+                    Statement(p, scope, f.Body);
+                    return;
+                }
+
+                (int left, int right) = dims[k];
+                bool up = left <= right;
+                var variable = new NameExpression { Location = f.Location };
+                variable.Path.Add(f.Variables[k]);
+
+                Assignment(p, scope, new AssignmentStatement { Location = f.Location, Target = variable, Operator = "=", Value = Number(left, f.Location) });
+
+                int top = p.Here;
+                var condition = new BinaryExpression { Location = f.Location, Operator = up ? "<=" : ">=", Left = variable, Right = Number(right, f.Location) };
+                int exit = p.Emit(OpCode.JumpUnless, Condition(p, scope, condition));
+
+                // break and continue belong to the innermost loop, as the loops a foreach stands for would take them.
+                bool innermost = true;
+                for (int j = k + 1; j < f.Variables.Count; j++)
+                    innermost &= f.Variables[j] == null;
+
+                var loop = new Loop();
+                if (innermost)
+                    p.Loops.Add(loop);
+                Loops(p, scope, f, dims, k + 1);
+
+                int next = p.Here;
+                Assignment(p, scope, new AssignmentStatement { Location = f.Location, Target = variable, Operator = up ? "+=" : "-=", Value = Number(1, f.Location) });
+                p.Emit(OpCode.Jump, jump: top);
+
+                p.Patch(exit, p.Here);
+                if (innermost)
+                    CloseLoop(p, loop, next, p.Here);
+            }
+
+            private static NumberLiteral Number(long value, SourceLocation at) =>
+                new NumberLiteral { Location = at, Text = value.ToString(System.Globalization.CultureInfo.InvariantCulture), Value = LogicVec.FromInt64(value, 32, true) };
 
             private void Repeat(Proc p, Scope scope, RepeatStatement r)
             {
@@ -1224,6 +1323,13 @@ namespace BitSorter.Sim
 
                 if (memory == null || builder.Failed)
                 {
+                    p.Failed = true;
+                    return;
+                }
+
+                if (memory.Dims.Length > 1)
+                {
+                    NotYet(args[1].Location, $"{call.Name} into a memory of more than one dimension is not supported by BitSorter yet; give it one.");
                     p.Failed = true;
                     return;
                 }

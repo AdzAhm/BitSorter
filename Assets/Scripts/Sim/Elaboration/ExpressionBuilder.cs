@@ -138,16 +138,15 @@ namespace BitSorter.Sim
                         case ConstantEntry c: return new TypeInfo(c.Value.Width, c.Value.IsSigned);
                         case GenvarEntry _: return new TypeInfo(32, true);
                         case MemoryEntry m: return new TypeInfo(m.Memory.Width, m.Memory.Signed);
+                        case null when TypeAt(e) is PackedType member: return new TypeInfo(member.Width, member.Signed);
                         default: return new TypeInfo(1, false);
                     }
 
                 case IndexExpression index:
-                    return MemoryOf(index.Target) is MemoryEntry memory
-                        ? new TypeInfo(memory.Memory.Width, memory.Memory.Signed)
-                        : new TypeInfo(1, false);
+                    return TypeAt(index) is PackedType element ? new TypeInfo(element.Width, element.Signed) : new TypeInfo(1, false);
 
                 case RangeSelectExpression r:
-                    return new TypeInfo(SelectWidth(r), false);
+                    return new TypeInfo((int)Math.Min(LogicVec.MaxWidth, (long)SelectWidth(r) * (TypeAt(r.Target)?.ElementWidth ?? 1)), false);
 
                 case ConcatenationExpression c:
                 {
@@ -417,10 +416,11 @@ namespace BitSorter.Sim
                     return Expr.Constant(LogicVec.AllX(1));
 
                 case MemberExpression m:
-                    return BuildNamed(m);
+                    return BuildMember(m);
 
                 case AssignmentPatternExpression p:
-                    Error(p.Location, ElaborationCodes.NotYet, "'{...} is not supported by BitSorter yet.");
+                    Error(p.Location, ElaborationCodes.BadSelect,
+                        "A '{...} fills a struct or a packed array, so it goes straight on the right of an assignment to one, or in its declaration.");
                     return Expr.Constant(LogicVec.AllX(1));
 
                 case ErrorExpression err:
@@ -516,6 +516,9 @@ namespace BitSorter.Sim
                     Error(e.Location, ElaborationCodes.UnknownName, $"{text} is an instance or a generate block, not a signal.");
                     return Expr.Constant(LogicVec.AllX(1));
 
+                case null when e is NameExpression path && path.Path.Count > 1 && SignalPrefix(path, out _) != null:
+                    return BuildMembers(path);
+
                 default:
                     if (simple)
                         Error(e.Location, ElaborationCodes.UnknownName,
@@ -535,6 +538,17 @@ namespace BitSorter.Sim
             {
                 Error(index.Location, ElaborationCodes.NotConstant, $"{Printer.Print(index)} is a word of a memory, known only as the design runs.");
                 return Expr.Constant(LogicVec.AllX(info.Width));
+            }
+
+            if (memory.Dims.Length > 1)
+            {
+                long word = WordIndex(memory, index, out Expr picked);
+                if (picked != null)
+                    return Expr.WordOf(info.First, info.Depth, info.Width, picked);
+
+                return word < 0
+                    ? Expr.Constant(LogicVec.AllX(info.Width, info.Signed))
+                    : Expr.Read(new SignalId(info.First.Index + (int)word), info.Width);
             }
 
             var quiet = new DiagnosticBag();
@@ -662,6 +676,52 @@ namespace BitSorter.Sim
             return last;
         }
 
+        /// <summary>
+        /// The dimensions <c>foreach</c> walks (Part L4), the first the outermost, as declared: a memory's
+        /// unpacked ones and then its words' packed ones; a vector's or a packed array's packed ones. False,
+        /// having said why, when <paramref name="array"/> is not something with dimensions.
+        /// </summary>
+        public bool TryLoopDimensions(NameExpression array, out List<(int Left, int Right)> dims)
+        {
+            dims = new List<(int Left, int Right)>();
+            PackedType type;
+
+            switch (Resolve(array, report: false))
+            {
+                case MemoryEntry memory:
+                    dims.AddRange(memory.Dims);
+                    type = memory.Type;
+                    break;
+
+                case SignalEntry signal:
+                    type = PackedOf(signal);
+                    break;
+
+                case null when array.Path.Count > 1 && SignalPrefix(array, out _) != null:
+                    if (!TryMembers(array, report: true, out SignalEntry _, out int _, out type))
+                        return false;
+                    break;
+
+                case null when array.Path.Count == 1:
+                    Error(array.Location, ElaborationCodes.UnknownName, $"There is no array called {array.Name} here for foreach to walk.");
+                    return false;
+
+                case null:
+                    Resolve(array, report: true);
+                    Failed = true;
+                    return false;
+
+                default:
+                    Error(array.Location, ElaborationCodes.BadSelect, $"{Printer.Print(array)} is not an array, so foreach has nothing to walk.");
+                    return false;
+            }
+
+            // A struct's bits are members, not a dimension.
+            for (PackedType t = type; t != null && t.Struct == null; t = t.Element)
+                dims.Add((t.Msb, t.Lsb));
+            return true;
+        }
+
         /// <summary>The memory a system task's argument names, or null having said it names none.</summary>
         public MemoryEntry MemoryNamed(Expression e)
         {
@@ -676,58 +736,324 @@ namespace BitSorter.Sim
         private MemoryEntry MemoryOf(Expression target) =>
             target is NameExpression || target is MemberExpression ? Resolve(target, report: false) as MemoryEntry : null;
 
-        /// <summary>The declared range a select on <paramref name="target"/> counts against.</summary>
-        private void RangeOf(Expression target, Expr built, out int msb, out int lsb)
+        // -----------------------------------------------------------------
+        // Selects, through packed arrays and structs (Part L4)
+        // -----------------------------------------------------------------
+
+        /// <summary>What a signal's bits are: its declared type, or its range when nothing else says.</summary>
+        private static PackedType PackedOf(SignalEntry s) => s.Type ?? PackedType.Bits(s.Msb, s.Lsb, s.Signed, s.TwoState, s.Enum);
+
+        /// <summary>
+        /// What the bits of <paramref name="e"/> are, when it names a place: a signal, a word of a memory, a
+        /// member of a struct, an element or a slice of a packed array. Null for anything else -- a number,
+        /// an operator, a row of a memory -- whose bits are only bits, counted from 0.
+        /// </summary>
+        public PackedType TypeAt(Expression e)
         {
-            if (Resolve(target, report: false) is SignalEntry s)
+            switch (e)
             {
-                msb = s.Msb;
-                lsb = s.Lsb;
-                return;
-            }
+                case NameExpression _:
+                case MemberExpression _:
+                    switch (Resolve(e, report: false))
+                    {
+                        case SignalEntry s:
+                            return PackedOf(s);
+                        case null when e is NameExpression path && path.Path.Count > 1:
+                            return TryMembers(path, report: false, out SignalEntry _, out int _, out PackedType member) ? member : null;
+                        case null when e is MemberExpression m:
+                            return TypeAt(m.Target)?.Struct?.Find(m.Member)?.Type;
+                        default:
+                            return null;
+                    }
 
-            if (target is IndexExpression word && MemoryOf(word.Target) is MemoryEntry memory)
-            {
-                msb = memory.Msb;
-                lsb = memory.Lsb;
-                return;
-            }
+                case IndexExpression index:
+                {
+                    int depth = WordDepth(index, out MemoryEntry memory);
+                    if (memory != null && depth <= memory.Dims.Length)
+                        return depth == memory.Dims.Length ? memory.Type : null;
 
-            msb = built.Width - 1;
-            lsb = 0;
+                    PackedType target = TypeAt(index.Target);
+                    return target == null ? null : target.Element ?? PackedType.Bit;
+                }
+
+                case RangeSelectExpression range:
+                {
+                    PackedType target = TypeAt(range.Target);
+                    if (target == null)
+                        return null;
+
+                    // A slice of a packed array is a packed array of its elements, unsigned (IEEE 1800, 7.4.3).
+                    if (range.Kind == RangeKind.Constant)
+                        return new PackedType((int)ConstantOf(range.Left, report: false), (int)ConstantOf(range.Right, report: false), false, target.Element, null, null, target.TwoState);
+                    return new PackedType(SelectWidth(range) - 1, 0, false, target.Element, null, null, target.TwoState);
+                }
+
+                default:
+                    return null;
+            }
         }
 
-        /// <summary>The bit position, from 0, of index <paramref name="index"/> in a vector declared [msb:lsb].</summary>
-        private static long Position(long index, int msb, int lsb) => msb >= lsb ? index - lsb : lsb - index;
+        /// <summary>
+        /// The signal the first parts of a dotted name lead to, here or through the hierarchy, when its last
+        /// parts are then members of a struct: <c>pkt.kind</c>, <c>dut.pkt.kind</c>. Null when none does.
+        /// </summary>
+        private SignalEntry SignalPrefix(NameExpression n, out int parts)
+        {
+            for (int k = n.Path.Count - 1; k >= 1; k--)
+            {
+                Entry entry = k == 1 ? _scope.Lookup(n.Path[0]) : ResolvePath(n.Path.GetRange(0, k), n.Location, report: false);
+                if (entry is SignalEntry s)
+                {
+                    parts = k;
+                    return s;
+                }
+            }
+
+            parts = 0;
+            return null;
+        }
+
+        /// <summary>
+        /// <c>pkt.head.kind</c> as members, one inside the other, of the struct a signal is: where the last of
+        /// them starts in the signal, and its type. False when no first part is a signal, or when a member is
+        /// not there -- having said so, if <paramref name="report"/>.
+        /// </summary>
+        private bool TryMembers(NameExpression n, bool report, out SignalEntry signal, out int lowest, out PackedType type)
+        {
+            lowest = 0;
+            type = null;
+            signal = SignalPrefix(n, out int parts);
+            if (signal == null)
+                return false;
+
+            type = PackedOf(signal);
+            for (int k = parts; k < n.Path.Count; k++)
+            {
+                StructField field = type.Struct?.Find(n.Path[k]);
+                if (field == null)
+                {
+                    if (report)
+                        NoMember(n.Location, string.Join(".", n.Path.GetRange(0, k)), type, n.Path[k]);
+                    type = null;
+                    return false;
+                }
+
+                lowest += field.Lowest;
+                type = field.Type;
+            }
+
+            return true;
+        }
+
+        private void NoMember(SourceLocation at, string target, PackedType type, string member)
+        {
+            if (type?.Struct == null)
+            {
+                Error(at, ElaborationCodes.UnknownName, $"{target} is not a struct, so it has no member called {member}.");
+                return;
+            }
+
+            var names = new List<string>();
+            foreach (StructField field in type.Struct.Fields)
+                names.Add(field.Name);
+            string list = names.Count == 1 ? names[0] : string.Join(", ", names.GetRange(0, names.Count - 1)) + " and " + names[names.Count - 1];
+            Error(at, ElaborationCodes.UnknownName, $"{target} has no member called {member}; its members are {list}.");
+        }
+
+        /// <summary>A struct's member read: <c>pkt.kind</c>, the bits of the signal the member is.</summary>
+        private Expr BuildMembers(NameExpression n)
+        {
+            if (!TryMembers(n, report: true, out SignalEntry s, out int lowest, out PackedType type))
+                return Expr.Constant(LogicVec.AllX(1));
+
+            if (_constant)
+            {
+                Error(n.Location, ElaborationCodes.NotConstant,
+                    $"{Printer.Print(n)} is part of a signal, but a value known before the run is needed here -- a number or a parameter.");
+                return Expr.Constant(LogicVec.AllX(type.Width));
+            }
+
+            return AsSigned(Expr.Slice(Expr.Read(s.Signal, s.Width), lowest, type.Width), type.Signed);
+        }
+
+        /// <summary><c>a[i].b</c>: a name through a generate block, or a member of an element that is a struct.</summary>
+        private Expr BuildMember(MemberExpression m)
+        {
+            if (Resolve(m, report: false) != null)
+                return BuildNamed(m);
+
+            PackedType target = TypeAt(m.Target);
+            if (target == null)
+                return BuildNamed(m);   // which says why the name leads nowhere
+
+            StructField field = target.Struct?.Find(m.Member);
+            if (field == null)
+            {
+                NoMember(m.Location, Printer.Print(m.Target), target, m.Member);
+                return Expr.Constant(LogicVec.AllX(1));
+            }
+
+            return AsSigned(Expr.Slice(BuildSelf(m.Target), field.Lowest, field.Type.Width), field.Type.Signed);
+        }
+
+        /// <summary>
+        /// How many indices <paramref name="e"/> puts on a memory -- <c>grid[i][j]</c> two, the memory's name
+        /// alone 0 -- or -1, with no memory, when it does not start at one.
+        /// </summary>
+        private int WordDepth(Expression e, out MemoryEntry memory)
+        {
+            switch (e)
+            {
+                case IndexExpression index:
+                {
+                    int inner = WordDepth(index.Target, out memory);
+                    return inner < 0 ? -1 : inner + 1;
+                }
+
+                case NameExpression _:
+                case MemberExpression _:
+                    memory = MemoryOf(e);
+                    return memory != null ? 0 : -1;
+
+                default:
+                    memory = null;
+                    return -1;
+            }
+        }
+
+        /// <summary>
+        /// Which word of a memory of more than one dimension the indices ending at <paramref name="word"/>
+        /// pick, counted from its first: a number when every index is a constant, -1 when one is outside its
+        /// dimension. When an index is known only as the design runs, <paramref name="picked"/> works it out
+        /// then -- x when an index is outside, so nothing is read or written rather than another word.
+        /// </summary>
+        private long WordIndex(MemoryEntry memory, IndexExpression word, out Expr picked)
+        {
+            picked = null;
+            var indices = new Expression[memory.Dims.Length];
+            Expression at = word;
+            for (int k = indices.Length - 1; k >= 0; k--)
+            {
+                var index = (IndexExpression)at;
+                indices[k] = index.Index;
+                at = index.Target;
+            }
+
+            var quiet = new DiagnosticBag();
+            long constant = 0, stride = 1;
+            bool outside = false;
+            Expr sum = null, inside = null;
+
+            // The last dimension moves fastest: row by row, as the words were declared.
+            for (int k = indices.Length - 1; k >= 0; k--)
+            {
+                (int left, int right) = memory.Dims[k];
+                int lowest = Math.Min(left, right);
+                long count = Math.Abs((long)left - right) + 1;
+
+                if (TryInteger(indices[k], _scope, quiet, "an index", out long c))
+                {
+                    if (c < lowest || c >= lowest + count)
+                        outside = true;
+                    else
+                        constant += (c - lowest) * stride;
+                }
+                else
+                {
+                    Expr position = Linear(BuildSelf(indices[k]), TypeOf(indices[k]).Signed, +1, -lowest);
+                    Expr term = stride == 1 ? position : Expr.Apply(BinaryOp.Multiply, position, Int64(stride));
+                    sum = sum == null ? term : Expr.Apply(BinaryOp.Add, sum, term);
+                    inside = inside == null ? Within(position, count) : Expr.Apply(BinaryOp.LogicalAnd, inside, Within(position, count));
+                }
+
+                stride *= count;
+            }
+
+            if (outside)
+                return -1;
+
+            if (sum != null)
+            {
+                if (constant != 0)
+                    sum = Expr.Apply(BinaryOp.Add, sum, Int64(constant));
+                picked = Expr.Conditional(inside, sum, Expr.Constant(LogicVec.AllX(64, true)));
+            }
+
+            return constant;
+        }
+
+        /// <summary>What saying <c>name[i]</c> of a memory of several dimensions, short of a word, gets told.</summary>
+        private static string RowMessage(IndexExpression index, MemoryEntry memory)
+        {
+            string name = memory.FullName.Substring(memory.FullName.LastIndexOf('.') + 1);
+            var word = new System.Text.StringBuilder(name);
+            for (int k = 0; k < memory.Dims.Length; k++)
+                word.Append('[').Append("ijklmn"[Math.Min(k, 5)]).Append(']');
+            return $"{Printer.Print(index)} is a row of {name}, which has {memory.Dims.Length} dimensions; BitSorter reads and writes it a word at a time, {word}.";
+        }
+
+        /// <summary>A whole number as a signed 64-bit constant, which a select's place is counted in.</summary>
+        private static Expr Int64(long value) => Expr.Constant(LogicVec.FromInt64(value, 64, true));
+
+        /// <summary><c>sign * b + constant</c>, signed and 64 bits wide: a select's place, which may be below 0.</summary>
+        private static Expr Linear(Expr b, bool signed, int sign, long constant)
+        {
+            Expr wide = Expr.WithSignedness(b.Width > 64 ? Expr.Slice(b, 0, 64) : Expr.Resize(b, 64, signed), true);
+            if (sign < 0)
+                return Expr.Apply(BinaryOp.Subtract, Int64(constant), wide);
+            return constant == 0 ? wide : Expr.Apply(BinaryOp.Add, wide, Int64(constant));
+        }
+
+        /// <summary>Whether a place, counted from 0, is one of <paramref name="count"/>.</summary>
+        private static Expr Within(Expr position, long count) =>
+            Expr.Apply(BinaryOp.LogicalAnd,
+                Expr.Apply(BinaryOp.GreaterOrEqual, position, Int64(0)),
+                Expr.Apply(BinaryOp.Less, position, Int64(count)));
+
+        /// <summary>A value read as signed, when the type it is of is.</summary>
+        private static Expr AsSigned(Expr e, bool signed) => signed ? Expr.WithSignedness(e, true) : e;
 
         private Expr BuildIndex(IndexExpression index)
         {
-            if (MemoryOf(index.Target) is MemoryEntry memory)
+            int depth = WordDepth(index, out MemoryEntry memory);
+            if (memory != null && depth <= memory.Dims.Length)
+            {
+                if (depth < memory.Dims.Length)
+                {
+                    Error(index.Location, ElaborationCodes.BadSelect, RowMessage(index, memory));
+                    return Expr.Constant(LogicVec.AllX(memory.Memory.Width));
+                }
+
                 return BuildWord(memory, index);
+            }
 
             Expr target = BuildSelf(index.Target);
-            RangeOf(index.Target, target, out int msb, out int lsb);
+            PackedType type = TypeAt(index.Target) ?? PackedType.Bits(target.Width - 1, 0);
+            int width = type.ElementWidth;
+            bool signed = type.Element?.Signed ?? false;
 
             var quiet = new DiagnosticBag();
             if (TryInteger(index.Index, _scope, quiet, "an index", out long constant))
             {
-                long position = Position(constant, msb, lsb);
-                if (position < 0 || position >= target.Width)
-                    return Expr.Constant(LogicVec.AllX(1));   // reading outside the vector gives x, as the standard says
-                return Expr.Slice(target, (int)position, 1);
+                long position = type.Position(constant);
+                if (position < 0 || position + width > target.Width)
+                    return Expr.Constant(LogicVec.AllX(width, signed));   // reading outside the vector gives x, as the standard says
+                return AsSigned(Expr.Slice(target, (int)position, width), signed);
             }
 
             if (_constant)
             {
                 TryInteger(index.Index, _scope, _diagnostics, "an index", out _);
                 Failed = true;
-                return Expr.Constant(LogicVec.AllX(1));
+                return Expr.Constant(LogicVec.AllX(width));
             }
 
-            // A variable index: shift it to count from bit 0, then the engine's own bit-select.
-            Expr i = BuildSelf(index.Index);
-            Expr offset = OffsetFrom(i, msb, lsb);
-            return Expr.Bit(target, offset);
+            // A variable index: shift it to count from bit 0, then the engine's own bit-select -- or, for
+            // an element of a packed array, a part-select an element wide.
+            Expr offset = OffsetFrom(BuildSelf(index.Index), type.Msb, type.Lsb);
+            return type.Element == null
+                ? Expr.Bit(target, offset)
+                : AsSigned(Expr.Part(target, offset, width, width), signed);
         }
 
         private static Expr OffsetFrom(Expr index, int msb, int lsb)
@@ -740,8 +1066,16 @@ namespace BitSorter.Sim
 
         private Expr BuildRange(RangeSelectExpression range)
         {
+            int depth = WordDepth(range.Target, out MemoryEntry memory);
+            if (memory != null && depth < memory.Dims.Length)
+            {
+                Error(range.Location, ElaborationCodes.NotYet, $"{Printer.Print(range)} is a slice of a memory, which BitSorter does not support yet; read it a word at a time.");
+                return Expr.Constant(LogicVec.AllX(1));
+            }
+
             Expr target = BuildSelf(range.Target);
-            RangeOf(range.Target, target, out int msb, out int lsb);
+            PackedType type = TypeAt(range.Target) ?? PackedType.Bits(target.Width - 1, 0);
+            int msb = type.Msb, lsb = type.Lsb, step = type.ElementWidth;
 
             if (range.Kind == RangeKind.Constant)
             {
@@ -760,17 +1094,17 @@ namespace BitSorter.Sim
                     return Expr.Constant(LogicVec.AllX(1));
                 }
 
-                long low = Math.Min(Position(left, msb, lsb), Position(right, msb, lsb));
-                int width = (int)(Math.Abs(left - right) + 1);
+                long low = Math.Min(type.Position(left), type.Position(right));
+                long width = (Math.Abs(left - right) + 1) * step;
 
                 if (low < 0 || low + width > target.Width)
                 {
                     Error(range.Location, ElaborationCodes.BadSelect,
                         $"{Printer.Print(range)} reaches outside {Printer.Print(range.Target)}, which is [{msb}:{lsb}].");
-                    return Expr.Constant(LogicVec.AllX(width));
+                    return Expr.Constant(LogicVec.AllX((int)Math.Min(width, LogicVec.MaxWidth)));
                 }
 
-                return Expr.Slice(target, (int)low, width);
+                return Expr.Slice(target, (int)low, (int)width);
             }
 
             if (!TryInteger(range.Right, _scope, _diagnostics, "an indexed part-select's width", out long w) || w < 1)
@@ -779,37 +1113,35 @@ namespace BitSorter.Sim
                 return Expr.Constant(LogicVec.AllX(1));
             }
 
-            int selectWidth = (int)w;
+            if (w * step > LogicVec.MaxWidth)
+            {
+                Error(range.Location, ElaborationCodes.TooLarge, $"{Printer.Print(range)} is wider than BitSorter allows ({LogicVec.MaxWidth} bits).");
+                return Expr.Constant(LogicVec.AllX(1));
+            }
+
+            int selectWidth = (int)(w * step);
+            bool up = range.Kind == RangeKind.IndexedUp;
             var quiet = new DiagnosticBag();
 
             if (TryInteger(range.Left, _scope, quiet, "a part-select's base", out long b))
             {
-                long top = range.Kind == RangeKind.IndexedUp ? b + selectWidth - 1 : b;
-                long bottom = range.Kind == RangeKind.IndexedUp ? b : b - selectWidth + 1;
-                long low = Math.Min(Position(top, msb, lsb), Position(bottom, msb, lsb));
+                long top = up ? b + w - 1 : b;
+                long bottom = up ? b : b - w + 1;
+                long low = Math.Min(type.Position(top), type.Position(bottom));
 
-                if (low < 0 || low + selectWidth > target.Width)
+                if (low >= target.Width || low + selectWidth <= 0)
                     return Expr.Constant(LogicVec.AllX(selectWidth));
 
-                return Expr.Slice(target, (int)low, selectWidth);
+                return Expr.Slice(target, (int)low, selectWidth);   // a bit past either end reads x
             }
 
-            if (msb < lsb)
-            {
-                Error(range.Location, ElaborationCodes.NotYet, "A variable part-select of a vector declared low to high is not supported by BitSorter yet.");
-                return Expr.Constant(LogicVec.AllX(selectWidth));
-            }
-
-            // A variable base: shift it down to bit 0, then take the bits.
+            // A variable base: the select's lowest element, counted from element 0, as the design runs.
             Expr baseExpr = BuildSelf(range.Left);
-            Expr offset = OffsetFrom(baseExpr, msb, lsb);
-            if (range.Kind == RangeKind.IndexedDown)
-                offset = Expr.Apply(BinaryOp.Subtract, offset, Expr.Constant(LogicVec.FromInt64(selectWidth - 1, offset.Width)));
-
-            // x above the vector, so bits selected past its top read x, as the standard says.
-            Expr padded = Expr.Concat(Expr.Constant(LogicVec.AllX(selectWidth)), target);
-            Expr shifted = Expr.Apply(BinaryOp.ShiftRight, padded, offset);
-            return Expr.Slice(shifted, 0, selectWidth);
+            bool signed = TypeOf(range.Left).Signed;
+            Expr lowest = msb >= lsb
+                ? Linear(baseExpr, signed, +1, up ? -lsb : -lsb - (w - 1))
+                : Linear(baseExpr, signed, -1, up ? lsb - (w - 1) : lsb);
+            return Expr.Part(target, lowest, step, selectWidth);
         }
 
         private Expr BuildConcatenation(ConcatenationExpression c)
@@ -987,7 +1319,13 @@ namespace BitSorter.Sim
 
                 case "$bits":
                     if (call.Arguments.Count == 1 && call.Arguments[0] != null)
-                        return Expr.Constant(LogicVec.FromInt64(TypeOf(call.Arguments[0]).Width, 32, true));
+                    {
+                        Entry named = Resolve(call.Arguments[0], report: false);
+                        long bits = named is TypeEntry type ? type.Width
+                            : named is MemoryEntry memory ? (long)memory.Memory.Width * memory.Memory.Depth
+                            : TypeOf(call.Arguments[0]).Width;
+                        return Expr.Constant(LogicVec.FromInt64(bits, 32, true));
+                    }
                     break;
 
                 case "$countones":
@@ -1247,10 +1585,12 @@ namespace BitSorter.Sim
 
                 case NameExpression _:
                 case MemberExpression _:
-                    if (Resolve(e, report: false) is SignalEntry s && s.Enum != null)
+                case IndexExpression _:
+                    // A signal of an enum type, or a member, an element or a word that is one.
+                    if (TypeAt(e) is PackedType type && type.Enum != null)
                     {
-                        @enum = s.Enum;
-                        twoState = s.TwoState;
+                        @enum = type.Enum;
+                        twoState = type.TwoState;
                         return true;
                     }
 
@@ -1332,6 +1672,170 @@ namespace BitSorter.Sim
                         $".{m.Method}() is not a method of an enum: an enum has first(), last(), next(), prev(), num() and name().");
                     return Expr.Constant(LogicVec.AllX(1));
             }
+        }
+
+        // -----------------------------------------------------------------
+        // Assignment patterns (Part L4)
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// The value an assignment gives a place of type <paramref name="type"/>, <paramref name="width"/>
+        /// bits wide: <c>'{...}</c> laid out on the type, or any other expression sized as its context says
+        /// and cut to the width.
+        /// </summary>
+        public Expr BuildAssigned(Expression value, PackedType type, int width)
+        {
+            Expression bare = value;
+            while (bare is ParenthesizedExpression p)
+                bare = p.Inner;
+
+            Expr built;
+            if (bare is AssignmentPatternExpression pattern)
+            {
+                if (type == null)
+                {
+                    Error(pattern.Location, ElaborationCodes.BadSelect,
+                        "A '{...} fills a struct or a packed array, and what it is assigned to here is neither; write a value, or { } to join bits.");
+                    return Expr.Constant(LogicVec.AllX(width));
+                }
+
+                built = Extend(BuildPattern(pattern, type), width, type.Signed);
+            }
+            else
+            {
+                built = Build(value, width);
+            }
+
+            return built.Width > width ? Expr.Slice(built, 0, width) : built;
+        }
+
+        /// <summary>A constant's value given to a type: a parameter's or a variable's, which may be a <c>'{...}</c>.</summary>
+        public static bool TryConstantFor(Expression value, PackedType type, Scope scope, DiagnosticBag diagnostics, int width, out LogicVec result)
+        {
+            Expression bare = value;
+            while (bare is ParenthesizedExpression p)
+                bare = p.Inner;
+
+            if (!(bare is AssignmentPatternExpression) || type == null)
+                return TryConstant(value, scope, diagnostics, out result, width);
+
+            var builder = new ExpressionBuilder(scope, diagnostics, constantOnly: true);
+            Expr built = builder.BuildAssigned(value, type, width);
+            result = builder.Failed ? default : built.Evaluate(Array.Empty<LogicVec>());
+            return !builder.Failed;
+        }
+
+        /// <summary>
+        /// <c>'{...}</c> laid out on <paramref name="type"/> (IEEE 1800, 10.9.2): a struct's members or a packed
+        /// array's elements, either all in order or by name and by index, and <c>default:</c> for every one not
+        /// given. Each value is sized as an assignment to its member is, and may be a <c>'{...}</c> itself.
+        /// </summary>
+        private Expr BuildPattern(AssignmentPatternExpression pattern, PackedType type)
+        {
+            StructLayout layout = type.Struct;
+            if (layout != null && layout.IsUnion)
+            {
+                Error(pattern.Location, ElaborationCodes.NotYet, "A '{...} for a union is not supported by BitSorter yet; assign one member.");
+                return Expr.Constant(LogicVec.AllX(type.Width));
+            }
+
+            int count = layout != null ? layout.Fields.Count : type.Count;
+            string what = layout != null ? "member" : "element";
+            var given = new Expression[count];
+            bool positional = false, keyed = false;
+
+            for (int i = 0; i < pattern.Items.Count; i++)
+            {
+                Expression key = i < pattern.Keys.Count ? pattern.Keys[i] : null;
+                if (key == null)
+                {
+                    positional = true;
+                    if (i < count)
+                        given[i] = pattern.Items[i];
+                    continue;
+                }
+
+                keyed = true;
+                int slot = SlotOf(key, type);
+                if (slot < 0)
+                    continue;
+
+                if (given[slot] != null)
+                {
+                    Error(key.Location, ElaborationCodes.Duplicate, $"This '{{...}} gives {Printer.Print(key)} twice.");
+                    continue;
+                }
+
+                given[slot] = pattern.Items[i];
+            }
+
+            if (positional && keyed)
+            {
+                Error(pattern.Location, ElaborationCodes.BadSelect, $"A '{{...}} either lists every {what} in order or names them; this one does both.");
+                return Expr.Constant(LogicVec.AllX(type.Width));
+            }
+
+            if (positional && pattern.Items.Count != count)
+            {
+                Error(pattern.Location, ElaborationCodes.WidthMismatch,
+                    $"This '{{...}} lists {pattern.Items.Count} values in order, for {count} {what}s{(pattern.Default != null ? ", and a default is for one that names them" : "")}.");
+                return Expr.Constant(LogicVec.AllX(type.Width));
+            }
+
+            Expr result = null;
+            for (int slot = 0; slot < count; slot++)
+            {
+                PackedType part = layout != null ? layout.Fields[slot].Type : type.Element ?? PackedType.Bit;
+                Expression value = given[slot] ?? pattern.Default;
+                Expr built;
+
+                if (value == null)
+                {
+                    string name = layout != null ? layout.Fields[slot].Name : $"element {(type.Msb >= type.Lsb ? type.Msb - slot : type.Msb + slot)}";
+                    Error(pattern.Location, ElaborationCodes.BadSelect, $"This '{{...}} gives {name} no value: give it one, or add default: and a value for every one not named.");
+                    built = Expr.Constant(LogicVec.AllX(part.Width));
+                }
+                else
+                {
+                    built = BuildAssigned(value, part, part.Width);
+                }
+
+                result = result == null ? built : Expr.Concat(result, built);
+            }
+
+            return AsSigned(result ?? Expr.Constant(LogicVec.AllX(type.Width)), type.Signed);
+        }
+
+        /// <summary>Which member or element a key in a <c>'{...}</c> names, counted from the first; -1 having said why it names none.</summary>
+        private int SlotOf(Expression key, PackedType type)
+        {
+            if (type.Struct != null)
+            {
+                if (key is NameExpression name && name.Path.Count == 1)
+                {
+                    for (int i = 0; i < type.Struct.Fields.Count; i++)
+                        if (type.Struct.Fields[i].Name == name.Name)
+                            return i;
+                }
+
+                NoMember(key.Location, "The struct", type, Printer.Print(key));
+                return -1;
+            }
+
+            if (!TryInteger(key, _scope, _diagnostics, "a key in a '{...}", out long index))
+            {
+                Failed = true;
+                return -1;
+            }
+
+            long slot = type.Msb >= type.Lsb ? type.Msb - index : index - type.Msb;
+            if (slot < 0 || slot >= type.Count)
+            {
+                Error(key.Location, ElaborationCodes.BadSelect, $"{index} is not an index of [{type.Msb}:{type.Lsb}].");
+                return -1;
+            }
+
+            return (int)slot;
         }
 
         // -----------------------------------------------------------------
@@ -1436,151 +1940,300 @@ namespace BitSorter.Sim
         }
 
         /// <summary>
+        /// Where one piece of a target is, as its chain of selects finds it: a signal or a word of a memory,
+        /// and which of its bits -- from <see cref="Lowest"/>, or from where <see cref="Offset"/> says as the
+        /// process runs -- with <see cref="Type"/> saying what those bits are, for the next select (Part L4).
+        /// </summary>
+        private struct Place
+        {
+            public SignalEntry Signal;
+            public Expr Word;
+            public MemoryInfo Memory;
+            public int Lowest;
+            public Expr Offset;
+            public int Width;
+            public PackedType Type;
+
+            /// <summary>Whether it is the whole of its signal or word, where an index outside simply misses it.</summary>
+            public bool Whole => Offset == null && Lowest == 0 && Width == Signal.Width;
+
+            /// <summary>Its bits from <paramref name="position"/> on, counted from its own lowest.</summary>
+            public Place Narrowed(long position, int width, PackedType type)
+            {
+                Place p = this;
+                if (Offset == null)
+                    p.Lowest = Lowest + (int)position;
+                else if (position != 0)
+                    p.Offset = Expr.Apply(BinaryOp.Add, Offset, Int64(position));
+                p.Width = width;
+                p.Type = type;
+                return p;
+            }
+
+            /// <summary>Its bits from <paramref name="bits"/> on, a place worked out as the process runs.</summary>
+            public Place Moved(Expr bits, int width, PackedType type)
+            {
+                Place p = this;
+                p.Offset = Offset == null && Lowest == 0 ? bits : Expr.Apply(BinaryOp.Add, Offset ?? Int64(Lowest), bits);
+                p.Lowest = 0;
+                p.Width = width;
+                p.Type = type;
+                return p;
+            }
+        }
+
+        /// <summary>
         /// The signal -- or word of a memory -- one piece of a target writes, and which of its bits. A
         /// select only known as the design runs is allowed in a process alone.
         /// </summary>
         private bool TryLocate(Expression target, bool procedural, Func<NameExpression, SignalEntry> implicitNet, out ProcPart at)
         {
             at = default;
-            Expression subject = target;
-            Expression select = null;
+            if (!TryPlace(target, procedural, implicitNet, out Place place))
+                return false;
 
-            // The last select picks bits -- unless it is the one picking a memory's word.
-            if (target is IndexExpression || target is RangeSelectExpression)
+            at = new ProcPart(place.Signal, place.Offset == null ? place.Lowest : 0, place.Width, place.Offset, place.Word, place.Memory);
+            return true;
+        }
+
+        /// <summary>
+        /// A target's place, select by select from the signal or the word it starts at: an element of a
+        /// packed array, a part, a member of a struct. Only the whole target may be a net declared on the
+        /// spot, through <paramref name="implicitNet"/>.
+        /// </summary>
+        private bool TryPlace(Expression e, bool procedural, Func<NameExpression, SignalEntry> implicitNet, out Place place)
+        {
+            place = default;
+            switch (e)
             {
-                Expression inner = target is IndexExpression i ? i.Target : ((RangeSelectExpression)target).Target;
-                if (!(target is IndexExpression && MemoryOf(inner) != null))
+                case IndexExpression index:
                 {
-                    subject = inner;
-                    select = target;
+                    int depth = WordDepth(index, out MemoryEntry memory);
+                    if (memory != null && depth <= memory.Dims.Length)
+                        return TryWordPlace(memory, index, depth, procedural, out place);
+
+                    return TryPlace(index.Target, procedural, null, out Place inner) && TryElementPlace(inner, index, procedural, out place);
                 }
+
+                case RangeSelectExpression range:
+                    return TryPlace(range.Target, procedural, null, out Place whole) && TryRangePlace(whole, range, procedural, out place);
+
+                case MemberExpression m when Resolve(m, report: false) == null && TypeAt(m.Target) != null:
+                {
+                    if (!TryPlace(m.Target, procedural, null, out Place outer))
+                        return false;
+
+                    StructField field = outer.Type.Struct?.Find(m.Member);
+                    if (field == null)
+                    {
+                        NoMember(m.Location, Printer.Print(m.Target), outer.Type, m.Member);
+                        return false;
+                    }
+
+                    place = outer.Narrowed(field.Lowest, field.Type.Width, field.Type);
+                    return true;
+                }
+
+                default:
+                    return TryNamedPlace(e, procedural, implicitNet, out place);
+            }
+        }
+
+        /// <summary>A target that names what it writes: a signal, here or through the hierarchy, or a member of a struct one is.</summary>
+        private bool TryNamedPlace(Expression e, bool procedural, Func<NameExpression, SignalEntry> implicitNet, out Place place)
+        {
+            place = default;
+            Entry entry = Resolve(e, report: false);
+            if (entry == null && implicitNet != null && e is NameExpression bare && bare.Path.Count == 1)
+                entry = implicitNet(bare);
+
+            int lowest = 0;
+            PackedType member = null;
+            if (entry == null && e is NameExpression path && path.Path.Count > 1 && SignalPrefix(path, out _) != null)
+            {
+                if (!TryMembers(path, report: true, out SignalEntry whole, out lowest, out member))
+                    return false;
+                entry = whole;
+            }
+
+            string name = Printer.Print(e);
+            switch (entry)
+            {
+                case SignalEntry s when !procedural || s.Kind == SignalKind.Variable:
+                    place = new Place { Signal = s, Lowest = lowest, Width = member?.Width ?? s.Width, Type = member ?? PackedOf(s) };
+                    return true;
+
+                case SignalEntry s:
+                    Error(e.Location, ElaborationCodes.BadLValue, $"{(member != null ? s.FullName.Substring(s.FullName.LastIndexOf('.') + 1) : name)} is a wire, and a process can only write a variable. Declare it logic.");
+                    return false;
+
+                case MemoryEntry _:
+                    Error(e.Location, ElaborationCodes.BadLValue, $"{name} is a memory: write it a word at a time, as {name}[i].");
+                    return false;
+
+                case null when e is NameExpression one && one.Path.Count == 1:
+                    Error(e.Location, ElaborationCodes.UnknownName,
+                        $"There is no {(procedural ? "variable" : "signal")} called {name} here to assign.");
+                    return false;
+
+                case null when e is NameExpression || e is MemberExpression:
+                    Resolve(e, report: true);
+                    Failed = true;
+                    return false;
+
+                case null:
+                    Error(e.Location, ElaborationCodes.BadLValue,
+                        $"{name} cannot be assigned: the left side must be a {(procedural ? "variable" : "signal")}, a bit or a part of one, or a {{ }} of those.");
+                    return false;
+
+                default:
+                    Error(e.Location, ElaborationCodes.BadLValue,
+                        $"{name} is not a {(procedural ? "variable" : "signal")}, so nothing can be assigned to it.");
+                    return false;
+            }
+        }
+
+        /// <summary>A word of a memory a target writes: <c>mem[a]</c>, <c>grid[r][c]</c>.</summary>
+        private bool TryWordPlace(MemoryEntry m, IndexExpression index, int depth, bool procedural, out Place place)
+        {
+            place = default;
+            MemoryInfo memory = m.Memory;
+
+            if (depth < m.Dims.Length)
+            {
+                Error(index.Location, ElaborationCodes.BadLValue, RowMessage(index, m));
+                return false;
             }
 
             SignalEntry signal;
             Expr word = null;
-            MemoryInfo memory = null;
+            MemoryInfo picked = null;
+            string runs = $"{Printer.Print(index)} picks its word as the design runs, which only a process may write; an assign needs a constant index.";
 
-            if (subject is IndexExpression pick && MemoryOf(pick.Target) is MemoryEntry m)
+            if (m.Dims.Length == 1)
             {
-                memory = m.Memory;
                 var quiet = new DiagnosticBag();
-
-                if (TryInteger(pick.Index, _scope, quiet, "an index", out long k))
+                if (TryInteger(index.Index, _scope, quiet, "an index", out long k))
                 {
                     if (k < memory.Lowest || k > memory.Highest)
                     {
-                        Error(pick.Location, ElaborationCodes.BadSelect,
-                            $"{Printer.Print(pick)} is outside {Printer.Print(pick.Target)}, which has words {memory.Lowest} to {memory.Highest}.");
+                        Error(index.Location, ElaborationCodes.BadSelect,
+                            $"{Printer.Print(index)} is outside {Printer.Print(index.Target)}, which has words {memory.Lowest} to {memory.Highest}.");
                         return false;
                     }
 
                     signal = WordEntry(m, memory.Word((int)k));
-                    memory = null;
                 }
                 else if (!procedural)
                 {
-                    Error(pick.Location, ElaborationCodes.BadSelect,
-                        $"{Printer.Print(pick)} picks its word as the design runs, which only a process may write; an assign needs a constant index.");
+                    Error(index.Location, ElaborationCodes.BadSelect, runs);
                     return false;
                 }
                 else
                 {
-                    Expr index = BuildSelf(pick.Index);
+                    Expr i = BuildSelf(index.Index);
                     if (Failed)
                         return false;
-                    word = WordOffset(index, memory);
+                    word = WordOffset(i, memory);
                     signal = WordEntry(m, memory.First);
+                    picked = memory;
                 }
             }
             else
             {
-                Entry entry = Resolve(subject, report: false);
-                if (entry == null && implicitNet != null && select == null && subject is NameExpression bare && bare.Path.Count == 1)
-                    entry = implicitNet(bare);
-
-                string name = Printer.Print(subject);
-                switch (entry)
-                {
-                    case SignalEntry s when !procedural || s.Kind == SignalKind.Variable:
-                        signal = s;
-                        break;
-
-                    case SignalEntry _:
-                        Error(subject.Location, ElaborationCodes.BadLValue, $"{name} is a wire, and a process can only write a variable. Declare it logic.");
-                        return false;
-
-                    case MemoryEntry _:
-                        Error(subject.Location, ElaborationCodes.BadLValue, $"{name} is a memory: write it a word at a time, as {name}[i].");
-                        return false;
-
-                    case null when subject is NameExpression one && one.Path.Count == 1:
-                        Error(subject.Location, ElaborationCodes.UnknownName,
-                            $"There is no {(procedural ? "variable" : "signal")} called {name} here to assign.");
-                        return false;
-
-                    case null when subject is NameExpression || subject is MemberExpression:
-                        Resolve(subject, report: true);
-                        Failed = true;
-                        return false;
-
-                    case null:
-                        Error(target.Location, ElaborationCodes.BadLValue,
-                            $"{Printer.Print(target)} cannot be assigned: the left side must be a {(procedural ? "variable" : "signal")}, a bit or a part of one, or a {{ }} of those.");
-                        return false;
-
-                    default:
-                        Error(subject.Location, ElaborationCodes.BadLValue,
-                            $"{name} is not a {(procedural ? "variable" : "signal")}, so nothing can be assigned to it.");
-                        return false;
-                }
-            }
-
-            if (select == null)
-            {
-                at = new ProcPart(signal, 0, signal.Width, null, word, memory);
-                return true;
-            }
-
-            return TrySelect(select, signal, procedural, word, memory, out at);
-        }
-
-        /// <summary>A bit or part select on the signal or word a target writes.</summary>
-        private bool TrySelect(Expression select, SignalEntry s, bool procedural, Expr word, MemoryInfo memory, out ProcPart at)
-        {
-            at = default;
-            string name = Printer.Print(select is IndexExpression ix ? ix.Target : ((RangeSelectExpression)select).Target);
-            var quiet = new DiagnosticBag();
-
-            if (select is IndexExpression index)
-            {
-                if (TryInteger(index.Index, _scope, quiet, "an index", out long constant))
-                {
-                    long position = Position(constant, s.Msb, s.Lsb);
-                    if (position < 0 || position >= s.Width)
-                    {
-                        Error(index.Location, ElaborationCodes.BadSelect, $"{Printer.Print(index)} is outside {name}, which is [{s.Msb}:{s.Lsb}].");
-                        return false;
-                    }
-
-                    at = new ProcPart(s, (int)position, 1, null, word, memory);
-                    return true;
-                }
-
-                if (!procedural)
-                {
-                    TryInteger(index.Index, _scope, _diagnostics, $"the index into {name}", out _);
-                    Failed = true;
-                    return false;
-                }
-
-                Expr i = BuildSelf(index.Index);
+                long k = WordIndex(m, index, out Expr variable);
                 if (Failed)
                     return false;
-                at = new ProcPart(s, 0, 1, OffsetFrom(i, s.Msb, s.Lsb), word, memory);
+
+                if (k < 0)
+                {
+                    var dims = new System.Text.StringBuilder();
+                    foreach ((int left, int right) in m.Dims)
+                        dims.Append('[').Append(left).Append(':').Append(right).Append(']');
+                    Error(index.Location, ElaborationCodes.BadSelect, $"{Printer.Print(index)} is outside the memory, which is {dims}.");
+                    return false;
+                }
+
+                if (variable == null)
+                {
+                    signal = WordEntry(m, new SignalId(memory.First.Index + (int)k));
+                }
+                else if (!procedural)
+                {
+                    Error(index.Location, ElaborationCodes.BadSelect, runs);
+                    return false;
+                }
+                else
+                {
+                    word = variable;
+                    signal = WordEntry(m, memory.First);
+                    picked = memory;
+                }
+            }
+
+            place = new Place { Signal = signal, Word = word, Memory = picked, Width = signal.Width, Type = m.Type ?? PackedOf(signal) };
+            return true;
+        }
+
+        /// <summary><c>v[i]</c> in a target: a bit of a vector, or an element of a packed array.</summary>
+        private bool TryElementPlace(Place inner, IndexExpression index, bool procedural, out Place place)
+        {
+            place = default;
+            PackedType type = inner.Type;
+            PackedType element = type.Element ?? PackedType.Bit;
+            int width = type.ElementWidth;
+            string name = Printer.Print(index.Target);
+            var quiet = new DiagnosticBag();
+
+            if (TryInteger(index.Index, _scope, quiet, "an index", out long constant))
+            {
+                long position = type.Position(constant);
+                if (position < 0 || position + width > type.Width)
+                {
+                    Error(index.Location, ElaborationCodes.BadSelect, $"{Printer.Print(index)} is outside {name}, which is [{type.Msb}:{type.Lsb}].");
+                    return false;
+                }
+
+                place = inner.Narrowed(position, width, element);
                 return true;
             }
 
-            var range = (RangeSelectExpression)select;
+            if (!procedural)
+            {
+                TryInteger(index.Index, _scope, _diagnostics, $"the index into {name}", out _);
+                Failed = true;
+                return false;
+            }
+
+            Expr i = BuildSelf(index.Index);
+            if (Failed)
+                return false;
+
+            if (inner.Whole && type.Element == null)
+            {
+                // A bit of a whole vector: an index outside it writes nothing, which the engine sees to.
+                place = inner.Moved(OffsetFrom(i, type.Msb, type.Lsb), 1, element);
+                return true;
+            }
+
+            // An element, or a bit inside a part: x when the index is outside, so that nothing is written
+            // rather than the bits of the element next to it.
+            bool descending = type.Msb >= type.Lsb;
+            Expr at = Linear(i, TypeOf(index.Index).Signed, descending ? +1 : -1, descending ? -type.Lsb : type.Lsb);
+            Expr bits = width == 1 ? at : Expr.Apply(BinaryOp.Multiply, at, Int64(width));
+            place = inner.Moved(Expr.Conditional(Within(at, type.Count), bits, Expr.Constant(LogicVec.AllX(64, true))), width, element);
+            return true;
+        }
+
+        /// <summary><c>v[7:4]</c>, <c>v[i +: 4]</c> in a target: a part of a vector, a slice of a packed array.</summary>
+        private bool TryRangePlace(Place inner, RangeSelectExpression range, bool procedural, out Place place)
+        {
+            place = default;
+            PackedType type = inner.Type;
+            int step = type.ElementWidth;
+            bool descending = type.Msb >= type.Lsb;
+            string name = Printer.Print(range.Target);
+            var quiet = new DiagnosticBag();
             long left, right;
 
             if (range.Kind == RangeKind.Constant)
@@ -1600,6 +2253,13 @@ namespace BitSorter.Sim
                     return false;
                 }
 
+                if (w * step > LogicVec.MaxWidth)
+                {
+                    Error(range.Location, ElaborationCodes.TooLarge, $"{Printer.Print(range)} is wider than BitSorter allows ({LogicVec.MaxWidth} bits).");
+                    return false;
+                }
+
+                bool up = range.Kind == RangeKind.IndexedUp;
                 if (!TryInteger(range.Left, _scope, quiet, "a part-select's base", out long b))
                 {
                     if (!procedural)
@@ -1609,36 +2269,56 @@ namespace BitSorter.Sim
                         return false;
                     }
 
-                    if (s.Msb < s.Lsb)
-                    {
-                        Error(range.Location, ElaborationCodes.NotYet, "A variable part-select of a vector declared low to high is not supported by BitSorter yet.");
-                        return false;
-                    }
-
-                    Expr offset = OffsetFrom(BuildSelf(range.Left), s.Msb, s.Lsb);
-                    if (range.Kind == RangeKind.IndexedDown)
-                        offset = Expr.Apply(BinaryOp.Subtract, offset, Expr.Constant(LogicVec.FromInt64(w - 1, offset.Width)));
+                    Expr baseExpr = BuildSelf(range.Left);
                     if (Failed)
                         return false;
 
-                    at = new ProcPart(s, 0, (int)w, offset, word, memory);
+                    var slice = new PackedType((int)w - 1, 0, false, type.Element, null, null, type.TwoState);
+                    if (inner.Whole && type.Element == null && descending)
+                    {
+                        // Part of a whole vector: bits past its ends are not written, which the engine sees to.
+                        Expr offset = OffsetFrom(baseExpr, type.Msb, type.Lsb);
+                        if (!up)
+                            offset = Expr.Apply(BinaryOp.Subtract, offset, Expr.Constant(LogicVec.FromInt64(w - 1, offset.Width)));
+                        place = inner.Moved(offset, (int)w, slice);
+                        return true;
+                    }
+
+                    bool signed = TypeOf(range.Left).Signed;
+                    Expr lowest = descending
+                        ? Linear(baseExpr, signed, +1, up ? -type.Lsb : -type.Lsb - (w - 1))
+                        : Linear(baseExpr, signed, -1, up ? type.Lsb - (w - 1) : type.Lsb);
+                    Expr bits = step == 1 ? lowest : Expr.Apply(BinaryOp.Multiply, lowest, Int64(step));
+
+                    // Inside a part only a slice wholly inside it is written: the bits past its ends are another's.
+                    if (!inner.Whole)
+                    {
+                        Expr fits = Expr.Apply(BinaryOp.LogicalAnd,
+                            Expr.Apply(BinaryOp.GreaterOrEqual, lowest, Int64(0)),
+                            Expr.Apply(BinaryOp.LessOrEqual, lowest, Int64(type.Count - w)));
+                        bits = Expr.Conditional(fits, bits, Expr.Constant(LogicVec.AllX(64, true)));
+                    }
+
+                    place = inner.Moved(bits, (int)(w * step), slice);
                     return true;
                 }
 
-                left = range.Kind == RangeKind.IndexedUp ? b + w - 1 : b;
-                right = range.Kind == RangeKind.IndexedUp ? b : b - w + 1;
+                left = up ? b + w - 1 : b;
+                right = up ? b : b - w + 1;
+                if (!descending)
+                    (left, right) = (right, left);
             }
 
-            long low = Math.Min(Position(left, s.Msb, s.Lsb), Position(right, s.Msb, s.Lsb));
-            int width = (int)(Math.Abs(left - right) + 1);
+            long low = Math.Min(type.Position(left), type.Position(right));
+            long width = (Math.Abs(left - right) + 1) * step;
 
-            if (low < 0 || low + width > s.Width)
+            if (low < 0 || low + width > type.Width)
             {
-                Error(range.Location, ElaborationCodes.BadSelect, $"{Printer.Print(range)} reaches outside {name}, which is [{s.Msb}:{s.Lsb}].");
+                Error(range.Location, ElaborationCodes.BadSelect, $"{Printer.Print(range)} reaches outside {name}, which is [{type.Msb}:{type.Lsb}].");
                 return false;
             }
 
-            at = new ProcPart(s, (int)low, width, null, word, memory);
+            place = inner.Narrowed(low, (int)width, new PackedType((int)left, (int)right, false, type.Element, null, null, type.TwoState));
             return true;
         }
 
@@ -1652,6 +2332,9 @@ namespace BitSorter.Sim
             Lsb = memory.Lsb,
             Signed = memory.Memory.Signed,
             Kind = SignalKind.Variable,
+            Enum = memory.Type?.Enum,
+            TwoState = memory.Type?.TwoState ?? false,
+            Type = memory.Type,
             Declared = memory.Declared,
         };
     }

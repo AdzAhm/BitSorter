@@ -491,6 +491,57 @@ namespace BitSorter.Sim
             return memory;
         }
 
+        /// <summary>
+        /// A memory of more than one unpacked dimension, <c>logic [7:0] grid [0:3][0:7]</c> (Part L4): its
+        /// words row by row, the last dimension the fastest, each named as it is written --
+        /// <c>grid[0][0]</c>, <c>grid[0][1]</c>... -- and counted from 0 as one memory of them all.
+        /// </summary>
+        internal MemoryInfo Memory(string name, int width, bool signed, (int Left, int Right)[] dims, int msb, int lsb, EnumInfo @enum, int scope, bool twoState = false)
+        {
+            if (dims.Length == 1)
+                return Memory(name, width, signed, dims[0].Left, dims[0].Right, msb, lsb, @enum, scope, twoState);
+
+            long words = 1;
+            foreach ((int left, int right) in dims)
+                words *= Math.Abs((long)left - right) + 1;
+            if (words > MaxMemoryWords)
+                throw new ArgumentOutOfRangeException(nameof(dims), $"{name} would have more than {MaxMemoryWords} words.");
+
+            var memory = new MemoryInfo(name, 0, (int)words - 1, width, signed);
+            var index = new int[dims.Length];
+            for (int k = 0; k < dims.Length; k++)
+                index[k] = Math.Min(dims[k].Left, dims[k].Right);
+
+            var text = new System.Text.StringBuilder();
+            SignalId first = default;
+            for (int w = 0; w < words; w++)
+            {
+                text.Clear().Append(name);
+                foreach (int i in index)
+                    text.Append('[').Append(i).Append(']');
+
+                SignalId word = Add(text.ToString(), width, SignalKind.Variable, signed, memory: memory, msb: msb, lsb: lsb, @enum: @enum, scope: scope, twoState: twoState);
+                if (w == 0)
+                    first = word;
+
+                // The next word: the last index moves on, and carries into the one before it.
+                for (int k = dims.Length - 1; k >= 0; k--)
+                {
+                    if (index[k] < Math.Max(dims[k].Left, dims[k].Right))
+                    {
+                        index[k]++;
+                        break;
+                    }
+
+                    index[k] = Math.Min(dims[k].Left, dims[k].Right);
+                }
+            }
+
+            memory.First = first;
+            _memories.Add(memory);
+            return memory;
+        }
+
         /// <summary>The most words one memory may have: a million, four times the course's largest.</summary>
         public const int MaxMemoryWords = 1 << 20;
 

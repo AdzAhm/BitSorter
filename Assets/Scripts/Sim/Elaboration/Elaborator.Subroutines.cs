@@ -403,7 +403,7 @@ namespace BitSorter.Sim
                         }
 
                         var builder = Builder(p, given != null ? scope : r.Scope);
-                        Expr built = Sized(builder, value, formal.Width);
+                        Expr built = Sized(builder, value, formal.Width, formal.Type);
                         if (builder.Failed)
                             p.Failed = true;
                         p.Emit(new Instruction { Op = OpCode.Assign, Target = Whole(formal), TargetWidth = formal.Width, Value = built });
@@ -490,7 +490,7 @@ namespace BitSorter.Sim
 
                     SignalEntry result = frame.Routine.Result;
                     var builder = Builder(p, scope);
-                    Expr value = Sized(builder, r.Value, result.Width);
+                    Expr value = Sized(builder, r.Value, result.Width, result.Type);
                     if (builder.Failed)
                         p.Failed = true;
                     p.Emit(new Instruction { Op = OpCode.Assign, Target = Whole(result), TargetWidth = result.Width, Value = value });

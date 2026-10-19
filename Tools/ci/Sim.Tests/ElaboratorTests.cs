@@ -549,7 +549,7 @@ endmodule");
         [TestCase("module m (input logic a, output logic y); assign 1'b0 = a; endmodule", ElaborationCodes.BadLValue)]
         [TestCase("module m (input logic a, output logic y); logic y; endmodule", ElaborationCodes.Duplicate)]
         [TestCase("module m (inout wire a); endmodule", ElaborationCodes.NotYet)]
-        [TestCase("module m (output logic y); logic [7:0] mem [0:3][0:1]; endmodule", ElaborationCodes.NotYet)]
+        [TestCase("module m (output logic y); struct { logic a; } s; endmodule", ElaborationCodes.NotYet)]
         [TestCase("module c (input logic a); endmodule\nmodule m (output logic y); c i (.b(y)); endmodule", ElaborationCodes.BadPort)]
         [TestCase("module c #(parameter A = 1, localparam B = 2) (input logic a); endmodule\nmodule m (input logic y); c #(.B(3)) i (.a(y)); endmodule", ElaborationCodes.BadParameter)]
         [TestCase("module r (input logic a); r again (.a(a)); endmodule\nmodule m (input logic y); r i (.a(y)); endmodule", ElaborationCodes.Recursion)]

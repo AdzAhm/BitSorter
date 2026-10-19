@@ -139,6 +139,9 @@ namespace BitSorter.Sim
                         return RunsAtLeastOnce(f, scope) ? body : new Paths(new HashSet<string>(StringComparer.Ordinal), body.Some);
                     }
 
+                    case ForeachStatement f:
+                        return Walk(f.Body, scope);   // every dimension has at least one index, so the body runs
+
                     case RepeatStatement r:
                     {
                         Paths body = Walk(r.Body, scope);
@@ -174,7 +177,11 @@ namespace BitSorter.Sim
                 switch (target)
                 {
                     case NameExpression n:
-                        into.Add(n.Name);
+                        // A member of a struct, pkt.kind, by its whole name: each member is assigned or not.
+                        into.Add(n.Path.Count == 1 ? n.Name : string.Join(".", n.Path));
+                        break;
+                    case MemberExpression m:
+                        TargetNames(m.Target, into);
                         break;
                     case IndexExpression i:
                         TargetNames(i.Target, into);
@@ -217,6 +224,12 @@ namespace BitSorter.Sim
                         foreach (ForInitializer init in f.Initializers)
                             if (init.Type != null && init.Target is NameExpression n)
                                 into.Add(n.Name);
+                        Declared(f.Body, into);
+                        break;
+                    case ForeachStatement f:
+                        foreach (string name in f.Variables)
+                            if (name != null)
+                                into.Add(name);
                         Declared(f.Body, into);
                         break;
                     case RepeatStatement r:

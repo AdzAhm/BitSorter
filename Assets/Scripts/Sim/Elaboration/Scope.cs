@@ -32,6 +32,12 @@ namespace BitSorter.Sim
 
         /// <summary>Whether its type holds only 0 and 1: what an enum's <c>next()</c> gives for a value that is no member.</summary>
         public bool TwoState;
+
+        /// <summary>
+        /// What its bits are (Part L4): a packed array's elements, or a struct's members, which a select or
+        /// a member access finds its way through. Never null; a plain vector is <c>[Msb:Lsb]</c> of bits.
+        /// </summary>
+        public PackedType Type;
     }
 
     /// <summary>
@@ -106,6 +112,15 @@ namespace BitSorter.Sim
 
         /// <summary>A word's declared range, <c>[Msb:Lsb]</c>, which a select inside a word counts against.</summary>
         public int Msb, Lsb;
+
+        /// <summary>What a word's bits are, as <see cref="SignalEntry.Type"/> says for a signal.</summary>
+        public PackedType Type;
+
+        /// <summary>
+        /// The unpacked dimensions, the first the outermost (Part L4): <c>mem [0:3][0:7]</c> is four rows of
+        /// eight words, kept as thirty-two words row by row. One dimension for a memory of one.
+        /// </summary>
+        public (int Left, int Right)[] Dims;
     }
 
     /// <summary>A typedef's type: its width, signedness and range, and its enum when it is one.</summary>
@@ -123,6 +138,9 @@ namespace BitSorter.Sim
 
         /// <summary>Whether the type holds only 0 and 1, as <c>typedef bit [3:0] nibble_t;</c> or an enum on no base does.</summary>
         public bool TwoState;
+
+        /// <summary>What its bits are: a struct's members, a packed array's elements, or a plain vector.</summary>
+        public PackedType Type;
     }
 
     /// <summary>
