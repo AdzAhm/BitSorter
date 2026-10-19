@@ -566,8 +566,18 @@ namespace BitSorter.SystemVerilog.Syntax
             if (target is CallExpression call && Current.Is(";"))
             {
                 Next();
-                var statement = new CallStatement { Location = call.Location, Name = call.Name, HasParentheses = call.HasParentheses };
+                var statement = new CallStatement { Location = call.Location, Name = call.Name, Package = call.Package, HasParentheses = call.HasParentheses };
                 statement.Arguments.AddRange(call.Arguments);
+                statement.Comment = Previous.TrailingComment;
+                return statement;
+            }
+
+            // A method called for what it does: s.itoa(n); s.putc(0, "A"); (Part L6).
+            if (target is MethodCallExpression method && Current.Is(";"))
+            {
+                Next();
+                var statement = new CallStatement { Location = method.Location, Name = method.Method, Target = method.Target, HasParentheses = method.HasParentheses };
+                statement.Arguments.AddRange(method.Arguments);
                 statement.Comment = Previous.TrailingComment;
                 return statement;
             }
@@ -575,7 +585,7 @@ namespace BitSorter.SystemVerilog.Syntax
             if (target is NameExpression name && name.Path.Count == 1 && Current.Is(";"))
             {
                 Next();
-                return new CallStatement { Location = name.Location, Name = name.Name, Comment = Previous.TrailingComment };
+                return new CallStatement { Location = name.Location, Name = name.Name, Package = name.Package, Comment = Previous.TrailingComment };
             }
 
             if (Current.Is("++") || Current.Is("--"))

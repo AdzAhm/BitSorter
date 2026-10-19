@@ -33,6 +33,7 @@ namespace BitSorter.SystemVerilog.Syntax
                 SyntaxTree one = Read(path, files);
                 all.Modules.AddRange(one.Modules);
                 all.UnitItems.AddRange(one.UnitItems);
+                all.Packages.AddRange(one.Packages);
                 all.Diagnostics.AddRange(one.Diagnostics);
                 all.Files.AddRange(one.Files);
                 all.Timescale = all.Timescale ?? one.Timescale;

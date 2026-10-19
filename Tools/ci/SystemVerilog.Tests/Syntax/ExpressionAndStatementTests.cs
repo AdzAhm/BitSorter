@@ -203,6 +203,43 @@ namespace BitSorter.SystemVerilog.Tests.Syntax
         }
 
         [Test]
+        public void APackage_ItsImports_AndNamesInIt_AreRead_AndPrintedAsWritten()
+        {
+            const string text =
+                "package alu_pkg;\n  import sizes::*;\n  typedef logic [3:0] nib_t;\n  parameter int N = 4;\nendpackage\n\n" +
+                "module m import alu_pkg::*; (input nib_t a, output logic y);\n  import sizes::WORD, other::*;\n  alu_pkg::nib_t b;\n" +
+                "  assign y = alu_pkg::f(a) == alu_pkg::N;\n  initial begin\n    alu_pkg::say(1);\n    s.itoa(4);\n  end\nendmodule\n";
+            SyntaxTree tree = Clean(text);
+
+            PackageDeclaration package = tree.Packages.Single();
+            Assert.AreEqual("alu_pkg", package.Name);
+            Assert.IsInstanceOf<ImportDeclaration>(package.Items[0]);
+
+            ModuleDeclaration m = tree.Modules.Single();
+            Assert.AreEqual("alu_pkg", m.HeaderImports.Single().Items.Single().Package);
+            Assert.IsNull(m.HeaderImports.Single().Items.Single().Name, "* imports every name");
+            var import = (ImportDeclaration)m.Items[0];
+            CollectionAssert.AreEqual(new[] { "WORD", null }, import.Items.Select(i => i.Name));
+            Assert.AreEqual("alu_pkg", ((DataDeclaration)m.Items[1]).Type.Package);
+
+            var initial = (BlockStatement)((ProceduralBlock)m.Items[3]).Body;
+            Assert.AreEqual("alu_pkg", ((CallStatement)initial.Statements[0]).Package);
+            var method = (CallStatement)initial.Statements[1];
+            Assert.AreEqual("itoa", method.Name);
+            Assert.AreEqual("s", Printer.Print(method.Target));
+
+            string printed = Printer.Print(Clean(Printer.Print(tree)));
+            StringAssert.Contains("package alu_pkg;", printed);
+            StringAssert.Contains("module m import alu_pkg::*;", printed);
+            StringAssert.Contains("import sizes::WORD, other::*;", printed);
+            StringAssert.Contains("alu_pkg::nib_t b;", printed);
+            StringAssert.Contains("assign y = alu_pkg::f(a) == alu_pkg::N;", printed);
+            StringAssert.Contains("alu_pkg::say(1);", printed);
+            StringAssert.Contains("s.itoa(4);", printed);
+            Assert.AreEqual(printed, Printer.Print(Clean(printed)), "printing is a fixed point");
+        }
+
+        [Test]
         public void ABinaryNandOrNor_IsReadWithAWarning_BindsAsAndOrOr_AndPrintsAsWritten()
         {
             // The course's first workshop writes X ~& Y; the standard has ~& and ~| only as reductions.

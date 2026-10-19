@@ -172,6 +172,14 @@ namespace BitSorter.SystemVerilog.Syntax
                 {
                     tree.Modules.Add(ParseModule());
                 }
+                else if (t.IsKeyword("package"))
+                {
+                    tree.Packages.Add(ParsePackage());
+                }
+                else if (t.IsKeyword("import"))
+                {
+                    tree.UnitItems.Add(ParseImport());
+                }
                 else if (t.IsKeyword("typedef") || t.IsKeyword("parameter") || t.IsKeyword("localparam") ||
                          t.IsKeyword("function") || t.IsKeyword("task"))
                 {
@@ -185,9 +193,9 @@ namespace BitSorter.SystemVerilog.Syntax
                 {
                     tree.UnitItems.Add(SkipUnsupported(Plural(t.Text) + " are not supported by BitSorter", end));
                 }
-                else if (t.IsKeyword("import") || t.IsKeyword("export"))
+                else if (t.IsKeyword("export"))
                 {
-                    tree.UnitItems.Add(SkipUnsupported("Packages are not supported by BitSorter, so there is nothing to import", null));
+                    tree.UnitItems.Add(SkipUnsupported("export is not supported by BitSorter; import from the package itself", null));
                 }
                 else if (t.Is(";"))
                 {
@@ -223,7 +231,7 @@ namespace BitSorter.SystemVerilog.Syntax
         /// <summary>Constructs BitSorter does not read at all, and the keyword each ends with.</summary>
         private static readonly Dictionary<string, string> UnsupportedBlocks = new Dictionary<string, string>(StringComparer.Ordinal)
         {
-            ["package"] = "endpackage", ["interface"] = "endinterface", ["program"] = "endprogram",
+            ["interface"] = "endinterface", ["program"] = "endprogram",
             ["class"] = "endclass", ["primitive"] = "endprimitive", ["config"] = "endconfig",
             ["checker"] = "endchecker", ["specify"] = "endspecify", ["property"] = "endproperty",
             ["sequence"] = "endsequence", ["clocking"] = "endclocking", ["covergroup"] = "endgroup",
@@ -282,6 +290,58 @@ namespace BitSorter.SystemVerilog.Syntax
         // Modules
         // -----------------------------------------------------------------
 
+        /// <summary><c>package name; items endpackage [: name]</c> (Part L6).</summary>
+        private PackageDeclaration ParsePackage()
+        {
+            var package = new PackageDeclaration { Location = Current.Location };
+            Next();
+
+            if (!AcceptKeyword("automatic"))
+                AcceptKeyword("static");
+
+            package.Name = ExpectIdentifier("the package's name") ?? "?";
+            if (!Expect(";", $"after the name of package {package.Name}"))
+                SkipToItemEnd();
+            package.Comment = Previous.TrailingComment;
+
+            ParseItems(package.Items, "endpackage");
+
+            if (!AcceptKeyword("endpackage"))
+            {
+                Error(Current.Location, DiagnosticCodes.Expected, $"Package {package.Name} never ends: 'endpackage' is missing.");
+                return package;
+            }
+
+            if (Accept(":"))
+            {
+                string closing = ExpectIdentifier("the package's name after endpackage");
+                if (closing != null && closing != package.Name)
+                    _diagnostics.Warning(Previous.Location, DiagnosticCodes.MismatchedLabel, $"'endpackage : {closing}' closes package {package.Name}.");
+            }
+
+            return package;
+        }
+
+        /// <summary><c>import p::*;</c> or <c>import p::name, q::*;</c> (Part L6).</summary>
+        private ImportDeclaration ParseImport()
+        {
+            var import = new ImportDeclaration { Location = Next().Location };
+
+            do
+            {
+                var item = new ImportItem { Location = Current.Location, Package = ExpectIdentifier("the package to import from") ?? "?" };
+                if (Expect("::", "after the package's name, as import p::* or import p::name"))
+                    item.Name = Accept("*") ? null : ExpectIdentifier("the name to import, or *");
+                import.Items.Add(item);
+            }
+            while (Accept(","));
+
+            if (!Expect(";", "after the import"))
+                SkipToItemEnd();
+            import.Comment = Previous.TrailingComment;
+            return import;
+        }
+
         private ModuleDeclaration ParseModule()
         {
             var module = new ModuleDeclaration { Location = Current.Location };
@@ -292,6 +352,10 @@ namespace BitSorter.SystemVerilog.Syntax
 
             module.Name = ExpectIdentifier("the module's name") ?? "?";
             module.Comment = Previous.TrailingComment;
+
+            // module m import p::*; #(...) (...);
+            while (Current.IsKeyword("import"))
+                module.HeaderImports.Add(ParseImport());
 
             if (Accept("#"))
             {
@@ -549,12 +613,10 @@ namespace BitSorter.SystemVerilog.Syntax
             else if (Current.Kind == TokenKind.Identifier && !Current.Is("["))
             {
                 type.Name = Next().Text;
-                if (Current.Is("::"))
+                if (Accept("::"))
                 {
-                    Error(Current.Location, DiagnosticCodes.Unsupported, "Packages are not supported by BitSorter, so 'package::type' cannot be used.");
-                    Next();
-                    if (Current.Kind == TokenKind.Identifier)
-                        type.Name = Next().Text;
+                    type.Package = type.Name;
+                    type.Name = ExpectIdentifier($"the type in package {type.Package}") ?? "?";
                 }
             }
 
@@ -829,8 +891,11 @@ namespace BitSorter.SystemVerilog.Syntax
                     return;
 
                 case "import":
+                    into.Add(ParseImport());
+                    return;
+
                 case "export":
-                    into.Add(SkipUnsupported("Packages are not supported by BitSorter, so there is nothing to import", null));
+                    into.Add(SkipUnsupported("export is not supported by BitSorter; import from the package itself", null));
                     return;
 
                 case "assert":
@@ -1147,8 +1212,9 @@ namespace BitSorter.SystemVerilog.Syntax
                 return ParseDataDeclaration();
             }
 
+            // p::type_t x;
             if (second.Is("::"))
-                return SkipUnsupported("Packages are not supported by BitSorter, so 'package::name' cannot be used", null);
+                return ParseDataDeclaration();
 
             if (second.Is("=") || second.Is("<=") || second.Is("[") || second.Is("."))
             {
@@ -1516,8 +1582,12 @@ namespace BitSorter.SystemVerilog.Syntax
             if (t.Kind != TokenKind.Identifier)
                 return false;
 
+            // p::type_t x;
+            if (Peek(1).Is("::"))
+                return Peek(2).Kind == TokenKind.Identifier && Peek(3).Kind == TokenKind.Identifier;
+
             if (_typeNames.Contains(t.Text))
-                return !Peek(1).Is("::") && !Peek(1).Is("=") && !Peek(1).Is("<=");
+                return !Peek(1).Is("=") && !Peek(1).Is("<=");
 
             return Peek(1).Kind == TokenKind.Identifier;
         }

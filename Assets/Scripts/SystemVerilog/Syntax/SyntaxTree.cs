@@ -22,6 +22,9 @@ namespace BitSorter.SystemVerilog.Syntax
         /// <summary>Typedefs, parameters and functions written outside every module, which every module can see.</summary>
         public List<ModuleItem> UnitItems { get; } = new List<ModuleItem>();
 
+        /// <summary>The packages (Part L6), which a module sees what it imports from, or names as <c>p::name</c>.</summary>
+        public List<PackageDeclaration> Packages { get; } = new List<PackageDeclaration>();
+
         public List<Diagnostic> Diagnostics { get; } = new List<Diagnostic>();
 
         /// <summary>What a <c>`timescale</c> said, or null.</summary>
@@ -43,6 +46,9 @@ namespace BitSorter.SystemVerilog.Syntax
 
         /// <summary>The <c>#( ... )</c> list after the name; empty when there is none.</summary>
         public List<ParameterDeclaration> HeaderParameters { get; } = new List<ParameterDeclaration>();
+
+        /// <summary>What the header imports, <c>module m import p::*; (...)</c> (Part L6), seen by its parameters and ports.</summary>
+        public List<ImportDeclaration> HeaderImports { get; } = new List<ImportDeclaration>();
 
         /// <summary>Whether the header had a <c>#( )</c> list at all, even an empty one.</summary>
         public bool HasParameterList { get; set; }
@@ -97,6 +103,9 @@ namespace BitSorter.SystemVerilog.Syntax
 
         /// <summary>A typedef's name, when the type is one.</summary>
         public string Name { get; set; }
+
+        /// <summary>The package a typedef's name is in, when it is written <c>p::name</c> (Part L6).</summary>
+        public string Package { get; set; }
 
         public bool Signed { get; set; }
 
@@ -168,6 +177,28 @@ namespace BitSorter.SystemVerilog.Syntax
     {
         /// <summary>A comment on the item's last line.</summary>
         public string Comment { get; set; }
+    }
+
+    /// <summary><c>package name; ... endpackage</c> (Part L6): parameters, typedefs, functions and tasks for modules to share.</summary>
+    public sealed class PackageDeclaration : SyntaxNode
+    {
+        public string Name { get; set; }
+        public List<ModuleItem> Items { get; } = new List<ModuleItem>();
+        public string Comment { get; set; }
+    }
+
+    /// <summary><c>import p::*;</c>, <c>import p::name, q::*;</c>: names from packages made visible where it is written.</summary>
+    public sealed class ImportDeclaration : ModuleItem
+    {
+        public List<ImportItem> Items { get; } = new List<ImportItem>();
+    }
+
+    public sealed class ImportItem : SyntaxNode
+    {
+        public string Package { get; set; }
+
+        /// <summary>The name it imports; null for <c>*</c>, every name the package has.</summary>
+        public string Name { get; set; }
     }
 
     /// <summary><c>parameter N = 8;</c> or <c>localparam WIDTH = N + 1;</c>, one name each.</summary>
@@ -580,6 +611,13 @@ namespace BitSorter.SystemVerilog.Syntax
     public sealed class CallStatement : Statement
     {
         public string Name { get; set; }
+
+        /// <summary>The package the task or function is in, when it is called <c>p::t(...)</c> (Part L6); null otherwise.</summary>
+        public string Package { get; set; }
+
+        /// <summary>For a method called as a statement, <c>s.itoa(n);</c> (Part L6), what it is called on; null otherwise.</summary>
+        public Expression Target { get; set; }
+
         public bool HasParentheses { get; set; }
         public List<Expression> Arguments { get; } = new List<Expression>();
         public bool IsSystem => Name.StartsWith("$", System.StringComparison.Ordinal);
@@ -691,6 +729,9 @@ namespace BitSorter.SystemVerilog.Syntax
     {
         public List<string> Path { get; } = new List<string>();
         public string Name => Path[Path.Count - 1];
+
+        /// <summary>The package the name is in, when it is written <c>p::name</c> (Part L6); null otherwise.</summary>
+        public string Package { get; set; }
     }
 
     /// <summary><c>a[3]</c>.</summary>
@@ -755,6 +796,10 @@ namespace BitSorter.SystemVerilog.Syntax
     public sealed class CallExpression : Expression
     {
         public string Name { get; set; }
+
+        /// <summary>The package the function is in, when it is called <c>p::f(...)</c> (Part L6); null otherwise.</summary>
+        public string Package { get; set; }
+
         public bool HasParentheses { get; set; }
         public List<Expression> Arguments { get; } = new List<Expression>();
     }

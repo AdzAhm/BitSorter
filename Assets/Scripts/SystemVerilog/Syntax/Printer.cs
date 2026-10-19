@@ -34,9 +34,16 @@ namespace BitSorter.SystemVerilog.Syntax
             foreach (ModuleItem item in tree.UnitItems)
                 printer.Item(item);
 
-            for (int i = 0; i < tree.Modules.Count; i++)
+            for (int i = 0; i < tree.Packages.Count; i++)
             {
                 if (i > 0 || tree.UnitItems.Count > 0 || tree.Timescale != null)
+                    printer._out.Append('\n');
+                printer.Package(tree.Packages[i]);
+            }
+
+            for (int i = 0; i < tree.Modules.Count; i++)
+            {
+                if (i > 0 || tree.UnitItems.Count > 0 || tree.Packages.Count > 0 || tree.Timescale != null)
                     printer._out.Append('\n');
                 printer.Module(tree.Modules[i]);
             }
@@ -72,9 +79,29 @@ namespace BitSorter.SystemVerilog.Syntax
             _out.Append('\n');
         }
 
+        private void Package(PackageDeclaration package)
+        {
+            Line("package " + package.Name + ";", package.Comment);
+            _level++;
+            foreach (ModuleItem item in package.Items)
+                Item(item);
+            _level--;
+            Line("endpackage");
+        }
+
+        private static string ImportText(ImportDeclaration import)
+        {
+            var items = new List<string>();
+            foreach (ImportItem item in import.Items)
+                items.Add(item.Package + "::" + (item.Name ?? "*"));
+            return "import " + string.Join(", ", items) + ";";
+        }
+
         private void Module(ModuleDeclaration module)
         {
             string name = "module " + module.Name;
+            foreach (ImportDeclaration import in module.HeaderImports)
+                name += " " + ImportText(import);
             bool parameters = module.HasParameterList && module.HeaderParameters.Count > 0;
 
             if (module.HasParameterList && !parameters)
@@ -162,7 +189,7 @@ namespace BitSorter.SystemVerilog.Syntax
             else if (type.Keyword != null)
                 text.Append(type.Keyword);
             else if (type.Name != null)
-                text.Append(type.Name);
+                text.Append(type.Package != null ? type.Package + "::" : "").Append(type.Name);
 
             if (type.Signed)
                 text.Append(text.Length > 0 ? " signed" : "signed");
@@ -245,6 +272,10 @@ namespace BitSorter.SystemVerilog.Syntax
 
                 case TypedefDeclaration t:
                     Line("typedef " + TypePrefix(t.Type) + t.Name + ";", t.Comment);
+                    break;
+
+                case ImportDeclaration import:
+                    Line(ImportText(import), import.Comment);
                     break;
 
                 case GenvarDeclaration g:
@@ -694,7 +725,8 @@ namespace BitSorter.SystemVerilog.Syntax
                     return i.Prefix ? i.Operator + ExpressionText(i.Target) : ExpressionText(i.Target) + i.Operator;
 
                 case CallStatement c:
-                    return c.Name + (c.HasParentheses ? "(" + ArgumentsText(c.Arguments) + ")" : "");
+                    return (c.Target != null ? ExpressionText(c.Target) + "." : "") + (c.Package != null ? c.Package + "::" : "") + c.Name +
+                           (c.HasParentheses ? "(" + ArgumentsText(c.Arguments) + ")" : "");
 
                 case ReturnStatement r:
                     return r.Value != null ? "return " + ExpressionText(r.Value) : "return";
@@ -836,6 +868,8 @@ namespace BitSorter.SystemVerilog.Syntax
                     return;
 
                 case NameExpression n:
+                    if (n.Package != null)
+                        text.Append(n.Package).Append("::");
                     for (int i = 0; i < n.Path.Count; i++)
                         text.Append(i == 0 ? "" : ".").Append(NameText(n.Path[i]));
                     return;
@@ -914,7 +948,7 @@ namespace BitSorter.SystemVerilog.Syntax
                     return;
 
                 case CallExpression c:
-                    text.Append(c.Name);
+                    text.Append(c.Package != null ? c.Package + "::" : "").Append(c.Name);
                     if (c.HasParentheses)
                         text.Append('(').Append(ArgumentsText(c.Arguments)).Append(')');
                     return;

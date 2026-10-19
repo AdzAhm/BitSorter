@@ -280,12 +280,15 @@ namespace BitSorter.SystemVerilog.Syntax
             var name = new NameExpression { Location = first.Location };
             name.Path.Add(first.Text);
 
-            if (Current.Is("::"))
+            // p::name, p::f(...) (Part L6).
+            if (Accept("::"))
             {
-                Error(Current.Location, DiagnosticCodes.Unsupported, "Packages are not supported by BitSorter, so 'package::name' cannot be used.");
-                Next();
+                name.Package = first.Text;
                 if (Current.Kind == TokenKind.Identifier)
-                    name.Path[0] = Next().Text;
+                    first = Next();
+                else
+                    Error(Current.Location, DiagnosticCodes.Expected, $"Expected a name in package {name.Package} after '::', but found {Describe(Current)}.");
+                name.Path[0] = first.Text;
             }
 
             if (Current.Is("'") && Peek(1).Is("("))
@@ -296,7 +299,7 @@ namespace BitSorter.SystemVerilog.Syntax
 
             if (Current.Is("("))
             {
-                var call = new CallExpression { Location = first.Location, Name = first.Text, HasParentheses = true };
+                var call = new CallExpression { Location = name.Location, Name = first.Text, Package = name.Package, HasParentheses = true };
                 ParseArguments(call.Arguments, out bool _, call.Name);
                 return call;
             }
