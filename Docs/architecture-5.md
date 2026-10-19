@@ -265,7 +265,9 @@ VCD           written for export, read for the oracle comparison
   part of one. A gate's inputs are one-bit expressions, so it reads a bit of a vector directly. A net
   resolves its drivers (`LogicVec.ResolveWire`), each contributing z outside its slice, and reads z with
   none; a variable's bits take at most one continuous driver each, and `NetlistBuilder` refuses a second
-  with the way out. Every 4-state signal starts at x, an undriven net at z, and a net driven in slices at x
+  with the way out. Every 4-state signal starts at x, an undriven net at z -- and so does a top-level input,
+  declared a variable for a stimulus to write, until one does (an input port is a net, IEEE 1800,
+  23.2.2.3) -- and a net driven in slices at x
   where a driver reaches and z where none does -- as Icarus shows it. A 2-state one (`bit`, `byte`,
   `shortint`, `int`, `longint`, and an enum that names no base type, which is an `int`) starts at 0 and
   holds an x or a z written to it as 0 (`SignalInfo.TwoState`, applied where every value a signal takes is

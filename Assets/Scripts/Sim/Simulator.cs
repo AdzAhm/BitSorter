@@ -329,7 +329,11 @@ namespace BitSorter.Sim
             for (int s = 0; s < signals; s++)
             {
                 SignalInfo info = design.Signals[s];
-                bool undrivenNet = info.Kind == SignalKind.Net && _driversOf[s].Length == 0;
+
+                // An input port is a net (IEEE 1800, 23.2.2.3), so one nothing drives reads z. The top's
+                // inputs are declared as variables, for a stimulus to write, and read z until it does.
+                bool topInput = info.Kind == SignalKind.Variable && info.Port == SystemVerilog.Syntax.PortDirection.Input && !procedural[s];
+                bool undrivenNet = (info.Kind == SignalKind.Net || topInput) && _driversOf[s].Length == 0;
 
                 // A signal driven in slices starts from its slices: x where a driver reaches, and on a
                 // wire z where none does -- as Icarus shows a wire with assign y[0] = a alone, zzzx.
