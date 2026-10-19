@@ -1011,7 +1011,7 @@ namespace BitSorter.Sim
             {
                 if (port.Unpacked.Count > 0)
                 {
-                    NotYet(port.Location, $"Port {port.Name} is an array, which arrives in Part 6.");
+                    NotYet(port.Location, $"Port {port.Name} is an unpacked array, which BitSorter does not support yet; a packed one, logic [3:0][7:0], can be a port.");
                     return;
                 }
 
@@ -1220,7 +1220,7 @@ namespace BitSorter.Sim
 
                     if (declarator.Unpacked.Count > 0)
                     {
-                        NotYet(declarator.Location, $"Port {declarator.Name} is an array, which arrives in Part 6.");
+                        NotYet(declarator.Location, $"Port {declarator.Name} is an unpacked array, which BitSorter does not support yet; a packed one, logic [3:0][7:0], can be a port.");
                         continue;
                     }
 
