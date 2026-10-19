@@ -482,13 +482,16 @@ namespace BitSorter.SystemVerilog.Syntax
                         continue;
                     }
 
+                    // A key -- a member's name, an index -- and its value, or a value in its place.
                     Expression item = ParseExpression();
+                    Expression key = null;
                     if (Accept(":"))
                     {
-                        Error(Previous.Location, DiagnosticCodes.Unsupported, "Keys in '{...} other than 'default' are not supported by BitSorter.");
+                        key = item;
                         item = ParseExpression();
                     }
 
+                    pattern.Keys.Add(key);
                     pattern.Items.Add(item);
                 }
                 while (Accept(","));

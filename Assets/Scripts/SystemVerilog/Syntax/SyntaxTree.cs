@@ -747,6 +747,13 @@ namespace BitSorter.SystemVerilog.Syntax
     public sealed class AssignmentPatternExpression : Expression
     {
         public List<Expression> Items { get; } = new List<Expression>();
+
+        /// <summary>
+        /// Each item's key, beside it, null for an item given by its place: <c>'{kind: 2, len: 4}</c> names
+        /// members, <c>'{0: a, 3: b}</c> indices.
+        /// </summary>
+        public List<Expression> Keys { get; } = new List<Expression>();
+
         public Expression Default { get; set; }
     }
 

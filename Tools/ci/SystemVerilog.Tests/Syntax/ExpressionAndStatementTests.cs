@@ -135,6 +135,23 @@ namespace BitSorter.SystemVerilog.Tests.Syntax
         }
 
         [Test]
+        public void APattern_TakesKeysBesideItsValues_AndADefault_AndPrintsAsWritten()
+        {
+            var keyed = (AssignmentPatternExpression)Expr("'{op: 4'h3, 2: a + 1, default: '0}");
+            Assert.AreEqual(2, keyed.Items.Count);
+            Assert.AreEqual("op", Printer.Print(keyed.Keys[0]));
+            Assert.AreEqual("2", Printer.Print(keyed.Keys[1]));
+            Assert.AreEqual("a + 1", Printer.Print(keyed.Items[1]));
+            Assert.AreEqual("'0", Printer.Print(keyed.Default));
+            Assert.AreEqual("'{op: 4'h3, 2: a + 1, default: '0}", Printer.Print(keyed));
+
+            var positional = (AssignmentPatternExpression)Expr("'{1, '{2, 3}}");
+            CollectionAssert.AreEqual(new Expression[] { null, null }, positional.Keys);
+            Assert.IsInstanceOf<AssignmentPatternExpression>(positional.Items[1]);
+            Assert.AreEqual("'{1, '{2, 3}}", Printer.Print(positional));
+        }
+
+        [Test]
         public void ABinaryNandOrNor_IsReadWithAWarning_BindsAsAndOrOr_AndPrintsAsWritten()
         {
             // The course's first workshop writes X ~& Y; the standard has ~& and ~| only as reductions.

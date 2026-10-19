@@ -918,7 +918,11 @@ namespace BitSorter.SystemVerilog.Syntax
                 {
                     text.Append("'{");
                     var parts = new List<string>();
-                    foreach (Expression item in p.Items) parts.Add(ExpressionText(item, compact));
+                    for (int i = 0; i < p.Items.Count; i++)
+                    {
+                        Expression key = i < p.Keys.Count ? p.Keys[i] : null;
+                        parts.Add((key != null ? ExpressionText(key, compact) + ": " : "") + ExpressionText(p.Items[i], compact));
+                    }
                     if (p.Default != null) parts.Add("default: " + ExpressionText(p.Default, compact));
                     text.Append(string.Join(", ", parts)).Append('}');
                     return;
