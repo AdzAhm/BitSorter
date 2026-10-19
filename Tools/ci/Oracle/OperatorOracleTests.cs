@@ -33,6 +33,13 @@ namespace BitSorter.Ci.Oracle
             public string Statement;
             public string Expected;
             public string Shown;
+
+            /// <summary>
+            /// A ?: whose condition is x or z: where both choices are z, the standard gives x (IEEE 1800,
+            /// table 11-20) and Icarus z. BitSorter follows the standard (Docs/oracle-notes.md), so that one
+            /// difference -- an x here against a z there -- is allowed, and nothing else.
+            /// </summary>
+            public bool AmbiguousChoice;
         }
 
         private static string Literal(LogicVec v) => $"{v.Width}'b{v.Format(Radix.Binary)}";
@@ -132,8 +139,10 @@ namespace BitSorter.Ci.Oracle
 
                 i = cases.Count;
                 LogicVec chosen = LogicVec.Conditional(c, a, b);
+                bool ambiguous = LogicVec.Truth(c) != Logic4.One && LogicVec.Truth(c) != Logic4.Zero;
                 Add(string.Join("\n", Declare($"c{i}", c.Width, false), Declare($"a{i}", a.Width, a.IsSigned), Declare($"b{i}", b.Width, b.IsSigned), Declare($"r{i}", chosen.Width, false)),
                     $"c{i} = {Literal(c)}; a{i} = {Literal(a)}; b{i} = {Literal(b)}; r{i} = c{i} ? a{i} : b{i};", chosen, $"{c} ? {a} : {b}");
+                cases[cases.Count - 1].AmbiguousChoice = ambiguous;
 
                 i = cases.Count;
                 Add(string.Join("\n", Declare($"a{i}", a.Width, a.IsSigned), Declare($"n{i}", n.Width, false), Declare($"r{i}", 1, false)),
@@ -185,7 +194,7 @@ namespace BitSorter.Ci.Oracle
                 Assert.AreEqual(cases.Count, printed.Count, "Icarus did not print a line for every case");
 
                 string[] wrong = Enumerable.Range(0, cases.Count)
-                    .Where(i => printed[i] != cases[i].Expected)
+                    .Where(i => printed[i] != cases[i].Expected && !KnownDeparture(cases[i], printed[i]))
                     .Select(i => $"{cases[i].Shown}\n      BitSorter {cases[i].Expected}\n      Icarus    {printed[i]}")
                     .ToArray();
 
@@ -196,6 +205,27 @@ namespace BitSorter.Ci.Oracle
             {
                 Directory.Delete(folder, recursive: true);
             }
+        }
+
+        /// <summary>The one place Icarus departs from the standard here: z kept where an ambiguous ?: should give x.</summary>
+        private static bool KnownDeparture(Case c, string icarus)
+        {
+            if (!c.AmbiguousChoice || icarus.Length != c.Expected.Length)
+                return false;
+
+            for (int k = 0; k < icarus.Length; k++)
+                if (icarus[k] != c.Expected[k] && !(c.Expected[k] == 'x' && icarus[k] == 'z'))
+                    return false;
+
+            return true;
+        }
+
+        [Test]
+        public void AnAmbiguousChoice_OfTwoZBits_IsX_AsTheStandardHasIt()
+        {
+            // Table 11-20: with the condition x, only bits both choices agree on as 0 or 1 come through.
+            LogicVec r = LogicVec.Conditional(LogicVec.FromBinary("x"), LogicVec.FromBinary("zz10"), LogicVec.FromBinary("zz10"));
+            Assert.AreEqual("xx10", r.Format(Radix.Binary));
         }
     }
 }

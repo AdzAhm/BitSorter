@@ -69,6 +69,16 @@ wins over the standard, with a warning: BitSorter reads them as Icarus does and 
 portable spelling. `NonStandardOracleTests` runs the three NANDs, a NOR and a vector chain of both in
 the two simulators, outside the corpus, whose files must read with no diagnostics at all.
 
+### `?:` with an unknown condition, where both choices are z
+
+With the condition x or z, `?:` gives each bit both choices agree on as 0 or 1, and x everywhere else
+(IEEE 1800, table 11-20) -- including where both choices are z. Icarus keeps z there:
+`2'bxx ? 19'sbzz... : 36'sb...z...` comes out with z wherever both sides are z. BitSorter follows the
+standard and gives x. It went unseen until Part L3 added `==?` and `!=?` to `OperatorOracleTests`,
+which moved its random cases onto exactly that combination; the test now allows that one difference --
+an x here against a z there, on an ambiguous `?:` -- and nothing else, and holds the standard's answer
+with a case of its own.
+
 ## Two drivers
 
 | Declaration | Two continuous drivers, 0 against 1 |
