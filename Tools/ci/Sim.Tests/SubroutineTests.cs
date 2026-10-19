@@ -228,6 +228,33 @@ endmodule", 1);
         }
 
         [Test]
+        public void ATaskWithANamedBlock_IsCalledAgain_AndFromAnotherProcess_SharingTheBlocksStatics()
+        {
+            // Every call writes the same task in again, and with it the same named block: its name and its
+            // variables are the ones the first call made, as a task's statics are.
+            Simulator sim = Run(@"
+module t;
+    int n = 0;
+    task bump;
+        begin : step
+            int seen;
+            n++;
+            seen = n;
+            $display(""%0d"", seen);
+        end
+    endtask
+    initial begin
+        bump;
+        bump;
+        #1 bump;
+    end
+    initial #2 bump;
+endmodule", 5);
+
+            CollectionAssert.AreEqual(new[] { "1", "2", "3", "4" }, Printed(sim));
+        }
+
+        [Test]
         public void ATaskInAnAlwaysComb_IsPartOfIt_AndWhatItReadsWakesIt()
         {
             Simulator sim = Run(@"
