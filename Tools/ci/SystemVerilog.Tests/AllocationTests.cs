@@ -54,6 +54,7 @@ namespace BitSorter.SystemVerilog.Tests
             ("conditional", () => { LogicVec.Conditional(Condition, A, B); LogicVec.Conditional(Known, A, B); }),
             ("width", () => { A.Extend(60, true); A.Resize(8); A.AsUnsigned(); LogicVec.Fill(Logic4.X, 64); }),
             ("2-state", () => { A.ToTwoState(); Known.ToTwoState(); }),
+            ("wildcard and counting", () => { LogicVec.WildcardEqual(A, B); LogicVec.CountOnes(A); LogicVec.OneHot(A); LogicVec.IsUnknown(A); }),
             ("reading", () => { Known.TryGetInt64(out _); Divisor.TryGetUInt64(out _); _ = A.IsKnown; _ = A.Equals(B); }),
         };
 

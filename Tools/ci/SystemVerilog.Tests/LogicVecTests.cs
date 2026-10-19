@@ -168,6 +168,34 @@ namespace BitSorter.SystemVerilog.Tests
             Is(new string('1', 64), LogicVec.Subtract(sum, LogicVec.FromUInt64(1, 65)).Slice(0, 64));
         }
 
+        [TestCase("0101", "0x01", "1")]   // an x in the pattern matches anything (Icarus: 1)
+        [TestCase("01x1", "0101", "x")]   // an x in the value, where the pattern asks for a bit (Icarus: x)
+        [TestCase("0101", "1x0x", "0")]   // a known bit that differs, whatever else (Icarus: !=? gives 1)
+        [TestCase("x101", "0100", "0")]   // a difference outweighs an unknown elsewhere
+        [TestCase("1100", "11zz", "1")]   // z in the pattern is as good as x
+        public void AWildcardEquality_IgnoresThePatternsXAndZ(string a, string b, string expected)
+        {
+            Is(expected, LogicVec.WildcardEqual(V(a), V(b)));
+            Is(expected == "x" ? "x" : expected == "1" ? "0" : "1", LogicVec.WildcardNotEqual(V(a), V(b)));
+        }
+
+        [Test]
+        public void BitCounting_CountsOnlyTheOnes()
+        {
+            LogicVec b = V("10110x10");
+            Assert.IsTrue(LogicVec.CountOnes(b).TryGetInt64(out long ones));
+            Assert.AreEqual(4, ones, "x and z are not counted (Icarus: 4)");
+            Assert.AreEqual(32, LogicVec.CountOnes(b).Width, "an int");
+            Is("1", LogicVec.OneHot(V("00010000")));
+            Is("0", LogicVec.OneHot(V("00010001")));
+            Is("1", LogicVec.OneHot(V("0001x000")));   // the x is not a 1
+            Is("1", LogicVec.OneHot0(V("00000000")));
+            Is("0", LogicVec.OneHot0(V("00000011")));
+            Is("1", LogicVec.IsUnknown(b));
+            Is("0", LogicVec.IsUnknown(V("1010")));
+            Is("1", LogicVec.IsUnknown(V("10z0")));
+        }
+
         [Test]
         public void AsTwoState_XAndZBecome0_AndKnownBitsStay()
         {

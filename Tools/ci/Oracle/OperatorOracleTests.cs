@@ -56,6 +56,7 @@ namespace BitSorter.Ci.Oracle
             ("/", LogicVec.Divide, false), ("%", LogicVec.Modulo, false),
             ("<", LogicVec.LessThan, true), ("<=", LogicVec.LessOrEqual, true), (">", LogicVec.GreaterThan, true), (">=", LogicVec.GreaterOrEqual, true),
             ("==", LogicVec.Equal, true), ("!=", LogicVec.NotEqual, true), ("===", LogicVec.CaseEqual, true), ("!==", LogicVec.CaseNotEqual, true),
+            ("==?", LogicVec.WildcardEqual, true), ("!=?", LogicVec.WildcardNotEqual, true),
             ("&&", LogicVec.LogicalAnd, true), ("||", LogicVec.LogicalOr, true),
         };
 

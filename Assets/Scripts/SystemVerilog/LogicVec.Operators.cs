@@ -505,6 +505,68 @@ namespace BitSorter.SystemVerilog
         /// <summary><c>a !== b</c>, one bit, never x.</summary>
         public static LogicVec CaseNotEqual(LogicVec a, LogicVec b) => Not(CaseEqual(a, b));
 
+        /// <summary>
+        /// <c>a ==? b</c>, one bit (IEEE 1800, 11.4.6): an x or z bit of <paramref name="b"/> matches anything;
+        /// otherwise as <see cref="Equal"/> -- 0 on a known bit that differs, else x if a bit of
+        /// <paramref name="a"/> is x or z where <paramref name="b"/> asks for a value, else 1. What
+        /// <c>inside</c> compares a value with a set member by.
+        /// </summary>
+        public static LogicVec WildcardEqual(LogicVec a, LogicVec b)
+        {
+            Align(ref a, ref b);
+            bool unknown = false;
+
+            for (int i = 0; i < a.Words; i++)
+            {
+                ulong asked = ~b.BWord(i);
+                if (((a.AWord(i) ^ b.AWord(i)) & asked & ~a.BWord(i)) != 0)
+                    return Bit0;
+
+                unknown |= (a.BWord(i) & asked) != 0;
+            }
+
+            return unknown ? BitX : Bit1;
+        }
+
+        /// <summary><c>a !=? b</c>: <see cref="WildcardEqual"/> inverted, x staying x.</summary>
+        public static LogicVec WildcardNotEqual(LogicVec a, LogicVec b) => Not(WildcardEqual(a, b));
+
+        // -----------------------------------------------------------------
+        // Bit counting: $countones, $onehot, $onehot0, $isunknown (IEEE 1800, 20.9)
+        // -----------------------------------------------------------------
+
+        /// <summary><c>$countones(a)</c>: how many bits are 1, as an <c>int</c>; x and z are not counted.</summary>
+        public static LogicVec CountOnes(LogicVec a)
+        {
+            Require(a);
+            int ones = 0;
+            for (int i = 0; i < a.Words; i++)
+                ones += PopCount(a.AWord(i) & ~a.BWord(i));
+            return FromInt64(ones, 32, signed: true);
+        }
+
+        /// <summary><c>$onehot(a)</c>: 1 if exactly one bit is 1, x and z counting as not 1.</summary>
+        public static LogicVec OneHot(LogicVec a) => CountOf(a) == 1 ? Bit1 : Bit0;
+
+        /// <summary><c>$onehot0(a)</c>: 1 if at most one bit is 1.</summary>
+        public static LogicVec OneHot0(LogicVec a) => CountOf(a) <= 1 ? Bit1 : Bit0;
+
+        /// <summary><c>$isunknown(a)</c>: 1 if any bit is x or z.</summary>
+        public static LogicVec IsUnknown(LogicVec a)
+        {
+            Require(a);
+            return a.IsKnown ? Bit0 : Bit1;
+        }
+
+        private static int CountOf(LogicVec a)
+        {
+            Require(a);
+            int ones = 0;
+            for (int i = 0; i < a.Words; i++)
+                ones += PopCount(a.AWord(i) & ~a.BWord(i));
+            return ones;
+        }
+
         // -----------------------------------------------------------------
         // Shifts: << >> <<< >>>
         // -----------------------------------------------------------------
