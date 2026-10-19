@@ -658,6 +658,9 @@ namespace BitSorter.Sim
         /// <summary>An expression reading a signal of this design, at its own width.</summary>
         public Expr Read(SignalId signal) => Expr.Read(signal, _signals[signal.Index].Width);
 
+        /// <summary>A signal's declaration as it stands while the design is being built.</summary>
+        internal SignalInfo InfoOf(SignalId signal) => _signals[signal.Index];
+
         public Design Build() => new Design(_name, _signals, _drivers, _processes, _memories, _time, _scopes);
 
         private SignalId Add(string name, int width, SignalKind kind, bool signed, bool local = false, LogicVec? initial = null, MemoryInfo memory = null,

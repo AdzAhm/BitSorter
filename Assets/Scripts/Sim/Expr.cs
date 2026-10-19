@@ -34,7 +34,7 @@ namespace BitSorter.Sim
     /// (IEEE 1800, table 11-21); widening it to a context is a <see cref="Resize"/> node the builder
     /// or elaborator puts in.
     /// </remarks>
-    public abstract class Expr
+    public abstract partial class Expr
     {
         /// <summary>How wide the value it gives is.</summary>
         public abstract int Width { get; }
@@ -43,7 +43,15 @@ namespace BitSorter.Sim
         public abstract LogicVec Evaluate(LogicVec[] values);
 
         /// <summary>Adds the signals it reads -- what it is sensitive to -- to <paramref name="reads"/>.</summary>
+        /// <remarks>
+        /// A call of a function adds its arguments' reads, not what the function's statements read: a
+        /// continuous assignment and <c>@*</c> wait on a call's arguments only (IEEE 1800, 9.2.2.2.1). An
+        /// <c>always_comb</c> waits on what the functions it calls read as well, through <see cref="CollectCalls"/>.
+        /// </remarks>
         public abstract void CollectReads(ICollection<int> reads);
+
+        /// <summary>Adds every function it calls, at any depth of the tree, to <paramref name="calls"/>.</summary>
+        internal virtual void CollectCalls(ICollection<FunctionInfo> calls) { }
 
         /// <summary>
         /// Whether it is a read of one whole signal and nothing more -- <c>a</c>, never <c>~a</c>, <c>a[0]</c>
@@ -132,6 +140,8 @@ namespace BitSorter.Sim
                 for (int i = 0; i < _depth; i++)
                     reads.Add(_first + i);
             }
+
+            internal override void CollectCalls(ICollection<FunctionInfo> calls) => _offset.CollectCalls(calls);
         }
 
         /// <summary><c>$signed(a)</c> or <c>$unsigned(a)</c>: the same bits, read with another signedness.</summary>
@@ -157,6 +167,7 @@ namespace BitSorter.Sim
             }
 
             public override void CollectReads(ICollection<int> reads) => _a.CollectReads(reads);
+            internal override void CollectCalls(ICollection<FunctionInfo> calls) => _a.CollectCalls(calls);
         }
 
         // -----------------------------------------------------------------
@@ -227,6 +238,7 @@ namespace BitSorter.Sim
             }
 
             public override void CollectReads(ICollection<int> reads) => _a.CollectReads(reads);
+            internal override void CollectCalls(ICollection<FunctionInfo> calls) => _a.CollectCalls(calls);
         }
 
         private sealed class BinaryExpr : Expr
@@ -299,6 +311,12 @@ namespace BitSorter.Sim
                 _a.CollectReads(reads);
                 _b.CollectReads(reads);
             }
+
+            internal override void CollectCalls(ICollection<FunctionInfo> calls)
+            {
+                _a.CollectCalls(calls);
+                _b.CollectCalls(calls);
+            }
         }
 
         private sealed class ConcatExpr : Expr
@@ -320,6 +338,12 @@ namespace BitSorter.Sim
                 _high.CollectReads(reads);
                 _low.CollectReads(reads);
             }
+
+            internal override void CollectCalls(ICollection<FunctionInfo> calls)
+            {
+                _high.CollectCalls(calls);
+                _low.CollectCalls(calls);
+            }
         }
 
         private sealed class ReplicateExpr : Expr
@@ -337,6 +361,7 @@ namespace BitSorter.Sim
             public override int Width => _a.Width * _count;
             public override LogicVec Evaluate(LogicVec[] values) => LogicVec.Replicate(_a.Evaluate(values), _count);
             public override void CollectReads(ICollection<int> reads) => _a.CollectReads(reads);
+            internal override void CollectCalls(ICollection<FunctionInfo> calls) => _a.CollectCalls(calls);
         }
 
         private sealed class SliceExpr : Expr
@@ -355,6 +380,7 @@ namespace BitSorter.Sim
             public override int Width => _width;
             public override LogicVec Evaluate(LogicVec[] values) => _a.Evaluate(values).Slice(_lowest, _width);
             public override void CollectReads(ICollection<int> reads) => _a.CollectReads(reads);
+            internal override void CollectCalls(ICollection<FunctionInfo> calls) => _a.CollectCalls(calls);
         }
 
         private sealed class BitExpr : Expr
@@ -375,6 +401,12 @@ namespace BitSorter.Sim
             {
                 _a.CollectReads(reads);
                 _index.CollectReads(reads);
+            }
+
+            internal override void CollectCalls(ICollection<FunctionInfo> calls)
+            {
+                _a.CollectCalls(calls);
+                _index.CollectCalls(calls);
             }
         }
 
@@ -402,6 +434,13 @@ namespace BitSorter.Sim
                 _whenTrue.CollectReads(reads);
                 _whenFalse.CollectReads(reads);
             }
+
+            internal override void CollectCalls(ICollection<FunctionInfo> calls)
+            {
+                _condition.CollectCalls(calls);
+                _whenTrue.CollectCalls(calls);
+                _whenFalse.CollectCalls(calls);
+            }
         }
 
         private sealed class ResizeExpr : Expr
@@ -420,6 +459,7 @@ namespace BitSorter.Sim
             public override int Width => _width;
             public override LogicVec Evaluate(LogicVec[] values) => _a.Evaluate(values).Extend(_width, _signExtend);
             public override void CollectReads(ICollection<int> reads) => _a.CollectReads(reads);
+            internal override void CollectCalls(ICollection<FunctionInfo> calls) => _a.CollectCalls(calls);
         }
     }
 }

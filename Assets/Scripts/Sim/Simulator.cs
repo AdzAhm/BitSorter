@@ -1131,10 +1131,13 @@ namespace BitSorter.Sim
         }
 
         /// <summary>Where a select worked out at run time puts its piece; false if that is unknown.</summary>
-        private bool TryOffset(Expr offset, out int lowest)
+        private bool TryOffset(Expr offset, out int lowest) => TryOffset(offset, _values, out lowest);
+
+        /// <summary>A select's place, worked out from <paramref name="values"/>: false when it is unknown or too large.</summary>
+        internal static bool TryOffset(Expr offset, LogicVec[] values, out int lowest)
         {
             lowest = 0;
-            LogicVec value = offset.Evaluate(_values);
+            LogicVec value = offset.Evaluate(values);
             if (!value.IsKnown)
                 return false;
 
@@ -1154,7 +1157,7 @@ namespace BitSorter.Sim
         }
 
         /// <summary>The part of a piece that lands inside a signal of <paramref name="width"/> bits; false if none does.</summary>
-        private static bool Clip(int width, ref int lowest, ref LogicVec part)
+        internal static bool Clip(int width, ref int lowest, ref LogicVec part)
         {
             long top = (long)lowest + part.Width;
             if (lowest >= width || top <= 0)
@@ -1220,7 +1223,7 @@ namespace BitSorter.Sim
         }
 
         /// <summary><paramref name="into"/> with <paramref name="part"/> in place of its bits from <paramref name="lowest"/>.</summary>
-        private static LogicVec Splice(LogicVec into, int lowest, LogicVec part)
+        internal static LogicVec Splice(LogicVec into, int lowest, LogicVec part)
         {
             int width = into.Width;
             int top = lowest + part.Width;
@@ -1311,7 +1314,7 @@ namespace BitSorter.Sim
         /// signal -- with every x and z as 0. Every value a signal takes comes through here: its start,
         /// what a stimulus, a process, a nonblocking write or its drivers give it.
         /// </summary>
-        private static LogicVec Shape(LogicVec value, SignalInfo info)
+        internal static LogicVec Shape(LogicVec value, SignalInfo info)
         {
             LogicVec sized = value.Width == info.Width ? value : value.Extend(info.Width, false);
             LogicVec typed = info.Signed ? sized.AsSigned() : sized.AsUnsigned();
