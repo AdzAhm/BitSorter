@@ -402,7 +402,7 @@ namespace BitSorter.Sim
                             continue;
                         }
 
-                        var builder = new ExpressionBuilder(given != null ? scope : r.Scope, _diagnostics, constantOnly: false);
+                        var builder = Builder(p, given != null ? scope : r.Scope);
                         Expr built = Sized(builder, value, formal.Width);
                         if (builder.Failed)
                             p.Failed = true;
@@ -444,7 +444,7 @@ namespace BitSorter.Sim
             /// <summary>An output argument's value, given back to what the call names for it, as an assignment would.</summary>
             private void CopyOut(Proc p, Scope scope, Expression target, SignalEntry formal)
             {
-                var builder = new ExpressionBuilder(scope, _diagnostics, constantOnly: false);
+                var builder = Builder(p, scope);
                 var parts = new List<ExpressionBuilder.ProcPart>();
                 if (!builder.TryProceduralTarget(target, parts))
                 {
@@ -489,7 +489,7 @@ namespace BitSorter.Sim
                     }
 
                     SignalEntry result = frame.Routine.Result;
-                    var builder = new ExpressionBuilder(scope, _diagnostics, constantOnly: false);
+                    var builder = Builder(p, scope);
                     Expr value = Sized(builder, r.Value, result.Width);
                     if (builder.Failed)
                         p.Failed = true;

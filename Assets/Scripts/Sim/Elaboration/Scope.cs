@@ -26,6 +26,12 @@ namespace BitSorter.Sim
 
         /// <summary>The port's direction, when the signal is a port of its module.</summary>
         public PortDirection? Port;
+
+        /// <summary>The enum it was declared with, for its methods (<c>s.name()</c>); null for any other type.</summary>
+        public EnumInfo Enum;
+
+        /// <summary>Whether its type holds only 0 and 1: what an enum's <c>next()</c> gives for a value that is no member.</summary>
+        public bool TwoState;
     }
 
     /// <summary>

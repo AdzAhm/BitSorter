@@ -585,6 +585,7 @@ patterns, and no tri-state, `function`, `task`, `$display`, `` `timescale ``, `d
 | C — the processor | memories; `$readmemh` and `$writememh`; `casex`; `signed` and `>>>`; `$info`, `$error`, `$stop`, `$finish` with `%X %d %b %h`; hierarchical references; timeouts | 6 |
 | Syllabus extras | tri-state (`bufif`, `notif`, `tri`), `integer`, `$time`, `` `timescale `` read as a display hint, `**` | 14 and later; a `bufif` or `notif` alone on its net is drawn, printed and imported from 8 |
 | Functions and tasks | `function` and `task`, static and automatic, ANSI and old-style arguments, defaults, `return`, `void` functions, recursion inside an expression | L2 |
+| Expressions | `inside` and `case inside`, `==?` and `!=?`, casts to the built-in types and to typedefs, an enum's methods, `$countones`, `$onehot`, `$onehot0`, `$isunknown`, `$random`, `$urandom`, `$urandom_range` | L3 |
 | Not supported | interfaces, structs, classes, `fork`, `defparam`, DPI — each refused with file, line and a plain message, until the language part that brings it (section 11) |
 
 **Written in the course's style:** an ANSI header with inputs first and outputs last, one commented
@@ -1271,7 +1272,7 @@ course first, then general SystemVerilog, before Part 10 -- and much of the rest
 | --- | --- |
 | L1 | The course's gaps: 2-state types (`int`, `bit`, an enum on no base) start at 0 and hold no x; `X ~& Y` and `X ~\| Y` read with a warning; a top input nothing drives reads z; time counted in ps by default, as the course's ModelSim counts it |
 | L2 | Functions and tasks -- **built**, see "As built, L2" below |
-| L3 | Expressions: `inside` and `case inside`, casts, enum methods, `$countones` and its kin, `$random` |
+| L3 | Expressions: `inside` and `case inside`, casts, enum methods, `$countones` and its kin, `$random` -- **built**, see "As built, L3" below |
 | L4 | Data types: packed structs and unions, packed and unpacked arrays of more than one dimension, `foreach` |
 | L5 | Testbench control: `fork`/`join`, named events and `wait`, `disable`, `force`/`release`, immediate assertions |
 | L6 | Packages and `import`, macros with arguments, strings and `$sformatf`, writing files |
@@ -1309,6 +1310,39 @@ two kinds of call need them:
 - **Not yet:** a function in a constant expression (a parameter's value), arrays inside a function or a
   task, output arguments of a function called inside an expression, a task called through the hierarchy
   (`dut.task()`), and `disable` of a task (L5).
+
+**As built, L3: expressions.**
+
+- **`v inside {1, 3, [6:9]}`** (IEEE 1800, 11.4.13) binds as the relational operators do; the value and
+  every member are sized together as an equality's operands are, a value matched by `==?` and a range by
+  `>=` and `<=`, giving 1 if a member matches, x if none does but one might, else 0. **`case (v) inside`**
+  takes its labels as set members, ranges included, the first that matches winning (12.5.4). Icarus 12
+  reads neither, so the standard alone decides them (`ExpressionTests`).
+- **`==?` and `!=?`** (11.4.6): an x or z on the right matches anything. `OperatorOracleTests` holds them
+  to Icarus over its random 4-state cases.
+- **Casts** to `int`, `shortint`, `longint`, `byte`, `bit`, `integer`, `logic`, `time` and to a typedef
+  take the type's width and signedness, and a 2-state type holds x and z as 0: `int'(4'b1x01)` is 9.
+  `signed'` and `unsigned'`, which Icarus 12 cannot read, read the same bits another way.
+- **An enum's methods** (6.19.5): `first()`, `last()`, `num()`, `next(n)` and `prev(n)` round the ends,
+  a value that is no member giving the type's default (x, or 0 for a 2-state enum), and `name()` -- the
+  member's name as a string, empty for no member -- on a signal of an enum type, a cast to one, or another
+  method (`s.next().name()`). `%s` writes a string exactly where it writes a vector's leading zero bytes as
+  spaces (`PrintSegment.IsString`), as Icarus does both.
+- **`$countones`, `$onehot`, `$onehot0`, `$isunknown`** (20.9), x and z never counted as 1.
+- **`$random(seed)` is the standard's generator** -- the C of IEEE 1364's annex, `rtl_dist_uniform`, which
+  1800 keeps (20.15.2) so a seed gives the same numbers in every simulator -- and gives Icarus's numbers
+  for every seed tried; without a seed it uses the design's own, from 0. `$urandom` and `$urandom_range`
+  are left to each simulator by the standard: BitSorter's `$urandom` is `$random`'s bits read unsigned,
+  `$urandom_range` the standard's uniform draw, on seeds of their own.
+- **A random call has no side effect of its own.** The process compiler writes the number into a working
+  variable and the seed moved on, both worked out from the seed as it was, just before the statement that
+  asks for it (`ExpressionBuilder.Random`), so the seed's new value is recorded like any write and the
+  expression evaluates purely. So such a call belongs in a process statement only, and is refused in a
+  continuous assignment or a constant.
+- **Found on the way, and fixed:** `%s` of a vector wider than its text dropped the leading zero bytes
+  where Icarus prints spaces (`oracle-notes.md`, printing). And `OperatorOracleTests` met, for the first
+  time, an Icarus departure from the standard: z kept where an ambiguous `?:` should give x
+  (`oracle-notes.md`).
 
 **Agreed after the plan, 2026-10-14: five optimizations**, each to be written into this document by
 the part that builds it, as every part rewrites what it makes stale.

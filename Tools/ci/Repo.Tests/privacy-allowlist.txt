@@ -9,3 +9,6 @@
 
 Assets/Tests/EditMode/MusicTests.cs 123456789 a random seed, the digits counted out in order
 Assets/Tests/EditMode/SceneWiringTests.cs 794885924 a Unity fileID the test looks for in the saved scene
+Assets/Scripts/Sim/SystemFunctions.cs 259341593 the constant IEEE 1364's rtl_dist_uniform starts $random's generator at when its seed is 0
+Tools/ci/Sim.Tests/ExpressionTests.cs 303379748 $random's first number from a seed of 0, printed by Icarus 12 and by the standard's generator
+Tools/ci/Sim.Tests/ExpressionTests.cs 230244124 $random's second number from a seed of -5 (printed negative), from Icarus 12

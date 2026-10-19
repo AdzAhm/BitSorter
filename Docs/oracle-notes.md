@@ -269,3 +269,20 @@ agree on every signal and line. One rule the second pins down, where it is easy 
 
 BitSorter first evaluated the `assign` again as well, which reads as more helpful and is not what either
 the standard or Icarus does; the corpus design is the reason it no longer does.
+
+## Expressions (Part L3, 2026-10-19)
+
+`corpus/behavioural/expressions.sv` runs in both and agrees on every line: `==?` and `!=?`, the bit
+counters, casts, an enum's methods, and `$random` with and without a seed. What was probed on the way:
+
+| Question | Icarus 12 | BitSorter |
+| --- | --- | --- |
+| `$random(seed)` | the standard's `rtl_dist_uniform`, number for number: seed 7 gives -2146999808, then 1181502348; seed 0 starts from the generator's own constant | the same generator, held to Icarus's numbers |
+| `$random` with no seed | an internal seed from 0 | the design's own, from 0 |
+| `$urandom(1)` | 69120 -- its own algorithm, as the standard allows | `$random`'s bits read unsigned; no test compares them |
+| `int'(4'b1x01)`, `bit'(1'bx)` | 9, 0: a 2-state cast drops x | the same |
+| `signed'(x)`, `unsigned'(x)` | a syntax error | read as `$signed` and `$unsigned`, as the standard has them |
+| `inside`, `case inside` | "sorry: not supported yet" | by the standard (11.4.13, 12.5.4), held by `ExpressionTests` |
+| `s.next().name()`, a method of a method | a syntax error | supported; the corpus writes `t = s.next(); t.name()` |
+| `.name()` of a value that is no member; `next()` from one | an empty string; x | the same; 0 for a 2-state enum, its default |
+| `$display("%s", e.name())`, `%10s`, `%-6s` | the name exactly; padded; padded left | the same |

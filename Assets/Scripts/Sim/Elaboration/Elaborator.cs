@@ -788,6 +788,8 @@ namespace BitSorter.Sim
                     Signed = shape.Signed,
                     Kind = kind,
                     Port = port,
+                    Enum = shape.Enum,
+                    TwoState = shape.TwoState,
                     Declared = at,
                 };
 

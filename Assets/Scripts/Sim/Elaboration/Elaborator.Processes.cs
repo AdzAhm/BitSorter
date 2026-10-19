@@ -480,7 +480,7 @@ namespace BitSorter.Sim
 
             private void Assignment(Proc p, Scope scope, AssignmentStatement a)
             {
-                var builder = new ExpressionBuilder(scope, _diagnostics, constantOnly: false);
+                var builder = Builder(p, scope);
                 var parts = new List<ExpressionBuilder.ProcPart>();
                 if (!builder.TryProceduralTarget(a.Target, parts))
                 {
@@ -573,6 +573,95 @@ namespace BitSorter.Sim
                 return built.Width > width ? Expr.Slice(built, 0, width) : built;
             }
 
+            /// <summary>An expression builder for a statement of this process: one that can call <c>$random</c> and its kin.</summary>
+            private ExpressionBuilder Builder(Proc p, Scope scope) =>
+                new ExpressionBuilder(scope, _diagnostics, constantOnly: false) { Random = call => RandomCall(p, scope, call) };
+
+            /// <summary>The seeds <c>$random</c> and <c>$urandom</c> use when they are given none: the design's own, from 0.</summary>
+            private SignalId? _randomSeed, _urandomSeed;
+
+            /// <summary>
+            /// <c>$random(seed)</c>, <c>$urandom</c>, <c>$urandom_range(max, min)</c> (Part L3): the number into a
+            /// working variable and the seed moved on, both worked out from the seed as it was and written just
+            /// before the statement that asks -- so the call has no side effect of its own, and the seed's new
+            /// value is recorded like any write. The call reads the working variable.
+            /// </summary>
+            private Expr RandomCall(Proc p, Scope scope, CallExpression call)
+            {
+                RandomKind kind = call.Name == "$random" ? RandomKind.Random
+                    : call.Name == "$urandom" ? RandomKind.URandom
+                    : RandomKind.URandomRange;
+                var builder = Builder(p, scope);
+                Expr low = null, high = null;
+                Expression seedArgument = null;
+
+                if (kind == RandomKind.URandomRange)
+                {
+                    if (call.Arguments.Count < 1 || call.Arguments.Count > 2 || call.Arguments.Exists(a => a == null))
+                    {
+                        Error(call.Location, ElaborationCodes.BadCall, "$urandom_range takes the largest value, and then the smallest if it is not 0.");
+                        p.Failed = true;
+                        return Expr.Constant(LogicVec.AllX(32));
+                    }
+
+                    high = builder.Build(call.Arguments[0], 32);
+                    low = call.Arguments.Count == 2 ? builder.Build(call.Arguments[1], 32) : null;
+                }
+                else if (call.Arguments.Count == 1 && call.Arguments[0] != null)
+                {
+                    seedArgument = call.Arguments[0];
+                }
+                else if (call.Arguments.Count > 1)
+                {
+                    Error(call.Location, ElaborationCodes.BadCall, $"{call.Name} takes at most one argument, the seed variable.");
+                    p.Failed = true;
+                    return Expr.Constant(LogicVec.AllX(32));
+                }
+
+                LPiece[] seedTarget;
+                Expr seed;
+                if (seedArgument != null)
+                {
+                    // The seed must be a variable: the call writes it back.
+                    var parts = new List<ExpressionBuilder.ProcPart>();
+                    if (!builder.TryProceduralTarget(seedArgument, parts))
+                    {
+                        p.Failed = true;
+                        return Expr.Constant(LogicVec.AllX(32));
+                    }
+
+                    seedTarget = Pieces(p, parts);
+                    seed = builder.Build(seedArgument, 32);
+                }
+                else
+                {
+                    ref SignalId? own = ref kind == RandomKind.Random ? ref _randomSeed : ref _urandomSeed;
+                    if (own == null)
+                        own = _builder.Local(kind == RandomKind.Random ? "$random seed" : "$urandom seed", 32, signed: true, LogicVec.FromInt64(0, 32, signed: true));
+
+                    seedTarget = new[] { new LPiece(own.Value.Index, 0, 32, null) };
+                    seed = _builder.Read(own.Value);
+                    p.Locals.Add(own.Value.Index);
+                    p.Writes.Add(own.Value.Index);
+                }
+
+                if (builder.Failed)
+                    p.Failed = true;
+
+                SignalId number = _builder.Local($"{scope.Path}.{call.Name}#{++_unnamed}", 32, signed: kind == RandomKind.Random);
+                p.Locals.Add(number.Index);
+                p.Writes.Add(number.Index);
+
+                int seedWidth = 0;
+                foreach (LPiece piece in seedTarget)
+                    seedWidth += piece.Width;
+
+                p.Emit(new Instruction { Op = OpCode.Assign, Target = new[] { new LPiece(number.Index, 0, 32, null) }, TargetWidth = 32, Value = Expr.Random(seed, kind, low, high, nextSeed: false) });
+                p.Emit(new Instruction { Op = OpCode.Assign, Target = seedTarget, TargetWidth = seedWidth, Value = Expr.Resize(Expr.Random(seed, kind, low, high, nextSeed: true), seedWidth, true) });
+
+                return Expr.WithSignedness(_builder.Read(number), kind == RandomKind.Random);
+            }
+
             /// <summary>A working variable of the process's own, to hold a value across a wait.</summary>
             private LPiece[] Temporary(Proc p, Scope scope, int width)
             {
@@ -584,7 +673,7 @@ namespace BitSorter.Sim
 
             private Expr Condition(Proc p, Scope scope, Expression condition)
             {
-                var builder = new ExpressionBuilder(scope, _diagnostics, constantOnly: false);
+                var builder = Builder(p, scope);
                 Expr built = builder.Build(condition, 0);
                 if (builder.Failed)
                     p.Failed = true;
@@ -615,7 +704,7 @@ namespace BitSorter.Sim
             private void Case(Proc p, Scope scope, CaseStatement c)
             {
                 CaseKind kind = c.Keyword == "casez" ? CaseKind.Z : c.Keyword == "casex" ? CaseKind.X : CaseKind.Exact;
-                var builder = new ExpressionBuilder(scope, _diagnostics, constantOnly: false);
+                var builder = Builder(p, scope);
 
                 ExpressionBuilder.TypeInfo subjectType = builder.TypeOf(c.Subject);
                 int width = subjectType.Width;
@@ -630,7 +719,7 @@ namespace BitSorter.Sim
                     }
                 }
 
-                Expr subject = builder.BuildAs(c.Subject, width, signed);
+                Expr subject = c.Inside ? null : builder.BuildAs(c.Subject, width, signed);
                 var matches = new List<(int At, CaseItem Item)>();
                 CaseItem fallback = null;
 
@@ -644,6 +733,15 @@ namespace BitSorter.Sim
 
                     foreach (Expression label in item.Labels)
                     {
+                        if (c.Inside)
+                        {
+                            // case inside: each label a member of an inside set, a range included (IEEE 1800, 12.5.4).
+                            var inside = new InsideExpression { Location = label.Location, Value = c.Subject };
+                            inside.Set.Add(label);
+                            matches.Add((p.Emit(new Instruction { Op = OpCode.JumpIf, Value = builder.Build(inside, 0) }), item));
+                            continue;
+                        }
+
                         Expr built = builder.BuildAs(label, width, signed);
                         matches.Add((p.Emit(new Instruction { Op = OpCode.JumpIfMatch, Value = subject, Other = built, Case = kind }), item));
                     }
@@ -723,7 +821,7 @@ namespace BitSorter.Sim
 
             private void Repeat(Proc p, Scope scope, RepeatStatement r)
             {
-                var builder = new ExpressionBuilder(scope, _diagnostics, constantOnly: false);
+                var builder = Builder(p, scope);
                 Expr count = builder.Build(r.Count, 0);
                 bool signed = builder.TypeOf(r.Count).Signed;
                 if (builder.Failed)
@@ -830,7 +928,7 @@ namespace BitSorter.Sim
 
             private WaitSpec Events(Proc p, Scope scope, EventControl control)
             {
-                var builder = new ExpressionBuilder(scope, _diagnostics, constantOnly: false);
+                var builder = Builder(p, scope);
                 var items = new List<EventItem>();
 
                 foreach (EventExpression e in control.Events)
@@ -950,7 +1048,7 @@ namespace BitSorter.Sim
             /// </summary>
             private PrintSegment[] PrintSegments(Proc p, Scope scope, CallStatement call, int first, char radix)
             {
-                var builder = new ExpressionBuilder(scope, _diagnostics, constantOnly: false);
+                var builder = Builder(p, scope);
                 var segments = new List<PrintSegment>();
                 List<Expression> args = call.Arguments;
 
@@ -1086,6 +1184,7 @@ namespace BitSorter.Sim
                         ZeroPad = zero,
                         Argument = builder.Build(value, 0),
                         Untracked = IsTime(value),
+                        IsString = builder.IsString(value),
                     });
                 }
 
@@ -1097,7 +1196,7 @@ namespace BitSorter.Sim
             private void MemoryCall(Proc p, Scope scope, CallStatement call, string where)
             {
                 bool read = call.Name.StartsWith("$readmem", StringComparison.Ordinal);
-                var builder = new ExpressionBuilder(scope, _diagnostics, constantOnly: false);
+                var builder = Builder(p, scope);
                 List<Expression> args = call.Arguments;
 
                 // The file is named in quotes, or by a parameter holding the name: #(.IMAGE("prog.hex")).

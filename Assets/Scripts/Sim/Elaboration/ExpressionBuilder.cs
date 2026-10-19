@@ -39,6 +39,13 @@ namespace BitSorter.Sim
         /// <summary>Whether building reported an error.</summary>
         public bool Failed { get; private set; }
 
+        /// <summary>
+        /// How a <c>$random</c>, <c>$urandom</c> or <c>$urandom_range</c> is called: set by a process, which
+        /// writes the number and the seed's next value just before the statement that asks for it (Part L3).
+        /// Null everywhere else, where such a call is refused.
+        /// </summary>
+        public Func<CallExpression, Expr> Random { get; set; }
+
         public readonly struct TypeInfo
         {
             public readonly int Width;
@@ -192,6 +199,9 @@ namespace BitSorter.Sim
                         case "$clog2": case "$bits": return new TypeInfo(32, true);
                         case "$time": case "$realtime": return new TypeInfo(64, false);
                         case "$stime": return new TypeInfo(32, false);
+                        case "$countones": case "$random": return new TypeInfo(32, true);
+                        case "$onehot": case "$onehot0": case "$isunknown": return new TypeInfo(1, false);
+                        case "$urandom": case "$urandom_range": return new TypeInfo(32, false);
                         default:
                             // A function written in the design: its return type.
                             return !call.Name.StartsWith("$", StringComparison.Ordinal) && _scope.LookupSubroutine(call.Name) is SubroutineEntry routine && !routine.IsVoid
@@ -206,9 +216,26 @@ namespace BitSorter.Sim
                         return new TypeInfo((int)Math.Max(1, Math.Min(LogicVec.MaxWidth, ConstantOf(cast.Width, report: false))), inner.Signed);
                     if (cast.TargetText == "signed") return new TypeInfo(inner.Width, true);
                     if (cast.TargetText == "unsigned") return new TypeInfo(inner.Width, false);
+                    if (KeywordType(cast.TargetText, out int width, out bool signed, out bool _)) return new TypeInfo(width, signed);
                     if (_scope.Lookup(cast.TargetText) is TypeEntry type) return new TypeInfo(type.Width, type.Signed);
                     return inner;
                 }
+
+                case InsideExpression _:
+                    return new TypeInfo(1, false);
+
+                case MethodCallExpression m:
+                    if (TryEnumOf(m.Target, out EnumInfo @enum, out bool _))
+                    {
+                        switch (m.Method)
+                        {
+                            case "name": return new TypeInfo(NameWidth(@enum), false);
+                            case "num": return new TypeInfo(32, true);
+                            default: return new TypeInfo(@enum.Width, TypeOf(m.Target).Signed);
+                        }
+                    }
+
+                    return new TypeInfo(1, false);
 
                 case StringLiteral s:
                     return new TypeInfo(Math.Max(8, s.Value.Length * 8), false);
@@ -371,6 +398,16 @@ namespace BitSorter.Sim
 
                 case CastExpression cast:
                     return BuildCast(cast);
+
+                case InsideExpression inside:
+                    return BuildInside(inside);
+
+                case MethodCallExpression method:
+                    return BuildMethod(method);
+
+                case ValueRange range:
+                    Error(range.Location, ElaborationCodes.BadSelect, "A range [low:high] belongs in an inside set or a case inside label.");
+                    return Expr.Constant(LogicVec.AllX(1));
 
                 case StringLiteral s:
                     return Expr.Constant(StringBits(s.Value));
@@ -831,6 +868,9 @@ namespace BitSorter.Sim
 
                 case "**": return Power(b, width, signed);
 
+                case "==?": return Extend(Compare(BinaryOp.WildcardEqual, b), width, false);
+                case "!=?": return Extend(Compare(BinaryOp.WildcardNotEqual, b), width, false);
+
                 case "<": return Extend(Compare(BinaryOp.Less, b), width, false);
                 case "<=": return Extend(Compare(BinaryOp.LessOrEqual, b), width, false);
                 case ">": return Extend(Compare(BinaryOp.Greater, b), width, false);
@@ -949,6 +989,36 @@ namespace BitSorter.Sim
                     if (call.Arguments.Count == 1 && call.Arguments[0] != null)
                         return Expr.Constant(LogicVec.FromInt64(TypeOf(call.Arguments[0]).Width, 32, true));
                     break;
+
+                case "$countones":
+                case "$onehot":
+                case "$onehot0":
+                case "$isunknown":
+                {
+                    if (call.Arguments.Count != 1 || call.Arguments[0] == null)
+                    {
+                        Error(call.Location, ElaborationCodes.BadCall, $"{call.Name} takes one value.");
+                        return Expr.Constant(LogicVec.AllX(1));
+                    }
+
+                    UnaryOp op = call.Name == "$countones" ? UnaryOp.CountOnes
+                        : call.Name == "$onehot" ? UnaryOp.OneHot
+                        : call.Name == "$onehot0" ? UnaryOp.OneHot0
+                        : UnaryOp.IsUnknown;
+                    return Expr.Apply(op, BuildSelf(call.Arguments[0]));
+                }
+
+                case "$random":
+                case "$urandom":
+                case "$urandom_range":
+                    if (_constant || Random == null)
+                    {
+                        Error(call.Location, ElaborationCodes.NotYet,
+                            $"{call.Name} moves its seed on each call, so BitSorter calls it in a process statement only -- an initial or an always -- not in a continuous assignment or a constant.");
+                        return Expr.Constant(LogicVec.AllX(32));
+                    }
+
+                    return Random(call);
             }
 
             if (!call.Name.StartsWith("$", StringComparison.Ordinal))
@@ -1083,12 +1153,185 @@ namespace BitSorter.Sim
             if (cast.TargetText == "signed") return Expr.WithSignedness(value, true);
             if (cast.TargetText == "unsigned") return Expr.WithSignedness(value, false);
 
+            // int'(x), byte'(x), bit'(x): the value at the type's width and signedness, and a 2-state type
+            // holds x and z as 0 -- int'(4'b1x01) is 9, as Icarus gives it.
+            if (KeywordType(cast.TargetText, out int keywordWidth, out bool keywordSigned, out bool twoState))
+            {
+                Expr typed = Expr.WithSignedness(Extend(value, keywordWidth, inner.Signed), keywordSigned);
+                return twoState ? Expr.AsTwoState(typed) : typed;
+            }
+
             // state_t'(n): the value at the type's width, then read with its signedness.
             if (_scope.Lookup(cast.TargetText) is TypeEntry type)
-                return Expr.WithSignedness(Extend(value, type.Width, inner.Signed), type.Signed);
+            {
+                Expr typed = Expr.WithSignedness(Extend(value, type.Width, inner.Signed), type.Signed);
+                return type.TwoState ? Expr.AsTwoState(typed) : typed;
+            }
 
             Error(cast.Location, ElaborationCodes.NotYet, $"A cast to {cast.TargetText} is not supported by BitSorter yet.");
             return value;
+        }
+
+        /// <summary>A built-in type a cast may name: its width, signedness, and whether it holds only 0 and 1 (IEEE 1800, 6.11).</summary>
+        private static bool KeywordType(string keyword, out int width, out bool signed, out bool twoState)
+        {
+            switch (keyword)
+            {
+                case "int": width = 32; signed = true; twoState = true; return true;
+                case "shortint": width = 16; signed = true; twoState = true; return true;
+                case "longint": width = 64; signed = true; twoState = true; return true;
+                case "byte": width = 8; signed = true; twoState = true; return true;
+                case "integer": width = 32; signed = true; twoState = false; return true;
+                case "time": width = 64; signed = false; twoState = false; return true;
+                case "bit": width = 1; signed = false; twoState = true; return true;
+                case "logic": case "reg": width = 1; signed = false; twoState = false; return true;
+                default: width = 0; signed = false; twoState = false; return false;
+            }
+        }
+
+        // -----------------------------------------------------------------
+        // inside, and an enum's methods (Part L3)
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// <c>v inside {1, [6:9]}</c> (IEEE 1800, 11.4.13): the value and every member sized together, as an
+        /// equality's operands are; a value matched by <c>==?</c>, a range by <c>&gt;=</c> and <c>&lt;=</c>; 1 if any
+        /// matches, x if none does and one might, else 0.
+        /// </summary>
+        private Expr BuildInside(InsideExpression inside)
+        {
+            TypeInfo valueType = TypeOf(inside.Value);
+            int width = valueType.Width;
+            bool signed = valueType.Signed;
+
+            foreach (Expression member in inside.Set)
+            {
+                foreach (Expression end in member is ValueRange r ? new[] { r.Low, r.High } : new[] { member })
+                {
+                    TypeInfo t = TypeOf(end);
+                    width = Math.Max(width, t.Width);
+                    signed &= t.Signed;
+                }
+            }
+
+            Expr value = BuildAt(inside.Value, width, signed);
+            Expr result = null;
+
+            foreach (Expression member in inside.Set)
+            {
+                Expr match = member is ValueRange range
+                    ? Expr.Apply(BinaryOp.LogicalAnd,
+                        Expr.Apply(BinaryOp.GreaterOrEqual, value, BuildAt(range.Low, width, signed)),
+                        Expr.Apply(BinaryOp.LessOrEqual, value, BuildAt(range.High, width, signed)))
+                    : Expr.Apply(BinaryOp.WildcardEqual, value, BuildAt(member, width, signed));
+
+                result = result == null ? match : Expr.Apply(BinaryOp.LogicalOr, result, match);
+            }
+
+            return result ?? Expr.Constant(LogicVec.FromUInt64(0, 1));
+        }
+
+        /// <summary>
+        /// The enum a value has, and whether its type is 2-state: a signal declared of an enum type, a cast to
+        /// one, or another enum method that gives one (<c>s.next().name()</c>).
+        /// </summary>
+        private bool TryEnumOf(Expression e, out EnumInfo @enum, out bool twoState)
+        {
+            @enum = null;
+            twoState = false;
+
+            switch (e)
+            {
+                case ParenthesizedExpression p:
+                    return TryEnumOf(p.Inner, out @enum, out twoState);
+
+                case NameExpression _:
+                case MemberExpression _:
+                    if (Resolve(e, report: false) is SignalEntry s && s.Enum != null)
+                    {
+                        @enum = s.Enum;
+                        twoState = s.TwoState;
+                        return true;
+                    }
+
+                    return false;
+
+                case CastExpression c when _scope.Lookup(c.TargetText) is TypeEntry t && t.Enum != null:
+                    @enum = t.Enum;
+                    twoState = t.TwoState;
+                    return true;
+
+                case MethodCallExpression m when m.Method == "next" || m.Method == "prev" || m.Method == "first" || m.Method == "last":
+                    return TryEnumOf(m.Target, out @enum, out twoState);
+
+                default:
+                    return false;
+            }
+        }
+
+        /// <summary>How wide <c>.name()</c>'s string is: a byte for each character of the longest name.</summary>
+        private static int NameWidth(EnumInfo @enum)
+        {
+            int longest = 1;
+            foreach (EnumMemberInfo member in @enum.Members)
+                longest = Math.Max(longest, member.Name.Length);
+            return 8 * longest;
+        }
+
+        /// <summary>Whether an argument is a string -- <c>.name()</c>'s, or a literal -- which <c>%s</c> writes exactly.</summary>
+        public bool IsString(Expression e) =>
+            e is StringLiteral || e is MethodCallExpression m && m.Method == "name" && TryEnumOf(m.Target, out EnumInfo _, out bool _);
+
+        /// <summary>An enum's methods (IEEE 1800, 6.19.5): <c>first()</c>, <c>last()</c>, <c>next(n)</c>, <c>prev(n)</c>, <c>num()</c>, <c>name()</c>.</summary>
+        private Expr BuildMethod(MethodCallExpression m)
+        {
+            if (!TryEnumOf(m.Target, out EnumInfo @enum, out bool twoState))
+            {
+                Error(m.Location, ElaborationCodes.NotYet,
+                    $".{m.Method}() is a method BitSorter knows on an enum only, and {Printer.Print(m.Target)} is not one.");
+                return Expr.Constant(LogicVec.AllX(1));
+            }
+
+            int takes = m.Method == "next" || m.Method == "prev" ? 1 : 0;
+            if (m.Arguments.Count > takes)
+            {
+                Error(m.Location, ElaborationCodes.BadCall, $".{m.Method}() takes {(takes == 0 ? "no argument" : "at most one argument, how many steps")}.");
+                return Expr.Constant(LogicVec.AllX(@enum.Width));
+            }
+
+            IReadOnlyList<EnumMemberInfo> members = @enum.Members;
+            Expr value = BuildSelf(m.Target);
+            bool signed = TypeOf(m.Target).Signed;
+
+            switch (m.Method)
+            {
+                case "name":
+                    return Expr.EnumName(value, @enum);
+
+                case "num":
+                    return Expr.Constant(LogicVec.FromInt64(members.Count, 32, signed: true));
+
+                case "first":
+                case "last":
+                    return members.Count == 0
+                        ? Expr.Constant(LogicVec.AllX(@enum.Width))
+                        : Expr.Constant(members[m.Method == "first" ? 0 : members.Count - 1].Value);
+
+                case "next":
+                case "prev":
+                {
+                    Expr steps = m.Arguments.Count == 1 && m.Arguments[0] != null ? BuildSelf(m.Arguments[0]) : null;
+
+                    // A value that is no member gives the type's default: x, or 0 for a 2-state enum.
+                    LogicVec fallback = twoState ? LogicVec.FromUInt64(0, @enum.Width) : LogicVec.AllX(@enum.Width);
+                    return Expr.WithSignedness(Expr.EnumStep(value, @enum, steps, m.Method == "next" ? 1 : -1, fallback), signed);
+                }
+
+                default:
+                    Error(m.Location, ElaborationCodes.UnknownName,
+                        $".{m.Method}() is not a method of an enum: an enum has first(), last(), next(), prev(), num() and name().");
+                    return Expr.Constant(LogicVec.AllX(1));
+            }
         }
 
         // -----------------------------------------------------------------
