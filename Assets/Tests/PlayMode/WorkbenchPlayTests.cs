@@ -1060,6 +1060,46 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsFalse(UiText.Typing, "RUN TO kept the keyboard after Escape");
         }
 
+        /// <summary>
+        /// RUN TO shows the moment it was given from its start, after a longer time was typed for it: the
+        /// field scrolls its text left to keep the caret in view while one is typed, and in the browser
+        /// smoke test (2026-10-19) "12" came back clipped to ".2" after "0.012 ns" was entered.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator TheRunToField_ShowsItsMomentFromItsStart_AfterALongerTimeWasTyped()
+        {
+            yield return TestScene.Load();
+            yield return OpenTheWorkbench();
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.Pause();
+            TMP_InputField field = GameObject.Find(WorkbenchPanel.RunToField).GetComponent<TMP_InputField>();
+            RectTransform box = field.GetComponent<RectTransform>();
+            Canvas canvas = field.GetComponentInParent<Canvas>().rootCanvas;
+            Camera camera = canvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : canvas.worldCamera;
+            yield return ClickAt(RectTransformUtility.WorldToScreenPoint(camera, box.TransformPoint(box.rect.center)));
+
+            // As typing leaves it: a time longer than the field, the caret after its last character.
+            field.text = "12.0000 ns";
+            field.caretPosition = field.text.Length;
+            field.ForceLabelUpdate();
+            yield return null;
+            yield return Tap(_keyboard.enterKey);
+            yield return null;
+            yield return null;
+
+            Assert.AreEqual(12L, workbench.Playback.RunTo, "sanity: Enter should set RUN TO");
+            Assert.AreEqual("12", field.text, "sanity: the field shows the moment as a number");
+
+            TMP_Text text = field.textComponent;
+            text.ForceMeshUpdate();
+            Vector3 firstDigit = text.rectTransform.TransformPoint(text.textInfo.characterInfo[0].bottomLeft);
+            var viewport = new Vector3[4];
+            field.textViewport.GetWorldCorners(viewport);
+            Assert.GreaterOrEqual(firstDigit.x, viewport[0].x - 0.5f,
+                "the moment's first digit is cut off at the field's left edge: the field is still scrolled for the longer time typed");
+        }
+
         // -----------------------------------------------------------------
         // Editing an input, the unit, undo (Part 9b-3)
         // -----------------------------------------------------------------
