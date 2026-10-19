@@ -1256,6 +1256,31 @@ Each part is one pull request into `v5`, ends with every suite green, and leaves
 | 15 | The Exercises and the tutorial |
 | 16 | The old game retired, and a smaller download; 5.0.0 released |
 
+**Agreed after Part 9, 2026-10-19: the language, before Part 10.** A course audit ran every one of the
+course's own projects -- the four homework designs and their testbenches -- through BitSorter and Icarus,
+and held the result against the waveforms in the course's own ModelSim screenshots, read from its
+reports: everything ran, and every edge and end time that could be read agreed with ModelSim, where
+Icarus ends the second exercise's two runs early (`Docs/oracle-notes.md`, "A busy given a default and then
+set"). Eighteen designs written from scratch, one per thing the course's workshops teach, matched Icarus
+but for three gaps; thirty-two more probed the SystemVerilog beyond the course. Ahmad asked for the
+course first, then general SystemVerilog, before Part 10 -- and much of the rest of the language after
+5.0.0, if ever. Each is one pull request, like a part:
+
+| Part | What it delivers |
+| --- | --- |
+| L1 | The course's gaps: 2-state types (`int`, `bit`, an enum on no base) start at 0 and hold no x; `X ~& Y` and `X ~\| Y` read with a warning; a top input nothing drives reads z; time counted in ps by default, as the course's ModelSim counts it |
+| L2 | Functions and tasks |
+| L3 | Expressions: `inside` and `case inside`, casts, enum methods, `$countones` and its kin, `$random` |
+| L4 | Data types: packed structs and unions, packed and unpacked arrays of more than one dimension, `foreach` |
+| L5 | Testbench control: `fork`/`join`, named events and `wait`, `disable`, `force`/`release`, immediate assertions |
+| L6 | Packages and `import`, macros with arguments, strings and `$sformatf`, writing files |
+| L7 | `real` numbers, and delays in fractions of a unit |
+| L8 | Interfaces and modports |
+
+Classes, constraints and random stimulus, concurrent assertions, coverage and DPI wait until after
+5.0.0. What L2 to L8 add runs in the engine and is written in code; it does not become a part on the
+canvas, and Part 12's written blocks are where it is edited.
+
 **Agreed after the plan, 2026-10-14: five optimizations**, each to be written into this document by
 the part that builds it, as every part rewrites what it makes stale.
 
