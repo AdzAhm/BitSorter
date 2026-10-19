@@ -348,6 +348,30 @@ namespace BitSorter.SystemVerilog
         /// <summary>The same bits read as unsigned, as <c>$unsigned</c> does.</summary>
         public LogicVec AsUnsigned() => new LogicVec(this, false);
 
+        /// <summary>
+        /// The value as a 2-state type holds it -- a <c>bit</c>, an <c>int</c>, a <c>byte</c>: every x and z
+        /// bit becomes 0 and every known bit stays (IEEE 1800, 6.11.2). The width and signedness are kept,
+        /// and a value with nothing unknown in it is returned as it is, so this allocates only for a wide
+        /// value that had an unknown bit.
+        /// </summary>
+        public LogicVec ToTwoState()
+        {
+            Require(this);
+
+            if (_wide == null)
+                return _b == 0 ? this : new LogicVec(_width, _signed, _a & ~_b, 0);
+
+            if (IsKnown)
+                return this;
+
+            int n = Words;
+            ulong[] planes = NewPlanes(_width);
+            for (int i = 0; i < n; i++)
+                planes[i] = _wide[i] & ~_wide[n + i];
+
+            return new LogicVec(_width, _signed, planes);
+        }
+
         private LogicVec Truncate(int width)
         {
             if (width <= 64)

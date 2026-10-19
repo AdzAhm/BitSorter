@@ -169,6 +169,19 @@ namespace BitSorter.SystemVerilog.Tests
         }
 
         [Test]
+        public void AsTwoState_XAndZBecome0_AndKnownBitsStay()
+        {
+            Is("1000", V("1x0z").ToTwoState());
+            Is("0110", V("0110").ToTwoState());
+            Assert.IsTrue(V("x1", signed: true).ToTwoState().IsSigned, "the signedness is kept");
+
+            // Across the word boundary: an x at bit 64 and a z at bit 0 of a 70-bit value.
+            LogicVec wide = LogicVec.Concat(V("10x"), LogicVec.Concat(LogicVec.Fill(Logic4.One, 63), V("1z")));
+            Is("100" + new string('1', 63) + "10", wide.ToTwoState());
+            Assert.IsTrue(wide.ToTwoState().IsKnown);
+        }
+
+        [Test]
         public void ConcatenationAndReplication_AreUnsigned_HighFirst()
         {
             LogicVec joined = LogicVec.Concat(V("10", signed: true), V("x1z"));
