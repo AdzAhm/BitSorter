@@ -9,6 +9,12 @@ namespace BitSorter.Sim
     {
         Not, Negate, LogicalNot,
         ReduceAnd, ReduceOr, ReduceXor, ReduceNand, ReduceNor, ReduceXnor,
+
+        /// <summary><c>$countones</c>: an <c>int</c>.</summary>
+        CountOnes,
+
+        /// <summary><c>$onehot</c>, <c>$onehot0</c>, <c>$isunknown</c>: one bit each.</summary>
+        OneHot, OneHot0, IsUnknown,
     }
 
     /// <summary>The binary operators an expression can apply.</summary>
@@ -20,6 +26,9 @@ namespace BitSorter.Sim
         Equal, NotEqual, CaseEqual, CaseNotEqual,
         LogicalAnd, LogicalOr,
         ShiftLeft, ShiftRight, ArithmeticShiftLeft, ArithmeticShiftRight,
+
+        /// <summary><c>==?</c> and <c>!=?</c>: x and z on the right match anything.</summary>
+        WildcardEqual, WildcardNotEqual,
     }
 
     /// <summary>
@@ -147,6 +156,21 @@ namespace BitSorter.Sim
         /// <summary><c>$signed(a)</c> or <c>$unsigned(a)</c>: the same bits, read with another signedness.</summary>
         public static Expr WithSignedness(Expr a, bool signed) => new SignednessExpr(a, signed);
 
+        /// <summary>The value as a 2-state type holds it, x and z as 0: what a cast to <c>int</c> or <c>bit</c> does.</summary>
+        public static Expr AsTwoState(Expr a) => new TwoStateExpr(a);
+
+        private sealed class TwoStateExpr : Expr
+        {
+            private readonly Expr _a;
+
+            public TwoStateExpr(Expr a) => _a = a ?? throw new ArgumentNullException(nameof(a));
+
+            public override int Width => _a.Width;
+            public override LogicVec Evaluate(LogicVec[] values) => _a.Evaluate(values).ToTwoState();
+            public override void CollectReads(ICollection<int> reads) => _a.CollectReads(reads);
+            internal override void CollectCalls(ICollection<FunctionInfo> calls) => _a.CollectCalls(calls);
+        }
+
         private sealed class SignednessExpr : Expr
         {
             private readonly Expr _a;
@@ -218,7 +242,7 @@ namespace BitSorter.Sim
                 _a = a ?? throw new ArgumentNullException(nameof(a));
             }
 
-            public override int Width => _op == UnaryOp.Not || _op == UnaryOp.Negate ? _a.Width : 1;
+            public override int Width => _op == UnaryOp.Not || _op == UnaryOp.Negate ? _a.Width : _op == UnaryOp.CountOnes ? 32 : 1;
 
             public override LogicVec Evaluate(LogicVec[] values)
             {
@@ -233,6 +257,10 @@ namespace BitSorter.Sim
                     case UnaryOp.ReduceXor: return LogicVec.ReduceXor(a);
                     case UnaryOp.ReduceNand: return LogicVec.ReduceNand(a);
                     case UnaryOp.ReduceNor: return LogicVec.ReduceNor(a);
+                    case UnaryOp.CountOnes: return LogicVec.CountOnes(a);
+                    case UnaryOp.OneHot: return LogicVec.OneHot(a);
+                    case UnaryOp.OneHot0: return LogicVec.OneHot0(a);
+                    case UnaryOp.IsUnknown: return LogicVec.IsUnknown(a);
                     default: return LogicVec.ReduceXnor(a);
                 }
             }
@@ -302,6 +330,8 @@ namespace BitSorter.Sim
                     case BinaryOp.ShiftLeft: return LogicVec.ShiftLeft(a, b);
                     case BinaryOp.ShiftRight: return LogicVec.ShiftRight(a, b);
                     case BinaryOp.ArithmeticShiftLeft: return LogicVec.ArithmeticShiftLeft(a, b);
+                    case BinaryOp.WildcardEqual: return LogicVec.WildcardEqual(a, b);
+                    case BinaryOp.WildcardNotEqual: return LogicVec.WildcardNotEqual(a, b);
                     default: return LogicVec.ArithmeticShiftRight(a, b);
                 }
             }
