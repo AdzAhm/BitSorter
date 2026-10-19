@@ -435,12 +435,50 @@ namespace BitSorter.Sim
                 }
             }
 
+            /// <summary>
+            /// The blocks and forks with a name or declarations already compiled, by statement and by where:
+            /// a task's are written into a caller again on every call, and take the name, the scope and the
+            /// variables the first call made -- the task's statics -- rather than declaring them twice.
+            /// </summary>
+            private readonly Dictionary<(Statement, string), (InstanceEntry Entry, Scope Inner, List<int> Locals)> _blocks =
+                new Dictionary<(Statement, string), (InstanceEntry, Scope, List<int>)>();
+
+            /// <summary>A block or fork compiled before at the same place, made ready again; false the first time.</summary>
+            private bool Again(Proc p, Scope scope, Statement statement, string label, out InstanceEntry entry, out Scope inner)
+            {
+                entry = null;
+                inner = scope;
+                if (!_blocks.TryGetValue((statement, scope.Path), out (InstanceEntry Entry, Scope Inner, List<int> Locals) again))
+                    return false;
+
+                entry = again.Entry;
+                inner = again.Inner;
+                p.Locals.UnionWith(again.Locals);
+                if (entry != null && scope.Own(label) == null)
+                    scope.TryDeclare(label, entry);
+                return true;
+            }
+
+            /// <summary>Declares a block's or fork's own, the first time it is compiled at a place, and remembers them for the next.</summary>
+            private void DeclareOwn(Proc p, Scope scope, Statement statement, InstanceEntry entry, Scope inner, List<ModuleItem> declarations, bool recorded)
+            {
+                var before = new HashSet<int>(p.Locals);
+                foreach (ModuleItem declaration in declarations)
+                    DeclareInBlock(p, inner, declaration, recorded);
+
+                var locals = new List<int>();
+                foreach (int local in p.Locals)
+                    if (!before.Contains(local))
+                        locals.Add(local);
+                _blocks[(statement, scope.Path)] = (entry, inner, locals);
+            }
+
             private void Block(Proc p, Scope scope, BlockStatement b)
             {
                 Scope inner = scope;
 
                 InstanceEntry entry = null;
-                if (b.Label != null || b.Declarations.Count > 0)
+                if ((b.Label != null || b.Declarations.Count > 0) && !Again(p, scope, b, b.Label, out entry, out inner))
                 {
                     bool named = b.Label != null;
                     if (named)
@@ -459,8 +497,7 @@ namespace BitSorter.Sim
                     if (named)
                         inner.Index = _builder.Scope(inner.Path, null, ScopeKind.Block, scope.Recorded);
 
-                    foreach (ModuleItem declaration in b.Declarations)
-                        DeclareInBlock(p, inner, declaration, recorded: b.Label != null);
+                    DeclareOwn(p, scope, b, entry, inner, b.Declarations, recorded: b.Label != null);
                 }
 
                 int start = p.Here;
@@ -1007,7 +1044,7 @@ namespace BitSorter.Sim
                 Scope inner = scope;
                 InstanceEntry entry = null;
 
-                if (f.Label != null || f.Declarations.Count > 0)
+                if ((f.Label != null || f.Declarations.Count > 0) && !Again(p, scope, f, f.Label, out entry, out inner))
                 {
                     if (f.Label != null)
                     {
@@ -1024,8 +1061,7 @@ namespace BitSorter.Sim
                     if (entry != null)
                         inner.Index = _builder.Scope(inner.Path, null, ScopeKind.Block, scope.Recorded);
 
-                    foreach (ModuleItem declaration in f.Declarations)
-                        DeclareInBlock(p, inner, declaration, recorded: f.Label != null);
+                    DeclareOwn(p, scope, f, entry, inner, f.Declarations, recorded: f.Label != null);
                 }
 
                 var branches = new ProcessInfo[f.Branches.Count];
