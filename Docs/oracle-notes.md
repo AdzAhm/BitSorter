@@ -270,6 +270,21 @@ agree on every signal and line. One rule the second pins down, where it is easy 
 BitSorter first evaluated the `assign` again as well, which reads as more helpful and is not what either
 the standard or Icarus does; the corpus design is the reason it no longer does.
 
+## Packages, macros, strings and files (Part L6, 2026-10-20)
+
+`corpus/behavioural/library.sv` runs in both and agrees on every signal, every line and every file it
+writes. Where Icarus 12 cannot run it, `LibraryTests` holds it to the standard:
+
+| Question | Icarus 12 | The standard, and BitSorter |
+| --- | --- | --- |
+| `s.toupper()`, `s.getc(i)`, `s.compare(t)` | "Method ... is not a string method" | supported (6.16) |
+| `s.putc(i, c);` | "Enable of unknown task" | supported |
+| `pkg::t(...);`, a task called by its package's name | a syntax error | supported (26.3) |
+| `q::A` where q only imports A | "Unable to bind" | refused as well: a package does not pass on what it imports |
+| `` `define M() `` with nothing in the brackets | "malformed `define directive" | read as a macro of no arguments (the standard's grammar wants at least one) |
+| A string variable in `$dumpvars` | left out of the dump | kept, and marked `IsString`; the corpus compares what is printed of it |
+| A second `$fopen` after a `$fclose` | the descriptor just freed | the same: the lowest free one |
+
 ## Testbench control (Part L5, 2026-10-19)
 
 `corpus/behavioural/testbench_control.sv` runs in both and agrees on every signal and line: the three

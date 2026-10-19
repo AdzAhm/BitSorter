@@ -590,6 +590,7 @@ patterns, and no tri-state, `function`, `task`, `$display`, `` `timescale ``, `d
 | Expressions | `inside` and `case inside`, `==?` and `!=?`, casts to the built-in types and to typedefs, an enum's methods, `$countones`, `$onehot`, `$onehot0`, `$isunknown`, `$random`, `$urandom`, `$urandom_range` | L3 |
 | Data types | packed `struct` and `union`, their members read and written (`pkt.kind`, `prog[i].op`); packed arrays of any number of dimensions, of structs and of typedefs; memories of more than one dimension; `foreach`; assignment patterns, `'{...}`, in order, by member, by index and with `default:`; `$bits` of a type or a memory | L4 |
 | Testbench control | `fork` with `join`, `join_any` and `join_none`; `wait fork`, `disable fork`; `disable` of a named block, a named fork or a task; named events with `->`, `->>`, `@(e)` and `e.triggered`; `force` and `release`; immediate `assert`, `assume` and `cover` | L5 |
+| Packages, macros, strings, files | `package` of parameters, typedefs, functions and tasks; `import p::*`, `import p::name`, in a module's header too, and `p::name`; macros with arguments and defaults, ``` `` ``` and `` `"...`" ``; `string`, joined with `{}`, compared as text, with its methods; `$sformatf`, `$sformat`, `$swrite`; `$fopen`, `$fdisplay`, `$fwrite`, `$fstrobe`, `$fclose`, `$fflush` | L6 |
 | Not supported | interfaces, unpacked structs, classes, concurrent assertions, `defparam`, DPI — each refused with file, line and a plain message, until the language part that brings it (section 11) |
 
 **Written in the course's style:** an ANSI header with inputs first and outputs last, one commented
@@ -609,9 +610,11 @@ asked for it to read the course and general SystemVerilog alike (2026-10-12).
   later on a line is kept on the token before it, so a port's comment survives; characters copied out of
   a slide -- `’` for an apostrophe, `–` for a minus -- are read as what they look like, with a warning.
 - **Preprocessor** (`Preprocessor`): `` `include `` through `ISourceFiles` (never the disk), looked for
-  beside the including file and then as written, with cycles and depth caught; `` `define `` without
-  arguments, `` `ifdef `` / `` `ifndef `` / `` `elsif `` / `` `else `` / `` `endif `` (so include guards
-  work), `` `undef ``, and `` `timescale `` noted. A macro with arguments is refused with the way out.
+  beside the including file and then as written, with cycles and depth caught; `` `define ``, with
+  arguments and their defaults from Part L6 -- a use's arguments may run over lines, ``` `` ``` joins two
+  tokens and `` `"...`" `` makes a string with the arguments put in -- `` `ifdef `` / `` `ifndef `` /
+  `` `elsif `` / `` `else `` / `` `endif `` (so include guards work), `` `undef ``, and `` `timescale ``
+  noted.
 - **Syntax tree** (`SyntaxTree.cs`): modules with ANSI or non-ANSI ports, header and body parameters,
   declarations of any keyword type, net type or typedef name, enums, generate regions, for- and
   if-generate, primitives with delays, module instances by name or position, continuous assigns,
@@ -627,7 +630,7 @@ asked for it to read the course and general SystemVerilog alike (2026-10-12).
   what follows. It never throws and never hangs: after an error it skips to a `;` or a keyword that starts
   something; every loop makes progress; nesting deeper than 200 stops the read with a message rather than
   the browser's stack. A missing `;` is reported on the line it is missing from. Classes, interfaces,
-  packages, concurrent and deferred assertions, `defparam`, `deassign`, drive strengths and the switch
+  `export`, concurrent and deferred assertions, `defparam`, `deassign`, drive strengths and the switch
   primitives are refused where they stand, their text kept.
 - **Printer** (`Printer`): the course's style -- four-space indents, one port per line with its comment,
   connections one per line beyond three, `[N-1:0]` tight. Printing is a fixed point: print, read, print
@@ -1279,7 +1282,7 @@ course first, then general SystemVerilog, before Part 10 -- and much of the rest
 | L3 | Expressions: `inside` and `case inside`, casts, enum methods, `$countones` and its kin, `$random` -- **built**, see "As built, L3" below |
 | L4 | Data types: packed structs and unions, packed and unpacked arrays of more than one dimension, `foreach` -- **built**, see "As built, L4" below |
 | L5 | Testbench control: `fork`/`join`, named events and `wait`, `disable`, `force`/`release`, immediate assertions -- **built**, see "As built, L5" below |
-| L6 | Packages and `import`, macros with arguments, strings and `$sformatf`, writing files |
+| L6 | Packages and `import`, macros with arguments, strings and `$sformatf`, writing files -- **built**, see "As built, L6" below |
 | L7 | `real` numbers, and delays in fractions of a unit |
 | L8 | Interfaces and modports |
 
@@ -1416,6 +1419,41 @@ two kinds of call need them:
   called only once (L2): the second call declared the block again.
 - **Not yet:** a second copy of a running branch, `disable` inside a function called in an expression,
   events in a block or in an array, events passed through ports, and concurrent and deferred assertions.
+
+**As built, L6: packages, macros, strings and files.**
+
+- **A package is a scope of its own** (IEEE 1800, 26): its parameters, typedefs -- an enum's names among
+  them -- functions and tasks, declared the first time anything imports from it or names into it, seeing
+  what it imports itself and not the compilation unit. `import p::*;` makes p's names visible after a
+  scope's own, so a local name wins; `import p::name;` declares that one name; either may stand in a
+  module's header, among its items, or outside every module. `p::name` reaches a name p declares -- not
+  one p only imports, as the standard has it and Icarus agrees. A package holding a variable or a wire
+  is refused.
+- **Macros take arguments** (22.5.1). The preprocessor works on tokens, so a use's arguments are read
+  past its line, split at the commas outside brackets, put in, and the result expanded again; a missing
+  argument takes its default, and ``` `` ``` and `` `"...`" `` work as the standard has them.
+- **A string is a value of 256 characters** (6.16; `Strings`): 2-state, its characters at the bottom and
+  zero bytes above -- the layout a string literal has already, so a literal given to a string, or compared
+  with one, needs nothing more. Joining with `{}` and comparing are done as text when either side is a
+  string; a value given to a string drops its zero bytes; a longer string keeps its first 256 characters.
+  Its methods are all there: `len`, `getc` and `s[i]`, `putc`, `toupper`, `tolower`, `substr`, `compare`,
+  `icompare`, `atoi`, `atohex`, `atooct`, `atobin`, and as statements `itoa`, `hextoa`, `octtoa`, `bintoa`.
+  `$sformatf` gives the line `$display` would print, as a string, and `$sformat` and `$swrite` write it into
+  a variable; `%s` and a bare `$display(s)` print a string's text. A signal knows it is a string
+  (`SignalInfo.IsString`), and Icarus leaves one out of its dump, so the corpus compares what is printed
+  of it.
+- **Files are written, not read** (21.3). `$fopen(name, "w")` or `"a"` gives a descriptor with the top bit
+  set, and `$fopen(name)` one bit of a multichannel descriptor, bit 0 being the transcript -- the lowest
+  free one each time, as Icarus gives them. `$fdisplay`, `$fwrite` and `$fstrobe` print to it; descriptor 1
+  and 2 are the transcript. What is written is handed to the run's files (`ISimFiles`) on `$fclose` and
+  `$fflush` and whenever a run hands back, never a line at a time. `$fopen` in an expression is run just
+  before its statement, as `$random` is. The corpus test now compares every file a testbench writes with
+  Icarus's, word for word.
+- **Icarus 12 cannot run four of these** (`oracle-notes.md`, "Packages, macros, strings and files"), so
+  `corpus/behavioural/library.sv` holds what both agree on and `LibraryTests` the rest.
+- **Not yet:** reading files (`$fgets`, `$fscanf`, `$fread`), `$fmonitor`, `export`, a string longer than
+  256 characters, a string's own radix in the waveform, and a dynamic format (`$sformatf(fmt, ...)` with
+  the format in a variable).
 
 **Agreed after the plan, 2026-10-14: five optimizations**, each to be written into this document by
 the part that builds it, as every part rewrites what it makes stale.
