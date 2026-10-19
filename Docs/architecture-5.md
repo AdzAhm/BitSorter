@@ -307,7 +307,9 @@ VCD           written for export, read for the oracle comparison
   it, and by drivers in the next delta; so the drivers keep invariant 1, and processes -- which the
   language lets race -- run in an order that is the same on every run: **an instance's processes before
   its parent's own, and a module's own as written**, as Icarus starts them. A testbench that raises reset
-  at time 0 therefore reaches the flip-flops of the design it instantiates. At time 0 the processes start
+  at time 0 therefore reaches the flip-flops of the design it instantiates. A `fork`'s branches (Part L5)
+  are processes of their own, each written after the process that forks it, and start straight after it
+  in the order written, once it waits -- Icarus 12 starts them last first; the standard leaves it open. At time 0 the processes start
   once what has no delay has settled from the starting values (from Part 6a, as Icarus starts them), so
   an `initial` that reads a wire at time 0 sees it worked out, not x.
 - **Regions.** A nonblocking write is worked out when it runs and applied once nothing active is left in
@@ -587,7 +589,8 @@ patterns, and no tri-state, `function`, `task`, `$display`, `` `timescale ``, `d
 | Functions and tasks | `function` and `task`, static and automatic, ANSI and old-style arguments, defaults, `return`, `void` functions, recursion inside an expression | L2 |
 | Expressions | `inside` and `case inside`, `==?` and `!=?`, casts to the built-in types and to typedefs, an enum's methods, `$countones`, `$onehot`, `$onehot0`, `$isunknown`, `$random`, `$urandom`, `$urandom_range` | L3 |
 | Data types | packed `struct` and `union`, their members read and written (`pkt.kind`, `prog[i].op`); packed arrays of any number of dimensions, of structs and of typedefs; memories of more than one dimension; `foreach`; assignment patterns, `'{...}`, in order, by member, by index and with `default:`; `$bits` of a type or a memory | L4 |
-| Not supported | interfaces, unpacked structs, classes, `fork`, `defparam`, DPI — each refused with file, line and a plain message, until the language part that brings it (section 11) |
+| Testbench control | `fork` with `join`, `join_any` and `join_none`; `wait fork`, `disable fork`; `disable` of a named block, a named fork or a task; named events with `->`, `->>`, `@(e)` and `e.triggered`; `force` and `release`; immediate `assert`, `assume` and `cover` | L5 |
+| Not supported | interfaces, unpacked structs, classes, concurrent assertions, `defparam`, DPI — each refused with file, line and a plain message, until the language part that brings it (section 11) |
 
 **Written in the course's style:** an ANSI header with inputs first and outputs last, one commented
 port per line; `logic` everywhere, except a net with more than one driver, which must be a `wire` to
@@ -624,8 +627,8 @@ asked for it to read the course and general SystemVerilog alike (2026-10-12).
   what follows. It never throws and never hangs: after an error it skips to a `;` or a keyword that starts
   something; every loop makes progress; nesting deeper than 200 stops the read with a message rather than
   the browser's stack. A missing `;` is reported on the line it is missing from. Classes, interfaces,
-  packages, assertions, `defparam`, `fork`, drive strengths and the switch primitives are refused where
-  they stand, their text kept.
+  packages, concurrent and deferred assertions, `defparam`, `deassign`, drive strengths and the switch
+  primitives are refused where they stand, their text kept.
 - **Printer** (`Printer`): the course's style -- four-space indents, one port per line with its comment,
   connections one per line beyond three, `[N-1:0]` tight. Printing is a fixed point: print, read, print
   gives the same text, and a tree built in code gets the parentheses its meaning needs.
@@ -1275,7 +1278,7 @@ course first, then general SystemVerilog, before Part 10 -- and much of the rest
 | L2 | Functions and tasks -- **built**, see "As built, L2" below |
 | L3 | Expressions: `inside` and `case inside`, casts, enum methods, `$countones` and its kin, `$random` -- **built**, see "As built, L3" below |
 | L4 | Data types: packed structs and unions, packed and unpacked arrays of more than one dimension, `foreach` -- **built**, see "As built, L4" below |
-| L5 | Testbench control: `fork`/`join`, named events and `wait`, `disable`, `force`/`release`, immediate assertions |
+| L5 | Testbench control: `fork`/`join`, named events and `wait`, `disable`, `force`/`release`, immediate assertions -- **built**, see "As built, L5" below |
 | L6 | Packages and `import`, macros with arguments, strings and `$sformatf`, writing files |
 | L7 | `real` numbers, and delays in fractions of a unit |
 | L8 | Interfaces and modports |
@@ -1378,6 +1381,41 @@ two kinds of call need them:
 - **Not yet:** unpacked structs and unions, unpacked arrays as ports, a slice of a memory, `$readmemh`
   into a memory of several dimensions, `$size`, `$left`, `$right`, `$low` and `$high`, type keys in a
   pattern (`'{int: 0}`), and a waveform that lists a struct's members.
+
+**As built, L5: testbench control** (`Simulator`'s fork, disable and force; `Elaborator.Processes`).
+
+- **A fork's branches are processes of their own** (IEEE 1800, 9.3.2), compiled beside the one that forks
+  them and asleep until the fork runs (`ProcessInfo.Dormant`). The fork starts them straight after its
+  process in the time step, in the order written, then waits as its join says: for every branch, the
+  first to end, or none. `wait fork` waits for every branch the process has forked; `disable fork` ends
+  them, and whatever they forked in turn. **One of each branch runs at a time**: a branch forked again
+  while it still runs -- a `join_any` in a loop with no `disable fork` -- stops the run with how to wait
+  for it or end it, where the standard would start a second copy. Every testbench pattern seen so far
+  waits or ends its branches first.
+- **`disable`** of a named block, a named fork or a task (9.6.2) sends every process inside one of its
+  places on past it -- the disabling process at once, any other in the next delta -- and ends the forks in
+  it. A block may be in another process, and a task is written into every caller, so what a `disable`
+  reaches is resolved once every process is compiled. A process's resumption carries a generation, so a
+  delay it was disabled out of is dropped when it comes due.
+- **Named events** (15.5): `event e;` is a bit the design keeps, which every `-> e` turns over -- so `@(e)`
+  wakes on a trigger as on any change, with no new kind of wait -- and `->> e` turns over in the NBA
+  region. `e.triggered` is 1 from a trigger to the end of its time step: the time of the last trigger is
+  kept beside the bit. An event is not a value, and reading one anywhere but an event control is refused.
+  Neither bit is recorded: a trigger is a moment, not a value, and a waveform shows it through what it
+  wakes.
+- **`force` and `release`** (10.6.2) lay a value over a wire, bits of one or a whole variable, above every
+  driver and every write, and the forced value follows its expression as a continuous assignment does.
+  Released, a wire goes back to its drivers and a variable nothing drives keeps the forced value until it
+  is next written.
+- **Immediate assertions** (16.3) are an `if`: the pass action on 1, the else on 0, x or z, or an `$error`
+  naming the assertion and its line. `assume` runs as `assert`; `cover` has no else. Concurrent and
+  deferred assertions are refused as they are read.
+- **Icarus 12 parts from the standard, or cannot run it, five times here** (`oracle-notes.md`, "Testbench
+  control"), so `corpus/behavioural/testbench_control.sv` holds what both agree on and
+  `TestbenchControlTests` the rest. **Found on the way, and fixed:** a task with a named block could be
+  called only once (L2): the second call declared the block again.
+- **Not yet:** a second copy of a running branch, `disable` inside a function called in an expression,
+  events in a block or in an array, events passed through ports, and concurrent and deferred assertions.
 
 **Agreed after the plan, 2026-10-14: five optimizations**, each to be written into this document by
 the part that builds it, as every part rewrites what it makes stale.

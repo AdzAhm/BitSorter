@@ -215,7 +215,10 @@ failure side.
   Processes are the one place the language itself allows a race -- a
   blocking write is seen at once -- so they run in a fixed order instead:
   an instance's processes before its parent's own, then as written, as
-  Icarus starts them. Never let that order depend on anything else.
+  Icarus starts them. Never let that order depend on anything else. A
+  fork's branches (Part L5) start straight after the process that forks
+  them, in the order written, once it waits; Icarus 12 starts them last
+  first, and the standard leaves it open (`Docs/oracle-notes.md`).
 
 - **SourceNode plays a scripted sequence from tick 0**, then goes silent.
   It needs no special casing: a source has no inputs, so the

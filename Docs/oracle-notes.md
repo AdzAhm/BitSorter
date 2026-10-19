@@ -270,6 +270,23 @@ agree on every signal and line. One rule the second pins down, where it is easy 
 BitSorter first evaluated the `assign` again as well, which reads as more helpful and is not what either
 the standard or Icarus does; the corpus design is the reason it no longer does.
 
+## Testbench control (Part L5, 2026-10-19)
+
+`corpus/behavioural/testbench_control.sv` runs in both and agrees on every signal and line: the three
+joins, a fork in a fork, `wait fork`, `disable fork`, `disable` of a named block, of a named fork and of
+a task, events, `force` and `release` of a wire, its bits and a clocked variable, and assertions with
+pass and fail actions. Where Icarus 12 runs otherwise or not at all, BitSorter follows the standard, and
+`TestbenchControlTests` holds it:
+
+| Question | Icarus 12 | The standard, and BitSorter |
+| --- | --- | --- |
+| The order a fork's branches start in, in one moment | last first | left open by the standard; BitSorter starts them in the order written, as ModelSim does |
+| `force w = a & b`, then `b` changes | "sorry: procedural continuous assignments are not yet fully supported" -- evaluated once | the force follows its expression (10.6.2) |
+| `->> e` | "sorry: ->> is not currently supported" | turns the event over in the NBA region |
+| `e.triggered` | "Event name e can't have member names" | 1 from a trigger to the end of its time step (15.5.3) |
+| An assertion with no else fails | `ERROR: file:line:` and no message | an `$error` naming the assertion and its line |
+| Two processes resumed in one time step, by delays scheduled at different times | in the order the delays were scheduled | in the fixed order (`architecture-5.md`, section 5) -- a race either way, which the corpus keeps out |
+
 ## Data types (Part L4, 2026-10-19)
 
 `corpus/behavioural/data_types.sv` runs in both and agrees on every signal and line: packed structs, a
