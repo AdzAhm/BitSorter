@@ -265,6 +265,7 @@ namespace BitSorter.View
 
         private WaveRowMenu _rowMenu;
         private WaveTimeMenu _timeMenu;
+        private WaveExportMenu _exportMenu;
         private WaveSignalPicker _picker;
         private WaveRenameField _rename, _breakField;
         private TMP_InputField _runToField;
@@ -345,6 +346,9 @@ namespace BitSorter.View
 
         /// <summary>What the time label beside the slider says now: <c>t = 11.0 ns</c>.</summary>
         public string MomentText => _timeLabel != null ? _timeLabel.text : null;
+
+        /// <summary>The menu EXPORT opens; null until the panel has first opened.</summary>
+        public WaveExportMenu ExportMenu => _exportMenu;
 
         /// <summary>The menu for a moment; null until the panel has first opened.</summary>
         public WaveTimeMenu TimeMenu => _timeMenu;
@@ -522,7 +526,7 @@ namespace BitSorter.View
                 case WorkbenchCommand.Unit: NextUnit(); break;
                 case WorkbenchCommand.Undo: UndoEdit(); break;
                 case WorkbenchCommand.Redo: RedoEdit(); break;
-                case WorkbenchCommand.Export: ExportVcd(); break;
+                case WorkbenchCommand.Export: OpenExportMenu(); break;
             }
         }
 
@@ -1026,10 +1030,56 @@ namespace BitSorter.View
                 Notice("nothing to redo");
         }
 
+        /// <summary>Opens the export menu under EXPORT, as the button and E do.</summary>
+        public void OpenExportMenu()
+        {
+            if (_exportMenu == null || _stage == null)
+                return;
+
+            Vector2 at = Mouse.current != null ? Mouse.current.position.ReadValue() : Vector2.zero;
+            Transform button = _stage.Find("waveform toolbar/" + WaveformView.ExportButton);
+            if (button != null)
+            {
+                var corners = new Vector3[4];
+                ((RectTransform)button).GetWorldCorners(corners);
+                at = corners[0];
+            }
+
+            _exportMenu.Open(at);
+        }
+
+        /// <summary>What the export menu saves.</summary>
+        private void Export(WaveExportKind kind)
+        {
+            if (kind == WaveExportKind.Png)
+                ExportPng();
+            else
+                ExportVcd();
+        }
+
         /// <summary>
-        /// Saves the run, as far as it is made, as a VCD in its unit (<see cref="WaveExport"/>), as EXPORT
-        /// does: a download in a browser, a file in the Exports folder elsewhere (<see cref="FileSaver"/>).
-        /// The chip says what was saved and where. Returns the file's name.
+        /// Saves the waveform as a PNG (<see cref="WaveformPng"/>): every row shown, at the moment and over
+        /// the time shown, in Schematic Light whatever the look, <see cref="WaveformPng.Width"/> wide. A
+        /// download in a browser, a file in the Exports folder elsewhere; the chip says where. Returns the
+        /// file's name.
+        /// </summary>
+        public string ExportPng()
+        {
+            if (_model == null || _wave == null)
+                return null;
+
+            string name = WaveExport.FileName(WorkbenchSamples.All[_sample].Name, "png");
+            int step = Mathf.Clamp(Mathf.RoundToInt((float)(_model.Time * 10.0)), 0, _playheadTexts.Length - 1);
+            byte[] bytes = WaveformPng.Render(_model, _appliedNames, _appliedHeaders, _list.Names, _wave.View, _playheadTexts[step],
+                _cursors, _playback.Breakpoints);
+            Notice("saved " + name + " " + FileSaver.Save(name, bytes, "image/png"));
+            return name;
+        }
+
+        /// <summary>
+        /// Saves the run, as far as it is made, as a VCD in its unit (<see cref="WaveExport"/>), as the
+        /// export menu's VCD does: a download in a browser, a file in the Exports folder elsewhere
+        /// (<see cref="FileSaver"/>). The chip says what was saved and where. Returns the file's name.
         /// </summary>
         public string ExportVcd()
         {
@@ -1463,6 +1513,7 @@ namespace BitSorter.View
             // Over everything else on the workbench, when it is up.
             _rowMenu = WaveRowMenu.Build(Root, palette, ChooseRadix, RowAction);
             _timeMenu = WaveTimeMenu.Build(Root, palette, TimeAction);
+            _exportMenu = WaveExportMenu.Build(Root, palette, Export);
             _picker = WaveSignalPicker.Build(Root, palette, AddSignal);
             _rename = WaveRenameField.Build(Root, palette, RenameRow);
             _breakField = WaveRenameField.Build(Root, palette, BreakOnValue, WaveRenameField.BreakValueName, "BREAK ON VALUE",
@@ -1645,6 +1696,7 @@ namespace BitSorter.View
 
             _rowMenu.Close();
             _timeMenu.Close();
+            _exportMenu.Close();
             _picker.Close();
             _rename.Close();
             _breakField.Close();

@@ -513,7 +513,8 @@ failure side.
   place one (2026-10-15).
 
   **They would also touch the player's own files.** `SaveGuard.Redirect` points
-  the save and the PlayerPrefs settings at scratch copies before the scene loads
+  the save, the PlayerPrefs settings and the workbench's exports (`FileSaver`, Part
+  9b-4) at scratch copies before the scene loads
   (see "Never move the player's save" below), and every fixture then turns
   analytics off -- `GameAnalytics.Boot` runs on AfterSceneLoad and would otherwise
   post real `levelStarted` events from a test run, into the one measurement the
@@ -841,7 +842,7 @@ failure side.
   slider, a menu -- and asks it at `-30000` too, for the same tap; and the
   panel reads its mouse as gestures (`WavePointer`), where a press on a control is
   never one. The row menu, the menu for a moment (a right-click on the waves, for
-  a breakpoint there; Part 9b-3), the add list and the three fields -- RENAME,
+  a breakpoint there; Part 9b-3), the export menu (VCD or PNG; Part 9b-4), the add list and the three fields -- RENAME,
   BREAK ON VALUE, and SET, which a double-click on a bus or an x asks an input's
   value in -- each hold Escape (`IHoldsEscape`), and the panel closes on Escape
   only when nothing does. **A double-click is counted on the game's clock**

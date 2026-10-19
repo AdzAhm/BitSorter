@@ -165,8 +165,13 @@ namespace BitSorter.View
 
         private void Draw(MeshBuffer mesh)
         {
-            // One screen pixel in this graphic's units: how wide the edges' smoothing is.
+            // One screen pixel in this graphic's units: how wide the edges' smoothing is. On an overlay
+            // canvas the world scale is pixels; on a camera's -- the waveform's PNG -- it is world units,
+            // and the root canvas's own scale says how many of them a pixel is.
             float scale = Mathf.Abs(rectTransform.lossyScale.x);
+            Canvas root = canvas != null ? canvas.rootCanvas : null;
+            if (root != null && root.renderMode != RenderMode.ScreenSpaceOverlay && Mathf.Abs(root.transform.lossyScale.x) > 1e-9f)
+                scale = scale / Mathf.Abs(root.transform.lossyScale.x) * root.scaleFactor;
             _painter.Begin(mesh, scale > 1e-5f ? 1f / scale : 1f);
 
             SchematicPalette palette = SchematicPalette.Current;

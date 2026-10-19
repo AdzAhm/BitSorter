@@ -1240,9 +1240,9 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
-        /// E saves the run as a VCD -- in a test, into the scratch folder SaveGuard points exports at, never
-        /// the player's -- and the chip says where; read back, it holds the run's inputs and outputs, in
-        /// the run's unit. EXPORT on the toolbar does the same.
+        /// E offers the exports and VCD saves the run -- in a test, into the scratch folder SaveGuard points
+        /// exports at, never the player's -- and the chip says where; read back, it holds the run's inputs
+        /// and outputs, in the run's unit. EXPORT on the toolbar offers the same.
         /// </summary>
         [UnityTest]
         public IEnumerator E_SavesTheRunAsAVcd_AndTheChipSaysWhere()
@@ -1257,6 +1257,9 @@ namespace BitSorter.PlayMode.Tests
                 "sanity: a test's exports go to the scratch folder");
 
             yield return Tap(_keyboard.eKey);
+            Assert.IsTrue(workbench.ExportMenu.IsOpen, "E did not offer the exports");
+            yield return Click(WaveExportMenu.KindItem + WaveExportKind.Vcd);
+            Assert.IsFalse(workbench.ExportMenu.IsOpen);
             string file = System.IO.Path.Combine(FileSaver.Folder, "reference.vcd");
             Assert.IsTrue(System.IO.File.Exists(file), "E saved no VCD");
             StringAssert.StartsWith("saved reference.vcd in ", workbench.ChipText);
@@ -1269,7 +1272,52 @@ namespace BitSorter.PlayMode.Tests
 
             System.IO.File.Delete(file);
             yield return Click(WaveformView.ExportButton);
+            yield return Click(WaveExportMenu.KindItem + WaveExportKind.Vcd);
             Assert.IsTrue(System.IO.File.Exists(file), "EXPORT saved no VCD");
+        }
+
+        /// <summary>
+        /// The PNG is the waveform drawn again in Schematic Light, whatever the look on screen: as wide as
+        /// a picture always is, as tall as its rows, its ground the paper's and its rows' 1s in the paper's
+        /// own colour -- and the screen's look is untouched after it.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator ThePng_IsTheWaveformInSchematicLight_WhateverLookIsOnScreen()
+        {
+            yield return TestScene.Load();
+            yield return OpenTheWorkbench();
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.Pause();
+            workbench.Session.Finish();
+            workbench.Seek(20.0);
+            SchematicPalette screen = SchematicPalette.Current;
+            Assert.AreNotSame(SchematicPalette.Light, screen, "sanity: the screen is not in Schematic Light");
+
+            yield return Click(WaveformView.ExportButton);
+            Assert.IsTrue(workbench.ExportMenu.IsOpen, "EXPORT did not offer the exports");
+            yield return Click(WaveExportMenu.KindItem + WaveExportKind.Png);
+
+            string file = System.IO.Path.Combine(FileSaver.Folder, "reference.png");
+            Assert.IsTrue(System.IO.File.Exists(file), "PNG saved nothing");
+            StringAssert.StartsWith("saved reference.png in ", workbench.ChipText);
+            Assert.AreSame(screen, SchematicPalette.Current, "the screen's look is its own again");
+
+            var image = new Texture2D(2, 2);
+            Assert.IsTrue(image.LoadImage(System.IO.File.ReadAllBytes(file)));
+            Assert.AreEqual(WaveformPng.Width, image.width);
+            Assert.AreEqual(WaveformPng.HeightFor(workbench.Model.RowCount), image.height);
+
+            Color corner = image.GetPixel(3, image.height - 4);
+            Color ground = SchematicPalette.Light.Ground;
+            Assert.AreEqual(ground.r, corner.r, 2f / 255f, "its ground is the paper's: " + corner);
+            Assert.AreEqual(ground.g, corner.g, 2f / 255f, "its ground is the paper's: " + corner);
+            Assert.AreEqual(ground.b, corner.b, 2f / 255f, "its ground is the paper's: " + corner);
+
+            Color one = SchematicPalette.Light.One;
+            int ones = image.GetPixels().Count(p => Mathf.Abs(p.r - one.r) < 0.02f && Mathf.Abs(p.g - one.g) < 0.02f && Mathf.Abs(p.b - one.b) < 0.02f);
+            Assert.Greater(ones, 200, "the rows' 1s, in the paper's colour for a 1");
+            Object.Destroy(image);
         }
 
         /// <summary>

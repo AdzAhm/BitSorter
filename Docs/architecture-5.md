@@ -1191,6 +1191,33 @@ on an input's row, undo and redo -- is 9b-3b-2.
   speed, the moment and the delays, and RUN TO reading a time in another unit; Ctrl+Z and Ctrl+Y.
   Reference shots 27 to 32 moved by UNIT, the wider chip and the legend; 1 to 26 the same in all four looks.
 
+**As built in Part 9b-4**: the run as a file. EXPORT on the waveform's toolbar, or E, offers two.
+
+- **VCD: every signal** (`WaveExport`, ViewModel, 12 tests under dotnet): the run as far as it is made, in its
+  unit (`$timescale 1ps` for a run in ps, the numbers unchanged), every signal of the design -- GTKWave picks
+  its own -- written by the engine's `VcdWriter`, whose output the oracle already reads back against
+  Icarus's. A run carried on past its `$stop` exports the timeline it grew to. Named for the sample, safe on
+  every system: `full_adder.vcd`.
+- **PNG: the waveform** (`WaveformPng`; Ahmad's decision 4): always Schematic Light whatever the look on
+  screen, 1800 pixels wide and as tall as its rows, every row whatever the page is scrolled to, at the moment
+  and over the window of time the screen shows (`WaveView.Match`). Not a screenshot: a second waveform drawn
+  on a camera's canvas on layer 31, into an sRGB texture, at twice the scale -- at one to one a wave's line
+  straddled two rows of pixels and filled neither, and printed pale -- then encoded and every object made for
+  it destroyed in the same call. The drawing reads `SchematicPalette.Current`, so for that call it is
+  Schematic Light (`SchematicPalette.Overriding`). **A workbench graphic now measures its pixel against its
+  root canvas's scale**: on an overlay canvas the world scale is pixels, on a camera's it is world units,
+  and the edges' smoothing came out thirty times too wide, every line a smear.
+- **Saving** (`FileSaver`): in a browser a download -- `Plugins/WebGL/BitSorterFiles.jslib` makes the bytes a
+  Blob and clicks a link with a download name, which follows a click the player made and so is allowed in
+  the iframe Unity Play and itch.io run the game in; elsewhere a file in the Exports folder beside the save.
+  `SaveGuard` points exports at a scratch folder for every fixture. The chip says what was saved and where.
+- **Checked.** `WaveExportTests` (12) and `WaveViewTests`' match under dotnet. In Play Mode: E offering the two
+  and VCD saving the run, read back with its input and output in ns, and EXPORT doing the same; the PNG as wide
+  and tall as it should be, its ground the paper's and its 1s in the paper's colour while the screen is in
+  the dark look, and the screen's look its own again after. Reference shots 27 to 32 moved by EXPORT; 1 to 26
+  the same in all four looks. In the browser build: E saved `reference.vcd` as a download, `$timescale 1ps`,
+  30 signals.
+
 ---
 
 ## 11. The parts

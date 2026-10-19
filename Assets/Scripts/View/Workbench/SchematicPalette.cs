@@ -169,7 +169,13 @@ namespace BitSorter.View
         };
 
         /// <summary>The palette the workbench draws with: the current look's canvas.</summary>
-        public static SchematicPalette Current => Look.Current.Canvas ?? Dark;
+        public static SchematicPalette Current => Overriding ?? Look.Current.Canvas ?? Dark;
+
+        /// <summary>
+        /// The palette drawn in instead of the look's, for as long as it is set: Schematic Light while the
+        /// waveform's PNG is drawn (<see cref="WaveformPng"/>), and null the rest of the time.
+        /// </summary>
+        public static SchematicPalette Overriding { get; set; }
 
         /// <summary>A copy of this palette under a new name, changed by <paramref name="change"/>.</summary>
         public SchematicPalette Derive(string name, System.Action<SchematicPalette> change)

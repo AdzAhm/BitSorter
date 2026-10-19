@@ -103,13 +103,16 @@ namespace BitSorter.View
         /// </summary>
         public WaveformView(WorkbenchModel model, WorkbenchLayers layers, RectTransform parent, Vector2 at, float width,
             SchematicPalette palette, IReadOnlyList<string> names, WaveView view = null, IReadOnlyList<bool> headers = null,
-            System.Action<WorkbenchCommand> onToolbar = null, WaveNames namesStyle = WaveNames.Short)
+            System.Action<WorkbenchCommand> onToolbar = null, WaveNames namesStyle = WaveNames.Short, bool toolbar = true)
         {
             _model = model;
             int rows = model.RowCount;
             Height = WorkbenchDrawing.WaveHeight(rows);
 
-            BuildToolbar(parent, at, palette, onToolbar, namesStyle, model.Unit);
+            // A picture of it has no toolbar, and its waves start at the top (WaveformPng).
+            float top = toolbar ? ToolbarHeight : 0f;
+            if (toolbar)
+                BuildToolbar(parent, at, palette, onToolbar, namesStyle, model.Unit);
 
             // The names column as wide as its longest name, within reason: the waves move right by as much.
             var shown = new string[rows];
@@ -125,7 +128,7 @@ namespace BitSorter.View
             _width = width;
 
             Rect = UiTheme.Rect("waveform", parent);
-            WorkbenchPanel.TopLeft(Rect, at + new Vector2(NamesExtra, ToolbarHeight), new Vector2(width, Height));
+            WorkbenchPanel.TopLeft(Rect, at + new Vector2(NamesExtra, top), new Vector2(width, Height));
 
             if (view == null || view.Width != Mathf.Max(1f, WorkbenchDrawing.AxisWidth(width)))
             {
@@ -213,7 +216,7 @@ namespace BitSorter.View
             // The unit as SystemVerilog writes it, in lower case: MS would be megaseconds (Part 9b-3).
             Add(UnitButton, "UNIT: " + unit, WorkbenchCommand.Unit, 120f);
 
-            // The run as a file: a VCD, every signal, for GTKWave or anything else that reads one (Part 9b-4).
+            // The run as a file: a VCD for GTKWave, or the waveform as a picture for a report (Part 9b-4).
             Add(ExportButton, "EXPORT", WorkbenchCommand.Export, 110f);
         }
 
