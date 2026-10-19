@@ -100,6 +100,19 @@ namespace BitSorter.Sim
         /// <summary><c>release</c>: the bits of <see cref="Instruction.Target"/> go back to their own value.</summary>
         Release,
 
+        /// <summary>
+        /// <c>$fopen</c> (Part L6): opens the file <see cref="Instruction.Value"/> names, in the mode
+        /// <see cref="Instruction.Other"/> gives -- none for a channel of a multichannel descriptor -- and writes
+        /// its descriptor into <see cref="Instruction.Target"/>.
+        /// </summary>
+        FileOpen,
+
+        /// <summary><c>$fclose</c>: writes out and closes the file <see cref="Instruction.Value"/> describes.</summary>
+        FileClose,
+
+        /// <summary><c>$fflush</c>: writes out the file <see cref="Instruction.Value"/> describes, or every one when it is null.</summary>
+        FileFlush,
+
         /// <summary>The process has nothing left to do.</summary>
         End,
     }

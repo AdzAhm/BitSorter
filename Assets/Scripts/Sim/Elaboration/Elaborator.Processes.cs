@@ -694,7 +694,44 @@ namespace BitSorter.Sim
 
             /// <summary>An expression builder for a statement of this process: one that can call <c>$random</c> and its kin.</summary>
             private ExpressionBuilder Builder(Proc p, Scope scope) =>
-                new ExpressionBuilder(scope, _diagnostics, constantOnly: false) { Random = call => RandomCall(p, scope, call) };
+                new ExpressionBuilder(scope, _diagnostics, constantOnly: false) { Random = call => RandomCall(p, scope, call), Opens = call => OpenCall(p, scope, call) };
+
+            /// <summary>
+            /// <c>$fopen(name [, mode])</c> (Part L6): the file opened just before the statement that asks, its
+            /// descriptor written into a working variable the call then reads -- as <c>$random</c>'s number is.
+            /// </summary>
+            private Expr OpenCall(Proc p, Scope scope, CallExpression call)
+            {
+                if (call.Arguments.Count < 1 || call.Arguments.Count > 2 || call.Arguments.Exists(a => a == null))
+                {
+                    Error(call.Location, ElaborationCodes.BadCall, "$fopen takes the file's name, and then how to open it: \"w\" to write it afresh, \"a\" to add to it.");
+                    p.Failed = true;
+                    return Expr.Constant(LogicVec.AllX(32));
+                }
+
+                var builder = new ExpressionBuilder(scope, _diagnostics, constantOnly: false);
+                Expr name = builder.Build(call.Arguments[0], 0);
+                Expr mode = call.Arguments.Count == 2 ? builder.Build(call.Arguments[1], 0) : null;
+                if (builder.Failed)
+                {
+                    p.Failed = true;
+                    return Expr.Constant(LogicVec.AllX(32));
+                }
+
+                SignalId descriptor = _builder.Local($"{scope.Path}.$fopen#{++_unnamed}", 32, signed: true);
+                p.Locals.Add(descriptor.Index);
+                p.Writes.Add(descriptor.Index);
+                p.Emit(new Instruction
+                {
+                    Op = OpCode.FileOpen,
+                    Target = new[] { new LPiece(descriptor.Index, 0, 32, null) },
+                    TargetWidth = 32,
+                    Value = name,
+                    Other = mode,
+                });
+
+                return _builder.Read(descriptor);
+            }
 
             /// <summary>The seeds <c>$random</c> and <c>$urandom</c> use when they are given none: the design's own, from 0.</summary>
             private SignalId? _randomSeed, _urandomSeed;
@@ -1399,6 +1436,12 @@ namespace BitSorter.Sim
             {
                 string where = $"{call.Location.File}:{call.Location.Line}";
 
+                if (call.Target != null)
+                {
+                    MethodStatement(p, scope, call);
+                    return;
+                }
+
                 switch (call.Name)
                 {
                     case "$finish":
@@ -1429,6 +1472,62 @@ namespace BitSorter.Sim
                     case "$writememb":
                         MemoryCall(p, scope, call, where);
                         return;
+
+                    case "$sformat":
+                    case "$swrite":
+                        FormatInto(p, scope, call);
+                        return;
+
+                    case "$fclose":
+                    case "$fflush":
+                    {
+                        if (call.Name == "$fclose" ? call.Arguments.Count != 1 || call.Arguments[0] == null : call.Arguments.Count > 1)
+                        {
+                            Error(call.Location, ElaborationCodes.BadCall, call.Name == "$fclose" ? "$fclose takes the descriptor $fopen gave." : "$fflush takes a descriptor, or nothing for every file.");
+                            p.Failed = true;
+                            return;
+                        }
+
+                        var builder = Builder(p, scope);
+                        Expr descriptor = call.Arguments.Count == 1 && call.Arguments[0] != null ? builder.Build(call.Arguments[0], 0) : null;
+                        if (builder.Failed)
+                            p.Failed = true;
+                        p.Emit(new Instruction { Op = call.Name == "$fclose" ? OpCode.FileClose : OpCode.FileFlush, Value = descriptor });
+                        return;
+                    }
+
+                    case "$fmonitor":
+                    case "$fmonitorb":
+                    case "$fmonitorh":
+                    case "$fmonitoro":
+                        NotYet(call.Location, $"{call.Name} is not supported by BitSorter yet; $fstrobe at each change, or $monitor to the transcript, does the same work.");
+                        p.Failed = true;
+                        return;
+                }
+
+                // $fdisplay(fd, ...), $fwrite and $fstrobe: a print task with the descriptor of where it goes first (Part L6).
+                if (call.Name.StartsWith("$f", StringComparison.Ordinal) && PrintTasks.TryGetValue("$" + call.Name.Substring(2), out (PrintKind Kind, char Radix, Severity Severity) filed) &&
+                    filed.Severity == Severity.Info && filed.Kind != PrintKind.Monitor && filed.Kind != PrintKind.MonitorOn && filed.Kind != PrintKind.MonitorOff)
+                {
+                    if (call.Arguments.Count < 1 || call.Arguments[0] == null)
+                    {
+                        Error(call.Location, ElaborationCodes.BadCall, $"{call.Name} takes the descriptor $fopen gave first, then what to write.");
+                        p.Failed = true;
+                        return;
+                    }
+
+                    var builder = Builder(p, scope);
+                    Expr destination = builder.Build(call.Arguments[0], 0);
+                    PrintSegment[] segments = builder.Segments(call.Arguments, 1, filed.Radix);
+                    if (builder.Failed)
+                        p.Failed = true;
+
+                    p.Emit(new Instruction
+                    {
+                        Op = OpCode.Print,
+                        Print = new PrintSpec { Kind = filed.Kind, Severity = Severity.Info, Segments = segments, Destination = destination },
+                    });
+                    return;
                 }
 
                 if (DumpTasks.Contains(call.Name))
@@ -1457,7 +1556,7 @@ namespace BitSorter.Sim
 
                 if (!call.IsSystem)
                 {
-                    SubroutineEntry routine = scope.LookupSubroutine(call.Name);
+                    SubroutineEntry routine = scope.LookupSubroutine(call.Package, call.Name);
                     if (routine != null)
                     {
                         Inline(p, scope, call, routine);
@@ -1486,147 +1585,104 @@ namespace BitSorter.Sim
             private PrintSegment[] PrintSegments(Proc p, Scope scope, CallStatement call, int first, char radix)
             {
                 var builder = Builder(p, scope);
-                var segments = new List<PrintSegment>();
-                List<Expression> args = call.Arguments;
-
-                for (int i = first; i < args.Count;)
-                {
-                    Expression arg = args[i];
-
-                    if (arg is StringLiteral format)
-                    {
-                        i = Format(p, scope, builder, format, args, i + 1, segments);
-                        continue;
-                    }
-
-                    if (arg != null)
-                        segments.Add(new PrintSegment { Conversion = radix, Argument = builder.Build(arg, 0), Untracked = IsTime(arg) });
-                    i++;
-                }
-
+                PrintSegment[] segments = builder.Segments(call.Arguments, first, radix);
                 if (builder.Failed)
                     p.Failed = true;
-
-                return segments.ToArray();
+                return segments;
             }
 
-            private static bool IsTime(Expression e) =>
-                e is CallExpression c && (c.Name == "$time" || c.Name == "$stime" || c.Name == "$realtime");
-
-            /// <summary>One format string: its text, and a piece for each conversion, taking the arguments from <paramref name="next"/>. Returns the next unused argument.</summary>
-            private int Format(Proc p, Scope scope, ExpressionBuilder builder, StringLiteral format, List<Expression> args, int next, List<PrintSegment> segments)
+            /// <summary>
+            /// A string's methods that change it, called as statements (IEEE 1800, 6.16; Part L6):
+            /// <c>s.putc(i, c)</c>, and <c>s.itoa(n)</c>, <c>s.hextoa(n)</c>, <c>s.octtoa(n)</c> and <c>s.bintoa(n)</c>,
+            /// which write a number into it in decimal, hex, octal or binary.
+            /// </summary>
+            private void MethodStatement(Proc p, Scope scope, CallStatement call)
             {
-                string f = format.Value;
-                var text = new StringBuilder();
+                var builder = Builder(p, scope);
+                string written = $"{Printer.Print(call.Target)}.{call.Name}()";
 
-                void Flush()
+                if (!builder.IsStringValued(call.Target))
                 {
-                    if (text.Length == 0)
-                        return;
-                    segments.Add(new PrintSegment { Text = text.ToString() });
-                    text.Clear();
+                    Error(call.Location, ElaborationCodes.BadCall, $"{written} gives a value, which a statement of its own would drop: assign it, or call it where the value is used.");
+                    p.Failed = true;
+                    return;
                 }
 
-                for (int k = 0; k < f.Length; k++)
+                char radix = call.Name == "itoa" ? 'd' : call.Name == "hextoa" ? 'h' : call.Name == "octtoa" ? 'o' : call.Name == "bintoa" ? 'b' : '\0';
+                int arguments = call.Name == "putc" ? 2 : radix != '\0' ? 1 : -1;
+                if (arguments < 0)
                 {
-                    char c = f[k];
-                    if (c != '%' || k + 1 >= f.Length)
-                    {
-                        text.Append(c);
-                        continue;
-                    }
-
-                    if (f[k + 1] == '%')
-                    {
-                        text.Append('%');
-                        k++;
-                        continue;
-                    }
-
-                    int j = k + 1;
-                    bool left = false;
-                    if (f[j] == '-')
-                    {
-                        left = true;
-                        j++;
-                    }
-
-                    int digits = j;
-                    while (j < f.Length && char.IsDigit(f[j]))
-                        j++;
-
-                    int width = -1;
-                    bool zero = false;
-                    if (j > digits)
-                    {
-                        string w = f.Substring(digits, j - digits);
-                        width = Math.Min(int.Parse(w, System.Globalization.CultureInfo.InvariantCulture), 1000);
-                        zero = w.Length > 1 && w[0] == '0';
-                    }
-
-                    if (j >= f.Length)
-                    {
-                        Warning(format.Location, ElaborationCodes.BadFormat, $"The format \"{f}\" ends in the middle of a %; it is printed as written.");
-                        text.Append(f, k, f.Length - k);
-                        break;
-                    }
-
-                    char conversion = char.ToLowerInvariant(f[j]);
-                    k = j;
-
-                    switch (conversion)
-                    {
-                        case 'm':
-                            Flush();
-                            segments.Add(new PrintSegment { Conversion = 'm', Text = scope.Path, Width = width, LeftAlign = left });
-                            continue;
-                        case 'x':
-                            conversion = 'h';
-                            break;
-                        case 'd': case 'b': case 'o': case 'h': case 'c': case 's': case 't':
-                            break;
-                        case 'e': case 'f': case 'g':
-                            NotYet(format.Location, $"%{f[j]} writes a real number; BitSorter simulates whole numbers only.");
-                            p.Failed = true;
-                            continue;
-                        default:
-                            NotYet(format.Location, $"%{f[j]} is not supported by BitSorter yet.");
-                            p.Failed = true;
-                            continue;
-                    }
-
-                    if (next >= args.Count || args[next] == null)
-                    {
-                        Warning(format.Location, ElaborationCodes.BadFormat,
-                            $"The format \"{f}\" has more conversions than there are values after it; the %{f[j]} prints nothing.");
-                        next++;
-                        continue;
-                    }
-
-                    Expression value = args[next++];
-                    Flush();
-
-                    if (conversion == 's' && value is StringLiteral literal)
-                    {
-                        string written = width > literal.Value.Length ? (left ? literal.Value.PadRight(width) : literal.Value.PadLeft(width)) : literal.Value;
-                        segments.Add(new PrintSegment { Text = written });
-                        continue;
-                    }
-
-                    segments.Add(new PrintSegment
-                    {
-                        Conversion = conversion,
-                        Width = width,
-                        LeftAlign = left,
-                        ZeroPad = zero,
-                        Argument = builder.Build(value, 0),
-                        Untracked = IsTime(value),
-                        IsString = builder.IsString(value),
-                    });
+                    Error(call.Location, ElaborationCodes.BadCall, $"{written} gives a value, which a statement of its own would drop; the string methods that change a string are putc, itoa, hextoa, octtoa and bintoa.");
+                    p.Failed = true;
+                    return;
                 }
 
-                Flush();
-                return next;
+                if (call.Arguments.Count != arguments || call.Arguments.Exists(a => a == null))
+                {
+                    Error(call.Location, ElaborationCodes.BadCall, $".{call.Name}() takes {arguments} argument{(arguments == 1 ? "" : "s")}.");
+                    p.Failed = true;
+                    return;
+                }
+
+                var parts = new List<ExpressionBuilder.ProcPart>();
+                if (!builder.TryProceduralTarget(call.Target, parts))
+                {
+                    p.Failed = true;
+                    return;
+                }
+
+                int width = 0;
+                foreach (ExpressionBuilder.ProcPart part in parts)
+                    width += part.Width;
+
+                Expr value = call.Name == "putc"
+                    ? Expr.StringCall(StringMethod.Putc, builder.Build(call.Target, 0), new[] { builder.Build(call.Arguments[0], 0), builder.Build(call.Arguments[1], 0) }, width)
+                    : Expr.Format(new[] { new PrintSegment { Conversion = radix, Width = 0, Argument = builder.Build(call.Arguments[0], 0) } }, width);
+
+                if (builder.Failed)
+                {
+                    p.Failed = true;
+                    return;
+                }
+
+                p.Emit(new Instruction { Op = OpCode.Assign, Target = Pieces(p, parts), TargetWidth = width, Value = value });
+            }
+
+            /// <summary>
+            /// <c>$sformat(s, "format", values...)</c> and <c>$swrite(s, values...)</c> (Part L6): the line
+            /// <c>$display</c> would print, written into a variable -- a string, or bits wide enough -- instead.
+            /// </summary>
+            private void FormatInto(Proc p, Scope scope, CallStatement call)
+            {
+                if (call.Arguments.Count < 1 || call.Arguments[0] == null || call.Name == "$sformat" && (call.Arguments.Count < 2 || !(call.Arguments[1] is StringLiteral)))
+                {
+                    Error(call.Location, ElaborationCodes.BadCall, call.Name == "$sformat"
+                        ? "$sformat takes the variable to write into, then a format in quotes and the values it writes."
+                        : "$swrite takes the variable to write into, then what to write.");
+                    p.Failed = true;
+                    return;
+                }
+
+                var builder = Builder(p, scope);
+                var parts = new List<ExpressionBuilder.ProcPart>();
+                if (!builder.TryProceduralTarget(call.Arguments[0], parts))
+                {
+                    p.Failed = true;
+                    return;
+                }
+
+                int width = 0;
+                foreach (ExpressionBuilder.ProcPart part in parts)
+                    width += part.Width;
+
+                PrintSegment[] segments = builder.Segments(call.Arguments, 1, 'd');
+                if (builder.Failed)
+                {
+                    p.Failed = true;
+                    return;
+                }
+
+                p.Emit(new Instruction { Op = OpCode.Assign, Target = Pieces(p, parts), TargetWidth = width, Value = Expr.Format(segments, width) });
             }
 
             /// <summary><c>$readmemh("file", mem [, start [, end]])</c> and the others: the file and the memory are read here, the bounds as the design runs.</summary>

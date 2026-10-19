@@ -69,6 +69,12 @@ namespace BitSorter.Sim
         /// <summary>Its full name, dot-separated through the hierarchy: <c>uut.sum</c>.</summary>
         public string Name { get; }
 
+        /// <summary>
+        /// Whether it is a <c>string</c> (Part L6): its bytes are characters, at the bottom, zero bytes above
+        /// them only room left over. Icarus leaves a string out of its dump, as a VCD has no type for one.
+        /// </summary>
+        public bool IsString { get; internal set; }
+
         public int Width { get; }
         public SignalKind Kind { get; }
         public bool Signed { get; }
@@ -732,6 +738,9 @@ namespace BitSorter.Sim
             _signals.Add(new SignalInfo(name, width, kind, signed, local, initial, memory, msb, lsb, @enum, port, scope, twoState));
             return new SignalId(_signals.Count - 1);
         }
+
+        /// <summary>Marks a signal as a <c>string</c> (<see cref="SignalInfo.IsString"/>).</summary>
+        internal void MarkString(SignalId signal) => _signals[signal.Index].IsString = true;
 
         private void RequireOneBit(SignalId signal, string what)
         {

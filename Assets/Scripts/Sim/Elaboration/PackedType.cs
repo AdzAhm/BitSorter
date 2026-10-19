@@ -17,7 +17,7 @@ namespace BitSorter.Sim
     /// </remarks>
     internal sealed class PackedType
     {
-        public PackedType(int msb, int lsb, bool signed, PackedType element = null, StructLayout layout = null, EnumInfo @enum = null, bool twoState = false)
+        public PackedType(int msb, int lsb, bool signed, PackedType element = null, StructLayout layout = null, EnumInfo @enum = null, bool twoState = false, bool isString = false)
         {
             Msb = msb;
             Lsb = lsb;
@@ -26,7 +26,17 @@ namespace BitSorter.Sim
             Struct = layout;
             Enum = @enum;
             TwoState = twoState;
+            IsString = isString;
         }
+
+        /// <summary>The characters a <c>string</c> holds at most (Part L6; see <see cref="Strings"/>).</summary>
+        public const int StringCharacters = 256;
+
+        /// <summary>A <c>string</c>: <see cref="StringCharacters"/> bytes, 2-state, its characters at the bottom.</summary>
+        public static readonly PackedType String = new PackedType(StringCharacters * 8 - 1, 0, false, null, null, null, twoState: true, isString: true);
+
+        /// <summary>Whether it is a <c>string</c>, whose bits are characters (Part L6).</summary>
+        public bool IsString { get; }
 
         /// <summary>The outermost dimension, as declared: <c>[3:0]</c> is 3 and 0.</summary>
         public int Msb { get; }
@@ -63,7 +73,7 @@ namespace BitSorter.Sim
 
         /// <summary>This type with another signedness: what a part-select or an element of a signed array reads as.</summary>
         public PackedType WithSigned(bool signed) =>
-            signed == Signed ? this : new PackedType(Msb, Lsb, signed, Element, Struct, Enum, TwoState);
+            signed == Signed ? this : new PackedType(Msb, Lsb, signed, Element, Struct, Enum, TwoState, IsString);
 
         public override string ToString() =>
             Struct != null ? (Struct.IsUnion ? "union" : "struct") + $" [{Width}]" : $"[{Msb}:{Lsb}]{(Element != null ? Element.ToString() : "")}";

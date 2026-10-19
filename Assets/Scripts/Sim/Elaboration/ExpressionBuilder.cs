@@ -46,6 +46,12 @@ namespace BitSorter.Sim
         /// </summary>
         public Func<CallExpression, Expr> Random { get; set; }
 
+        /// <summary>
+        /// How a <c>$fopen</c> is called (Part L6): set by a process, which opens the file just before the
+        /// statement that asks and puts the descriptor in a working variable, as <see cref="Random"/> does.
+        /// </summary>
+        public Func<CallExpression, Expr> Opens { get; set; }
+
         /// <summary>Whether a named event may be read: in an event control, <c>@(e)</c>, which waits on its bit (Part L5).</summary>
         public bool AllowEvents { get; set; }
 
@@ -151,6 +157,10 @@ namespace BitSorter.Sim
                 case RangeSelectExpression r:
                     return new TypeInfo((int)Math.Min(LogicVec.MaxWidth, (long)SelectWidth(r) * (TypeAt(r.Target)?.ElementWidth ?? 1)), false);
 
+                case ConcatenationExpression c when IsStringValued(c):
+                case ReplicationExpression r when IsStringValued(r.Value):
+                    return new TypeInfo(PackedType.String.Width, false);
+
                 case ConcatenationExpression c:
                 {
                     int width = 0;
@@ -204,9 +214,11 @@ namespace BitSorter.Sim
                         case "$countones": case "$random": return new TypeInfo(32, true);
                         case "$onehot": case "$onehot0": case "$isunknown": return new TypeInfo(1, false);
                         case "$urandom": case "$urandom_range": return new TypeInfo(32, false);
+                        case "$sformatf": case "$psprintf": return new TypeInfo(PackedType.String.Width, false);
+                        case "$fopen": return new TypeInfo(32, true);
                         default:
                             // A function written in the design: its return type.
-                            return !call.Name.StartsWith("$", StringComparison.Ordinal) && _scope.LookupSubroutine(call.Name) is SubroutineEntry routine && !routine.IsVoid
+                            return !call.Name.StartsWith("$", StringComparison.Ordinal) && _scope.LookupSubroutine(call.Package, call.Name) is SubroutineEntry routine && !routine.IsVoid
                                 ? new TypeInfo(routine.Width, routine.Signed)
                                 : new TypeInfo(1, false);
                     }
@@ -225,6 +237,14 @@ namespace BitSorter.Sim
 
                 case InsideExpression _:
                     return new TypeInfo(1, false);
+
+                case MethodCallExpression m when IsStringValued(m.Target):
+                    switch (m.Method)
+                    {
+                        case "getc": return new TypeInfo(8, false);
+                        case "toupper": case "tolower": case "substr": return new TypeInfo(PackedType.String.Width, false);
+                        default: return new TypeInfo(32, true);
+                    }
 
                 case MethodCallExpression m:
                     if (TryEnumOf(m.Target, out EnumInfo @enum, out bool _))
@@ -339,8 +359,17 @@ namespace BitSorter.Sim
                 case RangeSelectExpression range:
                     return BuildRange(range);
 
+                case ConcatenationExpression c when IsStringValued(c):
+                    return StringJoin(c, 1);
+
                 case ConcatenationExpression c:
                     return BuildConcatenation(c);
+
+                case ReplicationExpression r when IsStringValued(r.Value):
+                {
+                    long times = ConstantCount(r, report: true);
+                    return StringJoin(r.Value, (int)Math.Max(0, Math.Min(times, PackedType.StringCharacters)));
+                }
 
                 case ReplicationExpression r:
                 {
@@ -530,7 +559,7 @@ namespace BitSorter.Sim
                     return BuildMembers(path);
 
                 default:
-                    if (simple)
+                    if (simple && !(e is NameExpression scoped && scoped.Package != null))
                         Error(e.Location, ElaborationCodes.UnknownName,
                             $"There is no signal or parameter called {text} here. Is it declared above, and spelled the same?");
                     else
@@ -591,6 +620,18 @@ namespace BitSorter.Sim
         {
             switch (e)
             {
+                case NameExpression n when n.Package != null:
+                {
+                    // p::name (Part L6): a name declared in package p.
+                    Scope package = _scope.Package(n.Package);
+                    Entry entry = n.Path.Count == 1 ? package?.Own(n.Name) : null;
+                    if (entry == null && report)
+                        Error(n.Location, ElaborationCodes.UnknownName, package == null
+                            ? $"There is no package called {n.Package}."
+                            : $"Package {n.Package} has nothing called {Printer.Print(n).Substring(n.Package.Length + 2)}.");
+                    return entry;
+                }
+
                 case NameExpression n when n.Path.Count == 1:
                     return _scope.Lookup(n.Name);
 
@@ -783,6 +824,8 @@ namespace BitSorter.Sim
                         return depth == memory.Dims.Length ? memory.Type : null;
 
                     PackedType target = TypeAt(index.Target);
+                    if (target != null && target.IsString)
+                        return PackedType.Bits(7, 0);   // s[i]: a character
                     return target == null ? null : target.Element ?? PackedType.Bit;
                 }
 
@@ -1064,6 +1107,9 @@ namespace BitSorter.Sim
 
             Expr target = BuildSelf(index.Target);
             PackedType type = TypeAt(index.Target) ?? PackedType.Bits(target.Width - 1, 0);
+            if (type.IsString)
+                return Expr.StringCall(StringMethod.Getc, target, new[] { BuildSelf(index.Index) }, 8);   // s[i] is s.getc(i)
+
             int width = type.ElementWidth;
             bool signed = type.Element?.Signed ?? false;
 
@@ -1265,6 +1311,10 @@ namespace BitSorter.Sim
         /// <summary>A comparison: its operands sized against each other, never against the context.</summary>
         private Expr Compare(BinaryOp op, BinaryExpression b)
         {
+            // Strings compare as text, character by character (IEEE 1800, 6.16).
+            if (op != BinaryOp.WildcardEqual && op != BinaryOp.WildcardNotEqual && (IsStringValued(b.Left) || IsStringValued(b.Right)))
+                return Expr.StringCompare(op, BuildSelf(b.Left), BuildSelf(b.Right));
+
             TypeInfo l = TypeOf(b.Left), r = TypeOf(b.Right);
             int width = Math.Max(l.Width, r.Width);
             bool signed = l.Signed && r.Signed;
@@ -1297,6 +1347,29 @@ namespace BitSorter.Sim
         {
             switch (call.Name)
             {
+                case "$fopen":
+                    if (_constant || Opens == null)
+                    {
+                        Error(call.Location, ElaborationCodes.NotYet,
+                            "$fopen opens a file as the design runs, so BitSorter calls it in a process statement only -- fd = $fopen(...); in an initial or an always.");
+                        return Expr.Constant(LogicVec.AllX(32));
+                    }
+
+                    return Opens(call);
+
+                case "$sformatf":
+                case "$psprintf":
+                {
+                    // A line formatted as $display would print it, as a string (Part L6).
+                    if (call.Arguments.Count == 0 || !(call.Arguments[0] is StringLiteral))
+                    {
+                        Error(call.Location, ElaborationCodes.BadCall, $"{call.Name} takes a format in quotes first, then the values it writes.");
+                        return Expr.Constant(LogicVec.AllX(1));
+                    }
+
+                    return Expr.Format(Segments(call.Arguments, 0, 'd'), PackedType.String.Width);
+                }
+
                 case "$signed":
                 case "$unsigned":
                     if (call.Arguments.Count != 1 || call.Arguments[0] == null)
@@ -1404,7 +1477,7 @@ namespace BitSorter.Sim
                     return Expr.Constant(LogicVec.AllX(1));
                 }
 
-                SubroutineEntry routine = _scope.LookupSubroutine(call.Name);
+                SubroutineEntry routine = _scope.LookupSubroutine(call.Package, call.Name);
                 if (routine != null)
                     return BuildFunctionCall(call, routine);
 
@@ -1655,11 +1728,278 @@ namespace BitSorter.Sim
 
         /// <summary>Whether an argument is a string -- <c>.name()</c>'s, or a literal -- which <c>%s</c> writes exactly.</summary>
         public bool IsString(Expression e) =>
-            e is StringLiteral || e is MethodCallExpression m && m.Method == "name" && TryEnumOf(m.Target, out EnumInfo _, out bool _);
+            e is StringLiteral || IsStringValued(e) || e is MethodCallExpression m && m.Method == "name" && TryEnumOf(m.Target, out EnumInfo _, out bool _);
+
+        // -----------------------------------------------------------------
+        // Strings (Part L6)
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// Whether <paramref name="e"/> is of type <c>string</c>: a string variable, member or word, a <c>$sformatf</c>,
+        /// a function that returns one, a string method that gives one, or a <c>{ }</c> with one in it. A string
+        /// literal is not one: it is bits until something makes it a string.
+        /// </summary>
+        public bool IsStringValued(Expression e)
+        {
+            switch (e)
+            {
+                case ParenthesizedExpression p:
+                    return IsStringValued(p.Inner);
+
+                case NameExpression _:
+                case MemberExpression _:
+                    return TypeAt(e)?.IsString == true;
+
+                case IndexExpression index:
+                    return WordDepth(index, out MemoryEntry _) >= 0 && TypeAt(index)?.IsString == true;
+
+                case ConcatenationExpression c:
+                    foreach (Expression item in c.Items)
+                        if (IsStringValued(item))
+                            return true;
+                    return false;
+
+                case ReplicationExpression r:
+                    return IsStringValued(r.Value);
+
+                case ConditionalExpression c:
+                    return IsStringValued(c.WhenTrue) || IsStringValued(c.WhenFalse);
+
+                case CallExpression call:
+                    if (call.Name == "$sformatf" || call.Name == "$psprintf")
+                        return true;
+                    return !call.Name.StartsWith("$", StringComparison.Ordinal) &&
+                           _scope.LookupSubroutine(call.Package, call.Name)?.Declaration.ReturnType?.Keyword == "string";
+
+                case MethodCallExpression m:
+                    return (m.Method == "toupper" || m.Method == "tolower" || m.Method == "substr") && IsStringValued(m.Target);
+
+                default:
+                    return false;
+            }
+        }
+
+        /// <summary><c>{s, "-", t}</c> or <c>{3{s}}</c> with a string in it: the texts one after another.</summary>
+        private Expr StringJoin(ConcatenationExpression c, int count)
+        {
+            if (_constant)
+            {
+                Error(c.Location, ElaborationCodes.NotConstant, $"{Printer.Print(c)} joins strings, which BitSorter does as the design runs.");
+                return Expr.Constant(LogicVec.AllX(1));
+            }
+
+            var parts = new Expr[c.Items.Count];
+            for (int i = 0; i < parts.Length; i++)
+                parts[i] = BuildSelf(c.Items[i]);
+            return Expr.StringJoin(parts, count, PackedType.String.Width);
+        }
+
+        /// <summary>A string's methods (IEEE 1800, 6.16) that give a value.</summary>
+        private Expr BuildStringMethod(MethodCallExpression m)
+        {
+            StringMethod method;
+            int arguments, width = 32;
+            switch (m.Method)
+            {
+                case "len": method = StringMethod.Len; arguments = 0; break;
+                case "getc": method = StringMethod.Getc; arguments = 1; width = 8; break;
+                case "toupper": method = StringMethod.ToUpper; arguments = 0; width = PackedType.String.Width; break;
+                case "tolower": method = StringMethod.ToLower; arguments = 0; width = PackedType.String.Width; break;
+                case "substr": method = StringMethod.Substr; arguments = 2; width = PackedType.String.Width; break;
+                case "compare": method = StringMethod.Compare; arguments = 1; break;
+                case "icompare": method = StringMethod.ICompare; arguments = 1; break;
+                case "atoi": method = StringMethod.AtoI; arguments = 0; break;
+                case "atohex": method = StringMethod.AtoHex; arguments = 0; break;
+                case "atooct": method = StringMethod.AtoOct; arguments = 0; break;
+                case "atobin": method = StringMethod.AtoBin; arguments = 0; break;
+                case "putc":
+                case "itoa":
+                case "hextoa":
+                case "octtoa":
+                case "bintoa":
+                    Error(m.Location, ElaborationCodes.BadCall, $".{m.Method}() changes the string and gives no value: call it as a statement of its own, s.{m.Method}(...);.");
+                    return Expr.Constant(LogicVec.AllX(1));
+                default:
+                    Error(m.Location, ElaborationCodes.UnknownName,
+                        $".{m.Method}() is not a method of a string: a string has len, getc, putc, toupper, tolower, substr, compare, icompare, atoi, atohex, atooct, atobin, itoa, hextoa, octtoa and bintoa.");
+                    return Expr.Constant(LogicVec.AllX(1));
+            }
+
+            if (m.Arguments.Count != arguments || m.Arguments.Exists(a => a == null))
+            {
+                Error(m.Location, ElaborationCodes.BadCall, $".{m.Method}() takes {arguments} argument{(arguments == 1 ? "" : "s")}.");
+                return Expr.Constant(LogicVec.AllX(width));
+            }
+
+            if (_constant)
+            {
+                Error(m.Location, ElaborationCodes.NotConstant, $"{Printer.Print(m)} is known only as the design runs.");
+                return Expr.Constant(LogicVec.AllX(width));
+            }
+
+            var built = new Expr[arguments];
+            for (int i = 0; i < arguments; i++)
+                built[i] = BuildSelf(m.Arguments[i]);
+            return Expr.StringCall(method, BuildSelf(m.Target), built, width);
+        }
+
+        // -----------------------------------------------------------------
+        // Formats: $display's and $sformatf's
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// A print task's arguments from <paramref name="first"/>, as a line's pieces (IEEE 1800, 21.2.1): a
+        /// string literal is a format for the values after it; any other value is written in
+        /// <paramref name="radix"/> at its default width -- a string as its text.
+        /// </summary>
+        public PrintSegment[] Segments(List<Expression> args, int first, char radix)
+        {
+            var segments = new List<PrintSegment>();
+            for (int i = first; i < args.Count;)
+            {
+                Expression arg = args[i];
+
+                if (arg is StringLiteral format)
+                {
+                    i = Format(format, args, i + 1, segments);
+                    continue;
+                }
+
+                if (arg != null)
+                {
+                    bool text = IsStringValued(arg);
+                    segments.Add(new PrintSegment { Conversion = text ? 's' : radix, Argument = Build(arg, 0), Untracked = IsTime(arg), IsString = text });
+                }
+
+                i++;
+            }
+
+            return segments.ToArray();
+        }
+
+        private static bool IsTime(Expression e) =>
+            e is CallExpression c && (c.Name == "$time" || c.Name == "$stime" || c.Name == "$realtime");
+
+        /// <summary>One format string: its text, and a piece for each conversion, taking the arguments from <paramref name="next"/>. Returns the next unused argument.</summary>
+        private int Format(StringLiteral format, List<Expression> args, int next, List<PrintSegment> segments)
+        {
+            string f = format.Value;
+            var text = new System.Text.StringBuilder();
+
+            void Flush()
+            {
+                if (text.Length == 0)
+                    return;
+                segments.Add(new PrintSegment { Text = text.ToString() });
+                text.Clear();
+            }
+
+            for (int k = 0; k < f.Length; k++)
+            {
+                char c = f[k];
+                if (c != '%' || k + 1 >= f.Length)
+                {
+                    text.Append(c);
+                    continue;
+                }
+
+                if (f[k + 1] == '%')
+                {
+                    text.Append('%');
+                    k++;
+                    continue;
+                }
+
+                int j = k + 1;
+                bool left = false;
+                if (f[j] == '-')
+                {
+                    left = true;
+                    j++;
+                }
+
+                int digits = j;
+                while (j < f.Length && char.IsDigit(f[j]))
+                    j++;
+
+                int width = -1;
+                bool zero = false;
+                if (j > digits)
+                {
+                    string w = f.Substring(digits, j - digits);
+                    width = Math.Min(int.Parse(w, System.Globalization.CultureInfo.InvariantCulture), 1000);
+                    zero = w.Length > 1 && w[0] == '0';
+                }
+
+                if (j >= f.Length)
+                {
+                    _diagnostics.Warning(format.Location, ElaborationCodes.BadFormat, $"The format \"{f}\" ends in the middle of a %; it is printed as written.");
+                    text.Append(f, k, f.Length - k);
+                    break;
+                }
+
+                char conversion = char.ToLowerInvariant(f[j]);
+                k = j;
+
+                switch (conversion)
+                {
+                    case 'm':
+                        Flush();
+                        segments.Add(new PrintSegment { Conversion = 'm', Text = _scope.Path, Width = width, LeftAlign = left });
+                        continue;
+                    case 'x':
+                        conversion = 'h';
+                        break;
+                    case 'd': case 'b': case 'o': case 'h': case 'c': case 's': case 't':
+                        break;
+                    case 'e': case 'f': case 'g':
+                        Error(format.Location, ElaborationCodes.NotYet, $"%{f[j]} writes a real number; BitSorter simulates whole numbers only.");
+                        continue;
+                    default:
+                        Error(format.Location, ElaborationCodes.NotYet, $"%{f[j]} is not supported by BitSorter yet.");
+                        continue;
+                }
+
+                if (next >= args.Count || args[next] == null)
+                {
+                    _diagnostics.Warning(format.Location, ElaborationCodes.BadFormat,
+                        $"The format \"{f}\" has more conversions than there are values after it; the %{f[j]} prints nothing.");
+                    next++;
+                    continue;
+                }
+
+                Expression value = args[next++];
+                Flush();
+
+                if (conversion == 's' && value is StringLiteral literal)
+                {
+                    string written = width > literal.Value.Length ? (left ? literal.Value.PadRight(width) : literal.Value.PadLeft(width)) : literal.Value;
+                    segments.Add(new PrintSegment { Text = written });
+                    continue;
+                }
+
+                segments.Add(new PrintSegment
+                {
+                    Conversion = conversion,
+                    Width = width,
+                    LeftAlign = left,
+                    ZeroPad = zero,
+                    Argument = Build(value, 0),
+                    Untracked = IsTime(value),
+                    IsString = IsString(value),
+                });
+            }
+
+            Flush();
+            return next;
+        }
 
         /// <summary>An enum's methods (IEEE 1800, 6.19.5): <c>first()</c>, <c>last()</c>, <c>next(n)</c>, <c>prev(n)</c>, <c>num()</c>, <c>name()</c>.</summary>
         private Expr BuildMethod(MethodCallExpression m)
         {
+            if (IsStringValued(m.Target))
+                return BuildStringMethod(m);
+
             if (m.Method == "triggered" && m.Target is NameExpression named && Resolve(named, report: false) is SignalEntry ev && ev.IsEvent)
                 return Triggered(m, ev);
 
@@ -1726,6 +2066,13 @@ namespace BitSorter.Sim
             Expression bare = value;
             while (bare is ParenthesizedExpression p)
                 bare = p.Inner;
+
+            // Given to a string: its bytes as characters, zero bytes left out (IEEE 1800, 6.16).
+            if (type != null && type.IsString && !(bare is AssignmentPatternExpression))
+            {
+                Expr text = Build(value, 0);
+                return _constant ? Expr.Constant(Strings.Value(Strings.Text(text.Evaluate(Array.Empty<LogicVec>())), width)) : Expr.StringOf(text, width);
+            }
 
             Expr built;
             if (bare is AssignmentPatternExpression pattern)

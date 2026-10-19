@@ -214,6 +214,18 @@ namespace BitSorter.Sim
         /// <inheritdoc cref="TimeSource"/>
         public Scope Top;
 
+        /// <summary>
+        /// The packages a wildcard import, <c>import p::*;</c>, has made visible here (Part L6): a name not declared
+        /// here is looked for in each, before the scope around this one.
+        /// </summary>
+        public List<Scope> Imports;
+
+        /// <summary>On the outermost scope: a package's scope by its name, made the first time it is asked for; null for none.</summary>
+        public Func<string, Scope> Packages;
+
+        /// <summary>The scope of package <paramref name="name"/>, as the outermost scope finds it; null when there is none.</summary>
+        public Scope Package(string name) => Root.Packages?.Invoke(name);
+
         /// <summary>The outermost scope, which every scope leads up to.</summary>
         public Scope Root
         {
@@ -240,8 +252,16 @@ namespace BitSorter.Sim
         public Entry Lookup(string name)
         {
             for (Scope s = this; s != null; s = s.Parent)
+            {
                 if (s._names.TryGetValue(name, out Entry entry))
                     return entry;
+
+                if (s.Imports != null)
+                    foreach (Scope package in s.Imports)
+                        if (package._names.TryGetValue(name, out entry))
+                            return entry;
+            }
+
             return null;
         }
 
@@ -252,10 +272,22 @@ namespace BitSorter.Sim
         public SubroutineEntry LookupSubroutine(string name)
         {
             for (Scope s = this; s != null; s = s.Parent)
+            {
                 if (s._names.TryGetValue(name, out Entry entry) && entry is SubroutineEntry subroutine)
                     return subroutine;
+
+                if (s.Imports != null)
+                    foreach (Scope package in s.Imports)
+                        if (package._names.TryGetValue(name, out entry) && entry is SubroutineEntry imported)
+                            return imported;
+            }
+
             return null;
         }
+
+        /// <summary>A function or task as a call names it: <c>f</c> from here, or <c>p::f</c> in package p.</summary>
+        public SubroutineEntry LookupSubroutine(string package, string name) =>
+            package == null ? LookupSubroutine(name) : Package(package)?.Own(name) as SubroutineEntry;
 
         /// <summary>A name declared in this scope itself, not an enclosing one.</summary>
         public Entry Own(string name) => _names.TryGetValue(name, out Entry entry) ? entry : null;

@@ -150,6 +150,7 @@ namespace BitSorter.Sim
                 {
                     _unit = new Scope(root.Name, null, null);
                     _unit.TimeSource = () => Expr.Read(_builder.Time(), 64);
+                    _unit.Packages = FindPackage;
                     DeclareUnitItems();
 
                     _builder = new NetlistBuilder(root.Name);
@@ -304,12 +305,123 @@ namespace BitSorter.Sim
                         case SubroutineDeclaration s:
                             DeclareSubroutine(_unit, s);
                             break;
+                        case ImportDeclaration import:
+                            Import(_unit, import);
+                            break;
                         case UnsupportedItem _:
                             break;
                         default:
                             NotYet(item.Location, "Only typedefs and parameters can be declared outside a module in BitSorter.");
                             break;
                     }
+                }
+            }
+
+            // -----------------------------------------------------------------
+            // Packages (Part L6)
+            // -----------------------------------------------------------------
+
+            private Dictionary<string, PackageDeclaration> _packages;
+            private readonly Dictionary<string, Scope> _packageScopes = new Dictionary<string, Scope>(StringComparer.Ordinal);
+            private readonly HashSet<string> _packagesBuilding = new HashSet<string>(StringComparer.Ordinal);
+
+            /// <summary>
+            /// A package's scope (IEEE 1800, 26.2): its parameters, typedefs -- an enum's names among them --
+            /// functions and tasks, declared the first time anything imports from it or names into it. A
+            /// package sees what it imports itself, and not the compilation unit. Null when there is no
+            /// package of that name, or it imports from itself.
+            /// </summary>
+            private Scope FindPackage(string name)
+            {
+                if (_packageScopes.TryGetValue(name, out Scope done))
+                    return done;
+
+                if (_packages == null)
+                {
+                    _packages = new Dictionary<string, PackageDeclaration>(StringComparer.Ordinal);
+                    foreach (PackageDeclaration declared in _tree.Packages)
+                    {
+                        if (_packages.ContainsKey(declared.Name))
+                            Error(declared.Location, ElaborationCodes.Duplicate, $"There are two packages called {declared.Name}.");
+                        else
+                            _packages[declared.Name] = declared;
+                    }
+                }
+
+                if (!_packages.TryGetValue(name, out PackageDeclaration package))
+                    return null;
+
+                if (!_packagesBuilding.Add(name))
+                {
+                    Error(package.Location, ElaborationCodes.Recursion, $"Package {name} imports from itself, through the packages it imports.");
+                    return null;
+                }
+
+                var scope = new Scope(name, null, null) { TimeSource = _unit.TimeSource, Packages = FindPackage };
+                foreach (ModuleItem item in package.Items)
+                {
+                    switch (item)
+                    {
+                        case ImportDeclaration import:
+                            Import(scope, import);
+                            break;
+                        case ParameterDeclaration p:
+                            DeclareParameter(scope, p, null, null);
+                            break;
+                        case TypedefDeclaration t:
+                            DeclareTypedef(scope, t);
+                            break;
+                        case SubroutineDeclaration s:
+                            DeclareSubroutine(scope, s);
+                            break;
+                        case UnsupportedItem _:
+                            break;
+                        default:
+                            NotYet(item.Location, $"Package {name} declares something BitSorter keeps in a package only as a parameter, a typedef, a function or a task. Declare it in the module that uses it.");
+                            break;
+                    }
+                }
+
+                _packagesBuilding.Remove(name);
+                _packageScopes[name] = scope;
+                return scope;
+            }
+
+            /// <summary>
+            /// <c>import p::*;</c> makes every name of p visible here, after this scope's own; <c>import p::name;</c>
+            /// declares that one name here (IEEE 1800, 26.3).
+            /// </summary>
+            private void Import(Scope scope, ImportDeclaration import)
+            {
+                foreach (ImportItem item in import.Items)
+                {
+                    Scope package = FindPackage(item.Package);
+                    if (package == null)
+                    {
+                        if (!_packagesBuilding.Contains(item.Package))
+                            Error(item.Location, ElaborationCodes.UnknownName,
+                                $"There is no package called {item.Package} to import from. Is its file read, with the package written before what imports it?");
+                        continue;
+                    }
+
+                    if (item.Name == null)
+                    {
+                        if (scope.Imports == null)
+                            scope.Imports = new List<Scope>();
+                        if (!scope.Imports.Contains(package))
+                            scope.Imports.Add(package);
+                        continue;
+                    }
+
+                    Entry entry = package.Own(item.Name);
+                    if (entry == null)
+                    {
+                        Error(item.Location, ElaborationCodes.UnknownName, $"Package {item.Package} has nothing called {item.Name} to import.");
+                        continue;
+                    }
+
+                    if (!scope.TryDeclare(item.Name, entry) && scope.Own(item.Name) != entry)
+                        Error(item.Location, ElaborationCodes.Duplicate, $"{item.Name} is declared here already, so it cannot be imported from {item.Package} too.");
                 }
             }
 
@@ -376,6 +488,10 @@ namespace BitSorter.Sim
                     // Recorded before anything inside it, so every scope comes after its parent.
                     scope.Index = _builder.Scope(path, module.Name, isTop ? ScopeKind.Top : ScopeKind.Instance, isTop ? -1 : within.Recorded);
 
+                    // What the header imports, which its parameters and ports may use (Part L6).
+                    foreach (ImportDeclaration import in module.HeaderImports)
+                        Import(scope, import);
+
                     // Header parameters first, in order: each may use the ones before it.
                     var used = new HashSet<string>(StringComparer.Ordinal);
                     foreach (ParameterDeclaration p in module.HeaderParameters)
@@ -397,6 +513,10 @@ namespace BitSorter.Sim
                         else if (item is TypedefDeclaration t)
                         {
                             DeclareTypedef(scope, t);
+                        }
+                        else if (item is ImportDeclaration import)
+                        {
+                            Import(scope, import);
                         }
                     }
 
@@ -622,9 +742,12 @@ namespace BitSorter.Sim
 
                 if (type.Name != null)
                 {
-                    if (!(scope.Lookup(type.Name) is TypeEntry named))
+                    Entry found = type.Package != null ? scope.Package(type.Package)?.Own(type.Name) : scope.Lookup(type.Name);
+                    if (!(found is TypeEntry named))
                     {
-                        Error(type.Location, ElaborationCodes.UnknownName, $"There is no type called {type.Name} here. Is its typedef above?");
+                        Error(type.Location, ElaborationCodes.UnknownName, type.Package != null
+                            ? $"There is no type called {type.Name} in package {type.Package}."
+                            : $"There is no type called {type.Name} here. Is its typedef above, or its package imported?");
                         return false;
                     }
 
@@ -678,6 +801,16 @@ namespace BitSorter.Sim
                     case "time":
                         baseWidth = 64; signed = type.Signed; integerType = true;
                         break;
+                    case "string":
+                        // A string (Part L6): its characters at the bottom of a fixed number of bytes.
+                        if (type.Packed.Count > 0)
+                        {
+                            Error(type.Packed[0].Location, ElaborationCodes.BadSelect, "A string has its own length and takes no range.");
+                            return false;
+                        }
+
+                        shape = Shape.Of(PackedType.String);
+                        return true;
                     case "real":
                     case "realtime":
                     case "shortreal":
@@ -958,6 +1091,8 @@ namespace BitSorter.Sim
                     // Everything the declaration said goes with it, for a waveform to list and name it by.
                     id = _builder.Declare(fullName, shape.Width, kind, shape.Signed, local, initial,
                         shape.Msb, shape.Lsb, shape.Enum, port, scope.Recorded, shape.TwoState);
+                    if (shape.Type.IsString)
+                        _builder.MarkString(id);
                 }
                 catch (ArgumentException ex)
                 {

@@ -446,6 +446,15 @@ namespace BitSorter.Sim
         /// </summary>
         public RunResult RunTo(long time, long maxEvents = long.MaxValue)
         {
+            RunResult result = Run(time, maxEvents);
+
+            // What the design has written into its files is written out whenever a run hands back.
+            FlushFiles(-1);
+            return result;
+        }
+
+        private RunResult Run(long time, long maxEvents)
+        {
             if (time < 0)
                 throw new ArgumentOutOfRangeException(nameof(time), time, "Time starts at 0.");
 
@@ -715,8 +724,157 @@ namespace BitSorter.Sim
             if (_strobes.Count > 0)
             {
                 foreach (PrintSpec strobe in _strobes)
-                    Print(strobe.Severity, strobe.Render(_values), endLine: true);
+                    Emit(strobe, strobe.Render(_values), endLine: true);
                 _strobes.Clear();
+            }
+        }
+
+        // -----------------------------------------------------------------
+        // Files (Part L6)
+        // -----------------------------------------------------------------
+
+        /// <summary>A file a design has opened: its name, and everything written to it so far.</summary>
+        private sealed class OpenFile
+        {
+            public string Name;
+            public readonly StringBuilder Text = new StringBuilder();
+            public bool Dirty;
+        }
+
+        /// <summary>The files open, by descriptor: the top bit set over 3 and up for a mode, a single bit above bit 0 for a channel.</summary>
+        private readonly Dictionary<int, OpenFile> _openFiles = new Dictionary<int, OpenFile>();
+
+        /// <summary>
+        /// <c>$fopen(name, mode)</c> (IEEE 1800, 21.3.1): a descriptor with the top bit set, as Icarus numbers
+        /// them; <c>$fopen(name)</c>: a multichannel one, a bit of its own above bit 0, which is the transcript.
+        /// "w" starts the file empty and "a" goes on from what is in it. 0 when it cannot be opened: no files
+        /// to write into, or a mode that reads, which BitSorter does not do yet.
+        /// </summary>
+        private long Open(LogicVec name, LogicVec? mode)
+        {
+            string path = Strings.Text(name);
+            string how = mode.HasValue ? Strings.Text(mode.Value) : null;
+
+            if (_options.Files == null || path.Length == 0)
+            {
+                _history.Message(_now, Severity.Error, $"$fopen(\"{path}\"): there is nowhere to write a file in this run, so it is not opened.");
+                return 0;
+            }
+
+            bool append = how != null && how.StartsWith("a", StringComparison.Ordinal);
+            if (how != null && !how.StartsWith("w", StringComparison.Ordinal) && !append)
+            {
+                _history.Message(_now, Severity.Error, $"$fopen(\"{path}\", \"{how}\"): BitSorter writes files with \"w\" or \"a\"; reading one is not supported yet.");
+                return 0;
+            }
+
+            // The lowest one free, as Icarus gives them: a closed file's number is given again.
+            int descriptor;
+            if (how == null)
+            {
+                int channel = 1;
+                while (channel <= 30 && _openFiles.ContainsKey(1 << channel))
+                    channel++;
+
+                if (channel > 30)
+                {
+                    _history.Message(_now, Severity.Error, $"$fopen(\"{path}\"): every channel of a multichannel descriptor is in use.");
+                    return 0;
+                }
+
+                descriptor = 1 << channel;
+            }
+            else
+            {
+                int n = 3;
+                while (_openFiles.ContainsKey(int.MinValue | n))
+                    n++;
+                descriptor = int.MinValue | n;
+            }
+
+            var file = new OpenFile { Name = path, Dirty = true };
+            if (append && _options.Files.TryRead(path, out string before))
+                file.Text.Append(before);
+            _openFiles[descriptor] = file;
+            return descriptor;
+        }
+
+        /// <summary>A descriptor's value as a number; 0, which names nothing, when it is unknown.</summary>
+        private int Descriptor(Expr e)
+        {
+            LogicVec value = e.Evaluate(_values);
+            return value.IsKnown && value.Slice(0, Math.Min(32, value.Width)).TryGetUInt64(out ulong d) ? unchecked((int)(uint)d) : 0;
+        }
+
+        /// <summary>Where a print goes: the transcript, or each file a descriptor names -- one file, or a channel's bits.</summary>
+        private void Emit(PrintSpec spec, string text, bool endLine)
+        {
+            if (spec.Destination == null)
+            {
+                Print(spec.Severity, text, endLine);
+                return;
+            }
+
+            int descriptor = Descriptor(spec.Destination);
+            if (descriptor < 0)
+            {
+                // A file descriptor: 1 and 2 are standard output and standard error, the transcript here.
+                int n = descriptor & 0x7FFFFFFF;
+                if (n == 1 || n == 2)
+                    Print(n == 2 ? Severity.Error : spec.Severity, text, endLine);
+                else if (_openFiles.TryGetValue(descriptor, out OpenFile file))
+                    Append(file, text, endLine);
+                return;
+            }
+
+            if ((descriptor & 1) != 0)
+                Print(spec.Severity, text, endLine);
+            foreach (KeyValuePair<int, OpenFile> open in _openFiles)
+                if (open.Key > 0 && (descriptor & open.Key) != 0)
+                    Append(open.Value, text, endLine);
+        }
+
+        private static void Append(OpenFile file, string text, bool endLine)
+        {
+            file.Text.Append(text);
+            if (endLine)
+                file.Text.Append('\n');
+            file.Dirty = true;
+        }
+
+        /// <summary><c>$fclose</c>: the file written out, and its descriptor free.</summary>
+        private void Close(int descriptor)
+        {
+            if (descriptor == 0)
+                return;
+
+            var closing = new List<int>();
+            foreach (int open in _openFiles.Keys)
+                if (open == descriptor || descriptor > 0 && open > 0 && (descriptor & open) != 0)
+                    closing.Add(open);
+
+            foreach (int open in closing)
+            {
+                FlushFiles(open);
+                _openFiles.Remove(open);
+            }
+        }
+
+        /// <summary>Writes out the file a descriptor names, or every open one for -1.</summary>
+        private void FlushFiles(int descriptor)
+        {
+            if (_options.Files == null || _openFiles.Count == 0)
+                return;
+
+            foreach (KeyValuePair<int, OpenFile> open in _openFiles)
+            {
+                if (descriptor != -1 && open.Key != descriptor && !(descriptor > 0 && open.Key > 0 && (descriptor & open.Key) != 0))
+                    continue;
+                if (!open.Value.Dirty)
+                    continue;
+
+                _options.Files.Write(open.Value.Name, open.Value.Text.ToString());
+                open.Value.Dirty = false;
             }
         }
 
@@ -960,6 +1118,21 @@ namespace BitSorter.Sim
 
                     case OpCode.Force:
                         Force(ref ins);
+                        pc++;
+                        break;
+
+                    case OpCode.FileOpen:
+                        Store(ins.Target, ins.TargetWidth, LogicVec.FromInt64(Open(ins.Value.Evaluate(_values), ins.Other?.Evaluate(_values)), 32));
+                        pc++;
+                        break;
+
+                    case OpCode.FileClose:
+                        Close(Descriptor(ins.Value));
+                        pc++;
+                        break;
+
+                    case OpCode.FileFlush:
+                        FlushFiles(ins.Value == null ? -1 : Descriptor(ins.Value));
                         pc++;
                         break;
 
@@ -1271,10 +1444,10 @@ namespace BitSorter.Sim
             switch (spec.Kind)
             {
                 case PrintKind.Display:
-                    Print(spec.Severity, spec.Render(_values), endLine: true);
+                    Emit(spec, spec.Render(_values), endLine: true);
                     return;
                 case PrintKind.Write:
-                    Print(spec.Severity, spec.Render(_values), endLine: false);
+                    Emit(spec, spec.Render(_values), endLine: false);
                     return;
                 case PrintKind.Strobe:
                     _strobes.Add(spec);

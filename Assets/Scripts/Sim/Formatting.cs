@@ -62,6 +62,9 @@ namespace BitSorter.Sim
         /// <summary>For <c>$info</c>, <c>$warning</c> and <c>$error</c>: what goes before the message.</summary>
         public string Prefix;
 
+        /// <summary>For <c>$fdisplay</c> and its kind (Part L6): the descriptor of where the line goes; null for the transcript.</summary>
+        public Expr Destination;
+
         public PrintSegment[] Segments;
 
         public string Render(LogicVec[] values)
