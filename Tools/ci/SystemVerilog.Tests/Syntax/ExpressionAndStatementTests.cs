@@ -240,6 +240,64 @@ namespace BitSorter.SystemVerilog.Tests.Syntax
         }
 
         [Test]
+        public void AnInterface_ItsModports_AndInterfacePorts_AreRead_AndPrintedAsWritten()
+        {
+            const string text =
+                "interface bus_if #(parameter W = 8) (input logic clk);\n  logic [W-1:0] data;\n  logic valid, ready;\n" +
+                "  task automatic send(input logic [W-1:0] v);\n    data = v;\n  endtask\n" +
+                "  modport source (output data, valid, input ready, import send), sink (input data, valid, ref ready, import task send(input logic [W-1:0] v));\n" +
+                "endinterface : bus_if\n\n" +
+                "module producer (bus_if.source bus, input logic go, bus_if plain, interface any, interface.sink some);\n" +
+                "  initial bus.send(8'h5a);\nendmodule\n\n" +
+                "module top;\n  logic clk;\n  bus_if #(.W(8)) hs (.clk(clk));\n  producer p (.bus(hs.source), .go(1'b1), .plain(hs), .any(hs), .some(hs));\nendmodule\n";
+            SyntaxTree tree = Clean(text);
+
+            ModuleDeclaration bus = tree.Interfaces.Single();
+            Assert.IsTrue(bus.IsInterface);
+            Assert.AreEqual("bus_if", bus.Name);
+            Assert.AreEqual("clk", bus.Ports.Single().Name);
+            CollectionAssert.AreEqual(new[] { "producer", "top" }, tree.Modules.Select(m => m.Name), "an interface is no module");
+
+            var modports = (ModportDeclaration)bus.Items.Last();
+            CollectionAssert.AreEqual(new[] { "source", "sink" }, modports.Modports.Select(m => m.Name));
+            ModportItem[] source = modports.Modports[0].Items.ToArray();
+            CollectionAssert.AreEqual(new[] { "data", "valid", "ready", "send" }, source.Select(i => i.Name));
+            CollectionAssert.AreEqual(new[] { PortDirection.Output, PortDirection.Output, PortDirection.Input, PortDirection.Input }, source.Select(i => i.Direction));
+            Assert.IsTrue(source[3].IsImport && !source[2].IsImport, "import holds for the names after it");
+            ModportItem[] sink = modports.Modports[1].Items.ToArray();
+            Assert.AreEqual(PortDirection.Inout, sink[2].Direction, "ref is read as inout");
+            Assert.AreEqual("send", sink[3].Name, "an imported prototype keeps its name");
+
+            PortDeclaration[] ports = tree.Modules[0].Ports.ToArray();
+            CollectionAssert.AreEqual(new[] { "bus_if", null, "bus_if", "interface", "interface" }, ports.Select(port => port.Interface));
+            CollectionAssert.AreEqual(new[] { "source", null, null, null, "sink" }, ports.Select(port => port.Modport));
+            Assert.AreEqual(PortDirection.Input, ports[2].Direction, "bus_if plain keeps the direction it would have had, for the elaborator");
+
+            string printed = Printer.Print(Clean(Printer.Print(tree)));
+            StringAssert.Contains("interface bus_if #(", printed);
+            StringAssert.Contains("endinterface", printed);
+            StringAssert.Contains("modport source (output data, valid, input ready, import send), sink (input data, valid, inout ready, import send);", printed);
+            StringAssert.Contains("bus_if.source bus,", printed);
+            StringAssert.Contains("bus_if plain,", printed);
+            StringAssert.Contains("interface.sink some", printed);
+            StringAssert.Contains("input logic go,", printed);
+            Assert.AreEqual(printed, Printer.Print(Clean(printed)), "printing is a fixed point");
+        }
+
+        [TestCase("module m;\n  interface inner; endinterface\nendmodule", DiagnosticCodes.Unsupported)]
+        [TestCase("module m;\n  modport mp (input a);\nendmodule", DiagnosticCodes.Unsupported)]
+        [TestCase("interface i; logic a; modport mp (input .x(a)); endinterface", DiagnosticCodes.Unsupported)]
+        [TestCase("interface i; logic a; modport mp (export a); endinterface", DiagnosticCodes.Unsupported)]
+        [TestCase("interface i; logic a; modport mp (a); endinterface", DiagnosticCodes.Expected)]
+        [TestCase("interface class c; endclass", DiagnosticCodes.Unsupported)]
+        [TestCase("interface i; logic a;\nmodule m; endmodule", DiagnosticCodes.Expected)]
+        public void WhatAnInterfaceCannotBe_IsReportedPlainly(string text, string code)
+        {
+            SyntaxTree tree = Read(text);
+            Assert.Contains(code, Codes(tree), string.Join("\n", tree.Diagnostics));
+        }
+
+        [Test]
         public void ABinaryNandOrNor_IsReadWithAWarning_BindsAsAndOrOr_AndPrintsAsWritten()
         {
             // The course's first workshop writes X ~& Y; the standard has ~& and ~| only as reductions.

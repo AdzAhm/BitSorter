@@ -34,6 +34,7 @@ namespace BitSorter.SystemVerilog.Syntax
                 all.Modules.AddRange(one.Modules);
                 all.UnitItems.AddRange(one.UnitItems);
                 all.Packages.AddRange(one.Packages);
+                all.Interfaces.AddRange(one.Interfaces);
                 all.Diagnostics.AddRange(one.Diagnostics);
                 all.Files.AddRange(one.Files);
                 all.Timescale = all.Timescale ?? one.Timescale;

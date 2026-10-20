@@ -25,6 +25,12 @@ namespace BitSorter.SystemVerilog.Syntax
         /// <summary>The packages (Part L6), which a module sees what it imports from, or names as <c>p::name</c>.</summary>
         public List<PackageDeclaration> Packages { get; } = new List<PackageDeclaration>();
 
+        /// <summary>
+        /// The interfaces (Part L8): each read as a module is, with <see cref="ModuleDeclaration.IsInterface"/> set, and
+        /// kept apart from <see cref="Modules"/> so that nothing looking for the top, or drawing a board, takes one for a module.
+        /// </summary>
+        public List<ModuleDeclaration> Interfaces { get; } = new List<ModuleDeclaration>();
+
         public List<Diagnostic> Diagnostics { get; } = new List<Diagnostic>();
 
         /// <summary>What a <c>`timescale</c> said, or null.</summary>
@@ -52,6 +58,12 @@ namespace BitSorter.SystemVerilog.Syntax
 
         /// <summary>The <c>`timescale</c> written before it, <c>1ns/1ps</c>, or null for none (Part L7).</summary>
         public string Timescale { get; set; }
+
+        /// <summary>
+        /// Whether it is an <c>interface ... endinterface</c> (Part L8): a bundle of signals, and the tasks and functions
+        /// that work them, which an instance of it carries and a module reaches through a port of its type.
+        /// </summary>
+        public bool IsInterface { get; set; }
 
         /// <summary>Whether the header had a <c>#( )</c> list at all, even an empty one.</summary>
         public bool HasParameterList { get; set; }
@@ -88,6 +100,18 @@ namespace BitSorter.SystemVerilog.Syntax
         public string Name { get; set; }
         public List<Dimension> Unpacked { get; } = new List<Dimension>();
         public string Comment { get; set; }
+
+        /// <summary>
+        /// For an interface port (Part L8), the interface it takes -- <c>bus_if</c> in <c>bus_if.sink bus</c>, or
+        /// <c>interface</c> for any one -- and null for any other port. <c>bus_if bus</c> with no direction written reads
+        /// the same as a port of a typedef's type would, so the parser takes it for an interface port whenever
+        /// <c>bus_if</c> is no type it has met, and keeps the direction it would have had in <see cref="Direction"/> and
+        /// the type in <see cref="Type"/>: the elaborator settles which it is.
+        /// </summary>
+        public string Interface { get; set; }
+
+        /// <summary>The modport an interface port names, <c>sink</c> in <c>bus_if.sink bus</c>; null for none.</summary>
+        public string Modport { get; set; }
     }
 
     // -----------------------------------------------------------------
@@ -202,6 +226,33 @@ namespace BitSorter.SystemVerilog.Syntax
 
         /// <summary>The name it imports; null for <c>*</c>, every name the package has.</summary>
         public string Name { get; set; }
+    }
+
+    /// <summary>
+    /// <c>modport sink (input data, valid, output ready, import fire);</c> in an interface (Part L8): one or more ways
+    /// in, each naming what a module through it may read, write and call. Several may share one declaration.
+    /// </summary>
+    public sealed class ModportDeclaration : ModuleItem
+    {
+        public List<Modport> Modports { get; } = new List<Modport>();
+    }
+
+    public sealed class Modport : SyntaxNode
+    {
+        public string Name { get; set; }
+        public List<ModportItem> Items { get; } = new List<ModportItem>();
+    }
+
+    /// <summary>One name in a modport: a signal of the interface with its direction, or a task or function it imports.</summary>
+    public sealed class ModportItem : SyntaxNode
+    {
+        public string Name { get; set; }
+
+        /// <summary>An input is read and not written; an output, or an inout, both. <c>ref</c> is read as an inout.</summary>
+        public PortDirection Direction { get; set; }
+
+        /// <summary>Whether it is a task or function of the interface, <c>import send</c>, rather than a signal.</summary>
+        public bool IsImport { get; set; }
     }
 
     /// <summary><c>parameter N = 8;</c> or <c>localparam WIDTH = N + 1;</c>, one name each.</summary>

@@ -180,6 +180,17 @@ namespace BitSorter.SystemVerilog.Syntax
                     _timescale = t.Text.Substring("`timescale ".Length);
                     Next();
                 }
+                else if (t.IsKeyword("interface") && Peek(1).IsKeyword("class"))
+                {
+                    tree.UnitItems.Add(SkipUnsupported("Interface classes are not supported by BitSorter", "endclass"));
+                }
+                else if (t.IsKeyword("interface"))
+                {
+                    // Read as a module is, and kept apart from the modules (Part L8).
+                    ModuleDeclaration declared = ParseModule(isInterface: true);
+                    declared.Timescale = _timescale;
+                    tree.Interfaces.Add(declared);
+                }
                 else if (t.IsKeyword("package"))
                 {
                     tree.Packages.Add(ParsePackage());
@@ -239,7 +250,7 @@ namespace BitSorter.SystemVerilog.Syntax
         /// <summary>Constructs BitSorter does not read at all, and the keyword each ends with.</summary>
         private static readonly Dictionary<string, string> UnsupportedBlocks = new Dictionary<string, string>(StringComparer.Ordinal)
         {
-            ["interface"] = "endinterface", ["program"] = "endprogram",
+            ["program"] = "endprogram",
             ["class"] = "endclass", ["primitive"] = "endprimitive", ["config"] = "endconfig",
             ["checker"] = "endchecker", ["specify"] = "endspecify", ["property"] = "endproperty",
             ["sequence"] = "endsequence", ["clocking"] = "endclocking", ["covergroup"] = "endgroup",
@@ -353,15 +364,20 @@ namespace BitSorter.SystemVerilog.Syntax
             return import;
         }
 
-        private ModuleDeclaration ParseModule()
+        /// <summary>Whether the items being read are an interface's, where a modport may be declared (Part L8).</summary>
+        private bool _inInterface;
+
+        /// <summary>A module, or an interface (Part L8), which is read the same way and ends with its own keyword.</summary>
+        private ModuleDeclaration ParseModule(bool isInterface = false)
         {
-            var module = new ModuleDeclaration { Location = Current.Location };
+            string kind = isInterface ? "interface" : "module", end = "end" + kind;
+            var module = new ModuleDeclaration { Location = Current.Location, IsInterface = isInterface };
             Next();
 
             if (!AcceptKeyword("automatic"))
                 AcceptKeyword("static");
 
-            module.Name = ExpectIdentifier("the module's name") ?? "?";
+            module.Name = ExpectIdentifier($"the {kind}'s name") ?? "?";
             module.Comment = Previous.TrailingComment;
 
             // module m import p::*; #(...) (...);
@@ -371,10 +387,10 @@ namespace BitSorter.SystemVerilog.Syntax
             if (Accept("#"))
             {
                 module.HasParameterList = true;
-                if (Expect("(", "to open the module's parameter list"))
+                if (Expect("(", $"to open the {kind}'s parameter list"))
                 {
                     ParseHeaderParameters(module.HeaderParameters);
-                    Expect(")", "to close the module's parameter list");
+                    Expect(")", $"to close the {kind}'s parameter list");
                 }
             }
 
@@ -382,30 +398,185 @@ namespace BitSorter.SystemVerilog.Syntax
             {
                 module.HasPortList = true;
                 ParsePortList(module);
-                Expect(")", "to close the module's port list");
+                Expect(")", $"to close the {kind}'s port list");
             }
 
-            if (!Expect(";", $"after the header of module {module.Name}"))
+            if (!Expect(";", $"after the header of {kind} {module.Name}"))
                 SkipToItemEnd();
             else if (module.Comment == null && !module.HasPortList)
                 module.Comment = Previous.TrailingComment;   // module tb; // what it is
 
-            ParseItems(module.Items, "endmodule");
-
-            if (!AcceptKeyword("endmodule"))
+            bool outer = _inInterface;
+            _inInterface = isInterface;
+            try
             {
-                Error(Current.Location, DiagnosticCodes.Expected, $"Module {module.Name} never ends: 'endmodule' is missing.");
+                ParseItems(module.Items, end);
+            }
+            finally
+            {
+                _inInterface = outer;
+            }
+
+            if (!AcceptKeyword(end))
+            {
+                Error(Current.Location, DiagnosticCodes.Expected, $"{(isInterface ? "Interface" : "Module")} {module.Name} never ends: '{end}' is missing.");
                 return module;
             }
 
             if (Accept(":"))
             {
-                string label = ExpectIdentifier("the module's name after 'endmodule :'");
+                string label = ExpectIdentifier($"the {kind}'s name after '{end} :'");
                 if (label != null && label != module.Name)
-                    _diagnostics.Warning(Previous.Location, DiagnosticCodes.MismatchedLabel, $"'endmodule : {label}' closes module {module.Name}.");
+                    _diagnostics.Warning(Previous.Location, DiagnosticCodes.MismatchedLabel, $"'{end} : {label}' closes {kind} {module.Name}.");
             }
 
             return module;
+        }
+
+        /// <summary>
+        /// <c>modport sink (input data, valid, output ready, import fire), source (...);</c> (Part L8). A direction, or
+        /// <c>import</c>, holds for the names after it until another is written; <c>ref</c> is read as <c>inout</c>, and an
+        /// imported task or function may be written with its prototype, of which only the name is kept.
+        /// </summary>
+        private ModportDeclaration ParseModport()
+        {
+            var declaration = new ModportDeclaration { Location = Next().Location };
+
+            do
+            {
+                var modport = new Modport { Location = Current.Location, Name = ExpectIdentifier("the modport's name") ?? "?" };
+
+                if (Expect("(", $"to list what modport {modport.Name} reaches"))
+                {
+                    var direction = PortDirection.Input;
+                    bool import = false, haveMode = false;
+
+                    if (!Current.Is(")"))
+                    {
+                        do
+                        {
+                            if (TryDirection(out PortDirection written))
+                            {
+                                direction = written;
+                                import = false;
+                                haveMode = true;
+                            }
+                            else if (AcceptKeyword("ref"))
+                            {
+                                direction = PortDirection.Inout;
+                                import = false;
+                                haveMode = true;
+                            }
+                            else if (AcceptKeyword("import"))
+                            {
+                                import = true;
+                                haveMode = true;
+                            }
+                            else if (Current.IsKeyword("export") || Current.IsKeyword("clocking"))
+                            {
+                                Error(Current.Location, DiagnosticCodes.Unsupported, $"A modport's {Current.Text} is not supported by BitSorter.");
+                                SkipModportPiece();
+                                continue;
+                            }
+                            else if (!haveMode)
+                            {
+                                Error(Current.Location, DiagnosticCodes.Expected,
+                                    $"Expected input, output, inout or import before {Describe(Current)} in modport {modport.Name}.");
+                                haveMode = true;
+                            }
+
+                            if (Current.Is("."))
+                            {
+                                Error(Current.Location, DiagnosticCodes.Unsupported,
+                                    "A modport expression, .name(...), is not supported by BitSorter; list the interface's own signal instead.");
+                                SkipModportPiece();
+                                continue;
+                            }
+
+                            var item = new ModportItem { Location = Current.Location, Direction = direction, IsImport = import };
+
+                            if (import && (Current.IsKeyword("task") || Current.IsKeyword("function")))
+                            {
+                                // import task send(input logic [7:0] v): the name is the identifier just before its '('.
+                                Next();
+                                while (!AtEnd && !Current.Is(")") && !Current.Is(";") &&
+                                       !(Current.Kind == TokenKind.Identifier && (Peek(1).Is("(") || Peek(1).Is(",") || Peek(1).Is(")"))))
+                                    Next();
+                                item.Name = ExpectIdentifier("the name of the task or function to import") ?? "?";
+                                if (Current.Is("("))
+                                    SkipModportPiece();
+                            }
+                            else
+                            {
+                                item.Name = ExpectIdentifier(import ? "a task or function of the interface to import" : "a signal of the interface") ?? "?";
+                            }
+
+                            modport.Items.Add(item);
+                        }
+                        while (Accept(","));
+                    }
+
+                    Expect(")", $"to close modport {modport.Name}");
+                }
+
+                declaration.Modports.Add(modport);
+            }
+            while (Accept(","));
+
+            if (!Expect(";", "after the modport"))
+                SkipToItemEnd();
+            declaration.Comment = Previous.TrailingComment;
+            return declaration;
+        }
+
+        /// <summary>Skips one piece of a modport's list, brackets and all, to the ',' or ')' after it.</summary>
+        private void SkipModportPiece()
+        {
+            int depth = 0;
+            while (!AtEnd && !Current.Is(";"))
+            {
+                if (depth == 0 && (Current.Is(",") || Current.Is(")")))
+                    return;
+                if (Current.Is("(") || Current.Is("[") || Current.Is("{")) depth++;
+                else if (Current.Is(")") || Current.Is("]") || Current.Is("}")) depth--;
+                Next();
+            }
+        }
+
+        /// <summary>
+        /// An interface port's type (Part L8): <c>bus_if.sink</c>, <c>interface</c>, <c>interface.sink</c>, or a bare name
+        /// with no direction written before it that is no type this file has met -- which the elaborator may yet find is
+        /// a typedef from elsewhere. False, having read nothing, for any other port.
+        /// </summary>
+        private bool TryInterfaceType(PortDeclaration port)
+        {
+            if (Current.IsKeyword("interface"))
+            {
+                Next();
+                port.Interface = "interface";
+                if (Accept("."))
+                    port.Modport = ExpectIdentifier("the modport's name after 'interface.'");
+                return true;
+            }
+
+            if (Current.Kind != TokenKind.Identifier)
+                return false;
+
+            if (Peek(1).Is(".") && Peek(2).Kind == TokenKind.Identifier && Peek(3).Kind == TokenKind.Identifier)
+            {
+                port.Interface = Next().Text;
+                Next();
+                port.Modport = Next().Text;
+                return true;
+            }
+
+            if (Peek(1).Kind == TokenKind.Identifier && !_typeNames.Contains(Current.Text))
+            {
+                port.Interface = Next().Text;
+                return true;
+            }
+
+            return false;
         }
 
         private void ParseHeaderParameters(List<ParameterDeclaration> into)
@@ -511,37 +682,48 @@ namespace BitSorter.SystemVerilog.Syntax
                 var port = new PortDeclaration { Location = Current.Location };
                 bool fresh = false;
 
-                if (TryDirection(out PortDirection written))
+                if (TryInterfaceType(port))
                 {
-                    direction = written;
-                    haveDirection = true;
-                    fresh = true;
+                    // An interface port (Part L8) has no direction of its own; the one it would have inherited, and its
+                    // name as a type, are kept for the elaborator in case it is a typedef's after all.
+                    port.Direction = direction;
+                    port.Type = new DataType { Location = port.Location, Name = port.Interface == "interface" ? null : port.Interface };
                 }
-                else if (!haveDirection)
+                else
                 {
-                    Error(Current.Location, DiagnosticCodes.Expected,
-                        $"Expected a direction for this port -- input, output or inout -- but found {Describe(Current)}.");
-                    haveDirection = true;
+                    if (TryDirection(out PortDirection written))
+                    {
+                        direction = written;
+                        haveDirection = true;
+                        fresh = true;
+                    }
+                    else if (!haveDirection)
+                    {
+                        Error(Current.Location, DiagnosticCodes.Expected,
+                            $"Expected a direction for this port -- input, output or inout -- but found {Describe(Current)}.");
+                        haveDirection = true;
+                    }
+
+                    string writtenNet = TryNetType();
+                    DataType writtenType = null;
+
+                    if (IsDataTypeStart(Current) || Current.Is("[") || Current.IsKeyword("signed") || Current.IsKeyword("unsigned") ||
+                        (Current.Kind == TokenKind.Identifier && Peek(1).Kind == TokenKind.Identifier))
+                    {
+                        writtenType = ParseDataType();
+                    }
+
+                    if (fresh || writtenNet != null || writtenType != null)
+                    {
+                        netType = writtenNet;
+                        type = writtenType ?? new DataType { Location = port.Location };
+                    }
+
+                    port.Direction = direction;
+                    port.NetType = netType;
+                    port.Type = type ?? new DataType { Location = port.Location };
                 }
 
-                string writtenNet = TryNetType();
-                DataType writtenType = null;
-
-                if (IsDataTypeStart(Current) || Current.Is("[") || Current.IsKeyword("signed") || Current.IsKeyword("unsigned") ||
-                    (Current.Kind == TokenKind.Identifier && Peek(1).Kind == TokenKind.Identifier))
-                {
-                    writtenType = ParseDataType();
-                }
-
-                if (fresh || writtenNet != null || writtenType != null)
-                {
-                    netType = writtenNet;
-                    type = writtenType ?? new DataType { Location = port.Location };
-                }
-
-                port.Direction = direction;
-                port.NetType = netType;
-                port.Type = type ?? new DataType { Location = port.Location };
                 port.Name = ExpectIdentifier("a port's name") ?? "?";
                 ParseUnpacked(port.Unpacked);
 
@@ -903,6 +1085,14 @@ namespace BitSorter.SystemVerilog.Syntax
 
                 case "import":
                     into.Add(ParseImport());
+                    return;
+
+                case "modport":
+                    into.Add(_inInterface ? (ModuleItem)ParseModport() : SkipUnsupported("A modport belongs inside an interface, which is where BitSorter reads one", null));
+                    return;
+
+                case "interface":
+                    into.Add(SkipUnsupported("An interface declared inside a module or a package is not supported by BitSorter; declare it on its own, outside every module", "endinterface"));
                     return;
 
                 case "export":

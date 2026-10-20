@@ -41,9 +41,17 @@ namespace BitSorter.SystemVerilog.Syntax
                 printer.Package(tree.Packages[i]);
             }
 
-            for (int i = 0; i < tree.Modules.Count; i++)
+            // Interfaces before the modules that use them (Part L8).
+            for (int i = 0; i < tree.Interfaces.Count; i++)
             {
                 if (i > 0 || tree.UnitItems.Count > 0 || tree.Packages.Count > 0 || tree.Timescale != null)
+                    printer._out.Append('\n');
+                printer.Module(tree.Interfaces[i]);
+            }
+
+            for (int i = 0; i < tree.Modules.Count; i++)
+            {
+                if (i > 0 || tree.UnitItems.Count > 0 || tree.Packages.Count > 0 || tree.Interfaces.Count > 0 || tree.Timescale != null)
                     printer._out.Append('\n');
                 printer.Module(tree.Modules[i]);
             }
@@ -99,7 +107,8 @@ namespace BitSorter.SystemVerilog.Syntax
 
         private void Module(ModuleDeclaration module)
         {
-            string name = "module " + module.Name;
+            string kind = module.IsInterface ? "interface" : "module";
+            string name = kind + " " + module.Name;
             foreach (ImportDeclaration import in module.HeaderImports)
                 name += " " + ImportText(import);
             bool parameters = module.HasParameterList && module.HeaderParameters.Count > 0;
@@ -131,7 +140,7 @@ namespace BitSorter.SystemVerilog.Syntax
                 Item(item);
             _level--;
 
-            Line("endmodule");
+            Line("end" + kind);
         }
 
         /// <summary>The port list after <paramref name="head"/>, closing the header with its ';'.</summary>
@@ -162,7 +171,20 @@ namespace BitSorter.SystemVerilog.Syntax
 
         private static string PortText(PortDeclaration port)
         {
-            var text = new StringBuilder(DirectionText(port.Direction)).Append(' ');
+            var text = new StringBuilder();
+            if (port.Interface != null)
+            {
+                // An interface port (Part L8): its interface, and its modport, and no direction.
+                text.Append(port.Interface);
+                if (port.Modport != null)
+                    text.Append('.').Append(port.Modport);
+                text.Append(' ').Append(port.Name);
+                foreach (Dimension d in port.Unpacked)
+                    text.Append(' ').Append(DimensionText(d));
+                return text.ToString();
+            }
+
+            text.Append(DirectionText(port.Direction)).Append(' ');
             if (port.NetType != null)
                 text.Append(port.NetType).Append(' ');
             text.Append(TypePrefix(port.Type)).Append(port.Name);
@@ -277,6 +299,28 @@ namespace BitSorter.SystemVerilog.Syntax
                 case ImportDeclaration import:
                     Line(ImportText(import), import.Comment);
                     break;
+
+                case ModportDeclaration m:
+                {
+                    var modports = new List<string>();
+                    foreach (Modport modport in m.Modports)
+                    {
+                        // A direction, or import, written once for the names after it that share it.
+                        var items = new List<string>();
+                        string mode = null;
+                        foreach (ModportItem i in modport.Items)
+                        {
+                            string its = i.IsImport ? "import" : DirectionText(i.Direction);
+                            items.Add(its == mode ? i.Name : its + " " + i.Name);
+                            mode = its;
+                        }
+
+                        modports.Add(modport.Name + " (" + string.Join(", ", items) + ")");
+                    }
+
+                    Line("modport " + string.Join(", ", modports) + ";", m.Comment);
+                    break;
+                }
 
                 case GenvarDeclaration g:
                     Line("genvar " + string.Join(", ", g.Names) + ";", g.Comment);
