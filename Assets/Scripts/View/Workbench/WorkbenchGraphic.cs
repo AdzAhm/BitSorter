@@ -21,7 +21,7 @@ namespace BitSorter.View
     public sealed class WorkbenchGraphic : MaskableGraphic
     {
         /// <summary>The layers, back to front.</summary>
-        public enum Layer { Card, Wires, Changes, Parts, Flashes, Grid, Timing, Glitches, Playhead }
+        public enum Layer { Card, Wires, Changes, Parts, Flashes, Grid, Timing, Glitches, Playhead, Edit }
 
         /// <summary>How many layers there are: what the per-layer diagnostics are sized by.</summary>
         public static readonly int LayerCount = System.Enum.GetValues(typeof(Layer)).Length;
@@ -60,6 +60,9 @@ namespace BitSorter.View
 
         /// <summary>The net the pointer is on, lit; -1 for none. The wires layer's alone.</summary>
         public int Highlighted { get; set; } = -1;
+
+        /// <summary>What the editing layer draws (Part 10a): the selection, a drag, a box, the guides, the part in hand.</summary>
+        public CanvasOverlay Overlay { get; set; }
 
         private readonly VectorPainter _painter = new VectorPainter();
 
@@ -224,6 +227,10 @@ namespace BitSorter.View
 
                 case Layer.Playhead:
                     WorkbenchDrawing.Playhead(_painter, Model, Wave, palette, Cursors, Breakpoints);
+                    break;
+
+                case Layer.Edit:
+                    WorkbenchDrawing.Edit(_painter, Overlay, palette);
                     break;
             }
         }

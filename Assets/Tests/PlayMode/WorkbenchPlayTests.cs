@@ -282,17 +282,18 @@ namespace BitSorter.PlayMode.Tests
             AssertNear(cursor, workbench.ScreenPointOf(point), "the point under the cursor moved as the circuit zoomed");
             Assert.IsNotNull(GameObject.Find(WorkbenchPanel.FitButton), "FIT should be up once the circuit is zoomed");
 
-            // A drag on the circuit takes it with the pointer, through the real mouse.
+            // A drag with the middle button takes the circuit with the pointer, through the real mouse; the left
+            // button's is the canvas's own since Part 10a, a box or a move.
             var mouse = InputSystem.GetDevice<Mouse>();
             mouse.MakeCurrent();
             var drag = new Vector2(60f, -40f);
             Move(mouse.position, cursor);
             yield return null;
-            Press(mouse.leftButton);
+            Press(mouse.middleButton);
             yield return null;
             Move(mouse.position, cursor + drag);
             yield return null;
-            Release(mouse.leftButton);
+            Release(mouse.middleButton);
             yield return null;
             AssertNear(cursor + drag, workbench.ScreenPointOf(point), "the circuit did not follow the drag");
 
@@ -442,12 +443,12 @@ namespace BitSorter.PlayMode.Tests
             yield return OpenTheWorkbench();
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
-            Assert.AreEqual(0, workbench.Sample, "the workbench should open on the reference circuit");
-            Assert.IsTrue(Captioned(WorkbenchPanel.SampleButton, WorkbenchPanel.SampleCaption(0)), "the chip should say it is the reference");
+            Assert.AreEqual(1, workbench.Sample, "with nothing in MY CIRCUIT, the workbench should open on the reference circuit");
+            Assert.IsTrue(Captioned(WorkbenchPanel.SampleButton, WorkbenchPanel.SampleCaption(1)), "the chip should say it is the reference");
             WorkbenchModel reference = workbench.Model;
 
             yield return Click(WorkbenchPanel.SampleButton);
-            Assert.AreEqual(1, workbench.Sample, "SAMPLE should step to the full adder");
+            Assert.AreEqual(2, workbench.Sample, "SAMPLE should step to the full adder");
             Assert.AreNotSame(reference, workbench.Model, "a new sample is a run of its own");
             Assert.AreEqual(WorkbenchSamples.FullAdderEnd, workbench.Model.End, "the full adder's run");
             Slider slider = GameObject.Find(WorkbenchPanel.TimeSlider).GetComponent<Slider>();
@@ -455,14 +456,14 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsTrue(workbench.Playing, "a new sample should play");
             Assert.Less(workbench.Time, 1.0, "from the start");
             Assert.IsTrue(workbench.Wave.IsFitted, "its waveform should show the whole of its run");
-            Assert.IsTrue(Captioned(WorkbenchPanel.SampleButton, WorkbenchPanel.SampleCaption(1)), "the chip should say which sample");
+            Assert.IsTrue(Captioned(WorkbenchPanel.SampleButton, WorkbenchPanel.SampleCaption(2)), "the chip should say which sample");
 
             foreach (WorkbenchGraphic graphic in Object.FindObjectsByType<WorkbenchGraphic>(FindObjectsSortMode.None))
                 if (graphic.Model != null)
                     Assert.AreSame(workbench.Model, graphic.Model, $"'{graphic.name}' is left over from the circuit before");
 
             yield return Tap(_keyboard.sKey);
-            Assert.AreEqual(2, workbench.Sample, "S should step to the counter");
+            Assert.AreEqual(3, workbench.Sample, "S should step to the counter");
             Assert.AreEqual(WorkbenchSamples.CounterEnd, workbench.Model.End, "the counter's run");
 
             yield return DragTo(20f);
@@ -470,7 +471,12 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsFalse(workbench.Playing, "and pause there");
 
             yield return Tap(_keyboard.sKey);
-            Assert.AreEqual(0, workbench.Sample, "past the last sample, S should come back to the first");
+            Assert.AreEqual(0, workbench.Sample, "past the last sample, S should come back to the first, MY CIRCUIT");
+            Assert.IsTrue(Captioned(WorkbenchPanel.SampleButton, "MY CIRCUIT"));
+            Assert.IsEmpty(workbench.Model.Layout.Parts, "a blank circuit, the first time");
+
+            yield return Tap(_keyboard.sKey);
+            Assert.AreEqual(1, workbench.Sample);
             Assert.AreEqual(reference.End, workbench.Model.End, "the reference's run again");
             Assert.IsTrue(workbench.Playing, "played from the start");
         }
@@ -491,7 +497,7 @@ namespace BitSorter.PlayMode.Tests
             yield return OpenTheWorkbench();
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
-            workbench.ShowSample(1);
+            workbench.ShowSample(2);   // the full adder
             workbench.Pause();
             yield return null;
             yield return null;
@@ -738,7 +744,7 @@ namespace BitSorter.PlayMode.Tests
             yield return OpenTheWorkbench();
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
-            workbench.ShowSample(1);
+            workbench.ShowSample(2);   // the full adder
             yield return null;
             workbench.Pause();
             workbench.Seek(17.0);
@@ -817,7 +823,7 @@ namespace BitSorter.PlayMode.Tests
             yield return OpenTheWorkbench();
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
-            workbench.ShowSample(1);
+            workbench.ShowSample(2);   // the full adder
             yield return null;
             workbench.Pause();
             foreach (string key in new[] { "h1.s", "h1.c", "h2.c" })
@@ -970,7 +976,7 @@ namespace BitSorter.PlayMode.Tests
             yield return OpenTheWorkbench();
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
-            workbench.ShowSample(2);
+            workbench.ShowSample(3);   // the counter
             yield return null;
             workbench.Pause();
             workbench.Seek(0.0);
@@ -1205,7 +1211,7 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsFalse(workbench.Session.Replaying, "an output was edited");
             StringAssert.Contains("y is not an input", workbench.ChipText);
 
-            workbench.ShowSample(WorkbenchSamples.All.ToList().FindIndex(sample => sample.Name.Contains("ounter")));
+            workbench.ShowSample(WorkbenchSamples.Chip.ToList().FindIndex(sample => sample.Name.Contains("ounter")));
             workbench.Pause();
             workbench.Session.Finish();
             yield return null;

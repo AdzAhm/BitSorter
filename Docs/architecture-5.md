@@ -868,11 +868,13 @@ Precise, and no casing under the wires.
   the tri-state's enable wire. A row per port in the order they stand on the board, top to bottom, so
   each output reads beside its input; the waveform as wide as the stage.
 - **Pan, zoom and fit** (`SchematicView`). The wheel over the circuit zooms in about the cursor, a
-  notch a quarter, to four times, and back out no further than the whole circuit; a drag moves it, never
-  so far that the window's middle leaves it; FIT, up only while the circuit is not whole, puts it back.
-  The circuit's window clips it; the waveform has a zoom of its own, in time, since Part 9b-2a. The view's zoom lives in the view, not
-  in the document's layout as section 5 planned: a preview has nothing to save it for, and Part 10
-  decides whether a project remembers it.
+  notch a quarter, to four times; a drag moves it; FIT, up only while the circuit is not whole, puts it back.
+  Since Part 10a the wheel goes on out past the whole circuit, to a quarter of its size, and a drag -- the
+  middle button's, or Space's -- reaches six cells past its edge, or half the window when that is more, for
+  room to place a part beside what is there (see "As built in Part 10a").
+  The circuit's window clips it; the waveform has a zoom of its own, in time, since Part 9b-2a. **The view's
+  zoom lives in the view, not in the document's layout** as section 5 planned, and Part 10a kept it there:
+  MY CIRCUIT is saved without it, and opens fitted.
 - **Checked.** `GeometryTests` (pins, turns and mirrors, every sample board's pins on the grid, the
   routes, a branch per load, taps), the tri-state sample against Icarus and the design path in
   `BoardCompilerTests`, the view's rules in `WorkbenchTests`, the wheel, a real drag and FIT in
@@ -1247,6 +1249,69 @@ on an input's row, undo and redo -- is 9b-3b-2.
   the same in all four looks. In the browser build: E saved `reference.vcd` as a download, `$timescale 1ps`,
   30 signals.
 
+**As built in Part 10a**: placing, selecting and moving on the canvas.
+
+- **Everything the canvas decides is the view-model's**, Unity-free and tested under dotnet (`CanvasTests`):
+  - `CanvasHit` finds what a point is on, in the board's own cells and from the geometry the drawing uses: a pin
+    before a body, a body before a wire.
+  - `CanvasSnap` puts a placed or moved part on the quarter-cell grid, or exactly with **Alt**.
+  - `AlignmentGuides` draws a line through a pin or a middle that lines up with another part's, and catches a free
+    move to one within a fifth of a cell.
+  - `CanvasSelection` holds what is selected: a click picks one, Shift adds, Ctrl toggles, a box takes what it
+    touches.
+  - `CanvasPointer` turns press, move and release into gestures, as `WavePointer` is the waveform's.
+  - `PartsCatalog` lists the strip's entries and says what placing one does.
+  - `CanvasEditor` holds the state between them -- the selection, the part in hand, a drag, a box -- and the
+    overlay it draws (`CanvasOverlay`).
+- **The mouse** (Ahmad's choice, 2026-10-20):
+  - a left drag on a part moves the selection
+  - a left drag on empty space draws a box
+  - the middle button, or Space with a drag, pans
+  - the wheel zooms
+  - Space therefore plays and pauses **on its release**, and only when it panned nothing
+  - Alt and a click on a wire still adds its signal
+  - Q turns the selection a quarter and Shift+Q back, V mirrors it on screen however it was turned, Ctrl+A
+    selects all
+  - Delete takes away what is selected on whichever was clicked last, the circuit or the waveform's rows
+  - the help under the stage is two lines, the circuit's gestures and then the waveform's: as one line it ran
+    the width of the screen in a small size (Ahmad, 2026-10-20)
+- **The parts strip is temporary**, a column of the canvas's own buttons left of the stage, until Part 11's shell
+  gives the parts a panel. It was a row under the time first, and pushed the waveform off a 1080 screen; the stage
+  keeps a strip's width free on both sides, so it stays in the middle.
+  - A click takes a part in hand: it is drawn where a click would place it, and a click places it. With Shift it
+    stays in hand for the next; Escape or the right button puts it down.
+  - Every part is offered: input, output, clock, reset, constant, the gates, the tri-state buffer, mux,
+    register, splitter, joiner, lamp, and every other module of the project as a block.
+  - **An input placed in the top module is given 0 from the start**, so the waveform can change it at once
+    (Part 9b-3).
+  - A clock is an input given a clock of 10, starting low. A reset is held high until the clock's first falling
+    edge. Each is one step for undo.
+- **The document changes once, on release.** A drag is drawn where it is going, its wires routed after it,
+  and moved in one step (`BoardEditor.MoveParts`); a group of edits is one step, all or nothing
+  (`BoardEditor.Group`). An input taken away takes its stimulus with it, or the delete would be refused.
+- **An edit is drawn at once.** A move, a turn or a mirror changes nothing the circuit does, so it is drawn again
+  over the same run (`RunSession.Relayout`) and nothing replays. A part placed or taken away, an undo or a redo
+  is drawn at once over the run there is -- a new gate shows no value for a frame or so -- and replayed as an
+  input edit is (9b-3). `WorkbenchSession.LayoutVersion` counts each.
+- **The waveform's rows follow the ports**: a port placed gains a row, a port taken away loses its row
+  (`WaveList.FollowPorts`).
+- **The window is sized when a document opens.** The circuit's window keeps its size through every edit. The
+  view takes back the shift of the drawing's corner (`SchematicView.Relayout`), so nothing moves on screen, and
+  the fit shrinks the whole drawing once it has outgrown the window. An empty circuit opens in a window
+  720 by 360.
+- **MY CIRCUIT is kept** (Ahmad's choice): the first entry of the SAMPLE chip, a blank document the first time.
+  - It is saved in the save's 5.0 documents under `workbench`, half a second after its last edit by real time,
+    and on leaving it or the workbench.
+  - The workbench opens on it once it has anything in it, and on the reference circuit until then.
+  - The samples can be edited for the session and are never saved.
+- **Checked.** `CanvasTests` (21), `SchematicTests`' new view rules, `BoardEditorTests` for the group edits, and
+  `SignalListTests` for the rows, all under dotnet. In Play Mode (`WorkbenchCanvasPlayTests`), a real gesture each:
+  - a part taken from the strip and placed with a click, dragged a cell on the grid, boxed with another, taken
+    away with Delete and brought back with Ctrl+Z
+  - MY CIRCUIT kept through another sample and through leaving the workbench
+  - Space alone playing and pausing, and with a drag panning instead
+  - Escape putting the part in hand down before it leaves
+
 ---
 
 ## 11. The parts
@@ -1265,7 +1330,7 @@ Each part is one pull request into `v5`, ends with every suite green, and leaves
 | 7 | The board document: compile, print, undo, and migration of every 4.x board |
 | 8 | The canvas on the real document, still and moving layers drawn apart, and the looks with a Settings switch |
 | 9 | The waveform and run controls; the workbench's view-model in a Unity-free layer of its own |
-| 10 | Editing on the free canvas |
+| 10 | Editing on the free canvas -- in four: 10a placement and selection **built** (see "As built in Part 10a"); 10b wiring, 10c the inspector, 10d copy, align and the minimap to come |
 | 11 | The workbench shell, in UI Toolkit: toolbar, panels, transcript |
 | 12 | Hierarchy, and written blocks, edited in CodeMirror in a browser |
 | 13 | Export and import (and a levelized path in the engine, only if a measurement asks for it) |

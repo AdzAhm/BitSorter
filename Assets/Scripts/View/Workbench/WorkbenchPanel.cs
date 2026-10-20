@@ -75,12 +75,16 @@ namespace BitSorter.View
     /// breakpoint on its signal; one on the waves or the axis, at that moment. Each is flagged in the
     /// cursor's colour.
     ///
+    /// **The circuit is edited where it is drawn** (Part 10a, <c>WorkbenchPanel.Canvas.cs</c>): a part taken from
+    /// the strip under the controls and placed with a click, a click or a box selecting, a drag moving the
+    /// selection, the middle button or Space with a drag panning. MY CIRCUIT, first in the SAMPLE chip, is kept.
+    ///
     /// A full-screen panel like Settings, and for the same reasons: it covers the 4.x board, which
     /// stays exactly as it was, takes Escape back to the menu, and hides the HUD while it is up.
     /// Everything on it is built here the first time it opens, so the 4.x game pays nothing for it
     /// until then.
     /// </remarks>
-    public sealed class WorkbenchPanel : FullScreenPanel
+    public sealed partial class WorkbenchPanel : FullScreenPanel
     {
         [SerializeField] private MainMenu _menu;
 
@@ -123,12 +127,20 @@ namespace BitSorter.View
         /// <inheritdoc cref="RootName"/>
         public const string SampleButton = "Workbench sample";
 
-        /// <summary>The line along the bottom.</summary>
+        /// <summary>
+        /// The two lines along the bottom: the circuit's gestures, then the waveform's. One line held both until Part
+        /// 10a's editing made it twice the width of its box, and it ran from one edge of the screen to the other.
+        /// </summary>
         public const string HelpLine =
-            "scroll to zoom, shift and scroll to move through time, click the waves to seek, shift-click for a second cursor, right-click a row or the waves, alt-click a wire to add it";
+            "circuit:  pick a part on the left, click to place it  ·  drag to move or select  ·  middle- or space-drag to pan  ·  Q turn  ·  V mirror  ·  Del remove\n" +
+            "waves:  scroll to zoom  ·  click to seek  ·  shift-click a second cursor  ·  right-click a row or the waves  ·  alt-click a wire to add it";
 
-        /// <summary>What the SAMPLE chip says for a sample: its name, under the word for what the chip steps through.</summary>
-        public static string SampleCaption(int sample) => "SAMPLE: " + WorkbenchSamples.All[sample].Name.ToUpperInvariant();
+        /// <summary>
+        /// What the SAMPLE chip says for its place in <see cref="WorkbenchSamples.Chip"/>: MY CIRCUIT for the student's
+        /// own, and a sample's name under the word for what the chip steps through.
+        /// </summary>
+        public static string SampleCaption(int sample) =>
+            sample == 0 ? "MY CIRCUIT" : "SAMPLE: " + WorkbenchSamples.Chip[sample].Name.ToUpperInvariant();
 
         /// <summary>What the speed between SLOWER and FASTER says for a place on the ladder.</summary>
         public static string SpeedCaption(int speed, string unit = TimeUnits.Default) =>
@@ -144,11 +156,15 @@ namespace BitSorter.View
         /// <inheritdoc cref="MinStageWidth"/>
         public static readonly Vector2 SchematicAt = new Vector2(20f, 14f);
 
-        /// <summary>The stage's width: room for the schematic as its document lays it out, and never less than the waveform's.</summary>
-        private float StageWidth => _model == null ? MinStageWidth : Mathf.Max(MinStageWidth, _model.Layout.Size.x + 2f * SchematicAt.x);
+        /// <summary>
+        /// The stage's width: room for the schematic as its document was laid out when it opened, and never less
+        /// than the waveform's. An edit never resizes it (Part 10a): the circuit's window keeps its size and the
+        /// circuit zooms and pans inside it.
+        /// </summary>
+        private float StageWidth => _model == null ? MinStageWidth : Mathf.Max(MinStageWidth, _openedDrawing.x + 2f * SchematicAt.x);
 
-        /// <summary>Where the waveform sits: under the schematic, however tall that is.</summary>
-        private Vector2 WaveformAt => new Vector2(5f, SchematicAt.y + (_model == null ? 360f : _model.Layout.Size.y) + 14f);
+        /// <summary>Where the waveform sits: under the schematic, as tall as it was when its document opened.</summary>
+        private Vector2 WaveformAt => new Vector2(5f, SchematicAt.y + (_model == null ? EmptyDrawing.y : _openedDrawing.y) + 14f);
 
         /// <summary>The window the schematic is seen through: the card above the waveform, inside its edge.</summary>
         private static readonly Vector2 ViewAt = new Vector2(4f, 4f);
@@ -193,8 +209,11 @@ namespace BitSorter.View
         /// <summary>How far one notch of the wheel, or one press of up or down, moves a page that scrolls.</summary>
         public const float ScrollStep = 60f;
 
-        /// <summary>Room kept under the stage for the help line.</summary>
-        private const float BottomRoom = 76f;
+        /// <summary>
+        /// Room kept under the stage for the help's two lines, clear of the card's foot. Two more pixels than the one
+        /// line had, the lines set lower: twenty more and the legend at the card's foot scrolled off a 1080 page.
+        /// </summary>
+        private const float BottomRoom = 78f;
 
         private const float BackWidth = 120f;
 
@@ -231,7 +250,7 @@ namespace BitSorter.View
         private long _menuTime;
         private readonly List<int> _stepRows = new List<int>();
 
-        /// <summary>Which of <see cref="WorkbenchSamples.All"/> is shown.</summary>
+        /// <summary>Which of <see cref="WorkbenchSamples.Chip"/> is shown: 0 for MY CIRCUIT.</summary>
         private int _sample;
 
         private RectTransform _header;
@@ -308,8 +327,8 @@ namespace BitSorter.View
         private Image _hoverChip;
         private TextMeshProUGUI _hoverLabel;
         private int _hovered = -1;
-        private bool _dragging, _wasHeld;
-        private Vector2 _dragFrom;
+        /// <summary>Whether the canvas is being dragged: its hover chip stays down meanwhile.</summary>
+        private bool _dragging;
         private TextMeshProUGUI _timeLabel, _chipLabel, _playLabel, _description, _sampleLabel, _speedLabel;
 
         private readonly List<TextMeshProUGUI> _digits = new List<TextMeshProUGUI>();
@@ -377,7 +396,7 @@ namespace BitSorter.View
         /// <summary>Whether the circuit is shown whole, where it belongs.</summary>
         public bool IsFitted => _viewState == null || _viewState.IsFitted;
 
-        /// <summary>Which sample is shown, as its place in <see cref="WorkbenchSamples.All"/>.</summary>
+        /// <summary>Which sample is shown, as its place in <see cref="WorkbenchSamples.Chip"/>: 0 for MY CIRCUIT, the reference 1.</summary>
         public int Sample => _sample;
 
         /// <summary>The waveform's rows as arranged; null until the panel has first opened.</summary>
@@ -478,12 +497,18 @@ namespace BitSorter.View
             bool shift = keyboard.shiftKey.isPressed, ctrl = keyboard.ctrlKey.isPressed;
             IReadOnlyList<KeyBinding> all = WorkbenchKeys.All;
 
+            // Space with a drag pans the circuit (Part 10a), so Space plays or pauses on its release, and only
+            // when it panned nothing.
+            if (keyboard.spaceKey.wasPressedThisFrame)
+                _spacePanned = false;
+
             for (int i = 0; i < all.Count; i++)
             {
                 KeyBinding binding = all[i];
                 if (binding.Ctrl != ctrl || (binding.Shift != shift && (binding.Shift || _keyHasShifted[i])))
                     continue;
-                if (!keyboard[_keys[i]].wasPressedThisFrame)
+                bool onRelease = _keys[i] == Key.Space;
+                if (onRelease ? !keyboard[_keys[i]].wasReleasedThisFrame || _spacePanned : !keyboard[_keys[i]].wasPressedThisFrame)
                     continue;
 
                 Do(binding.Command);
@@ -518,7 +543,11 @@ namespace BitSorter.View
                     if (_cursors.Clear())
                         Redraw();
                     break;
-                case WorkbenchCommand.RemoveRows: RemoveRows(); break;
+                case WorkbenchCommand.RemoveRows: RemoveSelected(); break;
+                case WorkbenchCommand.TurnLeft: CanvasEdit(_editor.Turn(1)); break;
+                case WorkbenchCommand.TurnRight: CanvasEdit(_editor.Turn(-1)); break;
+                case WorkbenchCommand.Mirror: CanvasEdit(_editor.Mirror()); break;
+                case WorkbenchCommand.SelectAll: _editor.SelectAll(); break;
 
                 case WorkbenchCommand.AddSignal: OpenPicker(); break;
                 case WorkbenchCommand.Group: GroupRows(); break;
@@ -595,52 +624,13 @@ namespace BitSorter.View
         }
 
         /// <summary>
-        /// The mouse's buttons this frame: a press on the circuit's window starts a drag that moves the
-        /// circuit with the pointer until the button is let go.
-        /// </summary>
-        /// <remarks>
-        /// Only a press that lands on the window starts one, so the slider dragged down over the
-        /// circuit stays a drag of the slider, and FIT over it stays a click.
-        /// </remarks>
-        private void TakeDrag(Vector2 screenPoint, bool held)
-        {
-            bool pressed = held && !_wasHeld;
-            _wasHeld = held;
-
-            if (!held)
-            {
-                _dragging = false;
-                return;
-            }
-
-            if (pressed)
-            {
-                Keyboard keyboard = UiText.Keyboard;
-                bool alt = keyboard != null && keyboard.altKey.isPressed;
-                _dragging = InView(screenPoint, out _) && !OverFit(screenPoint) && !_controlSample.OverControl && !alt;
-                _dragFrom = screenPoint;
-                return;
-            }
-
-            if (!_dragging || screenPoint == _dragFrom)
-                return;
-
-            InView(_dragFrom, out Vector2 from);
-            InView(screenPoint, out Vector2 to);
-            _dragFrom = screenPoint;
-
-            if (_viewState.Pan((to - from).ToStage()))
-                ApplyView();
-        }
-
-        /// <summary>
         /// Lights the net under the pointer and puts the chip naming it beside the pointer; none while
         /// the circuit is being dragged, or with the pointer off it.
         /// </summary>
         private void Hover(Vector2 screenPoint)
         {
             int net = -1;
-            if (!_dragging && InView(screenPoint, out Vector2 inView) &&
+            if (!_dragging && _editor.InHand == null && InView(screenPoint, out Vector2 inView) &&
                 RectTransformUtility.ScreenPointToLocalPointInRectangle(_schematic, screenPoint, null, out Vector2 local))
             {
                 net = _model.Layout.NetAt(new Vec2(local.x, -local.y), SchematicStyle.HoverReach / _viewState.Zoom);
@@ -695,7 +685,7 @@ namespace BitSorter.View
                 if (overControl)
                     press.Region = WaveRegion.Control;
                 else if (InView(pointer, out _))
-                    press.Region = WaveRegion.Schematic;
+                    press.Region = WaveRegion.Schematic;   // the canvas's own (TakeCanvas): the waveform's gestures pass it by
                 else if (_wave.RegionAt(pointer, out WaveRegion region, out int row, out double time))
                 {
                     press.Region = region;
@@ -708,7 +698,12 @@ namespace BitSorter.View
                 }
 
                 _movedTo = double.NaN;
-                _pointer.Press(press, _commands);
+                if (press.Region != WaveRegion.Schematic)
+                {
+                    if (press.Region != WaveRegion.Control && press.Region != WaveRegion.None)
+                        _canvasFocused = false;   // the waveform was clicked last: Delete is its rows'
+                    _pointer.Press(press, _commands);
+                }
             }
             else if (_pointer.Dragging && mouse.leftButton.isPressed)
             {
@@ -1076,7 +1071,7 @@ namespace BitSorter.View
             if (_model == null || _wave == null)
                 return null;
 
-            string name = WaveExport.FileName(WorkbenchSamples.All[_sample].Name, "png");
+            string name = WaveExport.FileName(WorkbenchSamples.Chip[_sample].Name, "png");
             int step = Mathf.Clamp(Mathf.RoundToInt((float)(_model.Time * 10.0)), 0, _playheadTexts.Length - 1);
             byte[] bytes = WaveformPng.Render(_model, _appliedNames, _appliedHeaders, _list.Names, _wave.View, _playheadTexts[step],
                 _cursors, _playback.Breakpoints);
@@ -1094,7 +1089,7 @@ namespace BitSorter.View
             if (_model == null)
                 return null;
 
-            string name = WaveExport.FileName(WorkbenchSamples.All[_sample].Name, "vcd");
+            string name = WaveExport.FileName(WorkbenchSamples.Chip[_sample].Name, "vcd");
             byte[] bytes = new System.Text.UTF8Encoding(false).GetBytes(WaveExport.Vcd(_model));
             Notice("saved " + name + " " + FileSaver.Save(name, bytes, "text/plain"));
             return name;
@@ -1269,6 +1264,8 @@ namespace BitSorter.View
             {
                 _drawnZoom = _viewState.Zoom;
                 _layers.RefreshSchematic();
+                if (_overlay != null)
+                    _overlay.SetVerticesDirty();
             }
         }
 
@@ -1405,7 +1402,9 @@ namespace BitSorter.View
             Keyboard keyboard = UiText.Keyboard;
             if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame && !OpenedThisFrame && !UiEscape.AnyHolds)
             {
-                Back();
+                // A part in hand, or a drag, is let go of first (Part 10a); only then is the workbench.
+                if (!LetGoOnCanvas())
+                    Back();
                 return;
             }
 
@@ -1431,14 +1430,16 @@ namespace BitSorter.View
                 else
                     TakeScroll(pointer, scroll);
 
+                TakeCanvas(mouse, pointer, keyboard, overControl);
                 TakePointer(mouse, pointer, keyboard, overControl);
                 if (_wave == null)
                     return;
-                TakeDrag(pointer, mouse.leftButton.isPressed || mouse.middleButton.isPressed || mouse.rightButton.isPressed);
+                _dragging = _canvasPointer.Dragging;
                 Hover(pointer);
             }
 
             Light();
+            DrawOverlay();
 
             // The run is made a slice a frame until it is done, and a moment past where it has got waits;
             // an edit's replay is made beside it and takes over once it reaches the moment shown.
@@ -1446,6 +1447,10 @@ namespace BitSorter.View
             if (made == SessionFrame.Switched)
             {
                 SwitchRun();
+            }
+            else if (_session.LayoutVersion != _drawnLayout)
+            {
+                Relaid();
             }
             else if (made == SessionFrame.Grew)
             {
@@ -1466,10 +1471,13 @@ namespace BitSorter.View
                 TimelineGrew();
                 Redraw();
             }
+
+            KeepMyCircuit(now: false);
         }
 
         private void Back()
         {
+            KeepMyCircuit(now: true);
             SetShowing(false);
 
             if (_menu != null)
@@ -1486,6 +1494,8 @@ namespace BitSorter.View
         {
             SchematicPalette palette = SchematicPalette.Current;
 
+            // MY CIRCUIT when there is anything in it; the reference circuit until there is.
+            _sample = MyCircuitHasAnything() ? 0 : 1;
             OpenRun();
 
             Image scrim = UiTheme.Scrim(RootName, _canvas.transform, palette.Ground);
@@ -1506,6 +1516,7 @@ namespace BitSorter.View
             BuildHeader(palette);
             BuildControls(palette);
             BuildTimeline(palette);
+            BuildPartsStrip(palette);
             BuildStage(palette);
 
             Button back = CanvasButton(BackButton, Root, "BACK", out TextMeshProUGUI _, UiType.Body, palette);
@@ -1515,8 +1526,12 @@ namespace BitSorter.View
 
             TextMeshProUGUI help = UiTheme.Label("help", Root, UiTheme.HelpLineType, palette.TextDim, TextAlignmentOptions.Center);
             UiTheme.Anchor(help.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
-                new Vector2(0f, 30f), new Vector2(1300f, UiTheme.HelpLineHeight));
+                new Vector2(0f, 14f), new Vector2(1300f, 2f * UiTheme.HelpLineHeight));
             help.text = HelpLine;
+            help.textWrappingMode = TextWrappingModes.NoWrap;
+            help.enableAutoSizing = true;   // a line that runs long shrinks a little rather than spills past its box
+            help.fontSizeMax = help.fontSize;
+            help.fontSizeMin = UiTheme.SizeOf(UiType.Label);
 
             // Over everything else on the workbench, when it is up.
             _rowMenu = WaveRowMenu.Build(Root, palette, ChooseRadix, RowAction);
@@ -1538,7 +1553,7 @@ namespace BitSorter.View
         /// </summary>
         private void OpenRun()
         {
-            _session = new WorkbenchSession(WorkbenchSamples.All[_sample].Build(), () => UnityEngine.Time.realtimeSinceStartupAsDouble * 1000.0);
+            _session = new WorkbenchSession(_sample == 0 ? MyCircuit() : WorkbenchSamples.Chip[_sample].Build(), () => UnityEngine.Time.realtimeSinceStartupAsDouble * 1000.0);
             _run = _session.Run;
             _model = _run.Model;
             _playback = new Playback(_run, _speed);
@@ -1555,6 +1570,7 @@ namespace BitSorter.View
             _appliedNames = new string[0];
             _appliedHeaders = new bool[0];
             ApplyRows();
+            OpenCanvas();
         }
 
         /// <summary>
@@ -1564,10 +1580,13 @@ namespace BitSorter.View
         /// </summary>
         private void SwitchRun()
         {
+            SchematicLayout.Frame before = _model.Layout.Board;
             _run = _session.Run;
             _model = _run.Model;
             _playback.Switch(_run);
             _list.Resolve(_model.Signals);
+            FollowPorts();
+            KeepInPlace(before);
             _appliedSignals = new int[0];
             ApplyRows();
             _shownEnd = _model.End;
@@ -1699,7 +1718,8 @@ namespace BitSorter.View
             if (Root == null)
                 return;
 
-            int count = WorkbenchSamples.All.Count;
+            KeepMyCircuit(now: true);
+            int count = WorkbenchSamples.Chip.Count;
             _sample = ((sample % count) + count) % count;
 
             _rowMenu.Close();
@@ -1711,8 +1731,9 @@ namespace BitSorter.View
             _setField.Close();
             OpenRun();
             RebuildStage(keepViews: false);
+            BuildPartsStrip(SchematicPalette.Current);
 
-            _description.text = WorkbenchSamples.All[_sample].Says;
+            _description.text = WorkbenchSamples.Chip[_sample].Says;
             _sampleLabel.text = SampleCaption(_sample);
             _slider.maxValue = _model.End;
             FitView();
@@ -1783,13 +1804,13 @@ namespace BitSorter.View
             line.pivot = new Vector2(0f, 1f);
             line.anchoredPosition = new Vector2(0f, -(DescriptionTop - TitleTop));
             line.sizeDelta = new Vector2(0f, 24f);
-            description.text = WorkbenchSamples.All[_sample].Says;
+            description.text = WorkbenchSamples.Chip[_sample].Says;
             _description = description;
 
             // SAMPLE, at the header's right, over the line that describes the sample: short enough to
             // leave that line its room, with its key beside it.
             float sampleWidth = 0f;
-            for (int i = 0; i < WorkbenchSamples.All.Count; i++)
+            for (int i = 0; i < WorkbenchSamples.Chip.Count; i++)
                 sampleWidth = Mathf.Max(sampleWidth, UiTheme.TextWidth(SampleCaption(i), UiType.Body));
 
             Button sample = CanvasButton(SampleButton, _header, SampleCaption(_sample), out _sampleLabel, UiType.Body, palette);
@@ -1954,6 +1975,7 @@ namespace BitSorter.View
             TopLeft(_rings, Vector2.zero, layout.Size.ToUnity());
             _layers.BuildParts(_schematic, layout.Size.ToUnity());
             BuildSchematicLabels(palette);
+            BuildOverlay(layout);
 
             // FIT, in the window's top-right corner, for whenever the circuit is not whole.
             _fit = CanvasButton(FitButton, _view, "FIT", out TextMeshProUGUI _, UiType.Body, palette);
@@ -2238,7 +2260,9 @@ namespace BitSorter.View
         /// </summary>
         private void Fit()
         {
-            var room = new Vector2(Root.rect.width - 4f * UiTheme.Margin, _page.rect.height);
+            // The parts strip stands left of the stage (Part 10a): room is kept for it on both sides, so the stage
+            // stays in the middle and never covers it.
+            var room = new Vector2(Root.rect.width - 4f * UiTheme.Margin - 2f * (PartsWidth + PartsGap), _page.rect.height);
             float scale = StageScale(room, new Vector2(StageWidth, StageHeight));
 
             float overflow = Overflow(room.y, StageHeight, scale);
@@ -2256,6 +2280,7 @@ namespace BitSorter.View
             _header.sizeDelta = new Vector2(StageWidth * scale, _header.sizeDelta.y);
             _controls.sizeDelta = new Vector2(StageWidth * scale, _controls.sizeDelta.y);
             _timeline.sizeDelta = new Vector2(StageWidth * scale, _timeline.sizeDelta.y);
+            PlacePartsStrip();
 
             // The edges' smoothing is a pixel wide, and how many units a pixel is just changed.
             _card.SetVerticesDirty();

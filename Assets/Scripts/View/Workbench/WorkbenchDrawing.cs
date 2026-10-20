@@ -83,6 +83,69 @@ namespace BitSorter.View
         // The card
         // -----------------------------------------------------------------
 
+        // -----------------------------------------------------------------
+        // Editing (Part 10a)
+        // -----------------------------------------------------------------
+
+        /// <summary>How wide a selected part's outline is drawn, and an alignment guide.</summary>
+        public const float SelectedWidth = 1.5f, GuideWidth = 1.5f;
+
+        /// <summary>
+        /// The editing overlay (<see cref="CanvasOverlay"/>): what is selected in the accent -- a part's outline, a
+        /// wire's band under it -- a selection being dragged where it is going, its wires dashed after it, a box
+        /// drawn faintly, the alignment guides in the second cursor's colour, and the part in hand where it would
+        /// land. In colours no value is drawn in, so nothing selected reads as a 0, a 1 or an x.
+        /// </summary>
+        public static void Edit(VectorPainter painter, CanvasOverlay overlay, SchematicPalette palette)
+        {
+            if (overlay == null)
+                return;
+
+            foreach (Vector2[] wire in overlay.SelectedWires)
+                if (wire.Length >= 2)
+                    painter.Stroke(new StageRoute(wire), SchematicStyle.OneWidth + 5f, palette.Over(palette.Accent, 0.45f));
+            foreach (Rect2 part in overlay.Selected)
+                Outlined(painter, part, palette.Accent, SelectedWidth);
+
+            foreach (Vector2[] wire in overlay.GhostWires)
+                if (wire.Length >= 2)
+                    painter.Dashed(new StageRoute(wire), SelectedWidth, palette.Accent, 5f, 4f);
+            foreach (Rect2 part in overlay.Ghosts)
+                Outlined(painter, part, palette.Accent, SelectedWidth);
+            foreach ((Vector2 from, Vector2 to) in overlay.Guides)
+                Guide(painter, from, to, palette.Cursor);
+
+            if (overlay.Box is Rect2 box)
+            {
+                painter.Rect(box.xMin, box.yMin, box.xMax, box.yMax, palette.Over(palette.Accent, 0.12f));
+                Outlined(painter, box, palette.Accent, 1f, corner: 0f);
+            }
+
+            if (overlay.Hand is Rect2 hand)
+                Outlined(painter, hand, palette.Accent, SelectedWidth);
+        }
+
+        /// <summary>
+        /// How far a guide runs on past the two points it joins, and its dots. Drawn whole from pin to pin it was a wire
+        /// on a schematic -- an input to an output straight through the gate between -- so it is dotted, and runs on past
+        /// both, where a wire is whole and stops at its pins.
+        /// </summary>
+        private const float GuideOverrun = 16f, GuideDot = 3f, GuideGap = 4f;
+
+        private static void Guide(VectorPainter painter, Vector2 from, Vector2 to, Color colour)
+        {
+            Vector2 along = to - from;
+            float length = along.magnitude;
+            Vector2 unit = length > 1e-4f ? along / length : new Vector2(1f, 0f);
+            painter.Dashed(new StageRoute(new[] { from - unit * GuideOverrun, to + unit * GuideOverrun }), GuideWidth, colour, GuideDot, GuideGap);
+        }
+
+        private static void Outlined(VectorPainter painter, Rect2 rect, Color colour, float width, float corner = 6f)
+        {
+            VectorPainter.RoundedRect(Shape, rect.xMin, rect.yMin, rect.width, rect.height, corner);
+            painter.Outline(Shape, width, colour);
+        }
+
         public static void Card(VectorPainter painter, Vector2 size, SchematicPalette palette)
         {
             VectorPainter.RoundedRect(Shape, 0.5f, 0.5f, size.x - 1f, size.y - 1f, 12f);

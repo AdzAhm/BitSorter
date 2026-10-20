@@ -850,7 +850,14 @@ failure side.
   a breakpoint there; Part 9b-3), the export menu (VCD or PNG; Part 9b-4), the add list and the three fields -- RENAME,
   BREAK ON VALUE, and SET, which a double-click on a bus or an x asks an input's
   value in -- each hold Escape (`IHoldsEscape`), and the panel closes on Escape
-  only when nothing does. **A double-click is counted on the game's clock**
+  only when nothing does. **The circuit's window is the canvas's** (Part 10a):
+  its presses go to `CanvasPointer`, never to `WavePointer` -- a left drag moves
+  the selection or draws a box, the middle button or Space with a drag pans, so
+  **Space plays and pauses on its release**, and Alt held while dragging or
+  placing places freely. A part in hand, or a drag, takes Escape before the
+  workbench does. The parts strip, a column left of the circuit's window, is
+  temporary, until Part 11.
+  **A double-click is counted on the game's clock**
   (`Time.timeAsDouble`), which a test drives, so a test's double-click is one
   however loaded the machine; nothing in the game changes the time scale.
 - **`UiText` arbitrates the keyboard, as `PointerGate` does the mouse.** Naming a

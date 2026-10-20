@@ -929,7 +929,7 @@ namespace BitSorter.PlayMode.Tests
             yield return Frames(2);
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
-            workbench.ShowSample(1);
+            workbench.ShowSample(2);   // the full adder
             yield return Frames(2);
             workbench.Pause();
 
@@ -966,7 +966,7 @@ namespace BitSorter.PlayMode.Tests
             yield return Frames(2);
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
-            workbench.ShowSample(1);
+            workbench.ShowSample(2);   // the full adder
             yield return Frames(2);
             workbench.Pause();
             workbench.Seek(40.0);
