@@ -19,8 +19,10 @@ namespace BitSorter.PlayMode.Tests
     /// The workbench's canvas edited in the real game (Part 10a), one real gesture each through the fixture's own
     /// mouse and keyboard: a part taken from the strip and placed with a click, dragged on the grid, a box drawn
     /// round two parts, Delete, and Ctrl+Z; MY CIRCUIT kept across reopening; Space still playing and pausing, and
-    /// with a drag panning; Escape putting a part in hand down before it leaves. What each gesture decides is held
-    /// under dotnet (<c>CanvasTests</c>); these hold that the mouse reaches it.
+    /// with a drag panning; Escape putting a part in hand down before it leaves. And wires (Part 10b): a half adder
+    /// built from nothing with the mouse, its inputs flipped on the waveform, and a wire being drawn let go with
+    /// Escape. What each gesture decides is held under dotnet (<c>CanvasTests</c>, <c>WiringTests</c>); these hold
+    /// that the mouse reaches it.
     /// </summary>
     [TestFixture]
     public class WorkbenchCanvasPlayTests : InputTestFixture
@@ -279,6 +281,154 @@ namespace BitSorter.PlayMode.Tests
 
             TMP_Text legend = stage.GetComponentsInChildren<TMP_Text>().First(t => t.text == WorkbenchPanel.LegendText);
             Assert.LessOrEqual(legend.preferredWidth, legend.rectTransform.rect.width + 0.5f, "the legend's sentence runs past its box");
+        }
+
+        /// <summary>Where a part's pin is on the board, as the part stands now.</summary>
+        private static BoardPoint PinOf(WorkbenchPanel workbench, int part, string pin)
+        {
+            Module top = Top(workbench);
+            return PartGeometry.Placed(workbench.Session.Project, top.FindPart(part), top.Layout.PlacementOf(part)).Pins.Single(p => p.Pin == pin).At;
+        }
+
+        /// <summary>A point <paramref name="along"/> of the way along a wire, as it is drawn now.</summary>
+        private static BoardPoint OnWireAt(WorkbenchPanel workbench, int wire, double along)
+        {
+            var points = WireGeometry.Wires(workbench.Session.Project, Top(workbench))[wire];
+            return WireGeometry.PointAt(points, WireGeometry.Length(points) * along);
+        }
+
+        /// <summary>A part taken from the strip and placed with a click at <paramref name="at"/>; its id is the one the click selected.</summary>
+        private IEnumerator Place(WorkbenchPanel workbench, string key, BoardPoint at, System.Collections.Generic.List<int> ids)
+        {
+            Assert.IsTrue(workbench.TakeFromStrip(key), key);
+            yield return ClickAt(workbench, at);
+            Assert.AreEqual(1, workbench.Editor.Selection.Parts.Count, $"the {key} was not placed at {at}: {workbench.Editor.Refusal}");
+            ids.Add(workbench.Editor.Selection.Parts.Single());
+        }
+
+        /// <summary>A row of the waveform by what it is labelled.</summary>
+        private static int Row(WorkbenchPanel workbench, string label)
+        {
+            WaveList list = workbench.List;
+            return Enumerable.Range(0, list.Lines.Count).Single(i => list.LabelOf(list.Lines[i]) == label);
+        }
+
+        /// <summary>What a row shows at <paramref name="time"/>, in binary.</summary>
+        private static string ValueOf(WorkbenchPanel workbench, string label, double time)
+        {
+            SignalTrack track = workbench.Model.RowTrack(Row(workbench, label));
+            int index = track.IndexAt(time);
+            return index < 0 ? "none" : track[index].Value.Format(BitSorter.SystemVerilog.Radix.Binary);
+        }
+
+        /// <summary>Two clicks at a point of the screen, as close together as a double-click.</summary>
+        private IEnumerator DoubleClick(Vector2 point)
+        {
+            Move(_mouse.position, point);
+            yield return null;
+            for (int click = 0; click < 2; click++)
+            {
+                Press(_mouse.leftButton);
+                yield return null;
+                Release(_mouse.leftButton);
+                yield return null;
+            }
+
+            yield return null;
+        }
+
+        /// <summary>
+        /// The plan's exit for Part 10b: a half adder built from nothing with the fixture's own mouse -- two inputs, an
+        /// XOR and an AND, two outputs, wired by dragging pin to pin, the AND's inputs dragged onto the XOR's wires as
+        /// taps -- then its inputs flipped by double-clicks on the waveform, and its sum and carry read there.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator AHalfAdder_BuiltFromNothingWithTheMouse_AddsOnTheWaveform()
+        {
+            yield return TestScene.Load();
+            yield return OpenMyCircuit();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.Pause();
+
+            var ids = new System.Collections.Generic.List<int>();
+            yield return Place(workbench, "input", new BoardPoint(1, -1), ids);
+            yield return Place(workbench, "input", new BoardPoint(1, -4), ids);
+            yield return Place(workbench, "xor", new BoardPoint(5, -1), ids);
+            yield return Place(workbench, "and", new BoardPoint(5, -4), ids);
+            yield return Place(workbench, "output", new BoardPoint(9, -1), ids);
+            yield return Place(workbench, "output", new BoardPoint(9, -4), ids);
+            int a = ids[0], b = ids[1], xor = ids[2], and = ids[3], sum = ids[4], carry = ids[5];
+
+            // Pin to pin, a drag each.
+            foreach ((int from, string fromPin, int to, string toPin) in new[] { (a, "out", xor, "a"), (b, "out", xor, "b"), (xor, "y", sum, "in"), (and, "y", carry, "in") })
+            {
+                int before = Top(workbench).Wires.Count;
+                yield return Drag(workbench, PinOf(workbench, from, fromPin), PinOf(workbench, to, toPin));
+                Assert.AreEqual(before + 1, Top(workbench).Wires.Count, $"no wire from {from}.{fromPin} to {to}.{toPin}: {workbench.Editor.Refusal}");
+                Assert.IsFalse(workbench.Editor.Drafting, "made, and nothing left being drawn");
+            }
+
+            // The AND's inputs onto the XOR's: a tap each, where the drag let go.
+            int aToXor = Top(workbench).Wires.Single(w => !w.From.IsTap && w.From.Pin.Part == a && !w.To.IsTap).Id;
+            int bToXor = Top(workbench).Wires.Single(w => !w.From.IsTap && w.From.Pin.Part == b && !w.To.IsTap).Id;
+            foreach ((string pin, int wire) in new[] { ("a", aToXor), ("b", bToXor) })
+            {
+                yield return Drag(workbench, PinOf(workbench, and, pin), OnWireAt(workbench, wire, 0.3));
+                Assert.IsTrue(Top(workbench).Wires.Any(w => w.To.IsTap && w.To.TapOf == wire && w.From.Pin.Part == and && w.From.Pin.Pin == pin),
+                    $"the AND's {pin} did not tap wire {wire}: {workbench.Editor.Refusal}");
+            }
+
+            Assert.AreEqual(6, Top(workbench).Wires.Count);
+            Assert.IsEmpty(workbench.Session.Editor.Diagnostics.Where(d => d.IsError), "a half adder with no errors");
+
+            // Flipped on the waveform: a, then b, each a double-click on its row.
+            string nameA = Top(workbench).FindPart(a).Name, nameB = Top(workbench).FindPart(b).Name;
+            string nameS = Top(workbench).FindPart(sum).Name, nameC = Top(workbench).FindPart(carry).Name;
+            workbench.Session.Finish();
+            yield return null;
+            workbench.Seek(60.0);
+            yield return null;
+            Assert.AreEqual(("0", "0"), (ValueOf(workbench, nameS, 50), ValueOf(workbench, nameC, 50)), "0 + 0");
+
+            yield return DoubleClick(workbench.WaveScreenPointOf(30.0, Row(workbench, nameA)));
+            workbench.Session.Finish();
+            yield return null;
+            Assert.AreEqual("1", ValueOf(workbench, nameA, 50), "a flipped");
+            Assert.AreEqual(("1", "0"), (ValueOf(workbench, nameS, 50), ValueOf(workbench, nameC, 50)), "1 + 0");
+
+            yield return DoubleClick(workbench.WaveScreenPointOf(30.0, Row(workbench, nameB)));
+            workbench.Session.Finish();
+            yield return null;
+            Assert.AreEqual(("0", "1"), (ValueOf(workbench, nameS, 50), ValueOf(workbench, nameC, 50)), "1 + 1: sum 0, carry 1");
+        }
+
+        /// <summary>A wire started with a click on a pin is drawn after the pointer, says why it may not end on another output, and Escape lets it go before the workbench.</summary>
+        [UnityTest]
+        public IEnumerator AWireStartedWithAClick_FollowsThePointer_AndEscapeLetsItGo_BeforeTheWorkbench()
+        {
+            yield return TestScene.Load();
+            yield return OpenMyCircuit();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            var ids = new System.Collections.Generic.List<int>();
+            yield return Place(workbench, "not", new BoardPoint(4, -2), ids);
+            yield return Place(workbench, "not", new BoardPoint(4, -5), ids);
+
+            yield return ClickAt(workbench, PinOf(workbench, ids[0], "y"));
+            Assert.IsTrue(workbench.Editor.Drafting, "a click on a pin starts a wire");
+            yield return PointAt(workbench, new BoardPoint(7, -3));
+            yield return null;
+            Assert.IsNotNull(workbench.Overlay.Draft, "drawn after the pointer");
+            Assert.IsNull(workbench.HoverSays, "over nothing, the chip is down");
+
+            yield return PointAt(workbench, PinOf(workbench, ids[1], "y"));
+            yield return null;
+            Assert.IsTrue(workbench.Overlay.DraftRefused, "an output onto an output is drawn as an end it cannot take");
+            StringAssert.Contains("both drive one wire", workbench.HoverSays, "and the chip says why, before the click");
+
+            yield return Tap(_keyboard.escapeKey);
+            Assert.IsFalse(workbench.Editor.Drafting, "Escape let the wire go");
+            Assert.IsTrue(workbench.IsOpen, "and only that");
+            Assert.IsEmpty(Top(workbench).Wires, "making nothing");
         }
 
         private static Rect WorldRect(RectTransform rect)

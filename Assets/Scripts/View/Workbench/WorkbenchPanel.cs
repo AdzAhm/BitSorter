@@ -132,7 +132,7 @@ namespace BitSorter.View
         /// 10a's editing made it twice the width of its box, and it ran from one edge of the screen to the other.
         /// </summary>
         public const string HelpLine =
-            "circuit:  pick a part on the left, click to place it  ·  drag to move or select  ·  middle- or space-drag to pan  ·  Q turn  ·  V mirror  ·  Del remove\n" +
+            "circuit:  pick a part on the left, click to place it  ·  drag from a pin to wire  ·  drag to move or select  ·  middle-drag to pan  ·  Q turn  ·  V mirror  ·  Del remove\n" +
             "waves:  scroll to zoom  ·  click to seek  ·  shift-click a second cursor  ·  right-click a row or the waves  ·  alt-click a wire to add it";
 
         /// <summary>
@@ -331,6 +331,10 @@ namespace BitSorter.View
         private Image _hoverChip;
         private TextMeshProUGUI _hoverLabel;
         private int _hovered = -1;
+
+        /// <summary>What the hover chip says now; null while it is down.</summary>
+        private string _hoverSays;
+
         /// <summary>Whether the canvas is being dragged: its hover chip stays down meanwhile.</summary>
         private bool _dragging;
         private TextMeshProUGUI _timeLabel, _chipLabel, _playLabel, _description, _sampleLabel, _speedLabel;
@@ -390,6 +394,9 @@ namespace BitSorter.View
 
         /// <summary>The net the pointer is on, or -1.</summary>
         public int HoveredNet => _hovered;
+
+        /// <summary>What the hover chip says now -- a net's name, or why the wire being drawn may not end where the pointer is; null while it is down.</summary>
+        public string HoverSays => _hoverSays;
 
         /// <summary>What the chip beside the pointer says, or null when it is not up.</summary>
         public string HoverText => _hoverChip != null && _hoverChip.gameObject.activeSelf ? _hoverLabel.text : null;
@@ -629,17 +636,24 @@ namespace BitSorter.View
 
         /// <summary>
         /// Lights the net under the pointer and puts the chip naming it beside the pointer; none while
-        /// the circuit is being dragged, or with the pointer off it.
+        /// the circuit is being dragged or a part is in hand, or with the pointer off it. While a wire is
+        /// being drawn (Part 10b) the pointer is on a wire to end there, not to read it: nothing is lit, and the
+        /// chip says only why the document would refuse the end it is on, before the click that would be refused.
         /// </summary>
         private void Hover(Vector2 screenPoint)
         {
             int net = -1;
-            if (!_dragging && _editor.InHand == null && InView(screenPoint, out Vector2 inView) &&
+            string refused = null;
+            bool drafting = _editor.Drafting;
+            if ((!_dragging || drafting) && _editor.InHand == null && InView(screenPoint, out Vector2 inView) &&
                 RectTransformUtility.ScreenPointToLocalPointInRectangle(_schematic, screenPoint, null, out Vector2 local))
             {
-                net = _model.Layout.NetAt(new Vec2(local.x, -local.y), SchematicStyle.HoverReach / _viewState.Zoom);
+                if (drafting)
+                    refused = _editor.DraftRefusal;
+                else
+                    net = _model.Layout.NetAt(new Vec2(local.x, -local.y), SchematicStyle.HoverReach / _viewState.Zoom);
 
-                if (net >= 0)
+                if (net >= 0 || refused != null)
                 {
                     // Below and right of the pointer, kept inside the window.
                     RectTransform chip = _hoverChip.rectTransform;
@@ -648,14 +662,16 @@ namespace BitSorter.View
                 }
             }
 
-            if (net == _hovered)
+            string says = refused ?? (net >= 0 ? _model.Layout.Nets[net].Says : null);
+            if (net == _hovered && says == _hoverSays)
                 return;
 
             _hovered = net;
-            Show(_hoverChip, net >= 0);
-            if (net >= 0)
+            _hoverSays = says;
+            Show(_hoverChip, says != null);
+            if (says != null)
             {
-                _hoverLabel.text = _model.Layout.Nets[net].Says;
+                _hoverLabel.text = says;
                 _hoverChip.rectTransform.sizeDelta = new Vector2(_hoverLabel.preferredWidth + 20f, 26f);
             }
         }
@@ -1767,6 +1783,7 @@ namespace BitSorter.View
             _digits.Clear();
             _swallowedLabels.Clear();
             _hovered = -1;
+            _hoverSays = null;
             _lit = -1;
             _bandsVersion = -1;
             _dragging = false;

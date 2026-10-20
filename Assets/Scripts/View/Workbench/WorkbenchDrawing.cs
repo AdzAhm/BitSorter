@@ -123,7 +123,24 @@ namespace BitSorter.View
 
             if (overlay.Hand is Rect2 hand)
                 Outlined(painter, hand, palette.Accent, SelectedWidth);
+
+            // A wire being drawn (Part 10b): where it would run, a ring on its start, and one on the end it would take --
+            // crossed through, and in x's colour, on one the document would refuse, so the shape says it as well.
+            if (overlay.Draft != null && overlay.Draft.Length >= 2)
+                painter.Stroke(new StageRoute(overlay.Draft), DraftWidth, palette.Accent);
+            if (overlay.DraftStart is Vector2 start)
+                painter.Ring(start, EndRing, SelectedWidth, palette.Accent);
+            if (overlay.DraftEnd is Vector2 end)
+            {
+                Color colour = overlay.DraftRefused ? palette.Unknown : palette.Accent;
+                painter.Ring(end, EndRing + 2f, SelectedWidth + 0.5f, colour);
+                if (overlay.DraftRefused)
+                    painter.Cross(end, EndRing - 1f, SelectedWidth, colour);
+            }
         }
+
+        /// <summary>How wide a wire being drawn is, and how big the rings on its ends are.</summary>
+        private const float DraftWidth = 3f, EndRing = 6f;
 
         /// <summary>
         /// How far a guide runs on past the two points it joins, and its dots. Drawn whole from pin to pin it was a wire

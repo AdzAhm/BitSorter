@@ -1319,6 +1319,51 @@ on an input's row, undo and redo -- is 9b-3b-2.
   - Reference shots 1 to 26 identical to the pixel; 27 to 32 moved by the strip and the footer's second line;
     33 is new: MY CIRCUIT with two gates selected and dragged three cells, ghosts and dotted guides drawn.
 
+**As built in Part 10b-1**: drawing wires. 10b is in two, as 9b-2b was: 10b-1 draws wires, and 10b-2 reshapes
+them -- a selected wire's piece or corner dragged.
+
+- **The gestures** (`CanvasPointer`):
+  - a press on a pin starts a wire, and a drag draws it out: let go on a pin or a wire, it ends there; let go
+    anywhere else, it bends there and goes on
+  - a click on a pin starts one too, and then every click on nothing bends it and a click on a pin or a wire
+    ends it; the right button, or Escape, lets it go, making nothing
+  - Shift or Ctrl on a pin picks its part, as on its body
+  - a drag out of a wire draws a new wire tapping it where the drag began; a click on a wire selects it, now on
+    release, since a drag is something else. The plan had Shift and a press on a wire start a tap; Shift stays
+    "add to the selection" everywhere instead
+- **What is shown is what is made.** `WireDraft` keeps only the bends clicked, and the wire being drawn is
+  routed through `WireGeometry.Through` -- or, with none, the automatic route -- as a finished wire is. A wire
+  with no bends clicked keeps no route at all, and follows its parts wherever they go.
+- **Taps.** A wire ending on a wire taps it there, the junction put on the quarter grid along the piece it is on
+  (`WireDraft.TapPoint`) and kept as the wire's `Route.TapAt`. A wire drawn out of a wire ends on a pin --
+  `Route` has one `TapAt`, so a wire cannot tap at both ends -- and one let go back on the wire it came out of
+  bends there instead. **A tap off an upright piece leaves across**, towards the next point along its own wire
+  (`WireGeometry.TapFacing`): leaving up or down, as every tap did, it ran along the very wire it tapped and the
+  two were drawn as one. Off a piece that runs across it leaves up or down as before, so no sample moved.
+- **The document's refusal is the word.** What the pointer is on is tried on a copy of the document's editor,
+  once each time it moves onto something new. An end it would refuse is ringed in x's colour and crossed -- the
+  shape says it as well as the colour -- and the hover chip says why before the click; the click says it as a
+  refusal and leaves the wire being drawn. While a wire is drawn, nothing else is lit on hover. A wire between
+  two widths is now refused with what would join them: a splitter, or a joiner.
+- **Bends stay square.** A piece of a wire that has gone aslant -- a part moved after the wire's bends were made,
+  and its pin with it -- is drawn with right angles, out of the pin the way it faces and round, as an automatic
+  route is (`WireGeometry.Through`). A piece that runs straight is drawn as it always was, so no sample moved,
+  and `WireGeometry.Tidy` drops a point a wire runs past and straight back from.
+- **Checked.** `WiringTests` (10) under dotnet: every gesture from a scripted list of pointer events; a wire pin
+  to pin made in one step, automatically routed, replayed and selected; a bend kept and made as shown, and square
+  after a move; a tap on the grid joining its net; a refused end shown, said and still being drawn; a wire out
+  of a wire; a wire let go when a part is taken or an undo takes its start away; and **the half adder drawn
+  from scratch and run through all four combinations**. Under Board.Tests, `GeometryTests` for the bends and
+  the taps, and `BoardEditorTests` for the splitter. In Play Mode (`WorkbenchCanvasPlayTests`):
+  - **the plan's exit:** a half adder built from nothing with the fixture's own mouse -- placed from the strip,
+    wired by dragging pin to pin, the AND's inputs dragged onto the XOR's wires as taps -- its inputs flipped by
+    double-clicks on the waveform, and its sum and carry read there
+  - a wire started with a click, drawn after the pointer, refused onto another output with the chip saying why,
+    and let go with Escape before the workbench takes it
+  - Reference shots 1 to 26 identical; 27 to 33 differ by the help line's first line (and 33 by MY CIRCUIT's
+    words); 34 is new: MY CIRCUIT's half adder half wired, a tap's junction dot, and the AND's second input
+    being drawn onto b's wire, the junction it would make ringed.
+
 ---
 
 ## 11. The parts
@@ -1337,7 +1382,7 @@ Each part is one pull request into `v5`, ends with every suite green, and leaves
 | 7 | The board document: compile, print, undo, and migration of every 4.x board |
 | 8 | The canvas on the real document, still and moving layers drawn apart, and the looks with a Settings switch |
 | 9 | The waveform and run controls; the workbench's view-model in a Unity-free layer of its own |
-| 10 | Editing on the free canvas -- in four: 10a placement and selection **built** (see "As built in Part 10a"); 10b wiring, 10c the inspector, 10d copy, align and the minimap to come |
+| 10 | Editing on the free canvas -- in four: 10a placement and selection **built** (see "As built in Part 10a"); 10b wiring, its drawing **built** (10b-1) and reshaping to come (10b-2); 10c the inspector, 10d copy, align and the minimap to come |
 | 11 | The workbench shell, in UI Toolkit: toolbar, panels, transcript |
 | 12 | Hierarchy, and written blocks, edited in CodeMirror in a browser |
 | 13 | Export and import (and a levelized path in the engine, only if a measurement asks for it) |

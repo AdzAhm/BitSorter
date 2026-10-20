@@ -60,7 +60,7 @@ namespace BitSorter.ViewModel
         /// first time, and whatever was built in it after that, kept in the save under <see cref="MyCircuitKey"/>.
         /// </summary>
         public static readonly (string Name, string Says, Func<Project> Build) MyCircuit =
-            ("My circuit", "Your own circuit, kept for next time: pick a part on the left and click to place it; drag to move it or to select, middle-drag to pan.", Blank);
+            ("My circuit", "Your own circuit, kept for next time: pick a part on the left and click to place it, then drag from a pin to wire it.", Blank);
 
         /// <summary>What MY CIRCUIT is kept under in the save's 5.0 documents.</summary>
         public const string MyCircuitKey = "workbench";

@@ -1031,6 +1031,81 @@ namespace BitSorter.PlayMode.Tests
             yield return Capture("33-workbench-editing");
         }
 
+        /// <summary>
+        /// MY CIRCUIT's half adder half wired (Part 10b), a at 1 and b at 0, at 40: a and b into the XOR, its sum and the AND's carry out, a tapped
+        /// off the XOR's wire into the AND with a junction dot -- and the AND's second input being drawn to b's wire, the
+        /// pointer on it, the junction it would make ringed.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator Shot34_WorkbenchWiring()
+        {
+            yield return LoadTheGame();
+            yield return Frames(2);
+
+            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            yield return Frames(2);
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowSample(0);   // MY CIRCUIT, blank under SaveGuard
+            yield return Frames(2);
+            workbench.Pause();
+
+            WorkbenchSession session = workbench.Session;
+            int Place(string key, double x, double y)
+            {
+                BitSorter.Board.EditResult placed = session.Place(PartsCatalog.Find(session.Project, session.Module, key), new BitSorter.Board.Placement(x, y));
+                Assert.IsTrue(placed.Done, placed.Refusal);
+                return placed.Id;
+            }
+
+            int Wire(BitSorter.Board.Endpoint from, BitSorter.Board.Endpoint to, BitSorter.Board.Route route = null)
+            {
+                BitSorter.Board.EditResult made = session.Connect(from, to, route);
+                Assert.IsTrue(made.Done, made.Refusal);
+                return made.Id;
+            }
+
+            BitSorter.Board.Endpoint Pin(int part, string pin) => BitSorter.Board.Endpoint.At(part, pin);
+
+            int a = Place("input", 1, -1);
+            int b = Place("input", 1, -4);
+            int xor = Place("xor", 5, -1);
+            int and = Place("and", 5, -4);
+            int s = Place("output", 9, -1);
+            int c = Place("output", 9, -4);
+            int aToXor = Wire(Pin(a, "out"), Pin(xor, "a"));
+            int bToXor = Wire(Pin(b, "out"), Pin(xor, "b"));
+            Wire(Pin(xor, "y"), Pin(s, "in"));
+            Wire(Pin(and, "y"), Pin(c, "in"));
+            Wire(Pin(and, "a"), BitSorter.Board.Endpoint.OnWire(aToXor), new BitSorter.Board.Route { TapAt = 0.25 });
+
+            // a goes to 1 at 10, so the sum is 1 on screen and the carry 0.
+            string nameA = session.Project.TopModule.FindPart(a).Name;
+            Assert.IsTrue(session.SetInput(nameA, 10, long.MaxValue, BitSorter.SystemVerilog.LogicVec.FromUInt64(1, 1)).Done);
+            session.Finish();
+            yield return Frames(4);
+
+            // The AND's b being drawn: started on its pin, the pointer half-way along b's wire, clear of the crossing below.
+            CanvasEditor editor = workbench.Editor;
+            BitSorter.Board.Module top = session.Project.TopModule;
+            BitSorter.Board.Point andB = BitSorter.Board.PartGeometry.Placed(session.Project, top.FindPart(and), top.Layout.PlacementOf(and)).Pins.Single(p => p.Pin == "b").At;
+            editor.Do(new CanvasCommand(CanvasGesture.BeginWire, andB, target: new CanvasTarget(CanvasTargetKind.Pin, part: and, pin: "b")));
+            var route = BitSorter.Board.WireGeometry.Wires(session.Project, top)[bToXor];
+            BitSorter.Board.Point onB = BitSorter.Board.WireGeometry.PointAt(route, BitSorter.Board.WireGeometry.Length(route) * 0.5);
+
+            Mouse mouse = InputSystem.GetDevice<Mouse>();
+            mouse.MakeCurrent();
+            Set(mouse.position, workbench.ScreenPointOf(onB));
+            workbench.Seek(40.0);
+            yield return Frames(30);
+
+            Assert.IsTrue(editor.Drafting, "sanity: the AND's b is being drawn");
+            Assert.IsTrue(workbench.Overlay.DraftEnd.HasValue, "sanity: and the pointer is on b's wire, which it would tap");
+            Assert.IsFalse(workbench.Overlay.DraftRefused);
+
+            yield return Capture("34-workbench-wiring");
+        }
+
         private static IEnumerator OpensOnItsCircuit(string level, string fixture, string shot)
         {
             yield return LoadTheGame();
