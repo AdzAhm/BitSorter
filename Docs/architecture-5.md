@@ -1311,6 +1311,9 @@ on an input's row, undo and redo -- is 9b-3b-2.
   - MY CIRCUIT kept through another sample and through leaving the workbench
   - Space alone playing and pausing, and with a drag panning instead
   - Escape putting the part in hand down before it leaves
+  - and, in `WorkbenchPlayTests`, a replay made whole outside a frame -- by `Finish`, as a capture or a test
+    does -- is still the run the panel shows. Since 9b-3 the panel switched only when a frame said so, so a
+    capture that finished an edit drew the run from before it.
 
 ---
 

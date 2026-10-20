@@ -1444,8 +1444,10 @@ namespace BitSorter.View
             // The run is made a slice a frame until it is done, and a moment past where it has got waits;
             // an edit's replay is made beside it and takes over once it reaches the moment shown.
             SessionFrame made = _session.Frame(_model.Time);
-            if (made == SessionFrame.Switched)
+            if (made == SessionFrame.Switched || _session.Run != _run)
             {
+                // A replay that took over in a frame, or outside one: Finish, as a capture or a test makes the
+                // whole of a run, lets it take over without a frame saying so.
                 SwitchRun();
             }
             else if (_session.LayoutVersion != _drawnLayout)
