@@ -223,6 +223,13 @@ namespace BitSorter.ViewModel
             Model.Seek(Math.Min(at, Made));
         }
 
+        /// <summary>
+        /// The same run, shown round another drawing (<see cref="RunSession.Relayout"/>, Part 10a): what was read
+        /// off the model it had is read off the new one, and nothing else changes -- not the moment, the speed,
+        /// whether it is playing or why it last paused.
+        /// </summary>
+        public void Refresh() => _trackOf = Model.TrackOf;
+
         /// <summary>Back to the start, playing.</summary>
         public void Restart()
         {

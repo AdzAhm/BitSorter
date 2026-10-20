@@ -49,7 +49,22 @@ namespace BitSorter.ViewModel
         private static bool Made(RunSlicer slicer, long end) =>
             slicer.Done && (slicer.Ended != RunStatus.Suspended || slicer.Reached >= end);
 
-        public WorkbenchModel Model { get; }
+        /// <summary>What shows the run: made again round a new drawing by <see cref="Relayout"/>, the run going on underneath.</summary>
+        public WorkbenchModel Model { get; private set; }
+
+        /// <summary>
+        /// The run shown round another drawing (Part 10a): an edit that moved a part, or one whose replay is still
+        /// being made, is drawn at once over the run there is. The simulation is the same one, read again from
+        /// the start of its history, and the moment and the speed stay. A net the drawing has and the run does not
+        /// -- a gate just placed -- shows no value until the replay takes over.
+        /// </summary>
+        public void Relayout(SchematicLayout layout)
+        {
+            WorkbenchModel old = Model;
+            var model = new WorkbenchModel(old.Session, layout, old.End, Made(Slicer, old.End)) { UnitsPerSecond = old.UnitsPerSecond };
+            model.Seek(old.Time);
+            Model = model;
+        }
 
         public RunSlicer Slicer { get; }
 
