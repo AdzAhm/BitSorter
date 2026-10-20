@@ -1298,7 +1298,9 @@ on an input's row, undo and redo -- is 9b-3b-2.
 - **The window is sized when a document opens.** The circuit's window keeps its size through every edit. The
   view takes back the shift of the drawing's corner (`SchematicView.Relayout`), so nothing moves on screen, and
   the fit shrinks the whole drawing once it has outgrown the window. An empty circuit opens in a window
-  720 by 360.
+  860 by 360, on the narrowest stage there is, 900 wide. That is the waveform's width, not the circuit's: it
+  was 760, from before the row of buttons gained EXPORT and the legend its second sentence, and MY CIRCUIT
+  blank, the first stage that narrow, ran both past the card's edge (a Play Mode test now holds them on it).
 - **MY CIRCUIT is kept** (Ahmad's choice): the first entry of the SAMPLE chip, a blank document the first time.
   - It is saved in the save's 5.0 documents under `workbench`, half a second after its last edit by real time,
     and on leaving it or the workbench.

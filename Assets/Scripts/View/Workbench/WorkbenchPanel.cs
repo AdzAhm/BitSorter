@@ -150,8 +150,12 @@ namespace BitSorter.View
         // The stage: the card holding the schematic and the waveform, in its own units
         // -----------------------------------------------------------------
 
-        /// <summary>The narrowest the stage is, and where the schematic sits on it.</summary>
-        public const float MinStageWidth = 760f;
+        /// <summary>
+        /// The narrowest the stage is, and where the schematic sits on it. The narrowest is the waveform's: its row of
+        /// buttons is some 850 wide since EXPORT (9b-4), and the legend's words end near 870, so 760 ran both past
+        /// the card's edge on MY CIRCUIT blank, the first stage that narrow (Part 10a). A Play Mode test holds it.
+        /// </summary>
+        public const float MinStageWidth = 900f;
 
         /// <inheritdoc cref="MinStageWidth"/>
         public static readonly Vector2 SchematicAt = new Vector2(20f, 14f);
