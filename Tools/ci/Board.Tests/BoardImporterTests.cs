@@ -116,6 +116,21 @@ namespace BitSorter.Board.Tests
         }
 
         [Test]
+        public void AModuleThatUsesAnInterface_IsRefused_ForWrittenCode()
+        {
+            SyntaxTree tree = SyntaxReader.ReadText(
+                "interface bus_if;\n    logic a, y;\n    modport side (input a, output y);\nendinterface\n" +
+                "module flip (bus_if.side bus);\n    assign bus.y = ~bus.a;\nendmodule\n" +
+                "module top;\n    bus_if b ();\n    flip f (.bus(b));\nendmodule\n", "bus.sv");
+
+            ImportResult imported = BoardImporter.Import(tree, "top");
+
+            Assert.IsFalse(imported.Succeeded);
+            Assert.IsTrue(imported.Problems.Any(p => p.Contains("flip: bus is an interface port") && p.Contains("Part 12")), string.Join("\n", imported.Problems));
+            Assert.IsTrue(imported.Problems.Any(p => p.Contains("top: it makes an instance of the interface bus_if")), string.Join("\n", imported.Problems));
+        }
+
+        [Test]
         public void TheCoursesBinaryNand_ComesInAsANandGate()
         {
             // The course's first workshop: assign Z = X ~& Y. Not the standard's; read with a warning.

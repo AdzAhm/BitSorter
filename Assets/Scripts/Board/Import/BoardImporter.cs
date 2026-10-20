@@ -66,9 +66,14 @@ namespace BitSorter.Board
 
             Visit(topModule, 0);
 
+            // An interface (Part L8) is no part a board draws; a module that uses one comes in as written code.
+            var interfaces = new HashSet<string>(StringComparer.Ordinal);
+            foreach (ModuleDeclaration declared in tree.Interfaces)
+                interfaces.Add(declared.Name);
+
             var editor = new BoardEditor(new Project { Name = top, Top = top });
             foreach (ModuleDeclaration module in order)
-                new ModuleReader(editor, module, modules, problems).Read();
+                new ModuleReader(editor, module, modules, interfaces, problems).Read();
 
             // A `timescale of one whole unit is the project's unit, as printing one wrote it. One in tens
             // of a unit (10ns/1ns) has none a project can count in, and the delays are read as written.
@@ -115,6 +120,7 @@ namespace BitSorter.Board
             private readonly BoardEditor _editor;
             private readonly ModuleDeclaration _source;
             private readonly Dictionary<string, ModuleDeclaration> _modules;
+            private readonly HashSet<string> _interfaces;
             private readonly List<string> _problems;
             private readonly string _name;
 
@@ -133,11 +139,12 @@ namespace BitSorter.Board
                 public readonly List<Endpoint> Pins = new List<Endpoint>();
             }
 
-            public ModuleReader(BoardEditor editor, ModuleDeclaration source, Dictionary<string, ModuleDeclaration> modules, List<string> problems)
+            public ModuleReader(BoardEditor editor, ModuleDeclaration source, Dictionary<string, ModuleDeclaration> modules, HashSet<string> interfaces, List<string> problems)
             {
                 _editor = editor;
                 _source = source;
                 _modules = modules;
+                _interfaces = interfaces;
                 _problems = problems;
                 _name = source.Name;
             }
@@ -202,6 +209,12 @@ namespace BitSorter.Board
 
             private void Port(PortDeclaration port)
             {
+                if (port.Interface != null && (port.Modport != null || port.Interface == "interface" || _interfaces.Contains(port.Interface)))
+                {
+                    Problem(port, $"{port.Name} is an interface port; a module that uses an interface comes in as written code (Part 12).");
+                    return;
+                }
+
                 if (port.Direction == PortDirection.Inout)
                 {
                     Problem(port, $"{port.Name} is an inout; two-way ports arrive with tri-state (Part 14).");
@@ -353,6 +366,12 @@ namespace BitSorter.Board
                 if (CellKind(instantiation.Module, out GateKind kind, out int inputs))
                 {
                     Cells(instantiation, kind, inputs);
+                    return;
+                }
+
+                if (_interfaces.Contains(instantiation.Module) && !_modules.ContainsKey(instantiation.Module))
+                {
+                    Problem(instantiation, $"it makes an instance of the interface {instantiation.Module}; a module that uses an interface comes in as written code (Part 12).");
                     return;
                 }
 
