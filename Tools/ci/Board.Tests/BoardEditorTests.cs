@@ -304,6 +304,25 @@ namespace BitSorter.Board.Tests
         }
 
         [Test]
+        public void AnInputTakenAway_TakesWhatTheStimulusGaveIt()
+        {
+            var b = new Bench();
+            int a = b.Input("a"), clk = b.Input("clk"), keep = b.Input("k");
+            Bench.Must(b.Editor.SetStimulus(new Stimulus
+            {
+                Tracks = new[] { new Track { Port = "a", Steps = new[] { new Step(0, LogicVec.FromUInt64(1, 1)) } }, new Track { Port = "k" } },
+                Clocks = new[] { new ClockTrack { Port = "clk", Period = 4 } },
+            }));
+
+            Bench.Must(b.Editor.Remove(b.Module, a));
+            CollectionAssert.AreEqual(new[] { "k" }, b.Project.Stimulus.Tracks.Select(t => t.Port), "a's track goes with it, and was no refusal");
+
+            Bench.Must(b.Editor.RemoveParts(b.Module, new[] { clk }));
+            Assert.IsEmpty(b.Project.Stimulus.Clocks, "and a clock's with the clock");
+            Assert.IsNotNull(b.Current.FindPart(keep));
+        }
+
+        [Test]
         public void AGroup_IsOneStep_AndARefusalInsideItTakesBackEveryEditItMade()
         {
             var b = new Bench();

@@ -110,7 +110,10 @@ namespace BitSorter.Board
             return Commit(Project.WithModule(next), id);
         }
 
-        /// <summary>Takes a part away, and every wire on it, and every wire that tapped those.</summary>
+        /// <summary>
+        /// Takes a part away, and every wire on it, and every wire that tapped those -- and, for an input of the
+        /// top module, what the stimulus gave it, as renaming one renames its stimulus.
+        /// </summary>
         public EditResult Remove(string module, int part)
         {
             if (!TryPart(module, part, out Module m, out _, out EditResult refused))
@@ -128,7 +131,7 @@ namespace BitSorter.Board
                 Layout = unwired.Layout.WithoutPart(part),
             };
 
-            return Commit(Project.WithModule(next));
+            return Commit(WithoutStimulusOf(Project.WithModule(next), m, new HashSet<int> { part }));
         }
 
         /// <summary>
@@ -169,7 +172,34 @@ namespace BitSorter.Board
             foreach (int part in partsGone)
                 layout = layout.WithoutPart(part);
 
-            return Commit(Project.WithModule(unwired with { Parts = Without(unwired.Parts, p => partsGone.Contains(p.Id)), Layout = layout }));
+            Project next = Project.WithModule(unwired with { Parts = Without(unwired.Parts, p => partsGone.Contains(p.Id)), Layout = layout });
+            return Commit(WithoutStimulusOf(next, m, partsGone));
+        }
+
+        /// <summary>The project without what its stimulus gave the top module's inputs among <paramref name="parts"/> of <paramref name="module"/>.</summary>
+        private static Project WithoutStimulusOf(Project project, Module module, HashSet<int> parts)
+        {
+            Stimulus stimulus = project.Stimulus;
+            if (stimulus == null || project.Top != module.Name)
+                return project;
+
+            var ports = new HashSet<string>(StringComparer.Ordinal);
+            foreach (int id in parts)
+                if (module.FindPart(id) is PortPart port && port.Direction == PortDirection.Input)
+                    ports.Add(port.Name);
+            if (ports.Count == 0)
+                return project;
+
+            var tracks = new List<Track>();
+            foreach (Track track in stimulus.Tracks)
+                if (!ports.Contains(track.Port))
+                    tracks.Add(track);
+            var clocks = new List<ClockTrack>();
+            foreach (ClockTrack clock in stimulus.Clocks)
+                if (!ports.Contains(clock.Port))
+                    clocks.Add(clock);
+
+            return project with { Stimulus = stimulus with { Tracks = tracks, Clocks = clocks } };
         }
 
         /// <summary>
