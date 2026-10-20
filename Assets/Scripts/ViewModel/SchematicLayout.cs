@@ -168,9 +168,10 @@ namespace BitSorter.ViewModel
     public sealed class SchematicLayout
     {
         public SchematicLayout(Vec2 size, IReadOnlyList<NetLayout> nets, IReadOnlyList<PartLayout> parts, IReadOnlyList<PortLayout> ports, IReadOnlyList<WaveRow> rows,
-            string designPath = null, IReadOnlyList<string> cells = null, string unit = null)
+            string designPath = null, IReadOnlyList<string> cells = null, string unit = null, Frame board = null)
         {
             Size = size;
+            Board = board;
             Unit = unit ?? BitSorter.SystemVerilog.TimeUnits.Default;
             Nets = nets;
             Parts = parts;
@@ -194,6 +195,9 @@ namespace BitSorter.ViewModel
 
         /// <summary>The schematic's extent.</summary>
         public Vec2 Size { get; }
+
+        /// <summary>How the document's cells land on the stage (Part 10): what a point the pointer is at is, on the board. Null for a layout not made from a document.</summary>
+        public Frame Board { get; }
 
         public IReadOnlyList<NetLayout> Nets { get; }
         public IReadOnlyList<PartLayout> Parts { get; }
@@ -262,6 +266,13 @@ namespace BitSorter.ViewModel
 
             public Vec2 ToStage(BoardPoint p) =>
                 new Vec2(Margin + (float)(p.X - Left) * Cell, Margin + (float)(Top - p.Y) * Cell);
+
+            /// <summary>A point of the stage, y down, where it falls on the board, in cells and y up: <see cref="ToStage"/> backwards.</summary>
+            public BoardPoint ToBoard(Vec2 stage) =>
+                new BoardPoint(Left + (stage.x - Margin) / (double)Cell, Top - (stage.y - Margin) / (double)Cell);
+
+            /// <summary>How far the same point of the board lies from where it lay on <paramref name="before"/>'s stage: what an edit that moved the board's corner shifted everything by.</summary>
+            public Vec2 ShiftFrom(Frame before) => ToStage(new BoardPoint(0, 0)) - before.ToStage(new BoardPoint(0, 0));
         }
     }
 }

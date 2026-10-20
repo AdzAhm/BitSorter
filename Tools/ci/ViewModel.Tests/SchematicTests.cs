@@ -114,20 +114,26 @@ namespace BitSorter.ViewModel.Tests
         }
 
         [Test]
-        public void ZoomingOut_StopsAtTheWholeCircuit_AndPutsItBackWhereItBelongs()
+        public void ZoomingOut_ComesBackToTheWholeCircuit_AndGoesOnOutForRoomToPlaceThings()
         {
             SchematicView view = View();
             view.ZoomAbout(new Vec2(700, 50), 3);
             view.Pan(new Vec2(-120, 40));
 
             view.ZoomAbout(new Vec2(100, 300), -3);
-
             Assert.IsTrue(view.IsFitted, "as many notches out as in should be the whole circuit, exactly, where it was built");
-            Assert.IsFalse(view.ZoomAbout(new Vec2(100, 300), -1), "and no further");
+
+            // Part 10: on out, past the fit, for room beside what is there -- as far as the floor and no further.
+            Assert.IsTrue(view.ZoomAbout(new Vec2(100, 300), -1));
+            Assert.Less(view.Zoom, 1f);
+            Assert.IsFalse(view.IsFitted);
+            view.ZoomAbout(new Vec2(100, 300), -50);
+            Assert.AreEqual(SchematicView.MinZoom, view.Zoom, 1e-5f);
+            Assert.IsFalse(view.ZoomAbout(new Vec2(100, 300), -1), "a notch past the floor changes nothing");
         }
 
         [Test]
-        public void ADrag_MovesTheCircuit_ButNeverOutOfTheWindow()
+        public void ADrag_MovesTheCircuit_IntoTheRoomRoundIt_ButNeverOutOfTheWindow()
         {
             SchematicView view = View();
             view.ZoomAbout(new Vec2(400, 200), 2);
@@ -136,13 +142,35 @@ namespace BitSorter.ViewModel.Tests
             Assert.IsTrue(view.Pan(new Vec2(30, -10)));
             Assert.AreEqual(before + new Vec2(30, -10), view.Offset);
 
+            float room = SchematicView.Room;
             foreach (Vec2 far in new[] { new Vec2(5000, 0), new Vec2(-5000, 0), new Vec2(0, 5000), new Vec2(0, -5000) })
             {
                 view.Pan(far);
                 Vec2 middle = Under(view, view.Window * 0.5f);
-                Assert.IsTrue(middle.x >= 0f && middle.x <= view.Drawing.x && middle.y >= 0f && middle.y <= view.Drawing.y,
-                    $"dragged by {far}, the window's middle is off the circuit");
+                Assert.IsTrue(middle.x >= -room - 1e-3f && middle.x <= view.Drawing.x + room + 1e-3f && middle.y >= -room - 1e-3f && middle.y <= view.Drawing.y + room + 1e-3f,
+                    $"dragged by {far}, the window's middle is off the circuit and the room round it: {middle}");
             }
+
+            view.Pan(new Vec2(5000, 0));
+            Assert.Less(Under(view, view.Window * 0.5f).x, 0f, "Part 10: a drag reaches past the circuit's edge, where a part can be placed");
+        }
+
+        [Test]
+        public void ADrawingThatOutgrowsItsWindow_FitsSmaller_AndAnEditMovesNothingOnScreen()
+        {
+            SchematicView view = View();
+            Vec2 screen = view.Offset + new Vec2(100, 50) * view.Zoom;   // a point of the drawing, on screen
+
+            // An edit grew the drawing 200 to the left and 100 up: the same point is 200 and 100 further in.
+            view.Relayout(new Vec2(960, 460), new Vec2(200, 100));
+            Assert.AreEqual(screen.x, view.Offset.x + 300 * view.Zoom, 1e-3f, "what was on screen is where it was");
+            Assert.AreEqual(screen.y, view.Offset.y + 150 * view.Zoom, 1e-3f);
+
+            view.Fit();
+            Assert.Less(view.Zoom, 1f, "the whole drawing no longer fits at its own size, so the fit is smaller");
+            Assert.LessOrEqual(view.Drawing.x * view.Zoom, view.Window.x - 2 * view.Home.x + 1e-3f);
+            Assert.LessOrEqual(view.Drawing.y * view.Zoom, view.Window.y - 2 * view.Home.y + 1e-3f);
+            Assert.IsTrue(view.IsFitted);
         }
 
         [Test]
