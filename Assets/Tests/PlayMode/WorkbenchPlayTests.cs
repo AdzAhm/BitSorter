@@ -1165,6 +1165,34 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
+        /// An edit whose replay is made whole outside a frame -- by Finish, as a capture or a test makes all of
+        /// a run -- takes over all the same: the panel shows the run the session has, not the one it had.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator AReplayFinishedOutsideAFrame_IsTheRunShown()
+        {
+            yield return TestScene.Load();
+            yield return OpenTheWorkbench();
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.Pause();
+            workbench.Session.Finish();
+            int a = RowLabelled(workbench, "a");
+            WorkbenchModel before = workbench.Model;
+            Assert.AreEqual("1", ValueAt(workbench, a, 10.0), "sanity: a rises at 6 and stays up");
+
+            var zero = BitSorter.SystemVerilog.LogicVec.OneBit(BitSorter.SystemVerilog.Logic4.Zero);
+            Assert.IsTrue(workbench.Session.SetInput("a", 6, 19, zero).Done, "the edit was refused");
+            workbench.Session.Finish();
+            yield return null;
+            yield return null;
+
+            Assert.AreNotSame(before, workbench.Session.Run.Model, "sanity: the replay took over in the session");
+            Assert.AreSame(workbench.Session.Run.Model, workbench.Model, "the panel still shows the run from before the edit");
+            Assert.AreEqual("0", ValueAt(workbench, a, 10.0), "and a is 0 where the edit put it");
+        }
+
+        /// <summary>
         /// A double-click on a bus asks for its value over the stretch, in a field that says which; Enter
         /// sets it, and the run played again shows it there and what it had after.
         /// </summary>
