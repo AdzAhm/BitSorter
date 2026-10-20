@@ -1364,6 +1364,32 @@ them -- a selected wire's piece or corner dragged.
     words); 34 is new: MY CIRCUIT's half adder half wired, a tap's junction dot, and the AND's second input
     being drawn onto b's wire, the junction it would make ringed.
 
+**As built in Part 10b-2**: wires reshaped.
+
+- **A selected wire shows its corners**, a square on each (`CanvasOverlay.Handles`), filled with the ground so the
+  wire does not run through it, and never round, as a junction's dot is.
+- **A drag on a selected wire's piece moves that piece across itself** -- one running across moves up or down,
+  one running up or down moves sideways -- landing on the quarter grid, or exactly with Alt. A drag on one of its
+  corners moves the corner, the two pieces that meet there with it. On a wire that is not selected a drag still
+  draws a new wire out of it (10b-1), so a selected wire is let go, or another clicked, to tap it.
+- **The ends stay where they are** (`WireShape`): a pin, or a tap's junction. A piece that reaches one keeps the
+  pin's stub before it turns, as the automatic route leaves a pin, so the wire still leaves the way the pin faces.
+  A step dragged back into line with its neighbours is gone (`WireGeometry.Tidy`).
+- **Layout only, and one step.** The wire is drawn where it is going while it is dragged, its selection band with
+  it, and on release the whole route is kept as its bends (`WorkbenchSession.Reroute`): nothing replays. A wire
+  that taps the reshaped one keeps its junction at the same fraction of the way along it.
+- A wire being drawn ends on a selected wire's corner as on the wire.
+- **Not built**, from the plan: a double-click adding a bend (10c gives a double-click the inspector, and a drag on
+  a piece makes the bends), and Delete on one bend (dragging its step back into line takes it out). Putting a
+  wire back on the automatic route goes in 10d's right-click menu.
+- **Checked.** `WiringTests` (14 now) under dotnet: a piece moved across itself, at an end with its stub, a
+  straight wire pulled round, a corner moved, a step dragged back into line; the gestures on a selected wire and on
+  a corner; a piece dragged and let go rerouted through its new bends in one step with nothing replayed, and undone;
+  a corner found under the pointer only on a selected wire, dragged on the grid, Escape mid-drag changing nothing.
+  In Play Mode (`WorkbenchCanvasPlayTests`), a wire clicked, its two corners handles, and its fall dragged a cell
+  right with the fixture's mouse. Reference shots 1 to 34 identical to the pixel; 35 is new: MY CIRCUIT's half
+  adder wired whole, b's wire selected with its corners, and its rise being dragged a cell left.
+
 ---
 
 ## 11. The parts
@@ -1382,7 +1408,7 @@ Each part is one pull request into `v5`, ends with every suite green, and leaves
 | 7 | The board document: compile, print, undo, and migration of every 4.x board |
 | 8 | The canvas on the real document, still and moving layers drawn apart, and the looks with a Settings switch |
 | 9 | The waveform and run controls; the workbench's view-model in a Unity-free layer of its own |
-| 10 | Editing on the free canvas -- in four: 10a placement and selection **built** (see "As built in Part 10a"); 10b wiring, its drawing **built** (10b-1) and reshaping to come (10b-2); 10c the inspector, 10d copy, align and the minimap to come |
+| 10 | Editing on the free canvas -- in four: 10a placement and selection **built** (see "As built in Part 10a"); 10b wiring **built**, drawn (10b-1) and reshaped (10b-2); 10c the inspector, 10d copy, align and the minimap to come |
 | 11 | The workbench shell, in UI Toolkit: toolbar, panels, transcript |
 | 12 | Hierarchy, and written blocks, edited in CodeMirror in a browser |
 | 13 | Export and import (and a levelized path in the engine, only if a measurement asks for it) |

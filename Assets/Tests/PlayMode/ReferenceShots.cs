@@ -1106,6 +1106,76 @@ namespace BitSorter.PlayMode.Tests
             yield return Capture("34-workbench-wiring");
         }
 
+        /// <summary>
+        /// MY CIRCUIT's half adder wired whole, b's wire selected -- a square on each of its corners -- and its rise being
+        /// dragged a cell left, drawn where it is going (Part 10b-2).
+        /// </summary>
+        [UnityTest]
+        public IEnumerator Shot35_WorkbenchReshaping()
+        {
+            yield return LoadTheGame();
+            yield return Frames(2);
+
+            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            yield return Frames(2);
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowSample(0);   // MY CIRCUIT, blank under SaveGuard
+            yield return Frames(2);
+            workbench.Pause();
+
+            WorkbenchSession session = workbench.Session;
+            int Place(string key, double x, double y)
+            {
+                BitSorter.Board.EditResult placed = session.Place(PartsCatalog.Find(session.Project, session.Module, key), new BitSorter.Board.Placement(x, y));
+                Assert.IsTrue(placed.Done, placed.Refusal);
+                return placed.Id;
+            }
+
+            int Wire(BitSorter.Board.Endpoint from, BitSorter.Board.Endpoint to, BitSorter.Board.Route route = null)
+            {
+                BitSorter.Board.EditResult made = session.Connect(from, to, route);
+                Assert.IsTrue(made.Done, made.Refusal);
+                return made.Id;
+            }
+
+            BitSorter.Board.Endpoint Pin(int part, string pin) => BitSorter.Board.Endpoint.At(part, pin);
+
+            int a = Place("input", 1, -1);
+            int b = Place("input", 1, -4);
+            int xor = Place("xor", 5, -1);
+            int and = Place("and", 5, -4);
+            int s = Place("output", 9, -1);
+            int c = Place("output", 9, -4);
+            int aToXor = Wire(Pin(a, "out"), Pin(xor, "a"));
+            int bToXor = Wire(Pin(b, "out"), Pin(xor, "b"));
+            Wire(Pin(xor, "y"), Pin(s, "in"));
+            Wire(Pin(and, "y"), Pin(c, "in"));
+            Wire(Pin(and, "a"), BitSorter.Board.Endpoint.OnWire(aToXor), new BitSorter.Board.Route { TapAt = 0.25 });
+            Wire(Pin(and, "b"), BitSorter.Board.Endpoint.OnWire(bToXor), new BitSorter.Board.Route { TapAt = 1.0 / 5.25 });   // a cell along b's wire
+            string nameA = session.Project.TopModule.FindPart(a).Name;
+            Assert.IsTrue(session.SetInput(nameA, 10, long.MaxValue, BitSorter.SystemVerilog.LogicVec.FromUInt64(1, 1)).Done);
+            session.Finish();
+            yield return Frames(4);
+
+            // b's wire selected, and its rise taken hold of half-way up and dragged a cell left.
+            CanvasEditor editor = workbench.Editor;
+            BitSorter.Board.Module top = session.Project.TopModule;
+            var route = BitSorter.Board.WireGeometry.Wires(session.Project, top)[bToXor];
+            int rise = Enumerable.Range(1, route.Count - 1).First(i => route[i].X == route[i - 1].X) - 1;
+            var grab = new BitSorter.Board.Point(route[rise].X, (route[rise].Y + route[rise + 1].Y) / 2);
+            editor.Do(new CanvasCommand(CanvasGesture.Select, target: new CanvasTarget(CanvasTargetKind.Wire, wire: bToXor, segment: rise)));
+            editor.Do(new CanvasCommand(CanvasGesture.BeginReshape, from: grab, target: new CanvasTarget(CanvasTargetKind.Wire, wire: bToXor, segment: rise)));
+            editor.Do(new CanvasCommand(CanvasGesture.ReshapeTo, new BitSorter.Board.Point(grab.X - 1.05, grab.Y), grab));
+            workbench.Seek(40.0);
+            yield return Frames(30);
+
+            Assert.IsTrue(editor.Reshaping, "sanity: b's wire is being reshaped");
+            Assert.IsNotEmpty(workbench.Overlay.Handles, "sanity: and its corners are drawn");
+
+            yield return Capture("35-workbench-reshaping");
+        }
+
         private static IEnumerator OpensOnItsCircuit(string level, string fixture, string shot)
         {
             yield return LoadTheGame();

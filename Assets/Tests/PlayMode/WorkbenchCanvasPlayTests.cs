@@ -20,8 +20,8 @@ namespace BitSorter.PlayMode.Tests
     /// mouse and keyboard: a part taken from the strip and placed with a click, dragged on the grid, a box drawn
     /// round two parts, Delete, and Ctrl+Z; MY CIRCUIT kept across reopening; Space still playing and pausing, and
     /// with a drag panning; Escape putting a part in hand down before it leaves. And wires (Part 10b): a half adder
-    /// built from nothing with the mouse, its inputs flipped on the waveform, and a wire being drawn let go with
-    /// Escape. What each gesture decides is held under dotnet (<c>CanvasTests</c>, <c>WiringTests</c>); these hold
+    /// built from nothing with the mouse, its inputs flipped on the waveform, a wire being drawn let go with
+    /// Escape, and a selected wire reshaped by a drag on its piece (Part 10b-2). What each gesture decides is held under dotnet (<c>CanvasTests</c>, <c>WiringTests</c>); these hold
     /// that the mouse reaches it.
     /// </summary>
     [TestFixture]
@@ -429,6 +429,43 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsFalse(workbench.Editor.Drafting, "Escape let the wire go");
             Assert.IsTrue(workbench.IsOpen, "and only that");
             Assert.IsEmpty(Top(workbench).Wires, "making nothing");
+        }
+
+        /// <summary>
+        /// A wire clicked is selected, its corners drawn as handles, and a drag on one of its pieces moves the piece
+        /// across itself -- one step, layout only, nothing replayed (Part 10b-2).
+        /// </summary>
+        [UnityTest]
+        public IEnumerator ASelectedWire_DraggedByAPiece_IsReshaped_AndNothingReplays()
+        {
+            yield return TestScene.Load();
+            yield return OpenMyCircuit();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.Pause();
+
+            var ids = new System.Collections.Generic.List<int>();
+            yield return Place(workbench, "input", new BoardPoint(1, -1), ids);
+            yield return Place(workbench, "xor", new BoardPoint(6, -3), ids);
+            yield return Drag(workbench, PinOf(workbench, ids[0], "out"), PinOf(workbench, ids[1], "a"));
+            int wire = Top(workbench).Wires.Single().Id;
+            workbench.Session.Finish();
+            yield return null;
+
+            var route = WireGeometry.Wires(workbench.Session.Project, Top(workbench))[wire];
+            Assert.AreEqual(4, route.Count, $"sanity: across, down half-way, across: {string.Join(" ", route)}");
+
+            yield return ClickAt(workbench, new BoardPoint(3, -5));
+            Assert.IsFalse(workbench.Editor.Selection.HasWire(wire), "sanity: a click on nothing lets the new wire go");
+            yield return ClickAt(workbench, OnWireAt(workbench, wire, 0.15));
+            Assert.IsTrue(workbench.Editor.Selection.HasWire(wire), "a click on the wire selects it");
+            Assert.AreEqual(2, workbench.Overlay.Handles.Count, "its two corners are handles");
+
+            // Its fall, half-way across, dragged a cell right.
+            BoardPoint grab = new BoardPoint(route[1].X, (route[1].Y + route[2].Y) / 2);
+            yield return Drag(workbench, grab, new BoardPoint(grab.X + 1.05, grab.Y));
+            Assert.IsTrue(Top(workbench).Layout.Routes.ContainsKey(wire), "reshaped: the wire keeps bends of its own");
+            Assert.AreEqual(route[1].X + 1, Top(workbench).Layout.Routes[wire].Bends[0].X, 1e-9, "its fall a cell right, on the grid");
+            Assert.IsFalse(workbench.Session.Replaying, "and nothing replays: a wire's shape changes nothing the circuit does");
         }
 
         private static Rect WorldRect(RectTransform rect)

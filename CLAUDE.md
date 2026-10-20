@@ -736,7 +736,7 @@ failure side.
   counts from it -- the win celebration once pulsed on the game clock and a solve
   could land at the bottom of its swell.
 - **Visual changes are checked against the reference shots.**
-  `BitSorter/Capture Reference Shots` captures thirty-four states (menu, a built
+  `BitSorter/Capture Reference Shots` captures thirty-five states (menu, a built
   board, bits in flight, a collision one tick out and one that takes both bits,
   the solved card, the level list, free play, the help panel, the chapter card, a
   clocked level, the tutorial's intro and its closing card, a first-time hint, a
@@ -748,7 +748,7 @@ failure side.
   built and running, its carry passing between the boxes, and 5.0's workbench
   preview with two changes on their way, whole, zoomed in, with a wire pointed at, with two rows in other
   radixes, a second cursor 9 ps on and two breakpoints flagged, with a block's inside grouped under full names, with the
-  add list searching, MY CIRCUIT being edited, two gates moving with their guides, and its half adder being wired) as an Explicit Play
+  add list searching, MY CIRCUIT being edited, two gates moving with their guides, its half adder being wired, and one of its wires being reshaped) as an Explicit Play
   Mode fixture, so it runs under `SaveGuard` --
   driving the real game for a screenshot by hand once marked a level solved on
   the developer's own save. Frame time is fixed, particle systems are seeded,
@@ -855,8 +855,9 @@ failure side.
   the selection or draws a box, the middle button or Space with a drag pans, so
   **Space plays and pauses on its release**, and Alt held while dragging or
   placing places freely. **A press on a pin draws a wire** (Part 10b), and a drag
-  out of a wire taps it. A part in hand, a wire being drawn, or a drag takes
-  Escape before the workbench does. The parts strip, a column left of the
+  out of a wire taps it -- out of a selected one, it reshapes it instead, as a
+  drag on one of its corners does. A part in hand, a wire being drawn, or a drag
+  takes Escape before the workbench does. The parts strip, a column left of the
   circuit's window, is temporary, until Part 11.
   **A double-click is counted on the game's clock**
   (`Time.timeAsDouble`), which a test drives, so a test's double-click is one

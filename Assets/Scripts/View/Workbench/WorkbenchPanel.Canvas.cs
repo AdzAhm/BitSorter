@@ -12,9 +12,9 @@ using Project = BitSorter.Board.Project;
 namespace BitSorter.View
 {
     /// <summary>
-    /// The workbench's canvas, edited (Part 10a): the parts strip, the canvas's mouse as gestures -- wires drawn with
-    /// them since Part 10b -- the editing overlay, the drawing made again round an edit, and MY CIRCUIT kept in the
-    /// save. Everything it decides is
+    /// The workbench's canvas, edited (Part 10a): the parts strip, the canvas's mouse as gestures -- wires drawn and
+    /// reshaped with them since Part 10b -- the editing overlay, the drawing made again round an edit, and MY CIRCUIT
+    /// kept in the save. Everything it decides is
     /// the view-model's (<see cref="CanvasEditor"/>, <see cref="CanvasPointer"/>, <see cref="PartsCatalog"/>); this
     /// turns the mouse into its gestures and draws what it says.
     /// </summary>

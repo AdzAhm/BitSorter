@@ -115,6 +115,14 @@ namespace BitSorter.View
             foreach ((Vector2 from, Vector2 to) in overlay.Guides)
                 Guide(painter, from, to, palette.Cursor);
 
+            // A selected wire's corners (Part 10b-2): a square on each, filled with the ground so the wire does not run
+            // through it -- something to take hold of, and never a junction's dot, which is round.
+            foreach (Vector2 at in overlay.Handles)
+            {
+                painter.Rect(at.x - Handle, at.y - Handle, at.x + Handle, at.y + Handle, palette.Ground);
+                Outlined(painter, Rect2.MinMaxRect(at.x - Handle, at.y - Handle, at.x + Handle, at.y + Handle), palette.Accent, SelectedWidth, corner: 1f);
+            }
+
             if (overlay.Box is Rect2 box)
             {
                 painter.Rect(box.xMin, box.yMin, box.xMax, box.yMax, palette.Over(palette.Accent, 0.12f));
@@ -141,6 +149,9 @@ namespace BitSorter.View
 
         /// <summary>How wide a wire being drawn is, and how big the rings on its ends are.</summary>
         private const float DraftWidth = 3f, EndRing = 6f;
+
+        /// <summary>Half a corner handle's side, in stage units.</summary>
+        private const float Handle = 4f;
 
         /// <summary>
         /// How far a guide runs on past the two points it joins, and its dots. Drawn whole from pin to pin it was a wire
