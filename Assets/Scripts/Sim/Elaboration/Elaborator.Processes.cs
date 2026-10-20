@@ -1605,6 +1605,17 @@ namespace BitSorter.Sim
                 var builder = Builder(p, scope);
                 string written = $"{Printer.Print(call.Target)}.{call.Name}()";
 
+                // A task or function of an instance (Part L8): bus.send(v), through an interface port, or dut.reset().
+                SubroutineEntry routine = builder.InstanceSubroutine(call.Target, call.Name, call.Location, out bool onInstance);
+                if (onInstance)
+                {
+                    if (routine == null)
+                        p.Failed = true;
+                    else
+                        Inline(p, scope, call, routine);
+                    return;
+                }
+
                 if (!builder.IsStringValued(call.Target))
                 {
                     Error(call.Location, ElaborationCodes.BadCall, $"{written} gives a value, which a statement of its own would drop: assign it, or call it where the value is used.");

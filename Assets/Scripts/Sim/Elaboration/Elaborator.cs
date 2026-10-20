@@ -99,6 +99,12 @@ namespace BitSorter.Sim
             private readonly SyntaxTree _tree;
             private readonly DiagnosticBag _diagnostics = new DiagnosticBag();
             private readonly Dictionary<string, ModuleDeclaration> _modules = new Dictionary<string, ModuleDeclaration>(StringComparer.Ordinal);
+
+            /// <summary>The interfaces (Part L8), by name, which an instantiation may make as it makes a module.</summary>
+            private readonly Dictionary<string, ModuleDeclaration> _interfaces = new Dictionary<string, ModuleDeclaration>(StringComparer.Ordinal);
+
+            /// <summary>The interfaces whose modports have been checked, so a fault in one is said once, not once an instance.</summary>
+            private readonly HashSet<ModuleDeclaration> _modportsChecked = new HashSet<ModuleDeclaration>();
             private readonly HashSet<string> _active = new HashSet<string>(StringComparer.Ordinal);
             /// <summary>
             /// Every enum whose members are declared, by the scope they are declared in, with what a signal
@@ -140,6 +146,14 @@ namespace BitSorter.Sim
                         Error(module.Location, ElaborationCodes.Duplicate, $"There are two modules called {module.Name}; rename one.");
                     else
                         _modules[module.Name] = module;
+                }
+
+                foreach (ModuleDeclaration declared in _tree.Interfaces)
+                {
+                    if (_interfaces.ContainsKey(declared.Name) || _modules.ContainsKey(declared.Name))
+                        Error(declared.Location, ElaborationCodes.Duplicate, $"There are two modules or interfaces called {declared.Name}; rename one.");
+                    else
+                        _interfaces[declared.Name] = declared;
                 }
 
                 ModuleDeclaration root = ChooseTop(top);
@@ -215,6 +229,12 @@ namespace BitSorter.Sim
                 {
                     if (_modules.TryGetValue(top, out ModuleDeclaration named))
                         return named;
+
+                    if (_interfaces.ContainsKey(top))
+                    {
+                        Error(default, ElaborationCodes.NoTop, $"{top} is an interface, which only a module instantiates; start from a module that makes one.");
+                        return null;
+                    }
 
                     Error(default, ElaborationCodes.UnknownModule, $"There is no module called {top} to start from.");
                     return null;
@@ -336,7 +356,9 @@ namespace BitSorter.Sim
             /// </summary>
             private void FindTicks()
             {
-                foreach (ModuleDeclaration module in _tree.Modules)
+                var declared = new List<ModuleDeclaration>(_tree.Modules);
+                declared.AddRange(_tree.Interfaces);
+                foreach (ModuleDeclaration module in declared)
                 {
                     if (module.Timescale == null)
                         continue;
@@ -503,7 +525,7 @@ namespace BitSorter.Sim
             /// leads up to the compilation unit instead.
             /// </remarks>
             private Scope ElaborateModule(ModuleDeclaration module, string path, Dictionary<string, Expression> overrides,
-                Scope overrideScope, SourceLocation at, bool isTop, int depth, Scope within)
+                Scope overrideScope, SourceLocation at, bool isTop, int depth, Scope within, Dictionary<string, InstanceEntry> bindings = null)
             {
                 if (_stopped)
                     return null;
@@ -555,7 +577,7 @@ namespace BitSorter.Sim
 
                     // Then the ANSI ports, whose widths may use only those (IEEE 1800, 23.2.2.2).
                     foreach (PortDeclaration port in module.Ports)
-                        DeclareAnsiPort(scope, port, isTop);
+                        DeclareAnsiPort(scope, port, isTop, module, bindings);
 
                     // Then the body's parameters and typedefs, which a non-ANSI port's width may use.
                     foreach (ModuleItem item in Flatten(module.Items))
@@ -1215,8 +1237,34 @@ namespace BitSorter.Sim
                 return true;
             }
 
-            private void DeclareAnsiPort(Scope scope, PortDeclaration port, bool isTop)
+            private void DeclareAnsiPort(Scope scope, PortDeclaration port, bool isTop, ModuleDeclaration module, Dictionary<string, InstanceEntry> bindings)
             {
+                if (port.Interface != null)
+                {
+                    if (IsInterfacePort(port))
+                    {
+                        DeclareInterfacePort(scope, port, isTop, module, bindings);
+                        return;
+                    }
+
+                    // bus_if bus where bus_if is no interface: a port of a typedef's type after all, its direction the last one written.
+                    if (!(scope.Lookup(port.Interface) is TypeEntry))
+                    {
+                        Error(port.Location, ElaborationCodes.UnknownModule, $"There is no interface or type called {port.Interface}, which port {port.Name} is declared as. Is its file read?");
+                        return;
+                    }
+
+                    bool directed = false;
+                    for (int i = 0; module.Ports[i] != port; i++)
+                        directed |= module.Ports[i].Interface == null;
+
+                    if (!directed)
+                    {
+                        Error(port.Location, ElaborationCodes.BadPort, $"Port {port.Name} needs a direction -- input, output or inout -- before its type, {port.Interface}.");
+                        return;
+                    }
+                }
+
                 if (port.Unpacked.Count > 0)
                 {
                     NotYet(port.Location, $"Port {port.Name} is an unpacked array, which BitSorter does not support yet; a packed one, logic [3:0][7:0], can be a port.");
@@ -1515,8 +1563,14 @@ namespace BitSorter.Sim
             // Everything that drives something
             // -----------------------------------------------------------------
 
-            private void BuildPass(Scope scope, List<ModuleItem> items, int depth)
+            private void BuildPass(Scope scope, List<ModuleItem> items, int depth, bool interfacesBuilt = false)
             {
+                // The interfaces first (Part L8), so a module given one through a port finds it made, wherever it is written.
+                if (!interfacesBuilt)
+                    foreach (ModuleItem item in Flatten(items))
+                        if (item is ModuleInstantiation mi && _interfaces.ContainsKey(mi.Module) && !_modules.ContainsKey(mi.Module))
+                            BuildInstances(scope, mi, depth);
+
                 foreach (ModuleItem item in items)
                 {
                     if (_stopped)
@@ -1525,7 +1579,7 @@ namespace BitSorter.Sim
                     switch (item)
                     {
                         case GenerateRegion region:
-                            BuildPass(scope, region.Items, depth);
+                            BuildPass(scope, region.Items, depth, interfacesBuilt: true);
                             break;
 
                         case ContinuousAssign assign:
@@ -1555,7 +1609,7 @@ namespace BitSorter.Sim
                             BuildPrimitives(scope, p);
                             break;
 
-                        case ModuleInstantiation mi:
+                        case ModuleInstantiation mi when !_interfaces.ContainsKey(mi.Module) || _modules.ContainsKey(mi.Module):
                             BuildInstances(scope, mi, depth);
                             break;
 
@@ -1615,6 +1669,8 @@ namespace BitSorter.Sim
                     case ParenthesizedExpression p: return Hierarchical(p.Inner);
                     case CallExpression c: return c.Arguments.Exists(a => a != null && Hierarchical(a));
                     case CastExpression c: return Hierarchical(c.Value);
+                    // A method may be a function of an instance written later (Part L8): u.f(), bus.fire().
+                    case MethodCallExpression _: return true;
                     default: return false;
                 }
             }
@@ -1831,7 +1887,7 @@ namespace BitSorter.Sim
 
             private void BuildInstances(Scope scope, ModuleInstantiation mi, int depth)
             {
-                if (!_modules.TryGetValue(mi.Module, out ModuleDeclaration module))
+                if (!_modules.TryGetValue(mi.Module, out ModuleDeclaration module) && !_interfaces.TryGetValue(mi.Module, out module))
                 {
                     Error(mi.Location, ElaborationCodes.UnknownModule,
                         $"There is no module called {mi.Module}. Is its file included, and the name spelt the same?");
@@ -1850,29 +1906,218 @@ namespace BitSorter.Sim
 
                     string path = scope.Path + "." + instance.Name;
 
-                    var entry = new InstanceEntry { Declared = instance.Location };
+                    var entry = new InstanceEntry { Declared = instance.Location, Interface = module.IsInterface ? module : null };
                     if (!scope.TryDeclare(instance.Name, entry))
                     {
                         Error(instance.Location, ElaborationCodes.Duplicate, $"{instance.Name} is the name of something else here already.");
                         continue;
                     }
 
-                    Scope child = ElaborateModule(module, path, overrides, scope, instance.Location, isTop: false, depth: depth + 1, within: scope);
+                    // What each interface port is given (Part L8), worked out before the instance is made, since what is
+                    // inside it reaches through them. Nothing is made of an instance whose interface ports cannot be.
+                    Dictionary<string, InstanceEntry> bindings = null;
+                    if (module.Ports.Exists(IsInterfacePort))
+                    {
+                        bindings = BindInterfaces(scope, module, instance);
+                        if (bindings == null)
+                            continue;
+                    }
+
+                    Scope child = ElaborateModule(module, path, overrides, scope, instance.Location, isTop: false, depth: depth + 1, within: scope, bindings);
                     if (child == null)
                         continue;
 
                     entry.Scope = child;
+                    if (module.IsInterface)
+                        child.Modports = Modports(child, module);
 
                     Connect(scope, child, module, instance);
                 }
             }
 
-            private void Connect(Scope scope, Scope child, ModuleDeclaration module, ModuleInstance instance)
+            // -----------------------------------------------------------------
+            // Interfaces (Part L8)
+            // -----------------------------------------------------------------
+
+            /// <summary>Whether a header port is an interface port: one naming a modport, any interface, or an interface the design declares.</summary>
+            private bool IsInterfacePort(PortDeclaration port) =>
+                port.Interface != null && (port.Modport != null || port.Interface == "interface" || _interfaces.ContainsKey(port.Interface));
+
+            /// <summary>
+            /// An interface port, declared as what it was given: the instance, under the port's name, through the modport
+            /// it names. On the top, or where nothing could be given, it is declared reaching nothing, having said why.
+            /// </summary>
+            private void DeclareInterfacePort(Scope scope, PortDeclaration port, bool isTop, ModuleDeclaration module, Dictionary<string, InstanceEntry> bindings)
+            {
+                InstanceEntry bound = null;
+                string wanted = port.Interface == "interface" ? "an interface" : "a " + port.Interface;
+
+                if (port.Unpacked.Count > 0)
+                    NotYet(port.Location, $"Port {port.Name} is an array of interfaces, which BitSorter does not support yet; give each its own port.");
+                else if (port.Interface != "interface" && !_interfaces.ContainsKey(port.Interface))
+                    Error(port.Location, ElaborationCodes.UnknownModule, $"There is no interface called {port.Interface}, which port {port.Name} takes. Is its file read?");
+                else if (isTop)
+                    Error(port.Location, ElaborationCodes.BadPort,
+                        $"{module.Name} is where the simulation starts, so nothing gives its interface port {port.Name} {wanted} to work on. " +
+                        $"Start from a testbench that makes {wanted} and an instance of {module.Name} connected to it.");
+                else
+                    bindings?.TryGetValue(port.Name, out bound);
+
+                if (!scope.TryDeclare(port.Name, bound ?? new InstanceEntry { Declared = port.Location, Unbound = true }))
+                    Error(port.Location, ElaborationCodes.Duplicate, $"{port.Name} is the name of something else here already.");
+            }
+
+            /// <summary>
+            /// What an instance gives each of its module's interface ports: an instance of the interface, here or through
+            /// the hierarchy -- <c>.bus(hs)</c>, <c>.bus(hs.source)</c>, <c>.bus(bus)</c> passing its own on, <c>.bus</c> or
+            /// <c>.*</c> -- with the modport the port or the connection names. Null, having said why, when any cannot be.
+            /// </summary>
+            private Dictionary<string, InstanceEntry> BindInterfaces(Scope scope, ModuleDeclaration module, ModuleInstance instance)
+            {
+                Dictionary<string, PortConnection> connections = MatchConnections(module, instance, report: false, out bool wildcard);
+                var bindings = new Dictionary<string, InstanceEntry>(StringComparer.Ordinal);
+                bool ok = true;
+
+                foreach (PortDeclaration port in module.Ports)
+                {
+                    if (!IsInterfacePort(port) || port.Unpacked.Count > 0 || port.Interface != "interface" && !_interfaces.ContainsKey(port.Interface))
+                        continue;   // said where the port is declared
+
+                    Expression given = null;
+                    SourceLocation at = instance.Location;
+                    if (connections.TryGetValue(port.Name, out PortConnection c))
+                    {
+                        at = c.Location;
+                        given = c.IsShorthand ? new NameExpression { Location = c.Location, Path = { port.Name } } : c.Value;
+                    }
+                    else if (wildcard)
+                    {
+                        given = new NameExpression { Location = instance.Location, Path = { port.Name } };
+                    }
+
+                    if (given == null)
+                    {
+                        Error(at, ElaborationCodes.BadPort,
+                            $"Interface port {port.Name} of {instance.Name} is not connected; give it {(port.Interface == "interface" ? "an instance of an interface" : "an instance of " + port.Interface)}, as .{port.Name}(x).");
+                        ok = false;
+                        continue;
+                    }
+
+                    InstanceEntry alias = Bind(scope, port, given, instance.Name, at);
+                    if (alias == null)
+                        ok = false;
+                    else
+                        bindings[port.Name] = alias;
+                }
+
+                return ok ? bindings : null;
+            }
+
+            /// <summary>One interface port's instance and modport, as <paramref name="given"/> names them in <paramref name="scope"/>.</summary>
+            private InstanceEntry Bind(Scope scope, PortDeclaration port, Expression given, string instance, SourceLocation at)
+            {
+                var builder = new ExpressionBuilder(scope, _diagnostics, constantOnly: false);
+                InstanceEntry target = builder.InterfaceNamed(given, out string named);
+                string text = Printer.Print(given);
+
+                if (target == null)
+                {
+                    Error(at, ElaborationCodes.BadPort,
+                        $"Port {port.Name} of {instance} takes {(port.Interface == "interface" ? "an interface" : "a " + port.Interface)}, and {text} is not an instance of one.");
+                    return null;
+                }
+
+                if (port.Interface != "interface" && target.Interface.Name != port.Interface)
+                {
+                    Error(at, ElaborationCodes.BadPort, $"Port {port.Name} of {instance} takes a {port.Interface}, and {text} is a {target.Interface.Name}.");
+                    return null;
+                }
+
+                if (port.Modport != null && named != null && port.Modport != named)
+                {
+                    Error(at, ElaborationCodes.BadPort, $"Port {port.Name} of {instance} is modport {port.Modport}, and {text} names modport {named}.");
+                    return null;
+                }
+
+                // A port given on through one already limited keeps that limit; it can be named again, not changed.
+                string chosen = port.Modport ?? named;
+                ModportInfo modport = target.Modport;
+                if (chosen != null && modport != null && modport.Name != chosen)
+                {
+                    Error(at, ElaborationCodes.BadPort, $"{text} is modport {modport.Name} of {target.Interface.Name} here, so it cannot be given on as modport {chosen}.");
+                    return null;
+                }
+
+                if (chosen != null && modport == null && (target.Scope.Modports == null || !target.Scope.Modports.TryGetValue(chosen, out modport)))
+                {
+                    Error(at, ElaborationCodes.UnknownName, $"Interface {target.Interface.Name} has no modport called {chosen}.");
+                    return null;
+                }
+
+                return new InstanceEntry { Declared = port.Location, Scope = target.Scope, Interface = target.Interface, Modport = modport };
+            }
+
+            /// <summary>
+            /// An interface instance's modports, each name checked against what the interface declares: a signal for a
+            /// direction, a task or function for an import. A fault is said for the first instance of the interface only.
+            /// </summary>
+            private Dictionary<string, ModportInfo> Modports(Scope scope, ModuleDeclaration declaration)
+            {
+                bool report = _modportsChecked.Add(declaration);
+                var modports = new Dictionary<string, ModportInfo>(StringComparer.Ordinal);
+
+                foreach (ModuleItem item in Flatten(declaration.Items))
+                {
+                    if (!(item is ModportDeclaration d))
+                        continue;
+
+                    foreach (Modport m in d.Modports)
+                    {
+                        if (modports.ContainsKey(m.Name) || scope.Own(m.Name) != null)
+                        {
+                            if (report)
+                                Error(m.Location, ElaborationCodes.Duplicate, $"{m.Name} is the name of something else in {declaration.Name} already.");
+                            continue;
+                        }
+
+                        var info = new ModportInfo { Name = m.Name, Interface = declaration.Name };
+                        foreach (ModportItem i in m.Items)
+                        {
+                            Entry entry = scope.Own(i.Name);
+                            bool fits = i.IsImport ? entry is SubroutineEntry : entry is SignalEntry || entry is MemoryEntry;
+                            if (!fits)
+                            {
+                                if (report)
+                                    Error(i.Location, ElaborationCodes.UnknownName, i.IsImport
+                                        ? $"Modport {m.Name} imports {i.Name}, and {declaration.Name} has no task or function called that."
+                                        : $"Modport {m.Name} lists {i.Name}, and {declaration.Name} has no signal called that.");
+                            }
+                            else if (info.Items.ContainsKey(i.Name))
+                            {
+                                if (report)
+                                    Error(i.Location, ElaborationCodes.Duplicate, $"Modport {m.Name} lists {i.Name} twice.");
+                            }
+                            else
+                            {
+                                info.Items[i.Name] = i;
+                            }
+                        }
+
+                        modports[m.Name] = info;
+                    }
+                }
+
+                return modports;
+            }
+
+            /// <summary>Which connection of an instance goes to which port, by name or in order; what is wrong is said if <paramref name="report"/>.</summary>
+            private Dictionary<string, PortConnection> MatchConnections(ModuleDeclaration module, ModuleInstance instance, bool report, out bool wildcard)
             {
                 List<string> ports = PortOrder(module);
                 var connections = new Dictionary<string, PortConnection>(StringComparer.Ordinal);
-                bool wildcard = false, named = false, positional = false;
+                bool named = false, positional = false;
                 int position = 0;
+                wildcard = false;
 
                 foreach (PortConnection c in instance.Connections)
                 {
@@ -1887,7 +2132,7 @@ namespace BitSorter.Sim
                         positional = true;
                         if (position >= ports.Count)
                         {
-                            if (c.Value != null)
+                            if (c.Value != null && report)
                                 Error(c.Location, ElaborationCodes.BadPort,
                                     $"{module.Name} has {ports.Count} port{(ports.Count == 1 ? "" : "s")}, and {instance.Name} connects more.");
                             position++;
@@ -1900,15 +2145,31 @@ namespace BitSorter.Sim
 
                     named = true;
                     if (!ports.Contains(c.Name))
-                        Error(c.Location, ElaborationCodes.BadPort, $"{module.Name} has no port called {c.Name}.");
+                    {
+                        if (report)
+                            Error(c.Location, ElaborationCodes.BadPort, $"{module.Name} has no port called {c.Name}.");
+                    }
                     else if (connections.ContainsKey(c.Name))
-                        Error(c.Location, ElaborationCodes.Duplicate, $"Port {c.Name} is connected twice.");
+                    {
+                        if (report)
+                            Error(c.Location, ElaborationCodes.Duplicate, $"Port {c.Name} is connected twice.");
+                    }
                     else
+                    {
                         connections[c.Name] = c;
+                    }
                 }
 
-                if (named && positional)
+                if (named && positional && report)
                     Error(instance.Location, ElaborationCodes.BadPort, "Connect the ports all by name or all in order, not some of each.");
+
+                return connections;
+            }
+
+            private void Connect(Scope scope, Scope child, ModuleDeclaration module, ModuleInstance instance)
+            {
+                List<string> ports = PortOrder(module);
+                Dictionary<string, PortConnection> connections = MatchConnections(module, instance, report: true, out bool wildcard);
 
                 foreach (string port in ports)
                 {

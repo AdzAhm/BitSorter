@@ -280,6 +280,12 @@ namespace BitSorter.Sim
                         default: return new TypeInfo(32, true);
                     }
 
+                case MethodCallExpression m when InstanceOf(m.Target) is InstanceEntry instance:
+                    // A function of an instance (Part L8): its return type.
+                    if (!instance.Unbound && instance.Scope.Own(m.Method) is SubroutineEntry function && !function.IsVoid)
+                        return IsRealKeyword(function.Declaration.ReturnType?.Keyword) ? RealType : new TypeInfo(function.Width, function.Signed);
+                    return new TypeInfo(1, false);
+
                 case MethodCallExpression m:
                     if (TryEnumOf(m.Target, out EnumInfo @enum, out bool _))
                     {
@@ -590,6 +596,14 @@ namespace BitSorter.Sim
                     Error(e.Location, ElaborationCodes.UnknownName, $"{text} is a type, not a value.");
                     return Expr.Constant(LogicVec.AllX(1));
 
+                case InstanceEntry { Unbound: true }:
+                    Failed = true;
+                    return Expr.Constant(LogicVec.AllX(1));
+
+                case InstanceEntry instance when instance.Interface != null:
+                    Error(e.Location, ElaborationCodes.UnknownName, $"{text} is an interface, not a signal: name one of its signals, as {text}.name.");
+                    return Expr.Constant(LogicVec.AllX(1));
+
                 case InstanceEntry _:
                     Error(e.Location, ElaborationCodes.UnknownName, $"{text} is an instance or a generate block, not a signal.");
                     return Expr.Constant(LogicVec.AllX(1));
@@ -733,9 +747,25 @@ namespace BitSorter.Sim
             Scope scope;
 
             Entry first = _scope.Lookup(parts[0]);
+            if (first is InstanceEntry { Unbound: true })
+            {
+                // An interface port given nothing, which has been said.
+                Failed = true;
+                return null;
+            }
+
             if (first is InstanceEntry instance && instance.Scope != null)
             {
                 scope = instance.Scope;
+
+                // Through a modport, only what it lists (Part L8).
+                if (instance.Modport != null && !instance.Modport.Items.ContainsKey(parts[1]))
+                {
+                    if (report)
+                        Error(at, ElaborationCodes.UnknownName,
+                            $"{parts[0]} is modport {instance.Modport.Name} of {instance.Modport.Interface}, which does not list {parts[1]}: add it to the modport to use it here.");
+                    return null;
+                }
             }
             else if (_scope.Root.Top != null && _scope.Root.Top.Path == parts[0])
             {
@@ -767,6 +797,82 @@ namespace BitSorter.Sim
             if (last == null && report)
                 Error(at, ElaborationCodes.UnknownName, $"{string.Join(".", parts.GetRange(0, parts.Count - 1))} has nothing called {parts[parts.Count - 1]}.");
             return last;
+        }
+
+        /// <summary>
+        /// The instance -- of a module or an interface, or an interface port -- that <paramref name="target"/> names, for
+        /// calling one of its tasks or functions (Part L8); null when it names anything else.
+        /// </summary>
+        private InstanceEntry InstanceOf(Expression target) =>
+            (target is NameExpression n && n.Package == null || target is MemberExpression) && Resolve(target, report: false) is InstanceEntry instance &&
+            instance.Ranges == null && (instance.Scope != null || instance.Unbound) ? instance : null;
+
+        /// <summary>
+        /// A task or function of an instance (Part L8): <c>bus.send(v)</c> through an interface port, which its modport
+        /// must import, or <c>dut.reset()</c>. <paramref name="onInstance"/> says whether <paramref name="target"/> names an
+        /// instance at all; null, having said why, when it does and has no such task or function to give.
+        /// </summary>
+        public SubroutineEntry InstanceSubroutine(Expression target, string name, SourceLocation at, out bool onInstance)
+        {
+            InstanceEntry instance = InstanceOf(target);
+            onInstance = instance != null;
+            if (instance == null)
+                return null;
+
+            if (instance.Unbound)
+            {
+                Failed = true;
+                return null;
+            }
+
+            string text = Printer.Print(target);
+            if (instance.Modport != null && (!instance.Modport.Items.TryGetValue(name, out ModportItem item) || !item.IsImport))
+            {
+                Error(at, ElaborationCodes.UnknownName,
+                    $"{text} is modport {instance.Modport.Name} of {instance.Modport.Interface}, which does not import {name}: add 'import {name}' to the modport to call it here.");
+                return null;
+            }
+
+            if (instance.Scope.Own(name) is SubroutineEntry routine)
+                return routine;
+
+            Error(at, ElaborationCodes.UnknownName, $"{text} has no task or function called {name}.");
+            return null;
+        }
+
+        /// <summary>
+        /// The interface instance an interface port is given (Part L8): <c>hs</c>, <c>top.hs</c>, a port passed on, or
+        /// <c>hs.source</c> -- an instance and one of its modports, named in <paramref name="modport"/>. Null for anything else.
+        /// </summary>
+        public InstanceEntry InterfaceNamed(Expression e, out string modport)
+        {
+            modport = null;
+            if (Resolve(e, report: false) is InstanceEntry whole && whole.Interface != null && whole.Scope != null)
+                return whole;
+
+            Expression inner = null;
+            string last = null;
+            if (e is NameExpression n && n.Path.Count > 1 && n.Package == null)
+            {
+                var prefix = new NameExpression { Location = n.Location };
+                prefix.Path.AddRange(n.Path.GetRange(0, n.Path.Count - 1));
+                inner = prefix;
+                last = n.Name;
+            }
+            else if (e is MemberExpression m)
+            {
+                inner = m.Target;
+                last = m.Member;
+            }
+
+            if (inner != null && Resolve(inner, report: false) is InstanceEntry instance && instance.Interface != null &&
+                instance.Scope?.Modports != null && instance.Scope.Modports.ContainsKey(last))
+            {
+                modport = last;
+                return instance;
+            }
+
+            return null;
         }
 
         /// <summary>
@@ -2001,6 +2107,9 @@ namespace BitSorter.Sim
                     return !call.Name.StartsWith("$", StringComparison.Ordinal) &&
                            _scope.LookupSubroutine(call.Package, call.Name)?.Declaration.ReturnType?.Keyword == "string";
 
+                case MethodCallExpression m when InstanceOf(m.Target) is InstanceEntry instance:
+                    return !instance.Unbound && (instance.Scope.Own(m.Method) as SubroutineEntry)?.Declaration.ReturnType?.Keyword == "string";
+
                 case MethodCallExpression m:
                     return (m.Method == "toupper" || m.Method == "tolower" || m.Method == "substr") && IsStringValued(m.Target);
 
@@ -2248,6 +2357,21 @@ namespace BitSorter.Sim
         /// <summary>An enum's methods (IEEE 1800, 6.19.5): <c>first()</c>, <c>last()</c>, <c>next(n)</c>, <c>prev(n)</c>, <c>num()</c>, <c>name()</c>.</summary>
         private Expr BuildMethod(MethodCallExpression m)
         {
+            // A function of an instance (Part L8): bus.fire(), dut.f(x).
+            SubroutineEntry routine = InstanceSubroutine(m.Target, m.Method, m.Location, out bool onInstance);
+            if (onInstance)
+            {
+                if (routine == null)
+                {
+                    Failed = true;
+                    return Expr.Constant(LogicVec.AllX(1));
+                }
+
+                var call = new CallExpression { Location = m.Location, Name = m.Method, HasParentheses = m.HasParentheses };
+                call.Arguments.AddRange(m.Arguments);
+                return BuildFunctionCall(call, routine);
+            }
+
             if (IsStringValued(m.Target))
                 return BuildStringMethod(m);
 
@@ -2629,10 +2753,39 @@ namespace BitSorter.Sim
         private bool TryLocate(Expression target, bool procedural, Func<NameExpression, SignalEntry> implicitNet, out ProcPart at)
         {
             at = default;
+            if (InputOfModport(target))
+                return false;
+
             if (!TryPlace(target, procedural, implicitNet, out Place place))
                 return false;
 
             at = new ProcPart(place.Signal, place.Offset == null ? place.Lowest : 0, place.Width, place.Offset, place.Word, place.Memory);
+            return true;
+        }
+
+        /// <summary>
+        /// Whether a target writes an input of the modport an interface port is reached through (Part L8): <c>bus.data</c>
+        /// where the modport says <c>input data</c>, which a module given it may read and not write. Said, if so.
+        /// </summary>
+        private bool InputOfModport(Expression target)
+        {
+            Expression e = target;
+            while (true)
+            {
+                if (e is IndexExpression i) e = i.Target;
+                else if (e is RangeSelectExpression r) e = r.Target;
+                else if (e is MemberExpression m) e = m.Target;
+                else if (e is ParenthesizedExpression p) e = p.Inner;
+                else break;
+            }
+
+            if (!(e is NameExpression n) || n.Path.Count < 2 || n.Package != null ||
+                !(_scope.Lookup(n.Path[0]) is InstanceEntry { Modport: ModportInfo modport }) ||
+                !modport.Items.TryGetValue(n.Path[1], out ModportItem item) || item.IsImport || item.Direction != PortDirection.Input)
+                return false;
+
+            Error(target.Location, ElaborationCodes.BadLValue,
+                $"{n.Path[0]}.{n.Path[1]} is an input of modport {modport.Name} of {modport.Interface}: a module given {n.Path[0]} may read it, not write it.");
             return true;
         }
 

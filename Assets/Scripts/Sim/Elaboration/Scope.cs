@@ -120,6 +120,30 @@ namespace BitSorter.Sim
 
         /// <summary>For a named block or fork in a process, where it is, for <c>disable</c> (Part L5); null for an instance or a generate block.</summary>
         public List<BlockRange> Ranges;
+
+        /// <summary>
+        /// For an instance of an interface, and for an interface port, which names one (Part L8): the interface. A port's
+        /// entry is the instance it was given, under the port's own name -- <see cref="Scope"/> is that instance's -- so
+        /// <c>bus.data</c> reaches the instance's <c>data</c> as any name through the hierarchy does.
+        /// </summary>
+        public ModuleDeclaration Interface;
+
+        /// <summary>The modport an interface port reaches its instance through, which limits what it may use; null for all of it.</summary>
+        public ModportInfo Modport;
+
+        /// <summary>An interface port with nothing to reach -- on the top, or given nothing -- which has been said; a name through it says nothing more.</summary>
+        public bool Unbound;
+    }
+
+    /// <summary>
+    /// A modport of an interface (Part L8), its names checked against what the interface declares: each signal with
+    /// its direction -- an input is read and not written -- and each task or function it imports.
+    /// </summary>
+    internal sealed class ModportInfo
+    {
+        public string Name;
+        public string Interface;
+        public readonly Dictionary<string, ModportItem> Items = new Dictionary<string, ModportItem>(StringComparer.Ordinal);
     }
 
     /// <summary>A memory, <c>logic [7:0] mem [0:255]</c>: its words, and the range each word is declared with.</summary>
@@ -255,6 +279,9 @@ namespace BitSorter.Sim
 
         /// <summary>On the outermost scope: a package's scope by its name, made the first time it is asked for; null for none.</summary>
         public Func<string, Scope> Packages;
+
+        /// <summary>On an interface instance's scope (Part L8): its modports by name.</summary>
+        public Dictionary<string, ModportInfo> Modports;
 
         /// <summary>The scope of package <paramref name="name"/>, as the outermost scope finds it; null when there is none.</summary>
         public Scope Package(string name) => Root.Packages?.Invoke(name);
