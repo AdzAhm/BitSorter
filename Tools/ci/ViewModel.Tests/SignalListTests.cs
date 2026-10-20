@@ -192,6 +192,32 @@ endmodule
         }
 
         [Test]
+        public void TheRows_FollowThePorts_APortPlacedGainsOne_AndOneTakenAwayLosesIt()
+        {
+            WorkbenchModel model = FullAdder();
+            WaveList list = Ports(model);
+            string[] ports = list.AllSignals.Select(s => s.Key).ToArray();
+            int inner = Find(model.Signals, "h1.s");
+            list.Add(inner);
+            list.ClearSelection();
+            list.Select(0);
+            int version = list.Version;
+
+            // cin taken away, and a port called x placed: the inner row the student added stays.
+            string[] now = ports.Where(k => k != "cin").Concat(new[] { "x" }).ToArray();
+            Assert.IsTrue(list.FollowPorts(ports, now));
+
+            string[] keys = list.AllSignals.Select(s => s.Key).ToArray();
+            CollectionAssert.DoesNotContain(keys, "cin");
+            Assert.AreEqual("x", keys.Last(), "the new port's row at the end");
+            CollectionAssert.Contains(keys, model.Signals.KeyOf(inner));
+            Assert.AreEqual(-1, list.AllSignals.Last().Signal, "x is no signal of this run until its replay takes over");
+            Assert.IsTrue(list.Lines[0].Selected, "a row selected stays selected");
+            Assert.Greater(list.Version, version);
+            Assert.IsFalse(list.FollowPorts(now, now), "no change, no change");
+        }
+
+        [Test]
         public void AddingASignal_PutsItAtTheEnd_AndAddingItAgainSelectsItWhereItIs()
         {
             WorkbenchModel model = FullAdder();

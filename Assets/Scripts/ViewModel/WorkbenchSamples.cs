@@ -55,6 +55,29 @@ namespace BitSorter.ViewModel
                     Counter),
             });
 
+        /// <summary>
+        /// The student's own circuit (Part 10a), the first thing the SAMPLE chip steps to: a blank document the
+        /// first time, and whatever was built in it after that, kept in the save under <see cref="MyCircuitKey"/>.
+        /// </summary>
+        public static readonly (string Name, string Says, Func<Project> Build) MyCircuit =
+            ("My circuit", "Your own circuit, kept for next time: pick a part on the left and click to place it; drag to move it or to select, middle-drag to pan.", Blank);
+
+        /// <summary>What MY CIRCUIT is kept under in the save's 5.0 documents.</summary>
+        public const string MyCircuitKey = "workbench";
+
+        /// <summary>A document with nothing in it, its top module called my_circuit: where MY CIRCUIT starts.</summary>
+        public static Project Blank() => Project.New("my_circuit");
+
+        /// <summary>What the SAMPLE chip steps through, in its order: MY CIRCUIT, then <see cref="All"/>.</summary>
+        public static readonly IReadOnlyList<(string Name, string Says, Func<Project> Build)> Chip = BuildChip();
+
+        private static IReadOnlyList<(string, string, Func<Project>)> BuildChip()
+        {
+            var chip = new List<(string, string, Func<Project>)> { MyCircuit };
+            chip.AddRange(All);
+            return chip.AsReadOnly();
+        }
+
         /// <summary>How long the full adder's testbench holds each combination of its inputs, in nanoseconds.</summary>
         public const long FullAdderStep = 6;
 

@@ -229,6 +229,47 @@ namespace BitSorter.ViewModel
             return LineOf(row);
         }
 
+        /// <summary>
+        /// The rows following the document's ports through an edit (Part 10a): a port placed gets a row at the end,
+        /// unselected, and a port taken away loses its row, in a group or not. <paramref name="was"/> and
+        /// <paramref name="now"/> are the ports' keys before and after; rows the student added stay as they are.
+        /// True when the list changed.
+        /// </summary>
+        public bool FollowPorts(IReadOnlyCollection<string> was, IReadOnlyCollection<string> now)
+        {
+            var before = new HashSet<string>(was ?? Array.Empty<string>(), StringComparer.Ordinal);
+            var after = new HashSet<string>(now ?? Array.Empty<string>(), StringComparer.Ordinal);
+            bool changed = false;
+
+            for (int i = _items.Count - 1; i >= 0; i--)
+            {
+                if (_items[i] is WaveSignal signal && before.Contains(signal.Key) && !after.Contains(signal.Key))
+                {
+                    _selected.Remove(signal);
+                    _items.RemoveAt(i);
+                    changed = true;
+                }
+                else if (_items[i] is WaveGroup group)
+                {
+                    changed |= group._signals.RemoveAll(s => before.Contains(s.Key) && !after.Contains(s.Key)) > 0;
+                    if (group._signals.Count == 0)
+                        _items.RemoveAt(i);
+                }
+            }
+
+            foreach (string key in now ?? Array.Empty<string>())
+            {
+                if (before.Contains(key) || Find(key) != null)
+                    continue;
+                _items.Add(new WaveSignal(key) { Signal = Index.TryFind(key, out int found) ? found : -1 });
+                changed = true;
+            }
+
+            if (changed)
+                Changed();
+            return changed;
+        }
+
         /// <summary>Takes every selected row out: a selected group with all its signals. True when anything went.</summary>
         public bool RemoveSelected()
         {

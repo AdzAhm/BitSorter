@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using NUnit.Framework;
 
@@ -142,17 +143,30 @@ namespace BitSorter.ViewModel.Tests
             Assert.IsTrue(view.Pan(new Vec2(30, -10)));
             Assert.AreEqual(before + new Vec2(30, -10), view.Offset);
 
-            float room = SchematicView.Room;
             foreach (Vec2 far in new[] { new Vec2(5000, 0), new Vec2(-5000, 0), new Vec2(0, 5000), new Vec2(0, -5000) })
             {
                 view.Pan(far);
                 Vec2 middle = Under(view, view.Window * 0.5f);
-                Assert.IsTrue(middle.x >= -room - 1e-3f && middle.x <= view.Drawing.x + room + 1e-3f && middle.y >= -room - 1e-3f && middle.y <= view.Drawing.y + room + 1e-3f,
+                float roomX = Math.Max(SchematicView.Room, view.Window.x * 0.5f / view.Zoom), roomY = Math.Max(SchematicView.Room, view.Window.y * 0.5f / view.Zoom);
+                Assert.IsTrue(middle.x >= -roomX - 1e-3f && middle.x <= view.Drawing.x + roomX + 1e-3f && middle.y >= -roomY - 1e-3f && middle.y <= view.Drawing.y + roomY + 1e-3f,
                     $"dragged by {far}, the window's middle is off the circuit and the room round it: {middle}");
             }
 
             view.Pan(new Vec2(5000, 0));
             Assert.Less(Under(view, view.Window * 0.5f).x, 0f, "Part 10: a drag reaches past the circuit's edge, where a part can be placed");
+        }
+
+        [Test]
+        public void ACircuitWithAlmostNothingInIt_PansAsFarAsItsWindowIsWide_WithoutAJump()
+        {
+            // A blank circuit's drawing is its margin alone, 60 by 60, in a window built for 720 by 360.
+            var view = new SchematicView(new Vec2(752, 380), new Vec2(16, 10), new Vec2(60, 60));
+            Vec2 before = view.Offset;
+            Assert.IsTrue(view.Pan(new Vec2(1, 0)));
+            Assert.AreEqual(before + new Vec2(1, 0), view.Offset, "the first drag moves it by the drag and no more");
+            view.Pan(new Vec2(-5000, 0));
+            Assert.AreEqual(view.Window.x * 0.5f - view.Drawing.x - view.Window.x * 0.5f, view.Offset.x, 1e-3f,
+                "as far as half the window past the drawing's edge: room to place the next part, which grows the drawing");
         }
 
         [Test]

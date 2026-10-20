@@ -32,6 +32,18 @@ namespace BitSorter.ViewModel
         Undo,
         Redo,
         Export,
+
+        /// <summary>The selection on the canvas turned a quarter, counter-clockwise (Part 10a).</summary>
+        TurnLeft,
+
+        /// <summary>The selection turned a quarter back, clockwise.</summary>
+        TurnRight,
+
+        /// <summary>The selection mirrored left to right.</summary>
+        Mirror,
+
+        /// <summary>Every part and wire on the canvas selected.</summary>
+        SelectAll,
     }
 
     /// <summary>One key and what it does: the key by its Input System name, the modifiers held, and the words for it.</summary>
@@ -111,8 +123,12 @@ namespace BitSorter.ViewModel
             new KeyBinding("X", WorkbenchCommand.Radix, "X", "the selected rows in the next radix"),
             new KeyBinding("L", WorkbenchCommand.Names, "L", "short or full names"),
             new KeyBinding("C", WorkbenchCommand.ClearCursor, "C", "take the second cursor away"),
-            new KeyBinding("Delete", WorkbenchCommand.RemoveRows, "DEL", "take the selected rows out"),
-            new KeyBinding("Backspace", WorkbenchCommand.RemoveRows, "DEL", "take the selected rows out"),
+            new KeyBinding("Delete", WorkbenchCommand.RemoveRows, "DEL", "take away what is selected: parts on the circuit, or rows"),
+            new KeyBinding("Backspace", WorkbenchCommand.RemoveRows, "DEL", "take away what is selected: parts on the circuit, or rows"),
+            new KeyBinding("Q", WorkbenchCommand.TurnLeft, "Q", "turn the selected parts a quarter"),
+            new KeyBinding("Q", WorkbenchCommand.TurnRight, "SHIFT Q", "turn them back a quarter", shift: true),
+            new KeyBinding("V", WorkbenchCommand.Mirror, "V", "mirror the selected parts left to right"),
+            new KeyBinding("A", WorkbenchCommand.SelectAll, "CTRL A", "select every part and wire", ctrl: true),
             new KeyBinding("U", WorkbenchCommand.Unit, "U", "count time in the next unit"),
             new KeyBinding("E", WorkbenchCommand.Export, "E", "export the run: a VCD, or the waveform as a PNG"),
             new KeyBinding("Z", WorkbenchCommand.Undo, "CTRL Z", "undo the last edit to an input", ctrl: true),

@@ -140,10 +140,14 @@ namespace BitSorter.ViewModel
             Keep();
         }
 
-        /// <summary>Holds the window's middle on the drawing, or within <see cref="Room"/> of it.</summary>
+        /// <summary>
+        /// Holds the window's middle on the drawing, or within <see cref="Room"/> of it -- or within half the window,
+        /// when that is more: a circuit with almost nothing in it yet still pans as far as the window is wide.
+        /// </summary>
         private void Keep()
         {
-            Vec2 middle = Window * 0.5f, size = Drawing * Zoom, room = new Vec2(Room, Room) * Zoom;
+            Vec2 middle = Window * 0.5f, size = Drawing * Zoom;
+            var room = new Vec2(Arith.Max(Room * Zoom, middle.x), Arith.Max(Room * Zoom, middle.y));
             Offset = new Vec2(
                 Arith.Clamp(Offset.x, middle.x - size.x - room.x, middle.x + room.x),
                 Arith.Clamp(Offset.y, middle.y - size.y - room.y, middle.y + room.y));
