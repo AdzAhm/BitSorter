@@ -4,6 +4,7 @@ using BitSorter.Board;
 using BitSorter.View;
 using BitSorter.ViewModel;
 using NUnit.Framework;
+using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Controls;
@@ -257,6 +258,34 @@ namespace BitSorter.PlayMode.Tests
 
             yield return Tap(_keyboard.escapeKey);
             Assert.IsFalse(workbench.IsOpen, "a second Escape leaves");
+        }
+
+        /// <summary>
+        /// MY CIRCUIT blank stands on the narrowest stage there is, and the waveform's buttons and the legend's sentence
+        /// still fit on it: how narrow a stage may be is set by them, never by the circuit.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator OnTheNarrowestStage_TheWaveformsButtonsAndTheLegend_StayOnIt()
+        {
+            yield return TestScene.Load();
+            yield return OpenMyCircuit();
+
+            RectTransform stage = GameObject.Find(WorkbenchPanel.RootName).GetComponentsInChildren<RectTransform>(true).First(r => r.name == "stage");
+            Rect on = WorldRect(stage);
+            Button[] buttons = stage.GetComponentsInChildren<Button>();
+            Assert.IsNotEmpty(buttons, "sanity: the waveform's buttons are on the stage");
+            foreach (Button button in buttons)
+                Assert.LessOrEqual(WorldRect(button.GetComponent<RectTransform>()).xMax, on.xMax + 0.5f, $"'{button.name}' runs past the stage's right edge");
+
+            TMP_Text legend = stage.GetComponentsInChildren<TMP_Text>().First(t => t.text == WorkbenchPanel.LegendText);
+            Assert.LessOrEqual(legend.preferredWidth, legend.rectTransform.rect.width + 0.5f, "the legend's sentence runs past its box");
+        }
+
+        private static Rect WorldRect(RectTransform rect)
+        {
+            var corners = new Vector3[4];
+            rect.GetWorldCorners(corners);
+            return Rect.MinMaxRect(corners[0].x, corners[0].y, corners[2].x, corners[2].y);
         }
     }
 }
