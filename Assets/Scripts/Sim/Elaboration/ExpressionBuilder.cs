@@ -60,12 +60,19 @@ namespace BitSorter.Sim
             public readonly int Width;
             public readonly bool Signed;
 
-            public TypeInfo(int width, bool signed)
+            /// <summary>Whether it is a <c>real</c> (Part L7): 64 bits, a double's.</summary>
+            public readonly bool Real;
+
+            public TypeInfo(int width, bool signed, bool real = false)
             {
                 Width = Math.Max(1, width);
                 Signed = signed;
+                Real = real;
             }
         }
+
+        /// <summary>A <c>real</c>'s type.</summary>
+        private static readonly TypeInfo RealType = new TypeInfo(64, false, real: true);
 
         private void Error(SourceLocation at, string code, string message)
         {
@@ -143,16 +150,19 @@ namespace BitSorter.Sim
                 case MemberExpression _:
                     switch (Resolve(e, report: false))
                     {
-                        case SignalEntry s: return new TypeInfo(s.Width, s.Signed);
-                        case ConstantEntry c: return new TypeInfo(c.Value.Width, c.Value.IsSigned);
+                        case SignalEntry s: return s.Type != null && s.Type.IsReal ? RealType : new TypeInfo(s.Width, s.Signed);
+                        case ConstantEntry c: return c.IsReal ? RealType : new TypeInfo(c.Value.Width, c.Value.IsSigned);
                         case GenvarEntry _: return new TypeInfo(32, true);
                         case MemoryEntry m: return new TypeInfo(m.Memory.Width, m.Memory.Signed);
-                        case null when TypeAt(e) is PackedType member: return new TypeInfo(member.Width, member.Signed);
+                        case null when TypeAt(e) is PackedType member: return member.IsReal ? RealType : new TypeInfo(member.Width, member.Signed);
                         default: return new TypeInfo(1, false);
                     }
 
                 case IndexExpression index:
-                    return TypeAt(index) is PackedType element ? new TypeInfo(element.Width, element.Signed) : new TypeInfo(1, false);
+                    return TypeAt(index) is PackedType element ? element.IsReal ? RealType : new TypeInfo(element.Width, element.Signed) : new TypeInfo(1, false);
+
+                case RealLiteral _:
+                    return RealType;
 
                 case RangeSelectExpression r:
                     return new TypeInfo((int)Math.Min(LogicVec.MaxWidth, (long)SelectWidth(r) * (TypeAt(r.Target)?.ElementWidth ?? 1)), false);
@@ -177,17 +187,29 @@ namespace BitSorter.Sim
                 }
 
                 case UnaryExpression u:
-                    return u.Operator == "+" || u.Operator == "-" || u.Operator == "~" ? TypeOf(u.Operand) : new TypeInfo(1, false);
+                {
+                    if (u.Operator == "+" || u.Operator == "-")
+                        return TypeOf(u.Operand);
+                    if (u.Operator != "~")
+                        return new TypeInfo(1, false);
+                    TypeInfo operand = TypeOf(u.Operand);
+                    return new TypeInfo(operand.Width, operand.Signed);   // ~ takes whole numbers: a real given to it is refused
+                }
 
                 case BinaryExpression b:
                 {
                     TypeInfo l = TypeOf(b.Left), r = TypeOf(b.Right);
                     switch (b.Operator)
                     {
-                        case "+": case "-": case "*": case "/": case "%":
+                        // Real when either side is (IEEE 1800, 11.3.1).
+                        case "+": case "-": case "*": case "/":
+                            return l.Real || r.Real ? RealType : new TypeInfo(Math.Max(l.Width, r.Width), l.Signed && r.Signed);
+                        case "%":
                         case "&": case "|": case "^": case "~^": case "^~": case "~&": case "~|":
                             return new TypeInfo(Math.Max(l.Width, r.Width), l.Signed && r.Signed);
-                        case "<<": case ">>": case "<<<": case ">>>": case "**":
+                        case "**":
+                            return l.Real || r.Real ? RealType : new TypeInfo(l.Width, l.Signed);
+                        case "<<": case ">>": case "<<<": case ">>>":
                             return new TypeInfo(l.Width, l.Signed);
                         default:
                             return new TypeInfo(1, false);
@@ -197,6 +219,8 @@ namespace BitSorter.Sim
                 case ConditionalExpression c:
                 {
                     TypeInfo t = TypeOf(c.WhenTrue), f = TypeOf(c.WhenFalse);
+                    if (t.Real || f.Real)
+                        return RealType;
                     return new TypeInfo(Math.Max(t.Width, f.Width), t.Signed && f.Signed);
                 }
 
@@ -209,7 +233,10 @@ namespace BitSorter.Sim
                         case "$signed": return call.Arguments.Count == 1 && call.Arguments[0] != null ? new TypeInfo(TypeOf(call.Arguments[0]).Width, true) : new TypeInfo(1, true);
                         case "$unsigned": return call.Arguments.Count == 1 && call.Arguments[0] != null ? new TypeInfo(TypeOf(call.Arguments[0]).Width, false) : new TypeInfo(1, false);
                         case "$clog2": case "$bits": return new TypeInfo(32, true);
-                        case "$time": case "$realtime": return new TypeInfo(64, false);
+                        case "$time": return new TypeInfo(64, false);
+                        case "$realtime": case "$itor": case "$bitstoreal": return RealType;
+                        case "$rtoi": return new TypeInfo(32, true);
+                        case "$realtobits": return new TypeInfo(64, false);
                         case "$stime": return new TypeInfo(32, false);
                         case "$countones": case "$random": return new TypeInfo(32, true);
                         case "$onehot": case "$onehot0": case "$isunknown": return new TypeInfo(1, false);
@@ -217,15 +244,22 @@ namespace BitSorter.Sim
                         case "$sformatf": case "$psprintf": return new TypeInfo(PackedType.String.Width, false);
                         case "$fopen": return new TypeInfo(32, true);
                         default:
+                            if (RealFunctions.ContainsKey(call.Name))
+                                return RealType;
+
                             // A function written in the design: its return type.
-                            return !call.Name.StartsWith("$", StringComparison.Ordinal) && _scope.LookupSubroutine(call.Package, call.Name) is SubroutineEntry routine && !routine.IsVoid
-                                ? new TypeInfo(routine.Width, routine.Signed)
-                                : new TypeInfo(1, false);
+                            if (!call.Name.StartsWith("$", StringComparison.Ordinal) && _scope.LookupSubroutine(call.Package, call.Name) is SubroutineEntry routine && !routine.IsVoid)
+                                return IsRealKeyword(routine.Declaration.ReturnType?.Keyword) ? RealType : new TypeInfo(routine.Width, routine.Signed);
+                            return new TypeInfo(1, false);
                     }
 
                 case CastExpression cast:
                 {
                     TypeInfo inner = TypeOf(cast.Value);
+                    if (IsRealKeyword(cast.TargetText))
+                        return RealType;
+                    if (inner.Real)
+                        inner = new TypeInfo(64, true);   // a real cast to a whole number is one, rounded
                     if (cast.Width != null)
                         return new TypeInfo((int)Math.Max(1, Math.Min(LogicVec.MaxWidth, ConstantOf(cast.Width, report: false))), inner.Signed);
                     if (cast.TargetText == "signed") return new TypeInfo(inner.Width, true);
@@ -306,6 +340,13 @@ namespace BitSorter.Sim
         /// </summary>
         private Expr BuildAt(Expression e, int width, bool signed)
         {
+            // A real where a whole number is wanted: rounded, half away from zero (IEEE 1800, 6.12.2).
+            if (TypeOf(e).Real)
+            {
+                Expr whole = Expr.RealToInteger(BuildReal(e), width);
+                return signed ? Expr.WithSignedness(whole, true) : whole;
+            }
+
             switch (e)
             {
                 case ParenthesizedExpression p:
@@ -316,6 +357,8 @@ namespace BitSorter.Sim
 
                 case UnaryExpression u when u.Operator == "+" || u.Operator == "-" || u.Operator == "~":
                 {
+                    if (u.Operator == "~" && !WholeOnly(u.Operand, "~"))
+                        return Expr.Constant(LogicVec.AllX(width));
                     Expr operand = BuildAt(u.Operand, width, signed);
                     if (u.Operator == "+") return operand;
                     return Expr.Apply(u.Operator == "-" ? UnaryOp.Negate : UnaryOp.Not, operand);
@@ -326,7 +369,7 @@ namespace BitSorter.Sim
 
                 case ConditionalExpression c:
                 {
-                    Expr condition = BuildSelf(c.Condition);
+                    Expr condition = BuildTruth(c.Condition);
                     return Expr.Conditional(condition, BuildAt(c.WhenTrue, width, signed), BuildAt(c.WhenFalse, width, signed));
                 }
 
@@ -394,7 +437,7 @@ namespace BitSorter.Sim
                 {
                     switch (u.Operator)
                     {
-                        case "!": return Expr.Apply(UnaryOp.LogicalNot, BuildSelf(u.Operand));
+                        case "!": return Expr.Apply(UnaryOp.LogicalNot, BuildTruth(u.Operand));
                         case "&": return Expr.Apply(UnaryOp.ReduceAnd, BuildSelf(u.Operand));
                         case "|": return Expr.Apply(UnaryOp.ReduceOr, BuildSelf(u.Operand));
                         case "^": return Expr.Apply(UnaryOp.ReduceXor, BuildSelf(u.Operand));
@@ -444,8 +487,7 @@ namespace BitSorter.Sim
                     return Expr.Constant(StringBits(s.Value));
 
                 case RealLiteral r:
-                    Error(r.Location, ElaborationCodes.NotYet, $"{r.Text} is a real number; BitSorter simulates whole numbers only.");
-                    return Expr.Constant(LogicVec.AllX(1));
+                    return BuildReal(r);
 
                 case MemberExpression m:
                     return BuildMember(m);
@@ -1260,6 +1302,15 @@ namespace BitSorter.Sim
         {
             switch (b.Operator)
             {
+                case "%": case "&": case "|": case "^": case "~^": case "^~": case "~&": case "~|":
+                case "<<": case ">>": case "<<<": case ">>>": case "==?": case "!=?":
+                    if (!WholeOnly(b.Left, b.Operator) || !WholeOnly(b.Right, b.Operator))
+                        return Expr.Constant(LogicVec.AllX(width));
+                    break;
+            }
+
+            switch (b.Operator)
+            {
                 case "+": return Arithmetic(BinaryOp.Add, b, width, signed);
                 case "-": return Arithmetic(BinaryOp.Subtract, b, width, signed);
                 case "*": return Arithmetic(BinaryOp.Multiply, b, width, signed);
@@ -1293,8 +1344,8 @@ namespace BitSorter.Sim
                 case "===": return Extend(Compare(BinaryOp.CaseEqual, b), width, false);
                 case "!==": return Extend(Compare(BinaryOp.CaseNotEqual, b), width, false);
 
-                case "&&": return Extend(Expr.Apply(BinaryOp.LogicalAnd, BuildSelf(b.Left), BuildSelf(b.Right)), width, false);
-                case "||": return Extend(Expr.Apply(BinaryOp.LogicalOr, BuildSelf(b.Left), BuildSelf(b.Right)), width, false);
+                case "&&": return Extend(Expr.Apply(BinaryOp.LogicalAnd, BuildTruth(b.Left), BuildTruth(b.Right)), width, false);
+                case "||": return Extend(Expr.Apply(BinaryOp.LogicalOr, BuildTruth(b.Left), BuildTruth(b.Right)), width, false);
 
                 default:
                     Error(b.Location, ElaborationCodes.NotYet, $"The operator {b.Operator} is not supported by BitSorter yet.");
@@ -1314,6 +1365,10 @@ namespace BitSorter.Sim
             // Strings compare as text, character by character (IEEE 1800, 6.16).
             if (op != BinaryOp.WildcardEqual && op != BinaryOp.WildcardNotEqual && (IsStringValued(b.Left) || IsStringValued(b.Right)))
                 return Expr.StringCompare(op, BuildSelf(b.Left), BuildSelf(b.Right));
+
+            // Reals compare as numbers, a whole number beside one made a real (IEEE 1800, 11.3.1).
+            if (TypeOf(b.Left).Real || TypeOf(b.Right).Real)
+                return Expr.RealCompare(op, BuildReal(b.Left), BuildReal(b.Right));
 
             TypeInfo l = TypeOf(b.Left), r = TypeOf(b.Right);
             int width = Math.Max(l.Width, r.Width);
@@ -1345,8 +1400,48 @@ namespace BitSorter.Sim
 
         private Expr BuildCall(CallExpression call)
         {
+            if (RealFunctions.TryGetValue(call.Name, out (RealFunction Function, int Arguments) function))
+            {
+                if (call.Arguments.Count != function.Arguments || call.Arguments.Exists(a => a == null))
+                {
+                    Error(call.Location, ElaborationCodes.BadCall, $"{call.Name} takes {function.Arguments} value{(function.Arguments == 1 ? "" : "s")}.");
+                    return Expr.Constant(Reals.Bits(0));
+                }
+
+                var operands = new Expr[function.Arguments];
+                for (int i = 0; i < operands.Length; i++)
+                    operands[i] = BuildReal(call.Arguments[i]);
+                return Expr.RealCall(function.Function, operands);
+            }
+
             switch (call.Name)
             {
+                case "$itor":
+                case "$rtoi":
+                case "$realtobits":
+                case "$bitstoreal":
+                {
+                    // Between reals and whole numbers (IEEE 1800, 20.5): $rtoi cuts toward zero, where an assignment rounds.
+                    if (call.Arguments.Count != 1 || call.Arguments[0] == null)
+                    {
+                        Error(call.Location, ElaborationCodes.BadCall, $"{call.Name} takes one value.");
+                        return Expr.Constant(LogicVec.AllX(64));
+                    }
+
+                    Expression a = call.Arguments[0];
+                    switch (call.Name)
+                    {
+                        case "$itor": return Expr.IntegerToReal(BuildSelf(a), TypeOf(a).Signed);
+                        case "$rtoi": return Expr.WithSignedness(Expr.RealToInteger(BuildReal(a), 32, truncate: true), true);
+                        case "$realtobits": return BuildReal(a);
+                        default:
+                        {
+                            Expr bits = BuildSelf(a);
+                            return bits.Width == 64 ? bits : Extend(bits, 64, false);
+                        }
+                    }
+                }
+
                 case "$fopen":
                     if (_constant || Opens == null)
                     {
@@ -1420,9 +1515,13 @@ namespace BitSorter.Sim
                         return Expr.Constant(LogicVec.AllX(64));
                     }
 
-                    // $realtime is $time: time here is a whole number of units.
+                    // The engine counts ticks; $time gives them in this module's units, rounded, and $realtime as a real (Part L7).
                     Expr time = source();
-                    return call.Name == "$stime" ? Expr.Slice(time, 0, 32) : time;
+                    long scale = _scope.UnitTicks;
+                    if (call.Name == "$realtime")
+                        return Expr.TimeInUnits(time, scale, real: true);
+                    Expr units = scale == 1 ? time : Expr.TimeInUnits(time, scale, real: false);
+                    return call.Name == "$stime" ? Expr.Slice(units, 0, 32) : units;
                 }
 
                 case "$bits":
@@ -1553,7 +1652,7 @@ namespace BitSorter.Sim
                     builder = new ExpressionBuilder(routine.Scope, _diagnostics, constantOnly: false);
                 }
 
-                Expr built = builder.Build(given, formal.Width);
+                Expr built = builder.BuildAssigned(given, formal.Type, formal.Width);
                 if (builder.Failed)
                     Failed = true;
                 arguments.Add(built.Width > formal.Width ? Expr.Slice(built, 0, formal.Width) : built);
@@ -1582,8 +1681,21 @@ namespace BitSorter.Sim
 
         private Expr BuildCast(CastExpression cast)
         {
-            Expr value = BuildSelf(cast.Value);
+            if (IsRealKeyword(cast.TargetText))
+                return BuildReal(cast.Value);
+
+            Expr value;
             TypeInfo inner = TypeOf(cast.Value);
+            if (inner.Real)
+            {
+                // A real cast to a whole number is rounded first (IEEE 1800, 6.24.1).
+                value = Expr.WithSignedness(Expr.RealToInteger(BuildReal(cast.Value), 64), true);
+                inner = new TypeInfo(64, true);
+            }
+            else
+            {
+                value = BuildSelf(cast.Value);
+            }
 
             if (cast.Width != null)
             {
@@ -1731,6 +1843,124 @@ namespace BitSorter.Sim
             e is StringLiteral || IsStringValued(e) || e is MethodCallExpression m && m.Method == "name" && TryEnumOf(m.Target, out EnumInfo _, out bool _);
 
         // -----------------------------------------------------------------
+        // Reals, conditions and delays (Part L7)
+        // -----------------------------------------------------------------
+
+        /// <summary>The functions of reals (IEEE 1800, 20.8), and how many values each takes.</summary>
+        private static readonly Dictionary<string, (RealFunction Function, int Arguments)> RealFunctions =
+            new Dictionary<string, (RealFunction, int)>(StringComparer.Ordinal)
+            {
+                ["$sqrt"] = (RealFunction.Sqrt, 1), ["$ln"] = (RealFunction.Ln, 1), ["$log10"] = (RealFunction.Log10, 1),
+                ["$exp"] = (RealFunction.Exp, 1), ["$pow"] = (RealFunction.Pow, 2), ["$floor"] = (RealFunction.Floor, 1),
+                ["$ceil"] = (RealFunction.Ceil, 1), ["$sin"] = (RealFunction.Sin, 1), ["$cos"] = (RealFunction.Cos, 1),
+                ["$tan"] = (RealFunction.Tan, 1), ["$asin"] = (RealFunction.Asin, 1), ["$acos"] = (RealFunction.Acos, 1),
+                ["$atan"] = (RealFunction.Atan, 1), ["$atan2"] = (RealFunction.Atan2, 2), ["$hypot"] = (RealFunction.Hypot, 2),
+                ["$sinh"] = (RealFunction.Sinh, 1), ["$cosh"] = (RealFunction.Cosh, 1), ["$tanh"] = (RealFunction.Tanh, 1),
+                ["$asinh"] = (RealFunction.Asinh, 1), ["$acosh"] = (RealFunction.Acosh, 1), ["$atanh"] = (RealFunction.Atanh, 1),
+            };
+
+        private static bool IsRealKeyword(string keyword) => keyword == "real" || keyword == "realtime" || keyword == "shortreal";
+
+        /// <summary>Whether a constant expression is a real: an untyped parameter given one is one.</summary>
+        public static bool IsReal(Expression e, Scope scope) => new ExpressionBuilder(scope, new DiagnosticBag(), constantOnly: true).TypeOf(e).Real;
+
+        /// <summary>
+        /// <paramref name="e"/> as a real, the 64 bits of a double (IEEE 1800, 11.3.1): a real as it is, a whole
+        /// number made one, and an operator of reals done in them.
+        /// </summary>
+        private Expr BuildReal(Expression e)
+        {
+            switch (e)
+            {
+                case ParenthesizedExpression p:
+                    return BuildReal(p.Inner);
+
+                case RealLiteral r:
+                    if (!Reals.TryParse(r.Text, out double number))
+                        Error(r.Location, ElaborationCodes.BadSelect, $"{r.Text} is not a number BitSorter can read.");
+                    return Expr.Constant(Reals.Bits(number));
+
+                case UnaryExpression u when u.Operator == "+":
+                    return BuildReal(u.Operand);
+
+                case UnaryExpression u when u.Operator == "-":
+                    return Expr.RealArithmetic('-', null, BuildReal(u.Operand));
+
+                case BinaryExpression b when TypeOf(b).Real:
+                    return Expr.RealArithmetic(b.Operator == "**" ? '^' : b.Operator[0], BuildReal(b.Left), BuildReal(b.Right));
+
+                case ConditionalExpression c when TypeOf(c).Real:
+                    return Expr.Conditional(BuildTruth(c.Condition), BuildReal(c.WhenTrue), BuildReal(c.WhenFalse));
+
+                case CastExpression cast when IsRealKeyword(cast.TargetText):
+                    return BuildReal(cast.Value);
+            }
+
+            TypeInfo t = TypeOf(e);
+            return t.Real ? BuildSelf(e) : Expr.IntegerToReal(BuildSelf(e), t.Signed);
+        }
+
+        /// <summary>Whether an operand of a whole-number operator is one, having said so when it is a real.</summary>
+        private bool WholeOnly(Expression operand, string op)
+        {
+            if (!TypeOf(operand).Real)
+                return true;
+            Error(operand.Location, ElaborationCodes.BadSelect, $"{op} takes whole numbers, and {Printer.Print(operand)} is a real (IEEE 1800, 11.3.1).");
+            return false;
+        }
+
+        /// <summary>Whether a value is true: a real is when it is not 0 -- -0.0 being 0 -- and anything else as a whole number is.</summary>
+        private Expr BuildTruth(Expression e) =>
+            TypeOf(e).Real ? Expr.RealCompare(BinaryOp.NotEqual, BuildReal(e), Expr.Constant(Reals.Bits(0))) : BuildSelf(e);
+
+        /// <summary>A condition, for an <c>if</c>, a loop or a <c>wait</c>: what it is, a real true when it is not 0.</summary>
+        public Expr BuildCondition(Expression e) =>
+            TypeOf(e).Real ? Expr.RealCompare(BinaryOp.NotEqual, BuildReal(e), Expr.Constant(Reals.Bits(0))) : Build(e, 0);
+
+        /// <summary>
+        /// A delay in a process, in ticks (Part L7): its value in this module's units -- a fraction of one included --
+        /// scaled to ticks and rounded to the module's precision, as the standard rounds a delay (IEEE 1800, 22.7).
+        /// With no <c>`timescale</c> a tick is a unit, and a whole delay is as it was written.
+        /// </summary>
+        public Expr BuildDelay(Expression e)
+        {
+            TypeInfo t = TypeOf(e);
+            long scale = _scope.UnitTicks;
+            if (!t.Real && scale == 1)
+                return Build(e, 0);
+            return Expr.Ticks(t.Real ? BuildReal(e) : BuildSelf(e), t.Real, t.Signed, scale, _scope.PrecisionTicks);
+        }
+
+        /// <summary>A gate's or an assign's delay, a constant, in ticks: as <see cref="BuildDelay"/> works one out, and never below 0.</summary>
+        public static bool TryDelayTicks(Expression e, Scope scope, DiagnosticBag diagnostics, out long ticks)
+        {
+            ticks = 0;
+            var builder = new ExpressionBuilder(scope, diagnostics, constantOnly: true);
+            TypeInfo t = builder.TypeOf(e);
+            Expr value = t.Real ? builder.BuildReal(e) : builder.BuildSelf(e);
+            if (builder.Failed)
+                return false;
+
+            LogicVec given = value.Evaluate(Array.Empty<LogicVec>());
+            double units = t.Real ? Reals.Of(given) : Reals.FromInteger(given, given.IsSigned);
+            if (!t.Real && !given.IsKnown)
+            {
+                diagnostics.Error(e.Location, ElaborationCodes.NotConstant, $"a delay is {Printer.Print(e)}, which has x or z bits; it must be a known number.");
+                return false;
+            }
+
+            if (units < 0)
+            {
+                diagnostics.Error(e.Location, ElaborationCodes.BadDelay, $"A delay cannot be negative, and this one is {Printer.Print(e)}.");
+                return false;
+            }
+
+            Expr.Ticks(value, t.Real, t.Signed, scope.UnitTicks, scope.PrecisionTicks).Evaluate(Array.Empty<LogicVec>()).TryGetUInt64(out ulong whole);
+            ticks = (long)whole;
+            return true;
+        }
+
+        // -----------------------------------------------------------------
         // Strings (Part L6)
         // -----------------------------------------------------------------
 
@@ -1867,8 +2097,17 @@ namespace BitSorter.Sim
 
                 if (arg != null)
                 {
-                    bool text = IsStringValued(arg);
-                    segments.Add(new PrintSegment { Conversion = text ? 's' : radix, Argument = Build(arg, 0), Untracked = IsTime(arg), IsString = text });
+                    bool text = IsStringValued(arg), real = !text && TypeOf(arg).Real;
+                    segments.Add(new PrintSegment
+                    {
+                        // A real with no format is written as %g keeping its zeros, as Icarus writes one: 2.50000.
+                        Conversion = text ? 's' : real ? 'g' : radix,
+                        Alternate = real,
+                        IsReal = real,
+                        Argument = real ? BuildReal(arg) : Build(arg, 0),
+                        Untracked = IsTime(arg),
+                        IsString = text,
+                    });
                 }
 
                 i++;
@@ -1931,6 +2170,16 @@ namespace BitSorter.Sim
                     zero = w.Length > 1 && w[0] == '0';
                 }
 
+                // %10.3f: the places after the point (Part L7).
+                int precision = -1;
+                if (j < f.Length && f[j] == '.')
+                {
+                    int places = ++j;
+                    while (j < f.Length && char.IsDigit(f[j]))
+                        j++;
+                    precision = j > places ? Math.Min(int.Parse(f.Substring(places, j - places), System.Globalization.CultureInfo.InvariantCulture), 100) : 0;
+                }
+
                 if (j >= f.Length)
                 {
                     _diagnostics.Warning(format.Location, ElaborationCodes.BadFormat, $"The format \"{f}\" ends in the middle of a %; it is printed as written.");
@@ -1951,10 +2200,8 @@ namespace BitSorter.Sim
                         conversion = 'h';
                         break;
                     case 'd': case 'b': case 'o': case 'h': case 'c': case 's': case 't':
-                        break;
                     case 'e': case 'f': case 'g':
-                        Error(format.Location, ElaborationCodes.NotYet, $"%{f[j]} writes a real number; BitSorter simulates whole numbers only.");
-                        continue;
+                        break;
                     default:
                         Error(format.Location, ElaborationCodes.NotYet, $"%{f[j]} is not supported by BitSorter yet.");
                         continue;
@@ -1978,13 +2225,17 @@ namespace BitSorter.Sim
                     continue;
                 }
 
+                bool real = TypeOf(value).Real;
                 segments.Add(new PrintSegment
                 {
                     Conversion = conversion,
                     Width = width,
                     LeftAlign = left,
                     ZeroPad = zero,
-                    Argument = Build(value, 0),
+                    Precision = precision,
+                    IsReal = real,
+                    TimeScale = conversion == 't' ? _scope.UnitTicks : 1,
+                    Argument = real ? BuildReal(value) : Build(value, 0),
                     Untracked = IsTime(value),
                     IsString = IsString(value),
                 });
@@ -2067,6 +2318,10 @@ namespace BitSorter.Sim
             while (bare is ParenthesizedExpression p)
                 bare = p.Inner;
 
+            // Given to a real: the value as one (Part L7).
+            if (type != null && type.IsReal && !(bare is AssignmentPatternExpression))
+                return BuildReal(value);
+
             // Given to a string: its bytes as characters, zero bytes left out (IEEE 1800, 6.16).
             if (type != null && type.IsString && !(bare is AssignmentPatternExpression))
             {
@@ -2101,7 +2356,7 @@ namespace BitSorter.Sim
             while (bare is ParenthesizedExpression p)
                 bare = p.Inner;
 
-            if (!(bare is AssignmentPatternExpression) || type == null)
+            if (type == null || !(bare is AssignmentPatternExpression) && !type.IsReal)
                 return TryConstant(value, scope, diagnostics, out result, width);
 
             var builder = new ExpressionBuilder(scope, diagnostics, constantOnly: true);

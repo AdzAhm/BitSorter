@@ -75,6 +75,9 @@ namespace BitSorter.Sim
         /// </summary>
         public bool IsString { get; internal set; }
 
+        /// <summary>Whether it is a <c>real</c> (Part L7): its 64 bits are a double. A VCD writes it as one.</summary>
+        public bool IsReal { get; internal set; }
+
         public int Width { get; }
         public SignalKind Kind { get; }
         public bool Signed { get; }
@@ -741,6 +744,9 @@ namespace BitSorter.Sim
 
         /// <summary>Marks a signal as a <c>string</c> (<see cref="SignalInfo.IsString"/>).</summary>
         internal void MarkString(SignalId signal) => _signals[signal.Index].IsString = true;
+
+        /// <summary>Marks a signal as a <c>real</c> (<see cref="SignalInfo.IsReal"/>).</summary>
+        internal void MarkReal(SignalId signal) => _signals[signal.Index].IsReal = true;
 
         private void RequireOneBit(SignalId signal, string what)
         {

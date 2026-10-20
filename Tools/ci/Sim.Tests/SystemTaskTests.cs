@@ -388,7 +388,7 @@ endmodule"));
         [TestCase("module t; initial begin logic [7:0] m [4]; end endmodule", ElaborationCodes.NotYet)]
         [TestCase("module t; logic [7:0] m [4]; initial $readmemh(m, m); endmodule", ElaborationCodes.BadFormat)]
         [TestCase("module t; logic [7:0] y; initial $readmemh(\"f.hex\", y); endmodule", ElaborationCodes.BadSelect)]
-        [TestCase("module t; initial $display(\"%f\", 1); endmodule", ElaborationCodes.NotYet)]
+        [TestCase("module t; initial $display(\"%v\", 1); endmodule", ElaborationCodes.NotYet)]
         [TestCase("module t; logic y; initial y = nowhere.x; endmodule", ElaborationCodes.UnknownName)]
         [TestCase("module c; endmodule\nmodule t; logic y; c i (); initial y = i.missing; endmodule", ElaborationCodes.UnknownName)]
         public void AnError_IsReported_AndThereIsNoDesign(string text, string code)

@@ -17,7 +17,7 @@ namespace BitSorter.Sim
     /// </remarks>
     internal sealed class PackedType
     {
-        public PackedType(int msb, int lsb, bool signed, PackedType element = null, StructLayout layout = null, EnumInfo @enum = null, bool twoState = false, bool isString = false)
+        public PackedType(int msb, int lsb, bool signed, PackedType element = null, StructLayout layout = null, EnumInfo @enum = null, bool twoState = false, bool isString = false, bool isReal = false)
         {
             Msb = msb;
             Lsb = lsb;
@@ -27,7 +27,14 @@ namespace BitSorter.Sim
             Enum = @enum;
             TwoState = twoState;
             IsString = isString;
+            IsReal = isReal;
         }
+
+        /// <summary>A <c>real</c> (Part L7; see <see cref="Reals"/>): 64 bits, an IEEE 754 double's.</summary>
+        public static readonly PackedType Real = new PackedType(63, 0, false, null, null, null, twoState: true, isReal: true);
+
+        /// <summary>Whether it is a <c>real</c>, whose bits are a double (Part L7).</summary>
+        public bool IsReal { get; }
 
         /// <summary>The characters a <c>string</c> holds at most (Part L6; see <see cref="Strings"/>).</summary>
         public const int StringCharacters = 256;
@@ -73,7 +80,7 @@ namespace BitSorter.Sim
 
         /// <summary>This type with another signedness: what a part-select or an element of a signed array reads as.</summary>
         public PackedType WithSigned(bool signed) =>
-            signed == Signed ? this : new PackedType(Msb, Lsb, signed, Element, Struct, Enum, TwoState, IsString);
+            signed == Signed ? this : new PackedType(Msb, Lsb, signed, Element, Struct, Enum, TwoState, IsString, IsReal);
 
         public override string ToString() =>
             Struct != null ? (Struct.IsUnion ? "union" : "struct") + $" [{Width}]" : $"[{Msb}:{Lsb}]{(Element != null ? Element.ToString() : "")}";

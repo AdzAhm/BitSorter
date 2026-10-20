@@ -36,6 +36,7 @@ namespace BitSorter.Ci.Oracle
         [TestCase("behavioural/data_types.sv", "data_types_tb", null, null)]
         [TestCase("behavioural/testbench_control.sv", "testbench_control_tb", null, null)]
         [TestCase("behavioural/library.sv", "library_tb", null, null)]
+        [TestCase("behavioural/reals.sv", "reals_tb", null, null)]
         [TestCase("system/printing.sv", "printing", null, null)]
         [TestCase("system/memories.sv", "memories_tb", null, "system/memories.hex,system/memories.bin")]
         [TestCase("processor/mcpu.sv", "mcpu_tb", null, "processor/mcpu_program.hex,processor/mcpu_data.hex,processor/mcpu_expected.hex")]
@@ -67,8 +68,8 @@ namespace BitSorter.Ci.Oracle
             for (int s = 0; s < design.Signals.Count; s++)
             {
                 SignalInfo info = design.Signals[s];
-                if (info.Local || info.Memory != null || info.IsString)
-                    continue;   // a string Icarus leaves out of its dump: what the testbench prints of it is compared
+                if (info.Local || info.Memory != null || info.IsString || info.IsReal)
+                    continue;   // a string Icarus leaves out of its dump, and a real it dumps as a real: what the testbench prints of each is compared
 
                 if (!theirs.TryGetValue(info.Name, out VcdTrace trace))
                 {

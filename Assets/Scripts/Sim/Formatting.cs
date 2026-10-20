@@ -51,6 +51,18 @@ namespace BitSorter.Sim
         /// its text exactly, where a vector's leading zero bytes would be spaces.
         /// </summary>
         public bool IsString;
+
+        /// <summary>An argument that is a <c>real</c>, its bits a double (Part L7): <c>%d</c> rounds it, <c>%f</c> writes it.</summary>
+        public bool IsReal;
+
+        /// <summary>The places after the point, <c>%.3f</c>; -1 for the default.</summary>
+        public int Precision = -1;
+
+        /// <summary><c>%g</c> keeping its trailing zeros, as a real printed with no format does in Icarus: <c>2.50000</c>.</summary>
+        public bool Alternate;
+
+        /// <summary>For <c>%t</c> (Part L7): the ticks a time unit is where the line is printed; a time is written in ticks.</summary>
+        public long TimeScale = 1;
     }
 
     /// <summary>A compiled print task.</summary>
@@ -98,6 +110,27 @@ namespace BitSorter.Sim
             LogicVec value = segment.Argument.Evaluate(values);
             string digits;
             int width;
+
+            // Reals (Part L7): %e, %f and %g write one; any other conversion writes it rounded to a whole number.
+            if (segment.Conversion == 'e' || segment.Conversion == 'f' || segment.Conversion == 'g')
+            {
+                double number = segment.IsReal ? Reals.Of(value) : Reals.FromInteger(value, value.IsSigned);
+                return Pad(Reals.Format(number, segment.Conversion, segment.Precision, segment.Alternate), segment);
+            }
+
+            if (segment.IsReal)
+            {
+                double number = Reals.Of(value);
+                if (segment.Conversion == 't')
+                    number *= segment.TimeScale;
+                value = Reals.ToInteger(number, 64).AsSigned();
+                if (segment.Conversion == 'd' && segment.Width < 0)
+                    return value.Format(Radix.Signed);   // as Icarus writes a real with %d: no padding
+            }
+            else if (segment.Conversion == 't' && segment.TimeScale != 1)
+            {
+                value = LogicVec.Multiply(value.AsUnsigned().Extend(Math.Max(64, value.Width), false), LogicVec.FromUInt64((ulong)segment.TimeScale, Math.Max(64, value.Width)));
+            }
 
             switch (segment.Conversion)
             {

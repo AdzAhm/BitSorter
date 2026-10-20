@@ -830,7 +830,7 @@ namespace BitSorter.Sim
             private Expr Condition(Proc p, Scope scope, Expression condition)
             {
                 var builder = Builder(p, scope);
-                Expr built = builder.Build(condition, 0);
+                Expr built = builder.BuildCondition(condition);
                 if (builder.Failed)
                     p.Failed = true;
                 return built;
@@ -1429,7 +1429,11 @@ namespace BitSorter.Sim
                     return Expr.Constant(LogicVec.FromInt64(0, 32));
                 }
 
-                return Condition(p, scope, delay.Values[0]);
+                var builder = Builder(p, scope);
+                Expr ticks = builder.BuildDelay(delay.Values[0]);
+                if (builder.Failed)
+                    p.Failed = true;
+                return ticks;
             }
 
             private void Call(Proc p, Scope scope, CallStatement call)

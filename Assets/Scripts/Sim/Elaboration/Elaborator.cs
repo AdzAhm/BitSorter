@@ -151,6 +151,8 @@ namespace BitSorter.Sim
                     _unit = new Scope(root.Name, null, null);
                     _unit.TimeSource = () => Expr.Read(_builder.Time(), 64);
                     _unit.Packages = FindPackage;
+                    FindTicks();
+                    Timescale(_unit, _defaultTimescale);
                     DeclareUnitItems();
 
                     _builder = new NetlistBuilder(root.Name);
@@ -318,6 +320,58 @@ namespace BitSorter.Sim
             }
 
             // -----------------------------------------------------------------
+            // Time (Part L7)
+            // -----------------------------------------------------------------
+
+            /// <summary>A tick, as a power of ten of a second: the finest time any module's <c>`timescale</c> names; null for none.</summary>
+            private int? _tick;
+
+            /// <summary>The <c>`timescale</c> a module, package or the compilation unit without one counts in: the first one written.</summary>
+            private string _defaultTimescale;
+
+            /// <summary>
+            /// The tick (Part L7): the finest unit or precision of every module's <c>`timescale</c>, so each module's
+            /// delays are whole ticks once scaled and rounded to its own precision (IEEE 1800, 22.7). With none, a tick
+            /// is the one unit everything counts in, as it always was.
+            /// </summary>
+            private void FindTicks()
+            {
+                foreach (ModuleDeclaration module in _tree.Modules)
+                {
+                    if (module.Timescale == null)
+                        continue;
+
+                    if (!TimeUnits.TryTimescale(module.Timescale, out int unit, out int precision))
+                    {
+                        Warning(module.Location, ElaborationCodes.Ignored,
+                            $"`timescale {module.Timescale} is not a unit and a precision BitSorter reads -- 1ns/1ps, say, the precision no coarser than the unit -- so module {module.Name} counts in whole ticks.");
+                        continue;
+                    }
+
+                    _defaultTimescale = _defaultTimescale ?? module.Timescale;
+                    _tick = Math.Min(_tick ?? int.MaxValue, Math.Min(unit, precision));
+                }
+            }
+
+            /// <summary>Gives a scope the ticks of its timescale's unit and precision.</summary>
+            private void Timescale(Scope scope, string timescale)
+            {
+                if (_tick == null || !TimeUnits.TryTimescale(timescale, out int unit, out int precision))
+                    return;
+
+                scope.TickScale = Pow10(unit - _tick.Value);
+                scope.TickRounding = Pow10(precision - _tick.Value);
+            }
+
+            private static long Pow10(int n)
+            {
+                long result = 1;
+                for (int i = 0; i < n; i++)
+                    result *= 10;
+                return result;
+            }
+
+            // -----------------------------------------------------------------
             // Packages (Part L6)
             // -----------------------------------------------------------------
 
@@ -358,6 +412,7 @@ namespace BitSorter.Sim
                 }
 
                 var scope = new Scope(name, null, null) { TimeSource = _unit.TimeSource, Packages = FindPackage };
+                Timescale(scope, _defaultTimescale);
                 foreach (ModuleItem item in package.Items)
                 {
                     switch (item)
@@ -482,6 +537,7 @@ namespace BitSorter.Sim
                 try
                 {
                     var scope = new Scope(path, _unit, module);
+                    Timescale(scope, module.Timescale ?? _defaultTimescale);
                     if (isTop)
                         _unit.Top = scope;
 
@@ -670,14 +726,19 @@ namespace BitSorter.Sim
 
                 LogicVec value;
 
+                // A real, by its type -- or, with none, by its value (Part L7).
+                Expression given = overrideValue ?? p.Value;
+                bool real = typed ? shape.Type.IsReal : given != null && ExpressionBuilder.IsReal(given, overrideValue != null ? overrideScope ?? scope : scope);
+                PackedType target = typed ? shape.Type : real ? PackedType.Real : null;
+
                 if (overrideValue != null)
                 {
-                    if (!ExpressionBuilder.TryConstantFor(overrideValue, typed ? shape.Type : null, overrideScope ?? scope, _diagnostics, typed ? shape.Width : 0, out value))
+                    if (!ExpressionBuilder.TryConstantFor(overrideValue, target, overrideScope ?? scope, _diagnostics, typed ? shape.Width : 0, out value))
                         return;
                 }
                 else if (p.Value != null)
                 {
-                    if (!ExpressionBuilder.TryConstantFor(p.Value, typed ? shape.Type : null, scope, _diagnostics, typed ? shape.Width : 0, out value))
+                    if (!ExpressionBuilder.TryConstantFor(p.Value, target, scope, _diagnostics, typed ? shape.Width : 0, out value))
                         return;
                 }
                 else
@@ -696,7 +757,7 @@ namespace BitSorter.Sim
                     value = value.AsSigned();
                 }
 
-                if (!scope.TryDeclare(p.Name, new ConstantEntry { Value = value, Declared = p.Location }))
+                if (!scope.TryDeclare(p.Name, new ConstantEntry { Value = value, IsReal = real, Declared = p.Location }))
                     Error(p.Location, ElaborationCodes.Duplicate, $"{p.Name} is declared twice here.");
             }
 
@@ -814,8 +875,15 @@ namespace BitSorter.Sim
                     case "real":
                     case "realtime":
                     case "shortreal":
-                        NotYet(type.Location, $"A {type.Keyword} holds a real number; BitSorter simulates whole numbers only.");
-                        return false;
+                        // A real (Part L7): a double's 64 bits. A shortreal is held as one too.
+                        if (type.Packed.Count > 0)
+                        {
+                            Error(type.Packed[0].Location, ElaborationCodes.BadSelect, $"A {type.Keyword} takes no range.");
+                            return false;
+                        }
+
+                        shape = Shape.Of(PackedType.Real);
+                        return true;
                     default:
                         NotYet(type.Location, $"A {type.Keyword} is not supported by BitSorter yet.");
                         return false;
@@ -1093,6 +1161,8 @@ namespace BitSorter.Sim
                         shape.Msb, shape.Lsb, shape.Enum, port, scope.Recorded, shape.TwoState);
                     if (shape.Type.IsString)
                         _builder.MarkString(id);
+                    if (shape.Type.IsReal)
+                        _builder.MarkReal(id);
                 }
                 catch (ArgumentException ex)
                 {
@@ -1574,18 +1644,11 @@ namespace BitSorter.Sim
                     return false;
                 }
 
+                // In ticks: scaled by the module's timescale, a fraction of a unit rounded to its precision (Part L7).
                 var values = new long[control.Values.Count];
                 for (int i = 0; i < values.Length; i++)
-                {
-                    if (!ExpressionBuilder.TryInteger(control.Values[i], scope, _diagnostics, "a delay", out values[i]))
+                    if (!ExpressionBuilder.TryDelayTicks(control.Values[i], scope, _diagnostics, out values[i]))
                         return false;
-
-                    if (values[i] < 0)
-                    {
-                        Error(control.Values[i].Location, ElaborationCodes.BadDelay, $"A delay cannot be negative, and this one is {values[i]}.");
-                        return false;
-                    }
-                }
 
                 delay = values.Length == 1 ? Delay.Of(values[0])
                     : values.Length == 2 ? Delay.Of(values[0], values[1])
@@ -1912,8 +1975,9 @@ namespace BitSorter.Sim
                     ImplicitNet(scope, n);
 
                 var builder = new ExpressionBuilder(scope, _diagnostics, constantOnly: false);
+                // Given as an assignment gives a value to the port's type: a real stays one (Part L7).
                 ExpressionBuilder.TypeInfo type = builder.TypeOf(expression);
-                Expr value = builder.Build(expression, port.Width);
+                Expr value = builder.BuildAssigned(expression, port.Type, port.Width);
                 if (builder.Failed)
                     return;
 

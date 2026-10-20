@@ -101,6 +101,9 @@ namespace BitSorter.Sim
     internal sealed class ConstantEntry : Entry
     {
         public LogicVec Value;
+
+        /// <summary>Whether it is a <c>real</c>, its bits a double's (Part L7).</summary>
+        public bool IsReal;
     }
 
     /// <summary>A genvar: a constant inside a generate loop, and nothing outside one.</summary>
@@ -219,6 +222,36 @@ namespace BitSorter.Sim
         /// here is looked for in each, before the scope around this one.
         /// </summary>
         public List<Scope> Imports;
+
+        /// <summary>
+        /// On a module's scope, and a package's (Part L7): how many ticks one of its time units is, and the ticks its
+        /// delays are rounded to -- its precision. 0 on a scope that counts as the one around it.
+        /// </summary>
+        public long TickScale, TickRounding;
+
+        /// <summary>The ticks one time unit is here: its module's, or 1 when no <c>`timescale</c> says otherwise.</summary>
+        public long UnitTicks
+        {
+            get
+            {
+                for (Scope s = this; s != null; s = s.Parent)
+                    if (s.TickScale > 0)
+                        return s.TickScale;
+                return 1;
+            }
+        }
+
+        /// <summary>The ticks a delay here is rounded to: its module's precision.</summary>
+        public long PrecisionTicks
+        {
+            get
+            {
+                for (Scope s = this; s != null; s = s.Parent)
+                    if (s.TickRounding > 0)
+                        return s.TickRounding;
+                return 1;
+            }
+        }
 
         /// <summary>On the outermost scope: a package's scope by its name, made the first time it is asked for; null for none.</summary>
         public Func<string, Scope> Packages;

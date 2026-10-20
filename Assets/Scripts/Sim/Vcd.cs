@@ -59,7 +59,7 @@ namespace BitSorter.Sim
             output.WriteLine("$dumpvars");
             for (int s = 0; s < count; s++)
                 if (ids[s] != null)
-                    output.WriteLine(ValueText(history.ValueAt(new SignalId(s), 0), ids[s]));
+                    output.WriteLine(ValueText(history.ValueAt(new SignalId(s), 0), ids[s], design.Signals[s].IsReal));
             output.WriteLine("$end");
 
             long current = 0;
@@ -71,7 +71,7 @@ namespace BitSorter.Sim
                     current = time;
                 }
 
-                output.WriteLine(ValueText(value, ids[signal]));
+                output.WriteLine(ValueText(value, ids[signal], design.Signals[signal].IsReal));
             }
 
             if (endTime > current)
@@ -112,6 +112,13 @@ namespace BitSorter.Sim
                     open.Add(path[k]);
                 }
 
+                if (info.IsReal)
+                {
+                    // A real is a real in a VCD: r and its value (Part L7).
+                    output.WriteLine($"$var real 64 {ids[i]} {path[depth]} $end");
+                    continue;
+                }
+
                 string kind = info.Kind == SignalKind.Net ? "wire" : "reg";
                 string range = info.Width > 1 ? $" [{info.Width - 1}:0]" : string.Empty;
                 output.WriteLine($"$var {kind} {info.Width} {ids[i]} {path[depth]}{range} $end");
@@ -121,8 +128,9 @@ namespace BitSorter.Sim
                 output.WriteLine("$upscope $end");
         }
 
-        private static string ValueText(LogicVec value, string id) =>
-            value.Width == 1 ? value[0].ToChar() + id : "b" + value.Format(Radix.Binary) + " " + id;
+        private static string ValueText(LogicVec value, string id, bool real = false) =>
+            real ? "r" + Reals.Of(value).ToString("R", System.Globalization.CultureInfo.InvariantCulture) + " " + id
+            : value.Width == 1 ? value[0].ToChar() + id : "b" + value.Format(Radix.Binary) + " " + id;
 
         /// <summary>A short identifier from the printable characters '!' to '~', as VCD uses.</summary>
         private static string IdCode(int index)
