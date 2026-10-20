@@ -29,6 +29,9 @@ namespace BitSorter.ViewModel
         /// <summary>Whether the document would refuse the wire ending there: the end is drawn as one it cannot take.</summary>
         public bool DraftRefused;
 
+        /// <summary>The corners of every selected wire, where a drag moves one (Part 10b-2).</summary>
+        public readonly List<Vec2> Handles = new List<Vec2>();
+
         public void Clear()
         {
             Selected.Clear();
@@ -41,6 +44,7 @@ namespace BitSorter.ViewModel
             Draft = null;
             DraftStart = DraftEnd = null;
             DraftRefused = false;
+            Handles.Clear();
         }
     }
 
@@ -86,6 +90,13 @@ namespace BitSorter.ViewModel
         private CanvasTarget _checkedOver = CanvasTarget.Nothing;
         private string _draftWhyNot;
 
+        // A selected wire being reshaped: which, its points as it was drawn when taken hold of, which piece or
+        // corner, and the points it would have now.
+        private int _reshaping = -1;
+        private IReadOnlyList<BoardPoint> _reshapeFrom;
+        private CanvasTarget _reshapeBy;
+        private List<BoardPoint> _reshaped;
+
         public CanvasEditor(WorkbenchSession session)
         {
             _session = session ?? throw new ArgumentNullException(nameof(session));
@@ -108,6 +119,9 @@ namespace BitSorter.ViewModel
 
         /// <summary>Whether a wire is being drawn (Part 10b).</summary>
         public bool Drafting => _draft != null;
+
+        /// <summary>Whether a selected wire is being reshaped (Part 10b-2).</summary>
+        public bool Reshaping => _reshaping >= 0;
 
         /// <summary>The wire being drawn; null for none.</summary>
         public WireDraft Draft => _draft;
@@ -140,8 +154,36 @@ namespace BitSorter.ViewModel
         {
             if (_layout.Board == null)
                 return CanvasTarget.Nothing;
-            return _hit.At(ToBoard(stage), ReachPixels / Arith.Max(zoom, 1e-3f) / _layout.Board.Cell);
+            BoardPoint at = ToBoard(stage);
+            double reach = ReachPixels / Arith.Max(zoom, 1e-3f) / _layout.Board.Cell;
+
+            // A selected wire's corners before anything: they are drawn over everything, and only while it is selected.
+            double best = reach * reach;
+            CanvasTarget corner = CanvasTarget.Nothing;
+            foreach (int wire in Selection.Wires)
+            {
+                IReadOnlyList<BoardPoint> points = _hit.WireOf(wire);
+                if (points == null)
+                    continue;
+                double length = WireGeometry.Length(points), walked = 0;
+                for (int i = 1; i < points.Count; i++)
+                {
+                    walked += Distance(points[i - 1], points[i]);
+                    if (i == points.Count - 1)
+                        break;
+                    double squared = (points[i].X - at.X) * (points[i].X - at.X) + (points[i].Y - at.Y) * (points[i].Y - at.Y);
+                    if (squared <= best)
+                    {
+                        best = squared;
+                        corner = new CanvasTarget(CanvasTargetKind.Bend, wire: wire, segment: i, along: length > 0 ? walked / length : 0);
+                    }
+                }
+            }
+
+            return corner.Kind != CanvasTargetKind.Nothing ? corner : _hit.At(at, reach);
         }
+
+        private static double Distance(BoardPoint a, BoardPoint b) => Math.Sqrt((a.X - b.X) * (a.X - b.X) + (a.Y - b.Y) * (a.Y - b.Y));
 
         // -----------------------------------------------------------------
         // The part in hand
@@ -188,6 +230,8 @@ namespace BitSorter.ViewModel
             bool drafted = stage.HasValue;
             BoardPoint to = drafted ? ToBoard(stage.Value) : _draftAt;
             CanvasTarget over = drafted ? TargetAt(stage.Value, zoom) : CanvasTarget.Nothing;
+            if (over.Kind == CanvasTargetKind.Bend)
+                over = new CanvasTarget(CanvasTargetKind.Wire, wire: over.Wire, along: over.Along);
             if (over.Kind != CanvasTargetKind.Pin && over.Kind != CanvasTargetKind.Wire)
                 over = CanvasTarget.Nothing;
             if (drafted == _draftShown && to.Equals(_draftAt) && free == _draftFree && over.Equals(_draftOver))
@@ -293,7 +337,36 @@ namespace BitSorter.ViewModel
                     return null;
 
                 case CanvasGesture.EndWire:
-                    return EndWire(command.Target, command.At);
+                    return EndWire(command.Target.Kind == CanvasTargetKind.Bend
+                        ? new CanvasTarget(CanvasTargetKind.Wire, wire: command.Target.Wire, along: command.Target.Along)
+                        : command.Target, command.At);
+
+                case CanvasGesture.BeginReshape:
+                    BeginReshape(command.Target);
+                    return null;
+
+                case CanvasGesture.ReshapeTo:
+                    ReshapeTo(command.At, command.From, command.Free);
+                    return null;
+
+                case CanvasGesture.EndReshape:
+                {
+                    if (_reshaping < 0)
+                        return null;
+                    ReshapeTo(command.At, command.From, command.Free);
+                    int wire = _reshaping;
+                    List<BoardPoint> shaped = _reshaped;
+                    bool changed = shaped != null && !SamePoints(shaped, _reshapeFrom);
+                    _reshaping = -1;
+                    _reshaped = null;
+                    Version++;
+                    if (!changed)
+                        return null;
+
+                    Module module = Module;
+                    double tapAt = module.Layout.Routes.TryGetValue(wire, out Route was) ? was.TapAt : 0.5;
+                    return Said(_session.Reroute(wire, new Route { Bends = WireShape.Bends(shaped), TapAt = tapAt }));
+                }
 
                 default:
                     return null;
@@ -303,12 +376,74 @@ namespace BitSorter.ViewModel
         /// <summary>Lets go of a drag or a box without making it: Escape mid-drag.</summary>
         public void Abandon()
         {
-            if (_start == null && !_boxing)
+            if (_start == null && !_boxing && _reshaping < 0)
                 return;
             _start = null;
             _boxing = false;
+            _reshaping = -1;
+            _reshaped = null;
             _guides.Clear();
             Version++;
+        }
+
+        // -----------------------------------------------------------------
+        // A selected wire reshaped (Part 10b-2)
+        // -----------------------------------------------------------------
+
+        private void BeginReshape(CanvasTarget target)
+        {
+            if ((target.Kind != CanvasTargetKind.Wire && target.Kind != CanvasTargetKind.Bend) || !Selection.HasWire(target.Wire))
+                return;
+            IReadOnlyList<BoardPoint> points = _hit.WireOf(target.Wire);
+            if (points == null || points.Count < 2)
+                return;
+            _reshaping = target.Wire;
+            _reshapeFrom = points;
+            _reshapeBy = target;
+            _reshaped = new List<BoardPoint>(points);
+            Version++;
+        }
+
+        /// <summary>The piece or corner taken hold of at <paramref name="from"/>, dragged to <paramref name="at"/>: landing on the quarter grid, or exactly with <paramref name="free"/>.</summary>
+        private void ReshapeTo(BoardPoint at, BoardPoint from, bool free)
+        {
+            if (_reshaping < 0)
+                return;
+
+            double dx = at.X - from.X, dy = at.Y - from.Y;
+            if (_reshapeBy.Kind == CanvasTargetKind.Bend)
+            {
+                BoardPoint corner = _reshapeFrom[_reshapeBy.Segment];
+                BoardPoint to = new BoardPoint(corner.X + dx, corner.Y + dy);
+                if (!free)
+                    to = CanvasSnap.Snap(to);
+                _reshaped = WireShape.MoveCorner(_reshapeFrom, _reshapeBy.Segment, to.X - corner.X, to.Y - corner.Y);
+            }
+            else
+            {
+                // The piece lands on the grid: its own line, moved, on a quarter cell.
+                BoardPoint a = _reshapeFrom[_reshapeBy.Segment];
+                double x = a.X + dx, y = a.Y + dy;
+                if (!free)
+                {
+                    x = CanvasSnap.Snap(x);
+                    y = CanvasSnap.Snap(y);
+                }
+
+                _reshaped = WireShape.MoveSegment(_reshapeFrom, _reshapeBy.Segment, x - a.X, y - a.Y);
+            }
+
+            Version++;
+        }
+
+        private static bool SamePoints(IReadOnlyList<BoardPoint> a, IReadOnlyList<BoardPoint> b)
+        {
+            if (a == null || b == null || a.Count != b.Count)
+                return false;
+            for (int i = 0; i < a.Count; i++)
+                if (Math.Abs(a[i].X - b[i].X) > 1e-9 || Math.Abs(a[i].Y - b[i].Y) > 1e-9)
+                    return false;
+            return true;
         }
 
         private void BeginMove(BoardPoint from)
@@ -560,10 +695,16 @@ namespace BitSorter.ViewModel
 
             foreach (int wire in Selection.Wires)
             {
-                IReadOnlyList<BoardPoint> points = _hit.WireOf(wire);
-                if (points != null)
-                    overlay.SelectedWires.Add(Stage(frame, points));
+                IReadOnlyList<BoardPoint> points = wire == _reshaping && _reshaped != null ? _reshaped : _hit.WireOf(wire);
+                if (points == null)
+                    continue;
+                overlay.SelectedWires.Add(Stage(frame, points));
+                for (int i = 1; i < points.Count - 1; i++)
+                    overlay.Handles.Add(frame.ToStage(points[i]));
             }
+
+            if (_reshaping >= 0 && _reshaped != null)
+                overlay.GhostWires.Add(Stage(frame, _reshaped));
 
             if (_start != null)
             {

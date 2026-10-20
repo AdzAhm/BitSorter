@@ -347,5 +347,110 @@ namespace BitSorter.ViewModel.Tests
             Assert.AreEqual(("0", "1"), (Read("s", 25), Read("c", 25)), "1 + 1");
             Assert.AreEqual(("1", "0"), (Read("s", 35), Read("c", 35)), "0 + 1");
         }
+
+        // -----------------------------------------------------------------
+        // Wires reshaped (Part 10b-2)
+        // -----------------------------------------------------------------
+
+        private static BoardPoint P(double x, double y) => new BoardPoint(x, y);
+
+        [Test]
+        public void APieceDragged_MovesAcrossItself_AndOneAtAnEnd_KeepsItsStubBeforeItTurns()
+        {
+            BoardPoint[] z = { P(0, 0), P(2, 0), P(2, 2), P(4, 2) };   // across, up at x = 2, across
+
+            CollectionAssert.AreEqual(new[] { P(0, 0), P(3, 0), P(3, 2), P(4, 2) }, WireShape.MoveSegment(z, 1, 1, 5),
+                "the rise moves sideways, and only sideways");
+            CollectionAssert.AreEqual(new[] { P(0, 0), P(0.5, 0), P(0.5, -1), P(2, -1), P(2, 2), P(4, 2) }, WireShape.MoveSegment(z, 0, 3, -1),
+                "the first piece moves down, its end's stub kept: the wire still leaves the pin the way it faces");
+            CollectionAssert.AreEqual(new[] { P(0, 0), P(0.5, 0), P(0.5, 1), P(3.5, 1), P(3.5, 0), P(4, 0) },
+                WireShape.MoveSegment(new[] { P(0, 0), P(4, 0) }, 0, 0, 1), "a straight wire pulled up: a stub out of each end, and round");
+            CollectionAssert.AreEqual(new[] { P(0, 0), P(3, 0), P(3, 1), P(3.5, 1), P(3.5, 2), P(4, 2) }, WireShape.MoveCorner(z, 2, 1, -1),
+                "a corner moved: the rise sideways, the last piece down, and into its end by its stub");
+            CollectionAssert.AreEqual(new[] { P(0, 0), P(2, 0), P(2, 1), P(3, 1), P(3, 0), P(4, 0) },
+                WireShape.MoveSegment(new[] { P(0, 0), P(2, 0), P(2, 1), P(3, 1), P(3, 0), P(4, 0) }, 1, 0, 0), "a move of nothing changes nothing");
+            CollectionAssert.AreEqual(new[] { P(0, 0), P(4, 0) },
+                WireShape.MoveSegment(new[] { P(0, 0), P(1, 0), P(1, 1), P(3, 1), P(3, 0), P(4, 0) }, 2, 0, -1), "a step dragged back into line is gone");
+            CollectionAssert.AreEqual(new[] { P(2, 0), P(2, 2) }, WireShape.Bends(z));
+        }
+
+        [Test]
+        public void ADragOnASelectedWire_ReshapesIt_OnItsCornerToo_AndOnAnUnselectedOne_TapsIt()
+        {
+            var pointer = new CanvasPointer();
+            Assert.AreEqual("BeginReshape wire 7 segment 0, ReshapeTo 5,0, EndReshape 5,0", Run(pointer, At(OnWire, selected: true), moves: 48f),
+                "the piece the drag began on");
+            var corner = new CanvasTarget(CanvasTargetKind.Bend, wire: 7, segment: 2);
+            Assert.AreEqual("BeginReshape wire 7 corner 2, ReshapeTo 5,0, ReshapeTo 6,0, EndReshape 6,0", Run(pointer, At(corner), moves: new[] { 48f, 96f }));
+            Assert.AreEqual("", Run(pointer, At(corner)), "a click on a corner does nothing");
+            Assert.AreEqual("Select wire 7 segment 0", Run(pointer, At(OnWire, selected: true)), "a click on a selected wire picks it alone");
+            Assert.AreEqual("BeginWire wire 7 segment 0, WireBend 5,0", Run(pointer, At(OnWire), moves: 48f), "not selected: a wire drawn out of it");
+            Assert.AreEqual("EndWire wire 7 corner 2", Run(pointer, At(corner, drafting: true)), "a wire being drawn ends on a corner as on the wire");
+        }
+
+        [Test]
+        public void ASelectedWiresPiece_DraggedAndLetGo_IsReroutedThroughItsNewBends_InOneStep_AndNothingReplays()
+        {
+            var b = new Sketch();
+            int wire = b.Wire(b.A, "out", b.Xor, "a");
+            b.Session.Finish();
+            IReadOnlyList<BoardPoint> before = WireGeometry.Wires(b.Session.Project, b.Module)[wire];
+            Assert.AreEqual(4, before.Count, $"sanity: across, a step up to the XOR's input, across: {string.Join(" ", before)}");
+
+            b.Do(CanvasGesture.Select, new CanvasTarget(CanvasTargetKind.Wire, wire: wire, segment: 1));
+            b.Editor.Overlay(b.Overlay);
+            Assert.AreEqual(2, b.Overlay.Handles.Count, "its two corners are handles");
+
+            // The step, a rise at x = mid, dragged a cell and a bit right: it lands on the grid.
+            BoardPoint grab = new BoardPoint(before[1].X, (before[1].Y + before[2].Y) / 2);
+            b.Do(CanvasGesture.BeginReshape, new CanvasTarget(CanvasTargetKind.Wire, wire: wire, segment: 1), grab);
+            b.Editor.Do(new CanvasCommand(CanvasGesture.ReshapeTo, P(grab.X + 1.1, grab.Y + 3), grab));
+            Assert.IsTrue(b.Editor.Reshaping);
+            b.Editor.Overlay(b.Overlay);
+            Assert.AreEqual(1, b.Overlay.GhostWires.Count, "drawn where it is going");
+            Assert.IsFalse(b.Module.Layout.Routes.ContainsKey(wire), "nothing changes until it is let go");
+
+            EditResult? made = b.Editor.Do(new CanvasCommand(CanvasGesture.EndReshape, P(grab.X + 1.1, grab.Y + 3), grab));
+            Assert.IsTrue(made.HasValue && made.Value.Done, made?.Refusal);
+            Assert.IsFalse(b.Editor.Reshaping);
+            Assert.IsFalse(b.Session.Replaying, "a wire's shape changes nothing the circuit does");
+            CollectionAssert.AreEqual(new[] { P(before[1].X + 1, before[1].Y), P(before[2].X + 1, before[2].Y) }, b.Module.Layout.Routes[wire].Bends,
+                "the rise a cell on, kept as the wire's bends");
+
+            Assert.IsTrue(b.Session.Undo());
+            Assert.IsFalse(b.Session.Project.TopModule.Layout.Routes.ContainsKey(wire), "one step, back to the automatic route");
+        }
+
+        [Test]
+        public void ASelectedWiresCorner_IsWhatThePointerIsOn_ADragMovesIt_AndEscapeLetsTheDragGo()
+        {
+            var b = new Sketch();
+            int wire = b.Wire(b.A, "out", b.Xor, "a");
+            b.Session.Finish();
+            IReadOnlyList<BoardPoint> before = WireGeometry.Wires(b.Session.Project, b.Module)[wire];
+            Vec2 onCorner = b.Session.Run.Model.Layout.Board.ToStage(before[1]);
+
+            b.Do(CanvasGesture.Select, CanvasTarget.Nothing);   // a wire is selected as it is made
+            Assert.AreEqual(CanvasTargetKind.Wire, b.Editor.TargetAt(onCorner, 1f).Kind, "not selected: the wire");
+            b.Do(CanvasGesture.Select, new CanvasTarget(CanvasTargetKind.Wire, wire: wire, segment: 0));
+            CanvasTarget corner = b.Editor.TargetAt(onCorner, 1f);
+            Assert.AreEqual(new CanvasTarget(CanvasTargetKind.Bend, wire: wire, segment: 1), corner, "selected: its corner");
+
+            b.Do(CanvasGesture.BeginReshape, corner, before[1]);
+            b.Editor.Do(new CanvasCommand(CanvasGesture.ReshapeTo, P(before[1].X - 0.9, before[1].Y - 1.1), before[1]));
+            b.Editor.Abandon();
+            Assert.IsFalse(b.Editor.Reshaping, "Escape mid-drag");
+            Assert.IsFalse(b.Module.Layout.Routes.ContainsKey(wire), "and nothing changed");
+
+            b.Do(CanvasGesture.BeginReshape, corner, before[1]);
+            EditResult? made = b.Editor.Do(new CanvasCommand(CanvasGesture.EndReshape, P(before[1].X - 0.9, before[1].Y - 1.1), before[1]));
+            Assert.IsTrue(made.HasValue && made.Value.Done, made?.Refusal);
+            IReadOnlyList<BoardPoint> after = WireGeometry.Wires(b.Session.Project, b.Session.Project.TopModule)[wire];
+            CollectionAssert.Contains(after, P(before[1].X - 1, before[1].Y - 1), "the corner a cell left and down, on the grid");
+            for (int i = 1; i < after.Count; i++)
+                Assert.IsTrue(after[i].X == after[i - 1].X || after[i].Y == after[i - 1].Y, $"right angles only: {string.Join(" ", after)}");
+            Assert.AreEqual(before[0], after[0]);
+            Assert.AreEqual(before[before.Count - 1], after[after.Count - 1], "its two ends where they were");
+        }
     }
 }
