@@ -101,6 +101,22 @@ namespace BitSorter.SystemVerilog.Tests.Syntax
             Assert.AreEqual("count_q is %0d", ((StringLiteral)say.Arguments[0]).Value, "`\"...`\" is a string with the argument put in");
         }
 
+        [Test]
+        public void EachModule_CountsInTheTimescaleWrittenBeforeIt()
+        {
+            SyntaxTree tree = Read("module first; endmodule\n`timescale 1ns/1ps\nmodule second; endmodule\nmodule third; endmodule\n`timescale 10ns / 1ns\nmodule fourth; endmodule");
+            Assert.IsEmpty(tree.Diagnostics, string.Join("\n", tree.Diagnostics));
+            CollectionAssert.AreEqual(new[] { null, "1ns/1ps", "1ns/1ps", "10ns/1ns" }, tree.Modules.Select(m => m.Timescale));
+            Assert.AreEqual("10ns/1ns", tree.Timescale, "the tree keeps the last, as it always has");
+
+            Assert.IsTrue(TimeUnits.TryTimescale("10ns/1ns", out int unit, out int precision));
+            Assert.AreEqual((-8, -9), (unit, precision));
+            Assert.IsTrue(TimeUnits.TryTimescale("100 ps / 10 fs", out unit, out precision));
+            Assert.AreEqual((-10, -14), (unit, precision));
+            Assert.IsFalse(TimeUnits.TryTimescale("1ns/10ns", out _, out _), "a precision coarser than the unit");
+            Assert.IsFalse(TimeUnits.TryTimescale("2ns/1ns", out _, out _), "only 1, 10 and 100 of a unit");
+        }
+
         [TestCase("`define TWO(a, b) a + b\nmodule m; assign y = `TWO(1, 2, 3); endmodule")]
         [TestCase("`define TWO(a, b) a + b\nmodule m; assign y = `TWO(1); endmodule")]
         [TestCase("`define TWO(a, b) a + b\nmodule m; assign y = `TWO; endmodule")]

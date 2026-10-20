@@ -50,6 +50,9 @@ namespace BitSorter.SystemVerilog.Syntax
         /// <summary>What the header imports, <c>module m import p::*; (...)</c> (Part L6), seen by its parameters and ports.</summary>
         public List<ImportDeclaration> HeaderImports { get; } = new List<ImportDeclaration>();
 
+        /// <summary>The <c>`timescale</c> written before it, <c>1ns/1ps</c>, or null for none (Part L7).</summary>
+        public string Timescale { get; set; }
+
         /// <summary>Whether the header had a <c>#( )</c> list at all, even an empty one.</summary>
         public bool HasParameterList { get; set; }
 

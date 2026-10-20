@@ -208,8 +208,13 @@ namespace BitSorter.SystemVerilog.Syntax
                     return rest.Count;
 
                 case "`timescale":
-                    Timescale = string.Join("", rest.Select(t => t.Text));
+                {
+                    // Noted for the tree, and passed on for the parser to give the modules after it (Part L7).
+                    string text = string.Join("", rest.Select(t => t.Text));
+                    Timescale = text;
+                    _output.Add(new Token(TokenKind.Directive, "`timescale " + text, token.Location, token.LogicalLine));
                     return rest.Count;
+                }
 
                 case "`default_nettype":
                     return rest.Count;

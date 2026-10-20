@@ -170,7 +170,15 @@ namespace BitSorter.SystemVerilog.Syntax
 
                 if (t.IsKeyword("module") || t.IsKeyword("macromodule"))
                 {
-                    tree.Modules.Add(ParseModule());
+                    ModuleDeclaration module = ParseModule();
+                    module.Timescale = _timescale;
+                    tree.Modules.Add(module);
+                }
+                else if (t.Kind == TokenKind.Directive && t.Text.StartsWith("`timescale ", StringComparison.Ordinal))
+                {
+                    // The preprocessor passes a `timescale on: every module after it counts in it (Part L7).
+                    _timescale = t.Text.Substring("`timescale ".Length);
+                    Next();
                 }
                 else if (t.IsKeyword("package"))
                 {
@@ -289,6 +297,9 @@ namespace BitSorter.SystemVerilog.Syntax
         // -----------------------------------------------------------------
         // Modules
         // -----------------------------------------------------------------
+
+        /// <summary>The <c>`timescale</c> the modules being read count in, the last one written before them.</summary>
+        private string _timescale;
 
         /// <summary><c>package name; items endpackage [: name]</c> (Part L6).</summary>
         private PackageDeclaration ParsePackage()

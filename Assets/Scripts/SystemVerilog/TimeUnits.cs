@@ -8,9 +8,11 @@ namespace BitSorter.SystemVerilog
     /// names, and what a project counts its time in (Part 9b-3).
     /// </summary>
     /// <remarks>
-    /// **Time is a whole number of one unit, and the unit only labels it** (decision D7, invariant 7):
-    /// changing a project from ns to ps rescales no number, so a delay of 3 is 3 ps after it. That is
-    /// why there is no conversion here -- only the names, read exactly as SystemVerilog writes them.
+    /// **A project's time is a whole number of one unit, and the unit only labels it** (decision D7,
+    /// invariant 7): changing a project from ns to ps rescales no number, so a delay of 3 is 3 ps after it,
+    /// and a project's files say <c>`timescale 1ns/1ns</c>, their precision their unit. A file read from
+    /// elsewhere may name a finer precision, <c>1ns/1ps</c>, and then a tick is that precision and its
+    /// delays may be fractions of a unit (Part L7, <see cref="TryTimescale"/>).
     /// A field on screen reads them more loosely, in any case and with a micro sign
     /// (<c>ViewModel.TimeText</c>), since a field is not a source file.
     ///
@@ -48,6 +50,48 @@ namespace BitSorter.SystemVerilog
             if (!IsUnit(unit))
                 throw new ArgumentException($"'{unit}' is not a time unit: use {Listed}.", nameof(unit));
             return "1" + unit + "/1" + unit;
+        }
+
+        /// <summary>
+        /// A <c>`timescale</c>'s unit and precision as powers of ten of a second (Part L7): <c>1ns/1ps</c> is -9
+        /// and -12, <c>10ns/1ns</c> -8 and -9, <c>100ps / 10fs</c> -10 and -14. False for anything that is not
+        /// one, and for a precision coarser than its unit, which the standard does not allow (IEEE 1800, 22.7).
+        /// </summary>
+        public static bool TryTimescale(string timescale, out int unit, out int precision)
+        {
+            unit = precision = 0;
+            if (timescale == null)
+                return false;
+
+            int slash = timescale.IndexOf('/');
+            return slash > 0 && TryTime(timescale.Substring(0, slash), out unit) &&
+                   TryTime(timescale.Substring(slash + 1), out precision) && precision <= unit;
+        }
+
+        /// <summary><c>1ns</c>, <c>10 ps</c>, <c>100us</c>: a power of ten of a second.</summary>
+        private static bool TryTime(string text, out int exponent)
+        {
+            exponent = 0;
+            string t = text.Replace(" ", "").Trim();
+            int digits = 0;
+            while (digits < t.Length && char.IsDigit(t[digits]))
+                digits++;
+
+            string magnitude = t.Substring(0, digits), name = t.Substring(digits);
+            int extra = magnitude == "1" ? 0 : magnitude == "10" ? 1 : magnitude == "100" ? 2 : -1;
+            int place = 0;
+            foreach (string unit in All)
+            {
+                if (string.Equals(unit, name, StringComparison.Ordinal))
+                {
+                    exponent = -3 * place + extra;
+                    return extra >= 0;
+                }
+
+                place++;
+            }
+
+            return false;
         }
 
         /// <summary>
