@@ -70,18 +70,26 @@ namespace BitSorter.Board
                 if (done.TryGetValue(wire.Id, out IReadOnlyList<Point> points))
                     return points;
 
+                module.Layout.Routes.TryGetValue(wire.Id, out Route kept);
+                bool bent = kept != null && kept.Bends.Count > 0;
+
+                // A tap leaves its junction towards the next point along its own wire, so the pin's end is found first.
                 busy.Add(wire.Id);
-                (Point a, Facing? fa) = End(wire.From, wire.Id);
-                (Point b, Facing? fb) = End(wire.To, wire.Id);
+                Point a = default, b = default;
+                Facing? fa = null, fb = null;
+                if (!wire.From.IsTap)
+                    (a, fa) = End(wire.From, wire.Id, default);
+                (b, fb) = End(wire.To, wire.Id, bent ? kept.Bends[kept.Bends.Count - 1] : a);
+                if (wire.From.IsTap)
+                    (a, fa) = End(wire.From, wire.Id, bent ? kept.Bends[0] : b);
                 busy.Remove(wire.Id);
 
-                module.Layout.Routes.TryGetValue(wire.Id, out Route kept);
-                points = kept != null && kept.Bends.Count > 0 ? Through(a, kept.Bends, b) : Orthogonal(a, fa, b, fb);
+                points = bent ? Through(a, fa, kept.Bends, b, fb) : Orthogonal(a, fa, b, fb);
                 done[wire.Id] = points;
                 return points;
             }
 
-            (Point, Facing?) End(Endpoint end, int owner)
+            (Point, Facing?) End(Endpoint end, int owner, Point toward)
             {
                 if (!end.IsTap)
                 {
@@ -95,7 +103,8 @@ namespace BitSorter.Board
                     return (default, null);
                 IReadOnlyList<Point> along = RouteOf(tapped);
                 double at = module.Layout.Routes.TryGetValue(owner, out Route r) ? r.TapAt : 0.5;
-                return (PointAt(along, Length(along) * at), null);
+                Point junction = PointAt(along, Length(along) * at);
+                return (junction, TapFacing(along, at, junction, toward));
             }
 
             foreach (Wire wire in module.Wires)
@@ -214,6 +223,35 @@ namespace BitSorter.Board
         }
 
         /// <summary>
+        /// The way a tap leaves its junction, <paramref name="at"/> of the way along the wire it taps (0 to 1), for a
+        /// wire going on towards <paramref name="toward"/>: across, to that side, off a piece of the tapped wire that
+        /// runs up or down -- or a tap leaving the way it was going to would run along the very wire it taps, and
+        /// the two be drawn as one (Part 10b). Off a piece running across, none: it leaves up or down as it always has.
+        /// </summary>
+        public static Facing? TapFacing(IReadOnlyList<Point> tapped, double at, Point junction, Point toward)
+        {
+            if (tapped == null || tapped.Count < 2)
+                return null;
+
+            double distance = Math.Max(0, Math.Min(1, at)) * Length(tapped), walked = 0;
+            for (int i = 1; i < tapped.Count; i++)
+            {
+                double step = Distance(tapped[i - 1], tapped[i]);
+                if (distance <= walked + step + 1e-9 || i == tapped.Count - 1)
+                {
+                    bool upright = Math.Abs(tapped[i].X - tapped[i - 1].X) < 1e-9 && step > 0;
+                    if (!upright || Math.Abs(toward.X - junction.X) < 1e-9)
+                        return null;
+                    return toward.X > junction.X ? Facing.Right : Facing.Left;
+                }
+
+                walked += step;
+            }
+
+            return null;
+        }
+
+        /// <summary>
         /// A route of right angles from <paramref name="a"/> to <paramref name="b"/>: straight out of each
         /// pin the way it faces, then across half-way. A wire that would have to run back on itself goes
         /// round, a cell above both ends.
@@ -287,14 +325,58 @@ namespace BitSorter.Board
             return Tidy(points);
         }
 
-        /// <summary>The wire's own bends between its two ends.</summary>
-        public static List<Point> Through(Point a, IReadOnlyList<Point> bends, Point b)
+        /// <summary>
+        /// The wire's own bends between its two ends, <paramref name="fa"/> and <paramref name="fb"/> the way each end's
+        /// pin faces (null for a tap). A piece that runs straight from one to the next is drawn straight, as it always
+        /// was. One gone aslant -- a part moved after its wire's bends were made, and its pin with it (Part 10b) -- is
+        /// drawn with right angles: out of a pin the way it faces and round, as an automatic route is, and between two
+        /// bends with one corner, turning at the first of them.
+        /// </summary>
+        public static List<Point> Through(Point a, Facing? fa, IReadOnlyList<Point> bends, Point b, Facing? fb)
         {
             var points = new List<Point> { a };
-            points.AddRange(bends);
-            points.Add(b);
+            Point at = a;
+            Facing? leaving = fa;
+            for (int i = 0; i <= bends.Count; i++)
+            {
+                Point next = i < bends.Count ? bends[i] : b;
+                Facing? entering = i < bends.Count ? null : fb;
+
+                if (Aligned(at, next))
+                {
+                    points.Add(next);
+                }
+                else if (leaving != null || entering != null)
+                {
+                    List<Point> round = Orthogonal(at, leaving, next, entering);
+                    for (int r = 1; r < round.Count; r++)
+                        points.Add(round[r]);
+                }
+                else
+                {
+                    points.Add(Corner(points, at, next));
+                    points.Add(next);
+                }
+
+                at = next;
+                leaving = null;
+            }
+
             return Tidy(points);
         }
+
+        /// <summary>
+        /// Where a piece from <paramref name="at"/> to <paramref name="next"/>, which is not straight, turns: at right
+        /// angles to the way the wire came into <paramref name="at"/> -- up or down after a run across, across after
+        /// a run up or down, or after nothing.
+        /// </summary>
+        private static Point Corner(List<Point> points, Point at, Point next)
+        {
+            bool cameAcross = points.Count >= 2 && Math.Abs(points[points.Count - 2].Y - at.Y) < 1e-9;
+            return cameAcross ? new Point(at.X, next.Y) : new Point(next.X, at.Y);
+        }
+
+        private static bool Aligned(Point a, Point b) => Math.Abs(a.X - b.X) < 1e-9 || Math.Abs(a.Y - b.Y) < 1e-9;
 
         public static double Length(IReadOnlyList<Point> points)
         {
@@ -348,23 +430,29 @@ namespace BitSorter.Board
             return reversed;
         }
 
-        /// <summary>Without points that repeat the one before, or sit in a straight line between their neighbours.</summary>
-        private static List<Point> Tidy(List<Point> points)
+        /// <summary>
+        /// Without points that repeat the one before, sit in a straight line between their neighbours, or are where a
+        /// wire runs on and comes straight back: a bend that a part's move left behind its pin (Part 10b) is no
+        /// corner, and drawn it would be a spike.
+        /// </summary>
+        public static List<Point> Tidy(List<Point> points)
         {
             var tidy = new List<Point>();
             foreach (Point p in points)
             {
                 if (tidy.Count > 0 && Distance(tidy[tidy.Count - 1], p) < 1e-9)
                     continue;
-                if (tidy.Count >= 2)
+                while (tidy.Count >= 2)
                 {
                     Point a = tidy[tidy.Count - 2], b = tidy[tidy.Count - 1];
                     double cross = (b.X - a.X) * (p.Y - b.Y) - (b.Y - a.Y) * (p.X - b.X);
-                    double dot = (b.X - a.X) * (p.X - b.X) + (b.Y - a.Y) * (p.Y - b.Y);
-                    if (Math.Abs(cross) < 1e-9 && dot >= 0)
-                        tidy.RemoveAt(tidy.Count - 1);
+                    if (Math.Abs(cross) >= 1e-9)
+                        break;
+                    tidy.RemoveAt(tidy.Count - 1);
                 }
 
+                if (tidy.Count > 0 && Distance(tidy[tidy.Count - 1], p) < 1e-9)
+                    continue;
                 tidy.Add(p);
             }
 

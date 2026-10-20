@@ -89,6 +89,53 @@ namespace BitSorter.Board.Tests
         }
 
         [Test]
+        public void AWiresOwnBends_AreDrawnAsMade_AndAPieceGoneAslantByAMove_TurnsAtRightAngles()
+        {
+            Point[] bends = { P(3, 0), P(3, 2) };
+            CollectionAssert.AreEqual(new[] { P(1, 0), P(3, 0), P(3, 2), P(5, 2) },
+                WireGeometry.Through(P(1, 0), Facing.Right, bends, P(5, 2), Facing.Left), "every piece straight: as made");
+
+            // The part the wire leaves moved up half a cell, its pin with it, and the bends stayed.
+            List<Point> moved = WireGeometry.Through(P(1, 0.5), Facing.Right, bends, P(5, 2), Facing.Left);
+            CollectionAssert.AreEqual(new[] { P(1, 0.5), P(3, 0.5), P(3, 2), P(5, 2) }, moved,
+                "out of the pin the way it faces, and up at the first bend's column -- not down to it and back");
+            NeverDoublesBack(moved);
+
+            CollectionAssert.AreEqual(new[] { P(0, 0), P(2, 0), P(2, 1), P(4, 1) },
+                WireGeometry.Through(P(0, 0), null, new[] { P(2, 1) }, P(4, 1), null), "from a tap, across first, one corner");
+            CollectionAssert.AreEqual(new[] { P(0, 0), P(0, 2), P(2, 2), P(2, 3) },
+                WireGeometry.Through(P(0, 0), null, new[] { P(0, 2), P(2, 3) }, P(2, 3), null),
+                "after a run up, the next piece turns across: at right angles to the way it came");
+        }
+
+        [Test]
+        public void ATapOffAnUprightPiece_LeavesAcross_TowardsWhereItGoes_RatherThanAlongTheWireItTaps()
+        {
+            Point[] upright = { P(0, 0), P(0, 4) };
+            Assert.AreEqual(Facing.Right, WireGeometry.TapFacing(upright, 0.5, P(0, 2), P(3, 1)));
+            Assert.AreEqual(Facing.Left, WireGeometry.TapFacing(upright, 0.5, P(0, 2), P(-3, 1)));
+            Assert.IsNull(WireGeometry.TapFacing(new[] { P(0, 0), P(4, 0) }, 0.5, P(2, 0), P(3, -2)), "off a piece across: up or down, as always");
+
+            // g1 to g2 rises half-way across; g3's input, below and to the right, taps the rise at its middle.
+            var b = new Bench();
+            int g1 = b.Gate(GateKind.Not), g2 = b.Gate(GateKind.Not), g3 = b.Gate(GateKind.Not);
+            Bench.Must(b.Editor.Move(b.Module, g1, new Placement(0, 0)));
+            Bench.Must(b.Editor.Move(b.Module, g2, new Placement(6, 4)));
+            Bench.Must(b.Editor.Move(b.Module, g3, new Placement(6, -2)));
+            int w = b.Wire(g1, "y", g2, "a");
+            List<Point> rise = WireGeometry.Wires(b.Project, b.Current)[w].ToList();
+            int up = Enumerable.Range(1, rise.Count - 1).Single(i => rise[i].X == rise[i - 1].X);
+            double middle = WireGeometry.Length(rise.Take(up).ToList()) + Math.Abs(rise[up].Y - rise[up - 1].Y) / 2;
+            int tap = Bench.Must(b.Editor.Connect(b.Module, Endpoint.At(g3, "a"), Endpoint.OnWire(w),
+                new Route { TapAt = middle / WireGeometry.Length(rise) }));
+
+            IReadOnlyList<Point> route = WireGeometry.Wires(b.Project, b.Current)[tap];
+            Point junction = route[route.Count - 1];
+            Assert.AreEqual(rise[up].X, junction.X, 1e-9, "sanity: the junction is on the rise");
+            Assert.AreEqual(junction.Y, route[route.Count - 2].Y, 1e-9, $"the tap reaches it across, not up the rise: {string.Join(" ", route)}");
+        }
+
+        [Test]
         public void IntoAControl_FromJustBelowIt_TheWireGoesStraightUp_RatherThanPastItAndBack()
         {
             // An enable's pin faces down, and the wire comes from a quarter cell below it: less than

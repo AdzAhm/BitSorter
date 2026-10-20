@@ -192,7 +192,8 @@ namespace BitSorter.Board
                         widths.Add($"{part.Name}.{pin.Pin} is {Bits(p.Width)}");
                     }
 
-                    Error($"The wire joins pins of different widths: {string.Join(", ", widths)}.", wire: First(net.Wires));
+                    Error($"The wire joins pins of different widths: {string.Join(", ", widths)}. " +
+                        "Take a bus apart with a splitter, or put bits together with a joiner.", wire: First(net.Wires));
                 }
 
                 if (net.Drivers.Count > 1)

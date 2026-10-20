@@ -81,7 +81,7 @@ namespace BitSorter.Board.Tests
         // -----------------------------------------------------------------
 
         [Test]
-        public void AWireBetweenDifferentWidths_IsRefused_NamingBoth()
+        public void AWireBetweenDifferentWidths_IsRefused_NamingBoth_AndWhatTakesABusApart()
         {
             var b = new Bench();
             int a = b.Input("a", width: 4);
@@ -92,6 +92,7 @@ namespace BitSorter.Board.Tests
             Assert.IsFalse(result.Done);
             StringAssert.Contains("a.out is 4 bits", result.Refusal);
             StringAssert.Contains("g1.a is 1 bit", result.Refusal);
+            StringAssert.Contains("Take a bus apart with a splitter", result.Refusal, "and says what would join them (Part 10b)");
             Assert.IsEmpty(b.Current.Wires);
         }
 
