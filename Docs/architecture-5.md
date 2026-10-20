@@ -1316,6 +1316,8 @@ on an input's row, undo and redo -- is 9b-3b-2.
   - and, in `WorkbenchPlayTests`, a replay made whole outside a frame -- by `Finish`, as a capture or a test
     does -- is still the run the panel shows. Since 9b-3 the panel switched only when a frame said so, so a
     capture that finished an edit drew the run from before it.
+  - Reference shots 1 to 26 identical to the pixel; 27 to 32 moved by the strip and the footer's second line;
+    33 is new: MY CIRCUIT with two gates selected and dragged three cells, ghosts and dotted guides drawn.
 
 ---
 

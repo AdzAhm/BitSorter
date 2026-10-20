@@ -981,6 +981,56 @@ namespace BitSorter.PlayMode.Tests
             yield return Capture("32-workbench-add-signal");
         }
 
+        /// <summary>
+        /// MY CIRCUIT half built -- two inputs, an XOR and an AND, two outputs, no wires yet (they are Part 10b) -- the
+        /// two gates selected and dragged three cells right: outlined where they are and where they are going, and a
+        /// dotted guide through each middle they line up with (Part 10a).
+        /// </summary>
+        [UnityTest]
+        public IEnumerator Shot33_WorkbenchEditing()
+        {
+            yield return LoadTheGame();
+            yield return Frames(2);
+
+            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            yield return Frames(2);
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowSample(0);   // MY CIRCUIT, blank under SaveGuard
+            yield return Frames(2);
+            workbench.Pause();
+
+            WorkbenchSession session = workbench.Session;
+            int Place(string key, double x, double y)
+            {
+                BitSorter.Board.EditResult placed = session.Place(PartsCatalog.Find(session.Project, session.Module, key), new BitSorter.Board.Placement(x, y));
+                Assert.IsTrue(placed.Done, placed.Refusal);
+                return placed.Id;
+            }
+
+            Place("input", 1, -1);
+            Place("input", 1, -3);
+            int xor = Place("xor", 5, -1);
+            int and = Place("and", 5, -3);
+            Place("output", 13, -1);
+            Place("output", 13, -3);
+            session.Finish();
+            yield return Frames(4);
+
+            CanvasEditor editor = workbench.Editor;
+            editor.Do(new CanvasCommand(CanvasGesture.Select, target: new CanvasTarget(CanvasTargetKind.Part, part: xor)));
+            editor.Do(new CanvasCommand(CanvasGesture.Select, target: new CanvasTarget(CanvasTargetKind.Part, part: and), extend: true));
+            editor.Do(new CanvasCommand(CanvasGesture.BeginMove, from: new BitSorter.Board.Point(5, -1)));
+            editor.Do(new CanvasCommand(CanvasGesture.MoveTo, new BitSorter.Board.Point(8.05, -1.02), new BitSorter.Board.Point(5, -1)));
+            workbench.Seek(0.0);
+            yield return Frames(30);
+
+            Assert.AreEqual(2, workbench.Overlay.Ghosts.Count, "sanity: the two gates are on their way");
+            Assert.IsNotEmpty(workbench.Overlay.Guides, "sanity: and something lines up with them");
+
+            yield return Capture("33-workbench-editing");
+        }
+
         private static IEnumerator OpensOnItsCircuit(string level, string fixture, string shot)
         {
             yield return LoadTheGame();
