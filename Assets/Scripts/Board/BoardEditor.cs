@@ -43,6 +43,10 @@ namespace BitSorter.Board
     /// touch, so keeping the one before costs a reference: correct by construction, as 4.x's board
     /// snapshots were, and without copying. A run of moves of one part, or of bends of one wire, is one
     /// step -- a drag should undo in one go. The history is capped at <see cref="HistoryLimit"/>.
+    ///
+    /// **Several edits can be one** (Part 10): <see cref="MoveParts"/> and <see cref="RemoveParts"/> take a
+    /// selection in one step, and <see cref="Group"/> makes any run of edits one step, all of them or none --
+    /// a clock is an input placed and its clock given, a paste is parts and the wires between them.
     /// </remarks>
     public sealed class BoardEditor
     {
@@ -52,6 +56,9 @@ namespace BitSorter.Board
         private readonly List<Project> _redo = new List<Project>();
         private string _continuing;
         private List<BoardDiagnostic> _diagnostics;
+
+        /// <summary>Whether a <see cref="Group"/> is being made: its edits keep no step of their own and say nothing until it ends.</summary>
+        private bool _grouping;
 
         public BoardEditor(Project project)
         {
@@ -125,6 +132,105 @@ namespace BitSorter.Board
         }
 
         /// <summary>
+        /// Takes several parts and wires away at once (Part 10): a selection deleted, one step. Every wire on
+        /// a part taken goes too, and every wire that tapped one taken.
+        /// </summary>
+        public EditResult RemoveParts(string module, IEnumerable<int> parts, IEnumerable<int> wires = null)
+        {
+            if (!TryModule(module, out Module m, out EditResult refused))
+                return refused;
+
+            var partsGone = new HashSet<int>();
+            foreach (int part in parts ?? Array.Empty<int>())
+            {
+                if (m.FindPart(part) == null)
+                    return EditResult.Refused($"There is no part {part} in {module}.");
+                partsGone.Add(part);
+            }
+
+            var gone = new HashSet<int>();
+            foreach (int wire in wires ?? Array.Empty<int>())
+            {
+                if (m.FindWire(wire) == null)
+                    return EditResult.Refused($"There is no wire {wire} in {module}.");
+                gone.Add(wire);
+            }
+
+            if (partsGone.Count == 0 && gone.Count == 0)
+                return EditResult.Refused("There is nothing to take away.");
+
+            foreach (Wire wire in m.Wires)
+                foreach (int part in partsGone)
+                    if (wire.Touches(part))
+                        gone.Add(wire.Id);
+
+            Module unwired = WithoutWires(m, gone);
+            Layout layout = unwired.Layout;
+            foreach (int part in partsGone)
+                layout = layout.WithoutPart(part);
+
+            return Commit(Project.WithModule(unwired with { Parts = Without(unwired.Parts, p => partsGone.Contains(p.Id)), Layout = layout }));
+        }
+
+        /// <summary>
+        /// Makes every edit <paramref name="body"/> makes one step (Part 10): undone in one go, and made in full
+        /// or not at all -- when the body's answer is a refusal, every edit it made is taken back, and the
+        /// document is as it was before. <see cref="Changed"/> is raised once, at the end, if anything changed.
+        /// </summary>
+        /// <param name="continuing">As for <see cref="MoveParts"/>: a group of the same name straight after another is part of its step.</param>
+        public EditResult Group(Func<EditResult> body, string continuing = null)
+        {
+            if (body == null)
+                throw new ArgumentNullException(nameof(body));
+            if (_grouping)
+                return body();
+
+            Project before = Project;
+            List<BoardDiagnostic> diagnostics = _diagnostics;
+            string wasContinuing = _continuing;
+            EditResult result;
+
+            _grouping = true;
+            try
+            {
+                result = body();
+            }
+            catch
+            {
+                Project = before;
+                _diagnostics = diagnostics;
+                throw;
+            }
+            finally
+            {
+                _grouping = false;
+            }
+
+            if (!result.Done)
+            {
+                Project = before;
+                _diagnostics = diagnostics;
+                _continuing = wasContinuing;
+                return result;
+            }
+
+            if (ReferenceEquals(Project, before))
+                return result;
+
+            if (continuing == null || continuing != wasContinuing)
+            {
+                _undo.Add(before);
+                if (_undo.Count > HistoryLimit)
+                    _undo.RemoveAt(0);
+            }
+
+            _redo.Clear();
+            _continuing = continuing;
+            Changed?.Invoke();
+            return result;
+        }
+
+        /// <summary>
         /// Puts <paramref name="changed"/> in place of the part with its id: a new delay, width, name,
         /// number of inputs. It must be the same kind of part. A port renamed is renamed wherever the
         /// module is used as a block, and in the stimulus.
@@ -160,6 +266,32 @@ namespace BitSorter.Board
 
             Module next = m with { Layout = m.Layout.WithPart(part, to) };
             return Commit(Project.WithModule(next), part, continuing ? $"move {module} {part}" : null, check: false);
+        }
+
+        /// <summary>
+        /// Moves -- or turns, or mirrors -- several parts at once (Part 10): a selection dragged, one step for
+        /// undo. Layout only, as <see cref="Move"/> is. With <paramref name="continuing"/>, a move of the same
+        /// parts straight after another is part of the same step.
+        /// </summary>
+        public EditResult MoveParts(string module, IReadOnlyDictionary<int, Placement> to, bool continuing = false)
+        {
+            if (!TryModule(module, out Module m, out EditResult refused))
+                return refused;
+            if (to == null || to.Count == 0)
+                return EditResult.Refused("There is nothing to move.");
+
+            var ids = new List<int>(to.Keys);
+            ids.Sort();
+            Layout layout = m.Layout;
+            foreach (int part in ids)
+            {
+                if (m.FindPart(part) == null)
+                    return EditResult.Refused($"There is no part {part} in {module}.");
+                layout = layout.WithPart(part, to[part]);
+            }
+
+            string key = continuing ? $"move {module} {string.Join(",", ids)}" : null;
+            return Commit(Project.WithModule(m with { Layout = layout }), ids[0], key, check: false);
         }
 
         // -----------------------------------------------------------------
@@ -384,6 +516,13 @@ namespace BitSorter.Board
                 if (added.Count > 0)
                     return EditResult.Refused(added[0].Message);
                 _diagnostics = after;
+            }
+
+            if (_grouping)
+            {
+                // Inside a group: the step is the group's, kept when it ends.
+                Project = next;
+                return EditResult.Ok(id);
             }
 
             if (continuing == null || continuing != _continuing)

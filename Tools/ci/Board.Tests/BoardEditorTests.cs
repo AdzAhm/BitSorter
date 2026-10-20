@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using BitSorter.Sim;
 using BitSorter.SystemVerilog;
@@ -250,6 +251,93 @@ namespace BitSorter.Board.Tests
         // -----------------------------------------------------------------
         // Undo
         // -----------------------------------------------------------------
+
+        // -----------------------------------------------------------------
+        // Several edits as one (Part 10)
+        // -----------------------------------------------------------------
+
+        [Test]
+        public void ASelectionMoved_IsOneStep_AndADragOfItIsOneStepToo()
+        {
+            var b = Bench.HalfAdder();
+            Project start = b.Project;
+            int x = b.Current.FindPart("g1").Id, n = b.Current.FindPart("g2").Id;
+
+            for (int step = 1; step <= 3; step++)
+                Bench.Must(b.Editor.MoveParts(b.Module, new Dictionary<int, Placement>
+                {
+                    [x] = new Placement(10 + step, 2),
+                    [n] = new Placement(new Point(10 + step, -2), 1, true),
+                }, continuing: true));
+
+            Assert.AreEqual(new Placement(new Point(13, -2), 1, true), b.Current.Layout.PlacementOf(n), "turned and mirrored as it moved");
+            Assert.IsTrue(b.Editor.Undo());
+            Assert.AreSame(start, b.Project, "three moves of the selection undo as one");
+
+            Assert.IsFalse(b.Editor.MoveParts(b.Module, new Dictionary<int, Placement> { [99] = new Placement(0, 0) }).Done);
+            Assert.AreSame(start, b.Project, "a part that is not there refuses the whole move");
+        }
+
+        [Test]
+        public void ASelectionTakenAway_TakesItsWiresAndTheirTaps_InOneStep()
+        {
+            var b = Bench.HalfAdder();
+            Project start = b.Project;
+            int x = b.Current.FindPart("g1").Id, s = b.Current.FindPart("s").Id;
+            int tapped = b.Current.Wires.First(w => w.Touches(b.Current.FindPart("g2").Id)).Id;
+            int tap = Bench.Must(b.Editor.Connect(b.Module, Endpoint.OnWire(tapped), Endpoint.At(b.Output("t"), "in")));
+            Project withTap = b.Project;
+
+            Bench.Must(b.Editor.RemoveParts(b.Module, new[] { x, s }, new[] { tapped }));
+
+            Assert.IsNull(b.Current.FindPart(x));
+            Assert.IsNull(b.Current.FindPart(s));
+            Assert.IsNull(b.Current.FindWire(tapped));
+            Assert.IsNull(b.Current.FindWire(tap), "a wire tapping one taken goes with it");
+            Assert.IsFalse(b.Current.Wires.Any(w => w.Touches(x) || w.Touches(s)), "every wire on a part taken goes with it");
+            Assert.IsFalse(b.Current.Layout.Parts.ContainsKey(x));
+
+            Assert.IsTrue(b.Editor.Undo());
+            Assert.AreSame(withTap, b.Project, "one step");
+            Assert.IsFalse(b.Editor.RemoveParts(b.Module, new int[0]).Done, "nothing to take away");
+            Assert.AreNotSame(start, withTap);
+        }
+
+        [Test]
+        public void AGroup_IsOneStep_AndARefusalInsideItTakesBackEveryEditItMade()
+        {
+            var b = new Bench();
+            Project start = b.Project;
+            int changes = 0;
+            b.Editor.Changed += () => changes++;
+
+            EditResult made = b.Editor.Group(() =>
+            {
+                int clk = Bench.Must(b.Editor.Add(b.Module, new PortPart { Name = "clk" }, new Placement(0, 0)));
+                Bench.Must(b.Editor.SetStimulus(new Stimulus { Clocks = new[] { new ClockTrack { Port = "clk", Period = 4 } } }));
+                return EditResult.Ok(clk);
+            });
+
+            Assert.IsTrue(made.Done);
+            Assert.AreEqual("clk", b.Current.FindPart(made.Id).Name, "the group's answer is its body's");
+            Assert.AreEqual(1, changes, "said once, at the end");
+            Assert.IsTrue(b.Editor.Undo());
+            Assert.AreSame(start, b.Project, "an input and its clock undo as one");
+
+            Assert.IsTrue(b.Editor.Redo());
+            Project before = b.Project;
+            EditResult refused = b.Editor.Group(() =>
+            {
+                Bench.Must(b.Editor.Add(b.Module, new GatePart { Kind = GateKind.And }, new Placement(3, 0)));
+                return b.Editor.Add(b.Module, new GatePart { Kind = GateKind.And, Name = "g1" }, new Placement(5, 0));
+            });
+
+            Assert.IsFalse(refused.Done);
+            StringAssert.Contains("g1", refused.Refusal);
+            Assert.AreSame(before, b.Project, "the gate placed before the refusal is taken back with it");
+            Assert.IsTrue(b.Editor.Undo());
+            Assert.AreSame(start, b.Project, "and the refused group left no step behind");
+        }
 
         [Test]
         public void Undo_GivesBackTheVeryDocumentBefore_AndRedoTheOneAfter()
