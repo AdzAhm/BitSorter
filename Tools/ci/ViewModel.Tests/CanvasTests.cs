@@ -181,14 +181,14 @@ namespace BitSorter.ViewModel.Tests
         // -----------------------------------------------------------------
 
         private static CanvasPress At(CanvasTarget target, int button = 0, bool selected = false, bool hand = false, bool shift = false, bool ctrl = false,
-            bool alt = false, bool space = false) => new CanvasPress
+            bool alt = false, bool space = false, bool drafting = false) => new CanvasPress
         {
             Button = button, Window = new Vec2(100, 100), Board = new BoardPoint(4, 0), Target = target, OnSelected = selected, InHand = hand,
-            Shift = shift, Ctrl = ctrl, Alt = alt, Space = space,
+            Shift = shift, Ctrl = ctrl, Alt = alt, Space = space, Drafting = drafting,
         };
 
-        /// <summary>A press, moves to <paramref name="moves"/> pixels right of it (a cell each 48), and the release, as the commands they made.</summary>
-        private static string Run(CanvasPointer pointer, CanvasPress press, bool alt = false, params float[] moves)
+        /// <summary>A press, moves to <paramref name="moves"/> pixels right of it (a cell each 48), and the release -- over <paramref name="release"/> -- as the commands they made.</summary>
+        private static string Run(CanvasPointer pointer, CanvasPress press, bool alt = false, CanvasTarget release = default, params float[] moves)
         {
             var commands = new List<CanvasCommand>();
             pointer.Press(press, commands);
@@ -199,7 +199,7 @@ namespace BitSorter.ViewModel.Tests
                 pointer.Move(press.Window + new Vec2(px, 0), new BoardPoint(4 + px / 48.0, 0), alt, commands);
             }
 
-            pointer.Release(new BoardPoint(4 + last / 48.0, 0), alt, commands);
+            pointer.Release(new BoardPoint(4 + last / 48.0, 0), release, alt, commands);
             Assert.IsFalse(pointer.Held, "let go");
             return string.Join(", ", commands);
         }

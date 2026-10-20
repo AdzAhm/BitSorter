@@ -33,8 +33,17 @@ namespace BitSorter.ViewModel
         /// <summary>Add the signal of the wire <see cref="CanvasCommand.Target"/> is to the waveform (Alt and a click).</summary>
         AddWireSignal,
 
-        /// <summary>Put down what is in hand, placing nothing.</summary>
+        /// <summary>Put down what is in hand, placing nothing, or let go of the wire being drawn.</summary>
         Cancel,
+
+        /// <summary>A wire starts from <see cref="CanvasCommand.Target"/>: a pin, or a wire to tap (Part 10b).</summary>
+        BeginWire,
+
+        /// <summary>The wire being drawn bends at <see cref="CanvasCommand.At"/>, on the grid or, <see cref="CanvasCommand.Free"/>, exactly.</summary>
+        WireBend,
+
+        /// <summary>The wire being drawn ends on <see cref="CanvasCommand.Target"/>, a pin or a wire, and is made.</summary>
+        EndWire,
     }
 
     /// <summary>One thing a gesture on the canvas asks for.</summary>
@@ -77,6 +86,9 @@ namespace BitSorter.ViewModel
             CanvasGesture.Box or CanvasGesture.EndBox => $"{Gesture} {From.X},{From.Y}..{At.X},{At.Y}{(Extend ? " +" : "")}",
             CanvasGesture.Pan => $"Pan {Pan.x},{Pan.y}",
             CanvasGesture.AddWireSignal => $"AddWireSignal {Target}",
+            CanvasGesture.BeginWire => $"BeginWire {Target}",
+            CanvasGesture.WireBend => $"WireBend {At.X},{At.Y}{(Free ? " free" : "")}",
+            CanvasGesture.EndWire => $"EndWire {Target}",
             _ => Gesture.ToString(),
         };
     }
@@ -102,6 +114,9 @@ namespace BitSorter.ViewModel
         /// <summary>Whether a part is in hand, from the parts strip.</summary>
         public bool InHand;
 
+        /// <summary>Whether a wire is being drawn: a click then bends it or ends it (Part 10b).</summary>
+        public bool Drafting;
+
         public bool Shift, Ctrl, Alt;
 
         /// <summary>Whether Space is held: a press with it pans.</summary>
@@ -118,7 +133,12 @@ namespace BitSorter.ViewModel
     /// - **On a part**, a press selects it -- Shift adds it, Ctrl puts it in or out -- and a drag moves the
     ///   selection, Alt held placing it freely. A press on a part already selected keeps the selection to
     ///   drag; let go without a drag, it selects that part alone.
-    /// - **On a wire**, a press selects it; Alt and a press adds its signal to the waveform instead.
+    /// - **On a pin**, a press starts a wire from it (Part 10b), and a drag draws it out: let go on a pin or a wire
+    ///   it ends there, a tap; let go anywhere else it bends there and goes on. A click starts one too, and then
+    ///   every click on nothing bends it and a click on a pin or a wire ends it. The right button, or Escape, lets
+    ///   it go. Shift or Ctrl on a pin picks its part instead, as on its body.
+    /// - **On a wire**, a click selects it, and a drag draws a new wire out of it, tapping it where the drag
+    ///   began; Alt and a press adds its signal to the waveform instead.
     /// - **On nothing**, a drag draws a box that selects what it touches, Shift adding to the selection; a
     ///   click without a drag clears the selection.
     /// - **The middle button, or Space with the left, pans**, wherever it is pressed.
@@ -129,14 +149,14 @@ namespace BitSorter.ViewModel
         /// <summary>How far, in window pixels, a press has to move before it is a drag.</summary>
         public const float DragPixels = 4f;
 
-        private enum Hold { None, OnPart, Moving, OnNothing, Boxing, Panning }
+        private enum Hold { None, OnPart, Moving, OnNothing, Boxing, Panning, OnPin, OnWire, Wiring }
 
         private Hold _hold;
         private CanvasPress _press;
         private Vec2 _last;
 
-        /// <summary>Whether a press is being dragged: moving the selection, drawing a box, or panning.</summary>
-        public bool Dragging => _hold == Hold.Moving || _hold == Hold.Boxing || _hold == Hold.Panning;
+        /// <summary>Whether a press is being dragged: moving the selection, drawing a box or a wire, or panning.</summary>
+        public bool Dragging => _hold == Hold.Moving || _hold == Hold.Boxing || _hold == Hold.Panning || _hold == Hold.Wiring;
 
         /// <summary>Whether a press is held at all, dragged yet or not.</summary>
         public bool Held => _hold != Hold.None;
@@ -166,8 +186,27 @@ namespace BitSorter.ViewModel
                 return;
             }
 
+            if (press.Drafting)
+            {
+                // A wire being drawn: a click on a pin or a wire ends it, anywhere else bends it.
+                if (press.Button == 0)
+                    into.Add(EndsOn(press.Target)
+                        ? new CanvasCommand(CanvasGesture.EndWire, press.Board, target: press.Target)
+                        : new CanvasCommand(CanvasGesture.WireBend, press.Board, free: press.Alt));
+                else if (press.Button == 1)
+                    into.Add(new CanvasCommand(CanvasGesture.Cancel));
+                return;
+            }
+
             if (press.Button != 0)
                 return;
+
+            if (press.Target.Kind == CanvasTargetKind.Pin && !press.Ctrl && !press.Shift)
+            {
+                into.Add(new CanvasCommand(CanvasGesture.BeginWire, press.Board, target: press.Target));
+                _hold = Hold.OnPin;
+                return;
+            }
 
             switch (press.Target.Kind)
             {
@@ -186,9 +225,16 @@ namespace BitSorter.ViewModel
                     return;
 
                 case CanvasTargetKind.Wire:
-                    into.Add(press.Alt
-                        ? new CanvasCommand(CanvasGesture.AddWireSignal, target: press.Target)
-                        : new CanvasCommand(CanvasGesture.Select, target: press.Target, extend: press.Shift, toggle: press.Ctrl));
+                    if (press.Alt || press.Shift || press.Ctrl)
+                    {
+                        into.Add(press.Alt
+                            ? new CanvasCommand(CanvasGesture.AddWireSignal, target: press.Target)
+                            : new CanvasCommand(CanvasGesture.Select, target: press.Target, extend: press.Shift, toggle: press.Ctrl));
+                        return;
+                    }
+
+                    // A click selects it, on release; a drag draws a wire out of it.
+                    _hold = Hold.OnWire;
                     return;
 
                 default:
@@ -229,16 +275,39 @@ namespace BitSorter.ViewModel
                 case Hold.Boxing:
                     into.Add(new CanvasCommand(CanvasGesture.Box, board, _press.Board, extend: _press.Shift));
                     break;
+
+                case Hold.OnPin:
+                    if (Vec2.Distance(window, _press.Window) >= DragPixels)
+                        _hold = Hold.Wiring;
+                    break;
+
+                case Hold.OnWire:
+                    if (Vec2.Distance(window, _press.Window) < DragPixels)
+                        return;
+                    _hold = Hold.Wiring;
+                    into.Add(new CanvasCommand(CanvasGesture.BeginWire, _press.Board, target: _press.Target));
+                    break;
             }
 
             _last = window;
         }
 
-        /// <summary>The button let go at <paramref name="board"/>: a drag ends there, a click is what it was.</summary>
-        public void Release(BoardPoint board, bool alt, List<CanvasCommand> into)
+        /// <summary>The button let go at <paramref name="board"/>, over <paramref name="target"/>: a drag ends there, a click is what it was.</summary>
+        public void Release(BoardPoint board, CanvasTarget target, bool alt, List<CanvasCommand> into)
         {
             switch (_hold)
             {
+                case Hold.Wiring:
+                    // A wire drawn out and let go: on a pin or a wire it ends there; anywhere else it bends, and goes on.
+                    into.Add(EndsOn(target)
+                        ? new CanvasCommand(CanvasGesture.EndWire, board, target: target)
+                        : new CanvasCommand(CanvasGesture.WireBend, board, free: alt));
+                    break;
+
+                case Hold.OnWire:
+                    into.Add(new CanvasCommand(CanvasGesture.Select, target: _press.Target));
+                    break;
+
                 case Hold.Moving:
                     into.Add(new CanvasCommand(CanvasGesture.EndMove, board, _press.Board, free: alt));
                     break;
@@ -263,5 +332,8 @@ namespace BitSorter.ViewModel
 
         /// <summary>Lets go of whatever is held without making it: what Escape does mid-drag, and a document changed under it.</summary>
         public void Abandon() => _hold = Hold.None;
+
+        /// <summary>What a wire may end on: a pin, or a wire to tap.</summary>
+        private static bool EndsOn(CanvasTarget target) => target.Kind == CanvasTargetKind.Pin || target.Kind == CanvasTargetKind.Wire;
     }
 }

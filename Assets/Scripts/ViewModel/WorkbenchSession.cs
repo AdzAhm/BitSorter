@@ -110,6 +110,9 @@ namespace BitSorter.ViewModel
         /// <summary>Takes parts and wires away (<see cref="BoardEditor.RemoveParts"/>): drawn now, and replayed.</summary>
         public EditResult Remove(IEnumerable<int> parts, IEnumerable<int> wires = null) => Edited(Editor.RemoveParts(Module, parts, wires));
 
+        /// <summary>Draws a wire between two ends, a pin or a tap each, through <paramref name="route"/>'s bends (<see cref="BoardEditor.Connect"/>; Part 10b): drawn now, and replayed.</summary>
+        public EditResult Connect(Endpoint from, Endpoint to, Route route = null) => Edited(Editor.Connect(Module, from, to, route));
+
         /// <summary>Moves, turns or mirrors parts (<see cref="BoardEditor.MoveParts"/>): drawn again, and nothing replayed.</summary>
         public EditResult Move(IReadOnlyDictionary<int, Placement> to, bool continuing = false) => Laid(Editor.MoveParts(Module, to, continuing));
 

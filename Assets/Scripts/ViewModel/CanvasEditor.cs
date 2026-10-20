@@ -8,7 +8,7 @@ namespace BitSorter.ViewModel
     /// <summary>
     /// What the editing overlay draws (Part 10a), in the stage's units, y down: the selected parts' outlines and
     /// wires, a selection being dragged where it is going and its wires following it, a box being drawn, the
-    /// alignment guides, and the part in hand where it would land.
+    /// alignment guides, the part in hand where it would land, and a wire being drawn (Part 10b).
     /// </summary>
     public sealed class CanvasOverlay
     {
@@ -20,6 +20,15 @@ namespace BitSorter.ViewModel
         public Rect2? Box;
         public Rect2? Hand;
 
+        /// <summary>The wire being drawn, as it would run now; null for none.</summary>
+        public Vec2[] Draft;
+
+        /// <summary>Where it starts, and the pin or the junction it would end on -- null when the pointer is on neither.</summary>
+        public Vec2? DraftStart, DraftEnd;
+
+        /// <summary>Whether the document would refuse the wire ending there: the end is drawn as one it cannot take.</summary>
+        public bool DraftRefused;
+
         public void Clear()
         {
             Selected.Clear();
@@ -29,6 +38,9 @@ namespace BitSorter.ViewModel
             Guides.Clear();
             Box = null;
             Hand = null;
+            Draft = null;
+            DraftStart = DraftEnd = null;
+            DraftRefused = false;
         }
     }
 
@@ -66,6 +78,14 @@ namespace BitSorter.ViewModel
         private BoardPoint _handAt;
         private bool _handShown, _handFree;
 
+        // The wire being drawn: where the pointer is, what it is on, and whether the document would take it there.
+        private WireDraft _draft;
+        private BoardPoint _draftAt;
+        private bool _draftFree, _draftShown;
+        private CanvasTarget _draftOver = CanvasTarget.Nothing;
+        private CanvasTarget _checkedOver = CanvasTarget.Nothing;
+        private string _draftWhyNot;
+
         public CanvasEditor(WorkbenchSession session)
         {
             _session = session ?? throw new ArgumentNullException(nameof(session));
@@ -86,6 +106,15 @@ namespace BitSorter.ViewModel
         /// <summary>Whether the selection is being dragged.</summary>
         public bool Moving => _start != null;
 
+        /// <summary>Whether a wire is being drawn (Part 10b).</summary>
+        public bool Drafting => _draft != null;
+
+        /// <summary>The wire being drawn; null for none.</summary>
+        public WireDraft Draft => _draft;
+
+        /// <summary>Why the document would refuse the wire being drawn ending where the pointer is; null when it would take it, or the pointer is on nothing it could end on.</summary>
+        public string DraftRefusal => _draftWhyNot;
+
         private Module Module => _session.Project.Find(_session.Module);
 
         /// <summary>The document drawn again (<see cref="WorkbenchSession.LayoutVersion"/>, or a replay taking over): found again, and the selection kept to what is still there.</summary>
@@ -94,6 +123,12 @@ namespace BitSorter.ViewModel
             _layout = _session.Run.Model.Layout;
             _hit = new CanvasHit(_session.Project, Module);
             Selection.Keep(Module);
+
+            // A wire being drawn from something an undo took away has nowhere to start; and what it may end on is asked again.
+            if (_draft != null && !StillThere(_draft.From))
+                _draft = null;
+            _checkedOver = CanvasTarget.Nothing;
+            _draftWhyNot = null;
             Version++;
         }
 
@@ -116,6 +151,7 @@ namespace BitSorter.ViewModel
         public void Take(CatalogEntry entry)
         {
             InHand = entry;
+            _draft = null;
             Version++;
         }
 
@@ -129,16 +165,39 @@ namespace BitSorter.ViewModel
             Version++;
         }
 
-        /// <summary>The pointer is at <paramref name="stage"/>, or off the canvas: where the part in hand would land, on the grid or, <paramref name="free"/>, exactly.</summary>
-        public void Point(Vec2? stage, bool free)
+        /// <summary>
+        /// The pointer is at <paramref name="stage"/>, or off the canvas, the view <paramref name="zoom"/>ed as it is:
+        /// where the part in hand would land, on the grid or, <paramref name="free"/>, exactly -- and where the wire
+        /// being drawn would run to, and what it would end on.
+        /// </summary>
+        public void Point(Vec2? stage, bool free, float zoom = 1f)
         {
             bool shown = stage.HasValue && InHand != null;
             BoardPoint at = shown ? ToBoard(stage.Value) : default;
-            if (shown == _handShown && (!shown || (at.Equals(_handAt) && free == _handFree)))
+            if (shown != _handShown || (shown && (!at.Equals(_handAt) || free != _handFree)))
+            {
+                _handShown = shown;
+                _handAt = at;
+                _handFree = free;
+                Version++;
+            }
+
+            if (_draft == null)
                 return;
-            _handShown = shown;
-            _handAt = at;
-            _handFree = free;
+
+            bool drafted = stage.HasValue;
+            BoardPoint to = drafted ? ToBoard(stage.Value) : _draftAt;
+            CanvasTarget over = drafted ? TargetAt(stage.Value, zoom) : CanvasTarget.Nothing;
+            if (over.Kind != CanvasTargetKind.Pin && over.Kind != CanvasTargetKind.Wire)
+                over = CanvasTarget.Nothing;
+            if (drafted == _draftShown && to.Equals(_draftAt) && free == _draftFree && over.Equals(_draftOver))
+                return;
+
+            _draftShown = drafted;
+            _draftAt = to;
+            _draftFree = free;
+            _draftOver = over;
+            Check(over);
             Version++;
         }
 
@@ -218,7 +277,23 @@ namespace BitSorter.ViewModel
 
                 case CanvasGesture.Cancel:
                     PutDown();
+                    AbandonWire();
                     return null;
+
+                case CanvasGesture.BeginWire:
+                    BeginWire(command.Target, command.At);
+                    return null;
+
+                case CanvasGesture.WireBend:
+                    if (_draft == null)
+                        return null;
+                    _draft.Bend(command.Free ? command.At : CanvasSnap.Snap(command.At));
+                    _draftAt = command.At;
+                    Version++;
+                    return null;
+
+                case CanvasGesture.EndWire:
+                    return EndWire(command.Target, command.At);
 
                 default:
                     return null;
@@ -274,6 +349,156 @@ namespace BitSorter.ViewModel
 
             (_dx, _dy) = AlignmentGuides.Align(moving, dx, dy, others, catchUp: free, _guides);
             Version++;
+        }
+
+        // -----------------------------------------------------------------
+        // A wire being drawn (Part 10b)
+        // -----------------------------------------------------------------
+
+        /// <summary>Lets go of the wire being drawn, making nothing: Escape, or the right button.</summary>
+        public void AbandonWire()
+        {
+            if (_draft == null)
+                return;
+            _draft = null;
+            _draftOver = _checkedOver = CanvasTarget.Nothing;
+            _draftWhyNot = null;
+            Version++;
+        }
+
+        private void BeginWire(CanvasTarget target, BoardPoint at)
+        {
+            if (!TryEnd(target, out Endpoint from, out BoardPoint start, out Facing? facing, out double? tapAt))
+                return;
+            PutDown();
+            _draft = new WireDraft(from, start, facing, tapAt ?? 0.5, from.IsTap ? _hit.WireOf(from.TapOf) : null);
+            _draftAt = at;
+            _draftShown = true;
+            _draftOver = _checkedOver = CanvasTarget.Nothing;
+            _draftWhyNot = null;
+            Version++;
+        }
+
+        /// <summary>
+        /// The wire being drawn ends on <paramref name="target"/> and is made, one step for undo, and selected. Back on
+        /// the end it started from it is not ended -- a short drag that came back -- and on a wire it started from it
+        /// bends instead; a refusal leaves it being drawn, and says why.
+        /// </summary>
+        private EditResult? EndWire(CanvasTarget target, BoardPoint at)
+        {
+            if (_draft == null || !TryEnd(target, out Endpoint to, out BoardPoint _, out Facing? _, out double? tapAt))
+                return null;
+            if (to.IsTap && _draft.From.IsTap && to.TapOf == _draft.From.TapOf)
+            {
+                // Two taps on one wire are one end to the document; to the student it is the wire, still, and a bend.
+                _draft.Bend(CanvasSnap.Snap(at));
+                Version++;
+                return null;
+            }
+
+            if (to.Equals(_draft.From))
+                return null;
+
+            string why = WhyNot(to, tapAt);
+            if (why != null)
+            {
+                Version++;
+                return Said(EditResult.Refused(why));
+            }
+
+            EditResult made = _session.Connect(_draft.From, to, _draft.RouteTo(tapAt));
+            if (made.Done)
+            {
+                _draft = null;
+                _draftOver = _checkedOver = CanvasTarget.Nothing;
+                _draftWhyNot = null;
+                Selection.Clear();
+                Selection.Pick(new CanvasTarget(CanvasTargetKind.Wire, wire: made.Id), extend: false, toggle: false);
+            }
+
+            Version++;
+            return Said(made);
+        }
+
+        /// <summary>
+        /// Where a wire would start or end on <paramref name="target"/>: a pin as it is placed and the way it faces, or a
+        /// tap on a wire, put on the grid, and how far along that wire it is. False for anything else.
+        /// </summary>
+        private bool TryEnd(CanvasTarget target, out Endpoint end, out BoardPoint at, out Facing? facing, out double? tapAt)
+        {
+            end = default;
+            at = default;
+            facing = null;
+            tapAt = null;
+            switch (target.Kind)
+            {
+                case CanvasTargetKind.Pin:
+                {
+                    PartOutline outline = _hit.OutlineOf(target.Part);
+                    if (outline == null || !outline.TryPin(target.Pin, out PinSpot spot))
+                        return false;
+                    end = Endpoint.At(target.Part, target.Pin);
+                    at = spot.At;
+                    facing = spot.Facing;
+                    return true;
+                }
+
+                case CanvasTargetKind.Wire:
+                {
+                    IReadOnlyList<BoardPoint> points = _hit.WireOf(target.Wire);
+                    if (points == null)
+                        return false;
+                    at = WireDraft.TapPoint(points, target.Along, out double along);
+                    end = Endpoint.OnWire(target.Wire);
+                    tapAt = along;
+                    if (_draft != null)
+                        facing = WireGeometry.TapFacing(points, along, at, _draft.Last);
+                    return true;
+                }
+
+                default:
+                    return false;
+            }
+        }
+
+        /// <summary>Why the document would refuse the wire being drawn ending at <paramref name="to"/>; null when it would take it.</summary>
+        private string WhyNot(Endpoint to, double? tapAt)
+        {
+            if (_draft.From.IsTap && to.IsTap)
+                return "A wire drawn out of a wire ends on a pin: to join two wires, draw from a pin onto one of them.";
+
+            // Asked of the document itself, on a copy, so the words are the ones the edit would be refused with.
+            var trial = new BoardEditor(_session.Project);
+            EditResult tried = trial.Connect(_session.Module, _draft.From, to, _draft.RouteTo(tapAt));
+            return tried.Done ? null : tried.Refusal;
+        }
+
+        /// <summary>Whether the document would take the wire ending on what the pointer is over, asked once each time it moves onto something new.</summary>
+        private void Check(CanvasTarget over)
+        {
+            if (over.Kind == CanvasTargetKind.Nothing)
+            {
+                _checkedOver = over;
+                _draftWhyNot = null;
+                return;
+            }
+
+            if (over.Kind == _checkedOver.Kind && over.Part == _checkedOver.Part && over.Pin == _checkedOver.Pin && over.Wire == _checkedOver.Wire)
+                return;
+            _checkedOver = over;
+            _draftWhyNot = null;
+            if (TryEnd(over, out Endpoint to, out BoardPoint _, out Facing? _, out double? tapAt) && !to.Equals(_draft.From)
+                && !(to.IsTap && _draft.From.IsTap && to.TapOf == _draft.From.TapOf))
+                _draftWhyNot = WhyNot(to, tapAt);
+        }
+
+        /// <summary>Whether what an end is on is still in the document.</summary>
+        private bool StillThere(Endpoint end)
+        {
+            Module module = Module;
+            if (module == null)
+                return false;
+            return end.IsTap ? module.FindWire(end.TapOf) != null : module.FindPart(end.Pin.Part) != null;
         }
 
         // -----------------------------------------------------------------
@@ -373,6 +598,25 @@ namespace BitSorter.ViewModel
             {
                 Vec2 a = frame.ToStage(_boxFrom), b = frame.ToStage(_boxTo);
                 overlay.Box = Rect2.MinMaxRect(Arith.Min(a.x, b.x), Arith.Min(a.y, b.y), Arith.Max(a.x, b.x), Arith.Max(a.y, b.y));
+            }
+
+            if (_draft != null)
+            {
+                BoardPoint end = _draftFree ? _draftAt : CanvasSnap.Snap(_draftAt);
+                Facing? entering = null, endFacing = null;
+                BoardPoint endAt = default;
+                bool onEnd = _draftOver.Kind != CanvasTargetKind.Nothing
+                    && TryEnd(_draftOver, out Endpoint _, out endAt, out endFacing, out double? _);
+                if (onEnd)
+                {
+                    end = endAt;
+                    entering = endFacing;
+                    overlay.DraftEnd = frame.ToStage(endAt);
+                    overlay.DraftRefused = _draftWhyNot != null;
+                }
+
+                overlay.Draft = Stage(frame, _draft.PathTo(end, entering));
+                overlay.DraftStart = frame.ToStage(_draft.Start);
             }
 
             if (_handShown && InHand != null)

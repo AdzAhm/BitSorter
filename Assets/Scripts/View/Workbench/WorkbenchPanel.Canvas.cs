@@ -12,8 +12,9 @@ using Project = BitSorter.Board.Project;
 namespace BitSorter.View
 {
     /// <summary>
-    /// The workbench's canvas, edited (Part 10a): the parts strip, the canvas's mouse as gestures, the editing
-    /// overlay, the drawing made again round an edit, and MY CIRCUIT kept in the save. Everything it decides is
+    /// The workbench's canvas, edited (Part 10a): the parts strip, the canvas's mouse as gestures -- wires drawn with
+    /// them since Part 10b -- the editing overlay, the drawing made again round an edit, and MY CIRCUIT kept in the
+    /// save. Everything it decides is
     /// the view-model's (<see cref="CanvasEditor"/>, <see cref="CanvasPointer"/>, <see cref="PartsCatalog"/>); this
     /// turns the mouse into its gestures and draws what it says.
     /// </summary>
@@ -263,6 +264,7 @@ namespace BitSorter.View
                     Target = target,
                     OnSelected = _editor.Selection.Has(target),
                     InHand = _editor.InHand != null,
+                    Drafting = _editor.Drafting,
                     Shift = shift,
                     Ctrl = ctrl,
                     Alt = alt,
@@ -282,15 +284,15 @@ namespace BitSorter.View
                 }
 
                 if (!mouse.leftButton.isPressed && !mouse.rightButton.isPressed && !mouse.middleButton.isPressed)
-                    _canvasPointer.Release(_editor.ToBoard(stage), alt, _canvasCommands);
+                    _canvasPointer.Release(_editor.ToBoard(stage), _editor.TargetAt(stage, _viewState.Zoom), alt, _canvasCommands);
             }
 
             for (int i = 0; i < _canvasCommands.Count; i++)
                 DoCanvas(_canvasCommands[i], space);
             _canvasCommands.Clear();
 
-            // The part in hand follows the pointer while it is on the circuit.
-            _editor.Point(InView(pointer, out _) && !overControl ? StagePoint(pointer) : (Vec2?)null, alt);
+            // The part in hand, and the wire being drawn, follow the pointer while it is on the circuit.
+            _editor.Point(InView(pointer, out _) && !overControl ? StagePoint(pointer) : (Vec2?)null, alt, _viewState.Zoom);
             ShowInHand();
         }
 
@@ -330,7 +332,7 @@ namespace BitSorter.View
                 RemoveRows();
         }
 
-        /// <summary>Escape on the canvas: a part in hand put down, or a drag let go of. False when there was neither, and Escape is the workbench's.</summary>
+        /// <summary>Escape on the canvas: a part in hand put down, a wire being drawn let go, or a drag. False when there was none, and Escape is the workbench's.</summary>
         private bool LetGoOnCanvas()
         {
             if (_editor == null)
@@ -338,6 +340,13 @@ namespace BitSorter.View
             if (_editor.InHand != null)
             {
                 _editor.PutDown();
+                return true;
+            }
+
+            if (_editor.Drafting)
+            {
+                _canvasPointer.Abandon();
+                _editor.AbandonWire();
                 return true;
             }
 
