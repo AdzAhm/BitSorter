@@ -270,6 +270,25 @@ agree on every signal and line. One rule the second pins down, where it is easy 
 BitSorter first evaluated the `assign` again as well, which reads as more helpful and is not what either
 the standard or Icarus does; the corpus design is the reason it no longer does.
 
+## Reals and time (Part L7, 2026-10-20)
+
+`corpus/behavioural/reals.sv` runs in both and agrees on every signal and line, and probed beside it:
+
+| Question | Icarus 12, and BitSorter |
+| --- | --- |
+| `$display(r)`, a real with no format | `%#g`: 2.50000, 0.333333 |
+| `%d` of a real | rounded, with no padding: 3 |
+| A real given to a whole number | rounded half away from zero: -2.5 is -3, 200.7 is 201 |
+| `-0.0` as a condition | false |
+| `#1.5` in a `` `timescale 1ns/1ps `` module | 1500 ticks; `$time` is 2, rounded; `$realtime` 1.5; `%t` 2000 for `$time`, 1500 for `$realtime` |
+| `#0.0004` and `#0.0006` there | no time at all, and one tick: a delay is rounded to the precision |
+| `#1.25` in a `` `timescale 10ns/1ns `` module beside it | 13000 ticks: 12.5 ns rounded to 13 |
+| A tick, with two timescales | the finest precision of either |
+
+BitSorter's own choices, which `RealTests` holds: a `shortreal` is held as a 64-bit `real`; a module with no
+`` `timescale `` beside ones with one counts in the first one written, where Icarus uses its own default
+of 1 s.
+
 ## Packages, macros, strings and files (Part L6, 2026-10-20)
 
 `corpus/behavioural/library.sv` runs in both and agrees on every signal, every line and every file it

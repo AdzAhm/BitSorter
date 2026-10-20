@@ -31,7 +31,7 @@ where simple and friendly conflicts with exact, simple and friendly wins.
 | D4 | Wires smooth by default, with bend points, junction dots, and the whole net lit on hover. |
 | D5 | Testbenches in the course's style by default, with a switch that adds self-checks. |
 | D6 | The thirty levels kept as a side section, *Exercises*, reworked for the new model and ordered by the course. |
-| D7 | One time unit per tick. The display unit is a setting (ps by default, as the course's ModelSim counts -- ns until the course audit, 2026-10-19). Export adds no `` `timescale `` unless asked -- and choosing a unit other than the default is the asking (Part 9b-3) |
+| D7 | One time unit per tick. The display unit is a setting (ps by default, as the course's ModelSim counts -- ns until the course audit, 2026-10-19). Export adds no `` `timescale `` unless asked -- and choosing a unit other than the default is the asking (Part 9b-3). A file read with a `` `timescale `` finer in precision than its unit counts in that precision, so a delay may be a fraction of a unit (Part L7); every project's own files name their unit as their precision, so a project still counts in whole units |
 | D8 | 5.0.0 on a `v5` branch, in parts, a PR per part fast-forwarded, docs fixed in the same change, every saved board migrated. |
 | D9 | Blocks are either drawn (gates and wires) or written (SystemVerilog). Written blocks run, show their signals, and sit on the board like any block. |
 | D10 | Reach up to the course's multicycle RISC-V, memories and `$readmemh` included. The simulator runs it; the Exercises need not teach it. |
@@ -382,7 +382,8 @@ VCD           written for export, read for the oracle comparison
   and the oracle compares every line printed. `$strobe` and `$monitor` print once their step has
   settled, the monitor first; `$monitor` only when a value other than the time changed.
 - **`$time`** (and `$stime`, `$realtime`) reads a hidden signal the engine sets as time moves, with no
-  event, so an assign of it is not woken by it -- as the standard has it.
+  event, so an assign of it is not woken by it -- as the standard has it. Since Part L7 each reads it in
+  its own module's units.
 - **Names through the hierarchy**: `dut.ctl.state`, `slice[3].s.sum`, `top.x`, read and written, in
   processes and assigns. Processes, and assigns that use such a name, are compiled once their module's
   instances are in, so a testbench may name `dut.x` above the line that makes `dut`.
@@ -563,6 +564,7 @@ The contract the engine is tested against, by hand-computed waveforms first and 
 | Zero delay | Delta cycles; past a delta limit in one time step the run stops with a diagnostic naming the loop. |
 | Library cells | Rise and fall default to 1, as the course's cells do. A freshly placed gate is a cell with delay 1; "ideal" (0) is one switch. |
 | Order inside a region | Stable, by creation, the same on every run. Where Icarus and the standard disagree, the standard wins, and the difference is written down in `Docs/oracle-notes.md`. |
+| A delay in a fraction of a unit, `#2.5` (Part L7) | A tick is the finest unit or precision any module's `` `timescale `` names. A module's delay is its value in its own units scaled to ticks and rounded to its own precision, half away from zero (IEEE 1800, 22.7); with no `` `timescale `` a tick is a unit, so a fraction rounds to a whole one. `$time` gives a module's own units, rounded; `$realtime` the fraction too; `%t` writes a time in ticks. Icarus agrees on all of it (`corpus/behavioural/reals.sv`). |
 
 **Confirmed against Icarus** (`Docs/oracle-notes.md`): eleven probe circuits, from a pulse swallowed to
 the reference visual's glitch, give the same waveform in both, signal by signal; and from Part 4b the
@@ -585,11 +587,12 @@ patterns, and no tri-state, `function`, `task`, `$display`, `` `timescale ``, `d
 | A — structural | modules and ANSI ports; `logic` and vectors; `parameter` and `localparam`, in `#(parameter ...)` headers too; gate primitives with `#(rise, fall)`; `assign`; instances, by name and by position, with `#(.P(v))`; `generate for` with `genvar` and a named block; `` `include ``; concatenation and `{n{x}}`; bit and part selects; sized and unsized literals | 4 |
 | B — behavioural | `always_ff @(posedge clk, posedge rst)`; `always_comb`; `initial`; plain `always`; `begin`/`end`; `if`/`else`; `case` with `default`; `for`, `repeat`, `forever`; `=` and `<=`; `#delay`; `@(posedge` and `negedge)`; `typedef enum`; `?:`; arithmetic, shifts, comparisons, bitwise and reduction operators | 5 |
 | C — the processor | memories; `$readmemh` and `$writememh`; `casex`; `signed` and `>>>`; `$info`, `$error`, `$stop`, `$finish` with `%X %d %b %h`; hierarchical references; timeouts | 6 |
-| Syllabus extras | tri-state (`bufif`, `notif`, `tri`), `integer`, `$time`, `` `timescale `` read as a display hint, `**` | 14 and later; a `bufif` or `notif` alone on its net is drawn, printed and imported from 8 |
+| Syllabus extras | tri-state (`bufif`, `notif`, `tri`), `integer`, `$time`, `` `timescale `` read as a display hint -- and, from L7, a finer precision as the tick a file counts in -- `**` | 14 and later; a `bufif` or `notif` alone on its net is drawn, printed and imported from 8 |
 | Functions and tasks | `function` and `task`, static and automatic, ANSI and old-style arguments, defaults, `return`, `void` functions, recursion inside an expression | L2 |
 | Expressions | `inside` and `case inside`, `==?` and `!=?`, casts to the built-in types and to typedefs, an enum's methods, `$countones`, `$onehot`, `$onehot0`, `$isunknown`, `$random`, `$urandom`, `$urandom_range` | L3 |
 | Data types | packed `struct` and `union`, their members read and written (`pkt.kind`, `prog[i].op`); packed arrays of any number of dimensions, of structs and of typedefs; memories of more than one dimension; `foreach`; assignment patterns, `'{...}`, in order, by member, by index and with `default:`; `$bits` of a type or a memory | L4 |
 | Testbench control | `fork` with `join`, `join_any` and `join_none`; `wait fork`, `disable fork`; `disable` of a named block, a named fork or a task; named events with `->`, `->>`, `@(e)` and `e.triggered`; `force` and `release`; immediate `assert`, `assume` and `cover` | L5 |
+| Reals and time | `real`, `realtime` and `shortreal` (held as a real), real parameters typed or by their value, real ports and functions; arithmetic and comparison with whole numbers made reals; conversion both ways, rounding half away from zero; `$itor`, `$rtoi`, `$realtobits`, `$bitstoreal` and the maths functions; `%e`, `%f`, `%g` with a precision; delays in fractions of a unit, `$realtime` | L7 |
 | Packages, macros, strings, files | `package` of parameters, typedefs, functions and tasks; `import p::*`, `import p::name`, in a module's header too, and `p::name`; macros with arguments and defaults, ``` `` ``` and `` `"...`" ``; `string`, joined with `{}`, compared as text, with its methods; `$sformatf`, `$sformat`, `$swrite`; `$fopen`, `$fdisplay`, `$fwrite`, `$fstrobe`, `$fclose`, `$fflush` | L6 |
 | Not supported | interfaces, unpacked structs, classes, concurrent assertions, `defparam`, DPI — each refused with file, line and a plain message, until the language part that brings it (section 11) |
 
@@ -613,8 +616,8 @@ asked for it to read the course and general SystemVerilog alike (2026-10-12).
   beside the including file and then as written, with cycles and depth caught; `` `define ``, with
   arguments and their defaults from Part L6 -- a use's arguments may run over lines, ``` `` ``` joins two
   tokens and `` `"...`" `` makes a string with the arguments put in -- `` `ifdef `` / `` `ifndef `` /
-  `` `elsif `` / `` `else `` / `` `endif `` (so include guards work), `` `undef ``, and `` `timescale ``
-  noted.
+  `` `elsif `` / `` `else `` / `` `endif `` (so include guards work), `` `undef ``, and `` `timescale ``,
+  noted for the tree and, from Part L7, given to every module after it.
 - **Syntax tree** (`SyntaxTree.cs`): modules with ANSI or non-ANSI ports, header and body parameters,
   declarations of any keyword type, net type or typedef name, enums, generate regions, for- and
   if-generate, primitives with delays, module instances by name or position, continuous assigns,
@@ -1153,7 +1156,8 @@ on an input's row, undo and redo -- is 9b-3b-2.
   more loosely (`TimeText`). The parser's warning for `#10ns` no longer says ns: the unit is the
   design's, whatever it is.
 - **The unit relabels and rescales nothing** (invariant 7): a delay of 3 is 3 ps once the project is in
-  ps. `BoardEditor.SetSettings` sets it, `BoardRules` refuses one SystemVerilog does not have and a
+  ps. That holds of a project, whose files name its unit as their precision; a file read with a finer
+  precision, `1ns/1ps`, counts in ticks of that precision (Part L7, section 6). `BoardEditor.SetSettings` sets it, `BoardRules` refuses one SystemVerilog does not have and a
   default gate delay below 0, and a save holding one that is not a unit loads in the default, ps, with a
   word to say so.
 - **A project in a unit other than ps prints `` `timescale 1ns/1ns ``** (in its own unit) at the top of
@@ -1283,7 +1287,7 @@ course first, then general SystemVerilog, before Part 10 -- and much of the rest
 | L4 | Data types: packed structs and unions, packed and unpacked arrays of more than one dimension, `foreach` -- **built**, see "As built, L4" below |
 | L5 | Testbench control: `fork`/`join`, named events and `wait`, `disable`, `force`/`release`, immediate assertions -- **built**, see "As built, L5" below |
 | L6 | Packages and `import`, macros with arguments, strings and `$sformatf`, writing files -- **built**, see "As built, L6" below |
-| L7 | `real` numbers, and delays in fractions of a unit |
+| L7 | `real` numbers, and delays in fractions of a unit -- **built**, see "As built, L7" below |
 | L8 | Interfaces and modports |
 
 Classes, constraints and random stimulus, concurrent assertions, coverage and DPI wait until after
@@ -1454,6 +1458,36 @@ two kinds of call need them:
 - **Not yet:** reading files (`$fgets`, `$fscanf`, `$fread`), `$fmonitor`, `export`, a string longer than
   256 characters, a string's own radix in the waveform, and a dynamic format (`$sformatf(fmt, ...)` with
   the format in a variable).
+
+**As built, L7: reals, and time in fractions of a unit** (`Reals`, `Expr`'s real nodes, `Scope.UnitTicks`).
+
+- **A real is a value of 64 bits, a double's** (IEEE 1800, 6.12; `PackedType.Real`), 2-state, moved by the
+  engine as bits like any value and made a number by the expression nodes in `Reals.cs`. An expression is
+  real when any operand of an arithmetic operator is (11.3.1): a whole number beside a real is made one,
+  `+ - * / **` are done in doubles, a comparison compares numbers, and a real where a whole number is
+  wanted -- an assignment, an index, an argument -- is rounded half away from zero, as `$rtoi` cuts toward
+  zero instead. A real as a condition is true when it is not 0, so -0.0 is false. Every whole-number
+  operator -- `~`, `%`, the bitwise ones, the shifts -- refuses a real.
+- **Real parameters** take their type, `parameter real T = 0.5`, or their value's, `parameter T = 0.5`;
+  a function may take and give reals, and a port may be one: a value given to a port is given as an
+  assignment would give it, so a real stays a real. A `shortreal` is held as a `real`, its 64 bits rather
+  than the standard's 32, the one place this departs from the standard on purpose.
+- **Printing**: `%f`, `%e` and `%g` with a width and a precision write one as C's printf does; a real with
+  no format is written as `%#g` (`2.50000`), and `%d` of one rounds it with no padding -- both as Icarus
+  does. A VCD writes a real signal as a real (`r2.5`), which GTKWave draws as a number; a signal knows it
+  is one (`SignalInfo.IsReal`).
+- **Time in fractions of a unit.** The reader gives every module the `` `timescale `` written before it.
+  A tick is the finest unit or precision any of them names, each module counts in its own (`Scope.UnitTicks`,
+  `PrecisionTicks`), and a delay -- a process's, a gate's, an assign's -- is scaled to ticks and rounded
+  to the module's precision (22.7). `$time` gives the module's units, rounded; `$realtime` the fraction;
+  `%t` writes ticks, as the default `$timeformat` has it. A module with no `` `timescale `` beside ones
+  that have one counts in the first one written; with none anywhere, a tick is a unit, as it always was,
+  and a fraction rounds to a whole one -- so the course's files and every project are untouched.
+- **Icarus agrees on all of it**: `corpus/behavioural/reals.sv`, two modules of different timescales
+  among it, matches on every signal and line. `RealTests` holds BitSorter's own choices.
+- **Not yet:** `$timeformat` and `$printtimescale` (still skipped with a warning), a `shortreal` of 32
+  bits, a real shown as a number in the waveform (it shows its bits), `real` nets with more than one
+  driver, and `timeunit`/`timeprecision` declarations, which are read and skipped.
 
 **Agreed after the plan, 2026-10-14: five optimizations**, each to be written into this document by
 the part that builds it, as every part rewrites what it makes stale.
