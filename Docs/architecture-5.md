@@ -306,7 +306,9 @@ VCD           written for export, read for the oracle comparison
   order, until it waits or ends. A blocking write is seen at once by the process and the processes after
   it, and by drivers in the next delta; so the drivers keep invariant 1, and processes -- which the
   language lets race -- run in an order that is the same on every run: **an instance's processes before
-  its parent's own, and a module's own as written**, as Icarus starts them. A testbench that raises reset
+  its parent's own, and a module's own as written**, as Icarus starts them. Among a scope's instances its
+  interfaces' are made first (Part L8), since a module given one through a port needs it made, so their
+  processes come before those of the modules beside them. A testbench that raises reset
   at time 0 therefore reaches the flip-flops of the design it instantiates. A `fork`'s branches (Part L5)
   are processes of their own, each written after the process that forks it, and start straight after it
   in the order written, once it waits -- Icarus 12 starts them last first; the standard leaves it open. At time 0 the processes start
@@ -386,7 +388,8 @@ VCD           written for export, read for the oracle comparison
   its own module's units.
 - **Names through the hierarchy**: `dut.ctl.state`, `slice[3].s.sum`, `top.x`, read and written, in
   processes and assigns. Processes, and assigns that use such a name, are compiled once their module's
-  instances are in, so a testbench may name `dut.x` above the line that makes `dut`.
+  instances are in, so a testbench may name `dut.x` above the line that makes `dut`. Since Part L8 a task or
+  function of an instance is called the same way, `dut.reset()` and `u.f(x)`.
 - **A typed parameter is its value's context** (a Part 4b fault found here): `localparam [5:0] ONES = '1`
   is six ones.
 - **Checked.** 30 tests (`SystemTaskTests`, two more elsewhere); and against Icarus,
@@ -593,8 +596,9 @@ patterns, and no tri-state, `function`, `task`, `$display`, `` `timescale ``, `d
 | Data types | packed `struct` and `union`, their members read and written (`pkt.kind`, `prog[i].op`); packed arrays of any number of dimensions, of structs and of typedefs; memories of more than one dimension; `foreach`; assignment patterns, `'{...}`, in order, by member, by index and with `default:`; `$bits` of a type or a memory | L4 |
 | Testbench control | `fork` with `join`, `join_any` and `join_none`; `wait fork`, `disable fork`; `disable` of a named block, a named fork or a task; named events with `->`, `->>`, `@(e)` and `e.triggered`; `force` and `release`; immediate `assert`, `assume` and `cover` | L5 |
 | Reals and time | `real`, `realtime` and `shortreal` (held as a real), real parameters typed or by their value, real ports and functions; arithmetic and comparison with whole numbers made reals; conversion both ways, rounding half away from zero; `$itor`, `$rtoi`, `$realtobits`, `$bitstoreal` and the maths functions; `%e`, `%f`, `%g` with a precision; delays in fractions of a unit, `$realtime` | L7 |
+| Interfaces | `interface` with parameters, ports, signals, assigns, processes, functions and tasks; its instances, in generate loops too, reached by name; modports of `input`, `output`, `inout`, `ref` (read as `inout`) and `import`; interface ports with a modport or without, `interface` for any, a modport chosen at the connection, a port passed on; a task or function of an instance called through it, `bus.send(v)`, `dut.f(x)` | L8 |
 | Packages, macros, strings, files | `package` of parameters, typedefs, functions and tasks; `import p::*`, `import p::name`, in a module's header too, and `p::name`; macros with arguments and defaults, ``` `` ``` and `` `"...`" ``; `string`, joined with `{}`, compared as text, with its methods; `$sformatf`, `$sformat`, `$swrite`; `$fopen`, `$fdisplay`, `$fwrite`, `$fstrobe`, `$fclose`, `$fflush` | L6 |
-| Not supported | interfaces, unpacked structs, classes, concurrent assertions, `defparam`, DPI — each refused with file, line and a plain message, until the language part that brings it (section 11) |
+| Not supported | interface classes, virtual interfaces, unpacked structs, classes, concurrent assertions, `defparam`, DPI — each refused with file, line and a plain message, until the language part that brings it (section 11) |
 
 **Written in the course's style:** an ANSI header with inputs first and outputs last, one commented
 port per line; `logic` everywhere, except a net with more than one driver, which must be a `wire` to
@@ -632,8 +636,8 @@ asked for it to read the course and general SystemVerilog alike (2026-10-12).
   (Ahmad's choice, 2026-10-19). A name followed by a name is a declaration of a typedef's type or an instance, told apart by
   what follows. It never throws and never hangs: after an error it skips to a `;` or a keyword that starts
   something; every loop makes progress; nesting deeper than 200 stops the read with a message rather than
-  the browser's stack. A missing `;` is reported on the line it is missing from. Classes, interfaces,
-  `export`, concurrent and deferred assertions, `defparam`, `deassign`, drive strengths and the switch
+  the browser's stack. A missing `;` is reported on the line it is missing from. Classes, an interface
+  declared inside a module, `export`, concurrent and deferred assertions, `defparam`, `deassign`, drive strengths and the switch
   primitives are refused where they stand, their text kept.
 - **Printer** (`Printer`): the course's style -- four-space indents, one port per line with its comment,
   connections one per line beyond three, `[N-1:0]` tight. Printing is a fixed point: print, read, print
@@ -1288,7 +1292,7 @@ course first, then general SystemVerilog, before Part 10 -- and much of the rest
 | L5 | Testbench control: `fork`/`join`, named events and `wait`, `disable`, `force`/`release`, immediate assertions -- **built**, see "As built, L5" below |
 | L6 | Packages and `import`, macros with arguments, strings and `$sformatf`, writing files -- **built**, see "As built, L6" below |
 | L7 | `real` numbers, and delays in fractions of a unit -- **built**, see "As built, L7" below |
-| L8 | Interfaces and modports |
+| L8 | Interfaces and modports -- **built**, see "As built, L8" below |
 
 Classes, constraints and random stimulus, concurrent assertions, coverage and DPI wait until after
 5.0.0. What L2 to L8 add runs in the engine and is written in code; it does not become a part on the
@@ -1488,6 +1492,34 @@ two kinds of call need them:
 - **Not yet:** `$timeformat` and `$printtimescale` (still skipped with a warning), a `shortreal` of 32
   bits, a real shown as a number in the waveform (it shows its bits), `real` nets with more than one
   driver, and `timeunit`/`timeprecision` declarations, which are read and skipped.
+
+**As built, L8: interfaces and modports** (`ModuleDeclaration.IsInterface`, `InstanceEntry.Interface`, `ModportInfo`).
+
+- **An interface is read as a module is** and kept apart from the modules (`SyntaxTree.Interfaces`), so the top
+  is never one and a board never draws one. An instance of it is made as a module's is -- its parameters, its
+  ports, its signals, assigns, processes, functions and tasks -- under its instance's name, so `hs.data` is
+  `top.hs.data` in the waveform and in a VCD, and anything reaches it by name as it reaches a module's.
+- **An interface port is the instance it is given** (IEEE 1800, 25.3): the port's name stands for that instance
+  inside the module, so `bus.data` is a name through the hierarchy like any other, read and written, in processes
+  and assigns, and `bus.send(v)` and `bus.fire()` call the instance's task and function. What each port is given
+  is worked out before the module is made -- by name, by `.bus`, by `.*`, or in order -- and must be an instance of
+  that interface (or of any, for `interface bus`), here, through the hierarchy, or the module's own port passed on.
+  The interfaces in a scope are made before its modules, so the order they are written in does not matter.
+- **A modport limits what a port reaches** (25.5): only the names it lists, an `input` read and not written --
+  in a process, an assign, or an output's connection -- an `output` or `inout` both, `ref` read as `inout`, and
+  only the tasks and functions it imports may be called. A port names one, `bus_if.sink bus`, or a connection
+  does, `.bus(hs.sink)`; both may, if they agree. A port passed on keeps its modport: it can be named again and
+  not changed. Each modport is checked against what the interface declares, once an interface.
+- **`bus_if bus` reads as a port of a typedef's type would**, so the reader takes a bare name with no direction
+  written before it, that is no type it has met, for an interface's; the elaborator finds a typedef of that name
+  if there is one and makes it the port it would have been, its direction the last one written. Both print alike.
+- **Icarus 12 reads interfaces but no interface port, and no modport `import`**, so interface ports are held to
+  it by `InterfaceOracleTests`: one design written with them and again with every `bus.x` spelled out as
+  `top.hs.x`, BitSorter running both and Icarus the second, every line and every shared signal the same.
+  `corpus/behavioural/interfaces.sv` is the rest of it, run in both. `InterfaceTests` holds every refusal.
+- **Not yet:** arrays of interface instances and of interface ports, virtual interfaces (they need classes),
+  modport expressions (`.name(expr)`), `export` and clocking in a modport, an interface declared inside a module,
+  and drawing a module that uses one on a board, which comes in as written code (Part 12).
 
 **Agreed after the plan, 2026-10-14: five optimizations**, each to be written into this document by
 the part that builds it, as every part rewrites what it makes stale.

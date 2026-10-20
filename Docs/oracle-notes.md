@@ -270,6 +270,27 @@ agree on every signal and line. One rule the second pins down, where it is easy 
 BitSorter first evaluated the `assign` again as well, which reads as more helpful and is not what either
 the standard or Icarus does; the corpus design is the reason it no longer does.
 
+## Interfaces (Part L8, 2026-10-20)
+
+Icarus 12 reads interfaces themselves: their parameters and ports, signals, assigns, `always` blocks,
+functions and tasks, instances of them -- in a generate loop too, and in an array -- and names into
+them from outside, read, written and called. `corpus/behavioural/interfaces.sv` runs in both and agrees
+on every signal, the interfaces' own among them, and on every line.
+
+| Question | Icarus 12 |
+| --- | --- |
+| A port of an interface's type, `module m (bus_if b)`, `bus_if.mp b` or `interface b` | a syntax error: no interface port of any kind |
+| `import t` in a modport | "sorry: modport task/function ports are not yet supported" |
+| A modport with only directions | read, and nothing comes of it, with no port to use it |
+
+So interface ports are held to Icarus through what they mean (`InterfaceOracleTests`): the same design
+written once with them and once with every `bus.x` spelled out as `top.hs.x`, which Icarus runs. All
+three runs print the same, and BitSorter's two record the same history on every signal they share.
+
+BitSorter's own choices, which `InterfaceTests` holds: a scope's interfaces are made before its modules,
+so their processes start first among its instances; `ref` in a modport is read as `inout`; and a modport
+limits the module given the port, not a name reaching through that module from outside, `s.bus.sent`.
+
 ## Reals and time (Part L7, 2026-10-20)
 
 `corpus/behavioural/reals.sv` runs in both and agrees on every signal and line, and probed beside it:
