@@ -843,11 +843,12 @@ namespace BitSorter.PlayMode.Tests
 
             PartLayout secondAnd = workbench.Model.Layout.Parts.Where(p => p.Symbol == PartSymbol.And).ElementAt(1);
             Vector2 cursor = workbench.ScreenPointOf(secondAnd.ToStage(0, 0));
+            float fit = workbench.Zoom;
             for (int notch = 0; notch < 3; notch++)
                 workbench.TakeWheel(cursor, new Vector2(0f, 120f));
             yield return Frames(30);
 
-            Assert.Greater(workbench.Zoom, 1.9f, "sanity: three notches in should be nearly twice the size");
+            Assert.Greater(workbench.Zoom, 1.9f * fit, "sanity: three notches in should be nearly twice the fit");
 
             yield return Capture("28-workbench-zoomed");
         }
@@ -1177,8 +1178,9 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
-        /// The reference's AND selected and its inspector open beside it (Part 10c): its name, inputs, rise, fall and width,
-        /// and a width of 2000 refused in the document's words, the popover still up for it to be put right.
+        /// The reference's AND selected and inspected (Part 10c), docked (Part 11b-2): the bar with its name, inputs, rise,
+        /// fall and width, and a width of 2000 refused in the document's words, still typed there to be put right; its
+        /// rise and fall at hand in the side panel.
         /// </summary>
         [UnityTest]
         public IEnumerator Shot36_WorkbenchInspector()
@@ -1202,15 +1204,13 @@ namespace BitSorter.PlayMode.Tests
                 .Single(g => g.Kind == BitSorter.Sim.GateKind.And && g.Fall == 3);
             var target = new CanvasTarget(CanvasTargetKind.Part, part: and.Id);
             workbench.Editor.Do(new CanvasCommand(CanvasGesture.Inspect, target: target));
-            BitSorter.Board.Point at = session.Project.TopModule.Layout.PlacementOf(and.Id).Position;
-            workbench.Inspector.Open(Inspector.Of(session.Project, session.Module, target), workbench.ScreenPointOf(at) + new Vector2(40f, -30f));
-            workbench.Inspector.Type("width", "2000");
-            workbench.Inspector.Apply();
-            UiTheme.Defocus();   // no caret blinking in a field: the shot is the same every time
+            yield return Frames(2);
+            workbench.InspectorType("width", "2000");
+            workbench.InspectorApply();   // no field holds the keyboard, so no caret blinks: the shot is the same every time
             yield return Frames(30);
 
-            Assert.IsTrue(workbench.Inspector.IsOpen, "sanity: the inspector is up");
-            StringAssert.Contains("1 to 1024", workbench.Inspector.Refusal, "sanity: with the refusal in it");
+            StringAssert.StartsWith("AND ", workbench.InspectorTitle, "sanity: the AND is inspected");
+            StringAssert.Contains("1 to 1024", workbench.InspectorRefusal, "sanity: with the refusal in the bar");
 
             yield return Capture("36-workbench-inspector");
         }

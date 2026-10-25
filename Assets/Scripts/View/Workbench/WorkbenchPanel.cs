@@ -164,15 +164,15 @@ namespace BitSorter.View
 
         private static readonly string[] LegendNames = { "0", "1", "x", "z" };
 
-        /// <summary>Where the title, its line, the controls and the docked panels start, from the top of the screen.</summary>
-        private const float TitleTop = 22f;
+        /// <summary>
+        /// Where the title and its line, the controls and the docked panels start, from the top of the screen. The line
+        /// beside the title, since the inspector's bar took a row under the toolbar (Part 11b-2).
+        /// </summary>
+        private const float TitleTop = 16f;
 
         /// <inheritdoc cref="TitleTop"/>
-        private const float DescriptionTop = 64f;
-
-        /// <inheritdoc cref="TitleTop"/>
-        /// <remarks>Low enough under the description for a key's cap to sit over each button.</remarks>
-        private const float ControlsTop = 122f;
+        /// <remarks>Low enough under the title for a key's cap to sit over each button.</remarks>
+        private const float ControlsTop = 84f;
 
         /// <inheritdoc cref="TitleTop"/>
         /// <remarks>The second row of the controls: the time, under the buttons.</remarks>
@@ -1378,6 +1378,7 @@ namespace BitSorter.View
 
             Light();
             DrawOverlay();
+            RefreshInspector();
 
             // The run is made a slice a frame until it is done, and a moment past where it has got waits;
             // an edit's replay is made beside it and takes over once it reaches the moment shown.
@@ -1466,6 +1467,7 @@ namespace BitSorter.View
 
             BuildToolbar(palette);
             BuildDock(palette);
+            BuildInspector(palette);
             BuildPartsPanel(palette);
             Fit();
             BuildStage(palette);
@@ -1482,7 +1484,6 @@ namespace BitSorter.View
             _breakField = WaveRenameField.Build(popups, palette, BreakOnValue, WaveRenameField.BreakValueName, "BREAK ON VALUE",
                 "1, 4'b1010, 'hA or x");
             _setField = WaveRenameField.Build(popups, palette, SetInputValue, WaveRenameField.SetValueName, "SET", "1, 4'b1010, 'hA or x");
-            _inspector = InspectorPopover.Build(popups, palette, ApplyInspector);
             _canvasMenu = CanvasMenu.Build(popups, palette, CanvasMenuDo);
 
             Root.gameObject.SetActive(false);

@@ -74,35 +74,41 @@ namespace BitSorter.View
 
         private void BuildHeader(SchematicPalette palette)
         {
-            _header = Strip("header", TitleTop, 80f);
+            _header = Strip("header", TitleTop, HeaderHeight);
 
             Label title = ShellTheme.Label("title", "WORKBENCH", UiType.Heading, palette.Text, TextAnchor.MiddleLeft, bold: true);
-            ShellTheme.Place(title, 0f, 0f, 240f, 36f);
+            ShellTheme.Place(title, 0f, 0f, 240f, HeaderHeight);
             _header.Add(title);
             float titleWidth = UiTheme.TextWidth("WORKBENCH", UiType.Heading) * 1.08f;
 
             VisualElement chip = ShellTheme.Chip("preview chip", palette);
-            ShellTheme.Place(chip, titleWidth + 14f, 8f, 86f, 24f);
+            ShellTheme.Place(chip, titleWidth + 14f, (HeaderHeight - 24f) * 0.5f, 86f, 24f);
             Label chipText = ShellTheme.Label("text", "PREVIEW", UiType.Micro, palette.Muted, TextAnchor.MiddleCenter);
             chipText.style.flexGrow = 1f;
             chip.Add(chipText);
             _header.Add(chip);
 
-            // As wide as the header.
-            _description = ShellTheme.Label("description", WorkbenchSamples.Chip[_sample].Says, UiType.Label, palette.TextDim);
-            ShellTheme.Place(_description, 0f, DescriptionTop - TitleTop, -1f, 24f);
-            _header.Add(_description);
-
-            // SAMPLE, at the header's right, over the line that describes the sample, with its key beside it.
+            // SAMPLE, at the header's right, with its key beside it.
             float sampleWidth = 0f;
             for (int i = 0; i < WorkbenchSamples.Chip.Count; i++)
                 sampleWidth = Mathf.Max(sampleWidth, UiTheme.TextWidth(SampleCaption(i), UiType.Body));
             float width = sampleWidth + 40f;
             _sampleButton = ShellTheme.Button(SampleButton, SampleCaption(_sample), palette, () => ShowSample(_sample + 1));
-            ShellTheme.PlaceRight(_sampleButton, 0f, 0f, width, SampleHeight);
+            ShellTheme.PlaceRight(_sampleButton, 0f, (HeaderHeight - SampleHeight) * 0.5f, width, SampleHeight);
             ShellTheme.KeyBeside(_sampleButton, SampleHeight, "S", palette);
             _header.Add(_sampleButton);
+
+            // The line describing the sample, beside the title, as far as SAMPLE's key; cut short where it runs longer.
+            float left = titleWidth + 14f + 86f + 20f;
+            _description = ShellTheme.Label("description", WorkbenchSamples.Chip[_sample].Says, UiType.Label, palette.TextDim);
+            ShellTheme.Place(_description, left, 0f, -1f, HeaderHeight);
+            _description.style.right = width + KeyRoom + 16f;
+            ShellTheme.Ellipsis(_description);
+            _header.Add(_description);
         }
+
+        /// <summary>How tall the header's row is: the title, its line and SAMPLE.</summary>
+        private const float HeaderHeight = 40f;
 
         /// <summary>
         /// The first row of the controls: RESTART, PLAY, STEP BACK and STEP, each with its key over it, and the chip saying

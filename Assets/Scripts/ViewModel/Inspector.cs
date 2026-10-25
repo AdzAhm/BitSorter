@@ -34,16 +34,22 @@ namespace BitSorter.ViewModel
         public override string ToString() => Key + "=" + Text;
     }
 
-    /// <summary>What the inspector shows of one part or one wire: a title, what it is, and its fields in order.</summary>
+    /// <summary>What the inspector shows of one part or one wire: a title, what it is, its fields in order, and the quick ones.</summary>
     public sealed class Inspection
     {
-        internal Inspection(string title, string says, int part, int wire, IReadOnlyList<InspectorField> fields)
+        internal Inspection(string title, string says, int part, int wire, IReadOnlyList<InspectorField> fields, params string[] quick)
         {
             Title = title;
             Says = says;
             Part = part;
             Wire = wire;
             Fields = fields;
+
+            var shown = new List<InspectorField>();
+            foreach (string key in quick)
+                if (Field(key) is InspectorField field)
+                    shown.Add(field);
+            Quick = shown;
         }
 
         /// <summary>The part's name and kind, or the wire's net: "AND g1", "WIRE n3".</summary>
@@ -59,6 +65,14 @@ namespace BitSorter.ViewModel
         public int Wire { get; }
 
         public IReadOnlyList<InspectorField> Fields { get; }
+
+        /// <summary>
+        /// The fields of its kind worth having at hand (Part 11b), in the side panel beside the circuit: a gate's rise and
+        /// fall, a port's name and width, a clock's period, a reset's release, a register's values, a constant's value, a
+        /// mux's, splitter's, joiner's or lamp's width, a block's name, a wire's net's name. Each is one of
+        /// <see cref="Fields"/>, which the bar over the circuit shows whole.
+        /// </summary>
+        public IReadOnlyList<InspectorField> Quick { get; }
 
         /// <summary>The field of this key, or null.</summary>
         public InspectorField Field(string key)
@@ -123,7 +137,7 @@ namespace BitSorter.ViewModel
             string says = port
                 ? $"This wire is on the port {netName}'s net, which keeps the port's name."
                 : "Every wire joined to this one is on the same net, and has its name.";
-            return new Inspection("WIRE " + netName, says, -1, wire.Id, fields);
+            return new Inspection("WIRE " + netName, says, -1, wire.Id, fields, "name");
         }
 
         private static Inspection OfPart(Project project, Module m, Part part)
@@ -132,6 +146,7 @@ namespace BitSorter.ViewModel
             string unit = project.Settings?.TimeUnit ?? TimeUnits.Default;
             string kind;
             string says;
+            string[] quick = { "width" };
 
             switch (part)
             {
@@ -144,10 +159,12 @@ namespace BitSorter.ViewModel
                     if (!gate.IsTriState)
                         fields.Add(new InspectorField("width", "WIDTH", Int(gate.Width), "bits, 1 to " + BoardRules.MaxWidth));
                     says = "Rise is Tpdlh, how long a change to 1 takes to come out; fall is Tpdhl, a change to 0.";
+                    quick = new[] { "rise", "fall" };
                     break;
 
                 case PortPart port:
                     kind = port.Direction == PortDirection.Output ? "OUTPUT" : "INPUT";
+                    quick = new[] { "name", "width", "period", "release" };
                     fields.Add(new InspectorField("width", "WIDTH", Int(port.Width), "bits, 1 to " + BoardRules.MaxWidth));
                     says = port.Direction == PortDirection.Output
                         ? "What the circuit gives out, and a row in the waveform."
@@ -179,12 +196,14 @@ namespace BitSorter.ViewModel
                     fields.Add(new InspectorField("resetvalue", "RESET VALUE", Value(register.ResetValue), "a value, as 4'b0101 or 0"));
                     fields.Add(new InspectorField("start", "STARTS AT", Value(register.Initial), "a value, or empty for x"));
                     says = "Takes d on each rising edge of its clock.";
+                    quick = new[] { "resetvalue", "start" };
                     break;
 
                 case ConstantPart constant:
                     kind = "CONSTANT";
                     fields.Add(new InspectorField("value", "VALUE", Value(constant.Value), "a value, as 4'b0101 or 8'hFF"));
                     says = "Its width is its value's: 4'b0101 is four bits.";
+                    quick = new[] { "value" };
                     break;
 
                 case MuxPart mux:
@@ -215,6 +234,7 @@ namespace BitSorter.ViewModel
                 case BlockPart block:
                     kind = "BLOCK";
                     says = $"An instance of {block.Module}: what it does is that module's.";
+                    quick = new[] { "name" };
                     break;
 
                 default:
@@ -223,7 +243,7 @@ namespace BitSorter.ViewModel
                     break;
             }
 
-            return new Inspection(kind + " " + part.Name, says, part.Id, -1, fields);
+            return new Inspection(kind + " " + part.Name, says, part.Id, -1, fields, quick);
         }
 
         // -----------------------------------------------------------------

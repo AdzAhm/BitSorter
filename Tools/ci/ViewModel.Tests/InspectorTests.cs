@@ -89,6 +89,25 @@ namespace BitSorter.ViewModel.Tests
         }
 
         [Test]
+        public void EachKind_HasItsQuickFields_AtHand_EachOneOfItsFields()
+        {
+            var b = new Bench();
+            string[] Quick(Inspection i) => i.Quick.Select(f => f.Key).ToArray();
+
+            CollectionAssert.AreEqual(new[] { "rise", "fall" }, Quick(b.Of(b.And)), "a gate: its delays");
+            CollectionAssert.AreEqual(new[] { "rise", "fall" }, Quick(b.Of(b.Not)));
+            CollectionAssert.AreEqual(new[] { "name", "width" }, Quick(b.Of(b.Y)), "a port: its name and width");
+            CollectionAssert.AreEqual(new[] { "name", "width", "period" }, Quick(b.Of(b.Clock)), "a clock: its period too");
+            CollectionAssert.AreEqual(new[] { "name", "width", "release" }, Quick(b.Of(b.Reset)), "a reset: its release too");
+            Inspection wire = Inspector.Of(b.Session.Project, b.Session.Module, new CanvasTarget(CanvasTargetKind.Wire, wire: b.ToY));
+            CollectionAssert.AreEqual(new[] { "name" }, Quick(wire), "a wire: its net's name");
+
+            foreach (Inspection i in new[] { b.Of(b.And), b.Of(b.Clock), wire })
+                foreach (InspectorField quick in i.Quick)
+                    Assert.AreSame(i.Field(quick.Key), quick, "a quick field is one of its fields, the same one");
+        }
+
+        [Test]
         public void ADelayChanged_IsMadeInOneStep_AndTheRunIsPlayedAgainWithIt()
         {
             var b = new Bench();

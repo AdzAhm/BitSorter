@@ -49,7 +49,9 @@ namespace BitSorter.View
 
         private ShellRegions _regions;
         private Vector2 _laidWindow = new Vector2(-1f, -1f);
-        private float _dockHeight = ShellLayout.DefaultDock, _laidDock = -1f;
+
+        /// <summary>The dock's height as the student last dragged it, or under 0 for none yet (<see cref="ShellLayout.DefaultDockFor"/>); and as last laid out.</summary>
+        private float _dockHeight = -1f, _laidDock = -1f;
 
         /// <summary>A drag on the splitter: the pointer it is, where it started, and the dock's height then; -1 for none.</summary>
         private int _splitterPointer = -1;
@@ -76,7 +78,7 @@ namespace BitSorter.View
 
         private void BuildDock(SchematicPalette palette)
         {
-            _dockHeight = Preferences.GetInt(DockKey, (int)ShellLayout.DefaultDock);
+            _dockHeight = Preferences.GetInt(DockKey, -1);
 
             _partsPanel = Panel(PartsPanelName, palette);
             _circuitPanel = Panel(CircuitPanelName, palette);
@@ -379,11 +381,12 @@ namespace BitSorter.View
                 return;
 
             Vector2 window = Root.rect.size;
-            if (window == _laidWindow && _dockHeight == _laidDock)
+            float dock = _dockHeight >= 0f ? _dockHeight : ShellLayout.DefaultDockFor(Window, StageTop);
+            if (window == _laidWindow && dock == _laidDock)
                 return;
             _laidWindow = window;
-            _laidDock = _dockHeight;
-            _regions = ShellLayout.Of(Window, StageTop, _dockHeight);
+            _laidDock = dock;
+            _regions = ShellLayout.Of(Window, StageTop, dock);
             PlaceShell();
 
             if (_stage == null)
@@ -397,6 +400,8 @@ namespace BitSorter.View
         /// <summary>The shell's panels where the regions say, and the toolbar across the window.</summary>
         private void PlaceShell()
         {
+            Place(_inspectorBar, _regions.Inspector);
+            LayoutInspectorBar();
             Place(_partsPanel, _regions.Parts);
             Place(_circuitPanel, _regions.Circuit);
             Place(_sidePanel, _regions.Side);

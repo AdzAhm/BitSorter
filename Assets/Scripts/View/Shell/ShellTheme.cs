@@ -185,9 +185,12 @@ namespace BitSorter.View
         /// committed nothing when Enter was read, and in the browser RUN TO was never set (the Part 11a smoke test). **Enter and Escape let the field go a
         /// frame later** (<see cref="ShellPanel"/>, <see cref="FinishedBefore"/>): while it is focused the game's keys are
         /// off (<see cref="UiText"/>), so the press that finished it is the field's alone, where letting it go at once
-        /// would hand that same Escape to the workbench and close it as well.
+        /// would hand that same Escape to the workbench and close it as well. **A field of a form** (the inspector's bar,
+        /// Part 11b) is not submitted by letting it go -- <paramref name="submitOnLeave"/> false: what is typed in it waits
+        /// for Enter or APPLY, with the form's other fields.
         /// </summary>
-        public static TextField Field(string name, string placeholder, SchematicPalette palette, Action<string> submitted)
+        public static TextField Field(string name, string placeholder, SchematicPalette palette, Action<string> submitted,
+            bool submitOnLeave = true, UiType type = UiType.Body)
         {
             var field = new TextField { name = name };
             field.AddToClassList(ControlClass);
@@ -210,7 +213,7 @@ namespace BitSorter.View
             foreach (VisualElement part in new[] { field, input })
             {
                 part.style.unityFontDefinition = ShellFonts.Regular;
-                part.style.fontSize = UiTheme.SizeOf(UiType.Body);
+                part.style.fontSize = UiTheme.SizeOf(type);
                 part.style.color = palette.Text;
                 part.style.unityTextAlign = TextAnchor.MiddleLeft;
             }
@@ -225,7 +228,7 @@ namespace BitSorter.View
                 text.style.paddingTop = text.style.paddingBottom = 0f;
             }
 
-            Label hint = Label(PlaceholderName, placeholder, UiType.Body, palette.Muted);
+            Label hint = Label(PlaceholderName, placeholder, type, palette.Muted);
             Place(hint, 10f + EdgeWidth, 0f, -1f, -1f);
             hint.style.bottom = 0f;
             input.Add(hint);
@@ -251,7 +254,7 @@ namespace BitSorter.View
             {
                 if (cancelled)
                     field.SetValueWithoutNotify(held);
-                else if (field.value != held)
+                else if (submitOnLeave && field.value != held)
                     submitted?.Invoke(field.value);
                 held = field.value;
                 cancelled = false;

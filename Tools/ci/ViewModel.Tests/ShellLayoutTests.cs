@@ -16,7 +16,7 @@ namespace BitSorter.ViewModel.Tests
         private static bool Overlap(Rect2 a, Rect2 b) =>
             a.xMin < b.xMax - 1e-3f && b.xMin < a.xMax - 1e-3f && a.yMin < b.yMax - 1e-3f && b.yMin < a.yMax - 1e-3f;
 
-        private static Rect2[] Tiles(ShellRegions r) => new[] { r.Parts, r.Circuit, r.Side, r.Splitter, r.Dock, r.Status };
+        private static Rect2[] Tiles(ShellRegions r) => new[] { r.Inspector, r.Parts, r.Circuit, r.Side, r.Splitter, r.Dock, r.Status };
 
         [Test]
         public void ThePanels_TileTheWindowUnderTheToolbar_AndNoTwoOverlap()
@@ -35,6 +35,9 @@ namespace BitSorter.ViewModel.Tests
                         Assert.IsFalse(Overlap(tiles[i], tiles[j]), $"tiles {i} and {j} overlap in {window.x}x{window.y}");
                 }
 
+                Assert.AreEqual(Toolbar, r.Inspector.yMin, 1e-3f, "the inspector bar is right under the toolbar");
+                Assert.AreEqual(window.x - 2f * ShellLayout.Margin, r.Inspector.width, 1e-3f, "the window's whole width");
+                Assert.Greater(r.Circuit.yMin, r.Inspector.yMax, "and the panels under it");
                 Assert.AreEqual(window.y, r.Status.yMax, 1e-3f, "the status line is along the bottom");
                 Assert.AreEqual(r.Dock.yMax, r.Status.yMin, 1e-3f, "the dock stands on it");
                 Assert.AreEqual(r.Splitter.yMax, r.Dock.yMin, 1e-3f, "the splitter is right over the dock");
@@ -68,6 +71,20 @@ namespace BitSorter.ViewModel.Tests
             ShellRegions tiny = ShellLayout.Of(new Vec2(400f, 300f), Toolbar, ShellLayout.DefaultDock);
             foreach (Rect2 tile in Tiles(tiny))
                 Assert.IsTrue(tile.width >= 0f && tile.height >= 0f, "a window too small for any of it still has no tile inside out");
+        }
+
+        [Test]
+        public void UntilItIsDragged_TheDockIsHalfTheRoom_AndNoTallerThanTheReferencesWaves()
+        {
+            Assert.AreEqual(ShellLayout.DefaultDock, ShellLayout.DefaultDockFor(new Vec2(1920f, 1400f), Toolbar), 1e-3f,
+                "a tall window: the reference's nine rows and no more");
+
+            float room = ShellLayout.Of(Browser, Toolbar, 0f).Status.yMin - ShellLayout.Of(Browser, Toolbar, 0f).Circuit.yMin
+                - ShellLayout.SplitterHeight;
+            Assert.AreEqual(0.5f * room, ShellLayout.DefaultDockFor(Browser, Toolbar), 1e-3f, "a browser tab: half the room");
+
+            Assert.AreEqual(ShellLayout.MinDock, ShellLayout.DefaultDockFor(new Vec2(1920f, 500f), Toolbar), 1e-3f,
+                "and never less than the dock's least");
         }
 
         [Test]

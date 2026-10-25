@@ -868,8 +868,10 @@ failure side.
   placing places freely. **A press on a pin draws a wire** (Part 10b), and a drag
   out of a wire taps it -- out of a selected one, it reshapes it instead, as a
   drag on one of its corners does. **A double-click on a part or a wire, or Enter
-  with one selected, opens its inspector** (Part 10c), a popover that holds Escape
-  as RENAME does; a double-click is two plain clicks, never a click that placed a
+  with one selected, puts the keyboard in its inspector** (Part 10c), docked since
+  11b-2: the bar under the toolbar holds every field and the side panel the quick
+  ones, both following the selection, and a focused field takes Escape as RUN TO
+  does; a double-click is two plain clicks, never a click that placed a
   part and then a press to drag it. **A right-click opens the canvas's menu**
   (Part 10d) -- align, spread, turn, mirror, route again, copy, cut, paste,
   delete -- and Ctrl+C, X and V copy, cut and paste; a minimap at the side

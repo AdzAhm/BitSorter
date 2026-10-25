@@ -55,9 +55,6 @@ namespace BitSorter.View
         private Project _keptProject;
         private double _keepAt = -1;
 
-        /// <summary>The inspector (Part 10c).</summary>
-        private InspectorPopover _inspector;
-
         /// <summary>The canvas's right-click menu, what Ctrl+C took, and the minimap with whether a press on it is held (Part 10d).</summary>
         private CanvasMenu _canvasMenu;
         private Clip _clip;
@@ -78,9 +75,6 @@ namespace BitSorter.View
         /// <summary>Where a point of the board is on the screen now.</summary>
         public Vector2 ScreenPointOf(BoardPoint board) =>
             _model.Layout.Board == null ? Vector2.zero : ScreenPointOf(_model.Layout.Board.ToStage(board));
-
-        /// <summary>The inspector (Part 10c); open or shut.</summary>
-        public InspectorPopover Inspector => _inspector;
 
         /// <summary>The canvas's right-click menu (Part 10d); open or shut.</summary>
         public CanvasMenu CanvasMenu => _canvasMenu;
@@ -285,7 +279,7 @@ namespace BitSorter.View
 
                 case CanvasGesture.Inspect:
                     _editor.Do(command);
-                    OpenInspector(command.Target, Mouse.current != null ? Mouse.current.position.ReadValue() + new Vector2(16f, -16f) : ScreenPointOf(command.At));
+                    FocusInspector();
                     return;
 
                 default:
@@ -297,33 +291,16 @@ namespace BitSorter.View
         }
 
         // -----------------------------------------------------------------
-        // The inspector (Part 10c)
+        // The inspector (Part 10c; docked in the shell since 11b-2, WorkbenchPanel.Inspector.cs)
         // -----------------------------------------------------------------
 
-        /// <summary>The inspector of <paramref name="target"/>, a part or a wire, its corner at <paramref name="screenPoint"/>.</summary>
-        private void OpenInspector(CanvasTarget target, Vector2 screenPoint)
-        {
-            Inspection inspection = BitSorter.ViewModel.Inspector.Of(_session.Project, _session.Module, target);
-            if (inspection != null)
-                _inspector.Open(inspection, screenPoint);
-        }
-
-        /// <summary>Enter: the inspector of the one part or wire selected on the circuit, beside it; nothing with none, or more.</summary>
+        /// <summary>Enter: the keyboard in the inspector's first field, for the one part or wire selected on the circuit; nothing with none, or more.</summary>
         private void InspectSelected()
         {
             if (_editor == null || UiEscape.AnyHolds || !_canvasFocused)
                 return;
-            CanvasTarget single = _editor.Single;
-            if (single.Kind == CanvasTargetKind.Nothing)
-                return;
-
-            BoardPoint at = default;
-            BitSorter.Board.Module top = _session.Project.Find(_session.Module);
-            if (single.Kind == CanvasTargetKind.Part)
-                at = top.Layout.PlacementOf(single.Part).Position;
-            else if (BitSorter.Board.WireGeometry.Wires(_session.Project, top).TryGetValue(single.Wire, out var points) && points.Count > 0)
-                at = BitSorter.Board.WireGeometry.PointAt(points, BitSorter.Board.WireGeometry.Length(points) / 2);
-            OpenInspector(single, ScreenPointOf(at) + new Vector2(24f, -24f));
+            if (_editor.Single.Kind != CanvasTargetKind.Nothing)
+                FocusInspector();
         }
 
         /// <summary>

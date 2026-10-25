@@ -508,8 +508,9 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
-        /// The plan's exit for Part 10c, its first half: a double-click on the reference's AND opens its inspector, a
-        /// new rise typed and Enter make it -- one step -- and the run is played again with it.
+        /// The plan's exit for Part 10c, its first half, docked (Part 11b-2): a double-click on the reference's AND puts
+        /// the keyboard in the inspector's bar, a new rise typed and Enter make it -- one step -- and the run is played
+        /// again with it. A width the document forbids is refused in the bar, in its words, and REVERT puts it back.
         /// </summary>
         [UnityTest]
         public IEnumerator ADoubleClickOnAGate_OpensItsInspector_AndANewDelayIsPlayedAgain()
@@ -522,34 +523,80 @@ namespace BitSorter.PlayMode.Tests
             WorkbenchModel before = workbench.Model;
             yield return DoubleClick(workbench.ScreenPointOf(MiddleOf(workbench, and.Id)));
 
-            InspectorPopover inspector = workbench.Inspector;
-            Assert.IsTrue(inspector.IsOpen, "a double-click on the AND opens its inspector");
-            StringAssert.StartsWith("AND ", inspector.Inspection.Title);
-            Assert.AreEqual("2 ps", inspector.Typed()["rise"]);
-            Assert.IsTrue(UiText.Typing, "a field has the keyboard");
+            Assert.IsNotNull(workbench.Inspection, "a double-click on the AND inspects it");
+            StringAssert.StartsWith("AND ", workbench.Inspection.Title);
+            Assert.AreEqual("2 ps", workbench.InspectorTyped()["rise"]);
+            Assert.IsTrue(UiText.Typing, "the bar's first field has the keyboard");
 
-            Assert.IsTrue(inspector.Type("rise", "5"));
-            yield return Tap(_keyboard.enterKey);
-            yield return null;
-            Assert.IsFalse(inspector.IsOpen, "Enter made it, and closed it");
-            Assert.AreEqual(5, ((GatePart)Top(workbench).FindPart(and.Id)).Rise);
+            Assert.IsTrue(workbench.InspectorType("rise", "5"));
+            yield return EnterIn(WorkbenchPanel.InspectorFieldName("rise"));
+            Assert.AreEqual(5, ((GatePart)Top(workbench).FindPart(and.Id)).Rise, "Enter made it");
+            Assert.IsNull(workbench.InspectorRefusal);
 
             yield return UntilReplayed(workbench);
             Assert.AreNotSame(before, workbench.Model, "the run shown is the one played again, with the AND's new rise");
             Assert.IsTrue(workbench.IsOpen, "Enter did not leave the workbench");
+            Assert.AreEqual("5 ps", workbench.InspectorTyped()["rise"], "and the bar reads the AND again");
 
-            // A width the document forbids is refused in the popover, which stays.
-            yield return DoubleClick(workbench.ScreenPointOf(MiddleOf(workbench, and.Id)));
-            Assert.IsTrue(inspector.IsOpen);
-            inspector.Type("width", "2000");
-            inspector.Apply();
+            // A width the document forbids is refused in the bar, which keeps what was typed for it to be put right.
+            workbench.InspectorType("width", "2000");
+            workbench.InspectorApply();
             yield return null;
-            Assert.IsTrue(inspector.IsOpen, "a refusal leaves it open");
-            StringAssert.Contains("1 to 1024", inspector.Refusal, "with the document's words in it");
-            yield return Tap(_keyboard.escapeKey);
+            StringAssert.Contains("1 to 1024", workbench.InspectorRefusal, "with the document's words in it");
+            Assert.AreEqual("2000", workbench.InspectorTyped()["width"]);
+            yield return Click(WorkbenchPanel.InspectorRevertName);
+            Assert.AreEqual("1", workbench.InspectorTyped()["width"], "REVERT puts it back");
+            Assert.IsNull(workbench.InspectorRefusal, "and the refusal with it");
+        }
+
+        /// <summary>Enter in a shell field, as a press of it does: UI Toolkit hands the field the key, the game's keyboard has it too.</summary>
+        private IEnumerator EnterIn(string fieldName)
+        {
+            UnityEngine.UIElements.TextField field = ShellPanel.Find<UnityEngine.UIElements.TextField>(fieldName);
+            Assert.IsNotNull(field, $"no '{fieldName}' in the shell");
+            Press(_keyboard.enterKey);
+            ShellPanel.SendKey(field, KeyCode.Return);
             yield return null;
-            Assert.IsFalse(inspector.IsOpen, "Escape shuts it");
-            Assert.IsTrue(workbench.IsOpen, "and only it");
+            Release(_keyboard.enterKey);
+            yield return null;
+            yield return null;
+        }
+
+        /// <summary>
+        /// The side panel's quick fields (Part 11b-2): a gate selected has its rise and fall there, a rise typed and Enter
+        /// make it on its own, and the bar reads it; with nothing selected, and with two parts, the bar says so.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator AQuickField_MakesItsOwnChange_AndTheBarSaysWhatIsSelected()
+        {
+            yield return TestScene.Load();
+            yield return OpenTheReference();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            Assert.AreEqual("NOTHING SELECTED", workbench.InspectorTitle);
+            Assert.IsNull(ShellPanel.Find<UnityEngine.UIElements.TextField>(WorkbenchPanel.QuickFieldName("rise")), "no quick fields for nothing");
+
+            GatePart and = Top(workbench).Parts.OfType<GatePart>().Single(g => g.Kind == BitSorter.Sim.GateKind.And && g.Fall == 3);
+            yield return ClickAt(workbench, MiddleOf(workbench, and.Id));
+            Assert.IsTrue(workbench.Editor.Selection.HasPart(and.Id), "sanity: the click selects the AND");
+            StringAssert.StartsWith("AND ", workbench.InspectorTitle, "the bar follows the selection");
+            UnityEngine.UIElements.TextField rise = ShellPanel.Find<UnityEngine.UIElements.TextField>(WorkbenchPanel.QuickFieldName("rise"));
+            Assert.IsNotNull(rise, "a gate's rise is at hand");
+            Assert.IsNotNull(ShellPanel.Find<UnityEngine.UIElements.TextField>(WorkbenchPanel.QuickFieldName("fall")), "and its fall");
+            Assert.IsNull(ShellPanel.Find<UnityEngine.UIElements.TextField>(WorkbenchPanel.QuickFieldName("width")), "and nothing else");
+            Assert.AreEqual("2 ps", rise.value);
+
+            rise.value = "4";
+            yield return EnterIn(WorkbenchPanel.QuickFieldName("rise"));
+            Assert.AreEqual(4, ((GatePart)Top(workbench).FindPart(and.Id)).Rise, "Enter in a quick field makes it");
+            Assert.AreEqual("4 ps", workbench.InspectorTyped()["rise"], "and the bar reads it");
+
+            GatePart other = Top(workbench).Parts.OfType<GatePart>().Single(g => g.Kind == BitSorter.Sim.GateKind.And && g.Id != and.Id);
+            Press(_keyboard.leftShiftKey);
+            yield return ClickAt(workbench, MiddleOf(workbench, other.Id));
+            Release(_keyboard.leftShiftKey);
+            yield return null;
+            Assert.AreEqual("2 PARTS SELECTED", workbench.InspectorTitle, "two parts are said, not inspected");
+            Assert.IsNull(workbench.Inspection);
         }
 
         /// <summary>
@@ -576,18 +623,16 @@ namespace BitSorter.PlayMode.Tests
             yield return null;
             int row = Row(workbench, "nb");
 
-            // Selected with a click, and Enter opens its inspector.
+            // Selected with a click, and Enter puts the keyboard in its inspector.
             yield return ClickAt(workbench, on);
             Assert.IsTrue(workbench.Editor.Selection.HasWire(wire), "the click selects NOT B's wire");
+            StringAssert.StartsWith("WIRE nb", workbench.InspectorTitle, "the bar inspects the wire selected");
             yield return Tap(_keyboard.enterKey);
-            InspectorPopover inspector = workbench.Inspector;
-            Assert.IsTrue(inspector.IsOpen, "Enter opens the inspector of the wire selected");
-            StringAssert.StartsWith("WIRE nb", inspector.Inspection.Title);
+            Assert.IsTrue(UiText.Typing, "Enter put the keyboard in the bar's first field");
 
-            inspector.Type("name", "not_b");
-            GameObject.Find(InspectorPopover.ApplyName).GetComponent<Button>().onClick.Invoke();
-            yield return null;
-            Assert.IsFalse(inspector.IsOpen, "APPLY made it");
+            workbench.InspectorType("name", "not_b");
+            yield return Click(WorkbenchPanel.InspectorApplyName);
+            Assert.IsNull(workbench.InspectorRefusal, "APPLY made it");
             yield return UntilReplayed(workbench);
 
             Assert.AreEqual(row, Row(workbench, "not_b"), "its row says its new name, where it was");

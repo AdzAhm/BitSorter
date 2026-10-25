@@ -1608,6 +1608,40 @@ re-hosted in them, 11b-3 the popups moved into the shell.
   stage's scale test is `ShellLayoutTests` now). Reference shots 1 to 26 identical; 27 to 37 the new layout, each
   looked at.
 
+**As built in Part 11b-2**: the inspector, docked (`WorkbenchPanel.Inspector.cs`). The popover of Part 10c is gone.
+
+- **Two places, always there, as Ahmad chose**: the **bar** under the toolbar holds all of it -- the title, the line
+  saying what it is, every field, APPLY and REVERT; the **side panel** holds the **quick** fields over the minimap
+  (`Inspection.Quick`, under dotnet): a gate's rise and fall; a port's name and width, a clock's period, a reset's
+  release; a register's reset value and starting value; a constant's value; a mux's, splitter's, joiner's or lamp's
+  width; a block's name; a wire's net's name. Neither comes and goes, so the circuit's window never changes size with
+  the selection.
+- **It follows the selection**: one part or one wire is inspected; nothing, or more than one, is said in the bar's
+  title ("NOTHING SELECTED", "2 PARTS SELECTED"). Both read the document again after every edit -- the document and
+  the selection are compared by reference each frame -- so a change made in one shows in the other.
+- **The bar is a form; a quick field is one field.** What is typed in the bar waits for Enter in any of its fields, or
+  APPLY, and is made as one step, so fields that only make sense together -- a register made wider and given a wider
+  reset value -- are made together; REVERT puts them back. A quick field is made on its own, on Enter or on being let
+  go, as RUN TO is (`ShellTheme.Field`'s `submitOnLeave`).
+- **A double-click, or Enter with one thing selected, puts the keyboard in the bar's first field**, its text chosen,
+  where the popover opened. A refusal is the bar's line, in the document's words and the text's colour, until the next
+  thing is made.
+- **The toolbar is a row shorter**: the line describing the sample stands beside the title, cut short where it runs
+  long, and the controls move up under it, so the bar costs the circuit 36 units rather than 74.
+- **Until it is dragged, the dock is half the room under the bar**, and no taller than the reference circuit's nine rows
+  (`ShellLayout.DefaultDockFor`): at 1080 that is the nine rows, and in a browser tab 1920 by 800 the circuit keeps
+  half. At 1080 the reference fits its window at about 0.9 of its own size.
+- **A shell field's text sits in its middle**: the theme the shell has none of is what stretches a field's text to its
+  height, and every value in the bar sat at the top of its box until `ShellTheme.Field` stretched it.
+- **Checked.** Under dotnet: each kind's quick fields, each one of its fields (`InspectorTests`); the bar under the
+  toolbar and the dock's default (`ShellLayoutTests`). In Play Mode: a double-click on the reference's AND putting the
+  keyboard in the bar, a rise typed and Enter making it and the run played again, a width of 2000 refused in the
+  bar's line and REVERT putting it back; a wire selected and Enter putting the keyboard in its net's name, APPLY
+  naming it, its row keeping its place; a quick rise made with Enter and read by the bar; and the bar saying nothing,
+  and two parts, are selected; and a shell field's text in the middle of its box (`ShellPlayTests`, red first). Edit
+  Mode 1346, Play Mode 288. Reference shots 1 to 26 identical; 27 to 37 the bar and
+  the shorter toolbar, each looked at.
+
 ---
 
 ## 11. The parts
@@ -1627,7 +1661,7 @@ Each part is one pull request into `v5`, ends with every suite green, and leaves
 | 8 | The canvas on the real document, still and moving layers drawn apart, and the looks with a Settings switch |
 | 9 | The waveform and run controls; the workbench's view-model in a Unity-free layer of its own |
 | 10 | Editing on the free canvas -- in four: 10a placement and selection **built** (see "As built in Part 10a"); 10b wiring **built**, drawn (10b-1) and reshaped (10b-2); 10c the inspector **built**; 10d copy, align and the minimap **built**; 10e what its browser smoke test found **built** |
-| 11 | The workbench shell, in UI Toolkit -- in four: 11a the bridges and the toolbar **built**; 11b the docked layout -- its panels **built** (11b-1), the inspector and the popups to come; 11c transcript and hierarchy, 11d the keyboard map and the docs to come |
+| 11 | The workbench shell, in UI Toolkit -- in four: 11a the bridges and the toolbar **built**; 11b the docked layout -- its panels **built** (11b-1), the inspector docked **built** (11b-2), the popups to come; 11c transcript and hierarchy, 11d the keyboard map and the docs to come |
 | 12 | Hierarchy, and written blocks, edited in CodeMirror in a browser |
 | 13 | Export and import (and a levelized path in the engine, only if a measurement asks for it) |
 | 14 | The course's tools: path delays, static timing, gate-library mode, step tests, lint, tri-state |
