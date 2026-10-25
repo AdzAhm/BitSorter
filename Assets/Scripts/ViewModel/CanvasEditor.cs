@@ -345,6 +345,24 @@ namespace BitSorter.ViewModel
                     BeginReshape(command.Target);
                     return null;
 
+                case CanvasGesture.Menu:
+                {
+                    // A right-click on something not selected selects it alone, as a click would; on the selection, or on
+                    // nothing, it keeps what is selected for the menu to act on.
+                    CanvasTarget on = command.Target;
+                    if (on.Kind == CanvasTargetKind.Pin)
+                        on = new CanvasTarget(CanvasTargetKind.Part, part: on.Part);
+                    else if (on.Kind == CanvasTargetKind.Bend)
+                        on = new CanvasTarget(CanvasTargetKind.Wire, wire: on.Wire);
+                    if (on.Kind != CanvasTargetKind.Nothing && !Selection.Has(on))
+                    {
+                        Selection.Pick(on, extend: false, toggle: false);
+                        Version++;
+                    }
+
+                    return null;
+                }
+
                 case CanvasGesture.Inspect:
                     // What is inspected is selected, alone, and any wire the first click began is let go.
                     AbandonWire();
@@ -667,6 +685,65 @@ namespace BitSorter.ViewModel
 
         /// <summary>Mirrors the selected parts left to right (V).</summary>
         public EditResult Mirror() => Said(_session.Turn(new List<int>(Selection.Parts), 0, mirror: true));
+
+        // -----------------------------------------------------------------
+        // Copy, paste and arrange (Part 10d)
+        // -----------------------------------------------------------------
+
+        /// <summary>The parts selected, and the wires between them, taken for a paste (Ctrl+C); null, and a refusal said, with no part selected.</summary>
+        public Clip Copy()
+        {
+            Refusal = null;
+            Clip clip = Clipboard.Copy(_session.Project, _session.Module, new List<int>(Selection.Parts));
+            if (clip == null)
+                Refusal = "Select a part to copy: a wire goes with the parts at both its ends.";
+            return clip;
+        }
+
+        /// <summary>The selection copied and taken away (Ctrl+X): the copy, or null when there was nothing to take.</summary>
+        public Clip Cut()
+        {
+            Clip clip = Copy();
+            if (clip == null)
+                return null;
+            return Delete().Done ? clip : null;
+        }
+
+        /// <summary><paramref name="clip"/> made again a step on (Ctrl+V), one step for undo, and what it made selected.</summary>
+        public EditResult Paste(Clip clip)
+        {
+            var parts = new List<int>();
+            var wires = new List<int>();
+            EditResult pasted = _session.Paste(clip, parts, wires);
+            if (pasted.Done)
+                Selection.Box(parts, wires, extend: false);
+            Version++;
+            return Said(pasted);
+        }
+
+        /// <summary>The selected parts lined up or spread <paramref name="by"/>: layout only, one step.</summary>
+        public EditResult Arrange(ArrangeBy by)
+        {
+            Dictionary<int, Placement> to = BitSorter.ViewModel.Arrange.Of(_session.Project, _session.Module, new List<int>(Selection.Parts), by);
+            if (to.Count == 0)
+            {
+                bool spread = by == ArrangeBy.SpreadAcross || by == ArrangeBy.SpreadDown;
+                int needed = spread ? 3 : 2;
+                return Said(Selection.Parts.Count < needed
+                    ? EditResult.Refused($"Select {(spread ? "three" : "two")} parts or more to {(spread ? "spread" : "line up")}.")
+                    : EditResult.Ok());
+            }
+
+            return Said(_session.Move(to));
+        }
+
+        /// <summary>The selected wires put back on the automatic route, their own bends forgotten: layout only, one step.</summary>
+        public EditResult AutoRoute()
+        {
+            if (Selection.Wires.Count == 0)
+                return Said(EditResult.Refused("Select a wire to route again."));
+            return Said(_session.AutoRoute(new List<int>(Selection.Wires)));
+        }
 
         /// <summary>The one thing selected, to inspect with Enter (Part 10c); nothing with none, or with more than one.</summary>
         public CanvasTarget Single

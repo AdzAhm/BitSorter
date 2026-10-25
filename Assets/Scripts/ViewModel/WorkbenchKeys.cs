@@ -47,6 +47,15 @@ namespace BitSorter.ViewModel
 
         /// <summary>The inspector of the one part or wire selected on the canvas (Part 10c).</summary>
         Inspect,
+
+        /// <summary>The parts selected, and the wires between them, copied (Part 10d).</summary>
+        Copy,
+
+        /// <summary>The selection copied and taken away.</summary>
+        Cut,
+
+        /// <summary>What was copied made again, a step on.</summary>
+        Paste,
     }
 
     /// <summary>One key and what it does: the key by its Input System name, the modifiers held, and the words for it.</summary>
@@ -133,6 +142,9 @@ namespace BitSorter.ViewModel
             new KeyBinding("V", WorkbenchCommand.Mirror, "V", "mirror the selected parts left to right"),
             new KeyBinding("A", WorkbenchCommand.SelectAll, "CTRL A", "select every part and wire", ctrl: true),
             new KeyBinding("Enter", WorkbenchCommand.Inspect, "ENTER", "inspect the part or wire selected: its delays, width, name"),
+            new KeyBinding("C", WorkbenchCommand.Copy, "CTRL C", "copy the parts selected, and the wires between them", ctrl: true),
+            new KeyBinding("X", WorkbenchCommand.Cut, "CTRL X", "cut the parts selected", ctrl: true),
+            new KeyBinding("V", WorkbenchCommand.Paste, "CTRL V", "paste what was copied, a cell on", ctrl: true),
             new KeyBinding("U", WorkbenchCommand.Unit, "U", "count time in the next unit"),
             new KeyBinding("E", WorkbenchCommand.Export, "E", "export the run: a VCD, or the waveform as a PNG"),
             new KeyBinding("Z", WorkbenchCommand.Undo, "CTRL Z", "undo the last edit to an input", ctrl: true),

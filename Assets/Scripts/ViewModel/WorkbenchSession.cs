@@ -121,6 +121,33 @@ namespace BitSorter.ViewModel
             return ReferenceEquals(before, Project) ? result : Edited(result);
         }
 
+        /// <summary><paramref name="clip"/> pasted (<see cref="Clipboard.Paste"/>; Part 10d), one step: drawn now, and replayed.</summary>
+        public EditResult Paste(Clip clip, List<int> parts, List<int> wires) => Edited(Clipboard.Paste(Editor, Module, clip, parts, wires));
+
+        /// <summary>
+        /// <paramref name="wires"/> put back on the automatic route, their bends forgotten and a tap's place along its wire
+        /// kept (Part 10d), as one step: drawn again, and nothing replayed.
+        /// </summary>
+        public EditResult AutoRoute(IReadOnlyCollection<int> wires)
+        {
+            Module module = Project.Find(Module);
+            if (module == null || wires == null || wires.Count == 0)
+                return EditResult.Refused("There is no wire selected to route again.");
+
+            return Laid(Editor.Group(() =>
+            {
+                foreach (int wire in wires)
+                {
+                    double tapAt = module.Layout.Routes.TryGetValue(wire, out Route kept) ? kept.TapAt : 0.5;
+                    EditResult done = Editor.Reroute(Module, wire, new Route { TapAt = tapAt });
+                    if (!done.Done)
+                        return done;
+                }
+
+                return EditResult.Ok();
+            }));
+        }
+
         /// <summary>Changes how a wire runs, its bends (<see cref="BoardEditor.Reroute"/>; Part 10b-2): drawn again, and nothing replayed.</summary>
         public EditResult Reroute(int wire, Route route) => Laid(Editor.Reroute(Module, wire, route));
 

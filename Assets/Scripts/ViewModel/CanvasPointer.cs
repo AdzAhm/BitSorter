@@ -56,6 +56,9 @@ namespace BitSorter.ViewModel
 
         /// <summary>A double-click on <see cref="CanvasCommand.Target"/>, a part or a wire: its inspector opens (Part 10c).</summary>
         Inspect,
+
+        /// <summary>A right-click at <see cref="CanvasCommand.At"/>, on <see cref="CanvasCommand.Target"/> or on nothing: the canvas's menu opens (Part 10d).</summary>
+        Menu,
     }
 
     /// <summary>One thing a gesture on the canvas asks for.</summary>
@@ -103,6 +106,7 @@ namespace BitSorter.ViewModel
             CanvasGesture.EndWire => $"EndWire {Target}",
             CanvasGesture.BeginReshape => $"BeginReshape {Target}",
             CanvasGesture.Inspect => $"Inspect {Target}",
+            CanvasGesture.Menu => $"Menu {Target}",
             CanvasGesture.ReshapeTo or CanvasGesture.EndReshape => $"{Gesture} {At.X},{At.Y}{(Free ? " free" : "")}",
             _ => Gesture.ToString(),
         };
@@ -247,6 +251,13 @@ namespace BitSorter.ViewModel
                         : new CanvasCommand(CanvasGesture.WireBend, press.Board, free: press.Alt));
                 else if (press.Button == 1)
                     into.Add(new CanvasCommand(CanvasGesture.Cancel));
+                return;
+            }
+
+            // The right button opens the canvas's menu -- align, spread, turn, copy, paste -- on what it is on (Part 10d).
+            if (press.Button == 1)
+            {
+                into.Add(new CanvasCommand(CanvasGesture.Menu, press.Board, target: press.Target));
                 return;
             }
 
