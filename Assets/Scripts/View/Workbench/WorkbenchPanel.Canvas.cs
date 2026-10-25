@@ -489,27 +489,38 @@ namespace BitSorter.View
             }
         }
 
-        /// <summary>The minimap's layer, in the window's bottom-right corner, over the circuit.</summary>
+        /// <summary>The minimap's layer, on the stage beside the circuit's window (<see cref="PlaceMinimap"/>).</summary>
         private void BuildMinimap()
         {
-            _minimap = Layer("minimap", _view, WorkbenchGraphic.Layer.Minimap, Vector2.zero, Vector2.one);
+            _minimap = Layer("minimap", _stage, WorkbenchGraphic.Layer.Minimap, Vector2.zero, Vector2.one);
             _minimap.gameObject.SetActive(false);
             PlaceMinimap();
         }
 
-        /// <summary>The minimap drawn for the view as it is now, sized to it, and shown only while the view is not the fit.</summary>
+        /// <summary>
+        /// The minimap drawn for the view as it is now, sized to it, and shown only while some of the drawing is out of the
+        /// window. **It stands beside the window, never on it** (Part 10e): in the column right of the stage, which the
+        /// stage keeps free opposite the parts strip, its foot level with the window's. In the window's corner it covered
+        /// the circuit there, and zoomed in that was whatever the student was looking for (the Part 10 browser smoke test
+        /// lost an output under it). It is drawn at the screen's size whatever the stage's scale, as the strip is, and
+        /// as wide as that column leaves free.
+        /// </summary>
         private void PlaceMinimap()
         {
             if (_minimap == null || _viewState == null)
                 return;
-            Minimap map = BitSorter.ViewModel.Minimap.Of(_viewState);
+            float scale = _scale > 0f ? _scale : 1f, pad = WorkbenchDrawing.MinimapPad;
+            float free = Root.rect.width * 0.5f - StageWidth * scale * 0.5f - PartsGap - UiTheme.Margin;
+            Minimap map = BitSorter.ViewModel.Minimap.Of(_viewState, Mathf.Max(free, PartsWidth) - 2f * pad);
             _minimap.Map = map;
             _minimap.gameObject.SetActive(map != null);
             if (map == null)
                 return;
 
-            var size = new Vector2(map.Size.x + 2f * WorkbenchDrawing.MinimapPad, map.Size.y + 2f * WorkbenchDrawing.MinimapPad);
-            TopLeft((RectTransform)_minimap.transform, ViewSize - size - new Vector2(8f, 8f), size);
+            var size = new Vector2(map.Size.x + 2f * pad, map.Size.y + 2f * pad);
+            var rect = (RectTransform)_minimap.transform;
+            rect.localScale = new Vector3(1f / scale, 1f / scale, 1f);
+            TopLeft(rect, new Vector2(StageWidth + PartsGap / scale, ViewAt.y + ViewSize.y - size.y / scale), size);
             _minimap.SetVerticesDirty();
         }
 

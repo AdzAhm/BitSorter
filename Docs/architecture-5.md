@@ -1443,7 +1443,7 @@ gesture of the brief's D3 and D4 is on the canvas.
   it alone; on the selection, or on nothing, keeps it. It offers only what does something for what is selected:
   ALIGN LEFT, RIGHT, TOP, BOTTOM, MIDDLES IN A COLUMN or A ROW, SPREAD ACROSS or DOWN, TURN, MIRROR, ROUTE AGAIN,
   COPY, CUT, PASTE, DELETE.
-- **The minimap** (`Minimap`): the whole drawing small in the window's bottom-right corner, each part as its own
+- **The minimap** (`Minimap`): the whole drawing small in the window's bottom-right corner (beside it since Part 10e), each part as its own
   outline -- the one the circuit draws, an AND's D, an OR's shield, a NOT's triangle and its bubble -- the ports
   as rounded chips and the wires as hairlines, the window's rectangle on it in the accent. It was blocks at first,
   every gate the same block; Ahmad asked for the gates' shapes at the browser smoke test. A splitter's bar and a
@@ -1469,9 +1469,9 @@ gesture of the brief's D3 and D4 is on the canvas.
   the key back until the browser's own paste event, which a real press brings and a synthetic key event does not
   -- so a test that types Ctrl+V into the page sees nothing, and one that sends the paste event too sees the
   paste. Found, and fixed here: the page rescaling under the pointer (above), and the minimap's blocks. Found,
-  and left for later: an automatic route can run along another net's wire -- a tap from a down to the AND ran a
-  cell along b's -- so two nets look joined; the minimap can cover the circuit in the window's corner when zoomed
-  in; and the waveform's rows come back in the layout's order after a reload, not the order the ports were
+  and fixed in Part 10e: an automatic route could run along another net's wire -- a tap from a down to the AND ran
+  a cell along b's -- so two nets looked joined; the minimap could cover the circuit in the window's corner when
+  zoomed in; and the waveform's rows came back in the layout's order after a reload, not the order the ports were
   placed in.
 - **Checked.** `ArrangeTests` (8) under dotnet: what a copy takes and leaves; a paste a cell on with new ids and
   names, its wires, bends and tap, its input given 0, one step and a second paste further on; a cut and its paste;
@@ -1500,6 +1500,17 @@ gesture of the brief's D3 and D4 is on the canvas.
   a reload. Now a port's row goes where the layout puts it, and a port moved takes its row with it; the ports' rows
   are put in order in the places they already hold, so the rows the student added, and a port's row in a group,
   stay where they are.
+- **The minimap stands beside the window, never on it** (`WorkbenchPanel.PlaceMinimap`): in the column right of the
+  stage, which the stage keeps free opposite the parts strip, its foot level with the window's. In the window's
+  corner it covered the circuit there, and zoomed in that was whatever the student was looking for -- the smoke test
+  lost an output under it. It is drawn at the screen's size whatever the stage's scale, as the strip is, as wide as
+  that column leaves free up to its own most.
+- **Checked.** Each of the first two as a bug, a red commit first: `RoutingTests` (7) under dotnet -- the smoke
+  test's half adder in cells, its tap round b's wire, through no part, and a wire added moving none before it; a
+  route with nothing in its way the automatic one, and one that cannot be clear the automatic one still; its own
+  net no obstacle, and a quarter cell apart enough -- and in `WiringTests` a wire drawn round another net and made as
+  it was drawn; `SignalListTests`, a port's row placed and moved where the layout puts it. Unity's Edit Mode 1347,
+  Play Mode 275. Reference shots 1 to 37 identical but for 28 and 37, whose minimap moved out of the window.
 
 ---
 
@@ -1519,7 +1530,7 @@ Each part is one pull request into `v5`, ends with every suite green, and leaves
 | 7 | The board document: compile, print, undo, and migration of every 4.x board |
 | 8 | The canvas on the real document, still and moving layers drawn apart, and the looks with a Settings switch |
 | 9 | The waveform and run controls; the workbench's view-model in a Unity-free layer of its own |
-| 10 | Editing on the free canvas -- in four: 10a placement and selection **built** (see "As built in Part 10a"); 10b wiring **built**, drawn (10b-1) and reshaped (10b-2); 10c the inspector **built**; 10d copy, align and the minimap **built** |
+| 10 | Editing on the free canvas -- in four: 10a placement and selection **built** (see "As built in Part 10a"); 10b wiring **built**, drawn (10b-1) and reshaped (10b-2); 10c the inspector **built**; 10d copy, align and the minimap **built**; 10e what its browser smoke test found **built** |
 | 11 | The workbench shell, in UI Toolkit: toolbar, panels, transcript |
 | 12 | Hierarchy, and written blocks, edited in CodeMirror in a browser |
 | 13 | Export and import (and a levelized path in the engine, only if a measurement asks for it) |

@@ -263,14 +263,14 @@ namespace BitSorter.ViewModel
     }
 
     /// <summary>
-    /// The minimap (Part 10d), Unity-free: the whole drawing small in a corner of the circuit's window, the window's own
+    /// The minimap (Part 10d), Unity-free: the whole drawing small beside the circuit's window, the window's own
     /// rectangle on it, and where a click or a drag on it moves the view to. Shown only while some of the drawing is
     /// out of the window: at the fit, or with an edit's drawing still whole in a window that kept its place, a map of
     /// the window's own contents would only be clutter.
     /// </summary>
     public sealed class Minimap
     {
-        /// <summary>The most room it takes in the window, in window units.</summary>
+        /// <summary>The most room it takes, in the window's units; less where its place is narrower (<see cref="Of"/>).</summary>
         public const float MaxWidth = 168f, MaxHeight = 104f;
 
         private Minimap(float scale, Vec2 size, Rect2 window)
@@ -289,8 +289,11 @@ namespace BitSorter.ViewModel
         /// <summary>The part of the drawing the window shows, on the map, y down; clipped to the map.</summary>
         public Rect2 Window { get; }
 
-        /// <summary>The map of <paramref name="view"/>; null when the whole drawing is in the window already.</summary>
-        public static Minimap Of(SchematicView view)
+        /// <summary>
+        /// The map of <paramref name="view"/>, no wider than <paramref name="maxWidth"/> nor <see cref="MaxWidth"/>; null when
+        /// the whole drawing is in the window already.
+        /// </summary>
+        public static Minimap Of(SchematicView view, float maxWidth = MaxWidth)
         {
             if (view == null || view.IsFitted || view.Drawing.x <= 0 || view.Drawing.y <= 0)
                 return null;
@@ -301,7 +304,7 @@ namespace BitSorter.ViewModel
             if (from.x <= Slack && from.y <= Slack && to.x >= view.Drawing.x - Slack && to.y >= view.Drawing.y - Slack)
                 return null;
 
-            float scale = Arith.Min(MaxWidth / view.Drawing.x, MaxHeight / view.Drawing.y);
+            float scale = Arith.Min(Arith.Min(maxWidth, MaxWidth) / view.Drawing.x, MaxHeight / view.Drawing.y);
             Vec2 size = view.Drawing * scale;
             float x0 = Arith.Clamp(from.x * scale, 0f, size.x), x1 = Arith.Clamp(to.x * scale, 0f, size.x);
             float y0 = Arith.Clamp(from.y * scale, 0f, size.y), y1 = Arith.Clamp(to.y * scale, 0f, size.y);

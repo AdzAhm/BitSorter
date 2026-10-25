@@ -2330,6 +2330,7 @@ namespace BitSorter.View
             _controls.sizeDelta = new Vector2(StageWidth * scale, _controls.sizeDelta.y);
             _timeline.sizeDelta = new Vector2(StageWidth * scale, _timeline.sizeDelta.y);
             PlacePartsStrip();
+            PlaceMinimap();
 
             // The edges' smoothing is a pixel wide, and how many units a pixel is just changed.
             _card.SetVerticesDirty();

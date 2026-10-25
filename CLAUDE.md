@@ -861,8 +861,8 @@ failure side.
   as RENAME does; a double-click is two plain clicks, never a click that placed a
   part and then a press to drag it. **A right-click opens the canvas's menu**
   (Part 10d) -- align, spread, turn, mirror, route again, copy, cut, paste,
-  delete -- and Ctrl+C, X and V copy, cut and paste; a minimap in the window's
-  corner, up while some of the drawing is out of sight, moves the view on a
+  delete -- and Ctrl+C, X and V copy, cut and paste; a minimap beside the
+  window, up while some of the drawing is out of sight, moves the view on a
   click. A part in hand, a wire being drawn, or a drag
   takes Escape before the workbench does. The parts strip, a column left of the
   circuit's window, is temporary, until Part 11.
