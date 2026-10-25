@@ -705,6 +705,12 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsNotNull(map, "zoomed in, the map is up");
             Rect2 before = map.Window;
 
+            // Beside the circuit's window, never on it (Part 10e): in its corner it hid what was there.
+            RectTransform[] parts = GameObject.Find(WorkbenchPanel.RootName).GetComponentsInChildren<RectTransform>();
+            Rect onMap = WorldRect(parts.Single(r => r.name == "minimap")), window = WorldRect(parts.Single(r => r.name == "schematic view"));
+            Assert.IsFalse(onMap.Overlaps(window), $"the map, {onMap}, is over the circuit's window, {window}");
+            Assert.AreEqual(window.yMin, onMap.yMin, 1f, "its foot level with the window's");
+
             yield return ClickAtScreen(workbench.ScreenPointOfMap(new Vec2(map.Size.x * 0.1f, map.Size.y * 0.5f)));
             Assert.Less(workbench.Map.Window.center.x, before.center.x, "a click on the map's left moved the window left");
             Assert.AreEqual(0, Top(workbench).Parts.Count(p => workbench.Editor.Selection.HasPart(p.Id)), "and selected nothing under it");
