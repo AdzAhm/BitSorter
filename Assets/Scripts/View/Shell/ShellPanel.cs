@@ -109,8 +109,10 @@ namespace BitSorter.View
             if (mouse != null && (mouse.leftButton.wasPressedThisFrame || mouse.rightButton.wasPressedThisFrame || mouse.middleButton.wasPressedThisFrame)
                 && Root.focusController.focusedElement is VisualElement held)
             {
+                // Inside the field is anywhere in the whole field, whichever of its parts holds the focus.
+                VisualElement field = FieldOf(held) ?? held;
                 VisualElement under = PickAt(mouse.position.ReadValue());
-                if (under == null || (under != held && !held.Contains(under)))
+                if (under == null || (under != field && !field.Contains(under)))
                     held.Blur();
             }
         }
@@ -159,12 +161,15 @@ namespace BitSorter.View
             return false;
         }
 
-        private static bool IsField(VisualElement element)
+        private static bool IsField(VisualElement element) => FieldOf(element) != null;
+
+        /// <summary>The text field an element is, or is part of; null for none.</summary>
+        private static TextField FieldOf(VisualElement element)
         {
             for (VisualElement e = element; e != null; e = e.parent)
-                if (e is TextField)
-                    return true;
-            return false;
+                if (e is TextField field)
+                    return field;
+            return null;
         }
 
         // -----------------------------------------------------------------

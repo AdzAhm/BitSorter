@@ -170,6 +170,13 @@ namespace BitSorter.View
         private static readonly ConditionalWeakTable<VisualElement, Finished> FinishedOn = new ConditionalWeakTable<VisualElement, Finished>();
 
         /// <summary>
+        /// A field's record, made by a constructor called here. Never <c>GetOrCreateValue</c>: it makes the value by
+        /// reflection, and the browser build's managed stripping took the constructor it needed -- Enter threw in the
+        /// browser, the field never let go, and Space was typed into RUN TO (the Part 11a smoke test).
+        /// </summary>
+        private static Finished RecordOf(VisualElement field) => FinishedOn.GetValue(field, _ => new Finished());
+
+        /// <summary>
         /// A single-line text field in the canvas's colours: an outlined box, the text, and a quiet
         /// <paramref name="placeholder"/> while it is empty -- a label of its own, since no theme draws UI Toolkit's in a
         /// colour of its own. Enter calls <paramref name="submitted"/>. **Enter and Escape let the field go a
@@ -181,10 +188,14 @@ namespace BitSorter.View
         {
             var field = new TextField { name = name, isDelayed = true };
             field.AddToClassList(ControlClass);
+            // Deprecated for the USS variables --unity-cursor-color and --unity-selection-color; the shell has no USS by
+            // design (ShellRulesTests), and with no theme a caret would otherwise be drawn in no colour of the palette's.
+#pragma warning disable CS0618
             field.textSelection.cursorColor = palette.Text;
             Color selection = palette.Accent;
             selection.a = 0.35f;
             field.textSelection.selectionColor = selection;
+#pragma warning restore CS0618
             field.style.marginLeft = field.style.marginRight = field.style.marginTop = field.style.marginBottom = 0f;
 
             VisualElement input = field.Q(className: TextField.inputUssClassName) ?? field;
@@ -219,12 +230,12 @@ namespace BitSorter.View
             {
                 if (e.keyCode == KeyCode.Return || e.keyCode == KeyCode.KeypadEnter)
                 {
+                    RecordOf(field).Frame = Time.frameCount;
                     submitted?.Invoke(field.text);
-                    FinishedOn.GetOrCreateValue(field).Frame = Time.frameCount;
                 }
                 else if (e.keyCode == KeyCode.Escape)
                 {
-                    FinishedOn.GetOrCreateValue(field).Frame = Time.frameCount;
+                    RecordOf(field).Frame = Time.frameCount;
                 }
             }, TrickleDown.TrickleDown);
             return field;
