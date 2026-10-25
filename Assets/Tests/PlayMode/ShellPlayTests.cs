@@ -146,6 +146,56 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsFalse(workbench.IsOpen, "the next Escape is the workbench's");
         }
 
+        /// <summary>
+        /// What is typed into RUN TO, and then Enter, sets it; and Escape after typing puts back what was there. In the
+        /// served browser build RUN TO was never set: Enter read the field's committed text, and a field that committed
+        /// only on Enter had committed nothing yet (the Part 11a smoke test). The editor cannot type into a shell field --
+        /// UI Toolkit takes typing from the platform, which a test cannot drive -- so this types as a field that is not
+        /// delayed is typed into, its value changing a keystroke at a time; the browser build is what proved the fix.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator WhatIsTypedIntoRunTo_ThenEnter_SetsIt()
+        {
+            yield return TestScene.Load();
+            yield return OpenTheWorkbench();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+
+            TextField runTo = ShellPanel.Find<TextField>(WorkbenchPanel.RunToField);
+            yield return ClickAt(ShellPanel.ScreenPointOf(runTo));
+            Assert.IsTrue(UiText.Typing, "sanity: RUN TO has the keyboard");
+
+            foreach (string typed in new[] { "2", "20" })
+            {
+                runTo.value = typed;
+                yield return null;
+            }
+
+            Assert.IsFalse(runTo.isDelayed, "a field whose value is what it shows: one that commits only on Enter has committed nothing when Enter is read");
+            Press(_keyboard.enterKey);
+            ShellPanel.SendKey(runTo, KeyCode.Return);
+            yield return null;
+            Release(_keyboard.enterKey);
+            yield return null;
+            yield return null;
+
+            Assert.AreEqual(20L, workbench.Playback.RunTo, "Enter set RUN TO to what was typed");
+            Assert.IsFalse(UiText.Typing, "and gave the keyboard back");
+
+            // Typed again, and Escape: what was there comes back, and RUN TO is as it was.
+            yield return ClickAt(ShellPanel.ScreenPointOf(runTo));
+            runTo.value = "35";
+            yield return null;
+            Press(_keyboard.escapeKey);
+            ShellPanel.SendKey(runTo, KeyCode.Escape);
+            yield return null;
+            Release(_keyboard.escapeKey);
+            yield return null;
+            yield return null;
+            Assert.AreEqual(20L, workbench.Playback.RunTo, "Escape set nothing");
+            Assert.AreEqual("20", runTo.value, "and put back what RUN TO held");
+            Assert.IsTrue(workbench.IsOpen, "and was the field's alone");
+        }
+
         [UnityTest]
         public IEnumerator AClickOffAShellField_OnTheCanvasUnderIt_LetsItGo()
         {

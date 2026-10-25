@@ -179,14 +179,17 @@ namespace BitSorter.View
         /// <summary>
         /// A single-line text field in the canvas's colours: an outlined box, the text, and a quiet
         /// <paramref name="placeholder"/> while it is empty -- a label of its own, since no theme draws UI Toolkit's in a
-        /// colour of its own. Enter calls <paramref name="submitted"/>. **Enter and Escape let the field go a
+        /// colour of its own. Enter calls <paramref name="submitted"/> with what was typed, and so does letting it go by a
+        /// click elsewhere, as the TextMesh Pro field did; Escape puts back what it held when it was clicked into.
+        /// **Its value is what it shows, a keystroke at a time** (not delayed): a field that commits only on Enter had
+        /// committed nothing when Enter was read, and in the browser RUN TO was never set (the Part 11a smoke test). **Enter and Escape let the field go a
         /// frame later** (<see cref="ShellPanel"/>, <see cref="FinishedBefore"/>): while it is focused the game's keys are
         /// off (<see cref="UiText"/>), so the press that finished it is the field's alone, where letting it go at once
         /// would hand that same Escape to the workbench and close it as well.
         /// </summary>
         public static TextField Field(string name, string placeholder, SchematicPalette palette, Action<string> submitted)
         {
-            var field = new TextField { name = name, isDelayed = true };
+            var field = new TextField { name = name };
             field.AddToClassList(ControlClass);
             // Deprecated for the USS variables --unity-cursor-color and --unity-selection-color; the shell has no USS by
             // design (ShellRulesTests), and with no theme a caret would otherwise be drawn in no colour of the palette's.
@@ -226,16 +229,36 @@ namespace BitSorter.View
             field.RegisterValueChangedCallback(_ => ShowHint());
             field.RegisterCallback<GeometryChangedEvent>(_ => ShowHint());
 
+            // What it held when it was clicked into, for Escape to put back; and whether Escape asked for that.
+            string held = "";
+            bool cancelled = false;
+            field.RegisterCallback<FocusInEvent>(_ =>
+            {
+                held = field.value;
+                cancelled = false;
+            });
+            field.RegisterCallback<FocusOutEvent>(_ =>
+            {
+                if (cancelled)
+                    field.SetValueWithoutNotify(held);
+                else if (field.value != held)
+                    submitted?.Invoke(field.value);
+                held = field.value;
+                cancelled = false;
+            });
+
             field.RegisterCallback<KeyDownEvent>(e =>
             {
                 if (e.keyCode == KeyCode.Return || e.keyCode == KeyCode.KeypadEnter)
                 {
                     RecordOf(field).Frame = Time.frameCount;
-                    submitted?.Invoke(field.text);
+                    submitted?.Invoke(field.value);
+                    held = field.value;   // as the submission left it, so letting go does not submit it again
                 }
                 else if (e.keyCode == KeyCode.Escape)
                 {
                     RecordOf(field).Frame = Time.frameCount;
+                    cancelled = true;
                 }
             }, TrickleDown.TrickleDown);
             return field;
