@@ -90,6 +90,11 @@ namespace BitSorter.ViewModel
         private CanvasTarget _checkedOver = CanvasTarget.Nothing;
         private string _draftWhyNot;
 
+        // What the wire being drawn keeps clear of, as the document stands: its wires, by net, and its parts (Part 10e).
+        private WireObstacles _draftAround;
+        private Dictionary<int, int> _draftNets;
+        private readonly HashSet<int> _draftOwn = new HashSet<int>();
+
         // A selected wire being reshaped: which, its points as it was drawn when taken hold of, which piece or
         // corner, and the points it would have now.
         private int _reshaping = -1;
@@ -141,6 +146,7 @@ namespace BitSorter.ViewModel
             // A wire being drawn from something an undo took away has nowhere to start; and what it may end on is asked again.
             if (_draft != null && !StillThere(_draft.From))
                 _draft = null;
+            _draftAround = null;
             _checkedOver = CanvasTarget.Nothing;
             _draftWhyNot = null;
             Version++;
@@ -535,6 +541,7 @@ namespace BitSorter.ViewModel
                 return;
             PutDown();
             _draft = new WireDraft(from, start, facing, tapAt ?? 0.5, from.IsTap ? _hit.WireOf(from.TapOf) : null);
+            _draftAround = null;
             _draftAt = at;
             _draftShown = true;
             _draftOver = _checkedOver = CanvasTarget.Nothing;
@@ -587,6 +594,32 @@ namespace BitSorter.ViewModel
         /// Where a wire would start or end on <paramref name="target"/>: a pin as it is placed and the way it faces, or a
         /// tap on a wire, put on the grid, and how far along that wire it is. False for anything else.
         /// </summary>
+        /// <summary>The document's wires, by net, and its parts, made once for the wire being drawn and again after an edit.</summary>
+        private WireObstacles DraftAround()
+        {
+            if (_draftAround == null)
+            {
+                Module module = Module;
+                _draftNets = WireGeometry.WireNets(module);
+                _draftAround = WireGeometry.Obstacles(_session.Project, module, WireGeometry.Wires(_session.Project, module), _draftNets);
+            }
+
+            return _draftAround;
+        }
+
+        /// <summary>The net an end is part of (<see cref="WireGeometry.WireNets"/>): a tapped wire's, or a pin's wires'; -1 for a pin no wire meets yet.</summary>
+        private int NetOf(Endpoint end)
+        {
+            if (_draftNets == null)
+                return -1;
+            if (end.IsTap)
+                return _draftNets.TryGetValue(end.TapOf, out int tapped) ? tapped : -1;
+            foreach (Wire wire in Module.Wires)
+                if ((!wire.From.IsTap && wire.From.Pin.Equals(end.Pin)) || (!wire.To.IsTap && wire.To.Pin.Equals(end.Pin)))
+                    return _draftNets.TryGetValue(wire.Id, out int net) ? net : -1;
+            return -1;
+        }
+
         private bool TryEnd(CanvasTarget target, out Endpoint end, out BoardPoint at, out Facing? facing, out double? tapAt)
         {
             end = default;
@@ -848,8 +881,9 @@ namespace BitSorter.ViewModel
                 BoardPoint end = _draftFree ? _draftAt : CanvasSnap.Snap(_draftAt);
                 Facing? entering = null, endFacing = null;
                 BoardPoint endAt = default;
+                Endpoint to = default;
                 bool onEnd = _draftOver.Kind != CanvasTargetKind.Nothing
-                    && TryEnd(_draftOver, out Endpoint _, out endAt, out endFacing, out double? _);
+                    && TryEnd(_draftOver, out to, out endAt, out endFacing, out double? _);
                 if (onEnd)
                 {
                     end = endAt;
@@ -858,7 +892,13 @@ namespace BitSorter.ViewModel
                     overlay.DraftRefused = _draftWhyNot != null;
                 }
 
-                overlay.Draft = Stage(frame, _draft.PathTo(end, entering));
+                // Clear of the other nets' wires, as the wire once made is routed: its own net is the start's, and the end's it joins.
+                WireObstacles around = DraftAround();
+                _draftOwn.Clear();
+                _draftOwn.Add(NetOf(_draft.From));
+                if (onEnd)
+                    _draftOwn.Add(NetOf(to));
+                overlay.Draft = Stage(frame, _draft.PathTo(end, entering, around, _draftOwn));
                 overlay.DraftStart = frame.ToStage(_draft.Start);
             }
 

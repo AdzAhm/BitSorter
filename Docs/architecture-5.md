@@ -1483,6 +1483,18 @@ gesture of the brief's D3 and D4 is on the canvas.
   identical but for 28, zoomed in, which gains its minimap; 37 is new: the reference zoomed in with its minimap, the
   two ANDs selected and the menu open on them.
 
+**As built in Part 10e**: the three things the browser smoke test found that Part 10d left.
+
+- **An automatic route keeps clear of the other nets** (`WireGeometry.Avoiding`, `WireObstacles`). A tap from a to
+  the AND ran a cell along b's wire, and a and b read as one net. Now a route that runs along another net's wire, or
+  ends against one on its line under a quarter of a cell from it, gives way to the shortest route of right angles,
+  with the fewest corners, that keeps clear: of every other net's wire, its line and its corners; of every pin but
+  its own two ends; and of every part's body. It still leaves each pin the way the pin faces, and a tap up or down off
+  the wire it taps; it goes across, or up and down, once, anywhere on the quarter grid within three cells of its
+  ends; and with nothing clear it stays the automatic route. Wires are routed in the module's order, each clear of
+  those before it, so a wire added never moves one already there. A wire being drawn keeps clear of the same
+  things (`WireDraft.PathTo`), so it is made where it was drawn. A route the student bent keeps its bends.
+
 ---
 
 ## 11. The parts

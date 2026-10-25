@@ -148,6 +148,51 @@ namespace BitSorter.ViewModel.Tests
             public string NetOf(int part, string pin) => Netlist.Of(Session.Project, Module).NetOf(new PinRef(part, pin)).Name;
         }
 
+        /// <summary>
+        /// A wire whose automatic route would run down another net's wire is drawn round it while it is drawn, and made
+        /// exactly as it was drawn (Part 10e): the drawing and the document keep clear of the same things.
+        /// </summary>
+        [Test]
+        public void AWireWhoseAutomaticRouteWouldRunAlongAnotherNet_IsDrawnRoundIt_AndMadeAsDrawn()
+        {
+            var b = new Sketch();
+            int bWire = b.Wire(b.B, "out", b.Xor, "b");
+            IReadOnlyList<BoardPoint> theirs = WireGeometry.Wires(b.Session.Project, b.Module)[bWire];
+            BoardPoint from = b.PinAt(b.A, "out"), to = b.PinAt(b.And, "b");
+            Assert.IsTrue(RunsAlong(WireGeometry.Orthogonal(from, Facing.Right, to, Facing.Left), theirs),
+                "sanity: a's automatic route to the AND runs down b's wire to the XOR");
+
+            b.Do(CanvasGesture.BeginWire, b.Pin(b.A, "out"), from);
+            b.Point(to);
+            b.Editor.Overlay(b.Overlay);
+            Vec2[] shown = b.Overlay.Draft;
+            EditResult? made = b.Do(CanvasGesture.EndWire, b.Pin(b.And, "b"), to);
+            Assert.IsTrue(made.HasValue && made.Value.Done, made?.Refusal);
+            b.Editor.Relaid();
+
+            IReadOnlyList<BoardPoint> route = WireGeometry.Wires(b.Session.Project, b.Module)[made.Value.Id];
+            Assert.IsFalse(RunsAlong(route, theirs), $"along b's wire: {string.Join(" ", route)}");
+            CollectionAssert.AreEqual(shown, route.Select(p => b.Session.Run.Model.Layout.Board.ToStage(p)).ToArray(), "made where it was drawn");
+        }
+
+        /// <summary>Whether a piece of one route lies on a piece of another, along a length.</summary>
+        private static bool RunsAlong(IReadOnlyList<BoardPoint> mine, IReadOnlyList<BoardPoint> theirs)
+        {
+            for (int i = 1; i < mine.Count; i++)
+                for (int j = 1; j < theirs.Count; j++)
+                {
+                    BoardPoint a = mine[i - 1], b = mine[i], c = theirs[j - 1], d = theirs[j];
+                    if (a.Y == b.Y && c.Y == d.Y && a.Y == c.Y &&
+                        Math.Min(Math.Max(a.X, b.X), Math.Max(c.X, d.X)) - Math.Max(Math.Min(a.X, b.X), Math.Min(c.X, d.X)) > 1e-6)
+                        return true;
+                    if (a.X == b.X && c.X == d.X && a.X == c.X &&
+                        Math.Min(Math.Max(a.Y, b.Y), Math.Max(c.Y, d.Y)) - Math.Max(Math.Min(a.Y, b.Y), Math.Min(c.Y, d.Y)) > 1e-6)
+                        return true;
+                }
+
+            return false;
+        }
+
         [Test]
         public void AWireDrawnPinToPin_IsMadeInOneStep_RoutedAutomatically_AndSelected()
         {

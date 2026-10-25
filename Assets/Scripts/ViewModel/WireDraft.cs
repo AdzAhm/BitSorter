@@ -52,15 +52,19 @@ namespace BitSorter.ViewModel
                 _bends.Add(at);
         }
 
-        /// <summary>How the wire would run to <paramref name="end"/>, entering it the way <paramref name="endFacing"/> says (null for a level tap or the bare pointer).</summary>
-        public List<BoardPoint> PathTo(BoardPoint end, Facing? endFacing)
+        /// <summary>
+        /// How the wire would run to <paramref name="end"/>, entering it the way <paramref name="endFacing"/> says (null for
+        /// a level tap or the bare pointer): with no bends clicked, clear of what <paramref name="around"/> holds but the
+        /// nets in <paramref name="own"/>, as the finished wire is routed (<see cref="WireGeometry.Avoiding"/>, Part 10e).
+        /// </summary>
+        public List<BoardPoint> PathTo(BoardPoint end, Facing? endFacing, WireObstacles around = null, ICollection<int> own = null)
         {
             // From a tap, the way out of the junction is the one the finished wire's route will take, towards what comes next.
             BoardPoint next = _bends.Count > 0 ? _bends[0] : end;
             Facing? leaving = From.IsTap ? WireGeometry.TapFacing(_tapped, TapAt, Start, next) : Facing;
             return _bends.Count > 0
                 ? WireGeometry.Through(Start, leaving, _bends, end, endFacing)
-                : WireGeometry.Orthogonal(Start, leaving, end, endFacing);
+                : WireGeometry.Avoiding(Start, leaving, end, endFacing, around, own);
         }
 
         /// <summary>The point the wire would reach an end from: its last bend, or its start.</summary>

@@ -43,9 +43,13 @@ namespace BitSorter.Board
     /// <summary>
     /// Where a module's wires run, in cells: through the bends the layout keeps for a wire, or -- with
     /// none kept -- an automatic route that leaves each pin the way it faces and turns only at right
-    /// angles. And each net as the paths a change takes from its driver to every load, which is what
-    /// the workbench animates.
+    /// angles, and keeps clear of the other nets' wires and the parts (<see cref="Avoiding"/>). And each
+    /// net as the paths a change takes from its driver to every load, which is what the workbench animates.
     /// </summary>
+    /// <remarks>
+    /// Wires are routed in the module's order, each clear of those before it, so a wire added never moves one
+    /// already there.
+    /// </remarks>
     public static class WireGeometry
     {
         /// <summary>How far a wire runs straight out of a pin before it may turn.</summary>
@@ -64,6 +68,11 @@ namespace BitSorter.Board
 
             var done = new Dictionary<int, IReadOnlyList<Point>>();
             var busy = new HashSet<int>();
+            Dictionary<int, int> nets = WireNets(module);
+            var around = new WireObstacles();
+            foreach (PartOutline outline in outlines.Values)
+                around.AddPart(outline);
+            var own = new HashSet<int>();
 
             IReadOnlyList<Point> RouteOf(Wire wire)
             {
@@ -84,8 +93,11 @@ namespace BitSorter.Board
                     (a, fa) = End(wire.From, wire.Id, bent ? kept.Bends[0] : b);
                 busy.Remove(wire.Id);
 
-                points = bent ? Through(a, fa, kept.Bends, b, fb) : Orthogonal(a, fa, b, fb);
+                own.Clear();
+                own.Add(nets[wire.Id]);
+                points = bent ? Through(a, fa, kept.Bends, b, fb) : Avoiding(a, fa, b, fb, around, own);
                 done[wire.Id] = points;
+                around.AddWire(points, nets[wire.Id]);
                 return points;
             }
 
@@ -249,6 +261,131 @@ namespace BitSorter.Board
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// Which net each wire is part of, as a number shared by the wires of one net: two wires are one net when they
+        /// meet at a pin, or when one taps the other.
+        /// </summary>
+        public static Dictionary<int, int> WireNets(Module module)
+        {
+            var parent = new Dictionary<int, int>();
+            int Find(int id)
+            {
+                while (parent[id] != id)
+                    id = parent[id] = parent[parent[id]];
+                return id;
+            }
+
+            void Join(int a, int b)
+            {
+                if (parent.ContainsKey(a) && parent.ContainsKey(b))
+                {
+                    int ra = Find(a), rb = Find(b);
+                    if (ra != rb)
+                        parent[Math.Max(ra, rb)] = Math.Min(ra, rb);
+                }
+            }
+
+            foreach (Wire wire in module.Wires)
+                parent[wire.Id] = wire.Id;
+            var atPin = new Dictionary<string, int>();
+            foreach (Wire wire in module.Wires)
+                foreach (Endpoint end in new[] { wire.From, wire.To })
+                {
+                    if (end.IsTap)
+                        Join(wire.Id, end.TapOf);
+                    else if (atPin.TryGetValue(PinKey(end.Pin), out int other))
+                        Join(wire.Id, other);
+                    else
+                        atPin[PinKey(end.Pin)] = wire.Id;
+                }
+
+            var nets = new Dictionary<int, int>();
+            foreach (Wire wire in module.Wires)
+                nets[wire.Id] = Find(wire.Id);
+            return nets;
+        }
+
+        /// <summary>
+        /// Everything in a module a wire being drawn keeps clear of: every part, and every wire as
+        /// <paramref name="wires"/> has it, by its net (<see cref="WireNets"/>) -- what the wire, once made and routed
+        /// after all of them, will keep clear of.
+        /// </summary>
+        public static WireObstacles Obstacles(Project project, Module module, IReadOnlyDictionary<int, IReadOnlyList<Point>> wires, IReadOnlyDictionary<int, int> nets)
+        {
+            var around = new WireObstacles();
+            foreach (Part part in module.Parts)
+                around.AddPart(PartGeometry.Placed(project, part, module.Layout.PlacementOf(part.Id)));
+            foreach (Wire wire in module.Wires)
+                if (wires.TryGetValue(wire.Id, out IReadOnlyList<Point> points) && nets.TryGetValue(wire.Id, out int net))
+                    around.AddWire(points, net);
+            return around;
+        }
+
+        /// <summary>How far past its two ends a route may go round, in cells, looking for a way clear.</summary>
+        public const double SearchReach = 3;
+
+        /// <summary>
+        /// The automatic route (<see cref="Orthogonal"/>) -- unless it runs along a wire of a net not in
+        /// <paramref name="own"/>, when it is the shortest route of right angles, with the fewest corners, that keeps
+        /// clear of everything <paramref name="around"/> holds (<see cref="WireObstacles.Clear"/>): out of each pin the
+        /// way it faces, then across or up and down once, wherever on the quarter grid is clear, within
+        /// <see cref="SearchReach"/> of its ends. When no route is clear it is the automatic one still.
+        /// </summary>
+        public static List<Point> Avoiding(Point a, Facing? fa, Point b, Facing? fb, WireObstacles around, ICollection<int> own)
+        {
+            List<Point> route = Orthogonal(a, fa, b, fb);
+            if (around == null || !around.RunsAlongAnother(route, own))
+                return route;
+
+            Point s = fa == null ? a : Add(a, PartGeometry.Step(fa.Value), Stub);
+            Point e = fb == null ? b : Add(b, PartGeometry.Step(fb.Value), Stub);
+            var tries = new List<(List<Point> Points, int Corners, double Length, double Off)>();
+
+            // Across, up or down at a column, and across again.
+            double middle = Snap((s.X + e.X) / 2);
+            for (double m = Snap(Math.Min(s.X, e.X) - SearchReach); m <= Math.Max(s.X, e.X) + SearchReach + 1e-9; m += 0.25)
+                Try(new List<Point> { a, s, new Point(m, s.Y), new Point(m, e.Y), e, b }, Math.Abs(m - middle));
+
+            // Up or down, across at a height, and up or down again.
+            middle = Snap((s.Y + e.Y) / 2);
+            for (double m = Snap(Math.Min(s.Y, e.Y) - SearchReach); m <= Math.Max(s.Y, e.Y) + SearchReach + 1e-9; m += 0.25)
+                Try(new List<Point> { a, s, new Point(s.X, m), new Point(e.X, m), e, b }, Math.Abs(m - middle));
+
+            tries.Sort((p, q) =>
+            {
+                int byCorners = p.Corners.CompareTo(q.Corners);
+                if (byCorners != 0)
+                    return byCorners;
+                int byLength = p.Length.CompareTo(q.Length);
+                return byLength != 0 ? byLength : p.Off.CompareTo(q.Off);
+            });
+            foreach ((List<Point> Points, int Corners, double Length, double Off) tried in tries)
+                if (around.Clear(tried.Points, own))
+                    return tried.Points;
+            return route;
+
+            void Try(List<Point> points, double off)
+            {
+                List<Point> tidy = Tidy(points);
+                if (tidy.Count >= 2 && Ends(tidy[0], tidy[1], fa) && Ends(tidy[tidy.Count - 1], tidy[tidy.Count - 2], fb))
+                    tries.Add((tidy, tidy.Count - 2, Length(tidy), off));
+            }
+        }
+
+        /// <summary>
+        /// Whether a route's piece at one of its ends, from <paramref name="end"/> to <paramref name="next"/>, leaves the
+        /// way the pin there faces -- the stub, or the stub run on -- and not back over it; and from a tap, which has no
+        /// facing, up or down, off the wire it taps rather than along it.
+        /// </summary>
+        private static bool Ends(Point end, Point next, Facing? facing)
+        {
+            double dx = next.X - end.X, dy = next.Y - end.Y;
+            if (facing == null)
+                return Math.Abs(dx) < 1e-9;
+            Point step = PartGeometry.Step(facing.Value);
+            return dx * step.X + dy * step.Y > 1e-9 && Math.Abs(dx * step.Y - dy * step.X) < 1e-9;
         }
 
         /// <summary>
