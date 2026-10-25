@@ -157,8 +157,17 @@ namespace BitSorter.View
         public const float MinimapPad = 6f;
 
         /// <summary>
+        /// The least a splitter's bar is wide on the minimap, and the least an inverting gate's bubble's radius is: drawn
+        /// at the map's scale they are under a pixel, and a NAND would be an AND.
+        /// </summary>
+        private const float MinimapBar = 1.5f, MinimapBubble = 1f;
+
+        /// <summary>
         /// The minimap (Part 10d): a chip in the ground's colour, the wires as hairlines and the parts and ports as solid
-        /// shapes, all at the map's scale, and the window's rectangle on it in the accent, faintly filled.
+        /// shapes, all at the map's scale, and the window's rectangle on it in the accent, faintly filled. A part is its
+        /// own outline, the one the circuit draws (<see cref="Body"/>) -- an AND's D, an OR's shield, a NOT's triangle and
+        /// its bubble -- so the map reads as the circuit it is; plain blocks were the first try, and every gate was the
+        /// same block.
         /// </summary>
         public static void Minimap(VectorPainter painter, Minimap map, SchematicLayout layout, SchematicPalette palette)
         {
@@ -178,18 +187,30 @@ namespace BitSorter.View
 
             foreach (PartLayout part in layout.Parts)
             {
-                PartOutline o = part.Local;
-                Vector2 a = part.ToStage(o.Left, o.Top), b = part.ToStage(o.Right, o.Bottom);
-                Vector2 c = part.ToStage(o.Left, o.Bottom), d = part.ToStage(o.Right, o.Top);
-                Vector2 min = P(new Vector2(Math.Min(Math.Min(a.x, b.x), Math.Min(c.x, d.x)), Math.Min(Math.Min(a.y, b.y), Math.Min(c.y, d.y))));
-                Vector2 max = P(new Vector2(Math.Max(Math.Max(a.x, b.x), Math.Max(c.x, d.x)), Math.Max(Math.Max(a.y, b.y), Math.Max(c.y, d.y))));
-                painter.Rect(min.x, min.y, max.x, max.y, palette.Outline);
+                if (part.Symbol == PartSymbol.Splitter || part.Symbol == PartSymbol.Joiner)
+                {
+                    double bar = part.Local.Top - 0.1;
+                    painter.Line(P(part.ToStage(0, bar)), P(part.ToStage(0, -bar)), MinimapBar, palette.Outline);
+                    continue;
+                }
+
+                Body(Shape, part);
+                for (int i = 0; i < Shape.Count; i++)
+                    Shape[i] = P(Shape[i]);
+                painter.Fill(Shape, palette.Outline);
+
+                if (Inverts(part.Symbol))
+                {
+                    VectorPainter.Circle(Shape, P(part.ToStage(Tip(part.Symbol) + Bubble(part), 0)), Math.Max(MinimapBubble, SchematicStyle.BubbleRadius * s), 12);
+                    painter.Fill(Shape, palette.Outline);
+                }
             }
 
             foreach (PortLayout port in layout.Ports)
             {
-                Vector2 min = P(new Vector2(port.Box.xMin, port.Box.yMin)), max = P(new Vector2(port.Box.xMax, port.Box.yMax));
-                painter.Rect(min.x, min.y, max.x, max.y, palette.Outline);
+                Vector2 min = P(new Vector2(port.Box.xMin, port.Box.yMin));
+                VectorPainter.RoundedRect(Shape, min.x, min.y, port.Box.width * s, port.Box.height * s, SchematicStyle.PortCorner * s);
+                painter.Fill(Shape, palette.Outline);
             }
 
             Rect2 w = map.Window;

@@ -1443,9 +1443,12 @@ gesture of the brief's D3 and D4 is on the canvas.
   it alone; on the selection, or on nothing, keeps it. It offers only what does something for what is selected:
   ALIGN LEFT, RIGHT, TOP, BOTTOM, MIDDLES IN A COLUMN or A ROW, SPREAD ACROSS or DOWN, TURN, MIRROR, ROUTE AGAIN,
   COPY, CUT, PASTE, DELETE.
-- **The minimap** (`Minimap`): the whole drawing small in the window's bottom-right corner, parts and ports as
-  blocks and wires as hairlines, the window's rectangle on it in the accent. A click or a drag on it puts the
-  window's middle there. It is up **only while some of the drawing is out of the window**: the plan said "while the
+- **The minimap** (`Minimap`): the whole drawing small in the window's bottom-right corner, each part as its own
+  outline -- the one the circuit draws, an AND's D, an OR's shield, a NOT's triangle and its bubble -- the ports
+  as rounded chips and the wires as hairlines, the window's rectangle on it in the accent. It was blocks at first,
+  every gate the same block; Ahmad asked for the gates' shapes at the browser smoke test. A splitter's bar and a
+  bubble have a least size there, or a NAND would be an AND. A click or a drag on it puts the window's middle
+  there. It is up **only while some of the drawing is out of the window**: the plan said "while the
   view is not the fit", but after an edit the view keeps its place and is no longer exactly the fit with the whole
   circuit still in sight, and a map of what the window already shows was clutter (shots 33 to 35 showed it).
 - **An edit on the circuit never rescales the page** (`WorkbenchPanel.FitHeight`). The page is fitted to the
