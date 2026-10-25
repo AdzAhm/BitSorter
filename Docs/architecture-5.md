@@ -1512,6 +1512,48 @@ gesture of the brief's D3 and D4 is on the canvas.
   it was drawn; `SignalListTests`, a port's row placed and moved where the layout puts it. Unity's Edit Mode 1347,
   Play Mode 275. Reference shots 1 to 37 identical but for 28 and 37, whose minimap moved out of the window.
 
+**As built in Part 11a**: the shell's bridges, and the workbench's toolbar on it -- the first of Part 11's four
+(the Part 11 plan approved 2026-10-25: 11b the docked layout, 11c the transcript and the
+hierarchy, 11d the keyboard map and the docs).
+
+- **A UI Toolkit panel made in code** (`ShellPanel`): a `UIDocument` on a `PanelSettings` made at run time, scaled
+  as the game's canvas is (with its screen size, against `UiTheme.ReferenceResolution`, matching halfway) and sorted
+  at 50, over the game's canvas (0) and under the frame-rate counter's (100). It is given an empty theme style sheet
+  only so that UI Toolkit does not warn it has none; nothing in it is drawn by a theme. It shows and hides with the
+  workbench and follows its fade.
+- **Built in code, with no UXML and no USS** (`ShellTheme`, and `ShellRulesTests` in `Repo.Tests`): every element's
+  layout, colours and sizes are set by the builders, from `SchematicPalette` and `UiType`, in the look of the
+  workbench's uGUI controls -- outlined buttons, key caps, chips. The approved plan said USS would hold layout; with
+  every element made in code there was nothing for it to do, and a style sheet would only be a second place a colour
+  could hide. Its own controls: a text field with a quiet placeholder of its own, and a slider made of plain elements
+  (`ShellSlider`), since no theme draws UI Toolkit's.
+- **The typeface** (`ShellFonts`): IBM Plex Sans, regular and bold, as a TextCore font asset made at run time from
+  the two TTFs, which the scene builder puts in the scene so they ship. A label is bold by the bold face alone: a bold
+  style on it as well thickens it twice.
+- **The bridges**, each held by a Play Mode test (`ShellPlayTests`):
+  - *Pointer.* The event system sees the panel as one nameless object, so the panel is asked which of its elements is
+    under the pointer: `WorkbenchControlSample` and `PointerGate` both ask it, and a tap on a shell button is the
+    button's alone.
+  - *Keyboard.* A focused shell field is never the event system's selection, so `UiText.Typing` asks the panel's
+    focus as well. UI Toolkit reads the platform's keys, not the Input System's, so a test's simulated keyboard never
+    reaches a shell field; a test hands it the key as UI Toolkit would (`ShellPanel.SendKey`), in the frame it presses
+    the same key on the simulated keyboard -- what a real press does.
+  - *Escape and Enter* let a field go a frame later, so the Escape that cancelled RUN TO cannot close the workbench in
+    the same frame; and a press anywhere else lets it go, which UI Toolkit cannot see when it lands on uGUI.
+  - *Scale and order.* A unit of the shell is a unit of the canvas, a Body label is Body's size, and the panel sorts
+    between the canvas and the frame-rate counter.
+  - *Fonts.* Every character the shell draws is in its font asset.
+  - *Buttons take no keyboard focus*: a focused button would answer Space and Enter as well as the workbench's keys. A
+    test presses one with `ShellPanel.Submit`.
+- **The toolbar** (`WorkbenchPanel.Toolbar.cs`): the title and SAMPLE, RESTART, PLAY, STEP BACK, STEP and the chip,
+  the slider, the speed, RUN TO and the time, and BACK -- where the uGUI rows stood, as wide as the stage is drawn. The
+  uGUI rows, `ReleaseRunTo` and the strips are gone.
+- **Checked.** `ShellPlayTests` (5): a tap on PLAY; RUN TO holding the keys and Escape letting it go before the
+  workbench closes; a click on the circuit letting the field go; scale, order and the fade; the font. The workbench's
+  own suites moved onto the shell's controls. `ShellRulesTests` (3) under dotnet. Edit Mode 1347, Play Mode 280.
+  Reference shots 1 to 26 identical; 27 to 37 differ in the toolbar's band alone, drawn by UI Toolkit and looked at
+  beside the uGUI one; two captures of the same code identical, all 37.
+
 ---
 
 ## 11. The parts
@@ -1531,7 +1573,7 @@ Each part is one pull request into `v5`, ends with every suite green, and leaves
 | 8 | The canvas on the real document, still and moving layers drawn apart, and the looks with a Settings switch |
 | 9 | The waveform and run controls; the workbench's view-model in a Unity-free layer of its own |
 | 10 | Editing on the free canvas -- in four: 10a placement and selection **built** (see "As built in Part 10a"); 10b wiring **built**, drawn (10b-1) and reshaped (10b-2); 10c the inspector **built**; 10d copy, align and the minimap **built**; 10e what its browser smoke test found **built** |
-| 11 | The workbench shell, in UI Toolkit: toolbar, panels, transcript |
+| 11 | The workbench shell, in UI Toolkit -- in four: 11a the bridges and the toolbar **built**; 11b the docked layout, 11c transcript and hierarchy, 11d the keyboard map and the docs to come |
 | 12 | Hierarchy, and written blocks, edited in CodeMirror in a browser |
 | 13 | Export and import (and a levelized path in the engine, only if a measurement asks for it) |
 | 14 | The course's tools: path delays, static timing, gate-library mode, step tests, lint, tri-state |

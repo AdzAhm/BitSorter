@@ -652,7 +652,11 @@ failure side.
   builders; each panel constructs its own hierarchy at runtime the way
   `PlacementGrid` builds its dots. The scene is generated, so an authored
   hierarchy would be dozens of RectTransforms for the builder to reproduce
-  and get subtly wrong.
+  and get subtly wrong. **The workbench's shell is UI Toolkit, built in code
+  the same way** (Part 11, from 11a): `ShellTheme`'s builders set every style
+  from the palette and `UiType`, on a panel made in code (`ShellPanel`), and
+  there is no UXML or USS anywhere (`ShellRulesTests`). Part 11d rewrites this
+  paragraph for the whole shell.
 - **Every colour comes from `Palette`**, board and interface alike -- no colour
   literal, and no serialized colour field on a renderer. They used to live
   wherever each was first needed, and nothing could compare them: the interface
@@ -844,7 +848,10 @@ failure side.
   panel, so the pointer is over the interface everywhere on it and `PointerGate`'s
   question cannot tell a button from the waves. `WorkbenchControlSample` asks the
   narrower one -- is the topmost thing under the pointer a control: a button, the
-  slider, a menu -- and asks it at `-30000` too, for the same tap; and the
+  slider, a menu -- and asks it at `-30000` too, for the same tap. **The shell's
+  controls are asked of its panel** (`ShellPanel.OverControlAt`, Part 11a): the
+  event system sees a UI Toolkit panel as one nameless object, and `PointerGate`
+  asks the panel too; and the
   panel reads its mouse as gestures (`WavePointer`), where a press on a control is
   never one. The row menu, the menu for a moment (a right-click on the waves, for
   a breakpoint there; Part 9b-3), the export menu (VCD or PNG; Part 9b-4), the add list and the three fields -- RENAME,
@@ -883,10 +890,16 @@ failure side.
   **A field that stays on screen has to let go itself**: TextMesh Pro leaves a
   finished field selected, and every other field let go only by closing with
   its panel. The workbench's RUN TO kept every workbench key dead after Enter
-  until a click elsewhere (the 9b-3 browser smoke test), so it gives the
-  selection up a frame after Enter or Escape -- not in the same frame, or the
-  Escape that cancelled it could close the workbench too
-  (`WorkbenchPanel.ReleaseRunTo`).
+  until a click elsewhere (the 9b-3 browser smoke test). It is a shell field
+  now (Part 11a), and the shell lets it go a frame after Enter or Escape -- not
+  in the same frame, or the Escape that cancelled it could close the workbench
+  too (`ShellTheme.Field`) -- and on a press anywhere else, which UI Toolkit
+  cannot see when it lands on uGUI (`ShellPanel`). **A shell field is not the
+  event system's selection**, so `UiText.Typing` asks the shell as well
+  (`ShellPanel.Typing`). And UI Toolkit reads the platform's keys, not the Input
+  System's: a test's simulated keyboard never reaches a shell field, so a test
+  hands it the key as UI Toolkit would (`ShellPanel.SendKey`) in the frame it
+  presses the same key on the simulated keyboard.
 - **A panel's backdrop is nine-sliced, and a full-screen one is not a panel.**
   `ProceduralSprites.Panel` is a rounded rectangle cut with a ten-texel border,
   so every `Panel_` keeps ten-pixel corners and a solid middle at any size.
