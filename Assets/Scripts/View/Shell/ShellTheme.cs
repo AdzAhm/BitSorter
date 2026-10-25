@@ -215,6 +215,16 @@ namespace BitSorter.View
                 part.style.unityTextAlign = TextAnchor.MiddleLeft;
             }
 
+            // The text itself, as tall as the box, so what is typed sits in its middle: the theme the shell has none of
+            // is what stretches it (the inspector's bar, Part 11b-2, showed every value at the top of its field).
+            foreach (TextElement text in input.Query<TextElement>().ToList())
+            {
+                text.style.flexGrow = 1f;
+                text.style.unityTextAlign = TextAnchor.MiddleLeft;
+                text.style.marginTop = text.style.marginBottom = 0f;
+                text.style.paddingTop = text.style.paddingBottom = 0f;
+            }
+
             Label hint = Label(PlaceholderName, placeholder, UiType.Body, palette.Muted);
             Place(hint, 10f + EdgeWidth, 0f, -1f, -1f);
             hint.style.bottom = 0f;
