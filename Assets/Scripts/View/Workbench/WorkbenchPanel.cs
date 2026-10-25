@@ -182,6 +182,16 @@ namespace BitSorter.View
         private float StageHeight =>
             WaveformAt.y + WaveformView.HeightFor(_model == null ? 0 : _model.RowCount) + WorkbenchDrawing.LegendHeight;
 
+        /// <summary>
+        /// The height the page is fitted to the window by: the stage's with the rows it opened with, or the waveform's
+        /// own controls last made (<see cref="RowsChanged"/>). An edit on the circuit never rescales the page (Part 10):
+        /// a port placed puts a row on the waveform, and fitted to the stage as it grew, the whole page shrank by a row
+        /// and the board moved under the pointer. A row past those the page has room for scrolls it instead. Rows asked
+        /// for -- + SIGNAL, Alt and a click on a wire, a group opened -- fit it again, so they are seen.
+        /// </summary>
+        private float FitHeight =>
+            WaveformAt.y + WaveformView.HeightFor(_model == null ? 0 : _fitRows) + WorkbenchDrawing.LegendHeight;
+
         /// <summary>The legend's names for the four values, and what the rings and crosses mean.</summary>
         public const string LegendText = "A digit on a wire is a change travelling along it; a cross is one swallowed on the way. Double-click an input to change it.";
 
@@ -1684,13 +1694,21 @@ namespace BitSorter.View
         private string Shown(WaveLine line) =>
             line.IsHeader ? (line.Group.Expanded ? "- " : "+ ") + _list.LabelOf(line) : _list.LabelOf(line);
 
-        /// <summary>The list changed: the rows are given to the model, and the stage built again round them if they are new.</summary>
+        /// <summary>
+        /// The list changed by the waveform's own controls: the rows are given to the model, and the stage built again
+        /// round them if they are new, and the page fitted to them (<see cref="FitHeight"/>).
+        /// </summary>
         private void RowsChanged()
         {
             if (ApplyRows() && _page != null)
+            {
+                _fitRows = _model.RowCount;
                 RebuildStage(keepViews: true);
+            }
             else
+            {
                 Redraw();
+            }
         }
 
         /// <summary>Selects row <paramref name="row"/> alone and writes it in <paramref name="radix"/>, as its menu does.</summary>
@@ -2294,7 +2312,7 @@ namespace BitSorter.View
             // The parts strip stands left of the stage (Part 10a): room is kept for it on both sides, so the stage
             // stays in the middle and never covers it.
             var room = new Vector2(Root.rect.width - 4f * UiTheme.Margin - 2f * (PartsWidth + PartsGap), _page.rect.height);
-            float scale = StageScale(room, new Vector2(StageWidth, StageHeight));
+            float scale = StageScale(room, new Vector2(StageWidth, FitHeight));
 
             float overflow = Overflow(room.y, StageHeight, scale);
             if (!Mathf.Approximately(overflow, _overflow))

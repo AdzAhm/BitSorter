@@ -39,6 +39,12 @@ namespace BitSorter.View
         /// <summary>The window an empty circuit opens in, in stage units: the narrowest stage's, 360 tall.</summary>
         private static readonly Vector2 EmptyDrawing = new Vector2(MinStageWidth - 2f * SchematicAt.x, 360f);
 
+        /// <summary>
+        /// The waveform's rows an empty circuit is fitted as though it had: a half adder's four ports, so the first
+        /// ports placed find their rows already made room for.
+        /// </summary>
+        private const int EmptyRows = 4;
+
         /// <summary>How tall a button of the strip is, the gap between two, how wide the strip is, and how far left of the stage it stands.</summary>
         private const float PartRowHeight = 28f, PartGap = 3f, PartsWidth = 100f, PartsGap = 14f;
 
@@ -67,6 +73,12 @@ namespace BitSorter.View
 
         /// <summary>The drawing's size when its document opened: what the circuit's window is sized by.</summary>
         private Vector2 _openedDrawing = EmptyDrawing;
+
+        /// <summary>
+        /// The waveform's rows the page is fitted to the window by: those its document opened with, and those its own
+        /// controls have made since (<c>RowsChanged</c>) -- never a row that came with a port placed on the circuit.
+        /// </summary>
+        private int _fitRows = EmptyRows;
 
         /// <summary>The ports' keys the waveform's rows were last made to follow.</summary>
         private List<string> _portKeys = new List<string>();
@@ -141,7 +153,9 @@ namespace BitSorter.View
             _drawnLayout = _session.LayoutVersion;
             _overlayVersion = -1;
             _portKeys = PortKeys(_model);
-            _openedDrawing = _model.Layout.Parts.Count + _model.Layout.Ports.Count == 0 ? EmptyDrawing : _model.Layout.Size.ToUnity();
+            bool empty = _model.Layout.Parts.Count + _model.Layout.Ports.Count == 0;
+            _openedDrawing = empty ? EmptyDrawing : _model.Layout.Size.ToUnity();
+            _fitRows = empty ? EmptyRows : _model.RowCount;
             _keptProject = _session.Project;
             _keepAt = -1;
         }

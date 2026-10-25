@@ -1448,6 +1448,14 @@ gesture of the brief's D3 and D4 is on the canvas.
   window's middle there. It is up **only while some of the drawing is out of the window**: the plan said "while the
   view is not the fit", but after an edit the view keeps its place and is no longer exactly the fit with the whole
   circuit still in sight, and a map of what the window already shows was clutter (shots 33 to 35 showed it).
+- **An edit on the circuit never rescales the page** (`WorkbenchPanel.FitHeight`). The page is fitted to the
+  window by its width and its height, and its height grew with every row: a port placed puts a row on the
+  waveform, so each one shrank the whole page by a row and moved the board under the pointer -- two ports, 31
+  pixels -- and the next click landed somewhere else (found in the browser smoke test). The height it is fitted
+  by is now the rows it opened with -- an empty circuit as though it had a half adder's four -- or those the
+  waveform's own controls last made: + SIGNAL, Alt and a click on a wire, a group opened or shut. Rows asked for
+  are fitted, so they are seen; a row that came with a port scrolls the page instead. A Play Mode test places two
+  ports and holds the board where it was, to half a pixel.
 - **Checked.** `ArrangeTests` (8) under dotnet: what a copy takes and leaves; a paste a cell on with new ids and
   names, its wires, bends and tap, its input given 0, one step and a second paste further on; a cut and its paste;
   align by edge and middle on the grid with nothing replayed, and too few refused; spread with equal gaps; a wire
