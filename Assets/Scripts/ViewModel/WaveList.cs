@@ -18,8 +18,8 @@ namespace BitSorter.ViewModel
     {
         internal WaveSignal(string key) => Key = key;
 
-        /// <summary>Where it is in the design (<see cref="SignalIndex.KeyOf"/>).</summary>
-        public string Key { get; }
+        /// <summary>Where it is in the design (<see cref="SignalIndex.KeyOf"/>); a net renamed takes its row with it (<see cref="WaveList.Rekey"/>).</summary>
+        public string Key { get; internal set; }
 
         /// <summary>The name it was given in place of its own; null for none.</summary>
         public string Rename { get; internal set; }
@@ -262,6 +262,29 @@ namespace BitSorter.ViewModel
                 if (before.Contains(key) || Find(key) != null)
                     continue;
                 _items.Add(new WaveSignal(key) { Signal = Index.TryFind(key, out int found) ? found : -1 });
+                changed = true;
+            }
+
+            if (changed)
+                Changed();
+            return changed;
+        }
+
+        /// <summary>
+        /// The rows of a signal renamed (Part 10c) -- a net or a port given a new name in the inspector -- kept under its new
+        /// key, with their place, their own names and their radixes, so the run made with the new name finds them. True
+        /// when any row was the old key's.
+        /// </summary>
+        public bool Rekey(string from, string to)
+        {
+            if (string.IsNullOrEmpty(from) || string.IsNullOrEmpty(to) || from == to)
+                return false;
+            bool changed = false;
+            foreach (WaveSignal signal in AllSignals)
+            {
+                if (signal.Key != from)
+                    continue;
+                signal.Key = to;
                 changed = true;
             }
 

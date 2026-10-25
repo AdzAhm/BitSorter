@@ -345,6 +345,16 @@ namespace BitSorter.ViewModel
                     BeginReshape(command.Target);
                     return null;
 
+                case CanvasGesture.Inspect:
+                    // What is inspected is selected, alone, and any wire the first click began is let go.
+                    AbandonWire();
+                    Selection.Clear();
+                    Selection.Pick(command.Target.Kind == CanvasTargetKind.Pin || command.Target.Kind == CanvasTargetKind.Part
+                        ? new CanvasTarget(CanvasTargetKind.Part, part: command.Target.Part)
+                        : new CanvasTarget(CanvasTargetKind.Wire, wire: command.Target.Wire), extend: false, toggle: false);
+                    Version++;
+                    return null;
+
                 case CanvasGesture.ReshapeTo:
                     ReshapeTo(command.At, command.From, command.Free);
                     return null;
@@ -657,6 +667,21 @@ namespace BitSorter.ViewModel
 
         /// <summary>Mirrors the selected parts left to right (V).</summary>
         public EditResult Mirror() => Said(_session.Turn(new List<int>(Selection.Parts), 0, mirror: true));
+
+        /// <summary>The one thing selected, to inspect with Enter (Part 10c); nothing with none, or with more than one.</summary>
+        public CanvasTarget Single
+        {
+            get
+            {
+                if (Selection.Parts.Count == 1 && Selection.Wires.Count == 0)
+                    foreach (int part in Selection.Parts)
+                        return new CanvasTarget(CanvasTargetKind.Part, part: part);
+                if (Selection.Wires.Count == 1 && Selection.Parts.Count == 0)
+                    foreach (int wire in Selection.Wires)
+                        return new CanvasTarget(CanvasTargetKind.Wire, wire: wire);
+                return CanvasTarget.Nothing;
+            }
+        }
 
         /// <summary>Every part and wire (Ctrl+A).</summary>
         public void SelectAll()

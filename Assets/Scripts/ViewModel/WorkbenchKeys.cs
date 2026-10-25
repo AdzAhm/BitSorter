@@ -44,6 +44,9 @@ namespace BitSorter.ViewModel
 
         /// <summary>Every part and wire on the canvas selected.</summary>
         SelectAll,
+
+        /// <summary>The inspector of the one part or wire selected on the canvas (Part 10c).</summary>
+        Inspect,
     }
 
     /// <summary>One key and what it does: the key by its Input System name, the modifiers held, and the words for it.</summary>
@@ -129,6 +132,7 @@ namespace BitSorter.ViewModel
             new KeyBinding("Q", WorkbenchCommand.TurnRight, "SHIFT Q", "turn them back a quarter", shift: true),
             new KeyBinding("V", WorkbenchCommand.Mirror, "V", "mirror the selected parts left to right"),
             new KeyBinding("A", WorkbenchCommand.SelectAll, "CTRL A", "select every part and wire", ctrl: true),
+            new KeyBinding("Enter", WorkbenchCommand.Inspect, "ENTER", "inspect the part or wire selected: its delays, width, name"),
             new KeyBinding("U", WorkbenchCommand.Unit, "U", "count time in the next unit"),
             new KeyBinding("E", WorkbenchCommand.Export, "E", "export the run: a VCD, or the waveform as a PNG"),
             new KeyBinding("Z", WorkbenchCommand.Undo, "CTRL Z", "undo the last edit to an input", ctrl: true),

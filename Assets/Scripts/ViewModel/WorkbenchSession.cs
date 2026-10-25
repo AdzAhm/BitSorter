@@ -113,6 +113,14 @@ namespace BitSorter.ViewModel
         /// <summary>Draws a wire between two ends, a pin or a tap each, through <paramref name="route"/>'s bends (<see cref="BoardEditor.Connect"/>; Part 10b): drawn now, and replayed.</summary>
         public EditResult Connect(Endpoint from, Endpoint to, Route route = null) => Edited(Editor.Connect(Module, from, to, route));
 
+        /// <summary>What the inspector's fields were changed to (<see cref="Inspector.Apply"/>; Part 10c), as one step: drawn now, and replayed.</summary>
+        public EditResult Inspect(Inspection inspection, IReadOnlyDictionary<string, string> typed)
+        {
+            Project before = Project;
+            EditResult result = Inspector.Apply(Editor, Module, inspection, typed);
+            return ReferenceEquals(before, Project) ? result : Edited(result);
+        }
+
         /// <summary>Changes how a wire runs, its bends (<see cref="BoardEditor.Reroute"/>; Part 10b-2): drawn again, and nothing replayed.</summary>
         public EditResult Reroute(int wire, Route route) => Laid(Editor.Reroute(Module, wire, route));
 

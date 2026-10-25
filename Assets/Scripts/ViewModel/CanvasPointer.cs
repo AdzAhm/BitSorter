@@ -53,6 +53,9 @@ namespace BitSorter.ViewModel
 
         /// <summary>The reshape let go at <see cref="CanvasCommand.At"/>: the wire is rerouted.</summary>
         EndReshape,
+
+        /// <summary>A double-click on <see cref="CanvasCommand.Target"/>, a part or a wire: its inspector opens (Part 10c).</summary>
+        Inspect,
     }
 
     /// <summary>One thing a gesture on the canvas asks for.</summary>
@@ -99,6 +102,7 @@ namespace BitSorter.ViewModel
             CanvasGesture.WireBend => $"WireBend {At.X},{At.Y}{(Free ? " free" : "")}",
             CanvasGesture.EndWire => $"EndWire {Target}",
             CanvasGesture.BeginReshape => $"BeginReshape {Target}",
+            CanvasGesture.Inspect => $"Inspect {Target}",
             CanvasGesture.ReshapeTo or CanvasGesture.EndReshape => $"{Gesture} {At.X},{At.Y}{(Free ? " free" : "")}",
             _ => Gesture.ToString(),
         };
@@ -127,6 +131,9 @@ namespace BitSorter.ViewModel
 
         /// <summary>Whether a wire is being drawn: a click then bends it or ends it (Part 10b).</summary>
         public bool Drafting;
+
+        /// <summary>When, in seconds on the game's clock: what a double-click is counted on (Part 10c). Null counts none.</summary>
+        public double? Time;
 
         public bool Shift, Ctrl, Alt;
 
@@ -161,6 +168,18 @@ namespace BitSorter.ViewModel
         /// <summary>How far, in window pixels, a press has to move before it is a drag.</summary>
         public const float DragPixels = 4f;
 
+        /// <summary>How soon, and how near, a second plain click has to come for the two to be a double-click.</summary>
+        public const double DoubleClickSeconds = 0.4;
+
+        /// <inheritdoc cref="DoubleClickSeconds"/>
+        public const float DoubleClickPixels = 6f;
+
+        // The last left press that could begin a double-click: when, where, and whether it is still a plain click --
+        // no modifier, nothing in hand, and let go without a drag.
+        private double? _clickAt;
+        private Vec2 _clickWhere;
+        private bool _clickPlain;
+
         private enum Hold { None, OnPart, Moving, OnNothing, Boxing, Panning, OnPin, OnWire, Wiring, OnBend, Reshaping }
 
         private Hold _hold;
@@ -183,9 +202,30 @@ namespace BitSorter.ViewModel
             _press = press;
             _last = press.Window;
 
+            // A double-click is a second plain left click soon after a first and near it; a third starts again. A click
+            // that placed a part, picked with a modifier, or became a drag never begins one: placing a part and then
+            // pressing it to drag it away is not asking for its inspector.
+            bool plain = press.Button == 0 && !press.Shift && !press.Ctrl && !press.Alt && !press.InHand && !press.Space;
+            bool second = plain && _clickPlain && press.Time.HasValue && _clickAt.HasValue &&
+                          press.Time.Value - _clickAt.Value <= DoubleClickSeconds && Vec2.Distance(press.Window, _clickWhere) <= DoubleClickPixels;
+            if (press.Button == 0)
+            {
+                _clickAt = press.Time;
+                _clickWhere = press.Window;
+                _clickPlain = plain && !second;
+            }
+
             if (press.Button == 2 || press.Button == 0 && press.Space)
             {
                 _hold = Hold.Panning;
+                return;
+            }
+
+            // A double-click on a part or a wire opens its inspector -- even with a wire being drawn, as the first
+            // click on a pin starts one: the inspector is what the second click asked for.
+            if (second && press.Target.Kind != CanvasTargetKind.Nothing)
+            {
+                into.Add(new CanvasCommand(CanvasGesture.Inspect, press.Board, target: press.Target));
                 return;
             }
 
@@ -264,6 +304,9 @@ namespace BitSorter.ViewModel
         /// <summary>The pointer moved to <paramref name="window"/>, <paramref name="board"/> on the board, with the button still held; <paramref name="alt"/> as it is now.</summary>
         public void Move(Vec2 window, BoardPoint board, bool alt, List<CanvasCommand> into)
         {
+            if (Vec2.Distance(window, _press.Window) >= DragPixels)
+                _clickPlain = false;   // a drag, not a click: it begins no double-click
+
             switch (_hold)
             {
                 case Hold.Panning:
