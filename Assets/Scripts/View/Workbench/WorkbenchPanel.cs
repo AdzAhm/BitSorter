@@ -132,7 +132,7 @@ namespace BitSorter.View
         /// 10a's editing made it twice the width of its box, and it ran from one edge of the screen to the other.
         /// </summary>
         public const string HelpLine =
-            "circuit:  pick a part on the left, click to place it  ·  drag from a pin to wire  ·  drag to move or select  ·  middle-drag to pan  ·  Q turn  ·  V mirror  ·  Del remove\n" +
+            "circuit:  pick a part on the left, click to place it  ·  drag from a pin to wire  ·  double-click to inspect  ·  drag to move or select  ·  middle-drag to pan  ·  Q turn  ·  V mirror  ·  Del remove\n" +
             "waves:  scroll to zoom  ·  click to seek  ·  shift-click a second cursor  ·  right-click a row or the waves  ·  alt-click a wire to add it";
 
         /// <summary>
@@ -559,6 +559,7 @@ namespace BitSorter.View
                 case WorkbenchCommand.TurnRight: CanvasEdit(_editor.Turn(-1)); break;
                 case WorkbenchCommand.Mirror: CanvasEdit(_editor.Mirror()); break;
                 case WorkbenchCommand.SelectAll: _editor.SelectAll(); break;
+                case WorkbenchCommand.Inspect: InspectSelected(); break;
 
                 case WorkbenchCommand.AddSignal: OpenPicker(); break;
                 case WorkbenchCommand.Group: GroupRows(); break;
@@ -1564,6 +1565,7 @@ namespace BitSorter.View
             _breakField = WaveRenameField.Build(Root, palette, BreakOnValue, WaveRenameField.BreakValueName, "BREAK ON VALUE",
                 "1, 4'b1010, 'hA or x");
             _setField = WaveRenameField.Build(Root, palette, SetInputValue, WaveRenameField.SetValueName, "SET", "1, 4'b1010, 'hA or x");
+            _inspector = InspectorPopover.Build(Root, palette, ApplyInspector);
 
             Root.gameObject.SetActive(false);
         }

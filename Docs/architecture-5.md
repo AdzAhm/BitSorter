@@ -1390,6 +1390,40 @@ them -- a selected wire's piece or corner dragged.
   right with the fixture's mouse. Reference shots 1 to 34 identical to the pixel; 35 is new: MY CIRCUIT's half
   adder wired whole, b's wire selected with its corners, and its rise being dragged a cell left.
 
+**As built in Part 10c**: the inspector.
+
+- **What each part has** (`Inspector`, Unity-free): a gate its name, inputs (none for NOT, BUF and the tri-state
+  gates), rise and fall -- the course's Tpdlh and Tpdhl, which the gate's line says -- and width (none for a
+  tri-state gate); a port its name, width and comment, and for an input of
+  the top module its clock's period or its reset's release; a register its width, reset, reset value and starting
+  value; a constant its value, which is its width; a mux its inputs and width; a splitter, a joiner and a lamp their
+  width; a block its name; a wire its net's name. A field shows what is, as it would be typed: `2 ps`, `4'b0101`.
+- **Read with words, judged by the document.** Text that is no number, time or value is refused saying which field
+  and why; a width, a count or a name the document does not allow is refused in `BoardRules`' own words. Every field
+  changed is one step for undo (`BoardEditor.Group`), so a clock renamed and its period changed go back together.
+  Nothing changed is nothing done.
+- **The popover** (`InspectorPopover`), beside what it inspects, built as RENAME is and holding Escape the same way.
+  A double-click on a part, a pin or a wire opens it -- two **plain** clicks: a click that placed a part, a click
+  with a modifier, or a press that became a drag begins no double-click (`CanvasPointer`), or placing a part and
+  pressing it to drag it away would open it. Enter opens it on the one part or wire selected; Enter in a field, or
+  APPLY, makes it; a refusal stays in the popover, in the text's colour; a click off it, Escape or CANCEL leave
+  everything as it was. Temporary, as the parts strip is, until Part 11.
+- **The run is played again with it** (`WorkbenchSession.Inspect`).
+- **A rename keeps its row.** A net or a port renamed -- and a part renamed renames the net it drives -- moves its
+  waveform rows to the new name (`Inspector.NetsRenamed`, `WaveList.Rekey`), in their place and radix, so the run
+  played again finds them. Without it the row would have pointed at a name the new run does not have.
+- **Not built, from the plan:** a wire's row radix in the inspector -- the row's menu and X already set it.
+- **Checked.** `InspectorTests` (12) under dotnet: every kind's fields; a delay made in one step and replayed, and
+  undone; words for what is no number or time, and the document's for what it forbids; nothing changed, nothing done;
+  a clock renamed with its period as one step; a reset's release; a net named and given its own name back; a
+  register's values at its new width and a constant's width from its value; a renamed net's row kept; the
+  double-click as two plain clicks, and never a place or a modified click and then another; Enter's one selected
+  thing. In Play Mode (`WorkbenchCanvasPlayTests`), **the plan's exit**: a double-click on the reference's AND opens
+  its inspector, a new rise and Enter play the run again with it, and a width of 2000 is refused in the popover; NOT
+  B's net, added to the waveform with Alt and a click, named through its inspector opened with Enter, says its new
+  name on the hover chip and on its row, in its place. Reference shots 1 to 35 identical but for the help's first
+  line in 27 to 35; 36 is new: the reference's AND with its inspector open and a width refused.
+
 ---
 
 ## 11. The parts
@@ -1408,7 +1442,7 @@ Each part is one pull request into `v5`, ends with every suite green, and leaves
 | 7 | The board document: compile, print, undo, and migration of every 4.x board |
 | 8 | The canvas on the real document, still and moving layers drawn apart, and the looks with a Settings switch |
 | 9 | The waveform and run controls; the workbench's view-model in a Unity-free layer of its own |
-| 10 | Editing on the free canvas -- in four: 10a placement and selection **built** (see "As built in Part 10a"); 10b wiring **built**, drawn (10b-1) and reshaped (10b-2); 10c the inspector, 10d copy, align and the minimap to come |
+| 10 | Editing on the free canvas -- in four: 10a placement and selection **built** (see "As built in Part 10a"); 10b wiring **built**, drawn (10b-1) and reshaped (10b-2); 10c the inspector **built**; 10d copy, align and the minimap to come |
 | 11 | The workbench shell, in UI Toolkit: toolbar, panels, transcript |
 | 12 | Hierarchy, and written blocks, edited in CodeMirror in a browser |
 | 13 | Export and import (and a levelized path in the engine, only if a measurement asks for it) |

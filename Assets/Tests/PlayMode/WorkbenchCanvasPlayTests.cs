@@ -21,7 +21,8 @@ namespace BitSorter.PlayMode.Tests
     /// round two parts, Delete, and Ctrl+Z; MY CIRCUIT kept across reopening; Space still playing and pausing, and
     /// with a drag panning; Escape putting a part in hand down before it leaves. And wires (Part 10b): a half adder
     /// built from nothing with the mouse, its inputs flipped on the waveform, a wire being drawn let go with
-    /// Escape, and a selected wire reshaped by a drag on its piece (Part 10b-2). What each gesture decides is held under dotnet (<c>CanvasTests</c>, <c>WiringTests</c>); these hold
+    /// Escape, and a selected wire reshaped by a drag on its piece (Part 10b-2); and the inspector (Part 10c), a
+    /// gate's delay changed and a net named through it. What each gesture decides is held under dotnet (<c>CanvasTests</c>, <c>WiringTests</c>); these hold
     /// that the mouse reaches it.
     /// </summary>
     [TestFixture]
@@ -466,6 +467,119 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsTrue(Top(workbench).Layout.Routes.ContainsKey(wire), "reshaped: the wire keeps bends of its own");
             Assert.AreEqual(route[1].X + 1, Top(workbench).Layout.Routes[wire].Bends[0].X, 1e-9, "its fall a cell right, on the grid");
             Assert.IsFalse(workbench.Session.Replaying, "and nothing replays: a wire's shape changes nothing the circuit does");
+        }
+
+        /// <summary>The workbench open on the reference circuit, paused, its run made.</summary>
+        private static IEnumerator OpenTheReference()
+        {
+            yield return Click(MainMenu.WorkbenchButton);
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowSample(1);
+            yield return null;
+            workbench.Pause();
+            workbench.Session.Finish();
+            yield return null;
+            yield return null;
+        }
+
+        /// <summary>The middle of a part's outline, as it is drawn now.</summary>
+        private static BoardPoint MiddleOf(WorkbenchPanel workbench, int part)
+        {
+            Module top = Top(workbench);
+            PartOutline outline = PartGeometry.Placed(workbench.Session.Project, top.FindPart(part), top.Layout.PlacementOf(part));
+            return new BoardPoint((outline.Left + outline.Right) / 2, (outline.Bottom + outline.Top) / 2);
+        }
+
+        /// <summary>
+        /// The plan's exit for Part 10c, its first half: a double-click on the reference's AND opens its inspector, a
+        /// new rise typed and Enter make it -- one step -- and the run is played again with it.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator ADoubleClickOnAGate_OpensItsInspector_AndANewDelayIsPlayedAgain()
+        {
+            yield return TestScene.Load();
+            yield return OpenTheReference();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+
+            GatePart and = Top(workbench).Parts.OfType<GatePart>().Single(g => g.Kind == BitSorter.Sim.GateKind.And && g.Fall == 3);
+            WorkbenchModel before = workbench.Model;
+            yield return DoubleClick(workbench.ScreenPointOf(MiddleOf(workbench, and.Id)));
+
+            InspectorPopover inspector = workbench.Inspector;
+            Assert.IsTrue(inspector.IsOpen, "a double-click on the AND opens its inspector");
+            StringAssert.StartsWith("AND ", inspector.Inspection.Title);
+            Assert.AreEqual("2 ps", inspector.Typed()["rise"]);
+            Assert.IsTrue(UiText.Typing, "a field has the keyboard");
+
+            Assert.IsTrue(inspector.Type("rise", "5"));
+            yield return Tap(_keyboard.enterKey);
+            yield return null;
+            Assert.IsFalse(inspector.IsOpen, "Enter made it, and closed it");
+            Assert.AreEqual(5, ((GatePart)Top(workbench).FindPart(and.Id)).Rise);
+
+            yield return UntilReplayed(workbench);
+            Assert.AreNotSame(before, workbench.Model, "the run shown is the one played again, with the AND's new rise");
+            Assert.IsTrue(workbench.IsOpen, "Enter did not leave the workbench");
+
+            // A width the document forbids is refused in the popover, which stays.
+            yield return DoubleClick(workbench.ScreenPointOf(MiddleOf(workbench, and.Id)));
+            Assert.IsTrue(inspector.IsOpen);
+            inspector.Type("width", "2000");
+            inspector.Apply();
+            yield return null;
+            Assert.IsTrue(inspector.IsOpen, "a refusal leaves it open");
+            StringAssert.Contains("1 to 1024", inspector.Refusal, "with the document's words in it");
+            yield return Tap(_keyboard.escapeKey);
+            yield return null;
+            Assert.IsFalse(inspector.IsOpen, "Escape shuts it");
+            Assert.IsTrue(workbench.IsOpen, "and only it");
+        }
+
+        /// <summary>
+        /// The plan's exit for Part 10c, its second half: NOT B's net, added to the waveform with Alt and a click, then
+        /// named through its inspector -- opened with Enter on the wire selected -- says its new name on the hover chip
+        /// and on its row, which keeps its place.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator ANetNamedInTheInspector_IsNamedSoOnTheHoverChip_AndOnItsRow()
+        {
+            yield return TestScene.Load();
+            yield return OpenTheReference();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+
+            Netlist nets = Netlist.Of(workbench.Session.Project, Top(workbench));
+            int wire = nets.Named("nb").Wires[0];
+            BoardPoint on = OnWireAt(workbench, wire, 0.5);
+
+            // Its row, as Alt and a click add it.
+            yield return PointAt(workbench, on);
+            Press(_keyboard.leftAltKey);
+            yield return ClickAt(workbench, on);
+            Release(_keyboard.leftAltKey);
+            yield return null;
+            int row = Row(workbench, "nb");
+
+            // Selected with a click, and Enter opens its inspector.
+            yield return ClickAt(workbench, on);
+            Assert.IsTrue(workbench.Editor.Selection.HasWire(wire), "the click selects NOT B's wire");
+            yield return Tap(_keyboard.enterKey);
+            InspectorPopover inspector = workbench.Inspector;
+            Assert.IsTrue(inspector.IsOpen, "Enter opens the inspector of the wire selected");
+            StringAssert.StartsWith("WIRE nb", inspector.Inspection.Title);
+
+            inspector.Type("name", "not_b");
+            GameObject.Find(InspectorPopover.ApplyName).GetComponent<Button>().onClick.Invoke();
+            yield return null;
+            Assert.IsFalse(inspector.IsOpen, "APPLY made it");
+            yield return UntilReplayed(workbench);
+
+            Assert.AreEqual(row, Row(workbench, "not_b"), "its row says its new name, where it was");
+            Assert.GreaterOrEqual(workbench.List.Lines[row].Signal.Signal, 0, "and finds it in the run played again");
+
+            yield return PointAt(workbench, new BoardPoint(on.X, on.Y + 3));
+            yield return PointAt(workbench, OnWireAt(workbench, wire, 0.5));
+            yield return null;
+            StringAssert.Contains("not_b", workbench.HoverSays, "the hover chip says it");
         }
 
         private static Rect WorldRect(RectTransform rect)

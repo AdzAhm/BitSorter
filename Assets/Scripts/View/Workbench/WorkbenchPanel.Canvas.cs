@@ -75,6 +75,9 @@ namespace BitSorter.View
         private Project _keptProject;
         private double _keepAt = -1;
 
+        /// <summary>The inspector (Part 10c).</summary>
+        private InspectorPopover _inspector;
+
 
         // -----------------------------------------------------------------
         // What the tests ask
@@ -89,6 +92,9 @@ namespace BitSorter.View
         /// <summary>Where a point of the board is on the screen now.</summary>
         public Vector2 ScreenPointOf(BoardPoint board) =>
             _model.Layout.Board == null ? Vector2.zero : ScreenPointOf(_model.Layout.Board.ToStage(board));
+
+        /// <summary>The inspector (Part 10c); open or shut.</summary>
+        public InspectorPopover Inspector => _inspector;
 
         /// <summary>Takes the strip's entry of this key in hand, as its button does; false for none.</summary>
         public bool TakeFromStrip(string key)
@@ -254,6 +260,7 @@ namespace BitSorter.View
             if ((left || right || middle) && !overControl && !OverFit(pointer) && InView(pointer, out Vector2 inView))
             {
                 _canvasFocused = true;
+
                 Vec2 stage = StagePoint(pointer);
                 CanvasTarget target = _editor.TargetAt(stage, _viewState.Zoom);
                 var press = new CanvasPress
@@ -265,6 +272,7 @@ namespace BitSorter.View
                     OnSelected = _editor.Selection.Has(target),
                     InHand = _editor.InHand != null,
                     Drafting = _editor.Drafting,
+                    Time = UnityEngine.Time.timeAsDouble,   // the game's clock, as the waveform's double-click is counted on
                     Shift = shift,
                     Ctrl = ctrl,
                     Alt = alt,
@@ -312,12 +320,69 @@ namespace BitSorter.View
                     AddWire();
                     return;
 
+                case CanvasGesture.Inspect:
+                    _editor.Do(command);
+                    OpenInspector(command.Target, Mouse.current != null ? Mouse.current.position.ReadValue() + new Vector2(16f, -16f) : ScreenPointOf(command.At));
+                    return;
+
                 default:
                     EditResult? result = _editor.Do(command);
                     if (result.HasValue)
                         Said(result.Value);
                     return;
             }
+        }
+
+        // -----------------------------------------------------------------
+        // The inspector (Part 10c)
+        // -----------------------------------------------------------------
+
+        /// <summary>The inspector of <paramref name="target"/>, a part or a wire, its corner at <paramref name="screenPoint"/>.</summary>
+        private void OpenInspector(CanvasTarget target, Vector2 screenPoint)
+        {
+            Inspection inspection = BitSorter.ViewModel.Inspector.Of(_session.Project, _session.Module, target);
+            if (inspection != null)
+                _inspector.Open(inspection, screenPoint);
+        }
+
+        /// <summary>Enter: the inspector of the one part or wire selected on the circuit, beside it; nothing with none, or more.</summary>
+        private void InspectSelected()
+        {
+            if (_editor == null || UiEscape.AnyHolds || !_canvasFocused)
+                return;
+            CanvasTarget single = _editor.Single;
+            if (single.Kind == CanvasTargetKind.Nothing)
+                return;
+
+            BoardPoint at = default;
+            BitSorter.Board.Module top = _session.Project.Find(_session.Module);
+            if (single.Kind == CanvasTargetKind.Part)
+                at = top.Layout.PlacementOf(single.Part).Position;
+            else if (BitSorter.Board.WireGeometry.Wires(_session.Project, top).TryGetValue(single.Wire, out var points) && points.Count > 0)
+                at = BitSorter.Board.WireGeometry.PointAt(points, BitSorter.Board.WireGeometry.Length(points) / 2);
+            OpenInspector(single, ScreenPointOf(at) + new Vector2(24f, -24f));
+        }
+
+        /// <summary>
+        /// What the inspector's fields say, made as one step and replayed: null when it was made, or the words it was
+        /// refused with. A net or a port renamed keeps its row in the waveform, under its new name.
+        /// </summary>
+        private string ApplyInspector(Inspection inspection, Dictionary<string, string> typed)
+        {
+            Project before = _session.Project;
+            EditResult result = _session.Inspect(inspection, typed);
+            if (!result.Done)
+                return result.Refusal;
+
+            foreach ((string from, string to) in BitSorter.ViewModel.Inspector.NetsRenamed(before, _session.Project, _session.Module))
+            {
+                _list.Rekey(from, to);
+                for (int i = 0; i < _portKeys.Count; i++)
+                    if (_portKeys[i] == from)
+                        _portKeys[i] = to;
+            }
+
+            return null;
         }
 
         /// <summary>An edit of the selection made from a key: its refusal said, if it was one.</summary>

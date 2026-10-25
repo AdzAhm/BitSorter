@@ -1176,6 +1176,45 @@ namespace BitSorter.PlayMode.Tests
             yield return Capture("35-workbench-reshaping");
         }
 
+        /// <summary>
+        /// The reference's AND selected and its inspector open beside it (Part 10c): its name, inputs, rise, fall and width,
+        /// and a width of 2000 refused in the document's words, the popover still up for it to be put right.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator Shot36_WorkbenchInspector()
+        {
+            yield return LoadTheGame();
+            yield return Frames(2);
+
+            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            yield return Frames(2);
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowSample(1);   // the reference
+            yield return Frames(2);
+            workbench.Pause();
+            workbench.Session.Finish();
+            workbench.Seek(13.5);
+            yield return Frames(4);
+
+            WorkbenchSession session = workbench.Session;
+            BitSorter.Board.GatePart and = session.Project.TopModule.Parts.OfType<BitSorter.Board.GatePart>()
+                .Single(g => g.Kind == BitSorter.Sim.GateKind.And && g.Fall == 3);
+            var target = new CanvasTarget(CanvasTargetKind.Part, part: and.Id);
+            workbench.Editor.Do(new CanvasCommand(CanvasGesture.Inspect, target: target));
+            BitSorter.Board.Point at = session.Project.TopModule.Layout.PlacementOf(and.Id).Position;
+            workbench.Inspector.Open(Inspector.Of(session.Project, session.Module, target), workbench.ScreenPointOf(at) + new Vector2(40f, -30f));
+            workbench.Inspector.Type("width", "2000");
+            workbench.Inspector.Apply();
+            UiTheme.Defocus();   // no caret blinking in a field: the shot is the same every time
+            yield return Frames(30);
+
+            Assert.IsTrue(workbench.Inspector.IsOpen, "sanity: the inspector is up");
+            StringAssert.Contains("1 to 1024", workbench.Inspector.Refusal, "sanity: with the refusal in it");
+
+            yield return Capture("36-workbench-inspector");
+        }
+
         private static IEnumerator OpensOnItsCircuit(string level, string fixture, string shot)
         {
             yield return LoadTheGame();
