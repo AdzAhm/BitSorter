@@ -1257,6 +1257,39 @@ namespace BitSorter.PlayMode.Tests
             yield return Capture("37-workbench-arranging");
         }
 
+        /// <summary>
+        /// The full adder made to its end (Part 11c): the parts panel showing the design's hierarchy, its two half adders
+        /// under it, and the dock showing the transcript -- what its testbench said as it stopped.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator Shot38_WorkbenchTranscript()
+        {
+            yield return LoadTheGame();
+            yield return Frames(2);
+
+            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            yield return Frames(2);
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            int fullAdder = -1;
+            for (int i = 0; i < WorkbenchSamples.Chip.Count; i++)
+                if (WorkbenchSamples.Chip[i].Name.ToLowerInvariant().Contains("full adder"))
+                    fullAdder = i;
+            workbench.ShowSample(fullAdder);
+            yield return Frames(2);
+            workbench.Pause();
+            workbench.Session.Finish();
+            workbench.Seek(WorkbenchSamples.FullAdderEnd);
+            workbench.ShowDesign();
+            workbench.ShowTranscript();
+            yield return Frames(30);
+
+            Assert.IsTrue(workbench.Hierarchy.Rows.Count(r => r.Node.Kind == ScopeNodeKind.Block) == 2, "sanity: the two half adders");
+            Assert.IsNotEmpty(workbench.Transcript.Lines, "sanity: the transcript says something");
+
+            yield return Capture("38-workbench-transcript");
+        }
+
         private static IEnumerator OpensOnItsCircuit(string level, string fixture, string shot)
         {
             yield return LoadTheGame();

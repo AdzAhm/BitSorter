@@ -246,6 +246,9 @@ namespace BitSorter.ViewModel
         public bool IsListed(int signal, bool includeCells = false) =>
             signal >= 0 && signal < _listed.Length && _listed[signal] && (includeCells || !_scopeOf[signal].InCell);
 
+        /// <summary>Whether a signal is a port of the scope that declares it.</summary>
+        public bool IsPort(int signal) => signal >= 0 && signal < _keys.Length && _design.Signals[signal].Port != null;
+
         /// <summary>The scope a signal was declared in, or null.</summary>
         public ScopeNode ScopeOf(int signal) => signal >= 0 && signal < _scopeOf.Length ? _scopeOf[signal] : null;
 

@@ -85,6 +85,8 @@ namespace BitSorter.View
             _sidePanel = Panel(SidePanelName, palette);
             _dockPanel = Panel(DockName, palette);
             BuildDockHeader(palette);
+            BuildTranscriptList(palette);
+            ShowDockTab(DockTab.Waves);
             BuildSplitter(palette);
 
             // Two lines of help along the bottom, until the keyboard map (Part 11d).
@@ -114,13 +116,8 @@ namespace BitSorter.View
             header.style.right = 0f;
             _dockPanel.Add(header);
 
-            Label tab = ShellTheme.Label(WavesTabName, "WAVES", UiType.Caption, palette.Text, TextAnchor.MiddleCenter, bold: true);
-            ShellTheme.Place(tab, 12f, 6f, 84f, 30f);
-            header.Add(tab);
-            var underline = new VisualElement { name = "underline", pickingMode = PickingMode.Ignore };
-            ShellTheme.Place(underline, 18f, 36f, 72f, 2f);
-            underline.style.backgroundColor = palette.Accent;
-            header.Add(underline);
+            // WAVES and TRANSCRIPT (Part 11c), and each one's tools beside them.
+            BuildDockTabs(header, palette);
 
             var line = new VisualElement { name = "rule", pickingMode = PickingMode.Ignore };
             ShellTheme.Place(line, 0f, ShellLayout.DockHeaderHeight - 1f, -1f, 1f);
@@ -129,13 +126,13 @@ namespace BitSorter.View
             header.Add(line);
 
             const float height = 34f;
-            float x = 120f + KeyRoom;
+            float x = ToolsLeft + KeyRoom;
             ShellButton Add(string name, string caption, WorkbenchCommand command, float width)
             {
                 ShellButton button = ShellTheme.Button(name, caption, palette, () => Do(command));
                 ShellTheme.Place(button, x, 5f, width, height);
                 ShellTheme.KeyBeside(button, height, WorkbenchKeys.For(command).Cap, palette);
-                header.Add(button);
+                _wavesTools.Add(button);
                 x += width + 12f + KeyRoom;
                 return button;
             }
@@ -172,10 +169,6 @@ namespace BitSorter.View
             _partsPanel.Clear();
             _partButtons.Clear();
             _shownInHand = null;
-
-            Label title = ShellTheme.Label("title", "PARTS", UiType.Caption, palette.Text, TextAnchor.MiddleLeft, bold: true);
-            ShellTheme.Place(title, PanelPad, 6f, -1f, PartHeadingHeight);
-            _partsPanel.Add(title);
 
             // The entries' own layer, which takes a turn of the wheel anywhere over it, between the buttons included.
             _partsList = new VisualElement { name = "list" };
@@ -231,11 +224,13 @@ namespace BitSorter.View
             _partsThumb.style.backgroundColor = palette.Muted;
             _partsPanel.Add(_partsThumb);
             _partsScroll = 0f;
-            ScrollParts(0f);
+
+            // PARTS and DESIGN (Part 11c), over the entries and the hierarchy.
+            BuildLeftTabs(palette);
         }
 
-        /// <summary>Where the parts panel's entries start, under its title.</summary>
-        private const float PartsTop = 6f + PartHeadingHeight + 4f;
+        /// <summary>Where the parts panel's entries, and the hierarchy's rows, start: under its tabs.</summary>
+        private const float PartsTop = 6f + PartHeadingHeight + 10f;
 
         /// <summary>How far the parts panel's entries are scrolled, and how far they can be.</summary>
         public float PartsScroll => _partsScroll;
@@ -255,7 +250,7 @@ namespace BitSorter.View
             _partsScroll = scroll;
             _partsList.style.top = PartsTop - _partsScroll;
 
-            _partsThumb.style.display = overflow > 0.5f ? DisplayStyle.Flex : DisplayStyle.None;
+            _partsThumb.style.display = overflow > 0.5f && !_designTab ? DisplayStyle.Flex : DisplayStyle.None;
             if (overflow > 0.5f)
             {
                 float room = _regions.Parts.height - PartsTop - PanelPad;
@@ -409,6 +404,8 @@ namespace BitSorter.View
             Place(_dockPanel, _regions.Dock);
             Place(_status, _regions.Status);
             ScrollParts(0f);
+            ScrollHierarchy(0f);
+            PlaceTranscript();
             FitToolbar(Window.x);
         }
 

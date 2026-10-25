@@ -1662,6 +1662,34 @@ re-hosted in them, 11b-3 the popups moved into the shell.
   shots 1 to 31 and 33 to 36 identical; 32 and 37, the + SIGNAL list and the canvas's menu, drawn by the shell and
   looked at; two captures identical, the list's field holding the keyboard included.
 
+**As built in Part 11c**: the transcript and the hierarchy.
+
+- **The transcript** (`TranscriptView`, under dotnet): the document's diagnostics first, then the run's messages in time
+  order, appended as the run is made a slice at a time without reading the old ones again; a filter (ALL, ERRORS,
+  WARNINGS, MESSAGES), a search ignoring case, and counts of everything whatever is shown. It reads the document's and
+  the run's lists each frame and makes itself again only when either has changed.
+- **The dock's TRANSCRIPT tab**, beside WAVES, with its filters and search in the header where the waveform's buttons
+  were. **Each line says its severity in a word as well as a colour** -- ERROR in x's colour, WARNING in the second
+  cursor's, INFO quiet -- and a message its moment in the run's unit. **A click on a message seeks to its moment, paused;
+  a click on a diagnostic about a part or a wire of the circuit shown selects it alone** (Ahmad's choices), and the
+  inspector follows. The tab counts the errors. Only the rows the dock has room for are made, and the wheel moves
+  through the rest. The waves, their legend and their buttons step aside while it is shown.
+- **The hierarchy** (`HierarchyTree`, under dotnet), from `SignalIndex.Root`: the testbench, the design, its blocks
+  and generate blocks, never a library cell's scope nor a process's named block, each row opening and shutting on its
+  + and -. **A click on a scope adds its ports to the waveform as one group named by its path** -- `h1`, or the
+  module's name for the design itself -- and a scope with no ports adds what it declares (`WaveList.AddGroup`; a signal
+  already shown moves into the group). The dock then shows the waves.
+- **The parts panel has two tabs**, PARTS and DESIGN, where the plan put the hierarchy under the parts: the parts fill
+  the panel at 1080, and under them it would have been out of sight. The dock's tools start further right, past the
+  two tabs.
+- **Checked.** Under dotnet (`TranscriptTests`): the order and the counts; the filter and the search; a growing run
+  appended, and nothing new being no change; the full adder's hierarchy, never a cell, opening and shutting; and a
+  click on h1 making a group of its four ports, h1.s taken out of where it was. In Play Mode: a lone AND's open inputs
+  listed as warnings, said in a word, and a click on one selecting the AND for the inspector; ERRORS showing none;
+  the reference's $stop line seeking to its moment; and h1 clicked in the full adder's hierarchy adding its group, and
+  - shutting the design's row. Reference shot 38, new: the full adder's transcript beside its hierarchy. 27 to 37
+  differ in the parts panel's tabs and the dock's header alone.
+
 ---
 
 ## 11. The parts
@@ -1681,7 +1709,7 @@ Each part is one pull request into `v5`, ends with every suite green, and leaves
 | 8 | The canvas on the real document, still and moving layers drawn apart, and the looks with a Settings switch |
 | 9 | The waveform and run controls; the workbench's view-model in a Unity-free layer of its own |
 | 10 | Editing on the free canvas -- in four: 10a placement and selection **built** (see "As built in Part 10a"); 10b wiring **built**, drawn (10b-1) and reshaped (10b-2); 10c the inspector **built**; 10d copy, align and the minimap **built**; 10e what its browser smoke test found **built** |
-| 11 | The workbench shell, in UI Toolkit -- in four: 11a the bridges and the toolbar **built**; 11b the docked layout **built** -- its panels (11b-1), the inspector docked (11b-2), the popups in the shell (11b-3); 11c transcript and hierarchy, 11d the keyboard map and the docs to come |
+| 11 | The workbench shell, in UI Toolkit -- in four: 11a the bridges and the toolbar **built**; 11b the docked layout **built** -- its panels (11b-1), the inspector docked (11b-2), the popups in the shell (11b-3); 11c the transcript and the hierarchy **built**; 11d the keyboard map and the docs to come |
 | 12 | Hierarchy, and written blocks, edited in CodeMirror in a browser |
 | 13 | Export and import (and a levelized path in the engine, only if a measurement asks for it) |
 | 14 | The course's tools: path delays, static timing, gate-library mode, step tests, lint, tri-state |

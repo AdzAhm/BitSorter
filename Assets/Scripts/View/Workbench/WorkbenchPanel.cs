@@ -1379,6 +1379,8 @@ namespace BitSorter.View
             Light();
             DrawOverlay();
             RefreshInspector();
+            RefreshTranscript();
+            RefreshHierarchy();
 
             // The run is made a slice a frame until it is done, and a moment past where it has got waits;
             // an edit's replay is made beside it and takes over once it reaches the moment shown.
@@ -1708,6 +1710,7 @@ namespace BitSorter.View
 
             BuildStage(SchematicPalette.Current, view, wave);
             _stage.SetSiblingIndex(place);
+            ShowDockTab(_dockTab);
             RefreshDockButtons();
             ScrollWavesBy(0f);
             ApplyView();

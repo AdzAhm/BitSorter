@@ -354,6 +354,41 @@ namespace BitSorter.ViewModel
         }
 
         /// <summary>
+        /// The signals at <paramref name="signals"/> of the design put in one new group called <paramref name="name"/>
+        /// (Part 11c, a click on a scope of the hierarchy): those not in the list yet added at its end, those already in it
+        /// taken out of where they were. The group is where the first of them was, open and selected; null when none of
+        /// them is one the index lists.
+        /// </summary>
+        public WaveGroup AddGroup(string name, IEnumerable<int> signals)
+        {
+            var rows = new List<WaveSignal>();
+            foreach (int signal in signals)
+            {
+                string key = Index.KeyOf(signal);
+                if (key == null || !Index.IsListed(signal, includeCells: true))
+                    continue;
+                WaveSignal row = Find(key);
+                if (row == null)
+                {
+                    row = new WaveSignal(key) { Signal = signal };
+                    _items.Add(row);
+                }
+
+                if (!rows.Contains(row))
+                    rows.Add(row);
+            }
+
+            if (rows.Count == 0)
+                return null;
+
+            _selected.Clear();
+            foreach (WaveSignal row in rows)
+                _selected.Add(row);
+            _anchor = rows[0];
+            return GroupSelected(name);
+        }
+
+        /// <summary>
         /// Puts the selected signals into a new group called <paramref name="name"/>, where the first of
         /// them was, and selects it; null when no signal is selected. A signal already in a group leaves it.
         /// </summary>

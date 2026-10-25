@@ -251,5 +251,131 @@ namespace BitSorter.PlayMode.Tests
             Assert.Greater(workbench.PartsScroll, 0f, "the wheel down over the parts scrolled them");
             Assert.AreEqual(zoom, workbench.Zoom, "and nothing else: the circuit did not zoom");
         }
+
+        // -----------------------------------------------------------------
+        // The transcript and the hierarchy (Part 11c)
+        // -----------------------------------------------------------------
+
+        /// <summary>A click with the fixture's own mouse on a shell element called <paramref name="name"/>.</summary>
+        private IEnumerator ClickOn(string name)
+        {
+            VisualElement element = ShellPanel.Find<VisualElement>(name);
+            Assert.IsNotNull(element, $"no '{name}' in the shell");
+            Move(_mouse.position, ShellPanel.ScreenPointOf(element));
+            yield return null;
+            Press(_mouse.leftButton);
+            yield return null;
+            Release(_mouse.leftButton);
+            yield return null;
+            yield return null;
+        }
+
+        /// <summary>
+        /// A lone AND on MY CIRCUIT: the transcript lists what the document says of its pins not connected, each line
+        /// a warning in a word, and a click on one selects the AND, which the inspector then shows.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator TheTranscript_ListsWhatTheDocumentSays_AndAClickOnALineSelectsItsPart()
+        {
+            yield return OpenTheReference();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowSample(0);
+            yield return null;
+            WorkbenchSession session = workbench.Session;
+            BitSorter.Board.EditResult placed = session.Place(PartsCatalog.Find(session.Project, session.Module, "and"),
+                new BitSorter.Board.Placement(3, -2));
+            Assert.IsTrue(placed.Done, placed.Refusal);
+            yield return null;
+            yield return null;
+
+            yield return ClickOn(WorkbenchPanel.TranscriptTabName);
+            Assert.IsTrue(workbench.TranscriptShown, "a click on the tab shows the transcript");
+            Assert.IsNotEmpty(workbench.Transcript.Lines);
+            TranscriptLine first = workbench.Transcript.Lines[0];
+            Assert.AreEqual(TranscriptSeverity.Warning, first.Severity, "the AND's open input is a warning: " + first.Text);
+            StringAssert.Contains("not connected", first.Text);
+            Assert.AreEqual(placed.Id, first.Part, "about the AND");
+            Assert.AreEqual("WARNING", UnityEngine.UIElements.UQueryExtensions.Q<Label>(
+                ShellPanel.Find<VisualElement>(WorkbenchPanel.TranscriptRowName + "0"), "severity").text, "said in a word on its row");
+
+            yield return ClickOn(WorkbenchPanel.TranscriptRowName + "0");
+            Assert.IsTrue(workbench.Editor.Selection.HasPart(placed.Id), "a click on the line selects the AND");
+            yield return null;
+            StringAssert.StartsWith("AND ", workbench.InspectorTitle, "and the inspector shows it");
+
+            yield return ClickOn(WorkbenchPanel.TranscriptFilterName + TranscriptFilter.Errors);
+            Assert.IsEmpty(workbench.Transcript.Lines, "ERRORS: there are none");
+            yield return ClickOn(WorkbenchPanel.WavesTabName);
+            Assert.IsFalse(workbench.TranscriptShown, "and WAVES puts the waves back");
+        }
+
+        /// <summary>The reference's run stops on its testbench's $stop: the transcript says so at that moment, and a click on the line seeks there.</summary>
+        [UnityTest]
+        public IEnumerator AClickOnAMessage_SeeksToItsMoment()
+        {
+            yield return OpenTheReference();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.Seek(0.0);
+            workbench.ShowTranscript();
+            yield return null;
+            yield return null;
+
+            int line = -1;
+            for (int i = 0; i < workbench.Transcript.Lines.Count; i++)
+                if (workbench.Transcript.Lines[i].IsMessage)
+                {
+                    line = i;
+                    break;
+                }
+
+            Assert.GreaterOrEqual(line, 0, "sanity: the run said something -- its $stop");
+            long when = workbench.Transcript.Lines[line].Time;
+            Assert.Greater(when, 0L);
+
+            yield return ClickOn(WorkbenchPanel.TranscriptRowName + line);
+            Assert.AreEqual(when, workbench.Time, 1e-9, "the click sought to the moment the message was said");
+            Assert.IsFalse(workbench.Playing, "and left it paused there");
+        }
+
+        /// <summary>
+        /// The full adder's hierarchy in the DESIGN tab: its two half adders under the design; a click on h1 adds h1's four
+        /// ports to the waveform as one group called h1, and - shuts the design's row.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator AClickOnABlockInTheHierarchy_AddsItsPortsAsAGroup()
+        {
+            yield return OpenTheReference();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            int fullAdder = -1;
+            for (int i = 0; i < WorkbenchSamples.Chip.Count; i++)
+                if (WorkbenchSamples.Chip[i].Name.ToLowerInvariant().Contains("full adder"))
+                    fullAdder = i;
+            Assert.GreaterOrEqual(fullAdder, 0, "sanity: the full adder is a sample");
+            workbench.ShowSample(fullAdder);
+            workbench.Pause();
+            workbench.Session.Finish();
+            yield return null;
+            workbench.ShowTranscript();
+            yield return ClickOn(WorkbenchPanel.DesignTabName);
+            yield return null;
+
+            HierarchyTree tree = workbench.Hierarchy;
+            Assert.IsNotNull(tree);
+            int h1 = -1;
+            for (int i = 0; i < tree.Rows.Count; i++)
+                if (tree.Rows[i].Label == "h1 (half_adder)")
+                    h1 = i;
+            Assert.GreaterOrEqual(h1, 0, "h1 is in the tree: " + string.Join(", ", tree.Rows.Select(r => r.Label)));
+
+            yield return ClickOn(WorkbenchPanel.ScopeRowName + h1);
+            WaveGroup group = workbench.List.Lines.Where(l => l.IsHeader).Select(l => l.Group).FirstOrDefault(g => g.Name == "h1");
+            Assert.IsNotNull(group, "a group called h1");
+            Assert.AreEqual(4, group.Signals.Count, "of its four ports");
+            Assert.IsFalse(workbench.TranscriptShown, "and the dock shows the waves it was added to");
+
+            int design = tree.Rows.ToList().FindIndex(r => r.Node.Kind == ScopeNodeKind.Design);
+            yield return ClickOn(WorkbenchPanel.ScopeToggleName + design);
+            Assert.IsFalse(workbench.Hierarchy.Rows.Any(r => r.Node.Kind == ScopeNodeKind.Block), "- shut the design's row");
+        }
     }
 }
