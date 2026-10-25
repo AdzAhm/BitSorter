@@ -1494,6 +1494,12 @@ gesture of the brief's D3 and D4 is on the canvas.
   ends; and with nothing clear it stays the automatic route. Wires are routed in the module's order, each clear of
   those before it, so a wire added never moves one already there. A wire being drawn keeps clear of the same
   things (`WireDraft.PathTo`), so it is made where it was drawn. A route the student bent keeps its bends.
+- **The ports' rows keep the layout's order** (`WaveList.FollowPorts`): top to bottom, then left to right, which is
+  the order the rows come back in when a circuit is opened again, since the layout alone makes them then. A port
+  placed was given a row at the end, so a half adder built a, b, then y and z read a, b, y, z, and a, y, b, z after
+  a reload. Now a port's row goes where the layout puts it, and a port moved takes its row with it; the ports' rows
+  are put in order in the places they already hold, so the rows the student added, and a port's row in a group,
+  stay where they are.
 
 ---
 

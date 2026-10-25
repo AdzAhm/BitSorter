@@ -230,11 +230,17 @@ namespace BitSorter.ViewModel
         }
 
         /// <summary>
-        /// The rows following the document's ports through an edit (Part 10a): a port placed gets a row at the end,
-        /// unselected, and a port taken away loses its row, in a group or not. <paramref name="was"/> and
-        /// <paramref name="now"/> are the ports' keys before and after; rows the student added stay as they are.
-        /// True when the list changed.
+        /// The rows following the document's ports through an edit (Part 10a): a port placed gets a row, unselected, and
+        /// a port taken away loses its row, in a group or not. <paramref name="was"/> and <paramref name="now"/> are the
+        /// ports' keys before and after, <paramref name="now"/> in the layout's order. True when the list changed.
         /// </summary>
+        /// <remarks>
+        /// **The ports' rows keep the layout's order** (Part 10e), in the places ports' rows hold among the rest -- a new
+        /// port's row taking a new place at the end -- so they read as they will when the circuit is opened again, which
+        /// makes its rows from the layout alone. Rows the student added stay where they are, and so does a port's row
+        /// in a group. A port placed used to keep the place at the end, and a half adder built a, b, then y and z read
+        /// a, b, y, z, and a, y, b, z after a reload (the Part 10 browser smoke test).
+        /// </remarks>
         public bool FollowPorts(IReadOnlyCollection<string> was, IReadOnlyCollection<string> now)
         {
             var before = new HashSet<string>(was ?? Array.Empty<string>(), StringComparer.Ordinal);
@@ -263,6 +269,32 @@ namespace BitSorter.ViewModel
                     continue;
                 _items.Add(new WaveSignal(key) { Signal = Index.TryFind(key, out int found) ? found : -1 });
                 changed = true;
+            }
+
+            // The ports' rows put in the layout's order, in the places they hold.
+            var order = new Dictionary<string, int>(StringComparer.Ordinal);
+            foreach (string key in now ?? Array.Empty<string>())
+                if (!order.ContainsKey(key))
+                    order[key] = order.Count;
+            var places = new List<int>();
+            var rows = new List<WaveSignal>();
+            for (int i = 0; i < _items.Count; i++)
+            {
+                if (_items[i] is WaveSignal row && order.ContainsKey(row.Key))
+                {
+                    places.Add(i);
+                    rows.Add(row);
+                }
+            }
+
+            rows.Sort((p, q) => order[p.Key].CompareTo(order[q.Key]));
+            for (int i = 0; i < places.Count; i++)
+            {
+                if (!ReferenceEquals(_items[places[i]], rows[i]))
+                {
+                    _items[places[i]] = rows[i];
+                    changed = true;
+                }
             }
 
             if (changed)

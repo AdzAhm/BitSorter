@@ -630,6 +630,7 @@ namespace BitSorter.View
             _model = _run.Model;
             _playback.Refresh();
             KeepInPlace(before);
+            FollowPorts();
             _appliedSignals = new int[0];
             ApplyRows();
             RebuildStage(keepViews: true);
@@ -644,7 +645,10 @@ namespace BitSorter.View
             _editor?.Relaid();
         }
 
-        /// <summary>The waveform's rows following the ports through an edit, once a run that has them has taken over.</summary>
+        /// <summary>
+        /// The waveform's rows following the ports through an edit, once a run that has them has taken over, or a move
+        /// has laid them out again -- in the layout's order (<see cref="WaveList.FollowPorts"/>).
+        /// </summary>
         private void FollowPorts()
         {
             List<string> now = PortKeys(_model);
