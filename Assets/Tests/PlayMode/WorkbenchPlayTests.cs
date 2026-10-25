@@ -67,9 +67,19 @@ namespace BitSorter.PlayMode.Tests
 
         private static IEnumerator Click(string name)
         {
-            GameObject found = GameObject.Find(name);
-            Assert.IsNotNull(found, $"no '{name}' on screen");
-            found.GetComponent<Button>().onClick.Invoke();
+            // The workbench's toolbar is the shell's (Part 11a): a button there is pressed as Enter on it would.
+            UnityEngine.UIElements.Button shell = ShellPanel.Find<UnityEngine.UIElements.Button>(name);
+            if (shell != null)
+            {
+                ShellPanel.Submit(shell);
+            }
+            else
+            {
+                GameObject found = GameObject.Find(name);
+                Assert.IsNotNull(found, $"no '{name}' on screen");
+                found.GetComponent<Button>().onClick.Invoke();
+            }
+
             yield return null;
             yield return null;
         }
@@ -89,8 +99,8 @@ namespace BitSorter.PlayMode.Tests
 
         private static IEnumerator DragTo(float time)
         {
-            Slider slider = GameObject.Find(WorkbenchPanel.TimeSlider).GetComponent<Slider>();
-            slider.value = time;   // as a drag does: through onValueChanged
+            ShellSlider slider = ShellPanel.Find<ShellSlider>(WorkbenchPanel.TimeSlider);
+            slider.value = time;   // as a drag does: saying so
             yield return null;
             yield return null;
         }
@@ -186,6 +196,20 @@ namespace BitSorter.PlayMode.Tests
         {
             Assert.AreEqual(expected.x, actual.x, 0.5f, message + $" (across: {expected} against {actual})");
             Assert.AreEqual(expected.y, actual.y, 0.5f, message + $" (up and down: {expected} against {actual})");
+        }
+
+        /// <summary>
+        /// A key pressed while a shell field has the keyboard, as the platform hands one over: to UI Toolkit, which
+        /// reads the platform's keys, and to the Input System, which the test's keyboard is, in the same frame. The
+        /// test's keyboard alone never reaches UI Toolkit.
+        /// </summary>
+        private IEnumerator KeyToField(UnityEngine.UIElements.TextField field, KeyControl key, KeyCode code)
+        {
+            Press(key);
+            ShellPanel.SendKey(field, code);
+            yield return null;
+            Release(key);
+            yield return null;
         }
 
         private IEnumerator Tap(KeyControl key)
@@ -299,7 +323,7 @@ namespace BitSorter.PlayMode.Tests
 
             // A press on the slider, dragged on over the circuit, is the slider's and not a drag of the circuit.
             Vector2 dragged = workbench.ScreenPointOf(point);
-            Vector2 slider = RectTransformUtility.WorldToScreenPoint(null, GameObject.Find(WorkbenchPanel.TimeSlider).transform.position);
+            Vector2 slider = ShellPanel.ScreenPointOf(ShellPanel.Find<ShellSlider>(WorkbenchPanel.TimeSlider));
             Move(mouse.position, slider);
             yield return null;
             Press(mouse.leftButton);
@@ -428,8 +452,15 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsTrue(wave.Shows(workbench.Time), "with the playhead in view");
         }
 
-        private static bool Captioned(string button, string caption) =>
-            GameObject.Find(button).GetComponentsInChildren<TextMeshProUGUI>().Any(label => label.text == caption);
+        /// <summary>Whether a button says <paramref name="caption"/>: one of the shell's (Part 11a), or one of uGUI's.</summary>
+        private static bool Captioned(string button, string caption)
+        {
+            UnityEngine.UIElements.Button shell = ShellPanel.Find<UnityEngine.UIElements.Button>(button);
+            if (shell != null)
+                return shell.text == caption;
+            GameObject found = GameObject.Find(button);
+            return found != null && found.GetComponentsInChildren<TextMeshProUGUI>().Any(label => label.text == caption);
+        }
 
         /// <summary>
         /// SAMPLE, and S, step through the reference, the full adder and the counter and round again:
@@ -451,8 +482,8 @@ namespace BitSorter.PlayMode.Tests
             Assert.AreEqual(2, workbench.Sample, "SAMPLE should step to the full adder");
             Assert.AreNotSame(reference, workbench.Model, "a new sample is a run of its own");
             Assert.AreEqual(WorkbenchSamples.FullAdderEnd, workbench.Model.End, "the full adder's run");
-            Slider slider = GameObject.Find(WorkbenchPanel.TimeSlider).GetComponent<Slider>();
-            Assert.AreEqual(WorkbenchSamples.FullAdderEnd, slider.maxValue, 1e-6, "the slider should run the length of the new run");
+            ShellSlider slider = ShellPanel.Find<ShellSlider>(WorkbenchPanel.TimeSlider);
+            Assert.AreEqual(WorkbenchSamples.FullAdderEnd, slider.highValue, 1e-6, "the slider should run the length of the new run");
             Assert.IsTrue(workbench.Playing, "a new sample should play");
             Assert.Less(workbench.Time, 1.0, "from the start");
             Assert.IsTrue(workbench.Wave.IsFitted, "its waveform should show the whole of its run");
@@ -934,7 +965,7 @@ namespace BitSorter.PlayMode.Tests
 
             yield return Click(WorkbenchPanel.PlayButton);
             Assert.AreEqual(2 * end, workbench.Model.End, "PLAY at the $stop runs the run on, as long again");
-            Assert.AreEqual(2 * end, GameObject.Find(WorkbenchPanel.TimeSlider).GetComponent<Slider>().maxValue, 1e-6, "the slider with it");
+            Assert.AreEqual(2 * end, ShellPanel.Find<ShellSlider>(WorkbenchPanel.TimeSlider).highValue, 1e-6, "the slider with it");
             Assert.AreEqual(2.0 * end, workbench.Wave.Span, 1e-9, "and the waveform");
 
             yield return UntilItPauses(workbench);
@@ -1037,17 +1068,14 @@ namespace BitSorter.PlayMode.Tests
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             workbench.Pause();
-            TMP_InputField field = GameObject.Find(WorkbenchPanel.RunToField).GetComponent<TMP_InputField>();
-            RectTransform box = field.GetComponent<RectTransform>();
-            Canvas canvas = field.GetComponentInParent<Canvas>().rootCanvas;
-            Camera camera = canvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : canvas.worldCamera;
-            Vector2 centre = RectTransformUtility.WorldToScreenPoint(camera, box.TransformPoint(box.rect.center));
+            UnityEngine.UIElements.TextField field = ShellPanel.Find<UnityEngine.UIElements.TextField>(WorkbenchPanel.RunToField);
+            Vector2 centre = ShellPanel.ScreenPointOf(field);
 
             yield return ClickAt(centre);
             Assert.IsTrue(UiText.Typing, "sanity: a click on RUN TO should give it the keyboard");
 
-            field.text = "12";
-            yield return Tap(_keyboard.enterKey);
+            field.SetValueWithoutNotify("12");
+            yield return KeyToField(field, _keyboard.enterKey, KeyCode.Return);
             yield return null;
             Assert.AreEqual(12L, workbench.Playback.RunTo, "sanity: Enter should set RUN TO");
             Assert.IsFalse(UiText.Typing, "RUN TO kept the keyboard after Enter, and every workbench key with it");
@@ -1058,8 +1086,8 @@ namespace BitSorter.PlayMode.Tests
 
             yield return ClickAt(centre);
             Assert.IsTrue(UiText.Typing, "sanity: a second click on RUN TO should give it the keyboard");
-            field.text = "30";
-            yield return Tap(_keyboard.escapeKey);
+            field.SetValueWithoutNotify("30");
+            yield return KeyToField(field, _keyboard.escapeKey, KeyCode.Escape);
             yield return null;
             Assert.IsTrue(workbench.IsOpen, "the Escape that cancelled RUN TO closed the workbench as well");
             Assert.AreEqual(12L, workbench.Playback.RunTo, "Escape set what was typed");
@@ -1079,30 +1107,23 @@ namespace BitSorter.PlayMode.Tests
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             workbench.Pause();
-            TMP_InputField field = GameObject.Find(WorkbenchPanel.RunToField).GetComponent<TMP_InputField>();
-            RectTransform box = field.GetComponent<RectTransform>();
-            Canvas canvas = field.GetComponentInParent<Canvas>().rootCanvas;
-            Camera camera = canvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : canvas.worldCamera;
-            yield return ClickAt(RectTransformUtility.WorldToScreenPoint(camera, box.TransformPoint(box.rect.center)));
+            UnityEngine.UIElements.TextField field = ShellPanel.Find<UnityEngine.UIElements.TextField>(WorkbenchPanel.RunToField);
+            yield return ClickAt(ShellPanel.ScreenPointOf(field));
 
             // As typing leaves it: a time longer than the field, the caret after its last character.
-            field.text = "12.0000 ps";
-            field.caretPosition = field.text.Length;
-            field.ForceLabelUpdate();
+            field.SetValueWithoutNotify("12.0000 ps");
+            field.cursorIndex = field.selectIndex = field.text.Length;
             yield return null;
-            yield return Tap(_keyboard.enterKey);
+            yield return KeyToField(field, _keyboard.enterKey, KeyCode.Return);
             yield return null;
             yield return null;
 
             Assert.AreEqual(12L, workbench.Playback.RunTo, "sanity: Enter should set RUN TO");
             Assert.AreEqual("12", field.text, "sanity: the field shows the moment as a number");
 
-            TMP_Text text = field.textComponent;
-            text.ForceMeshUpdate();
-            Vector3 firstDigit = text.rectTransform.TransformPoint(text.textInfo.characterInfo[0].bottomLeft);
-            var viewport = new Vector3[4];
-            field.textViewport.GetWorldCorners(viewport);
-            Assert.GreaterOrEqual(firstDigit.x, viewport[0].x - 0.5f,
+            UnityEngine.UIElements.VisualElement box = UnityEngine.UIElements.UQueryExtensions.Q(field, className: UnityEngine.UIElements.TextField.inputUssClassName);
+            UnityEngine.UIElements.TextElement text = UnityEngine.UIElements.UQueryExtensions.Q<UnityEngine.UIElements.TextElement>(field);
+            Assert.GreaterOrEqual(text.worldBound.xMin, box.worldBound.xMin - 0.5f,
                 "the moment's first digit is cut off at the field's left edge: the field is still scrolled for the longer time typed");
         }
 

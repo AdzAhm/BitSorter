@@ -67,9 +67,19 @@ namespace BitSorter.PlayMode.Tests
 
         private static IEnumerator Click(string name)
         {
-            GameObject found = GameObject.Find(name);
-            Assert.IsNotNull(found, $"no '{name}' on screen");
-            found.GetComponent<Button>().onClick.Invoke();
+            // The workbench's toolbar is the shell's (Part 11a): a button there is pressed as Enter on it would.
+            UnityEngine.UIElements.Button shell = ShellPanel.Find<UnityEngine.UIElements.Button>(name);
+            if (shell != null)
+            {
+                ShellPanel.Submit(shell);
+            }
+            else
+            {
+                GameObject found = GameObject.Find(name);
+                Assert.IsNotNull(found, $"no '{name}' on screen");
+                found.GetComponent<Button>().onClick.Invoke();
+            }
+
             yield return null;
             yield return null;
         }

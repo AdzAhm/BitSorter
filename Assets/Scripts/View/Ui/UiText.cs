@@ -22,11 +22,18 @@ namespace BitSorter.View
     /// </remarks>
     public static class UiText
     {
-        /// <summary>Whether a text field holds the keyboard now.</summary>
+        /// <summary>
+        /// Whether a text field holds the keyboard now: a TextMesh Pro field the event system has selected, or a
+        /// field of the workbench's shell (Part 11a), which the event system never selects -- the shell is asked
+        /// itself (<see cref="ShellPanel.Typing"/>).
+        /// </summary>
         public static bool Typing
         {
             get
             {
+                if (ShellPanel.Typing)
+                    return true;
+
                 EventSystem events = EventSystem.current;
                 GameObject selected = events != null ? events.currentSelectedGameObject : null;
 

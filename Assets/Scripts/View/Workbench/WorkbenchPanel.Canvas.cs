@@ -240,7 +240,6 @@ namespace BitSorter.View
             _partsStrip.anchorMin = _partsStrip.anchorMax = new Vector2(0.5f, 1f);
             _partsStrip.pivot = new Vector2(1f, 1f);
             _partsStrip.sizeDelta = new Vector2(PartsWidth, entries.Count * (PartRowHeight + PartGap));
-            _partsStrip.SetSiblingIndex(_timeline.GetSiblingIndex() + 1);
 
             for (int i = 0; i < entries.Count; i++)
             {

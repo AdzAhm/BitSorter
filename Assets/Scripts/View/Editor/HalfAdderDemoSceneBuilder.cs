@@ -151,6 +151,11 @@ namespace BitSorter.View.EditorTools
 
             // 5.0's workbench preview, off the main menu. Builds nothing until it is first opened.
             WorkbenchPanel workbench = host.AddComponent<WorkbenchPanel>();
+
+            // The shell's typeface (Part 11a): UI Toolkit makes its own font asset from these, so they ship in the build.
+            ShellFonts shellFonts = host.AddComponent<ShellFonts>();
+            Assign(shellFonts, "_regular", AssetDatabase.LoadAssetAtPath<Font>("Assets/Fonts/IBMPlexSans/IBMPlexSans-Regular.ttf"));
+            Assign(shellFonts, "_bold", AssetDatabase.LoadAssetAtPath<Font>("Assets/Fonts/IBMPlexSans/IBMPlexSans-Bold.ttf"));
             CreditsPanel credits = host.AddComponent<CreditsPanel>();
             EndingPanel ending = host.AddComponent<EndingPanel>();
 

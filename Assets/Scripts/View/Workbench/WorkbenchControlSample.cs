@@ -44,6 +44,11 @@ namespace BitSorter.View
             if (events == null || mouse == null)
                 return false;
 
+            // The shell's controls (Part 11a): the event system sees its panel as one nameless object, so the
+            // panel is asked which of its elements is under the pointer.
+            if (ShellPanel.OverControlAt(mouse.position.ReadValue()))
+                return true;
+
             if (_probe == null)
                 _probe = new PointerEventData(events);
             _probe.Reset();

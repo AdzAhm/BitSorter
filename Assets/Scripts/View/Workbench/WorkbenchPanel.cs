@@ -267,9 +267,6 @@ namespace BitSorter.View
         /// <summary>Which of <see cref="WorkbenchSamples.Chip"/> is shown: 0 for MY CIRCUIT.</summary>
         private int _sample;
 
-        private RectTransform _header;
-        private RectTransform _controls;
-        private RectTransform _timeline;
         private RectTransform _stage;
         private RectTransform _page;
         private Image _scrollThumb;
@@ -301,10 +298,6 @@ namespace BitSorter.View
         private WaveExportMenu _exportMenu;
         private WaveSignalPicker _picker;
         private WaveRenameField _rename, _breakField;
-        private TMP_InputField _runToField;
-
-        /// <summary>The frame RUN TO was last finished with, until <see cref="ReleaseRunTo"/> has given the keyboard back; -1 for none.</summary>
-        private int _runToEndedFrame = -1;
 
         /// <summary>The input SET is asking a value for, how wide it is, and the stretch the value is for (Part 9b-3).</summary>
         private string _setPort;
@@ -334,7 +327,6 @@ namespace BitSorter.View
 
         /// <summary>The zoom the schematic's chunks were last drawn at.</summary>
         private float _drawnZoom = 1f;
-        private Slider _slider;
         private Button _fit;
 
         private SchematicView _viewState;
@@ -347,7 +339,6 @@ namespace BitSorter.View
 
         /// <summary>Whether the canvas is being dragged: its hover chip stays down meanwhile.</summary>
         private bool _dragging;
-        private TextMeshProUGUI _timeLabel, _chipLabel, _playLabel, _description, _sampleLabel, _speedLabel;
 
         private readonly List<TextMeshProUGUI> _digits = new List<TextMeshProUGUI>();
         private readonly List<TextMeshProUGUI> _swallowedLabels = new List<TextMeshProUGUI>();
@@ -374,15 +365,6 @@ namespace BitSorter.View
 
         /// <summary>Playing the run -- its speed, RUN TO, breakpoints and why it paused; null until the panel has first opened.</summary>
         public Playback Playback => _playback;
-
-        /// <summary>What the chip by the controls says now.</summary>
-        public string ChipText => _chipLabel != null ? _chipLabel.text : null;
-
-        /// <summary>What the speed between SLOWER and FASTER says now.</summary>
-        public string SpeedText => _speedLabel != null ? _speedLabel.text : null;
-
-        /// <summary>What the time label beside the slider says now: <c>t = 11.0 ns</c>.</summary>
-        public string MomentText => _timeLabel != null ? _timeLabel.text : null;
 
         /// <summary>The menu EXPORT opens; null until the panel has first opened.</summary>
         public WaveExportMenu ExportMenu => _exportMenu;
@@ -939,35 +921,8 @@ namespace BitSorter.View
                 _notice = why;
             }
 
-            if (_runToField != null)
-            {
-                _runToField.SetTextWithoutNotify(_playback.RunTo?.ToString(CultureInfo.InvariantCulture) ?? "");
-
-                // Typing scrolls the field's text left to keep the caret in view, and the shorter moment put
-                // back stayed scrolled -- 12 showed as ".2" in the browser. The text is put back at its start;
-                // the caret alone does not do it, since an unfocused field draws none to scroll to.
-                _runToField.MoveTextStart(false);
-                _runToField.textComponent.rectTransform.anchoredPosition = Vector2.zero;
-            }
+            ShowRunTo(_playback.RunTo?.ToString(CultureInfo.InvariantCulture) ?? "");
             Redraw();
-        }
-
-        /// <summary>
-        /// Gives the keyboard back once RUN TO is finished with, a frame after Enter or Escape finished it.
-        /// TextMesh Pro leaves a finished field selected, which <see cref="UiText"/> reads as typing, and
-        /// RUN TO stays on screen where every other field closes with its panel -- so every workbench key
-        /// stayed dead until a click somewhere else. Not in the frame it finished, or the Escape that
-        /// cancelled it would close the workbench as well, whichever of the two updated first.
-        /// </summary>
-        private void ReleaseRunTo()
-        {
-            if (_runToEndedFrame < 0 || UnityEngine.Time.frameCount <= _runToEndedFrame)
-                return;
-
-            _runToEndedFrame = -1;
-            UnityEngine.EventSystems.EventSystem events = UnityEngine.EventSystems.EventSystem.current;
-            if (events != null && events.currentSelectedGameObject == _runToField.gameObject && !_runToField.isFocused)
-                UiTheme.Defocus();
         }
 
         // -----------------------------------------------------------------
@@ -1407,8 +1362,7 @@ namespace BitSorter.View
         {
             _shownEnd = _model.End;
             MakeTexts();
-            if (_slider != null)
-                _slider.maxValue = _model.End;
+            SliderEnd(_model.End);
             if (_wave != null)
                 _wave.View.Extend(_model.End);
             _layers?.Extended();
@@ -1430,7 +1384,7 @@ namespace BitSorter.View
                 return;
 
             Fit();
-            ReleaseRunTo();
+            _shell.Opacity = Root.TryGetComponent(out CanvasGroup fading) ? fading.alpha : 1f;
 
             // Escape closes what is on top of the workbench first -- the row menu -- and the workbench only
             // when nothing is.
@@ -1521,7 +1475,18 @@ namespace BitSorter.View
                 _menu.Show(true);
         }
 
-        protected override void OnShown() => _scale = -1f;
+        protected override void OnShown()
+        {
+            _scale = -1f;
+            if (_shell != null)
+                _shell.Visible = true;
+        }
+
+        protected override void OnHidden()
+        {
+            if (_shell != null)
+                _shell.Visible = false;
+        }
 
         // -----------------------------------------------------------------
         // Building
@@ -1550,16 +1515,9 @@ namespace BitSorter.View
                     _keyHasShifted[i] |= bindings[j].Key == bindings[i].Key && bindings[j].Shift && bindings[j].Ctrl == bindings[i].Ctrl;
             }
 
-            BuildHeader(palette);
-            BuildControls(palette);
-            BuildTimeline(palette);
+            BuildToolbar(palette);
             BuildPartsStrip(palette);
             BuildStage(palette);
-
-            Button back = CanvasButton(BackButton, Root, "BACK", out TextMeshProUGUI _, UiType.Body, palette);
-            UiTheme.Anchor(back.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(1f, 1f),
-                new Vector2(-UiTheme.Margin, -UiTheme.Margin), new Vector2(BackWidth, UiTheme.ButtonHeight));
-            back.onClick.AddListener(() => { Back(); UiTheme.Defocus(); });
 
             TextMeshProUGUI help = UiTheme.Label("help", Root, UiTheme.HelpLineType, palette.TextDim, TextAlignmentOptions.Center);
             UiTheme.Anchor(help.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
@@ -1599,8 +1557,7 @@ namespace BitSorter.View
             _shownEnd = _model.End;
             _reasonText = null;
             _notice = null;
-            if (_runToField != null)
-                _runToField.SetTextWithoutNotify("");
+            ShowRunTo("");
             MakeTexts();
 
             // Its rows start as the layout's, one per port, each in its own radix, and no second cursor.
@@ -1632,18 +1589,8 @@ namespace BitSorter.View
             _reasonText = null;
             MakeTexts();
             Relabel();
-            if (_slider != null)
-                _slider.maxValue = _model.End;
+            SliderEnd(_model.End);
             RebuildStage(keepViews: true);
-        }
-
-        /// <summary>The words carrying the unit that are not made again with the stage: the speed, and RUN TO's.</summary>
-        private void Relabel()
-        {
-            if (_speedLabel != null)
-                SetText(_speedLabel, SpeedCaption(_speed, _model.Unit));
-            if (_runToField != null && _runToField.placeholder is TMP_Text placeholder)
-                placeholder.text = _model.Unit;
         }
 
         /// <summary>A model's default rows as a list: its layout's ports, by their keys.</summary>
@@ -1780,9 +1727,9 @@ namespace BitSorter.View
             RebuildStage(keepViews: false);
             BuildPartsStrip(SchematicPalette.Current);
 
-            _description.text = WorkbenchSamples.Chip[_sample].Says;
-            _sampleLabel.text = SampleCaption(_sample);
-            _slider.maxValue = _model.End;
+            SetText(_description, WorkbenchSamples.Chip[_sample].Says);
+            SetText(_sampleButton, SampleCaption(_sample));
+            SliderEnd(_model.End);
             FitView();
             Restart();
         }
@@ -1827,154 +1774,14 @@ namespace BitSorter.View
             Redraw();
         }
 
-        private void BuildHeader(SchematicPalette palette)
-        {
-            _header = TopStrip("header", TitleTop, 80f);
-
-            TextMeshProUGUI title = UiTheme.Label("title", _header, UiType.Heading, palette.Text);
-            TopLeft(title.rectTransform, new Vector2(0f, 0f), new Vector2(240f, 36f));
-            title.text = "WORKBENCH";
-            title.fontStyle = FontStyles.Bold;
-
-            float titleWidth = UiTheme.TextWidth(title.text, UiType.Heading) * 1.08f;
-
-            Image chip = CanvasChip("preview chip", _header, palette);
-            TopLeft(chip.rectTransform, new Vector2(titleWidth + 14f, 8f), new Vector2(86f, 24f));
-            TextMeshProUGUI chipText = UiTheme.Label("text", chip.transform, UiType.Micro, palette.Muted, TextAlignmentOptions.Center);
-            UiTheme.Stretch(chipText.rectTransform);
-            chipText.text = "PREVIEW";
-
-            // As wide as the header, which is as wide as the stage is drawn.
-            TextMeshProUGUI description = UiTheme.Label("description", _header, UiType.Label, palette.TextDim);
-            RectTransform line = description.rectTransform;
-            line.anchorMin = new Vector2(0f, 1f);
-            line.anchorMax = new Vector2(1f, 1f);
-            line.pivot = new Vector2(0f, 1f);
-            line.anchoredPosition = new Vector2(0f, -(DescriptionTop - TitleTop));
-            line.sizeDelta = new Vector2(0f, 24f);
-            description.text = WorkbenchSamples.Chip[_sample].Says;
-            _description = description;
-
-            // SAMPLE, at the header's right, over the line that describes the sample: short enough to
-            // leave that line its room, with its key beside it.
-            float sampleWidth = 0f;
-            for (int i = 0; i < WorkbenchSamples.Chip.Count; i++)
-                sampleWidth = Mathf.Max(sampleWidth, UiTheme.TextWidth(SampleCaption(i), UiType.Body));
-
-            Button sample = CanvasButton(SampleButton, _header, SampleCaption(_sample), out _sampleLabel, UiType.Body, palette);
-            KeyBeside(sample, "S", palette);
-            TopRight(sample.GetComponent<RectTransform>(), Vector2.zero, new Vector2(sampleWidth + 40f, SampleHeight));
-            sample.onClick.AddListener(() => { ShowSample(_sample + 1); UiTheme.Defocus(); });
-        }
-
         /// <summary>How tall SAMPLE is: short of the description line under it.</summary>
         private const float SampleHeight = 34f;
-
-        /// <summary>
-        /// The first row of the controls: RESTART, PLAY, STEP BACK and STEP, each with its key over it,
-        /// and the chip saying what the run is doing, or why playing stopped.
-        /// </summary>
-        private void BuildControls(SchematicPalette palette)
-        {
-            _controls = TopStrip("controls", ControlsTop, UiTheme.ButtonHeight);
-
-            Button Control(string name, string caption, string key, float x, float width, System.Action chosen, out TextMeshProUGUI label)
-            {
-                Button button = CanvasButton(name, _controls, caption, out label, UiType.Body, palette);
-                KeyOver(button, key, palette);
-                TopLeft(button.GetComponent<RectTransform>(), new Vector2(x, 0f), new Vector2(width, UiTheme.ButtonHeight));
-                button.onClick.AddListener(() => { chosen(); UiTheme.Defocus(); });
-                return button;
-            }
-
-            Control(RestartButton, "RESTART", "R", 0f, 120f, Restart, out _);
-            Control(PlayButton, "PAUSE", "SPACE", 132f, 110f, TogglePlay, out _playLabel);
-            Control(StepBackButton, "STEP BACK", ",", 254f, 120f, () => StepEdge(forward: false), out _);
-            Control(StepButton, "STEP", ".", 386f, 90f, () => StepEdge(forward: true), out _);
-
-            // The chip takes the row's room right of STEP: a refusal can run long -- "clk is a clock" --
-            // and its words shrink to fit before they are cut short.
-            Image chip = CanvasChip("chip", _controls, palette);
-            RectTransform chipRect = chip.rectTransform;
-            chipRect.anchorMin = new Vector2(0f, 1f);
-            chipRect.anchorMax = new Vector2(1f, 1f);
-            chipRect.pivot = new Vector2(0.5f, 1f);
-            chipRect.offsetMin = new Vector2(ChipLeft, -(9f + 26f));
-            chipRect.offsetMax = new Vector2(0f, -9f);
-            _chipLabel = UiTheme.Label("text", chip.transform, UiType.Caption, palette.TextDim, TextAlignmentOptions.Center);
-            UiTheme.Stretch(_chipLabel.rectTransform);
-            _chipLabel.enableAutoSizing = true;
-            _chipLabel.fontSizeMax = _chipLabel.fontSize;
-            _chipLabel.fontSizeMin = UiTheme.SizeOf(UiType.Micro);
-            _chipLabel.textWrappingMode = TextWrappingModes.NoWrap;
-            _chipLabel.overflowMode = TextOverflowModes.Ellipsis;
-        }
 
         /// <summary>Where the chip starts: past STEP, the last of the row's buttons, and its key's room.</summary>
         private const float ChipLeft = 500f;
 
         /// <summary>The second row's right-hand pieces: the speed between SLOWER and FASTER, and RUN TO's caption and field.</summary>
         private const float SpeedButtonWidth = 36f, SpeedLabelWidth = 96f, RunToCaptionWidth = 64f, RunToFieldWidth = 84f, TimeWidth = 136f, RowGap = 12f;
-
-        /// <summary>
-        /// The second row of the controls: the slider through the run, the speed between SLOWER and FASTER
-        /// with their keys beside them, the RUN TO field, and the moment it is at.
-        /// </summary>
-        private void BuildTimeline(SchematicPalette palette)
-        {
-            _timeline = TopStrip("timeline", TimelineTop, UiTheme.ButtonHeight);
-
-            // Right to left: the moment, RUN TO, the speed; the slider takes what is left.
-            float right = TimeWidth + RowGap;
-
-            TextMeshProUGUI runToCaption = UiTheme.Label("run to caption", _timeline, UiType.Caption, palette.TextDim, TextAlignmentOptions.MidlineRight);
-            TopRight(runToCaption.rectTransform, new Vector2(-(right + RunToFieldWidth + 6f), 0f), new Vector2(RunToCaptionWidth, UiTheme.ButtonHeight));
-            runToCaption.text = "RUN TO";
-
-            // A time with a unit or without -- 40, 40 ns, 1.5 us -- read in the run's unit (TimeText).
-            _runToField = CanvasField(RunToField, _timeline, palette, _model.Unit);
-            TopRight(_runToField.GetComponent<RectTransform>(), new Vector2(-right, 4f), new Vector2(RunToFieldWidth, UiTheme.ButtonHeight - 8f));
-            _runToField.contentType = TMP_InputField.ContentType.Standard;
-            _runToField.onSubmit.AddListener(SetRunTo);
-            _runToField.onEndEdit.AddListener(text =>
-            {
-                if (!_runToField.wasCanceled)
-                    SetRunTo(text);
-                _runToEndedFrame = UnityEngine.Time.frameCount;
-            });
-            right += RunToFieldWidth + 6f + RunToCaptionWidth + RowGap * 2f;
-
-            Button faster = CanvasButton(FasterButton, _timeline, "+", out TextMeshProUGUI _, UiType.Body, palette);
-            KeyAfter(faster, "]", palette);
-            TopRight(faster.GetComponent<RectTransform>(), new Vector2(-(right + KeyRoom), 4f), new Vector2(SpeedButtonWidth, UiTheme.ButtonHeight - 8f));
-            faster.onClick.AddListener(() => { ChangeSpeed(1); UiTheme.Defocus(); });
-            right += KeyRoom + SpeedButtonWidth;
-
-            _speedLabel = UiTheme.Label("speed", _timeline, UiType.Caption, palette.Text, TextAlignmentOptions.Center);
-            TopRight(_speedLabel.rectTransform, new Vector2(-right, 0f), new Vector2(SpeedLabelWidth, UiTheme.ButtonHeight));
-            _speedLabel.text = SpeedCaption(_speed, _model.Unit);
-            right += SpeedLabelWidth;
-
-            Button slower = CanvasButton(SlowerButton, _timeline, "-", out TextMeshProUGUI _, UiType.Body, palette);
-            KeyBeside(slower, "[", palette);
-            TopRight(slower.GetComponent<RectTransform>(), new Vector2(-right, 4f), new Vector2(SpeedButtonWidth, UiTheme.ButtonHeight - 8f));
-            slower.onClick.AddListener(() => { ChangeSpeed(-1); UiTheme.Defocus(); });
-            right += SpeedButtonWidth + KeyRoom + RowGap;
-
-            _slider = UiTheme.Slider_(TimeSlider, _timeline, 0, (int)_model.End);
-            InCanvasColours(_slider, palette);
-            _slider.wholeNumbers = false;
-            RectTransform sliderRect = _slider.GetComponent<RectTransform>();
-            sliderRect.anchorMin = new Vector2(0f, 0f);
-            sliderRect.anchorMax = new Vector2(1f, 1f);
-            sliderRect.pivot = new Vector2(0.5f, 0.5f);
-            sliderRect.offsetMin = new Vector2(0f, 0f);
-            sliderRect.offsetMax = new Vector2(-right, 0f);
-            _slider.onValueChanged.AddListener(value => { Pause(); Seek(value); });
-
-            _timeLabel = UiTheme.Label("time", _timeline, UiType.Body, palette.Text, TextAlignmentOptions.MidlineRight);
-            TopRight(_timeLabel.rectTransform, Vector2.zero, new Vector2(TimeWidth, UiTheme.ButtonHeight));
-        }
 
         private void BuildStage(SchematicPalette palette, SchematicView keepView = null, WaveView keepWave = null)
         {
@@ -2199,8 +2006,7 @@ namespace BitSorter.View
 
         private void RefreshPlayLabel()
         {
-            if (_playLabel != null)
-                SetText(_playLabel, Playing ? "PAUSE" : "PLAY");
+            SetText(_playButton, Playing ? "PAUSE" : "PLAY");
         }
 
         /// <summary>
@@ -2326,9 +2132,7 @@ namespace BitSorter.View
 
             _scale = scale;
             _stage.localScale = new Vector3(scale, scale, 1f);
-            _header.sizeDelta = new Vector2(StageWidth * scale, _header.sizeDelta.y);
-            _controls.sizeDelta = new Vector2(StageWidth * scale, _controls.sizeDelta.y);
-            _timeline.sizeDelta = new Vector2(StageWidth * scale, _timeline.sizeDelta.y);
+            FitToolbar(StageWidth * scale);
             PlacePartsStrip();
             PlaceMinimap();
 
@@ -2416,13 +2220,6 @@ namespace BitSorter.View
             return button;
         }
 
-        /// <summary>A button's key in a cap just over it, in the canvas's colours, as the 4.x HUD draws RUN's.</summary>
-        private static void KeyOver(Button button, string key, SchematicPalette palette)
-        {
-            RectTransform cap = KeyCap(button, key, palette);
-            UiTheme.Anchor(cap, new Vector2(0.5f, 1f), new Vector2(0.5f, 0f), new Vector2(0f, 4f), cap.sizeDelta);
-        }
-
         /// <summary>
         /// A single-line text field in the canvas's colours: an outlined box, a masked area for the text
         /// to scroll in, the text and a quiet <paramref name="placeholder"/> -- the pieces
@@ -2463,13 +2260,6 @@ namespace BitSorter.View
             UiTheme.Anchor(cap, new Vector2(0f, 0.5f), new Vector2(1f, 0.5f), new Vector2(-6f, 0f), cap.sizeDelta);
         }
 
-        /// <summary>A button's key in a cap just right of it: FASTER's, whose pair has its key on the left.</summary>
-        private static void KeyAfter(Button button, string key, SchematicPalette palette)
-        {
-            RectTransform cap = KeyCap(button, key, palette);
-            UiTheme.Anchor(cap, new Vector2(1f, 0.5f), new Vector2(0f, 0.5f), new Vector2(6f, 0f), cap.sizeDelta);
-        }
-
         /// <summary>The room a key's cap beside a button takes, gap included.</summary>
         private const float KeyRoom = 34f;
 
@@ -2505,25 +2295,6 @@ namespace BitSorter.View
             inside.sprite = ProceduralSprites.Panel(PanelStyle.Filled);
             inside.raycastTarget = false;
             UiTheme.Stretch(inside.rectTransform, EdgeWidth);
-        }
-
-        /// <summary>The time slider as the reference draws it: the playhead's colour up to the moment shown, an outline's grey after, a thumb in the text colour.</summary>
-        private static void InCanvasColours(Slider slider, SchematicPalette palette)
-        {
-            slider.fillRect.GetComponent<Image>().color = palette.Playhead;
-            slider.handleRect.GetComponent<Image>().color = palette.Text;
-            slider.transform.Find("track").GetComponent<Image>().color = palette.Outline;
-        }
-
-        /// <summary>A strip across the top of the screen, as wide as the stage is drawn, for the header and the controls.</summary>
-        private RectTransform TopStrip(string name, float top, float height)
-        {
-            RectTransform strip = UiTheme.Rect(name, Root);
-            strip.anchorMin = strip.anchorMax = new Vector2(0.5f, 1f);
-            strip.pivot = new Vector2(0.5f, 1f);
-            strip.anchoredPosition = new Vector2(0f, -top);
-            strip.sizeDelta = new Vector2(StageWidth, height);
-            return strip;
         }
 
         /// <summary>A label on the stage, its pivot at <paramref name="at"/> (stage units, y down) as its alignment says.</summary>

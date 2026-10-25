@@ -128,6 +128,11 @@ namespace BitSorter.View
             if (events == null || mouse == null)
                 return false;
 
+            // The workbench's shell (Part 11a) is a UI Toolkit panel: asked itself, rather than trusted to the
+            // event system's raycaster for it.
+            if (ShellPanel.OverAnyAt(mouse.position.ReadValue()))
+                return true;
+
             if (_probe == null)
                 _probe = new PointerEventData(events);
 
