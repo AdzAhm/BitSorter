@@ -8,8 +8,8 @@ namespace BitSorter.View
     /// <summary>
     /// The workbench's toolbar, in the shell (Part 11a): the title and SAMPLE, the run's controls and the chip that says
     /// what the run is doing, and the timeline -- the slider, the speed and RUN TO. The first of the shell's panels, and
-    /// the one its bridges are proved on (<see cref="ShellPanel"/>). Until the docked layout (Part 11b) it stands where
-    /// the uGUI rows stood, as wide as the stage is drawn.
+    /// the one its bridges are proved on (<see cref="ShellPanel"/>). Across the window, over the docked panels (Part 11b),
+    /// the header stopping short of BACK.
     /// </summary>
     public sealed partial class WorkbenchPanel
     {
@@ -49,26 +49,27 @@ namespace BitSorter.View
             _shell.Root.Add(back);
         }
 
-        /// <summary>A strip across the top of the screen, centred, as wide as the stage is drawn (<see cref="FitToolbar"/>).</summary>
+        /// <summary>A strip across the top of the window, in from its edges (<see cref="FitToolbar"/>).</summary>
         private VisualElement Strip(string name, float top, float height)
         {
-            VisualElement strip = ShellTheme.Box(name, 0f, top, StageWidth, height);
-            strip.style.left = new Length(50f, LengthUnit.Percent);
-            strip.style.marginLeft = -StageWidth * 0.5f;
+            VisualElement strip = ShellTheme.Box(name, UiTheme.Margin, top, 0f, height);
             _shell.Root.Add(strip);
             return strip;
         }
 
-        /// <summary>The strips made as wide as the stage is drawn at <paramref name="width"/>, as the uGUI rows were.</summary>
-        private void FitToolbar(float width)
+        /// <summary>
+        /// The strips made as wide as a window <paramref name="window"/> wide leaves them: the controls and the timeline its
+        /// whole width in from the edges, the header short of BACK, which stands beside it.
+        /// </summary>
+        private void FitToolbar(float window)
         {
-            foreach (VisualElement strip in new[] { _header, _controls, _timeline })
-            {
-                if (strip == null)
-                    continue;
-                strip.style.width = width;
-                strip.style.marginLeft = -width * 0.5f;
-            }
+            float width = Mathf.Max(0f, window - 2f * UiTheme.Margin);
+            if (_header != null)
+                _header.style.width = Mathf.Max(0f, width - BackWidth - UiTheme.Margin);
+            if (_controls != null)
+                _controls.style.width = width;
+            if (_timeline != null)
+                _timeline.style.width = width;
         }
 
         private void BuildHeader(SchematicPalette palette)
@@ -87,7 +88,7 @@ namespace BitSorter.View
             chip.Add(chipText);
             _header.Add(chip);
 
-            // As wide as the header, which is as wide as the stage is drawn.
+            // As wide as the header.
             _description = ShellTheme.Label("description", WorkbenchSamples.Chip[_sample].Says, UiType.Label, palette.TextDim);
             ShellTheme.Place(_description, 0f, DescriptionTop - TitleTop, -1f, 24f);
             _header.Add(_description);
@@ -125,11 +126,12 @@ namespace BitSorter.View
             Control(StepBackButton, "STEP BACK", ",", 254f, 120f, () => StepEdge(forward: false));
             Control(StepButton, "STEP", ".", 386f, 90f, () => StepEdge(forward: true));
 
-            // The chip takes the row's room right of STEP: a refusal can run long -- "clk is a clock" -- and is cut
-            // short with an ellipsis rather than spilling.
+            // The chip takes the row's room right of STEP, as far as a sentence needs: a refusal can run long -- "clk is a
+            // clock" -- and is cut short with an ellipsis rather than spilling.
             VisualElement chip = ShellTheme.Chip("chip", palette);
             ShellTheme.Place(chip, ChipLeft, 9f, -1f, 26f);
             chip.style.right = 0f;
+            chip.style.maxWidth = ChipMostWidth;
             _chipLabel = ShellTheme.Label("text", "", UiType.Caption, palette.TextDim, TextAnchor.MiddleCenter);
             _chipLabel.style.flexGrow = 1f;
             ShellTheme.Ellipsis(_chipLabel);

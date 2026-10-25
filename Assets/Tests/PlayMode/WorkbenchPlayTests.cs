@@ -1290,7 +1290,7 @@ namespace BitSorter.PlayMode.Tests
             Assert.AreEqual("1.6 fs/s", workbench.SpeedText);
             Assert.AreEqual("t = 11.0 fs", workbench.MomentText, "the moment, where it was");
             StringAssert.EndsWith(" fs", workbench.Model.Layout.Parts.First(p => p.Delay.Length > 0).Delay, "and the gates' delays");
-            Assert.AreEqual("UNIT: fs", GameObject.Find(WaveformView.UnitButton).GetComponentInChildren<TMP_Text>().text);
+            Assert.AreEqual("UNIT: fs", ShellPanel.Find<UnityEngine.UIElements.Button>(WaveformView.UnitButton).text, "and the button says so");
 
             yield return Tap(_keyboard.uKey);
             yield return UntilReplayed(workbench);

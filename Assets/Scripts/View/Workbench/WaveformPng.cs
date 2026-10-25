@@ -53,7 +53,7 @@ namespace BitSorter.View
         /// the time <paramref name="window"/> shows, with <paramref name="cursors"/> and
         /// <paramref name="breakpoints"/>, as a PNG in Schematic Light.
         /// </summary>
-        public static byte[] Render(WorkbenchModel model, IReadOnlyList<string> names, IReadOnlyList<bool> headers, WaveNames namesStyle,
+        public static byte[] Render(WorkbenchModel model, IReadOnlyList<string> names, IReadOnlyList<bool> headers,
             WaveView window, string playheadText, WaveCursors cursors, Breakpoints breakpoints)
         {
             SchematicPalette palette = SchematicPalette.Light;
@@ -91,7 +91,7 @@ namespace BitSorter.View
 
                 var layers = new WorkbenchLayers(model, cursors, breakpoints);
                 var wave = new WaveformView(model, layers, page, new Vector2(Margin, Margin), Width / Scale - 2f * Margin, palette, names,
-                    headers: headers, namesStyle: namesStyle, toolbar: false);
+                    headers: headers);
                 if (window != null)
                     wave.View.Match(window);
 

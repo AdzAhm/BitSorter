@@ -60,7 +60,7 @@ namespace BitSorter.View
     /// read from one table (<see cref="WorkbenchKeys"/>), which refuses a key the rest of the game or
     /// a browser owns: Space plays or pauses, R plays again from the start, period and comma step to
     /// the next edge and the one before, the brackets play slower and faster, S steps to the next
-    /// sample, the arrows step through time, plus and minus zoom, F fits, up and down move the page, X
+    /// sample, the arrows step through time, plus and minus zoom, F fits, up and down scroll the waves, X
     /// and Delete the rows, C the second cursor.
     ///
     /// **The controls are two rows** (Part 9b-3): RESTART, PLAY, STEP BACK and STEP, with the chip that
@@ -147,57 +147,24 @@ namespace BitSorter.View
             speed >= Playback.InstantSpeed ? "INSTANT" : Playback.Speeds[speed].ToString("0.###", CultureInfo.InvariantCulture) + " " + unit + "/s";
 
         // -----------------------------------------------------------------
-        // The stage: the card holding the schematic and the waveform, in its own units
+        // The drawings, each in its own panel of the docked layout (Part 11b)
         // -----------------------------------------------------------------
 
         /// <summary>
-        /// The narrowest the stage is, and where the schematic sits on it. The narrowest is the waveform's: its row of
-        /// buttons is some 850 wide since EXPORT (9b-4), and the legend's words end near 870, so 760 ran both past
-        /// the card's edge on MY CIRCUIT blank, the first stage that narrow (Part 10a). A Play Mode test holds it.
+        /// The least room the fit leaves round the circuit's drawing in its window, which centres it: what its corner sat at
+        /// when the window was sized round it (Part 8 to Part 10).
         /// </summary>
-        public const float MinStageWidth = 900f;
+        private static readonly Vec2 CircuitHome = new Vec2(16f, 10f);
 
-        /// <inheritdoc cref="MinStageWidth"/>
-        public static readonly Vector2 SchematicAt = new Vector2(20f, 14f);
-
-        /// <summary>
-        /// The stage's width: room for the schematic as its document was laid out when it opened, and never less
-        /// than the waveform's. An edit never resizes it (Part 10a): the circuit's window keeps its size and the
-        /// circuit zooms and pans inside it.
-        /// </summary>
-        private float StageWidth => _model == null ? MinStageWidth : Mathf.Max(MinStageWidth, _openedDrawing.x + 2f * SchematicAt.x);
-
-        /// <summary>Where the waveform sits: under the schematic, as tall as it was when its document opened.</summary>
-        private Vector2 WaveformAt => new Vector2(5f, SchematicAt.y + (_model == null ? EmptyDrawing.y : _openedDrawing.y) + 14f);
-
-        /// <summary>The window the schematic is seen through: the card above the waveform, inside its edge.</summary>
-        private static readonly Vector2 ViewAt = new Vector2(4f, 4f);
-
-        /// <inheritdoc cref="ViewAt"/>
-        private Vector2 ViewSize => new Vector2(StageWidth - 2f * ViewAt.x, WaveformAt.y - 2f * ViewAt.y);
-
-        /// <summary>The waveform's width: the stage's, less its margin either side.</summary>
-        private float WaveWidth => StageWidth - 2f * WaveformAt.x;
-
-        private float StageHeight =>
-            WaveformAt.y + WaveformView.HeightFor(_model == null ? 0 : _model.RowCount) + WorkbenchDrawing.LegendHeight;
-
-        /// <summary>
-        /// The height the page is fitted to the window by: the stage's with the rows it opened with, or the waveform's
-        /// own controls last made (<see cref="RowsChanged"/>). An edit on the circuit never rescales the page (Part 10):
-        /// a port placed puts a row on the waveform, and fitted to the stage as it grew, the whole page shrank by a row
-        /// and the board moved under the pointer. A row past those the page has room for scrolls it instead. Rows asked
-        /// for -- + SIGNAL, Alt and a click on a wire, a group opened -- fit it again, so they are seen.
-        /// </summary>
-        private float FitHeight =>
-            WaveformAt.y + WaveformView.HeightFor(_model == null ? 0 : _fitRows) + WorkbenchDrawing.LegendHeight;
+        /// <summary>Where the waveform sits in the waves' window: a little in from its left edge, and from its top.</summary>
+        private static readonly Vector2 WavesAt = new Vector2(5f, 4f);
 
         /// <summary>The legend's names for the four values, and what the rings and crosses mean.</summary>
         public const string LegendText = "A digit on a wire is a change travelling along it; a cross is one swallowed on the way. Double-click an input to change it.";
 
         private static readonly string[] LegendNames = { "0", "1", "x", "z" };
 
-        /// <summary>Where the title, its line, the controls and the stage start, from the top of the screen.</summary>
+        /// <summary>Where the title, its line, the controls and the docked panels start, from the top of the screen.</summary>
         private const float TitleTop = 22f;
 
         /// <inheritdoc cref="TitleTop"/>
@@ -213,21 +180,6 @@ namespace BitSorter.View
 
         /// <inheritdoc cref="TitleTop"/>
         private const float StageTop = TimelineTop + UiTheme.ButtonHeight + 14f;
-
-        /// <summary>
-        /// The least the stage is drawn at. Its words are sized for 1, and a browser tab 1920 by 800,
-        /// fitted, took every delay and row name to under ten units; shorter than that, the page scrolls.
-        /// </summary>
-        public const float MinStageScale = 1f;
-
-        /// <summary>How far one notch of the wheel, or one press of up or down, moves a page that scrolls.</summary>
-        public const float ScrollStep = 60f;
-
-        /// <summary>
-        /// Room kept under the stage for the help's two lines, clear of the card's foot. Two more pixels than the one
-        /// line had, the lines set lower: twenty more and the legend at the card's foot scrolled off a 1080 page.
-        /// </summary>
-        private const float BottomRoom = 78f;
 
         private const float BackWidth = 120f;
 
@@ -267,10 +219,14 @@ namespace BitSorter.View
         /// <summary>Which of <see cref="WorkbenchSamples.Chip"/> is shown: 0 for MY CIRCUIT.</summary>
         private int _sample;
 
+        /// <summary>The drawings under the shell's panels, at their own size: the whole window, never scaled (Part 11b).</summary>
         private RectTransform _stage;
-        private RectTransform _page;
-        private Image _scrollThumb;
-        private float _overflow, _pageScroll;
+
+        /// <summary>The waves' window, which clips them, what scrolls inside it, the bar that says how far, and how far it is.</summary>
+        private RectTransform _wavesClip, _wavesContent;
+        private Image _wavesThumb;
+        private float _wavesScroll, _wavesWidth = -1f;
+
         private RectTransform _view;
         private RectTransform _schematic;
         private WaveformView _wave;
@@ -322,7 +278,7 @@ namespace BitSorter.View
         private bool[] _keyHasShifted;
         private RectTransform _rings;
 
-        private WorkbenchGraphic _card;
+        private WorkbenchGraphic _legend;
         private WorkbenchLayers _layers;
 
         /// <summary>The zoom the schematic's chunks were last drawn at.</summary>
@@ -342,9 +298,6 @@ namespace BitSorter.View
 
         private readonly List<TextMeshProUGUI> _digits = new List<TextMeshProUGUI>();
         private readonly List<TextMeshProUGUI> _swallowedLabels = new List<TextMeshProUGUI>();
-
-        /// <summary>The scale the stage was last drawn at, so the edges' smoothing is redone only when it changes.</summary>
-        private float _scale = -1f;
 
         // Text, made once: a frame of playback formats nothing.
         private string[] _timeTexts, _playheadTexts, _inFlightTexts;
@@ -539,8 +492,8 @@ namespace BitSorter.View
                 case WorkbenchCommand.ZoomIn: ZoomAboutTheMiddle(1); break;
                 case WorkbenchCommand.ZoomOut: ZoomAboutTheMiddle(-1); break;
                 case WorkbenchCommand.Fit: FitView(); break;
-                case WorkbenchCommand.PageUp: ScrollPageBy(-ScrollStep); break;
-                case WorkbenchCommand.PageDown: ScrollPageBy(ScrollStep); break;
+                case WorkbenchCommand.PageUp: ScrollWavesBy(-WorkbenchDrawing.RowHeight); break;
+                case WorkbenchCommand.PageDown: ScrollWavesBy(WorkbenchDrawing.RowHeight); break;
                 case WorkbenchCommand.Radix: StepRadix(); break;
                 case WorkbenchCommand.ClearCursor:
                     if (_cursors.Clear())
@@ -578,7 +531,7 @@ namespace BitSorter.View
 
         private void ZoomAboutTheMiddle(int notches)
         {
-            if (_viewState != null && _viewState.ZoomAbout((ViewSize * 0.5f).ToStage(), notches))
+            if (_viewState != null && _viewState.ZoomAbout(_viewState.Window * 0.5f, notches))
                 ApplyView();
         }
 
@@ -653,7 +606,7 @@ namespace BitSorter.View
                 {
                     // Below and right of the pointer, kept inside the window.
                     RectTransform chip = _hoverChip.rectTransform;
-                    float x = Mathf.Min(inView.x + 14f, ViewSize.x - chip.sizeDelta.x - 4f);
+                    float x = Mathf.Min(inView.x + 14f, _view.rect.width - chip.sizeDelta.x - 4f);
                     chip.anchoredPosition = new Vector2(Mathf.Max(4f, x), -(inView.y + 18f));
                 }
             }
@@ -1025,17 +978,13 @@ namespace BitSorter.View
         /// <summary>Opens the export menu under EXPORT, as the button and E do.</summary>
         public void OpenExportMenu()
         {
-            if (_exportMenu == null || _stage == null)
+            if (_exportMenu == null || _shell == null)
                 return;
 
             Vector2 at = Mouse.current != null ? Mouse.current.position.ReadValue() : Vector2.zero;
-            Transform button = _stage.Find("waveform toolbar/" + WaveformView.ExportButton);
-            if (button != null)
-            {
-                var corners = new Vector3[4];
-                ((RectTransform)button).GetWorldCorners(corners);
-                at = corners[0];
-            }
+            UnityEngine.UIElements.VisualElement button = UnityEngine.UIElements.UQueryExtensions.Q(_shell.Root, WaveformView.ExportButton);
+            if (button != null && button.panel != null)
+                at = ShellPanel.ScreenRectOf(button).min;
 
             _exportMenu.Open(at);
         }
@@ -1062,7 +1011,7 @@ namespace BitSorter.View
 
             string name = WaveExport.FileName(WorkbenchSamples.Chip[_sample].Name, "png");
             int step = Mathf.Clamp(Mathf.RoundToInt((float)(_model.Time * 10.0)), 0, _playheadTexts.Length - 1);
-            byte[] bytes = WaveformPng.Render(_model, _appliedNames, _appliedHeaders, _list.Names, _wave.View, _playheadTexts[step],
+            byte[] bytes = WaveformPng.Render(_model, _appliedNames, _appliedHeaders, _wave.View, _playheadTexts[step],
                 _cursors, _playback.Breakpoints);
             Notice("saved " + name + " " + FileSaver.Save(name, bytes, "image/png"));
             return name;
@@ -1477,7 +1426,7 @@ namespace BitSorter.View
 
         protected override void OnShown()
         {
-            _scale = -1f;
+            _laidWindow = new Vector2(-1f, -1f);
             if (_shell != null)
                 _shell.Visible = true;
         }
@@ -1516,31 +1465,46 @@ namespace BitSorter.View
             }
 
             BuildToolbar(palette);
-            BuildPartsStrip(palette);
+            BuildDock(palette);
+            BuildPartsPanel(palette);
+            Fit();
             BuildStage(palette);
+            RefreshDockButtons();
 
-            TextMeshProUGUI help = UiTheme.Label("help", Root, UiTheme.HelpLineType, palette.TextDim, TextAlignmentOptions.Center);
-            UiTheme.Anchor(help.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
-                new Vector2(0f, 14f), new Vector2(1300f, 2f * UiTheme.HelpLineHeight));
-            help.text = HelpLine;
-            help.textWrappingMode = TextWrappingModes.NoWrap;
-            help.enableAutoSizing = true;   // a line that runs long shrinks a little rather than spills past its box
-            help.fontSizeMax = help.fontSize;
-            help.fontSizeMin = UiTheme.SizeOf(UiType.Label);
-
-            // Over everything else on the workbench, when it is up.
-            _rowMenu = WaveRowMenu.Build(Root, palette, ChooseRadix, RowAction);
-            _timeMenu = WaveTimeMenu.Build(Root, palette, TimeAction);
-            _exportMenu = WaveExportMenu.Build(Root, palette, Export);
-            _picker = WaveSignalPicker.Build(Root, palette, AddSignal);
-            _rename = WaveRenameField.Build(Root, palette, RenameRow);
-            _breakField = WaveRenameField.Build(Root, palette, BreakOnValue, WaveRenameField.BreakValueName, "BREAK ON VALUE",
+            // Over everything else on the workbench, when it is up -- the shell's panels included, which the popups'
+            // own canvas is sorted over (PopupLayer) until they are the shell's.
+            RectTransform popups = PopupLayer();
+            _rowMenu = WaveRowMenu.Build(popups, palette, ChooseRadix, RowAction);
+            _timeMenu = WaveTimeMenu.Build(popups, palette, TimeAction);
+            _exportMenu = WaveExportMenu.Build(popups, palette, Export);
+            _picker = WaveSignalPicker.Build(popups, palette, AddSignal);
+            _rename = WaveRenameField.Build(popups, palette, RenameRow);
+            _breakField = WaveRenameField.Build(popups, palette, BreakOnValue, WaveRenameField.BreakValueName, "BREAK ON VALUE",
                 "1, 4'b1010, 'hA or x");
-            _setField = WaveRenameField.Build(Root, palette, SetInputValue, WaveRenameField.SetValueName, "SET", "1, 4'b1010, 'hA or x");
-            _inspector = InspectorPopover.Build(Root, palette, ApplyInspector);
-            _canvasMenu = CanvasMenu.Build(Root, palette, CanvasMenuDo);
+            _setField = WaveRenameField.Build(popups, palette, SetInputValue, WaveRenameField.SetValueName, "SET", "1, 4'b1010, 'hA or x");
+            _inspector = InspectorPopover.Build(popups, palette, ApplyInspector);
+            _canvasMenu = CanvasMenu.Build(popups, palette, CanvasMenuDo);
 
             Root.gameObject.SetActive(false);
+        }
+
+        /// <summary>How far over the shell the popups' canvas is sorted: under the frame-rate counter all the same.</summary>
+        public const int PopupSortingOver = 10;
+
+        /// <summary>
+        /// A layer over the whole workbench for its popups -- the menus, the + SIGNAL list, the fields and the inspector --
+        /// on a canvas of its own sorted over the shell (Part 11b). They are uGUI and the shell draws over the game's
+        /// canvas, so a menu opened by the dock was drawn under the dock's buttons, and a click there was the button's.
+        /// </summary>
+        private RectTransform PopupLayer()
+        {
+            RectTransform layer = UiTheme.Rect("popups", Root);
+            UiTheme.Stretch(layer);
+            var canvas = layer.gameObject.AddComponent<Canvas>();
+            canvas.overrideSorting = true;
+            canvas.sortingOrder = ShellPanel.SortingOrder + PopupSortingOver;
+            layer.gameObject.AddComponent<GraphicRaycaster>();
+            return layer;
         }
 
         /// <summary>
@@ -1643,13 +1607,12 @@ namespace BitSorter.View
 
         /// <summary>
         /// The list changed by the waveform's own controls: the rows are given to the model, and the stage built again
-        /// round them if they are new, and the page fitted to them (<see cref="FitHeight"/>).
+        /// round them if they are new.
         /// </summary>
         private void RowsChanged()
         {
-            if (ApplyRows() && _page != null)
+            if (ApplyRows() && _stage != null)
             {
-                _fitRows = _model.RowCount;
                 RebuildStage(keepViews: true);
             }
             else
@@ -1725,7 +1688,7 @@ namespace BitSorter.View
             _setField.Close();
             OpenRun();
             RebuildStage(keepViews: false);
-            BuildPartsStrip(SchematicPalette.Current);
+            BuildPartsPanel(SchematicPalette.Current);
 
             SetText(_description, WorkbenchSamples.Chip[_sample].Says);
             SetText(_sampleButton, SampleCaption(_sample));
@@ -1745,12 +1708,12 @@ namespace BitSorter.View
 
             // Out of sight at once, though it is destroyed only at the end of the frame, so nothing
             // finds two of anything meanwhile.
-            int place = _page.GetSiblingIndex();
-            _page.gameObject.SetActive(false);
+            int place = _stage.GetSiblingIndex();
+            _stage.gameObject.SetActive(false);
             if (Application.isPlaying)
-                Destroy(_page.gameObject);
+                Destroy(_stage.gameObject);
             else
-                DestroyImmediate(_page.gameObject);
+                DestroyImmediate(_stage.gameObject);
 
             _digits.Clear();
             _swallowedLabels.Clear();
@@ -1760,16 +1723,12 @@ namespace BitSorter.View
             _bandsVersion = -1;
             _dragging = false;
             if (!keepViews)
-                _pageScroll = 0f;
-            _overflow = 0f;
+                _wavesScroll = 0f;
 
             BuildStage(SchematicPalette.Current, view, wave);
-            _page.SetSiblingIndex(place);
-
-            // The stage may be another size: fitted again, header and controls with it.
-            _scale = -1f;
-            Fit();
-            ScrollPageBy(0f);
+            _stage.SetSiblingIndex(place);
+            RefreshDockButtons();
+            ScrollWavesBy(0f);
             ApplyView();
             Redraw();
         }
@@ -1777,47 +1736,31 @@ namespace BitSorter.View
         /// <summary>How tall SAMPLE is: short of the description line under it.</summary>
         private const float SampleHeight = 34f;
 
-        /// <summary>Where the chip starts: past STEP, the last of the row's buttons, and its key's room.</summary>
-        private const float ChipLeft = 500f;
+        /// <summary>Where the chip starts: past STEP, the last of the row's buttons, and its key's room; and the most it takes.</summary>
+        private const float ChipLeft = 500f, ChipMostWidth = 640f;
 
         /// <summary>The second row's right-hand pieces: the speed between SLOWER and FASTER, and RUN TO's caption and field.</summary>
         private const float SpeedButtonWidth = 36f, SpeedLabelWidth = 96f, RunToCaptionWidth = 64f, RunToFieldWidth = 84f, TimeWidth = 136f, RowGap = 12f;
 
         private void BuildStage(SchematicPalette palette, SchematicView keepView = null, WaveView keepWave = null)
         {
-            // The page the stage is seen through, under the controls: it clips the stage and scrolls it
-            // when the window is too short for it at its own size (Fit).
-            _page = UiTheme.Rect("page", Root);
-            _page.anchorMin = Vector2.zero;
-            _page.anchorMax = Vector2.one;
-            _page.offsetMin = new Vector2(0f, BottomRoom);
-            _page.offsetMax = new Vector2(0f, -StageTop);
-            _page.gameObject.AddComponent<RectMask2D>();
-
-            _stage = UiTheme.Rect("stage", _page);
-            _stage.anchorMin = _stage.anchorMax = new Vector2(0.5f, 1f);
-            _stage.pivot = new Vector2(0.5f, 1f);
-            _stage.anchoredPosition = Vector2.zero;
-            _stage.sizeDelta = new Vector2(StageWidth, StageHeight);
-
-            // Where a page that scrolls is: a thin bar down the right, there only when it scrolls.
-            _scrollThumb = UiTheme.Panel_("scroll", _page, palette.Muted);
-            _scrollThumb.sprite = null;
-            _scrollThumb.raycastTarget = false;
-            _scrollThumb.rectTransform.anchorMin = _scrollThumb.rectTransform.anchorMax = new Vector2(1f, 1f);
-            _scrollThumb.rectTransform.pivot = new Vector2(1f, 1f);
-            Show(_scrollThumb, false);
-
-            _card = Layer("card", _stage, WorkbenchGraphic.Layer.Card, Vector2.zero, new Vector2(StageWidth, StageHeight));
+            // The drawings, each under the panel that frames it (PlaceStage), at their own size: a small window gives
+            // them less room, never smaller words.
+            _stage = UiTheme.Rect("stage", Root);
+            UiTheme.Stretch(_stage);
 
             SchematicLayout layout = _model.Layout;
 
             // The window the circuit is seen through, which clips whatever a zoom or a drag takes
             // past its edges.
+            Rect2 circuit = _regions.Circuit;
             _view = UiTheme.Rect("schematic view", _stage);
-            TopLeft(_view, ViewAt, ViewSize);
+            TopLeft(_view, CornerOf(circuit), SizeOf(circuit));
             _view.gameObject.AddComponent<RectMask2D>();
-            _viewState = keepView ?? new SchematicView(ViewSize.ToStage(), (SchematicAt - ViewAt).ToStage(), layout.Size);
+            var window = new Vec2(circuit.width, circuit.height);
+            _viewState = keepView ?? new SchematicView(window, CircuitHome, layout.Size, Blank(layout));
+            _viewState.Blank = Blank(layout);
+            _viewState.Resize(window);
 
             _schematic = UiTheme.Rect("schematic", _view);
             TopLeft(_schematic, _viewState.Offset.ToUnity(), layout.Size.ToUnity());
@@ -1848,16 +1791,49 @@ namespace BitSorter.View
             UiTheme.Stretch(_hoverLabel.rectTransform, 10f);
             Show(_hoverChip, false);
 
-            _wave = new WaveformView(_model, _layers, _stage, WaveformAt, WaveWidth, palette, _appliedNames, keepWave, _appliedHeaders, Do,
-                _list.Names);
+            // The waves' window, which clips them, and the rows inside it, which the wheel over the names scrolls.
+            Rect2 waves = _regions.Waves;
+            _wavesClip = UiTheme.Rect("waves", _stage);
+            TopLeft(_wavesClip, CornerOf(waves), SizeOf(waves));
+            _wavesClip.gameObject.AddComponent<RectMask2D>();
+            _wavesContent = UiTheme.Rect("rows", _wavesClip);
+            TopLeft(_wavesContent, Vector2.zero, new Vector2(waves.width, WavesAt.y + WorkbenchDrawing.WaveHeight(_model.RowCount)));
+            _wavesWidth = waves.width;
+            _wave = new WaveformView(_model, _layers, _wavesContent, WavesAt, waves.width - 2f * WavesAt.x, palette, _appliedNames, keepWave,
+                _appliedHeaders, clip: _wavesClip);
 
-            // The legend's words; its swatches are the card's.
-            float legend = WorkbenchDrawing.LegendMiddle(StageHeight);
+            // Where waves that scroll are: a thin bar down the window's right, there only when they do.
+            _wavesThumb = UiTheme.Panel_("scroll", _stage, palette.Muted);
+            _wavesThumb.sprite = null;
+            _wavesThumb.raycastTarget = false;
+            Show(_wavesThumb, false);
+
+            // The legend at the dock's foot: its swatches drawn, its words over them.
+            Rect2 legend = _regions.Legend;
+            _legend = Layer("legend", _stage, WorkbenchGraphic.Layer.Legend, CornerOf(legend), SizeOf(legend));
+            var words = (RectTransform)_legend.transform;
+            float middle = legend.height * 0.5f;
             for (int i = 0; i < LegendNames.Length; i++)
-                StageLabel(_stage, LegendNames[i], new Vector2(WorkbenchDrawing.LegendNameX(i), legend),
+                StageLabel(words, LegendNames[i], new Vector2(WorkbenchDrawing.LegendNameX(i), middle),
                     UiType.Micro, palette.TextDim, TextAlignmentOptions.MidlineLeft, 20f);
-            StageLabel(_stage, LegendText, new Vector2(WorkbenchDrawing.LegendTextX, legend),
-                UiType.Micro, palette.TextDim, TextAlignmentOptions.MidlineLeft, StageWidth - WorkbenchDrawing.LegendTextX - 16f);
+            StageLabel(words, LegendText, new Vector2(WorkbenchDrawing.LegendTextX, middle),
+                UiType.Micro, palette.TextDim, TextAlignmentOptions.MidlineLeft, Mathf.Max(0f, legend.width - WorkbenchDrawing.LegendTextX - 16f));
+        }
+
+        /// <summary>
+        /// The drawings moved under the panels as they are laid out now (<see cref="Fit"/>), nothing built again: the
+        /// circuit's window made another size and the view with it, the waves' window, the legend and the minimap.
+        /// </summary>
+        private void PlaceStage()
+        {
+            Rect2 circuit = _regions.Circuit, waves = _regions.Waves, legend = _regions.Legend;
+            TopLeft(_view, CornerOf(circuit), SizeOf(circuit));
+            _viewState.Resize(new Vec2(circuit.width, circuit.height));
+            TopLeft(_wavesClip, CornerOf(waves), SizeOf(waves));
+            TopLeft((RectTransform)_legend.transform, CornerOf(legend), SizeOf(legend));
+            ScrollWavesBy(0f);
+            ApplyView();
+            Redraw();
         }
 
         private WorkbenchGraphic Layer(string name, RectTransform parent, WorkbenchGraphic.Layer draws, Vector2 at, Vector2 size)
@@ -2106,88 +2082,51 @@ namespace BitSorter.View
         }
 
         // -----------------------------------------------------------------
-        // Fitting the stage to the window
+        // The waves' rows, scrolled
         // -----------------------------------------------------------------
 
-        /// <summary>
-        /// Scales the stage to the room the window leaves under the controls, and lines the header
-        /// and controls up with it.
-        /// </summary>
-        private void Fit()
-        {
-            // The parts strip stands left of the stage (Part 10a): room is kept for it on both sides, so the stage
-            // stays in the middle and never covers it.
-            var room = new Vector2(Root.rect.width - 4f * UiTheme.Margin - 2f * (PartsWidth + PartsGap), _page.rect.height);
-            float scale = StageScale(room, new Vector2(StageWidth, FitHeight));
+        /// <summary>How far the waves' rows are scrolled, and how far they can be: their height past their window's.</summary>
+        public float WavesScroll => _wavesScroll;
 
-            float overflow = Overflow(room.y, StageHeight, scale);
-            if (!Mathf.Approximately(overflow, _overflow))
-            {
-                _overflow = overflow;
-                ScrollPageBy(0f);
-            }
-
-            if (Mathf.Approximately(scale, _scale))
-                return;
-
-            _scale = scale;
-            _stage.localScale = new Vector3(scale, scale, 1f);
-            FitToolbar(StageWidth * scale);
-            PlacePartsStrip();
-            PlaceMinimap();
-
-            // The edges' smoothing is a pixel wide, and how many units a pixel is just changed.
-            _card.SetVerticesDirty();
-            _layers.Refresh(all: true);
-        }
+        /// <inheritdoc cref="WavesScroll"/>
+        public float WavesOverflow => _wavesClip == null ? 0f : Mathf.Max(0f, _wavesContent.rect.height - _wavesClip.rect.height);
 
         /// <summary>
-        /// The scale the stage is drawn at in <paramref name="room"/>: as large as fits, but never under
-        /// <see cref="MinStageScale"/> for the height -- a page too short for the stage scrolls instead.
+        /// A turn of the wheel over the waves' window off the time axis -- the names and the values -- scrolls the rows a row
+        /// a notch, when there are more than the window shows. True when they moved.
         /// </summary>
-        public static float StageScale(Vector2 room, Vector2 stage) =>
-            Mathf.Max(0.1f, Mathf.Min(room.x / stage.x, Mathf.Max(MinStageScale, room.y / stage.y)));
-
-        /// <summary>How much of a stage <paramref name="stageHeight"/> tall, drawn at <paramref name="scale"/>, a page <paramref name="room"/> tall cannot show.</summary>
-        public static float Overflow(float room, float stageHeight, float scale) => Mathf.Max(0f, stageHeight * scale - room);
-
-        /// <summary>How far the page is scrolled, and how far it can be.</summary>
-        public float PageScroll => _pageScroll;
-
-        /// <inheritdoc cref="PageScroll"/>
-        public float PageOverflow => _overflow;
-
-        /// <summary>A turn of the wheel off the circuit: moves a page that scrolls, a notch at a time. True when it moved.</summary>
         public bool TakeScroll(Vector2 screenPoint, Vector2 scroll)
         {
-            if (_overflow <= 0f || Mathf.Abs(scroll.y) < 0.01f || _page == null ||
-                !RectTransformUtility.RectangleContainsScreenPoint(_page, screenPoint, null))
+            if (Mathf.Abs(scroll.y) < 0.01f || _wavesClip == null ||
+                !RectTransformUtility.RectangleContainsScreenPoint(_wavesClip, screenPoint, null))
             {
                 return false;
             }
 
-            return ScrollPageBy(scroll.y > 0f ? -ScrollStep : ScrollStep);
+            return ScrollWavesBy(scroll.y > 0f ? -WorkbenchDrawing.RowHeight : WorkbenchDrawing.RowHeight);
         }
 
-        /// <summary>Moves the page by <paramref name="units"/>, within what it can scroll, and its bar with it. True when it moved.</summary>
-        private bool ScrollPageBy(float units)
+        /// <summary>Moves the rows by <paramref name="units"/>, within what they can scroll, and the bar with them. True when they moved.</summary>
+        private bool ScrollWavesBy(float units)
         {
-            if (_page == null)
+            if (_wavesClip == null)
                 return false;
 
-            float scroll = Mathf.Clamp(_pageScroll + units, 0f, _overflow);
-            bool moved = !Mathf.Approximately(scroll, _pageScroll);
-            _pageScroll = scroll;
-            _stage.anchoredPosition = new Vector2(0f, _pageScroll);
+            float overflow = WavesOverflow;
+            float scroll = Mathf.Clamp(_wavesScroll + units, 0f, overflow);
+            bool moved = !Mathf.Approximately(scroll, _wavesScroll);
+            _wavesScroll = scroll;
+            _wavesContent.anchoredPosition = new Vector2(0f, _wavesScroll);
 
-            bool scrolls = _overflow > 0.5f;
-            Show(_scrollThumb, scrolls);
+            bool scrolls = overflow > 0.5f;
+            Show(_wavesThumb, scrolls);
             if (scrolls)
             {
-                float room = _page.rect.height;
-                float thumb = Mathf.Max(24f, room * room / (room + _overflow));
-                _scrollThumb.rectTransform.sizeDelta = new Vector2(4f, thumb);
-                _scrollThumb.rectTransform.anchoredPosition = new Vector2(-UiTheme.Margin, -(room - thumb) * (_pageScroll / _overflow));
+                Rect2 waves = _regions.Waves;
+                float room = waves.height;
+                float thumb = Mathf.Max(24f, room * room / (room + overflow));
+                TopLeft(_wavesThumb.rectTransform, new Vector2(waves.xMax - 8f, waves.y + (room - thumb) * (_wavesScroll / overflow)),
+                    new Vector2(4f, thumb));
             }
 
             return moved;

@@ -1569,6 +1569,45 @@ hierarchy, 11d the keyboard map and the docs).
   to 37 differ in the toolbar's band alone, drawn by UI Toolkit and looked at beside the uGUI one; two captures of the
   same code identical, all 37.
 
+**As built in Part 11b-1**: the docked layout. 11b is three pull requests: 11b-1 the panels, 11b-2 the inspector
+re-hosted in them, 11b-3 the popups moved into the shell.
+
+- **Where each panel is, as a rule under dotnet** (`ShellLayout`, `ShellRegions`, in the view-model): under the
+  toolbar, the parts panel down the left and the side panel down the right, each a fixed width; the circuit's window
+  between them; the splitter; the dock, the window's whole width -- its header, the waves, the legend at its foot; and
+  the status line, two lines of help until the keyboard map. **Panels keep their size in a small window** (Ahmad's
+  choice): the circuit and the waves take what is left. **The dock's height is the student's**, dragged on the
+  splitter, held between a header, a row or two of waves and the legend, and what leaves the circuit 160; kept in
+  `Preferences` on release (`workbench.dock`), 370 until then -- the reference circuit's nine rows.
+- **The stage is no longer one card scaled to the window.** Each drawing is placed, at its own size, under the panel
+  that frames it, and moved when the layout changes, nothing built again (`PlaceStage`); only a change in the waves'
+  width builds the waveform again. Gone: `StageScale`, `FitHeight`, `MinStageScale`, `MinStageWidth`, `Overflow`,
+  the page and its scroll, and the card, whose outline the panels' frames replace and whose legend is a layer of its
+  own (`WorkbenchGraphic.Layer.Legend`). A panel's middle takes no clicks, so a press on the circuit or the waves goes
+  through the shell to them.
+- **The circuit's window is resized, not rebuilt** (`SchematicView.Resize`): a view at the fit is the fit of the new
+  window, any other keeps its zoom and its corner. **The fit centres the drawing** in a window that is now larger than
+  it -- **except a blank one** (`SchematicView.Blank`), which starts at the window's top-left corner as a page does:
+  centred, a half adder built from MY CIRCUIT blank down and to the right ran off the window's foot.
+- **The waves scroll in a window that clips them**: the wheel over the names and the values moves the rows a row a
+  notch, up and down and the page keys too, and a point outside the window is over none of them
+  (`WaveformView`'s clip). The waveform's buttons -- + SIGNAL, GROUP, NAMES, UNIT, EXPORT -- are the dock header's, in
+  the shell, beside a WAVES tab that 11c gives a neighbour.
+- **The parts panel** files the catalogue under PORTS, GATES, MORE and BLOCKS (`CatalogEntry.Group`), three to a row
+  and a block to a row of its own, and scrolls under the wheel when it is shorter than they are. **The minimap is at
+  the side panel's foot**, which 11b-2 gives the quick fields above it.
+- **The popups are on a canvas of their own** (`PopupLayer`), sorted over the shell: a uGUI menu is drawn under a UI
+  Toolkit panel, and the canvas's menu, opened low on the circuit, ran under the dock's buttons, which took its clicks.
+  11b-3 moves them into the shell and this layer goes.
+- **The toolbar spans the window**, its header short of BACK, and the chip takes no more than it needs.
+- **Checked.** `ShellLayoutTests` (7) under dotnet, and the panel's headings (`CanvasTests`). `WorkbenchDockPlayTests`
+  (6): the circuit's window, the waves and the legend exactly where their panels are; the splitter dragged with the
+  fixture's own mouse, the dock taller by the drag, the circuit fitted to its new window, the height kept; the wheel
+  over the names of a short dock scrolling the rows; the dock's buttons and the legend inside the dock; every part
+  inside its panel, and a click taking AND in hand; and the panel scrolling under the wheel. Edit Mode 1346 (the
+  stage's scale test is `ShellLayoutTests` now). Reference shots 1 to 26 identical; 27 to 37 the new layout, each
+  looked at.
+
 ---
 
 ## 11. The parts
@@ -1588,7 +1627,7 @@ Each part is one pull request into `v5`, ends with every suite green, and leaves
 | 8 | The canvas on the real document, still and moving layers drawn apart, and the looks with a Settings switch |
 | 9 | The waveform and run controls; the workbench's view-model in a Unity-free layer of its own |
 | 10 | Editing on the free canvas -- in four: 10a placement and selection **built** (see "As built in Part 10a"); 10b wiring **built**, drawn (10b-1) and reshaped (10b-2); 10c the inspector **built**; 10d copy, align and the minimap **built**; 10e what its browser smoke test found **built** |
-| 11 | The workbench shell, in UI Toolkit -- in four: 11a the bridges and the toolbar **built**; 11b the docked layout, 11c transcript and hierarchy, 11d the keyboard map and the docs to come |
+| 11 | The workbench shell, in UI Toolkit -- in four: 11a the bridges and the toolbar **built**; 11b the docked layout -- its panels **built** (11b-1), the inspector and the popups to come; 11c transcript and hierarchy, 11d the keyboard map and the docs to come |
 | 12 | Hierarchy, and written blocks, edited in CodeMirror in a browser |
 | 13 | Export and import (and a levelized path in the engine, only if a measurement asks for it) |
 | 14 | The course's tools: path delays, static timing, gate-library mode, step tests, lint, tri-state |

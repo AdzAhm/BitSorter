@@ -7,9 +7,9 @@ namespace BitSorter.ViewModel
     /// </summary>
     /// <remarks>
     /// In the window's own units, y down from its top-left corner, as the stage is written. A zoom of 1 is
-    /// the drawing at its own size. **Fitted** is the whole drawing where the window was built to show it
-    /// (<see cref="Home"/>), at its own size -- or, once an edit has grown it past the window, smaller, as
-    /// much as it needs (Part 10). The wheel zooms about the point under the cursor, in to
+    /// the drawing at its own size. **Fitted** is the whole drawing in the middle of the window, at least
+    /// <see cref="Home"/> in from its edges, at its own size -- or, once it has outgrown the window, smaller,
+    /// as much as it needs (Part 10). The wheel zooms about the point under the cursor, in to
     /// <see cref="MaxZoom"/> and out past the fit to <see cref="MinZoom"/>, for room to place a part beside
     /// what is there. A drag moves it as far as the drawing and <see cref="Room"/> round it, never so far
     /// that the window's middle is off both: a circuit dragged out of sight is a window that looks empty.
@@ -17,6 +17,12 @@ namespace BitSorter.ViewModel
     /// **An edit never moves what is on screen.** The drawing grows and shrinks with the circuit, and its
     /// corner with it; <see cref="Relayout"/> takes the shift back out of the offset, so every part stays
     /// under the pointer that placed it.
+    ///
+    /// **The window is the docked layout's** (Part 11b), whatever the drawing's size, so the fit centres the
+    /// drawing in it -- except a drawing with nothing in it yet (<see cref="Blank"/>), which starts at the window's
+    /// top-left corner as a page does, so a circuit built from it down and to the right stays in sight. A window made
+    /// another size by the splitter or the screen (<see cref="Resize"/>) keeps the zoom and what is at its corner --
+    /// or, a view that was the fit, is the fit of the new window.
     /// </remarks>
     public sealed class SchematicView
     {
@@ -32,16 +38,23 @@ namespace BitSorter.ViewModel
         /// <summary>How far past the drawing's edge a drag may take the window's middle, in the drawing's own units: six cells.</summary>
         public const float Room = 6f * DocumentSchematic.Cell;
 
-        public SchematicView(Vec2 window, Vec2 home, Vec2 drawing)
+        public SchematicView(Vec2 window, Vec2 home, Vec2 drawing, bool blank = false)
         {
             Window = window;
             Home = home;
             Drawing = drawing;
+            Blank = blank;
             Fit();
         }
 
+        /// <summary>
+        /// Whether the drawing has nothing in it yet: its fit is then at <see cref="Home"/>, the window's top-left corner,
+        /// rather than its middle. Set as an edit empties the drawing or puts the first thing in it; it moves nothing.
+        /// </summary>
+        public bool Blank { get; set; }
+
         /// <summary>The window's size.</summary>
-        public Vec2 Window { get; }
+        public Vec2 Window { get; private set; }
 
         /// <summary>Where the drawing's top-left corner sits when it is fitted at its own size.</summary>
         public Vec2 Home { get; }
@@ -70,15 +83,11 @@ namespace BitSorter.ViewModel
             }
         }
 
-        /// <summary>Where the fit puts the drawing's corner: at home at its own size, centred in the room when smaller.</summary>
-        public Vec2 FitOffset
-        {
-            get
-            {
-                float zoom = FitZoom;
-                return zoom == 1f ? Home : Home + (Window - Home * 2f - Drawing * zoom) * 0.5f;
-            }
-        }
+        /// <summary>
+        /// Where the fit puts the drawing's corner: centred in the room the window keeps for it, at home when it fills
+        /// that room -- or when it is <see cref="Blank"/>.
+        /// </summary>
+        public Vec2 FitOffset => Blank ? Home : Home + (Window - Home * 2f - Drawing * FitZoom) * 0.5f;
 
         /// <summary>Whether it is the fit: the whole circuit, where it belongs.</summary>
         public bool IsFitted => Zoom == FitZoom && Offset == FitOffset;
@@ -116,6 +125,20 @@ namespace BitSorter.ViewModel
 
             Keep();
             return Offset != before || Zoom != wasZoom;
+        }
+
+        /// <summary>
+        /// The window made <paramref name="window"/> (Part 11b): the zoom and the drawing's corner stay where they were,
+        /// as far as the window's middle stays on the drawing -- or, a view that was the fit, is the new window's fit.
+        /// </summary>
+        public void Resize(Vec2 window)
+        {
+            bool fitted = IsFitted;
+            Window = window;
+            if (fitted)
+                Fit();
+            else
+                Keep();
         }
 
         /// <summary>Moves the drawing by <paramref name="delta"/>. True when it moved.</summary>

@@ -10,6 +10,9 @@ namespace BitSorter.ViewModel
     /// <summary>What a catalogue entry places.</summary>
     public enum CatalogKind { Input, Output, Clock, Reset, Constant, Gate, Mux, Register, Splitter, Joiner, Lamp, Block }
 
+    /// <summary>The headings the parts panel files its entries under (Part 11b), in the order it shows them.</summary>
+    public enum CatalogGroup { Ports, Gates, More, Blocks }
+
     /// <summary>One entry of the parts strip: what it is called there, and the part it places.</summary>
     public sealed class CatalogEntry
     {
@@ -29,6 +32,13 @@ namespace BitSorter.ViewModel
         public string Label { get; }
 
         public CatalogKind Kind { get; }
+
+        /// <summary>The heading it is filed under: the ports and what drives them, the gates, the larger parts, the blocks.</summary>
+        public CatalogGroup Group =>
+            Kind == CatalogKind.Gate ? CatalogGroup.Gates
+            : Kind == CatalogKind.Block ? CatalogGroup.Blocks
+            : Kind <= CatalogKind.Constant ? CatalogGroup.Ports
+            : CatalogGroup.More;
 
         /// <summary>For a gate, which.</summary>
         public EngineGate Gate { get; }

@@ -275,30 +275,10 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
-        /// MY CIRCUIT blank stands on the narrowest stage there is, and the waveform's buttons and the legend's sentence
-        /// still fit on it: how narrow a stage may be is set by them, never by the circuit.
-        /// </summary>
-        [UnityTest]
-        public IEnumerator OnTheNarrowestStage_TheWaveformsButtonsAndTheLegend_StayOnIt()
-        {
-            yield return TestScene.Load();
-            yield return OpenMyCircuit();
-
-            RectTransform stage = GameObject.Find(WorkbenchPanel.RootName).GetComponentsInChildren<RectTransform>(true).First(r => r.name == "stage");
-            Rect on = WorldRect(stage);
-            Button[] buttons = stage.GetComponentsInChildren<Button>();
-            Assert.IsNotEmpty(buttons, "sanity: the waveform's buttons are on the stage");
-            foreach (Button button in buttons)
-                Assert.LessOrEqual(WorldRect(button.GetComponent<RectTransform>()).xMax, on.xMax + 0.5f, $"'{button.name}' runs past the stage's right edge");
-
-            TMP_Text legend = stage.GetComponentsInChildren<TMP_Text>().First(t => t.text == WorkbenchPanel.LegendText);
-            Assert.LessOrEqual(legend.preferredWidth, legend.rectTransform.rect.width + 0.5f, "the legend's sentence runs past its box");
-        }
-
-        /// <summary>
-        /// Placing a port puts a row on the waveform, and the page stays where it was, so the next click lands where the
+        /// Placing a port puts a row on the waveform, and the circuit stays where it was, so the next click lands where the
         /// pointer is. The stage was fitted to its height as it grew, so every port placed shrank the whole page by a
-        /// row, the board under the pointer with it (the 10d browser smoke test).
+        /// row, the board under the pointer with it (the 10d browser smoke test); docked (Part 11b), the row goes into the
+        /// waves and the circuit's window keeps its size.
         /// </summary>
         [UnityTest]
         public IEnumerator PlacingAPort_AddsARow_AndLeavesThePageWhereItWas()
@@ -715,11 +695,14 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsNotNull(map, "zoomed in, the map is up");
             Rect2 before = map.Window;
 
-            // Beside the circuit's window, never on it (Part 10e): in its corner it hid what was there.
+            // Beside the circuit's window, never on it (Part 10e): in its corner it hid what was there. In the side panel,
+            // at its foot (Part 11b).
             RectTransform[] parts = GameObject.Find(WorkbenchPanel.RootName).GetComponentsInChildren<RectTransform>();
             Rect onMap = WorldRect(parts.Single(r => r.name == "minimap")), window = WorldRect(parts.Single(r => r.name == "schematic view"));
             Assert.IsFalse(onMap.Overlaps(window), $"the map, {onMap}, is over the circuit's window, {window}");
-            Assert.AreEqual(window.yMin, onMap.yMin, 1f, "its foot level with the window's");
+            Rect side = ShellPanel.ScreenRectOf(ShellPanel.Find<UnityEngine.UIElements.VisualElement>(WorkbenchPanel.SidePanelName));
+            Assert.IsTrue(side.Contains(onMap.min) && side.Contains(onMap.max), $"the map, {onMap}, is not in the side panel, {side}");
+            Assert.Less(onMap.yMin - side.yMin, side.yMax - onMap.yMax, "and at its foot");
 
             yield return ClickAtScreen(workbench.ScreenPointOfMap(new Vec2(map.Size.x * 0.1f, map.Size.y * 0.5f)));
             Assert.Less(workbench.Map.Window.center.x, before.center.x, "a click on the map's left moved the window left");

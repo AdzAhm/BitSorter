@@ -222,6 +222,14 @@ namespace BitSorter.View
             return new Vector2(bound.center.x * scale, Screen.height - bound.center.y * scale);
         }
 
+        /// <summary>Where an element is on the screen, in pixels, y up: what a uGUI menu opened beside it is placed by.</summary>
+        public static Rect ScreenRectOf(VisualElement element)
+        {
+            Rect bound = element.worldBound;
+            float scale = element.panel.scaledPixelsPerPoint;
+            return Rect.MinMaxRect(bound.xMin * scale, Screen.height - bound.yMax * scale, bound.xMax * scale, Screen.height - bound.yMin * scale);
+        }
+
         /// <summary>
         /// A key handed to an element as UI Toolkit hands it one. UI Toolkit reads the platform's keys, so a test's
         /// simulated keyboard, which is the Input System's, never reaches a shell field: a test sends the key this way

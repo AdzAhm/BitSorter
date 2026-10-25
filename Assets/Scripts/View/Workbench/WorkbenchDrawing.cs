@@ -240,22 +240,9 @@ namespace BitSorter.View
             painter.Outline(Shape, width, colour);
         }
 
-        public static void Card(VectorPainter painter, Vector2 size, SchematicPalette palette)
-        {
-            VectorPainter.RoundedRect(Shape, 0.5f, 0.5f, size.x - 1f, size.y - 1f, 12f);
-            painter.Outline(Shape, 1f, palette.CardEdge);
-            Legend(painter, palette, LegendMiddle(size.y));
-        }
-
         // -----------------------------------------------------------------
-        // The legend, along the card's foot as the reference has it, with all four values
+        // The legend, along the dock's foot (Part 11b; the card's, as the reference has it, until then), all four values
         // -----------------------------------------------------------------
-
-        /// <summary>How much of the card's foot the legend takes.</summary>
-        public const float LegendHeight = 30f;
-
-        /// <summary>Where the legend's line runs, for a card this tall.</summary>
-        public static float LegendMiddle(float cardHeight) => cardHeight - LegendHeight * 0.5f - 4f;
 
         /// <summary>Where each value's swatch starts, and where its name and the sentence after them start.</summary>
         public static float LegendSwatchX(int item) => 24f + item * 52f;
@@ -266,8 +253,8 @@ namespace BitSorter.View
         /// <inheritdoc cref="LegendSwatchX"/>
         public static float LegendTextX => LegendSwatchX(4) + 4f;
 
-        /// <summary>A short stretch of each value as a wire draws it: 0, 1, x hatched, z dashed.</summary>
-        private static void Legend(VectorPainter painter, SchematicPalette palette, float y)
+        /// <summary>A short stretch of each value as a wire draws it, along a line <paramref name="y"/> down: 0, 1, x hatched, z dashed.</summary>
+        public static void Legend(VectorPainter painter, SchematicPalette palette, float y)
         {
             const float length = 18f;
 

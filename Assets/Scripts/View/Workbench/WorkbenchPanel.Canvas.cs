@@ -1,10 +1,8 @@
 using System.Collections.Generic;
 using BitSorter.Sim;
 using BitSorter.ViewModel;
-using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using UnityEngine.UI;
 using BoardPoint = BitSorter.Board.Point;
 using EditResult = BitSorter.Board.EditResult;
 using Project = BitSorter.Board.Project;
@@ -12,41 +10,24 @@ using Project = BitSorter.Board.Project;
 namespace BitSorter.View
 {
     /// <summary>
-    /// The workbench's canvas, edited (Part 10a): the parts strip, the canvas's mouse as gestures -- wires drawn and
+    /// The workbench's canvas, edited (Part 10a): the canvas's mouse as gestures -- wires drawn and
     /// reshaped with them since Part 10b -- the editing overlay, the drawing made again round an edit, and MY CIRCUIT
     /// kept in the save. Everything it decides is
     /// the view-model's (<see cref="CanvasEditor"/>, <see cref="CanvasPointer"/>, <see cref="PartsCatalog"/>); this
     /// turns the mouse into its gestures and draws what it says.
     /// </summary>
     /// <remarks>
-    /// - **The strip is temporary** (Ahmad's choice, 2026-10-20): a column of the canvas's own buttons in the margin
-    ///   left of the stage, which stays where it was -- a row under the time pushed the waveform off a 1080 screen --
-    ///   until Part 11's shell gives the parts a panel. A click takes a part in hand; a click on the circuit places
-    ///   it; Escape, or the right button, puts it down.
-    /// - **The circuit's window is sized when a document opens**, and an edit never resizes it: the drawing grows
-    ///   inside it and the view keeps everything where it was on screen (<see cref="SchematicView.Relayout"/>).
+    /// - **A part is taken from the parts panel** (Part 11b, the strip of Part 10a until then): a click takes it in hand;
+    ///   a click on the circuit places it; Escape, or the right button, puts it down.
+    /// - **The circuit's window is the docked layout's**, and an edit never resizes it: the drawing grows inside it
+    ///   and the view keeps everything where it was on screen (<see cref="SchematicView.Relayout"/>).
     /// - **MY CIRCUIT is written half a second after its last edit**, by real time as the 4.x board is, and when
     ///   the workbench is left or another sample shown. The samples are never written.
     /// </remarks>
     public sealed partial class WorkbenchPanel
     {
-        /// <summary>The objects' names, which the tests look for.</summary>
-        public const string PartsStripName = "Workbench parts";
-
-        /// <summary>A strip button's name, for the entry of this key (<see cref="CatalogEntry.Key"/>).</summary>
+        /// <summary>A parts panel button's name, for the entry of this key (<see cref="CatalogEntry.Key"/>).</summary>
         public static string PartButtonName(string key) => "Workbench part " + key;
-
-        /// <summary>The window an empty circuit opens in, in stage units: the narrowest stage's, 360 tall.</summary>
-        private static readonly Vector2 EmptyDrawing = new Vector2(MinStageWidth - 2f * SchematicAt.x, 360f);
-
-        /// <summary>
-        /// The waveform's rows an empty circuit is fitted as though it had: a half adder's four ports, so the first
-        /// ports placed find their rows already made room for.
-        /// </summary>
-        private const int EmptyRows = 4;
-
-        /// <summary>How tall a button of the strip is, the gap between two, how wide the strip is, and how far left of the stage it stands.</summary>
-        private const float PartRowHeight = 28f, PartGap = 3f, PartsWidth = 100f, PartsGap = 14f;
 
         /// <summary>How long after its last edit MY CIRCUIT is written, in seconds of real time.</summary>
         private const double KeepDelay = 0.5;
@@ -59,10 +40,6 @@ namespace BitSorter.View
         private int _overlayVersion = -1;
         private int _drawnLayout = -1;
 
-        private RectTransform _partsStrip;
-        private readonly List<(CatalogEntry Entry, TextMeshProUGUI Label)> _partButtons = new List<(CatalogEntry, TextMeshProUGUI)>();
-        private CatalogEntry _shownInHand;
-
         /// <summary>Whether the circuit was clicked last, rather than the waveform: what Delete takes away.</summary>
         private bool _canvasFocused;
 
@@ -70,15 +47,6 @@ namespace BitSorter.View
         private bool _spacePanned;
 
         private Vector2 _canvasLast;
-
-        /// <summary>The drawing's size when its document opened: what the circuit's window is sized by.</summary>
-        private Vector2 _openedDrawing = EmptyDrawing;
-
-        /// <summary>
-        /// The waveform's rows the page is fitted to the window by: those its document opened with, and those its own
-        /// controls have made since (<c>RowsChanged</c>) -- never a row that came with a port placed on the circuit.
-        /// </summary>
-        private int _fitRows = EmptyRows;
 
         /// <summary>The ports' keys the waveform's rows were last made to follow.</summary>
         private List<string> _portKeys = new List<string>();
@@ -131,7 +99,7 @@ namespace BitSorter.View
             return RectTransformUtility.WorldToScreenPoint(null, world);
         }
 
-        /// <summary>Takes the strip's entry of this key in hand, as its button does; false for none.</summary>
+        /// <summary>Takes the parts panel's entry of this key in hand, as its button does; false for none.</summary>
         public bool TakeFromStrip(string key)
         {
             CatalogEntry entry = PartsCatalog.Find(_session.Project, _session.Module, key);
@@ -145,7 +113,7 @@ namespace BitSorter.View
         // Opening a document
         // -----------------------------------------------------------------
 
-        /// <summary>A document opened (<c>OpenRun</c>): its canvas, nothing selected, and the window sized round it.</summary>
+        /// <summary>A document opened (<c>OpenRun</c>): its canvas, and nothing selected.</summary>
         private void OpenCanvas()
         {
             _editor = new CanvasEditor(_session);
@@ -153,12 +121,12 @@ namespace BitSorter.View
             _drawnLayout = _session.LayoutVersion;
             _overlayVersion = -1;
             _portKeys = PortKeys(_model);
-            bool empty = _model.Layout.Parts.Count + _model.Layout.Ports.Count == 0;
-            _openedDrawing = empty ? EmptyDrawing : _model.Layout.Size.ToUnity();
-            _fitRows = empty ? EmptyRows : _model.RowCount;
             _keptProject = _session.Project;
             _keepAt = -1;
         }
+
+        /// <summary>Whether a drawing has nothing in it yet: it then starts at the window's top-left corner (<see cref="SchematicView.Blank"/>).</summary>
+        private static bool Blank(SchematicLayout layout) => layout.Parts.Count + layout.Ports.Count == 0;
 
         /// <summary>The save the game keeps, through the progress tracker; null in a scene without one.</summary>
         private static ProgressStore Store()
@@ -214,67 +182,6 @@ namespace BitSorter.View
 
             _keptProject = _session.Project;
             _keepAt = -1;
-        }
-
-        // -----------------------------------------------------------------
-        // The parts strip
-        // -----------------------------------------------------------------
-
-        /// <summary>The strip, a column left of the stage: a button for every part the circuit can be built from.</summary>
-        private void BuildPartsStrip(SchematicPalette palette)
-        {
-            if (_partsStrip != null)
-            {
-                _partsStrip.gameObject.SetActive(false);
-                if (Application.isPlaying)
-                    Destroy(_partsStrip.gameObject);
-                else
-                    DestroyImmediate(_partsStrip.gameObject);
-            }
-
-            _partButtons.Clear();
-            _shownInHand = null;
-            IReadOnlyList<CatalogEntry> entries = PartsCatalog.For(_session.Project, _session.Module);
-
-            _partsStrip = UiTheme.Rect(PartsStripName, Root);
-            _partsStrip.anchorMin = _partsStrip.anchorMax = new Vector2(0.5f, 1f);
-            _partsStrip.pivot = new Vector2(1f, 1f);
-            _partsStrip.sizeDelta = new Vector2(PartsWidth, entries.Count * (PartRowHeight + PartGap));
-
-            for (int i = 0; i < entries.Count; i++)
-            {
-                CatalogEntry entry = entries[i];
-                Button button = CanvasButton(PartButtonName(entry.Key), _partsStrip, entry.Label, out TextMeshProUGUI label, UiType.Body, palette);
-                TopLeft(button.GetComponent<RectTransform>(), new Vector2(0f, i * (PartRowHeight + PartGap)), new Vector2(PartsWidth, PartRowHeight));
-                button.onClick.AddListener(() => { _editor.Take(entry); UiTheme.Defocus(); });
-                label.enableAutoSizing = true;
-                label.fontSizeMax = label.fontSize;
-                label.fontSizeMin = UiTheme.SizeOf(UiType.Body) * 0.75f;   // a block's long module name shrinks rather than spills
-                _partButtons.Add((entry, label));
-            }
-
-            PlacePartsStrip();
-        }
-
-        /// <summary>The strip beside the stage as it is drawn now: its top at the stage's, its right a gap short of the stage's left.</summary>
-        private void PlacePartsStrip()
-        {
-            if (_partsStrip == null)
-                return;
-            float scale = _scale > 0f ? _scale : 1f;
-            _partsStrip.anchoredPosition = new Vector2(-(StageWidth * scale * 0.5f + PartsGap), -StageTop);
-        }
-
-        /// <summary>The strip's button for the part in hand in the accent, the rest as they were.</summary>
-        private void ShowInHand()
-        {
-            if (_editor.InHand == _shownInHand)
-                return;
-            _shownInHand = _editor.InHand;
-
-            SchematicPalette palette = SchematicPalette.Current;
-            foreach ((CatalogEntry entry, TextMeshProUGUI label) in _partButtons)
-                label.color = entry == _shownInHand ? palette.Accent : palette.Text;
         }
 
         // -----------------------------------------------------------------
@@ -488,7 +395,7 @@ namespace BitSorter.View
             }
         }
 
-        /// <summary>The minimap's layer, on the stage beside the circuit's window (<see cref="PlaceMinimap"/>).</summary>
+        /// <summary>The minimap's layer, at the side panel's foot (<see cref="PlaceMinimap"/>).</summary>
         private void BuildMinimap()
         {
             _minimap = Layer("minimap", _stage, WorkbenchGraphic.Layer.Minimap, Vector2.zero, Vector2.one);
@@ -498,28 +405,24 @@ namespace BitSorter.View
 
         /// <summary>
         /// The minimap drawn for the view as it is now, sized to it, and shown only while some of the drawing is out of the
-        /// window. **It stands beside the window, never on it** (Part 10e): in the column right of the stage, which the
-        /// stage keeps free opposite the parts strip, its foot level with the window's. In the window's corner it covered
-        /// the circuit there, and zoomed in that was whatever the student was looking for (the Part 10 browser smoke test
-        /// lost an output under it). It is drawn at the screen's size whatever the stage's scale, as the strip is, and
-        /// as wide as that column leaves free.
+        /// window. **It stands beside the window, never on it** (Part 10e): at the side panel's foot (Part 11b), level with
+        /// the window's. In the window's corner it covered the circuit there, and zoomed in that was whatever the student
+        /// was looking for (the Part 10 browser smoke test lost an output under it).
         /// </summary>
         private void PlaceMinimap()
         {
             if (_minimap == null || _viewState == null)
                 return;
-            float scale = _scale > 0f ? _scale : 1f, pad = WorkbenchDrawing.MinimapPad;
-            float free = Root.rect.width * 0.5f - StageWidth * scale * 0.5f - PartsGap - UiTheme.Margin;
-            Minimap map = BitSorter.ViewModel.Minimap.Of(_viewState, Mathf.Max(free, PartsWidth) - 2f * pad);
+            float pad = WorkbenchDrawing.MinimapPad;
+            Rect2 side = _regions.Side;
+            Minimap map = BitSorter.ViewModel.Minimap.Of(_viewState, side.width - 2f * PanelPad - 2f * pad);
             _minimap.Map = map;
             _minimap.gameObject.SetActive(map != null);
             if (map == null)
                 return;
 
             var size = new Vector2(map.Size.x + 2f * pad, map.Size.y + 2f * pad);
-            var rect = (RectTransform)_minimap.transform;
-            rect.localScale = new Vector3(1f / scale, 1f / scale, 1f);
-            TopLeft(rect, new Vector2(StageWidth + PartsGap / scale, ViewAt.y + ViewSize.y - size.y / scale), size);
+            TopLeft((RectTransform)_minimap.transform, new Vector2(side.x + (side.width - size.x) * 0.5f, side.yMax - PanelPad - size.y), size);
             _minimap.SetVerticesDirty();
         }
 
@@ -652,6 +555,8 @@ namespace BitSorter.View
             _drawnLayout = _session.LayoutVersion;
             SchematicLayout.Frame after = _model.Layout.Board;
             _viewState?.Relayout(_model.Layout.Size, before != null && after != null ? after.ShiftFrom(before) : default);
+            if (_viewState != null)
+                _viewState.Blank = Blank(_model.Layout);
             _editor?.Relaid();
         }
 

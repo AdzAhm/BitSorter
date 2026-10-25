@@ -21,7 +21,7 @@ namespace BitSorter.View
     public sealed class WorkbenchGraphic : MaskableGraphic
     {
         /// <summary>The layers, back to front.</summary>
-        public enum Layer { Card, Wires, Changes, Parts, Flashes, Grid, Timing, Glitches, Playhead, Edit, Minimap }
+        public enum Layer { Legend, Wires, Changes, Parts, Flashes, Grid, Timing, Glitches, Playhead, Edit, Minimap }
 
         /// <summary>How many layers there are: what the per-layer diagnostics are sized by.</summary>
         public static readonly int LayerCount = System.Enum.GetValues(typeof(Layer)).Length;
@@ -182,9 +182,9 @@ namespace BitSorter.View
 
             SchematicPalette palette = SchematicPalette.Current;
 
-            if (Draws == Layer.Card)
+            if (Draws == Layer.Legend)
             {
-                WorkbenchDrawing.Card(_painter, rectTransform.rect.size.ToStage(), palette);
+                WorkbenchDrawing.Legend(_painter, palette, rectTransform.rect.height * 0.5f);
                 return;
             }
 

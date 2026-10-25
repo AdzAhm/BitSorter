@@ -40,8 +40,9 @@ namespace BitSorter.View
     /// from the 58 units the reference's names take up to 260, and a longer name is cut from its start,
     /// where a full path repeats what every row shares: the waves start further right by as much.
     ///
-    /// **Its toolbar is over it** -- + SIGNAL, GROUP and NAMES, each with its key beside it -- so the
-    /// waveform is one piece Part 11 can dock, its own buttons with it.
+    /// **Its buttons are the dock's** (Part 11b): + SIGNAL, GROUP, NAMES, UNIT and EXPORT stood over it until the
+    /// shell's dock took them into its header. **Its rows scroll in a window that clips them** (the dock's waves), so
+    /// a point outside that window is over none of it, whatever is drawn there out of sight.
     /// </remarks>
     public sealed class WaveformView
     {
@@ -75,18 +76,15 @@ namespace BitSorter.View
         /// <summary>How tall it is: its rows, its numbers and its margin.</summary>
         public float Height { get; }
 
-        /// <summary>How tall the toolbar over it is, and the room the names column may take.</summary>
-        public const float ToolbarHeight = 44f;
-
-        /// <inheritdoc cref="ToolbarHeight"/>
+        /// <summary>The most room the names column may take.</summary>
         public const float MostNamesWidth = 260f;
 
-        /// <summary>The toolbar's buttons' names, which the tests look for.</summary>
+        /// <summary>The waveform's buttons' names, in the dock's header (Part 11b), which the tests look for.</summary>
         public const string AddButton = "Workbench add signal", GroupButton = "Workbench group", NamesButton = "Workbench names",
             UnitButton = "Workbench unit", ExportButton = "Workbench export";
 
-        /// <summary>How tall the waveform and its toolbar are for <paramref name="rows"/> rows: what the stage leaves for them.</summary>
-        public static float HeightFor(int rows) => ToolbarHeight + WorkbenchDrawing.WaveHeight(rows);
+        /// <summary>The window it is seen through, outside which nothing of it is pointed at; null for none.</summary>
+        private readonly RectTransform _clip;
 
         /// <summary>How much wider than the reference's the names column is: how far right the waves start.</summary>
         public float NamesExtra { get; }
@@ -99,20 +97,17 @@ namespace BitSorter.View
         /// <summary>
         /// The waveform of <paramref name="model"/>'s rows, named <paramref name="names"/>,
         /// <paramref name="width"/> wide at <paramref name="at"/> on <paramref name="parent"/> (y down),
-        /// drawn by <paramref name="layers"/>; showing the time <paramref name="view"/> does, or the whole run.
+        /// drawn by <paramref name="layers"/>; showing the time <paramref name="view"/> does, or the whole run;
+        /// seen through <paramref name="clip"/>, when it is.
         /// </summary>
         public WaveformView(WorkbenchModel model, WorkbenchLayers layers, RectTransform parent, Vector2 at, float width,
             SchematicPalette palette, IReadOnlyList<string> names, WaveView view = null, IReadOnlyList<bool> headers = null,
-            System.Action<WorkbenchCommand> onToolbar = null, WaveNames namesStyle = WaveNames.Short, bool toolbar = true)
+            RectTransform clip = null)
         {
             _model = model;
+            _clip = clip;
             int rows = model.RowCount;
             Height = WorkbenchDrawing.WaveHeight(rows);
-
-            // A picture of it has no toolbar, and its waves start at the top (WaveformPng).
-            float top = toolbar ? ToolbarHeight : 0f;
-            if (toolbar)
-                BuildToolbar(parent, at, palette, onToolbar, namesStyle, model.Unit);
 
             // The names column as wide as its longest name, within reason: the waves move right by as much.
             var shown = new string[rows];
@@ -128,7 +123,7 @@ namespace BitSorter.View
             _width = width;
 
             Rect = UiTheme.Rect("waveform", parent);
-            WorkbenchPanel.TopLeft(Rect, at + new Vector2(NamesExtra, top), new Vector2(width, Height));
+            WorkbenchPanel.TopLeft(Rect, at + new Vector2(NamesExtra, 0f), new Vector2(width, Height));
 
             if (view == null || view.Width != Mathf.Max(1f, WorkbenchDrawing.AxisWidth(width)))
             {
@@ -189,37 +184,6 @@ namespace BitSorter.View
         /// <summary>How many rows it shows.</summary>
         public int Rows => _readouts.Length;
 
-        /// <summary>
-        /// The toolbar over the waveform: + SIGNAL, GROUP and NAMES, each with its key beside it, each
-        /// asking <paramref name="onToolbar"/> for what its key does.
-        /// </summary>
-        private static void BuildToolbar(RectTransform parent, Vector2 at, SchematicPalette palette, System.Action<WorkbenchCommand> onToolbar,
-            WaveNames namesStyle, string unit)
-        {
-            RectTransform bar = UiTheme.Rect("waveform toolbar", parent);
-            WorkbenchPanel.TopLeft(bar, at, new Vector2(960f, ToolbarHeight));
-
-            float x = 34f;
-            void Add(string name, string caption, WorkbenchCommand command, float width)
-            {
-                Button button = WorkbenchPanel.CanvasButton(name, bar, caption, out TextMeshProUGUI _, UiType.Body, palette);
-                WorkbenchPanel.KeyBeside(button, WorkbenchKeys.For(command).Cap, palette);
-                WorkbenchPanel.TopLeft(button.GetComponent<RectTransform>(), new Vector2(x, 4f), new Vector2(width, 34f));
-                button.onClick.AddListener(() => { onToolbar?.Invoke(command); UiTheme.Defocus(); });
-                x += width + 46f;
-            }
-
-            Add(AddButton, "+ SIGNAL", WorkbenchCommand.AddSignal, 130f);
-            Add(GroupButton, "GROUP", WorkbenchCommand.Group, 100f);
-            Add(NamesButton, namesStyle == WaveNames.Full ? "NAMES: FULL" : "NAMES: SHORT", WorkbenchCommand.Names, 170f);
-
-            // The unit as SystemVerilog writes it, in lower case: MS would be megaseconds (Part 9b-3).
-            Add(UnitButton, "UNIT: " + unit, WorkbenchCommand.Unit, 120f);
-
-            // The run as a file: a VCD for GTKWave, or the waveform as a picture for a report (Part 9b-4).
-            Add(ExportButton, "EXPORT", WorkbenchCommand.Export, 110f);
-        }
-
         /// <summary>A name cut from its start, behind "...", until it is no wider than <paramref name="most"/> units.</summary>
         private static string FitName(string name, float most)
         {
@@ -279,7 +243,7 @@ namespace BitSorter.View
             region = WaveRegion.None;
             row = -1;
             time = 0;
-            if (Rect == null || !RectTransformUtility.ScreenPointToLocalPointInRectangle(Rect, screenPoint, null, out Vector2 local))
+            if (Rect == null || !Seen(screenPoint) || !RectTransformUtility.ScreenPointToLocalPointInRectangle(Rect, screenPoint, null, out Vector2 local))
                 return false;
 
             float x = local.x, y = -local.y;
@@ -297,6 +261,9 @@ namespace BitSorter.View
                 region = x < WorkbenchDrawing.ReadoutLeft - 4f ? WaveRegion.Names : WaveRegion.Values;
             return true;
         }
+
+        /// <summary>Whether a point on the screen is inside the window the waveform is seen through.</summary>
+        private bool Seen(Vector2 screenPoint) => _clip == null || RectTransformUtility.RectangleContainsScreenPoint(_clip, screenPoint, null);
 
         /// <summary>The moment under a point on the screen, wherever it is up and down, held to the axis's ends: what a drag scrubs to off the rows.</summary>
         public double TimeAtScreen(Vector2 screenPoint)
@@ -320,7 +287,7 @@ namespace BitSorter.View
         public bool Over(Vector2 screenPoint, out float x)
         {
             x = 0f;
-            if (Rect == null || !RectTransformUtility.ScreenPointToLocalPointInRectangle(Rect, screenPoint, null, out Vector2 local))
+            if (Rect == null || !Seen(screenPoint) || !RectTransformUtility.ScreenPointToLocalPointInRectangle(Rect, screenPoint, null, out Vector2 local))
                 return false;
 
             // The pivot is the top-left corner: local x runs right and y up from there.

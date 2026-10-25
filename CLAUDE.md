@@ -655,8 +655,12 @@ failure side.
   and get subtly wrong. **The workbench's shell is UI Toolkit, built in code
   the same way** (Part 11, from 11a): `ShellTheme`'s builders set every style
   from the palette and `UiType`, on a panel made in code (`ShellPanel`), and
-  there is no UXML or USS anywhere (`ShellRulesTests`). Part 11d rewrites this
-  paragraph for the whole shell.
+  there is no UXML or USS anywhere (`ShellRulesTests`). **Since 11b it lays the
+  workbench out as docked panels** (`ShellLayout`, a view-model rule): the
+  drawings stay uGUI, each placed under the panel that frames it at its own
+  size, and the workbench's uGUI popups sit on a canvas of their own sorted
+  over the shell until they move into it. Part 11d rewrites this paragraph for
+  the whole shell.
 - **Every colour comes from `Palette`**, board and interface alike -- no colour
   literal, and no serialized colour field on a renderer. They used to live
   wherever each was first needed, and nothing could compare them: the interface
@@ -868,11 +872,12 @@ failure side.
   as RENAME does; a double-click is two plain clicks, never a click that placed a
   part and then a press to drag it. **A right-click opens the canvas's menu**
   (Part 10d) -- align, spread, turn, mirror, route again, copy, cut, paste,
-  delete -- and Ctrl+C, X and V copy, cut and paste; a minimap beside the
-  window, up while some of the drawing is out of sight, moves the view on a
+  delete -- and Ctrl+C, X and V copy, cut and paste; a minimap at the side
+  panel's foot, up while some of the drawing is out of sight, moves the view on a
   click. A part in hand, a wire being drawn, or a drag
-  takes Escape before the workbench does. The parts strip, a column left of the
-  circuit's window, is temporary, until Part 11.
+  takes Escape before the workbench does. **The parts are a panel of the shell**
+  (Part 11b), and **the splitter over the dock is a shell control**, so a drag on
+  it is never the circuit's; the wheel over the waves' names scrolls their rows.
   **A double-click is counted on the game's clock**
   (`Time.timeAsDouble`), which a test drives, so a test's double-click is one
   however loaded the machine; nothing in the game changes the time scale.

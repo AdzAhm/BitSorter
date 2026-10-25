@@ -6,32 +6,17 @@ using UnityEngine;
 namespace BitSorter.LogicCore.Tests
 {
     /// <summary>
-    /// The parts of the 5.0 workbench that need Unity: how its stage fits a window, its colours, and
-    /// the claim the view-model's arithmetic rests on.
+    /// The parts of the 5.0 workbench that need Unity: its colours, and the claim the view-model's
+    /// arithmetic rests on.
     /// </summary>
     /// <remarks>
     /// The view-model itself -- the run read at a moment, the routes, pan and zoom, pointing at a
     /// wire, the chunking -- is tested under <c>dotnet test</c> (<c>Tools/ci/ViewModel.Tests</c>),
-    /// where twenty-three of these tests went when it left Unity in Part 9.
+    /// where twenty-three of these tests went when it left Unity in Part 9, and where the docked
+    /// layout that replaced the stage fitted to a window is (<c>ShellLayoutTests</c>, Part 11b).
     /// </remarks>
     public class WorkbenchTests
     {
-        // -----------------------------------------------------------------
-        // The stage in a window
-        // -----------------------------------------------------------------
-
-        [Test]
-        public void TheStage_FillsATallWindow_ButNeverShrinksItsWordsInAShortOne_AndScrollsInstead()
-        {
-            var stage = new Vector2(1000f, 900f);
-
-            Assert.AreEqual(1.2f, WorkbenchPanel.StageScale(new Vector2(1800f, 1080f), stage), 1e-4f, "a tall window: as large as fits");
-            Assert.AreEqual(1f, WorkbenchPanel.StageScale(new Vector2(1800f, 700f), stage), 1e-4f,
-                "a short window keeps the stage at its own size, its words at theirs");
-            Assert.AreEqual(200f, WorkbenchPanel.Overflow(700f, 900f, 1f), 1e-3f, "and scrolls what it cannot show");
-            Assert.AreEqual(0f, WorkbenchPanel.Overflow(1080f, 900f, 1.2f), 1e-3f, "a stage that fits does not scroll");
-        }
-
         // -----------------------------------------------------------------
         // Colours
         // -----------------------------------------------------------------

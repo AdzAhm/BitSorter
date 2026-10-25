@@ -282,6 +282,25 @@ namespace BitSorter.ViewModel.Tests
         }
 
         [Test]
+        public void ThePanel_FilesEachEntry_UnderPortsGatesMoreOrBlocks_InTheStripsOrder()
+        {
+            Project adder = WorkbenchSamples.FullAdder();
+            CatalogGroup GroupOf(string key) => PartsCatalog.Find(adder, adder.Top, key).Group;
+
+            foreach (string key in new[] { "input", "output", "clock", "reset", "constant" })
+                Assert.AreEqual(CatalogGroup.Ports, GroupOf(key), key);
+            foreach (string key in new[] { "and", "or", "xor", "nand", "nor", "xnor", "not", "buf", "bufif1" })
+                Assert.AreEqual(CatalogGroup.Gates, GroupOf(key), key);
+            foreach (string key in new[] { "mux", "register", "splitter", "joiner", "lamp" })
+                Assert.AreEqual(CatalogGroup.More, GroupOf(key), key);
+            Assert.AreEqual(CatalogGroup.Blocks, GroupOf("block:half_adder"));
+
+            CatalogGroup[] groups = PartsCatalog.For(adder, adder.Top).Select(e => e.Group).ToArray();
+            for (int i = 1; i < groups.Length; i++)
+                Assert.GreaterOrEqual(groups[i], groups[i - 1], "each heading's entries come together, in the headings' order");
+        }
+
+        [Test]
         public void AnInputPlaced_IsGiven0_AClockItsClock_AndAResetItsPulse_EachInOneStep()
         {
             var editor = new BoardEditor(Project.New("c"));
