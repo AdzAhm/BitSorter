@@ -35,6 +35,10 @@ namespace BitSorter.View
 
         private UIDocument _document;
 
+        // A field focused by a press, and the frame: if it is let go in that same frame, it is given the focus back once.
+        private VisualElement _pressFocused;
+        private int _pressFocusedFrame = -1;
+
         /// <summary>The panel's root: the whole screen, taking no clicks of its own.</summary>
         public VisualElement Root { get; private set; }
 
@@ -64,6 +68,7 @@ namespace BitSorter.View
             shell.Root.name = name;
             shell.Root.pickingMode = PickingMode.Ignore;
             shell.Root.style.flexGrow = 1f;
+            shell.Root.RegisterCallback<FocusInEvent>(shell.OnFocusIn, TrickleDown.TrickleDown);
             return shell;
         }
 
@@ -95,10 +100,30 @@ namespace BitSorter.View
             }
         }
 
+        /// <summary>A field focused by a press this frame is noted, for <see cref="Update"/> to give back if it is let go at once.</summary>
+        private void OnFocusIn(FocusInEvent e)
+        {
+            Mouse mouse = Mouse.current;
+            if (mouse == null || !mouse.leftButton.wasPressedThisFrame || !(e.target is VisualElement target) || FieldOf(target) == null)
+                return;
+            _pressFocused = FieldOf(target);
+            _pressFocusedFrame = Time.frameCount;
+        }
+
         private void Update()
         {
             if (Root?.panel == null)
                 return;
+
+            // In the browser, the first press into a field after the workbench opens focuses it and UI Toolkit lets it go
+            // again in the same frame, with the app focused and the event system's selection unchanged (the Part 11a smoke
+            // test). A field a press focused and nothing has focused since is given the focus back, once, the frame after.
+            if (_pressFocused != null && Time.frameCount > _pressFocusedFrame)
+            {
+                if (Root.focusController.focusedElement == null && Visible)
+                    _pressFocused.Focus();
+                _pressFocused = null;
+            }
 
             // A field finished with Enter or Escape lets go now, a frame after (ShellTheme.Field).
             if (Root.focusController.focusedElement is VisualElement focused && ShellTheme.FinishedBefore(focused, Time.frameCount))
