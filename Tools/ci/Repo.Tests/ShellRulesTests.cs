@@ -46,6 +46,31 @@ namespace BitSorter.Ci.Tests
             Assert.IsEmpty(found, "every colour comes from the palette:\n" + string.Join("\n", found));
         }
 
+        /// <summary>
+        /// Nothing the game runs makes a value by reflection: the browser build strips managed code it cannot see used,
+        /// and a constructor reached only through <c>Activator</c> -- <c>ConditionalWeakTable.GetOrCreateValue</c> makes
+        /// its value that way -- is stripped. The shell's RUN TO threw on Enter in the browser for it, and never let the
+        /// keyboard go (the Part 11a smoke test); every editor test had passed, since the editor strips nothing.
+        /// </summary>
+        [Test]
+        public void NothingTheGameRuns_MakesAValueByReflection()
+        {
+            var found = new List<string>();
+            foreach (string file in Directory.EnumerateFiles(RepoRoot.Combine("Assets/Scripts"), "*.cs", SearchOption.AllDirectories))
+            {
+                if (file.Replace('\\', '/').Contains("/Editor/", StringComparison.Ordinal))
+                    continue;
+                string[] lines = File.ReadAllLines(file);
+                for (int i = 0; i < lines.Length; i++)
+                    if (!lines[i].TrimStart().StartsWith("//", StringComparison.Ordinal) && Reflective.IsMatch(lines[i]))
+                        found.Add($"{Path.GetFileName(file)}:{i + 1}: {lines[i].Trim()}");
+            }
+
+            Assert.IsEmpty(found, "the browser build may strip what these make by reflection:\n" + string.Join("\n", found));
+        }
+
+        private static readonly Regex Reflective = new Regex(@"\bGetOrCreateValue\s*\(|\bActivator\.|\bType\.GetType\s*\(", RegexOptions.Compiled);
+
         [Test]
         public void TheColourCheck_SeesALiteral()
         {
