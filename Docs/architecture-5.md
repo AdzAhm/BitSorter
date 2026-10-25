@@ -1548,11 +1548,26 @@ hierarchy, 11d the keyboard map and the docs).
 - **The toolbar** (`WorkbenchPanel.Toolbar.cs`): the title and SAMPLE, RESTART, PLAY, STEP BACK, STEP and the chip,
   the slider, the speed, RUN TO and the time, and BACK -- where the uGUI rows stood, as wide as the stage is drawn. The
   uGUI rows, `ReleaseRunTo` and the strips are gone.
-- **Checked.** `ShellPlayTests` (5): a tap on PLAY; RUN TO holding the keys and Escape letting it go before the
-  workbench closes; a click on the circuit letting the field go; scale, order and the fade; the font. The workbench's
-  own suites moved onto the shell's controls. `ShellRulesTests` (3) under dotnet. Edit Mode 1347, Play Mode 280.
-  Reference shots 1 to 26 identical; 27 to 37 differ in the toolbar's band alone, drawn by UI Toolkit and looked at
-  beside the uGUI one; two captures of the same code identical, all 37.
+- **The browser build found three things the editor cannot**, each fixed and then seen working in a served WebGL
+  build -- the first click into RUN TO, 20, Enter and Space ran the run and stopped it at 20.0 ps:
+  - *Stripping.* The editor strips no managed code and the browser build does: a field's record made by
+    `ConditionalWeakTable.GetOrCreateValue`, which builds by reflection, lost its constructor, and Enter threw. It is
+    made by a constructor called in code now, and `ShellRulesTests` refuses `GetOrCreateValue`, `Activator.` and
+    `Type.GetType` in anything the game runs. The browser's console is where it showed; a smoke test reads it.
+  - *A delayed field.* RUN TO committed what was typed only after Enter was handled, so Enter read nothing. A shell
+    field's value is what it shows, a keystroke at a time; Enter submits it, letting it go by a click elsewhere submits
+    it as the TextMesh Pro field did, and Escape puts back what it held when it was clicked into.
+  - *The first press.* The first press into a field after the workbench opened focused it, and UI Toolkit let it go in
+    the same frame, with the app focused and the event system's selection unchanged. The shell gives a field a press
+    focused the focus back, once, the frame after, if nothing else took it (`ShellPanel`).
+  The editor cannot type into a UI Toolkit field at all -- it takes typing from the platform, which a test cannot
+  drive -- so typing is proved in the browser, and the Play Mode tests set a field's value as typing does.
+- **Checked.** `ShellPlayTests` (6): a tap on PLAY; RUN TO holding the keys and Escape letting it go before the
+  workbench closes; what is typed and Enter setting RUN TO, and Escape putting the old value back; a click on the
+  circuit letting the field go; scale, order and the fade; the font. The workbench's own suites moved onto the shell's
+  controls. `ShellRulesTests` (4) under dotnet. Edit Mode 1347, Play Mode 281. Reference shots 1 to 26 identical; 27
+  to 37 differ in the toolbar's band alone, drawn by UI Toolkit and looked at beside the uGUI one; two captures of the
+  same code identical, all 37.
 
 ---
 
