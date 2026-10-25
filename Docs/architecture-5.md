@@ -1459,6 +1459,20 @@ gesture of the brief's D3 and D4 is on the canvas.
   waveform's own controls last made: + SIGNAL, Alt and a click on a wire, a group opened or shut. Rows asked for
   are fitted, so they are seen; a row that came with a port scrolls the page instead. A Play Mode test places two
   ports and holds the board where it was, to half a pixel.
+- **The browser smoke test** (2026-10-25), on a served WebGL build: the half adder built by hand on MY CIRCUIT --
+  two inputs, an XOR and an AND, two outputs, the AND's inputs tapped off the inputs' wires -- its inputs flipped
+  with double-clicks on the waveform, 1 + 1 and 1 + 0 read right; a gate's rise changed in the inspector and
+  applied with Enter, and the run replayed with it; Enter on a port opening its inspector; the right-click menu
+  offering only what applies, COPY and PASTE through it; Ctrl+X, Ctrl+Z and V; Space playing and pausing without
+  scrolling the page, and with a drag panning; the minimap up only when zoomed in, and a click on it moving the
+  view; MY CIRCUIT whole after a reload of the page. **Ctrl+V is the browser's first**: Unity's web runtime holds
+  the key back until the browser's own paste event, which a real press brings and a synthetic key event does not
+  -- so a test that types Ctrl+V into the page sees nothing, and one that sends the paste event too sees the
+  paste. Found, and fixed here: the page rescaling under the pointer (above), and the minimap's blocks. Found,
+  and left for later: an automatic route can run along another net's wire -- a tap from a down to the AND ran a
+  cell along b's -- so two nets look joined; the minimap can cover the circuit in the window's corner when zoomed
+  in; and the waveform's rows come back in the layout's order after a reload, not the order the ports were
+  placed in.
 - **Checked.** `ArrangeTests` (8) under dotnet: what a copy takes and leaves; a paste a cell on with new ids and
   names, its wires, bends and tap, its input given 0, one step and a second paste further on; a cut and its paste;
   align by edge and middle on the grid with nothing replayed, and too few refused; spread with equal gaps; a wire
