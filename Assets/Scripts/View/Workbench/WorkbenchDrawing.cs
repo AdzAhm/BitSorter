@@ -153,6 +153,51 @@ namespace BitSorter.View
         /// <summary>Half a corner handle's side, in stage units.</summary>
         private const float Handle = 4f;
 
+        /// <summary>The room round the drawing inside the minimap's edge, in window units.</summary>
+        public const float MinimapPad = 6f;
+
+        /// <summary>
+        /// The minimap (Part 10d): a chip in the ground's colour, the wires as hairlines and the parts and ports as solid
+        /// shapes, all at the map's scale, and the window's rectangle on it in the accent, faintly filled.
+        /// </summary>
+        public static void Minimap(VectorPainter painter, Minimap map, SchematicLayout layout, SchematicPalette palette)
+        {
+            if (map == null || layout == null)
+                return;
+
+            float s = map.Scale;
+            Vector2 P(Vector2 v) => new Vector2(v.x * s + MinimapPad, v.y * s + MinimapPad);
+            var edge = Rect2.MinMaxRect(0f, 0f, map.Size.x + 2f * MinimapPad, map.Size.y + 2f * MinimapPad);
+            painter.Rect(edge.xMin, edge.yMin, edge.xMax, edge.yMax, palette.Ground);
+            Outlined(painter, edge, palette.ChipEdge, 1f, corner: 4f);
+
+            foreach (NetLayout net in layout.Nets)
+                foreach (StageRoute branch in net.Branches)
+                    for (int i = 1; i < branch.PointCount; i++)
+                        painter.Line(P(branch.Point(i - 1)), P(branch.Point(i)), 1f, palette.Muted);
+
+            foreach (PartLayout part in layout.Parts)
+            {
+                PartOutline o = part.Local;
+                Vector2 a = part.ToStage(o.Left, o.Top), b = part.ToStage(o.Right, o.Bottom);
+                Vector2 c = part.ToStage(o.Left, o.Bottom), d = part.ToStage(o.Right, o.Top);
+                Vector2 min = P(new Vector2(Math.Min(Math.Min(a.x, b.x), Math.Min(c.x, d.x)), Math.Min(Math.Min(a.y, b.y), Math.Min(c.y, d.y))));
+                Vector2 max = P(new Vector2(Math.Max(Math.Max(a.x, b.x), Math.Max(c.x, d.x)), Math.Max(Math.Max(a.y, b.y), Math.Max(c.y, d.y))));
+                painter.Rect(min.x, min.y, max.x, max.y, palette.Outline);
+            }
+
+            foreach (PortLayout port in layout.Ports)
+            {
+                Vector2 min = P(new Vector2(port.Box.xMin, port.Box.yMin)), max = P(new Vector2(port.Box.xMax, port.Box.yMax));
+                painter.Rect(min.x, min.y, max.x, max.y, palette.Outline);
+            }
+
+            Rect2 w = map.Window;
+            var window = Rect2.MinMaxRect(w.xMin + MinimapPad, w.yMin + MinimapPad, w.xMax + MinimapPad, w.yMax + MinimapPad);
+            painter.Rect(window.xMin, window.yMin, window.xMax, window.yMax, palette.Over(palette.Accent, 0.15f));
+            Outlined(painter, window, palette.Accent, SelectedWidth, corner: 0f);
+        }
+
         /// <summary>
         /// How far a guide runs on past the two points it joins, and its dots. Drawn whole from pin to pin it was a wire
         /// on a schematic -- an input to an output straight through the gate between -- so it is dotted, and runs on past

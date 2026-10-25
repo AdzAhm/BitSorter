@@ -736,7 +736,7 @@ failure side.
   counts from it -- the win celebration once pulsed on the game clock and a solve
   could land at the bottom of its swell.
 - **Visual changes are checked against the reference shots.**
-  `BitSorter/Capture Reference Shots` captures thirty-six states (menu, a built
+  `BitSorter/Capture Reference Shots` captures thirty-seven states (menu, a built
   board, bits in flight, a collision one tick out and one that takes both bits,
   the solved card, the level list, free play, the help panel, the chapter card, a
   clocked level, the tutorial's intro and its closing card, a first-time hint, a
@@ -748,7 +748,7 @@ failure side.
   built and running, its carry passing between the boxes, and 5.0's workbench
   preview with two changes on their way, whole, zoomed in, with a wire pointed at, with two rows in other
   radixes, a second cursor 9 ps on and two breakpoints flagged, with a block's inside grouped under full names, with the
-  add list searching, MY CIRCUIT being edited, two gates moving with their guides, its half adder being wired, one of its wires being reshaped, and the reference's AND in its inspector) as an Explicit Play
+  add list searching, MY CIRCUIT being edited, two gates moving with their guides, its half adder being wired, one of its wires being reshaped, the reference's AND in its inspector, and the reference zoomed in with its minimap and the canvas's menu) as an Explicit Play
   Mode fixture, so it runs under `SaveGuard` --
   driving the real game for a screenshot by hand once marked a level solved on
   the developer's own save. Frame time is fixed, particle systems are seeded,
@@ -859,7 +859,11 @@ failure side.
   drag on one of its corners does. **A double-click on a part or a wire, or Enter
   with one selected, opens its inspector** (Part 10c), a popover that holds Escape
   as RENAME does; a double-click is two plain clicks, never a click that placed a
-  part and then a press to drag it. A part in hand, a wire being drawn, or a drag
+  part and then a press to drag it. **A right-click opens the canvas's menu**
+  (Part 10d) -- align, spread, turn, mirror, route again, copy, cut, paste,
+  delete -- and Ctrl+C, X and V copy, cut and paste; a minimap in the window's
+  corner, up while some of the drawing is out of sight, moves the view on a
+  click. A part in hand, a wire being drawn, or a drag
   takes Escape before the workbench does. The parts strip, a column left of the
   circuit's window, is temporary, until Part 11.
   **A double-click is counted on the game's clock**

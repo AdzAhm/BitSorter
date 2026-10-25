@@ -22,7 +22,8 @@ namespace BitSorter.PlayMode.Tests
     /// with a drag panning; Escape putting a part in hand down before it leaves. And wires (Part 10b): a half adder
     /// built from nothing with the mouse, its inputs flipped on the waveform, a wire being drawn let go with
     /// Escape, and a selected wire reshaped by a drag on its piece (Part 10b-2); and the inspector (Part 10c), a
-    /// gate's delay changed and a net named through it. What each gesture decides is held under dotnet (<c>CanvasTests</c>, <c>WiringTests</c>); these hold
+    /// gate's delay changed and a net named through it; and copy, paste, the right-click menu and the minimap (Part
+    /// 10d). What each gesture decides is held under dotnet (<c>CanvasTests</c>, <c>WiringTests</c>); these hold
     /// that the mouse reaches it.
     /// </summary>
     [TestFixture]
@@ -580,6 +581,121 @@ namespace BitSorter.PlayMode.Tests
             yield return PointAt(workbench, OnWireAt(workbench, wire, 0.5));
             yield return null;
             StringAssert.Contains("not_b", workbench.HoverSays, "the hover chip says it");
+        }
+
+        private IEnumerator Chord(KeyControl key)
+        {
+            Press(_keyboard.leftCtrlKey);
+            yield return Tap(key);
+            Release(_keyboard.leftCtrlKey);
+            yield return null;
+        }
+
+        /// <summary>A right-click at <paramref name="at"/> on the board.</summary>
+        private IEnumerator RightClickAt(WorkbenchPanel workbench, BoardPoint at)
+        {
+            yield return PointAt(workbench, at);
+            Press(_mouse.rightButton);
+            yield return null;
+            Release(_mouse.rightButton);
+            yield return null;
+            yield return null;
+        }
+
+        /// <summary>A NOT and an AND boxed and copied with Ctrl+C, pasted a cell on with Ctrl+V as one step, which Ctrl+Z takes back (Part 10d).</summary>
+        [UnityTest]
+        public IEnumerator CtrlCAndCtrlV_PasteTheSelection_ACellOn_AsOneStep()
+        {
+            yield return TestScene.Load();
+            yield return OpenMyCircuit();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.Pause();
+
+            var ids = new System.Collections.Generic.List<int>();
+            yield return Place(workbench, "not", new BoardPoint(3, -2), ids);
+            yield return Place(workbench, "and", new BoardPoint(6, -2), ids);
+            yield return Drag(workbench, PinOf(workbench, ids[0], "y"), PinOf(workbench, ids[1], "a"));
+            Assert.AreEqual(1, Top(workbench).Wires.Count, "sanity: the NOT into the AND");
+
+            yield return Drag(workbench, new BoardPoint(1, 0), new BoardPoint(9, -4));
+            CollectionAssert.AreEquivalent(ids, workbench.Editor.Selection.Parts, "sanity: both boxed");
+            yield return Chord(_keyboard.cKey);
+            yield return Chord(_keyboard.vKey);
+
+            Assert.AreEqual(4, Top(workbench).Parts.Count, "two more parts");
+            Assert.AreEqual(2, Top(workbench).Wires.Count, "and the wire between them");
+            CollectionAssert.IsEmpty(workbench.Editor.Selection.Parts.Intersect(ids), "what the paste made is selected");
+            Part pastedNot = Top(workbench).Parts.Single(p => !ids.Contains(p.Id) && p is GatePart g && g.Kind == BitSorter.Sim.GateKind.Not);
+            Assert.AreEqual(new Placement(4, -3), Top(workbench).Layout.PlacementOf(pastedNot.Id), "a cell right and a cell down");
+
+            yield return Chord(_keyboard.zKey);
+            Assert.AreEqual(2, Top(workbench).Parts.Count, "Ctrl+Z took the paste back, whole");
+        }
+
+        /// <summary>Two parts selected, a right-click on one opens the canvas's menu, and ALIGN TOP lines them up (Part 10d).</summary>
+        [UnityTest]
+        public IEnumerator ARightClickOnTheSelection_OpensTheMenu_AndAlignTopLinesItUp()
+        {
+            yield return TestScene.Load();
+            yield return OpenMyCircuit();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.Pause();
+
+            var ids = new System.Collections.Generic.List<int>();
+            yield return Place(workbench, "and", new BoardPoint(3, -2), ids);
+            yield return Place(workbench, "or", new BoardPoint(7, -3.5), ids);
+            yield return Drag(workbench, new BoardPoint(1, 0), new BoardPoint(9, -6));
+            CollectionAssert.AreEquivalent(ids, workbench.Editor.Selection.Parts, "sanity: both boxed");
+
+            yield return RightClickAt(workbench, MiddleOf(workbench, ids[1]));
+            Assert.IsTrue(workbench.CanvasMenu.IsOpen, "a right-click on the selection opens the menu");
+            CollectionAssert.AreEquivalent(ids, workbench.Editor.Selection.Parts, "and keeps the selection for it");
+            GameObject alignTop = GameObject.Find(CanvasMenu.ActionItem + CanvasMenuAction.AlignTop);
+            Assert.IsNotNull(alignTop, "ALIGN TOP is offered for two parts");
+            Assert.IsNull(GameObject.Find(CanvasMenu.ActionItem + CanvasMenuAction.SpreadAcross), "SPREAD needs three");
+
+            alignTop.GetComponent<Button>().onClick.Invoke();
+            yield return null;
+            Assert.IsFalse(workbench.CanvasMenu.IsOpen);
+            Module top = Top(workbench);
+            PartOutline a = PartGeometry.Placed(workbench.Session.Project, top.FindPart(ids[0]), top.Layout.PlacementOf(ids[0]));
+            PartOutline b = PartGeometry.Placed(workbench.Session.Project, top.FindPart(ids[1]), top.Layout.PlacementOf(ids[1]));
+            Assert.AreEqual(a.Top, b.Top, 1e-9, "their tops in line");
+            Assert.IsFalse(workbench.Session.Replaying, "and nothing replays");
+        }
+
+        /// <summary>Zoomed in, the minimap shows; a click on its left side moves the view there; FIT puts it away (Part 10d).</summary>
+        [UnityTest]
+        public IEnumerator TheMinimap_ShowsOffTheFit_AClickOnItMovesTheView_AndFitPutsItAway()
+        {
+            yield return TestScene.Load();
+            yield return OpenTheReference();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            Assert.IsNull(workbench.Map, "at the fit, no map");
+
+            for (int i = 0; i < 4; i++)
+                yield return Tap(_keyboard.equalsKey);
+            Minimap map = workbench.Map;
+            Assert.IsNotNull(map, "zoomed in, the map is up");
+            Rect2 before = map.Window;
+
+            yield return ClickAtScreen(workbench.ScreenPointOfMap(new Vec2(map.Size.x * 0.1f, map.Size.y * 0.5f)));
+            Assert.Less(workbench.Map.Window.center.x, before.center.x, "a click on the map's left moved the window left");
+            Assert.AreEqual(0, Top(workbench).Parts.Count(p => workbench.Editor.Selection.HasPart(p.Id)), "and selected nothing under it");
+
+            yield return Tap(_keyboard.fKey);
+            Assert.IsNull(workbench.Map, "FIT puts it away");
+        }
+
+        private IEnumerator ClickAtScreen(Vector2 point)
+        {
+            Move(_mouse.position, point);
+            yield return null;
+            Press(_mouse.leftButton);
+            yield return null;
+            Release(_mouse.leftButton);
+            yield return null;
+            yield return null;
         }
 
         private static Rect WorldRect(RectTransform rect)

@@ -560,6 +560,9 @@ namespace BitSorter.View
                 case WorkbenchCommand.Mirror: CanvasEdit(_editor.Mirror()); break;
                 case WorkbenchCommand.SelectAll: _editor.SelectAll(); break;
                 case WorkbenchCommand.Inspect: InspectSelected(); break;
+                case WorkbenchCommand.Copy: CopySelected(); break;
+                case WorkbenchCommand.Cut: CutSelected(); break;
+                case WorkbenchCommand.Paste: CanvasEdit(_editor.Paste(_clip)); break;
 
                 case WorkbenchCommand.AddSignal: OpenPicker(); break;
                 case WorkbenchCommand.Group: GroupRows(); break;
@@ -1278,6 +1281,7 @@ namespace BitSorter.View
             _schematic.anchoredPosition = new Vector2(_viewState.Offset.x, -_viewState.Offset.y);
             _schematic.localScale = new Vector3(_viewState.Zoom, _viewState.Zoom, 1f);
             Show(_fit, !_viewState.IsFitted);
+            PlaceMinimap();
 
             // The edges' smoothing is a pixel wide, and a zoom changes how many units a pixel is; a pan
             // changes neither, and every frame of a drag is one.
@@ -1566,6 +1570,7 @@ namespace BitSorter.View
                 "1, 4'b1010, 'hA or x");
             _setField = WaveRenameField.Build(Root, palette, SetInputValue, WaveRenameField.SetValueName, "SET", "1, 4'b1010, 'hA or x");
             _inspector = InspectorPopover.Build(Root, palette, ApplyInspector);
+            _canvasMenu = CanvasMenu.Build(Root, palette, CanvasMenuDo);
 
             Root.gameObject.SetActive(false);
         }
@@ -2001,6 +2006,7 @@ namespace BitSorter.View
             _layers.BuildParts(_schematic, layout.Size.ToUnity());
             BuildSchematicLabels(palette);
             BuildOverlay(layout);
+            BuildMinimap();
 
             // FIT, in the window's top-right corner, for whenever the circuit is not whole.
             _fit = CanvasButton(FitButton, _view, "FIT", out TextMeshProUGUI _, UiType.Body, palette);

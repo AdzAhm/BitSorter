@@ -1215,6 +1215,48 @@ namespace BitSorter.PlayMode.Tests
             yield return Capture("36-workbench-inspector");
         }
 
+        /// <summary>
+        /// The reference zoomed in, its minimap in the window's corner with the window on it, the two ANDs selected and the
+        /// canvas's menu open on them: align, middles, turn, mirror, copy, cut and delete (Part 10d).
+        /// </summary>
+        [UnityTest]
+        public IEnumerator Shot37_WorkbenchArranging()
+        {
+            yield return LoadTheGame();
+            yield return Frames(2);
+
+            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            yield return Frames(2);
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowSample(1);   // the reference
+            yield return Frames(2);
+            workbench.Pause();
+            workbench.Session.Finish();
+            workbench.Seek(13.5);
+            yield return Frames(4);
+
+            // Two notches in, about the middle of the window, as + does.
+            for (int i = 0; i < 2; i++)
+                workbench.ZoomAboutTheMiddleForTests(1);
+
+            WorkbenchSession session = workbench.Session;
+            int[] ands = session.Project.TopModule.Parts.OfType<BitSorter.Board.GatePart>()
+                .Where(g => g.Kind == BitSorter.Sim.GateKind.And).Select(g => g.Id).ToArray();
+            // Selected as clicks select, so the overlay draws them; the menu opened over the circuit's left, clear of the map.
+            for (int i = 0; i < ands.Length; i++)
+                workbench.Editor.Do(new CanvasCommand(CanvasGesture.Select, target: new CanvasTarget(CanvasTargetKind.Part, part: ands[i]), extend: i > 0));
+            int b = session.Project.TopModule.FindPart("b").Id;
+            BitSorter.Board.Point at = session.Project.TopModule.Layout.PlacementOf(b).Position;
+            workbench.CanvasMenu.Open(workbench.ScreenPointOf(at) + new Vector2(40f, 40f), ands.Length, 0, canPaste: false);
+            yield return Frames(30);
+
+            Assert.IsNotNull(workbench.Map, "sanity: the minimap is up");
+            Assert.IsTrue(workbench.CanvasMenu.IsOpen, "sanity: and the menu");
+
+            yield return Capture("37-workbench-arranging");
+        }
+
         private static IEnumerator OpensOnItsCircuit(string level, string fixture, string shot)
         {
             yield return LoadTheGame();

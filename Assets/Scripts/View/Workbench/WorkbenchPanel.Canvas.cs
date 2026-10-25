@@ -78,6 +78,12 @@ namespace BitSorter.View
         /// <summary>The inspector (Part 10c).</summary>
         private InspectorPopover _inspector;
 
+        /// <summary>The canvas's right-click menu, what Ctrl+C took, and the minimap with whether a press on it is held (Part 10d).</summary>
+        private CanvasMenu _canvasMenu;
+        private Clip _clip;
+        private WorkbenchGraphic _minimap;
+        private bool _minimapHeld;
+
 
         // -----------------------------------------------------------------
         // What the tests ask
@@ -95,6 +101,23 @@ namespace BitSorter.View
 
         /// <summary>The inspector (Part 10c); open or shut.</summary>
         public InspectorPopover Inspector => _inspector;
+
+        /// <summary>The canvas's right-click menu (Part 10d); open or shut.</summary>
+        public CanvasMenu CanvasMenu => _canvasMenu;
+
+        /// <summary>The minimap as it is drawn now; null while the view is the fit and it is not shown (Part 10d).</summary>
+        public Minimap Map => _minimap != null && _minimap.gameObject.activeSelf ? _minimap.Map : null;
+
+        /// <summary>The circuit zoomed about the window's middle by <paramref name="notches"/>, as + and - do: for a capture to set the view.</summary>
+        public void ZoomAboutTheMiddleForTests(int notches) => ZoomAboutTheMiddle(notches);
+
+        /// <summary>Where a point of the minimap is on the screen, the map's own units from its top-left corner.</summary>
+        public Vector2 ScreenPointOfMap(Vec2 onMap)
+        {
+            var rect = (RectTransform)_minimap.transform;
+            Vector3 world = rect.TransformPoint(new Vector3(onMap.x + WorkbenchDrawing.MinimapPad, -(onMap.y + WorkbenchDrawing.MinimapPad), 0f) + new Vector3(rect.rect.xMin, rect.rect.yMax, 0f));
+            return RectTransformUtility.WorldToScreenPoint(null, world);
+        }
 
         /// <summary>Takes the strip's entry of this key in hand, as its button does; false for none.</summary>
         public bool TakeFromStrip(string key)
@@ -257,7 +280,21 @@ namespace BitSorter.View
             bool space = keyboard != null && keyboard.spaceKey.isPressed;
             bool left = mouse.leftButton.wasPressedThisFrame, right = mouse.rightButton.wasPressedThisFrame, middle = mouse.middleButton.wasPressedThisFrame;
 
-            if ((left || right || middle) && !overControl && !OverFit(pointer) && InView(pointer, out Vector2 inView))
+            // The minimap's own: a press on it, and a drag held from it, move the view (Part 10d).
+            if (left && !overControl && OverMinimap(pointer, out Vec2 onMap))
+            {
+                _minimapHeld = true;
+                _canvasFocused = true;
+                CentreOnMap(onMap);
+            }
+            else if (_minimapHeld)
+            {
+                if (!mouse.leftButton.isPressed)
+                    _minimapHeld = false;
+                else if (MapPoint(pointer, out Vec2 heldOn))
+                    CentreOnMap(heldOn);
+            }
+            else if ((left || right || middle) && !overControl && !OverFit(pointer) && InView(pointer, out Vector2 inView))
             {
                 _canvasFocused = true;
 
@@ -318,6 +355,12 @@ namespace BitSorter.View
 
                 case CanvasGesture.AddWireSignal:
                     AddWire();
+                    return;
+
+                case CanvasGesture.Menu:
+                    _editor.Do(command);
+                    if (Mouse.current != null)
+                        _canvasMenu.Open(Mouse.current.position.ReadValue(), _editor.Selection.Parts.Count, _editor.Selection.Wires.Count, _clip != null && !_clip.IsEmpty);
                     return;
 
                 case CanvasGesture.Inspect:
@@ -383,6 +426,107 @@ namespace BitSorter.View
             }
 
             return null;
+        }
+
+        // -----------------------------------------------------------------
+        // Copy, paste, the canvas's menu and the minimap (Part 10d)
+        // -----------------------------------------------------------------
+
+        /// <summary>Ctrl+C: the parts selected and the wires between them, kept for a paste -- into this circuit or another sample's.</summary>
+        private void CopySelected()
+        {
+            Clip clip = _editor.Copy();
+            if (clip != null)
+                _clip = clip;
+            else
+                Said(EditResult.Refused(_editor.Refusal));
+        }
+
+        /// <summary>Ctrl+X: copied, and taken away.</summary>
+        private void CutSelected()
+        {
+            Clip clip = _editor.Cut();
+            if (clip != null)
+                _clip = clip;
+            else
+                Said(EditResult.Refused(_editor.Refusal ?? "Select a part to cut."));
+        }
+
+        /// <summary>What an item of the canvas's menu does.</summary>
+        private void CanvasMenuDo(CanvasMenuAction action)
+        {
+            switch (action)
+            {
+                case CanvasMenuAction.AlignLeft: CanvasEdit(_editor.Arrange(ArrangeBy.Left)); break;
+                case CanvasMenuAction.AlignRight: CanvasEdit(_editor.Arrange(ArrangeBy.Right)); break;
+                case CanvasMenuAction.AlignTop: CanvasEdit(_editor.Arrange(ArrangeBy.Top)); break;
+                case CanvasMenuAction.AlignBottom: CanvasEdit(_editor.Arrange(ArrangeBy.Bottom)); break;
+                case CanvasMenuAction.CentresAcross: CanvasEdit(_editor.Arrange(ArrangeBy.CentresAcross)); break;
+                case CanvasMenuAction.CentresDown: CanvasEdit(_editor.Arrange(ArrangeBy.CentresDown)); break;
+                case CanvasMenuAction.SpreadAcross: CanvasEdit(_editor.Arrange(ArrangeBy.SpreadAcross)); break;
+                case CanvasMenuAction.SpreadDown: CanvasEdit(_editor.Arrange(ArrangeBy.SpreadDown)); break;
+                case CanvasMenuAction.Turn: CanvasEdit(_editor.Turn(1)); break;
+                case CanvasMenuAction.Mirror: CanvasEdit(_editor.Mirror()); break;
+                case CanvasMenuAction.RouteAgain: CanvasEdit(_editor.AutoRoute()); break;
+                case CanvasMenuAction.Copy: CopySelected(); break;
+                case CanvasMenuAction.Cut: CutSelected(); break;
+                case CanvasMenuAction.Paste: CanvasEdit(_editor.Paste(_clip)); break;
+                case CanvasMenuAction.Delete: CanvasEdit(_editor.Delete()); break;
+            }
+        }
+
+        /// <summary>The minimap's layer, in the window's bottom-right corner, over the circuit.</summary>
+        private void BuildMinimap()
+        {
+            _minimap = Layer("minimap", _view, WorkbenchGraphic.Layer.Minimap, Vector2.zero, Vector2.one);
+            _minimap.gameObject.SetActive(false);
+            PlaceMinimap();
+        }
+
+        /// <summary>The minimap drawn for the view as it is now, sized to it, and shown only while the view is not the fit.</summary>
+        private void PlaceMinimap()
+        {
+            if (_minimap == null || _viewState == null)
+                return;
+            Minimap map = BitSorter.ViewModel.Minimap.Of(_viewState);
+            _minimap.Map = map;
+            _minimap.gameObject.SetActive(map != null);
+            if (map == null)
+                return;
+
+            var size = new Vector2(map.Size.x + 2f * WorkbenchDrawing.MinimapPad, map.Size.y + 2f * WorkbenchDrawing.MinimapPad);
+            TopLeft((RectTransform)_minimap.transform, ViewSize - size - new Vector2(8f, 8f), size);
+            _minimap.SetVerticesDirty();
+        }
+
+        /// <summary>Whether <paramref name="screenPoint"/> is on the minimap, and where on it, in the map's units.</summary>
+        private bool OverMinimap(Vector2 screenPoint, out Vec2 onMap)
+        {
+            onMap = default;
+            return _minimap != null && _minimap.gameObject.activeSelf && _minimap.Map != null &&
+                   RectTransformUtility.RectangleContainsScreenPoint((RectTransform)_minimap.transform, screenPoint, null) &&
+                   MapPoint(screenPoint, out onMap);
+        }
+
+        /// <summary>A point of the screen in the minimap's units, inside it or not.</summary>
+        private bool MapPoint(Vector2 screenPoint, out Vec2 onMap)
+        {
+            onMap = default;
+            if (_minimap == null || _minimap.Map == null)
+                return false;
+            var rect = (RectTransform)_minimap.transform;
+            if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(rect, screenPoint, null, out Vector2 local))
+                return false;
+            onMap = new Vec2(local.x - rect.rect.xMin - WorkbenchDrawing.MinimapPad, rect.rect.yMax - local.y - WorkbenchDrawing.MinimapPad);
+            return true;
+        }
+
+        /// <summary>The view moved so that the window's middle is where the minimap was pressed.</summary>
+        private void CentreOnMap(Vec2 onMap)
+        {
+            Minimap map = _minimap?.Map;
+            if (map != null && map.CentreOn(_viewState, onMap))
+                ApplyView();
         }
 
         /// <summary>An edit of the selection made from a key: its refusal said, if it was one.</summary>

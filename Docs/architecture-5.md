@@ -1424,6 +1424,40 @@ them -- a selected wire's piece or corner dragged.
   name on the hover chip and on its row, in its place. Reference shots 1 to 35 identical but for the help's first
   line in 27 to 35; 36 is new: the reference's AND with its inspector open and a width refused.
 
+**As built in Part 10d**: copy and paste, align and spread, and the minimap. With it Part 10 is built: every editing
+gesture of the brief's D3 and D4 is on the canvas.
+
+- **Copy and paste** (`Clipboard`, Unity-free). Ctrl+C takes the parts selected and every wire whose two ends go
+  with them -- a wire to a part left behind has nowhere to go -- by value, so a paste makes what was copied even
+  after the document changed, and into another sample's circuit as well (the clip is the panel's, not a document's).
+  Ctrl+V makes it again a cell right and a cell down, and each paste a step further on: new ids, the document's own
+  new names, wires reconnected with their bends moved, a tap at its place along the pasted wire, an input of the top
+  module given 0 as one placed is -- one step, replayed, what it made selected. A net's name is not pasted: two nets
+  of one name would be refused. Ctrl+X copies and takes away.
+- **Align and spread** (`Arrange`): the selected parts' outlines lined up by their left, right, top or bottom edge,
+  or their middles in a column or a row, or spread at equal gaps across or down with the first and last where they
+  are -- every new place on the quarter grid, layout only, one step. Two parts to line up, three to spread.
+- **Route again**: the selected wires back on the automatic route, their bends forgotten and a tap's place along its
+  wire kept (`WorkbenchSession.AutoRoute`), one step, layout only.
+- **The right-click menu** (`CanvasMenu`, built like the row menu): a right-click on something not selected selects
+  it alone; on the selection, or on nothing, keeps it. It offers only what does something for what is selected:
+  ALIGN LEFT, RIGHT, TOP, BOTTOM, MIDDLES IN A COLUMN or A ROW, SPREAD ACROSS or DOWN, TURN, MIRROR, ROUTE AGAIN,
+  COPY, CUT, PASTE, DELETE.
+- **The minimap** (`Minimap`): the whole drawing small in the window's bottom-right corner, parts and ports as
+  blocks and wires as hairlines, the window's rectangle on it in the accent. A click or a drag on it puts the
+  window's middle there. It is up **only while some of the drawing is out of the window**: the plan said "while the
+  view is not the fit", but after an edit the view keeps its place and is no longer exactly the fit with the whole
+  circuit still in sight, and a map of what the window already shows was clutter (shots 33 to 35 showed it).
+- **Checked.** `ArrangeTests` (8) under dotnet: what a copy takes and leaves; a paste a cell on with new ids and
+  names, its wires, bends and tap, its input given 0, one step and a second paste further on; a cut and its paste;
+  align by edge and middle on the grid with nothing replayed, and too few refused; spread with equal gaps; a wire
+  routed again keeping its tap; the right-click's selection; the minimap up only off the whole drawing, the window
+  on it, and a click on it centring the view. In Play Mode (`WorkbenchCanvasPlayTests`): Ctrl+C and Ctrl+V with the
+  fixture's keyboard, one step back with Ctrl+Z; a right-click on two parts opening the menu, ALIGN TOP lining them
+  up; the minimap up when zoomed in, a click on it moving the view, and FIT putting it away. Reference shots 1 to 36
+  identical but for 28, zoomed in, which gains its minimap; 37 is new: the reference zoomed in with its minimap, the
+  two ANDs selected and the menu open on them.
+
 ---
 
 ## 11. The parts
@@ -1442,7 +1476,7 @@ Each part is one pull request into `v5`, ends with every suite green, and leaves
 | 7 | The board document: compile, print, undo, and migration of every 4.x board |
 | 8 | The canvas on the real document, still and moving layers drawn apart, and the looks with a Settings switch |
 | 9 | The waveform and run controls; the workbench's view-model in a Unity-free layer of its own |
-| 10 | Editing on the free canvas -- in four: 10a placement and selection **built** (see "As built in Part 10a"); 10b wiring **built**, drawn (10b-1) and reshaped (10b-2); 10c the inspector **built**; 10d copy, align and the minimap to come |
+| 10 | Editing on the free canvas -- in four: 10a placement and selection **built** (see "As built in Part 10a"); 10b wiring **built**, drawn (10b-1) and reshaped (10b-2); 10c the inspector **built**; 10d copy, align and the minimap **built** |
 | 11 | The workbench shell, in UI Toolkit: toolbar, panels, transcript |
 | 12 | Hierarchy, and written blocks, edited in CodeMirror in a browser |
 | 13 | Export and import (and a levelized path in the engine, only if a measurement asks for it) |

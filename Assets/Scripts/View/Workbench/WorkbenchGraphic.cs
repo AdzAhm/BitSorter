@@ -21,7 +21,7 @@ namespace BitSorter.View
     public sealed class WorkbenchGraphic : MaskableGraphic
     {
         /// <summary>The layers, back to front.</summary>
-        public enum Layer { Card, Wires, Changes, Parts, Flashes, Grid, Timing, Glitches, Playhead, Edit }
+        public enum Layer { Card, Wires, Changes, Parts, Flashes, Grid, Timing, Glitches, Playhead, Edit, Minimap }
 
         /// <summary>How many layers there are: what the per-layer diagnostics are sized by.</summary>
         public static readonly int LayerCount = System.Enum.GetValues(typeof(Layer)).Length;
@@ -63,6 +63,9 @@ namespace BitSorter.View
 
         /// <summary>What the editing layer draws (Part 10a): the selection, a drag, a box, the guides, the part in hand.</summary>
         public CanvasOverlay Overlay { get; set; }
+
+        /// <summary>What the minimap draws (Part 10d): the drawing small, and the window on it; null draws nothing.</summary>
+        public Minimap Map { get; set; }
 
         private readonly VectorPainter _painter = new VectorPainter();
 
@@ -231,6 +234,10 @@ namespace BitSorter.View
 
                 case Layer.Edit:
                     WorkbenchDrawing.Edit(_painter, Overlay, palette);
+                    break;
+
+                case Layer.Minimap:
+                    WorkbenchDrawing.Minimap(_painter, Map, Model?.Layout, palette);
                     break;
             }
         }
