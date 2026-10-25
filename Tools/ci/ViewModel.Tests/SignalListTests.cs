@@ -217,6 +217,30 @@ endmodule
             Assert.IsFalse(list.FollowPorts(now, now), "no change, no change");
         }
 
+        /// <summary>
+        /// The ports' rows keep the layout's order -- top to bottom, then left to right -- as ports are placed and moved,
+        /// which is the order the rows come back in when the circuit is opened again. A port placed was given a row at
+        /// the end, so a half adder built a, b, then y and z read a, b, y, z, and a, y, b, z after a reload (the Part 10
+        /// browser smoke test).
+        /// </summary>
+        [Test]
+        public void ThePortsRows_KeepTheLayoutsOrder_AsTheyWillBeWhenTheCircuitIsOpenedAgain()
+        {
+            WorkbenchModel model = FullAdder();
+            WaveList list = Ports(model);
+            string[] ports = list.AllSignals.Select(s => s.Key).ToArray();
+
+            // A port placed second from the top.
+            string[] placed = new[] { ports[0], "x" }.Concat(ports.Skip(1)).ToArray();
+            list.FollowPorts(ports, placed);
+            CollectionAssert.AreEqual(placed, list.AllSignals.Select(s => s.Key).ToArray(), "placed where the layout puts it");
+
+            // The first two moved past each other.
+            string[] moved = new[] { placed[1], placed[0] }.Concat(placed.Skip(2)).ToArray();
+            list.FollowPorts(placed, moved);
+            CollectionAssert.AreEqual(moved, list.AllSignals.Select(s => s.Key).ToArray(), "moved, in the layout's order again");
+        }
+
         [Test]
         public void AddingASignal_PutsItAtTheEnd_AndAddingItAgainSelectsItWhereItIs()
         {
