@@ -257,5 +257,28 @@ namespace BitSorter.PlayMode.Tests
             });
             Assert.Greater(checkedLabels, 10, "sanity: the toolbar's words were looked at");
         }
+
+        /// <summary>
+        /// What is typed in a shell field sits in the middle of its box, as its placeholder does. The theme the shell has
+        /// none of is what stretches a field's text to the box's height, and without it every value sat at the box's top
+        /// -- seen first in the inspector's bar (Part 11b-2), where every field shows a value.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator WhatIsTypedInAShellField_SitsInTheMiddleOfItsBox()
+        {
+            yield return TestScene.Load();
+            yield return OpenTheWorkbench();
+
+            TextField runTo = ShellPanel.Find<TextField>(WorkbenchPanel.RunToField);
+            runTo.SetValueWithoutNotify("20");
+            yield return null;
+            yield return null;
+
+            VisualElement box = runTo.Q(className: TextField.inputUssClassName);
+            TextElement text = box.Query<TextElement>().Where(t => t.name != ShellTheme.PlaceholderName).First();
+            Assert.IsNotNull(text, "sanity: the field's text");
+            Assert.AreEqual(box.worldBound.center.y, text.worldBound.center.y, 1f,
+                $"the text, {text.worldBound}, is not in the middle of its box, {box.worldBound}");
+        }
     }
 }
