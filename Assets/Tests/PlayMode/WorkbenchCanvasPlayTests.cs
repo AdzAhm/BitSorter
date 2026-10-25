@@ -285,6 +285,32 @@ namespace BitSorter.PlayMode.Tests
             Assert.LessOrEqual(legend.preferredWidth, legend.rectTransform.rect.width + 0.5f, "the legend's sentence runs past its box");
         }
 
+        /// <summary>
+        /// Placing a port puts a row on the waveform, and the page stays where it was, so the next click lands where the
+        /// pointer is. The stage was fitted to its height as it grew, so every port placed shrank the whole page by a
+        /// row, the board under the pointer with it (the 10d browser smoke test).
+        /// </summary>
+        [UnityTest]
+        public IEnumerator PlacingAPort_AddsARow_AndLeavesThePageWhereItWas()
+        {
+            yield return TestScene.Load();
+            yield return OpenMyCircuit();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.Pause();
+            var under = new BoardPoint(6, -3);
+            Vector2 before = workbench.ScreenPointOf(under);
+            int rows = workbench.Model.RowCount;
+
+            var ids = new System.Collections.Generic.List<int>();
+            yield return Place(workbench, "input", new BoardPoint(1, -1), ids);
+            yield return Place(workbench, "output", new BoardPoint(9, -1), ids);
+            yield return UntilReplayed(workbench);
+
+            Assert.AreEqual(rows + 2, workbench.Model.RowCount, "sanity: a row for each port");
+            Vector2 after = workbench.ScreenPointOf(under);
+            Assert.Less(Vector2.Distance(before, after), 0.5f, $"the board moved under the pointer, from {before} to {after}");
+        }
+
         /// <summary>Where a part's pin is on the board, as the part stands now.</summary>
         private static BoardPoint PinOf(WorkbenchPanel workbench, int part, string pin)
         {
