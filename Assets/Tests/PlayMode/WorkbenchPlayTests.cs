@@ -1233,10 +1233,11 @@ namespace BitSorter.PlayMode.Tests
             WaveRenameField field = workbench.SetValueField;
             Assert.IsTrue(field.IsOpen, "a double-click on a bus did not ask for its value");
             Assert.IsTrue(UiText.Typing, "and the field has the keyboard");
-            StringAssert.Contains("SET s FROM 10 ps TO 19 ps", field.GetComponentsInChildren<TMP_Text>(true).First(t => t.name == "title").text);
+            StringAssert.Contains("SET s FROM 10 ps TO 19 ps",
+                UnityEngine.UIElements.UQueryExtensions.Q<UnityEngine.UIElements.Label>(ShellPanel.Find<UnityEngine.UIElements.VisualElement>(WaveRenameField.SetValueName), "title").text);
 
-            field.GetComponentInChildren<TMP_InputField>().text = "4'b1111";
-            yield return Tap(_keyboard.enterKey);
+            field.Field.value = "4'b1111";
+            yield return KeyToField(field.Field, _keyboard.enterKey, KeyCode.Return);
             yield return null;
             Assert.IsFalse(field.IsOpen);
             yield return UntilReplayed(workbench);

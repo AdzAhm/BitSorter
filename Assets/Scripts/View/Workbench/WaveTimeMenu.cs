@@ -1,7 +1,6 @@
 using System;
-using TMPro;
 using UnityEngine;
-using UnityEngine.UI;
+using ShellButton = UnityEngine.UIElements.Button;
 
 namespace BitSorter.View
 {
@@ -30,17 +29,14 @@ namespace BitSorter.View
 
         private const float ItemWidth = 230f;
 
-        private Button _clear;
-        private TextMeshProUGUI _toggleLabel;
+        private ShellButton _toggle, _clear;
 
-        /// <summary>The menu under <paramref name="root"/>, shut, calling <paramref name="onAction"/> as an item is chosen.</summary>
-        public static WaveTimeMenu Build(RectTransform root, SchematicPalette palette, Action<WaveTimeAction> onAction)
+        /// <summary>The menu on <paramref name="shell"/>, shut, calling <paramref name="onAction"/> as an item is chosen.</summary>
+        public static WaveTimeMenu Build(ShellPanel shell, Transform owner, SchematicPalette palette, Action<WaveTimeAction> onAction)
         {
-            WaveTimeMenu menu = Make<WaveTimeMenu>(root, RootName, palette, ItemWidth);
-            Button toggle = menu.Item(ActionItem + WaveTimeAction.ToggleBreak, "BREAK HERE", () => onAction?.Invoke(WaveTimeAction.ToggleBreak));
-            menu._toggleLabel = toggle.GetComponentInChildren<TextMeshProUGUI>();
+            WaveTimeMenu menu = Make<WaveTimeMenu>(shell, owner, RootName, palette, ItemWidth);
+            menu._toggle = menu.Item(ActionItem + WaveTimeAction.ToggleBreak, "BREAK HERE", () => onAction?.Invoke(WaveTimeAction.ToggleBreak));
             menu._clear = menu.Item(ActionItem + WaveTimeAction.ClearBreaks, "NO BREAKS AT ALL", () => onAction?.Invoke(WaveTimeAction.ClearBreaks), breakBefore: true);
-            menu.gameObject.SetActive(false);
             return menu;
         }
 
@@ -51,8 +47,8 @@ namespace BitSorter.View
         /// </summary>
         public void Open(Vector2 screenPoint, string when, bool hasBreak, bool anyBreaks)
         {
-            _toggleLabel.text = (hasBreak ? "NO BREAK AT " : "BREAK AT ") + when;
-            WorkbenchPanel.Show(_clear, anyBreaks);
+            _toggle.text = (hasBreak ? "NO BREAK AT " : "BREAK AT ") + when;
+            Offer(_clear, anyBreaks);
             Show(screenPoint);
         }
     }

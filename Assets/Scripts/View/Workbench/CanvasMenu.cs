@@ -1,7 +1,7 @@
 using System;
 using BitSorter.ViewModel;
 using UnityEngine;
-using UnityEngine.UI;
+using ShellButton = UnityEngine.UIElements.Button;
 
 namespace BitSorter.View
 {
@@ -42,12 +42,12 @@ namespace BitSorter.View
 
         private const float ItemWidth = 230f;
 
-        private readonly Button[] _items = new Button[Enum.GetValues(typeof(CanvasMenuAction)).Length];
+        private readonly ShellButton[] _items = new ShellButton[Enum.GetValues(typeof(CanvasMenuAction)).Length];
 
-        /// <summary>The menu under <paramref name="root"/>, shut, calling <paramref name="onAction"/> as an item is chosen.</summary>
-        public static CanvasMenu Build(RectTransform root, SchematicPalette palette, Action<CanvasMenuAction> onAction)
+        /// <summary>The menu on <paramref name="shell"/>, shut, calling <paramref name="onAction"/> as an item is chosen.</summary>
+        public static CanvasMenu Build(ShellPanel shell, Transform owner, SchematicPalette palette, Action<CanvasMenuAction> onAction)
         {
-            CanvasMenu menu = Make<CanvasMenu>(root, RootName, palette, ItemWidth);
+            CanvasMenu menu = Make<CanvasMenu>(shell, owner, RootName, palette, ItemWidth);
 
             void Add(CanvasMenuAction action, string caption, bool breakBefore = false) =>
                 menu._items[(int)action] = menu.Item(ActionItem + action, caption, () => onAction?.Invoke(action), breakBefore);
@@ -67,8 +67,6 @@ namespace BitSorter.View
             Add(CanvasMenuAction.Cut, "CUT");
             Add(CanvasMenuAction.Paste, "PASTE");
             Add(CanvasMenuAction.Delete, "DELETE", breakBefore: true);
-
-            menu.gameObject.SetActive(false);
             return menu;
         }
 
@@ -79,7 +77,7 @@ namespace BitSorter.View
         /// </summary>
         public bool Open(Vector2 screenPoint, int parts, int wires, bool canPaste)
         {
-            void Offer(CanvasMenuAction action, bool shown) => WorkbenchPanel.Show(_items[(int)action], shown);
+            void Offer(CanvasMenuAction action, bool shown) => WaveMenu.Offer(_items[(int)action], shown);
 
             bool lineUp = parts >= 2, spread = parts >= 3;
             Offer(CanvasMenuAction.AlignLeft, lineUp);

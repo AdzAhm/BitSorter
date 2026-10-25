@@ -187,10 +187,11 @@ namespace BitSorter.View
         /// off (<see cref="UiText"/>), so the press that finished it is the field's alone, where letting it go at once
         /// would hand that same Escape to the workbench and close it as well. **A field of a form** (the inspector's bar,
         /// Part 11b) is not submitted by letting it go -- <paramref name="submitOnLeave"/> false: what is typed in it waits
-        /// for Enter or APPLY, with the form's other fields.
+        /// for Enter or APPLY, with the form's other fields. **A search field keeps the keyboard after Enter**
+        /// (<paramref name="releaseOnEnter"/> false, the + SIGNAL list's, Part 11b-3), for the next thing to be typed.
         /// </summary>
         public static TextField Field(string name, string placeholder, SchematicPalette palette, Action<string> submitted,
-            bool submitOnLeave = true, UiType type = UiType.Body)
+            bool submitOnLeave = true, UiType type = UiType.Body, bool releaseOnEnter = true)
         {
             var field = new TextField { name = name };
             field.AddToClassList(ControlClass);
@@ -264,7 +265,8 @@ namespace BitSorter.View
             {
                 if (e.keyCode == KeyCode.Return || e.keyCode == KeyCode.KeypadEnter)
                 {
-                    RecordOf(field).Frame = Time.frameCount;
+                    if (releaseOnEnter)
+                        RecordOf(field).Frame = Time.frameCount;
                     submitted?.Invoke(field.value);
                     held = field.value;   // as the submission left it, so letting go does not submit it again
                 }

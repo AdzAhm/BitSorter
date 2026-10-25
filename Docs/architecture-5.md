@@ -1642,6 +1642,26 @@ re-hosted in them, 11b-3 the popups moved into the shell.
   Mode 1346, Play Mode 288. Reference shots 1 to 26 identical; 27 to 37 the bar and
   the shorter toolbar, each looked at.
 
+**As built in Part 11b-3**: the popups in the shell, and the canvas of 11b-1 that kept them over it gone.
+
+- **One popup, five uses** (`ShellPopup`): a layer over the whole window and a panel on it, put up where it was asked
+  for and kept on the screen. The four menus -- a row's, the moment's, EXPORT's and the canvas's -- share their column
+  of items through `WaveMenu`, as they did in uGUI; RENAME, BREAK ON VALUE and SET are one field (`WaveRenameField`);
+  and the + SIGNAL list (`WaveSignalPicker`). Each keeps its key, its place and its hold on Escape
+  (`IHoldsEscape`): the component that reads the key is unchanged, and only what it draws moved.
+- **The layer is a control**: the press that closes a popup is the layer's, so it never seeks the waves or selects on
+  the circuit under it, as the uGUI blocker was a button. **The panel takes the presses on its own ground**, so a press
+  between two items is the panel's.
+- **Their fields are the shell's**: a click off RENAME, BREAK ON VALUE or SET makes nothing, as before
+  (`submitOnLeave` false); the + SIGNAL list's search keeps the keyboard after Enter, for the next search
+  (`ShellTheme.Field`'s `releaseOnEnter`), and Escape in any of them closes its popup.
+- **Checked.** The workbench's suites unchanged but for reaching the items through the shell: the row menu's radix,
+  REMOVE and UNGROUP; Escape closing a menu before the workbench, and a click off one closing it without seeking; the
+  + SIGNAL list's search, CELLS and a click off it; RENAME; BREAK ON VALUE; SET over a stretch; the moment's
+  breakpoint; EXPORT's VCD and PNG; and the canvas's menu aligning two parts. Edit Mode 1346, Play Mode 288. Reference
+  shots 1 to 31 and 33 to 36 identical; 32 and 37, the + SIGNAL list and the canvas's menu, drawn by the shell and
+  looked at; two captures identical, the list's field holding the keyboard included.
+
 ---
 
 ## 11. The parts
@@ -1661,7 +1681,7 @@ Each part is one pull request into `v5`, ends with every suite green, and leaves
 | 8 | The canvas on the real document, still and moving layers drawn apart, and the looks with a Settings switch |
 | 9 | The waveform and run controls; the workbench's view-model in a Unity-free layer of its own |
 | 10 | Editing on the free canvas -- in four: 10a placement and selection **built** (see "As built in Part 10a"); 10b wiring **built**, drawn (10b-1) and reshaped (10b-2); 10c the inspector **built**; 10d copy, align and the minimap **built**; 10e what its browser smoke test found **built** |
-| 11 | The workbench shell, in UI Toolkit -- in four: 11a the bridges and the toolbar **built**; 11b the docked layout -- its panels **built** (11b-1), the inspector docked **built** (11b-2), the popups to come; 11c transcript and hierarchy, 11d the keyboard map and the docs to come |
+| 11 | The workbench shell, in UI Toolkit -- in four: 11a the bridges and the toolbar **built**; 11b the docked layout **built** -- its panels (11b-1), the inspector docked (11b-2), the popups in the shell (11b-3); 11c transcript and hierarchy, 11d the keyboard map and the docs to come |
 | 12 | Hierarchy, and written blocks, edited in CodeMirror in a browser |
 | 13 | Export and import (and a levelized path in the engine, only if a measurement asks for it) |
 | 14 | The course's tools: path delays, static timing, gate-library mode, step tests, lint, tri-state |

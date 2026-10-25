@@ -1,7 +1,7 @@
 using System;
 using BitSorter.ViewModel;
 using UnityEngine;
-using UnityEngine.UI;
+using ShellButton = UnityEngine.UIElements.Button;
 
 namespace BitSorter.View
 {
@@ -48,22 +48,23 @@ namespace BitSorter.View
         private static readonly WaveRadix[] Radixes =
             { WaveRadix.Binary, WaveRadix.Octal, WaveRadix.Hex, WaveRadix.Unsigned, WaveRadix.Signed, WaveRadix.Symbolic };
 
-        private Button _names, _group, _ungroup, _breakOnX, _breakOnValue, _noBreaks;
+        private ShellButton _names, _group, _ungroup, _breakOnX, _breakOnValue, _noBreaks;
 
-        /// <summary>The menu under <paramref name="root"/>, shut, calling <paramref name="onRadix"/> or <paramref name="onAction"/> as an item is chosen.</summary>
-        public static WaveRowMenu Build(RectTransform root, SchematicPalette palette, Action<WaveRadix> onRadix, Action<WaveRowAction> onAction)
+        /// <summary>The menu on <paramref name="shell"/>, shut, calling <paramref name="onRadix"/> or <paramref name="onAction"/> as an item is chosen.</summary>
+        public static WaveRowMenu Build(ShellPanel shell, Transform owner, SchematicPalette palette, Action<WaveRadix> onRadix,
+            Action<WaveRowAction> onAction)
         {
-            WaveRowMenu menu = Make<WaveRowMenu>(root, RootName, palette, ItemWidth);
+            WaveRowMenu menu = Make<WaveRowMenu>(shell, owner, RootName, palette, ItemWidth);
 
             foreach (WaveRadix radix in Radixes)
             {
                 WaveRadix chosen = radix;
-                Button item = menu.Item(RadixItem + radix, Caption(radix), () => onRadix?.Invoke(chosen));
+                ShellButton item = menu.Item(RadixItem + radix, Caption(radix), () => onRadix?.Invoke(chosen));
                 if (radix == WaveRadix.Symbolic)
                     menu._names = item;
             }
 
-            Button Add(WaveRowAction action, string caption, bool breakBefore = false) =>
+            ShellButton Add(WaveRowAction action, string caption, bool breakBefore = false) =>
                 menu.Item(ActionItem + action, caption, () => onAction?.Invoke(action), breakBefore);
 
             menu._group = Add(WaveRowAction.Group, "GROUP", breakBefore: true);
@@ -73,8 +74,6 @@ namespace BitSorter.View
             menu._breakOnValue = Add(WaveRowAction.BreakOnValue, "BREAK ON VALUE");
             menu._noBreaks = Add(WaveRowAction.NoBreaks, "NO BREAKS");
             Add(WaveRowAction.Remove, "REMOVE", breakBefore: true);
-
-            menu.gameObject.SetActive(false);
             return menu;
         }
 
@@ -99,12 +98,12 @@ namespace BitSorter.View
         /// </summary>
         public void Open(Vector2 screenPoint, bool enumRows, bool canGroup, bool canUngroup, bool canBreak = false, bool hasBreaks = false)
         {
-            WorkbenchPanel.Show(_names, enumRows);
-            WorkbenchPanel.Show(_group, canGroup);
-            WorkbenchPanel.Show(_ungroup, canUngroup);
-            WorkbenchPanel.Show(_breakOnX, canBreak);
-            WorkbenchPanel.Show(_breakOnValue, canBreak);
-            WorkbenchPanel.Show(_noBreaks, canBreak && hasBreaks);
+            Offer(_names, enumRows);
+            Offer(_group, canGroup);
+            Offer(_ungroup, canUngroup);
+            Offer(_breakOnX, canBreak);
+            Offer(_breakOnValue, canBreak);
+            Offer(_noBreaks, canBreak && hasBreaks);
             Show(screenPoint);
         }
     }

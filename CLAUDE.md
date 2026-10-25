@@ -658,9 +658,9 @@ failure side.
   there is no UXML or USS anywhere (`ShellRulesTests`). **Since 11b it lays the
   workbench out as docked panels** (`ShellLayout`, a view-model rule): the
   drawings stay uGUI, each placed under the panel that frames it at its own
-  size, and the workbench's uGUI popups sit on a canvas of their own sorted
-  over the shell until they move into it. Part 11d rewrites this paragraph for
-  the whole shell.
+  size; its popups -- the menus, the + SIGNAL list, RENAME, BREAK ON VALUE and
+  SET -- are the shell's too (`ShellPopup`, 11b-3), over every panel. Part 11d
+  rewrites this paragraph for the whole shell.
 - **Every colour comes from `Palette`**, board and interface alike -- no colour
   literal, and no serialized colour field on a renderer. They used to live
   wherever each was first needed, and nothing could compare them: the interface

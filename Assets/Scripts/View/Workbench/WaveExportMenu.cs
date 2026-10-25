@@ -27,13 +27,12 @@ namespace BitSorter.View
 
         private const float ItemWidth = 300f;
 
-        /// <summary>The menu under <paramref name="root"/>, shut, calling <paramref name="onChoose"/> as an item is chosen.</summary>
-        public static WaveExportMenu Build(RectTransform root, SchematicPalette palette, Action<WaveExportKind> onChoose)
+        /// <summary>The menu on <paramref name="shell"/>, shut, calling <paramref name="onChoose"/> as an item is chosen.</summary>
+        public static WaveExportMenu Build(ShellPanel shell, Transform owner, SchematicPalette palette, Action<WaveExportKind> onChoose)
         {
-            WaveExportMenu menu = Make<WaveExportMenu>(root, RootName, palette, ItemWidth);
+            WaveExportMenu menu = Make<WaveExportMenu>(shell, owner, RootName, palette, ItemWidth);
             menu.Item(KindItem + WaveExportKind.Vcd, "VCD: EVERY SIGNAL", () => onChoose?.Invoke(WaveExportKind.Vcd));
             menu.Item(KindItem + WaveExportKind.Png, "PNG: THE WAVEFORM", () => onChoose?.Invoke(WaveExportKind.Png));
-            menu.gameObject.SetActive(false);
             return menu;
         }
 

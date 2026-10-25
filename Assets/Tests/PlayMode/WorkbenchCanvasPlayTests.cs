@@ -711,11 +711,17 @@ namespace BitSorter.PlayMode.Tests
             yield return RightClickAt(workbench, MiddleOf(workbench, ids[1]));
             Assert.IsTrue(workbench.CanvasMenu.IsOpen, "a right-click on the selection opens the menu");
             CollectionAssert.AreEquivalent(ids, workbench.Editor.Selection.Parts, "and keeps the selection for it");
-            GameObject alignTop = GameObject.Find(CanvasMenu.ActionItem + CanvasMenuAction.AlignTop);
-            Assert.IsNotNull(alignTop, "ALIGN TOP is offered for two parts");
-            Assert.IsNull(GameObject.Find(CanvasMenu.ActionItem + CanvasMenuAction.SpreadAcross), "SPREAD needs three");
+            UnityEngine.UIElements.Button Offered(CanvasMenuAction action)
+            {
+                UnityEngine.UIElements.Button item = ShellPanel.Find<UnityEngine.UIElements.Button>(CanvasMenu.ActionItem + action);
+                return item != null && item.style.display.value != UnityEngine.UIElements.DisplayStyle.None ? item : null;
+            }
 
-            alignTop.GetComponent<Button>().onClick.Invoke();
+            UnityEngine.UIElements.Button alignTop = Offered(CanvasMenuAction.AlignTop);
+            Assert.IsNotNull(alignTop, "ALIGN TOP is offered for two parts");
+            Assert.IsNull(Offered(CanvasMenuAction.SpreadAcross), "SPREAD needs three");
+
+            ShellPanel.Submit(alignTop);
             yield return null;
             Assert.IsFalse(workbench.CanvasMenu.IsOpen);
             Module top = Top(workbench);

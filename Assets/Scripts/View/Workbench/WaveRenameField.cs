@@ -1,8 +1,7 @@
 using System;
-using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using UnityEngine.UI;
+using UnityEngine.UIElements;
 
 namespace BitSorter.View
 {
@@ -12,8 +11,9 @@ namespace BitSorter.View
     /// leaving it as it was.
     /// </summary>
     /// <remarks>
-    /// Built as the add list is, blocker and panel side by side, and holding Escape the same way
-    /// (<see cref="IHoldsEscape"/>): while the field has the keyboard it answers Enter and Escape itself.
+    /// In the shell since Part 11b-3 (<see cref="ShellPopup"/>), over the docked panels, holding Escape as the menus do
+    /// (<see cref="IHoldsEscape"/>): while the field has the keyboard it answers Enter and Escape itself, and letting it go
+    /// by a click off it makes nothing (<see cref="ShellTheme.Field"/>'s <c>submitOnLeave</c>).
     /// </remarks>
     public sealed class WaveRenameField : MonoBehaviour, IHoldsEscape
     {
@@ -26,63 +26,48 @@ namespace BitSorter.View
         /// <summary>The name of the same field asking for an input's value over a stretch (Part 9b-3).</summary>
         public const string SetValueName = "Workbench set value";
 
-        private const float Width = 320f, Pad = 12f;
+        private const float Width = 320f, Pad = 12f, TitleHeight = 24f, FieldHeight = 38f;
 
-        private RectTransform _panel;
-        private TextMeshProUGUI _title;
-        private TMP_InputField _field;
+        private ShellPopup _popup;
+        private Label _title;
+        private TextField _field;
         private Action<string> _onRename;
-        private int _closedFrame = -1;
 
         /// <summary>Whether it is up.</summary>
-        public bool IsOpen => gameObject.activeSelf;
+        public bool IsOpen => _popup != null && _popup.IsOpen;
 
         /// <inheritdoc/>
-        public bool HoldsEscapeNow => IsOpen || _closedFrame == Time.frameCount;
+        public bool HoldsEscapeNow => IsOpen || (_popup != null && _popup.ClosedFrame == Time.frameCount);
+
+        /// <summary>The field it asks in: what a test types into.</summary>
+        public TextField Field => _field;
 
         /// <summary>
-        /// The field under <paramref name="root"/>, shut, naming through <paramref name="onRename"/> -- or,
-        /// named and titled otherwise, asking for any one line of text, as BREAK ON VALUE does.
+        /// The field on <paramref name="shell"/>, shut, naming through <paramref name="onRename"/> -- or, named and titled
+        /// otherwise, asking for any one line of text, as BREAK ON VALUE does; its component on a child of <paramref name="owner"/>.
         /// </summary>
-        public static WaveRenameField Build(RectTransform root, SchematicPalette palette, Action<string> onRename,
+        public static WaveRenameField Build(ShellPanel shell, Transform owner, SchematicPalette palette, Action<string> onRename,
             string name = RootName, string titleText = "RENAME", string placeholder = "empty for its own name")
         {
-            RectTransform container = UiTheme.Rect(name, root);
-            UiTheme.Stretch(container);
-
-            Image blockerImage = UiTheme.Panel_("blocker", container, new Color(0f, 0f, 0f, 0f));
-            blockerImage.sprite = null;
-            var blocker = blockerImage.gameObject.AddComponent<Button>();
-            blocker.targetGraphic = blockerImage;
-            blocker.transition = Selectable.Transition.None;
-            UiTheme.Stretch(blockerImage.rectTransform);
-
-            var rename = container.gameObject.AddComponent<WaveRenameField>();
+            var host = new GameObject(name);
+            host.transform.SetParent(owner, false);
+            var rename = host.AddComponent<WaveRenameField>();
             rename._onRename = onRename;
-            blocker.onClick.AddListener(() => { rename.Close(); UiTheme.Defocus(); });
+            rename._popup = new ShellPopup(shell, name, palette);
 
-            Image panel = WorkbenchPanel.CanvasChip("panel", container, palette);
-            panel.raycastTarget = true;
-            rename._panel = panel.rectTransform;
-            rename._panel.anchorMin = rename._panel.anchorMax = new Vector2(0f, 1f);
-            rename._panel.pivot = new Vector2(0f, 1f);
+            rename._title = ShellTheme.Label("title", titleText, UiType.Caption, palette.TextDim);
+            ShellTheme.Place(rename._title, Pad, Pad, Width - 2f * Pad, TitleHeight);
+            ShellTheme.Ellipsis(rename._title);
+            rename._popup.Panel.Add(rename._title);
 
-            TextMeshProUGUI title = UiTheme.Label("title", rename._panel, UiType.Caption, palette.TextDim, TextAlignmentOptions.MidlineLeft);
-            WorkbenchPanel.TopLeft(title.rectTransform, new Vector2(Pad, Pad), new Vector2(Width - 2f * Pad, 24f));
-            title.text = titleText;
-            rename._title = title;
-
-            rename._field = WorkbenchPanel.CanvasField("name", rename._panel, palette, placeholder);
-            WorkbenchPanel.TopLeft(rename._field.GetComponent<RectTransform>(), new Vector2(Pad, Pad + 30f), new Vector2(Width - 2f * Pad, 38f));
-            rename._field.onSubmit.AddListener(text => rename.Confirm(text));
-            rename._field.onEndEdit.AddListener(_ =>
+            rename._field = ShellTheme.Field(name + " field", placeholder, palette, text => rename.Confirm(text), submitOnLeave: false);
+            ShellTheme.Place(rename._field, Pad, Pad + 30f, Width - 2f * Pad, FieldHeight);
+            rename._field.RegisterCallback<KeyDownEvent>(e =>
             {
-                if (rename._field.wasCanceled)
+                if (e.keyCode == KeyCode.Escape)
                     rename.Close();
             });
-
-            rename._panel.sizeDelta = new Vector2(Width, Pad + 30f + 38f + Pad);
-            rename.gameObject.SetActive(false);
+            rename._popup.Panel.Add(rename._field);
             return rename;
         }
 
@@ -94,21 +79,10 @@ namespace BitSorter.View
         {
             if (title != null)
                 _title.text = title;
-            gameObject.SetActive(true);
-            transform.SetAsLastSibling();
-
-            var root = (RectTransform)transform;
-            RectTransformUtility.ScreenPointToLocalPointInRectangle(root, screenPoint, null, out Vector2 local);
-            Rect area = root.rect;
-            Vector2 size = _panel.sizeDelta;
-            float x = Mathf.Clamp(local.x - area.xMin, 0f, Mathf.Max(0f, area.width - size.x));
-            float down = Mathf.Clamp(area.yMax - local.y, 0f, Mathf.Max(0f, area.height - size.y));
-            _panel.anchoredPosition = new Vector2(x, -down);
-
-            _field.SetTextWithoutNotify(name ?? "");
-            UiTheme.Focus(_field);
-            _field.selectionAnchorPosition = 0;
-            _field.selectionFocusPosition = _field.text.Length;
+            _popup.Open(screenPoint, new Vector2(Width, Pad + 30f + FieldHeight + Pad));
+            _field.SetValueWithoutNotify(name ?? "");
+            _field.Focus();
+            _field.SelectAll();
             UiEscape.Opened(this);
         }
 
@@ -122,14 +96,7 @@ namespace BitSorter.View
         }
 
         /// <summary>Shuts it, leaving the name as it was.</summary>
-        public void Close()
-        {
-            if (!IsOpen)
-                return;
-            _closedFrame = Time.frameCount;
-            gameObject.SetActive(false);
-            UiTheme.Defocus();
-        }
+        public void Close() => _popup?.Close();
 
         private void Awake() => UiEscape.Join(this);
 
@@ -137,6 +104,7 @@ namespace BitSorter.View
 
         private void Update()
         {
+            // While the field has the keyboard it answers Escape and Enter itself; let go of, the popup does.
             Keyboard keyboard = UiText.Keyboard;
             if (!IsOpen || keyboard == null)
                 return;
@@ -144,7 +112,7 @@ namespace BitSorter.View
             if (keyboard.escapeKey.wasPressedThisFrame && UiEscape.TryTake(this))
                 Close();
             else if (keyboard.enterKey.wasPressedThisFrame || keyboard.numpadEnterKey.wasPressedThisFrame)
-                Confirm(_field.text);
+                Confirm(_field.value);
         }
     }
 }

@@ -1473,39 +1473,19 @@ namespace BitSorter.View
             BuildStage(palette);
             RefreshDockButtons();
 
-            // Over everything else on the workbench, when it is up -- the shell's panels included, which the popups'
-            // own canvas is sorted over (PopupLayer) until they are the shell's.
-            RectTransform popups = PopupLayer();
-            _rowMenu = WaveRowMenu.Build(popups, palette, ChooseRadix, RowAction);
-            _timeMenu = WaveTimeMenu.Build(popups, palette, TimeAction);
-            _exportMenu = WaveExportMenu.Build(popups, palette, Export);
-            _picker = WaveSignalPicker.Build(popups, palette, AddSignal);
-            _rename = WaveRenameField.Build(popups, palette, RenameRow);
-            _breakField = WaveRenameField.Build(popups, palette, BreakOnValue, WaveRenameField.BreakValueName, "BREAK ON VALUE",
+            // Over everything else on the workbench, when it is up: in the shell, over its docked panels (Part 11b-3).
+            _rowMenu = WaveRowMenu.Build(_shell, transform, palette, ChooseRadix, RowAction);
+            _timeMenu = WaveTimeMenu.Build(_shell, transform, palette, TimeAction);
+            _exportMenu = WaveExportMenu.Build(_shell, transform, palette, Export);
+            _picker = WaveSignalPicker.Build(_shell, transform, palette, AddSignal);
+            _rename = WaveRenameField.Build(_shell, transform, palette, RenameRow);
+            _breakField = WaveRenameField.Build(_shell, transform, palette, BreakOnValue, WaveRenameField.BreakValueName, "BREAK ON VALUE",
                 "1, 4'b1010, 'hA or x");
-            _setField = WaveRenameField.Build(popups, palette, SetInputValue, WaveRenameField.SetValueName, "SET", "1, 4'b1010, 'hA or x");
-            _canvasMenu = CanvasMenu.Build(popups, palette, CanvasMenuDo);
+            _setField = WaveRenameField.Build(_shell, transform, palette, SetInputValue, WaveRenameField.SetValueName, "SET",
+                "1, 4'b1010, 'hA or x");
+            _canvasMenu = CanvasMenu.Build(_shell, transform, palette, CanvasMenuDo);
 
             Root.gameObject.SetActive(false);
-        }
-
-        /// <summary>How far over the shell the popups' canvas is sorted: under the frame-rate counter all the same.</summary>
-        public const int PopupSortingOver = 10;
-
-        /// <summary>
-        /// A layer over the whole workbench for its popups -- the menus, the + SIGNAL list, the fields and the inspector --
-        /// on a canvas of its own sorted over the shell (Part 11b). They are uGUI and the shell draws over the game's
-        /// canvas, so a menu opened by the dock was drawn under the dock's buttons, and a click there was the button's.
-        /// </summary>
-        private RectTransform PopupLayer()
-        {
-            RectTransform layer = UiTheme.Rect("popups", Root);
-            UiTheme.Stretch(layer);
-            var canvas = layer.gameObject.AddComponent<Canvas>();
-            canvas.overrideSorting = true;
-            canvas.sortingOrder = ShellPanel.SortingOrder + PopupSortingOver;
-            layer.gameObject.AddComponent<GraphicRaycaster>();
-            return layer;
         }
 
         /// <summary>
@@ -2158,39 +2138,6 @@ namespace BitSorter.View
             label.color = palette.Text;
             label.transform.SetAsLastSibling();
             return button;
-        }
-
-        /// <summary>
-        /// A single-line text field in the canvas's colours: an outlined box, a masked area for the text
-        /// to scroll in, the text and a quiet <paramref name="placeholder"/> -- the pieces
-        /// <see cref="TMP_InputField"/> needs handed to it, as <c>NameBoardPanel</c> hands them. While it
-        /// holds the keyboard the game's keys are off (<see cref="UiText"/>).
-        /// </summary>
-        internal static TMP_InputField CanvasField(string name, Transform parent, SchematicPalette palette, string placeholder)
-        {
-            Image box = CanvasChip(name, parent, palette);
-            RectTransform area = UiTheme.Rect("text area", box.transform);
-            UiTheme.Stretch(area, 10f);
-            area.gameObject.AddComponent<RectMask2D>();
-
-            TextMeshProUGUI hint = UiTheme.Label("placeholder", area, UiType.Body, palette.Muted, TextAlignmentOptions.MidlineLeft);
-            UiTheme.Stretch(hint.rectTransform, 0f);
-            hint.text = placeholder;
-
-            TextMeshProUGUI text = UiTheme.Label("text", area, UiType.Body, palette.Text, TextAlignmentOptions.MidlineLeft);
-            UiTheme.Stretch(text.rectTransform, 0f);
-
-            TMP_InputField field = box.gameObject.AddComponent<TMP_InputField>();
-            field.textViewport = area;
-            field.textComponent = text;
-            field.placeholder = hint;
-            field.lineType = TMP_InputField.LineType.SingleLine;
-            field.caretColor = palette.Text;
-            field.customCaretColor = true;
-            Color selection = palette.Accent;
-            selection.a = 0.35f;
-            field.selectionColor = selection;
-            return field;
         }
 
         /// <summary>A button's key in a cap just left of it, for one with no room over it.</summary>
