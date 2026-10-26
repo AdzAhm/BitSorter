@@ -252,6 +252,22 @@ namespace BitSorter.PlayMode.Tests
         // The measurement can see a redraw
         // -----------------------------------------------------------------
 
+        /// <summary>
+        /// A quiet frame is measured up to three times and has to be quiet in one (<see cref="AssertQuiet"/>); a call that
+        /// allocates every time is still seen in every try, so the tries forgive only what is left over from before.
+        /// </summary>
+        [Test]
+        public void ACallThatAllocatesEveryTime_IsSeenInEveryTry()
+        {
+            int fewest = FewestAllocations(() =>
+            {
+                byte[] made = new byte[16];
+                GC.KeepAlive(made);
+            });
+
+            Assert.Greater(fewest, 0, "a fresh array on every call, and some try saw none");
+        }
+
         [UnityTest]
         public IEnumerator APlacedGate_IsRedrawnOnce()
         {
@@ -267,8 +283,7 @@ namespace BitSorter.PlayMode.Tests
                 "the XOR count changed and its row was not redrawn -- or the measurement cannot see " +
                 "an allocation, in which case the quiet-frame tests above prove nothing");
 
-            Assert.That(() => frame(), Is.Not.AllocatingGCMemory(),
-                "once redrawn, the parts list should be quiet again");
+            AssertQuiet(frame, "once redrawn, the parts list should be quiet again");
         }
 
         [UnityTest]
@@ -285,8 +300,7 @@ namespace BitSorter.PlayMode.Tests
                 "the level changed and the banner's title was not redrawn -- or the measurement cannot " +
                 "see an allocation, in which case the quiet-frame tests above prove nothing");
 
-            Assert.That(() => frame(), Is.Not.AllocatingGCMemory(),
-                "once redrawn, the banner should be quiet again");
+            AssertQuiet(frame, "once redrawn, the banner should be quiet again");
         }
 
         // -----------------------------------------------------------------
@@ -352,8 +366,7 @@ namespace BitSorter.PlayMode.Tests
                 "a level was solved and its row was not redrawn -- or the measurement cannot see an " +
                 "allocation, in which case the quiet test above proves nothing");
 
-            Assert.That(() => frame(), Is.Not.AllocatingGCMemory(),
-                "once redrawn, the list should be quiet again");
+            AssertQuiet(frame, "once redrawn, the list should be quiet again");
         }
 
         // -----------------------------------------------------------------
@@ -433,8 +446,7 @@ namespace BitSorter.PlayMode.Tests
                 "the count moved and the meter did not draw it -- or the measurement cannot see an " +
                 "allocation, in which case the quiet frame above proves nothing");
 
-            Assert.That(() => update(), Is.Not.AllocatingGCMemory(),
-                "once drawn, the meter should be quiet again");
+            AssertQuiet(update, "once drawn, the meter should be quiet again");
         }
 
         // -----------------------------------------------------------------
@@ -473,8 +485,7 @@ namespace BitSorter.PlayMode.Tests
                 "a node was added and the numbers were not redrawn -- or the measurement cannot see " +
                 "an allocation, in which case the quiet frame above proves nothing");
 
-            Assert.That(() => update(), Is.Not.AllocatingGCMemory(),
-                "once redrawn, the numbers should be quiet again");
+            AssertQuiet(update, "once redrawn, the numbers should be quiet again");
         }
 
         // -----------------------------------------------------------------
@@ -512,8 +523,7 @@ namespace BitSorter.PlayMode.Tests
                 "a level was solved and the menu's progress was not redrawn -- or the measurement " +
                 "cannot see an allocation, in which case the quiet frame above proves nothing");
 
-            Assert.That(() => update(), Is.Not.AllocatingGCMemory(),
-                "once redrawn, the menu should be quiet again");
+            AssertQuiet(update, "once redrawn, the menu should be quiet again");
         }
 
         // -----------------------------------------------------------------
@@ -630,14 +640,38 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
-        /// One call to absorb anything left over from the last real frame, then one measured call.
+        /// One call to absorb anything left over from the last real frame, then up to <see cref="QuietTries"/> measured calls
+        /// in a row, of which one has to allocate nothing.
         /// </summary>
-        private static void AssertQuiet(Action frame)
+        /// <remarks>
+        /// A measurement can count an allocation made just before it switched on. The call before it rebuilds what a
+        /// garbage collection freed -- <c>_root.gameObject</c> makes the GameObject's managed wrapper again -- and the
+        /// measurement after it sees that as its own: a probe (2026-10-26) saw a call that only reads a bool field
+        /// "allocate" right after a collection, and forcing a collection before every measurement made six of this
+        /// fixture's quiet frames fail every time. The game runs the incremental collector, so a cycle can finish at the
+        /// end of any frame -- which is how <see cref="WhileF2IsOn_DiagnosticsAllocateNothing_UntilANumberMoves"/> failed
+        /// once in a full run and passed alone.
+        ///
+        /// Nothing changes between the tries, so an allocation the frame really makes is in every one of them, and the
+        /// assertion still catches a component that draws on a quiet frame. An allocation left over from before is in the
+        /// first at most.
+        /// </remarks>
+        private static void AssertQuiet(Action frame, string because = "nothing changed since the last frame, so nothing should have been drawn")
         {
             frame();
-
-            Assert.That(() => frame(), Is.Not.AllocatingGCMemory(),
-                "nothing changed since the last frame, so nothing should have been drawn");
+            Assert.AreEqual(0, FewestAllocations(frame), $"{because}: it allocated on each of {QuietTries} calls in a row");
         }
+
+        /// <summary>The fewest allocations any of <see cref="QuietTries"/> calls in a row makes, stopping at the first that makes none.</summary>
+        private static int FewestAllocations(Action frame)
+        {
+            int fewest = int.MaxValue;
+            for (int tries = 0; tries < QuietTries && fewest > 0; tries++)
+                fewest = Math.Min(fewest, AllocationsIn(frame));
+            return fewest;
+        }
+
+        /// <summary>How many measured calls in a row a quiet frame has to be quiet in one of.</summary>
+        private const int QuietTries = 3;
     }
 }
