@@ -1909,7 +1909,28 @@ code editor in the circuit's window, and a block made from a selection asks for 
   face the computer has only in a scene without it. Credited in the README, `LICENSE`, and -- CodeMirror -- the credits
   roll's BUILT WITH.
 - **Checked.** In Play Mode: the code set in Plex Mono, and a popup open known. The bridge itself runs only in a browser,
-  so **one browser build checked all of Part 12** (below). Reference shots 43 and 44 differ in the code's face.
+  so **one browser build checks all of Part 12**: the page's half -- the editor made, placed, filled, marked, typed in,
+  Ctrl+Enter and Escape -- checked by driving it in the served build (2026-10-26); the game driving it waits for a pane
+  that runs at full speed. Reference shots 43 and 44 differ in the code's face.
+
+**As built in Part 13a**: a project exported for ModelSim. The plan for Part 13, approved 2026-10-26, is six pull
+requests -- 13a export, 13b import with the course's own testbench, 13c CONVERT, 13d files and the import flow, 13e the
+course's templates, 13f limits and the browser -- with Ahmad's choices: an imported testbench runs as written, and
+CONVERT turns any of them into editable stimulus; an import goes into MY CIRCUIT; desktop keeps fixed folders; a
+template is imported, then exported filled.
+
+- **FILE, beside SAMPLE**, opens a menu (`FileMenu`): EXPORT PROJECT now, the rest as Part 13 goes on.
+- **EXPORT PROJECT saves a zip ModelSim opens** (`ProjectExport`): a folder named for the project with every file it
+  prints as -- the cells, each module after those it uses, the testbench last, a written module as its own text -- and
+  a `run.do` that makes the work library, compiles them in that order with `vlog -sv`, simulates the top with every
+  signal visible, adds them all to the wave window and runs. Unzipped, ModelSim's `do run.do` is the whole of it.
+  Saved as every export is (`FileSaver`): a download in a browser, a file in the Exports folder elsewhere.
+- **The zip is written in memory and stored, not compressed** (`ZipWriter`): no deflater to depend on in a browser,
+  every unzip tool reads it, and the same project and moment make the same bytes.
+- **Checked.** `ProjectExportTests` (14) under dotnet: every sample's zip read back by .NET's own `ZipArchive`, its
+  files and their order, the script's lines, the bytes and the moment kept, the checksum against the standard's own
+  example, and a written module as its own text. In Play Mode: FILE, EXPORT PROJECT, and the zip in the redirected
+  Exports folder. Reference shot 45, new: the FILE menu; 27 to 44 differ in the FILE chip.
 
 ---
 
@@ -1932,7 +1953,7 @@ Each part is one pull request into `v5`, ends with every suite green, and leaves
 | 10 | Editing on the free canvas -- in four: 10a placement and selection **built** (see "As built in Part 10a"); 10b wiring **built**, drawn (10b-1) and reshaped (10b-2); 10c the inspector **built**; 10d copy, align and the minimap **built**; 10e what its browser smoke test found **built** |
 | 11 | The workbench shell, in UI Toolkit -- **built**, in four: 11a the bridges and the toolbar; 11b the docked layout -- its panels (11b-1), the inspector docked (11b-2), the popups in the shell (11b-3); 11c the transcript and the hierarchy; 11d the keyboard map, the status line and the docs |
 | 12 | Hierarchy, and written blocks, edited in CodeMirror in a browser -- in six: 12a stepping inside a block **built** (see "As built in Part 12a"); 12b making a block **built** (see "As built in Part 12b"); 12c arrays **built** (see "As built in Part 12c"); 12d code blocks **built** (see "As built in Part 12d"); 12e the code panel **built** (see "As built in Part 12e"); 12f CodeMirror **built** (see "As built in Part 12f") |
-| 13 | Export and import (and a levelized path in the engine, only if a measurement asks for it) |
+| 13 | Export and import (and a levelized path in the engine, only if a measurement asks for it) -- in six: 13a exporting a project **built** (see "As built in Part 13a"); 13b import, 13c CONVERT, 13d files, 13e templates, 13f limits and the browser |
 | 14 | The course's tools: path delays, static timing, gate-library mode, step tests, lint, tri-state |
 | 15 | The Exercises and the tutorial |
 | 16 | The old game retired, and a smaller download; 5.0.0 released |

@@ -1451,6 +1451,29 @@ namespace BitSorter.PlayMode.Tests
             yield return Capture("44-workbench-code-tab");
         }
 
+        /// <summary>Part 13a: the FILE menu open under its chip, over the full adder.</summary>
+        [UnityTest]
+        public IEnumerator Shot45_WorkbenchFileMenu()
+        {
+            yield return LoadTheGame();
+            yield return Frames(2);
+
+            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            yield return Frames(2);
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowSample(2);   // the full adder
+            yield return Frames(2);
+            workbench.Pause();
+            workbench.Session.Finish();
+            workbench.Seek(26.5);
+            workbench.OpenFileMenu();
+            yield return Frames(30);
+
+            Assert.IsTrue(workbench.FileMenu.IsOpen, "sanity: the menu is open");
+            yield return Capture("45-workbench-file-menu");
+        }
+
         private static IEnumerator OpensOnItsCircuit(string level, string fixture, string shot)
         {
             yield return LoadTheGame();

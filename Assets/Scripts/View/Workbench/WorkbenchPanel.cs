@@ -1493,6 +1493,7 @@ namespace BitSorter.View
             _rowMenu = WaveRowMenu.Build(_shell, transform, palette, ChooseRadix, RowAction);
             _timeMenu = WaveTimeMenu.Build(_shell, transform, palette, TimeAction);
             _exportMenu = WaveExportMenu.Build(_shell, transform, palette, Export);
+            _fileMenu = FileMenu.Build(_shell, transform, palette, FileChosen);
             _picker = WaveSignalPicker.Build(_shell, transform, palette, AddSignal);
             _rename = WaveRenameField.Build(_shell, transform, palette, RenameRow);
             _breakField = WaveRenameField.Build(_shell, transform, palette, BreakOnValue, WaveRenameField.BreakValueName, "BREAK ON VALUE",
@@ -1684,6 +1685,7 @@ namespace BitSorter.View
             _rowMenu.Close();
             _timeMenu.Close();
             _exportMenu.Close();
+            _fileMenu.Close();
             _picker.Close();
             _rename.Close();
             _blockName.Close();

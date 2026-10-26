@@ -98,11 +98,14 @@ namespace BitSorter.View
             ShellTheme.KeyBeside(_sampleButton, SampleHeight, "S", palette);
             _header.Add(_sampleButton);
 
+            // FILE, left of SAMPLE's key (Part 13).
+            BuildFileChip(_header, palette, width + KeyRoom + 12f);
+
             // The line describing the sample, beside the title, as far as SAMPLE's key; cut short where it runs longer.
             float left = titleWidth + 14f + 86f + 20f;
             _description = ShellTheme.Label("description", WorkbenchSamples.Chip[_sample].Says, UiType.Label, palette.TextDim);
             ShellTheme.Place(_description, left, 0f, -1f, HeaderHeight);
-            _description.style.right = width + KeyRoom + 16f;
+            _description.style.right = width + KeyRoom + 12f + FileWidth + 16f;
             ShellTheme.Ellipsis(_description);
             _header.Add(_description);
         }

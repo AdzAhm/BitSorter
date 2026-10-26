@@ -1178,6 +1178,37 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsFalse(ShellPopup.AnyOpen, "and closed, none is");
         }
 
+        /// <summary>
+        /// FILE (Part 13a): its menu's EXPORT PROJECT saves the document as a zip of every file it prints as and a run.do, in
+        /// the Exports folder -- redirected while a test runs, as every export is.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator FileExportProject_SavesAZipOfTheFilesAndARunScript()
+        {
+            yield return TestScene.Load();
+            yield return Click(MainMenu.WorkbenchButton);
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowSample(SampleNamed("Full adder"));
+            yield return null;
+            workbench.Pause();
+            workbench.Session.Finish();
+            yield return null;
+
+            yield return Click(WorkbenchPanel.FileButton);
+            Assert.IsTrue(workbench.FileMenu.IsOpen, "FILE opens its menu");
+            yield return Click(FileMenu.ActionItem + FileAction.ExportProject);
+            Assert.IsFalse(workbench.FileMenu.IsOpen, "and a choice closes it");
+
+            string path = System.IO.Path.Combine(FileSaver.Folder, WaveExport.FileName("Full adder", "zip"));
+            Assert.IsTrue(System.IO.File.Exists(path), path);
+            byte[] zip = System.IO.File.ReadAllBytes(path);
+            Assert.AreEqual(new byte[] { 0x50, 0x4B, 0x03, 0x04 }, zip.Take(4).ToArray(), "a zip");
+            string bytes = System.Text.Encoding.UTF8.GetString(zip);
+            StringAssert.Contains("full_adder/" + ProjectExport.RunScript, bytes, "with the script, stored as it reads");
+            StringAssert.Contains("vsim -voptargs=+acc work.full_adder_tb", bytes);
+            StringAssert.Contains("module full_adder", bytes);
+        }
+
         /// <summary>The wheel over a written block's line numbers scrolls its code, as it does over the code itself (Part 12d).</summary>
         [UnityTest]
         public IEnumerator TheWheelOverTheCodesLineNumbers_ScrollsTheCode()
