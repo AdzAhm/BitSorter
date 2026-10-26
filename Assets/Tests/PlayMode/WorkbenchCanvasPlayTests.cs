@@ -1210,6 +1210,62 @@ namespace BitSorter.PlayMode.Tests
             StringAssert.Contains("module full_adder", bytes);
         }
 
+        /// <summary>
+        /// EXPORT PROJECT hands over the code on screen (Part 13a). Code typed into a written block and not yet applied is
+        /// applied first, as the editor would after its pause, and code that cannot apply is refused with what is wrong with
+        /// it -- never exported as the last text that worked, which is older than what the student is looking at.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator FileExportProject_ExportsTheCodeOnScreen_AndRefusesCodeThatDoesNotApply()
+        {
+            yield return TestScene.Load();
+            yield return Click(MainMenu.WorkbenchButton);
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowSample(SampleNamed("Written adder"));
+            yield return null;
+            workbench.Pause();
+            workbench.Session.Finish();
+            yield return null;
+            Assert.IsTrue(workbench.StepInto(Top(workbench).Parts.OfType<BlockPart>().Single().Id));
+            yield return null;
+            CodeDocument code = workbench.Session.Code;
+            Assert.IsNotNull(code, "sanity: the written block's code is on screen");
+            Assert.IsFalse(code.Pending, "sanity: and is the document's");
+            string path = System.IO.Path.Combine(FileSaver.Folder, WaveExport.FileName("Written adder", "zip"));
+            Assert.IsNotNull(FileSaver.Redirected, "sanity: the Exports folder is the test's scratch one, never the player's");
+            if (System.IO.File.Exists(path))
+                System.IO.File.Delete(path);   // an earlier run's, in the scratch folder
+
+            // The editor's clock is the game's in milliseconds. Typed a minute ahead of it, the text is "just typed" however
+            // many frames the menu takes, so the pause never runs out and applies it before the export looks.
+            double justTyped = Time.timeAsDouble * 1000.0 + 60000.0;
+            string typed = WorkbenchSamples.AdderSource.Replace("= a + b;", "= {1'b0, a ^ b};");
+            string broken = typed.Replace("a ^ b", "a ^ ");
+
+            // Typed with a fault, and not applied: refused, and nothing saved.
+            code.Type(broken, justTyped);
+            Assert.IsTrue(code.Pending, "sanity: on screen, not the document's");
+            yield return Click(WorkbenchPanel.FileButton);
+            yield return Click(FileMenu.ActionItem + FileAction.ExportProject);
+            yield return null;
+            Assert.IsFalse(System.IO.File.Exists(path), "code on screen that does not apply is not exported as the last that did");
+            StringAssert.Contains("does not apply", workbench.ChipText, "and the chip says so");
+            Assert.AreEqual(WorkbenchSamples.AdderSource, AdderText(workbench), "the document keeps the last code that worked");
+
+            // Typed and not applied yet: applied, then exported.
+            code.Type(typed, justTyped);
+            Assert.AreEqual(WorkbenchSamples.AdderSource, AdderText(workbench), "sanity: not applied yet");
+            yield return Click(WorkbenchPanel.FileButton);
+            yield return Click(FileMenu.ActionItem + FileAction.ExportProject);
+
+            Assert.IsTrue(System.IO.File.Exists(path), path);
+            string bytes = System.Text.Encoding.UTF8.GetString(System.IO.File.ReadAllBytes(path));
+            StringAssert.Contains("assign #3 {cout, s} = {1'b0, a ^ b};", bytes, "the code on screen is in the file");
+            StringAssert.DoesNotContain("= a + b;", bytes, "not the last code that applied before it");
+            Assert.AreEqual(typed, AdderText(workbench), "applied on the way out");
+            Assert.IsFalse(workbench.Session.Code.Pending);
+        }
+
         private const string ImportedMux =
             "module mux2 (input logic a, input logic b, input logic s, output logic y);\n" +
             "    logic s_n, n0, n1;\n" +
