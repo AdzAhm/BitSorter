@@ -56,7 +56,7 @@ namespace BitSorter.View
             menu._importFiles = menu.Item(ActionItem + FileAction.ImportFiles, "IMPORT A PROJECT'S FILES", () => onChoose?.Invoke(FileAction.ImportFiles),
                 breakBefore: true);
             menu._importPicked = menu.Item(ActionItem + FileAction.ImportPickedFolder, "IMPORT A PROJECT'S FOLDER", () => onChoose?.Invoke(FileAction.ImportPickedFolder));
-            menu._convert = menu.Item(ActionItem + FileAction.ConvertTestbench, "CONVERT THE TESTBENCH TO STEPS ON THE WAVES",
+            menu._convert = menu.Item(ActionItem + FileAction.ConvertTestbench, "CONVERT TESTBENCH TO STEPS ON THE WAVES",
                 () => onChoose?.Invoke(FileAction.ConvertTestbench), breakBefore: true);
             return menu;
         }

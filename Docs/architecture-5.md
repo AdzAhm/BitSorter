@@ -2100,7 +2100,9 @@ template is imported, then exported filled.
   combinational and a clocked template, filled and handed in, run by Icarus with their testbench exactly as the project
   ran here, signal for signal and line for line. Play Mode (`WorkbenchCanvasPlayTests`): EXPORT FOR SUBMISSION not
   offered before an import, offered after; code typed with a fault refused and nothing saved; code typed and not applied
-  applied and handed in. No reference shot moves: the item is hidden on every shot's document.
+  applied and handed in; and every item the FILE menu shows fitting it, measured -- which CONVERT's caption, from 13d,
+  did not, at 436 px in an item of 416, until it lost its article. No reference shot moves: the new item is hidden on
+  every shot's document, and so is CONVERT.
 
 ---
 
