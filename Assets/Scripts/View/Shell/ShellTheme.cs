@@ -20,6 +20,9 @@ namespace BitSorter.View
         /// <summary>The class a label set in the bold face carries: which face its characters must be in.</summary>
         public const string BoldClass = "shell-bold";
 
+        /// <summary>The class a key's cap beside a button carries, which SHORTCUT KEYS hides (<see cref="KeyCaps"/>).</summary>
+        public const string KeyCapClass = "shell-key";
+
         /// <summary>The name of a field's quiet word shown while it is empty (<see cref="Placeholder"/>).</summary>
         public const string PlaceholderName = "placeholder";
 
@@ -118,10 +121,20 @@ namespace BitSorter.View
             return chip;
         }
 
-        /// <summary>A key's cap, <paramref name="key"/> in it, sized as the game sizes one (<see cref="UiTheme.KeyCapWidth"/>), taking no clicks.</summary>
-        public static VisualElement KeyCap(string key, SchematicPalette palette)
+        /// <summary>
+        /// A key's cap, <paramref name="key"/> in it, sized as the game sizes one (<see cref="UiTheme.KeyCapWidth"/>), taking no
+        /// clicks; hidden with SHORTCUT KEYS (<see cref="KeyCaps"/>) unless it is <paramref name="always"/> -- the keyboard
+        /// map's, which is there to list them.
+        /// </summary>
+        public static VisualElement KeyCap(string key, SchematicPalette palette, bool always = false)
         {
             VisualElement cap = Chip("key", palette);
+            if (!always)
+            {
+                cap.AddToClassList(KeyCapClass);
+                cap.visible = KeyCaps.Shown;
+            }
+
             cap.style.width = UiTheme.KeyCapWidth(key);
             cap.style.height = UiTheme.ControlsHeight;
             cap.style.position = Position.Absolute;

@@ -64,6 +64,7 @@ namespace BitSorter.View
         private LevelDefinition _titleLevel;
         private int _titleIndex;
         private int _titleCount;
+        private bool _titleKeys = true;
 
         /// <summary>The goal the banner was last sized for.</summary>
         private string _goalShown;
@@ -195,15 +196,17 @@ namespace BitSorter.View
             int index = _session.LevelIndex;
             int count = _session.AvailableLevels.Count;
 
-            if (level != _titleLevel || index != _titleIndex || count != _titleCount)
+            bool keys = KeyCaps.Shown;
+            if (level != _titleLevel || index != _titleIndex || count != _titleCount || keys != _titleKeys)
             {
                 _title.text = count > 1 && index >= 0
-                    ? $"{level.Name.ToUpperInvariant()}   {Counter(index, count)}"
+                    ? $"{level.Name.ToUpperInvariant()}   {Counter(index, count, keys)}"
                     : level.Name.ToUpperInvariant();
 
                 _titleLevel = level;
                 _titleIndex = index;
                 _titleCount = count;
+                _titleKeys = keys;
             }
 
             if (!string.Equals(_goalShown, level.Goal))
@@ -240,13 +243,16 @@ namespace BitSorter.View
         /// Q and E were named on the tutorial's card and the level list and nowhere a player looks
         /// while playing, and a playtester never found them (2026-09-28). The counter is what they
         /// change, so they sit beside it -- smaller and dimmer than the name, and only where they go
-        /// somewhere: there is no level before the first, or after the last.
+        /// somewhere: there is no level before the first, or after the last. With SHORTCUT KEYS hidden
+        /// (<paramref name="keys"/> false), the arrows stay and the letters go: "‹ 14 / 25 ›".
         /// </remarks>
-        public static string Counter(int index, int count)
+        public static string Counter(int index, int count, bool keys = true)
         {
             string dim = ColorUtility.ToHtmlStringRGB(UiTheme.TextDim);
-            string before = index > 0 ? $"{ControlsReference.At(ControlSpot.LevelBefore)} ‹ " : string.Empty;
-            string after = index < count - 1 ? $" › {ControlsReference.At(ControlSpot.LevelAfter)}" : string.Empty;
+            string q = keys ? ControlsReference.At(ControlSpot.LevelBefore) + " " : string.Empty;
+            string e = keys ? " " + ControlsReference.At(ControlSpot.LevelAfter) : string.Empty;
+            string before = index > 0 ? $"{q}‹ " : string.Empty;
+            string after = index < count - 1 ? $" ›{e}" : string.Empty;
 
             return $"<size=80%><color=#{dim}>{before}</color></size>{index + 1} / {count}" +
                    $"<size=80%><color=#{dim}>{after}</color></size>";

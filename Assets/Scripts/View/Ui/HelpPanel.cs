@@ -336,6 +336,7 @@ namespace BitSorter.View
             TextMeshProUGUI key = UiTheme.Label(
                 "key", rect, UiTheme.KeyCaptionType, UiTheme.TextDim, TextAlignmentOptions.Center);
             key.raycastTarget = false;
+            key.gameObject.AddComponent<KeyCapView>();
             UiTheme.Anchor(key.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 1f),
                 new Vector2(0f, -UiTheme.BadgeKeyDrop), new Vector2(UiTheme.BadgeKeyWidth, UiTheme.BadgeKeyLabelHeight));
             key.text = ControlsReference.At(ControlSpot.HelpBadge);

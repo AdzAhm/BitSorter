@@ -201,6 +201,7 @@ namespace BitSorter.View
 
             RectTransform rect = cap.rectTransform;
             rect.sizeDelta = new Vector2(KeyCapWidth(key), ControlsHeight);
+            rect.gameObject.AddComponent<KeyCapView>();   // SHORTCUT KEYS hides it (KeyCaps)
             return rect;
         }
 

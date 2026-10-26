@@ -493,6 +493,46 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
+        /// SHORTCUT KEYS, beside REDUCED MOTION, hides every key drawn beside a button and shows them again: the caps over the
+        /// run buttons and the keys under MENU and the help badge, and Q and E beside the level's counter (asked for
+        /// 2026-10-26). Shown to begin with; the caption says which, and fits either way.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator ShortcutKeys_HidesEveryKeyBesideAButton_AndShowsThemAgain()
+        {
+            yield return TestScene.Load();
+            yield return OpenSettings();
+
+            Button keys = OnScreen(SettingsPanel.KeysButton);
+            Assert.AreEqual(ScreenRect(OnScreen(SettingsPanel.MotionButton)).center.y, ScreenRect(keys).center.y, 1f,
+                "SHORTCUT KEYS is not on REDUCED MOTION's row");
+            Assert.IsTrue(KeyCaps.Shown, "the keys are shown to begin with");
+            AssertFits(SettingsPanel.KeysButton, SettingsPanel.KeysCaption(true));
+            AssertFits(SettingsPanel.KeysButton, SettingsPanel.KeysCaption(false));
+
+            yield return Click(SettingsPanel.KeysButton);
+            Assert.IsFalse(KeyCaps.Shown, "SHORTCUT KEYS did not hide the keys");
+            Assert.AreEqual(SettingsPanel.KeysCaption(false), keys.GetComponentInChildren<TextMeshProUGUI>().text);
+
+            yield return Click(SettingsPanel.BackButton);
+            Find<MainMenu>().Show(false);
+            yield return null;
+            yield return null;
+
+            KeyCapView[] marked = Object.FindObjectsByType<KeyCapView>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+            Assert.IsNotEmpty(marked, "sanity: the board has keys beside its buttons");
+            foreach (KeyCapView cap in marked)
+                Assert.IsFalse(cap.Drawn, $"'{cap.name}' under '{cap.transform.parent.name}' is still drawn");
+            StringAssert.DoesNotContain("Q ", StatusBanner.Counter(3, 10, KeyCaps.Shown), "Q has gone from the counter");
+            StringAssert.Contains("‹", StatusBanner.Counter(3, 10, KeyCaps.Shown), "and its arrow stays");
+
+            KeyCaps.SetShown(true);   // the fixture shares its scratch preferences
+            yield return null;
+            foreach (KeyCapView cap in marked)
+                Assert.IsTrue(cap.Drawn, $"'{cap.name}' did not come back");
+        }
+
+        /// <summary>
         /// Every DISPLAY switch's caption fits its button, whichever way it is set. They are three
         /// to a row, a switch's width rather than a button's, and the longest caption is set by the
         /// state the switch is not in.

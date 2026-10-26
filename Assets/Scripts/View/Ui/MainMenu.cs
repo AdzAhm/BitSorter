@@ -106,6 +106,7 @@ namespace BitSorter.View
             TextMeshProUGUI key = UiTheme.Label(
                 "key", _hudButton, UiTheme.KeyCaptionType, UiTheme.TextDim, TextAlignmentOptions.Center);
             key.raycastTarget = false;
+            key.gameObject.AddComponent<KeyCapView>();
             UiTheme.Anchor(key.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 1f),
                 new Vector2(0f, -4f), new Vector2(HudButtonWidth, UiTheme.KeyCaptionHeight));
             key.text = ControlsReference.At(ControlSpot.MenuButton);

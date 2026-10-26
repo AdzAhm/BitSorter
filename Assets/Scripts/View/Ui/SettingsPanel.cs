@@ -109,6 +109,12 @@ namespace BitSorter.View
         /// <inheritdoc cref="SoundButton"/>
         public const string MotionButton = "Motion setting";
 
+        /// <inheritdoc cref="SoundButton"/>
+        public const string KeysButton = "Keys setting";
+
+        /// <summary>What SHORTCUT KEYS says for its setting.</summary>
+        public static string KeysCaption(bool shown) => shown ? "SHORTCUT KEYS  SHOWN" : "SHORTCUT KEYS  HIDDEN";
+
         /// <summary>The name of the button that chooses a look.</summary>
         public static string LookButton(Look look) => "Look " + look.Name;
 
@@ -462,12 +468,18 @@ namespace BitSorter.View
             }
 
             column.Space(VolumeGap);
+            float row = column.Take(UiTheme.ButtonHeight);
             Button motion = UiTheme.Button_(MotionButton, block, string.Empty, out _motionLabel, UiType.Body, ButtonRole.Secondary);
-            PlaceLeft(motion.GetComponent<RectTransform>(), column.Take(UiTheme.ButtonHeight), 0f, LookWidth, UiTheme.ButtonHeight);
+            PlaceLeft(motion.GetComponent<RectTransform>(), row, 0f, LookWidth, UiTheme.ButtonHeight);
             motion.onClick.AddListener(() => Fire(() => ReducedMotion.Set(!ReducedMotion.IsOn)));
+
+            // Beside it, on the row's free half: the keys drawn beside the buttons are part of how the game looks.
+            Button keys = UiTheme.Button_(KeysButton, block, string.Empty, out _keysLabel, UiType.Body, ButtonRole.Secondary);
+            PlaceLeft(keys.GetComponent<RectTransform>(), row, LookWidth + LookGap, LookWidth, UiTheme.ButtonHeight);
+            keys.onClick.AddListener(() => Fire(() => KeyCaps.SetShown(!KeyCaps.Shown)));
         }
 
-        private TextMeshProUGUI _motionLabel;
+        private TextMeshProUGUI _motionLabel, _keysLabel;
 
         /// <summary>A heading with a rule under it, then the line saying what the section is for.</summary>
         private static void Section(RectTransform block, UiColumn column, string title, string text)
@@ -671,6 +683,8 @@ namespace BitSorter.View
 
             if (_motionLabel != null)
                 _motionLabel.text = ReducedMotion.IsOn ? "REDUCED MOTION  ON" : "REDUCED MOTION  OFF";
+            if (_keysLabel != null)
+                _keysLabel.text = KeysCaption(KeyCaps.Shown);
 
             if (_fullscreenLabel != null)
                 _fullscreenLabel.text = Screen.fullScreen ? "FULLSCREEN  ON" : "FULLSCREEN  OFF";

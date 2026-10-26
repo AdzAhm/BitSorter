@@ -72,9 +72,25 @@ namespace BitSorter.View
             return shell;
         }
 
-        private void OnEnable() => Live.Add(this);
+        private void OnEnable()
+        {
+            Live.Add(this);
+            KeyCaps.Changed += ShowKeyCaps;
+            ShowKeyCaps();
+        }
 
-        private void OnDisable() => Live.Remove(this);
+        private void OnDisable()
+        {
+            Live.Remove(this);
+            KeyCaps.Changed -= ShowKeyCaps;
+        }
+
+        /// <summary>Every key's cap beside a button shown or hidden, as SHORTCUT KEYS says (<see cref="KeyCaps"/>).</summary>
+        private void ShowKeyCaps()
+        {
+            bool shown = KeyCaps.Shown;
+            Root?.Query(className: ShellTheme.KeyCapClass).ForEach(cap => cap.visible = shown);
+        }
 
         /// <summary>Whether the panel is drawn and takes the pointer.</summary>
         public bool Visible

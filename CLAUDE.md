@@ -824,6 +824,15 @@ failure side.
   beside the level counter on the banner** (`StatusBanner.Counter`), each only
   where it goes somewhere; they were named on the tutorial's card and the level
   list and nowhere a player looks while playing.
+
+  **SHORTCUT KEYS in Settings hides every key beside a button** (`KeyCaps`, asked
+  for 2026-10-26): the caps over the run buttons and the workbench's, the keys
+  under MENU, the help badge and the timing diagram's badge, and Q and E beside
+  the counter, which keeps its arrows. Shown to begin with, the whole game, and
+  at once: each key hears the setting change (`KeyCapView` by its alpha, never by
+  switching itself off; the shell's by `ShellTheme.KeyCapClass`). What exists to
+  list keys keeps them -- the workbench's keyboard map, the tutorial's card, the
+  help panel's text -- and every key works either way.
 - **Text is sized by what it is for, never by a number.** `UiTheme.Label` takes a
   `UiType` -- Micro, Caption, Label, Body, Prompt, Numeral, Lead, Heading, Title, Display --
   and `UiTheme.SizeOf` is the one place those become sizes. Seventeen sizes from
@@ -1703,8 +1712,8 @@ waited for a card that had already come and gone. `PresentedThisRun` is set in
 the call that presents the card, so there is nothing to catch.
 
 **Settings is sound and its volume, fullscreen, vertical sync, a frame cap and a
-frame-rate counter, the look and reduced motion, the data switch, starting over,
-and the credits.** `SettingsPanel` is reached only from the main menu and goes
+frame-rate counter, the look, reduced motion and the shortcut keys, the data
+switch, starting over, and the credits.** `SettingsPanel` is reached only from the main menu and goes
 back to it, and it plays the menu's music. Sound and Data were rows of the menu
 until it existed.
 
