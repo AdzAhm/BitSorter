@@ -1823,7 +1823,8 @@ code editor in the circuit's window, and a block made from a selection asks for 
 **As built in Part 12d**: blocks written as code.
 
 - **A module may be written** (`Module.Source`): SystemVerilog text in place of a drawing, with no parts and no wires.
-  A block of it is placed, wired, copied and stepped into like any block, and the top stays drawn, so far.
+  A block of it is placed, wired, copied and stepped into like any block. The top was drawn until Part 13b, which lets
+  an imported design be written too (see "As built in Part 13b").
 - **Its text is read by elaborating it** (`WrittenModules`): parsed, held to one module of its own name -- no
   interface, package, `timescale, `timeunit` or `timeprecision`, since a block keeps the project's unit -- then
   elaborated among the library's cells, the other written modules and a header of each drawn one. **Once as the top,
@@ -1932,6 +1933,68 @@ template is imported, then exported filled.
   example, and a written module as its own text. In Play Mode: FILE, EXPORT PROJECT, and the zip in the redirected
   Exports folder. Reference shot 45, new: the FILE menu; 27 to 44 differ in the FILE chip.
 
+**As built in Part 13b**: a course project imported, in the pure layers; 13d gives it a door in the workbench.
+
+- **Files in, a project out** (`ProjectImporter`): the `.sv` and `.v` files read together, as a simulator compiles a
+  list of files, and every note said with its file and line. **Each module is drawn when it can be, and written
+  otherwise**, deciding the modules it uses first, so a structural module over a written one is drawn with it as a
+  block (`BoardImporter` now takes the modules already written). **A module something looks inside** --
+  `dut.state`, `dut.u1.q`, as three of the course's testbenches do -- is written, with every module on the way, so
+  what is named is there under its own name; a drawing keeps only the nets. A module of a library cell's name is the
+  library's, checked for the same ports (A to D, Z) and the same default delays of 1, which the course's gate files
+  have; one that differs is said. A file that does not read is named at its line and left out; the import is refused
+  only when no design can be made.
+- **The testbench runs as written** (`Project.Bench`, Ahmad's choice): the module with no ports that nothing
+  instantiates and that instantiates the design. It is a written module, compiled as the run's top instead of a
+  testbench made from the stimulus, and `DesignPath` is its instance of the design. **The design** is what it
+  instantiates -- of several, the one whose instance is called dut or uut, else the one with the most ports, since a
+  clock generator or a model beside the design has fewer; the import says which. One made inside a generate if or for
+  is refused, since which instance is the design is then the elaborator's to say.
+- **The run's end is where the testbench stops**: the import runs it once -- to its `$stop` or `$finish`; to its last
+  change and a tenth more when it simply runs out, as nine of the course's fifteen testbenches do
+  (`Simulator.NextEventTime`, null once nothing is left to happen); or as far as `MaxRun` and `MaxEvents` let it, with
+  a note -- and keeps that as the stimulus's `End`, with no tracks, so the timeline and the run's horizon are unchanged
+  code. **While it drives the inputs, SET and invert are refused** with where to change them; CONVERT (13c) is the way
+  to editable stimulus. Renaming the testbench takes it along; taking it out gives the inputs back to the stimulus.
+  Without a testbench the design is the module nothing instantiates, and has no stimulus.
+- **The top may be written** now, as an imported design that is not structural is; the circuit's window shows its
+  code at the top, and the schematic and the testbench made from a stimulus take its ports from its header.
+- **A written module is its own text, cut from its file** (`ModuleCutter`) at its own `endmodule`, wherever on its line
+  that is: the comments and directives just above it, and in front the `define`s, includes and conditionals the file
+  made between earlier modules, read without their comments -- so the seven modules of `processor/mcpu.sv` each read
+  alone, and `ifdef SIM ... else ... endif` above a module still chooses. Left out: a guard round the whole file, a
+  `timescale` (**which sets the project's unit** instead), and an include of a file whose modules are the project's.
+  A file whose conditionals choose *between* modules cannot be cut, and the import says so. An include is named by its
+  file's bare name, since that is how a project keeps its files.
+- **A project has other files** (`Project.Files`, `ProjectFiles`): what a written module includes and what
+  `$readmemh` reads, each by a bare name -- the course's nine `.inc` parameter files and its memory images are bare
+  names beside the sources -- and a `.sv` of nothing but defines. Every run is given a copy of them
+  (`SimOptions.Files`), a written module's reading looks in them for its includes and is kept for the files its text
+  names, an export puts them beside the modules, and the save keeps them. **A name matches in any case**, in an
+  include, in `$readmemh`, in the reading's cache and in the rules, as on the Windows machines the course's ModelSim
+  runs on. A `timescale` in one is taken out. A fault in one is marked at the include in the module's text and says
+  which file and line it is in.
+- **A file that declares something** -- constants, types, or an include of a file that does -- and was included
+  outside a module is included inside each module that used it, once, which means the same to that module; a module
+  whose header uses what it declares cannot have it there, and the import says so. It loses its include guard, which
+  would empty it in every file but the first once the modules are files of their own read together -- unless another of
+  the project's files includes it too, when the guard is what keeps it from being declared twice. The import says when
+  it takes one out.
+- **Saved** as `bench` and `files` on the project, keys an older file reads as absent.
+- **Reviewed** by three Sonnet reviewers, cutting, files and the testbench; all twenty findings fixed, each with a
+  test (`ProjectImportEdgeTests`), after the course folder was counted to see which bite: no file there uses a
+  conditional, several modules in a file, or an include through a folder; the testbenches that run out, look inside
+  the design or make two modules are there.
+- **Checked.** `ImportOracleTests`: four projects -- an ALU with an include and a timescale, a mux of gates, a counter
+  of three modules, and the processor with its include and memory images -- imported and run in BitSorter as Icarus
+  runs the original files, every signal of the same name and every line printed; and each exported again, which
+  Icarus runs as it ran the originals. `ProjectImportTests` (20): the testbench and the design, drawn and written, a
+  drawn module over written blocks, a course include read inside its module and read again when it changes, a file of
+  several modules cut, the unit, files that do not read, the cells, a testbench that never stops, the save, the files'
+  rules, a memory image run, the testbench renamed and taken out. `ProjectImportEdgeTests` (19): the review's cases.
+  `ImportedProjectTests`: an imported project in the workbench, run to its stop with its memory image, its written
+  design's code at the top, its inputs not the stimulus's to set.
+
 ---
 
 ## 11. The parts
@@ -1953,7 +2016,7 @@ Each part is one pull request into `v5`, ends with every suite green, and leaves
 | 10 | Editing on the free canvas -- in four: 10a placement and selection **built** (see "As built in Part 10a"); 10b wiring **built**, drawn (10b-1) and reshaped (10b-2); 10c the inspector **built**; 10d copy, align and the minimap **built**; 10e what its browser smoke test found **built** |
 | 11 | The workbench shell, in UI Toolkit -- **built**, in four: 11a the bridges and the toolbar; 11b the docked layout -- its panels (11b-1), the inspector docked (11b-2), the popups in the shell (11b-3); 11c the transcript and the hierarchy; 11d the keyboard map, the status line and the docs |
 | 12 | Hierarchy, and written blocks, edited in CodeMirror in a browser -- in six: 12a stepping inside a block **built** (see "As built in Part 12a"); 12b making a block **built** (see "As built in Part 12b"); 12c arrays **built** (see "As built in Part 12c"); 12d code blocks **built** (see "As built in Part 12d"); 12e the code panel **built** (see "As built in Part 12e"); 12f CodeMirror **built** (see "As built in Part 12f") |
-| 13 | Export and import (and a levelized path in the engine, only if a measurement asks for it) -- in six: 13a exporting a project **built** (see "As built in Part 13a"); 13b import, 13c CONVERT, 13d files, 13e templates, 13f limits and the browser |
+| 13 | Export and import (and a levelized path in the engine, only if a measurement asks for it) -- in six: 13a exporting a project **built** (see "As built in Part 13a"); 13b importing one **built** (see "As built in Part 13b"); 13c CONVERT, 13d files, 13e templates, 13f limits and the browser |
 | 14 | The course's tools: path delays, static timing, gate-library mode, step tests, lint, tri-state |
 | 15 | The Exercises and the tutorial |
 | 16 | The old game retired, and a smaller download; 5.0.0 released |
