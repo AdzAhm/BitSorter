@@ -269,6 +269,22 @@ namespace BitSorter.ViewModel
             }
         }
 
+        private CodeListing _listing = CodeListing.Empty;
+
+        /// <summary>
+        /// The SystemVerilog the document prints as (Part 12e), for the dock's CODE tab: printed again only once the document
+        /// has changed, so asking every frame costs nothing between edits.
+        /// </summary>
+        public CodeListing Listing
+        {
+            get
+            {
+                if (!ReferenceEquals(_listing.Project, Project))
+                    _listing = CodeListing.Of(Project);
+                return _listing;
+            }
+        }
+
         /// <summary>The written module shown given <paramref name="source"/> (<see cref="BoardEditor.SetSource"/>): one step, drawn now, and replayed.</summary>
         public EditResult SetSource(string source) => Edited(Editor.SetSource(Module, source));
 
