@@ -230,12 +230,34 @@ namespace BitSorter.View
         private static string Count(int n, string thing) => n.ToString(CultureInfo.InvariantCulture) + " " + thing + (n == 1 ? "" : "s");
 
         /// <summary>
+        /// Code typed into the written module on screen and not yet applied, applied now as its editor would after the
+        /// pause, so that what an export holds is what the student is looking at. The editor keeps typed text as its own until
+        /// the pause or Ctrl+Enter, and text with an error as its own for good, while the document holds the last text that
+        /// applied: exporting the document alone hands over older code without a word. Code that cannot apply is refused with
+        /// what is wrong with it, <paramref name="outcome"/> saying what then does not happen ("exported", "handed in"), and
+        /// false is returned: the export stops. True when what is on screen is the document's, whether or not it had to be applied.
+        /// </summary>
+        private bool ApplyTypedCode(string outcome)
+        {
+            if (!_session.ShowsCode || !(_session.Code is CodeDocument code) || !code.Pending)
+                return true;
+
+            EditResult applied = code.Apply();
+            if (applied.Done)
+                return true;
+
+            Notice(code.Module + "'s code on screen does not apply, so it is not " + outcome + ": " + applied.Refusal);
+            return false;
+        }
+
+        /// <summary>
         /// Saves the document as a zip ModelSim opens (<see cref="ProjectExport"/>), dated now: a download in a browser, a file
-        /// in the Exports folder elsewhere. The chip says what was saved and where. Returns the file's name, or null.
+        /// in the Exports folder elsewhere. The chip says what was saved and where. Code typed and not yet applied is applied
+        /// first, and code that cannot apply is refused (<see cref="ApplyTypedCode"/>). Returns the file's name, or null.
         /// </summary>
         public string ExportProject()
         {
-            if (_session == null)
+            if (_session == null || !ApplyTypedCode("exported"))
                 return null;
 
             byte[] bytes = ProjectExport.Zip(_session.Project, System.DateTime.Now);
@@ -253,24 +275,14 @@ namespace BitSorter.View
         /// <summary>
         /// Saves every course template the document came from with the student's code between its markers
         /// (<see cref="SubmissionExport"/>), as EXPORT PROJECT saves: the chip says what was filled and where it went, or why
-        /// it was refused. Code typed and not yet applied is applied first, as the editor would after its pause, so what is
-        /// handed in is what is on screen; code that cannot apply is refused with what is wrong with it, never handed in as the
-        /// last text that worked. Returns the file's name, or null.
+        /// it was refused. Code typed and not yet applied is applied first, so what is handed in is what is on screen, and
+        /// code that cannot apply is refused with what is wrong with it, never handed in as the last text that worked
+        /// (<see cref="ApplyTypedCode"/>). Returns the file's name, or null.
         /// </summary>
         public string ExportSubmission()
         {
-            if (_session == null)
+            if (_session == null || !ApplyTypedCode("handed in"))
                 return null;
-
-            if (_session.ShowsCode && _session.Code is CodeDocument code && code.Pending)
-            {
-                EditResult applied = code.Apply();
-                if (!applied.Done)
-                {
-                    Notice(code.Module + "'s code on screen does not apply, so it is not handed in: " + applied.Refusal);
-                    return null;
-                }
-            }
 
             Submission submission = SubmissionExport.Build(_session.Project, System.DateTime.Now);
             if (!submission.Succeeded)

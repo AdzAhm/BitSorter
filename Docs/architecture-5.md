@@ -1928,10 +1928,21 @@ template is imported, then exported filled.
   Saved as every export is (`FileSaver`): a download in a browser, a file in the Exports folder elsewhere.
 - **The zip is written in memory and stored, not compressed** (`ZipWriter`): no deflater to depend on in a browser,
   every unzip tool reads it, and the same project and moment make the same bytes.
+- **EXPORT PROJECT exports the code on screen**, not the last code that applied. A written module's editor keeps typed
+  text as its own until a 700 ms pause or Ctrl+Enter applies it, and text with an error as its own for good ("NOT
+  APPLIED"), while the document holds the last text that applied -- so a student who typed a fix and exported at once got
+  the code from before it, with nothing to say so. Found after 13a was built, when 13e met the same gap in EXPORT FOR
+  SUBMISSION. The export now applies pending code first and, when it does not apply, saves nothing and puts what is
+  wrong with it on the chip, never the last text that worked. The check is one private method,
+  `WorkbenchPanel.ApplyTypedCode`, which EXPORT FOR SUBMISSION shares: the two differ only in the word for what then
+  does not happen, "exported" or "handed in".
 - **Checked.** `ProjectExportTests` (14) under dotnet: every sample's zip read back by .NET's own `ZipArchive`, its
   files and their order, the script's lines, the bytes and the moment kept, the checksum against the standard's own
   example, and a written module as its own text. In Play Mode: FILE, EXPORT PROJECT, and the zip in the redirected
-  Exports folder. Reference shot 45, new: the FILE menu; 27 to 44 differ in the FILE chip.
+  Exports folder; and in the written adder, typed code with a fault refused with nothing saved and the chip saying why,
+  then typed code that applies exported as it stands on screen. That test types a minute ahead on the editor's own
+  clock, which is in milliseconds, so the pause cannot run out and apply the text before the export looks. Reference
+  shot 45, new: the FILE menu; 27 to 44 differ in the FILE chip.
 
 **As built in Part 13b**: a course project imported, in the pure layers; 13d gives it a door in the workbench.
 
@@ -2086,8 +2097,9 @@ template is imported, then exported filled.
   is named on the chip, so a helper written outside the markers is not left behind unknown.
 - **The code on screen is what is handed in.** The code editor keeps typed text as its own until it applies, and text
   with a fault for good; EXPORT FOR SUBMISSION applies typed text first, as the editor would after its pause, and refuses
-  text that cannot apply with what is wrong with it, rather than hand in the last text that did. (EXPORT PROJECT has the
-  same gap, from 13a; it is fixed apart, as a bug, with its own test.)
+  text that cannot apply with what is wrong with it, rather than hand in the last text that did. (EXPORT PROJECT had the
+  same gap, from 13a, and was fixed apart, as a bug, with its own test; the check is one method both share, see "As
+  built in Part 13a".)
 - **Checked.** `CourseTemplateTests`: the markers found and the file filled between them, everything around them kept,
   a lowercase opener with no end filled up to `endmodule`, code already indented kept as written, the code read back from
   a file that keeps its markers, a banner quoting the markers not taken for them, and a file with none no template.
