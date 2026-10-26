@@ -752,7 +752,7 @@ failure side.
   counts from it -- the win celebration once pulsed on the game clock and a solve
   could land at the bottom of its swell.
 - **Visual changes are checked against the reference shots.**
-  `BitSorter/Capture Reference Shots` captures forty-two states (menu, a built
+  `BitSorter/Capture Reference Shots` captures forty-three states (menu, a built
   board, bits in flight, a collision one tick out and one that takes both bits,
   the solved card, the level list, free play, the help panel, the chapter card, a
   clocked level, the tutorial's intro and its closing card, a first-time hint, a
@@ -764,7 +764,7 @@ failure side.
   built and running, its carry passing between the boxes, and 5.0's workbench
   preview with two changes on their way, whole, zoomed in, with a wire pointed at, with two rows in other
   radixes, a second cursor 9 ps on and two breakpoints flagged, with a block's inside grouped under full names, with the
-  add list searching, MY CIRCUIT being edited, two gates moving with their guides, its half adder being wired, one of its wires being reshaped, the reference's AND in its inspector, the reference zoomed in with its minimap and the canvas's menu, the full adder's transcript beside its hierarchy, the keyboard map, the full adder stepped inside h1, MAKE BLOCK asking for a name, and four half adders as one block of four copies) as an Explicit Play
+  add list searching, MY CIRCUIT being edited, two gates moving with their guides, its half adder being wired, one of its wires being reshaped, the reference's AND in its inspector, the reference zoomed in with its minimap and the canvas's menu, the full adder's transcript beside its hierarchy, the keyboard map, the full adder stepped inside h1, MAKE BLOCK asking for a name, four half adders as one block of four copies, and a written adder's code with a fault marked) as an Explicit Play
   Mode fixture, so it runs under `SaveGuard` --
   driving the real game for a screenshot by hand once marked a level solved on
   the developer's own save. Frame time is fixed, particle systems are seeded,
@@ -896,7 +896,12 @@ failure side.
   instance's values, while the run and the waves' rows stay the whole design's,
   and an edit inside is the module's, so every instance of it changes. A crumb of
   the breadcrumb in the circuit window's corner, or **Alt+Up**, steps back out --
-  Backspace stays a second DEL, and Up alone still scrolls the waves. **A right-click opens the canvas's menu**
+  Backspace stays a second DEL, and Up alone still scrolls the waves. **A written
+  block opens its code there instead** (Part 12d, `CodeEditorView`): a click in it
+  is the code's, never the canvas's, and its field holds Escape while it has the
+  keyboard, so the press that lets the code go does not close the workbench too.
+  + CODE, the last cell of PARTS' MORE, asks for a name and puts a block of one in
+  hand. **A right-click opens the canvas's menu**
   (Part 10d) -- align, spread, turn, mirror, route again, copy, cut, paste,
   make block (Part 12b; it asks for the new module's name first), delete --
   and Ctrl+C, X and V copy, cut and paste; a minimap at the side
@@ -915,7 +920,9 @@ failure side.
   which is null while a text field is selected -- and each already coped with
   there being no keyboard, so while a name is typed each simply sees none.
   `UiTextTests` refuses a script under View that reads `Keyboard.current`
-  itself. Derived, never set, for the reason pointer ownership is: a "typing"
+  itself. **A field may read a key it answers itself** through `UiText.FieldKeys`
+  -- the code editor's Ctrl+Enter, which TextMesh Pro would type as a new line
+  (Part 12d) -- never a key the game binds. Derived, never set, for the reason pointer ownership is: a "typing"
   flag that leaked would be a game whose keys do nothing. The field answers
   Enter and Escape itself while it holds the keys (`NameBoardPanel`), and the
   frame it closes is covered by `UiModal.OpenOrJustClosed` like any panel's.

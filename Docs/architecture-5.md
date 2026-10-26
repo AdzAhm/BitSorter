@@ -1820,6 +1820,50 @@ code editor in the circuit's window, and a block made from a selection asks for 
   the inspector widens the pins, and a double-click steps into `ha[0]`. Reference shot 42, new: Four half adders with
   its block selected; 27 to 41 differ in the sample chip, which is as wide as the longest sample's name.
 
+**As built in Part 12d**: blocks written as code.
+
+- **A module may be written** (`Module.Source`): SystemVerilog text in place of a drawing, with no parts and no wires.
+  A block of it is placed, wired, copied and stepped into like any block, and the top stays drawn, so far.
+- **Its text is read by elaborating it** (`WrittenModules`): parsed, held to one module of its own name -- no
+  interface, package, `timescale, `timeunit` or `timeprecision`, since a block keeps the project's unit -- then
+  elaborated among the library's cells, the other written modules and a header of each drawn one. **Once as the top,
+  for its ports**, whose widths are the language's own, parameters and all; **and once as an instance**, which is all
+  a written module ever is in the design: there its inputs are wires, where at the top they are variables a process
+  may write, and a text legal only at the top would have passed the rules and failed when the design ran (found by
+  the review before the first commit). Each fault is a `BoardDiagnostic` at its line and column. A reading is kept for
+  the same text in the same surroundings, since the rules ask on every edit.
+- **Compiled as written, printed as written**: the compiler adds the parsed module and the cells it uses; the printer
+  writes the text itself, which is what the run was read from. **Icarus runs a written sample as printed and agrees
+  on every signal.** Renaming a module renames it in every text that says it -- its own header, and wherever another
+  instantiates it -- and nothing else. Saved as `source` on the module, a key an older file reads as absent.
+- **The editor is the circuit's window** (Ahmad left the place to me; `CodeEditorView`): stepping into a written block
+  shows its text where the circuit is drawn, the dock with the waves still under it -- edit, run, and watch the waves
+  in one view, the course's loop. **Typing applies itself** once it pauses for 0.7 seconds (`CodeDocument`), one undo
+  step, and the run is made again; Ctrl+Enter applies at once. **Text with an error stays the editor's**: marked beside
+  its line number (`x`, and the colour of an unknown value), listed under the text with a click to its place, and the
+  document keeps the last text that worked, so the run is never of a design that does not build. A header that would
+  leave a wire without its pin is said there too, in the document's words. An undo is followed. **REVERT** puts back
+  the document's text.
+- **Escape lets the code go and holds the press**, as RUN TO's does; a second closes the workbench. Ctrl+Enter is read
+  from the keyboard while the field holds it (`UiText.FieldKeys`), since TextMesh Pro would type it as a new line.
+- **The letters are a monospaced face the computer has** (`CodeFont`: Consolas, Menlo, DejaVu Sans Mono...), since none
+  ships with the game; in a browser there is none, and CodeMirror takes the window's place in 12f.
+- **+ CODE**, the last cell of PARTS' MORE, asks for a name, offering `code1`, makes the module from a template -- an input,
+  an output, and the output following the input -- and puts a block of it in hand. Inside written code, PARTS says
+  there is nothing to place.
+- **A new sample, Written adder**: a four-bit adder written with a parameter for its width, inside a drawn top.
+- **Not yet.** The code is TextMesh Pro's field, with no colouring of keywords; CodeMirror brings that in a browser
+  (12f). A written top, and a written module importing a package, wait for a part that asks for them.
+- **Checked.** Under dotnet: `WrittenModuleTests` (16 cases): pins from a parameterised header, compiled and adding, a fault
+  at its line and an edit making one refused, what a text must be, cells and other written modules used and the
+  design run, a module holding itself refused, renaming, a header changed under a wire, a top that stays drawn, the
+  template, and text legal only at the top refused; `CodeDocumentTests` (6); a written sample in every round-trip test
+  but the import's and in the oracle; and PARTS offering no written module whose text holds the module shown. In Play
+  Mode: the written adder's code opened by a double-click, typing applied once it paused, a fault listed and a click
+  on it, Escape letting go with the workbench still up, and + CODE naming a block and putting it in hand.
+  Reference shot 43, new: the written adder's code with a fault typed, marked and listed; 39 differs in the key map's
+  new line.
+
 ---
 
 ## 11. The parts
@@ -1840,7 +1884,7 @@ Each part is one pull request into `v5`, ends with every suite green, and leaves
 | 9 | The waveform and run controls; the workbench's view-model in a Unity-free layer of its own |
 | 10 | Editing on the free canvas -- in four: 10a placement and selection **built** (see "As built in Part 10a"); 10b wiring **built**, drawn (10b-1) and reshaped (10b-2); 10c the inspector **built**; 10d copy, align and the minimap **built**; 10e what its browser smoke test found **built** |
 | 11 | The workbench shell, in UI Toolkit -- **built**, in four: 11a the bridges and the toolbar; 11b the docked layout -- its panels (11b-1), the inspector docked (11b-2), the popups in the shell (11b-3); 11c the transcript and the hierarchy; 11d the keyboard map, the status line and the docs |
-| 12 | Hierarchy, and written blocks, edited in CodeMirror in a browser -- in six: 12a stepping inside a block **built** (see "As built in Part 12a"); 12b making a block **built** (see "As built in Part 12b"); 12c arrays **built** (see "As built in Part 12c"); 12d code blocks, 12e the code panel, 12f CodeMirror |
+| 12 | Hierarchy, and written blocks, edited in CodeMirror in a browser -- in six: 12a stepping inside a block **built** (see "As built in Part 12a"); 12b making a block **built** (see "As built in Part 12b"); 12c arrays **built** (see "As built in Part 12c"); 12d code blocks **built** (see "As built in Part 12d"); 12e the code panel, 12f CodeMirror |
 | 13 | Export and import (and a levelized path in the engine, only if a measurement asks for it) |
 | 14 | The course's tools: path delays, static timing, gate-library mode, step tests, lint, tri-state |
 | 15 | The Exercises and the tutorial |

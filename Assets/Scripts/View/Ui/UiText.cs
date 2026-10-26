@@ -51,5 +51,12 @@ namespace BitSorter.View
         /// </summary>
         public static UnityEngine.InputSystem.Keyboard Keyboard =>
             Typing ? null : UnityEngine.InputSystem.Keyboard.current;
+
+        /// <summary>
+        /// The keyboard for a field to read a key it answers itself while it holds the keys, which its own events do not
+        /// tell apart: the code editor's Ctrl+Enter (Part 12d), which the field would otherwise type as a new line. Never
+        /// for a key the game binds -- those come from <see cref="Keyboard"/>.
+        /// </summary>
+        public static UnityEngine.InputSystem.Keyboard FieldKeys => UnityEngine.InputSystem.Keyboard.current;
     }
 }

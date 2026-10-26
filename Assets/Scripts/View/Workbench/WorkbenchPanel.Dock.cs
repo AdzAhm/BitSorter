@@ -206,8 +206,34 @@ namespace BitSorter.View
             int placed = 0;
             CatalogGroup? group = null;
 
-            foreach (CatalogEntry entry in PartsCatalog.For(_session.Project, _session.Module))
+            // Inside written code there is nothing to place: its text is the block (Part 12d).
+            if (_session.ShowsCode)
             {
+                Label note = ShellTheme.Label(CodeNoteName, "A written block has no parts: its code is what it does. Type it on the right; Alt+Up steps out.",
+                    UiType.Caption, palette.TextDim);
+                note.style.whiteSpace = WhiteSpace.Normal;
+                ShellTheme.Place(note, PanelPad, y, inside, PartRowHeight * 4f);
+                _partsList.Add(note);
+                y += PartRowHeight * 4f + PartGap;
+            }
+
+            // + CODE, a block written as SystemVerilog rather than drawn (Part 12d), takes MORE's last cell: named first, then
+            // made from a template header and put in hand like any part -- and in a cell of the grid PARTS grows no taller.
+            void PlaceCodeCell()
+            {
+                ShellButton code = ShellTheme.Button(NewCodeBlockName, "+ CODE", palette, () => AskCodeBlockName(), UiType.Caption);
+                ShellTheme.Place(code, PanelPad + (placed % PartColumns) * (column + PartGap), y, column, PartRowHeight);
+                _partsList.Add(code);
+                placed++;
+                if (placed % PartColumns == 0)
+                    y += PartRowHeight + PartGap;
+            }
+
+            foreach (CatalogEntry entry in _session.ShowsCode ? new CatalogEntry[0] : PartsCatalog.For(_session.Project, _session.Module))
+            {
+                if (entry.Group != group && group == CatalogGroup.More)
+                    PlaceCodeCell();
+
                 if (entry.Group != group)
                 {
                     if (placed % PartColumns != 0)
@@ -235,6 +261,9 @@ namespace BitSorter.View
                 if (block || placed % PartColumns == 0)
                     y += PartRowHeight + PartGap;
             }
+
+            if (group == CatalogGroup.More)
+                PlaceCodeCell();
 
             _partsHeight = placed % PartColumns != 0 ? y + PartRowHeight : y - PartGap;
             ShellTheme.Place(_partsList, 0f, PartsTop, -1f, _partsHeight);

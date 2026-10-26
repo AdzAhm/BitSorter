@@ -1394,6 +1394,40 @@ namespace BitSorter.PlayMode.Tests
             yield return Capture("42-workbench-array");
         }
 
+        /// <summary>Part 12d: the written adder's code opened in the circuit's window, a fault typed, marked at its line and listed.</summary>
+        [UnityTest]
+        public IEnumerator Shot43_WorkbenchCode()
+        {
+            yield return LoadTheGame();
+            yield return Frames(2);
+
+            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            yield return Frames(2);
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            int written = -1;
+            for (int i = 0; i < WorkbenchSamples.Chip.Count; i++)
+                if (WorkbenchSamples.Chip[i].Name == "Written adder")
+                    written = i;
+            workbench.ShowSample(written);
+            yield return Frames(2);
+            workbench.Pause();
+            workbench.Session.Finish();
+            workbench.Seek(4 * WorkbenchSamples.WrittenAdderStep + 4.5);
+            int add = workbench.Session.Project.TopModule.Parts.First(p => p is BitSorter.Board.BlockPart).Id;
+            Assert.IsTrue(workbench.StepInto(add));
+            yield return Frames(2);
+
+            // Not focused, so no caret blinks into the picture.
+            workbench.CodeView.Field.text = WorkbenchSamples.AdderSource.Replace("= a + b;", "= a + ;");
+            for (int i = 0; i < 240 && !workbench.CodeView.ListedText.Any(); i++)
+                yield return null;
+            yield return Frames(30);
+
+            Assert.IsTrue(workbench.CodeView.ListedText.Any(), "sanity: the fault is listed");
+            yield return Capture("43-workbench-code");
+        }
+
         private static IEnumerator OpensOnItsCircuit(string level, string fixture, string shot)
         {
             yield return LoadTheGame();

@@ -29,6 +29,9 @@ namespace BitSorter.View
         /// <summary>The name a block made from a selection is asked for under (Part 12b).</summary>
         public const string BlockNameName = "Workbench block name";
 
+        /// <summary>The field a new code block's name is asked in (Part 12d).</summary>
+        public const string CodeNameName = "Workbench code block name";
+
         private const float Width = 320f, Pad = 12f, TitleHeight = 24f, FieldHeight = 38f;
 
         private ShellPopup _popup;

@@ -941,6 +941,124 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsTrue(three.Pins(workbench.Session.Project).All(p => p.Width == 3), "every pin three bits");
         }
 
+        /// <summary>The chip's index of the sample called <paramref name="name"/>.</summary>
+        private static int SampleNamed(string name)
+        {
+            for (int i = 0; i < WorkbenchSamples.Chip.Count; i++)
+                if (WorkbenchSamples.Chip[i].Name == name)
+                    return i;
+            Assert.Fail($"no sample called {name}");
+            return -1;
+        }
+
+        private static string AdderText(WorkbenchPanel workbench) => workbench.Session.Project.Find("add4").Source;
+
+        /// <summary>
+        /// A written block (Part 12d): a double-click opens its code in the circuit's window; typing applies itself once it
+        /// pauses; a fault is marked and listed, the document keeping the code that worked, and a click on it puts the caret
+        /// at its line; Escape lets the code go and leaves the workbench up; Alt+Up steps back out to the drawing.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator AWrittenBlock_OpensItsCode_TypingApplies_AndAFaultIsMarkedAndListed()
+        {
+            yield return TestScene.Load();
+            yield return Click(MainMenu.WorkbenchButton);
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowSample(SampleNamed("Written adder"));
+            yield return null;
+            workbench.Pause();
+            workbench.Session.Finish();
+            yield return null;
+            int add = Top(workbench).Parts.OfType<BlockPart>().Single().Id;
+            CodeEditorView code = workbench.CodeView;
+            Assert.IsFalse(code.gameObject.activeInHierarchy, "no code at the top, which is drawn");
+
+            yield return DoubleClick(workbench.ScreenPointOf(MiddleOf(workbench, add)));
+            yield return null;
+            CollectionAssert.AreEqual(new[] { "add" }, workbench.SteppedPath);
+            Assert.IsTrue(code.gameObject.activeInHierarchy, "its code in the circuit's window");
+            Assert.AreEqual(WorkbenchSamples.AdderSource, code.Field.text);
+            StringAssert.StartsWith("APPLIED", code.Status);
+            Assert.IsNotNull(ShellPanel.Find<UnityEngine.UIElements.Label>(WorkbenchPanel.CodeNoteName), "PARTS says a written block has no parts");
+            Assert.IsNull(ShellPanel.Find<UnityEngine.UIElements.Button>(WorkbenchPanel.NewCodeBlockName), "nor offers a code block inside code");
+
+            // Typed: applied once the typing pauses, and the run made again.
+            string xor = WorkbenchSamples.AdderSource.Replace("= a + b;", "= {1'b0, a ^ b};");
+            code.Field.text = xor;
+            yield return null;
+            Assert.AreEqual(WorkbenchSamples.AdderSource, AdderText(workbench), "not while the typing goes on");
+            StringAssert.StartsWith("TYPING", code.Status);
+            for (int i = 0; i < 240 && AdderText(workbench) != xor; i++)
+                yield return null;
+            Assert.AreEqual(xor, AdderText(workbench), "applied once the typing paused");
+            yield return null;
+            StringAssert.StartsWith("APPLIED", code.Status);
+            Assert.IsTrue(workbench.Session.Replaying || workbench.Session.Version > 0, "and the run made again");
+
+            // A fault: marked, listed, and kept from the document.
+            string broken = xor.Replace("a ^ b", "a ^ ");
+            int line = broken.Split('\n').ToList().FindIndex(l => l.Contains("assign")) + 1;
+            code.Field.text = broken;
+            for (int i = 0; i < 240 && !code.ListedText.Any(); i++)
+                yield return null;
+            StringAssert.StartsWith($"line {line}: ", code.ListedText.First(), "listed under the code, at its line");
+            StringAssert.StartsWith("NOT APPLIED", code.Status);
+            Assert.AreEqual(xor, AdderText(workbench), "the document keeps the code that worked");
+
+            // A click on the fault: the keyboard in the code, its caret on that line.
+            yield return Click(CodeEditorView.ProblemName + "0");
+            Assert.IsTrue(code.Field.isFocused, "the click puts the keyboard in the code");
+            Assert.AreEqual(line, broken.Substring(0, code.Field.stringPosition).Count(c => c == '\n') + 1, "at the fault's line");
+
+            // Escape lets the code go, and holds the press: the workbench stays up.
+            yield return Tap(_keyboard.escapeKey);
+            yield return null;
+            Assert.IsFalse(code.Field.isFocused, "Escape let the code go");
+            Assert.IsTrue(workbench.IsShowing, "and did not close the workbench as well");
+            Assert.AreEqual(broken, code.Field.text, "nor took back what was typed");
+
+            // Out again: the drawing, and no code.
+            Assert.IsTrue(workbench.StepOut());
+            yield return null;
+            yield return null;
+            Assert.IsFalse(code.gameObject.activeInHierarchy, "the code goes with the step out");
+        }
+
+        /// <summary>+ CODE (Part 12d) asks for a name, makes the module from its template, and puts a block of it in hand to place.</summary>
+        [UnityTest]
+        public IEnumerator PlusCode_AsksForAName_AndPutsABlockOfItInHand()
+        {
+            yield return TestScene.Load();
+            yield return OpenMyCircuit();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+
+            yield return Click(WorkbenchPanel.NewCodeBlockName);
+            yield return null;
+            WaveRenameField name = workbench.CodeNameField;
+            Assert.IsTrue(name.IsOpen, "it asks for a name first");
+            Assert.AreEqual("code1", name.Field.value, "offering a free one");
+
+            name.Field.value = "adder";
+            Press(_keyboard.enterKey);
+            ShellPanel.SendKey(name.Field, KeyCode.Return);
+            yield return null;
+            Release(_keyboard.enterKey);
+            yield return null;
+            yield return null;
+
+            Assert.IsFalse(name.IsOpen);
+            Module adder = workbench.Session.Project.Find("adder");
+            Assert.IsNotNull(adder, "Enter made the module");
+            Assert.AreEqual(WrittenModules.Template("adder"), adder.Source, "written, from the template");
+            Assert.AreEqual("adder", workbench.Editor.InHand?.Module, "and a block of it is in hand");
+            Assert.IsNotNull(ShellPanel.Find<UnityEngine.UIElements.Button>(WorkbenchPanel.PartButtonName("block:adder")), "PARTS offers it");
+
+            yield return ClickAt(workbench, new BoardPoint(4, 0));
+            BlockPart placed = Top(workbench).Parts.OfType<BlockPart>().SingleOrDefault();
+            Assert.IsNotNull(placed, "a click places it");
+            CollectionAssert.AreEqual(new[] { "a", "y" }, placed.Pins(workbench.Session.Project).Select(p => p.Name), "its pins its header's");
+        }
+
         /// <summary>Zoomed in, the minimap shows; a click on its left side moves the view there; FIT puts it away (Part 10d).</summary>
         [UnityTest]
         public IEnumerator TheMinimap_ShowsOffTheFit_AClickOnItMovesTheView_AndFitPutsItAway()
