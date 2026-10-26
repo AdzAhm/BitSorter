@@ -126,13 +126,17 @@ namespace BitSorter.Board
 
         /// <summary>
         /// Whether a reader should read the files it has found -- <paramref name="count"/> of them, <paramref name="total"/>
-        /// in all -- or leave every one <see cref="SourceFile.Unread"/>, since the import will refuse them anyway. Either way
-        /// a file past <see cref="MaxFileSize"/> is left unread. The desktop's folder and the browser's picker both ask it, so
+        /// in all of those no larger than <see cref="MaxFileSize"/> -- or leave every one <see cref="SourceFile.Unread"/>,
+        /// since the import will refuse them anyway. Either way a file past <see cref="MaxFileSize"/> is left unread, and is
+        /// no part of the total. The desktop's folder and the browser's picker both ask it, so
         /// the two cannot come to read different things.
         /// </summary>
         public static bool Reads(int count, long total) => count <= MaxFiles && total <= MaxTotalSize;
 
         private static readonly Regex DutName = new Regex("dut|uut", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+        /// <summary>A string in quotes on one line, its text the group: where a module names a file it includes or reads.</summary>
+        private static readonly Regex Quoted = new Regex("\"([^\"\\r\\n]*)\"", RegexOptions.CultureInvariant);
 
         public static ProjectImport Import(IReadOnlyList<SourceFile> files)
         {
@@ -161,9 +165,12 @@ namespace BitSorter.Board
                 return Refused();
             }
 
+            // A file too large to read is left out on its own below, so it is no part of what the import holds together: a
+            // folder with a 17 MB lecture recording beside its code imports the code (Part 13f review).
             long total = 0;
             foreach (SourceFile file in files)
-                total += file.Size;
+                if (file.Size <= MaxFileSize)
+                    total += file.Size;
             if (total > MaxTotalSize)
             {
                 Note(null, 0, 0, $"The files hold {Megabytes(total)} together, and an import takes at most {Megabytes(MaxTotalSize)}. " +
@@ -261,28 +268,28 @@ namespace BitSorter.Board
             // What the modules name (Part 13f): a file is the project's when a source names it, in quotes and case aside -- by an
             // include, or as a file it reads, a memory image's name passed down as a string included -- or a file so named does.
             // Anything else in a folder imported whole -- a handout, a zip, a simulator's logs -- is not.
+            // Each text is read for the names in its quotes once, and a file so named is read in its turn: one pass over the
+            // text however the files name each other, where reading every file against every text was 20 s (Part 13f review).
             var namedFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            var naming = new List<string>();
+            var nameable = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (SourceFile file in files)
+            {
+                string name = ModuleCutter.NameOf(file.Path);
+                if (file.WasRead && file.Size <= MaxFileSize && !ProjectFiles.IsSource(name) && !nameable.ContainsKey(name))
+                    nameable[name] = file.Text ?? "";
+            }
+
+            var naming = new Queue<string>();
             foreach (string path in paths)
                 if (texts.TryGetValue(SourcePaths.Normalise(path), out string source))
-                    naming.Add(source);
-            for (bool grew = true; grew;)
-            {
-                grew = false;
-                foreach (SourceFile file in files)
+                    naming.Enqueue(source);
+            while (naming.Count > 0)
+                foreach (Match quoted in Quoted.Matches(naming.Dequeue()))
                 {
-                    string name = ModuleCutter.NameOf(file.Path);
-                    if (!file.WasRead || ProjectFiles.IsSource(name) || namedFiles.Contains(name))
-                        continue;
-                    var quoted = new Regex("[\"/\\\\]" + Regex.Escape(name) + "\"", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
-                    if (naming.Exists(text => quoted.IsMatch(text)))
-                    {
-                        namedFiles.Add(name);
-                        naming.Add(file.Text ?? "");
-                        grew = true;
-                    }
+                    string name = ModuleCutter.NameOf(quoted.Groups[1].Value);
+                    if (nameable.TryGetValue(name, out string text) && namedFiles.Add(name))
+                        naming.Enqueue(text);
                 }
-            }
 
             // The other files, each by its bare name -- a .sv of nothing but defines among them.
             var kept = new List<ProjectFile>();
@@ -673,10 +680,14 @@ namespace BitSorter.Board
             return false;
         }
 
-        /// <summary>The bare names a file's text includes.</summary>
-        /// <summary>A size in megabytes, to a tenth: <c>4.2 MB</c>.</summary>
-        private static string Megabytes(long size) => (size / 1048576.0).ToString("0.#", CultureInfo.InvariantCulture) + " MB";
+        /// <summary>
+        /// A size in megabytes, to a tenth and rounded up, so a size past a limit never reads as the limit itself:
+        /// <c>4.1 MB</c> for a byte past 4 MB.
+        /// </summary>
+        private static string Megabytes(long size) =>
+            (Math.Ceiling(size / 1048576.0 * 10) / 10).ToString("0.#", CultureInfo.InvariantCulture) + " MB";
 
+        /// <summary>The bare names a file's text includes.</summary>
         private static IEnumerable<string> IncludedNames(string text)
         {
             bool inComment = false;

@@ -61,7 +61,8 @@ namespace BitSorter.View
             found.Sort((a, b) => string.CompareOrdinal(a.Relative, b.Relative));
             long total = 0;
             foreach (var (_, _, size) in found)
-                total += size;
+                if (size <= ProjectImporter.MaxFileSize)
+                    total += size;   // one too large is left out on its own, and no part of the whole
             bool reads = ProjectImporter.Reads(found.Count, total);
 
             var files = new List<SourceFile>(found.Count);

@@ -58,7 +58,8 @@ mergeInto(LibraryManager.library, {
         done();
         return;
       }
-      var total = picked.reduce(function (sum, file) { return sum + file.size; }, 0);
+      // A file too large is left out on its own, and no part of the whole, as ProjectImporter.Reads counts it.
+      var total = picked.reduce(function (sum, file) { return sum + (file.size <= maxFileSize ? file.size : 0); }, 0);
       var reads = picked.length <= maxFiles && total <= maxTotalSize;
       picked.forEach(function (file, i) {
         var path = file.webkitRelativePath || file.name;

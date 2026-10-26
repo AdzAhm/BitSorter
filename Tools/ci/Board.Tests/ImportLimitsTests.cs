@@ -79,6 +79,53 @@ namespace BitSorter.Board.Tests
             Assert.IsEmpty(import.Project.Files);
         }
 
+        /// <summary>
+        /// A file too large to read is left out on its own and is no part of the whole (Part 13f review): a folder with a
+        /// 17 MB lecture recording beside its code was refused outright, where one with 15 MB imported the code.
+        /// </summary>
+        [Test]
+        public void AFileTooLargeToRead_IsNoPartOfTheWhole()
+        {
+            ProjectImport import = ProjectImporter.Import(new[] { new SourceFile("mux2.sv", Mux), SourceFile.Unread("lecture.zip", 17L << 20) });
+
+            Assert.IsTrue(import.Succeeded, Said(import));
+            Assert.AreEqual("It is 17 MB, and a file can be at most 4 MB, so it was left out.", import.Notes.Single(n => n.File == "lecture.zip").Message);
+            Assert.IsTrue(ProjectImporter.Reads(2, Mux.Length), "a reader counts it out too");
+        }
+
+        /// <summary>A size is rounded up, so one a byte past a limit never reads as the limit itself (Part 13f review).</summary>
+        [Test]
+        public void ASizeJustPastTheLimit_DoesNotReadAsTheLimit()
+        {
+            ProjectImport import = ProjectImporter.Import(new[] { new SourceFile("mux2.sv", Mux), SourceFile.Unread("big.hex", ProjectImporter.MaxFileSize + 1) });
+
+            Assert.AreEqual("It is 4.1 MB, and a file can be at most 4 MB, so it was left out.", import.Notes.Single(n => n.File == "big.hex").Message);
+        }
+
+        /// <summary>
+        /// Files that name each other in a chain are found in one pass over the text, whatever order they come in (Part 13f
+        /// review): read against every text once a pass, a chain listed the wrong way round took a pass a file -- 20 s for 160.
+        /// </summary>
+        [Test]
+        public void AChainOfFilesNamingEachOther_IsFoundInOnePass()
+        {
+            // The bench names f149, each file names the one before it, and they are listed f000 first: the order in which
+            // reading the list once a pass found one more file a pass.
+            const int chain = 150;
+            string padding = Filler(20_000);
+            var files = new List<SourceFile> { new SourceFile("rom_tb.sv", "module rom_tb;\n    initial $display(\"%s\", \"f149.txt\");\nendmodule\n") };
+            for (int i = 0; i < chain; i++)
+                files.Add(new SourceFile($"f{i:000}.txt", (i == 0 ? "" : $"see \"f{i - 1:000}.txt\"\n") + padding));
+
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            ProjectImport import = ProjectImporter.Import(files);
+            double seconds = clock.Elapsed.TotalSeconds;
+
+            Assert.IsTrue(import.Succeeded, Said(import));
+            Assert.AreEqual(chain, import.Project.Files.Count, "every file of the chain kept");
+            Assert.Less(seconds, 3);
+        }
+
         [Test]
         public void AReaderReads_OnlyWhatAnImportWouldTake()
         {
