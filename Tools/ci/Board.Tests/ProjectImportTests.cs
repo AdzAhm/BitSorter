@@ -256,7 +256,9 @@ namespace BitSorter.Board.Tests
         [Test]
         public void AnImportedProject_IsSavedWithItsTestbenchAndFiles_AndReadBack()
         {
-            Project project = Import(("mux2.sv", Mux), ("mux2_tb.sv", MuxBench), ("table.hex", "0f\n1e\n")).Project;
+            // The bench reads the table, as a project's memory image is read: a file no module names is not the project's (13f).
+            string bench = MuxBench.Replace("    initial begin\n", "    logic [7:0] table_ [0:1];\n    initial $readmemh(\"table.hex\", table_);\n    initial begin\n");
+            Project project = Import(("mux2.sv", Mux), ("mux2_tb.sv", bench), ("table.hex", "0f\n1e\n")).Project;
             var fields = new JsonSerializerOptions { IncludeFields = true };
             string json = JsonSerializer.Serialize(ProjectRecord.From(project), fields);
             var problems = new List<string>();

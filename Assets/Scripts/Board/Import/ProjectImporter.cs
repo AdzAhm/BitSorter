@@ -88,8 +88,8 @@ namespace BitSorter.Board
     /// A course project brought in (Part 13b): its <c>.sv</c> files read together, each module drawn when it can be -- it and
     /// everything under it structural (<see cref="BoardImporter"/>) -- and written otherwise, as its own text (12d); the
     /// testbench found and kept as the project's <see cref="Project.Bench"/>, run as written; a <c>`timescale</c> taken as
-    /// the project's unit; and every other file -- an include, a memory image -- kept as one of the project's
-    /// <see cref="Project.Files"/>.
+    /// the project's unit; and every other file a module names -- an include, a memory image -- kept as one of the project's
+    /// <see cref="Project.Files"/>, and what nothing names -- a handout, a zip, a simulator's logs -- left out (Part 13f).
     /// </summary>
     /// <remarks>
     /// **The testbench** is the module with no ports that nothing instantiates and that instantiates the design. **The
@@ -258,6 +258,32 @@ namespace BitSorter.Board
                 return Refused();
             }
 
+            // What the modules name (Part 13f): a file is the project's when a source names it, in quotes and case aside -- by an
+            // include, or as a file it reads, a memory image's name passed down as a string included -- or a file so named does.
+            // Anything else in a folder imported whole -- a handout, a zip, a simulator's logs -- is not.
+            var namedFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var naming = new List<string>();
+            foreach (string path in paths)
+                if (texts.TryGetValue(SourcePaths.Normalise(path), out string source))
+                    naming.Add(source);
+            for (bool grew = true; grew;)
+            {
+                grew = false;
+                foreach (SourceFile file in files)
+                {
+                    string name = ModuleCutter.NameOf(file.Path);
+                    if (!file.WasRead || ProjectFiles.IsSource(name) || namedFiles.Contains(name))
+                        continue;
+                    var quoted = new Regex("[\"/\\\\]" + Regex.Escape(name) + "\"", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+                    if (naming.Exists(text => quoted.IsMatch(text)))
+                    {
+                        namedFiles.Add(name);
+                        naming.Add(file.Text ?? "");
+                        grew = true;
+                    }
+                }
+            }
+
             // The other files, each by its bare name -- a .sv of nothing but defines among them.
             var kept = new List<ProjectFile>();
             foreach (SourceFile file in files)
@@ -267,6 +293,11 @@ namespace BitSorter.Board
                     continue;   // left out above, and said so
                 if (moduleFiles.Contains(name) || broken.Contains(SourcePaths.Normalise(file.Path)))
                     continue;
+                if (!ProjectFiles.IsSource(name) && !namedFiles.Contains(name))
+                {
+                    Note(file.Path, 0, 0, "No module names it, by an `include or as a file it reads, so it was left out.", false);
+                    continue;
+                }
                 if (!ProjectFiles.IsValidName(name, out string why))
                 {
                     Note(file.Path, 0, 0, why + " It is left out.", false);
