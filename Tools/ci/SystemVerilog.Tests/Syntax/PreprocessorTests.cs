@@ -168,5 +168,26 @@ namespace BitSorter.SystemVerilog.Tests.Syntax
             SyntaxTree tree = Read("`define LOOP `LOOP\nmodule m; assign y = `LOOP; endmodule");
             Assert.Contains(DiagnosticCodes.MacroTooDeep, Codes(tree));
         }
+
+        /// <summary>
+        /// Macros that each use the one before twice ask for two to the power of the chain's length -- here two million
+        /// tokens, or two million uses of an empty macro, from a few lines and well inside the depth limit. A chain of 31
+        /// asks for two thousand million, which would run a browser out of memory, or a desktop out of time: the reader
+        /// stops it with a message instead of making them all (an import is untrusted text, Part 13f).
+        /// </summary>
+        [TestCase("x")]
+        [TestCase("")]
+        public void MacrosThatDoubleOverAndOver_StopWithAMessage(string bottom)
+        {
+            var text = new System.Text.StringBuilder("`define M0 " + bottom + "\n");
+            for (int i = 1; i <= 21; i++)
+                text.Append("`define M").Append(i).Append(" `M").Append(i - 1).Append(" `M").Append(i - 1).Append('\n');
+            text.Append("module m; wire y = `M21; endmodule\n");
+
+            SyntaxTree tree = Read(text.ToString());
+
+            Assert.IsTrue(tree.Diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error && d.Message.Contains("expand to more than")),
+                "stopped, with a message: " + string.Join("\n", tree.Diagnostics.Take(3)));
+        }
     }
 }
