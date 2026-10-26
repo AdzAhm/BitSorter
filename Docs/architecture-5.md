@@ -1995,6 +1995,40 @@ template is imported, then exported filled.
   `ImportedProjectTests`: an imported project in the workbench, run to its stop with its memory image, its written
   design's code at the top, its inputs not the stimulus's to set.
 
+**As built in Part 13c**: CONVERT, in the pure layers; 13d gives it its place in the workbench.
+
+- **CONVERT records what the testbench drove** (`BenchConverter`, `BoardEditor.ConvertBench`, one undo step): the project
+  is run as written to its end, and every input of the design is read back from the run and becomes a track of the
+  stimulus -- or a clock, when it toggles between 0 and 1 at one steady half period from time 0 to within half a period
+  of the end, at least four times (a reset pulse stays steps). Because it reads the run rather than the text, it takes
+  any testbench -- loops, tasks, `$random`, waits -- and the design sees the same inputs at the same moments.
+- **It reads the testbench's own signal wired to each input, in the testbench's own rounds**: inside the design a port
+  lags them by a round or two, and shows even a declaration's value as a change at time 0. What the signal held before
+  anything ran is a declaration's, with no event, and the track keeps it as its `Start`, written into the testbench a
+  stimulus makes as a declaration; a clock set by `initial clk = 1` instead is set at time 0 (`ClockTrack.SetAtZero`), an
+  event, x to 1, as the original's was. A change made after the first round of its moment -- the nonblocking `d <= ~d`
+  of a testbench answering a clock edge -- is a late step (`Step.Late`), made with `<=` so the edge sees the value from
+  before; at time 0 the first round is the one the processes started in (`Simulator.ProcessesStartedIn`), after what has
+  no delay settled. Every change is kept, not only each moment's last, so a pulse no time wide (`g = 1; #0 g = 0;`) is
+  made again. An input wired to something other than a plain name -- a constant, an expression -- is read from the
+  design's port as it settled. A testbench that gives the design parameters is refused with why, until a stimulus can.
+- **The testbench module is taken out**, `Project.Bench` goes, and the inputs are the stimulus's to set again; the
+  modules only it used stay, as any module may. Undo puts the testbench back. Saved as `start` on a track, `late` on a
+  step and `setAtZero` on a clock, keys an older file reads as absent.
+- **What a stimulus cannot keep is said** (`Conversion.Lost`): where the testbench prints, checks or writes files --
+  `$display, in 3 places` -- counted where it is written rather than how often it ran, for the confirmation to show.
+- **A session converts and runs again** (`WorkbenchSession.ConvertBench`): the design's signals move from under the
+  testbench's instance to under the one the stimulus makes, so the drawing is made again with the run.
+- **Reviewed** by a Sonnet reviewer, which found four moments the first version replayed wrongly -- a declaration's value
+  made an event, a clock's time-0 event lost, a change after an edge made before it, a pulse no time wide dropped --
+  and parameters lost; each is a test now, with the reviewer's own testbench.
+- **Checked.** `BenchConversionTests` (15): for the four import projects, the processor included, every signal of the
+  design run under the stimulus is the design run under the testbench, change for change; the four moments above and
+  the refusal; the counter's clock found as a clock and its reset as steps; a testbench with a task, a loop and
+  `$random`; what the ALU's testbench printed listed; the save; one undo step. `ImportOracleTests`: the same eight
+  converted, exported and run in Icarus as the original files run there. `ImportedProjectTests`: converted in a
+  session, the same values, and SET taken.
+
 ---
 
 ## 11. The parts
@@ -2016,7 +2050,7 @@ Each part is one pull request into `v5`, ends with every suite green, and leaves
 | 10 | Editing on the free canvas -- in four: 10a placement and selection **built** (see "As built in Part 10a"); 10b wiring **built**, drawn (10b-1) and reshaped (10b-2); 10c the inspector **built**; 10d copy, align and the minimap **built**; 10e what its browser smoke test found **built** |
 | 11 | The workbench shell, in UI Toolkit -- **built**, in four: 11a the bridges and the toolbar; 11b the docked layout -- its panels (11b-1), the inspector docked (11b-2), the popups in the shell (11b-3); 11c the transcript and the hierarchy; 11d the keyboard map, the status line and the docs |
 | 12 | Hierarchy, and written blocks, edited in CodeMirror in a browser -- in six: 12a stepping inside a block **built** (see "As built in Part 12a"); 12b making a block **built** (see "As built in Part 12b"); 12c arrays **built** (see "As built in Part 12c"); 12d code blocks **built** (see "As built in Part 12d"); 12e the code panel **built** (see "As built in Part 12e"); 12f CodeMirror **built** (see "As built in Part 12f") |
-| 13 | Export and import (and a levelized path in the engine, only if a measurement asks for it) -- in six: 13a exporting a project **built** (see "As built in Part 13a"); 13b importing one **built** (see "As built in Part 13b"); 13c CONVERT, 13d files, 13e templates, 13f limits and the browser |
+| 13 | Export and import (and a levelized path in the engine, only if a measurement asks for it) -- in six: 13a exporting a project **built** (see "As built in Part 13a"); 13b importing one **built** (see "As built in Part 13b"); 13c CONVERT **built** (see "As built in Part 13c"); 13d files, 13e templates, 13f limits and the browser |
 | 14 | The course's tools: path delays, static timing, gate-library mode, step tests, lint, tri-state |
 | 15 | The Exercises and the tutorial |
 | 16 | The old game retired, and a smaller download; 5.0.0 released |
