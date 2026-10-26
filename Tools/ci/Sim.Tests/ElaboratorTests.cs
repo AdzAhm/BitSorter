@@ -559,6 +559,10 @@ endmodule");
         [TestCase("module m (output logic y); logic [1023:0] mem [0:131071]; endmodule", ElaborationCodes.TooLarge)]
         [TestCase("module m (output logic y); for (genvar i = 0; i < 100; i++) begin : g logic [1048575:0] w; end endmodule", ElaborationCodes.TooLarge)]
         [TestCase("module m (output logic y); logic [1048575:0] mem [0:1048575]; endmodule", ElaborationCodes.TooLarge)]
+        // And by signals: a memory's every word is one, whatever its width, so a million one-bit words -- inside the bits --
+        // still asked for most of a gigabyte (Part 13f review).
+        [TestCase("module m (output logic y); logic mem [0:1048575]; endmodule", ElaborationCodes.TooLarge)]
+        [TestCase("module m (output logic y); logic [7:0] a [0:131071]; logic [7:0] b [0:131071]; endmodule", ElaborationCodes.TooLarge)]
         public void AnError_IsReported_AndThereIsNoDesign(string text, string code)
         {
             Elaboration e = Elaborate(text);

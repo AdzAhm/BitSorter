@@ -57,6 +57,14 @@ namespace BitSorter.Sim
         public const long MaxBits = 1L << 26;
 
         /// <summary>
+        /// How many signals a whole design may have, each word of a memory one of them: 262,144, where the course's
+        /// processor has two memories of 1,024 words. A signal costs its name and its record whatever its width -- hundreds
+        /// of bytes, measured, and a run keeps more of each -- so a memory of a million one-bit words, inside
+        /// <see cref="MaxBits"/>, still asked for most of a gigabyte (Part 13f review).
+        /// </summary>
+        public const long MaxSignals = 1L << 18;
+
+        /// <summary>
         /// Elaborates <paramref name="tree"/> from <paramref name="top"/>, or from the one module that
         /// nothing instantiates when no top is named.
         /// </summary>
@@ -124,6 +132,7 @@ namespace BitSorter.Sim
             private Scope _unit;
             private int _instances;
             private long _bits;
+            private long _signals;
             private int _unnamed;
             private bool _stopped;
 
@@ -221,20 +230,24 @@ namespace BitSorter.Sim
             private void Error(SourceLocation at, string code, string message) => _diagnostics.Error(at, code, message);
 
             /// <summary>
-            /// Whether <paramref name="bits"/> more, for <paramref name="name"/>, keep the design within <see cref="MaxBits"/>.
-            /// Past it the design is refused, said once, and the elaboration stops, as it does past
-            /// <see cref="MaxInstances"/>.
+            /// Whether <paramref name="bits"/> more, in <paramref name="signals"/> more signals, for <paramref name="name"/>,
+            /// keep the design within <see cref="MaxBits"/> and <see cref="MaxSignals"/>. Past either the design is refused,
+            /// said once, and the elaboration stops, as it does past <see cref="MaxInstances"/>.
             /// </summary>
-            private bool Fits(long bits, SourceLocation at, string name)
+            private bool Fits(long bits, long signals, SourceLocation at, string name)
             {
                 if (_stopped)
                     return false;
                 _bits += bits;
-                if (_bits <= MaxBits)
+                _signals += signals;
+                if (_bits <= MaxBits && _signals <= MaxSignals)
                     return true;
 
-                Error(at, ElaborationCodes.TooLarge, $"With {name}, the design holds more than {MaxBits >> 20} million bits, more than BitSorter will " +
-                    "simulate. Is a width, or a memory's number of words, larger than meant?");
+                Error(at, ElaborationCodes.TooLarge, _bits > MaxBits
+                    ? $"With {name}, the design holds more than {MaxBits >> 20} million bits, more than BitSorter will simulate. " +
+                      "Is a width, or a memory's number of words, larger than meant?"
+                    : $"With {name}, the design has more than {MaxSignals.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)} signals and memory words, " +
+                      "more than BitSorter will simulate. Is a memory's number of words larger than meant?");
                 _stopped = true;
                 return false;
             }
@@ -1202,7 +1215,7 @@ namespace BitSorter.Sim
                 }
 
                 string fullName = local ? $"{scope.Path}.{name}#{++_unnamed}" : scope.Path + "." + name;
-                if (!Fits(shape.Width, at, name))
+                if (!Fits(shape.Width, 1, at, name))
                     return null;
                 SignalId id;
 
@@ -1496,7 +1509,7 @@ namespace BitSorter.Sim
                 }
 
                 string fullName = scope.Path + "." + declarator.Name;
-                if (!Fits(words * shape.Width, declarator.Location, declarator.Name))
+                if (!Fits(words * shape.Width, words, declarator.Location, declarator.Name))
                     return;
                 MemoryInfo memory;
                 try

@@ -551,7 +551,10 @@ namespace BitSorter.Sim
             return memory;
         }
 
-        /// <summary>The most words one memory may have: a million, four times the course's largest.</summary>
+        /// <summary>
+        /// The most words one memory may have: a million, where the course's largest has 1,024. A design's words count among
+        /// its signals too, which hold a whole design to fewer (Elaborator.MaxSignals, Part 13f).
+        /// </summary>
         public const int MaxMemoryWords = 1 << 20;
 
         /// <summary>The signal <c>$time</c> reads, made the first time it is asked for.</summary>
