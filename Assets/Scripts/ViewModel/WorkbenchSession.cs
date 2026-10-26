@@ -226,6 +226,12 @@ namespace BitSorter.ViewModel
         /// <summary>Places what <paramref name="entry"/> offers at <paramref name="at"/> (<see cref="PartsCatalog.Place"/>): drawn now, and replayed.</summary>
         public EditResult Place(CatalogEntry entry, Placement at) => Edited(PartsCatalog.Place(Editor, Module, entry, at));
 
+        /// <summary>
+        /// The parts of the module shown made into a block called <paramref name="name"/> (<see cref="BlockMaker.Make"/>, Part
+        /// 12b): drawn now, and replayed -- the circuit doing exactly what it did. The result's id is the new instance's.
+        /// </summary>
+        public EditResult MakeBlock(IReadOnlyCollection<int> parts, string name) => Edited(BlockMaker.Make(Editor, Module, parts, name));
+
         /// <summary>Takes parts and wires away (<see cref="BoardEditor.RemoveParts"/>): drawn now, and replayed.</summary>
         public EditResult Remove(IEnumerable<int> parts, IEnumerable<int> wires = null) => Edited(Editor.RemoveParts(Module, parts, wires));
 

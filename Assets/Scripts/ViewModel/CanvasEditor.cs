@@ -811,6 +811,29 @@ namespace BitSorter.ViewModel
             return Said(_session.AutoRoute(new List<int>(Selection.Wires)));
         }
 
+        /// <summary>The name a block made from the selection is offered: <c>block1</c>, <c>block2</c>... (Part 12b).</summary>
+        public string FreeBlockName => BlockMaker.FreeName(_session.Project);
+
+        /// <summary>
+        /// The parts selected made into a block called <paramref name="name"/> (Part 12b), one undo step, and the new block
+        /// selected; refused, in the document's words, for a selection with a port in it, a net driven both inside and
+        /// out, or a name taken.
+        /// </summary>
+        public EditResult MakeBlock(string name)
+        {
+            if (Selection.Parts.Count == 0)
+                return Said(EditResult.Refused("Select the parts to make a block of."));
+            EditResult result = _session.MakeBlock(new List<int>(Selection.Parts), name);
+            if (result.Done)
+            {
+                Selection.Clear();
+                Selection.Pick(new CanvasTarget(CanvasTargetKind.Part, part: result.Id), extend: false, toggle: false);
+            }
+
+            Version++;
+            return Said(result);
+        }
+
         /// <summary>The one thing selected, to inspect with Enter (Part 10c); nothing with none, or with more than one.</summary>
         public CanvasTarget Single
         {

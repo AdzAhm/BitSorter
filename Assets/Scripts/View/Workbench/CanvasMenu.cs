@@ -22,13 +22,17 @@ namespace BitSorter.View
         Copy,
         Cut,
         Paste,
+
+        /// <summary>The parts selected made into a block, its name asked first (Part 12b).</summary>
+        MakeBlock,
+
         Delete,
     }
 
     /// <summary>
     /// The menu a right-click on the circuit opens (Part 10d): line the selected parts up by an edge or their middles,
-    /// spread them evenly, turn or mirror them, put the selected wires back on the automatic route, copy, cut, paste and
-    /// take away. What every item does is the canvas editor's (<see cref="CanvasEditor"/>); what every workbench menu does
+    /// spread them evenly, turn or mirror them, put the selected wires back on the automatic route, copy, cut, paste, make a
+    /// block of them (Part 12b) and take away. What every item does is the canvas editor's (<see cref="CanvasEditor"/>); what every workbench menu does
     /// -- its blocker, Escape, staying on the screen -- is <see cref="WaveMenu"/>'s. Items that do nothing for what is
     /// selected are left off.
     /// </summary>
@@ -66,6 +70,7 @@ namespace BitSorter.View
             Add(CanvasMenuAction.Copy, "COPY", breakBefore: true);
             Add(CanvasMenuAction.Cut, "CUT");
             Add(CanvasMenuAction.Paste, "PASTE");
+            Add(CanvasMenuAction.MakeBlock, "MAKE BLOCK", breakBefore: true);
             Add(CanvasMenuAction.Delete, "DELETE", breakBefore: true);
             return menu;
         }
@@ -94,6 +99,7 @@ namespace BitSorter.View
             Offer(CanvasMenuAction.Copy, parts > 0);
             Offer(CanvasMenuAction.Cut, parts > 0);
             Offer(CanvasMenuAction.Paste, canPaste);
+            Offer(CanvasMenuAction.MakeBlock, parts > 0);
             Offer(CanvasMenuAction.Delete, parts + wires > 0);
 
             if (parts + wires == 0 && !canPaste)

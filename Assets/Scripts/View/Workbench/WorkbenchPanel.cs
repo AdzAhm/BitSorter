@@ -1380,6 +1380,7 @@ namespace BitSorter.View
             RefreshInspector();
             RefreshTranscript();
             RefreshHierarchy();
+            RefreshPartsPanel();
 
             // The run is made a slice a frame until it is done, and a moment past where it has got waits;
             // an edit's replay is made beside it and takes over once it reaches the moment shown.
@@ -1494,6 +1495,8 @@ namespace BitSorter.View
             _setField = WaveRenameField.Build(_shell, transform, palette, SetInputValue, WaveRenameField.SetValueName, "SET",
                 "1, 4'b1010, 'hA or x");
             _canvasMenu = CanvasMenu.Build(_shell, transform, palette, CanvasMenuDo);
+            _blockName = WaveRenameField.Build(_shell, transform, palette, MakeBlockNamed, WaveRenameField.BlockNameName, "NAME THE NEW BLOCK",
+                "a module's name, half_adder");
             _keyMap = WorkbenchKeyMap.Build(_shell, transform, palette);
 
             Root.gameObject.SetActive(false);
@@ -1676,6 +1679,7 @@ namespace BitSorter.View
             _exportMenu.Close();
             _picker.Close();
             _rename.Close();
+            _blockName.Close();
             _breakField.Close();
             _setField.Close();
             OpenRun();

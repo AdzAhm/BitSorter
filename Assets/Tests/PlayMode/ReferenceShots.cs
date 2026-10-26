@@ -1336,6 +1336,35 @@ namespace BitSorter.PlayMode.Tests
             yield return Capture("40-workbench-inside");
         }
 
+        /// <summary>Part 12b: the full adder's h2 and OR selected, MAKE BLOCK asking for the new block's name, block1 offered.</summary>
+        [UnityTest]
+        public IEnumerator Shot41_WorkbenchMakeBlock()
+        {
+            yield return LoadTheGame();
+            yield return Frames(2);
+
+            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            yield return Frames(2);
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowSample(2);   // the full adder
+            yield return Frames(2);
+            workbench.Pause();
+            workbench.Session.Finish();
+            workbench.Seek(26.5);
+            BitSorter.Board.Module top = workbench.Session.Project.TopModule;
+            int h2 = top.FindPart("h2").Id, or = top.Parts.First(p => p is BitSorter.Board.GatePart).Id;
+            workbench.Editor.Selection.Pick(new CanvasTarget(CanvasTargetKind.Part, part: h2), false, false);
+            workbench.Editor.Selection.Pick(new CanvasTarget(CanvasTargetKind.Part, part: or), extend: true, toggle: false);
+            yield return Frames(2);
+            workbench.AskBlockName(workbench.ScreenPointOf(new BitSorter.Board.Point(1, -3.9)));   // under the circuit, clear of it
+            yield return Frames(30);
+
+            Assert.IsTrue(workbench.BlockNameField.IsOpen, "sanity: the name is asked for");
+
+            yield return Capture("41-workbench-make-block");
+        }
+
         private static IEnumerator OpensOnItsCircuit(string level, string fixture, string shot)
         {
             yield return LoadTheGame();

@@ -186,6 +186,7 @@ namespace BitSorter.View
         /// </summary>
         private void BuildPartsPanel(SchematicPalette palette)
         {
+            NotePartsBuilt();
             _partsPanel.Clear();
             _partButtons.Clear();
             _shownInHand = null;

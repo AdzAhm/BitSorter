@@ -133,6 +133,63 @@ namespace BitSorter.Board.Tests
             CollectionAssert.AreEqual(before, Outputs(editor.Project));
         }
 
+        /// <summary>A half adder whose inputs each reach both gates through a tap, as a textbook draws it, stepped through its four inputs.</summary>
+        private static (BoardEditor Editor, int Xor, int And) TappedHalfAdder()
+        {
+            var editor = new BoardEditor(Project.New("ha"));
+            int Add(Part part, double x, double y) => Must(editor.Add("ha", part, new Placement(x, y)));
+            int Wire(Endpoint from, Endpoint to) => Must(editor.Connect("ha", from, to));
+
+            int a = Add(new PortPart { Name = "a" }, 0, 1), b = Add(new PortPart { Name = "b" }, 0, -1);
+            int sum = Add(new PortPart { Name = "sum", Direction = PortDirection.Output }, 8, 1);
+            int cout = Add(new PortPart { Name = "cout", Direction = PortDirection.Output }, 8, -1);
+            int xor = Add(new GatePart { Name = "x", Kind = GateKind.Xor, Rise = 2, Fall = 2 }, 4, 1);
+            int and = Add(new GatePart { Name = "n", Kind = GateKind.And, Rise = 1, Fall = 1 }, 4, -1);
+
+            int toXor = Wire(Endpoint.At(a, "out"), Endpoint.At(xor, "a"));
+            Wire(Endpoint.OnWire(toXor), Endpoint.At(and, "a"));
+            int toAnd = Wire(Endpoint.At(b, "out"), Endpoint.At(and, "b"));
+            Wire(Endpoint.OnWire(toAnd), Endpoint.At(xor, "b"));
+            Wire(Endpoint.At(xor, "y"), Endpoint.At(sum, "in"));
+            Wire(Endpoint.At(and, "y"), Endpoint.At(cout, "in"));
+
+            var tracks = new List<Track>();
+            string[] inputs = { "a", "b" };
+            for (int i = 0; i < inputs.Length; i++)
+            {
+                var steps = new List<Step>();
+                for (int v = 0; v < 4; v++)
+                    steps.Add(new Step(v * 20, LogicVec.FromUInt64((ulong)(v >> (1 - i)) & 1, 1)));
+                tracks.Add(new Track { Port = inputs[i], Steps = steps });
+            }
+
+            Must(editor.SetStimulus(new Stimulus { Tracks = tracks, End = 80 }));
+            return (editor, xor, and);
+        }
+
+        [Test]
+        public void GatesWhoseInputsAreTapped_MakeABlock_AndTheRunIsTheSame()
+        {
+            (BoardEditor editor, int xor, int and) = TappedHalfAdder();
+            string[] before = Outputs(editor.Project);
+            Assert.IsNotEmpty(before, "sanity: the outputs change");
+
+            Must(BlockMaker.Make(editor, "ha", new[] { xor, and }, "half"));
+            Assert.AreEqual(2, editor.Project.Find("half").Ports.Count(p => p.Direction == PortDirection.Input), "a and b, each once however many taps");
+            CollectionAssert.AreEqual(before, Outputs(editor.Project), "the circuit does exactly what it did");
+        }
+
+        [Test]
+        public void OneGateOfATappedPair_MakesABlock_AndTheOtherKeepsItsTap()
+        {
+            (BoardEditor editor, int xor, int _) = TappedHalfAdder();
+            string[] before = Outputs(editor.Project);
+
+            // The XOR alone: a's wire goes into the block, and the AND, which read a through a tap on that wire, reads it still.
+            Must(BlockMaker.Make(editor, "ha", new[] { xor }, "just_xor"));
+            CollectionAssert.AreEqual(before, Outputs(editor.Project));
+        }
+
         [Test]
         public void MakingABlock_IsOneStep_AndUndoPutsTheGatesBack()
         {

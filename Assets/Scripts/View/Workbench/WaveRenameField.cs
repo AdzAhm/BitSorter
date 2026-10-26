@@ -26,6 +26,9 @@ namespace BitSorter.View
         /// <summary>The name of the same field asking for an input's value over a stretch (Part 9b-3).</summary>
         public const string SetValueName = "Workbench set value";
 
+        /// <summary>The name a block made from a selection is asked for under (Part 12b).</summary>
+        public const string BlockNameName = "Workbench block name";
+
         private const float Width = 320f, Pad = 12f, TitleHeight = 24f, FieldHeight = 38f;
 
         private ShellPopup _popup;

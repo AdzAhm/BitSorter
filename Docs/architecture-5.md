@@ -1772,6 +1772,28 @@ code editor in the circuit's window, and a block made from a selection asks for 
   the breadcrumb back out, STEP INSIDE on h2, Up alone staying and Alt+Up stepping out. Reference shot 40, new: the
   full adder stepped inside h1; 39 differs in the key map's two new lines.
 
+**As built in Part 12b**: a block made from a selection.
+
+- **MAKE BLOCK** in the canvas's menu, with parts selected, **asks for the new module's name first** (Ahmad's choice),
+  offering `block1`, `block2`... in a one-line field (RENAME's, titled NAME THE NEW BLOCK). Enter makes it; Escape asks
+  nothing and makes nothing. No key: Ctrl+B is Firefox's bookmarks.
+- **What it does is `BlockMaker`'s** (the groundwork), through the session (`WorkbenchSession.MakeBlock`, drawn at once
+  and replayed) and the canvas (`CanvasEditor.MakeBlock`, the new instance selected): the parts and the wires between
+  them moved into a new module, **a port for each net that crosses the selection's edge** -- an input where it is
+  driven outside, an output where inside, named for its net -- and one instance standing at the middle of where they
+  were, wired to the same nets, **in one undo step, the circuit doing exactly what it did**. A port of the module, a
+  net driven both inside and out, or a name taken is refused in the bar's line, in the document's words.
+- **PARTS follows the document's modules** (`RefreshPartsPanel`): a block made, or an undo taking one away, makes
+  its BLOCKS again -- and only then, since a panel made twice is laid out afresh in the frame something reads where
+  it is.
+- **Checked.** `BlockMakerTests` (7) under dotnet, each holding the run's settled outputs equal before and after:
+  half a flat full adder, the other half, a block inside a block, gates whose inputs reach them through taps, and one
+  gate of a tapped pair, its partner keeping the tap; one undo, and the refusals. `MakeBlockTests` (2): the session
+  and the canvas making one, selected and replayed to the same run, and a port refused in the document's words. In
+  Play Mode: h2 and the OR selected, MAKE BLOCK asking with block1 offered, Enter making `tail` -- selected, in PARTS,
+  the waves' rows as they were -- and Escape making nothing, the workbench still up. Reference shot 41, new: MAKE BLOCK
+  asking over the full adder's h2 and OR.
+
 ---
 
 ## 11. The parts
@@ -1792,7 +1814,7 @@ Each part is one pull request into `v5`, ends with every suite green, and leaves
 | 9 | The waveform and run controls; the workbench's view-model in a Unity-free layer of its own |
 | 10 | Editing on the free canvas -- in four: 10a placement and selection **built** (see "As built in Part 10a"); 10b wiring **built**, drawn (10b-1) and reshaped (10b-2); 10c the inspector **built**; 10d copy, align and the minimap **built**; 10e what its browser smoke test found **built** |
 | 11 | The workbench shell, in UI Toolkit -- **built**, in four: 11a the bridges and the toolbar; 11b the docked layout -- its panels (11b-1), the inspector docked (11b-2), the popups in the shell (11b-3); 11c the transcript and the hierarchy; 11d the keyboard map, the status line and the docs |
-| 12 | Hierarchy, and written blocks, edited in CodeMirror in a browser -- in six: 12a stepping inside a block **built** (see "As built in Part 12a"); 12b make block, 12c arrays, 12d code blocks, 12e the code panel, 12f CodeMirror |
+| 12 | Hierarchy, and written blocks, edited in CodeMirror in a browser -- in six: 12a stepping inside a block **built** (see "As built in Part 12a"); 12b making a block **built** (see "As built in Part 12b"); 12c arrays, 12d code blocks, 12e the code panel, 12f CodeMirror |
 | 13 | Export and import (and a levelized path in the engine, only if a measurement asks for it) |
 | 14 | The course's tools: path delays, static timing, gate-library mode, step tests, lint, tri-state |
 | 15 | The Exercises and the tutorial |

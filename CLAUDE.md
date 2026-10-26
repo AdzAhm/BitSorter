@@ -752,7 +752,7 @@ failure side.
   counts from it -- the win celebration once pulsed on the game clock and a solve
   could land at the bottom of its swell.
 - **Visual changes are checked against the reference shots.**
-  `BitSorter/Capture Reference Shots` captures forty states (menu, a built
+  `BitSorter/Capture Reference Shots` captures forty-one states (menu, a built
   board, bits in flight, a collision one tick out and one that takes both bits,
   the solved card, the level list, free play, the help panel, the chapter card, a
   clocked level, the tutorial's intro and its closing card, a first-time hint, a
@@ -764,7 +764,7 @@ failure side.
   built and running, its carry passing between the boxes, and 5.0's workbench
   preview with two changes on their way, whole, zoomed in, with a wire pointed at, with two rows in other
   radixes, a second cursor 9 ps on and two breakpoints flagged, with a block's inside grouped under full names, with the
-  add list searching, MY CIRCUIT being edited, two gates moving with their guides, its half adder being wired, one of its wires being reshaped, the reference's AND in its inspector, the reference zoomed in with its minimap and the canvas's menu, the full adder's transcript beside its hierarchy, the keyboard map, and the full adder stepped inside h1) as an Explicit Play
+  add list searching, MY CIRCUIT being edited, two gates moving with their guides, its half adder being wired, one of its wires being reshaped, the reference's AND in its inspector, the reference zoomed in with its minimap and the canvas's menu, the full adder's transcript beside its hierarchy, the keyboard map, the full adder stepped inside h1, and MAKE BLOCK asking for a name) as an Explicit Play
   Mode fixture, so it runs under `SaveGuard` --
   driving the real game for a screenshot by hand once marked a level solved on
   the developer's own save. Frame time is fixed, particle systems are seeded,
@@ -898,7 +898,8 @@ failure side.
   the breadcrumb in the circuit window's corner, or **Alt+Up**, steps back out --
   Backspace stays a second DEL, and Up alone still scrolls the waves. **A right-click opens the canvas's menu**
   (Part 10d) -- align, spread, turn, mirror, route again, copy, cut, paste,
-  delete -- and Ctrl+C, X and V copy, cut and paste; a minimap at the side
+  make block (Part 12b; it asks for the new module's name first), delete --
+  and Ctrl+C, X and V copy, cut and paste; a minimap at the side
   panel's foot, up while some of the drawing is out of sight, moves the view on a
   click. A part in hand, a wire being drawn, or a drag
   takes Escape before the workbench does. **The parts are a panel of the shell**

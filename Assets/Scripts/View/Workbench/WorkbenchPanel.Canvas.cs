@@ -379,6 +379,7 @@ namespace BitSorter.View
                 case CanvasMenuAction.Copy: CopySelected(); break;
                 case CanvasMenuAction.Cut: CutSelected(); break;
                 case CanvasMenuAction.Paste: CanvasEdit(_editor.Paste(_clip)); break;
+                case CanvasMenuAction.MakeBlock: AskBlockName(); break;
                 case CanvasMenuAction.Delete: CanvasEdit(_editor.Delete()); break;
             }
         }

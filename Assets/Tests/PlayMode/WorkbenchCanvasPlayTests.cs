@@ -818,6 +818,76 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsFalse(workbench.Session.Replaying, "and nothing replays");
         }
 
+        /// <summary>
+        /// Part 12b: h2 and the OR selected, the canvas's menu's MAKE BLOCK asks for a name -- block1 offered -- and Enter makes
+        /// the block, selected, in PARTS, the waves' rows as they were; Escape in the name asks nothing and makes nothing.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator MakeBlock_AsksForAName_AndEnterMakesTheBlock_WhereEscapeMakesNothing()
+        {
+            yield return TestScene.Load();
+            yield return Click(MainMenu.WorkbenchButton);
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowSample(2);   // the full adder
+            yield return null;
+            workbench.Pause();
+            workbench.Session.Finish();
+            yield return null;
+            int h2 = Top(workbench).FindPart("h2").Id, or = Top(workbench).Parts.Single(p => p is GatePart).Id;
+            int rows = workbench.Model.RowCount;
+
+            yield return ClickAt(workbench, MiddleOf(workbench, h2));
+            Press(_keyboard.leftShiftKey);
+            yield return ClickAt(workbench, MiddleOf(workbench, or));
+            Release(_keyboard.leftShiftKey);
+            yield return null;
+            CollectionAssert.AreEquivalent(new[] { h2, or }, workbench.Editor.Selection.Parts, "sanity: h2 and the OR selected");
+
+            yield return RightClickAt(workbench, MiddleOf(workbench, or));
+            UnityEngine.UIElements.Button make = ShellPanel.Find<UnityEngine.UIElements.Button>(CanvasMenu.ActionItem + CanvasMenuAction.MakeBlock);
+            Assert.AreNotEqual(UnityEngine.UIElements.DisplayStyle.None, make.style.display.value, "MAKE BLOCK is offered");
+            ShellPanel.Submit(make);
+            yield return null;
+            yield return null;
+            WaveRenameField name = workbench.BlockNameField;
+            Assert.IsTrue(name.IsOpen, "it asks for a name first");
+            Assert.AreEqual("block1", name.Field.value, "offering a free one");
+
+            name.Field.value = "tail";
+            Press(_keyboard.enterKey);
+            ShellPanel.SendKey(name.Field, KeyCode.Return);
+            yield return null;
+            Release(_keyboard.enterKey);
+            yield return null;
+            yield return null;
+
+            Assert.IsFalse(name.IsOpen);
+            Assert.IsNotNull(workbench.Session.Project.Find("tail"), "Enter made the block");
+            int block = Top(workbench).Parts.Single(p => p is BlockPart b && b.Module == "tail").Id;
+            CollectionAssert.AreEquivalent(new[] { block }, workbench.Editor.Selection.Parts, "and selected it");
+            Assert.IsNull(Top(workbench).FindPart(h2), "h2 has gone into it");
+            Assert.AreEqual(rows, workbench.Model.RowCount, "the waves' rows as they were");
+            Assert.IsNotNull(ShellPanel.Find<UnityEngine.UIElements.Button>(WorkbenchPanel.PartButtonName("block:tail")), "PARTS offers it");
+
+            // Asked again, and Escape: nothing made.
+            int modules = workbench.Session.Project.Modules.Count;
+            yield return RightClickAt(workbench, MiddleOf(workbench, block));
+            ShellPanel.Submit(ShellPanel.Find<UnityEngine.UIElements.Button>(CanvasMenu.ActionItem + CanvasMenuAction.MakeBlock));
+            yield return null;
+            Assert.IsTrue(name.IsOpen, "sanity: asked again");
+
+            // Escape as the browser hands it over (the 11d smoke test's logs): the game's half and UI Toolkit's in one frame.
+            Press(_keyboard.escapeKey);
+            yield return null;
+            ShellPanel.SendKey(name.Field, KeyCode.Escape);
+            Release(_keyboard.escapeKey);
+            yield return null;
+            yield return null;
+            Assert.IsFalse(name.IsOpen, "Escape put the question away");
+            Assert.AreEqual(modules, workbench.Session.Project.Modules.Count, "and made nothing");
+            Assert.IsTrue(workbench.IsOpen, "and was the field's alone");
+        }
+
         /// <summary>Zoomed in, the minimap shows; a click on its left side moves the view there; FIT puts it away (Part 10d).</summary>
         [UnityTest]
         public IEnumerator TheMinimap_ShowsOffTheFit_AClickOnItMovesTheView_AndFitPutsItAway()
