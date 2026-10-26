@@ -342,5 +342,27 @@ namespace BitSorter.Board.Tests
 
             CollectionAssert.Contains(sim.History.Messages.Select(m => m.Text), "5a");
         }
+
+        /// <summary>
+        /// A course's project folder holds more than its code -- the handout's PDF, a zip, the simulator's waveform logs -- and
+        /// a folder imported whole kept each as one of the project's files, read as text: binary in the save, and in every
+        /// export for ModelSim (Part 13f). A file no module names, by an include or as a file it reads, is left out, said so.
+        /// </summary>
+        [Test]
+        public void AFileNoModuleNames_IsLeftOut_AndOneAModuleReads_IsKept()
+        {
+            const string bench =
+                "module rom_tb;\n" +
+                "    logic [7:0] words [0:0];\n" +
+                "    initial begin $readmemh(\"rom.hex\", words); #1 $display(\"%h\", words[0]); $stop; end\n" +
+                "endmodule\n";
+            ProjectImport import = Import(("rom_tb.sv", bench), ("rom.hex", "5a\n"), ("handout.pdf", "%PDF-1.7\n\u0000\u0001binary"),
+                ("vsim.wlf", "\u0000\u0000LGWF"), ("notes.txt", "remember the reset\n"));
+
+            Assert.IsTrue(import.Succeeded, Notes(import));
+            CollectionAssert.AreEqual(new[] { "rom.hex" }, import.Project.Files.Select(f => f.Name), "only the image the bench reads");
+            foreach (string left in new[] { "handout.pdf", "vsim.wlf", "notes.txt" })
+                StringAssert.Contains("so it was left out", import.Notes.Single(n => n.File == left).Message, left);
+        }
     }
 }
