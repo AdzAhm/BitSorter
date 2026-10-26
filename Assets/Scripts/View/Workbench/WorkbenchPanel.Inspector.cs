@@ -30,7 +30,7 @@ namespace BitSorter.View
     {
         /// <summary>The inspector's pieces' names, which the tests look for.</summary>
         public const string InspectorBarName = "Workbench inspector", InspectorApplyName = "Workbench inspector apply",
-            InspectorRevertName = "Workbench inspector revert", QuickName = "Workbench quick";
+            InspectorRevertName = "Workbench inspector revert", QuickName = "Workbench quick", QuickSaysName = "Workbench quick says";
 
         /// <summary>The bar's field of this key (<see cref="InspectorField.Key"/>).</summary>
         public static string InspectorFieldName(string key) => "Workbench inspector " + key;
@@ -222,6 +222,17 @@ namespace BitSorter.View
                 ShellButton step = ShellTheme.Button(StepInsideName, "STEP INSIDE", palette, () => StepInto(part), UiType.Caption);
                 ShellTheme.Place(step, PanelPad, y, inside, QuickFieldHeight);
                 _quick.Add(step);
+                y += QuickFieldHeight + QuickGap;
+            }
+
+            // What the fields mean, under them: the part's own line, as the bar reads it -- a gate's rise is Tpdlh, a change
+            // to 1, and its fall Tpdhl, a change to 0 (asked for 2026-10-26).
+            if (!string.IsNullOrEmpty(inspection.Says))
+            {
+                Label says = ShellTheme.Label(QuickSaysName, inspection.Says, UiType.Micro, palette.TextDim);
+                says.style.whiteSpace = WhiteSpace.Normal;
+                ShellTheme.Place(says, PanelPad, y, inside, -1f);
+                _quick.Add(says);
             }
 
             LayoutInspectorBar();

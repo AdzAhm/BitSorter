@@ -527,6 +527,10 @@ namespace BitSorter.PlayMode.Tests
             StringAssert.StartsWith("AND ", workbench.Inspection.Title);
             Assert.AreEqual("2 ps", workbench.InspectorTyped()["rise"]);
             Assert.IsTrue(UiText.Typing, "the bar's first field has the keyboard");
+            UnityEngine.UIElements.Label quickSays = ShellPanel.Find<UnityEngine.UIElements.Label>(WorkbenchPanel.QuickSaysName);
+            Assert.IsNotNull(quickSays, "the quick panel says what its fields mean");
+            StringAssert.Contains("Tpdlh", quickSays.text, "rise, a change to 1");
+            StringAssert.Contains("Tpdhl", quickSays.text, "and fall, a change to 0");
 
             Assert.IsTrue(workbench.InspectorType("rise", "5"));
             yield return EnterIn(WorkbenchPanel.InspectorFieldName("rise"));

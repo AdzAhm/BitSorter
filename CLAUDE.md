@@ -887,7 +887,8 @@ failure side.
   drag on one of its corners does. **A double-click on a part or a wire, or Enter
   with one selected, puts the keyboard in its inspector** (Part 10c), docked since
   11b-2: the bar under the toolbar holds every field and the side panel the quick
-  ones, both following the selection, and a focused field takes Escape as RUN TO
+  ones with the part's line under them (a gate's rise is Tpdlh, its fall Tpdhl),
+  both following the selection, and a focused field takes Escape as RUN TO
   does; a double-click is two plain clicks, never a click that placed a
   part and then a press to drag it. **A double-click on a block steps inside it**
   (Part 12a), as STEP INSIDE in its quick panel and a double-click on an instance

@@ -1764,6 +1764,8 @@ code editor in the circuit's window, and a block made from a selection asks for 
   drawing is fitted to the window; the waves keep their rows and their view.
 - **PARTS offers no block that holds the module shown** (`PartsCatalog.For`): stepped inside a half adder, the full
   adder round it is no part to place, since the document refuses a module inside itself.
+- **The quick panel says what its fields mean** (asked for during 12a, its own commit): the part's own line under
+  them, as the bar reads it -- a gate's rise is Tpdlh, a change to 1, and its fall Tpdhl, a change to 0.
 - **Checked.** `SteppingTests` (7) under dotnet: in and out with the inner module read under the instance, only a
   block or a scope of the design stepped into, an edit inside reaching both instances' signals in the run, an undone
   instance stepping out, the canvas letting go on a step, the parts list inside, and Alt+Up's binding. In Play Mode: a double-click on h1,
