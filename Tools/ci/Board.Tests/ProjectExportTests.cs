@@ -90,5 +90,22 @@ namespace BitSorter.Board.Tests
             Dictionary<string, string> files = Unzipped(ProjectExport.Zip(project, When));
             StringAssert.EndsWith(SampleBoards.WrittenAdder, files[ProjectExport.FolderOf(project) + "/add4.sv"]);
         }
+
+        [Test]
+        public void TheProjectsOtherFiles_AreBesideTheModules_AndNotCompiled()
+        {
+            Project project = SampleBoards.Build("half_adder") with
+            {
+                Files = new[] { new ProjectFile { Name = "table.hex", Text = "0f\n" }, new ProjectFile { Name = "defs.svh", Text = "// shared\n" } },
+            };
+            Dictionary<string, string> files = Unzipped(ProjectExport.Zip(project, When));
+            string folder = ProjectExport.FolderOf(project);
+
+            Assert.AreEqual("0f\n", files[folder + "/table.hex"]);
+            Assert.AreEqual("// shared\n", files[folder + "/defs.svh"]);
+            string vlog = files[folder + "/" + ProjectExport.RunScript].Split('\n').Single(l => l.StartsWith("vlog"));
+            StringAssert.DoesNotContain("table.hex", vlog, "an include and a memory image are read by the code, not compiled");
+            StringAssert.DoesNotContain("defs.svh", vlog);
+        }
     }
 }

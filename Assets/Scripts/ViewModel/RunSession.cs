@@ -40,7 +40,7 @@ namespace BitSorter.ViewModel
             Func<Project, CompiledProject, SchematicLayout> layoutOf = null)
         {
             (Design design, SchematicLayout layout, long horizon) = WorkbenchModel.Prepare(project, layoutOf);
-            var session = new SimSession(design, null);
+            var session = new SimSession(design, null, new SimOptions { Files = ProjectFiles.ForRun(project) });
             var slicer = new RunSlicer(session, horizon, nowMilliseconds, chunkEvents, budgetMilliseconds);
 
             slicer.Slice();

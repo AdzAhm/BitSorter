@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Text;
 using BitSorter.Sim;
 using BitSorter.SystemVerilog.Syntax;
@@ -99,21 +100,22 @@ namespace BitSorter.Board
         /// header when it is that module, and wherever it instantiates it. Only those names change -- a signal or an instance
         /// of the same name stays as it is -- and the rest of the text, comments and spacing included, is left as written.
         /// </summary>
-        public static string Renamed(Module module, string from, string to)
+        public static string Renamed(Project project, Module module, string from, string to)
         {
             if (module == null || !module.IsWritten)
                 return module?.Source;
 
-            // Where the text instantiates the module: an instantiation's place is its module's name.
+            // Where the text instantiates the module: an instantiation's place is its module's name -- in this text, not a file it includes.
             var instantiated = new HashSet<(int Line, int Column)>();
-            ModuleDeclaration declaration = ParseChecked(module).Declaration;
+            ModuleDeclaration declaration = ParseChecked(project, module).Declaration;
+            string own = FileOf(module.Name);
             void Visit(IEnumerable<ModuleItem> items)
             {
                 foreach (ModuleItem item in items)
                 {
                     switch (item)
                     {
-                        case ModuleInstantiation instantiation when instantiation.Module == from:
+                        case ModuleInstantiation instantiation when instantiation.Module == from && instantiation.Location.File == own:
                             instantiated.Add((instantiation.Location.Line, instantiation.Location.Column));
                             break;
                         case GenerateRegion region:
@@ -189,7 +191,7 @@ namespace BitSorter.Board
         {
             if (module.IsWritten)
             {
-                foreach (string name in ParseChecked(module).Uses)
+                foreach (string name in ParseChecked(project, module).Uses)
                     if (project.Find(name) is Module used)
                         yield return used;
                 yield break;
@@ -201,11 +203,11 @@ namespace BitSorter.Board
         }
 
         /// <summary>The cells of the library a written module instantiates.</summary>
-        public static IEnumerable<string> CellsOf(Module module)
+        public static IEnumerable<string> CellsOf(Project project, Module module)
         {
             if (!module.IsWritten)
                 yield break;
-            foreach (string name in ParseChecked(module).Uses)
+            foreach (string name in ParseChecked(project, module).Uses)
                 if (BoardImporter.IsCell(name))
                     yield return name;
         }
@@ -229,7 +231,7 @@ namespace BitSorter.Board
 
         private static WrittenModule ReadAnew(Project project, Module module)
         {
-            (_, ModuleDeclaration declaration, List<Diagnostic> diagnostics, List<string> uses) = ParseChecked(module);
+            (_, ModuleDeclaration declaration, List<Diagnostic> diagnostics, List<string> uses) = ParseChecked(project, module);
             if (declaration == null || HasError(diagnostics))
                 return new WrittenModule(declaration, Array.Empty<ModulePort>(), uses, diagnostics);
 
@@ -247,7 +249,7 @@ namespace BitSorter.Board
                 {
                     alone.Modules.Add(HeaderOf(other));
                 }
-                else if (ParseChecked(other) is var parsed && parsed.Declaration != null && !HasError(parsed.Diagnostics))
+                else if (ParseChecked(project, other) is var parsed && parsed.Declaration != null && !HasError(parsed.Diagnostics))
                 {
                     // With the cells it uses in turn, as the whole design would have them.
                     alone.Modules.Add(parsed.Declaration);
@@ -308,10 +310,10 @@ namespace BitSorter.Board
         }
 
         /// <summary>The text parsed, and held to being one module of the module's own name: what it says, and what it instantiates.</summary>
-        private static (SyntaxTree Tree, ModuleDeclaration Declaration, List<Diagnostic> Diagnostics, List<string> Uses) ParseChecked(Module module)
+        private static (SyntaxTree Tree, ModuleDeclaration Declaration, List<Diagnostic> Diagnostics, List<string> Uses) ParseChecked(Project project, Module module)
         {
             string file = FileOf(module.Name);
-            (SyntaxTree tree, List<SourceLocation> timeDeclarations) = ParseText(module.Source, file);
+            (SyntaxTree tree, List<SourceLocation> timeDeclarations) = ParseText(module.Source, file, project.Files);
             var diagnostics = new List<Diagnostic>(tree.Diagnostics);
             var uses = new List<string>();
             void Error(SourceLocation at, string message) =>
@@ -370,22 +372,54 @@ namespace BitSorter.Board
             }
 
             Visit(declaration.Items);
+            Located(diagnostics, module.Source, file);
             return (tree, declaration, diagnostics, uses);
         }
 
         /// <summary>
-        /// The text read, kept for the same text: the rules ask on every edit, of every written module. With where it says
-        /// timeunit or timeprecision, which the parser passes over without a trace.
+        /// A fault in a file the text includes (Part 13b), placed at the include in the text -- where the code editor can mark
+        /// it -- and saying where in that file it is.
         /// </summary>
-        private static (SyntaxTree Tree, List<SourceLocation> TimeDeclarations) ParseText(string text, string file)
+        private static void Located(List<Diagnostic> diagnostics, string source, string file)
         {
-            string key = file + "\n" + text;
+            for (int i = 0; i < diagnostics.Count; i++)
+            {
+                Diagnostic d = diagnostics[i];
+                if (d.Location.File == null || string.Equals(d.Location.File, file, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                var at = new SourceLocation(file, 1, 1);
+                string[] lines = (source ?? "").Replace("\r\n", "\n").Split('\n');
+                for (int l = 0; l < lines.Length; l++)
+                {
+                    int include = lines[l].IndexOf("`include", StringComparison.Ordinal);
+                    if (include >= 0 && lines[l].IndexOf(d.Location.File, StringComparison.OrdinalIgnoreCase) > include)
+                    {
+                        at = new SourceLocation(file, l + 1, include + 1);
+                        break;
+                    }
+                }
+
+                diagnostics[i] = new Diagnostic(d.Severity, at, d.Code,
+                    $"In {d.Location.File}, line {d.Location.Line.ToString(CultureInfo.InvariantCulture)}: {d.Message}");
+            }
+        }
+
+        /// <summary>
+        /// The text read, kept for the same text: the rules ask on every edit, of every written module. With where it says
+        /// timeunit or timeprecision, which the parser passes over without a trace. An <c>`include</c> reads the project's
+        /// files (Part 13b), and the ones the text names are part of what is kept.
+        /// </summary>
+        private static (SyntaxTree Tree, List<SourceLocation> TimeDeclarations) ParseText(string text, string file, IReadOnlyList<ProjectFile> files)
+        {
+            string key = file + "\n" + text + ProjectFiles.KeyOf(files, text);
             if (Parsed.TryGetValue(key, out (SyntaxTree, List<SourceLocation>) kept))
                 return kept;
 
-            SyntaxTree tree = SyntaxReader.ReadText(text, file);
+            MemorySourceFiles sources = files.Count == 0 ? null : ProjectFiles.Sources(files);
+            SyntaxTree tree = SyntaxReader.ReadText(text, file, sources);
             var times = new List<SourceLocation>();
-            foreach (Token token in Preprocessor.Run(file, text ?? string.Empty, null, new DiagnosticBag(), out _))
+            foreach (Token token in Preprocessor.Run(file, text ?? string.Empty, sources, new DiagnosticBag(), out _))
                 if (token.IsKeyword("timeunit") || token.IsKeyword("timeprecision"))
                     times.Add(token.Location);
 
@@ -408,7 +442,7 @@ namespace BitSorter.Board
         private static string Surroundings(Project project, Module module)
         {
             var key = new StringBuilder();
-            key.Append(module.Name).Append('\u0001').Append(module.Source);
+            key.Append(module.Name).Append('\u0001').Append(module.Source).Append(ProjectFiles.KeyOf(project.Files, module.Source));
             foreach (Module other in project.Modules)
             {
                 if (other == module)
@@ -416,7 +450,7 @@ namespace BitSorter.Board
                 key.Append('\u0002').Append(other.Name);
                 if (other.IsWritten)
                 {
-                    key.Append('\u0003').Append(other.Source);
+                    key.Append('\u0003').Append(other.Source).Append(ProjectFiles.KeyOf(project.Files, other.Source));
                     continue;
                 }
 

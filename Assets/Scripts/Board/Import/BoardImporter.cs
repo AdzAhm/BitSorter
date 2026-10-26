@@ -39,8 +39,20 @@ namespace BitSorter.Board
     /// </remarks>
     public static class BoardImporter
     {
-        public static ImportResult Import(SyntaxTree tree, string top)
+        public static ImportResult Import(SyntaxTree tree, string top) => Import(tree, top, null, null);
+
+        /// <summary>
+        /// The same, with modules that are already <paramref name="written"/> (Part 13b): an instance of one is placed as a
+        /// block of it, pins from its header, rather than drawn, so a structural module over written ones is drawn. The
+        /// project's <paramref name="files"/> are what their includes read.
+        /// </summary>
+        public static ImportResult Import(SyntaxTree tree, string top, IReadOnlyList<Module> written, IReadOnlyList<ProjectFile> files)
         {
+            var writtenNames = new HashSet<string>(StringComparer.Ordinal);
+            if (written != null)
+                foreach (Module module in written)
+                    writtenNames.Add(module.Name);
+
             var problems = new List<string>();
             var modules = new Dictionary<string, ModuleDeclaration>(StringComparer.Ordinal);
             foreach (ModuleDeclaration module in tree.Modules)
@@ -56,7 +68,7 @@ namespace BitSorter.Board
             var seen = new HashSet<string>(StringComparer.Ordinal);
             void Visit(ModuleDeclaration module, int depth)
             {
-                if (!seen.Add(module.Name) || depth > 64)
+                if (!seen.Add(module.Name) || depth > 64 || writtenNames.Contains(module.Name))
                     return;
                 foreach (ModuleItem item in module.Items)
                     VisitItem(item, depth);
@@ -89,7 +101,15 @@ namespace BitSorter.Board
             foreach (ModuleDeclaration declared in tree.Interfaces)
                 interfaces.Add(declared.Name);
 
-            var editor = new BoardEditor(new Project { Name = top, Top = top });
+            if (writtenNames.Contains(top))
+                return new ImportResult(null, new[] { $"{top} is written." });
+            var editor = new BoardEditor(new Project
+            {
+                Name = top,
+                Top = top,
+                Modules = written != null ? new List<Module>(written) : new List<Module>(),
+                Files = files ?? Array.Empty<ProjectFile>(),
+            });
             foreach (ModuleDeclaration module in order)
                 new ModuleReader(editor, module, modules, interfaces, problems).Read();
 

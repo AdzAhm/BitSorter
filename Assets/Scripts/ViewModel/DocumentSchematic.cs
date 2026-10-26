@@ -210,6 +210,12 @@ namespace BitSorter.ViewModel
             foreach (PortPart port in ordered)
                 rows.Add(new WaveRow(Label(port), path + "." + port.Name));
 
+            // A written module has no port parts to stand anywhere: its header's ports, in its header's order (Part 13b).
+            if (module.IsWritten)
+                foreach (ModulePort port in WrittenModules.PortsOf(project, module))
+                    rows.Add(new WaveRow(port.Width > 1 ? port.Name + "[" + (port.Width - 1).ToString(CultureInfo.InvariantCulture) + ":0]" : port.Name,
+                        path + "." + port.Name));
+
             return new SchematicLayout(size, nets, parts, ports, rows, compiled.DesignPath, compiled.Cells, unit, frame);
         }
 

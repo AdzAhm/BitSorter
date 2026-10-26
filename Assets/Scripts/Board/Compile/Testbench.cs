@@ -20,10 +20,10 @@ namespace BitSorter.Board
         {
             Module top = project.TopModule;
             Stimulus stimulus = project.Stimulus;
-            IReadOnlyList<PortPart> ports = top.Ports;
+            IReadOnlyList<ModulePort> ports = WrittenModules.PortsOf(project, top);   // a drawn top's port parts, or a written one's header (Part 13b)
 
             var names = new HashSet<string>(StringComparer.Ordinal);
-            foreach (PortPart port in ports)
+            foreach (ModulePort port in ports)
                 names.Add(port.Name);
 
             var bench = new ModuleDeclaration
@@ -38,7 +38,7 @@ namespace BitSorter.Board
 
             // The ports, one declaration a width; a clock has its own, with the level it starts at.
             var byWidth = new Dictionary<int, DataDeclaration>();
-            foreach (PortPart port in ports)
+            foreach (ModulePort port in ports)
             {
                 if (clocks.TryGetValue(port.Name, out ClockTrack clock))
                 {
@@ -61,7 +61,7 @@ namespace BitSorter.Board
             // The design, every port by name.
             var dut = new ModuleInstance { Name = Unique("dut", names) };
             dutName = dut.Name;
-            foreach (PortPart port in ports)
+            foreach (ModulePort port in ports)
                 dut.Connections.Add(Sv.Connect(port.Name, Sv.Name(port.Name)));
             var instantiation = new ModuleInstantiation { Module = top.Name };
             instantiation.Instances.Add(dut);
@@ -83,7 +83,7 @@ namespace BitSorter.Board
         }
 
         /// <summary>Every step of every track, in time order and then in port order, each new time after a delay.</summary>
-        private static BlockStatement Steps(IReadOnlyList<PortPart> ports, Stimulus stimulus)
+        private static BlockStatement Steps(IReadOnlyList<ModulePort> ports, Stimulus stimulus)
         {
             var order = new Dictionary<string, int>(StringComparer.Ordinal);
             for (int i = 0; i < ports.Count; i++)

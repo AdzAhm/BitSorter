@@ -67,6 +67,13 @@ namespace BitSorter.Board
         }
     }
 
+    /// <summary>One of a project's other files: an include or a memory image, by a bare name, and its text.</summary>
+    public sealed record ProjectFile
+    {
+        public string Name { get; init; }
+        public string Text { get; init; } = "";
+    }
+
     public sealed record ProjectSettings
     {
         /// <summary>
@@ -95,7 +102,21 @@ namespace BitSorter.Board
         /// <summary>What drives the top module's inputs, or null for none.</summary>
         public Stimulus Stimulus { get; init; }
 
+        /// <summary>
+        /// A written module that is the testbench (Part 13b): the course's own, imported, run as written instead of one
+        /// made from <see cref="Stimulus"/>. It instantiates <see cref="Top"/>; null when the stimulus drives the design.
+        /// While there is one, the stimulus holds only its <see cref="Stimulus.End"/> -- where the run is shown to -- and
+        /// no tracks: the bench drives the inputs.
+        /// </summary>
+        public string Bench { get; init; }
+
         public ProjectSettings Settings { get; init; } = new ProjectSettings();
+
+        /// <summary>
+        /// The project's other files (Part 13b): what a written module <c>`include</c>s and the memory images
+        /// <c>$readmemh</c> reads, each by a bare name, as the course keeps them beside its sources.
+        /// </summary>
+        public IReadOnlyList<ProjectFile> Files { get; init; } = Array.Empty<ProjectFile>();
 
         public Module Find(string name)
         {

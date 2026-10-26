@@ -77,7 +77,8 @@ namespace BitSorter.Board
                 printed.Add(new PrintedSource(module.Module.Name + ".sv", text.ToString()));
             }
 
-            if (compiled.Testbench != null)
+            // The testbench made from the stimulus; a written one (Part 13b) is a module of the project, printed above as written.
+            if (compiled.Testbench != null && compiled.Find(compiled.Testbench) == null)
             {
                 foreach (ModuleDeclaration module in tree.Modules)
                 {

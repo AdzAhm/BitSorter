@@ -93,8 +93,8 @@ namespace BitSorter.Board
 
             if (project.Find(project.Top) == null)
                 Error(null, $"The top module, {project.Top ?? "(none)"}, is not in the project.");
-            else if (project.TopModule.IsWritten)
-                Error(project.Top, $"The design, {project.Top}, is written: so far the top module is drawn, and written ones are blocks inside it.");
+            CheckBench(project, found);
+            CheckFiles(project, found);
 
             foreach (Module module in project.Modules)
                 CheckModule(project, module, found);
@@ -404,6 +404,73 @@ namespace BitSorter.Board
                     Visit(module, new List<string>());
         }
 
+        /// <summary>
+        /// The written testbench, when there is one (Part 13b): a written module other than the top, which instantiates the
+        /// top, while the stimulus drives nothing -- the bench does.
+        /// </summary>
+        private static void CheckBench(Project project, List<BoardDiagnostic> found)
+        {
+            if (project.Bench == null)
+                return;
+
+            void Error(string message) => found.Add(new BoardDiagnostic(DiagnosticSeverity.Error, project.Bench, message));
+            Module bench = project.Find(project.Bench);
+            if (bench == null)
+            {
+                Error($"The testbench, {project.Bench}, is not in the project.");
+                return;
+            }
+
+            if (!bench.IsWritten)
+                Error($"The testbench, {project.Bench}, is drawn: a testbench is written, as the course writes one.");
+            else if (project.Bench == project.Top)
+                Error($"{project.Bench} is the design and its testbench at once.");
+            else
+            {
+                bool instantiates = false;
+                foreach (Module used in WrittenModules.UsesOf(project, bench))
+                    instantiates |= used.Name == project.Top;
+                if (!instantiates)
+                    Error($"The testbench, {project.Bench}, does not instantiate the design, {project.Top}.");
+                else if (WrittenModules.Read(project, bench).Declaration is ModuleDeclaration declaration && BoardCompiler.InstanceOf(declaration, project.Top) == null)
+                    Error($"The testbench, {project.Bench}, makes its {project.Top} inside a generate if or for: make it outside one, so the run knows which is the design.");
+            }
+
+            Stimulus stimulus = project.Stimulus;
+            if (stimulus != null && (stimulus.Tracks.Count > 0 || stimulus.Clocks.Count > 0))
+                Error(BenchDrivesTheInputs(project));
+        }
+
+        /// <summary>Why an input cannot be set while a written testbench drives them (Part 13b).</summary>
+        public static string BenchDrivesTheInputs(Project project) =>
+            $"The testbench, {project.Bench}, drives the inputs: change them in its code.";
+
+        /// <summary>The project's other files (Part 13b): each a bare name, no two alike, and none the export's own script or a module's file.</summary>
+        private static void CheckFiles(Project project, List<BoardDiagnostic> found)
+        {
+            var printed = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { CellLibrary.FileName };
+            foreach (Module module in project.Modules)
+                printed.Add(WrittenModules.FileOf(module.Name));
+            if (project.Bench == null && project.Stimulus != null)
+                printed.Add(WrittenModules.FileOf(project.Top + "_tb"));   // the testbench made from the stimulus, as Testbench names it
+
+            var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (ProjectFile file in project.Files)
+            {
+                void Error(string message) => found.Add(new BoardDiagnostic(DiagnosticSeverity.Error, null, message));
+                if (file == null)
+                    continue;
+                if (!ProjectFiles.IsValidName(file.Name, out string why))
+                    Error(why);
+                else if (!names.Add(file.Name))
+                    Error($"There are two files called {file.Name}.");
+                else if (string.Equals(file.Name, ProjectExport.RunScript, StringComparison.OrdinalIgnoreCase))
+                    Error($"{file.Name} is the script an export writes: call the file something else.");
+                else if (printed.Contains(file.Name))
+                    Error($"{file.Name} is the name a module of the project is written to: call the file something else.");
+            }
+        }
+
         private static void CheckStimulus(Project project, List<BoardDiagnostic> found)
         {
             Stimulus stimulus = project.Stimulus;
@@ -413,9 +480,10 @@ namespace BitSorter.Board
 
             void Error(string message) => found.Add(new BoardDiagnostic(DiagnosticSeverity.Error, null, message));
 
-            PortPart Input(string name)
+            // A drawn top's port parts, or a written one's header (Part 13b).
+            ModulePort? Input(string name)
             {
-                foreach (PortPart port in top.Ports)
+                foreach (ModulePort port in WrittenModules.PortsOf(project, top))
                     if (port.Direction == PortDirection.Input && string.Equals(port.Name, name, StringComparison.Ordinal))
                         return port;
                 return null;
@@ -425,11 +493,11 @@ namespace BitSorter.Board
 
             foreach (ClockTrack clock in stimulus.Clocks)
             {
-                PortPart port = Input(clock.Port);
+                ModulePort? port = Input(clock.Port);
                 if (port == null)
                     Error($"The clock {clock.Port} is not an input of {top.Name}.");
-                else if (port.Width != 1)
-                    Error($"The clock {clock.Port} is {Bits(port.Width)}; a clock is one bit.");
+                else if (port.Value.Width != 1)
+                    Error($"The clock {clock.Port} is {Bits(port.Value.Width)}; a clock is one bit.");
                 if (clock.Period < 2 || clock.Period % 2 != 0)
                     Error($"The clock {clock.Port}'s period is {clock.Period}; it has to be even, and at least 2, so each half is a whole number.");
                 if (!driven.Add(clock.Port))
@@ -438,7 +506,7 @@ namespace BitSorter.Board
 
             foreach (Track track in stimulus.Tracks)
             {
-                PortPart port = Input(track.Port);
+                ModulePort? port = Input(track.Port);
                 if (port == null)
                     Error($"The stimulus drives {track.Port}, which is not an input of {top.Name}.");
                 if (!driven.Add(track.Port))
@@ -449,8 +517,8 @@ namespace BitSorter.Board
                 {
                     if (step.Time < last)
                         Error($"{track.Port}'s steps go back in time, to {step.Time} after {last}.");
-                    if (port != null && step.Value.Width != port.Width)
-                        Error($"{track.Port} is {Bits(port.Width)}, and is given {Bits(step.Value.Width)} at {step.Time}.");
+                    if (port != null && step.Value.Width != port.Value.Width)
+                        Error($"{track.Port} is {Bits(port.Value.Width)}, and is given {Bits(step.Value.Width)} at {step.Time}.");
                     last = Math.Max(last, step.Time);
                 }
             }

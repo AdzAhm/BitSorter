@@ -224,10 +224,12 @@ namespace BitSorter.Board.Tests
         }
 
         [Test]
-        public void TheTopIsDrawn_AndNoModuleTakesACellsName()
+        public void TheTopMayBeWritten_AndNoModuleTakesACellsName()
         {
             BoardEditor editor = WithWritten("pass", null);
-            Assert.IsFalse(editor.SetTop("pass").Done, "the top is drawn, so far");
+            Assert.IsTrue(editor.SetTop("pass").Done, "a written top, as an imported design may be (Part 13b)");
+            Assert.IsTrue(BoardCompiler.Compile(editor.Project).Succeeded);
+            Assert.IsTrue(editor.SetTop("top").Done);
             Assert.IsFalse(editor.AddWrittenModule("NAND2").Done);
             Assert.IsFalse(editor.AddModule("XOR3").Done);
             Assert.IsFalse(editor.SetSource("top", "module top; endmodule").Done, "a drawn module has no text");

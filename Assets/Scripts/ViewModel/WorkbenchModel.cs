@@ -308,7 +308,7 @@ namespace BitSorter.ViewModel
         public static WorkbenchModel Of(Project project)
         {
             (Design design, SchematicLayout layout, long horizon) = Prepare(project);
-            var session = new SimSession(design, null);
+            var session = new SimSession(design, null, new SimOptions { Files = ProjectFiles.ForRun(project) });
             RunResult result = session.RunTo(horizon);
             return new WorkbenchModel(session, layout, horizon, result.Status != RunStatus.Suspended || result.Time >= horizon);
         }

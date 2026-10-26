@@ -8,7 +8,8 @@ namespace BitSorter.Board
     /// A project as a zip ModelSim can open (Part 13a): a folder named for it holding every file the project prints as
     /// (<see cref="BoardPrinter"/> -- the cells it uses, each module after the modules it uses, the testbench last) and a
     /// <c>run.do</c> that compiles them in that order, starts the simulation, adds every signal to the wave window and
-    /// runs it. Unzipped, the student changes ModelSim's directory to the folder and types <c>do run.do</c>.
+    /// runs it. Unzipped, the student changes ModelSim's directory to the folder and types <c>do run.do</c>. The project's
+    /// other files -- includes, memory images -- are in the folder too.
     /// </summary>
     public static class ProjectExport
     {
@@ -28,6 +29,10 @@ namespace BitSorter.Board
             var entries = new List<ZipEntry>();
             foreach (PrintedSource file in files)
                 entries.Add(new ZipEntry(folder + "/" + file.Path, utf8.GetBytes(file.Text)));
+
+            // Its other files beside them (Part 13b), where an include and a $readmemh of a bare name find them.
+            foreach (ProjectFile file in project.Files)
+                entries.Add(new ZipEntry(folder + "/" + file.Name, utf8.GetBytes(file.Text ?? "")));
             entries.Add(new ZipEntry(folder + "/" + RunScript, utf8.GetBytes(RunDo(project, compiled, files))));
             return ZipWriter.Write(entries, when);
         }

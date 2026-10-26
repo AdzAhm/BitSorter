@@ -108,7 +108,7 @@ namespace BitSorter.Board
                 {
                     // As written (Part 12d), with the cells it instantiates.
                     compiled.Add(new CompiledModule(module, nets, WrittenModules.Read(project, module).Declaration));
-                    foreach (string cell in WrittenModules.CellsOf(module))
+                    foreach (string cell in WrittenModules.CellsOf(project, module))
                         cells.Add(cell);
                     continue;
                 }
@@ -126,7 +126,14 @@ namespace BitSorter.Board
                 tree.Modules.Add(module.Declaration);
 
             string testbench = null, designPath = project.Top;
-            if (project.Stimulus != null)
+            if (project.Bench != null)
+            {
+                // The course's own testbench, written (Part 13b): already a module of the tree, and the run's top. The
+                // design is the instance of the top in it.
+                testbench = project.Bench;
+                designPath = testbench + "." + (InstanceOf(WrittenModules.Read(project, project.Find(project.Bench)).Declaration, project.Top) ?? project.Top);
+            }
+            else if (project.Stimulus != null)
             {
                 ModuleDeclaration bench = Testbench.Build(project, Taken(project), out string dut);
                 tree.Modules.Add(bench);
@@ -155,6 +162,35 @@ namespace BitSorter.Board
             foreach (Module module in project.Modules)
                 Visit(module);
             return ordered;
+        }
+
+        /// <summary>
+        /// Where the first instance of <paramref name="module"/> in <paramref name="declaration"/> is, below it: its name, after
+        /// the label of a named generate block it is in; null with none. One in a generate construct that chooses or repeats
+        /// is not looked for, since which one is the design is the elaborator's to say.
+        /// </summary>
+        internal static string InstanceOf(ModuleDeclaration declaration, string module)
+        {
+            string Find(IEnumerable<ModuleItem> items)
+            {
+                foreach (ModuleItem item in items)
+                {
+                    string found = item switch
+                    {
+                        ModuleInstantiation instantiation when instantiation.Module == module && instantiation.Instances.Count > 0
+                            => instantiation.Instances[0].Name,
+                        GenerateRegion region => Find(region.Items),
+                        GenerateBlock block => Find(block.Items) is string inside && !string.IsNullOrEmpty(block.Label) ? block.Label + "." + inside : Find(block.Items),
+                        _ => null,
+                    };
+                    if (found != null)
+                        return found;
+                }
+
+                return null;
+            }
+
+            return declaration == null ? null : Find(declaration.Items);
         }
 
         private static HashSet<string> Taken(Project project)

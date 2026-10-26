@@ -21,6 +21,9 @@ namespace BitSorter.Board
         public int format = Format;
         public string name;
         public string top;
+
+        /// <summary>The written testbench's module (Part 13b); empty, or absent in an older file, when the stimulus drives the design.</summary>
+        public string bench;
         public ModuleRecord[] modules = new ModuleRecord[0];
 
         /// <summary>Whether there is a stimulus: the reader cannot leave <see cref="stimulus"/> null.</summary>
@@ -30,12 +33,16 @@ namespace BitSorter.Board
         public string timeUnit = "ns";
         public long defaultGateDelay = 1;
 
+        /// <summary>The project's other files (Part 13b): includes and memory images. Absent in an older file, which had none.</summary>
+        public FileRecord[] files = new FileRecord[0];
+
         public static ProjectRecord From(Project project)
         {
             var file = new ProjectRecord
             {
                 name = project.Name,
                 top = project.Top,
+                bench = project.Bench,
                 hasStimulus = project.Stimulus != null,
                 timeUnit = project.Settings.TimeUnit,
                 defaultGateDelay = project.Settings.DefaultGateDelay,
@@ -45,6 +52,11 @@ namespace BitSorter.Board
             foreach (Module module in project.Modules)
                 modules.Add(ModuleRecord.From(module));
             file.modules = modules.ToArray();
+
+            var files = new List<FileRecord>();
+            foreach (ProjectFile each in project.Files)
+                files.Add(new FileRecord { name = each.Name, text = each.Text });
+            file.files = files.ToArray();
 
             if (project.Stimulus != null)
                 file.stimulus = StimulusRecord.From(project.Stimulus);
@@ -70,13 +82,26 @@ namespace BitSorter.Board
                 unit = TimeUnits.Default;
             }
 
+            var kept = new List<ProjectFile>();
+            foreach (FileRecord each in files ?? new FileRecord[0])
+            {
+                if (each == null)
+                    continue;
+                if (ProjectFiles.IsValidName(each.name, out string why))
+                    kept.Add(new ProjectFile { Name = each.name, Text = each.text ?? "" });
+                else
+                    problems.Add(why + " It was left out.");
+            }
+
             return new Project
             {
                 Name = name,
                 Top = top,
+                Bench = string.IsNullOrEmpty(bench) ? null : bench,
                 Modules = modules,
                 Stimulus = hasStimulus ? stimulus?.ToStimulus(problems) : null,
                 Settings = new ProjectSettings { TimeUnit = unit, DefaultGateDelay = defaultGateDelay },
+                Files = kept,
             };
         }
 
@@ -92,6 +117,14 @@ namespace BitSorter.Board
             problems.Add($"{what} is \"{text}\", which is not a value: {read.Error}");
             return null;
         }
+    }
+
+    /// <summary>One of a project's other files, as saved: its bare name and its text.</summary>
+    [Serializable]
+    public sealed class FileRecord
+    {
+        public string name;
+        public string text;
     }
 
     [Serializable]

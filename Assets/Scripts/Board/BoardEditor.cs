@@ -457,7 +457,7 @@ namespace BitSorter.Board
 
                 // Written text says the name too (Part 12d): in its own header, and wherever it instantiates the module.
                 if (each.IsWritten)
-                    renamed = renamed with { Source = WrittenModules.Renamed(each, from, to) };
+                    renamed = renamed with { Source = WrittenModules.Renamed(Project, each, from, to) };
 
                 var parts = new List<Part>(renamed.Parts.Count);
                 bool changed = false;
@@ -477,9 +477,15 @@ namespace BitSorter.Board
                 modules.Add(changed ? renamed with { Parts = parts } : renamed);
             }
 
-            return Commit(Project with { Modules = modules, Top = Project.Top == from ? to : Project.Top });
+            return Commit(Project with
+            {
+                Modules = modules,
+                Top = Project.Top == from ? to : Project.Top,
+                Bench = Project.Bench == from ? to : Project.Bench,
+            });
         }
 
+        /// <summary>A module taken out of the project. Taking out the written testbench (Part 13b) gives the inputs back to the stimulus.</summary>
         public EditResult RemoveModule(string name)
         {
             if (!TryModule(name, out Module m, out EditResult refused))
@@ -489,7 +495,7 @@ namespace BitSorter.Board
 
             var modules = new List<Module>(Project.Modules);
             modules.Remove(m);
-            return Commit(Project with { Modules = modules });
+            return Commit(Project with { Modules = modules, Bench = Project.Bench == name ? null : Project.Bench });
         }
 
         public EditResult SetTop(string name)
@@ -509,6 +515,8 @@ namespace BitSorter.Board
         /// </summary>
         public EditResult SetInput(string port, long from, long until, LogicVec value)
         {
+            if (Project.Bench != null)
+                return EditResult.Refused(BoardRules.BenchDrivesTheInputs(Project));
             if (!StimulusEdits.TrySet(Project.Stimulus, port, from, until, value, out Stimulus edited, out string refusal))
                 return EditResult.Refused(refusal);
             return Commit(Project with { Stimulus = edited });
@@ -521,6 +529,9 @@ namespace BitSorter.Board
         /// <param name="from">Where the flipped stretch starts: from when the run changed.</param>
         public EditResult InvertInput(string port, long at, out long from)
         {
+            from = at;
+            if (Project.Bench != null)
+                return EditResult.Refused(BoardRules.BenchDrivesTheInputs(Project));
             if (!StimulusEdits.TryInvert(Project.Stimulus, port, at, out Stimulus edited, out from, out string refusal))
                 return EditResult.Refused(refusal);
             return Commit(Project with { Stimulus = edited });
