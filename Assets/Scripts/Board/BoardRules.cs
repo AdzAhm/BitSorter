@@ -79,7 +79,10 @@ namespace BitSorter.Board
             void Error(string module, string message, int part = -1, int wire = -1) =>
                 found.Add(new BoardDiagnostic(DiagnosticSeverity.Error, module, message, part, wire));
 
+            // Each module is printed to a file of its name (Part 13a): no two may share one, nor share the cells' file, on a
+            // disk that does not tell case apart either -- Windows, where the course's ModelSim runs.
             var moduleNames = new HashSet<string>(StringComparer.Ordinal);
+            var fileNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (Module module in project.Modules)
             {
                 string why = WhyNotAName(module.Name);
@@ -89,6 +92,10 @@ namespace BitSorter.Board
                     Error(null, $"There are two modules called {module.Name}.");
                 else if (BoardImporter.IsCell(module.Name))
                     Error(null, $"{module.Name} is the name of a cell of the library, so it cannot be a module's.");
+                else if (string.Equals(module.Name + ".sv", CellLibrary.FileName, StringComparison.OrdinalIgnoreCase))
+                    Error(null, $"{module.Name} is the name of the file the library's cells are written to, so it cannot be a module's.");
+                else if (!fileNames.Add(module.Name))
+                    Error(null, $"{module.Name} differs from another module's name only in case, so the two would be written to one file.");
             }
 
             if (project.Find(project.Top) == null)

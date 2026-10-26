@@ -32,9 +32,12 @@ namespace BitSorter.Board
             return ZipWriter.Write(entries, when);
         }
 
-        /// <summary>The folder inside the zip: the project's name, which is a SystemVerilog name and so a safe one for a folder.</summary>
+        /// <summary>
+        /// The folder inside the zip: the project's name when it is a SystemVerilog name, and so a safe one for a folder, and
+        /// "project" otherwise -- a save edited by hand could say <c>../outside</c>, and no path may leave the folder.
+        /// </summary>
         public static string FolderOf(Project project) =>
-            string.IsNullOrEmpty(project?.Name) ? "project" : project.Name;
+            BoardRules.WhyNotAName(project?.Name) == null ? project.Name : "project";
 
         /// <summary>
         /// The script: make the work library, compile every file in the order printed, simulate the top -- the testbench
@@ -48,12 +51,18 @@ namespace BitSorter.Board
             script.Append("vlib work\n");
             script.Append("vlog -sv");
             foreach (PrintedSource file in files)
-                script.Append(' ').Append(file.Path);
+                script.Append(' ').Append(Tcl(file.Path));
             script.Append('\n');
-            script.Append("vsim -voptargs=+acc work.").Append(compiled.Top).Append('\n');
+            script.Append("vsim -voptargs=+acc ").Append(Tcl("work." + compiled.Top)).Append('\n');
             script.Append("add wave -r /*\n");
             script.Append("run -all\n");
             return script.ToString();
         }
+
+        /// <summary>
+        /// A word of the script as Tcl reads it: in braces when it holds a <c>$</c>, which a SystemVerilog name may, and Tcl
+        /// would otherwise take for a variable. A name holds no brace, so braces always close where they should.
+        /// </summary>
+        private static string Tcl(string word) => word.IndexOf('$') >= 0 ? "{" + word + "}" : word;
     }
 }
