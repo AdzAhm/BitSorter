@@ -203,6 +203,9 @@ namespace BitSorter.View
             roll.Add(new Line(Kind.Name, "Unity"));
             roll.Add(new Line(Kind.Detail, "with TextMesh Pro and Liberation Sans"));
             roll.Add(new Line(Kind.Gap));
+            roll.Add(new Line(Kind.Name, "CodeMirror"));
+            roll.Add(new Line(Kind.Detail, "the code editor in a browser, by Marijn Haverbeke and others (MIT)"));
+            roll.Add(new Line(Kind.Gap));
             roll.Add(new Line(Kind.Gap));
 
             roll.Add(new Line(Kind.Farewell, Farewell));

@@ -495,7 +495,15 @@ The game's font is **IBM Plex Sans**, © IBM Corp., from
 [github.com/IBM/plex](https://github.com/IBM/plex), under the
 [SIL Open Font License 1.1](Assets/Fonts/IBMPlexSans/LICENSE.txt), which travels
 with it in `Assets/Fonts/IBMPlexSans/`. Liberation Sans stays on as the fallback for
-any character Plex does not have.
+any character Plex does not have. Code is set in **IBM Plex Mono**, from the same
+family and under the [same licence](Assets/Fonts/IBMPlexMono/LICENSE.txt), in
+`Assets/Fonts/IBMPlexMono/`.
+
+The browser build's code editor is **[CodeMirror](https://codemirror.net)** 6,
+© Marijn Haverbeke and others, under the MIT licence: bundled into
+`Assets/Plugins/WebGL/codemirror.jspre` by `Tools/codemirror/build.ps1` from the
+versions `Tools/codemirror/package-lock.json` pins, and never fetched while the game
+runs. The file's head names every package in it, its version and its copyright.
 
 ### Music credits
 

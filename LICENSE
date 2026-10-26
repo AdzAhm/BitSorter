@@ -33,3 +33,9 @@ Third-party files bundled with it keep their own terms:
   file beside it.
 - Assets/Fonts/IBMPlexSans/ is IBM Plex Sans, (c) IBM Corp., under the SIL Open
   Font License 1.1; the licence text is beside it, as LICENSE.txt.
+- Assets/Fonts/IBMPlexMono/ is IBM Plex Mono, (c) IBM Corp., under the SIL Open
+  Font License 1.1; the licence text is beside it, as LICENSE.txt.
+- Assets/Plugins/WebGL/codemirror.jspre is CodeMirror 6 and the packages it
+  needs, (c) Marijn Haverbeke and others, under the MIT licence, bundled by
+  Tools/codemirror from the versions its package-lock.json pins. Each package,
+  its version and its copyright line are named at the head of the file.

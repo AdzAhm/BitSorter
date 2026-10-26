@@ -901,6 +901,9 @@ failure side.
   block opens its code there instead** (Part 12d, `CodeEditorView`): a click in it
   is the code's, never the canvas's, and its field holds Escape while it has the
   keyboard, so the press that lets the code go does not close the workbench too.
+  **In a browser the code is CodeMirror** (Part 12f, `CodeMirrorBridge`), a box
+  the page lays over the canvas and so over every popup: it hides while a shell
+  popup is open (`ShellPopup.AnyOpen`).
   + CODE, the last cell of PARTS' MORE, asks for a name and puts a block of one in
   hand. **A right-click opens the canvas's menu**
   (Part 10d) -- align, spread, turn, mirror, route again, copy, cut, paste,
@@ -923,7 +926,9 @@ failure side.
   `UiTextTests` refuses a script under View that reads `Keyboard.current`
   itself. **A field may read a key it answers itself** through `UiText.FieldKeys`
   -- the code editor's Ctrl+Enter, which TextMesh Pro would type as a new line
-  (Part 12d) -- never a key the game binds. Derived, never set, for the reason pointer ownership is: a "typing"
+  (Part 12d) -- never a key the game binds. **In a browser the page's code editor
+  counts as typing too** (`CodeMirrorBridge.Focused`, asked once a frame), and
+  while it has the keyboard the canvas stops taking every key. Derived, never set, for the reason pointer ownership is: a "typing"
   flag that leaked would be a game whose keys do nothing. The field answers
   Enter and Escape itself while it holds the keys (`NameBoardPanel`), and the
   frame it closes is covered by `UiModal.OpenOrJustClosed` like any panel's.
@@ -1771,7 +1776,8 @@ bottom.
 **The credits are `Credits`, and the roll is `CreditsPanel`.** Every role is
 Ahmad Zoabi's, the company is ZADZ, the playtesters are thanked without names,
 and the roll ends on what the game is built with -- all as asked, 2026-09-26,
-and nothing else is credited. **The roll is the only place the menu's music is
+and nothing else is credited. What it is built with is Unity, and since Part 12f
+CodeMirror, the browser build's code editor (asked 2026-10-26). **The roll is the only place the menu's music is
 credited**: a line along the foot of the main menu credited it too, until a
 playtest asked for it gone (2026-09-27). CC BY 3.0 asks that a credit in a list
 of credits be at least as prominent as the others, so each track's title is set

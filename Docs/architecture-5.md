@@ -1887,6 +1887,30 @@ code editor in the circuit's window, and a block made from a selection asks for 
   WAVES putting it away. Reference shot 44, new: the full adder's code in the dock; 27 to 38 and 40 to 43 differ in the
   dock's header, where the tab is and the tools moved.
 
+**As built in Part 12f**: CodeMirror in the browser, and the code's own face.
+
+- **In a browser build, a written block's code is CodeMirror 6**: a box the page lays over the canvas where the code's
+  body is (`CodeMirrorBridge`, `Assets/Plugins/WebGL/BitSorterCode.jslib`), with SystemVerilog's words coloured, line
+  numbers, undo, Tab indenting, and each fault from `CodeDocument` underlined at its place, in the game's own colours.
+  Everywhere else -- the editor, a desktop build, the tests -- it is TextMesh Pro's field, and both read and write the
+  one `CodeDocument`: typing goes in once it pauses, Ctrl+Enter applies at once, an undo or REVERT goes back out to the
+  page, Escape lets the editor go and holds the press. The line over the code, REVERT and the faults' list stay the
+  game's.
+- **The page draws it over the canvas, so over every popup too**: it hides while a shell popup is open
+  (`ShellPopup.AnyOpen`). **While it has the keyboard the game's keys are its** -- `UiText.Typing` asks the page, once a
+  frame -- and the canvas stops taking every key (`WebGLInput.captureAllKeyboardInput`).
+- **Bundled, never fetched**: `Tools/codemirror` pins every package in `package-lock.json`; `build.ps1` installs exactly
+  those, with no install scripts run, and bundles them into `codemirror.jspre`, about 340 KB before the build compresses
+  it, which Unity puts at the head of a browser build. Its head names each package, its version and its copyright line.
+  The privacy scan reads it like any file; its one nine-digit number, CodeMirror's 10^9 less one, is on the allowlist
+  with that reason.
+- **IBM Plex Mono ships as the code's face** (Ahmad approved the download, 2026-10-26): the family of the game's Plex
+  Sans, under the same licence, held by `ShellFonts` so every build has it. `CodeFont` takes it first, and a monospaced
+  face the computer has only in a scene without it. Credited in the README, `LICENSE`, and -- CodeMirror -- the credits
+  roll's BUILT WITH.
+- **Checked.** In Play Mode: the code set in Plex Mono, and a popup open known. The bridge itself runs only in a browser,
+  so **one browser build checked all of Part 12** (below). Reference shots 43 and 44 differ in the code's face.
+
 ---
 
 ## 11. The parts
@@ -1907,7 +1931,7 @@ Each part is one pull request into `v5`, ends with every suite green, and leaves
 | 9 | The waveform and run controls; the workbench's view-model in a Unity-free layer of its own |
 | 10 | Editing on the free canvas -- in four: 10a placement and selection **built** (see "As built in Part 10a"); 10b wiring **built**, drawn (10b-1) and reshaped (10b-2); 10c the inspector **built**; 10d copy, align and the minimap **built**; 10e what its browser smoke test found **built** |
 | 11 | The workbench shell, in UI Toolkit -- **built**, in four: 11a the bridges and the toolbar; 11b the docked layout -- its panels (11b-1), the inspector docked (11b-2), the popups in the shell (11b-3); 11c the transcript and the hierarchy; 11d the keyboard map, the status line and the docs |
-| 12 | Hierarchy, and written blocks, edited in CodeMirror in a browser -- in six: 12a stepping inside a block **built** (see "As built in Part 12a"); 12b making a block **built** (see "As built in Part 12b"); 12c arrays **built** (see "As built in Part 12c"); 12d code blocks **built** (see "As built in Part 12d"); 12e the code panel **built** (see "As built in Part 12e"); 12f CodeMirror |
+| 12 | Hierarchy, and written blocks, edited in CodeMirror in a browser -- in six: 12a stepping inside a block **built** (see "As built in Part 12a"); 12b making a block **built** (see "As built in Part 12b"); 12c arrays **built** (see "As built in Part 12c"); 12d code blocks **built** (see "As built in Part 12d"); 12e the code panel **built** (see "As built in Part 12e"); 12f CodeMirror **built** (see "As built in Part 12f") |
 | 13 | Export and import (and a levelized path in the engine, only if a measurement asks for it) |
 | 14 | The course's tools: path delays, static timing, gate-library mode, step tests, lint, tri-state |
 | 15 | The Exercises and the tutorial |
