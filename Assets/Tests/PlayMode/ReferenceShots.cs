@@ -1290,6 +1290,30 @@ namespace BitSorter.PlayMode.Tests
             yield return Capture("38-workbench-transcript");
         }
 
+        /// <summary>The keyboard map over the reference (Part 11d): every key under RUN, CIRCUIT, WAVES and VIEW, and the gestures.</summary>
+        [UnityTest]
+        public IEnumerator Shot39_WorkbenchKeys()
+        {
+            yield return LoadTheGame();
+            yield return Frames(2);
+
+            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            yield return Frames(2);
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowSample(1);   // the reference
+            yield return Frames(2);
+            workbench.Pause();
+            workbench.Session.Finish();
+            workbench.Seek(13.5);
+            workbench.KeyMapPopup.Toggle();
+            yield return Frames(30);
+
+            Assert.IsTrue(workbench.KeyMapPopup.IsOpen, "sanity: the map is up");
+
+            yield return Capture("39-workbench-keys");
+        }
+
         private static IEnumerator OpensOnItsCircuit(string level, string fixture, string shot)
         {
             yield return LoadTheGame();

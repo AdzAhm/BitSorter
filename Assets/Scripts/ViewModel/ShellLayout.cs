@@ -36,8 +36,8 @@ namespace BitSorter.ViewModel
         /// <summary>How tall the dock's header and the legend at its foot are.</summary>
         public const float DockHeaderHeight = 44f, LegendHeight = 30f;
 
-        /// <summary>How tall the status line along the bottom is: two lines of help, until the keyboard map (Part 11d).</summary>
-        public const float StatusHeight = 60f;
+        /// <summary>How tall the status line along the bottom is: one line, the gestures where the pointer is (Part 11d).</summary>
+        public const float StatusHeight = 32f;
 
         /// <summary>How tall the inspector bar is: a title and a line over it, beside a row of labelled fields.</summary>
         public const float InspectorHeight = 64f;

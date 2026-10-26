@@ -25,6 +25,7 @@ namespace BitSorter.PlayMode.Tests
     public class WorkbenchDockPlayTests : InputTestFixture
     {
         private Mouse _mouse;
+        private Keyboard _keyboard;
 
         [OneTimeSetUp]
         public void OneTimeSetup()
@@ -40,7 +41,7 @@ namespace BitSorter.PlayMode.Tests
         {
             base.Setup();
             InputSystem.settings.SetInternalFeatureFlag("USE_READ_VALUE_CACHING", false);
-            InputSystem.AddDevice<Keyboard>();
+            _keyboard = InputSystem.AddDevice<Keyboard>();
             _mouse = InputSystem.AddDevice<Mouse>();
             _mouse.MakeCurrent();
         }
@@ -376,6 +377,96 @@ namespace BitSorter.PlayMode.Tests
             int design = tree.Rows.ToList().FindIndex(r => r.Node.Kind == ScopeNodeKind.Design);
             yield return ClickOn(WorkbenchPanel.ScopeToggleName + design);
             Assert.IsFalse(workbench.Hierarchy.Rows.Any(r => r.Node.Kind == ScopeNodeKind.Block), "- shut the design's row");
+        }
+
+        // -----------------------------------------------------------------
+        // The keyboard map and the status line (Part 11d)
+        // -----------------------------------------------------------------
+
+        private IEnumerator Tap(UnityEngine.InputSystem.Controls.KeyControl key)
+        {
+            Press(key);
+            yield return null;
+            Release(key);
+            yield return null;
+        }
+
+        /// <summary>? opens the keyboard map, listing every key; Escape shuts it and leaves the workbench up; ? again opens and shuts it.</summary>
+        [UnityTest]
+        public IEnumerator QuestionMark_OpensTheKeyboardMap_AndEscapeShutsItBeforeTheWorkbench()
+        {
+            yield return OpenTheReference();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            Assert.IsFalse(workbench.KeyMapPopup.IsOpen);
+
+            yield return Tap(_keyboard.slashKey);
+            Assert.IsTrue(workbench.KeyMapPopup.IsOpen, "? opens the map");
+            VisualElement map = ShellPanel.Find<VisualElement>(WorkbenchKeyMap.RootName);
+            foreach (KeyBinding binding in WorkbenchKeys.All)
+                Assert.IsTrue(map.Query<Label>().ToList().Any(l => l.text == binding.Says), $"'{binding.Says}' is on the map");
+
+            yield return Tap(_keyboard.escapeKey);
+            Assert.IsFalse(workbench.KeyMapPopup.IsOpen, "Escape shuts it");
+            Assert.IsTrue(workbench.IsOpen, "and only it");
+
+            yield return Tap(_keyboard.slashKey);
+            Assert.IsTrue(workbench.KeyMapPopup.IsOpen);
+            yield return Tap(_keyboard.slashKey);
+            Assert.IsFalse(workbench.KeyMapPopup.IsOpen, "? again shuts it");
+        }
+
+        /// <summary>SHORTCUT KEYS hidden: the workbench's caps beside its buttons go at once, and the keyboard map keeps its own.</summary>
+        [UnityTest]
+        public IEnumerator HiddenShortcutKeys_LeaveTheButtonsBare_AndTheKeyboardMapWhole()
+        {
+            yield return OpenTheReference();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            VisualElement root = workbench.Shell.Root;
+            Assert.IsTrue(root.Query(className: ShellTheme.KeyCapClass).ToList().Count > 5, "sanity: the toolbar and the dock have caps");
+
+            try
+            {
+                KeyCaps.SetShown(false);
+                yield return null;
+                Assert.IsTrue(root.Query(className: ShellTheme.KeyCapClass).ToList().All(cap => !cap.visible), "a cap beside a button is still up");
+
+                workbench.KeyMapPopup.Toggle();
+                yield return null;
+                VisualElement map = ShellPanel.Find<VisualElement>(WorkbenchKeyMap.RootName);
+                Assert.IsTrue(map.Query<Label>(name: "key").ToList().Count > 10 && map.Query<Label>(name: "key").ToList().All(l => l.parent.visible),
+                    "the keyboard map lists the keys whatever the setting");
+                workbench.KeyMapPopup.Close();
+            }
+            finally
+            {
+                KeyCaps.SetShown(true);
+            }
+
+            yield return null;
+            Assert.IsTrue(root.Query(className: ShellTheme.KeyCapClass).ToList().All(cap => cap.visible), "and back again");
+        }
+
+        /// <summary>The status line names the circuit's gestures over the circuit and the waves' over the waves, in one line.</summary>
+        [UnityTest]
+        public IEnumerator TheStatusLine_NamesTheGesturesWhereThePointerIs()
+        {
+            yield return OpenTheReference();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+
+            Move(_mouse.position, workbench.ViewMiddleOnScreen);
+            yield return null;
+            yield return null;
+            Assert.AreEqual(KeyMap.StatusFor(PointerArea.Circuit), workbench.StatusText, "over the circuit");
+
+            Move(_mouse.position, workbench.WaveScreenPointOf(5.0, 0));
+            yield return null;
+            yield return null;
+            Assert.AreEqual(KeyMap.StatusFor(PointerArea.Waves), workbench.StatusText, "over the waves");
+
+            Move(_mouse.position, PanelRect(WorkbenchPanel.SidePanelName).center);
+            yield return null;
+            yield return null;
+            Assert.AreEqual(KeyMap.StatusFor(PointerArea.Elsewhere), workbench.StatusText, "and elsewhere, ? for every key");
         }
     }
 }

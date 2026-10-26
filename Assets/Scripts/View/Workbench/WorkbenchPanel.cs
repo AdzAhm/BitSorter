@@ -128,14 +128,6 @@ namespace BitSorter.View
         public const string SampleButton = "Workbench sample";
 
         /// <summary>
-        /// The two lines along the bottom: the circuit's gestures, then the waveform's. One line held both until Part
-        /// 10a's editing made it twice the width of its box, and it ran from one edge of the screen to the other.
-        /// </summary>
-        public const string HelpLine =
-            "circuit:  pick a part on the left, click to place it  ·  drag from a pin to wire  ·  double-click to inspect  ·  drag to move or select  ·  middle-drag to pan  ·  Q turn  ·  V mirror  ·  Del remove\n" +
-            "waves:  scroll to zoom  ·  click to seek  ·  shift-click a second cursor  ·  right-click a row or the waves  ·  alt-click a wire to add it";
-
-        /// <summary>
         /// What the SAMPLE chip says for its place in <see cref="WorkbenchSamples.Chip"/>: MY CIRCUIT for the student's
         /// own, and a sample's name under the word for what the chip steps through.
         /// </summary>
@@ -516,6 +508,7 @@ namespace BitSorter.View
                 case WorkbenchCommand.Undo: UndoEdit(); break;
                 case WorkbenchCommand.Redo: RedoEdit(); break;
                 case WorkbenchCommand.Export: OpenExportMenu(); break;
+                case WorkbenchCommand.Keys: _keyMap.Toggle(); break;
             }
         }
 
@@ -1370,6 +1363,7 @@ namespace BitSorter.View
 
                 TakeCanvas(mouse, pointer, keyboard, overControl);
                 TakePointer(mouse, pointer, keyboard, overControl);
+                ShowStatus(pointer);
                 if (_wave == null)
                     return;
                 _dragging = _canvasPointer.Dragging;
@@ -1486,6 +1480,7 @@ namespace BitSorter.View
             _setField = WaveRenameField.Build(_shell, transform, palette, SetInputValue, WaveRenameField.SetValueName, "SET",
                 "1, 4'b1010, 'hA or x");
             _canvasMenu = CanvasMenu.Build(_shell, transform, palette, CanvasMenuDo);
+            _keyMap = WorkbenchKeyMap.Build(_shell, transform, palette);
 
             Root.gameObject.SetActive(false);
         }

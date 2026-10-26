@@ -56,6 +56,9 @@ namespace BitSorter.ViewModel
 
         /// <summary>What was copied made again, a step on.</summary>
         Paste,
+
+        /// <summary>The keyboard map: every key and gesture, grouped (Part 11d).</summary>
+        Keys,
     }
 
     /// <summary>One key and what it does: the key by its Input System name, the modifiers held, and the words for it.</summary>
@@ -147,9 +150,10 @@ namespace BitSorter.ViewModel
             new KeyBinding("V", WorkbenchCommand.Paste, "CTRL V", "paste what was copied, a cell on", ctrl: true),
             new KeyBinding("U", WorkbenchCommand.Unit, "U", "count time in the next unit"),
             new KeyBinding("E", WorkbenchCommand.Export, "E", "export the run: a VCD, or the waveform as a PNG"),
-            new KeyBinding("Z", WorkbenchCommand.Undo, "CTRL Z", "undo the last edit to an input", ctrl: true),
+            new KeyBinding("Z", WorkbenchCommand.Undo, "CTRL Z", "undo the last edit", ctrl: true),
             new KeyBinding("Y", WorkbenchCommand.Redo, "CTRL Y", "do it again", ctrl: true),
             new KeyBinding("Z", WorkbenchCommand.Redo, "CTRL SHIFT Z", "do it again", shift: true, ctrl: true),
+            new KeyBinding("Slash", WorkbenchCommand.Keys, "?", "every key and gesture"),
         });
 
         /// <summary>The first binding for <paramref name="command"/>: the one its button's cap shows.</summary>

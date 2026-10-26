@@ -89,11 +89,31 @@ namespace BitSorter.View
             ShowDockTab(DockTab.Waves);
             BuildSplitter(palette);
 
-            // Two lines of help along the bottom, until the keyboard map (Part 11d).
-            _status = ShellTheme.Label(StatusName, HelpLine, UiTheme.HelpLineType, palette.TextDim, TextAnchor.MiddleCenter);
-            _status.style.overflow = Overflow.Hidden;
+            // One line along the bottom: the gestures where the pointer is, and ? for every key (Part 11d).
+            _status = ShellTheme.Label(StatusName, KeyMap.StatusFor(PointerArea.Elsewhere), UiTheme.HelpLineType, palette.TextDim,
+                TextAnchor.MiddleCenter);
+            ShellTheme.Ellipsis(_status);
             _shell.Root.Add(_status);
         }
+
+        /// <summary>Where the pointer was when the status line last named its gestures.</summary>
+        private PointerArea _statusArea = PointerArea.Elsewhere;
+
+        /// <summary>The status line naming the gestures of the circuit or the waves, whichever the pointer is over, and ? for every key.</summary>
+        private void ShowStatus(Vector2 pointer)
+        {
+            PointerArea area = InView(pointer, out _) ? PointerArea.Circuit
+                : _wave != null && _wavesClip != null && _wavesClip.gameObject.activeSelf && _wave.RegionAt(pointer, out _, out _, out _)
+                    ? PointerArea.Waves
+                    : PointerArea.Elsewhere;
+            if (area == _statusArea)
+                return;
+            _statusArea = area;
+            SetText(_status, KeyMap.StatusFor(area));
+        }
+
+        /// <summary>What the status line says now.</summary>
+        public string StatusText => _status?.text;
 
         /// <summary>A panel's frame: a thin rounded edge round nothing, so the drawing under it shows and a press goes through.</summary>
         private VisualElement Panel(string name, SchematicPalette palette)

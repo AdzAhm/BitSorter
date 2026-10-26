@@ -648,19 +648,27 @@ failure side.
   a scene re-serialisation all landed as one commit.
 
 ## The view layer
-- **The interface is a Canvas, built in code.** `UiTheme` holds the shared
-  builders; each panel constructs its own hierarchy at runtime the way
-  `PlacementGrid` builds its dots. The scene is generated, so an authored
-  hierarchy would be dozens of RectTransforms for the builder to reproduce
-  and get subtly wrong. **The workbench's shell is UI Toolkit, built in code
-  the same way** (Part 11, from 11a): `ShellTheme`'s builders set every style
-  from the palette and `UiType`, on a panel made in code (`ShellPanel`), and
-  there is no UXML or USS anywhere (`ShellRulesTests`). **Since 11b it lays the
-  workbench out as docked panels** (`ShellLayout`, a view-model rule): the
-  drawings stay uGUI, each placed under the panel that frames it at its own
-  size; its popups -- the menus, the + SIGNAL list, RENAME, BREAK ON VALUE and
-  SET -- are the shell's too (`ShellPopup`, 11b-3), over every panel. Part 11d
-  rewrites this paragraph for the whole shell.
+- **The interface is built in code, in two toolkits.** The 4.x game and the
+  menus are a uGUI Canvas: `UiTheme` holds the shared builders, and each panel
+  constructs its own hierarchy at runtime the way `PlacementGrid` builds its
+  dots. The scene is generated, so an authored hierarchy would be dozens of
+  RectTransforms for the builder to reproduce and get subtly wrong.
+
+  **The workbench's shell is UI Toolkit, built in code the same way** (Part 11):
+  a panel made in code (`ShellPanel`), scaled as the canvas is and sorted over
+  it, under the frame-rate counter; `ShellTheme`'s builders set every style from
+  the palette and `UiType`; and there is no UXML or USS anywhere
+  (`ShellRulesTests`, which also refuses a colour literal under View/Shell and a
+  value made by reflection anywhere the game runs). Its panels are docked
+  (`ShellLayout`, a view-model rule): the toolbar, the inspector's bar, PARTS
+  and DESIGN, the circuit's window, the side panel's quick fields and minimap,
+  the splitter, the dock with WAVES and TRANSCRIPT, and a one-line status that
+  names the gestures where the pointer is. **The drawings stay uGUI** -- the
+  circuit, the waves, the legend, the minimap -- each placed under the panel
+  that frames it, at its own size; a panel's middle takes no clicks. Its popups
+  are the shell's (`ShellPopup`): the menus, the + SIGNAL list, the one-line
+  fields and the keyboard map, which `?` opens (`KeyMap`, every key from
+  `WorkbenchKeys` and the gestures, so the keys are listed once).
 - **Every colour comes from `Palette`**, board and interface alike -- no colour
   literal, and no serialized colour field on a renderer. They used to live
   wherever each was first needed, and nothing could compare them: the interface
@@ -744,7 +752,7 @@ failure side.
   counts from it -- the win celebration once pulsed on the game clock and a solve
   could land at the bottom of its swell.
 - **Visual changes are checked against the reference shots.**
-  `BitSorter/Capture Reference Shots` captures thirty-eight states (menu, a built
+  `BitSorter/Capture Reference Shots` captures thirty-nine states (menu, a built
   board, bits in flight, a collision one tick out and one that takes both bits,
   the solved card, the level list, free play, the help panel, the chapter card, a
   clocked level, the tutorial's intro and its closing card, a first-time hint, a
@@ -756,7 +764,7 @@ failure side.
   built and running, its carry passing between the boxes, and 5.0's workbench
   preview with two changes on their way, whole, zoomed in, with a wire pointed at, with two rows in other
   radixes, a second cursor 9 ps on and two breakpoints flagged, with a block's inside grouped under full names, with the
-  add list searching, MY CIRCUIT being edited, two gates moving with their guides, its half adder being wired, one of its wires being reshaped, the reference's AND in its inspector, the reference zoomed in with its minimap and the canvas's menu, and the full adder's transcript beside its hierarchy) as an Explicit Play
+  add list searching, MY CIRCUIT being edited, two gates moving with their guides, its half adder being wired, one of its wires being reshaped, the reference's AND in its inspector, the reference zoomed in with its minimap and the canvas's menu, the full adder's transcript beside its hierarchy, and the keyboard map) as an Explicit Play
   Mode fixture, so it runs under `SaveGuard` --
   driving the real game for a screenshot by hand once marked a level solved on
   the developer's own save. Frame time is fixed, particle systems are seeded,

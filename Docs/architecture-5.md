@@ -1690,6 +1690,31 @@ re-hosted in them, 11b-3 the popups moved into the shell.
   - shutting the design's row. Reference shot 38, new: the full adder's transcript beside its hierarchy. 27 to 37
   differ in the parts panel's tabs and the dock's header alone.
 
+**As built in Part 11d**: the keyboard map, the status line, and the docs. Part 11 is built.
+
+- **The keyboard map** (`KeyMap`, under dotnet): every key the workbench answers, from `WorkbenchKeys` alone, under
+  RUN, CIRCUIT, WAVES and VIEW -- two keys doing one thing in one cap are one line -- and the mouse's gestures on the
+  circuit and on the waves, which no table held. **`?` opens and shuts it** (a new binding, Slash, which the game and
+  the browser leave free), a popup of the shell in the window's middle (`WorkbenchKeyMap`); Escape or a click off it
+  shuts it before the workbench. Its caps show whatever SHORTCUT KEYS says: it is the place to look them up.
+- **The status line is one line**, the gestures where the pointer is -- the circuit's over the circuit, the waves'
+  over the waves -- and `?` for every key (`KeyMap.StatusFor`). The two lines of help along the bottom, which named
+  every gesture at once and no key, go, and the 28 units they took go to the circuit and the waves.
+- **No second copy of a key**: `ControlsReference` has no workbench part to take from `WorkbenchKeys` -- the
+  workbench's keys were only ever listed in the help lines, which the map replaces. Ctrl+Z's words had stayed "undo the
+  last edit to an input" since Part 9b-3; it undoes any edit, and says so.
+- **Not done: `VectorPainter`'s tessellation into the view-model.** The plan made it optional, on
+  `WorkbenchPerformanceTests` showing a frame no slower; nothing in Part 11 needed it, and moving it is a change to
+  every drawing for no gain the student sees. Left for when a test under dotnet would want the meshes.
+- **SHORTCUT KEYS** (asked for during 11d, its own commit and pull request before it): Settings' switch that hides
+  every key beside a button, the whole game, shown by default (`KeyCaps`; CLAUDE.md, the controls).
+- **Checked.** `KeyMapTests` (3) under dotnet: every key on the map under one heading, ? on a key the game and the
+  browser leave free, the gestures listed and the status line one line. In Play Mode: ? opening the map with every
+  key's words on it, Escape shutting it before the workbench and ? again shutting it; the status line naming the
+  circuit's gestures, the waves' and elsewhere ?; and SHORTCUT KEYS hiding the workbench's caps while the map keeps its
+  own. Reference shot 39, new: the keyboard map over the reference; 27 to 38 differ in the status line and the room it
+  gave back.
+
 ---
 
 ## 11. The parts
@@ -1709,7 +1734,7 @@ Each part is one pull request into `v5`, ends with every suite green, and leaves
 | 8 | The canvas on the real document, still and moving layers drawn apart, and the looks with a Settings switch |
 | 9 | The waveform and run controls; the workbench's view-model in a Unity-free layer of its own |
 | 10 | Editing on the free canvas -- in four: 10a placement and selection **built** (see "As built in Part 10a"); 10b wiring **built**, drawn (10b-1) and reshaped (10b-2); 10c the inspector **built**; 10d copy, align and the minimap **built**; 10e what its browser smoke test found **built** |
-| 11 | The workbench shell, in UI Toolkit -- in four: 11a the bridges and the toolbar **built**; 11b the docked layout **built** -- its panels (11b-1), the inspector docked (11b-2), the popups in the shell (11b-3); 11c the transcript and the hierarchy **built**; 11d the keyboard map and the docs to come |
+| 11 | The workbench shell, in UI Toolkit -- **built**, in four: 11a the bridges and the toolbar; 11b the docked layout -- its panels (11b-1), the inspector docked (11b-2), the popups in the shell (11b-3); 11c the transcript and the hierarchy; 11d the keyboard map, the status line and the docs |
 | 12 | Hierarchy, and written blocks, edited in CodeMirror in a browser |
 | 13 | Export and import (and a levelized path in the engine, only if a measurement asks for it) |
 | 14 | The course's tools: path delays, static timing, gate-library mode, step tests, lint, tri-state |

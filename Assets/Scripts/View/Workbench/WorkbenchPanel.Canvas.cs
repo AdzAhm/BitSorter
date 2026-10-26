@@ -57,6 +57,9 @@ namespace BitSorter.View
 
         /// <summary>The canvas's right-click menu, what Ctrl+C took, and the minimap with whether a press on it is held (Part 10d).</summary>
         private CanvasMenu _canvasMenu;
+
+        /// <summary>The keyboard map, which ? opens (Part 11d).</summary>
+        private WorkbenchKeyMap _keyMap;
         private Clip _clip;
         private WorkbenchGraphic _minimap;
         private bool _minimapHeld;
@@ -78,6 +81,9 @@ namespace BitSorter.View
 
         /// <summary>The canvas's right-click menu (Part 10d); open or shut.</summary>
         public CanvasMenu CanvasMenu => _canvasMenu;
+
+        /// <summary>The keyboard map (Part 11d); open or shut.</summary>
+        public WorkbenchKeyMap KeyMapPopup => _keyMap;
 
         /// <summary>The minimap as it is drawn now; null while the view is the fit and it is not shown (Part 10d).</summary>
         public Minimap Map => _minimap != null && _minimap.gameObject.activeSelf ? _minimap.Map : null;
