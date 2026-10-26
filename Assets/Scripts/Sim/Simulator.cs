@@ -287,6 +287,7 @@ namespace BitSorter.Sim
         {
             _design = design ?? throw new ArgumentNullException(nameof(design));
             _options = options ?? new SimOptions();
+            FunctionRunner.TakeStopped();   // a call another run stopped is that run's to say, never this one's
 
             int signals = design.Signals.Count;
             int drivers = design.Drivers.Count;
@@ -684,14 +685,7 @@ namespace BitSorter.Sim
                     _running.Clear();
                 }
 
-                // A function stopped short in this delta -- a loop that never ends, or calls with no way out -- is said, each
-                // reason once a run (FunctionRunner).
-                if (FunctionRunner.Stopped != null)
-                {
-                    string stopped = FunctionRunner.TakeStopped();
-                    if (_functionsStopped.Add(stopped))
-                        _history.Message(_now, Severity.Error, $"At t = {_now} {stopped}");
-                }
+                SayFunctionsStopped();
 
                 List<Event> swap = _current;
                 _current = _next;
@@ -702,6 +696,7 @@ namespace BitSorter.Sim
             }
 
             Postponed();
+            SayFunctionsStopped();   // a $strobe or $monitor calls functions too
 
             // $finish ends the run once its time step has settled -- every region, as Icarus finishes
             // it -- so the last values agree with each other: a port shows what it is connected to.
@@ -1887,6 +1882,19 @@ namespace BitSorter.Sim
                 $"At t = {time} the circuit was still changing after {_options.MaxDeltas} delta cycles: " +
                 $"a loop with no delay never settles. Still changing: {names}. Give a gate in the loop a delay, " +
                 "or break the loop.");
+        }
+
+        /// <summary>
+        /// A function stopped short since the last time this asked -- a loop that never ends, or calls with no way out
+        /// (<see cref="FunctionRunner"/>) -- said at the time it happened, each reason once a run.
+        /// </summary>
+        private void SayFunctionsStopped()
+        {
+            if (FunctionRunner.Stopped == null)
+                return;
+            string stopped = FunctionRunner.TakeStopped();
+            if (_functionsStopped.Add(stopped))
+                _history.Message(_now, Severity.Error, $"At t = {_now} {stopped}");
         }
 
         private void StopOnRunaway(int p)

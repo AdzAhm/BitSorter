@@ -151,7 +151,7 @@ module t;
     initial d = down(150);
 endmodule", 1);
 
-            Assert.IsTrue(sim.History.Messages.Any(m => m.Severity == Severity.Error && m.Text.Contains("was called 100 deep")),
+            Assert.IsTrue(sim.History.Messages.Any(m => m.Severity == Severity.Error && m.Text.Contains(" deep, each call inside the last")),
                 "the run says the call was stopped: " + string.Join("\n", sim.History.Messages.Select(m => m.Text)));
         }
 
@@ -159,8 +159,8 @@ endmodule", 1);
         /// The slips that would have ended the process: a function with no base case, and two that call each other forever
         /// -- the nesting counted across both. Each gives x, the run carries on, and says why once, however often it is called.
         /// </summary>
-        [TestCase("function automatic integer f(input integer n); return f(n + 1); endfunction\n    assign y = f(a);", "f was called 100 deep")]
-        [TestCase("function automatic integer f(input integer n); return g(n); endfunction\n    function automatic integer g(input integer n); return f(n); endfunction\n    assign y = f(a);", "was called 100 deep")]
+        [TestCase("function automatic integer f(input integer n); return f(n + 1); endfunction\n    assign y = f(a);", "f was called ")]
+        [TestCase("function automatic integer f(input integer n); return g(n); endfunction\n    function automatic integer g(input integer n); return f(n); endfunction\n    assign y = f(a);", " deep, each call inside the last")]
         public void AFunctionWithNoWayOut_GivesX_AndTheRunSaysWhyOnce(string functions, string said)
         {
             Simulator sim = Run(@"
@@ -191,6 +191,53 @@ endmodule", 1);
 
             Assert.IsTrue(sim.History.Messages.Any(m => m.Severity == Severity.Error && m.Text.Contains("steps in one call")),
                 string.Join("\n", sim.History.Messages.Select(m => m.Text)));
+        }
+
+        /// <summary>
+        /// Calls are held to a stack's worth of frames, not a count of calls (Part 13f review): each operator a call nests is
+        /// an evaluation a frame deeper, so a recursion whose body nests 190 of them overflowed a megabyte's stack within a
+        /// hundred calls -- the process ending, which nothing can catch. Run on a thread of a megabyte, the smallest a host
+        /// gives, it must stop with a message and leave the thread standing.
+        /// </summary>
+        [Test]
+        public void ARecursionWithADeepBody_StopsWithinAStacksWorth_OnASmallStack()
+        {
+            string body = string.Concat(Enumerable.Repeat("1 + (", 190)) + "f(n + 1)" + new string(')', 190);
+            string text = "module t;\n    integer y;\n    function automatic integer f(input integer n); return " + body + "; endfunction\n    initial y = f(0);\nendmodule";
+            Simulator sim = null;
+            System.Exception thrown = null;
+            var thread = new System.Threading.Thread(() =>
+            {
+                try { sim = Run(text, 1); }
+                catch (System.Exception e) { thrown = e; }
+            }, 1 << 20);
+            thread.Start();
+            thread.Join();
+
+            Assert.IsNull(thrown, thrown?.ToString());
+            Assert.IsTrue(sim.History.Messages.Any(m => m.Severity == Severity.Error && m.Text.Contains(" deep, each call inside the last")),
+                string.Join("\n", sim.History.Messages.Select(m => m.Text)));
+        }
+
+        /// <summary>
+        /// A call stopped where only the postponed region reaches it -- a <c>$strobe</c> -- is said by that run, at its time;
+        /// and never by the next run, of another design, as it once was (Part 13f review).
+        /// </summary>
+        [Test]
+        public void ACallStoppedInAStrobe_IsSaidByItsRun_AndNeverByTheNext()
+        {
+            Simulator strobing = Run(@"
+module t;
+    function automatic integer f(input integer n); return f(n + 1); endfunction
+    initial $strobe(""%0d"", f(0));
+endmodule", 10);
+
+            var said = strobing.History.Messages.Single(m => m.Severity == Severity.Error);
+            StringAssert.StartsWith("At t = 0 ", said.Text);
+            StringAssert.Contains(" deep, each call inside the last", said.Text);
+
+            Simulator next = Run("module u;\n    logic a = 1;\nendmodule", 10);
+            Assert.IsEmpty(next.History.Messages.Where(m => m.Severity == Severity.Error), "nothing of the last run's");
         }
 
         [Test]

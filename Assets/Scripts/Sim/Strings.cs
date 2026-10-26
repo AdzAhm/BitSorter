@@ -115,6 +115,8 @@ namespace BitSorter.Sim
             public override LogicVec Evaluate(LogicVec[] values) => Strings.Value(Strings.Text(_a.Evaluate(values)), _width);
             public override void CollectReads(ICollection<int> reads) => _a.CollectReads(reads);
             internal override void CollectCalls(ICollection<FunctionInfo> calls) => _a.CollectCalls(calls);
+
+            internal override int Height => 1 + HeightOf(_a);
         }
 
         private sealed class StringJoinExpr : Expr
@@ -155,6 +157,8 @@ namespace BitSorter.Sim
                 foreach (Expr part in _parts)
                     part.CollectCalls(calls);
             }
+
+            internal override int Height => 1 + MaxHeight(_parts);
         }
 
         private sealed class StringCompareExpr : Expr
@@ -199,6 +203,8 @@ namespace BitSorter.Sim
                 _a.CollectCalls(calls);
                 _b.CollectCalls(calls);
             }
+
+            internal override int Height => 1 + Math.Max(HeightOf(_a), HeightOf(_b));
         }
 
         private sealed class StringMethodExpr : Expr
@@ -299,6 +305,8 @@ namespace BitSorter.Sim
                 foreach (Expr argument in _arguments)
                     argument.CollectCalls(calls);
             }
+
+            internal override int Height => 1 + Math.Max(HeightOf(_target), MaxHeight(_arguments));
         }
 
         private sealed class FormatExpr : Expr
@@ -333,6 +341,8 @@ namespace BitSorter.Sim
                 foreach (PrintSegment segment in _segments)
                     segment.Argument?.CollectCalls(calls);
             }
+
+            internal override int Height => 1 + MaxHeight(_segments, s => s.Argument);
         }
     }
 }

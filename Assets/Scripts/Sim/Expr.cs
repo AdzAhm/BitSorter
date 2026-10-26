@@ -63,6 +63,31 @@ namespace BitSorter.Sim
         internal virtual void CollectCalls(ICollection<FunctionInfo> calls) { }
 
         /// <summary>
+        /// How deep the tree goes, itself counting one: how many evaluations one evaluation of it nests, each a frame on the
+        /// machine's stack. A function's calls are held to a stack's worth of them (<see cref="FunctionRunner.MaxFrames"/>,
+        /// Part 13f). Every expression with operands walks them here as it does in <see cref="CollectCalls"/>.
+        /// </summary>
+        internal virtual int Height => 1;
+
+        internal static int HeightOf(Expr e) => e?.Height ?? 0;
+
+        internal static int MaxHeight(IEnumerable<Expr> all)
+        {
+            int height = 0;
+            foreach (Expr e in all)
+                height = Math.Max(height, HeightOf(e));
+            return height;
+        }
+
+        internal static int MaxHeight<T>(IEnumerable<T> all, Func<T, Expr> of)
+        {
+            int height = 0;
+            foreach (T item in all)
+                height = Math.Max(height, HeightOf(of(item)));
+            return height;
+        }
+
+        /// <summary>
         /// Whether it is a read of one whole signal and nothing more -- <c>a</c>, never <c>~a</c>, <c>a[0]</c>
         /// or <c>{a, b}</c> -- and of which. A port connected to a net is joined to it by a zero-delay
         /// assignment of exactly this kind, which is how a waveform finds every name one node has, down
@@ -159,6 +184,8 @@ namespace BitSorter.Sim
             }
 
             internal override void CollectCalls(ICollection<FunctionInfo> calls) => _offset.CollectCalls(calls);
+
+            internal override int Height => 1 + HeightOf(_offset);
         }
 
         /// <summary><c>$signed(a)</c> or <c>$unsigned(a)</c>: the same bits, read with another signedness.</summary>
@@ -177,6 +204,8 @@ namespace BitSorter.Sim
             public override LogicVec Evaluate(LogicVec[] values) => _a.Evaluate(values).ToTwoState();
             public override void CollectReads(ICollection<int> reads) => _a.CollectReads(reads);
             internal override void CollectCalls(ICollection<FunctionInfo> calls) => _a.CollectCalls(calls);
+
+            internal override int Height => 1 + HeightOf(_a);
         }
 
         private sealed class SignednessExpr : Expr
@@ -200,6 +229,8 @@ namespace BitSorter.Sim
 
             public override void CollectReads(ICollection<int> reads) => _a.CollectReads(reads);
             internal override void CollectCalls(ICollection<FunctionInfo> calls) => _a.CollectCalls(calls);
+
+            internal override int Height => 1 + HeightOf(_a);
         }
 
         // -----------------------------------------------------------------
@@ -275,6 +306,8 @@ namespace BitSorter.Sim
 
             public override void CollectReads(ICollection<int> reads) => _a.CollectReads(reads);
             internal override void CollectCalls(ICollection<FunctionInfo> calls) => _a.CollectCalls(calls);
+
+            internal override int Height => 1 + HeightOf(_a);
         }
 
         private sealed class BinaryExpr : Expr
@@ -355,6 +388,8 @@ namespace BitSorter.Sim
                 _a.CollectCalls(calls);
                 _b.CollectCalls(calls);
             }
+
+            internal override int Height => 1 + Math.Max(HeightOf(_a), HeightOf(_b));
         }
 
         private sealed class ConcatExpr : Expr
@@ -382,6 +417,8 @@ namespace BitSorter.Sim
                 _high.CollectCalls(calls);
                 _low.CollectCalls(calls);
             }
+
+            internal override int Height => 1 + Math.Max(HeightOf(_high), HeightOf(_low));
         }
 
         private sealed class ReplicateExpr : Expr
@@ -400,6 +437,8 @@ namespace BitSorter.Sim
             public override LogicVec Evaluate(LogicVec[] values) => LogicVec.Replicate(_a.Evaluate(values), _count);
             public override void CollectReads(ICollection<int> reads) => _a.CollectReads(reads);
             internal override void CollectCalls(ICollection<FunctionInfo> calls) => _a.CollectCalls(calls);
+
+            internal override int Height => 1 + HeightOf(_a);
         }
 
         private sealed class SliceExpr : Expr
@@ -419,6 +458,8 @@ namespace BitSorter.Sim
             public override LogicVec Evaluate(LogicVec[] values) => _a.Evaluate(values).Slice(_lowest, _width);
             public override void CollectReads(ICollection<int> reads) => _a.CollectReads(reads);
             internal override void CollectCalls(ICollection<FunctionInfo> calls) => _a.CollectCalls(calls);
+
+            internal override int Height => 1 + HeightOf(_a);
         }
 
         private sealed class BitExpr : Expr
@@ -446,6 +487,8 @@ namespace BitSorter.Sim
                 _a.CollectCalls(calls);
                 _index.CollectCalls(calls);
             }
+
+            internal override int Height => 1 + Math.Max(HeightOf(_a), HeightOf(_index));
         }
 
         private sealed class PartExpr : Expr
@@ -515,6 +558,8 @@ namespace BitSorter.Sim
                 _a.CollectCalls(calls);
                 _offset.CollectCalls(calls);
             }
+
+            internal override int Height => 1 + Math.Max(HeightOf(_a), HeightOf(_offset));
         }
 
         private sealed class ConditionalExpr : Expr
@@ -548,6 +593,8 @@ namespace BitSorter.Sim
                 _whenTrue.CollectCalls(calls);
                 _whenFalse.CollectCalls(calls);
             }
+
+            internal override int Height => 1 + Math.Max(HeightOf(_condition), Math.Max(HeightOf(_whenTrue), HeightOf(_whenFalse)));
         }
 
         private sealed class ResizeExpr : Expr
@@ -567,6 +614,8 @@ namespace BitSorter.Sim
             public override LogicVec Evaluate(LogicVec[] values) => _a.Evaluate(values).Extend(_width, _signExtend);
             public override void CollectReads(ICollection<int> reads) => _a.CollectReads(reads);
             internal override void CollectCalls(ICollection<FunctionInfo> calls) => _a.CollectCalls(calls);
+
+            internal override int Height => 1 + HeightOf(_a);
         }
     }
 }

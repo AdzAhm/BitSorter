@@ -176,6 +176,8 @@ namespace BitSorter.Sim
                 foreach (Expr operand in Operands)
                     operand?.CollectCalls(calls);
             }
+
+            internal override int Height => 1 + MaxHeight(Operands);
         }
 
         private sealed class RealOfExpr : RealNode

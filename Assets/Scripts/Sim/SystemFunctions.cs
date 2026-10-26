@@ -162,6 +162,8 @@ namespace BitSorter.Sim
                 _low?.CollectCalls(calls);
                 _high?.CollectCalls(calls);
             }
+
+            internal override int Height => 1 + Math.Max(HeightOf(_seed), Math.Max(HeightOf(_low), HeightOf(_high)));
         }
 
         // -----------------------------------------------------------------
@@ -233,6 +235,8 @@ namespace BitSorter.Sim
 
             public override void CollectReads(ICollection<int> reads) => _value.CollectReads(reads);
             internal override void CollectCalls(ICollection<FunctionInfo> calls) => _value.CollectCalls(calls);
+
+            internal override int Height => 1 + HeightOf(_value);
         }
 
         private sealed class EnumStepExpr : Expr
@@ -280,6 +284,8 @@ namespace BitSorter.Sim
                 _value.CollectCalls(calls);
                 _steps?.CollectCalls(calls);
             }
+
+            internal override int Height => 1 + Math.Max(HeightOf(_value), HeightOf(_steps));
         }
     }
 }

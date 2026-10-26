@@ -64,6 +64,34 @@ namespace BitSorter.Sim
         /// <summary>How many calls are running now: more than none means a call has come back in.</summary>
         internal int Depth;
 
+        private int _frames;
+
+        /// <summary>
+        /// What one call costs on the machine's stack, in evaluations (<see cref="Expr.Height"/>): its statements' deepest
+        /// expression, and the frames of the call itself -- the expression's, the call's and its statements' run. Worked out
+        /// the first time it is called, since the code does not change after.
+        /// </summary>
+        internal int Frames
+        {
+            get
+            {
+                if (_frames == 0)
+                {
+                    int height = 0;
+                    foreach (Instruction ins in Code)
+                    {
+                        height = Math.Max(height, Math.Max(Expr.HeightOf(ins.Value), Expr.HeightOf(ins.Other)));
+                        foreach (LPiece piece in ins.Target ?? Array.Empty<LPiece>())
+                            height = Math.Max(height, Math.Max(Expr.HeightOf(piece.Offset), Expr.HeightOf(piece.Word)));
+                    }
+
+                    _frames = height + FunctionRunner.CallFrames;
+                }
+
+                return _frames;
+            }
+        }
+
         private Dictionary<int, SignalInfo> _info;
 
         /// <summary>The declaration of one of its own signals, or null for a signal that is not its own.</summary>
@@ -84,11 +112,13 @@ namespace BitSorter.Sim
 
     /// <summary>Runs a <see cref="FunctionInfo"/>'s statements on an array of values.</summary>
     /// <remarks>
-    /// **A call runs on the machine's own stack**, each call inside another one frame deeper, so a function that calls
-    /// itself with no way out would overflow it -- which nothing can catch: the editor, a desktop build or a browser's page
-    /// would end there. So calls nest at most <see cref="MaxNesting"/> deep, across every function, and a call past that
-    /// gives x; and everything under one call from an expression runs at most <see cref="MaxSteps"/> instructions. Either
-    /// is left in <see cref="Stopped"/> for the run to say (Part 13f). One run at a time, as the pure layers run.
+    /// **A call runs on the machine's own stack**, each call inside another, and each evaluation inside a call a frame
+    /// deeper, so a function that calls itself with no way out would overflow it -- which nothing can catch: the editor, a
+    /// desktop build or a browser's page would end there. So the calls under way hold at most <see cref="MaxFrames"/>
+    /// frames between them, counted by what each costs (<see cref="FunctionInfo.Frames"/>) -- a call with a deep expression
+    /// costs more than one with a shallow one -- and at most <see cref="MaxNesting"/> calls, across every function; a call
+    /// past either gives x. Everything under one call from an expression runs at most <see cref="MaxSteps"/> instructions.
+    /// Each is left in <see cref="Stopped"/> for the run to say (Part 13f). One run at a time, as the pure layers run.
     /// </remarks>
     internal static class FunctionRunner
     {
@@ -101,7 +131,18 @@ namespace BitSorter.Sim
         /// <summary>How many calls may be under way at once, each inside the last, across every function. Far past any a course writes.</summary>
         public const int MaxNesting = 100;
 
+        /// <summary>
+        /// How many frames the calls under way may hold between them. A thread's stack of one megabyte -- the smallest any
+        /// host gives -- overflowed at about a thousand, measured on .NET 10 with evaluations nested in a recursion; six
+        /// hundred leaves the room the caller's own frames need, and a hundred calls of a one-line body fit it.
+        /// </summary>
+        public const int MaxFrames = 600;
+
+        /// <summary>The frames a call costs besides its expressions: the call's expression, the call and the statements' run.</summary>
+        internal const int CallFrames = 4;
+
         private static int _nesting;
+        private static int _frames;
         private static long _steps;
 
         /// <summary>Why a call stopped short since this was last taken, in the run's words; null when none did.</summary>
@@ -118,9 +159,9 @@ namespace BitSorter.Sim
         /// <summary>The value an expression's call gives: the arguments' values in, the statements run, the result out.</summary>
         public static LogicVec Call(FunctionInfo f, LogicVec[] arguments, LogicVec[] values, int width, bool signed)
         {
-            if (_nesting >= MaxNesting)
+            if (_nesting >= MaxNesting || _frames + f.Frames > MaxFrames)
             {
-                Stopped ??= $"{f.Name} was called {MaxNesting} deep, each call inside the last, and the call past that gave x. " +
+                Stopped ??= $"{f.Name} was called {_nesting} deep, each call inside the last, and the call past that gave x. " +
                     "Does each call come nearer to one that does not call again?";
                 LogicVec x = LogicVec.AllX(width);
                 return signed ? x.AsSigned() : x;
@@ -150,8 +191,10 @@ namespace BitSorter.Sim
                 values[f.Inputs[i]] = Simulator.Shape(arguments[i], info);
             }
 
+            int frames = f.Frames;
             f.Depth++;
             _nesting++;
+            _frames += frames;
             try
             {
                 Run(f, values);
@@ -160,6 +203,7 @@ namespace BitSorter.Sim
             {
                 f.Depth--;
                 _nesting--;
+                _frames -= frames;
             }
 
             LogicVec result = f.Result >= 0 ? values[f.Result] : LogicVec.AllX(width);
@@ -294,6 +338,8 @@ namespace BitSorter.Sim
                 foreach (Expr argument in _arguments)
                     argument.CollectCalls(calls);
             }
+
+            internal override int Height => 1 + MaxHeight(_arguments);
         }
     }
 }

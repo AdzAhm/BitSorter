@@ -29,7 +29,7 @@ namespace BitSorter.Board.Tests
                 "levels deep"),
             ("a recursion with no way out",
                 "module rec_tb;\n    integer y;\n    function automatic integer f(input integer n); return f(n + 1); endfunction\n    initial y = f(0);\nendmodule\n",
-                "was called 100 deep"),
+                " deep, each call inside the last"),
             ("a loop that never waits", "module spin_tb;\n    logic x = 0;\n    initial forever x = ~x;\nendmodule\n", "steps without waiting"),
             ("a design bigger than a run can hold", "module big_tb;\n    logic [1048575:0] mem [0:1048575];\nendmodule\n", "million bits"),
             ("a clock that never stops", "module clock_tb;\n    logic clk = 0;\n    always #1 clk = ~clk;\nendmodule\n", null),
