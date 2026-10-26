@@ -2140,31 +2140,45 @@ and one browser build for Part 13's checks -- and Part 12f's.
 - **What an import takes** (`ProjectImporter.MaxFiles`, `MaxFileSize`, `MaxTotalSize`): 200 files, 4 MB a file and
   16 MB in all, where the course's largest project is eleven files of under 80 KB. The wrong folder is the usual way in,
   so too many files, or too much in all, is refused asking whether this is one project's folder, and a file too large is
-  left out with its size and the rest imported. **The readers look before they read** and ask the importer's own rule
+  left out with its size and the rest imported -- and is no part of the whole, so a lecture recording beside the code does
+  not refuse the code. A size is rounded up, so one past a limit never reads as the limit itself. **The readers look
+  before they read** and ask the importer's own rule
   (`ProjectImporter.Reads`): the desktop's Import folder and the browser's picker -- handed the limits by the game -- read
   nothing over them, leave a hidden folder's files out before counting, and pass a file they leave unread as
   `SourceFile.Unread`, its path and size, for the import to name. A file the desktop cannot open is left out the same
   way rather than thrown.
 - **The security review** took an import as untrusted text and tried each layer's limits against it. Three were missing,
   each found, held by a red test and fixed:
-  - **Macros that make too much.** Each macro of a chain using the one before twice makes two to the power of its
-    length, and a chain of 31 is inside the depth limit of 32: two thousand million tokens from a few lines. The
-    preprocessor now counts what macros make, each use and each token, and stops at a million (`MaxExpansion`, SV0109),
-    said once at the use in the file.
+  - **Macros and includes that make too much.** Each macro of a chain using the one before twice makes two to the power
+    of its length, and a chain of 31 is inside the depth limit of 32: two thousand million tokens from a few lines; files
+    that each include the next twice do the same. The preprocessor now pays for what it makes before making it -- each
+    use, each token, each argument put in, each character a `` `"...`" `` spells, each token of a file included -- from one
+    `ExpansionBudget` for the whole import, and stops at a million (`MaxExpansion`, SV0109), said once, at the use or the
+    include. Its `` `` `` joins are made in one pass.
   - **A call with no way out.** A call from an expression runs on the machine's own stack, so a recursion with no base
     case -- a common slip, and one a student can type into the workbench -- overflowed it, which nothing can catch: the
-    editor, a desktop build or a browser's page ended there. Calls now nest at most a hundred deep across every function
-    (`FunctionRunner.MaxNesting`), the call past that giving x; `MaxSteps` counts everything under one call from an
-    expression; and why a call was stopped is said by the run, each reason once.
+    editor, a desktop build or a browser's page ended there. The calls under way now hold at most `FunctionRunner.MaxFrames`
+    (600) frames between them, each call costing its body's deepest expression (`Expr.Height`) and its own, and at most a
+    hundred calls, across every function; the call past either gives x. `MaxSteps` counts everything under one call from
+    an expression, and why a call was stopped is said by the run that stopped it, each reason once -- the postponed
+    region's `$strobe` included -- and never by the next run.
   - **A design bigger than a run can hold.** A signal and a memory were bounded alone but not the whole, so a million
     words of a million bits elaborated and the run asked for terabytes. A design now holds at most 64 million bits
-    (`Elaborator.MaxBits`), refused as too large before anything is allocated.
-  And one found by the measurement below, held and fixed the same way:
+    (`Elaborator.MaxBits`) and 262,144 signals, every memory word one of them (`MaxSignals`, since a word costs hundreds
+    of bytes whatever its width), refused as too large before anything is allocated. A wide concatenation or replication
+    is built in one pass, where it had been quadratic: `{1048576{1'b1}}`, one line, took about an hour.
+  And one found by the measurement above, held and fixed the same way:
   - **A folder's other files.** A course's project folder holds more than its code -- across the course, two handout
     PDFs, a zip, four ModelSim waveform logs and five assembly files beside the sources -- and a folder imported whole kept
     each as one of the project's files, read as text: binary in the save and in every export. A file is the project's
     now only when a module names it, in quotes and in any case -- by an include, or as a file it reads -- or a file so named
-    does; all ten of the course's memory images and include files are named so. The rest is left out, said so.
+    does; all ten of the course's memory images and include files are named so. The rest is left out, said so. Each text
+    is read for the names in its quotes once, however the files name each other.
+  **A second look**, a review of this part's own guards, found each of them could still be got round, and every finding is
+  fixed above with a test: a call cap counted in calls rather than stack, a stopped call said by the wrong run, memories
+  costing a signal a word, argument copies and stringified text not paid for, include fan-out unbounded, the budget per
+  file rather than per import, two quadratic paths in merged code (`` `` `` joins, and wide concatenation), a quadratic
+  search for named files, and an oversized file refusing a whole folder.
   What held already: the parser's nesting (200), includes nesting and cycles, the elaborator's depth, instances and
   generate loops, the engine's delta cycles, a process that never waits, what a run keeps (`MaxRecorded`, which counts
   lines printed too), the importer's own run (`MaxRun`, `MaxEvents`), names a file can have, and `$fopen`, which writes
@@ -2242,8 +2256,9 @@ two kinds of call need them:
   and shared by every call: static storage, the standard's default, with an automatic function or task
   starting each call from its locals' starting values. A function called again while it is running --
   recursion -- keeps the running call's signals aside and puts them back after, so each call has its own;
-  only such a call copies anything. Calls nest at most a hundred deep, across every function, and the call past
-  that gives x, since each runs a frame deeper on the machine's own stack (Part 13f; see "As built in Part 13f").
+  only such a call copies anything. The calls under way hold at most a stack's worth of frames between them, each
+  costing its body's deepest expression, and at most a hundred calls, across every function; the call past either gives
+  x, since each runs deeper on the machine's own stack (Part 13f; see "As built in Part 13f").
 - **What a call waits on is its arguments.** A continuous assignment and `@*` are evaluated again when an
   argument changes, never when something the function's statements read does; an `always_comb` waits on
   those as well (9.2.2.2.1), transitively through the functions it calls. Icarus agrees on all three
