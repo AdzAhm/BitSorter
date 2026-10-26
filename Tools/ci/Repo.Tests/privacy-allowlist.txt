@@ -12,3 +12,4 @@ Assets/Tests/EditMode/SceneWiringTests.cs 794885924 a Unity fileID the test look
 Assets/Scripts/Sim/SystemFunctions.cs 259341593 the constant IEEE 1364's rtl_dist_uniform starts $random's generator at when its seed is 0
 Tools/ci/Sim.Tests/ExpressionTests.cs 303379748 $random's first number from a seed of 0, printed by Icarus 12 and by the standard's generator
 Tools/ci/Sim.Tests/ExpressionTests.cs 230244124 $random's second number from a seed of -5 (printed negative), from Icarus 12
+Assets/Plugins/WebGL/codemirror.jspre 999999999 @codemirror/state's RangeSet.eq ends at its C.Far, 10^9, less one, which the minifier folds into one number (Part 12f)

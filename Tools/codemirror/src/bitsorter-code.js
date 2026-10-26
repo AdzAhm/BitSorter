@@ -1,0 +1,190 @@
+// The code editor BitSorter's browser build shows over a written block (Part 12f): CodeMirror 6 in a box laid over the
+// game's canvas, where the circuit's window is. The game drives it through window.BitSorterCode, from its .jslib; it
+// never reaches into the game. Bundled by build.mjs into Assets/Plugins/WebGL/codemirror.jspre.
+
+import { EditorState, Compartment } from "@codemirror/state";
+import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter, drawSelection, highlightSpecialChars } from "@codemirror/view";
+import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
+import { StreamLanguage, syntaxHighlighting, HighlightStyle, bracketMatching, indentOnInput, indentUnit } from "@codemirror/language";
+import { verilog } from "@codemirror/legacy-modes/mode/verilog";
+import { setDiagnostics, lintGutter } from "@codemirror/lint";
+import { tags } from "@lezer/highlight";
+
+const state = {
+  host: null,         // the box over the canvas
+  view: null,         // the editor
+  theme: new Compartment(),
+  changed: false,     // typed since the game last asked
+  applyAsked: false,  // Ctrl+Enter since the game last asked
+  escaped: false,     // Escape let the editor go since the game last asked
+  setting: false,     // the game is setting the text: not typing
+  colours: null,
+};
+
+/** The editor's look from the game's palette: every colour the game's, none of CodeMirror's own. */
+function themeOf(c) {
+  const look = EditorView.theme({
+    "&": { color: c.text, backgroundColor: c.ground, height: "100%" },
+    ".cm-scroller": { fontFamily: "'IBM Plex Mono', ui-monospace, Consolas, Menlo, monospace", lineHeight: "1.4" },
+    ".cm-content": { caretColor: c.text },
+    "&.cm-focused .cm-cursor": { borderLeftColor: c.text, borderLeftWidth: "2px" },
+    "&.cm-focused .cm-selectionBackground, .cm-selectionBackground, ::selection": { backgroundColor: c.selection + " !important" },
+    ".cm-gutters": { backgroundColor: c.ground, color: c.muted, border: "none" },
+    ".cm-activeLine": { backgroundColor: "transparent" },
+    ".cm-activeLineGutter": { backgroundColor: "transparent", color: c.text },
+    "&.cm-focused": { outline: "none" },
+    ".cm-lintRange-error": { backgroundImage: "none", textDecoration: "underline wavy " + c.error },
+    ".cm-lintRange-warning": { backgroundImage: "none", textDecoration: "underline wavy " + c.warning },
+    ".cm-tooltip": { backgroundColor: c.ground, color: c.text, border: "1px solid " + c.muted },
+  }, { dark: c.dark });
+
+  const words = HighlightStyle.define([
+    { tag: tags.keyword, color: c.accent },
+    { tag: [tags.typeName, tags.standard(tags.name)], color: c.accent },
+    { tag: [tags.number, tags.literal, tags.string], color: c.one },
+    { tag: tags.comment, color: c.muted, fontStyle: "italic" },
+    { tag: [tags.meta, tags.processingInstruction], color: c.warning },
+  ]);
+
+  return [look, syntaxHighlighting(words)];
+}
+
+const api = {
+  /** Makes the editor, hidden, its colours the game's: a JSON object of CSS colours, and whether the ground is dark. */
+  create(coloursJson) {
+    if (state.view)
+      return;
+    state.colours = JSON.parse(coloursJson);
+
+    const host = document.createElement("div");
+    host.id = "bitsorter-code";
+    host.style.position = "absolute";
+    host.style.display = "none";
+    host.style.zIndex = "10";
+    host.style.overflow = "hidden";
+    document.body.appendChild(host);
+    state.host = host;
+
+    const ours = keymap.of([
+      { key: "Mod-Enter", run: () => { state.applyAsked = true; return true; } },
+      { key: "Escape", run: (view) => { state.escaped = true; view.contentDOM.blur(); return true; } },
+    ]);
+
+    state.view = new EditorView({
+      parent: host,
+      state: EditorState.create({
+        doc: "",
+        extensions: [
+          ours,
+          lineNumbers(), highlightActiveLineGutter(), highlightSpecialChars(), history(), drawSelection(),
+          indentOnInput(), bracketMatching(), highlightActiveLine(), lintGutter(),
+          indentUnit.of("    "), EditorState.tabSize.of(4),
+          keymap.of([indentWithTab, ...defaultKeymap, ...historyKeymap]),
+          StreamLanguage.define(verilog),
+          state.theme.of(themeOf(state.colours)),
+          EditorView.updateListener.of((update) => {
+            if (update.docChanged && !state.setting)
+              state.changed = true;
+          }),
+        ],
+      }),
+    });
+  },
+
+  /** Lays the editor over the canvas: x and y from the canvas's top-left, width, height and its letters' size, in the canvas's own pixels. */
+  place(canvas, x, y, width, height, font) {
+    if (!state.host || !canvas)
+      return;
+    const box = canvas.getBoundingClientRect();
+    const sx = box.width / canvas.width, sy = box.height / canvas.height;
+    state.host.style.left = (window.scrollX + box.left + x * sx) + "px";
+    state.host.style.top = (window.scrollY + box.top + y * sy) + "px";
+    state.host.style.width = Math.max(0, width * sx) + "px";
+    state.host.style.height = Math.max(0, height * sy) + "px";
+    state.host.style.fontSize = Math.max(1, font * sy) + "px";
+  },
+
+  show(shown) {
+    if (!state.host)
+      return;
+    state.host.style.display = shown ? "block" : "none";
+    if (!shown && state.view && state.view.hasFocus)
+      state.view.contentDOM.blur();
+  },
+
+  /** The game's text put in, as the document has it now -- an undo, or another block -- which is not typing. */
+  setText(text) {
+    if (!state.view || state.view.state.doc.toString() === text)
+      return;
+    state.setting = true;
+    state.view.dispatch({ changes: { from: 0, to: state.view.state.doc.length, insert: text } });
+    state.setting = false;
+  },
+
+  getText() {
+    return state.view ? state.view.state.doc.toString() : "";
+  },
+
+  /** Whether the text was typed into since the last ask; asking clears it. */
+  takeChanged() {
+    const was = state.changed;
+    state.changed = false;
+    return was;
+  },
+
+  /** Whether Ctrl+Enter was pressed since the last ask; asking clears it. */
+  takeApply() {
+    const was = state.applyAsked;
+    state.applyAsked = false;
+    return was;
+  },
+
+  /** Whether Escape let the editor go since the last ask; asking clears it. */
+  takeEscape() {
+    const was = state.escaped;
+    state.escaped = false;
+    return was;
+  },
+
+  /** The faults to mark: a JSON array of { line, column, message, error }, lines and columns from 1. */
+  setMarks(marksJson) {
+    if (!state.view)
+      return;
+    const doc = state.view.state.doc;
+    const diagnostics = JSON.parse(marksJson).map((m) => {
+      const line = doc.line(Math.min(Math.max(1, m.line), doc.lines));
+      const from = Math.min(line.to, line.from + Math.max(0, m.column - 1));
+      const to = from < line.to ? line.to : from;
+      return { from, to, severity: m.error ? "error" : "warning", message: m.message };
+    });
+    state.view.dispatch(setDiagnostics(state.view.state, diagnostics));
+  },
+
+  /** The keyboard put in the editor, its caret at line and column (from 1), scrolled into sight. */
+  goTo(line, column) {
+    if (!state.view)
+      return;
+    const doc = state.view.state.doc;
+    const at = doc.line(Math.min(Math.max(1, line), doc.lines));
+    const pos = Math.min(at.to, at.from + Math.max(0, column - 1));
+    state.view.dispatch({ selection: { anchor: pos }, scrollIntoView: true });
+    state.view.focus();
+  },
+
+  focus() {
+    if (state.view)
+      state.view.focus();
+  },
+
+  blur() {
+    if (state.view && state.view.hasFocus)
+      state.view.contentDOM.blur();
+  },
+
+  /** Whether the editor has the keyboard: while it does, the game's keys are the editor's. */
+  focused() {
+    return !!(state.view && state.view.hasFocus);
+  },
+};
+
+window.BitSorterCode = api;

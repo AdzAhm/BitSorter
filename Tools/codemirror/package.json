@@ -1,0 +1,20 @@
+{
+  "name": "bitsorter-codemirror",
+  "private": true,
+  "version": "1.0.0",
+  "description": "The code editor BitSorter's browser build shows over a written block (Part 12f): CodeMirror 6, bundled into one file the game ships with. Rebuild with build.ps1; never fetched at run time.",
+  "license": "MIT",
+  "type": "module",
+  "dependencies": {
+    "@codemirror/commands": "6.11.1",
+    "@codemirror/language": "6.13.1",
+    "@codemirror/legacy-modes": "6.5.5",
+    "@codemirror/lint": "6.9.7",
+    "@codemirror/state": "6.7.6",
+    "@codemirror/view": "6.43.15",
+    "@lezer/highlight": "1.2.5"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
+  }
+}

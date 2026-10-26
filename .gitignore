@@ -99,3 +99,6 @@ desktop.ini
 # a build that is killed part-way leaves it, and it is never anything to keep.
 /[Aa]ssets/BenchmarkTemp/
 /[Aa]ssets/BenchmarkTemp.meta
+
+# The CodeMirror bundle tooling (Part 12f): installed by build.ps1 from the lock file, never committed.
+Tools/codemirror/node_modules/
