@@ -1428,6 +1428,29 @@ namespace BitSorter.PlayMode.Tests
             yield return Capture("43-workbench-code");
         }
 
+        /// <summary>Part 12e: the dock's CODE tab, the full adder as it prints, a chip a file.</summary>
+        [UnityTest]
+        public IEnumerator Shot44_WorkbenchCodeTab()
+        {
+            yield return LoadTheGame();
+            yield return Frames(2);
+
+            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            yield return Frames(2);
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowSample(2);   // the full adder
+            yield return Frames(2);
+            workbench.Pause();
+            workbench.Session.Finish();
+            workbench.Seek(26.5);
+            workbench.ShowCode();
+            yield return Frames(30);
+
+            Assert.AreEqual("full_adder", workbench.ListingCaption, "sanity: the full adder's file");
+            yield return Capture("44-workbench-code-tab");
+        }
+
         private static IEnumerator OpensOnItsCircuit(string level, string fixture, string shot)
         {
             yield return LoadTheGame();

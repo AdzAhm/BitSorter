@@ -1059,6 +1059,104 @@ namespace BitSorter.PlayMode.Tests
             CollectionAssert.AreEqual(new[] { "a", "y" }, placed.Pins(workbench.Session.Project).Select(p => p.Name), "its pins its header's");
         }
 
+        /// <summary>
+        /// The dock's CODE tab (Part 12e): the module shown as it prints, a chip a file; a gate placed is in it at once; a chip
+        /// shows another file; stepping inside a block, the code follows the module shown; WAVES puts it away.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator TheCodeTab_ShowsTheModuleAsItPrints_AndFollowsTheDrawing()
+        {
+            yield return TestScene.Load();
+            yield return Click(MainMenu.WorkbenchButton);
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowSample(SampleNamed("Full adder"));
+            yield return null;
+            workbench.Pause();
+            workbench.Session.Finish();
+            yield return null;
+
+            yield return Click(WorkbenchPanel.CodeTabName);
+            Assert.IsTrue(workbench.CodeShown);
+            Assert.IsTrue(workbench.ListingView.gameObject.activeInHierarchy, "the code over the dock");
+            Assert.AreEqual("full_adder", workbench.ListingCaption, "the module the circuit's window shows");
+            StringAssert.Contains("module full_adder", workbench.ListingView.Text);
+            Assert.AreEqual(4, workbench.ListingChips, "the cells, the half adder, the full adder, the testbench");
+
+            var ids = new System.Collections.Generic.List<int>();
+            yield return Place(workbench, "and", new BoardPoint(6, -4), ids);
+            yield return null;
+            StringAssert.Contains(Top(workbench).FindPart(ids[0]).Name, workbench.ListingView.Text, "a gate placed is in the code at once");
+
+            yield return Click(WorkbenchPanel.CodeFileChip("TESTBENCH"));
+            Assert.AreEqual("TESTBENCH", workbench.ListingCaption);
+            StringAssert.Contains("initial", workbench.ListingView.Text, "the testbench made from the stimulus");
+
+            // An edit draws the stage again, and its replay taking over draws it again: the file chosen stays.
+            yield return Place(workbench, "or", new BoardPoint(6, -6), ids);
+            workbench.Session.Finish();
+            yield return null;
+            yield return null;
+            Assert.AreEqual("TESTBENCH", workbench.ListingCaption, "an edit and its replay keep the file chosen");
+
+            Assert.IsTrue(workbench.StepInto(Top(workbench).FindPart("h1").Id));
+            yield return null;
+            Assert.AreEqual("half_adder", workbench.ListingCaption, "stepping inside, the code follows the module shown");
+            Assert.IsTrue(workbench.StepOut());
+
+            yield return Click(WorkbenchPanel.WavesTabName);
+            Assert.IsFalse(workbench.CodeShown);
+            Assert.IsFalse(workbench.ListingView.gameObject.activeInHierarchy, "WAVES puts the code away");
+        }
+
+        /// <summary>
+        /// Two code fields at once (Part 12e): a plain click in the read-only listing leaves the workbench its keys, since it
+        /// draws no caret to say it has them; a drag selects and keeps them for Ctrl+C; and a click from there into a written
+        /// block's code leaves the keyboard with the code -- the listing lets go of itself alone.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator TheListingKeepsTheKeysOnlyWhileTextIsSelected_AndGivesThemToTheCodeClicked()
+        {
+            yield return TestScene.Load();
+            yield return Click(MainMenu.WorkbenchButton);
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowSample(SampleNamed("Written adder"));
+            yield return null;
+            workbench.Pause();
+            workbench.Session.Finish();
+            yield return null;
+            Assert.IsTrue(workbench.StepInto(Top(workbench).Parts.OfType<BlockPart>().Single().Id));
+            workbench.ShowCode();
+            yield return null;
+            yield return null;
+            CodeListingView listing = workbench.ListingView;
+            CodeEditorView code = workbench.CodeView;
+            Assert.AreEqual("add4", workbench.ListingCaption, "sanity: the written block's own file");
+            Rect text = WorldRect(listing.Field.textViewport);
+
+            yield return ClickAtScreen(new Vector2(text.xMin + 40f, text.yMax - 12f));
+            yield return null;
+            Assert.IsFalse(UiText.Typing, "a plain click in the read-only listing leaves the workbench its keys");
+
+            Move(_mouse.position, new Vector2(text.xMin + 10f, text.yMax - 12f));
+            yield return null;
+            Press(_mouse.leftButton);
+            yield return null;
+            Move(_mouse.position, new Vector2(text.xMin + 300f, text.yMax - 70f));
+            yield return null;
+            yield return null;
+            Release(_mouse.leftButton);
+            yield return null;
+            yield return null;
+            Assert.AreNotEqual(listing.Field.selectionStringAnchorPosition, listing.Field.selectionStringFocusPosition, "a drag selected some of the file");
+            Assert.IsTrue(UiText.Typing, "and keeps the keys while it is selected, for Ctrl+C");
+
+            yield return ClickAtScreen(WorldRect((RectTransform)code.Field.transform).center);
+            yield return null;
+            yield return null;
+            Assert.IsTrue(code.Field.isFocused, "the code clicked has the keyboard");
+            Assert.IsTrue(UiText.Typing, "and the workbench's keys stay off while it does");
+        }
+
         /// <summary>Zoomed in, the minimap shows; a click on its left side moves the view there; FIT puts it away (Part 10d).</summary>
         [UnityTest]
         public IEnumerator TheMinimap_ShowsOffTheFit_AClickOnItMovesTheView_AndFitPutsItAway()

@@ -1382,6 +1382,7 @@ namespace BitSorter.View
             RefreshHierarchy();
             RefreshPartsPanel();
             TickCode();
+            RefreshCode();
 
             // The run is made a slice a frame until it is done, and a moment past where it has got waits;
             // an edit's replay is made beside it and takes over once it reaches the moment shown.
@@ -1485,6 +1486,7 @@ namespace BitSorter.View
             Fit();
             BuildStage(palette);
             BuildCodeView(palette);
+            BuildListingView(palette);
             RefreshDockButtons();
 
             // Over everything else on the workbench, when it is up: in the shell, over its docked panels (Part 11b-3).
@@ -1519,6 +1521,8 @@ namespace BitSorter.View
             _shownEnd = _model.End;
             _reasonText = null;
             _notice = null;
+            _shownListing = null;   // a new document's CODE tab starts on its module's file (Part 12e)
+            _listingModule = null;
             ShowRunTo("");
             MakeTexts();
 
@@ -1819,6 +1823,7 @@ namespace BitSorter.View
             StageLabel(words, LegendText, new Vector2(WorkbenchDrawing.LegendTextX, middle),
                 UiType.Micro, palette.TextDim, TextAlignmentOptions.MidlineLeft, Mathf.Max(0f, legend.width - WorkbenchDrawing.LegendTextX - 16f));
             PlaceCodeView();
+            PlaceListing();
         }
 
         /// <summary>
@@ -1833,6 +1838,7 @@ namespace BitSorter.View
             TopLeft(_wavesClip, CornerOf(waves), SizeOf(waves));
             TopLeft((RectTransform)_legend.transform, CornerOf(legend), SizeOf(legend));
             PlaceCodeView();
+            PlaceListing();
             ScrollWavesBy(0f);
             ApplyView();
             Redraw();

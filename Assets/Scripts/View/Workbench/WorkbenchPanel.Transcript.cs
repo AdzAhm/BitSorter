@@ -36,9 +36,11 @@ namespace BitSorter.View
         /// <summary>The + or - opening or shutting a scope's row: this, and its place on screen.</summary>
         public const string ScopeToggleName = "Workbench scope toggle ";
 
-        private const float TabHeight = 30f, TranscriptRowHeight = 26f, ScopeRowHeight = 26f, ScopeIndent = 14f, ToolsLeft = 330f;
+        // The tools start right of the three tabs: WAVES, TRANSCRIPT, and CODE (Part 12e).
+        private const float TabHeight = 30f, TranscriptRowHeight = 26f, ScopeRowHeight = 26f, ScopeIndent = 14f,
+            ToolsLeft = CodeTabLeft + CodeTabWidth + 12f;
 
-        private enum DockTab { Waves, Transcript }
+        private enum DockTab { Waves, Transcript, Code }
 
         private DockTab _dockTab = DockTab.Waves;
         private bool _designTab;
@@ -90,6 +92,7 @@ namespace BitSorter.View
             _transcriptTools.style.right = 0f;
             header.Add(_transcriptTools);
             BuildTranscriptTools(palette);
+            BuildCodeTab(header, palette);
         }
 
         /// <summary>A tab: a caption with no edge, in the accent while it is the one shown.</summary>
@@ -106,11 +109,25 @@ namespace BitSorter.View
         /// <summary>The dock shows <paramref name="tab"/>: the waves and their buttons, or the transcript and its.</summary>
         private void ShowDockTab(DockTab tab)
         {
+            bool entering = _dockTab != tab;
             _dockTab = tab;
-            bool waves = tab == DockTab.Waves;
+            bool waves = tab == DockTab.Waves, transcript = tab == DockTab.Transcript, code = tab == DockTab.Code;
             _wavesTools.style.display = waves ? DisplayStyle.Flex : DisplayStyle.None;
-            _transcriptTools.style.display = waves ? DisplayStyle.None : DisplayStyle.Flex;
-            _transcriptList.style.display = waves ? DisplayStyle.None : DisplayStyle.Flex;
+            _transcriptTools.style.display = transcript ? DisplayStyle.Flex : DisplayStyle.None;
+            _transcriptList.style.display = transcript ? DisplayStyle.Flex : DisplayStyle.None;
+            if (_codeTools != null)
+                _codeTools.style.display = code ? DisplayStyle.Flex : DisplayStyle.None;
+            _listingView?.SetShown(code);
+            if (code)
+            {
+                // Chosen, the tab shows the file of the module the window shows; shown again as the stage is built
+                // again -- an edit, a replay taking over, a new width -- it keeps the file chosen, its chips laid afresh.
+                if (entering)
+                    _shownListing = null;
+                else if (_shownListing != null)
+                    BuildCodeChips(SchematicPalette.Current);
+                RefreshCode();
+            }
             if (_wavesClip != null)
             {
                 _wavesClip.gameObject.SetActive(waves);
@@ -122,9 +139,11 @@ namespace BitSorter.View
             }
 
             SchematicPalette palette = SchematicPalette.Current;
-            ShellButton shown = waves ? _wavesTabButton : _transcriptTabButton;
+            ShellButton shown = waves ? _wavesTabButton : transcript ? _transcriptTabButton : _codeTabButton;
             _wavesTabButton.style.color = waves ? palette.Text : palette.TextDim;
-            _transcriptTabButton.style.color = waves ? palette.TextDim : palette.Text;
+            _transcriptTabButton.style.color = transcript ? palette.Text : palette.TextDim;
+            if (_codeTabButton != null)
+                _codeTabButton.style.color = code ? palette.Text : palette.TextDim;
             ShellTheme.Place(_dockUnderline, shown.style.left.value.value + 10f, 36f, shown.style.width.value.value - 20f, 2f);
             _transcriptDrawn = -1;
         }

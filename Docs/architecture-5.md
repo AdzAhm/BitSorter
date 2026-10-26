@@ -1861,8 +1861,31 @@ code editor in the circuit's window, and a block made from a selection asks for 
   but the import's and in the oracle; and PARTS offering no written module whose text holds the module shown. In Play
   Mode: the written adder's code opened by a double-click, typing applied once it paused, a fault listed and a click
   on it, Escape letting go with the workbench still up, and + CODE naming a block and putting it in hand.
-  Reference shot 43, new: the written adder's code with a fault typed, marked and listed; 39 differs in the key map's
-  new line.
+  Reference shot 43, new: the written adder's code with a fault typed, marked and listed; 27 to 42 differ in the + CODE
+  cell, and 39 in the key map's new line too.
+
+**As built in Part 12e**: the code panel.
+
+- **The dock has a third tab, CODE**, beside WAVES and TRANSCRIPT: the SystemVerilog the document prints as, read-only
+  and printed again as it is drawn -- a drawn module as the text the run was made from, a written one as its own
+  (`CodeListing`, kept by the session for as long as the document is the same, so asking every frame costs nothing
+  between edits).
+- **A chip a file**, in the order a simulator reads them: CELLS, each module after those it uses, TESTBENCH last. The file
+  shown follows the module the circuit's window shows -- stepping into a block shows its module -- until a chip is chosen.
+- **Read-only, and selectable** (`CodeListingView`): a field rather than a label, so a student can select the code and
+  copy it out; it holds Escape while it has the keyboard, as the code editor's does, and a click on it is never a wave
+  gesture.
+- **The tools moved right** to make room for the tab: + SIGNAL and the rest, and the transcript's filters.
+- **Found by the review before the first commit**, each fixed with a test: a chip's file was dropped on every rebuild
+  of the stage (an edit, a replay taking over); a field that finished because the other code field was clicked took the
+  keyboard from that one too (`UiTheme.Defocus(field)` lets go of a field alone); a plain click in the listing took every
+  workbench key with no caret to show it (it keeps the keyboard only while text is selected); and the wheel over its
+  line numbers scrolled nothing.
+- **Checked.** `CodeListingTests` (3) under dotnet: every file in a simulator's order with its caption, a written module
+  as its own text, and the session's listing printed again only when the document changes. In Play Mode: CODE showing
+  the full adder, a gate placed in it at once, the testbench's chip, the half adder's file on stepping into h1, and
+  WAVES putting it away. Reference shot 44, new: the full adder's code in the dock; 27 to 38 and 40 to 43 differ in the
+  dock's header, where the tab is and the tools moved.
 
 ---
 
@@ -1884,7 +1907,7 @@ Each part is one pull request into `v5`, ends with every suite green, and leaves
 | 9 | The waveform and run controls; the workbench's view-model in a Unity-free layer of its own |
 | 10 | Editing on the free canvas -- in four: 10a placement and selection **built** (see "As built in Part 10a"); 10b wiring **built**, drawn (10b-1) and reshaped (10b-2); 10c the inspector **built**; 10d copy, align and the minimap **built**; 10e what its browser smoke test found **built** |
 | 11 | The workbench shell, in UI Toolkit -- **built**, in four: 11a the bridges and the toolbar; 11b the docked layout -- its panels (11b-1), the inspector docked (11b-2), the popups in the shell (11b-3); 11c the transcript and the hierarchy; 11d the keyboard map, the status line and the docs |
-| 12 | Hierarchy, and written blocks, edited in CodeMirror in a browser -- in six: 12a stepping inside a block **built** (see "As built in Part 12a"); 12b making a block **built** (see "As built in Part 12b"); 12c arrays **built** (see "As built in Part 12c"); 12d code blocks **built** (see "As built in Part 12d"); 12e the code panel, 12f CodeMirror |
+| 12 | Hierarchy, and written blocks, edited in CodeMirror in a browser -- in six: 12a stepping inside a block **built** (see "As built in Part 12a"); 12b making a block **built** (see "As built in Part 12b"); 12c arrays **built** (see "As built in Part 12c"); 12d code blocks **built** (see "As built in Part 12d"); 12e the code panel **built** (see "As built in Part 12e"); 12f CodeMirror |
 | 13 | Export and import (and a levelized path in the engine, only if a measurement asks for it) |
 | 14 | The course's tools: path delays, static timing, gate-library mode, step tests, lint, tri-state |
 | 15 | The Exercises and the tutorial |

@@ -146,10 +146,12 @@ namespace BitSorter.View
             _field.onEndEdit.AddListener(_ =>
             {
                 // Escape lets the field go, and holds this frame's Escape so the workbench stays open; TMP leaves a
-                // finished field selected, which would keep every workbench key dead until a click elsewhere.
+                // finished field selected, which would keep every workbench key dead until a click elsewhere. Only its
+                // own selection, though: a click into the CODE tab's listing (Part 12e) ends this edit after the listing
+                // has taken the keyboard, and letting go of everything then would leave the keyboard with neither.
                 if (_field.wasCanceled)
                     _letGoFrame = Time.frameCount;
-                UiTheme.Defocus();
+                UiTheme.Defocus(_field);
             });
 
             _problems = UiTheme.Rect("problems", _root);

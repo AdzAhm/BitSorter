@@ -457,6 +457,17 @@ namespace BitSorter.View
         }
 
         /// <summary>
+        /// Takes the keyboard from <paramref name="field"/>, and only if it still has it: a field that finishes because
+        /// another was clicked must not take the keyboard from that one too (two code fields on the workbench, Part 12e).
+        /// </summary>
+        public static void Defocus(TMP_InputField field)
+        {
+            UnityEngine.EventSystems.EventSystem events = UnityEngine.EventSystems.EventSystem.current;
+            if (field != null && events != null && events.currentSelectedGameObject == field.gameObject)
+                events.SetSelectedGameObject(null);
+        }
+
+        /// <summary>
         /// Gives keyboard focus to a text field, the one thing in the game that should hold it.
         /// </summary>
         /// <remarks>
