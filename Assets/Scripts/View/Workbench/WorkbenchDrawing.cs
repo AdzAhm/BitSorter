@@ -508,6 +508,19 @@ namespace BitSorter.View
                     continue;
                 }
 
+                // An array of a block (Part 12c): its copies stacked behind it, one edge up and to the right.
+                if (!flashes && part.Part is BlockPart array && array.Copies > 1)
+                {
+                    const double behind = ArrayBehind, x0 = -BlockHalfWidth, x1 = BlockHalfWidth;
+                    double top = part.Local.Top, bottom = part.Local.Bottom;
+                    Vector2 left = part.ToStage(x0 + behind, top + behind), corner = part.ToStage(x1 + behind, top + behind);
+                    Vector2 right = part.ToStage(x1 + behind, bottom + behind);
+                    painter.Line(part.ToStage(x0 + behind, top), left, SchematicStyle.OutlineWidth, palette.Outline, roundCaps: true);
+                    painter.Line(left, corner, SchematicStyle.OutlineWidth, palette.Outline, roundCaps: true);
+                    painter.Line(corner, right, SchematicStyle.OutlineWidth, palette.Outline, roundCaps: true);
+                    painter.Line(right, part.ToStage(x1, bottom + behind), SchematicStyle.OutlineWidth, palette.Outline, roundCaps: true);
+                }
+
                 Body(Shape, part);
                 if (!flashes || lamp)
                     painter.Fill(Shape, lamp && flashes ? palette.Of(model.PartValue(i)) : palette.Ground);
@@ -662,10 +675,16 @@ namespace BitSorter.View
                     break;
 
                 default:
-                    Box(into, part, -1.25, part.Local.Bottom, 1.25, part.Local.Top, 0.12);
+                    Box(into, part, -BlockHalfWidth, part.Local.Bottom, BlockHalfWidth, part.Local.Top, 0.12);
                     break;
             }
         }
+
+        /// <summary>Half a block's box, in cells: its outline stops short of the ends of its pins.</summary>
+        private const double BlockHalfWidth = 1.25;
+
+        /// <summary>How far, in cells, an array's copies are stacked behind its box, up and to the right; its name is raised as far.</summary>
+        public const double ArrayBehind = 0.18;
 
         /// <summary>A box with rounded corners, in the part's own cells, so it turns with the part.</summary>
         private static void Box(List<Vector2> into, PartLayout part, double x0, double y0, double x1, double y1, double corner)

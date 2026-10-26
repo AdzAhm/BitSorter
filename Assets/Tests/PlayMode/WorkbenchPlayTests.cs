@@ -502,6 +502,9 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsFalse(workbench.Playing, "and pause there");
 
             yield return Tap(_keyboard.sKey);
+            Assert.AreEqual(4, workbench.Sample, "S should step to the four half adders (Part 12c)");
+
+            yield return Tap(_keyboard.sKey);
             Assert.AreEqual(0, workbench.Sample, "past the last sample, S should come back to the first, MY CIRCUIT");
             Assert.IsTrue(Captioned(WorkbenchPanel.SampleButton, "MY CIRCUIT"));
             Assert.IsEmpty(workbench.Model.Layout.Parts, "a blank circuit, the first time");

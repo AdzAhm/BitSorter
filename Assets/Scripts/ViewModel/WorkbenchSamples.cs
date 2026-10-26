@@ -53,6 +53,9 @@ namespace BitSorter.ViewModel
                 ("Counter",
                     "A three-bit counter: a register with an asynchronous reset, counting on each rising edge of its clock and wrapping round to 0.",
                     Counter),
+                ("Four half adders",
+                    "Four half adders as one block of four copies, printed as a generate for: bit i of a, b, s and c is copy i's. Double-click it to step inside the first.",
+                    FourHalfAdders),
             });
 
         /// <summary>
@@ -120,22 +123,7 @@ namespace BitSorter.ViewModel
         public static Project FullAdder()
         {
             var editor = new BoardEditor(Project.New("full_adder"));
-
-            // The half adder first: a block's pins are its module's ports, so they must be there to
-            // wire to. Each input feeds both gates through a tap, as a textbook draws it, and the two
-            // taps cross -- a half adder drawn with its inputs on one side cannot avoid it.
-            Must(editor.AddModule("half_adder"));
-            var half = new Drawing(editor, "half_adder");
-            int ha = half.In("a", 1, 0.75), hb = half.In("b", 1, -1.25);
-            int hs = half.Out("s", 9, 0.5), hc = half.Out("c", 9, -1);
-            int xor = half.Gate(EngineGate.Xor, 6, 0.5, 2);
-            int and = half.Gate(EngineGate.And, 6, -1, 1);
-            int toXor = half.Wire(At(ha, "out"), At(xor, "a"));
-            int toAnd = half.Wire(At(hb, "out"), At(and, "b"));
-            half.Wire(Endpoint.OnWire(toXor), At(and, "a"), Bends((3, -0.75)), tapAt: 1.5 / 3.5);
-            half.Wire(Endpoint.OnWire(toAnd), At(xor, "b"), Bends((3.5, 0.25)), tapAt: 2.0 / 3.5);
-            half.Wire(At(xor, "y"), At(hs, "in"));
-            half.Wire(At(and, "y"), At(hc, "in"));
+            DrawHalfAdder(editor);
 
             var top = new Drawing(editor, "full_adder");
             int a = top.In("a", 1, 0.5), b = top.In("b", 1, -0.5), cin = top.In("cin", 1, -2);
@@ -166,6 +154,67 @@ namespace BitSorter.ViewModel
 
             Must(editor.SetStimulus(new BoardStimulus { Tracks = tracks, End = FullAdderEnd }));
             return editor.Project;
+        }
+
+        /// <summary>How long the four half adders' testbench holds each pair of inputs, in nanoseconds.</summary>
+        public const long FourHalfAddersStep = 6;
+
+        /// <summary>
+        /// Four half adders as one array block (Part 12c): a and b four bits each, s and c four bits each, and copy i
+        /// working on bit i of each -- printed as a <c>generate for</c>, as the course writes four of anything. The testbench
+        /// gives eight pairs of inputs, <see cref="FourHalfAddersStep"/> apart.
+        /// </summary>
+        public static Project FourHalfAdders()
+        {
+            var editor = new BoardEditor(Project.New("half_adders"));
+            DrawHalfAdder(editor);
+
+            var top = new Drawing(editor, "half_adders");
+            int a = top.In("a", 1, 0.5, 4), b = top.In("b", 1, -0.5, 4);
+            int s = top.Out("s", 10, 0.5, 4), c = top.Out("c", 10, -0.5, 4);
+            int ha = top.Add(new BlockPart { Name = "ha", Module = "half_adder", Copies = 4 }, 5.5, 0);
+            top.Wire(At(a, "out"), At(ha, "a"));
+            top.Wire(At(b, "out"), At(ha, "b"));
+            top.Wire(At(ha, "s"), At(s, "in"));
+            top.Wire(At(ha, "c"), At(c, "in"));
+
+            ulong[] aValues = { 0x0, 0x5, 0xA, 0xF, 0x3, 0xC, 0x9, 0xF };
+            ulong[] bValues = { 0x0, 0x3, 0x5, 0x1, 0xF, 0xC, 0x6, 0xF };
+            var aSteps = new Step[aValues.Length];
+            var bSteps = new Step[bValues.Length];
+            for (int i = 0; i < aValues.Length; i++)
+            {
+                aSteps[i] = new Step(i * FourHalfAddersStep, Bits(aValues[i], 4));
+                bSteps[i] = new Step(i * FourHalfAddersStep, Bits(bValues[i], 4));
+            }
+
+            Must(editor.SetStimulus(new BoardStimulus
+            {
+                Tracks = new[] { new BoardTrack { Port = "a", Steps = aSteps }, new BoardTrack { Port = "b", Steps = bSteps } },
+                End = aValues.Length * FourHalfAddersStep,
+            }));
+            return editor.Project;
+        }
+
+        /// <summary>
+        /// The half adder every sample with blocks uses: a XOR for s and an AND for c, 2 ns and 1 ns. Each input feeds
+        /// both gates through a tap, as a textbook draws it, and the two taps cross -- a half adder drawn with its inputs
+        /// on one side cannot avoid it. A block's pins are its module's ports, so it is drawn before anything uses it.
+        /// </summary>
+        private static void DrawHalfAdder(BoardEditor editor)
+        {
+            Must(editor.AddModule("half_adder"));
+            var half = new Drawing(editor, "half_adder");
+            int ha = half.In("a", 1, 0.75), hb = half.In("b", 1, -1.25);
+            int hs = half.Out("s", 9, 0.5), hc = half.Out("c", 9, -1);
+            int xor = half.Gate(EngineGate.Xor, 6, 0.5, 2);
+            int and = half.Gate(EngineGate.And, 6, -1, 1);
+            int toXor = half.Wire(At(ha, "out"), At(xor, "a"));
+            int toAnd = half.Wire(At(hb, "out"), At(and, "b"));
+            half.Wire(Endpoint.OnWire(toXor), At(and, "a"), Bends((3, -0.75)), tapAt: 1.5 / 3.5);
+            half.Wire(Endpoint.OnWire(toAnd), At(xor, "b"), Bends((3.5, 0.25)), tapAt: 2.0 / 3.5);
+            half.Wire(At(xor, "y"), At(hs, "in"));
+            half.Wire(At(and, "y"), At(hc, "in"));
         }
 
         /// <summary>

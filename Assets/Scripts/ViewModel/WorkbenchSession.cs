@@ -128,7 +128,7 @@ namespace BitSorter.ViewModel
             Module module = Project.Find(Module);
             if (!(module?.FindPart(part) is BlockPart block) || string.IsNullOrEmpty(block.Name) || Project.Find(block.Module) == null)
                 return false;
-            _path.Add(block.Name);
+            _path.Add(block.Copies > 1 ? block.Name + "[0]" : block.Name);   // an array is stepped into at its first copy (Part 12c)
             Stepped();
             return true;
         }
@@ -159,9 +159,18 @@ namespace BitSorter.ViewModel
             if (!scope.StartsWith(compiled.DesignPath + ".", StringComparison.Ordinal))
                 return false;
 
-            string[] names = scope.Substring(compiled.DesignPath.Length + 1).Split('.');
+            // A copy of an array is its generate block, name[i], and the one instance in it (Part 12c): one step either way.
+            string[] parts = scope.Substring(compiled.DesignPath.Length + 1).Split('.');
+            var names = new List<string>();
+            for (int i = 0; i < parts.Length; i++)
+            {
+                names.Add(parts[i]);
+                if (parts[i].EndsWith("]", StringComparison.Ordinal) && i + 1 < parts.Length && parts[i + 1] == BoardCompiler.ArrayInstance)
+                    i++;
+            }
+
             ModuleOn(Project, names, out int valid);
-            if (valid < names.Length)
+            if (valid < names.Count)
                 return false;
             _path.Clear();
             _path.AddRange(names);
@@ -189,9 +198,10 @@ namespace BitSorter.ViewModel
             valid = 0;
             if (module == null)
                 return project.Top;
-            foreach (string name in path)
+            foreach (string step in path)
             {
-                if (!(module.FindPart(name) is BlockPart block) || !(project.Find(block.Module) is Module inner))
+                if (!TryCopy(step, out string name, out int copy) || !(module.FindPart(name) is BlockPart block)
+                    || !(project.Find(block.Module) is Module inner) || (block.Copies > 1) != (copy >= 0) || copy >= block.Copies)
                     break;
                 module = inner;
                 valid++;
@@ -200,12 +210,26 @@ namespace BitSorter.ViewModel
             return module.Name;
         }
 
+        /// <summary>A step of a path: a block's name, or an array's and the copy, <c>fa[3]</c> (Part 12c); -1 for no copy.</summary>
+        private static bool TryCopy(string step, out string name, out int copy)
+        {
+            copy = -1;
+            name = step;
+            int open = step.IndexOf('[');
+            if (open < 0)
+                return true;
+            name = step.Substring(0, open);
+            return step.EndsWith("]", StringComparison.Ordinal)
+                && int.TryParse(step.Substring(open + 1, step.Length - open - 2), System.Globalization.NumberStyles.None,
+                    System.Globalization.CultureInfo.InvariantCulture, out copy);
+        }
+
         /// <summary>The design path of the instance stepped into, under the design's <paramref name="designPath"/>.</summary>
         private string InstancePathUnder(string designPath)
         {
             string path = designPath;
-            foreach (string name in _path)
-                path += "." + name;
+            foreach (string step in _path)
+                path += step.EndsWith("]", StringComparison.Ordinal) ? "." + step + "." + BoardCompiler.ArrayInstance : "." + step;
             return path;
         }
 

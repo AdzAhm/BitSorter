@@ -233,8 +233,11 @@ namespace BitSorter.ViewModel
 
                 case BlockPart block:
                     kind = "BLOCK";
-                    says = $"An instance of {block.Module}: what it does is that module's. A double-click steps inside it.";
-                    quick = new[] { "name" };
+                    fields.Add(new InspectorField("copies", "COPIES", Int(block.Copies), "1 to " + BlockPart.MaxCopies));
+                    says = block.Copies > 1
+                        ? $"{block.Copies} instances of {block.Module} side by side, each pin a bus with copy i's bits at i: printed as a generate for. A double-click steps inside the first."
+                        : $"An instance of {block.Module}: what it does is that module's. A double-click steps inside it.";
+                    quick = new[] { "name", "copies" };
                     break;
 
                 default:
@@ -394,6 +397,12 @@ namespace BitSorter.ViewModel
                     if (Changed("width") && TryInt(Typed("width"), "width", ref why, out int lampWidth))
                         lamp = lamp with { Width = lampWidth };
                     changed = lamp;
+                    break;
+
+                case BlockPart block:
+                    if (Changed("copies") && TryInt(Typed("copies"), "copies", ref why, out int copies))
+                        block = block with { Copies = copies };
+                    changed = block;
                     break;
             }
 

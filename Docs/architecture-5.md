@@ -1794,6 +1794,32 @@ code editor in the circuit's window, and a block made from a selection asks for 
   the waves' rows as they were -- and Escape making nothing, the workbench still up. Reference shot 41, new: MAKE BLOCK
   asking over the full adder's h2 and OR.
 
+**As built in Part 12c**: arrays of blocks.
+
+- **A block has `Copies`**, 1 to 64 (`BlockPart.Copies`, `BlockPart.MaxCopies`): that many instances of its module
+  side by side, **each pin a bus of every copy's port, copy i's bits at i** -- a 2-bit port on four copies is an 8-bit
+  pin, copy 2's bits at [5:4]. `BoardRules` refuses a count outside the range, and a pin wider than a bus can be.
+- **Printed as a `generate for`**, in the course's style (`BoardCompiler`): `for (genvar i = 0; i < 4; i++) begin :
+  ha` round one instance `u`, each port connected to its copy's bits -- `a[i]`, or `d[i*2 +: 2]` for a wider one. The
+  elaborator already ran `generate`; **Icarus runs the printed text too**, and agrees on every signal: four half
+  adders, and an 8-bit ripple-carry adder of eight full adders whose carry goes copy to copy through a splitter and a
+  joiner. `BoardImporter` reads such a loop back as an array, so a printed design round-trips.
+- **Saved as `copies`** on the block, a key a file before it reads as absent, so as 1.
+- **The inspector has COPIES**, in the bar and the quick panel; the box is drawn with its copies stacked behind it,
+  up and to the right, and named `half_adder ×4`, the name raised clear of the stack.
+- **Stepping into an array steps into its first copy** (`ha[0]`, its signals under `ha[0].u`); any copy is stepped
+  into by its scope from DESIGN or the transcript, and an edit inside is every copy's, as for any block.
+- **A new sample, Four half adders**, is one block of four copies adding two 4-bit numbers bit by bit.
+- **What it does not do yet.** Bit i goes to copy i and nowhere else, so a carry chained from copy to copy, or one
+  pin shared by every copy, needs a splitter and a joiner round it, as the ripple adder has; a pin that chains or is
+  shared would be a later change. And COPIES is set before wiring: changing it on a wired block makes its pins wider
+  than its wires, and the document refuses the edit.
+- **Checked.** `ArrayTests` (4) under dotnet: the pins, the printed loop, the counts refused and the ripple adder
+  adding; two new sample boards in the round-trip and oracle tests; `SteppingTests` gains stepping into an array and
+  COPIES in the inspector; the samples' tests the new sample, s and c copy i's sum of bit i. In Play Mode: COPIES 4 in
+  the inspector widens the pins, and a double-click steps into `ha[0]`. Reference shot 42, new: Four half adders with
+  its block selected; 27 to 41 differ in the sample chip, which is as wide as the longest sample's name.
+
 ---
 
 ## 11. The parts
@@ -1814,7 +1840,7 @@ Each part is one pull request into `v5`, ends with every suite green, and leaves
 | 9 | The waveform and run controls; the workbench's view-model in a Unity-free layer of its own |
 | 10 | Editing on the free canvas -- in four: 10a placement and selection **built** (see "As built in Part 10a"); 10b wiring **built**, drawn (10b-1) and reshaped (10b-2); 10c the inspector **built**; 10d copy, align and the minimap **built**; 10e what its browser smoke test found **built** |
 | 11 | The workbench shell, in UI Toolkit -- **built**, in four: 11a the bridges and the toolbar; 11b the docked layout -- its panels (11b-1), the inspector docked (11b-2), the popups in the shell (11b-3); 11c the transcript and the hierarchy; 11d the keyboard map, the status line and the docs |
-| 12 | Hierarchy, and written blocks, edited in CodeMirror in a browser -- in six: 12a stepping inside a block **built** (see "As built in Part 12a"); 12b making a block **built** (see "As built in Part 12b"); 12c arrays, 12d code blocks, 12e the code panel, 12f CodeMirror |
+| 12 | Hierarchy, and written blocks, edited in CodeMirror in a browser -- in six: 12a stepping inside a block **built** (see "As built in Part 12a"); 12b making a block **built** (see "As built in Part 12b"); 12c arrays **built** (see "As built in Part 12c"); 12d code blocks, 12e the code panel, 12f CodeMirror |
 | 13 | Export and import (and a levelized path in the engine, only if a measurement asks for it) |
 | 14 | The course's tools: path delays, static timing, gate-library mode, step tests, lint, tri-state |
 | 15 | The Exercises and the tutorial |

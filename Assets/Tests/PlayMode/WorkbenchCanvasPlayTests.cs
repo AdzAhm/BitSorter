@@ -888,6 +888,59 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsTrue(workbench.IsOpen, "and was the field's alone");
         }
 
+        /// <summary>
+        /// Part 12c: the four half adders' block shows COPIES 4 in its inspector, and a double-click steps inside its first
+        /// copy; a wired array refuses another count in the document's words, and a block not yet wired takes one, its pins
+        /// widening with it.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator AnArraysCopies_AreInItsInspector_AndItIsSteppedIntoAtItsFirstCopy()
+        {
+            yield return TestScene.Load();
+            yield return Click(MainMenu.WorkbenchButton);
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            int four = -1;
+            for (int i = 0; i < WorkbenchSamples.Chip.Count; i++)
+                if (WorkbenchSamples.Chip[i].Name == "Four half adders")
+                    four = i;
+            workbench.ShowSample(four);
+            yield return null;
+            workbench.Pause();
+            workbench.Session.Finish();
+            yield return null;
+            int ha = Top(workbench).Parts.OfType<BlockPart>().Single().Id;
+
+            yield return ClickAt(workbench, MiddleOf(workbench, ha));
+            StringAssert.StartsWith("BLOCK ha", workbench.InspectorTitle);
+            Assert.AreEqual("4", workbench.InspectorTyped()["copies"], "its copies in the bar");
+
+            // Wired to four-bit buses, two copies would leave its pins narrower than its wires.
+            Assert.IsTrue(workbench.InspectorType("copies", "2"));
+            workbench.InspectorApply();
+            yield return null;
+            Assert.IsNotNull(workbench.InspectorRefusal, "refused in the document's words");
+            Assert.AreEqual(4, ((BlockPart)Top(workbench).FindPart(ha)).Copies, "and still four");
+            yield return Click(WorkbenchPanel.InspectorRevertName);
+
+            // A double-click steps inside the first copy.
+            yield return DoubleClick(workbench.ScreenPointOf(MiddleOf(workbench, ha)));
+            CollectionAssert.AreEqual(new[] { "ha[0]" }, workbench.SteppedPath, "the first copy");
+            Assert.AreEqual("half_adder", workbench.ShownModule);
+            StringAssert.Contains("all 4 of them", workbench.InspectorSays, "an edit inside changes every copy");
+            Assert.IsTrue(workbench.StepOut());
+
+            // A new block, not yet wired, takes a count, and its pins widen with it.
+            var ids = new System.Collections.Generic.List<int>();
+            yield return Place(workbench, "block:half_adder", new BoardPoint(6, -4), ids);
+            Assert.IsTrue(workbench.InspectorType("copies", "3"));
+            workbench.InspectorApply();
+            yield return null;
+            Assert.IsNull(workbench.InspectorRefusal);
+            BlockPart three = (BlockPart)Top(workbench).FindPart(ids[0]);
+            Assert.AreEqual(3, three.Copies);
+            Assert.IsTrue(three.Pins(workbench.Session.Project).All(p => p.Width == 3), "every pin three bits");
+        }
+
         /// <summary>Zoomed in, the minimap shows; a click on its left side moves the view there; FIT puts it away (Part 10d).</summary>
         [UnityTest]
         public IEnumerator TheMinimap_ShowsOffTheFit_AClickOnItMovesTheView_AndFitPutsItAway()

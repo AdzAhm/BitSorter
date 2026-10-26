@@ -1365,6 +1365,35 @@ namespace BitSorter.PlayMode.Tests
             yield return Capture("41-workbench-make-block");
         }
 
+        /// <summary>Part 12c: four half adders as one array block, stacked and labelled with its count, COPIES in its inspector.</summary>
+        [UnityTest]
+        public IEnumerator Shot42_WorkbenchArray()
+        {
+            yield return LoadTheGame();
+            yield return Frames(2);
+
+            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            yield return Frames(2);
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            int four = -1;
+            for (int i = 0; i < WorkbenchSamples.Chip.Count; i++)
+                if (WorkbenchSamples.Chip[i].Name == "Four half adders")
+                    four = i;
+            workbench.ShowSample(four);
+            yield return Frames(2);
+            workbench.Pause();
+            workbench.Session.Finish();
+            workbench.Seek(4 * WorkbenchSamples.FourHalfAddersStep + 4.5);
+            int ha = workbench.Session.Project.TopModule.Parts.First(p => p is BitSorter.Board.BlockPart).Id;
+            workbench.Editor.Selection.Pick(new CanvasTarget(CanvasTargetKind.Part, part: ha), false, false);
+            yield return Frames(30);
+
+            Assert.AreEqual("4", workbench.InspectorTyped()["copies"], "sanity: the inspector shows its copies");
+
+            yield return Capture("42-workbench-array");
+        }
+
         private static IEnumerator OpensOnItsCircuit(string level, string fixture, string shot)
         {
             yield return LoadTheGame();

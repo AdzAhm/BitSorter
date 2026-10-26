@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using BitSorter.Board;
 using BitSorter.Sim;
@@ -142,6 +143,50 @@ namespace BitSorter.ViewModel.Tests
             Assert.IsTrue(editor.Selection.IsEmpty, "a part's id in one module is another's in the next");
             Assert.IsTrue(editor.StepOut());
             Assert.IsFalse(editor.StepOut());
+        }
+
+        [Test]
+        public void AnArray_IsSteppedIntoAtItsFirstCopy_OrAtAnyByItsScope()
+        {
+            var session = new WorkbenchSession(WorkbenchSamples.FourHalfAdders(), Ticking(0.01));
+            session.Finish();
+            string design = DesignPath(session);
+            int ha = session.Project.TopModule.Parts.OfType<BlockPart>().Single().Id;
+
+            Assert.IsTrue(session.StepInto(ha));
+            CollectionAssert.AreEqual(new[] { "ha[0]" }, session.Path, "an array is stepped into at its first copy");
+            Assert.AreEqual("half_adder", session.Module);
+            foreach (PortLayout port in session.Run.Model.Layout.Ports)
+            {
+                StringAssert.StartsWith(design + ".ha[0].u.", port.Signal, "read under the copy's generate block and the instance in it");
+                Assert.IsTrue(session.Run.Model.Session.Design.TryFind(port.Signal, out _), port.Signal);
+            }
+
+            Assert.AreEqual(4, session.InstancesOf("half_adder"), "an edit inside is every copy's");
+            Assert.IsTrue(session.StepToScope(design + ".ha[2].u"), "a copy by its instance's scope");
+            CollectionAssert.AreEqual(new[] { "ha[2]" }, session.Path);
+            Assert.IsTrue(session.StepToScope(design + ".ha[3]"), "or by its generate block's");
+            CollectionAssert.AreEqual(new[] { "ha[3]" }, session.Path);
+            Assert.IsFalse(session.StepToScope(design + ".ha[4]"), "and no copy past the last");
+        }
+
+        [Test]
+        public void ABlocksCopies_AreInItsInspector_AndAppliedThere()
+        {
+            var editor = new BoardEditor(WorkbenchSamples.FullAdder());
+            Module top = editor.Project.TopModule;
+            int placed = editor.Add(top.Name, new BlockPart { Module = "half_adder" }, new Placement(4, -6)).Id;
+
+            Inspection inspection = Inspector.Of(editor.Project, top.Name, new CanvasTarget(CanvasTargetKind.Part, part: placed));
+            Assert.AreEqual("1", inspection.Fields.Single(f => f.Key == "copies").Text);
+            CollectionAssert.Contains(inspection.Quick.Select(f => f.Key).ToList(), "copies", "at hand in the quick panel");
+
+            Assert.IsTrue(Inspector.Apply(editor, top.Name, inspection, new Dictionary<string, string> { ["copies"] = "4" }).Done);
+            Assert.AreEqual(4, ((BlockPart)editor.Project.TopModule.FindPart(placed)).Copies);
+            StringAssert.Contains("half_adder ×4", DocumentSchematic.NameOf(editor.Project.TopModule.FindPart(placed)), "labelled with its count");
+
+            inspection = Inspector.Of(editor.Project, top.Name, new CanvasTarget(CanvasTargetKind.Part, part: placed));
+            Assert.IsFalse(Inspector.Apply(editor, top.Name, inspection, new Dictionary<string, string> { ["copies"] = "65" }).Done, "64 at most");
         }
 
         [Test]

@@ -1871,6 +1871,8 @@ namespace BitSorter.View
                     // and placed from the outline its name floated as near the row above as its own
                     // part (Part 8's review); over the triangle's taller back it is plainly the part's.
                     Vector2 over = Triangle(part.Symbol) ? part.ToStage(-0.2, 0.32).ToUnity() : new Vector2(bounds.center.x, bounds.yMin);
+                    if (part.Part is BitSorter.Board.BlockPart { Copies: > 1 })
+                        over.y -= (float)WorkbenchDrawing.ArrayBehind * part.Cell;
                     StageLabel(_schematic, part.Name, new Vector2(over.x, over.y - 9f), UiType.Micro, palette.TextDim,
                         TextAlignmentOptions.Center, Mathf.Max(80f, bounds.width + 40f));
                 }

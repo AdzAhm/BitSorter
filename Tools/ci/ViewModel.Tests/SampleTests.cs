@@ -47,7 +47,7 @@ namespace BitSorter.ViewModel.Tests
         [Test]
         public void TheChip_OffersTheReference_ThenTheFullAdder_ThenTheCounter()
         {
-            CollectionAssert.AreEqual(new[] { "Reference", "Full adder", "Counter" }, Names);
+            CollectionAssert.AreEqual(new[] { "Reference", "Full adder", "Counter", "Four half adders" }, Names);
 
             Project reference = WorkbenchSamples.All[0].Build();
             Assert.AreEqual(ReferenceCircuit.Document().Top, reference.Top);
@@ -116,6 +116,33 @@ namespace BitSorter.ViewModel.Tests
                 {
                     Assert.AreEqual(sum, Value(model, s, time), $"s for {a}{b}{cin} at {time}");
                     Assert.AreEqual(carry, Value(model, cout, time), $"cout for {a}{b}{cin} at {time}");
+                }
+            }
+        }
+
+        /// <summary>
+        /// The four half adders (Part 12c): each pair of inputs, from 2 ns after it is set -- the XOR, the slower way -- until
+        /// the next, s is a XOR b and c is a AND b, bit by bit: copy i works on bit i.
+        /// </summary>
+        [Test]
+        public void TheFourHalfAdders_AddEachBitPair_CopyIOnBitI()
+        {
+            Project project = WorkbenchSamples.FourHalfAdders();
+            Assert.AreEqual(4, project.TopModule.Parts.OfType<BlockPart>().Single().Copies, "one block, four copies");
+            WorkbenchModel model = WorkbenchModel.Of(project);
+            int s = Row(model, "s[3:0]"), c = Row(model, "c[3:0]");
+            Assert.GreaterOrEqual(s, 0, "a row for s, all four bits");
+            Track a = project.Stimulus.Tracks.Single(t => t.Port == "a"), b = project.Stimulus.Tracks.Single(t => t.Port == "b");
+
+            for (int v = 0; v < a.Steps.Count; v++)
+            {
+                Assert.IsTrue(a.Steps[v].Value.TryGetUInt64(out ulong x));
+                Assert.IsTrue(b.Steps[v].Value.TryGetUInt64(out ulong y));
+                long set = a.Steps[v].Time;
+                foreach (double time in new[] { set + 2.0, set + WorkbenchSamples.FourHalfAddersStep - 0.01 })
+                {
+                    Assert.AreEqual(x ^ y, Value(model, s, time), $"s for {x:X} and {y:X} at {time}");
+                    Assert.AreEqual(x & y, Value(model, c, time), $"c for {x:X} and {y:X} at {time}");
                 }
             }
         }
@@ -284,6 +311,7 @@ namespace BitSorter.ViewModel.Tests
             ["Reference"] = 0,
             ["Full adder"] = 1,   // h1's carry, on its way down to the OR, over cin on its way to h2
             ["Counter"] = 1,      // q0, on its way up to the AND, over q1 on its way to its XOR
+            ["Four half adders"] = 0,
         };
 
         [TestCaseSource(nameof(Names))]
