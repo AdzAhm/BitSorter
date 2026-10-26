@@ -752,7 +752,7 @@ failure side.
   counts from it -- the win celebration once pulsed on the game clock and a solve
   could land at the bottom of its swell.
 - **Visual changes are checked against the reference shots.**
-  `BitSorter/Capture Reference Shots` captures thirty-nine states (menu, a built
+  `BitSorter/Capture Reference Shots` captures forty states (menu, a built
   board, bits in flight, a collision one tick out and one that takes both bits,
   the solved card, the level list, free play, the help panel, the chapter card, a
   clocked level, the tutorial's intro and its closing card, a first-time hint, a
@@ -764,7 +764,7 @@ failure side.
   built and running, its carry passing between the boxes, and 5.0's workbench
   preview with two changes on their way, whole, zoomed in, with a wire pointed at, with two rows in other
   radixes, a second cursor 9 ps on and two breakpoints flagged, with a block's inside grouped under full names, with the
-  add list searching, MY CIRCUIT being edited, two gates moving with their guides, its half adder being wired, one of its wires being reshaped, the reference's AND in its inspector, the reference zoomed in with its minimap and the canvas's menu, the full adder's transcript beside its hierarchy, and the keyboard map) as an Explicit Play
+  add list searching, MY CIRCUIT being edited, two gates moving with their guides, its half adder being wired, one of its wires being reshaped, the reference's AND in its inspector, the reference zoomed in with its minimap and the canvas's menu, the full adder's transcript beside its hierarchy, the keyboard map, and the full adder stepped inside h1) as an Explicit Play
   Mode fixture, so it runs under `SaveGuard` --
   driving the real game for a screenshot by hand once marked a level solved on
   the developer's own save. Frame time is fixed, particle systems are seeded,
@@ -889,7 +889,13 @@ failure side.
   11b-2: the bar under the toolbar holds every field and the side panel the quick
   ones, both following the selection, and a focused field takes Escape as RUN TO
   does; a double-click is two plain clicks, never a click that placed a
-  part and then a press to drag it. **A right-click opens the canvas's menu**
+  part and then a press to drag it. **A double-click on a block steps inside it**
+  (Part 12a), as STEP INSIDE in its quick panel and a double-click on an instance
+  in DESIGN do: the canvas draws and edits the block's module with that
+  instance's values, while the run and the waves' rows stay the whole design's,
+  and an edit inside is the module's, so every instance of it changes. A crumb of
+  the breadcrumb in the circuit window's corner, or **Alt+Up**, steps back out --
+  Backspace stays a second DEL, and Up alone still scrolls the waves. **A right-click opens the canvas's menu**
   (Part 10d) -- align, spread, turn, mirror, route again, copy, cut, paste,
   delete -- and Ctrl+C, X and V copy, cut and paste; a minimap at the side
   panel's foot, up while some of the drawing is out of sight, moves the view on a

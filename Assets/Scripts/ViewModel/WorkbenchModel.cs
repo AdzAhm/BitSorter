@@ -315,9 +315,11 @@ namespace BitSorter.ViewModel
 
         /// <summary>
         /// A document compiled and elaborated, its layout, and the time its run is made to: where the
-        /// testbench stops (<see cref="Stimulus.StopTime"/>), or 100 without one.
+        /// testbench stops (<see cref="Stimulus.StopTime"/>), or 100 without one. The layout is the top's, or
+        /// what <paramref name="layoutOf"/> lays out of the compiled document -- a module stepped into (Part 12a).
         /// </summary>
-        public static (Design Design, SchematicLayout Layout, long Horizon) Prepare(Project project)
+        public static (Design Design, SchematicLayout Layout, long Horizon) Prepare(Project project,
+            Func<Project, CompiledProject, SchematicLayout> layoutOf = null)
         {
             CompiledProject compiled = BoardCompiler.Compile(project);
             if (!compiled.Succeeded)
@@ -328,7 +330,7 @@ namespace BitSorter.ViewModel
                 throw new InvalidOperationException("The document does not elaborate: " + string.Join("; ", elaboration.Diagnostics));
 
             long horizon = project.Stimulus?.StopTime ?? 100;
-            return (elaboration.Design, DocumentSchematic.Build(project, compiled), horizon);
+            return (elaboration.Design, layoutOf != null ? layoutOf(project, compiled) : DocumentSchematic.Build(project, compiled), horizon);
         }
 
         public SimSession Session { get; }

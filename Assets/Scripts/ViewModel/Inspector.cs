@@ -233,7 +233,7 @@ namespace BitSorter.ViewModel
 
                 case BlockPart block:
                     kind = "BLOCK";
-                    says = $"An instance of {block.Module}: what it does is that module's.";
+                    says = $"An instance of {block.Module}: what it does is that module's. A double-click steps inside it.";
                     quick = new[] { "name" };
                     break;
 

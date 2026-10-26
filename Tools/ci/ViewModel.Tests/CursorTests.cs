@@ -203,7 +203,7 @@ namespace BitSorter.ViewModel.Tests
             var seen = new HashSet<string>();
             foreach (KeyBinding binding in WorkbenchKeys.All)
             {
-                Assert.IsTrue(seen.Add((binding.Ctrl ? "c" : "") + (binding.Shift ? "s" : "") + binding.Key), $"{binding} is bound twice");
+                Assert.IsTrue(seen.Add((binding.Ctrl ? "c" : "") + (binding.Alt ? "a" : "") + (binding.Shift ? "s" : "") + binding.Key), $"{binding} is bound twice");
                 Assert.IsFalse(string.IsNullOrWhiteSpace(binding.Says), $"{binding} says nothing");
                 Assert.IsFalse(string.IsNullOrWhiteSpace(binding.Cap), $"{binding} has no cap");
                 Assert.IsTrue(binding.Cap.All(c => c < 128), $"{binding}'s cap is in the font's own letters");

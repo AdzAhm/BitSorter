@@ -679,6 +679,54 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsNull(workbench.InspectorRefusal, "and submitted nothing");
         }
 
+        /// <summary>
+        /// Part 12a: a double-click on the full adder's h1 steps inside it -- the canvas draws the half adder, its line
+        /// saying an edit there changes both -- and the breadcrumb's top crumb steps back out; STEP INSIDE in h2's quick
+        /// panel steps into h2, and Alt+Up out, where Up alone still scrolls the waves.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator ADoubleClickStepsInsideABlock_AndTheBreadcrumbAndAltUp_StepOut()
+        {
+            yield return TestScene.Load();
+            yield return Click(MainMenu.WorkbenchButton);
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowSample(2);   // the full adder
+            yield return null;
+            workbench.Pause();
+            workbench.Session.Finish();
+            yield return null;
+            yield return null;
+            int h1 = Top(workbench).FindPart("h1").Id, h2 = Top(workbench).FindPart("h2").Id;
+
+            yield return DoubleClick(workbench.ScreenPointOf(MiddleOf(workbench, h1)));
+            CollectionAssert.AreEqual(new[] { "h1" }, workbench.SteppedPath, "a double-click on h1 steps inside it");
+            Assert.AreEqual("half_adder", workbench.ShownModule, "the canvas draws the half adder");
+            Assert.IsNull(workbench.Inspection, "and inspects nothing");
+            StringAssert.Contains("all 2 of them", workbench.InspectorSays, "an edit inside changes both half adders, and the line says so");
+            UnityEngine.UIElements.VisualElement crumbs = ShellPanel.Find<UnityEngine.UIElements.VisualElement>(WorkbenchPanel.BreadcrumbName);
+            Assert.AreEqual(UnityEngine.UIElements.DisplayStyle.Flex, crumbs.resolvedStyle.display, "the breadcrumb says where the canvas is");
+
+            yield return Click(WorkbenchPanel.CrumbName + "0");
+            Assert.IsEmpty(workbench.SteppedPath, "the top's crumb steps back out");
+            Assert.AreEqual("full_adder", workbench.ShownModule);
+            Assert.AreEqual(UnityEngine.UIElements.DisplayStyle.None, crumbs.resolvedStyle.display, "and at the top there is no breadcrumb");
+
+            yield return ClickAt(workbench, MiddleOf(workbench, h2));
+            StringAssert.StartsWith("BLOCK h2", workbench.InspectorTitle, "sanity: the click selects h2");
+            yield return Click(WorkbenchPanel.StepInsideName);
+            CollectionAssert.AreEqual(new[] { "h2" }, workbench.SteppedPath, "its quick panel's STEP INSIDE");
+
+            yield return Tap(_keyboard.upArrowKey);
+            CollectionAssert.AreEqual(new[] { "h2" }, workbench.SteppedPath, "Up alone scrolls the waves and steps nowhere");
+            // Alt held first, as a hand holds it, and Up pressed with it.
+            Press(_keyboard.leftAltKey);
+            yield return null;
+            yield return Tap(_keyboard.upArrowKey);
+            Release(_keyboard.leftAltKey);
+            yield return null;
+            Assert.IsEmpty(workbench.SteppedPath, "Alt+Up steps out");
+        }
+
         private IEnumerator Chord(KeyControl key)
         {
             Press(_keyboard.leftCtrlKey);

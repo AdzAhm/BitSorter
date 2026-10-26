@@ -268,6 +268,9 @@ namespace BitSorter.View
         /// <summary>Each binding's key, as the Input System has it, and whether a binding of the same key needs Shift.</summary>
         private Key[] _keys;
         private bool[] _keyHasShifted;
+
+        // Whether another binding of the same key needs Alt: Up scrolls the waves, Alt+Up steps out of a block.
+        private bool[] _keyHasAlt;
         private RectTransform _rings;
 
         private WorkbenchGraphic _legend;
@@ -442,7 +445,7 @@ namespace BitSorter.View
         /// </summary>
         private void TakeKeys(Keyboard keyboard)
         {
-            bool shift = keyboard.shiftKey.isPressed, ctrl = keyboard.ctrlKey.isPressed;
+            bool shift = keyboard.shiftKey.isPressed, ctrl = keyboard.ctrlKey.isPressed, alt = keyboard.altKey.isPressed;
             IReadOnlyList<KeyBinding> all = WorkbenchKeys.All;
 
             // Space with a drag pans the circuit (Part 10a), so Space plays or pauses on its release, and only
@@ -453,7 +456,8 @@ namespace BitSorter.View
             for (int i = 0; i < all.Count; i++)
             {
                 KeyBinding binding = all[i];
-                if (binding.Ctrl != ctrl || (binding.Shift != shift && (binding.Shift || _keyHasShifted[i])))
+                if (binding.Ctrl != ctrl || (binding.Shift != shift && (binding.Shift || _keyHasShifted[i]))
+                    || (binding.Alt != alt && (binding.Alt || _keyHasAlt[i])))
                     continue;
                 bool onRelease = _keys[i] == Key.Space;
                 if (onRelease ? !keyboard[_keys[i]].wasReleasedThisFrame || _spacePanned : !keyboard[_keys[i]].wasPressedThisFrame)
@@ -509,6 +513,7 @@ namespace BitSorter.View
                 case WorkbenchCommand.Redo: RedoEdit(); break;
                 case WorkbenchCommand.Export: OpenExportMenu(); break;
                 case WorkbenchCommand.Keys: _keyMap.Toggle(); break;
+                case WorkbenchCommand.StepOut: StepOut(); break;
             }
         }
 
@@ -1385,6 +1390,10 @@ namespace BitSorter.View
                 // whole of a run, lets it take over without a frame saying so.
                 SwitchRun();
             }
+            else if (_session.StepVersion != _drawnStep)
+            {
+                SteppedInOrOut();
+            }
             else if (_session.LayoutVersion != _drawnLayout)
             {
                 Relaid();
@@ -1454,17 +1463,22 @@ namespace BitSorter.View
             IReadOnlyList<KeyBinding> bindings = WorkbenchKeys.All;
             _keys = new Key[bindings.Count];
             _keyHasShifted = new bool[bindings.Count];
+            _keyHasAlt = new bool[bindings.Count];
             for (int i = 0; i < bindings.Count; i++)
             {
                 _keys[i] = (Key)Enum.Parse(typeof(Key), bindings[i].Key);
                 for (int j = 0; j < bindings.Count; j++)
+                {
                     _keyHasShifted[i] |= bindings[j].Key == bindings[i].Key && bindings[j].Shift && bindings[j].Ctrl == bindings[i].Ctrl;
+                    _keyHasAlt[i] |= bindings[j].Key == bindings[i].Key && bindings[j].Alt && bindings[j].Ctrl == bindings[i].Ctrl;
+                }
             }
 
             BuildToolbar(palette);
             BuildDock(palette);
             BuildInspector(palette);
             BuildPartsPanel(palette);
+            BuildBreadcrumb();
             Fit();
             BuildStage(palette);
             RefreshDockButtons();

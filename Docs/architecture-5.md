@@ -1740,6 +1740,36 @@ re-hosted in them, 11b-3 the popups moved into the shell.
   own. Reference shot 39, new: the keyboard map over the reference; 27 to 38 differ in the status line and the room it
   gave back.
 
+**As built in Part 12a**: stepping inside a block. The plan for Part 12, approved 2026-10-26, is six pull requests --
+12a stepping inside, 12b making a block from a selection, 12c arrays of blocks, 12d code blocks, 12e the code panel,
+12f CodeMirror -- with Ahmad's choices: a double-click steps in, the breadcrumb or Alt+Up steps out, arrays now, the
+code editor in the circuit's window, and a block made from a selection asks for its name.
+
+- **The groundwork came first** (its own pull request, merged with the plan): `BlockMaker`, a selection made into a
+  block with the run unchanged, for 12b; and `DocumentSchematic.Build` for any module of the design, its signals read
+  under an instance's path.
+- **The session edits a module on a path** (`WorkbenchSession.Path`, `Module`): the instances stepped through from
+  the top, the canvas drawing and editing the last one's module, its wires showing that instance's values. Every edit
+  already went by module name, so none of them changed. **The run stays the whole design's**: a step draws again, as
+  a moved part does, and replays nothing; a replay is laid out on the path it was made on, and drawn again on every
+  step. An edit, or an undo, that takes away an instance stepped through steps out to the last one still there.
+- **Editing inside edits the module**, so every instance of it changes, as in SystemVerilog; with nothing selected,
+  the inspector's line says how many there are ("what you change here changes all 2 of them").
+- **In and out** (Ahmad's choices): a double-click on a block steps inside it -- on any other part it still inspects
+  -- as do STEP INSIDE in a block's quick panel and a second click on an instance in DESIGN. A crumb of the breadcrumb
+  in the circuit window's top-left corner, or Alt+Up, steps out. Backspace was already a second DEL, so the key is
+  Alt+Up: `KeyBinding` gains Alt, Up alone still scrolls the waves, and a binding on a key the browser keeps with Alt
+  -- back, forward, home, the address bar, its menus -- is refused as Ctrl's are.
+- A step lets go of what was selected or in hand: a part's id in one module is another part's in the next. The new
+  drawing is fitted to the window; the waves keep their rows and their view.
+- **PARTS offers no block that holds the module shown** (`PartsCatalog.For`): stepped inside a half adder, the full
+  adder round it is no part to place, since the document refuses a module inside itself.
+- **Checked.** `SteppingTests` (7) under dotnet: in and out with the inner module read under the instance, only a
+  block or a scope of the design stepped into, an edit inside reaching both instances' signals in the run, an undone
+  instance stepping out, the canvas letting go on a step, the parts list inside, and Alt+Up's binding. In Play Mode: a double-click on h1,
+  the breadcrumb back out, STEP INSIDE on h2, Up alone staying and Alt+Up stepping out. Reference shot 40, new: the
+  full adder stepped inside h1; 39 differs in the key map's two new lines.
+
 ---
 
 ## 11. The parts
@@ -1760,7 +1790,7 @@ Each part is one pull request into `v5`, ends with every suite green, and leaves
 | 9 | The waveform and run controls; the workbench's view-model in a Unity-free layer of its own |
 | 10 | Editing on the free canvas -- in four: 10a placement and selection **built** (see "As built in Part 10a"); 10b wiring **built**, drawn (10b-1) and reshaped (10b-2); 10c the inspector **built**; 10d copy, align and the minimap **built**; 10e what its browser smoke test found **built** |
 | 11 | The workbench shell, in UI Toolkit -- **built**, in four: 11a the bridges and the toolbar; 11b the docked layout -- its panels (11b-1), the inspector docked (11b-2), the popups in the shell (11b-3); 11c the transcript and the hierarchy; 11d the keyboard map, the status line and the docs |
-| 12 | Hierarchy, and written blocks, edited in CodeMirror in a browser |
+| 12 | Hierarchy, and written blocks, edited in CodeMirror in a browser -- in six: 12a stepping inside a block **built** (see "As built in Part 12a"); 12b make block, 12c arrays, 12d code blocks, 12e the code panel, 12f CodeMirror |
 | 13 | Export and import (and a levelized path in the engine, only if a measurement asks for it) |
 | 14 | The course's tools: path delays, static timing, gate-library mode, step tests, lint, tri-state |
 | 15 | The Exercises and the tutorial |

@@ -101,9 +101,29 @@ namespace BitSorter.ViewModel
         {
             var entries = new List<CatalogEntry>(Fixed);
             foreach (Module m in project.Modules)
-                if (!string.Equals(m.Name, module, StringComparison.Ordinal))
+                if (!string.Equals(m.Name, module, StringComparison.Ordinal) && !Holds(project, m, module, new HashSet<string>()))
                     entries.Add(new CatalogEntry("block:" + m.Name, m.Name, CatalogKind.Block, module: m.Name));
             return entries;
+        }
+
+        /// <summary>
+        /// Whether <paramref name="outer"/> has <paramref name="inner"/> somewhere inside it: a block of it offered inside
+        /// <paramref name="inner"/> would put a module inside itself, which the document refuses -- stepped inside a half
+        /// adder (Part 12a), the full adder round it is not a part to place.
+        /// </summary>
+        private static bool Holds(Project project, Module outer, string inner, HashSet<string> seen)
+        {
+            if (!seen.Add(outer.Name))
+                return false;
+            foreach (Part part in outer.Parts)
+            {
+                if (!(part is BlockPart block) || !(project.Find(block.Module) is Module next))
+                    continue;
+                if (string.Equals(next.Name, inner, StringComparison.Ordinal) || Holds(project, next, inner, seen))
+                    return true;
+            }
+
+            return false;
         }
 
         /// <summary>The entry of this key among <see cref="For"/>'s, or null.</summary>

@@ -119,6 +119,8 @@ namespace BitSorter.View
             _editor = new CanvasEditor(_session);
             _canvasPointer.Abandon();
             _drawnLayout = _session.LayoutVersion;
+            _drawnStep = _session.StepVersion;
+            ShowBreadcrumb();
             _overlayVersion = -1;
             _portKeys = PortKeys(_model);
             _keptProject = _session.Project;
@@ -284,6 +286,9 @@ namespace BitSorter.View
                     return;
 
                 case CanvasGesture.Inspect:
+                    // A double-click on a block steps inside it (Part 12a); on anything else it inspects.
+                    if (command.Target.Kind == CanvasTargetKind.Part && IsBlock(command.Target.Part) && StepInto(command.Target.Part))
+                        return;
                     _editor.Do(command);
                     FocusInspector();
                     return;

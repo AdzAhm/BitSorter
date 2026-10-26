@@ -418,7 +418,7 @@ namespace BitSorter.View
                 }
 
                 ShellButton scope = ShellTheme.Button(ScopeRowName + i.ToString(CultureInfo.InvariantCulture), row.Label, palette,
-                    () => AddScope(at), UiType.Caption);
+                    () => ScopeClicked(at), UiType.Caption);
                 scope.style.borderLeftWidth = scope.style.borderRightWidth = scope.style.borderTopWidth = scope.style.borderBottomWidth = 0f;
                 scope.style.backgroundColor = Color.clear;
                 scope.style.unityTextAlign = TextAnchor.MiddleLeft;
@@ -439,6 +439,27 @@ namespace BitSorter.View
             float overflow = Mathf.Max(0f, PartsTop + rows * ScopeRowHeight + PanelPad - _regions.Parts.height);
             _hierarchyScroll = Mathf.Clamp(_hierarchyScroll + units, 0f, overflow);
             ShellTheme.Place(_hierarchyList, 0f, PartsTop - _hierarchyScroll, ShellLayout.PartsWidth, rows * ScopeRowHeight);
+        }
+
+        // The hierarchy's row last clicked, and when: a second click on it soon after is a double-click (Part 12a).
+        private int _scopeClicked = -1;
+        private double _scopeClickedAt = double.NegativeInfinity;
+
+        /// <summary>
+        /// A click on row <paramref name="row"/> of the hierarchy adds its ports to the waveform (<see cref="AddScope"/>); a
+        /// second one soon after steps inside it, when it is a block of the design (Part 12a). Counted on the game's clock,
+        /// as the canvas's double-click is.
+        /// </summary>
+        private void ScopeClicked(int row)
+        {
+            double now = UnityEngine.Time.timeAsDouble;
+            bool second = row == _scopeClicked && now - _scopeClickedAt <= CanvasPointer.DoubleClickSeconds;
+            _scopeClicked = second ? -1 : row;
+            _scopeClickedAt = now;
+            if (second && _hierarchy != null && row >= 0 && row < _hierarchy.Rows.Count && StepToScope(_hierarchy.Rows[row].Node.Path))
+                return;
+            if (!second)
+                AddScope(row);
         }
 
         /// <summary>

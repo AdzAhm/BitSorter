@@ -176,7 +176,7 @@ namespace BitSorter.View
                 bool none = parts + wires == 0;
                 SetText(_barTitle, none ? "NOTHING SELECTED" : SelectedText(parts, wires));
                 SetText(_barSays, none
-                    ? "Click a part or a wire to see it here and change it; a double-click on one, or Enter, starts typing."
+                    ? InsideText() ?? "Click a part or a wire to see it here and change it; a double-click on one, or Enter, starts typing."
                     : "One thing at a time is inspected: click one alone to see it here.");
                 _barSays.style.color = palette.TextDim;
                 SetText(_quickTitle, none ? "Select a part or a wire." : SelectedText(parts, wires).ToLowerInvariant());
@@ -213,6 +213,15 @@ namespace BitSorter.View
                 _quick.Add(input);
                 _quickInputs.Add((field, input));
                 y += QuickLabelHeight + QuickFieldHeight + QuickGap;
+            }
+
+            // A block's quick panel steps inside it, as a double-click on it does (Part 12a).
+            if (IsBlock(inspection.Part))
+            {
+                int part = inspection.Part;
+                ShellButton step = ShellTheme.Button(StepInsideName, "STEP INSIDE", palette, () => StepInto(part), UiType.Caption);
+                ShellTheme.Place(step, PanelPad, y, inside, QuickFieldHeight);
+                _quick.Add(step);
             }
 
             LayoutInspectorBar();

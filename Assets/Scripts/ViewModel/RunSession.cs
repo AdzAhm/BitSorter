@@ -32,12 +32,14 @@ namespace BitSorter.ViewModel
 
         /// <summary>
         /// Compiles <paramref name="project"/> and makes the first slice of its run, timed by
-        /// <paramref name="nowMilliseconds"/>. Throws when the document does not compile.
+        /// <paramref name="nowMilliseconds"/>, drawn as <paramref name="layoutOf"/> lays it out (the top without
+        /// one). Throws when the document does not compile.
         /// </summary>
         public static RunSession Open(Project project, Func<double> nowMilliseconds,
-            int chunkEvents = RunSlicer.ChunkEvents, double budgetMilliseconds = RunSlicer.BudgetMilliseconds)
+            int chunkEvents = RunSlicer.ChunkEvents, double budgetMilliseconds = RunSlicer.BudgetMilliseconds,
+            Func<Project, CompiledProject, SchematicLayout> layoutOf = null)
         {
-            (Design design, SchematicLayout layout, long horizon) = WorkbenchModel.Prepare(project);
+            (Design design, SchematicLayout layout, long horizon) = WorkbenchModel.Prepare(project, layoutOf);
             var session = new SimSession(design, null);
             var slicer = new RunSlicer(session, horizon, nowMilliseconds, chunkEvents, budgetMilliseconds);
 

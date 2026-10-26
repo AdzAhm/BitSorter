@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using BitSorter.Board;
+using BitSorter.Sim;
 using BitSorter.SystemVerilog;
 
 namespace BitSorter.ViewModel
@@ -57,6 +58,9 @@ namespace BitSorter.ViewModel
         /// <summary>Whether the replay has been asked to run on as far as the shown run's timeline.</summary>
         private bool _replayRanOn;
 
+        // The instances stepped through from the top, outermost first (Part 12a).
+        private readonly List<string> _path = new List<string>();
+
         /// <summary>
         /// <paramref name="project"/>, compiled and its first slice run, each slice timed by
         /// <paramref name="nowMilliseconds"/>. Throws when the document does not compile.
@@ -68,7 +72,7 @@ namespace BitSorter.ViewModel
             _chunkEvents = chunkEvents;
             _budgetMilliseconds = budgetMilliseconds;
             Editor = new BoardEditor(project);
-            Run = RunSession.Open(project, _now, _chunkEvents, _budgetMilliseconds);
+            Run = RunSession.Open(project, _now, _chunkEvents, _budgetMilliseconds, LayoutOf);
         }
 
         /// <summary>The document, and its undo; every change goes through it, and through this session's own edits for a replay.</summary>
@@ -97,8 +101,123 @@ namespace BitSorter.ViewModel
         /// <summary>How many times the run shown has been drawn again round an edit (Part 10a): what tells the view the drawing changed under it.</summary>
         public int LayoutVersion { get; private set; }
 
-        /// <summary>The module the canvas edits: the design's top (Part 12 steps inside blocks).</summary>
-        public string Module => Project.Top;
+        /// <summary>The module the canvas edits: the design's top, or the module of the instance stepped into last (Part 12a).</summary>
+        public string Module => ModuleOn(Project, _path, out _);
+
+        // -----------------------------------------------------------------
+        // Stepping inside a block (Part 12a)
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// The instances stepped through from the top, outermost first -- <c>h1</c>, then whatever is inside it -- and
+        /// empty at the top. The canvas draws and edits the last one's module, its wires showing that instance's
+        /// values; the run is still the whole design's.
+        /// </summary>
+        public IReadOnlyList<string> Path => _path;
+
+        /// <summary>How many times the canvas has stepped in or out: what tells the view it shows another module, rather than the same one edited.</summary>
+        public int StepVersion { get; private set; }
+
+        /// <summary>
+        /// Steps inside the block <paramref name="part"/> of the module shown: false for anything that is not a block
+        /// of a module the document has. **Editing inside edits the module**, so every instance of it changes, as in
+        /// SystemVerilog.
+        /// </summary>
+        public bool StepInto(int part)
+        {
+            Module module = Project.Find(Module);
+            if (!(module?.FindPart(part) is BlockPart block) || string.IsNullOrEmpty(block.Name) || Project.Find(block.Module) == null)
+                return false;
+            _path.Add(block.Name);
+            Stepped();
+            return true;
+        }
+
+        /// <summary>Steps <paramref name="levels"/> out, no further than the top: false at the top already.</summary>
+        public bool StepOut(int levels = 1)
+        {
+            if (_path.Count == 0 || levels < 1)
+                return false;
+            levels = Math.Min(levels, _path.Count);
+            _path.RemoveRange(_path.Count - levels, levels);
+            Stepped();
+            return true;
+        }
+
+        /// <summary>
+        /// Steps to the instance at <paramref name="scope"/>, a path of the design -- <c>full_adder_tb.dut.h1</c>, as the
+        /// hierarchy lists it -- or to the top for the design's own path. False for a scope that is not the design or a
+        /// block inside it: the testbench, or a cell a gate with a delay is printed as.
+        /// </summary>
+        public bool StepToScope(string scope)
+        {
+            CompiledProject compiled = BoardCompiler.Compile(Project);
+            if (!compiled.Succeeded || scope == null)
+                return false;
+            if (scope == compiled.DesignPath)
+                return _path.Count == 0 || StepOut(_path.Count);
+            if (!scope.StartsWith(compiled.DesignPath + ".", StringComparison.Ordinal))
+                return false;
+
+            string[] names = scope.Substring(compiled.DesignPath.Length + 1).Split('.');
+            ModuleOn(Project, names, out int valid);
+            if (valid < names.Length)
+                return false;
+            _path.Clear();
+            _path.AddRange(names);
+            Stepped();
+            return true;
+        }
+
+        /// <summary>How many instances of <paramref name="module"/> the design has: what an edit inside it changes.</summary>
+        public int InstancesOf(string module)
+        {
+            int count = 0;
+            foreach (ScopeInfo scope in Run.Model.Session.Design.Scopes)
+                if (scope.Kind == ScopeKind.Instance && scope.Module == module)
+                    count++;
+            return count;
+        }
+
+        /// <summary>
+        /// The module at the end of <paramref name="path"/> from the top of <paramref name="project"/>, and how many of
+        /// its steps were blocks of modules the document has: the module of the last of those.
+        /// </summary>
+        public static string ModuleOn(Project project, IReadOnlyList<string> path, out int valid)
+        {
+            Module module = project.TopModule;
+            valid = 0;
+            if (module == null)
+                return project.Top;
+            foreach (string name in path)
+            {
+                if (!(module.FindPart(name) is BlockPart block) || !(project.Find(block.Module) is Module inner))
+                    break;
+                module = inner;
+                valid++;
+            }
+
+            return module.Name;
+        }
+
+        /// <summary>The design path of the instance stepped into, under the design's <paramref name="designPath"/>.</summary>
+        private string InstancePathUnder(string designPath)
+        {
+            string path = designPath;
+            foreach (string name in _path)
+                path += "." + name;
+            return path;
+        }
+
+        /// <summary>The drawing of the module stepped into, its signals read under the instance stepped through.</summary>
+        private SchematicLayout LayoutOf(Project project, CompiledProject compiled) =>
+            DocumentSchematic.Build(project, compiled, ModuleOn(project, _path, out _), InstancePathUnder(compiled.DesignPath));
+
+        private void Stepped()
+        {
+            Relayout();
+            StepVersion++;
+        }
 
         // -----------------------------------------------------------------
         // The canvas's edits (Part 10a)
@@ -221,14 +340,24 @@ namespace BitSorter.ViewModel
             return result;
         }
 
-        /// <summary>The run shown, and any replay, drawn again round the document as it is now.</summary>
+        /// <summary>
+        /// The run shown, and any replay, drawn again round the document as it is now. An instance stepped through that
+        /// the edit took away -- or an undo did -- is stepped out of, to the last one still there.
+        /// </summary>
         private void Relayout()
         {
+            ModuleOn(Project, _path, out int valid);
+            if (valid < _path.Count)
+            {
+                _path.RemoveRange(valid, _path.Count - valid);
+                StepVersion++;
+            }
+
             CompiledProject compiled = BoardCompiler.Compile(Project);
             if (!compiled.Succeeded)
                 return;   // a document the rules let through compiles; this is only never-throw
 
-            SchematicLayout layout = DocumentSchematic.Build(Project, compiled);
+            SchematicLayout layout = LayoutOf(Project, compiled);
             Run.Relayout(layout);
             Replay?.Relayout(layout);
             LayoutVersion++;
@@ -283,7 +412,7 @@ namespace BitSorter.ViewModel
         private void StartReplay(long from)
         {
             ChangedFrom = Math.Max(0, from);
-            Replay = RunSession.Open(Project, _now, _chunkEvents, _budgetMilliseconds);
+            Replay = RunSession.Open(Project, _now, _chunkEvents, _budgetMilliseconds, LayoutOf);
             _replayRanOn = false;
         }
 

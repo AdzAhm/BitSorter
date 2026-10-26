@@ -407,6 +407,39 @@ namespace BitSorter.ViewModel
             }
         }
 
+        // -----------------------------------------------------------------
+        // Stepping inside a block (Part 12a)
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// Steps inside <paramref name="target"/>, a double-click's, when it is a block (<see cref="WorkbenchSession.StepInto"/>);
+        /// false for anything else, which a double-click inspects.
+        /// </summary>
+        public bool StepInto(CanvasTarget target) => target.Kind == CanvasTargetKind.Part && Stepped(_session.StepInto(target.Part));
+
+        /// <summary>Steps <paramref name="levels"/> out (<see cref="WorkbenchSession.StepOut"/>); false at the top.</summary>
+        public bool StepOut(int levels = 1) => Stepped(_session.StepOut(levels));
+
+        /// <summary>Steps to an instance by its path in the design (<see cref="WorkbenchSession.StepToScope"/>).</summary>
+        public bool StepToScope(string scope) => Stepped(_session.StepToScope(scope));
+
+        /// <summary>
+        /// After a step, what was selected, in hand, drawn or dragged is let go: it was the module stepped out of, and a
+        /// part's id in one module is another part's in the next.
+        /// </summary>
+        private bool Stepped(bool stepped)
+        {
+            if (!stepped)
+                return false;
+            Abandon();
+            AbandonWire();
+            PutDown();
+            Selection.Clear();
+            Refusal = null;
+            Relaid();
+            return true;
+        }
+
         /// <summary>Lets go of a drag or a box without making it: Escape mid-drag.</summary>
         public void Abandon()
         {

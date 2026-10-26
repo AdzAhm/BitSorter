@@ -1314,6 +1314,28 @@ namespace BitSorter.PlayMode.Tests
             yield return Capture("39-workbench-keys");
         }
 
+        /// <summary>Part 12a: the full adder stepped inside h1 -- the half adder drawn with h1's values, the breadcrumb over it.</summary>
+        [UnityTest]
+        public IEnumerator Shot40_WorkbenchInside()
+        {
+            yield return LoadTheGame();
+            yield return Frames(2);
+
+            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            yield return Frames(2);
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowSample(2);   // the full adder
+            yield return Frames(2);
+            workbench.Pause();
+            workbench.Session.Finish();
+            Assert.IsTrue(workbench.StepInto(workbench.Session.Project.TopModule.FindPart("h1").Id), "sanity: h1 is stepped into");
+            workbench.Seek(26.5);
+            yield return Frames(30);
+
+            yield return Capture("40-workbench-inside");
+        }
+
         private static IEnumerator OpensOnItsCircuit(string level, string fixture, string shot)
         {
             yield return LoadTheGame();

@@ -54,7 +54,7 @@ namespace BitSorter.ViewModel
         {
             new KeyMapEntry("CLICK", "a part on the left, then the circuit, to place it"),
             new KeyMapEntry("DRAG", "from a pin to wire it; a part to move it; nothing to select"),
-            new KeyMapEntry("DOUBLE-CLICK", "a part or a wire to inspect it"),
+            new KeyMapEntry("DOUBLE-CLICK", "a block to step inside it; any other part, or a wire, to inspect it"),
             new KeyMapEntry("RIGHT-CLICK", "the circuit's menu: align, turn, copy, delete"),
             new KeyMapEntry("MIDDLE-DRAG", "pan; or SPACE and drag"),
             new KeyMapEntry("WHEEL", "zoom about the pointer"),

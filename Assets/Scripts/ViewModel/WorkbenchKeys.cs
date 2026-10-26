@@ -59,12 +59,15 @@ namespace BitSorter.ViewModel
 
         /// <summary>The keyboard map: every key and gesture, grouped (Part 11d).</summary>
         Keys,
+
+        /// <summary>Out of the block stepped into, to the module round it (Part 12a).</summary>
+        StepOut,
     }
 
     /// <summary>One key and what it does: the key by its Input System name, the modifiers held, and the words for it.</summary>
     public readonly struct KeyBinding
     {
-        public KeyBinding(string key, WorkbenchCommand command, string cap, string says, bool shift = false, bool ctrl = false)
+        public KeyBinding(string key, WorkbenchCommand command, string cap, string says, bool shift = false, bool ctrl = false, bool alt = false)
         {
             Key = key;
             Command = command;
@@ -72,6 +75,7 @@ namespace BitSorter.ViewModel
             Says = says;
             Shift = shift;
             Ctrl = ctrl;
+            Alt = alt;
         }
 
         /// <summary>The key, as the Input System's <c>Key</c> names it: <c>Space</c>, <c>RightArrow</c>, <c>A</c>.</summary>
@@ -87,8 +91,9 @@ namespace BitSorter.ViewModel
 
         public bool Shift { get; }
         public bool Ctrl { get; }
+        public bool Alt { get; }
 
-        public override string ToString() => (Ctrl ? "Ctrl+" : "") + (Shift ? "Shift+" : "") + Key + " " + Command;
+        public override string ToString() => (Ctrl ? "Ctrl+" : "") + (Alt ? "Alt+" : "") + (Shift ? "Shift+" : "") + Key + " " + Command;
     }
 
     /// <summary>
@@ -109,6 +114,9 @@ namespace BitSorter.ViewModel
 
         /// <summary>The letters a browser keeps with Ctrl.</summary>
         public static readonly IReadOnlyList<string> BrowserCtrlKeys = Array.AsReadOnly(new[] { "R", "W", "S", "T", "N", "L" });
+
+        /// <summary>The keys a browser keeps with Alt: back and forward, home, the address bar and its menus.</summary>
+        public static readonly IReadOnlyList<string> BrowserAltKeys = Array.AsReadOnly(new[] { "LeftArrow", "RightArrow", "Home", "D", "E", "F" });
 
         /// <summary>Every binding, in the order a list of keys shows them.</summary>
         public static readonly IReadOnlyList<KeyBinding> All = Array.AsReadOnly(new[]
@@ -145,6 +153,7 @@ namespace BitSorter.ViewModel
             new KeyBinding("V", WorkbenchCommand.Mirror, "V", "mirror the selected parts left to right"),
             new KeyBinding("A", WorkbenchCommand.SelectAll, "CTRL A", "select every part and wire", ctrl: true),
             new KeyBinding("Enter", WorkbenchCommand.Inspect, "ENTER", "inspect the part or wire selected: its delays, width, name"),
+            new KeyBinding("UpArrow", WorkbenchCommand.StepOut, "ALT UP", "step out of a block, to the module round it", alt: true),
             new KeyBinding("C", WorkbenchCommand.Copy, "CTRL C", "copy the parts selected, and the wires between them", ctrl: true),
             new KeyBinding("X", WorkbenchCommand.Cut, "CTRL X", "cut the parts selected", ctrl: true),
             new KeyBinding("V", WorkbenchCommand.Paste, "CTRL V", "paste what was copied, a cell on", ctrl: true),
@@ -168,6 +177,13 @@ namespace BitSorter.ViewModel
         /// <summary>Why a binding may not be used -- a key the game or a browser owns -- or null when it may.</summary>
         public static string WhyRefused(KeyBinding binding)
         {
+            if (binding.Alt)
+            {
+                foreach (string key in BrowserAltKeys)
+                    if (binding.Key == key)
+                        return $"Alt+{key} is the browser's, and a page cannot take it back";
+            }
+
             if (!binding.Ctrl)
             {
                 foreach (string key in GameKeys)
