@@ -218,10 +218,20 @@ namespace BitSorter.Board
         public override IReadOnlyList<Pin> Pins(Project project) => new[] { new Pin("in", PinDirection.In, Width) };
     }
 
-    /// <summary>An instance of another module of the project: its pins are that module's ports.</summary>
+    /// <summary>
+    /// An instance of another module of the project: its pins are that module's ports. With <see cref="Copies"/> above 1 it
+    /// is an array of that many instances (Part 12c), each pin a bus of every copy's port side by side -- copy i's on bits
+    /// i*w to i*w+w-1 -- printed as a <c>generate for</c>.
+    /// </summary>
     public sealed record BlockPart : Part
     {
+        /// <summary>How many copies an array of the block may have.</summary>
+        public const int MaxCopies = 64;
+
         public string Module { get; init; }
+
+        /// <summary>How many instances the block is, side by side: 1 for one (Part 12c).</summary>
+        public int Copies { get; init; } = 1;
 
         public override IReadOnlyList<Pin> Pins(Project project)
         {
@@ -229,9 +239,10 @@ namespace BitSorter.Board
             if (module == null)
                 return Array.Empty<Pin>();
 
+            int copies = Math.Max(1, Copies);
             var pins = new List<Pin>();
             foreach (PortPart port in module.Ports)
-                pins.Add(new Pin(port.Name, port.Direction == PortDirection.Input ? PinDirection.In : PinDirection.Out, port.Width));
+                pins.Add(new Pin(port.Name, port.Direction == PortDirection.Input ? PinDirection.In : PinDirection.Out, port.Width * copies));
             return pins;
         }
     }

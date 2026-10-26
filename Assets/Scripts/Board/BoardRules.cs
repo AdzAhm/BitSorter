@@ -321,6 +321,11 @@ namespace BitSorter.Board
                 case BlockPart block:
                     if (project.Find(block.Module) == null)
                         Error($"{block.Name} is a {block.Module}, and there is no module called that.");
+                    if (block.Copies < 1 || block.Copies > BlockPart.MaxCopies)
+                        Error($"{block.Name} has {block.Copies} copies; a block can be 1 to {BlockPart.MaxCopies}.");
+                    else if (block.Copies > 1)
+                        foreach (Pin pin in block.Pins(project))
+                            Width(pin.Width, pin.Name + " of its copies side by side");
                     break;
             }
         }

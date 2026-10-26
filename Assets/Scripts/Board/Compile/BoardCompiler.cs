@@ -89,6 +89,9 @@ namespace BitSorter.Board
     /// </remarks>
     public static class BoardCompiler
     {
+        /// <summary>The name of the one instance inside an array's generate block (Part 12c): copy i is <c>name[i].u</c>.</summary>
+        public const string ArrayInstance = "u";
+
         public static CompiledProject Compile(Project project)
         {
             List<BoardDiagnostic> diagnostics = BoardRules.Check(project);
@@ -408,6 +411,12 @@ namespace BitSorter.Board
 
             private void Block(BlockPart block)
             {
+                if (block.Copies > 1)
+                {
+                    BlockArray(block);
+                    return;
+                }
+
                 var instantiation = new ModuleInstantiation { Module = block.Module };
                 var instance = new ModuleInstance { Name = block.Name };
                 foreach (Pin pin in block.Pins(_project))
@@ -418,6 +427,52 @@ namespace BitSorter.Board
 
                 instantiation.Instances.Add(instance);
                 _items.Add(instantiation);
+            }
+
+            /// <summary>
+            /// An array of a block (Part 12c), in the course's style: a <c>generate for</c> labelled with the block's name,
+            /// holding one instance, <c>u</c>, each of whose ports takes its own copy's bits of the bus on the block's pin --
+            /// <c>.a(a[i])</c>, or <c>.a(a[i*4 +: 4])</c> for a port four bits wide. Its genvar is <c>i</c> unless the module
+            /// already has something of that name.
+            /// </summary>
+            private void BlockArray(BlockPart block)
+            {
+                Module inner = _project.Find(block.Module);
+                string genvar = Unique("i");
+                var instance = new ModuleInstance { Name = ArrayInstance };
+                foreach (PortPart port in inner.Ports)
+                {
+                    Net net = NetOf(block, port.Name);
+                    instance.Connections.Add(Sv.Connect(port.Name, IsOpenBlockPin(net) ? null : CopyOf(net.Name, port.Width, genvar)));
+                }
+
+                var instantiation = new ModuleInstantiation { Module = block.Module };
+                instantiation.Instances.Add(instance);
+                var body = new GenerateBlock { Label = block.Name, HasBeginEnd = true };
+                body.Items.Add(instantiation);
+                _items.Add(new LoopGenerate
+                {
+                    DeclaresGenvar = true,
+                    Variable = genvar,
+                    Start = Sv.Number(0),
+                    Condition = new BinaryExpression { Operator = "<", Left = Sv.Name(genvar), Right = Sv.Number(block.Copies) },
+                    StepOperator = "++",
+                    Body = body,
+                });
+            }
+
+            /// <summary>Copy <paramref name="genvar"/>'s <paramref name="width"/> bits of the bus <paramref name="net"/>.</summary>
+            private static Expression CopyOf(string net, int width, string genvar)
+            {
+                if (width == 1)
+                    return new IndexExpression { Target = Sv.Name(net), Index = Sv.Name(genvar) };
+                return new RangeSelectExpression
+                {
+                    Target = Sv.Name(net),
+                    Left = new BinaryExpression { Operator = "*", Left = Sv.Name(genvar), Right = Sv.Number(width) },
+                    Right = Sv.Number(width),
+                    Kind = RangeKind.IndexedUp,
+                };
             }
 
             /// <summary>A block's pin with nothing on it: left open in the instance, and not declared.</summary>

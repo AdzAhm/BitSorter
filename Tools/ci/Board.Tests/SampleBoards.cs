@@ -16,7 +16,7 @@ namespace BitSorter.Board.Tests
     {
         public static IEnumerable<string> Names => new[]
         {
-            "half_adder", "half_adder_delayed", "full_adder", "johnson", "buses", "mux4", "tristate",
+            "half_adder", "half_adder_delayed", "full_adder", "johnson", "buses", "mux4", "tristate", "half_adders", "ripple8",
         };
 
         public static Project Build(string name)
@@ -30,6 +30,8 @@ namespace BitSorter.Board.Tests
                 case "buses": return Buses();
                 case "mux4": return Mux4();
                 case "tristate": return TriState();
+                case "half_adders": return HalfAdders();
+                case "ripple8": return Ripple8();
                 default: throw new ArgumentException(name);
             }
         }
@@ -124,6 +126,68 @@ namespace BitSorter.Board.Tests
             b.Wire(or, "y", cout, "in");
 
             return Exhaustive(editor, new[] { "a", "b", "cin" }, 20);
+        }
+
+        /// <summary>Four half adders as one array block (Part 12c): bit i of each bus to copy i.</summary>
+        private static Project HalfAdders()
+        {
+            BoardEditor editor = HalfAdder("half_adder", 1, 2);
+            Must(editor.AddModule("half_adders"));
+            Must(editor.SetTop("half_adders"));
+
+            var b = new Builder(editor, "half_adders");
+            int a = b.In("a", 4), bb = b.In("b", 4), s = b.Out("s", 4), c = b.Out("c", 4);
+            int ha = b.Add(new BlockPart { Module = "half_adder", Copies = 4 });
+            b.Wire(a, "out", ha, "a");
+            b.Wire(bb, "out", ha, "b");
+            b.Wire(ha, "s", s, "in");
+            b.Wire(ha, "c", c, "in");
+            return Random(editor, new[] { ("a", 4), ("b", 4) }, 12, 9, 7);
+        }
+
+        /// <summary>
+        /// An eight-bit ripple-carry adder (Part 12c): eight full adders as one array block, the carry passed from each copy
+        /// to the next through a splitter and a joiner -- copy i's cout into copy i+1's cin, cin into copy 0's, copy 7's out.
+        /// </summary>
+        private static Project Ripple8()
+        {
+            Project fullAdder = FullAdder();
+            var editor = new BoardEditor(fullAdder with { Stimulus = null });
+            Must(editor.AddModule("ripple8"));
+            Must(editor.SetTop("ripple8"));
+
+            var b = new Builder(editor, "ripple8");
+            int a = b.In("a", 8), bb = b.In("b", 8), cin = b.In("cin"), sum = b.Out("sum", 8), cout = b.Out("cout");
+            int fa = b.Add(new BlockPart { Module = "full_adder", Copies = 8 });
+            int carries = b.Add(new SplitterPart { Width = 8 });
+            int chain = b.Add(new JoinerPart { Width = 8 });
+            b.Wire(a, "out", fa, "a");
+            b.Wire(bb, "out", fa, "b");
+            b.Wire(fa, "sum", sum, "in");
+            b.Wire(fa, "cout", carries, "in");
+            b.Wire(cin, "out", chain, "i0");
+            for (int i = 1; i < 8; i++)
+                b.Wire(carries, "o" + (i - 1), chain, "i" + i);
+            b.Wire(carries, "o7", cout, "in");
+            b.Wire(chain, "out", fa, "cin");
+            return Random(editor, new[] { ("a", 8), ("b", 8), ("cin", 1) }, 12, 40, 11);
+        }
+
+        /// <summary><paramref name="vectors"/> random values on each input, <paramref name="gap"/> apart, from a fixed seed.</summary>
+        private static Project Random(BoardEditor editor, (string Port, int Width)[] inputs, int vectors, long gap, int seed)
+        {
+            var random = new Random(seed);
+            var tracks = new List<Track>();
+            foreach ((string port, int width) in inputs)
+            {
+                var steps = new List<Step>();
+                for (int t = 0; t < vectors; t++)
+                    steps.Add(new Step(t * gap, Bits((ulong)random.Next(1 << width), width)));
+                tracks.Add(new Track { Port = port, Steps = steps });
+            }
+
+            Must(editor.SetStimulus(new Stimulus { Tracks = tracks, End = vectors * gap }));
+            return editor.Project;
         }
 
         /// <summary>

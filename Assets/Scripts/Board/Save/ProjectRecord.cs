@@ -215,6 +215,9 @@ namespace BitSorter.Board
         /// <summary>A block's module.</summary>
         public string module;
 
+        /// <summary>How many copies a block is (Part 12c); a file from before arrays has none, read as one.</summary>
+        public int copies;
+
         public static PartRecord From(Part part)
         {
             var file = new PartRecord { id = part.Id, name = part.Name };
@@ -266,6 +269,7 @@ namespace BitSorter.Board
                 case BlockPart b:
                     file.kind = "block";
                     file.module = b.Module;
+                    file.copies = b.Copies;
                     break;
             }
 
@@ -308,7 +312,7 @@ namespace BitSorter.Board
                 case "splitter": return new SplitterPart { Id = id, Name = name, Width = width };
                 case "joiner": return new JoinerPart { Id = id, Name = name, Width = width };
                 case "lamp": return new LampPart { Id = id, Name = name, Width = width };
-                case "block": return new BlockPart { Id = id, Name = name, Module = module };
+                case "block": return new BlockPart { Id = id, Name = name, Module = module, Copies = Math.Max(1, copies) };
 
                 default:
                     problems.Add($"{where} is a part of a kind this BitSorter does not know, \"{kind}\"; it was left out.");

@@ -59,9 +59,27 @@ namespace BitSorter.Board
                 if (!seen.Add(module.Name) || depth > 64)
                     return;
                 foreach (ModuleItem item in module.Items)
-                    if (item is ModuleInstantiation inst && !IsCell(inst.Module) && modules.TryGetValue(inst.Module, out ModuleDeclaration inner))
-                        Visit(inner, depth + 1);
+                    VisitItem(item, depth);
                 order.Add(module);
+            }
+
+            // An instance, and one inside a generate construct -- an array of a block (Part 12c).
+            void VisitItem(ModuleItem item, int depth)
+            {
+                switch (item)
+                {
+                    case ModuleInstantiation inst when !IsCell(inst.Module) && modules.TryGetValue(inst.Module, out ModuleDeclaration inner):
+                        Visit(inner, depth + 1);
+                        break;
+                    case GenerateRegion region:
+                        foreach (ModuleItem inside in region.Items)
+                            VisitItem(inside, depth);
+                        break;
+                    case LoopGenerate loop when loop.Body != null:
+                        foreach (ModuleItem inside in loop.Body.Items)
+                            VisitItem(inside, depth);
+                        break;
+                }
             }
 
             Visit(topModule, 0);
@@ -293,6 +311,20 @@ namespace BitSorter.Board
                         Instances(instantiation);
                         return;
 
+                    // An array of a block, as the board prints one (Part 12c); its genvar declared on its own, or a
+                    // generate region round it, as the course writes them.
+                    case GenvarDeclaration _:
+                        return;
+
+                    case GenerateRegion region:
+                        foreach (ModuleItem inner in region.Items)
+                            Item(inner);
+                        return;
+
+                    case LoopGenerate loop when IsArray(loop):
+                        Array(loop);
+                        return;
+
                     case ContinuousAssign assign:
                         foreach (Assignment a in assign.Assignments)
                             Assign(a, assign.Delay);
@@ -410,6 +442,67 @@ namespace BitSorter.Board
                     }
                 }
             }
+
+            /// <summary>
+            /// Whether <paramref name="loop"/> is an array of a block as the board prints one (Part 12c): from 0 while below a
+            /// plain count, one at a time, a labelled block holding one instance of a module read, each of its ports either
+            /// left open or given its own copy's bits of a net -- <c>.a(a[i])</c> or <c>.a(a[i*w +: w])</c>.
+            /// </summary>
+            private bool IsArray(LoopGenerate loop)
+            {
+                string i = loop.Variable;
+                if (!TryConstant(loop.Start, out long start) || start != 0 || loop.StepOperator != "++" || loop.Body?.Label == null)
+                    return false;
+                if (!(loop.Condition is BinaryExpression below) || below.Operator != "<" || !IsName(below.Left, i)
+                    || !TryConstant(below.Right, out long copies) || copies < 2 || copies > BlockPart.MaxCopies)
+                    return false;
+                if (loop.Body.Items.Count != 1 || !(loop.Body.Items[0] is ModuleInstantiation instantiation)
+                    || instantiation.Instances.Count != 1 || instantiation.Parameters.Count > 0 || !_modules.ContainsKey(instantiation.Module))
+                    return false;
+
+                foreach (PortConnection connection in instantiation.Instances[0].Connections)
+                {
+                    if (connection.Name == null || connection.IsShorthand || connection.IsWildcard)
+                        return false;
+                    if (connection.Value != null && CopyNet(connection.Value, i) == null)
+                        return false;
+                }
+
+                return true;
+            }
+
+            /// <summary>An array of a block made a block of that many copies, each pin on the net its copies' bits are of.</summary>
+            private void Array(LoopGenerate loop)
+            {
+                var instantiation = (ModuleInstantiation)loop.Body.Items[0];
+                TryConstant(((BinaryExpression)loop.Condition).Right, out long copies);
+                int id = Add(new BlockPart { Module = instantiation.Module, Name = loop.Body.Label, Copies = (int)copies }, loop);
+                if (id == 0)
+                    return;
+                foreach (PortConnection connection in instantiation.Instances[0].Connections)
+                    if (connection.Value != null)
+                        Net(CopyNet(connection.Value, loop.Variable)).Pins.Add(Endpoint.At(id, connection.Name));
+            }
+
+            /// <summary>The net a copy's bits are taken from -- <c>a</c> of <c>a[i]</c> or <c>a[i*w +: w]</c> -- or null for anything else.</summary>
+            private string CopyNet(Expression value, string i)
+            {
+                switch (value)
+                {
+                    case IndexExpression bit when bit.Target is NameExpression net && net.Path.Count == 1 && IsName(bit.Index, i):
+                        return net.Name;
+
+                    case RangeSelectExpression range when range.Kind == RangeKind.IndexedUp && range.Target is NameExpression net
+                        && net.Path.Count == 1 && range.Left is BinaryExpression times && times.Operator == "*" && IsName(times.Left, i)
+                        && TryConstant(times.Right, out long width) && TryConstant(range.Right, out long count) && width == count:
+                        return net.Name;
+
+                    default:
+                        return null;
+                }
+            }
+
+            private static bool IsName(Expression e, string name) => e is NameExpression n && n.Path.Count == 1 && n.Name == name;
 
             private void Cells(ModuleInstantiation instantiation, GateKind kind, int inputs)
             {
