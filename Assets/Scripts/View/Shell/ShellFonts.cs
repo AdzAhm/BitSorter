@@ -15,6 +15,9 @@ namespace BitSorter.View
         [SerializeField] private Font _regular;
         [SerializeField] private Font _bold;
 
+        /// <summary>IBM Plex Mono, the code's face (Part 12f): held here so it ships in every build, for <see cref="CodeFont"/>.</summary>
+        [SerializeField] private Font _mono;
+
         private static ShellFonts _current;
         private static FontAsset _regularAsset, _boldAsset;
 
@@ -31,6 +34,9 @@ namespace BitSorter.View
 
         /// <summary>The bold face, for a title.</summary>
         public static StyleFontDefinition Bold => Definition(true);
+
+        /// <summary>The code's monospaced face, IBM Plex Mono; null in a scene without this component.</summary>
+        public static Font Mono => _current == null ? null : _current._mono;
 
         /// <summary>The asset a label is drawn with, for a test asking whether every character it draws is in it; null with none.</summary>
         public static FontAsset AssetOf(bool bold)

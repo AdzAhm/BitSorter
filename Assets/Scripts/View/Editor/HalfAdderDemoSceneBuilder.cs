@@ -156,6 +156,7 @@ namespace BitSorter.View.EditorTools
             ShellFonts shellFonts = host.AddComponent<ShellFonts>();
             Assign(shellFonts, "_regular", AssetDatabase.LoadAssetAtPath<Font>("Assets/Fonts/IBMPlexSans/IBMPlexSans-Regular.ttf"));
             Assign(shellFonts, "_bold", AssetDatabase.LoadAssetAtPath<Font>("Assets/Fonts/IBMPlexSans/IBMPlexSans-Bold.ttf"));
+            Assign(shellFonts, "_mono", AssetDatabase.LoadAssetAtPath<Font>("Assets/Fonts/IBMPlexMono/IBMPlexMono-Regular.ttf"));
             CreditsPanel credits = host.AddComponent<CreditsPanel>();
             EndingPanel ending = host.AddComponent<EndingPanel>();
 

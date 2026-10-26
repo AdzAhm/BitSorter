@@ -1157,6 +1157,27 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsTrue(UiText.Typing, "and the workbench's keys stay off while it does");
         }
 
+        /// <summary>
+        /// The code is set in IBM Plex Mono, which ships with the game beside Plex Sans (Part 12f), rather than in a face the
+        /// computer may not have; and a shell popup open is known, for the browser's code editor to hide under.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator TheCodesFace_ShipsWithTheGame_AndAPopupOpenIsKnown()
+        {
+            yield return TestScene.Load();
+            yield return OpenTheReference();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            Assert.IsNotNull(ShellFonts.Mono, "the scene holds IBM Plex Mono, so every build ships it");
+            Assert.AreEqual("IBMPlexMono-Regular", CodeFont.Asset.sourceFontFile.name, "and the code is set in it");
+
+            Assert.IsFalse(ShellPopup.AnyOpen, "sanity: no popup up");
+            yield return RightClickAt(workbench, MiddleOf(workbench, Top(workbench).Parts.First(p => p is GatePart).Id));
+            Assert.IsTrue(ShellPopup.AnyOpen, "the canvas's menu is a popup open");
+            yield return Tap(_keyboard.escapeKey);
+            yield return null;
+            Assert.IsFalse(ShellPopup.AnyOpen, "and closed, none is");
+        }
+
         /// <summary>The wheel over a written block's line numbers scrolls its code, as it does over the code itself (Part 12d).</summary>
         [UnityTest]
         public IEnumerator TheWheelOverTheCodesLineNumbers_ScrollsTheCode()

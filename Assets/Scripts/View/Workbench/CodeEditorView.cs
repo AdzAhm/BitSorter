@@ -70,7 +70,14 @@ namespace BitSorter.View
         }
 
         /// <inheritdoc/>
-        public bool HoldsEscapeNow => (_field != null && _field.isFocused) || _letGoFrame == Time.frameCount;
+        public bool HoldsEscapeNow => (_field != null && _field.isFocused) || _letGoFrame == Time.frameCount
+            || (_browser && CodeMirrorBridge.Focused);
+
+        // In a browser (Part 12f): CodeMirror over the body, the text it was last given or read, and where it was laid.
+        private bool _browser, _browserShown;
+        private string _browserText;
+        private Rect _browserAt;
+        private float _browserFont;
 
         /// <summary>The wheel over the line numbers or the margins scrolls the code, as it does over the code itself.</summary>
         public void OnScroll(PointerEventData eventData) => _field?.OnScroll(eventData);
@@ -84,6 +91,15 @@ namespace BitSorter.View
             view._root = ground.rectTransform;
             view._palette = palette;
             view.BuildInside(palette);
+
+            // In a browser, CodeMirror takes the body: TextMesh Pro's field and its numbers stand down (Part 12f).
+            if (CodeMirrorBridge.Available)
+            {
+                view._browser = true;
+                CodeMirrorBridge.Create(ColoursOf(palette));
+                view._gutterView.gameObject.SetActive(false);
+                view._field.gameObject.SetActive(false);
+            }
             Show(ground, false);
             return view;
         }
@@ -203,6 +219,102 @@ namespace BitSorter.View
             Show(_root, code != null);
             if (code != null)
                 _field.SetTextWithoutNotify(code.Text);
+
+            if (_browser)
+            {
+                if (code == null)
+                {
+                    CodeMirrorBridge.Blur();
+                    ShowBrowser(false);
+                }
+                else
+                {
+                    CodeMirrorBridge.SetText(code.Text);
+                    _browserText = code.Text;
+                }
+            }
+        }
+
+        private void ShowBrowser(bool shown)
+        {
+            if (shown == _browserShown)
+                return;
+            _browserShown = shown;
+            CodeMirrorBridge.Show(shown);
+            if (!shown)
+                _browserAt = default;
+        }
+
+        /// <summary>
+        /// CodeMirror laid over the body, where the code is, and shown while the editor is -- but not while a popup of the
+        /// shell is open, since the page draws it over the canvas and so over every popup too. And the game's keys are the
+        /// editor's while it has the keyboard.
+        /// </summary>
+        private void PlaceBrowser()
+        {
+            bool shown = _root.gameObject.activeInHierarchy && !ShellPopup.AnyOpen;
+            ShowBrowser(shown);
+#if UNITY_WEBGL && !UNITY_EDITOR
+            WebGLInput.captureAllKeyboardInput = !CodeMirrorBridge.Focused;
+#endif
+            if (!shown)
+                return;
+
+            var corners = new Vector3[4];
+            _body.GetWorldCorners(corners);   // a screen-space canvas: world is the screen's pixels
+            Rect at = Rect.MinMaxRect(corners[0].x, corners[0].y, corners[2].x, corners[2].y);
+            Canvas canvas = _root.GetComponentInParent<Canvas>();
+            float font = UiTheme.SizeOf(UiType.Body) * (canvas != null ? canvas.rootCanvas.scaleFactor : 1f);
+            if (at == _browserAt && Mathf.Approximately(font, _browserFont))
+                return;
+            _browserAt = at;
+            _browserFont = font;
+            CodeMirrorBridge.Place(at, font);
+        }
+
+        /// <summary>The palette as CodeMirror's colours: CSS, as JSON, every one the game's.</summary>
+        private static string ColoursOf(SchematicPalette palette)
+        {
+            string Css(Color c) => "#" + ColorUtility.ToHtmlStringRGB(c);
+            Color selection = palette.Over(palette.Selection, 0.45f);
+            bool dark = palette.Ground.r * 0.2126f + palette.Ground.g * 0.7152f + palette.Ground.b * 0.0722f < 0.5f;
+            return "{\"ground\":\"" + Css(palette.Ground) + "\",\"text\":\"" + Css(palette.Text) + "\",\"muted\":\"" + Css(palette.Muted)
+                + "\",\"accent\":\"" + Css(palette.Accent) + "\",\"one\":\"" + Css(palette.One) + "\",\"selection\":\"" + Css(selection)
+                + "\",\"error\":\"" + Css(palette.Unknown) + "\",\"warning\":\"" + Css(palette.Cursor) + "\",\"dark\":" + (dark ? "true" : "false") + "}";
+        }
+
+        /// <summary>The marks as CodeMirror's: JSON, lines and columns from 1.</summary>
+        private static string MarksOf(IReadOnlyList<CodeMark> marks)
+        {
+            var json = new StringBuilder("[");
+            for (int i = 0; i < marks.Count; i++)
+            {
+                CodeMark m = marks[i];
+                if (i > 0)
+                    json.Append(',');
+                json.Append("{\"line\":").Append(m.Line.ToString(CultureInfo.InvariantCulture))
+                    .Append(",\"column\":").Append(m.Column.ToString(CultureInfo.InvariantCulture))
+                    .Append(",\"error\":").Append(m.IsError ? "true" : "false")
+                    .Append(",\"message\":\"").Append(Escaped(m.Message)).Append("\"}");
+            }
+
+            return json.Append(']').ToString();
+        }
+
+        private static string Escaped(string text)
+        {
+            var escaped = new StringBuilder();
+            foreach (char c in text ?? "")
+            {
+                if (c == '"' || c == '\\')
+                    escaped.Append('\\').Append(c);
+                else if (c < ' ')
+                    escaped.Append("\\u").Append(((int)c).ToString("x4", CultureInfo.InvariantCulture));
+                else
+                    escaped.Append(c);
+            }
+
+            return escaped.ToString();
         }
 
         /// <summary>The editor over the circuit's window, <paramref name="size"/> at <paramref name="corner"/>.</summary>
@@ -221,6 +333,21 @@ namespace BitSorter.View
             if (_code == null)
                 return;
 
+            if (_browser)
+            {
+                // What the page's editor did since the last frame: typed, asked to apply, let go on Escape.
+                if (CodeMirrorBridge.TakeChanged())
+                {
+                    _browserText = CodeMirrorBridge.GetText();
+                    _code.Type(_browserText, Now);
+                }
+
+                if (CodeMirrorBridge.TakeApply())
+                    _applyAsked = true;
+                if (CodeMirrorBridge.TakeEscape())
+                    _letGoFrame = Time.frameCount;
+            }
+
             if (_applyAsked)
             {
                 _applyAsked = false;
@@ -231,7 +358,16 @@ namespace BitSorter.View
                 _code.Frame(Now);
             }
 
-            if (_field.text != _code.Text)
+            if (_browser)
+            {
+                if (_browserText != _code.Text)
+                {
+                    // An undo, a redo or REVERT changed the text under the editor.
+                    CodeMirrorBridge.SetText(_code.Text);
+                    _browserText = _code.Text;
+                }
+            }
+            else if (_field.text != _code.Text)
             {
                 // An undo, a redo or REVERT changed the text under the field.
                 int caret = Mathf.Min(_field.stringPosition, _code.Text.Length);
@@ -245,6 +381,14 @@ namespace BitSorter.View
                 _shownVersion = _code.Version;
                 _shownLines = lines;
                 DrawMarks(lines);
+                if (_browser)
+                    CodeMirrorBridge.SetMarks(MarksOf(_code.Marks));
+            }
+
+            if (_browser)
+            {
+                PlaceBrowser();
+                return;
             }
 
             // The numbers follow the text as the field scrolls it.
@@ -257,6 +401,12 @@ namespace BitSorter.View
         {
             if (_code == null)
                 return;
+            if (_browser)
+            {
+                CodeMirrorBridge.GoTo(line, column);
+                return;
+            }
+
             UiTheme.Focus(_field);
             int at = _code.OffsetOf(line, column);
             _field.stringPosition = at;
@@ -381,9 +531,10 @@ namespace BitSorter.View
     }
 
     /// <summary>
-    /// The monospaced face code is set in (Part 12d): one the computer already has, found by name, since none ships with
-    /// the game -- Consolas on Windows, Menlo on a Mac, DejaVu Sans Mono or Liberation Mono on Linux. Null where there is
-    /// none, as in a browser, and the code is set in the game's own face.
+    /// The monospaced face code is set in: IBM Plex Mono, which ships with the game beside Plex Sans (Part 12f, through
+    /// <see cref="ShellFonts"/>); and, in a scene without it, one the computer already has, found by name -- Consolas on
+    /// Windows, Menlo on a Mac, DejaVu Sans Mono or Liberation Mono on Linux (Part 12d). Null where there is neither, and the
+    /// code is set in the game's own face.
     /// </summary>
     public static class CodeFont
     {
@@ -401,27 +552,31 @@ namespace BitSorter.View
                 _looked = true;
                 _found = false;
                 _asset = null;
-                if (Application.platform == RuntimePlatform.WebGLPlayer)
-                    return null;
 
-                foreach (string family in Families)
+                if (ShellFonts.Mono != null)
+                    _asset = TMP_FontAsset.CreateFontAsset(ShellFonts.Mono);
+                if (_asset == null && Application.platform != RuntimePlatform.WebGLPlayer)
                 {
-                    // Null, and a line in the log, for a face this computer does not have: the next is tried.
-                    _asset = TMP_FontAsset.CreateFontAsset(family, "Regular");
-                    if (_asset == null)
-                        continue;
-                    _asset.hideFlags = HideFlags.HideAndDontSave;
-                    if (_asset.material != null)
-                        _asset.material.hideFlags = HideFlags.HideAndDontSave;
-                    if (_asset.atlasTextures != null)
-                        foreach (Texture2D atlas in _asset.atlasTextures)
-                            if (atlas != null)
-                                atlas.hideFlags = HideFlags.HideAndDontSave;
-                    _asset.fallbackFontAssetTable = new List<TMP_FontAsset> { TMP_Settings.defaultFontAsset };
-                    _found = true;
-                    break;
+                    foreach (string family in Families)
+                    {
+                        // Null, and a line in the log, for a face this computer does not have: the next is tried.
+                        _asset = TMP_FontAsset.CreateFontAsset(family, "Regular");
+                        if (_asset != null)
+                            break;
+                    }
                 }
 
+                if (_asset == null)
+                    return null;
+                _asset.hideFlags = HideFlags.HideAndDontSave;
+                if (_asset.material != null)
+                    _asset.material.hideFlags = HideFlags.HideAndDontSave;
+                if (_asset.atlasTextures != null)
+                    foreach (Texture2D atlas in _asset.atlasTextures)
+                        if (atlas != null)
+                            atlas.hideFlags = HideFlags.HideAndDontSave;
+                _asset.fallbackFontAssetTable = new List<TMP_FontAsset> { TMP_Settings.defaultFontAsset };
+                _found = true;
                 return _asset;
             }
         }

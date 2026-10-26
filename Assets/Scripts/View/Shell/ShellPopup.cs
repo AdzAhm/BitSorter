@@ -58,9 +58,33 @@ namespace BitSorter.View
         }
 
         /// <summary>Puts it up, over everything else in the shell, its panel <paramref name="size"/> with its corner at <paramref name="screenPoint"/> and kept on the screen.</summary>
+        // The popups open now, for AnyOpen.
+        private static readonly System.Collections.Generic.List<ShellPopup> OpenNow = new System.Collections.Generic.List<ShellPopup>();
+
+        /// <summary>
+        /// Whether any popup is open on a panel now: what the browser's code editor, a box laid over the canvas and so over
+        /// every popup too, hides for (Part 12f). One whose panel has gone -- a scene unloaded with it open -- is forgotten.
+        /// </summary>
+        public static bool AnyOpen
+        {
+            get
+            {
+                for (int i = OpenNow.Count - 1; i >= 0; i--)
+                {
+                    if (OpenNow[i].IsOpen && OpenNow[i].Layer.panel != null)
+                        return true;
+                    OpenNow.RemoveAt(i);
+                }
+
+                return false;
+            }
+        }
+
         public void Open(Vector2 screenPoint, Vector2 size)
         {
             IsOpen = true;
+            if (!OpenNow.Contains(this))
+                OpenNow.Add(this);
             Layer.style.display = DisplayStyle.Flex;
             Layer.BringToFront();
             Place(screenPoint, size);
@@ -91,6 +115,7 @@ namespace BitSorter.View
             if (!IsOpen)
                 return;
             IsOpen = false;
+            OpenNow.Remove(this);
             ClosedFrame = Time.frameCount;
             if (Layer.focusController?.focusedElement is VisualElement focused && Layer.Contains(focused))
                 focused.Blur();

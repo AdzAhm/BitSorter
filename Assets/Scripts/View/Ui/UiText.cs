@@ -31,7 +31,8 @@ namespace BitSorter.View
         {
             get
             {
-                if (ShellPanel.Typing)
+                // The shell's fields, and in a browser the code editor the page lays over the canvas (Part 12f).
+                if (ShellPanel.Typing || CodeMirrorBridge.Focused)
                     return true;
 
                 EventSystem events = EventSystem.current;
