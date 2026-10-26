@@ -554,6 +554,10 @@ endmodule");
         [TestCase("module c #(parameter A = 1, localparam B = 2) (input logic a); endmodule\nmodule m (input logic y); c #(.B(3)) i (.a(y)); endmodule", ElaborationCodes.BadParameter)]
         [TestCase("module r (input logic a); r again (.a(a)); endmodule\nmodule m (input logic y); r i (.a(y)); endmodule", ElaborationCodes.Recursion)]
         [TestCase("module m (input logic a, output logic y); for (genvar i = 0; i >= 0; i++) begin end endmodule", ElaborationCodes.TooLarge)]
+        // A design bigger than a run can hold (Part 13f): each piece is allowed alone -- a memory under a million words, a
+        // signal under a million bits -- but a million words of a million bits would ask for terabytes the moment it ran.
+        [TestCase("module m (output logic y); logic [1023:0] mem [0:131071]; endmodule", ElaborationCodes.TooLarge)]
+        [TestCase("module m (output logic y); for (genvar i = 0; i < 100; i++) begin : g logic [1048575:0] w; end endmodule", ElaborationCodes.TooLarge)]
         public void AnError_IsReported_AndThereIsNoDesign(string text, string code)
         {
             Elaboration e = Elaborate(text);
