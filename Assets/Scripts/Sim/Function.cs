@@ -83,17 +83,52 @@ namespace BitSorter.Sim
     }
 
     /// <summary>Runs a <see cref="FunctionInfo"/>'s statements on an array of values.</summary>
+    /// <remarks>
+    /// **A call runs on the machine's own stack**, each call inside another one frame deeper, so a function that calls
+    /// itself with no way out would overflow it -- which nothing can catch: the editor, a desktop build or a browser's page
+    /// would end there. So calls nest at most <see cref="MaxNesting"/> deep, across every function, and a call past that
+    /// gives x; and everything under one call from an expression runs at most <see cref="MaxSteps"/> instructions. Either
+    /// is left in <see cref="Stopped"/> for the run to say (Part 13f). One run at a time, as the pure layers run.
+    /// </remarks>
     internal static class FunctionRunner
     {
         /// <summary>
-        /// The most instructions one call may run: a loop that never ends stops here, with the result it
-        /// had, rather than hanging the run. Far past any function a course writes.
+        /// The most instructions a call from an expression may run, the calls under it included: a loop that never ends
+        /// stops here, with the result it had, rather than hanging the run. Far past any function a course writes.
         /// </summary>
         public const long MaxSteps = 10_000_000;
+
+        /// <summary>How many calls may be under way at once, each inside the last, across every function. Far past any a course writes.</summary>
+        public const int MaxNesting = 100;
+
+        private static int _nesting;
+        private static long _steps;
+
+        /// <summary>Why a call stopped short since this was last taken, in the run's words; null when none did.</summary>
+        internal static string Stopped { get; private set; }
+
+        /// <summary><see cref="Stopped"/>, taken: the run says it once.</summary>
+        internal static string TakeStopped()
+        {
+            string stopped = Stopped;
+            Stopped = null;
+            return stopped;
+        }
 
         /// <summary>The value an expression's call gives: the arguments' values in, the statements run, the result out.</summary>
         public static LogicVec Call(FunctionInfo f, LogicVec[] arguments, LogicVec[] values, int width, bool signed)
         {
+            if (_nesting >= MaxNesting)
+            {
+                Stopped ??= $"{f.Name} was called {MaxNesting} deep, each call inside the last, and the call past that gave x. " +
+                    "Does each call come nearer to one that does not call again?";
+                LogicVec x = LogicVec.AllX(width);
+                return signed ? x.AsSigned() : x;
+            }
+
+            if (_nesting == 0)
+                _steps = 0;
+
             LogicVec[] kept = null;
             if (f.Depth > 0)
             {
@@ -116,6 +151,7 @@ namespace BitSorter.Sim
             }
 
             f.Depth++;
+            _nesting++;
             try
             {
                 Run(f, values);
@@ -123,6 +159,7 @@ namespace BitSorter.Sim
             finally
             {
                 f.Depth--;
+                _nesting--;
             }
 
             LogicVec result = f.Result >= 0 ? values[f.Result] : LogicVec.AllX(width);
@@ -144,12 +181,15 @@ namespace BitSorter.Sim
         {
             Instruction[] code = f.Code;
             int pc = 0;
-            long steps = 0;
 
             while (pc < code.Length)
             {
-                if (++steps > MaxSteps)
+                if (++_steps > MaxSteps)
+                {
+                    Stopped ??= $"{f.Name} ran {MaxSteps.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)} steps in one call " +
+                        "and was stopped there, with the result it had. Does a loop in it never end?";
                     return;
+                }
 
                 ref Instruction ins = ref code[pc];
                 switch (ins.Op)

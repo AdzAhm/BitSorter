@@ -267,6 +267,9 @@ namespace BitSorter.Sim
         /// <summary>Whether a <c>$stop</c> has run in the time step under way.</summary>
         private bool _suspending;
 
+        /// <summary>Why a function was stopped short (<see cref="FunctionRunner.Stopped"/>), each reason said once a run.</summary>
+        private readonly HashSet<string> _functionsStopped = new HashSet<string>(StringComparer.Ordinal);
+
         /// <summary>Whether the next time step carries on the one a <c>$stop</c> suspended, its deltas numbered on from it.</summary>
         private bool _carryingOn;
 
@@ -679,6 +682,15 @@ namespace BitSorter.Sim
                     }
 
                     _running.Clear();
+                }
+
+                // A function stopped short in this delta -- a loop that never ends, or calls with no way out -- is said, each
+                // reason once a run (FunctionRunner).
+                if (FunctionRunner.Stopped != null)
+                {
+                    string stopped = FunctionRunner.TakeStopped();
+                    if (_functionsStopped.Add(stopped))
+                        _history.Message(_now, Severity.Error, $"At t = {_now} {stopped}");
                 }
 
                 List<Event> swap = _current;

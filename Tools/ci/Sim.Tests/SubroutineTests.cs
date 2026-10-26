@@ -155,6 +155,44 @@ endmodule", 1);
                 "the run says the call was stopped: " + string.Join("\n", sim.History.Messages.Select(m => m.Text)));
         }
 
+        /// <summary>
+        /// The slips that would have ended the process: a function with no base case, and two that call each other forever
+        /// -- the nesting counted across both. Each gives x, the run carries on, and says why once, however often it is called.
+        /// </summary>
+        [TestCase("function automatic integer f(input integer n); return f(n + 1); endfunction\n    assign y = f(a);", "f was called 100 deep")]
+        [TestCase("function automatic integer f(input integer n); return g(n); endfunction\n    function automatic integer g(input integer n); return f(n); endfunction\n    assign y = f(a);", "was called 100 deep")]
+        public void AFunctionWithNoWayOut_GivesX_AndTheRunSaysWhyOnce(string functions, string said)
+        {
+            Simulator sim = Run(@"
+module t;
+    integer a, y;
+    " + functions + @"
+    initial begin a = 1; #5 a = 2; #5 a = 3; end
+endmodule", 20);
+
+            Assert.AreEqual(new string('x', 32), Now(sim, "y"), "the call past the limit gave x");
+            Assert.AreEqual(1, sim.History.Messages.Count(m => m.Severity == Severity.Error && m.Text.Contains(said)),
+                "said once, though called three times: " + string.Join("\n", sim.History.Messages.Select(m => m.Text)));
+        }
+
+        /// <summary>A loop in a function that never ends stops at the step limit, as it always did -- and now the run says so.</summary>
+        [Test]
+        public void AFunctionLoopingForever_IsStopped_AndTheRunSaysWhy()
+        {
+            Simulator sim = Run(@"
+module t;
+    integer y;
+    function automatic integer spin(input integer n);
+        while (1) n = n + 1;
+        return n;
+    endfunction
+    initial y = spin(0);
+endmodule", 1);
+
+            Assert.IsTrue(sim.History.Messages.Any(m => m.Severity == Severity.Error && m.Text.Contains("steps in one call")),
+                string.Join("\n", sim.History.Messages.Select(m => m.Text)));
+        }
+
         [Test]
         public void AStaticFunction_KeepsItsLocal_AndAnAutomaticOneStartsAfresh()
         {
