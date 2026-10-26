@@ -2055,6 +2055,53 @@ template is imported, then exported filled.
   stimulus's, and CONVERT no longer offered. Reference shot 46, new: a project imported into MY CIRCUIT, running under its
   testbench, with what it printed in the TRANSCRIPT; 45 differs in the FILE menu's two new items.
 
+**As built in Part 13e**: course templates, imported and handed back filled.
+
+- **A template is a file that says where the code goes** (`CourseTemplate`): a `// Put your code here` line, and the
+  `// End of your code` that closes it -- or, with none, everything up to `endmodule`, as three of the course's 35 have
+  it, which also open in lower case. Matched without regard to case or spacing, and only as a comment on a line of its
+  own, as every one of the course's is, so a banner that quotes the markers is not taken for them. The region is the
+  lines between them. Filled, the student's lines end as the file's do: all 35 end theirs in CR LF.
+- **An imported template's module is written, and remembers where it came from** (`Module.Template`): the file's bare
+  name, every character of it, and the module's own text as the import first made it of the file (`Given`). The plan had
+  the module made drawn or written with an empty body; it is always written, with the markers in it, because what a
+  student hands in is the code they wrote between them -- a drawn body would be printed as the library's cells, which is
+  not that -- and the markers in the code are where they write it. Saved as `templateFile`, `template` and
+  `templateModule` on the module, keys an older file reads as absent.
+- **EXPORT FOR SUBMISSION** (`SubmissionExport`, the FILE menu, offered while a module came from a template) zips each
+  such file as the course gave it, under its own name, with what is between the markers in the module now put between
+  the file's. Refused, saying which module and why, rather than hand in something that silently leaves the student's
+  work out: a fault in the code (with its line); ports that are no longer the template's (each list spelled out); the
+  markers gone; or any change outside them, its comments included -- what is handed in there is the course's, so a note
+  written there would be lost without a word. Spacing and line endings are not a change. The check outside is against
+  `Given`, never the file: the import moves an include of declarations into the module and drops a `timescale`, and the
+  three course templates that include a file of parameters would otherwise have been refused untouched. (None of the
+  three uses its parameter in its header, which 13b's import refuses.) Those three have no end marker, so the moved
+  include lands among the student's lines; it is taken out of them, since the file has it already where the course did.
+- **What else it refuses, and what it says.** One file is one module to fill: a file of two marked modules, or two files
+  of one name from different homework folders -- 17 of the course's file names repeat across its folders -- is refused
+  rather than one of them lost. A module renamed is told the name it is graded by. A template's file name is held to a
+  file's, so a hand-edited save cannot reach out of the zip's folder. And what the files filled use from the project
+  without handing it in -- the course's own modules, or one the student made here, which the project cannot tell apart --
+  is named on the chip, so a helper written outside the markers is not left behind unknown.
+- **The code on screen is what is handed in.** The code editor keeps typed text as its own until it applies, and text
+  with a fault for good; EXPORT FOR SUBMISSION applies typed text first, as the editor would after its pause, and refuses
+  text that cannot apply with what is wrong with it, rather than hand in the last text that did. (EXPORT PROJECT has the
+  same gap, from 13a; it is fixed apart, as a bug, with its own test.)
+- **Checked.** `CourseTemplateTests`: the markers found and the file filled between them, everything around them kept,
+  a lowercase opener with no end filled up to `endmodule`, code already indented kept as written, the code read back from
+  a file that keeps its markers, a banner quoting the markers not taken for them, and a file with none no template.
+  `SubmissionTests`: a template imported is remembered and kept written with its markers; the submission is the template
+  with the code between its markers, the lowercase kind filled up to `endmodule`, a CR LF template's lines all CR LF, a
+  template with an include handed in with the include where the course had it, and once when the import moved it among
+  the code; refusals for changed ports, a rename, missing markers, code or a comment changed outside, two modules of one
+  file and two files of one name, a file name that is no file's, and nothing to hand in; spacing not a change; a module
+  the code uses and the zip does not hold named; the template saved and read back. Oracle (`ImportOracleTests`): a
+  combinational and a clocked template, filled and handed in, run by Icarus with their testbench exactly as the project
+  ran here, signal for signal and line for line. Play Mode (`WorkbenchCanvasPlayTests`): EXPORT FOR SUBMISSION not
+  offered before an import, offered after; code typed with a fault refused and nothing saved; code typed and not applied
+  applied and handed in. No reference shot moves: the item is hidden on every shot's document.
+
 ---
 
 ## 11. The parts
@@ -2076,7 +2123,7 @@ Each part is one pull request into `v5`, ends with every suite green, and leaves
 | 10 | Editing on the free canvas -- in four: 10a placement and selection **built** (see "As built in Part 10a"); 10b wiring **built**, drawn (10b-1) and reshaped (10b-2); 10c the inspector **built**; 10d copy, align and the minimap **built**; 10e what its browser smoke test found **built** |
 | 11 | The workbench shell, in UI Toolkit -- **built**, in four: 11a the bridges and the toolbar; 11b the docked layout -- its panels (11b-1), the inspector docked (11b-2), the popups in the shell (11b-3); 11c the transcript and the hierarchy; 11d the keyboard map, the status line and the docs |
 | 12 | Hierarchy, and written blocks, edited in CodeMirror in a browser -- in six: 12a stepping inside a block **built** (see "As built in Part 12a"); 12b making a block **built** (see "As built in Part 12b"); 12c arrays **built** (see "As built in Part 12c"); 12d code blocks **built** (see "As built in Part 12d"); 12e the code panel **built** (see "As built in Part 12e"); 12f CodeMirror **built** (see "As built in Part 12f") |
-| 13 | Export and import (and a levelized path in the engine, only if a measurement asks for it) -- in six: 13a exporting a project **built** (see "As built in Part 13a"); 13b importing one **built** (see "As built in Part 13b"); 13c CONVERT **built** (see "As built in Part 13c"); 13d files **built** (see "As built in Part 13d"); 13e templates, 13f limits and the browser |
+| 13 | Export and import (and a levelized path in the engine, only if a measurement asks for it) -- in six: 13a exporting a project **built** (see "As built in Part 13a"); 13b importing one **built** (see "As built in Part 13b"); 13c CONVERT **built** (see "As built in Part 13c"); 13d files **built** (see "As built in Part 13d"); 13e templates **built** (see "As built in Part 13e"); 13f limits and the browser |
 | 14 | The course's tools: path delays, static timing, gate-library mode, step tests, lint, tri-state |
 | 15 | The Exercises and the tutorial |
 | 16 | The old game retired, and a smaller download; 5.0.0 released |

@@ -37,7 +37,12 @@ namespace BitSorter.Ci.Oracle
             Project project = import.Project;
             Assert.AreEqual(bench, project.Bench);
             Assert.AreEqual(top, project.Top);
+            AssertRunsAsIcarusRuns(icarus, project, paths, bench, folder);
+        }
 
+        /// <summary><paramref name="project"/> run in BitSorter, against Icarus running <paramref name="paths"/>: every signal of the same name, and every line printed.</summary>
+        private static void AssertRunsAsIcarusRuns(Icarus icarus, Project project, string[] paths, string bench, string folder)
+        {
             CompiledProject compiled = BoardCompiler.Compile(project);
             Assert.IsTrue(compiled.Succeeded, string.Join("\n", compiled.Diagnostics));
             Elaboration elaboration = Elaborator.Elaborate(compiled.Tree, compiled.Top);
@@ -92,6 +97,66 @@ namespace BitSorter.Ci.Oracle
             Assert.IsEmpty(wrong, $"{wrong.Count} signals disagree with Icarus:\n  " + string.Join("\n  ", wrong.Take(16)));
             CollectionAssert.AreEqual(icarusLines, bitSorterLines, "what the testbench printed");
             Assert.Greater(benchSignals, 0);
+        }
+
+        /// <summary>Course-style templates written for this test (Part 13e), the code a student would put in each, and a testbench for it.</summary>
+        private static readonly (string Name, string Template, string Code, string Bench)[] Templates =
+        {
+            ("mux2",
+                "// Homework: a 2-to-1 multiplexer. Written for BitSorter's tests, in the course's style.\n" +
+                "module mux2 (\n    input  logic a, b, s,\n    output logic y\n);\n    // Put your code here\n\n    // End of your code\nendmodule\n",
+                "    assign y = s ? b : a;\n",
+                "module mux2_tb;\n    logic a, b, s, y;\n    mux2 dut (.a(a), .b(b), .s(s), .y(y));\n" +
+                "    initial begin\n        for (int i = 0; i < 8; i++) begin\n            {s, b, a} = i;\n            #10 $display(\"s=%b b=%b a=%b y=%b\", s, b, a, y);\n        end\n        $stop;\n    end\nendmodule\n"),
+            ("counter4",
+                "// Homework: a 4-bit counter with a synchronous reset and an enable. Written for BitSorter's tests.\n" +
+                "module counter4 (\n    input  logic clk, rst, en,\n    output logic [3:0] count\n);\n    // put your code here\n\nendmodule\n",
+                "    always_ff @(posedge clk)\n        if (rst) count <= 0;\n        else if (en) count <= count + 1;\n",
+                "module counter4_tb;\n    logic clk = 0, rst = 1, en = 0;\n    logic [3:0] count;\n    counter4 dut (.clk(clk), .rst(rst), .en(en), .count(count));\n" +
+                "    always #5 clk = ~clk;\n    initial begin\n        #12 rst = 0;\n        #10 en = 1;\n        #100 en = 0;\n        #20 $display(\"count=%0d\", count);\n        $stop;\n    end\nendmodule\n"),
+        };
+
+        public static IEnumerable<string> TemplateNames() => Templates.Select(t => t.Name);
+
+        /// <summary>
+        /// EXPORT FOR SUBMISSION (Part 13e) hands in what ran here: a template imported with its testbench, the student's code
+        /// put between its markers, and the filled file it hands in run by Icarus with the same testbench, against BitSorter
+        /// running the project.
+        /// </summary>
+        [TestCaseSource(nameof(TemplateNames))]
+        public void ASubmission_RunsInIcarusAsTheProjectRanHere(string name)
+        {
+            Icarus icarus = Icarus.Require();
+            var given = Templates.Single(t => t.Name == name);
+            ProjectImport import = ProjectImporter.Import(new[] { new SourceFile(name + ".sv", given.Template), new SourceFile(name + "_tb.sv", given.Bench) });
+            Assert.IsTrue(import.Succeeded, string.Join("\n", import.Notes));
+            var editor = new BoardEditor(import.Project);
+            Module module = editor.Project.Find(name);
+            Assert.IsTrue(CourseTemplate.TryRead(module.Source, out CourseTemplate template));
+            EditResult wrote = editor.SetSource(name, module.Source.Substring(0, template.RegionStart) + given.Code + module.Source.Substring(template.RegionEnd));
+            Assert.IsTrue(wrote.Done, wrote.Refusal);
+
+            Submission submission = SubmissionExport.Build(editor.Project, new DateTime(2026, 10, 26));
+            Assert.IsTrue(submission.Succeeded, submission.Refusal);
+
+            string handedIn = Path.Combine(Path.GetTempPath(), "bitsorter-oracle-generated", Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(handedIn);
+            try
+            {
+                using (var zip = new System.IO.Compression.ZipArchive(new MemoryStream(submission.Zip)))
+                    foreach (System.IO.Compression.ZipArchiveEntry entry in zip.Entries)
+                        using (var text = new StreamReader(entry.Open()))
+                            File.WriteAllText(Path.Combine(handedIn, entry.Name), text.ReadToEnd());
+                File.WriteAllText(Path.Combine(handedIn, name + "_tb.sv"), given.Bench);
+
+                string[] paths = Directory.GetFiles(handedIn).OrderBy(p => p, StringComparer.Ordinal).ToArray();
+                CollectionAssert.AreEqual(new[] { name + ".sv", name + "_tb.sv" }, paths.Select(Path.GetFileName));
+                AssertRunsAsIcarusRuns(icarus, editor.Project, paths, name + "_tb", "template " + name);
+            }
+            finally
+            {
+                Directory.Delete(handedIn, recursive: true);
+            }
         }
 
         [TestCase("import/alu", "alu_tb")]

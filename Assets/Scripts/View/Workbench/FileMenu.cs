@@ -10,6 +10,9 @@ namespace BitSorter.View
         /// <summary>The project as a zip ModelSim opens: its files and a run.do (Part 13a).</summary>
         ExportProject,
 
+        /// <summary>The course's template files, each with the student's code between its markers (Part 13e).</summary>
+        ExportSubmission,
+
         /// <summary>A project from the Import folder, into MY CIRCUIT (Part 13d; a desktop and the editor).</summary>
         ImportFolder,
 
@@ -29,7 +32,8 @@ namespace BitSorter.View
     /// <summary>
     /// The FILE menu, from the chip beside SAMPLE (Part 13): what goes out of the workbench and what comes in. A shell menu
     /// like the waves' EXPORT, holding Escape while it is open. What it offers depends on where the game runs -- a desktop
-    /// reads the Import folder, a browser picks files -- and CONVERT only while a testbench drives the inputs.
+    /// reads the Import folder, a browser picks files -- CONVERT only while a testbench drives the inputs, and EXPORT FOR
+    /// SUBMISSION only while a module came from a course template.
     /// </summary>
     public sealed class FileMenu : WaveMenu
     {
@@ -38,12 +42,14 @@ namespace BitSorter.View
 
         private const float ItemWidth = 420f;
 
-        private ShellButton _importFolder, _openFolder, _importFiles, _importPicked, _convert;
+        private ShellButton _submission, _importFolder, _openFolder, _importFiles, _importPicked, _convert;
 
         public static FileMenu Build(ShellPanel shell, Transform owner, SchematicPalette palette, Action<FileAction> onChoose)
         {
             FileMenu menu = Make<FileMenu>(shell, owner, RootName, palette, ItemWidth);
             menu.Item(ActionItem + FileAction.ExportProject, "EXPORT PROJECT: .SV FILES AND RUN.DO", () => onChoose?.Invoke(FileAction.ExportProject));
+            menu._submission = menu.Item(ActionItem + FileAction.ExportSubmission, "EXPORT FOR SUBMISSION",
+                () => onChoose?.Invoke(FileAction.ExportSubmission));
             menu._importFolder = menu.Item(ActionItem + FileAction.ImportFolder, "IMPORT A PROJECT FROM THE IMPORT FOLDER",
                 () => onChoose?.Invoke(FileAction.ImportFolder), breakBefore: true);
             menu._openFolder = menu.Item(ActionItem + FileAction.OpenImportFolder, "OPEN THE IMPORT FOLDER", () => onChoose?.Invoke(FileAction.OpenImportFolder));
@@ -60,6 +66,7 @@ namespace BitSorter.View
         {
             ShellButton item = action switch
             {
+                FileAction.ExportSubmission => _submission,
                 FileAction.ImportFolder => _importFolder,
                 FileAction.OpenImportFolder => _openFolder,
                 FileAction.ImportFiles => _importFiles,
@@ -70,10 +77,14 @@ namespace BitSorter.View
             return item == null || item.style.display != UnityEngine.UIElements.DisplayStyle.None;
         }
 
-        /// <summary>Puts the menu up at <paramref name="screenPoint"/>: CONVERT only while <paramref name="hasTestbench"/>.</summary>
-        public void Open(Vector2 screenPoint, bool hasTestbench)
+        /// <summary>
+        /// Puts the menu up at <paramref name="screenPoint"/>: CONVERT only while <paramref name="hasTestbench"/>, and EXPORT
+        /// FOR SUBMISSION only while <paramref name="hasTemplate"/>.
+        /// </summary>
+        public void Open(Vector2 screenPoint, bool hasTestbench, bool hasTemplate)
         {
             bool picks = FileImport.Picks;
+            Offer(_submission, hasTemplate);
             Offer(_importFolder, !picks);
             Offer(_openFolder, !picks);
             Offer(_importFiles, picks);

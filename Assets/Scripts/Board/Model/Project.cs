@@ -21,6 +21,12 @@ namespace BitSorter.Board
         public string Source { get; init; }
 
         public bool IsWritten => Source != null;
+
+        /// <summary>
+        /// The course's homework file the module was imported from (Part 13e), when it said where the student's code goes:
+        /// EXPORT FOR SUBMISSION hands it back as given, the student's code between its markers. Null for none.
+        /// </summary>
+        public ModuleTemplate Template { get; init; }
         public IReadOnlyList<Part> Parts { get; init; } = Array.Empty<Part>();
         public IReadOnlyList<Wire> Wires { get; init; } = Array.Empty<Wire>();
         public Layout Layout { get; init; } = Layout.Empty;
@@ -65,6 +71,20 @@ namespace BitSorter.Board
                 return ports;
             }
         }
+    }
+
+    /// <summary>A course template a module came from (Part 13e): the file's bare name, and every character of it as given.</summary>
+    public sealed record ModuleTemplate
+    {
+        public string File { get; init; }
+        public string Text { get; init; } = "";
+
+        /// <summary>
+        /// The module's own text as the import first made it of the file (<see cref="Module.Source"/>), the student's code
+        /// checked against outside the markers: the import moves an include and drops a <c>`timescale</c>, as it does again
+        /// nowhere, so the file's own text is not what the module was given.
+        /// </summary>
+        public string Given { get; init; } = "";
     }
 
     /// <summary>One of a project's other files: an include or a memory image, by a bare name, and its text.</summary>

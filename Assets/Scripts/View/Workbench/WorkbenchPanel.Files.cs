@@ -12,7 +12,8 @@ namespace BitSorter.View
     /// <summary>
     /// The workbench's files (Part 13): the FILE chip beside SAMPLE and its menu. 13a: EXPORT PROJECT, the document as a zip
     /// ModelSim opens -- every file it prints as and a run.do -- saved as every export is (<see cref="FileSaver"/>): a
-    /// download in a browser, a file in the Exports folder elsewhere, the chip saying where.
+    /// download in a browser, a file in the Exports folder elsewhere, the chip saying where. 13d: IMPORT and CONVERT. 13e:
+    /// EXPORT FOR SUBMISSION, the course's template files handed back filled.
     /// </summary>
     public sealed partial class WorkbenchPanel
     {
@@ -48,7 +49,17 @@ namespace BitSorter.View
                 at = new Vector2(chip.xMin, chip.yMin);
             }
 
-            _fileMenu.Open(at, _session != null && _session.Project.Bench != null);
+            _fileMenu.Open(at, _session != null && _session.Project.Bench != null, _session != null && FromATemplate(_session.Project) > 0);
+        }
+
+        /// <summary>How many of <paramref name="project"/>'s modules came from a course template (Part 13e).</summary>
+        private static int FromATemplate(Project project)
+        {
+            int n = 0;
+            foreach (Module module in project.Modules)
+                if (module.Template != null)
+                    n++;
+            return n;
         }
 
         private void FileChosen(FileAction action)
@@ -57,6 +68,9 @@ namespace BitSorter.View
             {
                 case FileAction.ExportProject:
                     ExportProject();
+                    break;
+                case FileAction.ExportSubmission:
+                    ExportSubmission();
                     break;
                 case FileAction.ImportFolder:
                     ImportFromFolder();
@@ -158,9 +172,11 @@ namespace BitSorter.View
             foreach (Module module in project.Modules)
                 if (module.IsWritten && module.Name != project.Bench)
                     written++;
+            int templates = FromATemplate(project);
             Notice("imported " + project.Name + ": " + Count(project.Modules.Count - (project.Bench != null ? 1 : 0), "module") +
                 (written > 0 ? ", " + written.ToString(CultureInfo.InvariantCulture) + " of them written" : "") +
                 (project.Bench != null ? ", run by its testbench " + project.Bench : "") +
+                (templates > 0 ? ". " + Count(templates, "course template") + ": write between the markers, then FILE, EXPORT FOR SUBMISSION" : "") +
                 (import.Notes.Count > 0 ? ". The TRANSCRIPT has what the import said" : ""));
         }
 
@@ -231,6 +247,43 @@ namespace BitSorter.View
 
             string name = WaveExport.FileName(WorkbenchSamples.Chip[_sample].Name, "zip");
             Notice("saved " + name + " " + FileSaver.Save(name, bytes, "application/zip") + ": unzip it, and in ModelSim type do run.do");
+            return name;
+        }
+
+        /// <summary>
+        /// Saves every course template the document came from with the student's code between its markers
+        /// (<see cref="SubmissionExport"/>), as EXPORT PROJECT saves: the chip says what was filled and where it went, or why
+        /// it was refused. Code typed and not yet applied is applied first, as the editor would after its pause, so what is
+        /// handed in is what is on screen; code that cannot apply is refused with what is wrong with it, never handed in as the
+        /// last text that worked. Returns the file's name, or null.
+        /// </summary>
+        public string ExportSubmission()
+        {
+            if (_session == null)
+                return null;
+
+            if (_session.ShowsCode && _session.Code is CodeDocument code && code.Pending)
+            {
+                EditResult applied = code.Apply();
+                if (!applied.Done)
+                {
+                    Notice(code.Module + "'s code on screen does not apply, so it is not handed in: " + applied.Refusal);
+                    return null;
+                }
+            }
+
+            Submission submission = SubmissionExport.Build(_session.Project, System.DateTime.Now);
+            if (!submission.Succeeded)
+            {
+                Notice(submission.Refusal);
+                return null;
+            }
+
+            string name = WaveExport.FileName(WorkbenchSamples.Chip[_sample].Name + " submission", "zip");
+            string uses = submission.NotHandedIn.Count == 0 ? ""
+                : ". It uses " + string.Join(", ", submission.NotHandedIn) + ", not in it: anything the course did not give you goes between the markers";
+            Notice("saved " + name + " " + FileSaver.Save(name, submission.Zip, "application/zip") + ": " + string.Join(", ", submission.Files) +
+                " as the course gave " + (submission.Files.Count == 1 ? "it" : "them") + ", with your code between the markers" + uses);
             return name;
         }
     }

@@ -345,10 +345,16 @@ namespace BitSorter.Board
                     if (byName.TryGetValue(name, out ModuleDeclaration inner))
                         Decide(inner, depth + 1);
 
-                Module chosen = module == bench || lookedInto.Contains(module.Name) ? null : Drawn(tree, module.Name, written, kept);
+                // A course template (Part 13e) is written, its markers kept, so the student's code goes between them.
+                texts.TryGetValue(SourcePaths.Normalise(module.Location.File ?? ""), out string fileText);
+                bool template = CourseTemplate.TryRead(fileText, out _);
+
+                Module chosen = module == bench || template || lookedInto.Contains(module.Name) ? null : Drawn(tree, module.Name, written, kept);
                 if (chosen == null)
                 {
                     chosen = Written(module);
+                    if (template && CourseTemplate.TryRead(chosen.Source, out _))
+                        chosen = chosen with { Template = new ModuleTemplate { File = ModuleCutter.NameOf(module.Location.File), Text = fileText, Given = chosen.Source } };
                     written.Add(chosen);
                 }
 

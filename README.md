@@ -314,6 +314,12 @@ The workbench's **FILE** menu takes a project's files in and gives them back out
   checked), and Ctrl+Z undoes it.
 - **Export.** EXPORT PROJECT saves a zip of every file the project is, with a
   `run.do`: unzip it, and in ModelSim type `do run.do`.
+- **Hand in.** Import a homework file that says `// Put your code here`, and its
+  module keeps the file's markers: write your code between them. FILE, EXPORT FOR
+  SUBMISSION then saves the file exactly as the course gave it, with your code
+  between its markers. It refuses, and says why, if the ports, the markers or
+  anything outside them (comments included) are no longer the course's, so nothing
+  you wrote is left out without a word.
 
 Nothing you import or export is sent anywhere: it stays on your machine, or in
 your browser's tab.

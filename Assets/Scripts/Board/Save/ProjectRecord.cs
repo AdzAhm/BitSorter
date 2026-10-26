@@ -135,6 +135,18 @@ namespace BitSorter.Board
 
         /// <summary>A written module's text (Part 12d); empty, or absent in an older file, for a drawn one.</summary>
         public string source;
+
+        /// <summary>
+        /// The course template it came from (Part 13e): its file's name and text, and the module's text as the import first
+        /// made it of the file; empty, or absent in an older file, for none.
+        /// </summary>
+        public string templateFile;
+
+        /// <inheritdoc cref="templateFile"/>
+        public string template;
+
+        /// <inheritdoc cref="templateFile"/>
+        public string templateModule;
         public int nextId = 1;
         public PartRecord[] parts = new PartRecord[0];
         public WireRecord[] wires = new WireRecord[0];
@@ -151,6 +163,9 @@ namespace BitSorter.Board
                 name = module.Name,
                 comment = module.Comment,
                 source = module.Source,
+                templateFile = module.Template?.File,
+                template = module.Template?.Text,
+                templateModule = module.Template?.Given,
                 nextId = module.NextId,
                 panX = module.Layout.Pan.X,
                 panY = module.Layout.Pan.Y,
@@ -210,6 +225,7 @@ namespace BitSorter.Board
                 Name = name,
                 Comment = string.IsNullOrEmpty(comment) ? null : comment,
                 Source = string.IsNullOrEmpty(source) ? null : source,
+                Template = string.IsNullOrEmpty(template) ? null : new ModuleTemplate { File = templateFile ?? name + ".sv", Text = template, Given = templateModule ?? "" },
                 NextId = nextId,
                 Parts = parts,
                 Wires = wires,

@@ -1352,6 +1352,72 @@ namespace BitSorter.PlayMode.Tests
             workbench.FileMenu.Close();
         }
 
+        /// <summary>A homework file in the course's style, written for this test: the student's code goes between its markers.</summary>
+        private const string TemplateMux =
+            "// Homework: a 2-to-1 multiplexer. Written for BitSorter's tests, in the course's style.\n" +
+            "module mux2 (input logic a, input logic b, input logic s, output logic y);\n" +
+            "    // Put your code here\n" +
+            "\n" +
+            "    // End of your code\n" +
+            "endmodule\n";
+
+        /// <summary>
+        /// FILE, EXPORT FOR SUBMISSION (Part 13e) is offered once a module came from a course template, and saves the template
+        /// as given with the code on screen between its markers, in the Exports folder -- redirected while a test runs. Code
+        /// typed and not yet applied is applied first, and code that cannot apply is refused, never handed in as the last text
+        /// that did.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator FileExportForSubmission_SavesTheTemplateWithTheCodeOnScreenBetweenItsMarkers()
+        {
+            PutInTheImportFolder(("mux2.sv", TemplateMux), ("mux2_tb.sv", ImportedMuxBench));
+            yield return TestScene.Load();
+            yield return Click(MainMenu.WorkbenchButton);
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            yield return null;
+
+            yield return Click(WorkbenchPanel.FileButton);
+            Assert.IsFalse(workbench.FileMenu.Offers(FileAction.ExportSubmission), "not offered while nothing came from a template");
+            workbench.FileMenu.Close();
+            yield return null;
+
+            workbench.ImportFromFolder();
+            yield return null;
+            workbench.Pause();
+            workbench.Session.Finish();
+            yield return null;
+            Module mux = workbench.Session.Project.Find("mux2");
+            Assert.AreEqual("mux2.sv", mux.Template?.File, "sanity: the import remembered the template");
+            Assert.AreEqual("mux2", workbench.Session.Module, "sanity: the code shown is the design's");
+            string path = System.IO.Path.Combine(FileSaver.Folder, WaveExport.FileName(WorkbenchSamples.Chip[0].Name + " submission", "zip"));
+            Assert.IsNotNull(FileSaver.Redirected, "sanity: the Exports folder is the test's scratch one, never the player's");
+            if (System.IO.File.Exists(path))
+                System.IO.File.Delete(path);   // an earlier run's, in the scratch folder
+
+            // Typed with a fault, and not applied: refused, and nothing saved. Typed on the code editor's clock, in
+            // milliseconds (CodeEditorView), or the view would find the pause long over and apply clean code itself.
+            CodeDocument code = workbench.Session.Code;
+            code.Type(mux.Source.Replace("    // Put your code here\n", "    // Put your code here\n    assign y = s ? b : a\n"), Time.timeAsDouble * 1000.0);
+            yield return Click(WorkbenchPanel.FileButton);
+            Assert.IsTrue(workbench.FileMenu.Offers(FileAction.ExportSubmission), "offered: the design came from a template");
+            yield return Click(FileMenu.ActionItem + FileAction.ExportSubmission);
+            Assert.IsFalse(System.IO.File.Exists(path), "code on screen that does not apply is not handed in as the last that did");
+            Assert.AreEqual(mux.Source, workbench.Session.Project.Find("mux2").Source, "and the document keeps the last code that worked");
+
+            // Typed and not applied yet: applied, then handed in.
+            code.Type(mux.Source.Replace("    // Put your code here\n", "    // Put your code here\n    assign y = s ? b : a;\n"), Time.timeAsDouble * 1000.0);
+            yield return Click(WorkbenchPanel.FileButton);
+            Assert.IsTrue(code.Pending, "sanity: still typed and not applied, inside the editor's pause, as the export is chosen");
+            yield return Click(FileMenu.ActionItem + FileAction.ExportSubmission);
+
+            Assert.IsTrue(System.IO.File.Exists(path), path);
+            string bytes = System.Text.Encoding.UTF8.GetString(System.IO.File.ReadAllBytes(path));
+            StringAssert.Contains("-submission/mux2.sv", bytes, "under the template's own name");
+            StringAssert.Contains("// Homework: a 2-to-1 multiplexer.", bytes, "the template as given");
+            StringAssert.Contains("    // Put your code here\n    assign y = s ? b : a;\n", bytes, "with the code on screen between its markers");
+            Assert.IsFalse(workbench.Session.Code.Pending, "applied on the way out");
+        }
+
         /// <summary>The wheel over a written block's line numbers scrolls its code, as it does over the code itself (Part 12d).</summary>
         [UnityTest]
         public IEnumerator TheWheelOverTheCodesLineNumbers_ScrollsTheCode()
