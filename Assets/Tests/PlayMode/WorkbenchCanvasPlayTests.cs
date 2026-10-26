@@ -1418,6 +1418,43 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsFalse(workbench.Session.Code.Pending, "applied on the way out");
         }
 
+        /// <summary>
+        /// Every item the FILE menu shows fits it: a caption wider than its item runs out past the menu's edge. Shown on a
+        /// template run by its testbench, so CONVERT (Part 13d) and EXPORT FOR SUBMISSION (13e) are both up.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator TheFileMenu_ShowsEveryItemsCaptionWhole()
+        {
+            PutInTheImportFolder(("mux2.sv", TemplateMux), ("mux2_tb.sv", ImportedMuxBench));
+            yield return TestScene.Load();
+            yield return Click(MainMenu.WorkbenchButton);
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            yield return null;
+            workbench.ImportFromFolder();
+            yield return null;
+
+            yield return Click(WorkbenchPanel.FileButton);
+            Assert.IsTrue(workbench.FileMenu.Offers(FileAction.ConvertTestbench) && workbench.FileMenu.Offers(FileAction.ExportSubmission),
+                "sanity: every item that can be is up");
+            var tooWide = new System.Collections.Generic.List<string>();
+            int measured = 0;
+            foreach (FileAction action in System.Enum.GetValues(typeof(FileAction)))
+            {
+                UnityEngine.UIElements.Button item = ShellPanel.Find<UnityEngine.UIElements.Button>(FileMenu.ActionItem + action);
+                if (item == null || item.resolvedStyle.display == UnityEngine.UIElements.DisplayStyle.None)
+                    continue;
+                Vector2 caption = item.MeasureTextSize(item.text, 0, UnityEngine.UIElements.VisualElement.MeasureMode.Undefined,
+                    0, UnityEngine.UIElements.VisualElement.MeasureMode.Undefined);
+                measured++;
+                if (caption.x > item.contentRect.width + 0.5f)
+                    tooWide.Add($"{item.text}: {caption.x:0} wide in {item.contentRect.width:0}");
+            }
+
+            workbench.FileMenu.Close();
+            Assert.Greater(measured, 3, "sanity: the items were measured");
+            Assert.IsEmpty(tooWide, "captions wider than their items");
+        }
+
         /// <summary>The wheel over a written block's line numbers scrolls its code, as it does over the code itself (Part 12d).</summary>
         [UnityTest]
         public IEnumerator TheWheelOverTheCodesLineNumbers_ScrollsTheCode()
