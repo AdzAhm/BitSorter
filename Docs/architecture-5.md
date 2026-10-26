@@ -2104,6 +2104,41 @@ template is imported, then exported filled.
   did not, at 436 px in an item of 416, until it lost its article. No reference shot moves: the new item is hidden on
   every shot's document, and so is CONVERT.
 
+**As built in Part 13f, so far**: an import's limits and the security review. One browser build for Part 13's checks,
+and the measurement that decides on the levelized path, are still to come.
+
+- **What an import takes** (`ProjectImporter.MaxFiles`, `MaxFileSize`, `MaxTotalSize`): 200 files, 4 MB a file and
+  16 MB in all, where the course's largest project is eleven files of under 80 KB. The wrong folder is the usual way in,
+  so too many files, or too much in all, is refused asking whether this is one project's folder, and a file too large is
+  left out with its size and the rest imported. **The readers look before they read** and ask the importer's own rule
+  (`ProjectImporter.Reads`): the desktop's Import folder and the browser's picker -- handed the limits by the game -- read
+  nothing over them, leave a hidden folder's files out before counting, and pass a file they leave unread as
+  `SourceFile.Unread`, its path and size, for the import to name. A file the desktop cannot open is left out the same
+  way rather than thrown.
+- **The security review** took an import as untrusted text and tried each layer's limits against it. Three were missing,
+  each found, held by a red test and fixed:
+  - **Macros that make too much.** Each macro of a chain using the one before twice makes two to the power of its
+    length, and a chain of 31 is inside the depth limit of 32: two thousand million tokens from a few lines. The
+    preprocessor now counts what macros make, each use and each token, and stops at a million (`MaxExpansion`, SV0109),
+    said once at the use in the file.
+  - **A call with no way out.** A call from an expression runs on the machine's own stack, so a recursion with no base
+    case -- a common slip, and one a student can type into the workbench -- overflowed it, which nothing can catch: the
+    editor, a desktop build or a browser's page ended there. Calls now nest at most a hundred deep across every function
+    (`FunctionRunner.MaxNesting`), the call past that giving x; `MaxSteps` counts everything under one call from an
+    expression; and why a call was stopped is said by the run, each reason once.
+  - **A design bigger than a run can hold.** A signal and a memory were bounded alone but not the whole, so a million
+    words of a million bits elaborated and the run asked for terabytes. A design now holds at most 64 million bits
+    (`Elaborator.MaxBits`), refused as too large before anything is allocated.
+  What held already: the parser's nesting (200), includes nesting and cycles, the elaborator's depth, instances and
+  generate loops, the engine's delta cycles, a process that never waits, what a run keeps (`MaxRecorded`, which counts
+  lines printed too), the importer's own run (`MaxRun`, `MaxEvents`), names a file can have, and `$fopen`, which writes
+  only through the host and so nowhere in an import's run.
+- **Checked.** `ImportLimitsTests`; `FileImportTests` in Edit Mode, on a scratch folder; the red tests and their fixes
+  in `PreprocessorTests`, `SubroutineTests` and `ElaboratorTests`. `ImportHostileTests` takes each attack the review tried
+  through a whole import and a run, as the workbench runs it -- each back in under a third of a second, saying why.
+  `ImportFuzzTests` makes the corpus's four importable projects wrong twelve ways each from fixed seeds -- cut off, characters
+  changed, lines lost or said twice -- and each imports or is refused, compiles if it imported, and never throws or hangs.
+
 ---
 
 ## 11. The parts
@@ -2125,7 +2160,7 @@ Each part is one pull request into `v5`, ends with every suite green, and leaves
 | 10 | Editing on the free canvas -- in four: 10a placement and selection **built** (see "As built in Part 10a"); 10b wiring **built**, drawn (10b-1) and reshaped (10b-2); 10c the inspector **built**; 10d copy, align and the minimap **built**; 10e what its browser smoke test found **built** |
 | 11 | The workbench shell, in UI Toolkit -- **built**, in four: 11a the bridges and the toolbar; 11b the docked layout -- its panels (11b-1), the inspector docked (11b-2), the popups in the shell (11b-3); 11c the transcript and the hierarchy; 11d the keyboard map, the status line and the docs |
 | 12 | Hierarchy, and written blocks, edited in CodeMirror in a browser -- in six: 12a stepping inside a block **built** (see "As built in Part 12a"); 12b making a block **built** (see "As built in Part 12b"); 12c arrays **built** (see "As built in Part 12c"); 12d code blocks **built** (see "As built in Part 12d"); 12e the code panel **built** (see "As built in Part 12e"); 12f CodeMirror **built** (see "As built in Part 12f") |
-| 13 | Export and import (and a levelized path in the engine, only if a measurement asks for it) -- in six: 13a exporting a project **built** (see "As built in Part 13a"); 13b importing one **built** (see "As built in Part 13b"); 13c CONVERT **built** (see "As built in Part 13c"); 13d files **built** (see "As built in Part 13d"); 13e templates **built** (see "As built in Part 13e"); 13f limits and the browser |
+| 13 | Export and import (and a levelized path in the engine, only if a measurement asks for it) -- in six: 13a exporting a project **built** (see "As built in Part 13a"); 13b importing one **built** (see "As built in Part 13b"); 13c CONVERT **built** (see "As built in Part 13c"); 13d files **built** (see "As built in Part 13d"); 13e templates **built** (see "As built in Part 13e"); 13f limits and the security review **built** (see "As built in Part 13f, so far"), its browser check and measurement to come |
 | 14 | The course's tools: path delays, static timing, gate-library mode, step tests, lint, tri-state |
 | 15 | The Exercises and the tutorial |
 | 16 | The old game retired, and a smaller download; 5.0.0 released |
@@ -2171,7 +2206,9 @@ two kinds of call need them:
   and shared by every call: static storage, the standard's default, with an automatic function or task
   starting each call from its locals' starting values. A function called again while it is running --
   recursion -- keeps the running call's signals aside and puts them back after, so each call has its own;
-  only such a call copies anything.
+  only such a call copies anything. Calls nest at most a hundred deep, across every function, and the call past
+  that gives x, since each runs a frame deeper on the machine's own stack (Part 13f; see "As built in Part 13f,
+  so far").
 - **What a call waits on is its arguments.** A continuous assignment and `@*` are evaluated again when an
   argument changes, never when something the function's statements read does; an `always_comb` waits on
   those as well (9.2.2.2.1), transitively through the functions it calls. Icarus agrees on all three

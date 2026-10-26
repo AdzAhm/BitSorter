@@ -308,6 +308,8 @@ The workbench's **FILE** menu takes a project's files in and gives them back out
   has a circuit. A module made only of gates is drawn; any other module is kept as
   the code you wrote. Your testbench runs as written, `$display` and all. Anything
   the import could not read is listed in the TRANSCRIPT with its file and line.
+  An import takes up to 200 files, 4 MB a file and 16 MB in all, which is far
+  more than a course project needs; a larger file is left out and named.
 - **Convert.** While your testbench drives the inputs, they cannot be set on the
   waves. FILE, CONVERT records what the testbench drove and makes it steps you can
   edit; it says first what it will not keep (what the testbench printed or
