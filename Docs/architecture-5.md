@@ -2116,8 +2116,18 @@ template is imported, then exported filled.
   did not, at 436 px in an item of 416, until it lost its article. No reference shot moves: the new item is hidden on
   every shot's document, and so is CONVERT.
 
-**As built in Part 13f, so far**: an import's limits, the security review, and the measurement that decides on the
-levelized path. One browser build for Part 13's checks is still to come.
+**As built in Part 13f**: an import's limits, the security review, the measurement that decides on the levelized path,
+and one browser build for Part 13's checks -- and Part 12f's.
+
+- **In a browser** (the WebGL build of this part, served locally and driven in the desktop app's browser pane,
+  2026-10-27; the page's file picker handed its files by a script, since nothing there can click the system's dialog,
+  and its downloads read back the same way). A template and its testbench imported through the picker into MY CIRCUIT,
+  a 4.5 MB file among them left unread and named, a handout no module names left out; the template's code typed in
+  CodeMirror (12f), which kept the indent, applied it, and hid behind the FILE menu; EXPORT FOR SUBMISSION saved the
+  template as given with that code between its markers; EXPORT PROJECT saved the module, its testbench and a run.do;
+  CONVERT asked what it would lose and made the inputs steps; and a design whose function calls itself with no way out
+  ran under its testbench, the run saying once that the call was stopped a hundred deep -- the browser's own stack, which
+  is the one that matters, held. The FILE menu offered each item only where it should, every caption whole.
 
 - **The measurement: the levelized path is not needed.** Every one of the course's nine project folders, imported as a
   student would from the course folder itself -- locally, never into this repository -- and run to where its testbench
@@ -2186,7 +2196,7 @@ Each part is one pull request into `v5`, ends with every suite green, and leaves
 | 10 | Editing on the free canvas -- in four: 10a placement and selection **built** (see "As built in Part 10a"); 10b wiring **built**, drawn (10b-1) and reshaped (10b-2); 10c the inspector **built**; 10d copy, align and the minimap **built**; 10e what its browser smoke test found **built** |
 | 11 | The workbench shell, in UI Toolkit -- **built**, in four: 11a the bridges and the toolbar; 11b the docked layout -- its panels (11b-1), the inspector docked (11b-2), the popups in the shell (11b-3); 11c the transcript and the hierarchy; 11d the keyboard map, the status line and the docs |
 | 12 | Hierarchy, and written blocks, edited in CodeMirror in a browser -- in six: 12a stepping inside a block **built** (see "As built in Part 12a"); 12b making a block **built** (see "As built in Part 12b"); 12c arrays **built** (see "As built in Part 12c"); 12d code blocks **built** (see "As built in Part 12d"); 12e the code panel **built** (see "As built in Part 12e"); 12f CodeMirror **built** (see "As built in Part 12f") |
-| 13 | Export and import (and a levelized path in the engine, only if a measurement asks for it) -- in six: 13a exporting a project **built** (see "As built in Part 13a"); 13b importing one **built** (see "As built in Part 13b"); 13c CONVERT **built** (see "As built in Part 13c"); 13d files **built** (see "As built in Part 13d"); 13e templates **built** (see "As built in Part 13e"); 13f limits, the security review and the measurement **built** (see "As built in Part 13f, so far"; the levelized path is not needed), its browser check to come |
+| 13 | Export and import (and a levelized path in the engine, only if a measurement asks for it) -- in six: 13a exporting a project **built** (see "As built in Part 13a"); 13b importing one **built** (see "As built in Part 13b"); 13c CONVERT **built** (see "As built in Part 13c"); 13d files **built** (see "As built in Part 13d"); 13e templates **built** (see "As built in Part 13e"); 13f limits, the security review, the measurement and the browser check **built** (see "As built in Part 13f"; the levelized path is not needed). **Part 13 is built.** |
 | 14 | The course's tools: path delays, static timing, gate-library mode, step tests, lint, tri-state |
 | 15 | The Exercises and the tutorial |
 | 16 | The old game retired, and a smaller download; 5.0.0 released |
@@ -2233,8 +2243,7 @@ two kinds of call need them:
   starting each call from its locals' starting values. A function called again while it is running --
   recursion -- keeps the running call's signals aside and puts them back after, so each call has its own;
   only such a call copies anything. Calls nest at most a hundred deep, across every function, and the call past
-  that gives x, since each runs a frame deeper on the machine's own stack (Part 13f; see "As built in Part 13f,
-  so far").
+  that gives x, since each runs a frame deeper on the machine's own stack (Part 13f; see "As built in Part 13f").
 - **What a call waits on is its arguments.** A continuous assignment and `@*` are evaluated again when an
   argument changes, never when something the function's statements read does; an `always_comb` waits on
   those as well (9.2.2.2.1), transitively through the functions it calls. Icarus agrees on all three
