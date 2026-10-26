@@ -297,6 +297,27 @@ Your progress file itself is never uploaded. Nothing is compared against anyone
 else either — every number the game shows is about the circuit in front of you, or
 the one you built last time.
 
+### Your own SystemVerilog, in and out (5.0 preview)
+
+The workbench's **FILE** menu takes a project's files in and gives them back out:
+
+- **Import.** On a desktop, put a project's files — its `.sv` files, any files they
+  `` `include ``, and the memory images `$readmemh` reads — in the Import folder
+  (FILE, OPEN THE IMPORT FOLDER), then IMPORT. In a browser, IMPORT picks the files
+  or a folder. The project becomes MY CIRCUIT, asking first if MY CIRCUIT already
+  has a circuit. A module made only of gates is drawn; any other module is kept as
+  the code you wrote. Your testbench runs as written, `$display` and all. Anything
+  the import could not read is listed in the TRANSCRIPT with its file and line.
+- **Convert.** While your testbench drives the inputs, they cannot be set on the
+  waves. FILE, CONVERT records what the testbench drove and makes it steps you can
+  edit; it says first what it will not keep (what the testbench printed or
+  checked), and Ctrl+Z undoes it.
+- **Export.** EXPORT PROJECT saves a zip of every file the project is, with a
+  `run.do`: unzip it, and in ModelSim type `do run.do`.
+
+Nothing you import or export is sent anywhere: it stays on your machine, or in
+your browser's tab.
+
 ### What it collects
 
 The game uses Unity Analytics, which sends anonymous usage data to Unity.
@@ -368,7 +389,7 @@ Unity 6.3 LTS (6000.3.11f1).
   `TestResults.xml` in the save directory rather than from a `TestRunnerApi`
   callback, which does not survive the domain reload that entering play mode
   causes.
-- **BitSorter → Capture Reference Shots** screenshots forty-five states of the
+- **BitSorter → Capture Reference Shots** screenshots forty-six states of the
   real game — menu, board, a run, both kinds of collision, the cards, free play,
   settings, the credits, the wider boards, the three levels that open on a broken
   circuit, the timing diagram mid-run, a four-bit adder built from blocks, and the

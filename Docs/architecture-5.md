@@ -2029,6 +2029,32 @@ template is imported, then exported filled.
   converted, exported and run in Icarus as the original files run there. `ImportedProjectTests`: converted in a
   session, the same values, and SET taken.
 
+**As built in Part 13d**: IMPORT and CONVERT in the workbench.
+
+- **The FILE menu brings a project in** (`FileImport`). On a desktop and in the editor, IMPORT reads every file in the
+  Import folder beside the save -- the folders in it too, each file by its path inside it -- and OPEN THE IMPORT FOLDER
+  makes it and opens it in the system's file browser. In a browser, IMPORT A PROJECT'S FILES and IMPORT A PROJECT'S
+  FOLDER open the page's own file picker (`BitSorterFiles.jslib`), which reads what is picked as text and keeps it
+  until the game takes it a frame or so later -- the pull the code editor's bridge uses, so nothing in the page calls
+  into the game. Tests read a scratch folder (`FileImport.Redirected`, set by `SaveGuard`), never the player's.
+- **An import goes into MY CIRCUIT** (Ahmad's choice), asking first when MY CIRCUIT has a circuit in it (`AskMenu`: the
+  question, then REPLACE MY CIRCUIT and CANCEL; Escape or a click off it is CANCEL). What the import said is in the
+  TRANSCRIPT, each with its file and line, before the document's own lines (`TranscriptView.Notes`), while the project
+  shown is the one it was said about -- the first edit or another document takes it away, so a refused import's reasons
+  do not stay on a circuit they are not about. An import of which nothing at all could be made is refused, with its
+  reasons there. Files in a hidden folder -- a project's `.git` -- are left out, in a folder read and a browser's pick
+  alike, and a picker closed with nothing picked leaves nothing behind in the page. MY CIRCUIT
+  counts as having something when its top is written, or it has modules besides the top, as well as when it has parts:
+  an imported design with a written top would otherwise have been replaced without asking.
+- **CONVERT is in the FILE menu while a testbench drives the inputs**, and asks first, saying what the stimulus will not
+  keep and that Ctrl+Z puts it back; refused with why when it cannot be. SET's refusal names it.
+- **Checked.** `TranscriptTests`: what an import said, listed first until set again. Play Mode (`WorkbenchCanvasPlayTests`):
+  a project put in the Import folder imported into MY CIRCUIT, run by its testbench to where it stops, a file that does
+  not read named in the TRANSCRIPT with its line and what the testbench printed there too; the question before an
+  import over a circuit, CANCEL keeping it and the answer replacing it; CONVERT asking what it loses, the inputs then the
+  stimulus's, and CONVERT no longer offered. Reference shot 46, new: a project imported into MY CIRCUIT, running under its
+  testbench, with what it printed in the TRANSCRIPT; 45 differs in the FILE menu's two new items.
+
 ---
 
 ## 11. The parts
@@ -2050,7 +2076,7 @@ Each part is one pull request into `v5`, ends with every suite green, and leaves
 | 10 | Editing on the free canvas -- in four: 10a placement and selection **built** (see "As built in Part 10a"); 10b wiring **built**, drawn (10b-1) and reshaped (10b-2); 10c the inspector **built**; 10d copy, align and the minimap **built**; 10e what its browser smoke test found **built** |
 | 11 | The workbench shell, in UI Toolkit -- **built**, in four: 11a the bridges and the toolbar; 11b the docked layout -- its panels (11b-1), the inspector docked (11b-2), the popups in the shell (11b-3); 11c the transcript and the hierarchy; 11d the keyboard map, the status line and the docs |
 | 12 | Hierarchy, and written blocks, edited in CodeMirror in a browser -- in six: 12a stepping inside a block **built** (see "As built in Part 12a"); 12b making a block **built** (see "As built in Part 12b"); 12c arrays **built** (see "As built in Part 12c"); 12d code blocks **built** (see "As built in Part 12d"); 12e the code panel **built** (see "As built in Part 12e"); 12f CodeMirror **built** (see "As built in Part 12f") |
-| 13 | Export and import (and a levelized path in the engine, only if a measurement asks for it) -- in six: 13a exporting a project **built** (see "As built in Part 13a"); 13b importing one **built** (see "As built in Part 13b"); 13c CONVERT **built** (see "As built in Part 13c"); 13d files, 13e templates, 13f limits and the browser |
+| 13 | Export and import (and a levelized path in the engine, only if a measurement asks for it) -- in six: 13a exporting a project **built** (see "As built in Part 13a"); 13b importing one **built** (see "As built in Part 13b"); 13c CONVERT **built** (see "As built in Part 13c"); 13d files **built** (see "As built in Part 13d"); 13e templates, 13f limits and the browser |
 | 14 | The course's tools: path delays, static timing, gate-library mode, step tests, lint, tri-state |
 | 15 | The Exercises and the tutorial |
 | 16 | The old game retired, and a smaller download; 5.0.0 released |

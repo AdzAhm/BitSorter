@@ -518,8 +518,9 @@ failure side.
   place one (2026-10-15).
 
   **They would also touch the player's own files.** `SaveGuard.Redirect` points
-  the save, the PlayerPrefs settings and the workbench's exports (`FileSaver`, Part
-  9b-4) at scratch copies before the scene loads
+  the save, the PlayerPrefs settings, the workbench's exports (`FileSaver`, Part
+  9b-4) and its Import folder (`FileImport`, Part 13d) at scratch copies before the
+  scene loads
   (see "Never move the player's save" below), and every fixture then turns
   analytics off -- `GameAnalytics.Boot` runs on AfterSceneLoad and would otherwise
   post real `levelStarted` events from a test run, into the one measurement the
@@ -753,7 +754,7 @@ failure side.
   counts from it -- the win celebration once pulsed on the game clock and a solve
   could land at the bottom of its swell.
 - **Visual changes are checked against the reference shots.**
-  `BitSorter/Capture Reference Shots` captures forty-five states (menu, a built
+  `BitSorter/Capture Reference Shots` captures forty-six states (menu, a built
   board, bits in flight, a collision one tick out and one that takes both bits,
   the solved card, the level list, free play, the help panel, the chapter card, a
   clocked level, the tutorial's intro and its closing card, a first-time hint, a
@@ -765,7 +766,7 @@ failure side.
   built and running, its carry passing between the boxes, and 5.0's workbench
   preview with two changes on their way, whole, zoomed in, with a wire pointed at, with two rows in other
   radixes, a second cursor 9 ps on and two breakpoints flagged, with a block's inside grouped under full names, with the
-  add list searching, MY CIRCUIT being edited, two gates moving with their guides, its half adder being wired, one of its wires being reshaped, the reference's AND in its inspector, the reference zoomed in with its minimap and the canvas's menu, the full adder's transcript beside its hierarchy, the keyboard map, the full adder stepped inside h1, MAKE BLOCK asking for a name, four half adders as one block of four copies, a written adder's code with a fault marked, the full adder's code in the dock's CODE tab, and the FILE menu) as an Explicit Play
+  add list searching, MY CIRCUIT being edited, two gates moving with their guides, its half adder being wired, one of its wires being reshaped, the reference's AND in its inspector, the reference zoomed in with its minimap and the canvas's menu, the full adder's transcript beside its hierarchy, the keyboard map, the full adder stepped inside h1, MAKE BLOCK asking for a name, four half adders as one block of four copies, a written adder's code with a fault marked, the full adder's code in the dock's CODE tab, the FILE menu, and a project imported with its testbench running) as an Explicit Play
   Mode fixture, so it runs under `SaveGuard` --
   driving the real game for a screenshot by hand once marked a level solved on
   the developer's own save. Frame time is fixed, particle systems are seeded,
@@ -876,7 +877,9 @@ failure side.
   asks the panel too; and the
   panel reads its mouse as gestures (`WavePointer`), where a press on a control is
   never one. The row menu, the menu for a moment (a right-click on the waves, for
-  a breakpoint there; Part 9b-3), the export menu (VCD or PNG; Part 9b-4), the add list and the three fields -- RENAME,
+  a breakpoint there; Part 9b-3), the export menu (VCD or PNG; Part 9b-4), the FILE
+  menu (Part 13a) and the question it asks before an import replaces MY CIRCUIT or a
+  testbench is converted (`AskMenu`, Part 13d), the add list and the three fields -- RENAME,
   BREAK ON VALUE, and SET, which a double-click on a bus or an x asks an input's
   value in -- each hold Escape (`IHoldsEscape`), and the panel closes on Escape
   only when nothing does. **The circuit's window is the canvas's** (Part 10a):
