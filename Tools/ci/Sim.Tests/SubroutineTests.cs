@@ -133,6 +133,28 @@ endmodule", 1);
             CollectionAssert.AreEqual(new[] { "720 144" }, Printed(sim));
         }
 
+        /// <summary>
+        /// A call runs on the machine's own stack, so a function that calls itself with no way out would overflow it --
+        /// which nothing can catch: the editor, a desktop build or a browser's page would end there (Part 13f). So calls nest
+        /// a hundred deep at most, and one that would go a hundred and fifty is stopped, and the run says why.
+        /// </summary>
+        [Test]
+        public void AFunctionCalledTooDeep_IsStopped_AndTheRunSaysWhy()
+        {
+            Simulator sim = Run(@"
+module t;
+    integer d;
+    function automatic integer down(input integer n);
+        if (n == 0) return 0;
+        return 1 + down(n - 1);
+    endfunction
+    initial d = down(150);
+endmodule", 1);
+
+            Assert.IsTrue(sim.History.Messages.Any(m => m.Severity == Severity.Error && m.Text.Contains("was called 100 deep")),
+                "the run says the call was stopped: " + string.Join("\n", sim.History.Messages.Select(m => m.Text)));
+        }
+
         [Test]
         public void AStaticFunction_KeepsItsLocal_AndAnAutomaticOneStartsAfresh()
         {
