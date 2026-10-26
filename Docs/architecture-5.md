@@ -1978,7 +1978,7 @@ template is imported, then exported filled.
   A file whose conditionals choose *between* modules cannot be cut, and the import says so. An include is named by its
   file's bare name, since that is how a project keeps its files.
 - **A project has other files** (`Project.Files`, `ProjectFiles`): what a written module includes and what
-  `$readmemh` reads, each by a bare name -- the course's nine `.inc` parameter files and its memory images are bare
+  `$readmemh` reads, each by a bare name -- the course's three `.inc` parameter files and its memory images are bare
   names beside the sources -- and a `.sv` of nothing but defines. Every run is given a copy of them
   (`SimOptions.Files`), a written module's reading looks in them for its includes and is kept for the files its text
   names, an export puts them beside the modules, and the save keeps them. **A name matches in any case**, in an
@@ -2116,8 +2116,16 @@ template is imported, then exported filled.
   did not, at 436 px in an item of 416, until it lost its article. No reference shot moves: the new item is hidden on
   every shot's document, and so is CONVERT.
 
-**As built in Part 13f, so far**: an import's limits and the security review. One browser build for Part 13's checks,
-and the measurement that decides on the levelized path, are still to come.
+**As built in Part 13f, so far**: an import's limits, the security review, and the measurement that decides on the
+levelized path. One browser build for Part 13's checks is still to come.
+
+- **The measurement: the levelized path is not needed.** Every one of the course's nine project folders, imported as a
+  student would from the course folder itself -- locally, never into this repository -- and run to where its testbench
+  stops with everything recorded, as the workbench runs it (.NET 10, best of five, 2026-10-27): the slowest elaborates in
+  46 ms and simulates in 17 ms, 10,764 events; the rest take under 2 ms. Part 6's processor, the budget's yardstick,
+  simulates in 188 to 206 ms here and 77 to 194 in a browser. The trigger -- a design measured over the budget, its time
+  in delta cycles -- is nowhere near met, so the levelized path waits, as the plan says it should. (One folder does not
+  import as it stands, and one has no testbench to run.)
 
 - **What an import takes** (`ProjectImporter.MaxFiles`, `MaxFileSize`, `MaxTotalSize`): 200 files, 4 MB a file and
   16 MB in all, where the course's largest project is eleven files of under 80 KB. The wrong folder is the usual way in,
@@ -2141,6 +2149,12 @@ and the measurement that decides on the levelized path, are still to come.
   - **A design bigger than a run can hold.** A signal and a memory were bounded alone but not the whole, so a million
     words of a million bits elaborated and the run asked for terabytes. A design now holds at most 64 million bits
     (`Elaborator.MaxBits`), refused as too large before anything is allocated.
+  And one found by the measurement below, held and fixed the same way:
+  - **A folder's other files.** A course's project folder holds more than its code -- across the course, two handout
+    PDFs, a zip, four ModelSim waveform logs and five assembly files beside the sources -- and a folder imported whole kept
+    each as one of the project's files, read as text: binary in the save and in every export. A file is the project's
+    now only when a module names it, in quotes and in any case -- by an include, or as a file it reads -- or a file so named
+    does; all ten of the course's memory images and include files are named so. The rest is left out, said so.
   What held already: the parser's nesting (200), includes nesting and cycles, the elaborator's depth, instances and
   generate loops, the engine's delta cycles, a process that never waits, what a run keeps (`MaxRecorded`, which counts
   lines printed too), the importer's own run (`MaxRun`, `MaxEvents`), names a file can have, and `$fopen`, which writes
@@ -2172,7 +2186,7 @@ Each part is one pull request into `v5`, ends with every suite green, and leaves
 | 10 | Editing on the free canvas -- in four: 10a placement and selection **built** (see "As built in Part 10a"); 10b wiring **built**, drawn (10b-1) and reshaped (10b-2); 10c the inspector **built**; 10d copy, align and the minimap **built**; 10e what its browser smoke test found **built** |
 | 11 | The workbench shell, in UI Toolkit -- **built**, in four: 11a the bridges and the toolbar; 11b the docked layout -- its panels (11b-1), the inspector docked (11b-2), the popups in the shell (11b-3); 11c the transcript and the hierarchy; 11d the keyboard map, the status line and the docs |
 | 12 | Hierarchy, and written blocks, edited in CodeMirror in a browser -- in six: 12a stepping inside a block **built** (see "As built in Part 12a"); 12b making a block **built** (see "As built in Part 12b"); 12c arrays **built** (see "As built in Part 12c"); 12d code blocks **built** (see "As built in Part 12d"); 12e the code panel **built** (see "As built in Part 12e"); 12f CodeMirror **built** (see "As built in Part 12f") |
-| 13 | Export and import (and a levelized path in the engine, only if a measurement asks for it) -- in six: 13a exporting a project **built** (see "As built in Part 13a"); 13b importing one **built** (see "As built in Part 13b"); 13c CONVERT **built** (see "As built in Part 13c"); 13d files **built** (see "As built in Part 13d"); 13e templates **built** (see "As built in Part 13e"); 13f limits and the security review **built** (see "As built in Part 13f, so far"), its browser check and measurement to come |
+| 13 | Export and import (and a levelized path in the engine, only if a measurement asks for it) -- in six: 13a exporting a project **built** (see "As built in Part 13a"); 13b importing one **built** (see "As built in Part 13b"); 13c CONVERT **built** (see "As built in Part 13c"); 13d files **built** (see "As built in Part 13d"); 13e templates **built** (see "As built in Part 13e"); 13f limits, the security review and the measurement **built** (see "As built in Part 13f, so far"; the levelized path is not needed), its browser check to come |
 | 14 | The course's tools: path delays, static timing, gate-library mode, step tests, lint, tri-state |
 | 15 | The Exercises and the tutorial |
 | 16 | The old game retired, and a smaller download; 5.0.0 released |
