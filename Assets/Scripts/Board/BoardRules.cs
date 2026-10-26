@@ -10,13 +10,15 @@ namespace BitSorter.Board
     /// <summary>Something wrong with a document, or worth knowing: in plain words, and where.</summary>
     public sealed class BoardDiagnostic
     {
-        public BoardDiagnostic(DiagnosticSeverity severity, string module, string message, int part = -1, int wire = -1)
+        public BoardDiagnostic(DiagnosticSeverity severity, string module, string message, int part = -1, int wire = -1, int line = 0, int column = 0)
         {
             Severity = severity;
             Module = module;
             Message = message;
             Part = part;
             Wire = wire;
+            Line = line;
+            Column = column;
         }
 
         public DiagnosticSeverity Severity { get; }
@@ -31,6 +33,12 @@ namespace BitSorter.Board
 
         /// <summary>The wire it is about, or -1.</summary>
         public int Wire { get; }
+
+        /// <summary>Where it is in a written module's text (Part 12d), counted from 1; 0 when it is not about text.</summary>
+        public int Line { get; }
+
+        /// <inheritdoc cref="Line"/>
+        public int Column { get; }
 
         public bool IsError => Severity == DiagnosticSeverity.Error;
 
@@ -79,10 +87,14 @@ namespace BitSorter.Board
                     Error(null, $"Module {module.Name}: {why}");
                 else if (!moduleNames.Add(module.Name))
                     Error(null, $"There are two modules called {module.Name}.");
+                else if (BoardImporter.IsCell(module.Name))
+                    Error(null, $"{module.Name} is the name of a cell of the library, so it cannot be a module's.");
             }
 
             if (project.Find(project.Top) == null)
                 Error(null, $"The top module, {project.Top ?? "(none)"}, is not in the project.");
+            else if (project.TopModule.IsWritten)
+                Error(project.Top, $"The design, {project.Top}, is written: so far the top module is drawn, and written ones are blocks inside it.");
 
             foreach (Module module in project.Modules)
                 CheckModule(project, module, found);
@@ -136,6 +148,12 @@ namespace BitSorter.Board
                 found.Add(new BoardDiagnostic(DiagnosticSeverity.Error, m, message, part, wire));
             void Warning(string message, int part = -1, int wire = -1) =>
                 found.Add(new BoardDiagnostic(DiagnosticSeverity.Warning, m, message, part, wire));
+
+            if (module.IsWritten)
+            {
+                CheckWritten(project, module, found);
+                return;
+            }
 
             var names = new HashSet<string>(StringComparer.Ordinal);
             var ids = new HashSet<int>();
@@ -330,6 +348,17 @@ namespace BitSorter.Board
             }
         }
 
+        /// <summary>A written module (Part 12d): nothing drawn in it, and its text one module that elaborates, each fault at its line.</summary>
+        private static void CheckWritten(Project project, Module module, List<BoardDiagnostic> found)
+        {
+            if (module.Parts.Count > 0 || module.Wires.Count > 0)
+                found.Add(new BoardDiagnostic(DiagnosticSeverity.Error, module.Name, $"{module.Name} is written, so nothing is drawn in it."));
+
+            foreach (Diagnostic d in WrittenModules.Read(project, module).Diagnostics)
+                if (d.Severity != DiagnosticSeverity.Info)
+                    found.Add(new BoardDiagnostic(d.Severity, module.Name, d.Message, line: d.Location.Line, column: d.Location.Column));
+        }
+
         private static void CheckRecursion(Project project, List<BoardDiagnostic> found)
         {
             // Depth-first through what each module instantiates: a module met again on its own path
@@ -342,13 +371,15 @@ namespace BitSorter.Board
                 state[module.Name] = 1;
                 path.Add(module.Name);
 
-                foreach (Part part in module.Parts)
+                foreach (Module inner in WrittenModules.UsesOf(project, module))
                 {
-                    if (!(part is BlockPart block))
-                        continue;
-                    Module inner = project.Find(block.Module);
-                    if (inner == null)
-                        continue;
+                    int block = -1;
+                    foreach (Part part in module.Parts)
+                        if (part is BlockPart b && b.Module == inner.Name)
+                        {
+                            block = part.Id;
+                            break;
+                        }
 
                     state.TryGetValue(inner.Name, out int seen);
                     if (seen == 1)
@@ -356,7 +387,7 @@ namespace BitSorter.Board
                         int from = path.IndexOf(inner.Name);
                         string loop = string.Join(" contains ", path.GetRange(from, path.Count - from)) + " contains " + inner.Name;
                         if (reported.Add(loop))
-                            found.Add(new BoardDiagnostic(DiagnosticSeverity.Error, module.Name, $"{loop}: a module cannot contain itself.", block.Id));
+                            found.Add(new BoardDiagnostic(DiagnosticSeverity.Error, module.Name, $"{loop}: a module cannot contain itself.", block));
                     }
                     else if (seen == 0)
                     {

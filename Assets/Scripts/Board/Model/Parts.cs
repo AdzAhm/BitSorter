@@ -219,7 +219,7 @@ namespace BitSorter.Board
     }
 
     /// <summary>
-    /// An instance of another module of the project: its pins are that module's ports. With <see cref="Copies"/> above 1 it
+    /// An instance of another module of the project: its pins are that module's ports, drawn or written. With <see cref="Copies"/> above 1 it
     /// is an array of that many instances (Part 12c), each pin a bus of every copy's port side by side -- copy i's on bits
     /// i*w to i*w+w-1 -- printed as a <c>generate for</c>.
     /// </summary>
@@ -241,7 +241,7 @@ namespace BitSorter.Board
 
             int copies = Math.Max(1, Copies);
             var pins = new List<Pin>();
-            foreach (PortPart port in module.Ports)
+            foreach (ModulePort port in WrittenModules.PortsOf(project, module))
                 pins.Add(new Pin(port.Name, port.Direction == PortDirection.Input ? PinDirection.In : PinDirection.Out, port.Width * copies));
             return pins;
         }

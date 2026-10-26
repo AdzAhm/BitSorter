@@ -6,12 +6,21 @@ namespace BitSorter.Board
 {
     /// <summary>
     /// A drawn module: its parts, the wires between them, and beside them how they are drawn. Its ports
-    /// are its <see cref="PortPart"/>s, inputs first, as the course writes a header.
+    /// are its <see cref="PortPart"/>s, inputs first, as the course writes a header. Or a written one
+    /// (Part 12d): its <see cref="Source"/>, and nothing drawn.
     /// </summary>
     public sealed record Module
     {
         public string Name { get; init; }
         public string Comment { get; init; }
+
+        /// <summary>
+        /// The module written as SystemVerilog, or null for a drawn one (Part 12d). A written module has no parts and no
+        /// wires: a block of it takes its pins from its header (<see cref="WrittenModules"/>), and it is compiled as written.
+        /// </summary>
+        public string Source { get; init; }
+
+        public bool IsWritten => Source != null;
         public IReadOnlyList<Part> Parts { get; init; } = Array.Empty<Part>();
         public IReadOnlyList<Wire> Wires { get; init; } = Array.Empty<Wire>();
         public Layout Layout { get; init; } = Layout.Empty;

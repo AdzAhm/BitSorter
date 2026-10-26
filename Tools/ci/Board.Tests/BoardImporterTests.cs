@@ -27,7 +27,7 @@ namespace BitSorter.Board.Tests
             return tree;
         }
 
-        [TestCaseSource(typeof(SampleBoards), nameof(SampleBoards.Names))]
+        [TestCaseSource(typeof(SampleBoards), nameof(SampleBoards.DrawnNames))]
         public void APrintedBoard_ImportsAndPrintsAgain_ToTheSameText(string board)
         {
             Project original = SampleBoards.Build(board);

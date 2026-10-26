@@ -81,7 +81,7 @@ namespace BitSorter.Board
     /// <see cref="CellLibrary"/> (more than four inputs, a primitive with the delay); anything wider
     /// than a bit as a continuous assignment; a register as <c>always_ff</c>; a block as an instance,
     /// connected by name. An output that shares its net with an input or another output is fed by an
-    /// <c>assign</c>. Lamps print nothing.
+    /// <c>assign</c>. Lamps print nothing. A written module (Part 12d) is its own text, parsed.
     ///
     /// A pin with nothing on it reads a net of its own, <c>g1_b</c>, which nothing drives, so it is
     /// x -- what a gate makes of an open input. A block's open pin is left open,
@@ -104,6 +104,15 @@ namespace BitSorter.Board
             foreach (Module module in Ordered(project))
             {
                 Netlist nets = Netlist.Of(project, module);
+                if (module.IsWritten)
+                {
+                    // As written (Part 12d), with the cells it instantiates.
+                    compiled.Add(new CompiledModule(module, nets, WrittenModules.Read(project, module).Declaration));
+                    foreach (string cell in WrittenModules.CellsOf(module))
+                        cells.Add(cell);
+                    continue;
+                }
+
                 compiled.Add(new CompiledModule(module, nets, new ModuleCompiler(project, module, nets, cells).Build()));
             }
 
@@ -138,9 +147,8 @@ namespace BitSorter.Board
             {
                 if (!seen.Add(module.Name))
                     return;
-                foreach (Part part in module.Parts)
-                    if (part is BlockPart block && project.Find(block.Module) is Module inner)
-                        Visit(inner);
+                foreach (Module inner in WrittenModules.UsesOf(project, module))
+                    Visit(inner);
                 ordered.Add(module);
             }
 
@@ -440,7 +448,7 @@ namespace BitSorter.Board
                 Module inner = _project.Find(block.Module);
                 string genvar = Unique("i");
                 var instance = new ModuleInstance { Name = ArrayInstance };
-                foreach (PortPart port in inner.Ports)
+                foreach (ModulePort port in WrittenModules.PortsOf(_project, inner))
                 {
                     Net net = NetOf(block, port.Name);
                     instance.Connections.Add(Sv.Connect(port.Name, IsOpenBlockPin(net) ? null : CopyOf(net.Name, port.Width, genvar)));

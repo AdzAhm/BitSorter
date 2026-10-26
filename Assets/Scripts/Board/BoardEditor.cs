@@ -404,6 +404,39 @@ namespace BitSorter.Board
             return Commit(Project.WithModule(new Module { Name = name }));
         }
 
+        /// <summary>
+        /// Adds a module written as SystemVerilog (Part 12d), starting from <paramref name="source"/>, or from
+        /// <see cref="WrittenModules.Template"/> when none is given.
+        /// </summary>
+        public EditResult AddWrittenModule(string name, string source = null)
+        {
+            string why = BoardRules.WhyNotAName(name);
+            if (why != null)
+                return EditResult.Refused(why);
+            if (Project.Find(name) != null)
+                return EditResult.Refused($"There is already a module called {name}.");
+
+            return Commit(Project.WithModule(new Module { Name = name, Source = source ?? WrittenModules.Template(name) }));
+        }
+
+        /// <summary>
+        /// A written module's text, all of it in one step. Refused, with its first error, when the text does not read as
+        /// the module or would break a block of it -- a pin taken away under a wire, say.
+        /// </summary>
+        public EditResult SetSource(string module, string source)
+        {
+            if (!TryModule(module, out Module m, out EditResult refused))
+                return refused;
+            if (!m.IsWritten)
+                return EditResult.Refused($"{module} is drawn, so it has no text to set.");
+            if (source == null)
+                return EditResult.Refused("A written module needs some text.");
+            if (source == m.Source)
+                return EditResult.Ok();
+
+            return Commit(Project.WithModule(m with { Source = source }));
+        }
+
         /// <summary>Renames a module, and every block of it, and the top if it was the top.</summary>
         public EditResult RenameModule(string from, string to)
         {
@@ -421,6 +454,11 @@ namespace BitSorter.Board
             foreach (Module each in Project.Modules)
             {
                 Module renamed = each == m ? each with { Name = to } : each;
+
+                // Written text says the name too (Part 12d): in its own header, and wherever it instantiates the module.
+                if (each.IsWritten)
+                    renamed = renamed with { Source = WrittenModules.Renamed(each, from, to) };
+
                 var parts = new List<Part>(renamed.Parts.Count);
                 bool changed = false;
                 foreach (Part part in renamed.Parts)

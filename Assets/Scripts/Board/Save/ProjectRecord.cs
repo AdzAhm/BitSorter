@@ -99,6 +99,9 @@ namespace BitSorter.Board
     {
         public string name;
         public string comment;
+
+        /// <summary>A written module's text (Part 12d); empty, or absent in an older file, for a drawn one.</summary>
+        public string source;
         public int nextId = 1;
         public PartRecord[] parts = new PartRecord[0];
         public WireRecord[] wires = new WireRecord[0];
@@ -114,6 +117,7 @@ namespace BitSorter.Board
             {
                 name = module.Name,
                 comment = module.Comment,
+                source = module.Source,
                 nextId = module.NextId,
                 panX = module.Layout.Pan.X,
                 panY = module.Layout.Pan.Y,
@@ -172,6 +176,7 @@ namespace BitSorter.Board
             {
                 Name = name,
                 Comment = string.IsNullOrEmpty(comment) ? null : comment,
+                Source = string.IsNullOrEmpty(source) ? null : source,
                 NextId = nextId,
                 Parts = parts,
                 Wires = wires,

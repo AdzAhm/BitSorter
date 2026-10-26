@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using BitSorter.Sim;
 using BitSorter.SystemVerilog;
 using BitSorter.SystemVerilog.Syntax;
@@ -16,8 +17,11 @@ namespace BitSorter.Board.Tests
     {
         public static IEnumerable<string> Names => new[]
         {
-            "half_adder", "half_adder_delayed", "full_adder", "johnson", "buses", "mux4", "tristate", "half_adders", "ripple8",
+            "half_adder", "half_adder_delayed", "full_adder", "johnson", "buses", "mux4", "tristate", "half_adders", "ripple8", "written",
         };
+
+        /// <summary>The boards drawn throughout: what an import can draw again. A written module comes in as written with Part 13.</summary>
+        public static IEnumerable<string> DrawnNames => Names.Where(name => name != "written");
 
         public static Project Build(string name)
         {
@@ -32,20 +36,21 @@ namespace BitSorter.Board.Tests
                 case "tristate": return TriState();
                 case "half_adders": return HalfAdders();
                 case "ripple8": return Ripple8();
+                case "written": return Written();
                 default: throw new ArgumentException(name);
             }
         }
 
         private static LogicVec Bits(ulong value, int width) => LogicVec.FromUInt64(value, width);
 
-        private static int Must(EditResult result)
+        internal static int Must(EditResult result)
         {
             if (!result.Done)
                 throw new InvalidOperationException("refused: " + result.Refusal);
             return result.Id;
         }
 
-        private sealed class Builder
+        internal sealed class Builder
         {
             private int _x;
 
@@ -89,7 +94,7 @@ namespace BitSorter.Board.Tests
         }
 
         /// <summary>Every combination of one-bit inputs, the first input the most significant, <paramref name="gap"/> apart.</summary>
-        private static Project Exhaustive(BoardEditor editor, string[] inputs, long gap)
+        internal static Project Exhaustive(BoardEditor editor, string[] inputs, long gap)
         {
             var tracks = new List<Track>();
             int count = 1 << inputs.Length;
@@ -172,6 +177,37 @@ namespace BitSorter.Board.Tests
             b.Wire(chain, "out", fa, "cin");
             return Random(editor, new[] { ("a", 8), ("b", 8), ("cin", 1) }, 12, 40, 11);
         }
+
+        /// <summary>
+        /// A block written as code (Part 12d): a four-bit adder whose width is a parameter, its sum three units after its
+        /// operands, inside a drawn top.
+        /// </summary>
+        private static Project Written()
+        {
+            var editor = new BoardEditor(Project.New("adder"));
+            Must(editor.AddWrittenModule("add4", WrittenAdder));
+            var b = new Builder(editor, "adder");
+            int a = b.In("a", 4), bb = b.In("b", 4), s = b.Out("s", 4), cout = b.Out("cout");
+            int add = b.Add(new BlockPart { Module = "add4" });
+            b.Wire(a, "out", add, "a");
+            b.Wire(bb, "out", add, "b");
+            b.Wire(add, "s", s, "in");
+            b.Wire(add, "cout", cout, "in");
+            return Random(editor, new[] { ("a", 4), ("b", 4) }, 12, 10, 5);
+        }
+
+        /// <summary>The written adder, as the printer would write it.</summary>
+        public const string WrittenAdder =
+            "module add4 #(\n" +
+            "    parameter N = 4\n" +
+            ") (\n" +
+            "    input logic [N-1:0] a,\n" +
+            "    input logic [N-1:0] b,\n" +
+            "    output logic [N-1:0] s,\n" +
+            "    output logic cout\n" +
+            ");\n" +
+            "    assign #3 {cout, s} = a + b;\n" +
+            "endmodule\n";
 
         /// <summary><paramref name="vectors"/> random values on each input, <paramref name="gap"/> apart, from a fixed seed.</summary>
         private static Project Random(BoardEditor editor, (string Port, int Width)[] inputs, int vectors, long gap, int seed)

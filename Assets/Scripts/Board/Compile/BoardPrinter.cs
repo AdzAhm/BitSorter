@@ -23,7 +23,8 @@ namespace BitSorter.Board
     /// A project as SystemVerilog files, a module a file as the course writes them: the cells first,
     /// then each module after the modules it uses, then the testbench -- the order a simulator should
     /// read them in. Printed from the same tree the engine runs (<see cref="BoardCompiler"/>), so
-    /// reading the files back and running them gives the same history (invariant 4).
+    /// reading the files back and running them gives the same history (invariant 4). A written module
+    /// is its own text, which is what that tree was read from.
     /// </summary>
     public static class BoardPrinter
     {
@@ -61,6 +62,14 @@ namespace BitSorter.Board
             foreach (CompiledModule module in compiled.Modules)
             {
                 var text = new StringBuilder(head);
+                if (module.Module.IsWritten)
+                {
+                    // Its own text, as written (Part 12d): the tree the engine runs was read from it.
+                    text.Append("// ").Append(module.Module.Name).Append(": written in BitSorter.\n\n").Append(module.Module.Source);
+                    printed.Add(new PrintedSource(module.Module.Name + ".sv", text.ToString()));
+                    continue;
+                }
+
                 text.Append("// ").Append(module.Module.Name).Append(": drawn in BitSorter.");
                 if (compiled.Cells.Count > 0)
                     text.Append(" Gates with a delay are cells of ").Append(CellLibrary.FileName).Append('.');
