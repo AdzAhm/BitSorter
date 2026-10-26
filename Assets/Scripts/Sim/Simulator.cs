@@ -442,6 +442,12 @@ namespace BitSorter.Sim
         /// </summary>
         public long? NextEventTime => !_started ? 0 : _heap.Count > 0 ? _heap.Peek().Time : (long?)null;
 
+        /// <summary>
+        /// The round of time 0 the processes started in, once what has no delay had settled from its starting values: the
+        /// round a process's first assignments are made in, where a later one answered something (Part 13c). -1 before.
+        /// </summary>
+        public int ProcessesStartedIn { get; private set; } = -1;
+
         /// <summary>A signal's value now.</summary>
         public LogicVec Value(SignalId signal) => _values[signal.Index];
 
@@ -546,6 +552,7 @@ namespace BitSorter.Sim
                             if (!_processes[p].Dormant)
                                 _runnable.Add(p);
                         _processesStarted = true;
+                        ProcessesStartedIn = delta;
                     }
                     else if (_inactive.Count > 0)
                     {

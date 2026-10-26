@@ -681,5 +681,26 @@ endmodule");
             clock.RunTo(1000);
             Assert.AreEqual(1005, clock.NextEventTime, "a free-running clock always has a next edge");
         }
+
+        [Test]
+        public void ProcessesStartedIn_IsTheRoundOfTimeZeroAnInitialsFirstAssignmentIsMadeIn()
+        {
+            Design design = Clean(
+                "module t;\n" +
+                "    logic a = 1, b, c, x;\n" +
+                "    assign b = ~a;\n" +
+                "    assign c = ~b;\n" +
+                "    initial x = 1;\n" +
+                "    initial x <= 0;\n" +
+                "endmodule\n");
+            var sim = new Simulator(design);
+            Assert.AreEqual(-1, sim.ProcessesStartedIn, "before the run");
+
+            sim.RunTo(1);
+            SignalId x = design.Find("t.x");
+            Assert.Greater(sim.ProcessesStartedIn, 0, "after the two assigns had settled from a's starting value");
+            Assert.AreEqual(sim.ProcessesStartedIn, sim.History.Change(x, 1).Delta, "x = 1, made as the processes start");
+            Assert.Greater(sim.History.Change(x, 2).Delta, sim.ProcessesStartedIn, "x <= 0, made after them");
+        }
     }
 }
