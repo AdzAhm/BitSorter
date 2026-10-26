@@ -4,6 +4,7 @@ using System.Text;
 using BitSorter.ViewModel;
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace BitSorter.View
@@ -22,7 +23,7 @@ namespace BitSorter.View
     /// - **Its letters are a monospaced face the computer already has** (<see cref="CodeFont"/>): code's columns line up
     ///   only in one, and none ships with the game. In a browser, CodeMirror takes this window's place (Part 12f).
     /// </remarks>
-    public sealed class CodeEditorView : MonoBehaviour, IHoldsEscape
+    public sealed class CodeEditorView : MonoBehaviour, IHoldsEscape, IScrollHandler
     {
         /// <summary>The objects' names, which the tests look for.</summary>
         public const string RootName = "Workbench code", FieldName = "Workbench code field", RevertName = "Workbench code revert",
@@ -70,6 +71,9 @@ namespace BitSorter.View
 
         /// <inheritdoc/>
         public bool HoldsEscapeNow => (_field != null && _field.isFocused) || _letGoFrame == Time.frameCount;
+
+        /// <summary>The wheel over the line numbers or the margins scrolls the code, as it does over the code itself.</summary>
+        public void OnScroll(PointerEventData eventData) => _field?.OnScroll(eventData);
 
         /// <summary>The editor built under <paramref name="parent"/>, hidden until it is given code.</summary>
         public static CodeEditorView Build(RectTransform parent, SchematicPalette palette)
