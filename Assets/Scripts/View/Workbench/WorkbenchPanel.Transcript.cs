@@ -43,7 +43,7 @@ namespace BitSorter.View
         private DockTab _dockTab = DockTab.Waves;
         private bool _designTab;
         private ShellButton _wavesTabButton, _transcriptTabButton, _partsTabButton, _designTabButton;
-        private VisualElement _dockUnderline, _leftUnderline, _wavesTools, _transcriptTools, _transcriptList, _hierarchyList;
+        private VisualElement _dockUnderline, _leftUnderline, _wavesTools, _transcriptTools, _transcriptList, _hierarchyClip, _hierarchyList;
         private Label _transcriptEmpty;
         private readonly TranscriptView _transcript = new TranscriptView();
         private readonly List<VisualElement> _transcriptRows = new List<VisualElement>();
@@ -352,7 +352,9 @@ namespace BitSorter.View
                 ScrollHierarchy(e.delta.y > 0f ? ScopeRowHeight : -ScopeRowHeight);
                 e.StopPropagation();
             });
-            _partsPanel.Add(_hierarchyList);
+            _hierarchyClip = ClipUnderTheTabs("hierarchy clip");
+            _hierarchyClip.Add(_hierarchyList);
+            _partsPanel.Add(_hierarchyClip);
             _hierarchyOf = null;
             ShowLeftTab(_designTab);
         }
@@ -361,9 +363,9 @@ namespace BitSorter.View
         private void ShowLeftTab(bool design)
         {
             _designTab = design;
-            _partsList.style.display = design ? DisplayStyle.None : DisplayStyle.Flex;
+            _partsClip.style.display = design ? DisplayStyle.None : DisplayStyle.Flex;
             _partsThumb.style.display = DisplayStyle.None;
-            _hierarchyList.style.display = design ? DisplayStyle.Flex : DisplayStyle.None;
+            _hierarchyClip.style.display = design ? DisplayStyle.Flex : DisplayStyle.None;
             if (!design)
                 ScrollParts(0f);
 
@@ -438,7 +440,8 @@ namespace BitSorter.View
             int rows = _hierarchy?.Rows.Count ?? 0;
             float overflow = Mathf.Max(0f, PartsTop + rows * ScopeRowHeight + PanelPad - _regions.Parts.height);
             _hierarchyScroll = Mathf.Clamp(_hierarchyScroll + units, 0f, overflow);
-            ShellTheme.Place(_hierarchyList, 0f, PartsTop - _hierarchyScroll, ShellLayout.PartsWidth, rows * ScopeRowHeight);
+            PlaceUnderTheTabs(_hierarchyClip);
+            ShellTheme.Place(_hierarchyList, 0f, -_hierarchyScroll, ShellLayout.PartsWidth, rows * ScopeRowHeight);
         }
 
         // The hierarchy's row last clicked, and when: a second click on it soon after is a double-click (Part 12a).

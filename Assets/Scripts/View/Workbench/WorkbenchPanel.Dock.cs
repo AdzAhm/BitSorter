@@ -40,7 +40,7 @@ namespace BitSorter.View
         private const float PartRowHeight = 28f, PartGap = 4f, PartHeadingHeight = 24f;
         private const int PartColumns = 3;
 
-        private VisualElement _partsPanel, _partsList, _partsThumb, _circuitPanel, _sidePanel, _splitter, _grip, _dockPanel;
+        private VisualElement _partsPanel, _partsClip, _partsList, _partsThumb, _circuitPanel, _sidePanel, _splitter, _grip, _dockPanel;
         private float _partsHeight, _partsScroll;
         private Label _status;
         private ShellButton _namesButton, _unitButton;
@@ -198,7 +198,12 @@ namespace BitSorter.View
                 if (ScrollParts(e.delta.y > 0f ? PartRowHeight + PartGap : -(PartRowHeight + PartGap)))
                     e.StopPropagation();
             });
-            _partsPanel.Add(_partsList);
+
+            // Their window, from the tabs' foot down: what scrolls past its top goes under the tabs, never over them --
+            // the tabs are see-through, and the buttons showed through them (a playtest, 2026-10-26).
+            _partsClip = ClipUnderTheTabs("list clip");
+            _partsClip.Add(_partsList);
+            _partsPanel.Add(_partsClip);
 
             float inside = ShellLayout.PartsWidth - 2f * PanelPad;
             float column = (inside - (PartColumns - 1) * PartGap) / PartColumns;
@@ -266,7 +271,7 @@ namespace BitSorter.View
                 PlaceCodeCell();
 
             _partsHeight = placed % PartColumns != 0 ? y + PartRowHeight : y - PartGap;
-            ShellTheme.Place(_partsList, 0f, PartsTop, -1f, _partsHeight);
+            ShellTheme.Place(_partsList, 0f, 0f, -1f, _partsHeight);
             _partsList.style.right = 0f;
 
             _partsThumb = new VisualElement { name = "scroll", pickingMode = PickingMode.Ignore };
@@ -298,7 +303,8 @@ namespace BitSorter.View
             float scroll = Mathf.Clamp(_partsScroll + units, 0f, overflow);
             bool moved = !Mathf.Approximately(scroll, _partsScroll);
             _partsScroll = scroll;
-            _partsList.style.top = PartsTop - _partsScroll;
+            _partsList.style.top = -_partsScroll;
+            PlaceUnderTheTabs(_partsClip);
 
             _partsThumb.style.display = overflow > 0.5f && !_designTab ? DisplayStyle.Flex : DisplayStyle.None;
             if (overflow > 0.5f)
@@ -309,6 +315,23 @@ namespace BitSorter.View
             }
 
             return moved;
+        }
+
+        /// <summary>A window for a list in the parts panel that clips it at the tabs' foot, and takes no clicks of its own.</summary>
+        private static VisualElement ClipUnderTheTabs(string name)
+        {
+            var clip = new VisualElement { name = name, pickingMode = PickingMode.Ignore };
+            clip.style.position = Position.Absolute;
+            clip.style.overflow = Overflow.Hidden;
+            return clip;
+        }
+
+        /// <summary>A list's window from the tabs' foot to the parts panel's.</summary>
+        private void PlaceUnderTheTabs(VisualElement clip)
+        {
+            if (clip == null)
+                return;
+            ShellTheme.Place(clip, 0f, PartsTop, ShellLayout.PartsWidth, Mathf.Max(0f, _regions.Parts.height - PartsTop));
         }
 
         private static string GroupHeading(CatalogGroup group)
