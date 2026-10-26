@@ -36,14 +36,23 @@ namespace BitSorter.Board
             foreach (ClockTrack clock in stimulus.Clocks)
                 clocks[clock.Port] = clock;
 
-            // The ports, one declaration a width; a clock has its own, with the level it starts at.
+            var starts = new Dictionary<string, LogicVec>(StringComparer.Ordinal);
+            foreach (Track track in stimulus.Tracks)
+                if (track.Start != null)
+                    starts[track.Port] = track.Start.Value;
+
+            // The ports, one declaration a width; a clock has its own, with the level it starts at, and so has an input that
+            // holds a value from before time 0 (Part 13c) -- a declaration's value is no event, where a step at 0 is one.
             var byWidth = new Dictionary<int, DataDeclaration>();
             foreach (ModulePort port in ports)
             {
-                if (clocks.TryGetValue(port.Name, out ClockTrack clock))
+                LogicVec? start = clocks.TryGetValue(port.Name, out ClockTrack clock)
+                    ? clock.SetAtZero ? (LogicVec?)null : LogicVec.FromUInt64(clock.StartsHigh ? 1UL : 0UL, 1)
+                    : starts.TryGetValue(port.Name, out LogicVec given) ? given : (LogicVec?)null;
+                if (start != null)
                 {
-                    var own = new DataDeclaration { Type = Sv.Logic(1) };
-                    own.Declarators.Add(new Declarator { Name = port.Name, Initializer = Sv.Value(LogicVec.FromUInt64(clock.StartsHigh ? 1UL : 0UL, 1)) });
+                    var own = new DataDeclaration { Type = Sv.Logic(port.Width) };
+                    own.Declarators.Add(new Declarator { Name = port.Name, Initializer = Sv.Value(start.Value) });
                     bench.Items.Add(own);
                     continue;
                 }
@@ -89,21 +98,27 @@ namespace BitSorter.Board
             for (int i = 0; i < ports.Count; i++)
                 order[ports[i].Name] = i;
 
-            var steps = new List<(long Time, int Order, int Index, string Port, LogicVec Value)>();
+            var steps = new List<(long Time, int Order, int Index, string Port, LogicVec Value, bool Late)>();
+
+            // A clock set at time 0 (Part 13c) is set before anything else then, as `initial clk = 0;` above the rest sets it.
+            foreach (ClockTrack clock in stimulus.Clocks)
+                if (clock.SetAtZero)
+                    steps.Add((0, -1, 0, clock.Port, LogicVec.FromUInt64(clock.StartsHigh ? 1UL : 0UL, 1), false));
+
             foreach (Track track in stimulus.Tracks)
             {
                 order.TryGetValue(track.Port, out int place);
                 for (int i = 0; i < track.Steps.Count; i++)
-                    steps.Add((track.Steps[i].Time, place, i, track.Port, track.Steps[i].Value));
+                    steps.Add((track.Steps[i].Time, place, i, track.Port, track.Steps[i].Value, track.Steps[i].Late));
             }
 
             steps.Sort((x, y) => x.Time != y.Time ? x.Time.CompareTo(y.Time) : x.Order != y.Order ? x.Order.CompareTo(y.Order) : x.Index.CompareTo(y.Index));
 
             var body = new BlockStatement();
             long now = 0;
-            foreach ((long time, _, _, string port, LogicVec value) in steps)
+            foreach ((long time, _, _, string port, LogicVec value, bool late) in steps)
             {
-                Statement set = Sv.Set(Sv.Name(port), Sv.Value(value));
+                Statement set = Sv.Set(Sv.Name(port), Sv.Value(value), nonBlocking: late);
                 body.Statements.Add(time > now ? After(time - now, set) : set);
                 now = time;
             }

@@ -509,6 +509,16 @@ namespace BitSorter.Board
         public EditResult SetStimulus(Stimulus stimulus) => Commit(Project with { Stimulus = stimulus });
 
         /// <summary>
+        /// The written testbench turned into the stimulus (Part 13c, <see cref="BenchConverter"/>): what it drove into the
+        /// inputs, recorded from its run, as one step. Refused, with why, when there is none or it cannot be run.
+        /// </summary>
+        public EditResult ConvertBench()
+        {
+            Conversion conversion = BenchConverter.Convert(Project);
+            return conversion.Succeeded ? Commit(conversion.Project) : EditResult.Refused(conversion.Refusal);
+        }
+
+        /// <summary>
         /// Gives an input of the top module <paramref name="value"/> from <paramref name="from"/> until
         /// <paramref name="until"/> (<see cref="StimulusEdits.TrySet"/>); one of the wrong width is refused
         /// by the rules, as any edit is.

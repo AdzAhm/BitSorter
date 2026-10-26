@@ -93,5 +93,21 @@ namespace BitSorter.ViewModel.Tests
             StringAssert.Contains("gate_tb", set.Refusal);
             Assert.AreSame(before, session.Project);
         }
+
+        [Test]
+        public void ConvertingTheTestbench_RunsTheSame_AndGivesTheInputsToTheWaves()
+        {
+            WorkbenchSession session = Imported();
+            string[] before = { ValueOf(session, "a", 5), ValueOf(session, "y", 5), ValueOf(session, "y", 15) };
+
+            Assert.IsTrue(session.ConvertBench().Done);
+            session.Finish();
+
+            Assert.IsNull(session.Project.Bench);
+            Assert.IsNotNull(session.Project.Stimulus.Tracks.SingleOrDefault(t => t.Port == "b"), "b's change at 10 is a step now");
+            CollectionAssert.AreEqual(before, new[] { ValueOf(session, "a", 5), ValueOf(session, "y", 5), ValueOf(session, "y", 15) },
+                "the design sees what it saw under the testbench");
+            Assert.IsTrue(session.SetInput("b", 0, 5, LogicVec.FromBinary("1")).Done, "and its inputs are set on the waves");
+        }
     }
 }

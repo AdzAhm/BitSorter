@@ -449,13 +449,13 @@ namespace BitSorter.Board
             {
                 var steps = new List<StepRecord>();
                 foreach (Step step in track.Steps)
-                    steps.Add(new StepRecord { time = step.Time, value = ProjectRecord.Text(step.Value) });
-                tracks.Add(new TrackRecord { port = track.Port, steps = steps.ToArray() });
+                    steps.Add(new StepRecord { time = step.Time, value = ProjectRecord.Text(step.Value), late = step.Late });
+                tracks.Add(new TrackRecord { port = track.Port, steps = steps.ToArray(), start = ProjectRecord.Text(track.Start) });
             }
 
             var clocks = new List<ClockRecord>();
             foreach (ClockTrack clock in stimulus.Clocks)
-                clocks.Add(new ClockRecord { port = clock.Port, period = clock.Period, startsHigh = clock.StartsHigh });
+                clocks.Add(new ClockRecord { port = clock.Port, period = clock.Period, startsHigh = clock.StartsHigh, setAtZero = clock.SetAtZero });
 
             return new StimulusRecord { tracks = tracks.ToArray(), clocks = clocks.ToArray(), end = stimulus.End };
         }
@@ -470,15 +470,15 @@ namespace BitSorter.Board
                 {
                     LogicVec? value = ProjectRecord.Value(step.value, problems, $"{track.port} at {step.time}");
                     if (value != null)
-                        steps.Add(new Step(step.time, value.Value));
+                        steps.Add(new Step(step.time, value.Value, step.late));
                 }
 
-                tracks.Add(new Track { Port = track.port, Steps = steps });
+                tracks.Add(new Track { Port = track.port, Steps = steps, Start = ProjectRecord.Value(track.start, problems, $"{track.port} from the start") });
             }
 
             var clocks = new List<ClockTrack>();
             foreach (ClockRecord clock in this.clocks ?? new ClockRecord[0])
-                clocks.Add(new ClockTrack { Port = clock.port, Period = clock.period, StartsHigh = clock.startsHigh });
+                clocks.Add(new ClockTrack { Port = clock.port, Period = clock.period, StartsHigh = clock.startsHigh, SetAtZero = clock.setAtZero });
 
             return new Stimulus { Tracks = tracks, Clocks = clocks, End = end };
         }
@@ -489,6 +489,9 @@ namespace BitSorter.Board
     {
         public string port;
         public StepRecord[] steps = new StepRecord[0];
+
+        /// <summary>What the input holds from before time 0 (Part 13c); empty, or absent in an older file, for unknown.</summary>
+        public string start;
     }
 
     [Serializable]
@@ -496,6 +499,9 @@ namespace BitSorter.Board
     {
         public long time;
         public string value;
+
+        /// <summary>Whether it is made after the rest of its moment (Part 13c); absent in an older file, so false.</summary>
+        public bool late;
     }
 
     [Serializable]
@@ -504,5 +510,8 @@ namespace BitSorter.Board
         public string port;
         public long period = 10;
         public bool startsHigh;
+
+        /// <summary>Whether its first level is set at time 0, an event (Part 13c); absent in an older file, so false.</summary>
+        public bool setAtZero;
     }
 }

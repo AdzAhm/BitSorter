@@ -7,14 +7,21 @@ namespace BitSorter.Board
     /// <summary>One change on an input: at <see cref="Time"/>, it becomes <see cref="Value"/>.</summary>
     public readonly struct Step
     {
-        public Step(long time, LogicVec value)
+        public Step(long time, LogicVec value, bool late = false)
         {
             Time = time;
             Value = value;
+            Late = late;
         }
 
         public readonly long Time;
         public readonly LogicVec Value;
+
+        /// <summary>
+        /// Whether it is made after the rest of its moment -- a nonblocking assignment -- as a testbench changes an input in
+        /// answer to a clock edge at the same time, so the edge sees the value from before (Part 13c, CONVERT).
+        /// </summary>
+        public readonly bool Late;
     }
 
     /// <summary>What an input of the top module is given, step by step.</summary>
@@ -22,6 +29,12 @@ namespace BitSorter.Board
     {
         public string Port { get; init; }
         public IReadOnlyList<Step> Steps { get; init; } = Array.Empty<Step>();
+
+        /// <summary>
+        /// The value it holds from before time 0, as a declaration gives one -- with no event at time 0, where a step at time
+        /// 0 is one -- or null for unknown until its first step (Part 13c, CONVERT: <c>logic rst = 1;</c>).
+        /// </summary>
+        public LogicVec? Start { get; init; }
     }
 
     /// <summary>An input driven as a clock: low for half a period, high for half, from time 0.</summary>
@@ -33,6 +46,12 @@ namespace BitSorter.Board
         public long Period { get; init; } = 10;
 
         public bool StartsHigh { get; init; }
+
+        /// <summary>
+        /// Whether its first level is set at time 0 -- an event, from unknown, as <c>initial clk = 0;</c> sets it -- rather
+        /// than given by its declaration, with none (Part 13c, CONVERT).
+        /// </summary>
+        public bool SetAtZero { get; init; }
     }
 
     /// <summary>

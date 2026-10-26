@@ -455,6 +455,22 @@ namespace BitSorter.ViewModel
             return Replayed(result, from);
         }
 
+        /// <summary>
+        /// The written testbench turned into the stimulus (<see cref="BoardEditor.ConvertBench"/>, Part 13c), drawn at once and
+        /// run again: the design's signals move from under the testbench to under the one the stimulus makes.
+        /// </summary>
+        public EditResult ConvertBench()
+        {
+            EditResult result = Editor.ConvertBench();
+            if (result.Done)
+            {
+                Relayout();
+                StartReplay(0);
+            }
+
+            return result;
+        }
+
         /// <summary>The document counted in <paramref name="unit"/> (<see cref="BoardEditor.SetSettings"/>), and replayed: nothing is rescaled, everything is relabelled.</summary>
         public EditResult SetUnit(string unit) =>
             unit == Unit ? EditResult.Ok() : Replayed(Editor.SetSettings(Project.Settings with { TimeUnit = unit }), 0);

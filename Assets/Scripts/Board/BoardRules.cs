@@ -518,6 +518,8 @@ namespace BitSorter.Board
                     Error($"The stimulus drives {track.Port}, which is not an input of {top.Name}.");
                 if (!driven.Add(track.Port))
                     Error($"{track.Port} is given twice.");
+                if (port != null && track.Start != null && track.Start.Value.Width != port.Value.Width)
+                    Error($"{track.Port} is {Bits(port.Value.Width)}, and holds {Bits(track.Start.Value.Width)} from the start.");
 
                 long last = 0;
                 foreach (Step step in track.Steps)

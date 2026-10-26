@@ -158,6 +158,94 @@ namespace BitSorter.Ci.Oracle
             }
         }
 
+        /// <summary>The timing CONVERT has to keep (Part 13c): a declaration's value, a clock set at time 0, a change after an edge, a pulse no time wide.</summary>
+        private static readonly (string Name, string Design, string Bench)[] Timings =
+        {
+            ("declared",
+                "module dff (input logic clk, input logic rst, input logic d, output logic q);\n    always_ff @(posedge clk or posedge rst) if (rst) q <= 0; else q <= d;\nendmodule\n",
+                "module dff_tb;\n    logic clk = 0, rst = 1, d = 0, q;\n    dff dut (.clk(clk), .rst(rst), .d(d), .q(q));\n    always #5 clk = ~clk;\n    initial begin #12 rst = 0; #10 d = 1; #30 $stop; end\nendmodule\n"),
+            ("set-at-zero",
+                "module ff (input logic clk, input logic d, output logic q);\n    always_ff @(posedge clk) q <= d;\nendmodule\n",
+                "module ff_tb;\n    logic clk;\n    logic d = 1, q;\n    ff dut (.clk(clk), .d(d), .q(q));\n    initial clk = 1;\n    always #5 clk = ~clk;\n    initial #52 $stop;\nendmodule\n"),
+            ("after-the-edge",
+                "module ff (input logic clk, input logic d, output logic q);\n    always_ff @(posedge clk) q <= d;\nendmodule\n",
+                "module ff_tb;\n    logic clk = 0, d = 0, q;\n    ff dut (.clk(clk), .d(d), .q(q));\n    always #5 clk = ~clk;\n    always @(posedge clk) d <= ~d;\n    initial #52 $stop;\nendmodule\n"),
+            ("no-time-wide",
+                "module pulses (input logic g, output logic [3:0] n);\n    initial n = 0;\n    always @(posedge g) n <= n + 1;\nendmodule\n",
+                "module pulses_tb;\n    logic g = 0;\n    logic [3:0] n;\n    pulses dut (.g(g), .n(n));\n    initial begin #10 g = 1; #0 g = 0; #10 g = 1; #10 $stop; end\nendmodule\n"),
+        };
+
+        public static IEnumerable<string> Converted() =>
+            new[] { "import/alu", "import/mux", "import/counter", "processor" }.Concat(Timings.Select(t => "timing:" + t.Name));
+
+        [TestCaseSource(nameof(Converted))]
+        public void AConvertedTestbench_Exported_RunsInIcarusAsTheOriginalDid(string source)
+        {
+            Icarus icarus = Icarus.Require();
+            string scratch = Path.Combine(Path.GetTempPath(), "bitsorter-oracle-generated", Guid.NewGuid().ToString("N"));
+            string originals = Path.Combine(scratch, "original"), exported = Path.Combine(scratch, "exported");
+            Directory.CreateDirectory(originals);
+            Directory.CreateDirectory(exported);
+            try
+            {
+                string[] paths;
+                if (source.StartsWith("timing:", StringComparison.Ordinal))
+                {
+                    var timing = Timings.Single(t => "timing:" + t.Name == source);
+                    File.WriteAllText(Path.Combine(originals, "design.sv"), timing.Design);
+                    File.WriteAllText(Path.Combine(originals, "bench.sv"), timing.Bench);
+                    paths = new[] { Path.Combine(originals, "bench.sv"), Path.Combine(originals, "design.sv") };
+                }
+                else
+                {
+                    paths = Directory.GetFiles(RepoRoot.Combine(Corpus.Folder + "/" + source)).OrderBy(p => p, StringComparer.Ordinal).ToArray();
+                }
+
+                Project project = ProjectImporter.Import(paths.Select(p => new SourceFile(Path.GetFileName(p), File.ReadAllText(p))).ToList()).Project;
+                Assert.IsNotNull(project);
+                string originalPath = BoardCompiler.Compile(project).DesignPath;
+                Conversion conversion = BenchConverter.Convert(project);
+                Assert.IsTrue(conversion.Succeeded, conversion.Refusal);
+                Project converted = conversion.Project;
+                CompiledProject compiled = BoardCompiler.Compile(converted);
+
+                var printed = new List<string>();
+                foreach (PrintedSource file in BoardPrinter.Print(compiled))
+                {
+                    printed.Add(Path.Combine(exported, file.Path));
+                    File.WriteAllText(printed[printed.Count - 1], file.Text);
+                }
+
+                foreach (ProjectFile file in converted.Files)
+                {
+                    printed.Add(Path.Combine(exported, file.Name));
+                    File.WriteAllText(printed[printed.Count - 1], file.Text);
+                }
+
+                (Dictionary<string, VcdTrace> before, _) = RunIcarus(icarus, paths, project.Bench);
+                (Dictionary<string, VcdTrace> after, _) = RunIcarus(icarus, printed.ToArray(), compiled.Testbench);
+
+                // The design's own signals, by their names inside it: the testbench around it is another one now. Up to the
+                // last moment, which Icarus's dump keeps after a $finish and loses after the $stop the stimulus ends on
+                // (Docs/oracle-notes.md).
+                long end = converted.Stimulus.End;
+                Dictionary<string, string> Inside(Dictionary<string, VcdTrace> dump, string path) => dump
+                    .Where(d => d.Key.StartsWith(path + ".", StringComparison.Ordinal))
+                    .ToDictionary(d => d.Key.Substring(path.Length + 1),
+                        d => string.Join(", ", d.Value.Changes.Where(c => c.Time < end).Select(c => $"{c.Time} {c.Bits}")));
+                Dictionary<string, string> was = Inside(before, originalPath), now = Inside(after, compiled.DesignPath);
+
+                Assert.Greater(was.Count, 0);
+                var wrong = was.Where(w => !now.TryGetValue(w.Key, out string n) || n != w.Value)
+                    .Select(w => $"{w.Key}\n      testbench {w.Value}\n      stimulus  {(now.TryGetValue(w.Key, out string n) ? n : "(missing)")}").ToList();
+                Assert.IsEmpty(wrong, $"{wrong.Count} of {was.Count} signals differ in Icarus:\n  " + string.Join("\n  ", wrong.Take(8)));
+            }
+            finally
+            {
+                Directory.Delete(scratch, recursive: true);
+            }
+        }
+
         /// <summary>What a testbench printed, without Icarus's own remarks: where its dump went, its warnings, "$stop called".</summary>
         private static string[] DesignLines(string printed) =>
             printed.Replace("\r", "").Split('\n')

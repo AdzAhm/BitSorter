@@ -21,14 +21,17 @@ namespace BitSorter.Board
     /// </remarks>
     public static class StimulusEdits
     {
-        /// <summary>The value <paramref name="port"/> is given at <paramref name="time"/>: its last step at or before it, or null -- x -- before its first.</summary>
+        /// <summary>
+        /// The value <paramref name="port"/> is given at <paramref name="time"/>: its last step at or before it, or before its
+        /// first what it holds from the start (<see cref="Track.Start"/>, Part 13c) -- null, x, for none.
+        /// </summary>
         public static LogicVec? ValueAt(Stimulus stimulus, string port, long time)
         {
             Track track = TrackOf(stimulus, port);
             if (track == null)
                 return null;
 
-            LogicVec? value = null;
+            LogicVec? value = track.Start;
             foreach (Step step in track.Steps)
             {
                 if (step.Time > time)
@@ -120,7 +123,7 @@ namespace BitSorter.Board
                         made.Add(step);
             }
 
-            edited = With(stimulus, port, Fewest(made));
+            edited = With(stimulus, port, Fewest(made, track?.Start));
             return true;
         }
 
@@ -193,7 +196,7 @@ namespace BitSorter.Board
         }
 
         /// <summary>The steps with every one that changes nothing dropped: one at the same moment as the next, or giving the value already held -- x, before the first.</summary>
-        private static List<Step> Fewest(List<Step> steps)
+        private static List<Step> Fewest(List<Step> steps, LogicVec? start)
         {
             var fewest = new List<Step>(steps.Count);
             for (int i = 0; i < steps.Count; i++)
@@ -201,7 +204,7 @@ namespace BitSorter.Board
                 if (i + 1 < steps.Count && steps[i + 1].Time == steps[i].Time)
                     continue;
 
-                LogicVec held = fewest.Count > 0 ? fewest[fewest.Count - 1].Value : LogicVec.AllX(steps[i].Value.Width);
+                LogicVec held = fewest.Count > 0 ? fewest[fewest.Count - 1].Value : start ?? LogicVec.AllX(steps[i].Value.Width);
                 if (steps[i].Value.Equals(held))
                     continue;
 
