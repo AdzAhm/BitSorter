@@ -127,7 +127,7 @@ namespace BitSorter.View
             _popup.Open(screenPoint, new Vector2(Width, HitsTop + Shown * (HitHeight + Gap) + 30f + Pad));
             _field.SetValueWithoutNotify("");
             Refresh();
-            FocusField();
+            ShellPanel.FocusAfterTheKey(_field);
             UiEscape.Opened(this);
         }
 

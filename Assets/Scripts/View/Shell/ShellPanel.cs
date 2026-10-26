@@ -25,6 +25,10 @@ namespace BitSorter.View
     /// - *Escape and Enter in a field* let it go a frame later (<see cref="ShellTheme.Field"/>), so the press that
     ///   finished the field cannot close the workbench in the same frame.
     /// - *A click anywhere else* lets a focused field go, which UI Toolkit cannot see when the click lands on uGUI.
+    /// - *A field given the keyboard keeps it* until it is let go on purpose -- those two, or its popup or the panel
+    ///   closing -- and is given it back when UI Toolkit lets it go to nothing, as it does in the browser after a press.
+    /// - *A key that asks for a field* gives it the keyboard the frame after (<see cref="FocusAfterTheKey"/>), so the key
+    ///   is not typed into it as well.
     /// </remarks>
     public sealed class ShellPanel : MonoBehaviour
     {
@@ -35,9 +39,15 @@ namespace BitSorter.View
 
         private UIDocument _document;
 
-        // A field focused by a press, and the frame: if it is let go in that same frame, it is given the focus back once.
-        private VisualElement _pressFocused;
-        private int _pressFocusedFrame = -1;
+        // The field given the keyboard -- by a press into it, or by a click or a key that asked for it -- and the frame it
+        // was given in. It keeps the keyboard until it is let go on purpose (Update).
+        private static TextField _holder;
+        private static int _holderFrame = -1;
+
+        // A field a key asked to be given the keyboard, the frame it asked in, and whether all of its text is chosen.
+        private static TextField _afterKey;
+        private static int _afterKeyFrame = -1;
+        private static bool _afterKeySelectsAll;
 
         /// <summary>The panel's root: the whole screen, taking no clicks of its own.</summary>
         public VisualElement Root { get; private set; }
@@ -68,7 +78,7 @@ namespace BitSorter.View
             shell.Root.name = name;
             shell.Root.pickingMode = PickingMode.Ignore;
             shell.Root.style.flexGrow = 1f;
-            shell.Root.RegisterCallback<FocusInEvent>(shell.OnFocusIn, TrickleDown.TrickleDown);
+            shell.Root.RegisterCallback<FocusInEvent>(OnFocusIn, TrickleDown.TrickleDown);
             return shell;
         }
 
@@ -116,14 +126,30 @@ namespace BitSorter.View
             }
         }
 
-        /// <summary>A field focused by a press this frame is noted, for <see cref="Update"/> to give back if it is let go at once.</summary>
-        private void OnFocusIn(FocusInEvent e)
+        /// <summary>A field taking the keyboard is the one that holds it from now on (<see cref="Update"/>).</summary>
+        private static void OnFocusIn(FocusInEvent e)
         {
-            Mouse mouse = Mouse.current;
-            if (mouse == null || !mouse.leftButton.wasPressedThisFrame || !(e.target is VisualElement target) || FieldOf(target) == null)
+            TextField field = e.target is VisualElement target ? FieldOf(target) : null;
+            if (field == null || field == _holder)
                 return;
-            _pressFocused = FieldOf(target);
-            _pressFocusedFrame = Time.frameCount;
+            _holder = field;
+            _holderFrame = Time.frameCount;
+        }
+
+        /// <summary>
+        /// Gives <paramref name="field"/> the keyboard in the frame after this one -- all of its text chosen when
+        /// <paramref name="selectAll"/> -- for a field a key asks for: A for the + SIGNAL list, Enter for the inspector.
+        /// </summary>
+        /// <remarks>
+        /// The platform hands a key to UI Toolkit as well as to the game, and in the browser that half can arrive after
+        /// the game has read the key. A field given the keyboard in its key's frame took the key as well: A typed an "a"
+        /// into the search it opened, and Enter submitted the field it asked to start typing in (the Part 11d smoke test).
+        /// </remarks>
+        public static void FocusAfterTheKey(TextField field, bool selectAll = false)
+        {
+            _afterKey = field;
+            _afterKeyFrame = Time.frameCount;
+            _afterKeySelectsAll = selectAll;
         }
 
         private void Update()
@@ -131,31 +157,77 @@ namespace BitSorter.View
             if (Root?.panel == null)
                 return;
 
-            // In the browser, the first press into a field after the workbench opens focuses it and UI Toolkit lets it go
-            // again in the same frame, with the app focused and the event system's selection unchanged (the Part 11a smoke
-            // test). A field a press focused and nothing has focused since is given the focus back, once, the frame after.
-            if (_pressFocused != null && Time.frameCount > _pressFocusedFrame)
+            int frame = Time.frameCount;
+
+            // A field a key asked for is given the keyboard now, the frame after its key.
+            if (_afterKey != null && frame > _afterKeyFrame && _afterKey.panel == Root.panel)
             {
-                if (Root.focusController.focusedElement == null && Visible)
-                    _pressFocused.Focus();
-                _pressFocused = null;
+                TextField asked = _afterKey;
+                _afterKey = null;
+                if (Visible && Shown(asked))
+                {
+                    asked.Focus();
+                    if (_afterKeySelectsAll)
+                        asked.SelectAll();
+                }
             }
 
             // A field finished with Enter or Escape lets go now, a frame after (ShellTheme.Field).
-            if (Root.focusController.focusedElement is VisualElement focused && ShellTheme.FinishedBefore(focused, Time.frameCount))
-                focused.Blur();
+            if (Root.focusController.focusedElement is VisualElement focused && ShellTheme.FinishedBefore(focused, frame))
+                LetGo(focused);
 
-            // A press anywhere but the focused field lets it go: a press on uGUI never reaches this panel to do it.
+            // A press anywhere but the focused field lets it go -- a press on uGUI never reaches this panel to do it --
+            // except the press that gave the field the keyboard: a double-click on a part asks for its inspector. And a
+            // press anywhere but the field given the keyboard ends its hold even when the event system has let it go
+            // first, as it does for a press on uGUI.
             Mouse mouse = Mouse.current;
-            if (mouse != null && (mouse.leftButton.wasPressedThisFrame || mouse.rightButton.wasPressedThisFrame || mouse.middleButton.wasPressedThisFrame)
-                && Root.focusController.focusedElement is VisualElement held)
+            if (mouse != null && (mouse.leftButton.wasPressedThisFrame || mouse.rightButton.wasPressedThisFrame || mouse.middleButton.wasPressedThisFrame))
             {
-                // Inside the field is anywhere in the whole field, whichever of its parts holds the focus.
-                VisualElement field = FieldOf(held) ?? held;
                 VisualElement under = PickAt(mouse.position.ReadValue());
-                if (under == null || (under != field && !field.Contains(under)))
-                    held.Blur();
+                if (Root.focusController.focusedElement is VisualElement held && !Inside(under, FieldOf(held) ?? held)
+                    && !(FieldOf(held) == _holder && frame <= _holderFrame))
+                {
+                    LetGo(held);
+                }
+
+                if (_holder != null && _holder.panel == Root.panel && frame > _holderFrame && !Inside(under, _holder))
+                    _holder = null;
             }
+
+            // The field given the keyboard and let go to nothing is given it back. In the browser UI Toolkit lets a field
+            // go, to nothing, in the frame it is given the keyboard and in the frames after the press that gave it --
+            // a click into it, a click on + SIGNAL, a double-click on a part -- with the event system's selection
+            // unchanged, and the first keys typed went nowhere (the Part 11a and 11d smoke tests). Let go on purpose, it
+            // is no longer the holder: closed with its popup or its panel, or taken out with an inspection made again.
+            if (_holder != null && _holder.panel == null)
+                _holder = null;
+            if (_holder != null && _holder.panel == Root.panel)
+            {
+                if (!Visible || !Shown(_holder))
+                    _holder = null;
+                else if (Root.focusController.focusedElement == null)
+                    _holder.Focus();
+            }
+        }
+
+        /// <summary>Lets <paramref name="focused"/> go on purpose: the field it is part of no longer holds the keyboard.</summary>
+        private static void LetGo(VisualElement focused)
+        {
+            if (FieldOf(focused) == _holder)
+                _holder = null;
+            focused.Blur();
+        }
+
+        /// <summary>Whether <paramref name="under"/> is anywhere in <paramref name="field"/>, whichever of its parts.</summary>
+        private static bool Inside(VisualElement under, VisualElement field) => under != null && (under == field || field.Contains(under));
+
+        /// <summary>Whether <paramref name="element"/> is drawn: neither it nor anything it is in is hidden.</summary>
+        private static bool Shown(VisualElement element)
+        {
+            for (VisualElement e = element; e != null; e = e.parent)
+                if (e.resolvedStyle.display == DisplayStyle.None || e.style.display == DisplayStyle.None)
+                    return false;
+            return true;
         }
 
         /// <summary>The element under a point of the screen (pixels, y up) on this panel, if any takes the pointer.</summary>

@@ -918,7 +918,15 @@ failure side.
   now (Part 11a), and the shell lets it go a frame after Enter or Escape -- not
   in the same frame, or the Escape that cancelled it could close the workbench
   too (`ShellTheme.Field`) -- and on a press anywhere else, which UI Toolkit
-  cannot see when it lands on uGUI (`ShellPanel`). **A shell field is not the
+  cannot see when it lands on uGUI (`ShellPanel`). **A field given the keyboard
+  keeps it** until it is let go on purpose: in the browser UI Toolkit lets a
+  field go, to nothing, after the press that gave it the keyboard -- a click
+  into it, on + SIGNAL, a double-click on a part -- and the first keys typed
+  went nowhere (the 11d smoke test), so the shell gives it back. **A key that
+  asks for a field gives it the keyboard the frame after**
+  (`ShellPanel.FocusAfterTheKey`): the platform's half of the key can reach UI
+  Toolkit after the game has read it, and A typed an "a" into the search it
+  opened. **A shell field is not the
   event system's selection**, so `UiText.Typing` asks the shell as well
   (`ShellPanel.Typing`). And UI Toolkit reads the platform's keys, not the Input
   System's: a test's simulated keyboard never reaches a shell field, so a test

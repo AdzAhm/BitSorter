@@ -1708,6 +1708,23 @@ re-hosted in them, 11b-3 the popups moved into the shell.
   every drawing for no gain the student sees. Left for when a test under dotnet would want the meshes.
 - **SHORTCUT KEYS** (asked for during 11d, its own commit and pull request before it): Settings' switch that hides
   every key beside a button, the whole game, shown by default (`KeyCaps`; CLAUDE.md, the controls).
+- **The browser smoke test** (2026-10-26), on a served WebGL build, with a build that logged every focus change to
+  the console to find out why: Space, `?` and Escape, the splitter, the transcript seeking, the hierarchy adding
+  dut's ports, the fonts and the popups all worked. Two things were wrong, both in how a shell field is given the
+  keyboard, and neither visible to a test's simulated input:
+  - **A field given the keyboard was let go again by UI Toolkit**, to nothing, after the press that gave it --
+    the + SIGNAL search after a click on + SIGNAL, the inspector after a double-click on a part, which it did in
+    every frame the button was still down -- so the first keys typed went nowhere. Part 11a had seen it once, for
+    a click into RUN TO, and given the field back once. Now the field given the keyboard keeps it until it is let
+    go on purpose -- Enter or Escape, a later press anywhere else, or the field going -- and is given it back
+    whenever it is let go to nothing (`ShellPanel`).
+  - **A key that asks for a field took that field's key as well**: the platform hands a key to UI Toolkit too, and
+    that half can arrive after the game has read it, so A typed an "a" into the search it had opened, and Enter
+    submitted the inspector's first field and let it go. Both now give the field the keyboard the frame after
+    (`ShellPanel.FocusAfterTheKey`).
+  - Checked for the third time that **the pane's screenshot takes the page's focus** and UI Toolkit then lets a
+    field go: two of the things first written down as bugs here were the test, not the game. Type and finish
+    without a screenshot in between.
 - **Checked.** `KeyMapTests` (3) under dotnet: every key on the map under one heading, ? on a key the game and the
   browser leave free, the gestures listed and the status line one line. In Play Mode: ? opening the map with every
   key's words on it, Escape shutting it before the workbench and ? again shutting it; the status line naming the

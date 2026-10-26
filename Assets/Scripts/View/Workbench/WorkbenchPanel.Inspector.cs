@@ -306,13 +306,22 @@ namespace BitSorter.View
             return _refusal;
         }
 
-        /// <summary>The keyboard in the bar's first field, all of it chosen, as a double-click and Enter give it.</summary>
-        private void FocusInspector()
+        /// <summary>
+        /// The keyboard in the bar's first field, all of it chosen, as a double-click and Enter give it -- Enter's the frame
+        /// after, so the Enter is not the field's as well (<see cref="ShellPanel.FocusAfterTheKey"/>).
+        /// </summary>
+        private void FocusInspector(bool afterTheKey = false)
         {
             RefreshInspector();
             if (_barInputs.Count == 0)
                 return;
             TextField first = _barInputs[0].Input;
+            if (afterTheKey)
+            {
+                ShellPanel.FocusAfterTheKey(first, selectAll: true);
+                return;
+            }
+
             first.Focus();
             first.SelectAll();
         }

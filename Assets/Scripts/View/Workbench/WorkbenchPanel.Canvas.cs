@@ -306,7 +306,7 @@ namespace BitSorter.View
             if (_editor == null || UiEscape.AnyHolds || !_canvasFocused)
                 return;
             if (_editor.Single.Kind != CanvasTargetKind.Nothing)
-                FocusInspector();
+                FocusInspector(afterTheKey: true);
         }
 
         /// <summary>
