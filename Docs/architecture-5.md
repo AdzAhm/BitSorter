@@ -1725,6 +1725,14 @@ re-hosted in them, 11b-3 the popups moved into the shell.
   - Checked for the third time that **the pane's screenshot takes the page's focus** and UI Toolkit then lets a
     field go: two of the things first written down as bugs here were the test, not the game. Type and finish
     without a screenshot in between.
+  - **Still open: the inspector's first field does not keep all of its text chosen in the browser.** Given the
+    keyboard by Enter or by a double-click on a part, it should replace the part's name with what is typed; in
+    the browser the caret is at its start instead, and "z" made the AND's name "zg2". The editor chooses all of
+    it on focus, so no test can see it, and finding out why would take more browser builds than it is worth now.
+    A rebuilt build checked the rest: every key typed into + SIGNAL's search landed, A and Enter were not typed
+    into the fields they opened, Escape in a quick field put its value back and left the workbench up, RUN TO
+    and Enter ran to the time and gave the keys back, `?` and Escape, and SHORTCUT KEYS hiding every cap; the
+    console had no errors.
 - **Checked.** `KeyMapTests` (3) under dotnet: every key on the map under one heading, ? on a key the game and the
   browser leave free, the gestures listed and the status line one line. In Play Mode: ? opening the map with every
   key's words on it, Escape shutting it before the workbench and ? again shutting it; the status line naming the
