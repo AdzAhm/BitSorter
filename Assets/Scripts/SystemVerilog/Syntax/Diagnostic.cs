@@ -51,6 +51,7 @@ namespace BitSorter.SystemVerilog.Syntax
         public const string UnbalancedConditional = "SV0106";
         public const string UnsupportedDirective = "SV0107";
         public const string MacroTooDeep = "SV0108";
+        public const string MacroTooMuch = "SV0109";   // macros that make too much, each using the last twice over (Part 13f)
 
         // The parser.
         public const string Expected = "SV0201";

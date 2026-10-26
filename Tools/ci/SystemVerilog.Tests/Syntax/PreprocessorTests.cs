@@ -189,5 +189,22 @@ namespace BitSorter.SystemVerilog.Tests.Syntax
             Assert.IsTrue(tree.Diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error && d.Message.Contains("expand to more than")),
                 "stopped, with a message: " + string.Join("\n", tree.Diagnostics.Take(3)));
         }
+
+        /// <summary>The whole of it: a chain of 31, two thousand million tokens asked for, stopped in moments, said once, at the use.</summary>
+        [Test]
+        public void AChainOfThirtyOneDoublingMacros_IsStoppedInMoments()
+        {
+            var text = new System.Text.StringBuilder("`define M0 x\n");
+            for (int i = 1; i <= 31; i++)
+                text.Append("`define M").Append(i).Append(" `M").Append(i - 1).Append(" `M").Append(i - 1).Append('\n');
+            text.Append("module m; wire y = `M31; endmodule\n");
+
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            SyntaxTree tree = Read(text.ToString());
+
+            Assert.Less(clock.Elapsed.TotalSeconds, 5, "stopped at a million, not after making them all");
+            Diagnostic stopped = tree.Diagnostics.Single(d => d.Code == DiagnosticCodes.MacroTooMuch);
+            Assert.AreEqual(33, stopped.Location.Line, "at the use in the file, not inside a macro");
+        }
     }
 }

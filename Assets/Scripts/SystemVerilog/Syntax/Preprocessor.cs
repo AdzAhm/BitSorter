@@ -25,6 +25,17 @@ namespace BitSorter.SystemVerilog.Syntax
         /// <summary>How deep includes and macro uses may nest before the reader gives up on them.</summary>
         public const int MaxDepth = 32;
 
+        /// <summary>
+        /// How much macros may make in one read -- each use counted, and each token a use makes -- before the reader stops
+        /// expanding them (Part 13f). Depth alone does not bound it: macros that each use the one before twice make two to the
+        /// power of the chain's length, and a chain of 31 is inside <see cref="MaxDepth"/>. A course file makes a few hundred.
+        /// </summary>
+        public const int MaxExpansion = 1_000_000;
+
+        private int _expanded;
+        private bool _runaway;
+        private Token _outermostUse;
+
         private readonly ISourceFiles _files;
         private readonly DiagnosticBag _diagnostics;
         private readonly Dictionary<string, Macro> _macros = new Dictionary<string, Macro>();
@@ -100,9 +111,13 @@ namespace BitSorter.SystemVerilog.Syntax
                     continue;
                 }
 
+                // A runaway expansion unwinds at once, every use on the way out with it.
+                if (macroDepth > 0 && _runaway)
+                    return;
+
                 if (token.Kind != TokenKind.Directive)
                 {
-                    if (Active)
+                    if (Active && (macroDepth == 0 || Spend()))
                         _output.Add(token);
                     continue;
                 }
@@ -366,6 +381,11 @@ namespace BitSorter.SystemVerilog.Syntax
                 return 0;
             }
 
+            if (macroDepth == 0)
+                _outermostUse = token;
+            if (!Spend())
+                return 0;
+
             List<Token> body = macro.Body;
             int consumed = 0;
 
@@ -390,6 +410,24 @@ namespace BitSorter.SystemVerilog.Syntax
             var withEnd = new List<Token>(body) { new Token(TokenKind.EndOfFile, string.Empty, token.Location, token.LogicalLine) };
             Process(withEnd, macroDepth + 1, depth + 1);
             return consumed;
+        }
+
+        /// <summary>
+        /// One more unit of what macros make -- a use, or a token one made -- and whether it is within
+        /// <see cref="MaxExpansion"/>. Past it, the read says so once, at the use in the file that began it, and expands nothing
+        /// more.
+        /// </summary>
+        private bool Spend()
+        {
+            if (_runaway)
+                return false;
+            if (++_expanded <= MaxExpansion)
+                return true;
+
+            _runaway = true;
+            _diagnostics.Error(_outermostUse.Location, DiagnosticCodes.MacroTooMuch,
+                $"The macros used here expand to more than a million tokens, so BitSorter stopped expanding them. Does a macro use another twice, and that one another twice, over and over?");
+            return false;
         }
 
         /// <summary>A use's arguments, <c>(a, f(b, c), {d, e})</c>: split at the commas outside brackets.</summary>
