@@ -150,7 +150,7 @@ namespace BitSorter.View
         private static bool MyCircuitHasAnything()
         {
             Project kept = MyCircuit();
-            return kept.TopModule != null && kept.TopModule.Parts.Count > 0;
+            return kept.TopModule != null && (kept.TopModule.Parts.Count > 0 || kept.TopModule.IsWritten || kept.Modules.Count > 1);
         }
 
         /// <summary>

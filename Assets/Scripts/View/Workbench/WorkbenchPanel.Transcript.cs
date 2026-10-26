@@ -238,6 +238,13 @@ namespace BitSorter.View
             if (_session == null || _model == null || _transcriptList == null)
                 return;
 
+            // What an import said is about the project it made or was refused over: gone once that project is edited.
+            if (_notesAbout != null && !ReferenceEquals(_session.Project, _notesAbout))
+            {
+                _transcript.Notes = null;
+                _notesAbout = null;
+            }
+
             _transcript.Update(_session.Editor.Diagnostics, _model.Session.History.Messages);
             if (_transcript.Errors != _transcriptErrorsShown)
             {

@@ -70,6 +70,31 @@ namespace BitSorter.ViewModel
         private int _diagnosticCount = -1, _messageCount;
         private TranscriptFilter _filter;
         private string _search = "";
+        private IReadOnlyList<TranscriptLine> _notes = Array.Empty<TranscriptLine>();
+
+        /// <summary>
+        /// What was said about the document from outside it -- what an import had to say, each file and line (Part 13d) --
+        /// listed before everything else until it is set again.
+        /// </summary>
+        public IReadOnlyList<TranscriptLine> Notes
+        {
+            get => _notes;
+            set
+            {
+                _notes = value ?? Array.Empty<TranscriptLine>();
+                _diagnostics = null;   // made again at the next update
+            }
+        }
+
+        /// <summary>What an import said (Part 13d), as lines for <see cref="Notes"/>: its errors as errors, the rest as information.</summary>
+        public static IReadOnlyList<TranscriptLine> LinesOf(IReadOnlyList<ImportNote> notes)
+        {
+            var lines = new List<TranscriptLine>(notes?.Count ?? 0);
+            if (notes != null)
+                foreach (ImportNote note in notes)
+                    lines.Add(new TranscriptLine(note.IsError ? TranscriptSeverity.Error : TranscriptSeverity.Info, note.ToString(), -1));
+            return lines;
+        }
 
         /// <summary>The lines shown: <see cref="Filter"/>'s, holding <see cref="Search"/>, in order.</summary>
         public IReadOnlyList<TranscriptLine> Lines => _shown;
@@ -129,6 +154,8 @@ namespace BitSorter.ViewModel
             {
                 _all.Clear();
                 Errors = Warnings = Infos = 0;
+                foreach (TranscriptLine note in _notes)
+                    Count(note);
                 for (int i = 0; i < diagnosticCount; i++)
                 {
                     BoardDiagnostic d = diagnostics[i];

@@ -44,6 +44,10 @@ namespace BitSorter.PlayMode.Tests
         internal static string ScratchExports =>
             Path.Combine(Application.persistentDataPath, "exports.testrun");
 
+        /// <summary>The scratch folder a test's imports are read from, never the player's Import (Part 13d).</summary>
+        internal static string ScratchImports =>
+            Path.Combine(Application.persistentDataPath, "imports.testrun");
+
         private static bool _archived;
 
         /// <summary>
@@ -68,6 +72,10 @@ namespace BitSorter.PlayMode.Tests
                 Directory.Delete(ScratchExports, true);
             FileSaver.Redirected = ScratchExports;
 
+            if (Directory.Exists(ScratchImports))
+                Directory.Delete(ScratchImports, true);
+            FileImport.Redirected = ScratchImports;
+
             // The mute and the reporting setting live in PlayerPrefs, not in the save file, and the
             // fixtures need reporting off. They used to read the real value, overwrite it, and put
             // it back in OneTimeTearDown -- which made the developer's own settings depend on a run
@@ -85,11 +93,14 @@ namespace BitSorter.PlayMode.Tests
             ProgressStore.Redirected = null;
             Preferences.Redirected = null;
             FileSaver.Redirected = null;
+            FileImport.Redirected = null;
 
             if (File.Exists(Scratch))
                 File.Delete(Scratch);
             if (Directory.Exists(ScratchExports))
                 Directory.Delete(ScratchExports, true);
+            if (Directory.Exists(ScratchImports))
+                Directory.Delete(ScratchImports, true);
         }
 
         /// <summary>

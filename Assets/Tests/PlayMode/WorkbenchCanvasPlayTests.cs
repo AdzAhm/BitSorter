@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Linq;
 using BitSorter.Board;
+using BitSorter.SystemVerilog;
 using BitSorter.View;
 using BitSorter.ViewModel;
 using NUnit.Framework;
@@ -1207,6 +1208,148 @@ namespace BitSorter.PlayMode.Tests
             StringAssert.Contains("full_adder/" + ProjectExport.RunScript, bytes, "with the script, stored as it reads");
             StringAssert.Contains("vsim -voptargs=+acc work.full_adder_tb", bytes);
             StringAssert.Contains("module full_adder", bytes);
+        }
+
+        private const string ImportedMux =
+            "module mux2 (input logic a, input logic b, input logic s, output logic y);\n" +
+            "    logic s_n, n0, n1;\n" +
+            "    INV   #(.Tpdlh(2), .Tpdhl(1)) g0 (.A(s), .Z(s_n));\n" +
+            "    NAND2 #(.Tpdlh(3), .Tpdhl(2)) g1 (.A(a), .B(s_n), .Z(n0));\n" +
+            "    NAND2 #(.Tpdlh(3), .Tpdhl(2)) g2 (.A(b), .B(s), .Z(n1));\n" +
+            "    NAND2 #(.Tpdlh(3), .Tpdhl(2)) g3 (.A(n0), .B(n1), .Z(y));\n" +
+            "endmodule\n";
+
+        private const string ImportedMuxBench =
+            "module mux2_tb;\n" +
+            "    logic a, b, s, y;\n" +
+            "    mux2 dut (.a(a), .b(b), .s(s), .y(y));\n" +
+            "    initial begin\n" +
+            "        a = 0; b = 1; s = 0;\n" +
+            "        #10 s = 1;\n" +
+            "        #10 $display(\"y is %b\", y);\n" +
+            "        $stop;\n" +
+            "    end\n" +
+            "endmodule\n";
+
+        /// <summary>The files of a project put in the Import folder -- redirected while a test runs -- which is emptied first.</summary>
+        private static void PutInTheImportFolder(params (string Name, string Text)[] files)
+        {
+            Assert.IsNotNull(FileImport.Redirected, "sanity: the Import folder is the test's scratch one, never the player's");
+            if (System.IO.Directory.Exists(FileImport.Folder))
+                System.IO.Directory.Delete(FileImport.Folder, true);
+            System.IO.Directory.CreateDirectory(FileImport.Folder);
+            foreach ((string name, string text) in files)
+            {
+                string path = System.IO.Path.Combine(FileImport.Folder, name);
+                System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path));
+                System.IO.File.WriteAllText(path, text);
+            }
+        }
+
+        /// <summary>
+        /// FILE, IMPORT reads the Import folder into MY CIRCUIT (Part 13d): the testbench runs the design as written, what the
+        /// import said is in the TRANSCRIPT with its file and line, and a file that does not read is named there.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator FileImport_BringsTheProjectIntoMyCircuit_RunByItsTestbench()
+        {
+            PutInTheImportFolder(("mux2.sv", ImportedMux), ("mux2_tb.sv", ImportedMuxBench), ("broken.sv", "module broken (input a;\nendmodule\n"),
+                (".git/HEAD", "ref: refs/heads/main\n"), (".git/config", "[core]\n"));
+            yield return TestScene.Load();
+            yield return Click(MainMenu.WorkbenchButton);
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            yield return null;
+
+            yield return Click(WorkbenchPanel.FileButton);
+            yield return Click(FileMenu.ActionItem + FileAction.ImportFolder);
+            Assert.IsFalse(workbench.Ask.IsOpen, "MY CIRCUIT was empty, so there was nothing to ask");
+            yield return null;
+            workbench.Pause();
+            workbench.Session.Finish();
+            yield return null;
+
+            Assert.AreEqual(0, workbench.Sample, "MY CIRCUIT");
+            Assert.AreEqual("mux2_tb", workbench.Session.Project.Bench);
+            Assert.AreEqual("mux2", workbench.Session.Project.Top);
+            Assert.AreEqual("mux2_tb.dut", workbench.Session.Run.Model.Layout.DesignPath);
+            Assert.AreEqual(20, workbench.Session.Run.Model.End, "shown to where the testbench stops");
+
+            workbench.ShowTranscript();
+            yield return null;
+            Assert.IsTrue(workbench.Transcript.Lines.Any(l => l.Severity == TranscriptSeverity.Error && l.Text.StartsWith("broken.sv:1:")),
+                "the file that did not read, named with its line");
+            Assert.IsTrue(workbench.Transcript.Lines.Any(l => l.Text == "y is 1"), "and what the testbench printed: s is 1 by then, so y is b");
+            Assert.IsEmpty(workbench.Session.Project.Files, "a hidden folder's files, .git's, are not the project's");
+
+            Assert.IsTrue(workbench.Session.SetUnit("ns").Done);
+            yield return null;
+            Assert.IsFalse(workbench.Transcript.Lines.Any(l => l.Text.StartsWith("broken.sv:")), "what the import said goes with the first edit");
+        }
+
+        /// <summary>An import over a MY CIRCUIT with something in it asks first (Part 13d); CANCEL keeps it, and the answer replaces it.</summary>
+        [UnityTest]
+        public IEnumerator FileImport_OverACircuit_AsksFirst()
+        {
+            PutInTheImportFolder(("mux2.sv", ImportedMux), ("mux2_tb.sv", ImportedMuxBench));
+            yield return TestScene.Load();
+            yield return Click(MainMenu.WorkbenchButton);
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            yield return null;
+
+            workbench.ImportFromFolder();
+            yield return null;
+            Project first = workbench.Session.Project;
+            Assert.AreEqual("mux2", first.Top, "sanity: the first import made MY CIRCUIT");
+
+            workbench.ImportFromFolder();
+            yield return null;
+            Assert.IsTrue(workbench.Ask.IsOpen, "MY CIRCUIT has a circuit now, so the second import asks");
+            StringAssert.Contains("Replace it with mux2", workbench.Ask.Question);
+            yield return Click(AskMenu.NoItem);
+            Assert.IsFalse(workbench.Ask.IsOpen);
+            Assert.AreSame(first, workbench.Session.Project, "CANCEL keeps MY CIRCUIT as it was");
+
+            workbench.ImportFromFolder();
+            yield return null;
+            yield return Click(AskMenu.YesItem);
+            yield return null;
+            Assert.AreNotSame(first, workbench.Session.Project, "and the answer replaces it");
+            Assert.AreEqual("mux2_tb", workbench.Session.Project.Bench);
+        }
+
+        /// <summary>
+        /// FILE, CONVERT is offered only while a testbench drives the inputs (Part 13d); it asks, saying what the stimulus will
+        /// not keep, and then the inputs are steps SET can change.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator FileConvert_AsksWhatItLoses_ThenTheInputsAreSteps()
+        {
+            PutInTheImportFolder(("mux2.sv", ImportedMux), ("mux2_tb.sv", ImportedMuxBench));
+            yield return TestScene.Load();
+            yield return Click(MainMenu.WorkbenchButton);
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            yield return null;
+            workbench.ImportFromFolder();
+            yield return null;
+            workbench.Pause();
+            workbench.Session.Finish();
+            Assert.IsFalse(workbench.Session.SetInput("a", 0, 5, LogicVec.FromBinary("1")).Done, "sanity: the testbench drives the inputs");
+
+            yield return Click(WorkbenchPanel.FileButton);
+            yield return Click(FileMenu.ActionItem + FileAction.ConvertTestbench);
+            Assert.IsTrue(workbench.Ask.IsOpen, "CONVERT asks first");
+            StringAssert.Contains("$display, in one place", workbench.Ask.Question, "saying what will not be kept");
+            yield return Click(AskMenu.YesItem);
+            yield return null;
+            workbench.Session.Finish();
+            yield return null;
+
+            Assert.IsNull(workbench.Session.Project.Bench);
+            Assert.IsTrue(workbench.Session.SetInput("a", 0, 5, LogicVec.FromBinary("1")).Done, "the inputs are the stimulus's now");
+
+            yield return Click(WorkbenchPanel.FileButton);
+            Assert.IsFalse(workbench.FileMenu.Offers(FileAction.ConvertTestbench), "and CONVERT is not offered without a testbench");
+            workbench.FileMenu.Close();
         }
 
         /// <summary>The wheel over a written block's line numbers scrolls its code, as it does over the code itself (Part 12d).</summary>

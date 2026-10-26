@@ -450,7 +450,7 @@ namespace BitSorter.Board
 
         /// <summary>Why an input cannot be set while a written testbench drives them (Part 13b).</summary>
         public static string BenchDrivesTheInputs(Project project) =>
-            $"The testbench, {project.Bench}, drives the inputs: change them in its code.";
+            $"The testbench, {project.Bench}, drives the inputs: CONVERT it, in the FILE menu, to set them here, or change them in its code.";
 
         /// <summary>The project's other files (Part 13b): each a bare name, no two alike, and none the export's own script or a module's file.</summary>
         private static void CheckFiles(Project project, List<BoardDiagnostic> found)

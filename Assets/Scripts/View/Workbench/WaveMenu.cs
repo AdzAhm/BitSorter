@@ -21,13 +21,14 @@ namespace BitSorter.View
     /// </remarks>
     public abstract class WaveMenu : MonoBehaviour, IHoldsEscape
     {
-        private const float ItemHeight = 38f, Gap = 4f, Pad = 8f;
+        private const float ItemHeight = 38f, Gap = 4f, Pad = 8f, NoteLine = 24f, NoteCharacter = 8.5f;
 
         private ShellPopup _popup;
         private SchematicPalette _palette;
         private float _itemWidth;
         private readonly List<ShellButton> _items = new List<ShellButton>();
         private readonly HashSet<ShellButton> _breakBefore = new HashSet<ShellButton>();
+        private readonly List<Label> _notes = new List<Label>();
 
         /// <summary>Whether it is up.</summary>
         public bool IsOpen => _popup != null && _popup.IsOpen;
@@ -61,6 +62,29 @@ namespace BitSorter.View
             return item;
         }
 
+        /// <summary>
+        /// A line of text above the items (Part 13d: what an ask asks), wrapped to the menu's width; empty text leaves it
+        /// out. Its height is worked out from its length, since the popup is sized before UI Toolkit lays it out.
+        /// </summary>
+        protected Label Note(string name)
+        {
+            Label note = ShellTheme.Label(name, "", UiType.Label, _palette.Text);
+            note.style.whiteSpace = WhiteSpace.Normal;
+            _popup.Panel.Add(note);
+            _notes.Add(note);
+            return note;
+        }
+
+        /// <summary>How tall a note of <paramref name="text"/> is, wrapped to the menu's width.</summary>
+        private float NoteHeight(string text)
+        {
+            int perLine = Math.Max(1, (int)(_itemWidth / NoteCharacter));
+            int lines = 0;
+            foreach (string paragraph in (text ?? "").Split('\n'))
+                lines += Math.Max(1, (paragraph.Length + perLine - 1) / perLine);
+            return lines * NoteLine;
+        }
+
         /// <summary>Whether <paramref name="item"/> is on the menu the next time it opens.</summary>
         protected static void Offer(ShellButton item, bool shown) => item.style.display = shown ? DisplayStyle.Flex : DisplayStyle.None;
 
@@ -68,6 +92,20 @@ namespace BitSorter.View
         protected void Show(Vector2 screenPoint)
         {
             float y = Pad;
+            foreach (Label note in _notes)
+            {
+                if (string.IsNullOrEmpty(note.text))
+                {
+                    note.style.display = DisplayStyle.None;
+                    continue;
+                }
+
+                note.style.display = DisplayStyle.Flex;
+                float height = NoteHeight(note.text);
+                ShellTheme.Place(note, Pad, y, _itemWidth, height);
+                y += height + Gap * 2f;
+            }
+
             bool first = true;
             foreach (ShellButton item in _items)
             {

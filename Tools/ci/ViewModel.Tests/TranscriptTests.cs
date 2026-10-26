@@ -141,6 +141,30 @@ endmodule", "t.sv", null);
         }
 
         [Test]
+        public void WhatAnImportSaid_IsListedFirst_UntilItIsSetAgain()
+        {
+            var transcript = new TranscriptView();
+            transcript.Update(Document, Said());
+            int before = transcript.Lines.Count;
+
+            transcript.Notes = TranscriptView.LinesOf(new[]
+            {
+                new ImportNote("broken.sv", 3, 1, "There is no module here.", true),
+                new ImportNote("gates.sv", 1, 1, "NAND2 is one of BitSorter's own cells.", false),
+            });
+            Assert.IsTrue(transcript.Update(Document, Said()), "the same document and run, made again for the notes");
+
+            Assert.AreEqual(before + 2, transcript.Lines.Count);
+            Assert.AreEqual("broken.sv:3: There is no module here.", transcript.Lines[0].Text);
+            Assert.AreEqual(TranscriptSeverity.Error, transcript.Lines[0].Severity);
+            Assert.AreEqual(TranscriptSeverity.Info, transcript.Lines[1].Severity);
+
+            transcript.Notes = null;
+            transcript.Update(Document, Said());
+            Assert.AreEqual(before, transcript.Lines.Count, "and gone once set again");
+        }
+
+        [Test]
         public void AClickOnABlock_AddsItsPortsAsOneGroup_NamedByItsPath()
         {
             WorkbenchModel model = FullAdder();

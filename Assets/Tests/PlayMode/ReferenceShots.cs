@@ -1474,6 +1474,58 @@ namespace BitSorter.PlayMode.Tests
             yield return Capture("45-workbench-file-menu");
         }
 
+        /// <summary>
+        /// Shot 46 (Part 13d): a project imported from the Import folder into MY CIRCUIT -- a mux of gates, drawn, and its
+        /// testbench, written -- running under its testbench, with what the import said in the TRANSCRIPT.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator Shot46_WorkbenchImportedProject()
+        {
+            Assert.IsNotNull(FileImport.Redirected, "sanity: the Import folder is the capture's scratch one, never the player's");
+            System.IO.Directory.CreateDirectory(FileImport.Folder);
+            foreach (string old in System.IO.Directory.GetFiles(FileImport.Folder))
+                System.IO.File.Delete(old);
+            System.IO.File.WriteAllText(System.IO.Path.Combine(FileImport.Folder, "mux2.sv"),
+                "module mux2 (input logic a, input logic b, input logic s, output logic y);\n" +
+                "    logic s_n, n0, n1;\n" +
+                "    INV   #(.Tpdlh(2), .Tpdhl(1)) g0 (.A(s), .Z(s_n));\n" +
+                "    NAND2 #(.Tpdlh(3), .Tpdhl(2)) g1 (.A(a), .B(s_n), .Z(n0));\n" +
+                "    NAND2 #(.Tpdlh(3), .Tpdhl(2)) g2 (.A(b), .B(s), .Z(n1));\n" +
+                "    NAND2 #(.Tpdlh(3), .Tpdhl(2)) g3 (.A(n0), .B(n1), .Z(y));\n" +
+                "endmodule\n");
+            System.IO.File.WriteAllText(System.IO.Path.Combine(FileImport.Folder, "mux2_tb.sv"),
+                "module mux2_tb;\n" +
+                "    logic a, b, s, y;\n" +
+                "    mux2 dut (.a(a), .b(b), .s(s), .y(y));\n" +
+                "    initial begin\n" +
+                "        a = 0; b = 1; s = 0;\n" +
+                "        #10 a = 1;\n" +
+                "        #10 s = 1;\n" +
+                "        #10 b = 0;\n" +
+                "        #10 $display(\"y is %b\", y);\n" +
+                "        $stop;\n" +
+                "    end\n" +
+                "endmodule\n");
+
+            yield return LoadTheGame();
+            yield return Frames(2);
+
+            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            yield return Frames(2);
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ImportFromFolder();
+            yield return Frames(2);
+            workbench.Pause();
+            workbench.Session.Finish();
+            workbench.Seek(23.5);
+            workbench.ShowTranscript();
+            yield return Frames(30);
+
+            Assert.AreEqual("mux2_tb", workbench.Session.Project.Bench, "sanity: imported, run by its testbench");
+            yield return Capture("46-workbench-imported-project");
+        }
+
         private static IEnumerator OpensOnItsCircuit(string level, string fixture, string shot)
         {
             yield return LoadTheGame();

@@ -1333,6 +1333,10 @@ namespace BitSorter.View
             Fit();
             _shell.Opacity = Root.TryGetComponent(out CanvasGroup fading) ? fading.alpha : 1f;
 
+            // Files the player picked in the page (Part 13d), once it has read them.
+            if (FileImport.Picks && FileImport.TryTake(out List<BitSorter.Board.SourceFile> picked))
+                Import(picked);
+
             // Escape closes what is on top of the workbench first -- the row menu -- and the workbench only
             // when nothing is.
             Keyboard keyboard = UiText.Keyboard;
@@ -1494,6 +1498,7 @@ namespace BitSorter.View
             _timeMenu = WaveTimeMenu.Build(_shell, transform, palette, TimeAction);
             _exportMenu = WaveExportMenu.Build(_shell, transform, palette, Export);
             _fileMenu = FileMenu.Build(_shell, transform, palette, FileChosen);
+            _ask = AskMenu.Build(_shell, transform, palette);
             _picker = WaveSignalPicker.Build(_shell, transform, palette, AddSignal);
             _rename = WaveRenameField.Build(_shell, transform, palette, RenameRow);
             _breakField = WaveRenameField.Build(_shell, transform, palette, BreakOnValue, WaveRenameField.BreakValueName, "BREAK ON VALUE",
@@ -1686,6 +1691,9 @@ namespace BitSorter.View
             _timeMenu.Close();
             _exportMenu.Close();
             _fileMenu.Close();
+            _ask.Close();
+            _transcript.Notes = null;   // what an import said is about the import, which this leaves (an import sets them again)
+            _notesAbout = null;
             _picker.Close();
             _rename.Close();
             _blockName.Close();
