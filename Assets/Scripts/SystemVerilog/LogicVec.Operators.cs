@@ -721,11 +721,32 @@ namespace BitSorter.SystemVerilog
             if (mostSignificantFirst.Length == 0)
                 throw new ArgumentException("A concatenation needs at least one part.", nameof(mostSignificantFirst));
 
-            LogicVec result = mostSignificantFirst[0].AsUnsigned();
-            for (int i = 1; i < mostSignificantFirst.Length; i++)
-                result = Concat(result, mostSignificantFirst[i]);
+            long width = 0;
+            foreach (LogicVec part in mostSignificantFirst)
+            {
+                Require(part);
+                width += part._width;
+            }
 
-            return result;
+            CheckWidth((int)Math.Min(width, MaxWidth + 1L));
+            LogicVec result = mostSignificantFirst[0].AsUnsigned();
+            if (width <= 64)
+            {
+                for (int i = 1; i < mostSignificantFirst.Length; i++)
+                    result = Concat(result, mostSignificantFirst[i]);
+                return result;
+            }
+
+            // Wide: every part written once into the whole, rather than each folded in over everything before it (Part 13f).
+            var bits = new BitWriter((int)width);
+            int lowest = (int)width;
+            foreach (LogicVec part in mostSignificantFirst)
+            {
+                lowest -= part._width;
+                CopyInto(ref bits, part, lowest);
+            }
+
+            return bits.ToValue(false);
         }
 
         /// <summary><c>{count{v}}</c>: <paramref name="v"/> repeated, unsigned.</summary>
@@ -735,13 +756,22 @@ namespace BitSorter.SystemVerilog
             if (count < 1)
                 throw new ArgumentOutOfRangeException(nameof(count), count, "A replication repeats at least once.");
 
-            CheckWidth((int)Math.Min((long)v._width * count, MaxWidth + 1L));
+            long width = (long)v._width * count;
+            CheckWidth((int)Math.Min(width, MaxWidth + 1L));
 
             LogicVec result = v.AsUnsigned();
-            for (int i = 1; i < count; i++)
-                result = Concat(result, v);
+            if (width <= 64)
+            {
+                for (int i = 1; i < count; i++)
+                    result = Concat(result, v);
+                return result;
+            }
 
-            return result;
+            // Wide: each copy written once into the whole (Part 13f).
+            var bits = new BitWriter((int)width);
+            for (int i = 0; i < count; i++)
+                CopyInto(ref bits, v, i * v._width);
+            return bits.ToValue(false);
         }
 
         /// <summary>
