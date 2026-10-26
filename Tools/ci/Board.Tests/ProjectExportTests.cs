@@ -4,6 +4,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using NUnit.Framework;
 
 namespace BitSorter.Board.Tests
@@ -106,6 +107,44 @@ namespace BitSorter.Board.Tests
             string vlog = files[folder + "/" + ProjectExport.RunScript].Split('\n').Single(l => l.StartsWith("vlog"));
             StringAssert.DoesNotContain("table.hex", vlog, "an include and a memory image are read by the code, not compiled");
             StringAssert.DoesNotContain("defs.svh", vlog);
+        }
+
+        [Test]
+        public void AProjectNameThatIsNoName_IsNotAPathInTheZip()
+        {
+            // A save edited by hand can say anything; the zip's folder is a name, or "project".
+            foreach (string name in new[] { "../outside", "/etc", "C:\\temp", "a/b", "" })
+            {
+                Project project = SampleBoards.Build("half_adder") with { Name = name };
+                Assert.AreEqual("project", ProjectExport.FolderOf(project), name);
+                Assert.IsTrue(Unzipped(ProjectExport.Zip(project, When)).Keys.All(k => k.StartsWith("project/", StringComparison.Ordinal)), name);
+            }
+        }
+
+        [Test]
+        public void NoModuleIsWrittenToTheCellsFile_NorToAnotherModulesFile()
+        {
+            var editor = new BoardEditor(SampleBoards.Build("half_adder"));
+            string top = editor.Project.Top;
+
+            Assert.IsFalse(editor.RenameModule(top, "bitsorter_cells").Done, "the cells are printed to bitsorter_cells.sv");
+            Assert.IsFalse(editor.RenameModule(top, "BitSorter_Cells").Done, "which Windows takes for the same file");
+            Assert.IsTrue(editor.AddModule("adder").Done);
+            Assert.IsFalse(editor.AddModule("Adder").Done, "Adder.sv and adder.sv are one file on Windows, where the course's ModelSim runs");
+        }
+
+        [Test]
+        public void TheRunScript_QuotesANameWithADollar_SoTclDoesNotReadAVariable()
+        {
+            var editor = new BoardEditor(SampleBoards.Build("half_adder"));
+            Assert.IsTrue(editor.RenameModule(editor.Project.Top, "half$adder").Done);
+            Project project = editor.Project;
+            CompiledProject compiled = BoardCompiler.Compile(project);
+            string script = ProjectExport.RunDo(project, compiled, BoardPrinter.Print(compiled));
+
+            foreach (string line in script.Split('\n').Where(l => !l.StartsWith("#")))
+                Assert.IsFalse(Regex.Replace(line, @"\{[^}]*\}", "").Contains("$"), "a $ outside braces: " + line);
+            StringAssert.Contains("{half$adder.sv}", script);
         }
     }
 }
