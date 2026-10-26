@@ -8,17 +8,41 @@ using BitSorter.SystemVerilog.Syntax;
 
 namespace BitSorter.Board
 {
-    /// <summary>One file brought in: its name and its text.</summary>
+    /// <summary>One file brought in: its name and its text -- or, for one a reader left unread, its name and its size alone.</summary>
     public readonly struct SourceFile
     {
+        private readonly long _unreadSize;
+
         public SourceFile(string path, string text)
         {
             Path = path;
             Text = text;
+            WasRead = true;
+            _unreadSize = 0;
         }
+
+        private SourceFile(string path, long size)
+        {
+            Path = path;
+            Text = null;
+            WasRead = false;
+            _unreadSize = size;
+        }
+
+        /// <summary>
+        /// A file a reader did not read, its size past <see cref="ProjectImporter.MaxFileSize"/>, or among more files or more
+        /// in all than an import takes (<see cref="ProjectImporter.Reads"/>): the import says what it is from its size.
+        /// </summary>
+        public static SourceFile Unread(string path, long size) => new SourceFile(path, size);
 
         public string Path { get; }
         public string Text { get; }
+
+        /// <summary>Whether its text was read; false for one left <see cref="Unread"/>.</summary>
+        public bool WasRead { get; }
+
+        /// <summary>How large it is: its text's length, or for one unread, its size as the reader found it.</summary>
+        public long Size => WasRead ? Text?.Length ?? 0 : _unreadSize;
     }
 
     /// <summary>Something an import has to say: about a file and a line when it is about one, in words a student can act on.</summary>
@@ -88,6 +112,26 @@ namespace BitSorter.Board
         /// <summary>How many events that run may take: a testbench with a free-running clock and no <c>$stop</c> ends here.</summary>
         public const long MaxEvents = 2_000_000;
 
+        /// <summary>
+        /// How many files one import takes (Part 13f). An import is untrusted text, and the wrong folder -- one holding a
+        /// project's every build, or a course's every year -- is the usual way in; the course's largest project has eleven.
+        /// </summary>
+        public const int MaxFiles = 200;
+
+        /// <summary>How large one file may be, in characters: 4 MB, where the course's largest file is ten thousand.</summary>
+        public const long MaxFileSize = 4L << 20;
+
+        /// <summary>How much an import's files may hold together: 16 MB.</summary>
+        public const long MaxTotalSize = 16L << 20;
+
+        /// <summary>
+        /// Whether a reader should read the files it has found -- <paramref name="count"/> of them, <paramref name="total"/>
+        /// in all -- or leave every one <see cref="SourceFile.Unread"/>, since the import will refuse them anyway. Either way
+        /// a file past <see cref="MaxFileSize"/> is left unread. The desktop's folder and the browser's picker both ask it, so
+        /// the two cannot come to read different things.
+        /// </summary>
+        public static bool Reads(int count, long total) => count <= MaxFiles && total <= MaxTotalSize;
+
         private static readonly Regex DutName = new Regex("dut|uut", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
         public static ProjectImport Import(IReadOnlyList<SourceFile> files)
@@ -109,6 +153,24 @@ namespace BitSorter.Board
                 return Refused();
             }
 
+            // What an import takes (Part 13f): so many files, so much in all, and so much a file.
+            if (files.Count > MaxFiles)
+            {
+                Note(null, 0, 0, $"There are {files.Count.ToString(CultureInfo.InvariantCulture)} files here, and an import takes at most {MaxFiles}. " +
+                    "Is this one project's folder?", true);
+                return Refused();
+            }
+
+            long total = 0;
+            foreach (SourceFile file in files)
+                total += file.Size;
+            if (total > MaxTotalSize)
+            {
+                Note(null, 0, 0, $"The files hold {Megabytes(total)} together, and an import takes at most {Megabytes(MaxTotalSize)}. " +
+                    "Is this one project's folder?", true);
+                return Refused();
+            }
+
             // The .sv and .v files read together, as a simulator compiles a list of files, with every file there for an
             // include to read.
             var sources = new MemorySourceFiles();
@@ -116,6 +178,14 @@ namespace BitSorter.Board
             var paths = new List<string>();
             foreach (SourceFile file in files)
             {
+                if (!file.WasRead || file.Size > MaxFileSize)
+                {
+                    Note(file.Path, 0, 0, file.Size > MaxFileSize
+                        ? $"It is {Megabytes(file.Size)}, and a file can be at most {Megabytes(MaxFileSize)}, so it was left out."
+                        : "It was not read, so it was left out.", true);
+                    continue;
+                }
+
                 sources.Add(file.Path, file.Text);
                 texts[SourcePaths.Normalise(file.Path)] = file.Text ?? "";
                 if (ProjectFiles.IsSource(ModuleCutter.NameOf(file.Path)))
@@ -193,6 +263,8 @@ namespace BitSorter.Board
             foreach (SourceFile file in files)
             {
                 string name = ModuleCutter.NameOf(file.Path);
+                if (!file.WasRead || file.Size > MaxFileSize)
+                    continue;   // left out above, and said so
                 if (moduleFiles.Contains(name) || broken.Contains(SourcePaths.Normalise(file.Path)))
                     continue;
                 if (!ProjectFiles.IsValidName(name, out string why))
@@ -571,6 +643,9 @@ namespace BitSorter.Board
         }
 
         /// <summary>The bare names a file's text includes.</summary>
+        /// <summary>A size in megabytes, to a tenth: <c>4.2 MB</c>.</summary>
+        private static string Megabytes(long size) => (size / 1048576.0).ToString("0.#", CultureInfo.InvariantCulture) + " MB";
+
         private static IEnumerable<string> IncludedNames(string text)
         {
             bool inComment = false;

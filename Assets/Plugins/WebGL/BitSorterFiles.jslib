@@ -22,7 +22,15 @@ mergeInto(LibraryManager.library, {
 
   // An import in a browser (Part 13d): the page's own file picker -- several files, or a folder's -- each file read as
   // text, and the lot kept as JSON until FileImport.cs takes it. Nothing here calls into the game.
-  BitSorterPickFiles: function (folder) {
+  //
+  // What is read is held to the import's limits, which the game hands in (ProjectImporter.MaxFiles and the rest, Part
+  // 13f): a hidden folder's files -- a project's .git -- are not counted or read, as FileImport.IsHidden leaves them out;
+  // a file past the largest is not read; and nothing is read when there are too many, or too much in all. A file not read
+  // goes as its path and size, for the import to say why.
+  BitSorterPickFiles: function (folder, maxFiles, maxFileSize, maxTotalSize) {
+    var hidden = function (path) {
+      return path.split('/').some(function (part) { return part.charAt(0) === '.' && part !== '.' && part !== '..'; });
+    };
     var input = document.createElement('input');
     input.type = 'file';
     input.multiple = true;
@@ -39,7 +47,9 @@ mergeInto(LibraryManager.library, {
     // A picker closed with nothing picked fires cancel rather than change: the input goes either way.
     input.addEventListener('cancel', gone);
     input.onchange = function () {
-      var picked = Array.prototype.slice.call(input.files || []);
+      var picked = Array.prototype.slice.call(input.files || []).filter(function (file) {
+        return !hidden(file.webkitRelativePath || file.name);
+      });
       gone();
       var files = new Array(picked.length);
       var left = picked.length;
@@ -48,11 +58,18 @@ mergeInto(LibraryManager.library, {
         done();
         return;
       }
+      var total = picked.reduce(function (sum, file) { return sum + file.size; }, 0);
+      var reads = picked.length <= maxFiles && total <= maxTotalSize;
       picked.forEach(function (file, i) {
-        var reader = new FileReader();
         var path = file.webkitRelativePath || file.name;
-        reader.onload = function () { files[i] = { path: path, text: String(reader.result) }; if (--left === 0) done(); };
-        reader.onerror = function () { files[i] = { path: path, text: '' }; if (--left === 0) done(); };
+        var unread = function () { files[i] = { path: path, text: '', read: false, size: file.size }; if (--left === 0) done(); };
+        if (!reads || file.size > maxFileSize) {
+          unread();
+          return;
+        }
+        var reader = new FileReader();
+        reader.onload = function () { files[i] = { path: path, text: String(reader.result), read: true, size: file.size }; if (--left === 0) done(); };
+        reader.onerror = unread;
         reader.readAsText(file);
       });
     };

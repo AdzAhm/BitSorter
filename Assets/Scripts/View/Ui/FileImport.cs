@@ -40,20 +40,47 @@ namespace BitSorter.View
             }
         }
 
-        /// <summary>Every file in the folder and the folders in it, each by its path inside it, in order; the folder made if it is not there.</summary>
+        /// <summary>
+        /// Every file in the folder and the folders in it, each by its path inside it, in order; the folder made if it is not
+        /// there. Sizes are looked at before anything is read (Part 13f): a file past <see cref="ProjectImporter.MaxFileSize"/>
+        /// is left <see cref="SourceFile.Unread"/>, and so is every file when there are more, or more in all, than an import
+        /// takes (<see cref="ProjectImporter.Reads"/>) -- the import says why. A file that cannot be read is left unread too.
+        /// </summary>
         public static List<SourceFile> ReadFolder()
         {
             string folder = Folder;
             Directory.CreateDirectory(folder);
-            var paths = new List<string>(Directory.GetFiles(folder, "*", SearchOption.AllDirectories));
-            paths.Sort(StringComparer.Ordinal);
-
-            var files = new List<SourceFile>(paths.Count);
-            foreach (string path in paths)
+            var found = new List<(string Relative, string Path, long Size)>();
+            foreach (string path in Directory.GetFiles(folder, "*", SearchOption.AllDirectories))
             {
                 string relative = Path.GetRelativePath(folder, path).Replace('\\', '/');
                 if (!IsHidden(relative))
+                    found.Add((relative, path, new FileInfo(path).Length));
+            }
+
+            found.Sort((a, b) => string.CompareOrdinal(a.Relative, b.Relative));
+            long total = 0;
+            foreach (var (_, _, size) in found)
+                total += size;
+            bool reads = ProjectImporter.Reads(found.Count, total);
+
+            var files = new List<SourceFile>(found.Count);
+            foreach ((string relative, string path, long size) in found)
+            {
+                if (!reads || size > ProjectImporter.MaxFileSize)
+                {
+                    files.Add(SourceFile.Unread(relative, size));
+                    continue;
+                }
+
+                try
+                {
                     files.Add(new SourceFile(relative, File.ReadAllText(path)));
+                }
+                catch (Exception e) when (e is IOException || e is UnauthorizedAccessException)
+                {
+                    files.Add(SourceFile.Unread(relative, size));   // open elsewhere, or not the player's to read
+                }
             }
 
             return files;
@@ -78,11 +105,14 @@ namespace BitSorter.View
             Application.OpenURL("file:///" + Folder.Replace('\\', '/').TrimStart('/'));
         }
 
-        /// <summary>Asks the page for files -- several, or a <paramref name="folder"/>'s -- which <see cref="TryTake"/> has once they are read.</summary>
+        /// <summary>
+        /// Asks the page for files -- several, or a <paramref name="folder"/>'s -- which <see cref="TryTake"/> has once they are
+        /// read. The page is handed the import's limits, so it reads what the folder would (<see cref="ReadFolder"/>).
+        /// </summary>
         public static void Pick(bool folder)
         {
 #if UNITY_WEBGL && !UNITY_EDITOR
-            BitSorterPickFiles(folder ? 1 : 0);
+            BitSorterPickFiles(folder ? 1 : 0, ProjectImporter.MaxFiles, (int)ProjectImporter.MaxFileSize, (int)ProjectImporter.MaxTotalSize);
 #endif
         }
 
@@ -98,7 +128,7 @@ namespace BitSorter.View
             files = new List<SourceFile>();
             foreach (PickedFile file in picked?.files ?? Array.Empty<PickedFile>())
                 if (!IsHidden(file.path))
-                    files.Add(new SourceFile(file.path, file.text));
+                    files.Add(file.read ? new SourceFile(file.path, file.text) : SourceFile.Unread(file.path, file.size));
             return true;
 #else
             return false;
@@ -116,11 +146,13 @@ namespace BitSorter.View
         {
             public string path;
             public string text;
+            public bool read;
+            public long size;
         }
 
 #if UNITY_WEBGL && !UNITY_EDITOR
         [DllImport("__Internal")]
-        private static extern void BitSorterPickFiles(int folder);
+        private static extern void BitSorterPickFiles(int folder, int maxFiles, int maxFileSize, int maxTotalSize);
 
         [DllImport("__Internal")]
         private static extern string BitSorterTakeFiles();
