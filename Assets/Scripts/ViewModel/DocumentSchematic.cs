@@ -34,12 +34,20 @@ namespace BitSorter.ViewModel
         /// <summary>How far over its outline a part's name reaches, in cells.</summary>
         private const double NameRoom = 0.4;
 
-        public static SchematicLayout Build(Project project, CompiledProject compiled)
+        /// <summary>
+        /// The layout of <paramref name="moduleName"/> -- the top when null -- its signals read under
+        /// <paramref name="instancePath"/>, the design path when null: an inner module drawn as one of its instances
+        /// runs it, <c>full_adder_tb.dut.h1</c> (Part 12a, stepping inside a block). Null for a module the project
+        /// does not have.
+        /// </summary>
+        public static SchematicLayout Build(Project project, CompiledProject compiled, string moduleName = null, string instancePath = null)
         {
-            Module module = project.TopModule;
+            Module module = moduleName == null ? project.TopModule : project.Find(moduleName);
+            if (module == null)
+                return null;
             CompiledModule top = compiled.Find(module.Name);
             Netlist netlist = top.Nets;
-            string path = compiled.DesignPath;
+            string path = instancePath ?? compiled.DesignPath;
             string unit = project.Settings?.TimeUnit ?? TimeUnits.Default;
 
             var outlines = new Dictionary<int, PartOutline>();
