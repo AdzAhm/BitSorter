@@ -1157,6 +1157,37 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsTrue(UiText.Typing, "and the workbench's keys stay off while it does");
         }
 
+        /// <summary>The wheel over a written block's line numbers scrolls its code, as it does over the code itself (Part 12d).</summary>
+        [UnityTest]
+        public IEnumerator TheWheelOverTheCodesLineNumbers_ScrollsTheCode()
+        {
+            yield return TestScene.Load();
+            yield return Click(MainMenu.WorkbenchButton);
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowSample(SampleNamed("Written adder"));
+            yield return null;
+            workbench.Pause();
+            workbench.Session.Finish();
+            yield return null;
+            Assert.IsTrue(workbench.StepInto(Top(workbench).Parts.OfType<BlockPart>().Single().Id));
+            yield return null;
+            CodeEditorView code = workbench.CodeView;
+
+            // Long enough to scroll: forty lines of comment under the module.
+            code.Field.text = WorkbenchSamples.AdderSource + string.Concat(Enumerable.Repeat("// more\n", 40));
+            yield return null;
+            yield return null;
+            float before = code.Field.textComponent.rectTransform.anchoredPosition.y;
+
+            Rect editor = WorldRect((RectTransform)code.transform);
+            Move(_mouse.position, new Vector2(editor.xMin + 24f, editor.center.y));
+            yield return null;
+            Set(_mouse.scroll, new Vector2(0f, -120f));
+            yield return null;
+            yield return null;
+            Assert.Greater(code.Field.textComponent.rectTransform.anchoredPosition.y, before, "the wheel over the line numbers scrolled the code down");
+        }
+
         /// <summary>Zoomed in, the minimap shows; a click on its left side moves the view there; FIT puts it away (Part 10d).</summary>
         [UnityTest]
         public IEnumerator TheMinimap_ShowsOffTheFit_AClickOnItMovesTheView_AndFitPutsItAway()
