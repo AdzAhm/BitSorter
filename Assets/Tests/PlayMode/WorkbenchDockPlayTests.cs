@@ -253,6 +253,39 @@ namespace BitSorter.PlayMode.Tests
             Assert.AreEqual(zoom, workbench.Zoom, "and nothing else: the circuit did not zoom");
         }
 
+        /// <summary>
+        /// Scrolled, the parts go under the PARTS and DESIGN tabs, not over them: the list is clipped at the tabs' foot.
+        /// It was not, and a playtester saw the buttons slide up over the tabs (2026-10-26).
+        /// </summary>
+        [UnityTest]
+        public IEnumerator ScrolledParts_GoUnderTheTabs_NotOverThem()
+        {
+            yield return OpenTheReference();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.SetDockHeight(5000f);
+            yield return null;
+            Move(_mouse.position, PanelRect(WorkbenchPanel.PartsPanelName).center);
+            yield return null;
+            for (int notch = 0; notch < 3; notch++)
+            {
+                Set(_mouse.scroll, new Vector2(0f, -120f));
+                yield return null;
+            }
+
+            yield return null;
+            Assert.Greater(workbench.PartsScroll, 0f, "sanity: the parts scrolled");
+
+            VisualElement tab = ShellPanel.Find<VisualElement>(WorkbenchPanel.PartsTabName);
+            VisualElement input = ShellPanel.Find<VisualElement>(WorkbenchPanel.PartButtonName("input"));
+            VisualElement panel = ShellPanel.Find<VisualElement>(WorkbenchPanel.PartsPanelName);
+            Assert.Less(input.worldBound.yMin, tab.worldBound.yMax, "sanity: scrolled, the first part has gone up past the tabs' foot");
+
+            bool clipped = false;
+            for (VisualElement e = input.parent; e != null && e != panel; e = e.parent)
+                clipped |= e.style.overflow.value == Overflow.Hidden && e.worldBound.yMin >= tab.worldBound.yMax - 0.5f;
+            Assert.IsTrue(clipped, "something between a part and the panel clips the parts at the tabs' foot, so they go under the tabs");
+        }
+
         // -----------------------------------------------------------------
         // The transcript and the hierarchy (Part 11c)
         // -----------------------------------------------------------------
