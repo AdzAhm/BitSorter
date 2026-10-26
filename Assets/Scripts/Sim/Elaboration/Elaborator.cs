@@ -49,6 +49,14 @@ namespace BitSorter.Sim
         public const int MaxInstances = 200000;
 
         /// <summary>
+        /// How many bits a whole design may hold, every signal and every memory's words together: 64 million, which a run
+        /// keeps in a few times 16 MB, where the course's processor holds under a hundred thousand. Each piece is bounded
+        /// alone, a signal by <see cref="LogicVec.MaxWidth"/> and a memory by its words, but not the whole, which a run
+        /// allocates the moment it starts (Part 13f).
+        /// </summary>
+        public const long MaxBits = 1L << 26;
+
+        /// <summary>
         /// Elaborates <paramref name="tree"/> from <paramref name="top"/>, or from the one module that
         /// nothing instantiates when no top is named.
         /// </summary>
@@ -115,6 +123,7 @@ namespace BitSorter.Sim
             private NetlistBuilder _builder;
             private Scope _unit;
             private int _instances;
+            private long _bits;
             private int _unnamed;
             private bool _stopped;
 
@@ -210,6 +219,25 @@ namespace BitSorter.Sim
             // -----------------------------------------------------------------
 
             private void Error(SourceLocation at, string code, string message) => _diagnostics.Error(at, code, message);
+
+            /// <summary>
+            /// Whether <paramref name="bits"/> more, for <paramref name="name"/>, keep the design within <see cref="MaxBits"/>.
+            /// Past it the design is refused, said once, and the elaboration stops, as it does past
+            /// <see cref="MaxInstances"/>.
+            /// </summary>
+            private bool Fits(long bits, SourceLocation at, string name)
+            {
+                if (_stopped)
+                    return false;
+                _bits += bits;
+                if (_bits <= MaxBits)
+                    return true;
+
+                Error(at, ElaborationCodes.TooLarge, $"With {name}, the design holds more than {MaxBits >> 20} million bits, more than BitSorter will " +
+                    "simulate. Is a width, or a memory's number of words, larger than meant?");
+                _stopped = true;
+                return false;
+            }
             private void Warning(SourceLocation at, string code, string message) => _diagnostics.Warning(at, code, message);
 
             private void NotYet(SourceLocation at, string message) => Error(at, ElaborationCodes.NotYet, message);
@@ -1174,6 +1202,8 @@ namespace BitSorter.Sim
                 }
 
                 string fullName = local ? $"{scope.Path}.{name}#{++_unnamed}" : scope.Path + "." + name;
+                if (!Fits(shape.Width, at, name))
+                    return null;
                 SignalId id;
 
                 try
@@ -1466,6 +1496,8 @@ namespace BitSorter.Sim
                 }
 
                 string fullName = scope.Path + "." + declarator.Name;
+                if (!Fits(words * shape.Width, declarator.Location, declarator.Name))
+                    return;
                 MemoryInfo memory;
                 try
                 {

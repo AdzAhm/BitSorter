@@ -558,6 +558,7 @@ endmodule");
         // signal under a million bits -- but a million words of a million bits would ask for terabytes the moment it ran.
         [TestCase("module m (output logic y); logic [1023:0] mem [0:131071]; endmodule", ElaborationCodes.TooLarge)]
         [TestCase("module m (output logic y); for (genvar i = 0; i < 100; i++) begin : g logic [1048575:0] w; end endmodule", ElaborationCodes.TooLarge)]
+        [TestCase("module m (output logic y); logic [1048575:0] mem [0:1048575]; endmodule", ElaborationCodes.TooLarge)]
         public void AnError_IsReported_AndThereIsNoDesign(string text, string code)
         {
             Elaboration e = Elaborate(text);
