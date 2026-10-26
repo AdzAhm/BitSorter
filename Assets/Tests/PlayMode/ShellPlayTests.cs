@@ -114,6 +114,81 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsEmpty(workbench.Editor.Selection.Parts, "and nothing on the circuit took it");
         }
 
+        /// <summary>Whether <paramref name="field"/> -- the whole of it, whichever of its parts -- holds the keyboard.</summary>
+        private static bool Holds(TextField field) =>
+            field.panel?.focusController?.focusedElement is VisualElement focused && (focused == field || field.Contains(focused));
+
+        /// <summary>The + SIGNAL list's search field.</summary>
+        private static TextField Search() => ShellPanel.Find<VisualElement>(WaveSignalPicker.RootName).Q<TextField>("search");
+
+        /// <summary>
+        /// A key that asks for a field gives it the keyboard without being typed into it. The platform hands a key to UI
+        /// Toolkit as well as to the game, and in the browser that half can come after the game has read the key: A typed
+        /// an "a" into the + SIGNAL search it had just opened (the Part 11d smoke test).
+        /// </summary>
+        [UnityTest]
+        public IEnumerator A_OpensTheSearch_WithoutTypingItsOwnA()
+        {
+            yield return TestScene.Load();
+            yield return OpenTheWorkbench();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+
+            // A, its UI Toolkit half arriving in the frame the game read it, after the game.
+            Press(_keyboard.aKey);
+            yield return null;
+            Assert.IsTrue(workbench.Picker.IsOpen, "sanity: A opens the + SIGNAL list");
+            TextField search = Search();
+            using (KeyDownEvent down = KeyDownEvent.GetPooled('\0', KeyCode.A, EventModifiers.None))
+                search.panel.visualTree.SendEvent(down);
+            using (KeyDownEvent typed = KeyDownEvent.GetPooled('a', KeyCode.None, EventModifiers.None))
+                search.panel.visualTree.SendEvent(typed);
+            Release(_keyboard.aKey);
+            yield return null;
+            yield return null;
+
+            Assert.AreEqual("", search.value, "the A that opened the list was typed into its search");
+            Assert.IsTrue(Holds(search), "and the search has the keyboard");
+        }
+
+        /// <summary>
+        /// A field given the keyboard keeps it until it is let go on purpose. In the browser UI Toolkit let a field go
+        /// again, to nothing, in the frames after the press that gave it the keyboard -- a click on + SIGNAL, a
+        /// double-click on a part -- so the first keys typed went nowhere (the Part 11d smoke test). The editor never
+        /// does, so this lets the field go as the browser did: nothing pressed, nothing typed, nothing else focused.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator AFieldLetGoToNothing_IsGivenTheKeyboardBack_ButNotOnceLetGoOnPurpose()
+        {
+            yield return TestScene.Load();
+            yield return OpenTheWorkbench();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+
+            yield return ClickAt(ShellPanel.ScreenPointOf(ShellPanel.Find<Button>(WaveformView.AddButton)));
+            Assert.IsTrue(workbench.Picker.IsOpen, "sanity: + SIGNAL opens the list");
+            TextField search = Search();
+            Assert.IsTrue(Holds(search), "sanity: and gives its search the keyboard");
+
+            search.Blur();
+            yield return null;
+            yield return null;
+            Assert.IsTrue(Holds(search), "the search, let go to nothing, was not given the keyboard back");
+
+            // Let go on purpose -- a click on the circuit, which also closes the list -- it stays let go.
+            yield return ClickAt(workbench.ViewMiddleOnScreen);
+            yield return null;
+            yield return null;
+            Assert.IsFalse(UiText.Typing, "a click elsewhere let it go, and it stayed let go");
+
+            // RUN TO, clicked into and let go to nothing, is given it back as well.
+            TextField runTo = ShellPanel.Find<TextField>(WorkbenchPanel.RunToField);
+            yield return ClickAt(ShellPanel.ScreenPointOf(runTo));
+            Assert.IsTrue(Holds(runTo), "sanity: a click on RUN TO gives it the keyboard");
+            runTo.Blur();
+            yield return null;
+            yield return null;
+            Assert.IsTrue(Holds(runTo), "RUN TO, let go to nothing, was not given the keyboard back");
+        }
+
         [UnityTest]
         public IEnumerator AShellField_HoldsTheKeys_AndEscapeLetsItGo_BeforeTheWorkbenchCloses()
         {

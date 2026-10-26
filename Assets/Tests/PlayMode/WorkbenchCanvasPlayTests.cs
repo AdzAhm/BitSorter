@@ -644,6 +644,41 @@ namespace BitSorter.PlayMode.Tests
             StringAssert.Contains("not_b", workbench.HoverSays, "the hover chip says it");
         }
 
+        /// <summary>
+        /// Enter gives the inspector's first field the keyboard without being the field's Enter as well. The platform
+        /// hands a key to UI Toolkit too, and in the browser that half can come after the game has read the key: the field
+        /// given the keyboard in Enter's frame took the Enter, submitted what it held and let go (the Part 11d smoke test).
+        /// </summary>
+        [UnityTest]
+        public IEnumerator Enter_GivesTheInspectorTheKeyboard_AndIsNotItsEnterToo()
+        {
+            yield return TestScene.Load();
+            yield return OpenTheReference();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+
+            GatePart and = Top(workbench).Parts.OfType<GatePart>().Single(g => g.Kind == BitSorter.Sim.GateKind.And && g.Fall == 3);
+            yield return ClickAt(workbench, MiddleOf(workbench, and.Id));
+            StringAssert.StartsWith("AND ", workbench.InspectorTitle, "sanity: the click selects the AND");
+            UnityEngine.UIElements.TextField first = ShellPanel.Find<UnityEngine.UIElements.TextField>(WorkbenchPanel.InspectorFieldName("name"));
+            Assert.IsNotNull(first, "sanity: the AND's inspector has a name field");
+
+            // Enter, its UI Toolkit half arriving in the frame the game read it, after the game.
+            Press(_keyboard.enterKey);
+            yield return null;
+            using (UnityEngine.UIElements.KeyDownEvent down = UnityEngine.UIElements.KeyDownEvent.GetPooled('\0', KeyCode.Return, EventModifiers.None))
+            {
+                first.panel.visualTree.SendEvent(down);
+            }
+
+            Release(_keyboard.enterKey);
+            yield return null;
+            yield return null;
+            yield return null;
+
+            Assert.IsTrue(UiText.Typing, "the Enter that asked for the inspector was its field's Enter too, and let it go");
+            Assert.IsNull(workbench.InspectorRefusal, "and submitted nothing");
+        }
+
         private IEnumerator Chord(KeyControl key)
         {
             Press(_keyboard.leftCtrlKey);
