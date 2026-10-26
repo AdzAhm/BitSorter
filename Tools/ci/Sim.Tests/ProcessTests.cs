@@ -657,5 +657,29 @@ endmodule");
             StringAssert.StartsWith("0 1", red[0]);
             Assert.Greater(Changes(sim, "green").Length, 1, "it reached green");
         }
+
+        [Test]
+        public void NextEventTime_IsWhenSomethingIsDue_AndNullOnceNothingIs()
+        {
+            Design ending = Clean(
+                "module t;\n" +
+                "    logic a = 0;\n" +
+                "    initial begin #10 a = 1; #5 a = 0; end\n" +
+                "    always @(a) ;\n" +
+                "endmodule\n");
+            var sim = new Simulator(ending);
+
+            Assert.AreEqual(0, sim.NextEventTime, "before the run starts");
+            sim.RunTo(12);
+            Assert.AreEqual(15, sim.NextEventTime);
+            RunResult run = sim.RunTo(1000);
+            Assert.AreEqual(RunStatus.ReachedTime, run.Status);
+            Assert.IsNull(sim.NextEventTime, "the initial has ended and the always waits on a change that never comes");
+
+            Design ticking = Clean("module t; logic clk = 0; always #5 clk = ~clk; endmodule\n");
+            var clock = new Simulator(ticking);
+            clock.RunTo(1000);
+            Assert.AreEqual(1005, clock.NextEventTime, "a free-running clock always has a next edge");
+        }
     }
 }

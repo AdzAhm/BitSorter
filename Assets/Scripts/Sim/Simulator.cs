@@ -435,6 +435,13 @@ namespace BitSorter.Sim
         /// <summary>Whether a <c>$stop</c> has suspended the run: the next call to <see cref="RunTo"/> carries on.</summary>
         public bool Suspended { get; private set; }
 
+        /// <summary>
+        /// When the next thing is due to happen, or null when nothing is: every process has ended or waits on something
+        /// nothing will change, so running on changes nothing (Part 13b: a testbench with no <c>$stop</c> has ended there).
+        /// 0 before the run has started.
+        /// </summary>
+        public long? NextEventTime => !_started ? 0 : _heap.Count > 0 ? _heap.Peek().Time : (long?)null;
+
         /// <summary>A signal's value now.</summary>
         public LogicVec Value(SignalId signal) => _values[signal.Index];
 
