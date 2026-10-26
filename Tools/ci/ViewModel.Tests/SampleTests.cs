@@ -47,7 +47,7 @@ namespace BitSorter.ViewModel.Tests
         [Test]
         public void TheChip_OffersTheReference_ThenTheFullAdder_ThenTheCounter()
         {
-            CollectionAssert.AreEqual(new[] { "Reference", "Full adder", "Counter", "Four half adders" }, Names);
+            CollectionAssert.AreEqual(new[] { "Reference", "Full adder", "Counter", "Four half adders", "Written adder" }, Names);
 
             Project reference = WorkbenchSamples.All[0].Build();
             Assert.AreEqual(ReferenceCircuit.Document().Top, reference.Top);
@@ -144,6 +144,26 @@ namespace BitSorter.ViewModel.Tests
                     Assert.AreEqual(x ^ y, Value(model, s, time), $"s for {x:X} and {y:X} at {time}");
                     Assert.AreEqual(x & y, Value(model, c, time), $"c for {x:X} and {y:X} at {time}");
                 }
+            }
+        }
+
+        [Test]
+        public void TheWrittenAdder_IsABlockOfCode_AndAdds()
+        {
+            Project project = WorkbenchSamples.WrittenAdder();
+            Assert.IsTrue(project.Find("add4").IsWritten, "its inside is text");
+            WorkbenchModel model = WorkbenchModel.Of(project);
+            int s = Row(model, "s[3:0]"), cout = Row(model, "cout");
+            Assert.GreaterOrEqual(s, 0);
+            Track a = project.Stimulus.Tracks.Single(t => t.Port == "a"), b = project.Stimulus.Tracks.Single(t => t.Port == "b");
+
+            for (int v = 0; v < a.Steps.Count; v++)
+            {
+                Assert.IsTrue(a.Steps[v].Value.TryGetUInt64(out ulong x));
+                Assert.IsTrue(b.Steps[v].Value.TryGetUInt64(out ulong y));
+                double settled = a.Steps[v].Time + WorkbenchSamples.WrittenAdderStep - 0.01;
+                Assert.AreEqual((x + y) & 0xF, Value(model, s, settled), $"s for {x:X} and {y:X}");
+                Assert.AreEqual((x + y) >> 4, Value(model, cout, settled), $"cout for {x:X} and {y:X}");
             }
         }
 
@@ -312,6 +332,7 @@ namespace BitSorter.ViewModel.Tests
             ["Full adder"] = 1,   // h1's carry, on its way down to the OR, over cin on its way to h2
             ["Counter"] = 1,      // q0, on its way up to the AND, over q1 on its way to its XOR
             ["Four half adders"] = 0,
+            ["Written adder"] = 0,
         };
 
         [TestCaseSource(nameof(Names))]

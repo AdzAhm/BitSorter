@@ -56,6 +56,9 @@ namespace BitSorter.ViewModel
                 ("Four half adders",
                     "Four half adders as one block of four copies, printed as a generate for: bit i of a, b, s and c is copy i's. Double-click it to step inside the first.",
                     FourHalfAdders),
+                ("Written adder",
+                    "A four-bit adder written as SystemVerilog rather than drawn. Double-click it to edit its code: the waves follow as you type.",
+                    WrittenAdder),
             });
 
         /// <summary>
@@ -192,6 +195,60 @@ namespace BitSorter.ViewModel
             {
                 Tracks = new[] { new BoardTrack { Port = "a", Steps = aSteps }, new BoardTrack { Port = "b", Steps = bSteps } },
                 End = aValues.Length * FourHalfAddersStep,
+            }));
+            return editor.Project;
+        }
+
+        /// <summary>How long the written adder's testbench holds each pair of inputs.</summary>
+        public const long WrittenAdderStep = 8;
+
+        /// <summary>The written adder's text: a parameter for its width, and its sum and carry three units after its operands.</summary>
+        public const string AdderSource =
+            "// A four-bit adder, written rather than drawn: its sum and its carry\n" +
+            "// three time units after its operands.\n" +
+            "module add4 #(\n" +
+            "    parameter N = 4\n" +
+            ") (\n" +
+            "    input  logic [N-1:0] a,     // the first operand\n" +
+            "    input  logic [N-1:0] b,     // the second\n" +
+            "    output logic [N-1:0] s,     // their sum\n" +
+            "    output logic         cout   // and its carry out\n" +
+            ");\n" +
+            "    assign #3 {cout, s} = a + b;\n" +
+            "endmodule\n";
+
+        /// <summary>
+        /// A block written as code (Part 12d): <see cref="AdderSource"/>, inside a drawn top with a and b in and s and cout
+        /// out. Its testbench gives eight pairs of inputs, <see cref="WrittenAdderStep"/> apart.
+        /// </summary>
+        public static Project WrittenAdder()
+        {
+            var editor = new BoardEditor(Project.New("adder"));
+            Must(editor.AddWrittenModule("add4", AdderSource));
+
+            var top = new Drawing(editor, "adder");
+            int a = top.In("a", 1, 0.5, 4), b = top.In("b", 1, -0.5, 4);
+            int s = top.Out("s", 10, 0.5, 4), cout = top.Out("cout", 10, -0.5);
+            int add = top.Add(new BlockPart { Name = "add", Module = "add4" }, 5.5, 0);
+            top.Wire(At(a, "out"), At(add, "a"));
+            top.Wire(At(b, "out"), At(add, "b"));
+            top.Wire(At(add, "s"), At(s, "in"));
+            top.Wire(At(add, "cout"), At(cout, "in"));
+
+            ulong[] aValues = { 0x0, 0x5, 0xA, 0xF, 0x3, 0xC, 0x9, 0xF };
+            ulong[] bValues = { 0x0, 0x3, 0x5, 0x1, 0xF, 0xC, 0x6, 0xF };
+            var aSteps = new Step[aValues.Length];
+            var bSteps = new Step[bValues.Length];
+            for (int i = 0; i < aValues.Length; i++)
+            {
+                aSteps[i] = new Step(i * WrittenAdderStep, Bits(aValues[i], 4));
+                bSteps[i] = new Step(i * WrittenAdderStep, Bits(bValues[i], 4));
+            }
+
+            Must(editor.SetStimulus(new BoardStimulus
+            {
+                Tracks = new[] { new BoardTrack { Port = "a", Steps = aSteps }, new BoardTrack { Port = "b", Steps = bSteps } },
+                End = aValues.Length * WrittenAdderStep,
             }));
             return editor.Project;
         }

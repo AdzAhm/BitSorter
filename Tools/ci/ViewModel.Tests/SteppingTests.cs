@@ -201,6 +201,19 @@ namespace BitSorter.ViewModel.Tests
         }
 
         [Test]
+        public void InsideABlock_ThePartsListOffersNoWrittenModuleWhoseTextHoldsIt()
+        {
+            WorkbenchSession session = FullAdder();
+            string wrapper = "module wrapper (\n    input logic a, b,\n    output logic s, c\n);\n    half_adder h (.a(a), .b(b), .s(s), .c(c));\nendmodule\n";
+            Assert.IsTrue(session.Editor.AddWrittenModule("wrapper", wrapper).Done, string.Join("; ", session.Editor.Diagnostics));
+            Assert.IsTrue(PartsCatalog.For(session.Project, session.Module).Any(e => e.Module == "wrapper"), "at the top it is a part to place");
+
+            Assert.IsTrue(session.StepInto(PartNamed(session, "h1")));
+            Assert.IsFalse(PartsCatalog.For(session.Project, session.Module).Any(e => e.Module == "wrapper"),
+                "inside the half adder, a module whose text instantiates the half adder would put it inside itself");
+        }
+
+        [Test]
         public void AltUp_StepsOut_IsTheCircuitsKey_AndAltKeysTheBrowserKeepsAreRefused()
         {
             KeyBinding up = WorkbenchKeys.For(WorkbenchCommand.StepOut);

@@ -247,6 +247,37 @@ namespace BitSorter.ViewModel
         // The canvas's edits (Part 10a)
         // -----------------------------------------------------------------
 
+        // -----------------------------------------------------------------
+        // Written blocks (Part 12d)
+        // -----------------------------------------------------------------
+
+        private CodeDocument _code;
+
+        /// <summary>Whether the module shown is written: the circuit's window shows its text rather than a drawing.</summary>
+        public bool ShowsCode => Project.Find(Module)?.IsWritten == true;
+
+        /// <summary>The text of the written module shown, as its editor has it; null while the module shown is drawn.</summary>
+        public CodeDocument Code
+        {
+            get
+            {
+                if (!ShowsCode)
+                    return _code = null;
+                if (_code == null || _code.Module != Module)
+                    _code = new CodeDocument(this, Module);
+                return _code;
+            }
+        }
+
+        /// <summary>The written module shown given <paramref name="source"/> (<see cref="BoardEditor.SetSource"/>): one step, drawn now, and replayed.</summary>
+        public EditResult SetSource(string source) => Edited(Editor.SetSource(Module, source));
+
+        /// <summary>
+        /// A new written module called <paramref name="name"/>, from the template (<see cref="BoardEditor.AddWrittenModule"/>):
+        /// one step. Nothing uses it yet, so the run is as it was; PARTS offers a block of it.
+        /// </summary>
+        public EditResult AddWrittenModule(string name) => Editor.AddWrittenModule(name);
+
         /// <summary>Places what <paramref name="entry"/> offers at <paramref name="at"/> (<see cref="PartsCatalog.Place"/>): drawn now, and replayed.</summary>
         public EditResult Place(CatalogEntry entry, Placement at) => Edited(PartsCatalog.Place(Editor, Module, entry, at));
 

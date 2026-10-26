@@ -234,9 +234,14 @@ namespace BitSorter.ViewModel
                 case BlockPart block:
                     kind = "BLOCK";
                     fields.Add(new InspectorField("copies", "COPIES", Int(block.Copies), "1 to " + BlockPart.MaxCopies));
+                    // A written block's inside is its code (Part 12d), and stepping in opens it.
+                    bool written = project.Find(block.Module)?.IsWritten == true;
+                    string inside = written ? "opens its code" : "steps inside it";
                     says = block.Copies > 1
-                        ? $"{block.Copies} instances of {block.Module} side by side, each pin a bus with copy i's bits at i: printed as a generate for. A double-click steps inside the first."
-                        : $"An instance of {block.Module}: what it does is that module's. A double-click steps inside it.";
+                        ? $"{block.Copies} instances of {block.Module} side by side, each pin a bus with copy i's bits at i: printed as a generate for. A double-click {(written ? "opens its code" : "steps inside the first")}."
+                        : written
+                            ? $"An instance of {block.Module}, written as SystemVerilog: what it does is its code. A double-click {inside}."
+                            : $"An instance of {block.Module}: what it does is that module's. A double-click {inside}.";
                     quick = new[] { "name", "copies" };
                     break;
 

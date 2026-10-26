@@ -115,13 +115,11 @@ namespace BitSorter.ViewModel
         {
             if (!seen.Add(outer.Name))
                 return false;
-            foreach (Part part in outer.Parts)
-            {
-                if (!(part is BlockPart block) || !(project.Find(block.Module) is Module next))
-                    continue;
+
+            // Its blocks, or what its text instantiates (Part 12d): the rules follow both.
+            foreach (Module next in WrittenModules.UsesOf(project, outer))
                 if (string.Equals(next.Name, inner, StringComparison.Ordinal) || Holds(project, next, inner, seen))
                     return true;
-            }
 
             return false;
         }

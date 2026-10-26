@@ -59,6 +59,7 @@ namespace BitSorter.ViewModel
             new KeyMapEntry("MIDDLE-DRAG", "pan; or SPACE and drag"),
             new KeyMapEntry("WHEEL", "zoom about the pointer"),
             new KeyMapEntry("ALT-CLICK", "a wire to add its signal to the waveform"),
+            new KeyMapEntry("CTRL-ENTER", "in a written block's code, apply it now; it applies itself when typing pauses"),
         };
 
         /// <summary>The gestures on the waves, as the map lists them.</summary>
