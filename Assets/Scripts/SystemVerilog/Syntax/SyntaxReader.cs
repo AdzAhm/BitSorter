@@ -7,7 +7,9 @@ namespace BitSorter.SystemVerilog.Syntax
     public static class SyntaxReader
     {
         /// <summary>Reads the file at <paramref name="path"/>, and whatever it includes, through <paramref name="files"/>.</summary>
-        public static SyntaxTree Read(string path, ISourceFiles files)
+        public static SyntaxTree Read(string path, ISourceFiles files) => Read(path, files, null);
+
+        private static SyntaxTree Read(string path, ISourceFiles files, ExpansionBudget budget)
         {
             if (files == null || !files.TryRead(path, out string text))
             {
@@ -17,7 +19,7 @@ namespace BitSorter.SystemVerilog.Syntax
                 return missing;
             }
 
-            return ReadText(text, path, files);
+            return ReadText(text, path, files, budget);
         }
 
         /// <summary>
@@ -28,9 +30,10 @@ namespace BitSorter.SystemVerilog.Syntax
         public static SyntaxTree ReadAll(System.Collections.Generic.IEnumerable<string> paths, ISourceFiles files)
         {
             var all = new SyntaxTree();
+            var budget = new ExpansionBudget();   // what macros and includes make is held across the whole list (Part 13f)
             foreach (string path in paths)
             {
-                SyntaxTree one = Read(path, files);
+                SyntaxTree one = Read(path, files, budget);
                 all.Modules.AddRange(one.Modules);
                 all.UnitItems.AddRange(one.UnitItems);
                 all.Packages.AddRange(one.Packages);
@@ -44,12 +47,14 @@ namespace BitSorter.SystemVerilog.Syntax
         }
 
         /// <summary>Reads <paramref name="text"/> as the file <paramref name="path"/>; its includes come from <paramref name="files"/>.</summary>
-        public static SyntaxTree ReadText(string text, string path = "input.sv", ISourceFiles files = null)
+        public static SyntaxTree ReadText(string text, string path = "input.sv", ISourceFiles files = null) => ReadText(text, path, files, null);
+
+        private static SyntaxTree ReadText(string text, string path, ISourceFiles files, ExpansionBudget budget)
         {
             var diagnostics = new DiagnosticBag();
             var tree = new SyntaxTree();
 
-            var tokens = Preprocessor.Run(path, text ?? string.Empty, files, diagnostics, out Preprocessor done);
+            var tokens = Preprocessor.Run(path, text ?? string.Empty, files, diagnostics, out Preprocessor done, budget);
             new Parser(tokens, diagnostics).ParseInto(tree);
 
             tree.Timescale = done.Timescale;

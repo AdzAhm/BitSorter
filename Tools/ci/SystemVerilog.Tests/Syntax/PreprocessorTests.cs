@@ -211,6 +211,80 @@ namespace BitSorter.SystemVerilog.Tests.Syntax
             Assert.Less(seconds, 2, "joined in a moment");
         }
 
+        private static string Doubling(int length, string bottom, string step, string use)
+        {
+            var text = new System.Text.StringBuilder(bottom);
+            for (int i = 1; i <= length; i++)
+                text.Append(step.Replace("{i}", i.ToString()).Replace("{j}", (i - 1).ToString()));
+            return text.Append(use.Replace("{n}", length.ToString())).ToString();
+        }
+
+        /// <summary>
+        /// What the review of Part 13f found the cap did not yet pay for, each charged before it is made now: arguments put
+        /// in -- a chain that doubles its argument, or one macro using a large argument thousands of times -- and a string a
+        /// <c>`"...`"</c> spells out. Each is stopped in moments, at the use, and said once.
+        /// </summary>
+        [TestCase("argument doubling")]
+        [TestCase("one wide use")]
+        [TestCase("stringify")]
+        public void WhatAMacroCopiesIn_IsPaidForBeforeItIsMade(string how)
+        {
+            string text = how switch
+            {
+                "argument doubling" => Doubling(31, "`define L0(x) x\n", "`define L{i}(x) `L{j}(x x)\n", "module m; wire y = `L{n}(1); endmodule\n"),
+                "one wide use" => "`define X(a) " + string.Join(" ", Enumerable.Repeat("a", 4000)) + "\nmodule m; wire y = `X(" + string.Join(" + ", Enumerable.Repeat("1", 2000)) + "); endmodule\n",
+                _ => "`define S(a) `\"" + string.Join(" ", Enumerable.Repeat("a", 4000)) + "`\"\nmodule m; string s = `S(" + string.Join(" ", Enumerable.Repeat("w", 4000)) + "); endmodule\n",
+            };
+
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            SyntaxTree tree = Read(text);
+
+            Assert.Less(clock.Elapsed.TotalSeconds, 5, "stopped before it was made");
+            Assert.AreEqual(1, tree.Diagnostics.Count(d => d.Code == DiagnosticCodes.MacroTooMuch), string.Join("\n", tree.Diagnostics.Take(3)));
+        }
+
+        /// <summary>
+        /// Files that each include the next twice make two to the power of the chain's length -- twenty-five tiny files, inside
+        /// an import's limits and the depth of 32, ask for thirty million splices (Part 13f review): each file included is paid
+        /// for by its tokens, and the chain stopped at an include.
+        /// </summary>
+        [Test]
+        public void IncludesThatDoubleOverAndOver_StopWithAMessage()
+        {
+            var files = new MemorySourceFiles();
+            for (int i = 0; i < 25; i++)
+                files.Add($"f{i}.svh", $"`include \"f{i + 1}.svh\"\n`include \"f{i + 1}.svh\"\n");
+            files.Add("f25.svh", "wire leaf;\n");
+            files.Add("top.sv", "module top;\n`include \"f0.svh\"\nendmodule\n");
+
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            SyntaxTree tree = SyntaxReader.Read("top.sv", files);
+
+            Assert.Less(clock.Elapsed.TotalSeconds, 10, "stopped, not thirty million files spliced");
+            Diagnostic stopped = tree.Diagnostics.Single(d => d.Code == DiagnosticCodes.MacroTooMuch);
+            StringAssert.EndsWith(".svh", stopped.Location.File, "at an include");
+        }
+
+        /// <summary>One import is one budget: a bomb split across files, each under it alone, is stopped as the whole would be.</summary>
+        [Test]
+        public void ABombSplitAcrossTheFilesOfOneImport_IsStoppedAsOne()
+        {
+            var files = new MemorySourceFiles();
+            var paths = new System.Collections.Generic.List<string>();
+            for (int f = 0; f < 4; f++)
+            {
+                string path = $"part{f}.sv";
+                files.Add(path, Doubling(18,"`define M0 x\n", "`define M{i} `M{j} `M{j}\n", "module m" + f + "; wire y = `M{n}; endmodule\n"));
+                paths.Add(path);
+            }
+
+            SyntaxTree alone = SyntaxReader.Read("part0.sv", files);
+            Assert.IsFalse(alone.Diagnostics.Any(d => d.Code == DiagnosticCodes.MacroTooMuch), "sanity: one part alone is within it");
+
+            SyntaxTree all = SyntaxReader.ReadAll(paths, files);
+            Assert.AreEqual(1, all.Diagnostics.Count(d => d.Code == DiagnosticCodes.MacroTooMuch), "the four together are not, said once");
+        }
+
         /// <summary>The whole of it: a chain of 31, two thousand million tokens asked for, stopped in moments, said once, at the use.</summary>
         [Test]
         public void AChainOfThirtyOneDoublingMacros_IsStoppedInMoments()

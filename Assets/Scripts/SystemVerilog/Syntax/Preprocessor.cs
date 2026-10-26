@@ -26,14 +26,16 @@ namespace BitSorter.SystemVerilog.Syntax
         public const int MaxDepth = 32;
 
         /// <summary>
-        /// How much macros may make in one read -- each use counted, and each token a use makes -- before the reader stops
-        /// expanding them (Part 13f). Depth alone does not bound it: macros that each use the one before twice make two to the
-        /// power of the chain's length, and a chain of 31 is inside <see cref="MaxDepth"/>. A course file makes a few hundred.
+        /// How much macros and includes may make in one import, every file read together (<see cref="ExpansionBudget"/>) --
+        /// each use of a macro, each token one makes, each argument put in and each character a <c>`"...`"</c> spells out,
+        /// and each token of a file included -- before the reader stops expanding them (Part 13f). Depth alone does not bound
+        /// it: macros that each use the one before twice, or files that each include the next twice, make two to the power
+        /// of the chain's length, and a chain of 31 is inside <see cref="MaxDepth"/>. A course project makes a few thousand.
+        /// Charged before what it pays for is made, so nothing past it is ever allocated.
         /// </summary>
         public const int MaxExpansion = 1_000_000;
 
-        private int _expanded;
-        private bool _runaway;
+        private readonly ExpansionBudget _budget;
         private Token _outermostUse;
 
         private readonly ISourceFiles _files;
@@ -55,10 +57,11 @@ namespace BitSorter.SystemVerilog.Syntax
         private readonly List<Token> _output = new List<Token>();
         private readonly List<string> _includeStack = new List<string>();
 
-        private Preprocessor(ISourceFiles files, DiagnosticBag diagnostics)
+        private Preprocessor(ISourceFiles files, DiagnosticBag diagnostics, ExpansionBudget budget)
         {
             _files = files;
             _diagnostics = diagnostics;
+            _budget = budget ?? new ExpansionBudget();
         }
 
         /// <summary>What a <c>`timescale</c> said, if anything did: <c>1ns/1ps</c>.</summary>
@@ -67,10 +70,14 @@ namespace BitSorter.SystemVerilog.Syntax
         /// <summary>Every file read, the first included, in the order they were read.</summary>
         public List<string> FilesRead { get; } = new List<string>();
 
-        /// <summary>The tokens of <paramref name="path"/>, with every directive worked and every include spliced in.</summary>
-        public static List<Token> Run(string path, string text, ISourceFiles files, DiagnosticBag diagnostics, out Preprocessor done)
+        /// <summary>
+        /// The tokens of <paramref name="path"/>, with every directive worked and every include spliced in. Files read
+        /// together share one <paramref name="budget"/> for what their macros and includes make; null for one of its own.
+        /// </summary>
+        public static List<Token> Run(string path, string text, ISourceFiles files, DiagnosticBag diagnostics, out Preprocessor done,
+            ExpansionBudget budget = null)
         {
-            var preprocessor = new Preprocessor(files, diagnostics);
+            var preprocessor = new Preprocessor(files, diagnostics, budget);
             preprocessor.ProcessFile(SourcePaths.Normalise(path), text);
 
             foreach (Conditional open in preprocessor._conditionals)
@@ -88,11 +95,13 @@ namespace BitSorter.SystemVerilog.Syntax
 
         private bool Active => _conditionals.Count == 0 || _conditionals.Peek().Active;
 
-        private void ProcessFile(string path, string text)
+        private void ProcessFile(string path, string text, Token includedAt = null)
         {
             FilesRead.Add(path);
-            _includeStack.Add(path);
             List<Token> tokens = Lexer.Lex(text, path, _diagnostics);
+            if (includedAt != null && !Spend(tokens.Count + 1, includedAt))
+                return;   // an include past what an import may make: the read stops splicing them in
+            _includeStack.Add(path);
             Process(tokens, 0, depth: _includeStack.Count);
             _includeStack.RemoveAt(_includeStack.Count - 1);
         }
@@ -112,12 +121,12 @@ namespace BitSorter.SystemVerilog.Syntax
                 }
 
                 // A runaway expansion unwinds at once, every use on the way out with it.
-                if (macroDepth > 0 && _runaway)
+                if (macroDepth > 0 && _budget.Runaway)
                     return;
 
                 if (token.Kind != TokenKind.Directive)
                 {
-                    if (Active && (macroDepth == 0 || Spend()))
+                    if (Active && (macroDepth == 0 || Spend(1, null)))
                         _output.Add(token);
                     continue;
                 }
@@ -283,7 +292,7 @@ namespace BitSorter.SystemVerilog.Syntax
                         return;
                     }
 
-                    ProcessFile(candidate, text);
+                    ProcessFile(candidate, text, token);
                     return;
                 }
             }
@@ -383,7 +392,7 @@ namespace BitSorter.SystemVerilog.Syntax
 
             if (macroDepth == 0)
                 _outermostUse = token;
-            if (!Spend())
+            if (!Spend(1, null))
                 return 0;
 
             List<Token> body = macro.Body;
@@ -405,6 +414,8 @@ namespace BitSorter.SystemVerilog.Syntax
                 }
 
                 body = Substitute(token, macro, arguments);
+                if (_budget.Runaway)
+                    return consumed;
             }
 
             var withEnd = new List<Token>(body) { new Token(TokenKind.EndOfFile, string.Empty, token.Location, token.LogicalLine) };
@@ -413,20 +424,22 @@ namespace BitSorter.SystemVerilog.Syntax
         }
 
         /// <summary>
-        /// One more unit of what macros make -- a use, or a token one made -- and whether it is within
-        /// <see cref="MaxExpansion"/>. Past it, the read says so once, at the use in the file that began it, and expands nothing
-        /// more.
+        /// <paramref name="units"/> more of what macros and includes make, and whether the import is still within
+        /// <see cref="MaxExpansion"/>. Past it, the read says so once -- at <paramref name="at"/>, an include, or else the use
+        /// of a macro in the file that began it -- and expands nothing more.
         /// </summary>
-        private bool Spend()
+        private bool Spend(long units, Token at)
         {
-            if (_runaway)
+            if (_budget.Runaway)
                 return false;
-            if (++_expanded <= MaxExpansion)
+            _budget.Spent += units;
+            if (_budget.Spent <= MaxExpansion)
                 return true;
 
-            _runaway = true;
-            _diagnostics.Error(_outermostUse.Location, DiagnosticCodes.MacroTooMuch,
-                $"The macros used here expand to more than a million tokens, so BitSorter stopped expanding them. Does a macro use another twice, and that one another twice, over and over?");
+            _budget.Runaway = true;
+            _diagnostics.Error((at ?? _outermostUse).Location, DiagnosticCodes.MacroTooMuch,
+                "The macros and includes used here expand to more than a million tokens, so BitSorter stopped expanding them. " +
+                "Does a macro use another twice, or a file include another twice, and that one again, over and over?");
             return false;
         }
 
@@ -489,43 +502,72 @@ namespace BitSorter.SystemVerilog.Syntax
                 }
             }
 
+            // Each argument put in is paid for before it is copied, and each string's spelling as it grows, so a use asking for
+            // more than an import may make stops before it is made (MaxExpansion).
             var output = new List<Token>();
+            bool joins = false;
             foreach (Token t in macro.Body)
             {
                 if (t.Kind == TokenKind.Directive && t.Text.StartsWith("`\"", System.StringComparison.Ordinal))
                 {
-                    output.Add(new Token(TokenKind.String, Stringify(t.Text.Substring(2), macro.Parameters, actual), t.Location, t.LogicalLine));
+                    string spelled = Stringify(t.Text.Substring(2), macro.Parameters, actual);
+                    if (spelled == null)
+                        return output;
+                    output.Add(new Token(TokenKind.String, spelled, t.Location, t.LogicalLine));
                     continue;
                 }
 
                 int parameter = t.Kind == TokenKind.Identifier ? macro.Parameters.IndexOf(t.Text) : -1;
                 if (parameter >= 0)
+                {
+                    if (!Spend(actual[parameter].Count, null))
+                        return output;
                     output.AddRange(actual[parameter]);
+                }
                 else
+                {
+                    joins |= t.Kind == TokenKind.Directive && t.Text == "``";
                     output.Add(t);
+                }
             }
 
-            // `` joins what is either side of it into one token: a name made of two, a``_reg.
-            for (int i = output.Count - 2; i >= 1; i--)
-            {
-                if (!(output[i].Kind == TokenKind.Directive && output[i].Text == "``"))
-                    continue;
-
-                Token left = output[i - 1], right = output[i + 1];
-                string joined = left.Text + right.Text;
-                TokenKind kind = Keywords.IsKeyword(joined) ? TokenKind.Keyword : left.Kind == TokenKind.Number && right.Kind == TokenKind.Number ? TokenKind.Number : TokenKind.Identifier;
-                output[i - 1] = new Token(kind, joined, left.Location, left.LogicalLine);
-                output.RemoveRange(i, 2);
-                i--;
-            }
-
-            return output;
+            return joins ? Joined(output) : output;
         }
 
-        /// <summary>The text of <c>`"...`"</c> with each argument's name, as a whole word, replaced by what the use gave.</summary>
-        private static string Stringify(string raw, List<string> parameters, List<Token>[] actual)
+        /// <summary>
+        /// <c>``</c> joins what is either side of it into one token: a name made of two, a``_reg. In one pass, left to right,
+        /// so a body of many joins costs its length (Part 13f review); a <c>``</c> at either end has nothing to join and stays.
+        /// </summary>
+        private static List<Token> Joined(List<Token> tokens)
+        {
+            var joined = new List<Token>(tokens.Count);
+            for (int i = 0; i < tokens.Count; i++)
+            {
+                Token t = tokens[i];
+                if (t.Kind == TokenKind.Directive && t.Text == "``" && joined.Count > 0 && i + 1 < tokens.Count)
+                {
+                    Token left = joined[joined.Count - 1], right = tokens[++i];
+                    string text = left.Text + right.Text;
+                    TokenKind kind = Keywords.IsKeyword(text) ? TokenKind.Keyword : left.Kind == TokenKind.Number && right.Kind == TokenKind.Number ? TokenKind.Number : TokenKind.Identifier;
+                    joined[joined.Count - 1] = new Token(kind, text, left.Location, left.LogicalLine);
+                    continue;
+                }
+
+                joined.Add(t);
+            }
+
+            return joined;
+        }
+
+        /// <summary>
+        /// The text of <c>`"...`"</c> with each argument's name, as a whole word, replaced by what the use gave; null when
+        /// spelling it out would pass what an import may make.
+        /// </summary>
+        private string Stringify(string raw, List<string> parameters, List<Token>[] actual)
         {
             var text = new System.Text.StringBuilder();
+            if (!Spend(raw.Length, null))
+                return null;
             for (int i = 0; i < raw.Length;)
             {
                 if (char.IsLetter(raw[i]) || raw[i] == '_')
@@ -535,7 +577,18 @@ namespace BitSorter.SystemVerilog.Syntax
                         i++;
                     string word = raw.Substring(start, i - start);
                     int parameter = parameters.IndexOf(word);
-                    text.Append(parameter >= 0 ? Spell(actual[parameter]) : word);
+                    if (parameter >= 0)
+                    {
+                        string spelled = Spell(actual[parameter]);
+                        if (!Spend(spelled.Length, null))
+                            return null;
+                        text.Append(spelled);
+                    }
+                    else
+                    {
+                        text.Append(word);
+                    }
+
                     continue;
                 }
 
@@ -599,5 +652,15 @@ namespace BitSorter.SystemVerilog.Syntax
                 Parent = parent;
             }
         }
+    }
+
+    /// <summary>
+    /// What the macros and includes of one import have made between them (<see cref="Preprocessor.MaxExpansion"/>, Part
+    /// 13f): every file read together shares one, so a bomb split across two hundred files is stopped as one would be.
+    /// </summary>
+    public sealed class ExpansionBudget
+    {
+        internal long Spent;
+        internal bool Runaway;
     }
 }
