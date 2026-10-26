@@ -39,8 +39,8 @@ namespace BitSorter.Board
             var printed = new List<PrintedSource>();
             var tree = compiled.Tree;
 
-            // A project not in ns says its unit at the top of every file, as the course's files do, so
-            // each file is read in it whichever order a simulator is given them in.
+            // A project not in ps, the unit the course's ModelSim runs a file with none in, says its unit at
+            // the top of every file, so each file is read in it whichever order a simulator is given them in.
             string head = tree.Timescale == null ? "" : "`timescale " + tree.Timescale + "\n\n";
 
             if (compiled.Cells.Count > 0)

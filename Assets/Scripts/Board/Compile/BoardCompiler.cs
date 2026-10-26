@@ -116,7 +116,7 @@ namespace BitSorter.Board
                 compiled.Add(new CompiledModule(module, nets, new ModuleCompiler(project, module, nets, cells).Build()));
             }
 
-            // The unit reaches the SystemVerilog as a `timescale, unless it is ns, which needs none
+            // The unit reaches the SystemVerilog as a `timescale, unless it is ps, which needs none
             // (TimeUnits; decision D7). It labels time and changes nothing the engine does.
             string unit = project.Settings?.TimeUnit ?? TimeUnits.Default;
             var tree = new SyntaxTree { Timescale = unit == TimeUnits.Default ? null : TimeUnits.Timescale(unit) };
