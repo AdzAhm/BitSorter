@@ -190,6 +190,27 @@ namespace BitSorter.SystemVerilog.Tests.Syntax
                 "stopped, with a message: " + string.Join("\n", tree.Diagnostics.Take(3)));
         }
 
+        /// <summary>
+        /// A macro of many <c>``</c> joins is expanded in time that grows with its length, not its square (Part 13f's review):
+        /// each join took the two tokens out of a list one at a time, moving everything after them, so 300,000 joins -- a
+        /// 1.4 MB file, inside an import's limits -- took 18 seconds. Two hundred thousand stay inside what macros may make.
+        /// </summary>
+        [Test]
+        public void AMacroOfManyJoins_IsExpandedInLinearTime()
+        {
+            var text = new System.Text.StringBuilder("`define J(x)");
+            for (int i = 0; i < 200_000; i++)
+                text.Append(" a``b");
+            text.Append("\nmodule m; localparam P = `J(1); endmodule\n");
+
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            SyntaxTree tree = Read(text.ToString());
+            double seconds = clock.Elapsed.TotalSeconds;
+
+            Assert.IsFalse(tree.Diagnostics.Any(d => d.Message.Contains("expand to more than")), "joined, not stopped");
+            Assert.Less(seconds, 2, "joined in a moment");
+        }
+
         /// <summary>The whole of it: a chain of 31, two thousand million tokens asked for, stopped in moments, said once, at the use.</summary>
         [Test]
         public void AChainOfThirtyOneDoublingMacros_IsStoppedInMoments()

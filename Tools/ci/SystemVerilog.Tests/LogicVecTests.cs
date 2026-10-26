@@ -242,5 +242,28 @@ namespace BitSorter.SystemVerilog.Tests
             Assert.AreEqual(a.GetHashCode(), b.GetHashCode());
             Assert.AreNotEqual(a, b.AsSigned(), "signedness is part of a value");
         }
+
+        /// <summary>
+        /// A wide value is built in time that grows with its width, not its square (Part 13f's review): a replication, and a
+        /// concatenation of many parts, each folded one part at a time, copying everything so far each time -- so a one-line
+        /// <c>{65536{1'b1}}</c> in an imported file took fifteen seconds to elaborate, and <c>{1048576{1'b1}}</c> about an hour.
+        /// </summary>
+        [Test]
+        public void AWideReplicationOrConcatenation_IsBuiltInLinearTime()
+        {
+            const int width = 65536;
+            var parts = new LogicVec[width];
+            for (int i = 0; i < width; i++)
+                parts[i] = LogicVec.FromBinary(i % 2 == 0 ? "1" : "0");
+
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            LogicVec ones = LogicVec.Replicate(LogicVec.FromBinary("1"), width);
+            LogicVec alternating = LogicVec.Concat(parts);
+            double seconds = clock.Elapsed.TotalSeconds;
+
+            Assert.AreEqual(new string('1', width), ones.Format(Radix.Binary));
+            Assert.AreEqual(string.Concat(System.Linq.Enumerable.Repeat("10", width / 2)), alternating.Format(Radix.Binary));
+            Assert.Less(seconds, 2, "built in a moment, not one part at a time over everything so far");
+        }
     }
 }
