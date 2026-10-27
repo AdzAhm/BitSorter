@@ -15,11 +15,12 @@ namespace BitSorter.ViewModel
     public sealed class NetLayout
     {
         public NetLayout(string name, string signal, IReadOnlyList<string> aliases, int width, IReadOnlyList<Vec2> junctions, IReadOnlyList<StageRoute> branches,
-            string says, PinRef source = default, IReadOnlyList<PinRef> loads = null)
+            string says, PinRef source = default, IReadOnlyList<PinRef> loads = null, IReadOnlyList<PinRef> drivers = null)
         {
             Says = says;
             Source = source;
             Loads = loads ?? System.Array.Empty<PinRef>();
+            Drivers = drivers ?? new[] { source };
             Name = name;
             Signal = signal;
             Aliases = aliases;
@@ -57,6 +58,12 @@ namespace BitSorter.ViewModel
 
         /// <summary>The pin each branch ends on, in the order of <see cref="Branches"/>: which of them a timing path takes.</summary>
         public IReadOnlyList<PinRef> Loads { get; }
+
+        /// <summary>
+        /// Every pin that drives it: <see cref="Source"/> alone, or on a bus (Part 14f) each tri-state gate's output -- the
+        /// drawing roots its branches at the first, so the others end branches of their own as well.
+        /// </summary>
+        public IReadOnlyList<PinRef> Drivers { get; }
     }
 
     /// <summary>A part as the schematic draws it: its symbol, where it stands, and what is written beside it.</summary>

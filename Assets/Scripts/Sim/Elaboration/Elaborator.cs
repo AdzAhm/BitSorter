@@ -1222,15 +1222,15 @@ namespace BitSorter.Sim
 
                 // An inout joined to its net (Part 14f) is that net, under the port's name: what drives it inside and what
                 // drives it outside are drivers of one signal, resolved together, as Icarus joins them.
-                if (port == PortDirection.Inout && _joined.TryGetValue(scope.Path + "." + name, out SignalEntry net))
+                // One of the wrong width is said, and then declared a net of its own below, so nothing that reads it says more.
+                SignalEntry net = null;
+                if (port == PortDirection.Inout)
+                    _joined.TryGetValue(scope.Path + "." + name, out net);
+                if (net != null && net.Width != shape.Width)
+                    Error(at, ElaborationCodes.BadPort,
+                        $"Inout {name} is {shape.Width} bit{(shape.Width == 1 ? "" : "s")}, and {LastName(net)}, the net it is joined to, is {net.Width}: an inout joins a net of its own width.");
+                else if (net != null)
                 {
-                    if (net.Width != shape.Width)
-                    {
-                        Error(at, ElaborationCodes.BadPort,
-                            $"Inout {name} is {shape.Width} bit{(shape.Width == 1 ? "" : "s")}, and {LastName(net)}, the net it is joined to, is {net.Width}: an inout joins a net of its own width.");
-                        return null;
-                    }
-
                     var joined = new SignalEntry
                     {
                         Signal = net.Signal,
@@ -2058,7 +2058,8 @@ namespace BitSorter.Sim
                     {
                         if (scope.Lookup(n.Name) == null)
                             ImplicitNet(scope, n);
-                        if (scope.Lookup(n.Name) is SignalEntry net && net.Kind == SignalKind.Net && !net.IsEvent)
+                        // A net of this module's own, or an inout passed on -- never an input, which carries a value in only.
+                        if (scope.Lookup(n.Name) is SignalEntry net && net.Kind == SignalKind.Net && !net.IsEvent && net.Port != PortDirection.Input)
                         {
                             _joined[path + "." + port] = net;
                             continue;
@@ -2066,7 +2067,7 @@ namespace BitSorter.Sim
                     }
 
                     Error(at, ElaborationCodes.BadPort,
-                        $"Inout {port} of {instance.Name} is given {Printer.Print(given)}; an inout is driven from both sides, so it joins a whole net -- a wire or a tri, as .{port}(bus) -- and nothing else.");
+                        $"Inout {port} of {instance.Name} is given {Printer.Print(given)}; an inout is driven from both sides, so it joins a whole net -- a wire or a tri of this module, or an inout passed on, as .{port}(bus) -- and nothing else, an input included.");
                 }
             }
 

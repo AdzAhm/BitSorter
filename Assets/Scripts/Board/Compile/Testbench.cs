@@ -52,10 +52,11 @@ namespace BitSorter.Board
                     if (port.Direction == PortDirection.Output && BoardRules.IsBus(netlist.NetOf(new PinRef(port.Id, "in")), top))
                         nets.Add(port.Name);
             }
-            else if (WrittenModules.Read(project, top).Declaration is ModuleDeclaration written)
+            else
             {
-                foreach (PortDeclaration port in written.Ports)
-                    if (port.Direction == PortDirection.Inout || port.Direction == PortDirection.Output && port.NetType != null)
+                // As the elaboration made it, however the header or the body declared it (the 14f review: inout io; wire io;).
+                foreach (ModulePort port in ports)
+                    if (port.Direction != PortDirection.Input && port.IsNet)
                         nets.Add(port.Name);
             }
 

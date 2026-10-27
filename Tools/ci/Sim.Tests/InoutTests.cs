@@ -85,15 +85,33 @@ endmodule");
         [TestCase("wire [1:0] bus; logic seen;", ".io(bus[0])", "joins a whole net")]
         [TestCase("logic v; logic seen;", ".io(v)", "joins a whole net")]
         [TestCase("wire [1:0] bus; logic seen;", ".io(bus)", "an inout joins a net of its own width")]
+        [TestCase("logic seen; wire w; mid m (.pin(w), .seen(seen));", null, "an input included")]
         public void AnInoutGivenAnythingButAWholeNetOfItsWidth_IsRefused(string declarations, string connection, string said)
         {
-            Elaboration e = Elaborate(Device + $@"
-module top;
-    {declarations}
-    device u (.en(1'b0), .d(1'b1), {connection}, .seen(seen));
-endmodule");
+            // A module's input carries a value in only, so an inout joined to one would be half connected (the 14f review).
+            const string Mid = @"
+module mid (input wire pin, output logic seen);
+    device u (.en(1'b0), .d(1'b1), .io(pin), .seen(seen));
+endmodule
+";
+            Elaboration e = Elaborate(Device + (connection == null
+                ? Mid + $"module top;\n    {declarations}\nendmodule"
+                : $"module top;\n    {declarations}\n    device u (.en(1'b0), .d(1'b1), {connection}, .seen(seen));\nendmodule"));
             Assert.IsTrue(e.HasErrors);
             StringAssert.Contains(said, string.Join("\n", e.Diagnostics.Select(d => d.Message)));
+        }
+
+        /// <summary>An inout of the wrong width is said once, and nothing that reads it says more (the 14f review).</summary>
+        [Test]
+        public void AnInoutOfTheWrongWidth_IsSaidOnce()
+        {
+            Elaboration e = Elaborate(Device + @"
+module top;
+    wire [1:0] bus;
+    logic seen;
+    device u (.en(1'b0), .d(1'b1), .io(bus), .seen(seen));
+endmodule");
+            Assert.AreEqual(1, e.Diagnostics.Count, string.Join("\n", e.Diagnostics));
         }
     }
 }

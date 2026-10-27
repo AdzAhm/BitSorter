@@ -265,6 +265,29 @@ namespace BitSorter.Board.Tests
             StringAssert.Contains("parameters", conversion.Refusal);
         }
 
+        /// <summary>
+        /// A design with an inout is refused (the 14f review): a stimulus drives inputs, and what the testbench drives onto the
+        /// inout would be lost without a word.
+        /// </summary>
+        [Test]
+        public void ADesignWithAnInout_IsRefused_WithWhy()
+        {
+            const string design = "module pad (input logic en, d, inout wire io, output logic seen);\n    bufif1 g (io, d, en);\n    assign seen = io;\nendmodule\n";
+            const string bench =
+                "module pad_tb;\n" +
+                "    logic en, d, host, v, seen;\n" +
+                "    wire io;\n" +
+                "    pad dut (.en(en), .d(d), .io(io), .seen(seen));\n" +
+                "    assign io = host ? v : 1'bz;\n" +
+                "    initial begin en = 0; d = 1; host = 0; v = 0; #10 en = 1; #10 en = 0; host = 1; #10 $stop; end\n" +
+                "endmodule\n";
+
+            Conversion conversion = BenchConverter.Convert(Imported(("pad.sv", design), ("pad_tb.sv", bench)));
+
+            Assert.IsFalse(conversion.Succeeded);
+            StringAssert.Contains("io is an inout, which a stimulus cannot drive", conversion.Refusal);
+        }
+
         [Test]
         public void WhatTheTestbenchPrinted_IsSaidToBeLost()
         {

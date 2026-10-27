@@ -156,6 +156,27 @@ namespace BitSorter.Board.Tests
             Assert.IsTrue(elaboration.Design.TryFind(compiled.DesignPath + ".a", out _), "found by the port's name, joined to the testbench's net");
         }
 
+        /// <summary>
+        /// A written top whose ports are declared the old way, in the body -- inout io; wire io; -- has its testbench's end of
+        /// each net a net too (the 14f review: the header alone was asked, and the testbench made io a variable, refused).
+        /// </summary>
+        [Test]
+        public void AWrittenTopsPortsDeclaredInTheBody_AreNetsInItsTestbench_AsTheyAreInIt()
+        {
+            BoardEditor editor = WithWritten("pad",
+                "module pad (en, io, seen);\n    input en;\n    inout io;\n    output seen;\n    wire io, seen;\n    bufif1 g (io, 1'b1, en);\n    assign seen = io;\nendmodule\n");
+            Assert.IsTrue(editor.SetTop("pad").Done);
+            Assert.IsTrue(editor.SetStimulus(new Stimulus { End = 10 }).Done);
+
+            CompiledProject compiled = BoardCompiler.Compile(editor.Project);
+            Assert.IsTrue(compiled.Succeeded, string.Join("; ", compiled.Diagnostics));
+            string bench = BoardPrinter.Print(compiled).Single(p => p.Path == compiled.Testbench + ".sv").Text;
+            StringAssert.Contains("wire logic io;", bench);
+            StringAssert.Contains("wire logic seen;", bench);
+            Elaboration elaboration = Elaborator.Elaborate(compiled.Tree, compiled.Top);
+            Assert.IsFalse(elaboration.HasErrors, string.Join("; ", elaboration.Diagnostics));
+        }
+
         [Test]
         public void AWrittenModule_UsesCellsAndOtherModules_AndCannotHoldItself()
         {

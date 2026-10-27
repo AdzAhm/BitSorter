@@ -273,6 +273,30 @@ namespace BitSorter.ViewModel.Tests
             StringAssert.StartsWith(bits + " gates:", TimingView.Of(reference).Lines.Single(l => l.Label == "GATE COUNT").Text);
         }
 
+        /// <summary>
+        /// A bus's critical path through its second driver lights that driver (the 14f review: the drawing roots a bus at
+        /// its first, and the light took the root for every path). The bus says both drivers, and neither as a load.
+        /// </summary>
+        [Test]
+        public void APathThroughABussSecondDriver_LightsThatDriver()
+        {
+            Project bus = BitSorter.Board.Tests.SampleBoards.Build("bus");
+            var editor = new BoardEditor(bus);
+            GatePart second = bus.TopModule.Parts.OfType<GatePart>().Last();
+            Assert.IsTrue(editor.Change(bus.Top, second with { Rise = 7, Fall = 9 }).Done);
+            Project project = editor.Project;
+
+            TimingLine critical = TimingView.Of(project).Lines.First(l => l.Label == "CRITICAL PATH");
+            StringAssert.Contains("b → y", critical.Text, "sanity: through the slow one");
+            SchematicLayout layout = DocumentSchematic.Build(project, BoardCompiler.Compile(project));
+            TimingLight light = TimingLight.Of(layout, critical.Signals);
+            Assert.IsTrue(light.Parts.Contains(second.Id), "the driver the path goes through");
+
+            NetLayout net = layout.Nets.Single(n => n.Drivers.Count == 2);
+            StringAssert.Contains(" and ", net.Says);
+            StringAssert.EndsWith("to output y", net.Says, "no driver read as a load");
+        }
+
         /// <summary>The counter's critical path starts at the register and ends at it: both ends light the register.</summary>
         [Test]
         public void ARegisterToRegisterPath_LightsTheRegister()

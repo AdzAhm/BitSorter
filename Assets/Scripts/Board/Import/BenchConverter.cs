@@ -87,6 +87,11 @@ namespace BitSorter.Board
             var tracks = new List<Track>();
             var clocks = new List<ClockTrack>();
             IReadOnlyList<ModulePort> ports = WrittenModules.PortsOf(project, top);
+
+            // A stimulus drives inputs; what a testbench drives onto an inout would be lost without a word (the 14f review).
+            foreach (ModulePort port in ports)
+                if (port.Direction == PortDirection.Inout)
+                    return Refused($"{top.Name}'s {port.Name} is an inout, which a stimulus cannot drive: the testbench stays as written.");
             for (int index = 0; index < ports.Count; index++)
             {
                 ModulePort port = ports[index];

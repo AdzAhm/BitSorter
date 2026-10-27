@@ -10,16 +10,23 @@ namespace BitSorter.Board
     /// <summary>A module's port as a block of it sees it: a drawn module's port part, or a port of a written module's header.</summary>
     public readonly struct ModulePort
     {
-        public ModulePort(string name, PortDirection direction, int width)
+        public ModulePort(string name, PortDirection direction, int width, bool isNet = false)
         {
             Name = name;
             Direction = direction;
             Width = width;
+            IsNet = isNet;
         }
 
         public string Name { get; }
         public PortDirection Direction { get; }
         public int Width { get; }
+
+        /// <summary>
+        /// Whether a written module's port is a net -- a wire, a tri, an inout, or an output with no data type, however it
+        /// was declared -- as the elaboration made it (Part 14f); a drawn port's is the compiler's to say.
+        /// </summary>
+        public bool IsNet { get; }
     }
 
     /// <summary>
@@ -301,7 +308,8 @@ namespace BitSorter.Board
                     diagnostics.Add(new Diagnostic(DiagnosticSeverity.Error, PortLocation(declaration, port.Name, file), ElaborationCodes.TooLarge,
                         $"{port.Name} is {port.Width} bits wide; a block's pin can be {BoardRules.MaxWidth} at most."));
                 else
-                    ports.Add(new ModulePort(port.Name, port.Direction, port.Width));
+                    ports.Add(new ModulePort(port.Name, port.Direction, port.Width,
+                        elaboration.Design.Signals[port.Signal.Index].Kind == SignalKind.Net));
             }
 
             return HasError(diagnostics)

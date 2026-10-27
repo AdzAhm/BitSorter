@@ -187,17 +187,25 @@ namespace BitSorter.ViewModel
                 foreach (BoardPoint junction in net.Junctions)
                     junctions.Add(frame.ToStage(junction));
 
+                // A bus's other drivers end branches too, but are none of what it drives (Part 14f).
+                var drivers = new List<string>();
+                foreach (PinRef each in net.Net.Drivers)
+                    drivers.Add(Describe(module, each));
+                if (drivers.Count == 0)
+                    drivers.Add(Describe(module, net.Source));
                 var loads = new List<string>();
                 var loadPins = new List<PinRef>(net.Branches.Count);
                 foreach (NetBranch branch in net.Branches)
                 {
-                    loads.Add(Describe(module, branch.Load));
+                    if (!Contains(net.Net.Drivers, branch.Load))
+                        loads.Add(Describe(module, branch.Load));
                     loadPins.Add(branch.Load);
                 }
                 string name = net.Net.Width > 1 ? net.Net.Name + "[" + (net.Net.Width - 1).ToString(CultureInfo.InvariantCulture) + ":0]" : net.Net.Name;
-                string says = name + "   from " + Describe(module, net.Source) + " to " + string.Join(", ", loads);
+                string says = name + "   from " + string.Join(" and ", drivers) + " to " + string.Join(", ", loads);
 
-                nets.Add(new NetLayout(net.Net.Name, signal, aliases, net.Net.Width, junctions, branches, says, net.Source, loadPins));
+                nets.Add(new NetLayout(net.Net.Name, signal, aliases, net.Net.Width, junctions, branches, says, net.Source, loadPins,
+                    net.Net.Drivers.Count > 0 ? net.Net.Drivers : null));
             }
 
             // A row per port, in the order they stand on the board: top to bottom, then left to
@@ -221,6 +229,14 @@ namespace BitSorter.ViewModel
                         path + "." + port.Name));
 
             return new SchematicLayout(size, nets, parts, ports, rows, compiled.DesignPath, compiled.Cells, unit, frame, path);
+        }
+
+        private static bool Contains(IReadOnlyList<PinRef> pins, PinRef pin)
+        {
+            foreach (PinRef each in pins)
+                if (each.Equals(pin))
+                    return true;
+            return false;
         }
 
         /// <summary>A pin as hovering names it: <c>input a</c> for a port, <c>g1.y (NOT)</c> for a part's.</summary>

@@ -101,8 +101,8 @@ namespace BitSorter.Board
 
         /// <summary>
         /// Whether it is a tri-state gate -- <c>bufif0</c>, <c>bufif1</c>, <c>notif0</c>, <c>notif1</c> --
-        /// whose output is z while its control says so. One bit, one driver of its net: buses with
-        /// several drivers arrive in Part 14.
+        /// whose output is z while its control says so. One bit; several of them may drive one net, a bus
+        /// (Part 14f, <see cref="BoardRules.IsBus"/>).
         /// </summary>
         public bool IsTriState => IsTriStateKind(Kind);
 

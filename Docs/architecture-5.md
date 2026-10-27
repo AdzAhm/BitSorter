@@ -2468,6 +2468,12 @@ computed and measured, registers given a clock to Q and a setup, a library mode 
   one comes in as written code: a drawn block's pins are inputs and outputs, and an inout pin on a block's face -- which
   reaches through the netlist, the compiler, the schematic and the importer -- is left for when a course design asks
   for it (none does: the course's code has no tri-state and no inout, which is syllabus, not code).
+- **The 14f review's fixes.** A laid-out net keeps every driver (`NetLayout.Drivers`), so a timing path through a bus's
+  second gate lights that gate, not the one the drawing roots the bus at, and pointing at a bus names both drivers and
+  neither as a load. A written top's port is a net or a variable as its elaboration made it (`ModulePort.IsNet`), so a
+  port declared the old way, `inout io; wire io;`, is a net in its testbench too. CONVERT refuses a design with an
+  inout, whose testbench's driving a stimulus could not keep. An inout joined to a module's input is refused, since an
+  input carries a value in only; one of the wrong width is said once, and declared a net of its own after.
 - **Checked.** `BoardEditorTests`: two tri-state gates on one wire a bus, a third driver of another kind refused. The
   bus sample (two BUFIF1 on one output -- each alone, both at once, neither) runs under Icarus as here and through every
   sample test: compile, import, geometry, export and the save. `InoutTests`: the join driven from both sides -- a value

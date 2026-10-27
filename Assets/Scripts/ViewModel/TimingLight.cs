@@ -151,7 +151,7 @@ namespace BitSorter.ViewModel
                     }
 
                     // Into the part that reads this net and drives the next, or into the block the path goes inside.
-                    int step = toBlock ? to : layout.Nets[to].Source.Part;
+                    int step = toBlock ? to : DriverReading(layout.Nets[to], layout.Nets[from]);
                     if (!drawn.ContainsKey(step))
                         continue;
                     NetLayout net = layout.Nets[from];
@@ -200,6 +200,19 @@ namespace BitSorter.ViewModel
                     && (signal[prefix.Length] == '.' || signal[prefix.Length] == '['))
                     return part;
             return null;
+        }
+
+        /// <summary>
+        /// Which part driving <paramref name="to"/> reads <paramref name="from"/>: its one driver, or on a bus (Part 14f) the
+        /// tri-state gate the path goes through, which need not be the one the drawing roots the bus at.
+        /// </summary>
+        private static int DriverReading(NetLayout to, NetLayout from)
+        {
+            foreach (PinRef driver in to.Drivers)
+                foreach (PinRef load in from.Loads)
+                    if (load.Part == driver.Part)
+                        return driver.Part;
+            return to.Source.Part;
         }
 
         /// <summary><c>c[1]</c> as the bus it is a bit of, <c>c</c>: a drawing has a net for a bus, not one a bit.</summary>
