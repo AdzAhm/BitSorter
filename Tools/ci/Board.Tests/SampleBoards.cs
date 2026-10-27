@@ -101,6 +101,22 @@ namespace BitSorter.Board.Tests
         }
 
         /// <summary>Every combination of one-bit inputs, the first input the most significant, <paramref name="gap"/> apart.</summary>
+        /// <summary>
+        /// The half adder, stepped through its four inputs ten apart, each output checked just before the next step against
+        /// <paramref name="sums"/> and <paramref name="carries"/>, a character a step (Part 15b's self-checks).
+        /// </summary>
+        public static Project CheckedHalfAdder(string sums, string carries)
+        {
+            Project project = Build("half_adder");
+            var checks = new List<Check>();
+            for (int v = 0; v < 4; v++)
+            {
+                checks.Add(new Check { Port = "s", Time = v * 10 + 9, Expected = LogicVec.FromBinary(sums[v].ToString()) });
+                checks.Add(new Check { Port = "c", Time = v * 10 + 9, Expected = LogicVec.FromBinary(carries[v].ToString()) });
+            }
+            return project with { Stimulus = project.Stimulus with { Checks = checks } };
+        }
+
         internal static Project Exhaustive(BoardEditor editor, string[] inputs, long gap)
         {
             var tracks = new List<Track>();

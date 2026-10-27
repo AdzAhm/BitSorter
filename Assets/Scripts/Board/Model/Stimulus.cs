@@ -55,6 +55,42 @@ namespace BitSorter.Board
     }
 
     /// <summary>
+    /// What an output must read at a moment (Part 15b, the brief's D5): the self-checking half of an exercise's testbench,
+    /// printed into it as an <c>if</c> that reports what failed.
+    /// </summary>
+    /// <remarks>
+    /// An x in <see cref="Expected"/> leaves that bit free, as <c>==?</c> does. A check passes only when the comparison is a
+    /// definite 1 -- <c>(sum ==? 1'b1) !== 1'b1</c> fails it -- so an output read as x where a 0 or a 1 is wanted fails,
+    /// where <c>if (sum !=? 1'b1)</c> would let it pass: <c>if</c> takes an x as false. A z must be a z, and then the whole
+    /// value is compared exactly, an x in it meaning x (<c>!==</c>): an output a bus lets go of reads z.
+    /// </remarks>
+    public sealed record Check
+    {
+        public string Port { get; init; }
+        public long Time { get; init; }
+        public LogicVec Expected { get; init; }
+
+        /// <summary>Whether the value wanted has a z in it, and so is compared exactly.</summary>
+        public bool Exact
+        {
+            get
+            {
+                for (int i = 0; i < Expected.Width; i++)
+                    if (Expected[i] == Logic4.Z)
+                        return true;
+                return false;
+            }
+        }
+
+        /// <summary>Whether <paramref name="got"/> is what is wanted, as the printed check decides it.</summary>
+        public bool Passes(LogicVec got)
+        {
+            LogicVec same = Exact ? LogicVec.CaseEqual(got, Expected) : LogicVec.WildcardEqual(got, Expected);
+            return same.Width == 1 && same[0] == Logic4.One;
+        }
+    }
+
+    /// <summary>
     /// What the testbench does to the top module's inputs: clocks, and every other input step by step,
     /// until <see cref="End"/>. A reset is an input like any other, given a pulse. It is printed as a
     /// testbench in the course's style, and that testbench is what runs.
@@ -63,6 +99,12 @@ namespace BitSorter.Board
     {
         public IReadOnlyList<Track> Tracks { get; init; } = Array.Empty<Track>();
         public IReadOnlyList<ClockTrack> Clocks { get; init; } = Array.Empty<ClockTrack>();
+
+        /// <summary>
+        /// What the outputs must read, and when (Part 15b): an exercise's own test. With any, the testbench checks itself and
+        /// says what failed, as the course's self-checking testbenches do.
+        /// </summary>
+        public IReadOnlyList<Check> Checks { get; init; } = Array.Empty<Check>();
 
         /// <summary>When the run is meant to stop: the testbench stops here, or at its last step if that is later (<see cref="StopTime"/>).</summary>
         public long End { get; init; } = 100;
@@ -82,6 +124,9 @@ namespace BitSorter.Board
                     foreach (Step step in track.Steps)
                         if (step.Time > stop)
                             stop = step.Time;
+                foreach (Check check in Checks)
+                    if (check.Time > stop)
+                        stop = check.Time;
                 return stop;
             }
         }

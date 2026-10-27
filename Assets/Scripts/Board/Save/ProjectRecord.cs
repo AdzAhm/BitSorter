@@ -554,6 +554,9 @@ namespace BitSorter.Board
         public ClockRecord[] clocks = new ClockRecord[0];
         public long end = 100;
 
+        /// <summary>What the outputs must read (Part 15b); absent, so none, in every older file.</summary>
+        public CheckRecord[] checks = new CheckRecord[0];
+
         public static StimulusRecord From(Stimulus stimulus)
         {
             var tracks = new List<TrackRecord>();
@@ -569,7 +572,11 @@ namespace BitSorter.Board
             foreach (ClockTrack clock in stimulus.Clocks)
                 clocks.Add(new ClockRecord { port = clock.Port, period = clock.Period, startsHigh = clock.StartsHigh, setAtZero = clock.SetAtZero });
 
-            return new StimulusRecord { tracks = tracks.ToArray(), clocks = clocks.ToArray(), end = stimulus.End };
+            var checks = new List<CheckRecord>();
+            foreach (Check check in stimulus.Checks)
+                checks.Add(new CheckRecord { port = check.Port, time = check.Time, value = ProjectRecord.Text(check.Expected) });
+
+            return new StimulusRecord { tracks = tracks.ToArray(), clocks = clocks.ToArray(), end = stimulus.End, checks = checks.ToArray() };
         }
 
         public Stimulus ToStimulus(List<string> problems)
@@ -592,7 +599,17 @@ namespace BitSorter.Board
             foreach (ClockRecord clock in this.clocks ?? new ClockRecord[0])
                 clocks.Add(new ClockTrack { Port = clock.port, Period = clock.period, StartsHigh = clock.startsHigh, SetAtZero = clock.setAtZero });
 
-            return new Stimulus { Tracks = tracks, Clocks = clocks, End = end };
+            var checked_ = new List<Check>();
+            foreach (CheckRecord check in checks ?? new CheckRecord[0])
+            {
+                if (check == null)
+                    continue;
+                LogicVec? value = ProjectRecord.Value(check.value, problems, $"the check of {check.port} at {check.time}");
+                if (value != null)
+                    checked_.Add(new Check { Port = check.port, Time = check.time, Expected = value.Value });
+            }
+
+            return new Stimulus { Tracks = tracks, Clocks = clocks, End = end, Checks = checked_ };
         }
     }
 
@@ -614,6 +631,15 @@ namespace BitSorter.Board
 
         /// <summary>Whether it is made after the rest of its moment (Part 13c); absent in an older file, so false.</summary>
         public bool late;
+    }
+
+    /// <summary>A check of an output, as the save file holds it (Part 15b).</summary>
+    [Serializable]
+    public sealed class CheckRecord
+    {
+        public string port;
+        public long time;
+        public string value;
     }
 
     [Serializable]

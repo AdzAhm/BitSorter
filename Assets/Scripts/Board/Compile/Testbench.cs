@@ -114,12 +114,25 @@ namespace BitSorter.Board
                 });
             }
 
-            bench.Items.Add(new ProceduralBlock { Kind = ProcessKind.Initial, Body = Steps(ports, stimulus) });
+            // A self-checking testbench (Part 15b) counts what fails, in a variable no port is called.
+            string errors = null;
+            if (stimulus.Checks.Count > 0)
+            {
+                errors = Unique("errors", names);
+                var count = new DataDeclaration { Type = new DataType { Keyword = "int" } };
+                count.Declarators.Add(new Declarator { Name = errors, Initializer = Sv.Number(0) });
+                bench.Items.Add(count);
+            }
+
+            bench.Items.Add(new ProceduralBlock { Kind = ProcessKind.Initial, Body = Steps(ports, stimulus, errors) });
             return bench;
         }
 
-        /// <summary>Every step of every track, in time order and then in port order, each new time after a delay.</summary>
-        private static BlockStatement Steps(IReadOnlyList<ModulePort> ports, Stimulus stimulus)
+        /// <summary>
+        /// Every step of every track, in time order and then in port order, each new time after a delay; and every check, at its
+        /// moment before the steps of that moment, counted in <paramref name="errors"/> when it fails, with a line saying so.
+        /// </summary>
+        private static BlockStatement Steps(IReadOnlyList<ModulePort> ports, Stimulus stimulus, string errors = null)
         {
             var order = new Dictionary<string, int>(StringComparer.Ordinal);
             for (int i = 0; i < ports.Count; i++)
@@ -139,21 +152,65 @@ namespace BitSorter.Board
                     steps.Add((track.Steps[i].Time, place, i, track.Port, track.Steps[i].Value, track.Steps[i].Late));
             }
 
+            // A check comes before the steps of its moment, which it reads the outputs as they were before.
+            var checks = new Dictionary<int, Check>();
+            if (errors != null)
+                for (int i = 0; i < stimulus.Checks.Count; i++)
+                {
+                    checks[i] = stimulus.Checks[i];
+                    steps.Add((stimulus.Checks[i].Time, -2, i, null, default, false));
+                }
+
             steps.Sort((x, y) => x.Time != y.Time ? x.Time.CompareTo(y.Time) : x.Order != y.Order ? x.Order.CompareTo(y.Order) : x.Index.CompareTo(y.Index));
 
             var body = new BlockStatement();
             long now = 0;
-            foreach ((long time, _, _, string port, LogicVec value, bool late) in steps)
+            foreach ((long time, int place, int index, string port, LogicVec value, bool late) in steps)
             {
-                Statement set = Sv.Set(Sv.Name(port), Sv.Value(value), nonBlocking: late);
-                body.Statements.Add(time > now ? After(time - now, set) : set);
+                Statement statement = place == -2 ? CheckStatement(checks[index], errors) : Sv.Set(Sv.Name(port), Sv.Value(value), nonBlocking: late);
+                body.Statements.Add(time > now ? After(time - now, statement) : statement);
                 now = time;
+            }
+
+            if (errors != null)
+            {
+                var summary = new CallStatement { Name = "$display", HasParentheses = true };
+                summary.Arguments.Add(new StringLiteral { Value = "%0d of " + stimulus.Checks.Count + " checks failed" });
+                summary.Arguments.Add(Sv.Name(errors));
+                body.Statements.Add(summary);
             }
 
             Statement stop = new CallStatement { Name = "$stop" };
             long end = stimulus.StopTime;   // Math.Max(End, now): the last step is the latest of them all
             body.Statements.Add(end > now ? After(end - now, stop) : stop);
             return body;
+        }
+
+        /// <summary>
+        /// <c>if ((sum ==? 1'b1) !== 1'b1) begin $display("FAIL sum at %0t: %b, wanted 1", $time, sum); errors = errors + 1; end</c>
+        /// -- or, for a value with a z, <c>if (sum !== 1'bz)</c> (<see cref="Check"/>). The line is what the grader's says too.
+        /// </summary>
+        private static Statement CheckStatement(Check check, string errors)
+        {
+            Expression failed = check.Exact
+                ? new BinaryExpression { Operator = "!==", Left = Sv.Name(check.Port), Right = Sv.Value(check.Expected) }
+                : new BinaryExpression
+                {
+                    Operator = "!==",
+                    Left = Sv.Paren(new BinaryExpression { Operator = "==?", Left = Sv.Name(check.Port), Right = Sv.Value(check.Expected) }),
+                    Right = Sv.Value(LogicVec.FromUInt64(1, 1)),
+                };
+
+            var say = new CallStatement { Name = "$display", HasParentheses = true };
+            say.Arguments.Add(new StringLiteral { Value = "FAIL " + check.Port + " at %0t: %b, wanted " + check.Expected.Format(Radix.Binary) });
+            say.Arguments.Add(new CallExpression { Name = "$time" });
+            say.Arguments.Add(Sv.Name(check.Port));
+
+            var count = Sv.Set(Sv.Name(errors), new BinaryExpression { Operator = "+", Left = Sv.Name(errors), Right = Sv.Number(1) });
+            var then = new BlockStatement();
+            then.Statements.Add(say);
+            then.Statements.Add(count);
+            return new IfStatement { Condition = failed, Then = then };
         }
 
         private static Statement After(long delay, Statement then)
