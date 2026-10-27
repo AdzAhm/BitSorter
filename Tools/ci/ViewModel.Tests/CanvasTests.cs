@@ -526,6 +526,18 @@ namespace BitSorter.ViewModel.Tests
             Assert.AreNotEqual(-1, session.Listing.FileOf("code1"), "one step: undo puts it back");
         }
 
+        /// <summary>A block of a module in hand when the module is deleted from PARTS is put down with it (the 14g review).</summary>
+        [Test]
+        public void ABlockInHand_OfAModuleDeleted_IsPutDown()
+        {
+            (WorkbenchSession session, CanvasEditor editor, int _, int _, int _, int _) = Editing();
+            Assert.IsTrue(session.AddWrittenModule("code1").Done);
+            editor.Take(PartsCatalog.For(session.Project, session.Module).Single(e => e.Module == "code1"));
+            Assert.IsTrue(session.RemoveModule("code1").Done);
+            editor.Relaid();
+            Assert.IsNull(editor.InHand);
+        }
+
         /// <summary>
         /// A block in hand of a module an undo took away -- a MAKE BLOCK undone, the new block taken from PARTS first -- is put
         /// down: it has nothing to place, and every click on the circuit would be refused, with no row in PARTS to put it back

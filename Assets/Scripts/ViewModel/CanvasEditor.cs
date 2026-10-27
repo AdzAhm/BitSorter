@@ -167,6 +167,11 @@ namespace BitSorter.ViewModel
             // A wire being drawn from something an undo took away has nowhere to start; and what it may end on is asked again.
             if (_draft != null && !StillThere(_draft.From))
                 _draft = null;
+
+            // A block in hand of a module an edit took away -- deleted from PARTS, or a MAKE BLOCK undone -- has nothing to
+            // place, and every click would be refused (the 14g review).
+            if (InHand != null && InHand.Kind == CatalogKind.Block && _session.Project.Find(InHand.Module) == null)
+                PutDown();
             _draftAround = null;
             _checkedOver = CanvasTarget.Nothing;
             _draftWhyNot = null;
