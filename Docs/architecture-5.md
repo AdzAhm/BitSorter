@@ -2506,6 +2506,21 @@ computed and measured, registers given a clock to Q and a setup, a library mode 
   whole box as having the keyboard, find's fields included -- its text alone did, and an S typed into find would have
   been the game's. The keyboard map lists the code's keys under IN THE CODE, its columns named in `KeyMap.Columns` and
   held to every heading once.
+- **The library, as Ahmad chose it (14g-3).** Over its gate budget the TRANSCRIPT warns too
+  (`WorkbenchSession.Diagnostics`), from the TIMING tab's own count (`TimingView.OverBudget`), so the two can never
+  disagree, and a click on it opens the TIMING tab. **Written code is held to the library, gates only**: the elaborator
+  takes the library as `GateLevelRules` (Sim, which knows no library of its own) and checks each module it names as it
+  builds it (`Elaborator.Library.cs`): a primitive or a cell's module must be one of the library's cells at its
+  delays, as its parameters and generate loops work them out; a continuous assignment may only connect
+  (`Expr.IsWiring`: a read, a fixed select, a concatenation, a replication, a widening -- a select by a signal is a
+  multiplexer); a process only as a register, an `always_ff` or an `always` on an edge whose writes connect and whose
+  conditions are a signal or its inverse; and no constant where the library takes none. Each fault is an error,
+  SV0501, at its line, so the code editor marks it, the text does not apply, and a library set over code that breaks
+  it is refused, as over a drawing. `WrittenModules` reads each written module held to it but the testbench, the
+  library part of what a reading is kept under. **A cell's delays default to the library's** (`CellLibrary.Build`),
+  for the run and the printed cells alike, so `NAND2 g1 (...)` takes them as a course's own library file gives them,
+  and runs so under Icarus too (the `written_cells` sample). A cell retimed is refused while code pins it at other
+  delays, and followed by code that leaves them out.
 
 ---
 

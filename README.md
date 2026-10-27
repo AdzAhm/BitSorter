@@ -360,7 +360,12 @@ Once a circuit works, the workbench answers the questions the course asks of it:
   CELLS** allows only the course's cells, and PARTS then offers only those. Every
   gate of a cell keeps that cell's delays: type a delay on any one of them and
   the cell, and every gate of it, follows. You can also take a kind of gate out,
-  refuse constants, and set a gate budget, which the gate count is held against.
+  refuse constants, and set a gate budget, which the gate count is held against;
+  over it, the TRANSCRIPT warns you too. **Code you write is held to it as well**:
+  every gate one of the library's cells at its delays (write `NAND2 g1 (...)` and
+  it takes the library's), no logic written with operators (`&`, `|`, `+`, `?:`),
+  and a register only as an `always_ff` of plain writes. Anything else is marked at
+  its line, as any mistake in the code is. Your testbench is not held to it.
 - **Warnings, as ModelSim's `vlog` gives them.** The TRANSCRIPT warns about a
   signal read that nothing drives, one set that nothing reads, two drivers on a
   wire that cannot both let go, and a value cut short by a narrower target. They
