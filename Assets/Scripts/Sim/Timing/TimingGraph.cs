@@ -165,6 +165,12 @@ namespace BitSorter.Sim
         /// <summary>Each loop of logic found, as its nodes' names; its arcs are no part of any path.</summary>
         public IReadOnlyList<IReadOnlyList<string>> Loops { get; private set; } = Array.Empty<IReadOnlyList<string>>();
 
+        /// <summary>
+        /// Whether a delay on some path is the run's to know -- a process's <c>#</c> that reads a signal or calls a function --
+        /// so the path may take longer than reckoned, which a measuring run must not trust its settle time to (the 14c review).
+        /// </summary>
+        public bool UnknownDelays { get; private set; }
+
         /// <summary>How many gates of each primitive and inputs: <c>nand2</c>, <c>not</c>.</summary>
         public IReadOnlyDictionary<string, int> GateCounts { get; private set; } = new Dictionary<string, int>();
 
@@ -215,8 +221,8 @@ namespace BitSorter.Sim
 
         /// <summary>
         /// Bit <paramref name="bit"/> of <paramref name="info"/>'s value as the source names it: its name alone for a one-bit
-        /// signal, and with the index its range gives that bit otherwise -- <c>a[3]</c> is bit 0 of <c>logic [3:0] a</c>'s
-        /// value, but bit 3 of <c>logic [0:3] a</c>'s. What a step test names its bits by too, so the two reckonings agree.
+        /// signal, and with the index its range gives that bit otherwise -- <c>a[3]</c> is bit 3 of <c>logic [3:0] a</c>'s
+        /// value, but bit 0 of <c>logic [0:3] a</c>'s. What a step test names its bits by too, so the two reckonings agree.
         /// </summary>
         public static string BitName(SignalInfo info, int bit)
         {
@@ -299,9 +305,11 @@ namespace BitSorter.Sim
                 }
                 else if (driver is AssignDriver assign)
                 {
+                    // A value that can be z lets go after the turn-off delay, as a tri-state's control does: the latest of them.
                     BitDeps value = assign.Value.Depends(_first);
-                    bool wire = value.Routing && assign.Delay.Rise == 0 && assign.Delay.Fall == 0;
-                    Spread(value, to, driver.TargetWidth, assign.Name, assign.Delay.Rise, assign.Delay.Fall, wire);
+                    long rise = Math.Max(assign.Delay.Rise, assign.Delay.TurnOff), fall = Math.Max(assign.Delay.Fall, assign.Delay.TurnOff);
+                    bool wire = value.Routing && rise == 0 && fall == 0;
+                    Spread(value, to, driver.TargetWidth, assign.Name, rise, fall, wire);
                 }
             }
 
@@ -364,14 +372,22 @@ namespace BitSorter.Sim
                 reads.Clear();
                 edges.Clear();
                 bool edgeTriggered = false;
-                long tcq = 0;
+                long waited = 0, later = 0;
+                bool unknown = false;
                 foreach (Instruction ins in process.Code)
                 {
-                    ins.Value?.CollectReads(reads);
+                    if (ins.Op != OpCode.Delay)
+                        ins.Value?.CollectReads(reads);
+                    else if (TryConstantOf(ins.Value, out long wait))
+                        waited += wait;
+                    else
+                        unknown = true;
                     if (ins.Op != OpCode.AssignLater)
                         ins.Other?.CollectReads(reads);
-                    else if (ins.Other != null)
-                        tcq = Math.Max(tcq, ConstantOf(ins.Other));
+                    else if (TryConstantOf(ins.Other, out long after))
+                        later = Math.Max(later, after);
+                    else
+                        unknown = true;
                     foreach (LPiece piece in ins.Target ?? Array.Empty<LPiece>())
                     {
                         piece.Offset?.CollectReads(reads);
@@ -396,9 +412,11 @@ namespace BitSorter.Sim
 
                 if (!edgeTriggered)
                 {
-                    AddLogic(process, writes);
+                    AddLogic(process, writes, waited + later, unknown);
                     continue;
                 }
+                UnknownDelays |= unknown;
+                long tcq = waited + later;
 
                 var captures = new List<int>();
                 foreach (int r in reads)
@@ -435,12 +453,16 @@ namespace BitSorter.Sim
         /// variable is no part of anything.
         /// </summary>
         /// <remarks>
+        /// **Its delay is every <c>#</c> it waits and its latest <c>&lt;= #</c>** (<paramref name="delay"/>), on the way in:
+        /// <c>always @* #2 y = a &amp; b;</c> takes 2 from a to y. A delay the run is to know is flagged
+        /// (<see cref="UnknownDelays"/>) when anything here is reached through it.
+        ///
         /// **Per signal, not the process whole.** The course's processor sets its ALU's operands in one <c>always_comb</c>
         /// and reads the ALU's result in the same block for another output: every read to every write made the operands
         /// depend on the result -- a loop through the ALU, 194 bits of it, and its minimum period 0 (the 14b review). Signals
         /// whose writes read the same things share one junction.
         /// </remarks>
-        private void AddLogic(ProcessInfo process, List<int> writes)
+        private void AddLogic(ProcessInfo process, List<int> writes, long delay, bool unknown)
         {
             var own = new HashSet<int>(process.Writes);
             var direct = new Dictionary<int, HashSet<int>>();
@@ -525,7 +547,8 @@ namespace BitSorter.Sim
                     junctions[key] = junction = Junction(process.Name);
                     foreach (int r in outside)
                         for (int b = _first[r]; b < _first[r + 1]; b++)
-                            Add(new TimingArc(b, junction, process.Name, null, 0, 0, 0, Sense.Either, wire: false));
+                            Add(new TimingArc(b, junction, process.Name, null, 0, delay, delay, Sense.Either, wire: false));
+                    UnknownDelays |= unknown;
                 }
                 for (int b = _first[w]; b < _first[w + 1]; b++)
                     Add(new TimingArc(junction, b, process.Name, null, 0, 0, 0, Sense.Positive, wire: true));
@@ -536,14 +559,20 @@ namespace BitSorter.Sim
         /// A delay's value when it is a constant, as a register's <c>#2</c> is; 0 when it reads anything or calls a function,
         /// whose value is the run's to know.
         /// </summary>
-        private static long ConstantOf(Expr delay)
+        private static long ConstantOf(Expr delay) => TryConstantOf(delay, out long value) ? value : 0;
+
+        /// <summary>Whether <paramref name="delay"/> is a constant, and its value when it is.</summary>
+        private static bool TryConstantOf(Expr delay, out long constant)
         {
+            constant = 0;
+            if (delay == null)
+                return true;
             var reads = new List<int>();
             delay.CollectReads(reads);
             var calls = new List<FunctionInfo>();
             delay.CollectCalls(calls);
             if (reads.Count > 0 || calls.Count > 0)
-                return 0;
+                return false;
 
             LogicVec value;
             try
@@ -553,10 +582,13 @@ namespace BitSorter.Sim
             catch (Exception e) when (e is IndexOutOfRangeException || e is InvalidOperationException || e is NullReferenceException)
             {
                 // Whatever else it reads -- a system function's state -- is no constant either.
-                return 0;
+                return false;
             }
 
-            return value.TryGetUInt64(out ulong at) && at <= long.MaxValue ? (long)at : 0;
+            if (!value.TryGetUInt64(out ulong at) || at > long.MaxValue)
+                return false;
+            constant = (long)at;
+            return true;
         }
 
         /// <summary>

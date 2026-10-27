@@ -434,6 +434,7 @@ module odd (input logic clk, d, output logic q);
 endmodule");
 
             Assert.AreEqual(0, graph.Registers.Single().Timing.Tcq);
+            Assert.IsTrue(graph.UnknownDelays, "and said to be the run's");
         }
 
         /// <summary>
@@ -454,6 +455,19 @@ endmodule");
             Assert.AreEqual(2, toY.Worst);
             CollectionAssert.AreEquivalent(new[] { "late.a", "late.b" }, toY.Alike.Select(e => Name(graph, e.From)), "a's and b's alike, through the one block");
             Assert.AreEqual(3, report.Paths.Single(p => Name(graph, p.To) == "late.z").Worst);
+            Assert.IsFalse(graph.UnknownDelays);
+        }
+
+        /// <summary>A delay that reads a signal is the run's to know, and said so: no settle time can be trusted to it.</summary>
+        [Test]
+        public void AProcessesDelayThatReadsASignal_IsTheRunsToKnow()
+        {
+            TimingGraph graph = Graph(@"
+module odd (input logic a, input logic [3:0] d, output logic y);
+    always @* #(d) y = a;
+endmodule");
+
+            Assert.IsTrue(graph.UnknownDelays);
         }
 
         /// <summary>
