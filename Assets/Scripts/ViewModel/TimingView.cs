@@ -109,6 +109,22 @@ namespace BitSorter.ViewModel
         public MeasuredTiming Measured { get; }
 
         /// <summary>
+        /// What the TRANSCRIPT says while the design has more gates than its library's budget (Part 14g): this tab's own
+        /// count, so the two can never disagree -- the 14d review took out a second count in the rules for that reason. Null
+        /// with no budget, within it, or with no count to lay against it.
+        /// </summary>
+        public string OverBudget
+        {
+            get
+            {
+                int budget = Project?.Settings?.Library?.GateBudget ?? -1;
+                if (budget < 0 || Analysis == null || !Analysis.Succeeded || Analysis.Gates <= budget)
+                    return null;
+                return Number(Analysis.Gates) + " gates, over the library's budget of " + Number(budget) + ": the TIMING tab counts them by kind.";
+            }
+        }
+
+        /// <summary>
         /// The slowest any computed path is, register to register, in, out or straight through: what a step is left to settle
         /// for longer than (<see cref="StepTests.SettleFor"/>). 0 for a design with no path.
         /// </summary>

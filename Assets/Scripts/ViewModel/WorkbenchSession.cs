@@ -287,6 +287,37 @@ namespace BitSorter.ViewModel
 
         private TimingView _timing = TimingView.Empty;
 
+        private IReadOnlyList<BoardDiagnostic> _diagnostics = Array.Empty<BoardDiagnostic>(), _diagnosticsFrom;
+        private string _overBudgetFrom;
+
+        /// <summary>
+        /// What the TRANSCRIPT lists of the document (Part 14g): its diagnostics, and while its library has a gate budget the
+        /// design is over, one warning more saying so, from the TIMING tab's own count (<see cref="TimingView.OverBudget"/>).
+        /// The same list until either changes, so the transcript is made again only then; and the timing is worked out for it
+        /// only while there is a budget.
+        /// </summary>
+        public IReadOnlyList<BoardDiagnostic> Diagnostics
+        {
+            get
+            {
+                IReadOnlyList<BoardDiagnostic> document = Editor.Diagnostics;
+                string over = OverBudget;
+                if (over == null)
+                    return document;
+                if (!ReferenceEquals(document, _diagnosticsFrom) || over != _overBudgetFrom)
+                {
+                    _diagnostics = new List<BoardDiagnostic>(document) { new BoardDiagnostic(BitSorter.SystemVerilog.Syntax.DiagnosticSeverity.Warning, null, over) };
+                    _diagnosticsFrom = document;
+                    _overBudgetFrom = over;
+                }
+
+                return _diagnostics;
+            }
+        }
+
+        /// <summary>The warning that the design is over its library's gate budget, or null (<see cref="TimingView.OverBudget"/>).</summary>
+        public string OverBudget => (Project.Settings?.Library?.GateBudget ?? -1) < 0 ? null : Timing.OverBudget;
+
         /// <summary>
         /// The document's timing (Part 14b), for the dock's TIMING tab: worked out again only once the document has changed,
         /// as <see cref="Listing"/> is printed, so asking every frame costs nothing between edits.

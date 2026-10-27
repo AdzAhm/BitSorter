@@ -253,7 +253,7 @@ namespace BitSorter.View
                 _notesAbout = null;
             }
 
-            _transcript.Update(_session.Editor.Diagnostics, _model.Session.History.Messages);
+            _transcript.Update(_session.Diagnostics, _model.Session.History.Messages);
             if (_transcript.Errors != _transcriptErrorsShown)
             {
                 _transcriptErrorsShown = _transcript.Errors;
@@ -351,6 +351,13 @@ namespace BitSorter.View
             {
                 Pause();
                 Seek(System.Math.Min(l.Time, _model.End));
+                return;
+            }
+
+            // Over the library's gate budget (Part 14g): the TIMING tab counts the gates by kind.
+            if (l.Module == null && l.Part < 0 && l.Text == _session.OverBudget)
+            {
+                ShowDockTab(DockTab.Timing);
                 return;
             }
 

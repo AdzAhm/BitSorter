@@ -1384,6 +1384,40 @@ namespace BitSorter.PlayMode.Tests
         /// another tab putting it out. Then the counter: its minimum period, 3, moves to 5 with its register's clock to Q of 2,
         /// typed in the register's quick field.
         /// </summary>
+        /// <summary>
+        /// Over its library's gate budget, the TRANSCRIPT says so as a warning (Part 14g, Ahmad's choice), in the TIMING tab's
+        /// own count; a click on the warning opens the TIMING tab, where the gates are counted by kind.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator OverTheGateBudget_TheTranscriptWarns_AndAClickOpensTiming()
+        {
+            yield return TestScene.Load();
+            yield return Click(MainMenu.WorkbenchButton);
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowSample(SampleNamed("Full adder"));
+            yield return null;
+            workbench.Pause();
+            workbench.Session.Finish();
+            Assert.IsTrue(workbench.Session.SetLibrary(GateLibrary.CourseCells(1) with { GateBudget = 4 }).Done);
+            yield return null;
+            yield return null;
+
+            workbench.ShowTranscript();
+            yield return null;
+            string over = workbench.Session.OverBudget;
+            Assert.IsNotNull(over, "sanity: the full adder's five gates are over a budget of four");
+            int line = -1;
+            for (int i = 0; i < workbench.Transcript.Lines.Count; i++)
+                if (workbench.Transcript.Lines[i].Text == over)
+                    line = i;
+            Assert.GreaterOrEqual(line, 0, "the TRANSCRIPT lists the warning");
+            Assert.AreEqual(TranscriptSeverity.Warning, workbench.Transcript.Lines[line].Severity);
+
+            workbench.ActOnTranscript(line);
+            yield return null;
+            Assert.IsTrue(workbench.TimingShown, "a click on it opens the TIMING tab");
+        }
+
         [UnityTest]
         public IEnumerator TheTimingTab_LightsThePathPicked_AndFollowsARegistersClockToQ()
         {
