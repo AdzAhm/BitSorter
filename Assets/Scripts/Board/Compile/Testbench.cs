@@ -41,11 +41,37 @@ namespace BitSorter.Board
                 if (track.Start != null)
                     starts[track.Port] = track.Start.Value;
 
+            // An output the design declares as a net -- a bus, a tri (Part 14f), or a written wire -- is a net here too: a
+            // simulator that joins a port to what it is connected to, as Icarus does, would make it a variable of two
+            // drivers.
+            var nets = new HashSet<string>(StringComparer.Ordinal);
+            if (!top.IsWritten)
+            {
+                Netlist netlist = Netlist.Of(project, top);
+                foreach (PortPart port in top.Ports)
+                    if (port.Direction == PortDirection.Output && BoardRules.IsBus(netlist.NetOf(new PinRef(port.Id, "in")), top))
+                        nets.Add(port.Name);
+            }
+            else if (WrittenModules.Read(project, top).Declaration is ModuleDeclaration written)
+            {
+                foreach (PortDeclaration port in written.Ports)
+                    if (port.Direction == PortDirection.Output && port.NetType != null)
+                        nets.Add(port.Name);
+            }
+
             // The ports, one declaration a width; a clock has its own, with the level it starts at, and so has an input that
             // holds a value from before time 0 (Part 13c) -- a declaration's value is no event, where a step at 0 is one.
             var byWidth = new Dictionary<int, DataDeclaration>();
             foreach (ModulePort port in ports)
             {
+                if (nets.Contains(port.Name))
+                {
+                    var net = new DataDeclaration { NetType = "wire", Type = Sv.Logic(port.Width) };
+                    net.Declarators.Add(new Declarator { Name = port.Name });
+                    bench.Items.Add(net);
+                    continue;
+                }
+
                 LogicVec? start = clocks.TryGetValue(port.Name, out ClockTrack clock)
                     ? clock.SetAtZero ? (LogicVec?)null : LogicVec.FromUInt64(clock.StartsHigh ? 1UL : 0UL, 1)
                     : starts.TryGetValue(port.Name, out LogicVec given) ? given : (LogicVec?)null;

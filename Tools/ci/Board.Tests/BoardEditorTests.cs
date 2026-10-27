@@ -106,6 +106,26 @@ namespace BitSorter.Board.Tests
 
             Assert.IsFalse(result.Done);
             StringAssert.Contains("g1.y and g2.y both drive one wire", result.Refusal);
+            StringAssert.Contains("as a bus, only tri-state gates", result.Refusal, "and says what a bus is driven by (Part 14f)");
+        }
+
+        /// <summary>
+        /// Two tri-state gates on one wire are a bus (Part 14f), allowed and printed as a tri net; a third driver that is no
+        /// tri-state gate makes it two drivers again, refused.
+        /// </summary>
+        [Test]
+        public void TriStateGatesOnOneWire_AreABus_AndAnyOtherDriverIsRefused()
+        {
+            var b = new Bench();
+            int g1 = b.Gate(GateKind.Bufif1), g2 = b.Gate(GateKind.Notif0), not = b.Gate(GateKind.Not);
+
+            EditResult bus = b.TryWire(g1, "y", g2, "y");
+            Assert.IsTrue(bus.Done, bus.Refusal);
+            Assert.IsFalse(b.Editor.Diagnostics.Any(d => d.IsError), "a bus is no fault");
+
+            EditResult third = b.TryWire(not, "y", g1, "y");
+            Assert.IsFalse(third.Done);
+            StringAssert.Contains("both drive one wire", third.Refusal);
         }
 
         [Test]

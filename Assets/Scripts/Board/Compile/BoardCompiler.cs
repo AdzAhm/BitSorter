@@ -245,8 +245,16 @@ namespace BitSorter.Board
 
             public ModuleDeclaration Build()
             {
+                // A port that is a bus is a tri net (Part 14f): a logic variable takes one driver.
                 foreach (PortPart port in _module.Ports)
-                    _out.Ports.Add(new PortDeclaration { Direction = port.Direction, Type = Sv.Logic(port.Width), Name = port.Name, Comment = port.Comment });
+                    _out.Ports.Add(new PortDeclaration
+                    {
+                        Direction = port.Direction,
+                        NetType = BoardRules.IsBus(NetOf(port, port.Direction == PortDirection.Input ? "out" : "in"), _module) ? "tri" : null,
+                        Type = Sv.Logic(port.Width),
+                        Name = port.Name,
+                        Comment = port.Comment,
+                    });
 
                 foreach (Part part in _module.Parts)
                     Compile(part);
@@ -268,13 +276,14 @@ namespace BitSorter.Board
                 var byWidth = new Dictionary<int, DataDeclaration>();
                 var order = new List<DataDeclaration>();
 
-                void Add(string name, int width, LogicVec? initial)
+                void Add(string name, int width, LogicVec? initial, bool bus = false)
                 {
-                    // A net with a starting value gets a declaration of its own, as the course writes one.
-                    if (initial != null)
+                    // A net with a starting value gets a declaration of its own, as the course writes one; so does a bus,
+                    // a tri net, which several tri-state gates may drive (Part 14f).
+                    if (initial != null || bus)
                     {
-                        var own = new DataDeclaration { Type = Sv.Logic(width) };
-                        own.Declarators.Add(new Declarator { Name = name, Initializer = Sv.Value(initial.Value) });
+                        var own = new DataDeclaration { NetType = bus ? "tri" : null, Type = Sv.Logic(width) };
+                        own.Declarators.Add(new Declarator { Name = name, Initializer = initial.HasValue ? Sv.Value(initial.Value) : null });
                         order.Add(own);
                         return;
                     }
@@ -293,7 +302,7 @@ namespace BitSorter.Board
                 {
                     if (net.Ports.Count > 0 || IsOpenBlockPin(net) || OnlyLamps(net))
                         continue;
-                    Add(net.Name, net.Width, _initial.TryGetValue(net, out LogicVec initial) ? initial : (LogicVec?)null);
+                    Add(net.Name, net.Width, _initial.TryGetValue(net, out LogicVec initial) ? initial : (LogicVec?)null, BoardRules.IsBus(net, _module));
                 }
 
                 foreach ((string name, int width, LogicVec initial) in _made)

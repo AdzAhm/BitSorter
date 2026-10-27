@@ -281,12 +281,13 @@ namespace BitSorter.Board
                         "Take a bus apart with a splitter, or put bits together with a joiner.", wire: First(net.Wires));
                 }
 
-                if (net.Drivers.Count > 1)
+                if (net.Drivers.Count > 1 && !IsBus(net, module))
                 {
                     var drivers = new List<string>();
                     foreach (PinRef pin in net.Drivers)
                         drivers.Add(partsById[pin.Part].Name + "." + pin.Pin);
-                    Error($"{string.Join(" and ", drivers)} both drive one wire; a wire has one driver.", wire: First(net.Wires));
+                    Error($"{string.Join(" and ", drivers)} both drive one wire; a wire has one driver -- or, as a bus, only " +
+                        "tri-state gates, BUFIF and NOTIF, each letting go while its control says.", wire: First(net.Wires));
                 }
 
                 // The names its wires were given: the lowest wire's is the one the net asks for.
@@ -338,6 +339,22 @@ namespace BitSorter.Board
                         Warning($"{part.Name}.{driver.Pin} drives nothing, so what it works out is never used.", part.Id);
                 }
             }
+        }
+
+        /// <summary>
+        /// Whether <paramref name="net"/> is a bus (Part 14f): more than one driver, every one a tri-state gate's output, each
+        /// letting go -- z -- while its control says. Where two drive at once it reads x, as it does in any simulator, and the
+        /// waves show it so. A block's output is no driver of a bus, even one a tri-state gate inside drives: what is inside
+        /// a block is its own.
+        /// </summary>
+        public static bool IsBus(Net net, Module module)
+        {
+            if (net == null || module == null || net.Drivers.Count < 2)
+                return false;
+            foreach (PinRef pin in net.Drivers)
+                if (!(module.FindPart(pin.Part) is GatePart gate && gate.IsTriState))
+                    return false;
+            return true;
         }
 
         private static void CheckPart(Project project, Part part, Action<string, int, int> error, Action<string, int, int> warning)

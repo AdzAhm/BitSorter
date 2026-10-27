@@ -18,7 +18,7 @@ namespace BitSorter.Board.Tests
         public static IEnumerable<string> Names => new[]
         {
             "half_adder", "half_adder_delayed", "full_adder", "johnson", "johnson_timed", "buses", "mux4", "tristate", "half_adders", "ripple8", "written",
-            "full_adder_steps", "false_path_steps",
+            "full_adder_steps", "false_path_steps", "bus",
         };
 
         /// <summary>The boards drawn throughout: what an import can draw again. A written module comes in as written with Part 13.</summary>
@@ -41,6 +41,7 @@ namespace BitSorter.Board.Tests
                 case "full_adder_steps": return Stepped(FullAdder());
                 case "false_path_steps": return Stepped(FalsePath());
                 case "written": return Written();
+                case "bus": return Bus();
                 default: throw new ArgumentException(name);
             }
         }
@@ -407,6 +408,38 @@ namespace BitSorter.Board.Tests
                     new Track { Port = "en", Steps = new[] { new Step(0, Bits(0, 1)), new Step(5, Bits(1, 1)), new Step(12, Bits(0, 1)) } },
                 },
                 End = 20,
+            }));
+            return editor.Project;
+        }
+
+        /// <summary>
+        /// A bus (Part 14f): two tri-state gates on one wire, each driving while its enable is high -- a's 0 alone, then both
+        /// at once, where they disagree and the bus reads x, then b's 1 alone, then neither, and it floats.
+        /// </summary>
+        private static Project Bus()
+        {
+            var editor = new BoardEditor(Project.New("bus"));
+            var b = new Builder(editor, "bus");
+            int a = b.In("a"), bb = b.In("b"), ea = b.In("ea"), eb = b.In("eb"), y = b.Out("y");
+            int ga = b.Add(new GatePart { Kind = GateKind.Bufif1, Inputs = 2, Rise = 1, Fall = 2 });
+            int gb = b.Add(new GatePart { Kind = GateKind.Bufif1, Inputs = 2, Rise = 1, Fall = 2 });
+            b.Wire(a, "out", ga, "a");
+            b.Wire(ea, "out", ga, "en");
+            b.Wire(ga, "y", y, "in");
+            b.Wire(bb, "out", gb, "a");
+            b.Wire(eb, "out", gb, "en");
+            b.Wire(gb, "y", y, "in");
+
+            Must(editor.SetStimulus(new Stimulus
+            {
+                Tracks = new[]
+                {
+                    new Track { Port = "a", Steps = new[] { new Step(0, Bits(0, 1)) } },
+                    new Track { Port = "b", Steps = new[] { new Step(0, Bits(1, 1)) } },
+                    new Track { Port = "ea", Steps = new[] { new Step(0, Bits(0, 1)), new Step(10, Bits(1, 1)), new Step(30, Bits(0, 1)) } },
+                    new Track { Port = "eb", Steps = new[] { new Step(0, Bits(0, 1)), new Step(20, Bits(1, 1)), new Step(40, Bits(0, 1)) } },
+                },
+                End = 50,
             }));
             return editor.Project;
         }
