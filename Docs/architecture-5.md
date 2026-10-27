@@ -510,8 +510,8 @@ Exercise    a stable id (analytics uses it), title, goal, hint, order, chapter; 
   blocks come with the parts that need them (Part 12). The four tri-state gates came in Part 8, so the
   canvas could show a z: a data input `a` and a control `en`, one bit wide, printed as the primitive
   with its delay (`bufif1 #(1, 2) g1 (q, d, en);`) because no cell of the library is one. A net with
-  more than one driver is a bus since Part 14f: allowed when every driver is a tri-state gate, and printed
-  as a `tri`.
+  more than one driver is a bus since Part 14f: allowed when every driver can let go -- a tri-state gate, or
+  since Part 14g a block's inout pin -- and printed as a `tri`, as any wire an inout pin is on is.
 - **A clock is not a part.** The model above lists clock and reset parts; as built, a clock is an input
   port that the stimulus drives as a clock (`ClockTrack`), and a reset is an input it gives a pulse. That is
   how the course's testbenches make them, and it keeps a drawn module synthesizable: nothing in it
@@ -604,7 +604,8 @@ patterns, and no tri-state, `function`, `task`, `$display`, `` `timescale ``, `d
 
 **Written in the course's style:** an ANSI header with inputs first and outputs last, one commented
 port per line; `logic` everywhere, except a net with more than one driver, which must be a net to
-compile at all (section 6) -- a bus is printed `tri logic` (Part 14f); vectors MSB first; an ideal gate as a primitive (`and(z, a, b);`), a
+compile at all (section 6) -- a bus is printed `tri logic` (Part 14f), and so is a wire a block's inout pin is
+on (Part 14g); vectors MSB first; an ideal gate as a primitive (`and(z, a, b);`), a
 gate with delay as a library cell (`NAND2 #(.Tpdlh(5), .Tpdhl(5)) g1 (.A(a), .B(b), .Z(n0));`) with
 BitSorter's **own** cell files beside it; named association; one module per file; instances `g1, g2 …`;
 `always_comb` with defaults first; `always_ff` with an asynchronous reset; enums for states; testbenches
@@ -2456,7 +2457,8 @@ computed and measured, registers given a clock to Q and a setup, a library mode 
   bus is printed as a `tri` net -- `tri logic`, as a port too -- and where two drive at once it reads x, as the waves
   show. A block's output is no driver of a bus, even one a tri-state gate inside drives: what is inside a block is its
   own. **A testbench declares an output the design makes a net as a `wire`**: Icarus joins a port to what it is
-  connected to, and a variable there takes one driver.
+  connected to, and a variable there takes one driver. *Since 14g-4 a block's inout pin may drive a bus too, and a
+  wire one is on is a `tri` though it has no other driver (`BoardRules.IsTri`).*
 - **`inout` is joined, not assigned.** An inout port is driven from both sides, so the elaborator joins it to the whole
   net it is connected to -- declared as that net under the port's name (`JoinInouts`, `DeclareSignal`), and found by
   that name as well (`DesignBuilder.Alias`) -- where every other port is a zero-delay assignment one way. An assignment
@@ -2479,7 +2481,8 @@ computed and measured, registers given a clock to Q and a setup, a library mode 
   sample test: compile, import, geometry, export and the save. `InoutTests`: the join driven from both sides -- a value
   either way, x where both drive and disagree, z where neither does -- one left floating, and a select, a variable and
   the wrong width refused. `WrittenModuleTests`: a written top with an inout compiled and elaborated, its testbench's end
-  a `wire`, and a block of it refused. Oracle: the corpus's shared bus -- two devices on one `tri` through inout ports,
+  a `wire`, and a block of it refused (since 14g-4 a block of it has an inout pin, and only a block of several copies
+  is refused). Oracle: the corpus's shared bus -- two devices on one `tri` through inout ports,
   one inside a wrapper, the testbench driving it too through a gate and an assignment -- agrees with Icarus on every
   signal and every line printed.
 
@@ -2542,7 +2545,12 @@ computed and measured, registers given a clock to Q and a setup, a library mode 
   input port of the module on a wire with an inout pin, which the elaborator would refuse too -- an input carries a
   value in only, so the bus is driven from it through a BUFIF1 -- and a block of several copies of such a module, each
   of which would take a slice of the wire. The `devices_bus` sample -- two written devices and a drawn BUFIF1 on one
-  output -- agrees with Icarus change for change, and goes through every sample test.
+  output -- agrees with Icarus change for change, and goes through every sample test but printing, importing and
+  printing again, which is for drawn boards, as for the other written samples. **The 14g-4 review's fixes**: an inout pin
+  reads its wire as well as driving it, so a gate whose output only an inout pin is on is not said to drive nothing; a
+  device on a bus flashes for its own output, and for its inout's wire only when it has none, since a bus flips for
+  every driver on it; and `InoutPinTests` holds a wire with one inout pin a `tri` where it is no bus -- inside, read by
+  a gate, and as an output four bits wide, its testbench's end a `wire`.
 
 ---
 
