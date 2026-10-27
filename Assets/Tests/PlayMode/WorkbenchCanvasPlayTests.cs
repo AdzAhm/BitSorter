@@ -319,8 +319,13 @@ namespace BitSorter.PlayMode.Tests
         /// <summary>A part taken from the strip and placed with a click at <paramref name="at"/>; its id is the one the click selected.</summary>
         private IEnumerator Place(WorkbenchPanel workbench, string key, BoardPoint at, System.Collections.Generic.List<int> ids)
         {
+            // Counted, not only selected: a click that places nothing leaves the last part placed selected, and a point off
+            // the circuit's window once passed here placing nothing at all.
+            int before = workbench.Session.Project.Find(workbench.Session.Module).Parts.Count;
             Assert.IsTrue(workbench.TakeFromStrip(key), key);
             yield return ClickAt(workbench, at);
+            Assert.AreEqual(before + 1, workbench.Session.Project.Find(workbench.Session.Module).Parts.Count,
+                $"the {key} was not placed at {at}: {workbench.Editor.Refusal}");
             Assert.AreEqual(1, workbench.Editor.Selection.Parts.Count, $"the {key} was not placed at {at}: {workbench.Editor.Refusal}");
             ids.Add(workbench.Editor.Selection.Parts.Single());
         }
