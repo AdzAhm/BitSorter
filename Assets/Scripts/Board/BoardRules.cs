@@ -349,8 +349,9 @@ namespace BitSorter.Board
 
                 // What a gate, a MUX or a register works out and nothing uses (Part 14e, as vlog warns of a signal set
                 // and never read). A splitter's spare bit, an input left unused and a block's spare output are the
-                // ordinary way of things, and said nothing of.
-                if (net.Drivers.Count > 0 && net.Pins.Count == net.Drivers.Count)
+                // ordinary way of things, and said nothing of. An inout pin is a driver that reads the wire too (Part
+                // 14g), so a wire one is on is read.
+                if (net.Drivers.Count > 0 && net.Pins.Count == net.Drivers.Count && net.InOuts.Count == 0)
                 {
                     PinRef driver = net.Drivers[0];
                     Part part = partsById[driver.Part];

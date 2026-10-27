@@ -297,6 +297,37 @@ namespace BitSorter.ViewModel.Tests
             StringAssert.EndsWith("to output y", net.Says, "no driver read as a load");
         }
 
+        /// <summary>
+        /// A device on a bus flashes for its own output, not for the bus (the 14g-4 review): the bus flips for every driver on
+        /// it, and the first pin out of a device was its inout. A device with no output of its own flashes for its inout's wire.
+        /// </summary>
+        [Test]
+        public void ADeviceOnABus_FlashesForItsOwnOutput_AndOneWithNoneForItsInout()
+        {
+            Project shared = BitSorter.Board.Tests.SampleBoards.Build("devices_bus");
+            CompiledProject compiled = BoardCompiler.Compile(shared);
+            SchematicLayout layout = DocumentSchematic.Build(shared, compiled);
+            PartLayout u2 = layout.Parts.Single(p => p.Part is BlockPart && p.Part.Name == "u2");
+            Assert.AreEqual(compiled.DesignPath + ".seen", u2.Output, "u2's output, wired to seen");
+
+            var editor = new BoardEditor(Project.New("top"));
+            Assert.IsTrue(editor.AddWrittenModule("drv",
+                "module drv (\n" +
+                "    input logic en,\n" +
+                "    input logic d,\n" +
+                "    inout wire io\n" +
+                ");\n" +
+                "    bufif1 #1 g (io, d, en);\n" +
+                "endmodule\n").Done);
+            int u1 = Add(editor, "top", new BlockPart { Module = "drv" }, 2, 0);
+            int y = Add(editor, "top", new PortPart { Name = "y", Direction = PortDirection.Output }, 8, 0);
+            Assert.IsTrue(editor.Connect("top", Endpoint.At(u1, "io"), Endpoint.At(y, "in")).Done);
+            Project project = editor.Project;
+            CompiledProject only = BoardCompiler.Compile(project);
+            PartLayout device = DocumentSchematic.Build(project, only).Parts.Single(p => p.Part is BlockPart);
+            Assert.AreEqual(only.DesignPath + ".y", device.Output, "no output of its own: its inout's wire");
+        }
+
         /// <summary>The counter's critical path starts at the register and ends at it: both ends light the register.</summary>
         [Test]
         public void ARegisterToRegisterPath_LightsTheRegister()

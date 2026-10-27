@@ -127,17 +127,23 @@ namespace BitSorter.ViewModel
                     continue;
                 }
 
-                // What it drives, whose flips make it flash -- or, for a lamp, what it shows.
-                string output = null;
+                // What it drives, whose flips make it flash -- or, for a lamp, what it shows. Its first output, or with
+                // none its first inout pin (Part 14g): a bus flips for every driver on it, so a device with an output of
+                // its own flashes for that.
+                string shown = null;
                 foreach (Pin pin in part.Pins(project))
                 {
-                    if (pin.Direction == PinDirection.In && !(part is LampPart))
-                        continue;
-                    Net net = netlist.NetOf(new PinRef(part.Id, pin.Name));
-                    if (net != null)
-                        output = path + "." + net.Name;
-                    break;
+                    if (part is LampPart || pin.Direction == PinDirection.Out)
+                    {
+                        shown = pin.Name;
+                        break;
+                    }
+                    if (pin.Direction == PinDirection.InOut && shown == null)
+                        shown = pin.Name;
                 }
+                string output = null;
+                if (shown != null && netlist.NetOf(new PinRef(part.Id, shown)) is Net shownNet)
+                    output = path + "." + shownNet.Name;
 
                 string[] pinsWired = wired.TryGetValue(part.Id, out List<string> list) ? list.ToArray() : Array.Empty<string>();
                 var layout = new PartLayout(SymbolOf(part), part, placement, local, NameOf(part), DelayOf(part, unit), output, pinsWired, frame);

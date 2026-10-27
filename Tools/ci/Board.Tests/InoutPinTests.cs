@@ -63,6 +63,88 @@ namespace BitSorter.Board.Tests
             StringAssert.Contains("through a BUFIF1", refused.Refusal);
         }
 
+        /// <summary>
+        /// A gate on a wire whose only other pin is an inout drives something: the device reads the wire as well as driving
+        /// it (the 14g-4 review). The gate is placed first, so it is the net's first driver, the one the warning names.
+        /// </summary>
+        [Test]
+        public void AGate_OnAWireWithOnlyAnInoutPin_DrivesSomething_ForTheDeviceReadsIt()
+        {
+            var b = new Bench("top");
+            Bench.Must(b.Editor.AddWrittenModule("dev", SampleBoards.Device));
+            int g = b.Gate(GateKind.Bufif1);
+            int u1 = b.Add(new BlockPart { Module = "dev" });
+            b.Wire(g, "y", u1, "io");
+
+            Assert.AreEqual(g, Netlist.Of(b.Project, b.Current).NetOf(new PinRef(u1, "io")).Drivers[0].Part, "sanity: the gate is named first");
+            Assert.IsFalse(b.Editor.Diagnostics.Any(d => d.Message.Contains("drives nothing")), string.Join("\n", b.Editor.Diagnostics));
+        }
+
+        /// <summary>
+        /// A wire one inout pin is on is printed tri though it is no bus (the 14g-4 review): the elaborator joins an inout to
+        /// a whole net only, and a logic variable there would be refused. A wire inside, read by a gate.
+        /// </summary>
+        [Test]
+        public void AWireWithOneInoutPin_IsATriNet_ThoughNoBus()
+        {
+            var b = new Bench("top");
+            Bench.Must(b.Editor.AddWrittenModule("dev", SampleBoards.Device));
+            int u1 = b.Add(new BlockPart { Module = "dev" });
+            int not = b.Gate(GateKind.Not);
+            int y = b.Output("y");
+            b.Wire(u1, "io", not, "a");
+            b.Wire(not, "y", y, "in");
+
+            Net io = Netlist.Of(b.Project, b.Current).NetOf(new PinRef(u1, "io"));
+            Assert.IsFalse(BoardRules.IsBus(io, b.Current), "one driver: no bus");
+            Assert.IsTrue(BoardRules.IsTri(io, b.Current));
+
+            CompiledProject compiled = BoardCompiler.Compile(b.Project);
+            Assert.IsTrue(compiled.Succeeded, string.Join("\n", compiled.Diagnostics));
+            string top = BoardPrinter.Print(compiled).Single(p => p.Path == "top.sv").Text;
+            StringAssert.Contains("tri logic " + io.Name + ";", top);
+            StringAssert.Contains("output logic y", top, "the gate's output, no inout on it, stays a variable");
+            Elaboration elaboration = Elaborator.Elaborate(compiled.Tree, compiled.Top);
+            Assert.IsFalse(elaboration.HasErrors, string.Join("\n", elaboration.Diagnostics));
+        }
+
+        /// <summary>
+        /// An output port one inout pin is on, four bits wide, is a tri port, and the testbench's end of it a net (the 14g-4
+        /// review); a device's inout left open is left open.
+        /// </summary>
+        [Test]
+        public void AnOutputWithOneInoutPin_IsATriPort_AndTheTestbenchsEndANet()
+        {
+            const string wide =
+                "module wide (\n" +
+                "    input logic en,\n" +
+                "    input logic [3:0] d,\n" +
+                "    inout wire [3:0] io\n" +
+                ");\n" +
+                "    assign io = en ? d : 4'bz;\n" +
+                "endmodule\n";
+            var b = new Bench("top");
+            Bench.Must(b.Editor.AddWrittenModule("wide", wide));
+            int en = b.Input("en"), d = b.Input("d", 4), y = b.Output("y", 4);
+            int u1 = b.Add(new BlockPart { Module = "wide" }), u2 = b.Add(new BlockPart { Module = "wide" });
+            b.Wire(en, "out", u1, "en");
+            b.Wire(d, "out", u1, "d");
+            b.Wire(u1, "io", y, "in");
+            b.Wire(en, "out", u2, "en");
+            b.Wire(d, "out", u2, "d");
+            Assert.IsTrue(b.Editor.SetStimulus(new Stimulus { End = 10 }).Done, "a testbench to drive it");
+
+            CompiledProject compiled = BoardCompiler.Compile(b.Project);
+            Assert.IsTrue(compiled.Succeeded, string.Join("\n", compiled.Diagnostics));
+            string top = BoardPrinter.Print(compiled).Single(p => p.Path == "top.sv").Text;
+            StringAssert.Contains("output tri logic [3:0] y", top);
+            StringAssert.Contains(".io()", top, "u2's inout, left open");
+            StringAssert.Contains("wire logic [3:0] y;", BoardPrinter.Print(compiled).Single(p => p.Path == compiled.Testbench + ".sv").Text,
+                "the testbench's end of it a net");
+            Elaboration elaboration = Elaborator.Elaborate(compiled.Tree, compiled.Top);
+            Assert.IsFalse(elaboration.HasErrors, string.Join("\n", elaboration.Diagnostics));
+        }
+
         /// <summary>An inout pin is drawn on the block's right, under its outputs, and a wire may end on it like any pin.</summary>
         [Test]
         public void AnInoutPin_IsDrawnOnTheRight_UnderTheOutputs()
