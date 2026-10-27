@@ -4,7 +4,7 @@
 
 import { EditorState, Compartment } from "@codemirror/state";
 import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter, drawSelection, highlightSpecialChars } from "@codemirror/view";
-import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
+import { defaultKeymap, history, historyKeymap, indentWithTab, redo } from "@codemirror/commands";
 import { StreamLanguage, syntaxHighlighting, HighlightStyle, bracketMatching, indentOnInput, indentUnit } from "@codemirror/language";
 import { verilog } from "@codemirror/legacy-modes/mode/verilog";
 import { setDiagnostics, lintGutter } from "@codemirror/lint";
@@ -78,7 +78,10 @@ const api = {
     // find and replace first, and only then lets the editor go.
     const ours = keymap.of([
       { key: "Mod-Enter", run: () => { state.applyAsked = true; return true; } },
-      { key: "Mod-s", run: () => { state.applyAsked = true; return true; }, preventDefault: true },
+      // From find's fields too, or the browser's Save Page opens over the code (the 14g review).
+      { key: "Mod-s", run: () => { state.applyAsked = true; return true; }, scope: "editor search-panel" },
+      // Redo as the desktop build's editor does; CodeMirror binds it on a Mac and Linux, not on Windows.
+      { key: "Mod-Shift-z", run: redo },
       {
         key: "Escape",
         run: (view) => {

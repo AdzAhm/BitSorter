@@ -173,6 +173,10 @@ namespace BitSorter.ViewModel
 
         private bool Step(List<string> from, List<string> to, double now)
         {
+            // A step back to the text as it is -- a letter typed and taken out in one burst -- changes nothing: passed over,
+            // so one Ctrl+Z always does something (the 14g review).
+            while (from.Count > 0 && from[from.Count - 1] == Text)
+                from.RemoveAt(from.Count - 1);
             if (from.Count == 0)
                 return false;
             to.Add(Text);

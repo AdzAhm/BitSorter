@@ -33,9 +33,16 @@ namespace BitSorter.ViewModel
         /// <summary>One step of indentation.</summary>
         public const string Unit = "    ";
 
-        /// <summary>The lines from <paramref name="start"/> to <paramref name="end"/> indented by <see cref="Unit"/> (Tab).</summary>
-        public static CodeEdit Indent(string text, int start, int end) =>
-            EachLine(text, start, end, line => (line.Length == 0 ? line : Unit + line, 0));
+        /// <summary>
+        /// The lines from <paramref name="start"/> to <paramref name="end"/> indented by <see cref="Unit"/> (Tab): a lone caret's
+        /// line even when it is empty -- Enter does not indent, so a fresh line is where Tab is pressed (the 14g review) -- and
+        /// in a selection of several, every line with anything on it.
+        /// </summary>
+        public static CodeEdit Indent(string text, int start, int end)
+        {
+            bool caret = start == end;
+            return EachLine(text, start, end, line => (caret || !Blank(line) ? Unit + line : line, 0));
+        }
 
         /// <summary>The lines from <paramref name="start"/> to <paramref name="end"/> outdented by up to <see cref="Unit"/> (Shift+Tab).</summary>
         public static CodeEdit Outdent(string text, int start, int end) =>
@@ -67,7 +74,7 @@ namespace BitSorter.ViewModel
             for (int i = first; i <= last; i++)
             {
                 string trimmed = lines[i].TrimStart(' ', '\t');
-                if (trimmed.Length == 0)
+                if (Blank(trimmed))
                     continue;
                 commented &= trimmed.StartsWith("//", StringComparison.Ordinal);
                 shallowest = Math.Min(shallowest, lines[i].Length - trimmed.Length);
@@ -79,7 +86,7 @@ namespace BitSorter.ViewModel
             return EachLine(text, start, end, line =>
             {
                 string trimmed = line.TrimStart(' ', '\t');
-                if (trimmed.Length == 0)
+                if (Blank(trimmed))
                     return (line, 0);
                 int indent = line.Length - trimmed.Length;
                 if (commented)
@@ -163,6 +170,12 @@ namespace BitSorter.ViewModel
         }
 
         private static string[] Lines(string text) => text.Split('\n');
+
+        /// <summary>
+        /// Whether a line has nothing on it but spaces and tabs -- and the carriage return a Windows line ends with, which a
+        /// paste keeps (the 14g review: a commented block with a blank CRLF line could never be uncommented).
+        /// </summary>
+        private static bool Blank(string line) => line.Trim(' ', '\t', '\r').Length == 0;
 
         private static int Clamp(int at, string text) => Math.Max(0, Math.Min(at, text.Length));
     }

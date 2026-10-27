@@ -77,6 +77,35 @@ namespace BitSorter.ViewModel.Tests
             Assert.AreEqual("a;\nb;\n", CodeEdits.ToggleComment(text, 0, 0).Text, "the first line uncommented");
         }
 
+        /// <summary>
+        /// Tab with a caret on an empty line indents it -- Enter does not indent, so a fresh line is where Tab is pressed -- but
+        /// in a selection of several, a blank line, or one of spaces, is left as it is (the 14g review).
+        /// </summary>
+        [Test]
+        public void Tab_OnAnEmptyLine_IndentsIt_ButBlankLinesInASelectionAreLeft()
+        {
+            string text = "module m;\n\nendmodule\n";
+            CodeEdit edit = CodeEdits.Indent(text, 10, 10);
+            Assert.AreEqual("module m;\n    \nendmodule\n", edit.Text);
+            Assert.AreEqual(14, edit.Start, "the caret after the indent, where the code goes");
+
+            Assert.AreEqual("    a;\n  \n    b;\n", CodeEdits.Indent("a;\n  \nb;\n", 0, 9).Text);
+        }
+
+        /// <summary>
+        /// A Windows line's carriage return, which a paste keeps, is no content: a blank CRLF line is not commented, and a
+        /// commented block with one in it comes back in (the 14g review found it could never be uncommented).
+        /// </summary>
+        [Test]
+        public void CRLFLines_CommentAndComeBackIn_AsLFLinesDo()
+        {
+            string text = "a;\r\n\r\nb;\r\n";
+            CodeEdit commented = CodeEdits.ToggleComment(text, 0, text.Length);
+            Assert.AreEqual("// a;\r\n\r\n// b;\r\n", commented.Text);
+            Assert.AreEqual(text, CodeEdits.ToggleComment(commented.Text, 0, commented.Text.Length).Text);
+            Assert.AreEqual("    a;\r\n\r\n    b;\r\n", CodeEdits.Indent(text, 0, text.Length).Text);
+        }
+
         [Test]
         public void TheEdits_TakeAnyRangeOrder_AndOutOfRangeEnds_WithoutThrowing()
         {

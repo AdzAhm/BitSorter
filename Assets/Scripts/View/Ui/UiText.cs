@@ -55,8 +55,9 @@ namespace BitSorter.View
 
         /// <summary>
         /// The keyboard for a field to read a key it answers itself while it holds the keys, which its own events do not
-        /// tell apart: the code editor's Ctrl+Enter (Part 12d), which the field would otherwise type as a new line. Never
-        /// for a key the game binds -- those come from <see cref="Keyboard"/>.
+        /// tell apart: the code editor's Ctrl+Enter (Part 12d), which the field would otherwise type as a new line, and its
+        /// Ctrl+Z, Ctrl+S, Ctrl+/ and Tab (Part 14g). Some of those the game binds too, but it reads its keys from
+        /// <see cref="Keyboard"/>, which is null while a field holds them, so the two never both answer one press.
         /// </summary>
         public static UnityEngine.InputSystem.Keyboard FieldKeys => UnityEngine.InputSystem.Keyboard.current;
     }

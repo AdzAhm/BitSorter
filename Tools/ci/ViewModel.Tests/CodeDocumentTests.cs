@@ -81,6 +81,27 @@ namespace BitSorter.ViewModel.Tests
             Assert.IsFalse(code.CanUndoTyping, "and its typing starts afresh");
         }
 
+        /// <summary>
+        /// A burst of typing that comes back to the text it began from -- a letter typed and taken out -- is no step: Ctrl+Z
+        /// passes over it rather than doing nothing and moving the caret (the 14g review).
+        /// </summary>
+        [Test]
+        public void ABurstThatComesBackToWhereItBegan_IsNoStep()
+        {
+            CodeDocument code = Inside().Code;
+            string start = code.Text;
+            code.Type(start + "x", 0);
+            code.Type(start, 200);
+            Assert.IsFalse(code.UndoTyping(300), "nothing to go back to: the text is where it began");
+            Assert.AreEqual(start, code.Text);
+
+            code.Type(start + "y", 2000);
+            code.Type(start + "yz", 4000);
+            code.Type(start + "y", 4100);
+            Assert.IsTrue(code.UndoTyping(4200));
+            Assert.AreEqual(start, code.Text, "the step back to \"y\", the text as it is, is passed over");
+        }
+
         [Test]
         public void SteppingIntoAWrittenBlock_ShowsItsText_AndNothingDrawn()
         {

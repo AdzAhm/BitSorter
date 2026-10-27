@@ -228,7 +228,7 @@ namespace BitSorter.View
             }
 
             // Alt with Ctrl is AltGr on many keyboards, which types characters: those are typed.
-            if (keys.ctrlKey.isPressed && !keys.altKey.isPressed
+            if (Command(keys) && !keys.altKey.isPressed
                 && (keys.zKey.isPressed || keys.yKey.isPressed || keys.sKey.isPressed || keys.slashKey.isPressed))
                 return '\0';
 
@@ -245,7 +245,7 @@ namespace BitSorter.View
             int indent = _indentAsked;
             _indentAsked = 0;
             UnityEngine.InputSystem.Keyboard keys = UiText.FieldKeys;
-            if (keys != null && keys.ctrlKey.isPressed && !keys.altKey.isPressed)
+            if (keys != null && Command(keys) && !keys.altKey.isPressed)
             {
                 bool shift = keys.shiftKey.isPressed;
                 if (keys.zKey.wasPressedThisFrame)
@@ -263,6 +263,11 @@ namespace BitSorter.View
             else if (indent < 0)
                 EditLines(CodeEdits.Outdent);
         }
+
+        /// <summary>Ctrl, or Command on a Mac, where TextMesh Pro's own Ctrl+C and Ctrl+V are Command too.</summary>
+        private static bool Command(UnityEngine.InputSystem.Keyboard keys) =>
+            keys.ctrlKey.isPressed || (Application.platform == RuntimePlatform.OSXPlayer || Application.platform == RuntimePlatform.OSXEditor)
+                && (keys.leftMetaKey.isPressed || keys.rightMetaKey.isPressed);
 
         /// <summary>The field given the text a step of the typing came to, its caret where the two first differ.</summary>
         private void Stepped(bool stepped)
@@ -297,6 +302,7 @@ namespace BitSorter.View
                 return;
             _code = code;
             _shownVersion = _shownLines = -1;
+            _indentAsked = 0;   // a Tab asked of the code before is not this code's
             if (code == null && _field != null && _field.isFocused)
                 UiTheme.Defocus();
             Show(_root, code != null);

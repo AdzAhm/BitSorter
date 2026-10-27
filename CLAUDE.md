@@ -945,7 +945,9 @@ failure side.
   `UiTextTests` refuses a script under View that reads `Keyboard.current`
   itself. **A field may read a key it answers itself** through `UiText.FieldKeys`
   -- the code editor's Ctrl+Enter, which TextMesh Pro would type as a new line
-  (Part 12d) -- never a key the game binds. **The code editor answers the keys a
+  (Part 12d) -- and since Part 14g its Ctrl+Z, Ctrl+S, Ctrl+/ and Tab, some of which
+  the game binds too: it reads them from `UiText.Keyboard`, null while a field holds
+  the keys, so the two never both answer one press. **The code editor answers the keys a
   writer reaches for, in both builds** (Part 14g, asked 2026-10-27: "is Ctrl+V
   taken?" -- it is the circuit's paste only while nothing is typed in): Ctrl+Z and
   Ctrl+Y through the typing (`CodeDocument.UndoTyping`), Tab and Shift+Tab indenting
