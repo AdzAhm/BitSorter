@@ -504,7 +504,8 @@ Exercise    a stable id (analytics uses it), title, goal, hint, order, chapter; 
   never again.
 - **The parts built:** a port (`PortPart` -- a port is a pin on the board), a gate (the eight primitives,
   one to eight inputs, any width, rise and fall), a constant, a register (`d`, `clk`, an optional
-  asynchronous active-high `rst` with its value, and a starting value), a mux of two, four or eight, a
+  asynchronous active-high `rst` with its value, a starting value, and since Part 14a a clock to Q and a
+  setup), a mux of two, four or eight, a
   splitter and a joiner bit by bit, a lamp, and a block of another module. Memory, select and written
   blocks come with the parts that need them (Part 12). The four tri-state gates came in Part 8, so the
   canvas could show a z: a data input `a` and a control `en`, one bit wide, printed as the primitive
@@ -2189,6 +2190,46 @@ and one browser build for Part 13's checks -- and Part 12f's.
   `ImportFuzzTests` makes the corpus's four importable projects wrong twelve ways each from fixed seeds -- cut off, characters
   changed, lines lost or said twice -- and each imports or is refused, compiles if it imported, and never throws or hangs.
 
+**As built in Part 14a**: the timing analysis core, in the pure layers; 14b gives it the TIMING tab. The plan for Part 14,
+approved 2026-10-27, is six pull requests -- 14a the core, 14b the tab and the critical path on the canvas, 14c step tests
+and the measured worst, 14d gate-library mode, 14e lint, 14f tri-state buses -- with Ahmad's choices: path delays both
+computed and measured, registers given a clock to Q and a setup, a library mode with a course preset and a custom one.
+
+- **The timing graph** (`Sim/Timing/TimingGraph`) is built from the flattened `Design`, so a drawn module and a written
+  one are reckoned alike: every signal a node, every way a change travels an arc -- a gate at its rise (`Tpdlh`, the
+  output going to 1) and fall (`Tpdhl`), an assignment at its delay, a combinational process at none -- each with how it
+  passes a change: the same way (AND, OR, BUF), the other way (NOT, NAND, NOR), or either (XOR, XNOR, a tri-state's
+  control, an assignment). A port joined to what it is connected to is a connection, gone through but not listed. An
+  edge-triggered process is a register: it captures what its statements read, its clock and asynchronous reset left out,
+  and launches what it writes. Signals, not bits, as the course draws a bus. A loop of logic -- a latch of two gates -- is
+  found (strongly connected components, walked without recursion) and its arcs left out of every path. Gates are counted
+  by primitive and inputs.
+- **Path delays** (`PathDelays`): every path from an input to an output, walked without recursion and capped at 10,000,
+  each one's delay from its start rising and from it falling -- each gate adding its rise where its output rises and its
+  fall where it falls, a change flipping at an inverting gate, both ways followed and the later kept where a gate can pass
+  it either way. Identical paths -- the same gates at the same delays in the same order -- are one, counted, with every
+  pair of ends; the worst comes first.
+- **Static timing** (`StaticTiming`): the latest each signal can rise and fall, worked out once in topological order from
+  every register's launch at its clock to Q, and once from every input at 0. The slowest register-to-register path sets
+  the **minimum period** -- clock to Q, the logic, and the capturing register's setup -- and beside it the slowest input
+  to register, register to output, and input to output, each walked back along the arcs that set it.
+- **A register's clock to Q and setup** (`RegisterPart.Tcq`, `Tsetup`; saved as `tcq` and `tsetup`, read as 0 from an
+  older file; neither may be less than 0). The clock to Q is a delay on the register's write, `q <= #Tcq d`, so the run
+  shows it and Icarus agrees; the import reads it back as the register's. The setup is checked, never simulated -- the
+  course's simulations do not -- so the compiler hands it over beside the code (`CompiledModule.Registers`) and
+  `TimingAnalysis` gives it to the graph by full name in every instance of its module. A written module's register takes
+  its clock to Q from its own `#` and has no setup. A setup does not survive an export and an import, since the code
+  cannot carry it.
+- **`TimingAnalysis.Of(project)`** (Board) compiles the project, elaborates its design alone as the top -- never the
+  testbench round it -- and returns the graph, the paths and the static timing, or a problem in the player's words.
+- **Checked.** `TimingTests`: by hand, an inverter chain (8 rising, 7 falling), a mux of gates (four paths, three of them
+  identical, the select through the NOT the worst at 9), XOR passing a change either way, a NAND latch's loop found and
+  never followed, a path through two instances listing only their gates, a pipeline's minimum period (clock to Q 1, logic
+  3, setup 2: 6), a counter feeding itself, and the gate count. `TimingAnalysisTests`: the Johnson counter with every
+  register at 2 and 3 clocked no faster than 6, an ideal register costing nothing as before, the clock to Q in the run
+  (every change 2 later), the save, a negative value refused, and a drawn full adder's two reckonings agreeing on its
+  slowest path. Oracle: the timed Johnson counter, a new sample board, printed and run under Icarus as here.
+
 ---
 
 ## 11. The parts
@@ -2211,7 +2252,7 @@ Each part is one pull request into `v5`, ends with every suite green, and leaves
 | 11 | The workbench shell, in UI Toolkit -- **built**, in four: 11a the bridges and the toolbar; 11b the docked layout -- its panels (11b-1), the inspector docked (11b-2), the popups in the shell (11b-3); 11c the transcript and the hierarchy; 11d the keyboard map, the status line and the docs |
 | 12 | Hierarchy, and written blocks, edited in CodeMirror in a browser -- in six: 12a stepping inside a block **built** (see "As built in Part 12a"); 12b making a block **built** (see "As built in Part 12b"); 12c arrays **built** (see "As built in Part 12c"); 12d code blocks **built** (see "As built in Part 12d"); 12e the code panel **built** (see "As built in Part 12e"); 12f CodeMirror **built** (see "As built in Part 12f") |
 | 13 | Export and import (and a levelized path in the engine, only if a measurement asks for it) -- in six: 13a exporting a project **built** (see "As built in Part 13a"); 13b importing one **built** (see "As built in Part 13b"); 13c CONVERT **built** (see "As built in Part 13c"); 13d files **built** (see "As built in Part 13d"); 13e templates **built** (see "As built in Part 13e"); 13f limits, the security review, the measurement and the browser check **built** (see "As built in Part 13f"; the levelized path is not needed). **Part 13 is built.** |
-| 14 | The course's tools: path delays, static timing, gate-library mode, step tests, lint, tri-state |
+| 14 | The course's tools: path delays, static timing, gate-library mode, step tests, lint, tri-state -- in six: 14a the timing analysis core **built** (see "As built in Part 14a"); 14b the TIMING tab, 14c step tests, 14d gate-library mode, 14e lint, 14f tri-state buses |
 | 15 | The Exercises and the tutorial |
 | 16 | The old game retired, and a smaller download; 5.0.0 released |
 
