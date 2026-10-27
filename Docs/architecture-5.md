@@ -2465,10 +2465,9 @@ computed and measured, registers given a clock to Q and a setup, a library mode 
   a whole net of its own width. **The engine is unchanged**: a joined net is one signal with drivers from both sides,
   resolved as any net is.
 - **Written code may use it; a drawn board, not yet.** A written module may have an inout and be the top, its
-  testbench's end a net. A block of one is refused in words, a drawn port may not be one, and an imported module with
-  one comes in as written code: a drawn block's pins are inputs and outputs, and an inout pin on a block's face -- which
-  reaches through the netlist, the compiler, the schematic and the importer -- is left for when a course design asks
-  for it (none does: the course's code has no tri-state and no inout, which is syllabus, not code).
+  testbench's end a net. A block of one was refused in words, a drawn port may not be one, and an imported module with
+  one comes in as written code. *Since 14g-4 a block of one has an inout pin* (see "As built in Part 14g"); a drawn
+  port still may not be one, as Ahmad chose.
 - **The 14f review's fixes.** A laid-out net keeps every driver (`NetLayout.Drivers`), so a timing path through a bus's
   second gate lights that gate, not the one the drawing roots the bus at, and pointing at a bus names both drivers and
   neither as a load. A written top's port is a net or a variable as its elaboration made it (`ModulePort.IsNet`), so a
@@ -2534,6 +2533,16 @@ computed and measured, registers given a clock to Q and a setup, a library mode 
   each module is held at its own parameters' defaults, so a parent overriding a child's delay parameter is not held
   there; and a project exported under a library and imported again keeps its cells' delays but not the library, which
   is a setting of the project rather than of its files.
+- **Inout pins on blocks of written devices (14g-4).** Ahmad chose them for written devices only: a drawn port is still
+  an input or an output. A block of a written module with an inout has a pin of both ways (`PinDirection.InOut`),
+  drawn on the box's right under its outputs. The netlist counts it a driver and lists it apart (`Net.InOuts`); a bus
+  is several drivers that can each let go -- tri-state gates' outputs and inout pins -- and anything else beside an
+  inout pin is refused as before, the message naming both kinds. A wire an inout pin is on is printed a `tri` net,
+  ports included (`BoardRules.IsTri`), since the elaborator joins an inout only to a whole net. Refused, saying why: an
+  input port of the module on a wire with an inout pin, which the elaborator would refuse too -- an input carries a
+  value in only, so the bus is driven from it through a BUFIF1 -- and a block of several copies of such a module, each
+  of which would take a slice of the wire. The `devices_bus` sample -- two written devices and a drawn BUFIF1 on one
+  output -- agrees with Icarus change for change, and goes through every sample test.
 
 ---
 

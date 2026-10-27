@@ -373,7 +373,9 @@ Once a circuit works, the workbench answers the questions the course asks of it:
   wire that cannot both let go, and a value cut short by a narrower target. They
   never stop a run.
 - **Buses.** Several tri-state gates (BUFIF, NOTIF) may drive one wire; where two
-  drive at once it reads x on the waves. Written code may use `inout` ports.
+  drive at once it reads x on the waves. Written code may use `inout` ports, and a
+  block of it shows an inout pin you can wire onto a bus beside tri-state gates and
+  other devices' inout pins.
 
 ### What it collects
 
