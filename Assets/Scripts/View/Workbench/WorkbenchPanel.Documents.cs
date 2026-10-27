@@ -54,9 +54,29 @@ namespace BitSorter.View
             return key == WorkbenchSamples.MyCircuitKey ? WorkbenchSamples.Blank() : Project.New(Documents.ModuleNameFor(Documents.NameOf(key)));
         }
 
-        /// <summary>What the SAMPLE chip says for the circuit open: its name.</summary>
-        private string DocumentCaption() =>
-            _documentKey == WorkbenchSamples.MyCircuitKey ? SampleCaption(0) : Documents.NameOf(_documentKey).ToUpperInvariant();
+        /// <summary>The room the SAMPLE chip has for its words: the longest sample's, which its width was made for.</summary>
+        private float _chipTextWidth = float.MaxValue;
+
+        /// <summary>
+        /// What the SAMPLE chip says for the circuit open: its name, shortened with "..." to the chip's room. A name can be
+        /// longer than any sample's, and the chip clipping its own text would clip the S key beside it too.
+        /// </summary>
+        private string DocumentCaption()
+        {
+            if (_documentKey == WorkbenchSamples.MyCircuitKey)
+                return SampleCaption(0);
+
+            string name = Documents.NameOf(_documentKey).ToUpperInvariant();
+            if (UiTheme.TextWidth(name, UiType.Body) <= _chipTextWidth)
+                return name;
+            for (int length = name.Length - 1; length > 1; length--)
+            {
+                string shortened = name.Substring(0, length).TrimEnd() + "...";
+                if (UiTheme.TextWidth(shortened, UiType.Body) <= _chipTextWidth)
+                    return shortened;
+            }
+            return name.Substring(0, 1) + "...";
+        }
 
         /// <summary>What the SAMPLE chip says for its place <paramref name="sample"/>: the circuit open, or a sample.</summary>
         private string ChipCaption(int sample) => sample == 0 ? DocumentCaption() : SampleCaption(sample);
