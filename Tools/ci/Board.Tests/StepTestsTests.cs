@@ -77,6 +77,24 @@ namespace BitSorter.Board.Tests
             }
         }
 
+        /// <summary>
+        /// The Johnson counter, clocked every 10: clk keeps its clock and only rst is stepped, each step left a period more
+        /// than asked -- what a step does reaches a register on the next edge (the 14c review).
+        /// </summary>
+        [Test]
+        public void STEPTEST_OnAClockedDesign_LeavesEachStepAPeriodMore()
+        {
+            Project project = SampleBoards.Build("johnson");
+            StepPlan plan = StepTests.Readable(project, 4);
+
+            CollectionAssert.AreEqual(new[] { "rst" }, plan.Inputs.Select(i => i.Name), "the clock is not stepped");
+            Assert.AreEqual(14, plan.Settle, "4 and the period, 10");
+            Track rst = plan.Stimulus.Tracks.Single(t => t.Port == "rst");
+            CollectionAssert.AreEqual(new[] { 0L, 14L, 28L }, rst.Steps.Select(s => s.Time));
+            Assert.AreEqual(42, plan.Stimulus.End);
+            Assert.AreEqual(10, plan.Stimulus.Clocks.Single().Period, "and the clock kept");
+        }
+
         [Test]
         public void ABus_IsSteppedABitAtATime()
         {

@@ -135,13 +135,18 @@ namespace BitSorter.View
                 return;
             }
 
-            // The document changed: its timing worked out again, and measured again from the start.
+            // The document changed: its timing worked out again, and measured again from the start -- unless the design is
+            // the one measured, as after a move or STEP TEST, when the measuring carries on and is laid on the view as it is.
             TimingView view = _session.Timing;
             if (!ReferenceEquals(view, _timingBase))
             {
+                bool alike = _timingBase != null && ReferenceEquals(view.Analysis, _timingBase.Analysis);
                 _timingBase = view;
-                _measure = StepMeasure.Start(_session.Project, view, () => UnityEngine.Time.realtimeSinceStartupAsDouble * 1000.0, out _measureWhy);
-                _timingSaysShown = int.MinValue;
+                if (!alike)
+                {
+                    _measure = StepMeasure.Start(_session.Project, view, () => UnityEngine.Time.realtimeSinceStartupAsDouble * 1000.0, out _measureWhy);
+                    _timingSaysShown = int.MinValue;
+                }
                 ShowTimingView(_measure != null && _measure.Done ? view.With(_measure.Result) : view);
             }
             else if (_measure != null && !_measure.Done)
@@ -185,6 +190,8 @@ namespace BitSorter.View
             if (_measure != null && !_measure.Done)
                 return "Measuring: every input stepped from every value of the others, "
                     + Mathf.FloorToInt((float)_measure.Progress * 100f).ToString(System.Globalization.CultureInfo.InvariantCulture) + "%.";
+            if (_measure?.Problem != null)
+                return _measure.Problem + " " + how;
             if (_measure != null)
                 return "Measured: a path no step ever fires is marked. " + how;
             return _measureWhy != null ? _measureWhy + " " + how : how;

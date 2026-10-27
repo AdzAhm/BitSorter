@@ -91,20 +91,28 @@ namespace BitSorter.ViewModel
     /// comes and goes is a change, as it is on the waves.
     ///
     /// **Only a circuit without registers, of at most <see cref="StepTests.MostInputBits"/> input bits**: one with registers
-    /// is timed by its clock, and more bits than that would take longer than a moment to step through.
+    /// is timed by its clock, and more bits than that would take longer than a moment to step through. **And only where the
+    /// computed slowest is a bound** -- no loop of logic, no delay the run works out -- because each step is left to settle
+    /// for longer than it, and a change later than that would be taken for the next step's. A change seen later all the
+    /// same, or a run that ends short, says so (<see cref="Problem"/>) rather than giving a measure that may be wrong.
     /// </remarks>
     public sealed class StepMeasure
     {
         private readonly StepPlan _plan;
-        private readonly SimSession _session;
-        private readonly RunSlicer _slicer;
+        private readonly long _slowest;
         private readonly string[] _inputs;
         private readonly List<(string Name, SignalId Signal, int Bit)> _outputs;
 
-        private StepMeasure(Project project, StepPlan plan, SimSession session, RunSlicer slicer, string[] inputs, List<(string, SignalId, int)> outputs)
+        // The run, let go once it is read: its history is the largest thing the workbench would otherwise keep.
+        private SimSession _session;
+        private RunSlicer _slicer;
+
+        private StepMeasure(Project project, StepPlan plan, long slowest, SimSession session, RunSlicer slicer, string[] inputs,
+            List<(string, SignalId, int)> outputs)
         {
             Project = project;
             _plan = plan;
+            _slowest = slowest;
             _session = session;
             _slicer = slicer;
             _inputs = inputs;
@@ -114,14 +122,17 @@ namespace BitSorter.ViewModel
         /// <summary>The document measured.</summary>
         public Project Project { get; }
 
-        /// <summary>Whether the run is made and read.</summary>
-        public bool Done => Result != null;
+        /// <summary>Whether the run is made and read, or found it could not be.</summary>
+        public bool Done => Result != null || Problem != null;
 
         /// <summary>How much of the run is made, 0 to 1.</summary>
-        public double Progress => _slicer.Horizon == 0 ? 1 : Math.Min(1.0, (double)_session.Reached / _slicer.Horizon);
+        public double Progress => _slicer == null || _slicer.Horizon == 0 ? 1 : Math.Min(1.0, (double)_session.Reached / _slicer.Horizon);
 
-        /// <summary>What it saw, once done; null until then.</summary>
+        /// <summary>What it saw, once done; null until then, and when it could not be measured.</summary>
         public MeasuredTiming Result { get; private set; }
+
+        /// <summary>Why, once done, nothing was measured after all: the run ended short, or saw a change it could not place.</summary>
+        public string Problem { get; private set; }
 
         /// <summary>Milliseconds of a frame a slice of the measuring run may take: half a run's, since the run shown is made beside it.</summary>
         public const double BudgetMilliseconds = RunSlicer.BudgetMilliseconds / 2;
@@ -132,7 +143,7 @@ namespace BitSorter.ViewModel
         /// says it, as it does a circuit with errors).
         /// </summary>
         public static StepMeasure Start(Project project, TimingView timing, Func<double> nowMilliseconds, out string why,
-            double budgetMilliseconds = BudgetMilliseconds)
+            double budgetMilliseconds = BudgetMilliseconds, long? maxRecorded = null)
         {
             why = null;
             TimingAnalysis analysis = timing?.Analysis;
@@ -141,6 +152,16 @@ namespace BitSorter.ViewModel
             if (analysis.Graph.Registers.Count > 0)
             {
                 why = "The measured worst is for logic without registers: a circuit with them is timed by its clock.";
+                return null;
+            }
+            if (analysis.Graph.Loops.Count > 0)
+            {
+                why = "Not measured: a loop of logic need never settle, so no step can be left long enough.";
+                return null;
+            }
+            if (analysis.Graph.UnknownDelays)
+            {
+                why = "Not measured: a delay here is worked out as the circuit runs, so no settle time is known to be long enough.";
                 return null;
             }
 
@@ -183,9 +204,13 @@ namespace BitSorter.ViewModel
                     for (int b = 0; b < width; b++)
                         outputs.Add((Named(port, b), signal, b));
 
-            var session = new SimSession(design, null, new SimOptions { Files = ProjectFiles.ForRun(copy) });
+            // Nothing drawn from it, so no transitions in flight are kept: only the settled changes are read.
+            var options = new SimOptions { Files = ProjectFiles.ForRun(copy), RecordTransitions = false };
+            if (maxRecorded.HasValue)
+                options.MaxRecorded = maxRecorded.Value;
+            var session = new SimSession(design, null, options);
             var slicer = new RunSlicer(session, plan.Stimulus.StopTime, nowMilliseconds, budgetMilliseconds: budgetMilliseconds);
-            var measure = new StepMeasure(project, plan, session, slicer, inputs, outputs);
+            var measure = new StepMeasure(project, plan, timing.Slowest, session, slicer, inputs, outputs);
             measure.Frame();
             return measure;
         }
@@ -228,8 +253,42 @@ namespace BitSorter.ViewModel
             return outputs;
         }
 
-        /// <summary>After each step, each output's last change before the step after it: the slowest kept for each input and output.</summary>
+        /// <summary>
+        /// After each step, each output's last change before the step after it: the slowest kept for each input and output --
+        /// or, when the run ended short or a change came later than the slowest path allows, why nothing is. The run let go.
+        /// </summary>
         private void Read()
+        {
+            try
+            {
+                Problem = Short();
+                if (Problem == null)
+                    Measure();
+            }
+            finally
+            {
+                _session = null;
+                _slicer = null;
+            }
+        }
+
+        /// <summary>
+        /// Why the run is no measure, when it ended before its end: it had to stop, or the circuit ended it first. The step
+        /// test's own testbench ends it at its end, which is the run made.
+        /// </summary>
+        private string Short()
+        {
+            if (_slicer.Ended != RunStatus.Stopped && _session.Reached >= _slicer.Horizon)
+                return null;
+            string unit = Project.Settings?.TimeUnit ?? TimeUnits.Default;
+            string reason = _slicer.Ended == RunStatus.Stopped
+                ? "it grew too large to keep, or a loop never settled"
+                : "the circuit ended it";
+            return "Not measured: the measuring run stopped at " + _session.Reached.ToString(CultureInfo.InvariantCulture) + " of "
+                + _slicer.Horizon.ToString(CultureInfo.InvariantCulture) + " " + unit + ", because " + reason + ".";
+        }
+
+        private void Measure()
         {
             var rising = new Dictionary<(int, int), (long Delay, ulong Word)>();
             var falling = new Dictionary<(int, int), (long Delay, ulong Word)>();
@@ -259,6 +318,17 @@ namespace BitSorter.ViewModel
                         last = times[p++] - w.At;
                     if (last < 0)
                         continue;
+
+                    // Later than the slowest path is later than the settle time was worked out for: the next step's change
+                    // could have been this one's, so no measure is given at all.
+                    if (last > _slowest)
+                    {
+                        string unit = Project.Settings?.TimeUnit ?? TimeUnits.Default;
+                        Problem = "Not measured: " + _outputs[o].Name + " changed " + last.ToString(CultureInfo.InvariantCulture) + " " + unit
+                            + " after a step of " + _inputs[w.Input] + ", later than the slowest path reckoned, "
+                            + _slowest.ToString(CultureInfo.InvariantCulture) + ".";
+                        return;
+                    }
 
                     Dictionary<(int, int), (long Delay, ulong Word)> into = w.Rising ? rising : falling;
                     var key = (w.Input, o);

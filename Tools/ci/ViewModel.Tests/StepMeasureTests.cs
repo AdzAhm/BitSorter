@@ -24,6 +24,7 @@ namespace BitSorter.ViewModel.Tests
             Assert.IsNotNull(measure, why);
             measure.Finish();
             Assert.IsTrue(measure.Done);
+            Assert.IsNull(measure.Problem, measure.Problem);
             return (timing, measure.Result);
         }
 
@@ -115,6 +116,112 @@ namespace BitSorter.ViewModel.Tests
             Project project = WorkbenchSamples.Counter();
             Assert.IsNull(StepMeasure.Start(project, TimingView.Of(project), Clock, out string why));
             StringAssert.Contains("registers", why);
+        }
+
+        /// <summary>
+        /// y = (a | b) &amp; b, OR and AND 1 each: a's way through both and b's are the same gates, one line, 2 -- but only b's
+        /// fires, since a passes the OR only with b at 0 and the AND only with b at 1. The line is two, the part that fires
+        /// first, the measured worst under it, then a's, which never does (the 14c review).
+        /// </summary>
+        [Test]
+        public void ACriticalPathPartlyFalse_HasTheMeasuredWorstUnderThePartThatFires()
+        {
+            var editor = new BoardEditor(Project.New("half_false"));
+            var b = new SampleBoards.Builder(editor, "half_false");
+            int a = b.In("a"), bb = b.In("b"), y = b.Out("y");
+            int or = b.Gate(Sim.GateKind.Or, 1, 1), and = b.Gate(Sim.GateKind.And, 1, 1);
+            b.Wire(a, "out", or, "a");
+            b.Wire(bb, "out", or, "b");
+            b.Wire(or, "y", and, "a");
+            b.Wire(bb, "out", and, "b");
+            b.Wire(and, "y", y, "in");
+            (TimingView timing, MeasuredTiming measured) = Measure(editor.Project);
+
+            TimingLine computed = timing.Lines[timing.Critical];
+            Assert.AreEqual(2, computed.Ends.Count, "sanity: a's and b's are one line");
+            Assert.IsNull(measured.For("a", "y"));
+            Assert.AreEqual(2, measured.For("b", "y").Worst);
+
+            TimingView both = timing.With(measured);
+            TimingLine critical = both.Lines[both.Critical];
+            Assert.IsFalse(critical.NeverFires);
+            CollectionAssert.AreEqual(new[] { ("b", "y") }, critical.Ends, "the part that fires is the critical path");
+            Assert.AreEqual("MEASURED WORST", both.Lines[both.Critical + 1].Label, "the measured worst right under it");
+            TimingLine never = both.Lines[both.Critical + 2];
+            Assert.IsTrue(never.NeverFires);
+            CollectionAssert.AreEqual(new[] { ("a", "y") }, never.Ends, "and then the part that never fires");
+        }
+
+        /// <summary>y = a &amp; 0: a path from a to y, but no step of a ever moves y -- the run saw nothing, so no path is said never to fire.</summary>
+        [Test]
+        public void NoStepMovingAnything_MarksNoPath()
+        {
+            var editor = new BoardEditor(Project.New("stuck"));
+            var b = new SampleBoards.Builder(editor, "stuck");
+            int a = b.In("a"), y = b.Out("y");
+            int zero = b.Add(new ConstantPart()), and = b.Gate(Sim.GateKind.And, 1, 1);
+            b.Wire(a, "out", and, "a");
+            b.Wire(zero, "y", and, "b");
+            b.Wire(and, "y", y, "in");
+            (TimingView timing, MeasuredTiming measured) = Measure(editor.Project);
+
+            Assert.IsEmpty(measured.Delays);
+            TimingView both = timing.With(measured);
+            Assert.IsFalse(both.Lines.Any(l => l.NeverFires), "nothing marked");
+            Assert.AreEqual("No step of any input ever moved an output.", both.Lines.Single(l => l.Label == "MEASURED").Text);
+        }
+
+        /// <summary>Two NORs crossed, a latch: a loop of logic need never settle, so no step is measured, and it says why.</summary>
+        [Test]
+        public void ALoopOfLogic_IsNotMeasured_AndSaysWhy()
+        {
+            var editor = new BoardEditor(Project.New("latch"));
+            var b = new SampleBoards.Builder(editor, "latch");
+            int s = b.In("s"), r = b.In("r"), q = b.Out("q");
+            int top = b.Gate(Sim.GateKind.Nor, 1, 1), bottom = b.Gate(Sim.GateKind.Nor, 1, 1);
+            b.Wire(r, "out", top, "a");
+            b.Wire(bottom, "y", top, "b");
+            b.Wire(s, "out", bottom, "a");
+            b.Wire(top, "y", bottom, "b");
+            b.Wire(top, "y", q, "in");
+
+            TimingView timing = TimingView.Of(editor.Project);
+            Assert.IsNotNull(timing.Analysis, "sanity: timed");
+            Assert.IsNull(StepMeasure.Start(editor.Project, timing, Clock, out string why));
+            StringAssert.Contains("loop", why);
+        }
+
+        /// <summary>A run that grows past what it may keep stops short: no measure is given, and it says why.</summary>
+        [Test]
+        public void ARunThatStopsShort_IsNoMeasure_AndSaysWhy()
+        {
+            Project project = WorkbenchSamples.FullAdder();
+            StepMeasure measure = StepMeasure.Start(project, TimingView.Of(project), Clock, out _, maxRecorded: 20);
+            measure.Finish();
+
+            Assert.IsTrue(measure.Done);
+            Assert.IsNull(measure.Result);
+            StringAssert.StartsWith("Not measured: the measuring run stopped at ", measure.Problem);
+            Assert.AreEqual(1.0, measure.Progress, "and the run let go");
+        }
+
+        /// <summary>A move, or STEP TEST, leaves the design as it was: its timing is the same, so what was measured of it stands.</summary>
+        [Test]
+        public void AMoveOrSTEPTEST_KeepsTheAnalysis()
+        {
+            var session = new WorkbenchSession(WorkbenchSamples.FullAdder(), Clock);
+            session.Finish();
+            TimingAnalysis analysis = session.Timing.Analysis;
+
+            Assert.IsTrue(session.StepTest().Done);
+            Assert.AreSame(analysis, session.Timing.Analysis, "STEP TEST");
+            GatePart or = session.Project.TopModule.Parts.OfType<GatePart>().First();
+            Placement was = session.Project.TopModule.Layout.PlacementOf(or.Id);
+            Assert.IsTrue(session.Move(new System.Collections.Generic.Dictionary<int, Placement>
+            {
+                [or.Id] = new Placement(new BitSorter.Board.Point(was.Position.X, was.Position.Y - 1)),
+            }).Done);
+            Assert.AreSame(analysis, session.Timing.Analysis, "a move");
         }
 
         [Test]

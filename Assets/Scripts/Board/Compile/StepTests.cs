@@ -24,7 +24,11 @@ namespace BitSorter.Board
         /// <summary>Which bit of its port, from 0.</summary>
         public int Bit { get; }
 
-        /// <summary>As SystemVerilog names it: <c>a</c> for a one-bit port, <c>a[2]</c> for a bit of a bus.</summary>
+        /// <summary>
+        /// <c>a</c> for a one-bit port, <c>a[2]</c> for bit 2 of a bus's value -- as SystemVerilog names it when the port's
+        /// range runs down to 0, as a drawn port's does; the measured worst names a written port's bits by its range
+        /// (<see cref="BitSorter.Sim.TimingGraph.BitName"/>).
+        /// </summary>
         public string Name => Width == 1 ? Port : Port + "[" + Bit.ToString(CultureInfo.InvariantCulture) + "]";
 
         public override string ToString() => Name;
@@ -124,7 +128,8 @@ namespace BitSorter.Board
         /// <summary>
         /// STEP TEST: every input at 0, then each input bit in turn rises, is left to settle, falls, and is left to settle --
         /// a delay read off the waves with the cursors, from the step to the output's change. An input the stimulus drives
-        /// as a clock keeps its clock and is not stepped; past <see cref="MostStepped"/> bits, the rest are held at 0.
+        /// as a clock keeps its clock and is not stepped, and each step is left its longest period more to settle, since what
+        /// a step does reaches a register only on the next edge; past <see cref="MostStepped"/> bits, the rest are held at 0.
         /// </summary>
         public static StepPlan Readable(Project project, long settle)
         {
@@ -132,8 +137,13 @@ namespace BitSorter.Board
                 throw new ArgumentOutOfRangeException(nameof(settle), settle, "A step is left at least 1 to settle.");
 
             var clocks = new HashSet<string>(StringComparer.Ordinal);
+            long period = 0;
             foreach (ClockTrack clock in project?.Stimulus?.Clocks ?? Array.Empty<ClockTrack>())
+            {
                 clocks.Add(clock.Port);
+                period = Math.Max(period, clock.Period);
+            }
+            settle += period;
             var held = new List<InputBit>();
             var inputs = new List<InputBit>();
             foreach (InputBit bit in InputsOf(project))

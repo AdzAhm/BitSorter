@@ -1207,9 +1207,12 @@ namespace BitSorter.PlayMode.Tests
             Assert.AreEqual("4 " + unit, workbench.Timing.Lines.Single(l => l.Label == "MEASURED WORST").Numbers);
             StringAssert.StartsWith("Measured", workbench.TimingSays);
 
+            StepMeasure measured = workbench.Measuring;
             yield return Click(WorkbenchPanel.StepTestName);
             Assert.AreEqual(42, workbench.Session.Project.Stimulus.End, "each input up and down, 6 to settle");
             yield return UntilReplayed(workbench);
+            Assert.AreSame(measured, workbench.Measuring, "STEP TEST changes no gate: what was measured stands");
+            Assert.AreEqual("4 " + unit, workbench.Timing.Lines.Single(l => l.Label == "MEASURED WORST").Numbers, "and is still shown");
             workbench.UndoEdit();
             yield return null;
             Assert.AreEqual(WorkbenchSamples.FullAdderEnd, workbench.Session.Project.Stimulus.End, "and one undo puts the stimulus back");

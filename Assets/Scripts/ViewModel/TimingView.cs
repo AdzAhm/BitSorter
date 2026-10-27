@@ -130,7 +130,8 @@ namespace BitSorter.ViewModel
         /// <summary>
         /// This timing with what <paramref name="measured"/> saw laid on it (Part 14c): the slowest measured beside the
         /// critical path, a line for each input and output stepping moved, and every computed path longer than anything
-        /// measured from its input to its output marked as one that never fires. The lines picked are kept.
+        /// measured from its input to its output marked as one that never fires -- unless no step moved anything at all,
+        /// which says the run saw nothing rather than that no path fires, and is said so. The lines picked are kept.
         /// </summary>
         public TimingView With(MeasuredTiming measured)
         {
@@ -139,16 +140,16 @@ namespace BitSorter.ViewModel
             string unit = Project.Settings?.TimeUnit ?? TimeUnits.Default;
 
             var lines = new List<TimingLine>(Lines.Count + measured.Delays.Count + 2);
+            var parts = new List<TimingLine>(2);
             int critical = -1;
             for (int at = 0; at < Lines.Count; at++)
             {
                 TimingLine line = Lines[at];
-                if (at == Critical)
-                    critical = lines.Count;
+                parts.Clear();
 
                 // Identical paths are one line, but one may fire and another not -- a false path can have the same gates
                 // as a true one -- so a line of both is two: those seen, and those never.
-                if (line.Kind == TimingLineKind.Path && line.Ends.Count > 0 && line.Paths.Count == line.Ends.Count)
+                if (line.Kind == TimingLineKind.Path && measured.Delays.Count > 0 && line.Ends.Count > 0 && line.Paths.Count == line.Ends.Count)
                 {
                     var fired = new List<int>();
                     var never = new List<int>();
@@ -159,20 +160,24 @@ namespace BitSorter.ViewModel
                     }
 
                     if (never.Count == 0)
-                        lines.Add(line);
+                        parts.Add(line);
                     else if (fired.Count == 0)
-                        lines.Add(Part(line, never, neverFires: true));
+                        parts.Add(Part(line, never, neverFires: true));
                     else
                     {
-                        lines.Add(Part(line, fired, neverFires: false));
-                        lines.Add(Part(line, never, neverFires: true));
+                        parts.Add(Part(line, fired, neverFires: false));
+                        parts.Add(Part(line, never, neverFires: true));
                     }
                 }
                 else
                 {
-                    lines.Add(line);
+                    parts.Add(line);
                 }
 
+                // The measured worst right under the critical path as it fires, before the part of it that never does.
+                if (at == Critical)
+                    critical = lines.Count;
+                lines.Add(parts[0]);
                 if (at == Critical && measured.Delays.Count > 0)
                 {
                     MeasuredDelay slowest = measured.Delays[0];
@@ -180,6 +185,8 @@ namespace BitSorter.ViewModel
                         slowest.Input + " → " + slowest.Output + ", as " + slowest.Input + (slowest.WorstRising ? " rises" : " falls") + " from " + slowest.When,
                         Time(slowest.Worst, unit)));
                 }
+                for (int k = 1; k < parts.Count; k++)
+                    lines.Add(parts[k]);
             }
 
             lines.Add(new TimingLine(TimingLineKind.Fact, "MEASURED",
