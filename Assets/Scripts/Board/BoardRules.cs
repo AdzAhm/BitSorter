@@ -146,6 +146,7 @@ namespace BitSorter.Board
             }
             if (library.GateBudget < -1)
                 Error(null, "The library's gate budget cannot be less than 0.");
+            CheckCounts(project, library, found);
 
             foreach (Module module in project.Modules)
             {
@@ -172,6 +173,43 @@ namespace BitSorter.Board
                 }
             }
 
+        }
+
+        /// <summary>
+        /// The parts an exercise stocks (Part 15b, <see cref="GateLibrary.Counts"/>): a design with more of one than its count
+        /// is refused, saying how many there may be -- as 4.x's parts list ran out. The error is on the last of them drawn in
+        /// the top, where the student put it, when there is one there.
+        /// </summary>
+        private static void CheckCounts(Project project, GateLibrary library, List<BoardDiagnostic> found)
+        {
+            if (library.Counts.Count == 0)
+                return;
+
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            foreach (PartCount count in library.Counts)
+            {
+                if (string.IsNullOrEmpty(count.Part) || count.Most < 0)
+                    found.Add(new BoardDiagnostic(DiagnosticSeverity.Error, null, $"The library's count of '{count.Part}' is no count a part can have."));
+                else if (!seen.Add(count.Part))
+                    found.Add(new BoardDiagnostic(DiagnosticSeverity.Error, null, $"The library counts {count.Said} twice."));
+            }
+
+            Dictionary<string, int> has = PartCounts.Of(project, library.Counted());
+            Module top = project.TopModule;
+            foreach (PartCount count in library.Counts)
+            {
+                if (count.Most < 0 || !has.TryGetValue(count.Part, out int n) || n <= count.Most)
+                    continue;
+
+                int last = -1;
+                if (top != null && !top.IsWritten)
+                    foreach (Part part in top.Parts)
+                        if ((part is GatePart gate && PartCount.Of(gate.Kind) == count.Part) || (part is BlockPart block && block.Module == count.Part))
+                            last = part.Id;
+
+                string most = count.Most == 0 ? "no " + count.Said : count.Most + " " + count.Said;
+                found.Add(new BoardDiagnostic(DiagnosticSeverity.Error, top?.Name, $"The exercise stocks {most}, and the design has {n}.", last));
+            }
         }
 
         /// <summary>

@@ -34,6 +34,31 @@ namespace BitSorter.Board
     }
 
     /// <summary>
+    /// How many of one part a design may have (Part 15b), as an exercise stocks them: a gate of a kind, of any number of
+    /// inputs, or a block of a module. Counted by <see cref="PartCounts"/>.
+    /// </summary>
+    public sealed record PartCount
+    {
+        public PartCount(string part, int most)
+        {
+            Part = part;
+            Most = most;
+        }
+
+        /// <summary>A gate kind's name in lower case -- <c>xor</c>, <c>not</c> (<see cref="Of"/>) -- or a module's name, for a block of it.</summary>
+        public string Part { get; init; }
+
+        /// <summary>The most there may be: 0 for none.</summary>
+        public int Most { get; init; }
+
+        /// <summary>What a gate of <paramref name="kind"/> is counted as.</summary>
+        public static string Of(GateKind kind) => kind.ToString().ToLowerInvariant();
+
+        /// <summary>What the part is called on the screen: a gate's kind in capitals, a block by its module.</summary>
+        public string Said => Enum.TryParse(Part, ignoreCase: true, out GateKind kind) && Of(kind) == Part ? Part.ToUpperInvariant() : Part;
+    }
+
+    /// <summary>
     /// A gate library (Part 14d): the gates a design may be built of, each at the delays its cell has -- what the course's
     /// gate-level assignments hand out -- with, if asked, no constants and a budget of gates. Set on a project
     /// (<see cref="ProjectSettings.Library"/>), it is kept everywhere: PARTS offers only its gates, a gate placed takes its
@@ -65,6 +90,31 @@ namespace BitSorter.Board
         public int GateBudget { get; init; } = -1;
 
         /// <summary>
+        /// How many of each part the design may have (Part 15b), as an exercise stocks them; a part not listed has no count.
+        /// Past its count a part is refused, where <see cref="GateBudget"/> only warns: the stock is the exercise's, as 4.x's
+        /// parts list was, and the budget the student's own aim.
+        /// </summary>
+        public IReadOnlyList<PartCount> Counts { get; init; } = Array.Empty<PartCount>();
+
+        /// <summary>The most of <paramref name="part"/> there may be; -1 for no count.</summary>
+        public int MostOf(string part)
+        {
+            foreach (PartCount count in Counts)
+                if (string.Equals(count.Part, part, StringComparison.Ordinal))
+                    return count.Most;
+            return -1;
+        }
+
+        /// <summary>The parts with a count: what <see cref="PartCounts"/> takes as counted whole.</summary>
+        public HashSet<string> Counted()
+        {
+            var counted = new HashSet<string>(StringComparer.Ordinal);
+            foreach (PartCount count in Counts)
+                counted.Add(count.Part);
+            return counted;
+        }
+
+        /// <summary>
         /// Whether <paramref name="a"/> and <paramref name="b"/> are the same library, cell for cell -- what record equality
         /// cannot say, since it compares the lists of cells by reference. Two nulls are alike: no library either way.
         /// </summary>
@@ -73,10 +123,13 @@ namespace BitSorter.Board
             if (ReferenceEquals(a, b))
                 return true;
             if (a == null || b == null || a.Name != b.Name || a.NoConstants != b.NoConstants || a.GateBudget != b.GateBudget
-                || a.Cells.Count != b.Cells.Count)
+                || a.Cells.Count != b.Cells.Count || a.Counts.Count != b.Counts.Count)
                 return false;
             for (int i = 0; i < a.Cells.Count; i++)
                 if (!Equals(a.Cells[i], b.Cells[i]))
+                    return false;
+            for (int i = 0; i < a.Counts.Count; i++)
+                if (!Equals(a.Counts[i], b.Counts[i]))
                     return false;
             return true;
         }

@@ -15,6 +15,9 @@ namespace BitSorter.Board
         public bool noConstants;
         public int gateBudget = -1;
 
+        /// <summary>How many of each part (Part 15b); absent, so none, in every older file.</summary>
+        public CountRecord[] counts = new CountRecord[0];
+
         public static LibraryRecord From(GateLibrary library)
         {
             if (library == null)
@@ -22,7 +25,14 @@ namespace BitSorter.Board
             var cells = new List<CellRecord>();
             foreach (LibraryCell cell in library.Cells)
                 cells.Add(new CellRecord { kind = cell.Kind.ToString(), inputs = cell.Inputs, rise = cell.Rise, fall = cell.Fall });
-            return new LibraryRecord { name = library.Name, cells = cells.ToArray(), noConstants = library.NoConstants, gateBudget = library.GateBudget };
+            var counts = new List<CountRecord>();
+            foreach (PartCount count in library.Counts)
+                counts.Add(new CountRecord { part = count.Part, most = count.Most });
+            return new LibraryRecord
+            {
+                name = library.Name, cells = cells.ToArray(), noConstants = library.NoConstants, gateBudget = library.GateBudget,
+                counts = counts.ToArray(),
+            };
         }
 
         /// <summary>The library, a cell of no gate BitSorter has left out and said so in <paramref name="problems"/>.</summary>
@@ -38,14 +48,27 @@ namespace BitSorter.Board
                 else
                     problems.Add($"The library's cell {cell.kind} of {cell.inputs} inputs is no cell BitSorter has; it was left out.");
             }
+            var counted = new List<PartCount>();
+            foreach (CountRecord count in counts ?? new CountRecord[0])
+                if (count != null && !string.IsNullOrEmpty(count.part))
+                    counted.Add(new PartCount(count.part, count.most));
             return new GateLibrary
             {
                 Name = string.IsNullOrEmpty(name) ? GateLibrary.CustomName : name,
                 Cells = kept,
                 NoConstants = noConstants,
                 GateBudget = gateBudget,
+                Counts = counted,
             };
         }
+    }
+
+    /// <summary>One part's count, as the save file holds it (Part 15b).</summary>
+    [Serializable]
+    public sealed class CountRecord
+    {
+        public string part;
+        public int most;
     }
 
     [Serializable]
