@@ -299,13 +299,19 @@ the one you built last time.
 
 ### Your own SystemVerilog, in and out (5.0 preview)
 
-The workbench's **FILE** menu takes a project's files in and gives them back out:
+The workbench's **FILE** menu keeps your circuits, and takes a project's files in and
+gives them back out:
 
+- **Your circuits.** MY CIRCUIT is always there. NEW CIRCUIT makes another, named,
+  and OPEN A CIRCUIT lists them all, the one you opened last first; RENAME and DELETE
+  work on any but MY CIRCUIT, and DELETE asks first, since a deleted circuit cannot
+  be brought back. Each is kept as you leave it. A free-play board from 4.x is one of
+  them, under its own name.
 - **Import.** On a desktop, put a project's files — its `.sv` files, any files they
   `` `include ``, and the memory images `$readmemh` reads — in the Import folder
   (FILE, OPEN THE IMPORT FOLDER), then IMPORT. In a browser, IMPORT picks the files
-  or a folder. The project becomes MY CIRCUIT, asking first if MY CIRCUIT already
-  has a circuit. A module made only of gates is drawn; any other module is kept as
+  or a folder. The project opens as a circuit of its own, named after it, and
+  nothing you already have is replaced. A module made only of gates is drawn; any other module is kept as
   the code you wrote. Your testbench runs as written, `$display` and all. Anything
   the import could not read is listed in the TRANSCRIPT with its file and line.
   An import takes up to 200 files, 4 MB a file and 16 MB in all, which is far

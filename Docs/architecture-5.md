@@ -2055,8 +2055,9 @@ template is imported, then exported filled.
   FOLDER open the page's own file picker (`BitSorterFiles.jslib`), which reads what is picked as text and keeps it
   until the game takes it a frame or so later -- the pull the code editor's bridge uses, so nothing in the page calls
   into the game. Tests read a scratch folder (`FileImport.Redirected`, set by `SaveGuard`), never the player's.
-- **An import goes into MY CIRCUIT** (Ahmad's choice), asking first when MY CIRCUIT has a circuit in it (`AskMenu`: the
-  question, then REPLACE MY CIRCUIT and CANCEL; Escape or a click off it is CANCEL). What the import said is in the
+- **An import went into MY CIRCUIT** (Ahmad's choice), asking first when MY CIRCUIT had a circuit in it. *Since Part
+  15a an import opens as a circuit of its own, named after its project, and asks nothing* (see "As built in Part 15a").
+  What the import said is in the
   TRANSCRIPT, each with its file and line, before the document's own lines (`TranscriptView.Notes`), while the project
   shown is the one it was said about -- the first edit or another document takes it away, so a refused import's reasons
   do not stay on a circuit they are not about. An import of which nothing at all could be made is refused, with its
@@ -2568,6 +2569,32 @@ computed and measured, registers given a clock to Q and a setup, a library mode 
   Ctrl+Z taking back both -- it is a step of its own (`isolateHistory`) -- and a written block stepped into from another
   opening at that one's scroll; it opens at its top.
 
+**As built in Part 15a: the student's circuits.** Part 15 makes BitSorter open like a simulator rather than a game
+(Ahmad, 2026-10-27): on what was open last, or a start page, with the Exercises on the workbench. Its first PR gives the
+workbench more than one circuit.
+
+- **A circuit is a document the save keeps under its key** (`Documents`, a view-model rule, tested under dotnet):
+  - MY CIRCUIT under `workbench`, always there, never renamed or deleted;
+  - a circuit made with NEW, or imported, under `doc/` and its name;
+  - each 4.x free-play board, which the save's migration already kept under `free-play/` and its name (Part 7b).
+  - A level's migrated board is no circuit: it is that exercise's (Part 15d).
+- **Names** are 1 to 32 letters, digits, spaces, dashes, underscores and dots, unique by any case, MY CIRCUIT's
+  included. A new circuit is offered circuit1, circuit2..., and its top module is its name as SystemVerilog takes one
+  (`Migrator.NameFrom`).
+- **FILE** gains NEW CIRCUIT, OPEN A CIRCUIT, and RENAME and DELETE THIS CIRCUIT, the last two only for a circuit of
+  the student's own.
+  - OPEN lists every circuit the latest opened first (`DocumentMenu`), from the save's new `recent`, which keeps
+    sixteen and is absent, so empty, in every older file.
+  - DELETE asks first and cannot be undone, and MY CIRCUIT opens in its place.
+  - The SAMPLE chip's first place is the circuit open, its name on the chip.
+  - The workbench keeps the circuit open under its own key (`KeepMyCircuit`).
+  - Opening another keeps the one open first, and never writes it under the next one's key.
+- **An import opens as a circuit of its own**, named after its project and numbered when the name is taken (`mux2`,
+  `mux2 2`). So it never replaces anything, and the question it asked before replacing MY CIRCUIT is gone.
+- **Checked.** dotnet: `DocumentsTests` (which keys are circuits, names, free names, the order). Edit Mode: the recent
+  list, a rename and a delete through a restart. Play Mode: NEW, RENAME refused by a name taken, OPEN's list with an
+  old free-play board in it, DELETE asking and opening MY CIRCUIT; an import as a circuit, twice, MY CIRCUIT as it was.
+
 ---
 
 ## 11. The parts
@@ -2591,7 +2618,7 @@ Each part is one pull request into `v5`, ends with every suite green, and leaves
 | 12 | Hierarchy, and written blocks, edited in CodeMirror in a browser -- in six: 12a stepping inside a block **built** (see "As built in Part 12a"); 12b making a block **built** (see "As built in Part 12b"); 12c arrays **built** (see "As built in Part 12c"); 12d code blocks **built** (see "As built in Part 12d"); 12e the code panel **built** (see "As built in Part 12e"); 12f CodeMirror **built** (see "As built in Part 12f") |
 | 13 | Export and import (and a levelized path in the engine, only if a measurement asks for it) -- in six: 13a exporting a project **built** (see "As built in Part 13a"); 13b importing one **built** (see "As built in Part 13b"); 13c CONVERT **built** (see "As built in Part 13c"); 13d files **built** (see "As built in Part 13d"); 13e templates **built** (see "As built in Part 13e"); 13f limits, the security review, the measurement and the browser check **built** (see "As built in Part 13f"; the levelized path is not needed). **Part 13 is built.** |
 | 14 | The course's tools: path delays, static timing, gate-library mode, step tests, lint, tri-state -- in six, **built**: 14a the timing analysis core, 14b the TIMING tab, 14c step tests, 14d gate-library mode, 14e lint and 14f tri-state buses and inout (see "As built in Part 14a" to "14f"); and 14g, its follow-ups: deleting a module, the code editor's keys, the library held in written code and over budget, and inout pins on written blocks (see "As built in Part 14g") |
-| 15 | The Exercises and the tutorial |
+| 15 | A simulator first, the Exercises and the tutorial -- in six: 15a the student's circuits **built** (see "As built in Part 15a"); 15a-2 opening on the last thing or a start page, menus for BACK, the 4.x game in Settings, music off; 15b the Exercise model, grading and self-checking testbenches; 15c the 35 exercises; 15d Exercises on the workbench; 15e answering in code; 15f first-time hints, the guided tutorial and the browser check |
 | 16 | The old game retired, and a smaller download; 5.0.0 released |
 
 **Agreed after Part 9, 2026-10-19: the language, before Part 10.** A course audit ran every one of the

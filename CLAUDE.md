@@ -888,8 +888,9 @@ failure side.
   panel reads its mouse as gestures (`WavePointer`), where a press on a control is
   never one. The row menu, the menu for a moment (a right-click on the waves, for
   a breakpoint there; Part 9b-3), the export menu (VCD or PNG; Part 9b-4), the FILE
-  menu (Part 13a) and the question it asks before an import replaces MY CIRCUIT or a
-  testbench is converted, or a module is deleted (`AskMenu`, Parts 13d and 14g), the add list and the three fields -- RENAME,
+  menu (Part 13a) with OPEN's list of circuits (Part 15a), the question asked before a
+  testbench is converted or a circuit or a module is deleted (`AskMenu`, Parts 13d, 14g
+  and 15a), the add list and the three fields -- RENAME,
   BREAK ON VALUE, and SET, which a double-click on a bus or an x asks an input's
   value in -- each hold Escape (`IHoldsEscape`), and the panel closes on Escape
   only when nothing does. **The circuit's window is the canvas's** (Part 10a):
