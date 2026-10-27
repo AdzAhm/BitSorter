@@ -315,6 +315,24 @@ namespace BitSorter.Sim
         /// </summary>
         internal void CollectAllReads(ICollection<int> reads) => CollectAllReads(Code, reads, new HashSet<FunctionInfo>());
 
+        /// <summary>What the functions in <paramref name="calls"/> read, and the ones they call in turn (Part 14e, for lint).</summary>
+        internal static void CollectReadsOf(IEnumerable<FunctionInfo> calls, ICollection<int> reads)
+        {
+            var seen = new HashSet<FunctionInfo>();
+            foreach (FunctionInfo function in calls)
+                if (seen.Add(function))
+                    CollectAllReads(function.Code, reads, seen);
+        }
+
+        /// <summary>What it forces (Part 14e, for lint): a force sets a signal, though it is none of its writes.</summary>
+        internal void CollectForced(ICollection<int> forced)
+        {
+            foreach (Instruction ins in Code)
+                if (ins.Op == OpCode.Force)
+                    foreach (LPiece piece in ins.Target ?? Array.Empty<LPiece>())
+                        forced.Add(piece.Signal);
+        }
+
         private static void CollectAllReads(Instruction[] code, ICollection<int> reads, HashSet<FunctionInfo> seen)
         {
             var calls = new List<FunctionInfo>();

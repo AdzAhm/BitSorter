@@ -434,8 +434,11 @@ namespace BitSorter.Board
             if (module.Parts.Count > 0 || module.Wires.Count > 0)
                 found.Add(new BoardDiagnostic(DiagnosticSeverity.Error, module.Name, $"{module.Name} is written, so nothing is drawn in it."));
 
+            // The testbench is the top, whose signals are watched on the waves, not read: what it sets and never reads is
+            // what it shows (the 14e review found every output it did not print said).
+            bool bench = module.Name == project.Bench;
             foreach (Diagnostic d in WrittenModules.Read(project, module).Diagnostics)
-                if (d.Severity != DiagnosticSeverity.Info)
+                if (d.Severity != DiagnosticSeverity.Info && !(bench && d.Code == ElaborationCodes.NeverRead))
                     found.Add(new BoardDiagnostic(d.Severity, module.Name, d.Message, line: d.Location.Line, column: d.Location.Column));
         }
 

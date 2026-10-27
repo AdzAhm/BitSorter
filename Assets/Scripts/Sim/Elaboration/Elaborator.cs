@@ -1781,7 +1781,7 @@ namespace BitSorter.Sim
                 if (builder.Failed)
                     return;
 
-                LintTruncation(type, target, value, width, at);
+                LintTruncation(type, target, value, scope, width, at);
                 Drive(parts, built, delay, type.Signed, at, null);
             }
 

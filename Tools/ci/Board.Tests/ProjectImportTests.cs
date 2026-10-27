@@ -52,6 +52,18 @@ namespace BitSorter.Board.Tests
 
         private static string Notes(ProjectImport import) => string.Join("\n", import.Notes);
 
+        /// <summary>
+        /// A testbench that never prints the output it watches is said nothing of (the 14e review): it is the top, and what
+        /// it sets is on the waves, so SV0403 is not its warning.
+        /// </summary>
+        [Test]
+        public void ATestbenchsWatchedOutput_IsNoSignalSetAndNeverRead()
+        {
+            Project project = Import(("mux2.sv", Mux), ("mux2_tb.sv", MuxBench)).Project;
+            BoardDiagnostic[] said = BoardRules.Check(project).ToArray();
+            Assert.IsFalse(said.Any(d => d.Message.Contains("nothing reads it")), string.Join("; ", said.Select(d => d.Message)));
+        }
+
         [Test]
         public void TheTestbench_IsFound_AndTheDesignIsWhatItInstantiates()
         {

@@ -2413,18 +2413,24 @@ computed and measured, registers given a clock to Q and a setup, a library mode 
 - **Four warnings beside the latch check (SV0401)**, in the elaborator's lint pass once the design is built
   (`Elaborator.Lint.cs`, `LintDesign`), each at the signal's declaration or the assignment's line and said once however
   many times its module is placed; never an error, so a run goes on:
-  - **SV0402**, a signal something reads that nothing drives or sets -- it reads z, or x for a variable. Every read
-    counts: values, conditions, delays, where a write lands, what is waited on and printed, and what the functions
-    called read in turn (`ProcessInfo.CollectAllReads`).
+  - **SV0402**, a signal something reads that nothing drives or sets -- it reads z, x for a variable, 0 for a 2-state
+    one. Every read counts: values, conditions, delays, where a write lands, what is waited on and printed, and what
+    the functions called read in turn, from a process or a continuous assignment (`ProcessInfo.CollectAllReads`,
+    `CollectReadsOf`); a `force` sets.
   - **SV0403**, a signal set that nothing reads -- **only inside an instance of a module**: the top's signals are
-    watched on the waves, and an interface's are there for what is outside it, as a port's are.
+    watched on the waves, and so are a testbench's, which is the top, and an interface's are there for what is outside
+    it, as a port's are.
   - **SV0404**, a net with drivers on the same bits not all of which can let go: a tri-state gate can, and so can an
-    assignment whose value can be z (`Expr.CanFloat`), so a bus driven the course's way is said nothing of.
+    assignment whose value can be z -- a z written in it, or a net it passes on whose own drivers all can, as a port
+    connection or `assign bus = ya` does, followed through selects, joins and replications (`Expr.CanFloat`) -- so a
+    bus driven the course's way, through modules or not, is said nothing of. Found with a sweep along the bits, so a
+    generate loop's thousands of one-bit drivers cost no more than sorting them.
   - **SV0405**, a plain value -- a name, a select, a concatenation of those -- given to something narrower, its top
-    bits dropped. Anything with an operator is sized by its context, a number fits or is cut as written, an int is a
-    testbench walking its values and a real is converted, so none of those is said.
-- A port is left alone throughout -- what is outside drives or reads it, and an input of an instance left unconnected
-  is SV0313 where it is placed -- and so are a process's own working variable, an event and a memory.
+    bits dropped. Anything with an operator is sized by its context, a number or a named constant fits or is cut as
+    written, an int is a testbench walking its values and a real is converted, so none of those is said.
+- A port is left alone by the first two -- what is outside drives or reads it, and an input of an instance left
+  unconnected is SV0313 where it is placed -- though its drivers inside are held to SV0404; and a process's own working
+  variable, an event and a memory are left alone by all.
 - **A written block is linted where it is written** (`WrittenModules`): as the top for SV0402, SV0404 and SV0405, as an
   instance for SV0403, and its warnings reach the TRANSCRIPT at its own lines. **A drawn module's** are the rules':
   `BoardRules` already said an input nothing drives, and refuses two drivers on a wire and wires of different widths;
@@ -2434,8 +2440,12 @@ computed and measured, registers given a clock to Q and a setup, a library mode 
   `-Wfloating-nets` says every net with no driver, the top's inputs included. The oracle's whole corpus raises none.
 - **Checked.** `DesignLintTests`: each warning raised by a design written to raise it, at its line, and not by the
   cases it leaves alone -- an interface's signal, a top's, two tri-state gates or two assignments that let go, bits of
-  their own, a sum, a number, an int, a real -- and the corpus raising none. `LintTests` keeps the latch check's.
+  their own, a sum, a number, a named constant, an int, a real -- and the corpus raising none; and, from the 14e
+  review, a bus driven through a tri-state block placed twice, through a net between and with a z replicated said
+  nothing of, a mask read in a function an assignment calls read, a forced net set, a 2-state variable reading 0, and
+  thirty thousand one-bit drivers of one bus checked in a moment. `LintTests` keeps the latch check's.
   `BoardEditorTests`: a gate that drives nothing a warning. `WrittenModuleTests`: a written block's lint at its lines.
+  `ProjectImportTests`: a testbench that never prints the output it watches said nothing of.
 
 ---
 

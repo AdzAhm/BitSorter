@@ -514,11 +514,13 @@ endmodule");
         [Test]
         public void TwoDriversOnAWire_Resolve_AndOnAVariable_AreRefusedWithTheWayOut()
         {
-            Design wire = Clean(@"
+            Elaboration both = Elaborate(@"
 module w (input logic a, b, output wire y);
     assign y = a;
     assign y = b;
 endmodule");
+            CollectionAssert.AreEqual(new[] { ElaborationCodes.SeveralDrivers }, Codes(both), "a warning since Part 14e, never a refusal: it runs");
+            Design wire = both.Design;
             Assert.AreEqual("x", Bits(Settle(wire, ("a", B("0")), ("b", B("1"))), "y"));
             Assert.AreEqual("1", Bits(Settle(wire, ("a", B("z")), ("b", B("1"))), "y"));
 

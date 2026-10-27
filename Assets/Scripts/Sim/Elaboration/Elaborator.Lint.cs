@@ -55,9 +55,18 @@ namespace BitSorter.Sim
                 var reads = new HashSet<int>();
                 var written = new HashSet<int>();
                 var drivers = new Dictionary<int, List<DriverInfo>>();
+                var calls = new List<FunctionInfo>();
                 foreach (DriverInfo driver in design.Drivers)
                 {
                     driver.CollectReads(reads);
+                    // What a function called in it reads is read too (the 14e review: assign y = f(a), f reading mask).
+                    calls.Clear();
+                    if (driver is AssignDriver assigned)
+                        assigned.Value.CollectCalls(calls);
+                    else if (driver is GateDriver gated)
+                        for (int i = 0; i < gated.InputCount; i++)
+                            gated.Input(i).CollectCalls(calls);
+                    ProcessInfo.CollectReadsOf(calls, reads);
                     written.Add(driver.Target.Index);
                     if (!drivers.TryGetValue(driver.Target.Index, out List<DriverInfo> on))
                         drivers[driver.Target.Index] = on = new List<DriverInfo>();
@@ -66,14 +75,30 @@ namespace BitSorter.Sim
                 foreach (ProcessInfo process in design.Processes)
                 {
                     process.CollectAllReads(reads);
+                    process.CollectForced(written);
                     foreach (int w in process.Writes)
                         written.Add(w);
+                }
+
+                // Whether a signal can be z: every driver of it can let go -- a net passed on, as a port is, lets go when
+                // what drives it does. Round a loop it is taken to, for lint errs towards silence.
+                var floating = new Dictionary<int, bool>();
+                bool Floats(int signal)
+                {
+                    if (floating.TryGetValue(signal, out bool known))
+                        return known;
+                    floating[signal] = true;
+                    bool all = drivers.TryGetValue(signal, out List<DriverInfo> on) && on.Count > 0;
+                    for (int i = 0; all && i < on.Count; i++)
+                        all = LetsGo(on[i], Floats);
+                    floating[signal] = all;
+                    return all;
                 }
 
                 foreach (SignalEntry s in _declared)
                 {
                     int id = s.Signal.Index;
-                    if (id < 0 || id >= design.Signals.Count || s.IsEvent || s.Port.HasValue)
+                    if (id < 0 || id >= design.Signals.Count || s.IsEvent)
                         continue;
                     SignalInfo info = design.Signals[id];
                     if (info.Local || info.Memory != null)
@@ -81,13 +106,15 @@ namespace BitSorter.Sim
 
                     string name = info.Name.Substring(info.Name.LastIndexOf('.') + 1);
                     bool read = reads.Contains(id), set = written.Contains(id) || info.Initial.HasValue;
-                    if (read && !set)
+                    // A port is driven or read from outside, so these two are not said of one; its drivers inside are.
+                    bool own = !s.Port.HasValue;
+                    if (own && read && !set)
                         Lint(s.Declared, ElaborationCodes.Undriven,
-                            $"{name} is read, but nothing drives or sets it, so it reads {(s.Kind == SignalKind.Net ? "z" : "x")}.");
-                    else if (set && !read && InsideAnInstance(design, info.Scope))
+                            $"{name} is read, but nothing drives or sets it, so it reads {(s.TwoState ? "0" : s.Kind == SignalKind.Net ? "z" : "x")}.");
+                    else if (own && set && !read && InsideAnInstance(design, info.Scope))
                         Lint(s.Declared, ElaborationCodes.NeverRead, $"{name} is set, but nothing reads it.");
 
-                    if (drivers.TryGetValue(id, out List<DriverInfo> on) && on.Count > 1 && Overlapping(on, out int count) && !AllLetGo(on))
+                    if (drivers.TryGetValue(id, out List<DriverInfo> on) && on.Count > 1 && Overlapping(on, out int count) && !AllLetGo(on, Floats))
                         Lint(s.Declared, ElaborationCodes.SeveralDrivers,
                             $"{name} has {count} drivers on the same bits, and not all of them can let go, so where they disagree it reads x. " +
                             "A bus's drivers are tri-state: bufif1, or a value that is z when it is not driving.");
@@ -112,34 +139,45 @@ namespace BitSorter.Sim
                 return false;
             }
 
-            /// <summary>Whether two of <paramref name="on"/> drive a bit in common; how many drive the most-driven bit.</summary>
+            /// <summary>
+            /// Whether two of <paramref name="on"/> drive a bit in common, and how many drive the most-driven bit: a sweep
+            /// along the bits, so a generate loop's thousands of one-bit drivers cost no more than sorting them.
+            /// </summary>
             private static bool Overlapping(List<DriverInfo> on, out int count)
             {
-                count = 0;
-                for (int i = 0; i < on.Count; i++)
+                var edges = new List<(long At, int Step)>(on.Count * 2);
+                foreach (DriverInfo driver in on)
                 {
-                    int here = 1;
-                    for (int j = 0; j < on.Count; j++)
-                        if (i != j && on[i].TargetLowest < on[j].TargetLowest + on[j].TargetWidth && on[j].TargetLowest < on[i].TargetLowest + on[i].TargetWidth)
-                            here++;
-                    count = Math.Max(count, here);
+                    edges.Add((driver.TargetLowest, 1));
+                    edges.Add(((long)driver.TargetLowest + driver.TargetWidth, -1));
                 }
+                // Where one ends and another starts on the next bit, the end first: they share no bit.
+                edges.Sort((a, b) => a.At != b.At ? a.At.CompareTo(b.At) : a.Step.CompareTo(b.Step));
+
+                count = 0;
+                int now = 0;
+                foreach ((long _, int step) in edges)
+                    count = Math.Max(count, now += step);
                 return count > 1;
             }
 
-            /// <summary>Whether every one of <paramref name="on"/> can let go: a tri-state gate, or an assignment of a value that can be z.</summary>
-            private static bool AllLetGo(List<DriverInfo> on)
+            /// <summary>Whether every one of <paramref name="on"/> can let go (<see cref="LetsGo"/>).</summary>
+            private static bool AllLetGo(List<DriverInfo> on, Func<int, bool> floats)
             {
                 foreach (DriverInfo driver in on)
-                {
-                    bool floats = driver is GateDriver gate
-                        ? gate.Kind == GateKind.Bufif0 || gate.Kind == GateKind.Bufif1 || gate.Kind == GateKind.Notif0 || gate.Kind == GateKind.Notif1
-                        : driver is AssignDriver assign && assign.Value.CanFloat;
-                    if (!floats)
+                    if (!LetsGo(driver, floats))
                         return false;
-                }
                 return true;
             }
+
+            /// <summary>
+            /// Whether <paramref name="driver"/> can let go: a tri-state gate, or an assignment of a value that can be z -- a z
+            /// in it, or a net it passes on that can be (<paramref name="floats"/>), as a port connection does.
+            /// </summary>
+            private static bool LetsGo(DriverInfo driver, Func<int, bool> floats) =>
+                driver is GateDriver gate
+                    ? gate.Kind == GateKind.Bufif0 || gate.Kind == GateKind.Bufif1 || gate.Kind == GateKind.Notif0 || gate.Kind == GateKind.Notif1
+                    : driver is AssignDriver assign && assign.Value.CanFloat(floats);
 
             /// <summary>
             /// A plain value -- a name, a select of one, a concatenation of such -- given to something narrower (SV0405): its top
@@ -147,14 +185,23 @@ namespace BitSorter.Sim
             /// number fits or is cut as written, so neither is said. Nor is an int or a real: a number given to a few bits --
             /// <c>n = i</c> in a loop -- is how a testbench walks its values, and a real is converted, not cut.
             /// </summary>
-            private void LintTruncation(ExpressionBuilder.TypeInfo type, Expression target, Expression value, int width, SourceLocation at)
+            private void LintTruncation(ExpressionBuilder.TypeInfo type, Expression target, Expression value, Scope scope, int width, SourceLocation at)
             {
+                // A named constant is a number too, cut or not as written (the 14e review: localparam LONG = 32'hFF).
                 int from = type.Width;
-                if (from <= width || !IsPlain(value) || type.Real || type.Signed && from == 32)
+                if (from <= width || !IsPlain(value) || type.Real || type.Signed && from == 32
+                    || Unwrapped(value) is NameExpression named && named.Path.Count == 1 && scope.Lookup(named.Name) is ConstantEntry)
                     return;
                 int lost = from - width;
                 Lint(at, ElaborationCodes.Truncated,
                     $"{Printer.Print(target)} is {width} bit{(width == 1 ? "" : "s")}, and {Printer.Print(value)} is {from}: its top {lost} bit{(lost == 1 ? " is" : "s are")} dropped.");
+            }
+
+            private static Expression Unwrapped(Expression value)
+            {
+                while (value is ParenthesizedExpression p)
+                    value = p.Inner;
+                return value;
             }
 
             /// <summary>Whether <paramref name="value"/> is only names and selects of them, concatenated or not.</summary>

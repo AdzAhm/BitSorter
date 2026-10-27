@@ -97,13 +97,101 @@ endmodule"), ElaborationCodes.SeveralDrivers), "two assignments that let go");
 endmodule"), ElaborationCodes.SeveralDrivers), "each on bits of its own");
         }
 
+        /// <summary>
+        /// A bus driven the course's way through a module and a net between (the 14e review): a tri-state block placed twice
+        /// on one wire, a net that lets go passed on, a z replicated -- each lets go, so nothing is said.
+        /// </summary>
+        [Test]
+        public void ABusDrivenThroughAPortOrANetBetween_IsSaidNothingOf()
+        {
+            Assert.IsEmpty(Said(Elaborate(@"module tri_buf (input logic a, en, output wire y);
+    assign y = en ? a : 1'bz;
+endmodule
+
+module top (input logic a, b, ea, eb, output wire bus);
+    tri_buf ta (.a(a), .en(ea), .y(bus));
+    tri_buf tb (.a(b), .en(eb), .y(bus));
+endmodule"), ElaborationCodes.SeveralDrivers), "through a port");
+
+            Assert.IsEmpty(Said(Elaborate(@"module top (input logic a, b, ea, eb, output wire bus);
+    wire ya, yb;
+    assign ya = ea ? a : 1'bz;
+    bufif1 g (yb, b, eb);
+    assign bus = ya;
+    assign bus = yb;
+endmodule"), ElaborationCodes.SeveralDrivers), "through a net between");
+
+            Assert.IsEmpty(Said(Elaborate(@"module top (input logic [7:0] a, b, input logic ea, eb, output wire [7:0] bus);
+    assign bus = ea ? a : {8{1'bz}};
+    assign bus = eb ? b : {4'bz, 4'bz};
+endmodule"), ElaborationCodes.SeveralDrivers), "a z replicated, or joined");
+
+            Assert.IsNotEmpty(Said(Elaborate(@"module top (input logic a, b, output wire bus);
+    wire ya;
+    assign ya = a;
+    assign bus = ya;
+    assign bus = b;
+endmodule"), ElaborationCodes.SeveralDrivers), "a net passed on that cannot let go is still said");
+        }
+
+        /// <summary>A signal read only inside a function a continuous assignment calls is read (the 14e review).</summary>
+        [Test]
+        public void ASignalReadInAFunctionAnAssignmentCalls_IsRead()
+        {
+            Assert.IsEmpty(Said(Elaborate(@"module sub (input logic [3:0] a, output logic [3:0] y);
+    logic [3:0] mask;
+    function automatic logic [3:0] f(input logic [3:0] v);
+        return v & mask;
+    endfunction
+    assign mask = 4'hA;
+    assign y = f(a);
+endmodule
+
+module top (input logic [3:0] a, output logic [3:0] y);
+    sub s (.a(a), .y(y));
+endmodule"), ElaborationCodes.NeverRead));
+        }
+
+        /// <summary>A forced net is set; a 2-state variable never set reads 0, not x (the 14e review).</summary>
+        [Test]
+        public void AForceSets_AndATwoStateVariableReadsZero()
+        {
+            Elaboration e = Elaborate(@"module top (output logic y, z);
+    wire w;
+    bit flag;
+    initial force w = 1'b1;
+    assign y = w;
+    assign z = flag;
+endmodule");
+
+            Diagnostic undriven = Said(e, ElaborationCodes.Undriven).Single();
+            Assert.AreEqual("flag is read, but nothing drives or sets it, so it reads 0.", undriven.Message, "and not w, which is forced");
+        }
+
+        /// <summary>Thirty thousand one-bit drivers of one bus, a generate loop's, are checked in a moment (the 14e review).</summary>
+        [Test]
+        public void ManyDriversOfOneBus_AreCheckedInAMoment()
+        {
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            Elaboration e = Elaborate(@"module top (input logic [29999:0] a, output wire [29999:0] w);
+    genvar i;
+    for (i = 0; i < 30000; i++) begin : bit_
+        assign w[i] = a[i];
+    end
+endmodule");
+            Assert.IsEmpty(Said(e, ElaborationCodes.SeveralDrivers));
+            Assert.Less(watch.ElapsedMilliseconds, 5000, "a sweep, not every pair");
+        }
+
         [Test]
         public void APlainValueGivenToSomethingNarrower_IsSaidTruncated_ButNotASumNorANumberNorAnInt()
         {
-            Elaboration e = Elaborate(@"module top (input logic [3:0] x, output logic [1:0] n, m, k);
+            Elaboration e = Elaborate(@"module top (input logic [3:0] x, output logic [1:0] n, m, k, c);
+    localparam LONG = 32'h2;
     assign n = x;
     assign m = x + 4'd1;
     assign k = 4'd3;
+    assign c = LONG;
     logic [1:0] w;
     always_comb begin
         w = 2'd0;
@@ -112,9 +200,11 @@ endmodule"), ElaborationCodes.SeveralDrivers), "each on bits of its own");
     end
 endmodule");
 
+            Assert.AreEqual(1, Said(e, ElaborationCodes.Truncated).Length,
+                string.Join(" | ", Said(e, ElaborationCodes.Truncated).Select(d => d.Location.Line + ": " + d.Message)));
             Diagnostic cut = Said(e, ElaborationCodes.Truncated).Single();
-            Assert.AreEqual("n is 2 bits, and x is 4: its top 2 bits are dropped.", cut.Message);
-            Assert.AreEqual(2, cut.Location.Line);
+            Assert.AreEqual("n is 2 bits, and x is 4: its top 2 bits are dropped.", cut.Message, "and nothing of a named constant that fits");
+            Assert.AreEqual(3, cut.Location.Line);
         }
 
         [Test]

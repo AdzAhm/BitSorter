@@ -107,8 +107,11 @@ namespace BitSorter.Sim
         /// <param name="first">The timing graph's first node of each signal, by index, and one past the last signal's.</param>
         internal virtual BitDeps Depends(int[] first) => BitDeps.Unknown(this, first);
 
-        /// <summary>Whether its value can be z: a driver of it can let go of a bus (Part 14e, for lint).</summary>
-        internal virtual bool CanFloat => false;
+        /// <summary>
+        /// Whether its value can be z, so a driver of it can let go of a bus (Part 14e, for lint): a z written in it, or a
+        /// signal read, selected or joined that <paramref name="floats"/> says can be z -- a net passed on, as a port is.
+        /// </summary>
+        internal virtual bool CanFloat(Func<int, bool> floats) => false;
 
         /// <summary>Its value, when it is a constant and nothing else.</summary>
         internal virtual bool TryConstant(out LogicVec value)
@@ -265,7 +268,7 @@ namespace BitSorter.Sim
 
             internal override int Height => 1 + HeightOf(_a);
 
-            internal override bool CanFloat => _a.CanFloat;
+            internal override bool CanFloat(Func<int, bool> floats) => _a.CanFloat(floats);
             internal override BitDeps Depends(int[] first) => _a.Depends(first);
         }
 
@@ -287,6 +290,8 @@ namespace BitSorter.Sim
             public override int Width => _width;
             public override LogicVec Evaluate(LogicVec[] values) => values[_signal];
             public override void CollectReads(ICollection<int> reads) => reads.Add(_signal);
+
+            internal override bool CanFloat(Func<int, bool> floats) => floats != null && floats(_signal);
 
             internal override BitDeps Depends(int[] first)
             {
@@ -311,15 +316,12 @@ namespace BitSorter.Sim
             public override LogicVec Evaluate(LogicVec[] values) => _value;
             public override void CollectReads(ICollection<int> reads) { }
 
-            internal override bool CanFloat
+            internal override bool CanFloat(Func<int, bool> floats)
             {
-                get
-                {
-                    for (int i = 0; i < _value.Width; i++)
-                        if (_value[i] == Logic4.Z)
-                            return true;
-                    return false;
-                }
+                for (int i = 0; i < _value.Width; i++)
+                    if (_value[i] == Logic4.Z)
+                        return true;
+                return false;
             }
             internal override BitDeps Depends(int[] first) => BitDeps.Bits(_value.Width, routing: true, i => SourceSet.Empty);
 
@@ -527,6 +529,8 @@ namespace BitSorter.Sim
             public override int Width => _high.Width + _low.Width;
             public override LogicVec Evaluate(LogicVec[] values) => LogicVec.Concat(_high.Evaluate(values), _low.Evaluate(values));
 
+            internal override bool CanFloat(Func<int, bool> floats) => _high.CanFloat(floats) || _low.CanFloat(floats);
+
             public override void CollectReads(ICollection<int> reads)
             {
                 _high.CollectReads(reads);
@@ -564,6 +568,8 @@ namespace BitSorter.Sim
             public override int Width => _a.Width * _count;
             public override LogicVec Evaluate(LogicVec[] values) => LogicVec.Replicate(_a.Evaluate(values), _count);
             public override void CollectReads(ICollection<int> reads) => _a.CollectReads(reads);
+
+            internal override bool CanFloat(Func<int, bool> floats) => _a.CanFloat(floats);
             internal override void CollectCalls(ICollection<FunctionInfo> calls) => _a.CollectCalls(calls);
 
             internal override int Height => 1 + HeightOf(_a);
@@ -591,6 +597,8 @@ namespace BitSorter.Sim
 
             public override int Width => _width;
             public override LogicVec Evaluate(LogicVec[] values) => _a.Evaluate(values).Slice(_lowest, _width);
+
+            internal override bool CanFloat(Func<int, bool> floats) => _a.CanFloat(floats);
             public override void CollectReads(ICollection<int> reads) => _a.CollectReads(reads);
             internal override void CollectCalls(ICollection<FunctionInfo> calls) => _a.CollectCalls(calls);
 
@@ -616,6 +624,8 @@ namespace BitSorter.Sim
 
             public override int Width => 1;
             public override LogicVec Evaluate(LogicVec[] values) => _a.Evaluate(values).Bit(_index.Evaluate(values));
+
+            internal override bool CanFloat(Func<int, bool> floats) => _a.CanFloat(floats);
 
             public override void CollectReads(ICollection<int> reads)
             {
@@ -643,6 +653,8 @@ namespace BitSorter.Sim
             private readonly int _step;
             private readonly int _width;
             private readonly LogicVec _unknown;
+
+            internal override bool CanFloat(Func<int, bool> floats) => _a.CanFloat(floats);
 
             public PartExpr(Expr a, Expr offset, int step, int width)
             {
@@ -744,7 +756,7 @@ namespace BitSorter.Sim
 
             internal override int Height => 1 + Math.Max(HeightOf(_condition), Math.Max(HeightOf(_whenTrue), HeightOf(_whenFalse)));
 
-            internal override bool CanFloat => _whenTrue.CanFloat || _whenFalse.CanFloat;
+            internal override bool CanFloat(Func<int, bool> floats) => _whenTrue.CanFloat(floats) || _whenFalse.CanFloat(floats);
 
             /// <summary>Each bit of either side the same way round, and the condition, either way, under every bit.</summary>
             internal override BitDeps Depends(int[] first)
@@ -775,7 +787,7 @@ namespace BitSorter.Sim
 
             internal override int Height => 1 + HeightOf(_a);
 
-            internal override bool CanFloat => _a.CanFloat;
+            internal override bool CanFloat(Func<int, bool> floats) => _a.CanFloat(floats);
 
             /// <summary>Widened, the bits above are the top bit again when the sign is extended, and nothing otherwise.</summary>
             internal override BitDeps Depends(int[] first)

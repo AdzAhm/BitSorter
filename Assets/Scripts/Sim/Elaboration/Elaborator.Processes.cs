@@ -627,7 +627,7 @@ namespace BitSorter.Sim
                 }
 
                 if (IsPlain(value))
-                    LintTruncation(builder.TypeOf(value), a.Target, value, width, a.Location);
+                    LintTruncation(builder.TypeOf(value), a.Target, value, scope, width, a.Location);
 
                 LPiece[] target = Pieces(p, parts);
 
