@@ -266,6 +266,12 @@ namespace BitSorter.Board
         /// <summary>A register's starting value, as a literal; empty for x.</summary>
         public string initial;
 
+        /// <summary>A register's clock to Q and setup (Part 14a); absent in an older file, and so 0.</summary>
+        public long tcq;
+
+        /// <inheritdoc cref="tcq"/>
+        public long tsetup;
+
         /// <summary>A block's module.</summary>
         public string module;
 
@@ -302,6 +308,8 @@ namespace BitSorter.Board
                     file.hasReset = r.HasReset;
                     file.resetValue = ProjectRecord.Text(r.ResetValue);
                     file.initial = ProjectRecord.Text(r.Initial);
+                    file.tcq = r.Tcq;
+                    file.tsetup = r.Tsetup;
                     break;
                 case MuxPart m:
                     file.kind = "mux";
@@ -360,6 +368,8 @@ namespace BitSorter.Board
                         Id = id, Name = name, Width = width, HasReset = hasReset,
                         ResetValue = ProjectRecord.Value(resetValue, problems, where + "'s reset value"),
                         Initial = ProjectRecord.Value(initial, problems, where + "'s starting value"),
+                        Tcq = tcq,
+                        Tsetup = tsetup,
                     };
 
                 case "mux": return new MuxPart { Id = id, Name = name, Inputs = inputs, Width = width };

@@ -820,18 +820,19 @@ namespace BitSorter.Board
 
                 string q = null, d = null;
                 LogicVec? resetValue = null;
+                long tcq = 0;
                 bool ok = clock != null && (events.Events.Count == 1 || reset != null);
 
                 if (ok && reset == null)
                 {
-                    ok = Nonblocking(inner, out q, out d);
+                    ok = Nonblocking(inner, out q, out d, out tcq);
                 }
                 else if (ok)
                 {
                     ok = false;
                     if (inner is IfStatement choice && Strip(choice.Condition) is NameExpression r && r.Name == reset &&
-                        Nonblocking(Single(choice.Then), out string resetTarget, out _, true, out LogicVec v) &&
-                        Nonblocking(Single(choice.Else), out q, out d) && resetTarget == q)
+                        Nonblocking(Single(choice.Then), out string resetTarget, out _, true, out LogicVec v, out long resetTcq) &&
+                        Nonblocking(Single(choice.Else), out q, out d, out tcq) && resetTarget == q && resetTcq == tcq)
                     {
                         ok = true;
                         resetValue = v;
@@ -851,6 +852,7 @@ namespace BitSorter.Board
                     HasReset = reset != null,
                     ResetValue = resetValue == null ? (LogicVec?)null : Resized(resetValue.Value, qNet.Width),
                     Initial = qNet.Initial,
+                    Tcq = tcq,   // its setup is not in the code, so it comes in as 0
                 };
 
                 int id = Add(register, block);
@@ -872,16 +874,27 @@ namespace BitSorter.Board
                 return e.Edge == "posedge" && Strip(e.Value) is NameExpression n && n.Path.Count == 1 ? n.Name : null;
             }
 
-            private static bool Nonblocking(Statement s, out string target, out string source) =>
-                Nonblocking(s, out target, out source, false, out _);
+            private static bool Nonblocking(Statement s, out string target, out string source, out long delay) =>
+                Nonblocking(s, out target, out source, false, out _, out delay);
 
-            private static bool Nonblocking(Statement s, out string target, out string source, bool constant, out LogicVec value)
+            /// <summary>
+            /// A register's write, <c>q &lt;= d;</c> -- or <c>q &lt;= #2 d;</c>, its clock to Q (Part 14a), a constant delay
+            /// being all a register's write may carry.
+            /// </summary>
+            private static bool Nonblocking(Statement s, out string target, out string source, bool constant, out LogicVec value, out long delay)
             {
                 target = source = null;
                 value = default;
-                if (!(s is AssignmentStatement a) || !a.IsNonBlocking || a.IntraAssignment != null ||
-                    !(a.Target is NameExpression t) || t.Path.Count != 1)
+                delay = 0;
+                if (!(s is AssignmentStatement a) || !a.IsNonBlocking || !(a.Target is NameExpression t) || t.Path.Count != 1)
                     return false;
+                if (a.IntraAssignment != null)
+                {
+                    if (!(a.IntraAssignment is DelayControl after) || after.Values.Count != 1 || !(Strip(after.Values[0]) is NumberLiteral tcq) ||
+                        !tcq.Value.TryGetUInt64(out ulong d) || d > long.MaxValue)
+                        return false;
+                    delay = (long)d;
+                }
 
                 target = t.Name;
                 Expression from = Strip(a.Value);

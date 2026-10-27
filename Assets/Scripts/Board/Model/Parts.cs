@@ -150,6 +150,18 @@ namespace BitSorter.Board
         /// <summary>The value it holds before the first edge; null for x.</summary>
         public LogicVec? Initial { get; init; }
 
+        /// <summary>
+        /// Its clock to Q (Part 14a): how long after the clock's edge q changes. The run shows it -- it compiles as
+        /// <c>q &lt;= #Tcq d</c> -- and static timing starts a path there. 0, as before Part 14, for an ideal register.
+        /// </summary>
+        public long Tcq { get; init; }
+
+        /// <summary>
+        /// Its setup (Part 14a): how long before the clock's edge d must be still. Static timing adds it to a path's end;
+        /// the run does not check it, as the course's simulations do not.
+        /// </summary>
+        public long Tsetup { get; init; }
+
         public override IReadOnlyList<Pin> Pins(Project project)
         {
             var pins = new List<Pin> { new Pin("d", PinDirection.In, Width), new Pin("clk", PinDirection.In, 1) };

@@ -321,6 +321,8 @@ namespace BitSorter.Board
                         Error($"{register.Name}'s reset value is {Bits(reset.Width)}; the register is {Bits(register.Width)}.");
                     if (register.Initial is LogicVec initial && initial.Width != register.Width)
                         Error($"{register.Name}'s starting value is {Bits(initial.Width)}; the register is {Bits(register.Width)}.");
+                    if (register.Tcq < 0 || register.Tsetup < 0)
+                        Error($"{register.Name}'s clock to Q and setup cannot be less than 0.");
                     break;
 
                 case MuxPart mux:

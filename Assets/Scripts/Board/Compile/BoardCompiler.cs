@@ -9,16 +9,23 @@ namespace BitSorter.Board
     /// <summary>One module, compiled: its declaration and the nets its signals are named after.</summary>
     public sealed class CompiledModule
     {
-        internal CompiledModule(Module module, Netlist nets, ModuleDeclaration declaration)
+        internal CompiledModule(Module module, Netlist nets, ModuleDeclaration declaration, IReadOnlyList<(string Signal, RegisterTiming Timing)> registers = null)
         {
             Module = module;
             Nets = nets;
             Declaration = declaration;
+            Registers = registers ?? Array.Empty<(string, RegisterTiming)>();
         }
 
         public Module Module { get; }
         public Netlist Nets { get; }
         public ModuleDeclaration Declaration { get; }
+
+        /// <summary>
+        /// Each register's clock-to-Q and setup (Part 14a), by the name of the variable it writes in this module: what static
+        /// timing needs and the code cannot say, since a setup is checked, never simulated.
+        /// </summary>
+        public IReadOnlyList<(string Signal, RegisterTiming Timing)> Registers { get; }
     }
 
     /// <summary>A whole project, compiled: one syntax tree, ready to print and to elaborate.</summary>
@@ -113,7 +120,8 @@ namespace BitSorter.Board
                     continue;
                 }
 
-                compiled.Add(new CompiledModule(module, nets, new ModuleCompiler(project, module, nets, cells).Build()));
+                var compiler = new ModuleCompiler(project, module, nets, cells);
+                compiled.Add(new CompiledModule(module, nets, compiler.Build(), compiler.Registers));
             }
 
             // The unit reaches the SystemVerilog as a `timescale, unless it is ps, which needs none
@@ -217,6 +225,9 @@ namespace BitSorter.Board
             private readonly List<(string Name, int Width, LogicVec Initial)> _made = new List<(string, int, LogicVec)>();
 
             private readonly List<ModuleItem> _items = new List<ModuleItem>();
+
+            /// <summary>Each register's clock-to-Q and setup, by the variable it writes (<see cref="CompiledModule.Registers"/>).</summary>
+            public List<(string Signal, RegisterTiming Timing)> Registers { get; } = new List<(string, RegisterTiming)>();
 
             public ModuleCompiler(Project project, Module module, Netlist nets, SortedSet<string> cells)
             {
@@ -415,7 +426,18 @@ namespace BitSorter.Board
                     }
                 }
 
-                Statement body = Sv.Set(Sv.Name(target), At(register, "d"), nonBlocking: true);
+                // Its clock to Q is a delay on the write, q <= #Tcq d, so the run shows it (Part 14a); its setup is checked by
+                // static timing alone, so it is handed over beside the code.
+                Registers.Add((target, new RegisterTiming(register.Tcq, register.Tsetup)));
+                AssignmentStatement Write(Expression value)
+                {
+                    AssignmentStatement write = Sv.Set(Sv.Name(target), value, nonBlocking: true);
+                    if (register.Tcq > 0)
+                        write.IntraAssignment = new DelayControl { Values = { Sv.Number(register.Tcq) } };
+                    return write;
+                }
+
+                Statement body = Write(At(register, "d"));
                 EventControl edge;
 
                 if (register.HasReset)
@@ -424,7 +446,7 @@ namespace BitSorter.Board
                     body = new IfStatement
                     {
                         Condition = At(register, "rst"),
-                        Then = Sv.Set(Sv.Name(target), Sv.Value(reset), nonBlocking: true),
+                        Then = Write(Sv.Value(reset)),
                         Else = body,
                     };
                     edge = Sv.On(("posedge", NetName(register, "clk")), ("posedge", NetName(register, "rst")));

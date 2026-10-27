@@ -17,7 +17,7 @@ namespace BitSorter.Board.Tests
     {
         public static IEnumerable<string> Names => new[]
         {
-            "half_adder", "half_adder_delayed", "full_adder", "johnson", "buses", "mux4", "tristate", "half_adders", "ripple8", "written",
+            "half_adder", "half_adder_delayed", "full_adder", "johnson", "johnson_timed", "buses", "mux4", "tristate", "half_adders", "ripple8", "written",
         };
 
         /// <summary>The boards drawn throughout: what an import can draw again. A written module comes in as written with Part 13.</summary>
@@ -31,6 +31,7 @@ namespace BitSorter.Board.Tests
                 case "half_adder_delayed": return Exhaustive(HalfAdder("half_adder", 2, 3), new[] { "a", "b" }, 10);
                 case "full_adder": return FullAdder();
                 case "johnson": return Johnson();
+                case "johnson_timed": return Timed(Johnson(), 2, 3);
                 case "buses": return Buses();
                 case "mux4": return Mux4();
                 case "tristate": return TriState();
@@ -231,6 +232,19 @@ namespace BitSorter.Board.Tests
         /// onto an output port, which cannot itself be given a starting value -- and a third register
         /// with a reset, pulsed by the stimulus.
         /// </summary>
+        /// <summary>
+        /// A project with every register given a clock to Q and a setup (Part 14a): its writes carry the delay, so it runs --
+        /// and prints, and imports again -- with each register's q that long after the edge.
+        /// </summary>
+        private static Project Timed(Project project, long tcq, long tsetup)
+        {
+            Module top = project.TopModule;
+            var parts = new List<Part>();
+            foreach (Part part in top.Parts)
+                parts.Add(part is RegisterPart r ? r with { Tcq = tcq, Tsetup = tsetup } : part);
+            return project.WithModule(top with { Parts = parts });
+        }
+
         private static Project Johnson()
         {
             var editor = new BoardEditor(Project.New("johnson"));
