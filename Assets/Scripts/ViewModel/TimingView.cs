@@ -18,14 +18,19 @@ namespace BitSorter.ViewModel
     public sealed class TimingLine
     {
         internal TimingLine(TimingLineKind kind, string label, string text, string numbers, IReadOnlyList<string> signals = null,
-            IReadOnlyList<IReadOnlyList<string>> paths = null)
+            IReadOnlyList<IReadOnlyList<string>> paths = null, IReadOnlyList<(string From, string To)> ends = null, long worst = 0,
+            bool neverFires = false, string via = null)
         {
+            Via = via ?? "";
             Kind = kind;
             Label = label ?? "";
             Text = text ?? "";
             Numbers = numbers ?? "";
             Signals = signals ?? Array.Empty<string>();
             Paths = paths ?? (Signals.Count > 0 ? new[] { Signals } : Array.Empty<IReadOnlyList<string>>());
+            Ends = ends ?? Array.Empty<(string, string)>();
+            Worst = worst;
+            NeverFires = neverFires;
         }
 
         /// <summary>
@@ -33,6 +38,21 @@ namespace BitSorter.ViewModel
         /// all of them. The first is <see cref="Signals"/>.
         /// </summary>
         public IReadOnlyList<IReadOnlyList<string>> Paths { get; }
+
+        /// <summary>A computed path's ends -- each identical one's -- named as <see cref="Signals"/> are; empty for anything else.</summary>
+        public IReadOnlyList<(string From, string To)> Ends { get; }
+
+        /// <summary>What a computed path passes through, as its text says it: <c>through XOR2, AND2</c>.</summary>
+        internal string Via { get; }
+
+        /// <summary>A computed path's delay, the later of rising and falling.</summary>
+        public long Worst { get; }
+
+        /// <summary>
+        /// Whether the path is longer than anything measured from its input to its output (Part 14c): no step of the inputs
+        /// ever sends a change all the way along it -- a false path.
+        /// </summary>
+        public bool NeverFires { get; }
 
         public TimingLineKind Kind { get; }
 
@@ -76,12 +96,132 @@ namespace BitSorter.ViewModel
         /// <summary>How many paths the list shows: the slowest, and a line saying how many are left out.</summary>
         public const int MostPathsListed = 200;
 
-        private TimingView(Project project, TimingAnalysis analysis, IReadOnlyList<TimingLine> lines, int critical)
+        private TimingView(Project project, TimingAnalysis analysis, IReadOnlyList<TimingLine> lines, int critical, MeasuredTiming measured = null)
         {
             Project = project;
             Analysis = analysis;
             Lines = lines;
             Critical = critical;
+            Measured = measured;
+        }
+
+        /// <summary>What a measuring run saw (Part 14c), once one has been laid on it (<see cref="With"/>); null until then.</summary>
+        public MeasuredTiming Measured { get; }
+
+        /// <summary>
+        /// The slowest any computed path is, register to register, in, out or straight through: what a step is left to settle
+        /// for longer than (<see cref="StepTests.SettleFor"/>). 0 for a design with no path.
+        /// </summary>
+        public long Slowest
+        {
+            get
+            {
+                if (Analysis == null || !Analysis.Succeeded)
+                    return 0;
+                long slowest = Analysis.Paths.Worst?.Worst ?? 0;
+                TimingReport t = Analysis.Timing;
+                foreach (StaticPath path in new[] { t.Critical, t.InputToRegister, t.RegisterToOutput, t.InputToOutput })
+                    if (path != null)
+                        slowest = Math.Max(slowest, path.Total);
+                return slowest;
+            }
+        }
+
+        /// <summary>
+        /// This timing with what <paramref name="measured"/> saw laid on it (Part 14c): the slowest measured beside the
+        /// critical path, a line for each input and output stepping moved, and every computed path longer than anything
+        /// measured from its input to its output marked as one that never fires. The lines picked are kept.
+        /// </summary>
+        public TimingView With(MeasuredTiming measured)
+        {
+            if (measured == null || Analysis == null)
+                return this;
+            string unit = Project.Settings?.TimeUnit ?? TimeUnits.Default;
+
+            var lines = new List<TimingLine>(Lines.Count + measured.Delays.Count + 2);
+            int critical = -1;
+            for (int at = 0; at < Lines.Count; at++)
+            {
+                TimingLine line = Lines[at];
+                if (at == Critical)
+                    critical = lines.Count;
+
+                // Identical paths are one line, but one may fire and another not -- a false path can have the same gates
+                // as a true one -- so a line of both is two: those seen, and those never.
+                if (line.Kind == TimingLineKind.Path && line.Ends.Count > 0 && line.Paths.Count == line.Ends.Count)
+                {
+                    var fired = new List<int>();
+                    var never = new List<int>();
+                    for (int e = 0; e < line.Ends.Count; e++)
+                    {
+                        MeasuredDelay seen = measured.For(line.Ends[e].From, line.Ends[e].To);
+                        (seen != null && seen.Worst >= line.Worst ? fired : never).Add(e);
+                    }
+
+                    if (never.Count == 0)
+                        lines.Add(line);
+                    else if (fired.Count == 0)
+                        lines.Add(Part(line, never, neverFires: true));
+                    else
+                    {
+                        lines.Add(Part(line, fired, neverFires: false));
+                        lines.Add(Part(line, never, neverFires: true));
+                    }
+                }
+                else
+                {
+                    lines.Add(line);
+                }
+
+                if (at == Critical && measured.Delays.Count > 0)
+                {
+                    MeasuredDelay slowest = measured.Delays[0];
+                    lines.Add(new TimingLine(TimingLineKind.Fact, "MEASURED WORST",
+                        slowest.Input + " → " + slowest.Output + ", as " + slowest.Input + (slowest.WorstRising ? " rises" : " falls") + " from " + slowest.When,
+                        Time(slowest.Worst, unit)));
+                }
+            }
+
+            lines.Add(new TimingLine(TimingLineKind.Fact, "MEASURED",
+                measured.Delays.Count == 0
+                    ? "No step of any input ever moved an output."
+                    : "Every input bit stepped up and down from every value of the others, " + measured.Steps.ToString("N0", CultureInfo.InvariantCulture)
+                      + " steps: the slowest each output changed, and the inputs that showed it", ""));
+            foreach (MeasuredDelay delay in measured.Delays)
+                lines.Add(new TimingLine(TimingLineKind.Fact, "",
+                    delay.Input + " → " + delay.Output + "   slowest as " + delay.Input + (delay.WorstRising ? " rises" : " falls") + " from " + delay.When,
+                    "rise " + Delay(delay.Rising) + " · fall " + Delay(delay.Falling) + " " + unit));
+
+            return new TimingView(Project, Analysis, lines, critical, measured);
+        }
+
+        /// <summary>A path line of only the ends <paramref name="ends"/> picks, lighting the first of them, and marked if it never fires.</summary>
+        private static TimingLine Part(TimingLine line, List<int> ends, bool neverFires)
+        {
+            var pairs = new (string, string)[ends.Count];
+            var signals = new IReadOnlyList<string>[ends.Count];
+            for (int i = 0; i < ends.Count; i++)
+            {
+                pairs[i] = line.Ends[ends[i]];
+                signals[i] = line.Paths[ends[i]];
+            }
+            return new TimingLine(line.Kind, line.Label, EndsText(pairs) + "   " + line.Via, neverFires ? line.Numbers + " · never fires" : line.Numbers,
+                signals[0], signals, pairs, line.Worst, neverFires, line.Via);
+        }
+
+        /// <summary>A path's ends, the first three and how many more: <c>a → cout, b → cout</c>.</summary>
+        private static string EndsText(IReadOnlyList<(string From, string To)> ends)
+        {
+            var text = new StringBuilder();
+            for (int i = 0; i < ends.Count && i < 3; i++)
+            {
+                if (i > 0)
+                    text.Append(", ");
+                text.Append(ends[i].From).Append(" → ").Append(ends[i].To);
+            }
+            if (ends.Count > 3)
+                text.Append(" and ").Append((ends.Count - 3).ToString(CultureInfo.InvariantCulture)).Append(" more");
+            return text.ToString();
         }
 
         /// <summary>The timing of nothing: what there is before a document.</summary>
@@ -267,21 +407,16 @@ namespace BitSorter.ViewModel
 
         private static TimingLine PathLine(string label, TimingPath path, Func<int, string> name, string unit)
         {
-            var ends = new StringBuilder();
-            for (int i = 0; i < path.Alike.Count && i < 3; i++)
-            {
-                if (i > 0)
-                    ends.Append(", ");
-                ends.Append(name(path.Alike[i].From)).Append(" → ").Append(name(path.Alike[i].To));
-            }
-            if (path.Alike.Count > 3)
-                ends.Append(" and ").Append((path.Alike.Count - 3).ToString(CultureInfo.InvariantCulture)).Append(" more");
-
             string numbers = "rise " + Delay(path.Rising) + " · fall " + Delay(path.Falling) + " " + unit;
-            var all = new IReadOnlyList<string>[path.Alike.Count];
-            for (int i = 0; i < all.Length; i++)
-                all[i] = Signals(path.Alike[i].From, path.ArcsOf(i), name);
-            return new TimingLine(TimingLineKind.Path, label, ends + "   " + Through(path.Steps), numbers, all[0], all);
+            var pairs = new (string, string)[path.Alike.Count];
+            var signals = new IReadOnlyList<string>[path.Alike.Count];
+            for (int i = 0; i < pairs.Length; i++)
+            {
+                pairs[i] = (name(path.Alike[i].From), name(path.Alike[i].To));
+                signals[i] = Signals(path.Alike[i].From, path.ArcsOf(i), name);
+            }
+            string via = Through(path.Steps);
+            return new TimingLine(TimingLineKind.Path, label, EndsText(pairs) + "   " + via, numbers, signals[0], signals, pairs, path.Worst, false, via);
         }
 
         private static TimingLine StaticLine(string label, StaticPath path, Func<int, string> name, string unit)

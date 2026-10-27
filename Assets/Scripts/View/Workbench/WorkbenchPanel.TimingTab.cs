@@ -12,10 +12,18 @@ namespace BitSorter.View
     /// and every path from an input to an output, the slowest first -- worked out again as it is drawn. A path picked is lit on
     /// the canvas (<see cref="TimingLight"/>), the critical path until another is; leaving the tab puts the light out.
     /// </summary>
+    /// <remarks>
+    /// **The measured worst** (Part 14c, <see cref="StepMeasure"/>) is made while the tab is up, a slice a frame on a copy of
+    /// the document, and laid on the computed timing once it is: the slowest seen beside the critical path, a line for each
+    /// input and output, and every computed path no step ever fires marked so. An edit starts it again. **STEP TEST**, in the
+    /// tab's header, makes the document's own stimulus a step test (<see cref="WorkbenchSession.StepTest"/>), one undo step,
+    /// so each delay can be read off the waves with the cursors.
+    /// </remarks>
     public sealed partial class WorkbenchPanel
     {
-        /// <summary>The tab's name, and a line's: this, and its place on screen.</summary>
-        public const string TimingTabName = "Workbench timing tab", TimingRowName = "Workbench timing row ";
+        /// <summary>The tab's name, and a line's: this, and its place on screen; STEP TEST's, and the line beside it.</summary>
+        public const string TimingTabName = "Workbench timing tab", TimingRowName = "Workbench timing row ",
+            StepTestName = "Workbench step test", TimingSaysName = "Workbench timing says";
 
         private const float TimingTabLeft = CodeTabLeft + CodeTabWidth + 4f, TimingTabWidth = 100f;
 
@@ -23,7 +31,11 @@ namespace BitSorter.View
         private VisualElement _timingTools, _timingList;
         private Label _timingEmpty;
         private readonly List<VisualElement> _timingRows = new List<VisualElement>();
-        private TimingView _timingShown;
+        private TimingView _timingShown, _timingBase;
+        private StepMeasure _measure;
+        private string _measureWhy;
+        private Label _timingSays;
+        private int _timingSaysShown = int.MinValue;
         private TimingLine _timingPickedLine;
         private int _timingPicked = -1, _timingFirst;
         private bool _timingDrawn;
@@ -34,13 +46,19 @@ namespace BitSorter.View
         /// <summary>The timing as the tab shows it; null until the tab has been shown.</summary>
         public TimingView Timing => _timingShown;
 
+        /// <summary>The measured worst being made, or made, for the document shown; null when it is not measured.</summary>
+        public StepMeasure Measuring => _measure;
+
+        /// <summary>What the TIMING tab's header says: how far the measuring has got, or why it is not measured.</summary>
+        public string TimingSays => _timingSays?.text;
+
         /// <summary>The line picked, lit on the canvas, by its index in <see cref="Timing"/>; -1 for none.</summary>
         public int TimingPicked => _timingPicked;
 
         /// <summary>Shows the timing, as its tab does.</summary>
         public void ShowTiming() => ShowDockTab(DockTab.Timing);
 
-        /// <summary>The TIMING tab beside CODE, and the line its header says how to use it on.</summary>
+        /// <summary>The TIMING tab beside CODE, STEP TEST, and the line its header says how far the measuring has got on.</summary>
         private void BuildTimingTab(VisualElement header, SchematicPalette palette)
         {
             _timingTabButton = Tab(TimingTabName, "TIMING", palette, () => ShowDockTab(DockTab.Timing));
@@ -52,11 +70,22 @@ namespace BitSorter.View
             _timingTools.style.right = 0f;
             header.Add(_timingTools);
 
-            Label how = ShellTheme.Label("how", "Click a path to light it on the circuit. Times are in the project's unit.", UiType.Caption, palette.TextDim);
-            ShellTheme.Place(how, ToolsLeft, 0f, -1f, ShellLayout.DockHeaderHeight);
-            how.style.right = 14f;
-            ShellTheme.Ellipsis(how);
-            _timingTools.Add(how);
+            ShellButton step = ShellTheme.Button(StepTestName, "STEP TEST", palette, StepTest, UiType.Caption);
+            ShellTheme.Place(step, ToolsLeft, 5f, 140f, 34f);
+            _timingTools.Add(step);
+
+            _timingSays = ShellTheme.Label(TimingSaysName, "", UiType.Caption, palette.TextDim);
+            ShellTheme.Place(_timingSays, ToolsLeft + 156f, 0f, -1f, ShellLayout.DockHeaderHeight);
+            _timingSays.style.right = 14f;
+            ShellTheme.Ellipsis(_timingSays);
+            _timingTools.Add(_timingSays);
+        }
+
+        /// <summary>STEP TEST: the stimulus made a step test of every input, one step, as the button does.</summary>
+        public void StepTest()
+        {
+            if (_session != null)
+                Said(_session.StepTest());
         }
 
         /// <summary>The timing's list, in the dock under its header, shut until its tab is chosen.</summary>
@@ -106,15 +135,30 @@ namespace BitSorter.View
                 return;
             }
 
+            // The document changed: its timing worked out again, and measured again from the start.
             TimingView view = _session.Timing;
-            if (!ReferenceEquals(view, _timingShown))
+            if (!ReferenceEquals(view, _timingBase))
             {
-                _timingShown = view;
-                _timingPicked = view.Find(_timingPickedLine);
-                // What is picked now is what an edit after this one keeps: a pick that fell back to the critical path stays there.
-                _timingPickedLine = _timingPicked >= 0 && _timingPicked < view.Lines.Count ? view.Lines[_timingPicked] : null;
-                _timingDrawn = false;
+                _timingBase = view;
+                _measure = StepMeasure.Start(_session.Project, view, () => UnityEngine.Time.realtimeSinceStartupAsDouble * 1000.0, out _measureWhy);
+                _timingSaysShown = int.MinValue;
+                ShowTimingView(_measure != null && _measure.Done ? view.With(_measure.Result) : view);
             }
+            else if (_measure != null && !_measure.Done)
+            {
+                _measure.Frame();
+                if (_measure.Done)
+                    ShowTimingView(view.With(_measure.Result));
+            }
+
+            // Written again only when what it says moves: a percent, or the measuring done.
+            int says = _measure == null ? -1 : _measure.Done ? 101 : Mathf.FloorToInt((float)_measure.Progress * 100f);
+            if (says != _timingSaysShown)
+            {
+                _timingSaysShown = says;
+                SetText(_timingSays, TimingHeader());
+            }
+            view = _timingShown;
 
             IReadOnlyList<IReadOnlyList<string>> lit = _timingPicked >= 0 && _timingPicked < view.Lines.Count ? view.Lines[_timingPicked].Paths : null;
             if (_editor != null && !ReferenceEquals(_editor.Path, lit))
@@ -122,6 +166,28 @@ namespace BitSorter.View
 
             if (!_timingDrawn)
                 DrawTiming();
+        }
+
+        /// <summary>The timing shown made <paramref name="view"/>, the line picked kept where it still is.</summary>
+        private void ShowTimingView(TimingView view)
+        {
+            _timingShown = view;
+            _timingPicked = view.Find(_timingPickedLine);
+            // What is picked now is what an edit after this one keeps: a pick that fell back to the critical path stays there.
+            _timingPickedLine = _timingPicked >= 0 && _timingPicked < view.Lines.Count ? view.Lines[_timingPicked] : null;
+            _timingDrawn = false;
+        }
+
+        /// <summary>The header's line: the measuring's progress, why there is none, or how to use the list.</summary>
+        private string TimingHeader()
+        {
+            const string how = "Click a path to light it on the circuit.";
+            if (_measure != null && !_measure.Done)
+                return "Measuring: every input stepped from every value of the others, "
+                    + Mathf.FloorToInt((float)_measure.Progress * 100f).ToString(System.Globalization.CultureInfo.InvariantCulture) + "%.";
+            if (_measure != null)
+                return "Measured: a path no step ever fires is marked. " + how;
+            return _measureWhy != null ? _measureWhy + " " + how : how;
         }
 
         /// <summary>

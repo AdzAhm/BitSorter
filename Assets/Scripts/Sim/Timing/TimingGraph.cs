@@ -210,10 +210,18 @@ namespace BitSorter.Sim
             int signal = SignalOf(node);
             if (signal < 0)
                 return node >= 0 && node < NodeCount ? _junctions[node - _first[Design.Signals.Count]] : "";
-            SignalInfo info = Design.Signals[signal];
+            return BitName(Design.Signals[signal], node - _first[signal]);
+        }
+
+        /// <summary>
+        /// Bit <paramref name="bit"/> of <paramref name="info"/>'s value as the source names it: its name alone for a one-bit
+        /// signal, and with the index its range gives that bit otherwise -- <c>a[3]</c> is bit 0 of <c>logic [3:0] a</c>'s
+        /// value, but bit 3 of <c>logic [0:3] a</c>'s. What a step test names its bits by too, so the two reckonings agree.
+        /// </summary>
+        public static string BitName(SignalInfo info, int bit)
+        {
             if (info.Width == 1)
                 return info.Name;
-            int bit = node - _first[signal];
             int index = info.Msb >= info.Lsb ? info.Lsb + bit : info.Lsb - bit;
             return info.Name + "[" + index.ToString(System.Globalization.CultureInfo.InvariantCulture) + "]";
         }

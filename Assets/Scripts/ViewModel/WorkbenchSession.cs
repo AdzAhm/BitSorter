@@ -489,6 +489,21 @@ namespace BitSorter.ViewModel
             return result;
         }
 
+        /// <summary>
+        /// The stimulus made a step test (Part 14c, <see cref="StepTests.Readable"/>): every input bit in turn rises, settles,
+        /// falls and settles, each left longer than the slowest path the timing found -- one step, and run again. Refused for
+        /// a design a written testbench drives, which a stimulus does not.
+        /// </summary>
+        public EditResult StepTest()
+        {
+            if (Project.Bench != null)
+                return EditResult.Refused("A written testbench drives this circuit, not a stimulus: convert it first, and then step its inputs.");
+            StepPlan plan = StepTests.Readable(Project, StepTests.SettleFor(Timing.Slowest));
+            if (plan.Inputs.Count == 0)
+                return EditResult.Refused("There is no input to step: give the circuit an input first.");
+            return Replayed(Editor.SetStimulus(plan.Stimulus), 0);
+        }
+
         /// <summary>The document counted in <paramref name="unit"/> (<see cref="BoardEditor.SetSettings"/>), and replayed: nothing is rescaled, everything is relabelled.</summary>
         public EditResult SetUnit(string unit) =>
             unit == Unit ? EditResult.Ok() : Replayed(Editor.SetSettings(Project.Settings with { TimeUnit = unit }), 0);

@@ -18,6 +18,7 @@ namespace BitSorter.Board.Tests
         public static IEnumerable<string> Names => new[]
         {
             "half_adder", "half_adder_delayed", "full_adder", "johnson", "johnson_timed", "buses", "mux4", "tristate", "half_adders", "ripple8", "written",
+            "full_adder_steps", "false_path_steps",
         };
 
         /// <summary>The boards drawn throughout: what an import can draw again. A written module comes in as written with Part 13.</summary>
@@ -37,6 +38,8 @@ namespace BitSorter.Board.Tests
                 case "tristate": return TriState();
                 case "half_adders": return HalfAdders();
                 case "ripple8": return Ripple8();
+                case "full_adder_steps": return Stepped(FullAdder());
+                case "false_path_steps": return Stepped(FalsePath());
                 case "written": return Written();
                 default: throw new ArgumentException(name);
             }
@@ -132,6 +135,48 @@ namespace BitSorter.Board.Tests
             b.Wire(or, "y", cout, "in");
 
             return Exhaustive(editor, new[] { "a", "b", "cin" }, 20);
+        }
+
+        /// <summary>
+        /// <paramref name="project"/> driven by the measuring run (Part 14c): each input stepped up and down from every value
+        /// of the others, each step left longer than its slowest path to settle.
+        /// </summary>
+        private static Project Stepped(Project project)
+        {
+            long settle = StepTests.SettleFor(TimingAnalysis.Of(project).Paths.Worst?.Worst ?? 0);
+            var editor = new BoardEditor(project);
+            Must(editor.SetStimulus(StepTests.Exhaustive(project, settle).Stimulus));
+            return editor.Project;
+        }
+
+        /// <summary>
+        /// A false path (Part 14c): y = s ? (s ? a : b) : c, of gates -- an inner choice of a and b, and an outer one of that
+        /// and c, both on s. b's way through the inner choice needs s at 0 and through the outer s at 1, so no step of any
+        /// input ever sends a change from b to y, though the gates make a path of four, 8 long.
+        /// </summary>
+        private static Project FalsePath()
+        {
+            var editor = new BoardEditor(Project.New("false_path"));
+            var b = new Builder(editor, "false_path");
+            int s = b.In("s"), a = b.In("a"), bb = b.In("b"), c = b.In("c"), y = b.Out("y");
+            int not = b.Gate(GateKind.Not, 1, 1, inputs: 1);
+            int innerA = b.Gate(GateKind.And, 2, 2), innerB = b.Gate(GateKind.And, 2, 2), inner = b.Gate(GateKind.Or, 2, 2);
+            int outerIn = b.Gate(GateKind.And, 2, 2), outerC = b.Gate(GateKind.And, 2, 2), outer = b.Gate(GateKind.Or, 2, 2);
+            b.Wire(s, "out", not, "a");
+            b.Wire(s, "out", innerA, "a");
+            b.Wire(a, "out", innerA, "b");
+            b.Wire(not, "y", innerB, "a");
+            b.Wire(bb, "out", innerB, "b");
+            b.Wire(innerA, "y", inner, "a");
+            b.Wire(innerB, "y", inner, "b");
+            b.Wire(s, "out", outerIn, "a");
+            b.Wire(inner, "y", outerIn, "b");
+            b.Wire(not, "y", outerC, "a");
+            b.Wire(c, "out", outerC, "b");
+            b.Wire(outerIn, "y", outer, "a");
+            b.Wire(outerC, "y", outer, "b");
+            b.Wire(outer, "y", y, "in");
+            return editor.Project;
         }
 
         /// <summary>Four half adders as one array block (Part 12c): bit i of each bus to copy i.</summary>

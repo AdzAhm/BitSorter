@@ -1180,6 +1180,42 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
+        /// The measured worst and STEP TEST (Part 14c): the TIMING tab measures the full adder while it is up, a slice a frame,
+        /// and lays the slowest seen beside its critical path -- 4, as computed; STEP TEST makes the stimulus a step test, one
+        /// undo step.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator TheTimingTab_MeasuresTheWorst_AndSTEPTESTMakesTheStimulus()
+        {
+            yield return TestScene.Load();
+            yield return Click(MainMenu.WorkbenchButton);
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowSample(SampleNamed("Full adder"));
+            yield return null;
+            workbench.Pause();
+            workbench.Session.Finish();
+            yield return null;
+
+            yield return Click(WorkbenchPanel.TimingTabName);
+            Assert.IsNotNull(workbench.Measuring, "a full adder is measured");
+            for (int frame = 0; frame < 600 && !workbench.Measuring.Done; frame++)
+                yield return null;
+            Assert.IsTrue(workbench.Measuring.Done, "measured within the cap");
+            yield return null;
+
+            string unit = workbench.Session.Project.Settings?.TimeUnit ?? BitSorter.SystemVerilog.TimeUnits.Default;
+            Assert.AreEqual("4 " + unit, workbench.Timing.Lines.Single(l => l.Label == "MEASURED WORST").Numbers);
+            StringAssert.StartsWith("Measured", workbench.TimingSays);
+
+            yield return Click(WorkbenchPanel.StepTestName);
+            Assert.AreEqual(42, workbench.Session.Project.Stimulus.End, "each input up and down, 6 to settle");
+            yield return UntilReplayed(workbench);
+            workbench.UndoEdit();
+            yield return null;
+            Assert.AreEqual(WorkbenchSamples.FullAdderEnd, workbench.Session.Project.Stimulus.End, "and one undo puts the stimulus back");
+        }
+
+        /// <summary>
         /// Two code fields at once (Part 12e): a plain click in the read-only listing leaves the workbench its keys, since it
         /// draws no caret to say it has them; a drag selects and keeps them for Ctrl+C; and a click from there into a written
         /// block's code leaves the keyboard with the code -- the listing lets go of itself alone.
