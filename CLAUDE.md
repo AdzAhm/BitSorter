@@ -955,7 +955,9 @@ failure side.
   as Ctrl+Enter does. TextMesh Pro's field had only Ctrl+A, C, V and X -- Tab typed a
   tab and Ctrl+Z did nothing -- and the browser's CodeMirror had the rest but find;
   it takes `@codemirror/search` now (Ctrl+F, Ctrl+D), and the keyboard map lists the
-  lot under IN THE CODE. **In a browser the page's code editor
+  lot under IN THE CODE. CodeMirror's undo starts from the block's code
+  (`CodeMirrorBridge.Load`): put in as a change, it was a step of that undo, and Ctrl+Z
+  after the first thing typed left the editor empty (the 14g browser smoke test). **In a browser the page's code editor
   counts as typing too** (`CodeMirrorBridge.Focused`, asked once a frame) -- its box,
   find's fields included, not only its text -- and
   while it has the keyboard the canvas stops taking every key. Derived, never set, for the reason pointer ownership is: a "typing"
@@ -973,11 +975,15 @@ failure side.
   keeps it** until it is let go on purpose: in the browser UI Toolkit lets a
   field go, to nothing, after the press that gave it the keyboard -- a click
   into it, on + SIGNAL, a double-click on a part -- and the first keys typed
-  went nowhere (the 11d smoke test), so the shell gives it back. **A key that
-  asks for a field gives it the keyboard the frame after**
+  went nowhere (the 11d smoke test), so the shell gives it back -- as it was, with
+  what was chosen in it: it came back with the caret at its start, and + CODE's free
+  name, chosen to be typed over, was typed in front of (the 14g smoke test). **A key
+  that asks for a field gives it the keyboard the frame after**
   (`ShellPanel.FocusAfterTheKey`): the platform's half of the key can reach UI
   Toolkit after the game has read it, and A typed an "a" into the search it
-  opened. **A shell field is not the
+  opened. So does the name field + CODE and MAKE BLOCK open under the pointer: the
+  browser's game read their click's press after the field had opened on it, as a
+  press off the field, and let it go. **A shell field is not the
   event system's selection**, so `UiText.Typing` asks the shell as well
   (`ShellPanel.Typing`). **No key moves the focus round the shell** (Part 14g): a
   click on it makes it the event system's selection, and an arrow after that was UI

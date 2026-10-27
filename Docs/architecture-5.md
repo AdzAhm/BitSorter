@@ -1905,7 +1905,8 @@ code editor in the circuit's window, and a block made from a selection asks for 
   frame -- and the canvas stops taking every key (`WebGLInput.captureAllKeyboardInput`).
 - **Bundled, never fetched**: `Tools/codemirror` pins every package in `package-lock.json`; `build.ps1` installs exactly
   those, with no install scripts run, and bundles them into `codemirror.jspre`, about 340 KB before the build compresses
-  it, which Unity puts at the head of a browser build. Its head names each package, its version and its copyright line.
+  it, which Unity puts at the head of a browser build. It runs the editor's own tests first, under Node's test runner
+  (`Tools/codemirror/test`, Part 14g), on what needs no page (`src/game-text.js`). Its head names each package, its version and its copyright line.
   The privacy scan reads it like any file; its one nine-digit number, CodeMirror's 10^9 less one, is on the allowlist
   with that reason.
 - **IBM Plex Mono ships as the code's face** (Ahmad approved the download, 2026-10-26): the family of the game's Plex
@@ -2553,6 +2554,13 @@ computed and measured, registers given a clock to Q and a setup, a library mode 
   device on a bus flashes for its own output, and for its inout's wire only when it has none, since a bus flips for
   every driver on it; and `InoutPinTests` holds a wire with one inout pin a `tri` where it is no bus -- inside, read by
   a gate, and as an output four bits wide, its testbench's end a `wire`.
+- **The 14g browser smoke test** (the served WebGL build, 2026-10-27) found two faults, each a red test and then the fix:
+  CodeMirror's undo took the block's code itself out after the first thing typed, the putting in of it a step of that
+  undo -- a block's code is now where the editor's undo starts (`CodeMirrorBridge.Load`, `blockState`, held under Node);
+  and the name field + CODE and MAKE BLOCK open under the pointer lost the keyboard to their own click, read a frame
+  late, and came back without its free name chosen -- it takes the keyboard the frame after now, and the shell gives a
+  field back with what was chosen in it. The review of 14g-4 found a third, older one: an exported written module came
+  back from an import with the export's header in its code, one more each round (`BoardPrinter.WithoutHeader`).
 
 ---
 
