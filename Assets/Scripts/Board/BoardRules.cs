@@ -116,9 +116,13 @@ namespace BitSorter.Board
         /// <summary>
         /// The gate library (Part 14d), when the project has one: its cells BitSorter's, each once, at delays a gate could
         /// have; every drawn gate one of them at its cell's delays; no MUX, which is no cell; no constant where it takes none
-        /// -- errors, so an edit that breaks the library is refused as any other is -- and a design over its gate budget, a
-        /// warning, since gates are added one at a time on the way to fewer.
+        /// -- errors, so an edit that breaks the library is refused as any other is.
         /// </summary>
+        /// <remarks>
+        /// **A written module is not held to it**, so far: its code is checked as SystemVerilog, not cell by cell. **The
+        /// budget is not a rule here**: the TIMING tab lays the design's gate count against it, written code's gates
+        /// included, and one count in one place cannot disagree with a second (the 14d review found two).
+        /// </remarks>
         private static void CheckLibrary(Project project, List<BoardDiagnostic> found)
         {
             GateLibrary library = project.Settings?.Library;
@@ -166,34 +170,6 @@ namespace BitSorter.Board
                 }
             }
 
-            if (library.GateBudget >= 0)
-            {
-                long gates = GatesIn(project, project.Top, new HashSet<string>());
-                if (gates > library.GateBudget)
-                    found.Add(new BoardDiagnostic(DiagnosticSeverity.Warning, null,
-                        $"The design has {gates} gates, over the library's budget of {library.GateBudget}."));
-            }
-        }
-
-        /// <summary>
-        /// How many gates <paramref name="module"/> is built of, a wide gate's every bit and a block's contents each time it
-        /// is placed: what a gate budget counts. A written module's are its code's, and not counted here.
-        /// </summary>
-        public static long GatesIn(Project project, string module, HashSet<string> seen)
-        {
-            Module m = project.Find(module);
-            if (m == null || m.IsWritten || !seen.Add(m.Name))
-                return 0;
-            long gates = 0;
-            foreach (Part part in m.Parts)
-            {
-                if (part is GatePart gate)
-                    gates += gate.Width;
-                else if (part is BlockPart block)
-                    gates += GatesIn(project, block.Module, seen) * block.Copies;
-            }
-            seen.Remove(m.Name);
-            return gates;
         }
 
         /// <summary>

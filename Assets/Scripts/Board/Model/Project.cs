@@ -102,7 +102,10 @@ namespace BitSorter.Board
         /// </summary>
         public string TimeUnit { get; init; } = SystemVerilog.TimeUnits.Default;
 
-        /// <summary>The rise and fall a newly placed gate takes: a library cell's, as the course's cells default to.</summary>
+        /// <summary>
+        /// The rise and fall a newly placed gate takes, as the course's cells default to -- under a gate library
+        /// (<see cref="Library"/>), its cell's instead -- and what COURSE CELLS starts every cell at.
+        /// </summary>
         public long DefaultGateDelay { get; init; } = 1;
 
         /// <summary>

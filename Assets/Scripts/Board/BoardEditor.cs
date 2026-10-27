@@ -98,6 +98,11 @@ namespace BitSorter.Board
             if (part == null)
                 return EditResult.Refused("There is nothing to place.");
 
+            // Under a library a gate takes its cell's delays, wherever it comes from -- a paste of one copied before the
+            // library changed included (the 14d review).
+            if (part is GatePart gate && Project.Settings?.Library?.CellFor(gate.Kind, gate.Inputs) is LibraryCell cell)
+                part = gate with { Rise = cell.Rise, Fall = cell.Fall };
+
             int id = m.NextId;
             Part placed = part with { Id = id, Name = part.Name ?? DefaultName(m, part) };
             Module next = m with
@@ -579,6 +584,13 @@ namespace BitSorter.Board
                     }
                 modules.Add(parts == null ? module : module with { Parts = parts });
             }
+
+            // The library it already has, every gate already its cell's: nothing to do, and no step to undo (the 14d review).
+            bool retimed = false;
+            for (int i = 0; i < modules.Count && !retimed; i++)
+                retimed = !ReferenceEquals(modules[i], Project.Modules[i]);
+            if (!retimed && GateLibrary.Alike(library, Project.Settings?.Library))
+                return EditResult.Ok();
 
             ProjectSettings settings = (Project.Settings ?? new ProjectSettings()) with { Library = library };
             return Commit(Project with { Modules = modules, Settings = settings });

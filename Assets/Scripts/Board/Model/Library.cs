@@ -25,8 +25,12 @@ namespace BitSorter.Board
         /// <summary>Tpdhl: a change to 0.</summary>
         public long Fall { get; init; }
 
-        /// <summary>What the course calls it: <c>NAND2</c>, <c>INV</c>.</summary>
-        public string Name => CellLibrary.CellFor(Kind, Inputs) ?? Kind.ToString().ToUpperInvariant() + Inputs.ToString(CultureInfo.InvariantCulture);
+        /// <summary>What the course calls it: <c>NAND2</c>, <c>INV</c>; a gate with no cell by its kind, and its inputs when it has a choice.</summary>
+        public string Name => CellLibrary.CellFor(Kind, Inputs)
+            ?? Kind.ToString().ToUpperInvariant() + (Inputs > 1 && !IsTriState(Kind) ? Inputs.ToString(CultureInfo.InvariantCulture) : "");
+
+        private static bool IsTriState(GateKind kind) =>
+            kind == GateKind.Bufif0 || kind == GateKind.Bufif1 || kind == GateKind.Notif0 || kind == GateKind.Notif1;
     }
 
     /// <summary>
@@ -59,6 +63,23 @@ namespace BitSorter.Board
 
         /// <summary>How many gates the design may have, a wide gate's every bit counted; -1 for no budget.</summary>
         public int GateBudget { get; init; } = -1;
+
+        /// <summary>
+        /// Whether <paramref name="a"/> and <paramref name="b"/> are the same library, cell for cell -- what record equality
+        /// cannot say, since it compares the lists of cells by reference. Two nulls are alike: no library either way.
+        /// </summary>
+        public static bool Alike(GateLibrary a, GateLibrary b)
+        {
+            if (ReferenceEquals(a, b))
+                return true;
+            if (a == null || b == null || a.Name != b.Name || a.NoConstants != b.NoConstants || a.GateBudget != b.GateBudget
+                || a.Cells.Count != b.Cells.Count)
+                return false;
+            for (int i = 0; i < a.Cells.Count; i++)
+                if (!Equals(a.Cells[i], b.Cells[i]))
+                    return false;
+            return true;
+        }
 
         /// <summary>The cell of <paramref name="kind"/> with <paramref name="inputs"/> inputs, or null when the library has none.</summary>
         public LibraryCell CellFor(GateKind kind, int inputs)

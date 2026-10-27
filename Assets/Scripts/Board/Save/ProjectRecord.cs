@@ -6,12 +6,6 @@ using BitSorter.SystemVerilog.Syntax;
 
 namespace BitSorter.Board
 {
-    /// <summary>
-    /// A document as the save file holds it: <c>format: 5</c> (section 8). Plain public fields in the
-    /// shape Unity's JSON reader needs -- no dictionaries, no class that can be null, no inheritance --
-    /// so a part is one record with a <see cref="PartRecord.kind"/> and the fields its kind uses, and a
-    /// value is written as a SystemVerilog literal.
-    /// </summary>
     /// <summary>A gate library as the save file holds it (Part 14d): its cells by kind, inputs, rise and fall.</summary>
     [Serializable]
     public sealed class LibraryRecord
@@ -63,6 +57,12 @@ namespace BitSorter.Board
         public long fall;
     }
 
+    /// <summary>
+    /// A document as the save file holds it: <c>format: 5</c> (section 8). Plain public fields in the
+    /// shape Unity's JSON reader needs -- no dictionaries, no class that can be null, no inheritance --
+    /// so a part is one record with a <see cref="PartRecord.kind"/> and the fields its kind uses, and a
+    /// value is written as a SystemVerilog literal.
+    /// </summary>
     [Serializable]
     public sealed class ProjectRecord
     {

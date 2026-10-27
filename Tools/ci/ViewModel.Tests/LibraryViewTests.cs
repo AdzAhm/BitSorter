@@ -107,6 +107,51 @@ namespace BitSorter.ViewModel.Tests
             Assert.AreEqual(TimingLineKind.Problem, over.Kind);
         }
 
+        /// <summary>
+        /// A gate copied before the library changed is pasted at its cell's delays now, not refused for the old ones (the
+        /// 14d review): the full adder's OR copied, COURSE CELLS set at 3, and the paste an OR2 at 3.
+        /// </summary>
+        [Test]
+        public void AGateCopiedBeforeTheLibraryChanged_IsPastedAtItsCellsDelays()
+        {
+            var session = new WorkbenchSession(WorkbenchSamples.FullAdder(), Ticking(0.01));
+            session.Finish();
+            GatePart or = session.Project.TopModule.Parts.OfType<GatePart>().Single(g => g.Kind == GateKind.Or);
+            Clip clip = Clipboard.Copy(session.Project, session.Module, new[] { or.Id });
+            Assert.IsTrue(session.SetLibrary(GateLibrary.CourseCells(3)).Done);
+
+            var parts = new List<int>();
+            EditResult pasted = Clipboard.Paste(session.Editor, session.Module, clip, parts, new List<int>());
+            Assert.IsTrue(pasted.Done, pasted.Refusal);
+            GatePart copy = (GatePart)session.Project.TopModule.FindPart(parts.Single());
+            Assert.AreEqual((3L, 3L), (copy.Rise, copy.Fall));
+        }
+
+        /// <summary>The library it already has, set again, is no step: nothing to undo, and the run not made again.</summary>
+        [Test]
+        public void TheSameLibrarySetAgain_IsNoStep()
+        {
+            WorkbenchSession session = Under(GateLibrary.CourseCells(1) with { GateBudget = 5 });
+            int steps = 0;
+            while (session.Undo())
+                steps++;
+            Assert.AreEqual(1, steps, "sanity: setting it was one step");
+            Assert.IsTrue(session.Redo());
+
+            Assert.IsTrue(session.SetLibrary(GateLibrary.CourseCells(1) with { GateBudget = 5 }).Done, "the same, made afresh");
+            Assert.IsTrue(session.Undo());
+            Assert.IsNull(session.Project.Settings?.Library, "one undo goes back past the library: setting it again made no step");
+        }
+
+        /// <summary>No gates yet, under a budget: one sentence, not "No gates yet.; ...".</summary>
+        [Test]
+        public void NoGatesUnderABudget_ReadsAsOneSentence()
+        {
+            WorkbenchSession session = new WorkbenchSession(WorkbenchSamples.Blank(), Ticking(0.01));
+            Assert.IsTrue(session.SetLibrary(GateLibrary.CourseCells(1) with { GateBudget = 5 }).Done);
+            Assert.AreEqual("No gates yet; the library's budget is 5", session.Timing.Lines.Single(l => l.Label == "GATE COUNT").Text);
+        }
+
         /// <summary>The budget changed and nothing else, the session's timing says the new one: no gate moved, but its line did.</summary>
         [Test]
         public void ABudgetChanged_IsSaidAtOnce()

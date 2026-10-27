@@ -314,7 +314,7 @@ namespace BitSorter.ViewModel
             int budget = project.Settings?.Library?.GateBudget ?? -1;
             bool over = budget >= 0 && analysis.Gates > budget;
             if (budget >= 0)
-                count += over ? "; over the library's budget of " + Number(budget) : "; the library's budget is " + Number(budget);
+                count = count.TrimEnd('.') + (over ? "; over the library's budget of " + Number(budget) : "; the library's budget is " + Number(budget));
             lines.Add(new TimingLine(over ? TimingLineKind.Problem : TimingLineKind.Fact, "GATE COUNT", count, ""));
 
             foreach (IReadOnlyList<string> loop in graph.Loops)
@@ -392,7 +392,7 @@ namespace BitSorter.ViewModel
             // The unit and the library too: the design times alike, but every number on the tab is written in the one, and
             // the gate count is laid against the other's budget.
             if (a == null || b == null || a.Top != b.Top || a.Modules.Count != b.Modules.Count
-                || a.Settings?.TimeUnit != b.Settings?.TimeUnit || !Equals(a.Settings?.Library, b.Settings?.Library))
+                || a.Settings?.TimeUnit != b.Settings?.TimeUnit || !GateLibrary.Alike(a.Settings?.Library, b.Settings?.Library))
                 return false;
             for (int m = 0; m < a.Modules.Count; m++)
             {

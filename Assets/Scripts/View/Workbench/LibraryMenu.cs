@@ -46,7 +46,12 @@ namespace BitSorter.View
             LibraryMenu menu = Make<LibraryMenu>(shell, owner, RootName, palette, ItemWidth);
             menu._says = menu.Note(SaysName);
             menu._none = menu.Item(NoneItem, "NO LIBRARY: ANY GATE, AT ANY DELAY", () => set(null));
-            menu._course = menu.Item(CourseItem, "COURSE CELLS", () => set(GateLibrary.CourseCells(menu._delay)));
+            // The cells afresh; the budget and the rule on constants are the student's, and kept (the 14d review).
+            menu._course = menu.Item(CourseItem, "COURSE CELLS", () => set(GateLibrary.CourseCells(menu._delay) with
+            {
+                NoConstants = menu._library?.NoConstants ?? false,
+                GateBudget = menu._library?.GateBudget ?? -1,
+            }));
             menu._constants = menu.Item(ConstantsItem, "", () => set(menu._library with { NoConstants = !menu._library.NoConstants }), breakBefore: true);
             menu._budget = menu.Item(BudgetItem, "", askBudget);
             bool first = true;

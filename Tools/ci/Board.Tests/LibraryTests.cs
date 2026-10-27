@@ -9,7 +9,7 @@ namespace BitSorter.Board.Tests
     /// <summary>
     /// Gate-library mode (Part 14d): the course's preset is BitSorter's own cells; under a library the rules refuse a gate it
     /// has no cell for, a gate off its cell's delays, a MUX and -- where it takes none -- a constant, each in words; setting
-    /// it gives every gate its cell's delays in one step; a design over its budget is warned of; and it is saved.
+    /// it gives every gate its cell's delays in one step; a design over its budget is never refused; and it is saved.
     /// </summary>
     public class LibraryTests
     {
@@ -77,7 +77,7 @@ namespace BitSorter.Board.Tests
             string top = editor.Project.Top;
 
             EditResult tri = editor.Add(top, new GatePart { Kind = GateKind.Bufif1, Inputs = 2 }, new Placement(30, 30));
-            StringAssert.Contains("which the library has no cell for", tri.Refusal);
+            StringAssert.Contains("is a BUFIF1, which the library has no cell for", tri.Refusal, "named by its kind, no count of inputs");
             EditResult wide = editor.Add(top, new GatePart { Kind = GateKind.And, Inputs = 2, Rise = 1, Fall = 1, Width = 4 }, new Placement(30, 33));
             Assert.IsTrue(wide.Done, "a wide gate of a cell is that cell a bit");
 
@@ -116,15 +116,17 @@ namespace BitSorter.Board.Tests
             Assert.IsNull(editor.Project.Settings.Library, "and nothing changed");
         }
 
-        /// <summary>The full adder is five gates: over a budget of 4 it is warned of, never refused -- gates come one at a time on the way to fewer.</summary>
+        /// <summary>
+        /// The full adder is five gates: over a budget of 4 it is never refused -- gates come one at a time on the way to
+        /// fewer -- and the rules say nothing of it: the TIMING tab's gate count is the one count, written code's gates and
+        /// all (the 14d review found the rules counting drawn gates alone).
+        /// </summary>
         [Test]
-        public void ADesignOverItsBudget_IsWarnedOf()
+        public void ADesignOverItsBudget_IsNeverRefused()
         {
             BoardEditor editor = Under(SampleBoards.Build("full_adder"), GateLibrary.CourseCells(1) with { GateBudget = 4 });
-            BoardDiagnostic warning = BoardRules.Check(editor.Project).Single(d => d.Message.Contains("budget"));
-            Assert.IsFalse(warning.IsError);
-            StringAssert.Contains("5 gates, over the library's budget of 4", warning.Message);
-            Assert.IsFalse(BoardRules.Check(Under(SampleBoards.Build("full_adder"), GateLibrary.CourseCells(1) with { GateBudget = 5 }).Project).Any(d => d.Message.Contains("budget")));
+            Assert.IsFalse(BoardRules.Check(editor.Project).Any(d => d.Message.Contains("budget")));
+            Assert.IsTrue(editor.Add(editor.Project.Top, new GatePart { Kind = GateKind.And, Inputs = 2 }, new Placement(30, 30)).Done, "a sixth gate");
         }
 
         [Test]

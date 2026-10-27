@@ -61,7 +61,8 @@ namespace BitSorter.ViewModel
     ///   until <see cref="ResetUntil"/>, the clock's first falling edge, when the course changes an input. Each
     ///   is named clk and rst while those are free.
     /// - **A gate takes the project's delay** (<see cref="ProjectSettings.DefaultGateDelay"/>), rise and fall, as
-    ///   a library cell does; two inputs, one for NOT and BUF.
+    ///   a library cell does; two inputs, one for NOT and BUF. **Under a gate library** (Part 14d) only its gates are
+    ///   offered, each with the fewest inputs a cell of it has, at that cell's delays.
     /// - **Every module of the project but the one being built is a block**, placed as an instance of it.
     /// - Placing is one step for undo, made in full or not at all (<see cref="BoardEditor.Group"/>).
     /// </remarks>
