@@ -436,6 +436,43 @@ endmodule");
             Assert.AreEqual(0, graph.Registers.Single().Timing.Tcq);
         }
 
+        /// <summary>
+        /// A combinational process's delays are on its paths (the 14c review): <c>#2</c> before its assignment, 2 from a and b
+        /// to y; a nonblocking <c>#3</c>, 3 from a to z. None is the run's to know.
+        /// </summary>
+        [Test]
+        public void AProcessesDelay_IsOnItsPaths()
+        {
+            TimingGraph graph = Graph(@"
+module late (input logic a, b, output logic y, z);
+    always @* #2 y = a & b;
+    always @(a) z <= #3 a;
+endmodule");
+
+            PathReport report = PathDelays.Find(graph);
+            TimingPath toY = report.Paths.Single(p => Name(graph, p.To) == "late.y");
+            Assert.AreEqual(2, toY.Worst);
+            CollectionAssert.AreEquivalent(new[] { "late.a", "late.b" }, toY.Alike.Select(e => Name(graph, e.From)), "a's and b's alike, through the one block");
+            Assert.AreEqual(3, report.Paths.Single(p => Name(graph, p.To) == "late.z").Worst);
+        }
+
+        /// <summary>
+        /// An assignment of a value that can be z lets go after its turn-off delay (the 14c review): 7, past its rise of 1 and
+        /// its fall of 2, so a change of en can take 7 -- and d, through the same assignment, is taken at 7 as well.
+        /// </summary>
+        [Test]
+        public void AnAssignmentThatCanLetGo_TakesItsTurnOffDelay()
+        {
+            TimingGraph graph = Graph(@"
+module drive (input logic d, en, output wire y);
+    assign #(1, 2, 7) y = en ? d : 1'bz;
+endmodule");
+
+            PathReport report = PathDelays.Find(graph);
+            Assert.AreEqual(7, report.Paths.Single(p => Name(graph, p.From) == "drive.en").Worst);
+            Assert.AreEqual(7, report.Paths.Single(p => Name(graph, p.From) == "drive.d").Worst);
+        }
+
         /// <summary>A tri-state's control can turn it off, which takes the turn-off delay: en reaches y at 9, d at its own 1 and 2.</summary>
         [Test]
         public void ATriStatesControl_TakesItsTurnOffDelay()
