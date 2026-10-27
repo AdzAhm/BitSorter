@@ -2324,30 +2324,47 @@ computed and measured, registers given a clock to Q and a setup, a library mode 
   of the others, those walked in Gray order so one changes between one pair of steps and the next. Each step is left
   **the slowest computed path and half again** (`SettleFor`, at least 2): static timing's path is the latest any change
   can arrive, so every change a step makes falls before the next step. Exhaustive is for at most ten input bits, 5,120
-  pairs of steps; STEP TEST steps up to 64 and holds the rest at 0, and an input driven as a clock keeps its clock.
+  pairs of steps; STEP TEST steps up to 64 and holds the rest at 0, and an input driven as a clock keeps its clock --
+  each step then left its longest period more, since what a step does reaches a register only on the next edge.
 - **`StepMeasure`** (view-model) runs the measuring stimulus on a copy of the document -- its own stimulus, a written
   testbench set aside -- a slice a frame at half a run's budget, and reads the waves: after each step, the last change of
   each output bit before the next, the slowest kept for each input and output bit, rising and falling apart, with the
   inputs as they stood before the step that showed it (`a = 0, b = 1, cin = 0`). **A glitch counts**: a change that comes
   and goes is a change, as it is on the waves. Only a circuit without registers, which one with them is timed by its
-  clock, and of at most ten input bits; otherwise the tab says why.
+  clock, and of at most ten input bits; otherwise the tab says why. **And only where the computed slowest is a bound**,
+  since every step is left to settle for longer than it: no loop of logic, and no delay the run works out
+  (`TimingGraph.UnknownDelays`). A change seen later than the slowest all the same, or a run that stops short of its end,
+  gives no measure at all (`Problem`) rather than one that may be wrong. The run keeps no transitions in flight, and is
+  let go once read.
+- **Static timing reckons what a process waits** (the 14c review, a fix to 14a): a combinational process's delay is
+  every `#` it waits and its latest `<= #`, on the way in, so `always @* #2 y = a & b;` takes 2 from a to y; and an
+  assignment takes the latest of its rise or fall and its turn-off, as a tri-state's control already did. Both had
+  under-reckoned the slowest path the settle time is worked out from.
 - **`TimingView.With`** lays what was measured on the computed timing: the slowest seen beside the critical path
   (MEASURED WORST), a line for each input and output, and **every computed path longer than anything measured from its
   input to its output marked "never fires"** -- a false path. Identical paths are one line, but a false path can have the
   same gates in the same order as a true one, so a line of both is split in two, each lighting its own path
-  (`TimingPath.ArcsOf` keeps each identical path's arcs for this).
-- **The TIMING tab** measures while it is up and an edit starts it again, its header saying how far it has got; **STEP
-  TEST** beside it makes the document's stimulus a step test, one undo step, refused for a design a written testbench
-  drives. A bit is named by its signal's range in both reckonings (`TimingGraph.BitName`), so `[0:3]` agrees too.
+  (`TimingPath.ArcsOf` keeps each identical path's arcs for this), the MEASURED WORST right under the part of the critical
+  path that fires. A run in which no step moved anything marks nothing: it says the run saw nothing, not that no path
+  fires.
+- **The TIMING tab** measures while it is up and an edit that changes the design starts it again -- a move or STEP TEST
+  does not, so what was measured stands -- its header saying how far it has got, or why nothing was measured; a change
+  of unit works the tab out again in the new one. **STEP TEST** beside it makes the document's stimulus a step test, one
+  undo step, refused for a design a written testbench drives. A bit is named by its signal's range in both reckonings (`TimingGraph.BitName`), so `[0:3]` agrees too.
 - **Checked.** `StepTestsTests`: the settle time; STEP TEST stepping a, b and cin in turn; the measuring run's 24 steps on
   three inputs, each standing at its word before it with only its bit moving and nothing else while it settles; a bus a
-  bit at a time; eleven bits refused. `StepMeasureTests`: the full adder seen at its computed 4 (and cin's 2), nothing
+  bit at a time; eleven bits refused; a clocked design's steps left a period more. `TimingTests`: a process's `#2` and
+  `<= #3` on its paths, a delay reading a signal flagged, an assignment's turn-off of 7 past its rise and fall.
+  `StepMeasureTests`: the full adder seen at its computed 4 (and cin's 2), nothing
   marked; a false path -- y = s ? (s ? a : b) : c of gates, b's path of four computed at 8 and never moving y, marked,
   split from a's identical one, which fires at 8, and s's slowest a glitch at 9, as computed; a register refused; the
-  document's own stimulus untouched; STEP TEST in one undo step. Oracle: the full adder and the false path driven by the
+  document's own stimulus untouched; STEP TEST in one undo step; y = (a | b) & b, whose one critical line is split, the
+  measured worst under b's part that fires and a's that never does after it; y = a & 0 marking nothing; a latch refused;
+  a run that stops short giving no measure; a move and STEP TEST keeping the analysis. `TimingViewTests`: a change of unit
+  said in the new one. Oracle: the full adder and the false path driven by the
   measuring stimulus (`full_adder_steps`, `false_path_steps`) run under Icarus change for change, 668 and 1,069 settled
   changes -- what is measured here is what Icarus would measure. Play Mode: the TIMING tab measuring the full adder to
-  its 4, and STEP TEST making the stimulus and undone.
+  its 4, and STEP TEST making the stimulus, keeping what was measured, and undone.
 
 ---
 
