@@ -51,7 +51,7 @@ namespace BitSorter.View
         /// <summary>The ports' keys the waveform's rows were last made to follow.</summary>
         private List<string> _portKeys = new List<string>();
 
-        /// <summary>MY CIRCUIT as last written, and when it is next to be; -1 for nothing waiting.</summary>
+        /// <summary>The circuit open as last written, and when it is next to be; -1 for nothing waiting.</summary>
         private Project _keptProject;
         private double _keepAt = -1;
 

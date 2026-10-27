@@ -5,8 +5,9 @@ using ShellButton = UnityEngine.UIElements.Button;
 namespace BitSorter.View
 {
     /// <summary>
-    /// A question before something a click should not do by itself (Part 13d): replacing MY CIRCUIT with an import,
-    /// converting a testbench, deleting a module (Part 14g, which Ctrl+Z still brings back). The question, then the thing to
+    /// A question before something a click should not do by itself (Part 13d): converting a testbench, deleting a module
+    /// (Part 14g, which Ctrl+Z still brings back), deleting a circuit (Part 15a, which nothing does). It once asked before an
+    /// import replaced MY CIRCUIT; since Part 15a an import is a circuit of its own. The question, then the thing to
     /// do and CANCEL; Escape or a click off it is CANCEL.
     /// </summary>
     public sealed class AskMenu : WaveMenu

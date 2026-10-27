@@ -305,8 +305,7 @@ gives them back out:
 - **Your circuits.** MY CIRCUIT is always there. NEW CIRCUIT makes another, named,
   and OPEN A CIRCUIT lists them all, the one you opened last first; RENAME and DELETE
   work on any but MY CIRCUIT, and DELETE asks first, since a deleted circuit cannot
-  be brought back. Each is kept as you leave it. A free-play board from 4.x is one of
-  them, under its own name.
+  be brought back. Each is kept as you leave it, and each exports under its own name.
 - **Import.** On a desktop, put a project's files — its `.sv` files, any files they
   `` `include ``, and the memory images `$readmemh` reads — in the Import folder
   (FILE, OPEN THE IMPORT FOLDER), then IMPORT. In a browser, IMPORT picks the files

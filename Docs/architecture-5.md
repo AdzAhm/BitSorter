@@ -758,7 +758,11 @@ lives in the engine's layer, which already sees the syntax tree, so the layers s
   `ProjectRecord`: plain fields in the shape `JsonUtility` needs, a part one record with a `kind`, values as
   literals. The 4.x keys stay as they were, because the 4.x game reads them until Part 16.
   `SaveMigration.MigrateAll` migrates every board with no document yet, rebuilding each exactly as the
-  game would, so a document edited in 5.0 is never replaced by its old board.
+  game would, so a document edited in 5.0 is never replaced by its old board. **Nothing calls it on the
+  player's save yet**: Part 15d wires it in with the Exercises, and must then leave alone a board whose
+  circuit the student has deleted, or DELETE would be undone at the next launch.
+- **Part 15a adds** `recent`, the circuits the latest opened first, and two kinds of key under `projects`:
+  `workbench`, MY CIRCUIT's, and `doc/` with the name of a circuit made with NEW or imported.
 - **Checked.** In `Board.Tests`, a board each way a 4.x board could be -- gates, a slow wire, a register
   in a loop, a block placed twice, names, two drivers -- run on the engine and read at each vector; and
   every sample board through the save format and back to the same text. In Edit Mode,
@@ -1922,7 +1926,8 @@ code editor in the circuit's window, and a block made from a selection asks for 
 **As built in Part 13a**: a project exported for ModelSim. The plan for Part 13, approved 2026-10-26, is six pull
 requests -- 13a export, 13b import with the course's own testbench, 13c CONVERT, 13d files and the import flow, 13e the
 course's templates, 13f limits and the browser -- with Ahmad's choices: an imported testbench runs as written, and
-CONVERT turns any of them into editable stimulus; an import goes into MY CIRCUIT; desktop keeps fixed folders; a
+CONVERT turns any of them into editable stimulus; an import goes into MY CIRCUIT (until Part 15a made each a circuit of
+its own); desktop keeps fixed folders; a
 template is imported, then exported filled.
 
 - **FILE, beside SAMPLE**, opens a menu (`FileMenu`): EXPORT PROJECT now, the rest as Part 13 goes on.
@@ -2062,16 +2067,17 @@ template is imported, then exported filled.
   shown is the one it was said about -- the first edit or another document takes it away, so a refused import's reasons
   do not stay on a circuit they are not about. An import of which nothing at all could be made is refused, with its
   reasons there. Files in a hidden folder -- a project's `.git` -- are left out, in a folder read and a browser's pick
-  alike, and a picker closed with nothing picked leaves nothing behind in the page. MY CIRCUIT
-  counts as having something when its top is written, or it has modules besides the top, as well as when it has parts:
-  an imported design with a written top would otherwise have been replaced without asking.
+  alike, and a picker closed with nothing picked leaves nothing behind in the page. Until Part 15a, MY CIRCUIT counted
+  as having something -- so was asked about -- when its top was written, or it had modules besides the top, as well as
+  when it had parts: an imported design with a written top would otherwise have been replaced without asking.
 - **CONVERT is in the FILE menu while a testbench drives the inputs**, and asks first, saying what the stimulus will not
   keep and that Ctrl+Z puts it back; refused with why when it cannot be. SET's refusal names it.
 - **Checked.** `TranscriptTests`: what an import said, listed first until set again. Play Mode (`WorkbenchCanvasPlayTests`):
   a project put in the Import folder imported into MY CIRCUIT, run by its testbench to where it stops, a file that does
   not read named in the TRANSCRIPT with its line and what the testbench printed there too; the question before an
-  import over a circuit, CANCEL keeping it and the answer replacing it; CONVERT asking what it loses, the inputs then the
-  stimulus's, and CONVERT no longer offered. Reference shot 46, new: a project imported into MY CIRCUIT, running under its
+  import over a circuit, CANCEL keeping it and the answer replacing it (taken out with the question in Part 15a);
+  CONVERT asking what it loses, the inputs then the stimulus's, and CONVERT no longer offered. Reference shot 46, new: a
+  project imported into MY CIRCUIT -- since Part 15a, as a circuit of its own, its name on the chip -- running under its
   testbench, with what it printed in the TRANSCRIPT; 45 differs in the FILE menu's two new items.
 
 **As built in Part 13e**: course templates, imported and handed back filled.
@@ -2576,7 +2582,8 @@ workbench more than one circuit.
 - **A circuit is a document the save keeps under its key** (`Documents`, a view-model rule, tested under dotnet):
   - MY CIRCUIT under `workbench`, always there, never renamed or deleted;
   - a circuit made with NEW, or imported, under `doc/` and its name;
-  - each 4.x free-play board, which the save's migration already kept under `free-play/` and its name (Part 7b).
+  - each 4.x free-play board, which the save's migration keeps under `free-play/` and its name (Part 7b) -- once it runs on
+    the player's save, which it does not yet (Part 15d).
   - A level's migrated board is no circuit: it is that exercise's (Part 15d).
 - **Names** are 1 to 32 letters, digits, spaces, dashes, underscores and dots, unique by any case, MY CIRCUIT's
   included. A new circuit is offered circuit1, circuit2..., and its top module is its name as SystemVerilog takes one
@@ -2584,7 +2591,12 @@ workbench more than one circuit.
 - **FILE** gains NEW CIRCUIT, OPEN A CIRCUIT, and RENAME and DELETE THIS CIRCUIT, the last two only for a circuit of
   the student's own.
   - OPEN lists every circuit the latest opened first (`DocumentMenu`), from the save's new `recent`, which keeps
-    sixteen and is absent, so empty, in every older file.
+    sixteen and is absent, so empty, in every older file. It lists twelve at a time, OLDER and NEWER stepping through the
+    rest: it stopped at twenty with nothing past them, and with an import a circuit of its own a term's homework gets
+    there. OPEN on the circuit already open does nothing, rather than building it again.
+  - Each exports -- PNG, VCD, the project, a submission -- under its own name; every one was exported as MY CIRCUIT.
+  - RESET PROGRESS (Settings) takes the circuits with the save: the workbench lets the one it had open go without
+    writing it back, and opens MY CIRCUIT, blank, the next time it opens.
   - DELETE asks first and cannot be undone, and MY CIRCUIT opens in its place.
   - The SAMPLE chip's first place is the circuit open, its name on the chip.
   - The workbench keeps the circuit open under its own key (`KeepMyCircuit`).
@@ -2593,7 +2605,8 @@ workbench more than one circuit.
   `mux2 2`). So it never replaces anything, and the question it asked before replacing MY CIRCUIT is gone.
 - **Checked.** dotnet: `DocumentsTests` (which keys are circuits, names, free names, the order). Edit Mode: the recent
   list, a rename and a delete through a restart. Play Mode: NEW, RENAME refused by a name taken, OPEN's list with an
-  old free-play board in it, DELETE asking and opening MY CIRCUIT; an import as a circuit, twice, MY CIRCUIT as it was.
+  old free-play board in it, an export under its name, DELETE asking and opening MY CIRCUIT; OPEN paging through sixteen;
+  RESET PROGRESS leaving MY CIRCUIT blank and nothing written back; an import as a circuit, twice, MY CIRCUIT as it was.
 
 ---
 

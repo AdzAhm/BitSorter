@@ -1475,8 +1475,9 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
-        /// Shot 46 (Part 13d): a project imported from the Import folder into MY CIRCUIT -- a mux of gates, drawn, and its
-        /// testbench, written -- running under its testbench, with what the import said in the TRANSCRIPT.
+        /// Shot 46 (Part 13d): a project imported from the Import folder -- a mux of gates, drawn, and its testbench, written --
+        /// running under its testbench, with what the import said in the TRANSCRIPT. Since Part 15a it opens as a circuit of
+        /// its own, its name on the chip, where it went into MY CIRCUIT.
         /// </summary>
         [UnityTest]
         public IEnumerator Shot46_WorkbenchImportedProject()
