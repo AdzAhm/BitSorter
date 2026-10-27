@@ -592,7 +592,7 @@ patterns, and no tri-state, `function`, `task`, `$display`, `` `timescale ``, `d
 | A — structural | modules and ANSI ports; `logic` and vectors; `parameter` and `localparam`, in `#(parameter ...)` headers too; gate primitives with `#(rise, fall)`; `assign`; instances, by name and by position, with `#(.P(v))`; `generate for` with `genvar` and a named block; `` `include ``; concatenation and `{n{x}}`; bit and part selects; sized and unsized literals | 4 |
 | B — behavioural | `always_ff @(posedge clk, posedge rst)`; `always_comb`; `initial`; plain `always`; `begin`/`end`; `if`/`else`; `case` with `default`; `for`, `repeat`, `forever`; `=` and `<=`; `#delay`; `@(posedge` and `negedge)`; `typedef enum`; `?:`; arithmetic, shifts, comparisons, bitwise and reduction operators | 5 |
 | C — the processor | memories; `$readmemh` and `$writememh`; `casex`; `signed` and `>>>`; `$info`, `$error`, `$stop`, `$finish` with `%X %d %b %h`; hierarchical references; timeouts | 6 |
-| Syllabus extras | tri-state (`bufif`, `notif`, `tri`), `integer`, `$time`, `` `timescale `` read as a display hint -- and, from L7, a finer precision as the tick a file counts in -- `**` | 14 and later; a `bufif` or `notif` alone on its net is drawn, printed and imported from 8 |
+| Syllabus extras | tri-state (`bufif`, `notif`, `tri`), `integer`, `$time`, `` `timescale `` read as a display hint -- and, from L7, a finer precision as the tick a file counts in -- `**` | a `bufif` or `notif` alone on its net is drawn, printed and imported from 8; several on one net, a bus, and `inout` in written code from 14f |
 | Functions and tasks | `function` and `task`, static and automatic, ANSI and old-style arguments, defaults, `return`, `void` functions, recursion inside an expression | L2 |
 | Expressions | `inside` and `case inside`, `==?` and `!=?`, casts to the built-in types and to typedefs, an enum's methods, `$countones`, `$onehot`, `$onehot0`, `$isunknown`, `$random`, `$urandom`, `$urandom_range` | L3 |
 | Data types | packed `struct` and `union`, their members read and written (`pkt.kind`, `prog[i].op`); packed arrays of any number of dimensions, of structs and of typedefs; memories of more than one dimension; `foreach`; assignment patterns, `'{...}`, in order, by member, by index and with `default:`; `$bits` of a type or a memory | L4 |
@@ -2448,6 +2448,35 @@ computed and measured, registers given a clock to Q and a setup, a library mode 
   `BoardEditorTests`: a gate that drives nothing a warning. `WrittenModuleTests`: a written block's lint at its lines.
   `ProjectImportTests`: a testbench that never prints the output it watches said nothing of.
 
+**As built in Part 14f**: tri-state buses, and `inout`.
+
+- **A bus on the board.** A wire may have more than one driver when every one is a tri-state gate
+  (`BoardRules.IsBus`); any other second driver is refused as before, the refusal saying what a bus is driven by. A
+  bus is printed as a `tri` net -- `tri logic`, as a port too -- and where two drive at once it reads x, as the waves
+  show. A block's output is no driver of a bus, even one a tri-state gate inside drives: what is inside a block is its
+  own. **A testbench declares an output the design makes a net as a `wire`**: Icarus joins a port to what it is
+  connected to, and a variable there takes one driver.
+- **`inout` is joined, not assigned.** An inout port is driven from both sides, so the elaborator joins it to the whole
+  net it is connected to -- declared as that net under the port's name (`JoinInouts`, `DeclareSignal`), and found by
+  that name as well (`DesignBuilder.Alias`) -- where every other port is a zero-delay assignment one way. An assignment
+  each way would hold a bus at whatever it last was. Icarus joins them the same way. One left unconnected floats, a
+  net of its own; one given a select, a concatenation, a variable or a net of another width is refused, saying it joins
+  a whole net of its own width. **The engine is unchanged**: a joined net is one signal with drivers from both sides,
+  resolved as any net is.
+- **Written code may use it; a drawn board, not yet.** A written module may have an inout and be the top, its
+  testbench's end a net. A block of one is refused in words, a drawn port may not be one, and an imported module with
+  one comes in as written code: a drawn block's pins are inputs and outputs, and an inout pin on a block's face -- which
+  reaches through the netlist, the compiler, the schematic and the importer -- is left for when a course design asks
+  for it (none does: the course's code has no tri-state and no inout, which is syllabus, not code).
+- **Checked.** `BoardEditorTests`: two tri-state gates on one wire a bus, a third driver of another kind refused. The
+  bus sample (two BUFIF1 on one output -- each alone, both at once, neither) runs under Icarus as here and through every
+  sample test: compile, import, geometry, export and the save. `InoutTests`: the join driven from both sides -- a value
+  either way, x where both drive and disagree, z where neither does -- one left floating, and a select, a variable and
+  the wrong width refused. `WrittenModuleTests`: a written top with an inout compiled and elaborated, its testbench's end
+  a `wire`, and a block of it refused. Oracle: the corpus's shared bus -- two devices on one `tri` through inout ports,
+  one inside a wrapper, the testbench driving it too through a gate and an assignment -- agrees with Icarus on every
+  signal and every line printed.
+
 ---
 
 ## 11. The parts
@@ -2470,7 +2499,7 @@ Each part is one pull request into `v5`, ends with every suite green, and leaves
 | 11 | The workbench shell, in UI Toolkit -- **built**, in four: 11a the bridges and the toolbar; 11b the docked layout -- its panels (11b-1), the inspector docked (11b-2), the popups in the shell (11b-3); 11c the transcript and the hierarchy; 11d the keyboard map, the status line and the docs |
 | 12 | Hierarchy, and written blocks, edited in CodeMirror in a browser -- in six: 12a stepping inside a block **built** (see "As built in Part 12a"); 12b making a block **built** (see "As built in Part 12b"); 12c arrays **built** (see "As built in Part 12c"); 12d code blocks **built** (see "As built in Part 12d"); 12e the code panel **built** (see "As built in Part 12e"); 12f CodeMirror **built** (see "As built in Part 12f") |
 | 13 | Export and import (and a levelized path in the engine, only if a measurement asks for it) -- in six: 13a exporting a project **built** (see "As built in Part 13a"); 13b importing one **built** (see "As built in Part 13b"); 13c CONVERT **built** (see "As built in Part 13c"); 13d files **built** (see "As built in Part 13d"); 13e templates **built** (see "As built in Part 13e"); 13f limits, the security review, the measurement and the browser check **built** (see "As built in Part 13f"; the levelized path is not needed). **Part 13 is built.** |
-| 14 | The course's tools: path delays, static timing, gate-library mode, step tests, lint, tri-state -- in six: 14a the timing analysis core, 14b the TIMING tab, 14c step tests, 14d gate-library mode and 14e lint **built** (see "As built in Part 14a", "14b", "14c", "14d" and "14e"), 14f tri-state buses |
+| 14 | The course's tools: path delays, static timing, gate-library mode, step tests, lint, tri-state -- in six, **built**: 14a the timing analysis core, 14b the TIMING tab, 14c step tests, 14d gate-library mode, 14e lint and 14f tri-state buses and inout (see "As built in Part 14a" to "14f") |
 | 15 | The Exercises and the tutorial |
 | 16 | The old game retired, and a smaller download; 5.0.0 released |
 

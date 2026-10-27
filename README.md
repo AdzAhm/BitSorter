@@ -327,6 +327,35 @@ The workbench's **FILE** menu takes a project's files in and gives them back out
 Nothing you import or export is sent anywhere: it stays on your machine, or in
 your browser's tab.
 
+### The course's tools (5.0 preview)
+
+Once a circuit works, the workbench answers the questions the course asks of it:
+
+- **TIMING**, a tab in the dock beside CODE. It lists every path from an input to
+  an output, worked out by the textbook rule: each gate adds its Tpdlh where its
+  output rises and its Tpdhl where it falls. Paths through the same gates are
+  grouped, and the slowest comes first. The critical path is lit on the circuit,
+  and clicking another path lights that one. For a circuit with registers, give
+  each its clock-to-Q and setup in its inspector, and the tab gives the minimum
+  clock period and the frequency that allows. The tab also counts the gates.
+- **The measured worst.** For a circuit of up to ten input bits and no registers,
+  the TIMING tab steps every input up and down from every value of the others.
+  It shows the slowest each output really changed, and the input values that
+  caused it. A computed path that no step ever fires is marked "never fires".
+  **STEP TEST** turns your stimulus into a step test, one input at a time, so you
+  can read each delay off the waves with the cursors. Ctrl+Z undoes it.
+- **LIBRARY**, on the TIMING tab, holds a design to a gate library. **COURSE
+  CELLS** allows only the course's cells, and PARTS then offers only those. Every
+  gate of a cell keeps that cell's delays: type a delay on any one of them and
+  the cell, and every gate of it, follows. You can also take a kind of gate out,
+  refuse constants, and set a gate budget, which the gate count is held against.
+- **Warnings, as ModelSim's `vlog` gives them.** The TRANSCRIPT warns about a
+  signal read that nothing drives, one set that nothing reads, two drivers on a
+  wire that cannot both let go, and a value cut short by a narrower target. They
+  never stop a run.
+- **Buses.** Several tri-state gates (BUFIF, NOTIF) may drive one wire; where two
+  drive at once it reads x on the waves. Written code may use `inout` ports.
+
 ### What it collects
 
 The game uses Unity Analytics, which sends anonymous usage data to Unity.
