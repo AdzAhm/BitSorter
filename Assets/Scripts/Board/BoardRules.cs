@@ -326,6 +326,17 @@ namespace BitSorter.Board
                             ? $"{part.Name}.{first.Pin} is not connected, so it reads x."
                             : $"Nothing drives {net.Name}, so it reads x.", part.Id);
                 }
+
+                // What a gate, a MUX or a register works out and nothing uses (Part 14e, as vlog warns of a signal set
+                // and never read). A splitter's spare bit, an input left unused and a block's spare output are the
+                // ordinary way of things, and said nothing of.
+                if (net.Drivers.Count > 0 && net.Pins.Count == net.Drivers.Count)
+                {
+                    PinRef driver = net.Drivers[0];
+                    Part part = partsById[driver.Part];
+                    if (part is GatePart || part is MuxPart || part is RegisterPart)
+                        Warning($"{part.Name}.{driver.Pin} drives nothing, so what it works out is never used.", part.Id);
+                }
             }
         }
 

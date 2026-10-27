@@ -40,6 +40,23 @@ namespace BitSorter.Board.Tests
             Assert.IsEmpty(add4.Parts);
         }
 
+        /// <summary>
+        /// A written block's lint (Part 14e) is said in the transcript at its own lines, as warnings: what it reads that
+        /// nothing drives, and -- since it is only ever an instance -- what it sets and never reads.
+        /// </summary>
+        [Test]
+        public void AWrittenBlocksLint_IsSaidAtItsLines_AsWarnings()
+        {
+            BoardEditor editor = WithWritten("odd", Module("odd", "    input logic a,\n    output logic y",
+                "    wire w;\n    logic spare;\n    assign spare = a;\n    assign y = a & w;"));
+            BoardDiagnostic[] said = BoardRules.Check(editor.Project).Where(d => d.Module == "odd").ToArray();
+
+            Assert.IsFalse(said.Any(d => d.IsError), string.Join("; ", said.Select(d => d.Message)));
+            BoardDiagnostic undriven = said.Single(d => d.Message.StartsWith("w is read"));
+            Assert.AreEqual(5, undriven.Line, "w's declaration");
+            Assert.AreEqual(6, said.Single(d => d.Message == "spare is set, but nothing reads it.").Line);
+        }
+
         [Test]
         public void AWrittenBlock_IsCompiledAsWritten_AndAdds()
         {

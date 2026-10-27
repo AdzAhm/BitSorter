@@ -133,6 +133,18 @@ namespace BitSorter.Board.Tests
             StringAssert.Contains("reads x", warning.Message);
         }
 
+        /// <summary>A gate whose output goes nowhere is said, as vlog says a signal set and never read (Part 14e); never refused.</summary>
+        [Test]
+        public void AGateThatDrivesNothing_IsAWarning_NotARefusal()
+        {
+            var b = new Bench();
+            int g = b.Gate(GateKind.And);
+
+            BoardDiagnostic warning = b.Editor.Diagnostics.Single(d => d.Part == g && d.Message.Contains("drives nothing"));
+            Assert.IsFalse(warning.IsError);
+            Assert.AreEqual("g1.y drives nothing, so what it works out is never used.", warning.Message);
+        }
+
         [Test]
         public void AVectorGateWithDifferentRiseAndFall_IsAWarning_ThatSimulatorsPartOnIt()
         {
