@@ -1134,7 +1134,7 @@ namespace BitSorter.PlayMode.Tests
             Assert.AreEqual(timing.Critical, workbench.TimingPicked, "the critical path, picked to begin with");
             StringAssert.StartsWith("a → cout", timing.Lines[timing.Critical].Text);
             Assert.AreEqual(3, workbench.Overlay.PathParts.Count, "h1, h2 and the OR lit");
-            Assert.AreEqual(2, workbench.Overlay.PathPorts.Count, "and a and cout");
+            Assert.AreEqual(3, workbench.Overlay.PathPorts.Count, "and a, b and cout: a to cout and b to cout are one line, both lit");
             Assert.IsNotNull(ShellPanel.Find<UnityEngine.UIElements.VisualElement>(WorkbenchPanel.TimingRowName + "0"), "its lines on screen");
 
             int toS = timing.Lines.ToList().FindIndex(l => l.CanPick && l.Text.StartsWith("a → s"));
