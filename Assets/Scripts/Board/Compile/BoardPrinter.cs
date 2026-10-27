@@ -28,10 +28,32 @@ namespace BitSorter.Board
     /// </summary>
     public static class BoardPrinter
     {
+        private const string Written = ": written in BitSorter.";
+        private const string Drawn = ": drawn in BitSorter.";
+
         public static IReadOnlyList<PrintedSource> Print(Project project)
         {
             CompiledProject compiled = BoardCompiler.Compile(project);
             return compiled.Succeeded ? Print(compiled) : new PrintedSource[0];
+        }
+
+        /// <summary>
+        /// <paramref name="source"/> without the line this printer heads <paramref name="module"/>'s file with, and the blank
+        /// lines after it, when it opens with one: a module exported and imported again is the text it was, where it once
+        /// gained one more "written in BitSorter." a round, an import keeping the comments above a module.
+        /// </summary>
+        public static string WithoutHeader(string module, string source)
+        {
+            string head = "// " + module;
+            if (source == null || !(source.StartsWith(head + Written, System.StringComparison.Ordinal)
+                || source.StartsWith(head + Drawn, System.StringComparison.Ordinal)))
+                return source;
+            int at = source.IndexOf('\n');
+            if (at < 0)
+                return "";
+            while (at < source.Length && (source[at] == '\n' || source[at] == '\r'))
+                at++;
+            return source.Substring(at);
         }
 
         public static IReadOnlyList<PrintedSource> Print(CompiledProject compiled)
@@ -65,12 +87,12 @@ namespace BitSorter.Board
                 if (module.Module.IsWritten)
                 {
                     // Its own text, as written (Part 12d): the tree the engine runs was read from it.
-                    text.Append("// ").Append(module.Module.Name).Append(": written in BitSorter.\n\n").Append(module.Module.Source);
+                    text.Append("// ").Append(module.Module.Name).Append(Written).Append("\n\n").Append(module.Module.Source);
                     printed.Add(new PrintedSource(module.Module.Name + ".sv", text.ToString()));
                     continue;
                 }
 
-                text.Append("// ").Append(module.Module.Name).Append(": drawn in BitSorter.");
+                text.Append("// ").Append(module.Module.Name).Append(Drawn);
                 if (compiled.Cells.Count > 0)
                     text.Append(" Gates with a delay are cells of ").Append(CellLibrary.FileName).Append('.');
                 text.Append("\n\n").Append(Printer.Print(module.Declaration));

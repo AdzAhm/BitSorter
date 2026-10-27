@@ -1977,7 +1977,9 @@ template is imported, then exported filled.
   that is: the comments and directives just above it, and in front the `define`s, includes and conditionals the file
   made between earlier modules, read without their comments -- so the seven modules of `processor/mcpu.sv` each read
   alone, and `ifdef SIM ... else ... endif` above a module still chooses. Left out: a guard round the whole file, a
-  `timescale` (**which sets the project's unit** instead), and an include of a file whose modules are the project's.
+  `timescale` (**which sets the project's unit** instead), an include of a file whose modules are the project's, and
+  the line the export heads a module's file with, "// reg4: written in BitSorter." (`BoardPrinter.WithoutHeader`), so a
+  project exported and imported again is the text it was -- until the 14g-4 review found it, each round added one.
   A file whose conditionals choose *between* modules cannot be cut, and the import says so. An include is named by its
   file's bare name, since that is how a project keeps its files.
 - **A project has other files** (`Project.Files`, `ProjectFiles`): what a written module includes and what

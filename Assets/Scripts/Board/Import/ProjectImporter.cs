@@ -441,7 +441,7 @@ namespace BitSorter.Board
                     source = cutter.Alone(module);
                 }
 
-                return new Module { Name = module.Name, Source = source };
+                return new Module { Name = module.Name, Source = BoardPrinter.WithoutHeader(module.Name, source) };
             }
 
             var decided = new Dictionary<string, Module>(StringComparer.Ordinal);
