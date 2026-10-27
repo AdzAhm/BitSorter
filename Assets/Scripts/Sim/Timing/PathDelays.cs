@@ -109,14 +109,19 @@ namespace BitSorter.Sim
                 throw new ArgumentNullException(nameof(graph));
 
             var outputs = new HashSet<int>(graph.Outputs);
-            var onPath = new bool[graph.Design.Signals.Count];
+            bool[] leads = LeadsOut(graph);
+            var onPath = new bool[graph.NodeCount];
             var arcs = new List<TimingArc>();
             var found = new List<TimingPath>();
             bool capped = false;
 
             foreach (int start in graph.Inputs)
             {
-                // Depth first, without recursion: each frame is a signal and the next arc to try from it.
+                if (!leads[start])
+                    continue;
+
+                // Depth first, without recursion: each frame is a node and the next arc to try from it. Only a node that
+                // leads to an output is gone into, so every step is on the way to a path found, and the cap bounds the walk.
                 var frames = new Stack<(int Node, int Next)>();
                 frames.Push((start, 0));
                 onPath[start] = true;
@@ -139,7 +144,7 @@ namespace BitSorter.Sim
                     for (int k = next; k < leaving.Count; k++)
                     {
                         TimingArc arc = graph.Arcs[leaving[k]];
-                        if (onPath[arc.To])
+                        if (onPath[arc.To] || !leads[arc.To])
                             continue;
                         frames.Push((node, k + 1));
                         frames.Push((arc.To, 0));
@@ -164,6 +169,35 @@ namespace BitSorter.Sim
             }
 
             return new PathReport(Group(graph, found), found.Count, capped);
+        }
+
+        /// <summary>Which nodes an output can be reached from, by the arcs a path may take: walked back from the outputs.</summary>
+        private static bool[] LeadsOut(TimingGraph graph)
+        {
+            var into = new List<int>[graph.NodeCount];
+            for (int n = 0; n < graph.NodeCount; n++)
+                foreach (int a in graph.Leaving(n))
+                {
+                    int to = graph.Arcs[a].To;
+                    (into[to] ??= new List<int>()).Add(n);
+                }
+
+            var leads = new bool[graph.NodeCount];
+            var todo = new Stack<int>();
+            foreach (int output in graph.Outputs)
+                if (!leads[output])
+                {
+                    leads[output] = true;
+                    todo.Push(output);
+                }
+            while (todo.Count > 0)
+                foreach (int from in into[todo.Pop()] ?? (IEnumerable<int>)Array.Empty<int>())
+                    if (!leads[from])
+                    {
+                        leads[from] = true;
+                        todo.Push(from);
+                    }
+            return leads;
         }
 
         /// <summary>A path's delays, from its start rising and from it falling.</summary>
@@ -227,8 +261,8 @@ namespace BitSorter.Sim
                 int byWorst = b.Worst.CompareTo(a.Worst);
                 if (byWorst != 0)
                     return byWorst;
-                int byFrom = string.CompareOrdinal(graph.Design.Signals[a.From].Name, graph.Design.Signals[b.From].Name);
-                return byFrom != 0 ? byFrom : string.CompareOrdinal(graph.Design.Signals[a.To].Name, graph.Design.Signals[b.To].Name);
+                int byFrom = string.CompareOrdinal(graph.NameOf(a.From), graph.NameOf(b.From));
+                return byFrom != 0 ? byFrom : string.CompareOrdinal(graph.NameOf(a.To), graph.NameOf(b.To));
             });
             return order;
         }

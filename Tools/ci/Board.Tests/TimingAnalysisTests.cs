@@ -88,6 +88,24 @@ namespace BitSorter.Board.Tests
             StringAssert.Contains("clock to Q and setup cannot be less than 0", error.Message);
         }
 
+        /// <summary>
+        /// Eight full adders as one array block, the carries a bus passed from copy to copy through a splitter and a joiner:
+        /// no loop, and the slowest path is the carry rippling from a[0] -- the first XOR either way (2), then each copy's AND
+        /// and OR, 1 + 1 rising and 2 + 1 falling, eight times -- 26, falling.
+        /// </summary>
+        [Test]
+        public void ADrawnRippleAdder_ItsCarriesABus_RipplesThroughEveryCopy()
+        {
+            TimingAnalysis analysis = TimingAnalysis.Of(SampleBoards.Build("ripple8"));
+
+            Assert.IsTrue(analysis.Succeeded, analysis.Problem);
+            Assert.IsEmpty(analysis.Graph.Loops, "the carries are bits of one bus, not the bus fed from itself");
+            TimingPath worst = analysis.Paths.Worst;
+            Assert.AreEqual(26, worst.Worst);
+            Assert.AreEqual("ripple8.cout", analysis.Graph.NameOf(worst.To));
+            CollectionAssert.Contains(worst.Alike.Select(e => analysis.Graph.NameOf(e.From)), "ripple8.a[0]");
+        }
+
         /// <summary>The full adder's paths, through its gates, worst first: the analysis a drawn design gets.</summary>
         [Test]
         public void ADrawnFullAdder_ItsPaths_AreFoundThroughItsGates()

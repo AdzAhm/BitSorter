@@ -99,6 +99,21 @@ namespace BitSorter.Sim
             return false;
         }
 
+        /// <summary>
+        /// What each bit of its value depends on, for the timing (Part 14a): by default every bit on every bit it reads, a
+        /// change passed either way. A node that knows better -- a read, a select, a concatenation, a bitwise operator --
+        /// says so itself.
+        /// </summary>
+        /// <param name="first">The timing graph's first node of each signal, by index, and one past the last signal's.</param>
+        internal virtual BitDeps Depends(int[] first) => BitDeps.Unknown(this, first);
+
+        /// <summary>Its value, when it is a constant and nothing else.</summary>
+        internal virtual bool TryConstant(out LogicVec value)
+        {
+            value = default;
+            return false;
+        }
+
         // -----------------------------------------------------------------
         // Building expressions
         // -----------------------------------------------------------------
@@ -186,6 +201,20 @@ namespace BitSorter.Sim
             internal override void CollectCalls(ICollection<FunctionInfo> calls) => _offset.CollectCalls(calls);
 
             internal override int Height => 1 + HeightOf(_offset);
+
+            /// <summary>Bit i of the word is bit i of any word, as the offset picks, and the offset either way.</summary>
+            internal override BitDeps Depends(int[] first)
+            {
+                SourceSet offset = _offset.Depends(first).Union.Through(Sense.Either);
+                return BitDeps.Bits(_width, routing: false, i =>
+                {
+                    var parts = new (SourceSet, Sense)[_depth + 1];
+                    parts[0] = (offset, Sense.Positive);
+                    for (int w = 0; w < _depth; w++)
+                        parts[w + 1] = (i < first[_first + w + 1] - first[_first + w] ? SourceSet.Of(first[_first + w] + i) : SourceSet.Empty, Sense.Positive);
+                    return SourceSet.Union(parts);
+                });
+            }
         }
 
         /// <summary><c>$signed(a)</c> or <c>$unsigned(a)</c>: the same bits, read with another signedness.</summary>
@@ -206,6 +235,7 @@ namespace BitSorter.Sim
             internal override void CollectCalls(ICollection<FunctionInfo> calls) => _a.CollectCalls(calls);
 
             internal override int Height => 1 + HeightOf(_a);
+            internal override BitDeps Depends(int[] first) => _a.Depends(first);
         }
 
         private sealed class SignednessExpr : Expr
@@ -231,6 +261,7 @@ namespace BitSorter.Sim
             internal override void CollectCalls(ICollection<FunctionInfo> calls) => _a.CollectCalls(calls);
 
             internal override int Height => 1 + HeightOf(_a);
+            internal override BitDeps Depends(int[] first) => _a.Depends(first);
         }
 
         // -----------------------------------------------------------------
@@ -252,6 +283,12 @@ namespace BitSorter.Sim
             public override LogicVec Evaluate(LogicVec[] values) => values[_signal];
             public override void CollectReads(ICollection<int> reads) => reads.Add(_signal);
 
+            internal override BitDeps Depends(int[] first)
+            {
+                int bits = first[_signal + 1] - first[_signal];
+                return BitDeps.Bits(_width, routing: true, i => i < bits ? SourceSet.Of(first[_signal] + i) : SourceSet.Empty);
+            }
+
             public override bool TryRead(out SignalId signal)
             {
                 signal = new SignalId(_signal);
@@ -268,6 +305,13 @@ namespace BitSorter.Sim
             public override int Width => _value.Width;
             public override LogicVec Evaluate(LogicVec[] values) => _value;
             public override void CollectReads(ICollection<int> reads) { }
+            internal override BitDeps Depends(int[] first) => BitDeps.Bits(_value.Width, routing: true, i => SourceSet.Empty);
+
+            internal override bool TryConstant(out LogicVec value)
+            {
+                value = _value;
+                return true;
+            }
         }
 
         private sealed class UnaryExpr : Expr
@@ -308,6 +352,28 @@ namespace BitSorter.Sim
             internal override void CollectCalls(ICollection<FunctionInfo> calls) => _a.CollectCalls(calls);
 
             internal override int Height => 1 + HeightOf(_a);
+
+            /// <summary>A NOT inverts each bit; a negation is a sum; AND and OR of all the bits pass a change the same way round, NAND, NOR and ! the other.</summary>
+            internal override BitDeps Depends(int[] first)
+            {
+                BitDeps a = _a.Depends(first);
+                switch (_op)
+                {
+                    case UnaryOp.Not:
+                        return BitDeps.Bits(Width, routing: false, i => a.Of(i).Through(Sense.Negative));
+                    case UnaryOp.Negate:
+                        return BitDeps.Upward(Width, a);
+                    case UnaryOp.ReduceAnd:
+                    case UnaryOp.ReduceOr:
+                        return BitDeps.Uniform(Width, a.Union);
+                    case UnaryOp.LogicalNot:
+                    case UnaryOp.ReduceNand:
+                    case UnaryOp.ReduceNor:
+                        return BitDeps.Uniform(Width, a.Union.Through(Sense.Negative));
+                    default:
+                        return BitDeps.Uniform(Width, a.Union.Through(Sense.Either));
+                }
+            }
         }
 
         private sealed class BinaryExpr : Expr
@@ -390,6 +456,45 @@ namespace BitSorter.Sim
             }
 
             internal override int Height => 1 + Math.Max(HeightOf(_a), HeightOf(_b));
+
+            /// <summary>
+            /// AND and OR bit by bit, the same way round; XOR either way; a sum or a difference from the bottom bit up; a shift
+            /// by a constant moves the bits; &amp;&amp; and || the same way round. Anything else mixes every bit of both.
+            /// </summary>
+            internal override BitDeps Depends(int[] first)
+            {
+                BitDeps a = _a.Depends(first), b = _b.Depends(first);
+                switch (_op)
+                {
+                    case BinaryOp.And:
+                    case BinaryOp.Or:
+                        return BitDeps.Bits(Width, routing: false, i => SourceSet.Union((a.Of(i), Sense.Positive), (b.Of(i), Sense.Positive)));
+                    case BinaryOp.Xor:
+                    case BinaryOp.Xnor:
+                        return BitDeps.Bits(Width, routing: false, i => SourceSet.Union((a.Of(i), Sense.Either), (b.Of(i), Sense.Either)));
+                    case BinaryOp.Add:
+                    case BinaryOp.Subtract:
+                        return BitDeps.Upward(Width, a, b);
+                    case BinaryOp.LogicalAnd:
+                    case BinaryOp.LogicalOr:
+                        return BitDeps.Uniform(Width, SourceSet.Union((a.Union, Sense.Positive), (b.Union, Sense.Positive)));
+                    case BinaryOp.ShiftLeft:
+                    case BinaryOp.ArithmeticShiftLeft:
+                    case BinaryOp.ShiftRight:
+                    case BinaryOp.ArithmeticShiftRight:
+                        if (_b.TryConstant(out LogicVec by) && by.TryGetUInt64(out ulong k) && k <= int.MaxValue)
+                        {
+                            int n = (int)k, top = _a.Width - 1;
+                            if (_op == BinaryOp.ShiftLeft || _op == BinaryOp.ArithmeticShiftLeft)
+                                return BitDeps.Bits(Width, a.Routing, i => (long)i - n >= 0 ? a.Of(i - n) : SourceSet.Empty);
+                            bool arithmetic = _op == BinaryOp.ArithmeticShiftRight;
+                            return BitDeps.Bits(Width, a.Routing, i => (long)i + n <= top ? a.Of(i + n) : arithmetic ? a.Of(top) : SourceSet.Empty);
+                        }
+                        return BitDeps.Uniform(Width, BitDeps.Mixed(a, b));
+                    default:
+                        return BitDeps.Uniform(Width, BitDeps.Mixed(a, b));
+                }
+            }
         }
 
         private sealed class ConcatExpr : Expr
@@ -419,6 +524,13 @@ namespace BitSorter.Sim
             }
 
             internal override int Height => 1 + Math.Max(HeightOf(_high), HeightOf(_low));
+
+            internal override BitDeps Depends(int[] first)
+            {
+                BitDeps high = _high.Depends(first), low = _low.Depends(first);
+                int below = _low.Width;
+                return BitDeps.Bits(Width, high.Routing && low.Routing, i => i < below ? low.Of(i) : high.Of(i - below));
+            }
         }
 
         private sealed class ReplicateExpr : Expr
@@ -439,6 +551,13 @@ namespace BitSorter.Sim
             internal override void CollectCalls(ICollection<FunctionInfo> calls) => _a.CollectCalls(calls);
 
             internal override int Height => 1 + HeightOf(_a);
+
+            internal override BitDeps Depends(int[] first)
+            {
+                BitDeps a = _a.Depends(first);
+                int each = _a.Width;
+                return BitDeps.Bits(Width, a.Routing, i => each == 0 ? SourceSet.Empty : a.Of(i % each));
+            }
         }
 
         private sealed class SliceExpr : Expr
@@ -460,6 +579,12 @@ namespace BitSorter.Sim
             internal override void CollectCalls(ICollection<FunctionInfo> calls) => _a.CollectCalls(calls);
 
             internal override int Height => 1 + HeightOf(_a);
+
+            internal override BitDeps Depends(int[] first)
+            {
+                BitDeps a = _a.Depends(first);
+                return BitDeps.Bits(_width, a.Routing, i => a.Of(_lowest + i));
+            }
         }
 
         private sealed class BitExpr : Expr
@@ -489,6 +614,10 @@ namespace BitSorter.Sim
             }
 
             internal override int Height => 1 + Math.Max(HeightOf(_a), HeightOf(_index));
+
+            /// <summary>The bit an index picks: any bit of the value the same way round, and the index either way.</summary>
+            internal override BitDeps Depends(int[] first) =>
+                BitDeps.Uniform(1, SourceSet.Union((_a.Depends(first).Union, Sense.Positive), (_index.Depends(first).Union, Sense.Either)));
         }
 
         private sealed class PartExpr : Expr
@@ -560,6 +689,9 @@ namespace BitSorter.Sim
             }
 
             internal override int Height => 1 + Math.Max(HeightOf(_a), HeightOf(_offset));
+
+            internal override BitDeps Depends(int[] first) =>
+                BitDeps.Uniform(_width, SourceSet.Union((_a.Depends(first).Union, Sense.Positive), (_offset.Depends(first).Union, Sense.Either)));
         }
 
         private sealed class ConditionalExpr : Expr
@@ -595,6 +727,14 @@ namespace BitSorter.Sim
             }
 
             internal override int Height => 1 + Math.Max(HeightOf(_condition), Math.Max(HeightOf(_whenTrue), HeightOf(_whenFalse)));
+
+            /// <summary>Each bit of either side the same way round, and the condition, either way, under every bit.</summary>
+            internal override BitDeps Depends(int[] first)
+            {
+                SourceSet condition = _condition.Depends(first).Union;
+                BitDeps t = _whenTrue.Depends(first), f = _whenFalse.Depends(first);
+                return BitDeps.Bits(Width, routing: false, i => SourceSet.Union((t.Of(i), Sense.Positive), (f.Of(i), Sense.Positive), (condition, Sense.Either)));
+            }
         }
 
         private sealed class ResizeExpr : Expr
@@ -616,6 +756,14 @@ namespace BitSorter.Sim
             internal override void CollectCalls(ICollection<FunctionInfo> calls) => _a.CollectCalls(calls);
 
             internal override int Height => 1 + HeightOf(_a);
+
+            /// <summary>Widened, the bits above are the top bit again when the sign is extended, and nothing otherwise.</summary>
+            internal override BitDeps Depends(int[] first)
+            {
+                BitDeps a = _a.Depends(first);
+                int top = _a.Width - 1;
+                return BitDeps.Bits(_width, a.Routing, i => i <= top ? a.Of(i) : _signExtend ? a.Of(top) : SourceSet.Empty);
+            }
         }
     }
 }

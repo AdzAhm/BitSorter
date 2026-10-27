@@ -44,6 +44,13 @@ namespace BitSorter.Board
             if (elaboration.HasErrors)
                 return Refused("The circuit has errors, so its timing cannot be worked out: the TRANSCRIPT says where.");
 
+            // Timing is reckoned bit by bit, so a design of millions of bits would take the memory a run never needs.
+            long bits = TimingGraph.BitsOf(elaboration.Design);
+            if (bits > TimingGraph.MaxBits)
+                return Refused("The design has " + bits.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)
+                    + " bits of signals, more than the " + TimingGraph.MaxBits.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)
+                    + " its timing is worked out for.");
+
             // A register's timing is its module's; each instance of the module gives it a full name of its own.
             var registers = new Dictionary<string, RegisterTiming>(StringComparer.Ordinal);
             foreach (ScopeInfo scope in elaboration.Design.Scopes)

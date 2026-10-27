@@ -67,7 +67,7 @@ namespace BitSorter.Sim
     }
 
     /// <summary>
-    /// Static timing (Part 14a): the latest each signal can change after the clock's edge, worked out once in topological
+    /// Static timing (Part 14a): the latest each bit can change after the clock's edge, worked out once in topological
     /// order -- a rise and a fall followed apart, each gate's own delay for each -- from every register's launch at its
     /// clock-to-Q, and apart from that from every input at 0.
     /// </summary>
@@ -79,15 +79,16 @@ namespace BitSorter.Sim
                 throw new ArgumentNullException(nameof(graph));
 
             int[] order = Topological(graph);
-            int count = graph.Design.Signals.Count;
+            int count = graph.NodeCount;
 
             var fromRegisters = new Arrivals(count);
             var launchedBy = new Dictionary<int, TimingRegister>();
             foreach (TimingRegister register in graph.Registers)
                 foreach (int q in register.Launches)
                 {
+                    // Two processes writing one variable launch it at the later of their two: that one is its launch.
                     fromRegisters.Start(q, register.Timing.Tcq);
-                    if (!launchedBy.ContainsKey(q))
+                    if (!launchedBy.TryGetValue(q, out TimingRegister was) || register.Timing.Tcq > was.Timing.Tcq)
                         launchedBy[q] = register;
                 }
             fromRegisters.Run(graph, order);
@@ -117,10 +118,10 @@ namespace BitSorter.Sim
 
         private static StaticPath Slower(StaticPath a, StaticPath b) => b == null ? a : a == null || b.Total > a.Total ? b : a;
 
-        /// <summary>Every signal in an order where an arc's start comes before its end: the loops' arcs are not in the graph.</summary>
+        /// <summary>Every node in an order where an arc's start comes before its end: the loops' arcs are not in the graph.</summary>
         private static int[] Topological(TimingGraph graph)
         {
-            int count = graph.Design.Signals.Count;
+            int count = graph.NodeCount;
             var incoming = new int[count];
             for (int s = 0; s < count; s++)
                 foreach (int a in graph.Leaving(s))
@@ -144,7 +145,7 @@ namespace BitSorter.Sim
             return order.ToArray();
         }
 
-        /// <summary>The latest each signal can rise and fall after some starts, and the arc each got it by.</summary>
+        /// <summary>The latest each node can rise and fall after some starts, and the arc each got it by.</summary>
         private sealed class Arrivals
         {
             private readonly long[] _rise, _fall;

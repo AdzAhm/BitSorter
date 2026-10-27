@@ -37,13 +37,13 @@ namespace BitSorter.Sim
             IsWire = wire;
         }
 
-        /// <summary>The signal it reads, by its index in <see cref="Design.Signals"/>.</summary>
+        /// <summary>The bit it reads, by its node in the graph (<see cref="TimingGraph.NameOf"/>).</summary>
         public int From { get; }
 
-        /// <summary>The signal it drives.</summary>
+        /// <summary>The bit it drives.</summary>
         public int To { get; }
 
-        /// <summary>The gate's instance name, an assignment's, or a process's.</summary>
+        /// <summary>The gate's instance name, an assignment's, or a process's: what drives it.</summary>
         public string Through { get; }
 
         /// <summary>The gate's primitive; null for an assignment or a process.</summary>
@@ -96,51 +96,73 @@ namespace BitSorter.Sim
         /// <summary>The process's name: <c>counter.always_ff@4</c>.</summary>
         public string Name { get; }
 
-        /// <summary>The signals its edge takes in: what its statements read, its clock and asynchronous reset left out.</summary>
+        /// <summary>The bits its edge takes in: what its statements read, its clock and asynchronous reset left out.</summary>
         public IReadOnlyList<int> Captures { get; }
 
-        /// <summary>The signals it writes: where a path starts at the clock's edge, <see cref="RegisterTiming.Tcq"/> after it.</summary>
+        /// <summary>The bits it writes: where a path starts at the clock's edge, <see cref="RegisterTiming.Tcq"/> after it.</summary>
         public IReadOnlyList<int> Launches { get; }
 
         public RegisterTiming Timing { get; }
     }
 
     /// <summary>
-    /// A design's timing, as the course reckons it (Part 14a): every signal a node, and every way a change travels from one
-    /// to another an arc -- a gate at its <c>Tpdlh</c> and <c>Tpdhl</c>, an assignment at its delay, a combinational
-    /// process at none -- with each register an edge-triggered process where paths start and end. Built from the flattened
-    /// <see cref="Design"/>, so a drawn module and a written one are reckoned alike.
+    /// A design's timing, as the course reckons it (Part 14a): every bit of every signal a node, and every way a change
+    /// travels from one to another an arc -- a gate at its <c>Tpdlh</c> and <c>Tpdhl</c>, an assignment at its delay, a
+    /// combinational process at none -- with each register an edge-triggered process where paths start and end. Built from
+    /// the flattened <see cref="Design"/>, so a drawn module and a written one are reckoned alike.
     /// </summary>
     /// <remarks>
-    /// Signals, not bits: a vector is one node, which is how the course draws a bus. A loop of logic -- a latch made of two
-    /// gates -- is found (<see cref="Loops"/>) and its arcs left out of the paths, since a change around it never ends.
+    /// **Bits, not signals.** A carry passed from <c>c[0]</c> to <c>c[1]</c> through a gate is one bit to another; were a
+    /// vector one node, a ripple adder's carries -- a bus fed bit by bit from itself -- would be a loop, and its gates no
+    /// part of any path. Which bit of a value depends on which, and which way round a change passes, is the expressions'
+    /// own (<see cref="BitDeps"/>): <c>~a</c> inverts, <c>a[0]</c> selects, <c>a + b</c> carries upwards.
+    ///
+    /// **A junction** stands between many bits and many where every one depends on every one -- a combinational process,
+    /// a value too wide to follow -- so they cost an arc each rather than one for every pair. It is a node of no signal,
+    /// named for its driver. A loop of logic -- a latch made of two gates -- is found (<see cref="Loops"/>) and its arcs
+    /// left out of the paths, since a change around it never ends.
     /// </remarks>
     public sealed class TimingGraph
     {
+        /// <summary>The most bits a design's timing is reckoned for: one wider is refused, rather than taking all the memory.</summary>
+        public const int MaxBits = 1 << 20;
+
+        /// <summary>The most arcs a driver gives its bits one by one: past it they meet at a junction.</summary>
+        private const int MostArcsApart = 4096;
+
         private readonly List<TimingArc> _arcs = new List<TimingArc>();
-        private readonly List<int>[] _out;
-        private readonly bool[] _inLoop;
+        private readonly List<List<int>> _out = new List<List<int>>();
+        private readonly Dictionary<(int, int, string), int> _arcAt = new Dictionary<(int, int, string), int>();
+        private readonly List<string> _junctions = new List<string>();
+        private readonly int[] _first;
+        private bool[] _inLoop;
 
         private TimingGraph(Design design)
         {
             Design = design;
-            _out = new List<int>[design.Signals.Count];
-            _inLoop = new bool[design.Signals.Count];
+            _first = new int[design.Signals.Count + 1];
+            for (int s = 0; s < design.Signals.Count; s++)
+                _first[s + 1] = _first[s] + design.Signals[s].Width;
+            for (int n = 0; n < _first[design.Signals.Count]; n++)
+                _out.Add(null);
         }
 
         public Design Design { get; }
 
-        /// <summary>The top's input ports, by signal index.</summary>
+        /// <summary>How many nodes there are: every bit of every signal, and the junctions after them.</summary>
+        public int NodeCount => _out.Count;
+
+        /// <summary>Every bit of the top's input ports, by node.</summary>
         public IReadOnlyList<int> Inputs { get; private set; } = Array.Empty<int>();
 
-        /// <summary>The top's output ports.</summary>
+        /// <summary>Every bit of the top's output ports.</summary>
         public IReadOnlyList<int> Outputs { get; private set; } = Array.Empty<int>();
 
         public IReadOnlyList<TimingArc> Arcs => _arcs;
 
         public IReadOnlyList<TimingRegister> Registers { get; private set; } = Array.Empty<TimingRegister>();
 
-        /// <summary>Each loop of logic found, as its signals' names; its arcs are no part of any path.</summary>
+        /// <summary>Each loop of logic found, as its nodes' names; its arcs are no part of any path.</summary>
         public IReadOnlyList<IReadOnlyList<string>> Loops { get; private set; } = Array.Empty<IReadOnlyList<string>>();
 
         /// <summary>How many gates of each primitive and inputs: <c>nand2</c>, <c>not</c>.</summary>
@@ -149,18 +171,67 @@ namespace BitSorter.Sim
         /// <summary>Every gate, of every kind.</summary>
         public int Gates { get; private set; }
 
-        /// <summary>The arcs leaving <paramref name="signal"/>, by their index in <see cref="Arcs"/>, loops' left out.</summary>
-        internal IReadOnlyList<int> Leaving(int signal) => (IReadOnlyList<int>)_out[signal] ?? Array.Empty<int>();
+        /// <summary>The bits <paramref name="design"/>'s signals have together: what <see cref="MaxBits"/> is counted against.</summary>
+        public static long BitsOf(Design design)
+        {
+            long bits = 0;
+            foreach (SignalInfo signal in design.Signals)
+                bits += signal.Width;
+            return bits;
+        }
+
+        /// <summary>The signal <paramref name="node"/> is a bit of, by index; -1 for a junction.</summary>
+        public int SignalOf(int node)
+        {
+            int signals = Design.Signals.Count;
+            if (node < 0 || node >= _first[signals])
+                return -1;
+            int lo = 0, hi = signals - 1;
+            while (lo < hi)
+            {
+                int mid = (lo + hi + 1) / 2;
+                if (_first[mid] <= node)
+                    lo = mid;
+                else
+                    hi = mid - 1;
+            }
+            return lo;
+        }
+
+        /// <summary>The node of bit <paramref name="bit"/> of <paramref name="signal"/>, counted from its value's bit 0.</summary>
+        public int NodeOf(int signal, int bit = 0) => _first[signal] + bit;
+
+        /// <summary>
+        /// What a node is called: its signal's full name, with the bit as the source counts it when the signal is a vector --
+        /// <c>adder.c[1]</c> -- or, for a junction, its driver's.
+        /// </summary>
+        public string NameOf(int node)
+        {
+            int signal = SignalOf(node);
+            if (signal < 0)
+                return node >= 0 && node < NodeCount ? _junctions[node - _first[Design.Signals.Count]] : "";
+            SignalInfo info = Design.Signals[signal];
+            if (info.Width == 1)
+                return info.Name;
+            int bit = node - _first[signal];
+            int index = info.Msb >= info.Lsb ? info.Lsb + bit : info.Lsb - bit;
+            return info.Name + "[" + index.ToString(System.Globalization.CultureInfo.InvariantCulture) + "]";
+        }
+
+        /// <summary>The arcs leaving <paramref name="node"/>, by their index in <see cref="Arcs"/>, loops' left out.</summary>
+        internal IReadOnlyList<int> Leaving(int node) => (IReadOnlyList<int>)_out[node] ?? Array.Empty<int>();
 
         /// <summary>
         /// The timing of <paramref name="design"/>, its top's ports where paths start and end. <paramref name="registers"/>
         /// gives a register's Tcq and Tsetup by the full name of a signal it writes; one not given takes its Tcq from a delayed
-        /// nonblocking write (<c>q &lt;= #2 d</c>) and no setup.
+        /// nonblocking write (<c>q &lt;= #2 d</c>) and no setup. A design of more than <see cref="MaxBits"/> bits is refused.
         /// </summary>
         public static TimingGraph Of(Design design, IReadOnlyDictionary<string, RegisterTiming> registers = null)
         {
             if (design == null)
                 throw new ArgumentNullException(nameof(design));
+            if (BitsOf(design) > MaxBits)
+                throw new ArgumentException("A design of more than " + MaxBits + " bits is too wide to reckon bit by bit.", nameof(design));
 
             var graph = new TimingGraph(design);
             graph.FindPorts();
@@ -180,10 +251,9 @@ namespace BitSorter.Sim
                 SignalInfo info = Design.Signals[s];
                 if (info.Port == null || (top >= 0 && info.Scope != top))
                     continue;
-                if (info.Port == PortDirection.Input)
-                    inputs.Add(s);
-                else if (info.Port == PortDirection.Output)
-                    outputs.Add(s);
+                List<int> into = info.Port == PortDirection.Input ? inputs : info.Port == PortDirection.Output ? outputs : null;
+                for (int b = 0; into != null && b < info.Width; b++)
+                    into.Add(_first[s] + b);
             }
 
             Inputs = inputs;
@@ -193,10 +263,9 @@ namespace BitSorter.Sim
         private void AddDrivers()
         {
             var counts = new Dictionary<string, int>(StringComparer.Ordinal);
-            var reads = new List<int>();
             foreach (DriverInfo driver in Design.Drivers)
             {
-                int to = driver.Target.Index;
+                int to = _first[driver.Target.Index] + driver.TargetLowest;
                 if (driver is GateDriver gate)
                 {
                     Gates++;
@@ -205,19 +274,26 @@ namespace BitSorter.Sim
 
                     for (int i = 0; i < gate.InputCount; i++)
                     {
-                        reads.Clear();
-                        gate.Input(i).CollectReads(reads);
-                        foreach (int from in reads)
-                            Add(new TimingArc(from, to, gate.Name, gate.Kind, gate.InputCount, gate.Delay.Rise, gate.Delay.Fall, SenseOf(gate.Kind, i), wire: false));
+                        // A tri-state's control can turn its output off: that change takes the turn-off delay, to z.
+                        long rise = gate.Delay.Rise, fall = gate.Delay.Fall;
+                        if (IsTriState(gate.Kind) && i == 1)
+                        {
+                            rise = Math.Max(rise, gate.Delay.TurnOff);
+                            fall = Math.Max(fall, gate.Delay.TurnOff);
+                        }
+
+                        Sense through = SenseOf(gate.Kind, i);
+                        SourceSet sources = gate.Input(i).Depends(_first).Of(0);
+                        for (int k = 0; k < sources.Count; k++)
+                            Add(new TimingArc(sources[k].Node, to, gate.Name, gate.Kind, gate.InputCount, rise, fall,
+                                SourceSet.Compose(through, sources[k].Sense), wire: false));
                     }
                 }
                 else if (driver is AssignDriver assign)
                 {
-                    bool wire = assign.Delay.Rise == 0 && assign.Delay.Fall == 0 && assign.Value.TryRead(out _);
-                    reads.Clear();
-                    assign.Value.CollectReads(reads);
-                    foreach (int from in reads)
-                        Add(new TimingArc(from, to, assign.Name, null, 0, assign.Delay.Rise, assign.Delay.Fall, wire ? Sense.Positive : Sense.Either, wire));
+                    BitDeps value = assign.Value.Depends(_first);
+                    bool wire = value.Routing && assign.Delay.Rise == 0 && assign.Delay.Fall == 0;
+                    Spread(value, to, driver.TargetWidth, assign.Name, assign.Delay.Rise, assign.Delay.Fall, wire);
                 }
             }
 
@@ -225,8 +301,47 @@ namespace BitSorter.Sim
         }
 
         /// <summary>
+        /// Arcs from what each bit of <paramref name="value"/> depends on to the <paramref name="width"/> bits from
+        /// <paramref name="to"/> on, through <paramref name="through"/> -- one by one, or through a junction where every bit
+        /// depends on so much that pairing them would cost more.
+        /// </summary>
+        private void Spread(BitDeps value, int to, int width, string through, long rise, long fall, bool wire)
+        {
+            long apart = 0;
+            for (int i = 0; i < width && apart <= MostArcsApart; i++)
+                apart += value.Of(i).Count;
+
+            if (apart > MostArcsApart && (long)value.Union.Count + width < apart)
+            {
+                int junction = Junction(through);
+                SourceSet all = value.Union;
+                for (int k = 0; k < all.Count; k++)
+                    Add(new TimingArc(all[k].Node, junction, through, null, 0, rise, fall, all[k].Sense, wire));
+                for (int i = 0; i < width; i++)
+                    Add(new TimingArc(junction, to + i, through, null, 0, 0, 0, Sense.Positive, wire: true));
+                return;
+            }
+
+            for (int i = 0; i < width; i++)
+            {
+                SourceSet sources = value.Of(i);
+                for (int k = 0; k < sources.Count; k++)
+                    Add(new TimingArc(sources[k].Node, to + i, through, null, 0, rise, fall, sources[k].Sense, wire));
+            }
+        }
+
+        private int Junction(string name)
+        {
+            _junctions.Add(name);
+            _out.Add(null);
+            return _out.Count - 1;
+        }
+
+        /// <summary>
         /// An edge-triggered process is a register; one that waits on no edge -- <c>always_comb</c>, <c>always @*</c> -- is
-        /// logic at no delay, each signal it reads reaching each it writes. An <c>initial</c> is a testbench's, and no part.
+        /// logic at no delay, every bit it reads from outside reaching every bit it writes, through a junction. What it both
+        /// writes and reads is its own working -- <c>y = y ^ a[i]</c> -- and no loop, and a loop's own variable no part of
+        /// anything. An <c>initial</c> is a testbench's, and no part.
         /// </summary>
         private void AddProcesses(IReadOnlyDictionary<string, RegisterTiming> given)
         {
@@ -266,20 +381,42 @@ namespace BitSorter.Sim
                     }
                 }
 
+                var writes = new List<int>();
+                foreach (int w in process.Writes)
+                    if (!Design.Signals[w].Local)
+                        writes.Add(w);
+
                 if (!edgeTriggered)
                 {
-                    foreach (int to in process.Writes)
-                        foreach (int from in reads)
-                            if (from != to)
-                                Add(new TimingArc(from, to, process.Name, null, 0, 0, 0, Sense.Either, wire: false));
+                    var outside = new List<int>();
+                    foreach (int r in reads)
+                        if (!Design.Signals[r].Local && Array.IndexOf(process.Writes, r) < 0)
+                            outside.Add(r);
+                    if (outside.Count == 0 || writes.Count == 0)
+                        continue;
+
+                    outside.Sort();
+                    int junction = Junction(process.Name);
+                    foreach (int r in outside)
+                        for (int b = _first[r]; b < _first[r + 1]; b++)
+                            Add(new TimingArc(b, junction, process.Name, null, 0, 0, 0, Sense.Either, wire: false));
+                    foreach (int w in writes)
+                        for (int b = _first[w]; b < _first[w + 1]; b++)
+                            Add(new TimingArc(junction, b, process.Name, null, 0, 0, 0, Sense.Positive, wire: true));
                     continue;
                 }
 
                 var captures = new List<int>();
                 foreach (int r in reads)
-                    if (!edges.Contains(r))
-                        captures.Add(r);
+                    if (!edges.Contains(r) && !Design.Signals[r].Local)
+                        for (int b = _first[r]; b < _first[r + 1]; b++)
+                            captures.Add(b);
                 captures.Sort();
+
+                var launches = new List<int>();
+                foreach (int w in writes)
+                    for (int b = _first[w]; b < _first[w + 1]; b++)
+                        launches.Add(b);
 
                 RegisterTiming timing = new RegisterTiming(tcq, 0);
                 if (given != null)
@@ -290,24 +427,56 @@ namespace BitSorter.Sim
                             break;
                         }
 
-                registers.Add(new TimingRegister(process.Name, captures.ToArray(), (int[])process.Writes.Clone(), timing));
+                registers.Add(new TimingRegister(process.Name, captures.ToArray(), launches.ToArray(), timing));
             }
 
             Registers = registers;
         }
 
-        /// <summary>A delay's value when it is a constant, as a register's <c>#2</c> is; 0 when it reads anything.</summary>
+        /// <summary>
+        /// A delay's value when it is a constant, as a register's <c>#2</c> is; 0 when it reads anything or calls a function,
+        /// whose value is the run's to know.
+        /// </summary>
         private static long ConstantOf(Expr delay)
         {
             var reads = new List<int>();
             delay.CollectReads(reads);
-            if (reads.Count > 0)
+            var calls = new List<FunctionInfo>();
+            delay.CollectCalls(calls);
+            if (reads.Count > 0 || calls.Count > 0)
                 return 0;
-            return delay.Evaluate(Array.Empty<LogicVec>()).TryGetUInt64(out ulong value) && value <= long.MaxValue ? (long)value : 0;
+
+            LogicVec value;
+            try
+            {
+                value = delay.Evaluate(Array.Empty<LogicVec>());
+            }
+            catch (Exception e) when (e is IndexOutOfRangeException || e is InvalidOperationException || e is NullReferenceException)
+            {
+                // Whatever else it reads -- a system function's state -- is no constant either.
+                return 0;
+            }
+
+            return value.TryGetUInt64(out ulong at) && at <= long.MaxValue ? (long)at : 0;
         }
 
+        /// <summary>
+        /// An arc, or -- when the same driver already takes the same bit to the same bit, as <c>and g (y, a, a)</c> does --
+        /// that arc made the latest of both, and either way round if they differ, so no path is walked twice.
+        /// </summary>
         private void Add(TimingArc arc)
         {
+            var key = (arc.From, arc.To, arc.Through);
+            if (_arcAt.TryGetValue(key, out int at))
+            {
+                TimingArc was = _arcs[at];
+                Sense sense = was.Sense == arc.Sense ? was.Sense : Sense.Either;
+                _arcs[at] = new TimingArc(was.From, was.To, was.Through, was.Gate, was.Inputs, Math.Max(was.Rise, arc.Rise),
+                    Math.Max(was.Fall, arc.Fall), sense, was.IsWire && arc.IsWire);
+                return;
+            }
+
+            _arcAt[key] = _arcs.Count;
             _out[arc.From] ??= new List<int>();
             _out[arc.From].Add(_arcs.Count);
             _arcs.Add(arc);
@@ -319,7 +488,8 @@ namespace BitSorter.Sim
         /// </summary>
         private void FindLoops()
         {
-            int count = Design.Signals.Count;
+            int count = NodeCount;
+            _inLoop = new bool[count];
             var index = new int[count];
             var low = new int[count];
             var onStack = new bool[count];
@@ -333,7 +503,7 @@ namespace BitSorter.Sim
 
             for (int root = 0; root < count; root++)
             {
-                if (index[root] >= 0)
+                if (index[root] >= 0 || _out[root] == null)
                     continue;
                 work.Push((root, 0));
                 while (work.Count > 0)
@@ -387,7 +557,7 @@ namespace BitSorter.Sim
                             {
                                 _inLoop[m] = true;
                                 component[m] = loops.Count + 1;
-                                names.Add(Design.Signals[m].Name);
+                                names.Add(NameOf(m));
                             }
 
                             loops.Add(names);
