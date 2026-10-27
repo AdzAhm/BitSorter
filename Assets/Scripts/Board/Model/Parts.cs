@@ -6,7 +6,11 @@ using BitSorter.SystemVerilog.Syntax;
 
 namespace BitSorter.Board
 {
-    public enum PinDirection { In, Out }
+    /// <summary>
+    /// Which way a pin's value goes: in, out, or both -- an inout, on a block of a written module (Part 14g), which reads
+    /// the wire and may drive it, letting go -- z -- when it does not.
+    /// </summary>
+    public enum PinDirection { In, Out, InOut }
 
     /// <summary>A place on a part a wire can end on: its name, which way the value goes, and its width.</summary>
     public readonly struct Pin
@@ -251,11 +255,14 @@ namespace BitSorter.Board
             if (module == null)
                 return Array.Empty<Pin>();
 
+            // An inout is a pin of both ways (Part 14g): joined to the wire it is on, which is a net -- a bus when more than
+            // one thing drives it. The rules refuse one on a block of several copies, each of which would take a slice.
             int copies = Math.Max(1, Copies);
             var pins = new List<Pin>();
             foreach (ModulePort port in WrittenModules.PortsOf(project, module))
-                if (port.Direction != PortDirection.Inout)   // no pin for an inout: the rules refuse a block of one (Part 14f)
-                    pins.Add(new Pin(port.Name, port.Direction == PortDirection.Input ? PinDirection.In : PinDirection.Out, port.Width * copies));
+                pins.Add(new Pin(port.Name,
+                    port.Direction == PortDirection.Input ? PinDirection.In : port.Direction == PortDirection.Inout ? PinDirection.InOut : PinDirection.Out,
+                    port.Width * copies));
             return pins;
         }
     }

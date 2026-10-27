@@ -988,7 +988,7 @@ namespace BitSorter.Board
                 foreach (Endpoint pin in pins)
                 {
                     Part part = module.FindPart(pin.Pin.Part);
-                    if (part != null && part.TryPin(_editor.Project, pin.Pin.Pin, out Pin p) && p.Direction == PinDirection.Out)
+                    if (part != null && part.TryPin(_editor.Project, pin.Pin.Pin, out Pin p) && p.Direction != PinDirection.In)
                         return name == part.Name + "_" + pin.Pin.Pin;
                 }
 

@@ -131,7 +131,7 @@ namespace BitSorter.ViewModel
                 string output = null;
                 foreach (Pin pin in part.Pins(project))
                 {
-                    if (pin.Direction != PinDirection.Out && !(part is LampPart))
+                    if (pin.Direction == PinDirection.In && !(part is LampPart))
                         continue;
                     Net net = netlist.NetOf(new PinRef(part.Id, pin.Name));
                     if (net != null)

@@ -33,8 +33,14 @@ namespace BitSorter.Board
         /// <summary>The wires that make it.</summary>
         public IReadOnlyList<int> Wires => _wires;
 
-        /// <summary>The pins that drive it. More than one is an error; none leaves it x.</summary>
+        /// <summary>The pins that drive it, an inout's among them. More than one is an error but on a bus; none leaves it x.</summary>
         public IReadOnlyList<PinRef> Drivers => _drivers;
+
+        /// <summary>The inout pins on it (Part 14g): drivers that read it too, and let it go while they do not drive it.</summary>
+        public IReadOnlyList<PinRef> InOuts => _inouts;
+
+        /// <summary>Whether <paramref name="pin"/> is an inout pin on it.</summary>
+        public bool IsInOut(PinRef pin) => _inouts.Contains(pin);
 
         /// <summary>The ports on it: the first is the one it is named after; an output after that is fed by an assign.</summary>
         public IReadOnlyList<PortPart> Ports => _ports;
@@ -52,6 +58,7 @@ namespace BitSorter.Board
         internal readonly List<PinRef> _pins = new List<PinRef>();
         internal readonly List<int> _wires = new List<int>();
         internal readonly List<PinRef> _drivers = new List<PinRef>();
+        internal readonly List<PinRef> _inouts = new List<PinRef>();
         internal readonly List<PortPart> _ports = new List<PortPart>();
 
         public override string ToString() => Name;
@@ -205,8 +212,10 @@ namespace BitSorter.Board
                     net.Width = Math.Max(net.Width, pin.Width);
                 }
 
-                if (pin.Direction == PinDirection.Out)
+                if (pin.Direction != PinDirection.In)
                     net._drivers.Add(key);
+                if (pin.Direction == PinDirection.InOut)
+                    net._inouts.Add(key);
                 if (part is PortPart port)
                     net._ports.Add(port);
             }

@@ -18,11 +18,11 @@ namespace BitSorter.Board.Tests
         public static IEnumerable<string> Names => new[]
         {
             "half_adder", "half_adder_delayed", "full_adder", "johnson", "johnson_timed", "buses", "mux4", "tristate", "half_adders", "ripple8", "written",
-            "full_adder_steps", "false_path_steps", "bus", "written_cells",
+            "full_adder_steps", "false_path_steps", "bus", "written_cells", "devices_bus",
         };
 
         /// <summary>The boards drawn throughout: what an import can draw again. A written module comes in as written with Part 13.</summary>
-        public static IEnumerable<string> DrawnNames => Names.Where(name => name != "written" && name != "written_cells");
+        public static IEnumerable<string> DrawnNames => Names.Where(name => name != "written" && name != "written_cells" && name != "devices_bus");
 
         public static Project Build(string name)
         {
@@ -43,6 +43,7 @@ namespace BitSorter.Board.Tests
                 case "written": return Written();
                 case "bus": return Bus();
                 case "written_cells": return WrittenCells();
+                case "devices_bus": return DevicesBus();
                 default: throw new ArgumentException(name);
             }
         }
@@ -268,6 +269,44 @@ namespace BitSorter.Board.Tests
             Must(editor.SetLibrary(library));
             return Exhaustive(editor, new[] { "a", "b" }, 10);
         }
+
+        /// <summary>
+        /// Two written devices on one drawn wire through their inout pins (Part 14g), each driving it through a BUFIF1 of its
+        /// own and reading it back, with a drawn BUFIF1 on it too and the wire an output of the board: a bus of three drivers,
+        /// each alone, two at once, and none -- what Icarus must agree with, change for change.
+        /// </summary>
+        private static Project DevicesBus()
+        {
+            var editor = new BoardEditor(Project.New("shared"));
+            Must(editor.AddWrittenModule("dev", Device));
+            var b = new Builder(editor, "shared");
+            int e1 = b.In("e1"), d1 = b.In("d1"), e2 = b.In("e2"), d2 = b.In("d2"), e3 = b.In("e3"), y = b.Out("y"), seen = b.Out("seen");
+            int u1 = b.Add(new BlockPart { Module = "dev" }), u2 = b.Add(new BlockPart { Module = "dev" });
+            int g = b.Add(new GatePart { Kind = GateKind.Bufif1, Inputs = 2, Rise = 2, Fall = 2 });
+            b.Wire(e1, "out", u1, "en");
+            b.Wire(d1, "out", u1, "d");
+            b.Wire(e2, "out", u2, "en");
+            b.Wire(d2, "out", u2, "d");
+            b.Wire(u1, "io", y, "in");
+            b.Wire(u2, "io", y, "in");
+            b.Wire(d1, "out", g, "a");
+            b.Wire(e3, "out", g, "en");
+            b.Wire(g, "y", y, "in");
+            b.Wire(u2, "seen", seen, "in");
+            return Exhaustive(editor, new[] { "e1", "d1", "e2", "d2", "e3" }, 10);
+        }
+
+        /// <summary>A device on a bus, written: it drives its inout while enabled, and reads it back.</summary>
+        public const string Device =
+            "module dev (\n" +
+            "    input logic en,\n" +
+            "    input logic d,\n" +
+            "    inout wire io,\n" +
+            "    output logic seen\n" +
+            ");\n" +
+            "    bufif1 #1 g (io, d, en);\n" +
+            "    assign seen = io;\n" +
+            "endmodule\n";
 
         /// <summary>The written adder, as the printer would write it.</summary>
         public const string WrittenAdder =

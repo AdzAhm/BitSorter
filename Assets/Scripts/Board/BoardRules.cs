@@ -283,13 +283,30 @@ namespace BitSorter.Board
                         "Take a bus apart with a splitter, or put bits together with a joiner.", wire: First(net.Wires));
                 }
 
-                if (net.Drivers.Count > 1 && !IsBus(net, module))
+                // An inout is joined to the net it is on (Part 14g), and an input of the module carries a value in only: said
+                // so, with the way out, rather than as one more driver of the wire.
+                PortPart inputOnAnInout = null;
+                if (net.InOuts.Count > 0)
+                    foreach (PortPart port in net.Ports)
+                        if (port.Direction == PortDirection.Input)
+                        {
+                            inputOnAnInout = port;
+                            break;
+                        }
+
+                if (inputOnAnInout != null)
+                {
+                    PinRef inout = net.InOuts[0];
+                    Error($"{inputOnAnInout.Name} is an input, on one wire with {partsById[inout.Part].Name}.{inout.Pin}, an inout: an " +
+                        "input carries a value in only. Drive the bus from it through a BUFIF1.", inputOnAnInout.Id);
+                }
+                else if (net.Drivers.Count > 1 && !IsBus(net, module))
                 {
                     var drivers = new List<string>();
                     foreach (PinRef pin in net.Drivers)
                         drivers.Add(partsById[pin.Part].Name + "." + pin.Pin);
                     Error($"{string.Join(" and ", drivers)} both drive one wire; a wire has one driver -- or, as a bus, only " +
-                        "tri-state gates, BUFIF and NOTIF, each letting go while its control says.", wire: First(net.Wires));
+                        "tri-state gates, BUFIF and NOTIF, and blocks' inout pins, each letting go while it does not drive.", wire: First(net.Wires));
                 }
 
                 // The names its wires were given: the lowest wire's is the one the net asks for.
@@ -344,20 +361,26 @@ namespace BitSorter.Board
         }
 
         /// <summary>
-        /// Whether <paramref name="net"/> is a bus (Part 14f): more than one driver, every one a tri-state gate's output, each
-        /// letting go -- z -- while its control says. Where two drive at once it reads x, as it does in any simulator, and the
-        /// waves show it so. A block's output is no driver of a bus, even one a tri-state gate inside drives: what is inside
-        /// a block is its own.
+        /// Whether <paramref name="net"/> is a bus (Part 14f): more than one driver, every one that can let go -- z -- while it
+        /// does not drive: a tri-state gate's output, or a block's inout pin (Part 14g). Where two drive at once it reads x, as
+        /// it does in any simulator, and the waves show it so. A block's output is no driver of a bus, even one a tri-state
+        /// gate inside drives: what is inside a block is its own, and only an inout says it lets go.
         /// </summary>
         public static bool IsBus(Net net, Module module)
         {
             if (net == null || module == null || net.Drivers.Count < 2)
                 return false;
             foreach (PinRef pin in net.Drivers)
-                if (!(module.FindPart(pin.Part) is GatePart gate && gate.IsTriState))
+                if (!(module.FindPart(pin.Part) is GatePart gate && gate.IsTriState) && !net.IsInOut(pin))
                     return false;
             return true;
         }
+
+        /// <summary>
+        /// Whether <paramref name="net"/> is printed as a <c>tri</c> net: a bus, or a wire an inout pin is on (Part 14g), which
+        /// the elaborator joins the inout to -- a net of the module's own, never a variable, which takes one driver.
+        /// </summary>
+        public static bool IsTri(Net net, Module module) => net != null && (net.InOuts.Count > 0 || IsBus(net, module));
 
         private static void CheckPart(Project project, Part part, Action<string, int, int> error, Action<string, int, int> warning)
         {
@@ -438,14 +461,15 @@ namespace BitSorter.Board
                 case BlockPart block:
                     if (project.Find(block.Module) is Module inner)
                     {
-                        // An inout is joined inside written code (Part 14f); a drawn block's pins are inputs and outputs.
-                        foreach (ModulePort port in WrittenModules.PortsOf(project, inner))
-                            if (port.Direction == PortDirection.Inout)
-                            {
-                                Error($"{block.Name} is a {block.Module}, whose port {port.Name} is an inout: a block's pins are inputs " +
-                                    "and outputs, so far. Instantiate it in written code, where an inout is joined to its net.");
-                                break;
-                            }
+                        // An inout pin is joined to a whole net (Part 14g), and each copy of several would take a slice of one.
+                        if (block.Copies > 1)
+                            foreach (ModulePort port in WrittenModules.PortsOf(project, inner))
+                                if (port.Direction == PortDirection.Inout)
+                                {
+                                    Error($"{block.Name} is {block.Copies} copies of {block.Module}, whose {port.Name} is an inout: an inout " +
+                                        "joins a whole wire, and each copy would take a slice of one. Place the copies one by one.");
+                                    break;
+                                }
                     }
                     else
                         Error($"{block.Name} is a {block.Module}, and there is no module called that.");

@@ -49,7 +49,7 @@ namespace BitSorter.Board
             {
                 Netlist netlist = Netlist.Of(project, top);
                 foreach (PortPart port in top.Ports)
-                    if (port.Direction == PortDirection.Output && BoardRules.IsBus(netlist.NetOf(new PinRef(port.Id, "in")), top))
+                    if (port.Direction == PortDirection.Output && BoardRules.IsTri(netlist.NetOf(new PinRef(port.Id, "in")), top))
                         nets.Add(port.Name);
             }
             else

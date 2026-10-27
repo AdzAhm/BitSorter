@@ -246,12 +246,13 @@ namespace BitSorter.Board
 
             public ModuleDeclaration Build()
             {
-                // A port that is a bus is a tri net (Part 14f): a logic variable takes one driver.
+                // A port that is a bus is a tri net (Part 14f), and so is one an inout pin is on (Part 14g): a logic variable
+                // takes one driver, and an inout joins only a net.
                 foreach (PortPart port in _module.Ports)
                     _out.Ports.Add(new PortDeclaration
                     {
                         Direction = port.Direction,
-                        NetType = BoardRules.IsBus(NetOf(port, port.Direction == PortDirection.Input ? "out" : "in"), _module) ? "tri" : null,
+                        NetType = BoardRules.IsTri(NetOf(port, port.Direction == PortDirection.Input ? "out" : "in"), _module) ? "tri" : null,
                         Type = Sv.Logic(port.Width),
                         Name = port.Name,
                         Comment = port.Comment,
@@ -303,7 +304,7 @@ namespace BitSorter.Board
                 {
                     if (net.Ports.Count > 0 || IsOpenBlockPin(net) || OnlyLamps(net))
                         continue;
-                    Add(net.Name, net.Width, _initial.TryGetValue(net, out LogicVec initial) ? initial : (LogicVec?)null, BoardRules.IsBus(net, _module));
+                    Add(net.Name, net.Width, _initial.TryGetValue(net, out LogicVec initial) ? initial : (LogicVec?)null, BoardRules.IsTri(net, _module));
                 }
 
                 foreach ((string name, int width, LogicVec initial) in _made)

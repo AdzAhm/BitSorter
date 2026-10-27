@@ -227,11 +227,14 @@ namespace BitSorter.Board
 
                 case BlockPart block:
                 {
-                    // A box with its ports' names inside, inputs down the left and outputs down the right.
+                    // A box with its ports' names inside, inputs down the left and outputs down the right, its inouts under
+                    // them (Part 14g).
                     var inputs = new List<Pin>();
                     var outputs = new List<Pin>();
+                    var inouts = new List<Pin>();
                     foreach (Pin pin in block.Pins(project))
-                        (pin.Direction == PinDirection.In ? inputs : outputs).Add(pin);
+                        (pin.Direction == PinDirection.In ? inputs : pin.Direction == PinDirection.InOut ? inouts : outputs).Add(pin);
+                    outputs.AddRange(inouts);
 
                     int most = Math.Max(1, Math.Max(inputs.Count, outputs.Count));
                     double half = Half(most);

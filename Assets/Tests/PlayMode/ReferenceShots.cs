@@ -1576,6 +1576,62 @@ namespace BitSorter.PlayMode.Tests
             yield return Capture("48-workbench-library");
         }
 
+        /// <summary>
+        /// Part 14g: two written devices on one wire through their inout pins -- drawn on the right, under each box's output
+        /// -- the wire an output of MY CIRCUIT, and the first device driving a 1 onto it while the second lets it go.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator Shot49_WorkbenchDevicesOnABus()
+        {
+            yield return LoadTheGame();
+            yield return Frames(2);
+
+            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            yield return Frames(2);
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowSample(0);   // MY CIRCUIT
+            yield return Frames(2);
+            WorkbenchSession s = workbench.Session;
+            Assert.IsTrue(s.AddWrittenModule("dev").Done);
+            Assert.IsTrue(s.Editor.SetSource("dev",
+                "module dev (\n    input logic en,\n    input logic d,\n    inout wire io,\n    output logic seen\n);\n" +
+                "    bufif1 #1 g (io, d, en);\n    assign seen = io;\nendmodule\n").Done);
+
+            int Place(string key, int x, int y)
+            {
+                BitSorter.Board.EditResult placed = s.Place(PartsCatalog.Find(s.Project, s.Module, key), new BitSorter.Board.Placement(x, y));
+                Assert.IsTrue(placed.Done, placed.Refusal);
+                return placed.Id;
+            }
+
+            void Wire(int from, string fromPin, int to, string toPin) =>
+                Assert.IsTrue(s.Connect(BitSorter.Board.Endpoint.At(from, fromPin), BitSorter.Board.Endpoint.At(to, toPin)).Done);
+
+            int e1 = Place("input", 0, 0), d1 = Place("input", 0, 2), e2 = Place("input", 0, 5), d2 = Place("input", 0, 7);
+            int u1 = Place("block:dev", 5, 1), u2 = Place("block:dev", 5, 6);
+            int y = Place("output", 11, 4);
+            Wire(e1, "out", u1, "en");
+            Wire(d1, "out", u1, "d");
+            Wire(e2, "out", u2, "en");
+            Wire(d2, "out", u2, "d");
+            Wire(u1, "io", y, "in");
+            Wire(u2, "io", y, "in");
+
+            string Name(int id) => s.Project.TopModule.FindPart(id).Name;
+            foreach (int input in new[] { e1, d1 })
+                Assert.IsTrue(s.SetInput(Name(input), 0, 40, BitSorter.SystemVerilog.LogicVec.FromUInt64(1, 1)).Done);
+            yield return Frames(2);
+            workbench.Pause();
+            s.Finish();
+            workbench.Seek(20.5);
+            workbench.FitView();
+            yield return Frames(30);
+
+            Assert.IsFalse(s.Editor.Diagnostics.Any(d => d.IsError), string.Join("\n", s.Editor.Diagnostics));
+            yield return Capture("49-workbench-devices-on-a-bus");
+        }
+
         private static IEnumerator OpensOnItsCircuit(string level, string fixture, string shot)
         {
             yield return LoadTheGame();

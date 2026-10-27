@@ -132,18 +132,24 @@ namespace BitSorter.Board.Tests
 
         /// <summary>
         /// An inout (Part 14f) is joined to its net inside written code: a written module may have one, and be the top, which
-        /// compiles and elaborates with its testbench -- but a block of it is refused, since a drawn block's pins are inputs
-        /// and outputs.
+        /// compiles and elaborates with its testbench -- and a block of it is drawn with an inout pin (Part 14g), though not
+        /// one of several copies, each of which would take a slice of the wire the inout joins whole.
         /// </summary>
         [Test]
-        public void AWrittenModuleWithAnInout_MayBeTheTop_ButNoBlockOfItIsDrawn()
+        public void AWrittenModuleWithAnInout_MayBeTheTop_OrABlockWithAnInoutPin_ButNotOfCopies()
         {
             BoardEditor editor = WithWritten("pass", Module("pass", "    inout wire a,\n    output logic y", "    assign y = a;"));
             Assert.IsFalse(BoardRules.Check(editor.Project).Any(d => d.IsError), "written, it is fine");
 
             EditResult placed = editor.Add("top", new BlockPart { Module = "pass" }, new Placement(5, 5));
-            Assert.IsFalse(placed.Done);
-            StringAssert.Contains("whose port a is an inout", placed.Refusal);
+            Assert.IsTrue(placed.Done, placed.Refusal);
+            BlockPart block = (BlockPart)editor.Project.TopModule.FindPart(placed.Id);
+            CollectionAssert.AreEqual(new[] { ("a", PinDirection.InOut), ("y", PinDirection.Out) },
+                block.Pins(editor.Project).Select(p => (p.Name, p.Direction)));
+            EditResult copies = editor.Change("top", block with { Copies = 2 });
+            Assert.IsFalse(copies.Done);
+            StringAssert.Contains("2 copies of pass, whose a is an inout", copies.Refusal);
+            Assert.IsTrue(editor.Remove("top", placed.Id).Done);
 
             Assert.IsTrue(editor.SetTop("pass").Done);
             Assert.IsTrue(editor.SetStimulus(new Stimulus { End = 10 }).Done, "a testbench to drive it");
