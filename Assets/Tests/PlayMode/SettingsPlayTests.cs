@@ -271,10 +271,11 @@ namespace BitSorter.PlayMode.Tests
             yield return TestScene.Load();
             yield return OpenSettings();
 
-            Assert.IsTrue(GameAudio.MusicOn && GameAudio.EffectsOn, "sanity: a fresh machine has both on");
+            Assert.IsFalse(GameAudio.MusicOn, "a fresh machine has the music off (Part 15a)");
+            Assert.IsTrue(GameAudio.EffectsOn, "and the effects on");
 
             yield return Click(SettingsPanel.MusicButton);
-            Assert.IsFalse(GameAudio.MusicOn, "MUSIC did not switch the music off");
+            Assert.IsTrue(GameAudio.MusicOn, "MUSIC did not switch the music on");
             Assert.IsTrue(GameAudio.EffectsOn, "MUSIC switched the effects as well");
 
             yield return Click(SettingsPanel.EffectsButton);
@@ -287,7 +288,7 @@ namespace BitSorter.PlayMode.Tests
             Button effects = OnScreen(SettingsPanel.EffectsButton);
             Assert.IsFalse(music.interactable, "MUSIC can still be pressed with the sound off");
             Assert.IsFalse(effects.interactable, "EFFECTS can still be pressed with the sound off");
-            StringAssert.Contains("OFF", music.GetComponentInChildren<TextMeshProUGUI>().text,
+            StringAssert.Contains("ON", music.GetComponentInChildren<TextMeshProUGUI>().text,
                 "a greyed-out MUSIC stopped saying what it is set to");
 
             yield return Click(SettingsPanel.SoundButton);
@@ -296,7 +297,7 @@ namespace BitSorter.PlayMode.Tests
             // Put back: the fixture shares its scratch preferences between tests.
             yield return Click(SettingsPanel.MusicButton);
             yield return Click(SettingsPanel.EffectsButton);
-            Assert.IsTrue(GameAudio.MusicOn && GameAudio.EffectsOn, "sanity: both should be back on");
+            Assert.IsTrue(!GameAudio.MusicOn && GameAudio.EffectsOn, "sanity: both should be back as they started");
         }
 
         /// <summary>

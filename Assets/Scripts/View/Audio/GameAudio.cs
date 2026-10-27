@@ -175,18 +175,22 @@ namespace BitSorter.View
         /// </remarks>
         public void SetMuted(bool muted) => Muted = muted;
 
-        private const string MusicKey = "bitsorter.music.on";
+        /// <summary>Where <see cref="MusicOn"/> is kept: the audio tests switch it on, since it starts off (Part 15a).</summary>
+        public const string MusicKey = "bitsorter.music.on";
         private const string EffectsKey = "bitsorter.effects.on";
 
-        /// <summary>Whether the music plays when the sound is on. On unless the player switches it off.</summary>
+        /// <summary>Whether the music plays when the sound is on. Off until the player switches it on (Part 15a).</summary>
         /// <remarks>
+        /// Off by default since BitSorter opens as a simulator (Ahmad's choice, 2026-10-27). A player who had switched it on
+        /// keeps it on; one who never touched it, whose preference was the default, hears none.
+        ///
         /// Under <see cref="Muted"/>, not beside it: the sound switch silences everything whatever
         /// this says, and switching the sound back on brings the music back only if this is on.
         /// Kept in <see cref="Preferences"/> with the mute, and a reset keeps it.
         /// </remarks>
         public static bool MusicOn
         {
-            get => Preferences.GetInt(MusicKey, 1) != 0;
+            get => Preferences.GetInt(MusicKey, 0) != 0;
             private set => Preferences.SetInt(MusicKey, value ? 1 : 0);
         }
 

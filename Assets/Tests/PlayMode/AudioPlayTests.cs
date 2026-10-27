@@ -75,14 +75,22 @@ namespace BitSorter.PlayMode.Tests
             yield return TestScene.Clear();
         }
 
-        private static IEnumerator LoadScene() => TestScene.Load();
+        /// <summary>
+        /// Loads the game with its music on: off until switched on since Part 15a, and these are tests of the music. A test
+        /// that switches it off leaves it off for the next, so every load switches it on again.
+        /// </summary>
+        private static IEnumerator LoadScene()
+        {
+            Preferences.SetInt(GameAudio.MusicKey, 1);
+            return TestScene.Load();
+        }
 
         /// <summary>
         /// Loads the game and goes past the main menu, which has music of its own, to a level's.
         /// </summary>
         private static IEnumerator LoadSceneAtALevel()
         {
-            yield return TestScene.Load();
+            yield return LoadScene();
             yield return LeaveTheMenuForALevel();
         }
 
