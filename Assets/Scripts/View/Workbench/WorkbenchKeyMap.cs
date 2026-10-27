@@ -22,16 +22,25 @@ namespace BitSorter.View
         private const float Pad = 22f, TitleHeight = 44f, HeadingHeight = 34f, RowHeight = 26f, CapWidth = 150f, ColumnGap = 28f,
             MostWidth = 1800f;
 
-        /// <summary>Which headings each column holds, by their place in <see cref="KeyMap.Groups"/>.</summary>
-        private static readonly int[][] Columns = { new[] { 0, 3 }, new[] { 1, 2 }, GestureGroups() };
+        /// <summary>Which headings each column holds, by their place in <see cref="KeyMap.Groups"/>, as <see cref="KeyMap.Columns"/> names them.</summary>
+        private static readonly int[][] Columns = PlacesOf(KeyMap.Columns);
 
-        /// <summary>The third column: every group of gestures, each after the four of keys, so a group added is drawn without a second list.</summary>
-        private static int[] GestureGroups()
+        private static int[][] PlacesOf(System.Collections.Generic.IReadOnlyList<System.Collections.Generic.IReadOnlyList<string>> titles)
         {
-            var groups = new System.Collections.Generic.List<int>();
-            for (int g = 4; g < KeyMap.Groups.Count; g++)
-                groups.Add(g);
-            return groups.ToArray();
+            var columns = new int[titles.Count][];
+            for (int c = 0; c < titles.Count; c++)
+            {
+                columns[c] = new int[titles[c].Count];
+                for (int i = 0; i < titles[c].Count; i++)
+                {
+                    columns[c][i] = -1;
+                    for (int g = 0; g < KeyMap.Groups.Count; g++)
+                        if (KeyMap.Groups[g].Title == titles[c][i])
+                            columns[c][i] = g;
+                }
+            }
+
+            return columns;
         }
 
         private ShellPopup _popup;

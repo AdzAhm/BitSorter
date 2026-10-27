@@ -59,7 +59,6 @@ namespace BitSorter.ViewModel
             new KeyMapEntry("MIDDLE-DRAG", "pan; or SPACE and drag"),
             new KeyMapEntry("WHEEL", "zoom about the pointer"),
             new KeyMapEntry("ALT-CLICK", "a wire to add its signal to the waveform"),
-            new KeyMapEntry("CTRL-ENTER", "in a written block's code, apply it now; it applies itself when typing pauses"),
         };
 
         /// <summary>
@@ -80,6 +79,36 @@ namespace BitSorter.ViewModel
             new KeyMapEntry("RIGHT-CLICK", "a row's menu, or a moment's"),
             new KeyMapEntry("DOUBLE-CLICK", "an input's wave to set its value"),
             new KeyMapEntry("CLICK A NAME", "select its row; SHIFT or CTRL for more"),
+        };
+
+        /// <summary>
+        /// The keys of a written block's code while it has the keyboard (Part 14g): the editor's own, which no key of the
+        /// workbench takes from it -- every one of those is dead while anything is typed in (<c>UiText</c>). Ctrl+V pastes
+        /// text there and parts only on the circuit. The browser's editor answers all of them; the desktop build's answers all
+        /// but the three said to be a browser's.
+        /// </summary>
+        public static readonly IReadOnlyList<KeyMapEntry> CodeKeys = new[]
+        {
+            new KeyMapEntry("CTRL ENTER", "apply the code now; it applies itself when typing pauses"),
+            new KeyMapEntry("CTRL S", "apply it now, as saving would"),
+            new KeyMapEntry("CTRL Z", "undo the typing; CTRL Y or CTRL SHIFT Z redoes it"),
+            new KeyMapEntry("TAB", "indent the lines by four spaces; SHIFT TAB outdents"),
+            new KeyMapEntry("CTRL /", "comment the lines out, or back in"),
+            new KeyMapEntry("ALT UP", "move the lines up, ALT DOWN down: in a browser"),
+            new KeyMapEntry("CTRL F", "find and replace: in a browser"),
+            new KeyMapEntry("CTRL D", "select the next match: in a browser"),
+            new KeyMapEntry("ESC", "let the code go; a second Escape closes the workbench"),
+        };
+
+        /// <summary>
+        /// Which headings the map draws in each of its three columns, top to bottom (Part 14g): every heading in exactly one,
+        /// which <c>KeyMapTests</c> holds, laid out so no column is much taller than the rest.
+        /// </summary>
+        public static readonly IReadOnlyList<IReadOnlyList<string>> Columns = new IReadOnlyList<string>[]
+        {
+            new[] { "RUN", "VIEW", "IN PARTS" },
+            new[] { "CIRCUIT", "WAVES" },
+            new[] { "ON THE CIRCUIT", "ON THE WAVES", "IN THE CODE" },
         };
 
         /// <summary>The keys' headings, in order: set before <see cref="Groups"/>, which is made from them.</summary>
@@ -149,6 +178,7 @@ namespace BitSorter.ViewModel
             groups.Add(new KeyMapGroup("ON THE CIRCUIT", CircuitGestures));
             groups.Add(new KeyMapGroup("ON THE WAVES", WavesGestures));
             groups.Add(new KeyMapGroup("IN PARTS", PartsGestures));
+            groups.Add(new KeyMapGroup("IN THE CODE", CodeKeys));
             return groups.AsReadOnly();
         }
 
