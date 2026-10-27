@@ -189,6 +189,69 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsTrue(Holds(runTo), "RUN TO, let go to nothing, was not given the keyboard back");
         }
 
+        /// <summary>Where <paramref name="field"/>'s choice runs from and to, whichever end the caret is at.</summary>
+        private static (int From, int To) Chosen(TextField field) =>
+            (Mathf.Min(field.cursorIndex, field.selectIndex), Mathf.Max(field.cursorIndex, field.selectIndex));
+
+        /// <summary>
+        /// A name field opened under the pointer keeps the keyboard, its free name all chosen to be typed over. + CODE's
+        /// field opens with its corner where the click was; in the browser the game read the click's press a frame after UI
+        /// Toolkit had opened the field on it, took it for a press off the field and let the field go, and the name typed
+        /// went to the workbench as keys -- E opened EXPORT (the Part 14g browser smoke test).
+        /// </summary>
+        [UnityTest]
+        public IEnumerator ANameFieldOpenedUnderThePointer_KeepsTheKeyboard_ThoughItsClickIsReadAFrameLate()
+        {
+            yield return TestScene.Load();
+            yield return OpenTheWorkbench();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+
+            Vector2 at = ShellPanel.ScreenPointOf(ShellPanel.Find<Button>(WorkbenchPanel.NewCodeBlockName));
+            Move(_mouse.position, at);
+            yield return null;
+
+            // The click as the browser gave it: the field opened, and the press read after, on the field's popup.
+            workbench.AskCodeBlockName(at);
+            Move(_mouse.position, at + new Vector2(6f, -6f));
+            Press(_mouse.leftButton);
+            yield return null;
+            Release(_mouse.leftButton);
+            yield return null;
+            yield return null;
+
+            TextField name = workbench.CodeNameField.Field;
+            Assert.IsTrue(workbench.CodeNameField.IsOpen, "sanity: + CODE asks for a name");
+            Assert.IsTrue(Holds(name), "the press that opened the field, read a frame late, let it go");
+            Assert.AreEqual((0, name.value.Length), Chosen(name), "its free name all chosen, to be typed over");
+        }
+
+        /// <summary>
+        /// A field let go to nothing is given the keyboard back as it was, with what was chosen in it. In the browser it came
+        /// back with the caret at its start: + CODE's free name, all chosen when it opened, was no longer, and "dev" typed
+        /// over it made "devcode1" (the Part 14g browser smoke test).
+        /// </summary>
+        [UnityTest]
+        public IEnumerator AFieldLetGoToNothing_IsGivenTheKeyboardBack_WithWhatWasChosenInIt()
+        {
+            yield return TestScene.Load();
+            yield return OpenTheWorkbench();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+
+            workbench.AskCodeBlockName(workbench.ViewMiddleOnScreen);
+            yield return null;
+            yield return null;
+            TextField name = workbench.CodeNameField.Field;
+            Assert.IsTrue(Holds(name), "sanity: + CODE's name field has the keyboard");
+            name.SelectRange(1, 3);
+            yield return null;
+
+            name.Blur();
+            yield return null;
+            yield return null;
+            Assert.IsTrue(Holds(name), "sanity: given the keyboard back");
+            Assert.AreEqual((1, 3), Chosen(name), "given back without what was chosen in it");
+        }
+
         /// <summary>
         /// Once a field of the shell has let the keyboard go, the arrows are the workbench's. They were UI Toolkit's too:
         /// a click on the shell makes it the event system's selection, an arrow then moved the focus round the shell as
