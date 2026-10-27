@@ -304,10 +304,11 @@ namespace BitSorter.View
         /// Starts the tutorial by itself, once, for someone who has never seen it.
         /// </summary>
         /// <remarks>
-        /// Waits for the main menu to have been closed rather than firing at startup. The menu is
-        /// open on boot and holds <see cref="UiModal"/>, so a tutorial that began there would run
-        /// its first step behind it -- which is exactly how the first-time hints were silently
-        /// swallowed until it was found.
+        /// Waits for the first frame with nothing modal up rather than firing at startup. The 4.x boot
+        /// opened the main menu, and the simulator (Part 15a) opens the workbench, either holding
+        /// <see cref="UiModal"/>, so a tutorial that began there would run its first step behind it --
+        /// which is exactly how the first-time hints were silently swallowed until it was found. In the
+        /// simulator that frame comes only once the 4.x game is entered and its title screen left.
         ///
         /// Once a session at most. Someone who walked away from it to the first level is not
         /// arriving there for the first time, and offering it again put them straight back in it.

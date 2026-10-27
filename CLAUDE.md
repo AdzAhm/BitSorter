@@ -933,7 +933,8 @@ failure side.
   Backspace stays a second DEL, and Up alone still scrolls the waves. **A written
   block opens its code there instead** (Part 12d, `CodeEditorView`): a click in it
   is the code's, never the canvas's, and its field holds Escape while it has the
-  keyboard, so the press that lets the code go does not close the workbench too.
+  keyboard, so the press that lets the code go does nothing else too -- it closed the
+  workbench until Part 15a, and would put a part in hand down now.
   **In a browser the code is CodeMirror** (Part 12f, `CodeMirrorBridge`), a box
   the page lays over the canvas and so over every popup: it hides while a shell
   popup is open (`ShellPopup.AnyOpen`).
@@ -989,8 +990,8 @@ failure side.
   its panel. The workbench's RUN TO kept every workbench key dead after Enter
   until a click elsewhere (the 9b-3 browser smoke test). It is a shell field
   now (Part 11a), and the shell lets it go a frame after Enter or Escape -- not
-  in the same frame, or the Escape that cancelled it could close the workbench
-  too (`ShellTheme.Field`) -- and on a press anywhere else, which UI Toolkit
+  in the same frame, or the Escape that cancelled it would do the workbench's
+  Escape too, which closed it until Part 15a (`ShellTheme.Field`) -- and on a press anywhere else, which UI Toolkit
   cannot see when it lands on uGUI (`ShellPanel`). **A field given the keyboard
   keeps it** until it is let go on purpose: in the browser UI Toolkit lets a
   field go, to nothing, after the press that gave it the keyboard -- a click
@@ -1803,9 +1804,9 @@ restored circuit would satisfy every step the instant it loaded.
 Traps worth knowing, all found in play mode and none visible from the script.
 `PlacementController` puts the selection on a level's **first** budget row on
 every load, so the tutorial stocks a decoy first — otherwise the "pick a part"
-step is already complete before the player touches anything. The main menu holds
-`UiModal` at boot, so auto-launch waits for it to have been closed rather than
-firing on startup. And `WinPanel` never registers with `UiModal`, so the director
+step is already complete before the player touches anything. The main menu held
+`UiModal` at the 4.x boot, and the workbench holds it at the simulator's, so
+auto-launch waits for a frame with nothing modal up rather than firing on startup. And `WinPanel` never registers with `UiModal`, so the director
 asks the panel itself: the card goes up once `WinPanel.PresentedThisRun` and the
 panel is no longer showing. "Not showing" alone cannot say the panel has had its
 turn -- on the frame a run passes it may simply not have updated yet, and Unity
@@ -1937,7 +1938,9 @@ was not merely noisy: `LevelLoaded` fires on opening a level but not on RESET,
 so it counted neither attempts nor players, only which key somebody retried
 with. Solves are deduplicated too, or a level solved twice in one session would
 report more solves than starts. `AnalyticsRules.ShouldReport` takes the answer;
-`GameAnalytics` keeps the set, cleared on boot and never persisted.
+`GameAnalytics` keeps the set, cleared on boot and never persisted. It listens to
+every scene loaded, not only the first: a change of look loads the game again, and
+until the #84 review nothing was reported after one.
 
 **A level the simulator loads under the workbench has not started** (Part 15a).
 The game loads one at launch, out of sight, and reporting it would count a start
@@ -1945,7 +1948,7 @@ for every launch of the simulator. It is reported when the 4.x game first comes 
 screen (`AppLaunch.GameShown`), as a level under the 4.x title screen always was.
 
 **Reporting is on by default and the player can turn it off**, from
-Settings on the main menu -- the PRIVACY section's DATA switch. It was a row
+Settings -- the workbench's SETTINGS, or the 4.x main menu's -- the PRIVACY section's DATA switch. It was a row
 of the main menu itself until Settings existed; one click down, it gained a
 line saying what it switches, which the row never had room for. Consent goes through `EndUserConsent`, not the
 deprecated `StartDataCollection`; the two flows cannot be mixed, so no

@@ -103,7 +103,7 @@ namespace BitSorter.ViewModel
     /// <remarks>
     /// **Reserved for the whole game:** N (sound), M (the level list), H (help), F2 and F8 (the clock
     /// diagram and the timing strip), and Escape, which closes what is on top -- on the workbench, its
-    /// popups first and then the workbench (<c>UiEscape</c>). **Reserved by browsers:** Ctrl with R, W,
+    /// popups first and then the start page or a part in hand, and never the workbench (<c>UiEscape</c>, Part 15a). **Reserved by browsers:** Ctrl with R, W,
     /// S, T, N or L (reload, close, save, new tab, new window, address bar), which a web page cannot
     /// take back, and every function key but F2 and F8, as the 4.x controls found (CLAUDE.md, F8).
     /// </remarks>

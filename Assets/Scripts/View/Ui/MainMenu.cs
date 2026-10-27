@@ -31,7 +31,7 @@ namespace BitSorter.View
         [Tooltip("Canvas the menu is built under. Found by type when left empty.")]
         [SerializeField] private Canvas _canvas;
 
-        [Tooltip("Open the menu on startup. Off is useful when working on a level.")]
+        [Tooltip("Open the menu on startup, in the 4.x boot the tests use (AppLaunch.Classic); the game opens on the simulator.")]
         [SerializeField] private bool _openOnStart = true;
 
         private TextMeshProUGUI _progressLine;

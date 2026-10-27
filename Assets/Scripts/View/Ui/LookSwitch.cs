@@ -75,8 +75,8 @@ namespace BitSorter.View
             Look.Use(_look);
             yield return SceneManager.LoadSceneAsync(SceneManager.GetActiveScene().name, LoadSceneMode.Single);
 
-            // Every Start has run once a frame has gone by: the menu has opened itself, as it does on
-            // every load, and Settings has been built, hidden.
+            // Every Start has run once a frame has gone by: the simulator has opened itself, as it does on
+            // every launch (Part 15a), and Settings has been built, hidden.
             yield return null;
             yield return null;
 

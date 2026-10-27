@@ -59,8 +59,8 @@ screen's refresh rate, and with it off a frame cap from 30 to 240 frames a secon
 or none. A lower cap uses less power on a laptop. FPS COUNTER, on Windows and in
 the browser, puts a small frame-rate counter in the top-right corner.
 
-The bottom-right corner of the main menu says which version you are running,
-which is worth including if you report a bug.
+The bottom-right corner of the main menu says which version you are running (in
+5.0, the foot of the start page), which is worth including if you report a bug.
 
 [A guided tutorial](#the-tutorial) covers the controls, thirty levels teach the
 ideas in order, and [a sandbox](#the-sandbox) is there for when you would rather
@@ -279,7 +279,8 @@ file:
 %USERPROFILE%\AppData\LocalLow\ZADZ\BitSorter\progress.json
 ```
 
-**To start over:** main menu → **Settings** → **Reset progress**. It asks first,
+**To start over:** main menu → **Settings** → **Reset progress** (in 5.0, the workbench's
+**SETTINGS**). It asks first,
 and nothing is forgotten unless you answer yes. After a reset the game is as it
 was on first launch: the first level, an empty board, the tutorial offering
 itself again and the sandbox back on its default setup. Sound, music, effects,
@@ -424,7 +425,8 @@ your IP address. That set is Unity's, not mine, and
 tick counts, your personal bests, or any account, name or email. There is no
 login, and the game asks for nothing.
 
-**To turn it off:** main menu → **Settings** → **Data**. It toggles between
+**To turn it off:** main menu → **Settings** → **Data** (in 5.0, the workbench's
+**SETTINGS**). It toggles between
 `DATA ON` and `DATA OFF`, takes effect immediately, and is remembered on that
 machine. Turning it off stops collection rather than merely hiding it — the game
 tells Unity's consent framework that consent is denied, and nothing is queued or
