@@ -510,7 +510,8 @@ Exercise    a stable id (analytics uses it), title, goal, hint, order, chapter; 
   blocks come with the parts that need them (Part 12). The four tri-state gates came in Part 8, so the
   canvas could show a z: a data input `a` and a control `en`, one bit wide, printed as the primitive
   with its delay (`bufif1 #(1, 2) g1 (q, d, en);`) because no cell of the library is one. A net with
-  more than one driver -- a bus -- is still refused until Part 14.
+  more than one driver is a bus since Part 14f: allowed when every driver is a tri-state gate, and printed
+  as a `tri`.
 - **A clock is not a part.** The model above lists clock and reset parts; as built, a clock is an input
   port that the stimulus drives as a clock (`ClockTrack`), and a reset is an input it gives a pulse. That is
   how the course's testbenches make them, and it keeps a drawn module synthesizable: nothing in it
@@ -602,8 +603,8 @@ patterns, and no tri-state, `function`, `task`, `$display`, `` `timescale ``, `d
 | Not supported | interface classes, virtual interfaces, unpacked structs, classes, concurrent assertions, `defparam`, DPI — each refused with file, line and a plain message, until the language part that brings it (section 11) |
 
 **Written in the course's style:** an ANSI header with inputs first and outputs last, one commented
-port per line; `logic` everywhere, except a net with more than one driver, which must be a `wire` to
-compile at all (section 6); vectors MSB first; an ideal gate as a primitive (`and(z, a, b);`), a
+port per line; `logic` everywhere, except a net with more than one driver, which must be a net to
+compile at all (section 6) -- a bus is printed `tri logic` (Part 14f); vectors MSB first; an ideal gate as a primitive (`and(z, a, b);`), a
 gate with delay as a library cell (`NAND2 #(.Tpdlh(5), .Tpdhl(5)) g1 (.A(a), .B(b), .Z(n0));`) with
 BitSorter's **own** cell files beside it; named association; one module per file; instances `g1, g2 …`;
 `always_comb` with defaults first; `always_ff` with an asynchronous reset; enums for states; testbenches

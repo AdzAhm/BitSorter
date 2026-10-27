@@ -119,6 +119,9 @@ namespace BitSorter.Sim
             /// <summary>The interfaces (Part L8), by name, which an instantiation may make as it makes a module.</summary>
             private readonly Dictionary<string, ModuleDeclaration> _interfaces = new Dictionary<string, ModuleDeclaration>(StringComparer.Ordinal);
 
+            /// <summary>The net each inout port is joined to, by the port's full name (Part 14f, <see cref="JoinInouts"/>).</summary>
+            private readonly Dictionary<string, SignalEntry> _joined = new Dictionary<string, SignalEntry>(StringComparer.Ordinal);
+
             /// <summary>The interfaces whose modports have been checked, so a fault in one is said once, not once an instance.</summary>
             private readonly HashSet<ModuleDeclaration> _modportsChecked = new HashSet<ModuleDeclaration>();
             private readonly HashSet<string> _active = new HashSet<string>(StringComparer.Ordinal);
@@ -1217,6 +1220,36 @@ namespace BitSorter.Sim
                     return null;
                 }
 
+                // An inout joined to its net (Part 14f) is that net, under the port's name: what drives it inside and what
+                // drives it outside are drivers of one signal, resolved together, as Icarus joins them.
+                if (port == PortDirection.Inout && _joined.TryGetValue(scope.Path + "." + name, out SignalEntry net))
+                {
+                    if (net.Width != shape.Width)
+                    {
+                        Error(at, ElaborationCodes.BadPort,
+                            $"Inout {name} is {shape.Width} bit{(shape.Width == 1 ? "" : "s")}, and {LastName(net)}, the net it is joined to, is {net.Width}: an inout joins a net of its own width.");
+                        return null;
+                    }
+
+                    var joined = new SignalEntry
+                    {
+                        Signal = net.Signal,
+                        FullName = net.FullName,
+                        Width = net.Width,
+                        Msb = shape.Msb,
+                        Lsb = shape.Lsb,
+                        Signed = shape.Signed,
+                        Kind = SignalKind.Net,
+                        Port = port,
+                        Enum = shape.Enum,
+                        TwoState = shape.TwoState,
+                        Type = shape.Type,
+                        Declared = at,
+                    };
+                    scope.TryDeclare(name, joined);
+                    return joined;
+                }
+
                 string fullName = local ? $"{scope.Path}.{name}#{++_unnamed}" : scope.Path + "." + name;
                 if (!Fits(shape.Width, 1, at, name))
                     return null;
@@ -1268,11 +1301,9 @@ namespace BitSorter.Sim
             {
                 kind = SignalKind.Net;
 
+                // Driven from inside and out, so a net, which takes more than one driver (Part 14f).
                 if (direction == PortDirection.Inout)
-                {
-                    NotYet(at, "An inout port drives both ways, which BitSorter supports from Part 14, with tri-state buses.");
-                    return false;
-                }
+                    return true;
 
                 if (direction == PortDirection.Input)
                 {
@@ -1973,6 +2004,7 @@ namespace BitSorter.Sim
                             continue;
                     }
 
+                    JoinInouts(scope, module, instance, path);
                     Scope child = ElaborateModule(module, path, overrides, scope, instance.Location, isTop: false, depth: depth + 1, within: scope, bindings);
                     if (child == null)
                         continue;
@@ -1982,6 +2014,58 @@ namespace BitSorter.Sim
                         child.Modports = Modports(child, module);
 
                     Connect(scope, child, module, instance);
+                }
+            }
+
+            /// <summary>
+            /// The net each inout port of <paramref name="instance"/> is joined to (Part 14f), worked out before the instance is
+            /// made, so its port is declared as that net (<see cref="DeclareSignal"/>). An inout is driven from both sides, so
+            /// it joins a whole net -- a wire or a tri, <c>.io(bus)</c> -- and nothing else: a one-way assignment each way
+            /// would hold the bus at whatever it last was. One left unconnected floats, as a net of its own.
+            /// </summary>
+            private void JoinInouts(Scope scope, ModuleDeclaration module, ModuleInstance instance, string path)
+            {
+                var inouts = new List<string>();
+                foreach (PortDeclaration port in module.Ports)
+                    if (port.Direction == PortDirection.Inout && port.Interface == null)
+                        inouts.Add(port.Name);
+                foreach (ModuleItem item in module.Items)
+                    if (item is PortItemDeclaration declared && declared.Direction == PortDirection.Inout)
+                        foreach (Declarator d in declared.Declarators)
+                            inouts.Add(d.Name);
+                if (inouts.Count == 0)
+                    return;
+
+                Dictionary<string, PortConnection> connections = MatchConnections(module, instance, report: false, out bool wildcard);
+                foreach (string port in inouts)
+                {
+                    Expression given = null;
+                    SourceLocation at = instance.Location;
+                    if (connections.TryGetValue(port, out PortConnection c))
+                    {
+                        at = c.Location;
+                        given = c.IsShorthand ? new NameExpression { Location = c.Location, Path = { port } } : c.Value;
+                    }
+                    else if (wildcard)
+                    {
+                        given = new NameExpression { Location = instance.Location, Path = { port } };
+                    }
+                    if (given == null)
+                        continue;
+
+                    if (Bare(given) is NameExpression n && n.Path.Count == 1)
+                    {
+                        if (scope.Lookup(n.Name) == null)
+                            ImplicitNet(scope, n);
+                        if (scope.Lookup(n.Name) is SignalEntry net && net.Kind == SignalKind.Net && !net.IsEvent)
+                        {
+                            _joined[path + "." + port] = net;
+                            continue;
+                        }
+                    }
+
+                    Error(at, ElaborationCodes.BadPort,
+                        $"Inout {port} of {instance.Name} is given {Printer.Print(given)}; an inout is driven from both sides, so it joins a whole net -- a wire or a tri, as .{port}(bus) -- and nothing else.");
                 }
             }
 
@@ -2223,7 +2307,8 @@ namespace BitSorter.Sim
 
                 foreach (string port in ports)
                 {
-                    if (!(child.Own(port) is SignalEntry childPort) || !childPort.Port.HasValue)
+                    // An inout is joined to its net as the instance is made (JoinInouts), or left floating.
+                    if (!(child.Own(port) is SignalEntry childPort) || !childPort.Port.HasValue || childPort.Port == PortDirection.Inout)
                         continue;
 
                     Expression expression;
