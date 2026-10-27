@@ -29,6 +29,8 @@ namespace BitSorter.View
     ///   closing -- and is given it back when UI Toolkit lets it go to nothing, as it does in the browser after a press.
     /// - *A key that asks for a field* gives it the keyboard the frame after (<see cref="FocusAfterTheKey"/>), so the key
     ///   is not typed into it as well.
+    /// - *No key moves the focus round it* (Part 14g): UI Toolkit's navigation -- the arrows and Tab -- is ignored, since
+    ///   those keys are the workbench's, and navigation put the keyboard in a field after any click on the shell.
     /// </remarks>
     public sealed class ShellPanel : MonoBehaviour
     {
@@ -79,6 +81,13 @@ namespace BitSorter.View
             shell.Root.pickingMode = PickingMode.Ignore;
             shell.Root.style.flexGrow = 1f;
             shell.Root.RegisterCallback<FocusInEvent>(OnFocusIn, TrickleDown.TrickleDown);
+
+            // The keyboard never moves the focus round the shell (Part 14g): the arrows and Tab are the workbench's -- a step
+            // in time, the waves' rows, out of a block. A click on the shell makes it the event system's selection, and an
+            // arrow after it was navigation that put the keyboard in a field, where every key of the workbench is the field's.
+            // On the panel's own tree, over the document's root: with nothing focused the event is sent to the panel itself.
+            VisualElement tree = shell.Root.panel?.visualTree ?? shell.Root;
+            tree.RegisterCallback<NavigationMoveEvent>(e => tree.focusController?.IgnoreEvent(e), TrickleDown.TrickleDown);
             return shell;
         }
 

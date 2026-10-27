@@ -968,7 +968,11 @@ failure side.
   Toolkit after the game has read it, and A typed an "a" into the search it
   opened. **A shell field is not the
   event system's selection**, so `UiText.Typing` asks the shell as well
-  (`ShellPanel.Typing`). And UI Toolkit reads the platform's keys, not the Input
+  (`ShellPanel.Typing`). **No key moves the focus round the shell** (Part 14g): a
+  click on it makes it the event system's selection, and an arrow after that was UI
+  Toolkit's navigation, putting the keyboard in a field where every workbench key
+  was the field's -- Left stepped no time back, Alt+Up stepped out of nothing. Its
+  navigation is ignored (`FocusController.IgnoreEvent`). And UI Toolkit reads the platform's keys, not the Input
   System's: a test's simulated keyboard never reaches a shell field, so a test
   hands it the key as UI Toolkit would (`ShellPanel.SendKey`) in the frame it
   presses the same key on the simulated keyboard.
