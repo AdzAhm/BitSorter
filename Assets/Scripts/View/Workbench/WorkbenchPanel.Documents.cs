@@ -89,7 +89,10 @@ namespace BitSorter.View
             if (Root == null || !Documents.IsDocument(key))
                 return;
             if (key == _documentKey && _sample == 0)
-                return;   // open already: opening it again would build it again, its selection and undo lost (the #83 review)
+            {
+                LeaveHome();   // open already, under the start page or not: building it again would lose its selection and undo
+                return;
+            }
 
             KeepMyCircuit(now: true);
             if (_session != null)

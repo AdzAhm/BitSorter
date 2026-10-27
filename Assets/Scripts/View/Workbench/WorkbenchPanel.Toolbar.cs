@@ -6,10 +6,11 @@ using ShellButton = UnityEngine.UIElements.Button;
 namespace BitSorter.View
 {
     /// <summary>
-    /// The workbench's toolbar, in the shell (Part 11a): the title and SAMPLE, the run's controls and the chip that says
-    /// what the run is doing, and the timeline -- the slider, the speed and RUN TO. The first of the shell's panels, and
-    /// the one its bridges are proved on (<see cref="ShellPanel"/>). Across the window, over the docked panels (Part 11b),
-    /// the header stopping short of BACK.
+    /// The workbench's toolbar, in the shell (Part 11a): the app's name and its menus, SAMPLE, the run's controls and the
+    /// chip that says what the run is doing, and the timeline -- the slider, the speed and RUN TO. The first of the shell's
+    /// panels, and the one its bridges are proved on (<see cref="ShellPanel"/>). Across the window, over the docked panels
+    /// (Part 11b). Since Part 15a BitSorter opens here, so the header starts with the app's menus -- HOME, FILE, HELP and
+    /// SETTINGS -- as an IDE's does, and there is no BACK: nothing is behind the workbench to go back to.
     /// </summary>
     public sealed partial class WorkbenchPanel
     {
@@ -47,10 +48,6 @@ namespace BitSorter.View
             BuildHeader(palette);
             BuildTimeline(palette);
             BuildControls(palette);
-
-            ShellButton back = ShellTheme.Button(BackButton, "BACK", palette, Back);
-            ShellTheme.PlaceRight(back, UiTheme.Margin, UiTheme.Margin, BackWidth, UiTheme.ButtonHeight);
-            _shell.Root.Add(back);
         }
 
         /// <summary>A strip across the top of the window, in from its edges (<see cref="FitToolbar"/>).</summary>
@@ -62,14 +59,14 @@ namespace BitSorter.View
         }
 
         /// <summary>
-        /// The strips made as wide as a window <paramref name="window"/> wide leaves them: the controls and the timeline its
-        /// whole width in from the edges, the header short of BACK, which stands beside it.
+        /// The strips made as wide as a window <paramref name="window"/> wide leaves them: each its whole width in from the
+        /// edges.
         /// </summary>
         private void FitToolbar(float window)
         {
             float width = Mathf.Max(0f, window - 2f * UiTheme.Margin);
             if (_header != null)
-                _header.style.width = Mathf.Max(0f, width - BackWidth - UiTheme.Margin);
+                _header.style.width = width;
             if (_controls != null)
                 _controls.style.width = width;
             if (_timeline != null)
@@ -80,17 +77,16 @@ namespace BitSorter.View
         {
             _header = Strip("header", TitleTop, HeaderHeight);
 
-            Label title = ShellTheme.Label("title", "WORKBENCH", UiType.Heading, palette.Text, TextAnchor.MiddleLeft, bold: true);
+            Label title = ShellTheme.Label("title", AppName, UiType.Heading, palette.Text, TextAnchor.MiddleLeft, bold: true);
             ShellTheme.Place(title, 0f, 0f, 240f, HeaderHeight);
             _header.Add(title);
-            float titleWidth = UiTheme.TextWidth("WORKBENCH", UiType.Heading) * 1.08f;
 
-            VisualElement chip = ShellTheme.Chip("preview chip", palette);
-            ShellTheme.Place(chip, titleWidth + 14f, (HeaderHeight - 24f) * 0.5f, 86f, 24f);
-            Label chipText = ShellTheme.Label("text", "PREVIEW", UiType.Micro, palette.Muted, TextAnchor.MiddleCenter);
-            chipText.style.flexGrow = 1f;
-            chip.Add(chipText);
-            _header.Add(chip);
+            // The app's menus after its name (Part 15a).
+            float left = UiTheme.TextWidth(AppName, UiType.Heading) * 1.08f + 18f;
+            left = MenuChip(HomeButton, "HOME", left, ShowHome, palette);
+            left = MenuChip(FileButton, "FILE", left, OpenFileMenu, palette);
+            left = MenuChip(HelpButton, "HELP", left, OpenHelpMenu, palette);
+            left = MenuChip(SettingsButton, "SETTINGS", left, OpenSettings, palette);
 
             // SAMPLE, at the header's right, with its key beside it.
             float sampleWidth = 0f;
@@ -103,20 +99,29 @@ namespace BitSorter.View
             ShellTheme.KeyBeside(_sampleButton, SampleHeight, "S", palette);
             _header.Add(_sampleButton);
 
-            // FILE, left of SAMPLE's key (Part 13).
-            BuildFileChip(_header, palette, width + KeyRoom + 12f);
-
-            // The line describing the sample, beside the title, as far as SAMPLE's key; cut short where it runs longer.
-            float left = titleWidth + 14f + 86f + 20f;
+            // The line describing the sample, past the menus, as far as SAMPLE's key; cut short where it runs longer.
             _description = ShellTheme.Label("description", WorkbenchSamples.Chip[_sample].Says, UiType.Label, palette.TextDim);
-            ShellTheme.Place(_description, left, 0f, -1f, HeaderHeight);
-            _description.style.right = width + KeyRoom + 12f + FileWidth + 16f;
+            ShellTheme.Place(_description, left + 12f, 0f, -1f, HeaderHeight);
+            _description.style.right = width + KeyRoom + 16f;
             ShellTheme.Ellipsis(_description);
             _header.Add(_description);
         }
 
         /// <summary>How tall the header's row is: the title, its line and SAMPLE.</summary>
         private const float HeaderHeight = 40f;
+
+        /// <summary>What the header calls the app.</summary>
+        public const string AppName = "BITSORTER";
+
+        /// <summary>One of the app's menus in the header, at <paramref name="left"/>, as wide as its word; where the next goes.</summary>
+        private float MenuChip(string name, string caption, float left, System.Action chosen, SchematicPalette palette)
+        {
+            float width = UiTheme.TextWidth(caption, UiType.Body) + 36f;
+            ShellButton chip = ShellTheme.Button(name, caption, palette, chosen);
+            ShellTheme.Place(chip, left, (HeaderHeight - SampleHeight) * 0.5f, width, SampleHeight);
+            _header.Add(chip);
+            return left + width + 8f;
+        }
 
         /// <summary>
         /// The first row of the controls: RESTART, PLAY, STEP BACK and STEP, each with its key over it, and the chip saying

@@ -106,7 +106,7 @@ namespace BitSorter.PlayMode.Tests
         }
 
         [UnityTest]
-        public IEnumerator TheWorkbench_OpensFromTheMenu_PlaysFromTheStart_AndGoesBackToIt()
+        public IEnumerator TheWorkbench_OpensFromTheMenu_PlaysFromTheStart_AndComesBackFromSettingsAsItWas()
         {
             yield return TestScene.Load();
             yield return OpenTheWorkbench();
@@ -120,26 +120,34 @@ namespace BitSorter.PlayMode.Tests
                 yield return null;
             Assert.Greater(workbench.Time, started, "the run did not move");
 
-            yield return Click(WorkbenchPanel.BackButton);
-
-            Assert.IsFalse(workbench.IsOpen, "BACK did not close the workbench");
-            Assert.IsTrue(Find<MainMenu>().IsOpen, "BACK left the player on the board instead of the menu");
+            // There is no BACK since Part 15a: SETTINGS goes over the workbench, and its BACK comes back to it as it was.
+            yield return Click(WorkbenchPanel.SettingsButton);
+            Assert.IsFalse(workbench.IsOpen, "SETTINGS did not go over the workbench");
+            Assert.IsTrue(Find<SettingsPanel>().IsShowing && Find<SettingsPanel>().OverTheSimulator);
+            yield return Click(SettingsPanel.BackButton);
+            Assert.IsTrue(workbench.IsOpen, "Settings' BACK did not come back to the workbench");
+            Assert.IsFalse(Find<MainMenu>().IsOpen, "nor to the title screen");
+            Assert.IsTrue(workbench.Playing, "still playing, as it was left");
         }
 
+        /// <summary>Escape closes what is on top of the workbench and nothing more (Part 15a): nothing is behind it.</summary>
         [UnityTest]
-        public IEnumerator Escape_GoesBackToTheMenu()
+        public IEnumerator Escape_NeverLeavesTheWorkbench()
         {
             yield return TestScene.Load();
             yield return OpenTheWorkbench();
             yield return null;
 
-            Press(_keyboard.escapeKey);
-            yield return null;
-            Release(_keyboard.escapeKey);
-            yield return null;
+            for (int press = 0; press < 2; press++)
+            {
+                Press(_keyboard.escapeKey);
+                yield return null;
+                Release(_keyboard.escapeKey);
+                yield return null;
+            }
 
-            Assert.IsFalse(Find<WorkbenchPanel>().IsOpen, "Escape did not leave the workbench");
-            Assert.IsTrue(Find<MainMenu>().IsOpen, "one Escape left the workbench and closed the menu as well");
+            Assert.IsTrue(Find<WorkbenchPanel>().IsOpen, "Escape left the workbench");
+            Assert.IsFalse(Find<MainMenu>().IsOpen, "Escape went back to the title screen");
         }
 
         /// <summary>
@@ -726,7 +734,7 @@ namespace BitSorter.PlayMode.Tests
             Assert.AreEqual(5.0, workbench.Time, 1e-9, "and is the menu's: the waves under it were not clicked");
 
             yield return Tap(_keyboard.escapeKey);
-            Assert.IsFalse(workbench.IsOpen, "with nothing over it, Escape closes the workbench");
+            Assert.IsTrue(workbench.IsOpen, "with nothing over it, Escape still leaves the workbench up (Part 15a)");
         }
 
         /// <summary>Selecting a row lights its wire; pointing at a wire lights its row; Delete takes a selected row out.</summary>

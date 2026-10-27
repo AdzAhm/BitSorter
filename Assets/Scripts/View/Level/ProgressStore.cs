@@ -81,6 +81,12 @@ namespace BitSorter.View
         /// the start page's RECENT. A new key, absent -- null -- in every file from before it.
         /// </summary>
         public string[] recent;
+
+        /// <summary>
+        /// What was open last on the workbench (Part 15a), which BitSorter opens on again: a circuit's key, a sample's
+        /// (<c>sample/</c> and its name), or empty for the start page. Absent, so the start page, in every file from before it.
+        /// </summary>
+        public string lastOpen;
     }
 
     /// <summary>One document in the save, under the key of the board it belongs to.</summary>
@@ -152,6 +158,7 @@ namespace BitSorter.View
         /// <summary>5.0's documents, by the key of the board each belongs to, in the order they were put in.</summary>
         private readonly List<SavedProject> _projects = new List<SavedProject>();
         private readonly List<string> _recent = new List<string>();
+        private string _lastOpen = "";
 
         public ProgressStore(string path)
         {
@@ -262,6 +269,7 @@ namespace BitSorter.View
             _library.Clear();
             _projects.Clear();
             _recent.Clear();
+            _lastOpen = "";
             LoadedFormat = 0;
 
             string source = null;
@@ -351,6 +359,7 @@ namespace BitSorter.View
                     foreach (string key in file.recent)
                         if (!string.IsNullOrEmpty(key) && !_recent.Contains(key))
                             _recent.Add(key);
+                _lastOpen = file.lastOpen ?? "";
             }
             catch (Exception exception)
             {
@@ -435,6 +444,7 @@ namespace BitSorter.View
                     format = ProjectRecord.Format,
                     projects = _projects.ToArray(),
                     recent = _recent.ToArray(),
+                    lastOpen = _lastOpen,
                 };
 
                 _completed.CopyTo(file.completed);
@@ -472,6 +482,7 @@ namespace BitSorter.View
             _library.Clear();
             _projects.Clear();
             _recent.Clear();
+            _lastOpen = "";
             Save();
         }
 
@@ -566,6 +577,13 @@ namespace BitSorter.View
         /// <summary>The keys of the documents last opened, the latest first (Part 15a).</summary>
         public IReadOnlyList<string> Recent => _recent;
 
+        /// <summary>What was open last on the workbench (Part 15a): a circuit's key, a sample's, or empty for the start page. Not written until <see cref="Save"/>.</summary>
+        public string LastOpen
+        {
+            get => _lastOpen;
+            set => _lastOpen = value ?? "";
+        }
+
         /// <summary>Puts <paramref name="key"/> at the front of <see cref="Recent"/>, which stays short. Not written until <see cref="Save"/>.</summary>
         public void Touch(string key)
         {
@@ -598,6 +616,8 @@ namespace BitSorter.View
             int recent = _recent.IndexOf(from);
             if (recent >= 0)
                 _recent[recent] = to;
+            if (_lastOpen == from)
+                _lastOpen = to;
             return true;
         }
 

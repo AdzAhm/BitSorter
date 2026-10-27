@@ -213,10 +213,11 @@ namespace BitSorter.PlayMode.Tests
             yield return null;
             Assert.AreEqual(1, Top(workbench).Parts.Count, "MY CIRCUIT was kept while another sample was shown");
 
-            yield return Click(WorkbenchPanel.BackButton);
-            Assert.IsFalse(workbench.IsOpen);
-            yield return Click(MainMenu.WorkbenchButton);
-            Assert.AreEqual(0, workbench.Sample, "opened on MY CIRCUIT, now that it has something in it");
+            yield return Click(WorkbenchPanel.SettingsButton);
+            Assert.IsFalse(workbench.IsOpen, "under Settings");
+            yield return Click(SettingsPanel.BackButton);
+            Assert.IsTrue(workbench.IsOpen, "back from it");
+            Assert.AreEqual(0, workbench.Sample, "on MY CIRCUIT, as it was left");
             Assert.AreEqual(BitSorter.Sim.GateKind.Xor, ((GatePart)Top(workbench).Parts.Single()).Kind);
         }
 
@@ -257,7 +258,7 @@ namespace BitSorter.PlayMode.Tests
         }
 
         [UnityTest]
-        public IEnumerator Escape_PutsThePartInHandDown_BeforeItLeavesTheWorkbench()
+        public IEnumerator Escape_PutsThePartInHandDown_AndNeverLeavesTheWorkbench()
         {
             yield return TestScene.Load();
             yield return OpenMyCircuit();
@@ -272,7 +273,7 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsTrue(workbench.IsOpen, "and left the workbench open");
 
             yield return Tap(_keyboard.escapeKey);
-            Assert.IsFalse(workbench.IsOpen, "a second Escape leaves");
+            Assert.IsTrue(workbench.IsOpen, "nor does a second: nothing is behind the workbench (Part 15a)");
         }
 
         /// <summary>
@@ -1974,18 +1975,18 @@ namespace BitSorter.PlayMode.Tests
             workbench.NewCircuit("foo");
             yield return null;
             yield return Place(workbench, "xor", new BoardPoint(4, 0), new System.Collections.Generic.List<int>());
-            yield return Click(WorkbenchPanel.BackButton);
+            yield return Click(WorkbenchPanel.SettingsButton);
 
             ProgressStore store = Find<ProgressTracker>().Store;
-            Assert.IsTrue(store.HasProject(Documents.KeyOf("foo")), "sanity: BACK kept it");
+            Assert.IsTrue(store.HasProject(Documents.KeyOf("foo")), "sanity: going under Settings kept it");
             Assert.IsTrue(Find<ProgressTracker>().ResetProgress());
-            yield return Click(MainMenu.WorkbenchButton);
+            yield return Click(SettingsPanel.BackButton);
             yield return null;
 
             Assert.AreEqual(WorkbenchSamples.MyCircuitKey, workbench.DocumentKey, "the circuit open went with the save");
             Assert.IsEmpty(workbench.Session.Project.TopModule.Parts.OfType<GatePart>(), "MY CIRCUIT, blank");
             yield return Place(workbench, "and", new BoardPoint(2, 0), new System.Collections.Generic.List<int>());
-            yield return Click(WorkbenchPanel.BackButton);
+            yield return Click(WorkbenchPanel.SettingsButton);
             Assert.IsFalse(store.HasProject(Documents.KeyOf("foo")), "nothing of it written back");
         }
 

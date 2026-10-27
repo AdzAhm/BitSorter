@@ -20,20 +20,10 @@ namespace BitSorter.View
         /// <summary>The FILE chip's name.</summary>
         public const string FileButton = "Workbench file";
 
-        private const float FileWidth = 96f;
-
         private FileMenu _fileMenu;
 
         /// <summary>The FILE menu.</summary>
         public FileMenu FileMenu => _fileMenu;
-
-        /// <summary>FILE, left of SAMPLE's key, in the header's row.</summary>
-        private void BuildFileChip(VisualElement header, SchematicPalette palette, float right)
-        {
-            ShellButton file = ShellTheme.Button(FileButton, "FILE", palette, OpenFileMenu);
-            ShellTheme.PlaceRight(file, right, (HeaderHeight - SampleHeight) * 0.5f, FileWidth, SampleHeight);
-            header.Add(file);
-        }
 
         /// <summary>Opens the FILE menu under its chip.</summary>
         public void OpenFileMenu()

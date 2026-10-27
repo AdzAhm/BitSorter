@@ -107,6 +107,9 @@ namespace BitSorter.View
         public const string CreditsButton = "Credits";
 
         /// <inheritdoc cref="SoundButton"/>
+        public const string GameButton = "The 4.x game";
+
+        /// <inheritdoc cref="SoundButton"/>
         public const string MotionButton = "Motion setting";
 
         /// <inheritdoc cref="SoundButton"/>
@@ -414,6 +417,14 @@ namespace BitSorter.View
             Button credits = Control(block, column, CreditsButton, out TextMeshProUGUI creditsLabel, ButtonRole.Quiet);
             creditsLabel.text = "CREDITS";
             credits.onClick.AddListener(() => Fire(OpenCredits));
+
+            // The 4.x game, kept until Part 16 deletes it: beside CREDITS, as quiet, and nowhere on a first screen
+            // (Ahmad, 2026-10-27: "not deep but not plainly"). Its title screen comes back here with SIMULATOR.
+            RectTransform creditsRect = credits.GetComponent<RectTransform>();
+            Button game = UiTheme.Button_(GameButton, block, "THE 4.x GAME", out TextMeshProUGUI _, UiType.Body, ButtonRole.Quiet);
+            UiTheme.Anchor(game.GetComponent<RectTransform>(), creditsRect.anchorMin, creditsRect.anchorMax,
+                creditsRect.anchoredPosition + new Vector2(ButtonWidth + LookGap, 0f), creditsRect.sizeDelta);
+            game.onClick.AddListener(() => Fire(OpenTheGame));
 
             UiTheme.Anchor(block, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                 Vector2.zero, new Vector2(ColumnWidth, column.Next));
@@ -855,8 +866,69 @@ namespace BitSorter.View
         // Showing
         // -----------------------------------------------------------------
 
-        /// <summary>Opens the settings. Used by the main menu's Settings item.</summary>
-        public void Open() => Show(true);
+        /// <summary>Opens the settings. Used by the 4.x title screen's Settings item, which BACK goes back to.</summary>
+        public void Open()
+        {
+            _over = null;
+            _overTheSimulator = false;
+            Show(true);
+        }
+
+        /// <summary>
+        /// Opens the settings over the simulator (Part 15a), which BACK goes back to as it was left. The backdrop is solid
+        /// there, where it is see-through over the 4.x board: the board under the workbench is the 4.x game's, and not to be
+        /// glimpsed from the simulator.
+        /// </summary>
+        public void OpenOver(WorkbenchPanel workbench)
+        {
+            _over = workbench;
+            _overTheSimulator = workbench != null;
+            Show(true);
+        }
+
+        /// <summary>
+        /// Opens the settings again where they were, after a change of look has loaded the game again (<see cref="LookSwitch"/>):
+        /// over the simulator, hiding the workbench the reload opened, or over the title screen.
+        /// </summary>
+        public void OpenAgain()
+        {
+            if (_overTheSimulator)
+            {
+                WorkbenchPanel workbench = FindFirstObjectByType<WorkbenchPanel>();
+                workbench?.GoUnder();
+                if (_menu != null)
+                    _menu.Show(false);
+                OpenOver(workbench);
+                return;
+            }
+
+            if (_menu != null)
+                _menu.Show(false);
+            Open();
+        }
+
+        /// <summary>The simulator Settings went over, which BACK goes back to; null for the title screen.</summary>
+        private WorkbenchPanel _over;
+
+        /// <summary>Whether Settings was last opened over the simulator: kept through the reload a change of look makes.</summary>
+        private static bool _overTheSimulator;
+
+        /// <summary>Whether Settings was opened over the simulator, rather than over the 4.x title screen: the credits' backdrop asks.</summary>
+        public bool OverTheSimulator => _over != null;
+
+        /// <summary>Settings again, over what it was over: the credits roll coming back.</summary>
+        public void Reopen() => Show(true);
+
+        /// <summary>THE 4.x GAME: its title screen, which SIMULATOR leaves (Part 15a).</summary>
+        private void OpenTheGame()
+        {
+            _over = null;
+            _overTheSimulator = false;
+            Show(false);
+            AppLaunch.ShowTheGame();
+            if (_menu != null)
+                _menu.Show(true);
+        }
 
         /// <summary>The credits roll, which comes back here.</summary>
         private void OpenCredits()
@@ -868,10 +940,18 @@ namespace BitSorter.View
             _credits.Open();
         }
 
-        /// <summary>Back to the main menu, which is the only way here.</summary>
+        /// <summary>Back to what Settings was opened over: the simulator, or the 4.x title screen.</summary>
         private void Back()
         {
             Show(false);
+
+            if (_over != null)
+            {
+                WorkbenchPanel over = _over;
+                _over = null;
+                over.Resume();
+                return;
+            }
 
             if (_menu != null)
                 _menu.Show(true);
@@ -888,6 +968,8 @@ namespace BitSorter.View
             if (_resetButton == null)
                 return;
 
+            Color scrim = Palette.Current.MenuScrim;
+            Root.GetComponent<Image>().color = _over != null ? new Color(scrim.r, scrim.g, scrim.b, 1f) : scrim;
             SetConfirming(false);
             _status.text = string.Empty;
             _shownVolume = -1;

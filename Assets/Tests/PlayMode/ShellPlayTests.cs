@@ -291,7 +291,7 @@ namespace BitSorter.PlayMode.Tests
         }
 
         [UnityTest]
-        public IEnumerator AShellField_HoldsTheKeys_AndEscapeLetsItGo_BeforeTheWorkbenchCloses()
+        public IEnumerator AShellField_HoldsTheKeys_AndEscapeLetsItGo_AndTheWorkbenchStays()
         {
             yield return TestScene.Load();
             yield return OpenTheWorkbench();
@@ -319,7 +319,7 @@ namespace BitSorter.PlayMode.Tests
 
             yield return Tap(_keyboard.escapeKey);
             yield return null;
-            Assert.IsFalse(workbench.IsOpen, "the next Escape is the workbench's");
+            Assert.IsTrue(workbench.IsOpen, "the next Escape is the workbench's, which never leaves it (Part 15a)");
         }
 
         /// <summary>
@@ -409,9 +409,9 @@ namespace BitSorter.PlayMode.Tests
 
             Assert.AreEqual(1f, root.resolvedStyle.opacity, 1e-3f, "faded in with the workbench");
             Assert.IsTrue(workbench.Shell.Visible);
-            ShellPanel.Submit(ShellPanel.Find<Button>(WorkbenchPanel.BackButton));
+            ShellPanel.Submit(ShellPanel.Find<Button>(WorkbenchPanel.SettingsButton));
             yield return null;
-            Assert.IsFalse(workbench.Shell.Visible, "and gone with it");
+            Assert.IsFalse(workbench.Shell.Visible, "and gone with it, under Settings");
         }
 
         [UnityTest]

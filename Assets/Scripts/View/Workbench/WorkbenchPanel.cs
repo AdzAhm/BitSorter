@@ -80,14 +80,12 @@ namespace BitSorter.View
     /// selection, the middle button or Space with a drag panning. MY CIRCUIT, first in the SAMPLE chip, is kept.
     ///
     /// A full-screen panel like Settings, and for the same reasons: it covers the 4.x board, which
-    /// stays exactly as it was, takes Escape back to the menu, and hides the HUD while it is up.
-    /// Everything on it is built here the first time it opens, so the 4.x game pays nothing for it
-    /// until then.
+    /// stays exactly as it was, and hides the HUD while it is up. Since Part 15a BitSorter opens on it
+    /// (<c>WorkbenchPanel.Home.cs</c>), and Escape never leaves it. Everything on it is built the
+    /// first time it opens.
     /// </remarks>
     public sealed partial class WorkbenchPanel : FullScreenPanel
     {
-        [SerializeField] private MainMenu _menu;
-
         [Tooltip("Canvas the panel is built under. Found by type when left empty.")]
         [SerializeField] private Canvas _canvas;
 
@@ -95,7 +93,13 @@ namespace BitSorter.View
         public const string RootName = "Workbench panel";
 
         /// <inheritdoc cref="RootName"/>
-        public const string BackButton = "Workbench back";
+        public const string HomeButton = "Workbench home";
+
+        /// <inheritdoc cref="RootName"/>
+        public const string HelpButton = "Workbench help";
+
+        /// <inheritdoc cref="RootName"/>
+        public const string SettingsButton = "Workbench settings";
 
         /// <inheritdoc cref="RootName"/>
         public const string RestartButton = "Workbench restart";
@@ -172,8 +176,6 @@ namespace BitSorter.View
 
         /// <inheritdoc cref="TitleTop"/>
         private const float StageTop = TimelineTop + UiTheme.ButtonHeight + 14f;
-
-        private const float BackWidth = 120f;
 
         // -----------------------------------------------------------------
         // State
@@ -419,7 +421,6 @@ namespace BitSorter.View
 
         private void Awake()
         {
-            if (_menu == null) _menu = FindFirstObjectByType<MainMenu>();
             if (_canvas == null) _canvas = FindFirstObjectByType<Canvas>();
             _tracker = FindFirstObjectByType<ProgressTracker>();
             if (_tracker != null)
@@ -1373,14 +1374,22 @@ namespace BitSorter.View
             if (FileImport.Picks && FileImport.TryTake(out List<BitSorter.Board.SourceFile> picked))
                 Import(picked);
 
-            // Escape closes what is on top of the workbench first -- the row menu -- and the workbench only
-            // when nothing is.
+            // Escape closes what is on top of the workbench -- a popup first, then the start page, a part in hand or a drag
+            // (Part 10a) -- and nothing more: nothing is behind the workbench to go back to (Part 15a).
             Keyboard keyboard = UiText.Keyboard;
             if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame && !OpenedThisFrame && !UiEscape.AnyHolds)
             {
-                // A part in hand, or a drag, is let go of first (Part 10a); only then is the workbench.
-                if (!LetGoOnCanvas())
-                    Back();
+                if (StartPageShowing)
+                    LeaveHome();
+                else
+                    LetGoOnCanvas();
+                return;
+            }
+
+            // The start page covers the circuit: nothing under it is played, scrolled, picked or deleted.
+            if (StartPageShowing)
+            {
+                KeepMyCircuit(now: false);
                 return;
             }
 
@@ -1466,15 +1475,6 @@ namespace BitSorter.View
             KeepMyCircuit(now: false);
         }
 
-        private void Back()
-        {
-            KeepMyCircuit(now: true);
-            SetShowing(false);
-
-            if (_menu != null)
-                _menu.Show(true);
-        }
-
         protected override void OnShown()
         {
             _laidWindow = new Vector2(-1f, -1f);
@@ -1497,8 +1497,9 @@ namespace BitSorter.View
         {
             SchematicPalette palette = SchematicPalette.Current;
 
-            // MY CIRCUIT when there is anything in it; the reference circuit until there is.
-            _sample = MyCircuitHasAnything() ? 0 : 1;
+            // What the launch asked for (Part 15a); else MY CIRCUIT when there is anything in it, the reference circuit until
+            // there is.
+            _sample = _launchSample >= 0 ? _launchSample : MyCircuitHasAnything() ? 0 : 1;
             OpenRun();
 
             Image scrim = UiTheme.Scrim(RootName, _canvas.transform, palette.Ground);
@@ -1530,6 +1531,7 @@ namespace BitSorter.View
             BuildCodeView(palette);
             BuildListingView(palette);
             RefreshDockButtons();
+            BuildHome(palette);   // over the docked panels, under the popups, which come to the front as they open (Part 15a)
 
             // Over everything else on the workbench, when it is up: in the shell, over its docked panels (Part 11b-3).
             _rowMenu = WaveRowMenu.Build(_shell, transform, palette, ChooseRadix, RowAction);
@@ -1726,22 +1728,10 @@ namespace BitSorter.View
             int count = WorkbenchSamples.Chip.Count;
             _sample = ((sample % count) + count) % count;
 
-            _rowMenu.Close();
-            _timeMenu.Close();
-            _exportMenu.Close();
-            _fileMenu.Close();
-            _openMenu?.Close();
-            _circuitName?.Close();
-            _ask.Close();
-            _libraryMenu?.Close();
-            _budgetField?.Close();
+            HideHome();
+            CloseThePopups();
             _transcript.Notes = null;   // what an import said is about the import, which this leaves (an import sets them again)
             _notesAbout = null;
-            _picker.Close();
-            _rename.Close();
-            _blockName.Close();
-            _breakField.Close();
-            _setField.Close();
             OpenRun();
             RebuildStage(keepViews: false);
             BuildPartsPanel(SchematicPalette.Current);
@@ -1751,6 +1741,27 @@ namespace BitSorter.View
             SliderEnd(_model.End);
             FitView();
             Restart();
+            RememberWhatIsOpen(OpenKey());
+        }
+
+        /// <summary>Every popup of the workbench shut: what showing another circuit, or the start page, does first.</summary>
+        private void CloseThePopups()
+        {
+            _rowMenu.Close();
+            _timeMenu.Close();
+            _exportMenu.Close();
+            _fileMenu.Close();
+            _openMenu?.Close();
+            _circuitName?.Close();
+            _helpMenu?.Close();
+            _ask.Close();
+            _libraryMenu?.Close();
+            _budgetField?.Close();
+            _picker.Close();
+            _rename.Close();
+            _blockName.Close();
+            _breakField.Close();
+            _setField.Close();
         }
 
         /// <summary>

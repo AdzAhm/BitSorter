@@ -66,6 +66,25 @@ namespace BitSorter.ViewModel.Tests
         }
 
         [Test]
+        public void ItOpensOnTheLastThingOpen_WhileThereIsOne_OrElseTheStartPage()
+        {
+            Assert.AreEqual("doc/adder", Documents.LaunchKey("doc/adder", Saved), "a circuit still kept");
+            Assert.AreEqual("free-play/My board", Documents.LaunchKey("free-play/My board", Saved));
+            Assert.AreEqual(WorkbenchSamples.MyCircuitKey, Documents.LaunchKey(WorkbenchSamples.MyCircuitKey, new string[0]),
+                "MY CIRCUIT whether it has been kept yet or not");
+            string sample = Documents.SampleKey(WorkbenchSamples.All[1].Name);
+            Assert.AreEqual(sample, Documents.LaunchKey(sample, Saved), "a sample");
+            Assert.AreEqual(2, Documents.SampleOf(sample), "the chip's place: MY CIRCUIT is first");
+
+            Assert.IsNull(Documents.LaunchKey("doc/gone", Saved), "a circuit since deleted: the start page");
+            Assert.IsNull(Documents.LaunchKey(Documents.SampleKey("No such sample"), Saved), "a sample since taken out");
+            Assert.IsNull(Documents.LaunchKey("half-adder", Saved), "a level's board is no circuit");
+            Assert.IsNull(Documents.LaunchKey("", Saved), "the start page last, or nothing");
+            Assert.IsNull(Documents.LaunchKey(null, Saved));
+            Assert.AreEqual(-1, Documents.SampleOf("doc/adder"));
+        }
+
+        [Test]
         public void ANewCircuitsModule_IsItsNameAsSystemVerilogTakesOne()
         {
             Assert.AreEqual("my_ALU_2", Documents.ModuleNameFor("my ALU 2"));

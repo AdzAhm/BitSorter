@@ -214,15 +214,31 @@ namespace BitSorter.View
         // Showing
         // -----------------------------------------------------------------
 
-        /// <summary>Starts the roll from below the screen. Used by Settings' CREDITS button.</summary>
-        public void Open() => Show(true);
+        /// <summary>Starts the roll from below the screen. Used by Settings' CREDITS button, which it goes back to.</summary>
+        public void Open() => Open(null);
+
+        /// <summary>
+        /// Starts the roll, which goes back to <paramref name="back"/> when it is done -- the simulator, from HELP's ABOUT
+        /// (Part 15a) -- or to Settings, which opens over what it was over.
+        /// </summary>
+        public void Open(System.Action back)
+        {
+            _back = back;
+            Show(true);
+        }
+
+        private System.Action _back;
 
         private void Back()
         {
             Show(false);
 
-            if (_settings != null)
-                _settings.Open();
+            System.Action back = _back;
+            _back = null;
+            if (back != null)
+                back();
+            else if (_settings != null)
+                _settings.Reopen();
         }
 
         private void Show(bool visible) => SetShowing(visible);
@@ -230,6 +246,11 @@ namespace BitSorter.View
         protected override void OnShown()
         {
             _risen = 0f;
+
+            // Solid over the simulator, as Settings is there (Part 15a): the board under the workbench is the 4.x game's.
+            Color scrim = Palette.Current.CardScrim;
+            bool solid = _back != null || (_settings != null && _settings.OverTheSimulator);
+            Root.GetComponent<Image>().color = solid ? new Color(scrim.r, scrim.g, scrim.b, 1f) : scrim;
 
             if (_roll != null)
                 _roll.anchoredPosition = Vector2.zero;

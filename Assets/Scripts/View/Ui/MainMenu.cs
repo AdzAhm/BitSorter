@@ -8,7 +8,8 @@ using TMPro;
 namespace BitSorter.View
 {
     /// <summary>
-    /// The front door: a title, where you left off, and the way back to it.
+    /// The 4.x game's front door: a title, where you left off, and the way back to it. Since Part 15a BitSorter opens on the
+    /// simulator instead (<see cref="AppLaunch"/>), and this is reached from Settings' 4.x GAME, with SIMULATOR the way back.
     /// </summary>
     /// <remarks>
     /// An overlay in the same scene rather than a separate one, for the same reason level select is:
@@ -72,7 +73,7 @@ namespace BitSorter.View
 
             Build();
             BuildHudButton();
-            Show(_openOnStart);
+            Show(_openOnStart && AppLaunch.Classic);   // the simulator opens on the workbench (Part 15a)
         }
 
         /// <summary>
@@ -115,8 +116,8 @@ namespace BitSorter.View
         /// <summary>The HUD's menu button's object name, which the HUD tests look for.</summary>
         public const string HudButtonName = "Menu button";
 
-        /// <summary>The workbench's row: its object name, and its caption in capitals.</summary>
-        public const string WorkbenchButton = "Workbench";
+        /// <summary>The row back to the simulator: its object name, and its caption in capitals (WORKBENCH until Part 15a).</summary>
+        public const string WorkbenchButton = "Simulator";
 
         private const float HudButtonWidth = 110f;
 
@@ -219,9 +220,8 @@ namespace BitSorter.View
             sandbox.onClick.AddListener(() => Fire(OpenSandbox));
             row -= RowStep;
 
-            // 5.0's workbench, as a preview beside the game it will replace (Docs/architecture-5.md,
-            // Part 3): the new engine and the Schematic look on one circuit. Under free play, the
-            // other way off the run.
+            // Back to the simulator, which BitSorter opens on since Part 15a: the workbench, as it was
+            // left. Under free play, the other way off the run.
             Button workbench = Item(WorkbenchButton, row, out TextMeshProUGUI _);
             workbench.onClick.AddListener(() => Fire(OpenWorkbench));
             row -= RowStep;
@@ -448,7 +448,7 @@ namespace BitSorter.View
                 return;
 
             Show(false);
-            _workbench.Open();
+            _workbench.Resume();
         }
 
         /// <inheritdoc cref="Continue"/>

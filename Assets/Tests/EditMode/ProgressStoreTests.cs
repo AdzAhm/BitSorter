@@ -75,6 +75,7 @@ namespace BitSorter.LogicCore.Tests
             store.SetProject("doc/alu", BitSorter.Board.Project.New("alu"));
             store.Touch("doc/adder");
             store.Touch("doc/alu");
+            store.LastOpen = "doc/adder";
             Assert.IsFalse(store.RenameProject("doc/adder", "doc/alu"), "a name another has");
             Assert.IsTrue(store.RenameProject("doc/adder", "doc/half adder"));
             store.Save();
@@ -84,6 +85,7 @@ namespace BitSorter.LogicCore.Tests
             CollectionAssert.AreEqual(new[] { "doc/alu", "doc/half adder" }, reloaded.Recent, "the latest first, the renamed one in its place");
             Assert.IsTrue(reloaded.TryGetProject("doc/half adder", out BitSorter.Board.Project renamed, null));
             Assert.AreEqual("adder", renamed.Top, "the same document under its new name");
+            Assert.AreEqual("doc/half adder", reloaded.LastOpen, "the last thing open, followed through the rename (Part 15a)");
 
             reloaded.RemoveProject("doc/alu");
             reloaded.Save();

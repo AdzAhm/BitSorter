@@ -160,6 +160,7 @@ namespace BitSorter.View
             if (_tracker != null)
                 _tracker.LevelSolved += OnLevelSolved;
 
+            AppLaunch.GameCameOnScreen += OnGameCameOnScreen;
             Application.quitting += OnQuitting;
         }
 
@@ -171,6 +172,7 @@ namespace BitSorter.View
             if (_tracker != null)
                 _tracker.LevelSolved -= OnLevelSolved;
 
+            AppLaunch.GameCameOnScreen -= OnGameCameOnScreen;
             Application.quitting -= OnQuitting;
 
             _session = null;
@@ -181,7 +183,16 @@ namespace BitSorter.View
         // progress is stored under, so that is what gets reported rather than the display title.
         private static void OnLevelLoaded(LevelDefinition level)
         {
-            Record(AnalyticsRules.LevelStarted, _session != null ? _session.LevelName : null);
+            // In the simulator a level is loaded under the workbench at launch, where nobody sees it (Part 15a): it is
+            // reported started when the 4.x game first comes on screen, as one under the 4.x title screen was.
+            if (AppLaunch.GameShown)
+                Record(AnalyticsRules.LevelStarted, _session != null ? _session.LevelName : null);
+        }
+
+        private static void OnGameCameOnScreen()
+        {
+            if (_session != null)
+                Record(AnalyticsRules.LevelStarted, _session.LevelName);
         }
 
         private static void OnLevelSolved(string levelName)

@@ -80,13 +80,9 @@ namespace BitSorter.View
             yield return null;
             yield return null;
 
-            MainMenu menu = FindFirstObjectByType<MainMenu>();
             SettingsPanel settings = FindFirstObjectByType<SettingsPanel>();
-            if (menu != null && settings != null)
-            {
-                menu.Show(false);
-                settings.Open();
-            }
+            if (settings != null)
+                settings.OpenAgain();   // over the simulator or the title screen, as it was (Part 15a)
 
             yield return Fade(Palette.Current.Ground, 1f, 0f, RevealSeconds);
             Destroy(gameObject);

@@ -134,6 +134,41 @@ namespace BitSorter.ViewModel
             return made;
         }
 
+        /// <summary>The start of what a sample is remembered as when it was the last thing open, its name following.</summary>
+        public const string SamplePrefix = "sample/";
+
+        /// <summary>What sample <paramref name="name"/> of <see cref="WorkbenchSamples.All"/> is remembered as when it was the last thing open.</summary>
+        public static string SampleKey(string name) => SamplePrefix + name;
+
+        /// <summary>The place in <see cref="WorkbenchSamples.Chip"/> of the sample <paramref name="key"/> remembers; -1 for none.</summary>
+        public static int SampleOf(string key)
+        {
+            if (!IsNamed(key, SamplePrefix))
+                return -1;
+            string name = key.Substring(SamplePrefix.Length);
+            for (int i = 1; i < WorkbenchSamples.Chip.Count; i++)
+                if (WorkbenchSamples.Chip[i].Name == name)
+                    return i;
+            return -1;
+        }
+
+        /// <summary>
+        /// What BitSorter opens on (Part 15a), from <paramref name="lastOpen"/>, the last thing that was: that circuit, while the
+        /// save still keeps it among <paramref name="keys"/> -- MY CIRCUIT always -- or that sample, while there is one of its
+        /// name. Null for the start page: when nothing was open last, the start page was, or what was is gone.
+        /// </summary>
+        public static string LaunchKey(string lastOpen, IEnumerable<string> keys)
+        {
+            if (SampleOf(lastOpen) > 0 || lastOpen == WorkbenchSamples.MyCircuitKey)
+                return lastOpen;
+            if (!IsDocument(lastOpen))
+                return null;
+            foreach (string key in keys ?? Array.Empty<string>())
+                if (key == lastOpen)
+                    return lastOpen;
+            return null;
+        }
+
         /// <summary>The top module a new circuit called <paramref name="name"/> starts with: the name as SystemVerilog takes one.</summary>
         public static string ModuleNameFor(string name) => Migrator.NameFrom(name, "circuit");
 

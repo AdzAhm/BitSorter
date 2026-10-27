@@ -1633,6 +1633,30 @@ namespace BitSorter.PlayMode.Tests
             yield return Capture("49-workbench-devices-on-a-bus");
         }
 
+        /// <summary>
+        /// Part 15a: what BitSorter opens on with nothing open last -- the start page, the app's menus over it, and three
+        /// circuits of the student's in RECENT, the one opened last first.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator Shot50_StartPage()
+        {
+            var store = new ProgressStore(ProgressStore.DefaultPath);
+            store.Load();
+            foreach (string name in new[] { "traffic light", "alu", "lab 3 adder" })
+            {
+                store.SetProject(Documents.KeyOf(name), BitSorter.Board.Project.New(Documents.ModuleNameFor(name)));
+                store.Touch(Documents.KeyOf(name));
+            }
+            store.Save();
+
+            yield return TestScene.LoadSimulator();
+            Look.ApplyBloom();
+            yield return Frames(30);
+
+            Assert.IsTrue(Find<WorkbenchPanel>().StartPageShowing, "sanity: nothing was open last");
+            yield return Capture("50-start-page");
+        }
+
         private static IEnumerator OpensOnItsCircuit(string level, string fixture, string shot)
         {
             yield return LoadTheGame();

@@ -1,5 +1,6 @@
 using System.Collections;
 using UnityEngine;
+using BitSorter.View;
 using UnityEngine.SceneManagement;
 
 namespace BitSorter.PlayMode.Tests
@@ -45,9 +46,20 @@ namespace BitSorter.PlayMode.Tests
 
         private static int _cleared;
 
-        /// <summary>Loads the game, on a driven clock, and lets it finish waking up.</summary>
-        internal static IEnumerator Load()
+        /// <summary>
+        /// Loads the game as 4.x booted, its title screen up over the board, on a driven clock, and lets it finish waking up:
+        /// what every fixture written before Part 15a expects (<see cref="AppLaunch.Classic"/>).
+        /// </summary>
+        internal static IEnumerator Load() => Load(classic: true);
+
+        /// <summary>Loads the game as it opens since Part 15a: the simulator, on the last thing open or the start page.</summary>
+        internal static IEnumerator LoadSimulator() => Load(classic: false);
+
+        private static IEnumerator Load(bool classic)
         {
+            AppLaunch.Classic = classic;
+            AppLaunch.Forget();
+
             // Before the load, so the frames the scene takes to wake are driven too. The reference
             // shots choose a 120th before they load, and that choice stands.
             if (Time.captureDeltaTime <= 0f)
@@ -93,6 +105,8 @@ namespace BitSorter.PlayMode.Tests
 
             // Real time back, whatever step the test left: the next fixture may not load the game.
             Time.captureDeltaTime = 0f;
+            AppLaunch.Classic = false;
+            AppLaunch.Forget();
         }
     }
 }

@@ -97,7 +97,7 @@ namespace BitSorter.ViewModel
             new KeyMapEntry("ALT UP", "move the lines up, ALT DOWN down: in a browser"),
             new KeyMapEntry("CTRL F", "find and replace: in a browser"),
             new KeyMapEntry("CTRL D", "select the next match: in a browser"),
-            new KeyMapEntry("ESC", "close find, then let the code go; the next Escape closes the workbench"),
+            new KeyMapEntry("ESC", "close find, then let the code go"),
         };
 
         /// <summary>
