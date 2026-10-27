@@ -388,21 +388,7 @@ namespace BitSorter.Sim
 
                 if (!edgeTriggered)
                 {
-                    var outside = new List<int>();
-                    foreach (int r in reads)
-                        if (!Design.Signals[r].Local && Array.IndexOf(process.Writes, r) < 0)
-                            outside.Add(r);
-                    if (outside.Count == 0 || writes.Count == 0)
-                        continue;
-
-                    outside.Sort();
-                    int junction = Junction(process.Name);
-                    foreach (int r in outside)
-                        for (int b = _first[r]; b < _first[r + 1]; b++)
-                            Add(new TimingArc(b, junction, process.Name, null, 0, 0, 0, Sense.Either, wire: false));
-                    foreach (int w in writes)
-                        for (int b = _first[w]; b < _first[w + 1]; b++)
-                            Add(new TimingArc(junction, b, process.Name, null, 0, 0, 0, Sense.Positive, wire: true));
+                    AddLogic(process, writes);
                     continue;
                 }
 
@@ -431,6 +417,111 @@ namespace BitSorter.Sim
             }
 
             Registers = registers;
+        }
+
+        /// <summary>
+        /// A combinational process: each signal it writes reached from what its own assignments read and what its decisions
+        /// -- its <c>if</c>s, <c>case</c>s and loop conditions -- read, through a junction, at no delay. What it writes and
+        /// then reads is followed through to what that was worked out from, so <c>t = a &amp; b; y = t | c;</c> gives y a, b
+        /// and c; what it reads of its own before writing it -- <c>y = y ^ a[i]</c> -- is its own working, and a loop's
+        /// variable is no part of anything.
+        /// </summary>
+        /// <remarks>
+        /// **Per signal, not the process whole.** The course's processor sets its ALU's operands in one <c>always_comb</c>
+        /// and reads the ALU's result in the same block for another output: every read to every write made the operands
+        /// depend on the result -- a loop through the ALU, 194 bits of it, and its minimum period 0 (the 14b review). Signals
+        /// whose writes read the same things share one junction.
+        /// </remarks>
+        private void AddLogic(ProcessInfo process, List<int> writes)
+        {
+            var own = new HashSet<int>(process.Writes);
+            var direct = new Dictionary<int, HashSet<int>>();
+            var decisions = new HashSet<int>();
+            var reads = new List<int>();
+            foreach (Instruction ins in process.Code)
+            {
+                switch (ins.Op)
+                {
+                    case OpCode.Assign:
+                    case OpCode.AssignLater:
+                    case OpCode.Force:
+                        reads.Clear();
+                        ins.Value?.CollectReads(reads);
+                        foreach (LPiece piece in ins.Target ?? Array.Empty<LPiece>())
+                        {
+                            // Where a write lands is read as well: a word picked by an address depends on the address.
+                            piece.Offset?.CollectReads(reads);
+                            piece.Word?.CollectReads(reads);
+                        }
+                        foreach (LPiece piece in ins.Target ?? Array.Empty<LPiece>())
+                            for (int w = 0; w < Math.Max(1, piece.Word != null ? piece.Depth : 1); w++)
+                            {
+                                int target = piece.Signal + w;
+                                if (!direct.TryGetValue(target, out HashSet<int> from))
+                                    direct[target] = from = new HashSet<int>();
+                                from.UnionWith(reads);
+                            }
+                        break;
+
+                    case OpCode.JumpIf:
+                    case OpCode.JumpUnless:
+                    case OpCode.JumpIfMatch:
+                    case OpCode.WaitUntil:
+                        reads.Clear();
+                        ins.Value?.CollectReads(reads);
+                        ins.Other?.CollectReads(reads);
+                        decisions.UnionWith(reads);
+                        break;
+                }
+            }
+
+            // What each write is worked out from, from outside: its own reads and the decisions', what it read of the
+            // process's own writes followed through to theirs.
+            var junctions = new Dictionary<string, int>(StringComparer.Ordinal);
+            var seen = new HashSet<int>();
+            var todo = new Stack<int>();
+            var outside = new List<int>();
+            foreach (int w in writes)
+            {
+                seen.Clear();
+                outside.Clear();
+                todo.Clear();
+                seen.Add(w);
+                if (direct.TryGetValue(w, out HashSet<int> first))
+                    foreach (int r in first)
+                        todo.Push(r);
+                foreach (int r in decisions)
+                    todo.Push(r);
+                while (todo.Count > 0)
+                {
+                    int r = todo.Pop();
+                    if (!seen.Add(r))
+                        continue;
+                    if (own.Contains(r))
+                    {
+                        if (direct.TryGetValue(r, out HashSet<int> through))
+                            foreach (int deeper in through)
+                                todo.Push(deeper);
+                        continue;
+                    }
+                    if (!Design.Signals[r].Local)
+                        outside.Add(r);
+                }
+                if (outside.Count == 0)
+                    continue;
+
+                outside.Sort();
+                string key = string.Join(",", outside);
+                if (!junctions.TryGetValue(key, out int junction))
+                {
+                    junctions[key] = junction = Junction(process.Name);
+                    foreach (int r in outside)
+                        for (int b = _first[r]; b < _first[r + 1]; b++)
+                            Add(new TimingArc(b, junction, process.Name, null, 0, 0, 0, Sense.Either, wire: false));
+                }
+                for (int b = _first[w]; b < _first[w + 1]; b++)
+                    Add(new TimingArc(junction, b, process.Name, null, 0, 0, 0, Sense.Positive, wire: true));
+            }
         }
 
         /// <summary>

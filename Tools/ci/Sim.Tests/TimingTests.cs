@@ -372,6 +372,38 @@ endmodule");
                 report.Paths.SelectMany(p => p.Alike).Select(e => Name(graph, e.From)));
         }
 
+        /// <summary>
+        /// One process setting an ALU's operand and reading its result for another output -- the course's processor does --
+        /// is no loop: the operand is worked out from the select and the inputs, never from the result (the 14b review). And a
+        /// value written and read again in the same block is followed through: y comes from a, b and c, through t.
+        /// </summary>
+        [Test]
+        public void AProcessThatFeedsALogicBlockAndReadsItsResult_IsNoLoop()
+        {
+            TimingGraph graph = Graph(@"
+module alu (input logic [3:0] x, output logic [3:0] y);
+    assign #(2, 2) y = x + 4'd1;
+endmodule
+module cpu (input logic sel, input logic [3:0] a, b, c, output logic [3:0] wb, y);
+    logic [3:0] operand, result, t;
+    alu u (.x(operand), .y(result));
+    always_comb begin
+        operand = sel ? a : b;
+        wb = result;
+        t = a & b;
+        y = t | c;
+    end
+endmodule");
+
+            Assert.IsEmpty(graph.Loops, "the operand does not depend on the result");
+            PathReport report = PathDelays.Find(graph);
+            Assert.AreEqual(2, report.Paths.First(p => Name(graph, p.To).StartsWith("cpu.wb")).Worst, "a through the operand and the ALU to wb");
+            CollectionAssert.IsSupersetOf(report.Paths.Where(p => Name(graph, p.To) == "cpu.y[0]").SelectMany(p => p.Alike).Select(e => Name(graph, e.From)),
+                new[] { "cpu.a[0]", "cpu.b[0]", "cpu.c[0]" }, "y through t, from a, b and c");
+            Assert.IsFalse(report.Paths.Any(p => Name(graph, p.To) == "cpu.y[0]" && p.Alike.Any(e => Name(graph, e.From) == "cpu.sel")),
+                "and not from sel, which only the operand reads");
+        }
+
         /// <summary>A process copying one memory into another meets at one junction: its arcs are its bits, not their pairs.</summary>
         [Test]
         public void AProcessOverAMemory_CostsAnArcABit()
