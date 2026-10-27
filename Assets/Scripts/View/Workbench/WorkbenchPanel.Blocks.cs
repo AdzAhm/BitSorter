@@ -40,6 +40,9 @@ namespace BitSorter.View
         private Board.Project _partsProject;
         private string _partsModules;
 
+        /// <summary>The gate library PARTS was made under (Part 14d): a library changed changes what it offers.</summary>
+        private Board.GateLibrary _partsLibrary;
+
         /// <summary>
         /// PARTS made again when the document's modules have changed -- a block made, or an undo taking one away -- so its
         /// BLOCKS are the modules there are. Asked every frame; only a new document is looked at, and PARTS made for these
@@ -50,7 +53,7 @@ namespace BitSorter.View
             if (_session == null || ReferenceEquals(_partsProject, _session.Project))
                 return;
             _partsProject = _session.Project;
-            if (ModulesOf(_partsProject) != _partsModules)
+            if (ModulesOf(_partsProject) != _partsModules || !ReferenceEquals(_partsProject.Settings?.Library, _partsLibrary))
                 BuildPartsPanel(SchematicPalette.Current);
         }
 
@@ -59,6 +62,7 @@ namespace BitSorter.View
         {
             _partsProject = _session?.Project;
             _partsModules = ModulesOf(_partsProject);
+            _partsLibrary = _partsProject?.Settings?.Library;
         }
 
         private static string ModulesOf(Board.Project project)

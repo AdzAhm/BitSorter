@@ -1219,6 +1219,46 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
+        /// Gate-library mode (Part 14d): COURSE CELLS from the LIBRARY menu holds the full adder to the course's cells --
+        /// PARTS offers no MUX nor BUFIF1, a gate placed is its cell, and taking out XOR, which the design is built of, is
+        /// refused with the rules' words on the chip, the library as it was.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator TheLibrary_HoldsTheDesignToItsCells()
+        {
+            yield return TestScene.Load();
+            yield return Click(MainMenu.WorkbenchButton);
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowSample(SampleNamed("Full adder"));
+            yield return null;
+            workbench.Pause();
+            workbench.Session.Finish();
+            yield return null;
+            Assert.IsNotNull(ShellPanel.Find<UnityEngine.UIElements.Button>(WorkbenchPanel.PartButtonName("mux")), "sanity: a MUX in PARTS before");
+
+            yield return Click(WorkbenchPanel.TimingTabName);
+            yield return Click(WorkbenchPanel.LibraryButtonName);
+            Assert.IsTrue(workbench.LibraryMenu.IsOpen);
+            yield return Click(LibraryMenu.CourseItem);
+            yield return null;
+            Assert.AreEqual(GateLibrary.CourseCellsName, workbench.Session.Project.Settings.Library.Name);
+            Assert.IsNull(ShellPanel.Find<UnityEngine.UIElements.Button>(WorkbenchPanel.PartButtonName("mux")), "no MUX in PARTS: no cell");
+            Assert.IsNull(ShellPanel.Find<UnityEngine.UIElements.Button>(WorkbenchPanel.PartButtonName("bufif1")), "nor a tri-state");
+            Assert.IsNotNull(ShellPanel.Find<UnityEngine.UIElements.Button>(WorkbenchPanel.PartButtonName("nand")), "a NAND is");
+
+            var ids = new System.Collections.Generic.List<int>();
+            yield return Place(workbench, "nand", new BoardPoint(10, -4), ids);
+            GatePart nand = (GatePart)Top(workbench).FindPart(ids[0]);
+            long delay = workbench.Session.Project.Settings.DefaultGateDelay;
+            Assert.AreEqual((2, delay, delay), (nand.Inputs, nand.Rise, nand.Fall), "the library's NAND2");
+
+            yield return Click(WorkbenchPanel.LibraryButtonName);
+            yield return Click(LibraryMenu.KindItem + BitSorter.Sim.GateKind.Xor);
+            StringAssert.Contains("which the library has no cell for", workbench.ChipText, "refused, in the rules' words");
+            Assert.IsTrue(workbench.Session.Project.Settings.Library.Allows(BitSorter.Sim.GateKind.Xor), "and the library as it was");
+        }
+
+        /// <summary>
         /// Two code fields at once (Part 12e): a plain click in the read-only listing leaves the workbench its keys, since it
         /// draws no caret to say it has them; a drag selects and keeps them for Ctrl+C; and a click from there into a written
         /// block's code leaves the keyboard with the code -- the listing lets go of itself alone.

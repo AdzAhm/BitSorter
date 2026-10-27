@@ -309,7 +309,13 @@ namespace BitSorter.ViewModel
                 lines.Add(new TimingLine(TimingLineKind.Fact, "CRITICAL PATH", "No input reaches an output through any gate.", ""));
             }
 
-            lines.Add(new TimingLine(TimingLineKind.Fact, "GATE COUNT", GateCount(analysis), ""));
+            // Against the library's budget, when it has one (Part 14d): over it is a problem, and says so.
+            string count = GateCount(analysis);
+            int budget = project.Settings?.Library?.GateBudget ?? -1;
+            bool over = budget >= 0 && analysis.Gates > budget;
+            if (budget >= 0)
+                count += over ? "; over the library's budget of " + Number(budget) : "; the library's budget is " + Number(budget);
+            lines.Add(new TimingLine(over ? TimingLineKind.Problem : TimingLineKind.Fact, "GATE COUNT", count, ""));
 
             foreach (IReadOnlyList<string> loop in graph.Loops)
             {

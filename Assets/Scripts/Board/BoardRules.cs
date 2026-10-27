@@ -109,7 +109,91 @@ namespace BitSorter.Board
             CheckRecursion(project, found);
             CheckStimulus(project, found);
             CheckSettings(project, found);
+            CheckLibrary(project, found);
             return found;
+        }
+
+        /// <summary>
+        /// The gate library (Part 14d), when the project has one: its cells BitSorter's, each once, at delays a gate could
+        /// have; every drawn gate one of them at its cell's delays; no MUX, which is no cell; no constant where it takes none
+        /// -- errors, so an edit that breaks the library is refused as any other is -- and a design over its gate budget, a
+        /// warning, since gates are added one at a time on the way to fewer.
+        /// </summary>
+        private static void CheckLibrary(Project project, List<BoardDiagnostic> found)
+        {
+            GateLibrary library = project.Settings?.Library;
+            if (library == null)
+                return;
+
+            void Error(string module, string message, int part = -1) =>
+                found.Add(new BoardDiagnostic(DiagnosticSeverity.Error, module, message, part));
+
+            var seen = new HashSet<(GateKind, int)>();
+            foreach (LibraryCell cell in library.Cells)
+            {
+                if (CellLibrary.CellFor(cell.Kind, cell.Inputs) == null)
+                    Error(null, $"The library's {cell.Name} is no cell BitSorter has.");
+                else if (!seen.Add((cell.Kind, cell.Inputs)))
+                    Error(null, $"The library has {cell.Name} twice.");
+                if (cell.Rise < 0 || cell.Fall < 0)
+                    Error(null, $"The library's {cell.Name} has a delay below 0.");
+            }
+            if (library.GateBudget < -1)
+                Error(null, "The library's gate budget cannot be less than 0.");
+
+            foreach (Module module in project.Modules)
+            {
+                if (module.IsWritten)
+                    continue;
+                foreach (Part part in module.Parts)
+                {
+                    switch (part)
+                    {
+                        case GatePart gate:
+                            LibraryCell cell = library.CellFor(gate.Kind, gate.Inputs);
+                            if (cell == null)
+                                Error(module.Name, $"{gate.Name} is a {new LibraryCell(gate.Kind, gate.Inputs, 0, 0).Name}, which the library has no cell for: it has {library.Listed()}.", gate.Id);
+                            else if (gate.Rise != cell.Rise || gate.Fall != cell.Fall)
+                                Error(module.Name, $"{gate.Name} is a {cell.Name} at rise {gate.Rise} and fall {gate.Fall}, but the library's {cell.Name} is rise {cell.Rise} and fall {cell.Fall}: a gate keeps its cell's delays.", gate.Id);
+                            break;
+                        case MuxPart mux:
+                            Error(module.Name, $"{mux.Name} is a MUX, which is no cell of the library: build it of the library's gates.", mux.Id);
+                            break;
+                        case ConstantPart constant when library.NoConstants:
+                            Error(module.Name, $"{constant.Name} is a constant, and the library takes none: give the design its 0s and 1s from an input.", constant.Id);
+                            break;
+                    }
+                }
+            }
+
+            if (library.GateBudget >= 0)
+            {
+                long gates = GatesIn(project, project.Top, new HashSet<string>());
+                if (gates > library.GateBudget)
+                    found.Add(new BoardDiagnostic(DiagnosticSeverity.Warning, null,
+                        $"The design has {gates} gates, over the library's budget of {library.GateBudget}."));
+            }
+        }
+
+        /// <summary>
+        /// How many gates <paramref name="module"/> is built of, a wide gate's every bit and a block's contents each time it
+        /// is placed: what a gate budget counts. A written module's are its code's, and not counted here.
+        /// </summary>
+        public static long GatesIn(Project project, string module, HashSet<string> seen)
+        {
+            Module m = project.Find(module);
+            if (m == null || m.IsWritten || !seen.Add(m.Name))
+                return 0;
+            long gates = 0;
+            foreach (Part part in m.Parts)
+            {
+                if (part is GatePart gate)
+                    gates += gate.Width;
+                else if (part is BlockPart block)
+                    gates += GatesIn(project, block.Module, seen) * block.Copies;
+            }
+            seen.Remove(m.Name);
+            return gates;
         }
 
         /// <summary>

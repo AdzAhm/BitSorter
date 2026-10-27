@@ -558,6 +558,32 @@ namespace BitSorter.Board
         public EditResult SetSettings(ProjectSettings settings) =>
             settings == null ? EditResult.Refused("A project needs its settings.") : Commit(Project with { Settings = settings });
 
+        /// <summary>
+        /// The project held to <paramref name="library"/> (Part 14d), or to none for null -- and every drawn gate the library
+        /// has a cell for given that cell's delays in the same step, so a delay changed in the table is every gate of the
+        /// cell changed, and undone together. Refused, in the rules' words, when what is drawn breaks it: a gate it has no
+        /// cell for, a MUX, a constant where it takes none.
+        /// </summary>
+        public EditResult SetLibrary(GateLibrary library)
+        {
+            var modules = new List<Module>(Project.Modules.Count);
+            foreach (Module module in Project.Modules)
+            {
+                List<Part> parts = null;
+                for (int i = 0; library != null && !module.IsWritten && i < module.Parts.Count; i++)
+                    if (module.Parts[i] is GatePart gate && library.CellFor(gate.Kind, gate.Inputs) is LibraryCell cell
+                        && (gate.Rise != cell.Rise || gate.Fall != cell.Fall))
+                    {
+                        parts ??= new List<Part>(module.Parts);
+                        parts[i] = gate with { Rise = cell.Rise, Fall = cell.Fall };
+                    }
+                modules.Add(parts == null ? module : module with { Parts = parts });
+            }
+
+            ProjectSettings settings = (Project.Settings ?? new ProjectSettings()) with { Library = library };
+            return Commit(Project with { Modules = modules, Settings = settings });
+        }
+
         // -----------------------------------------------------------------
         // Undo
         // -----------------------------------------------------------------

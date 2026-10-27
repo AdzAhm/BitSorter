@@ -96,10 +96,18 @@ namespace BitSorter.ViewModel
             new CatalogEntry("lamp", "LAMP", CatalogKind.Lamp),
         };
 
-        /// <summary>The entries for building <paramref name="module"/> of <paramref name="project"/>: the fixed ones, then a block of every other module.</summary>
+        /// <summary>
+        /// The entries for building <paramref name="module"/> of <paramref name="project"/>: the fixed ones, then a block of every
+        /// other module. Under a gate library (Part 14d) only what it allows: the gates it has a cell for, no MUX, and no
+        /// constant where it takes none.
+        /// </summary>
         public static IReadOnlyList<CatalogEntry> For(Project project, string module)
         {
-            var entries = new List<CatalogEntry>(Fixed);
+            GateLibrary library = project.Settings?.Library;
+            var entries = new List<CatalogEntry>(Fixed.Length);
+            foreach (CatalogEntry entry in Fixed)
+                if (Offered(library, entry))
+                    entries.Add(entry);
             foreach (Module m in project.Modules)
                 if (!string.Equals(m.Name, module, StringComparison.Ordinal) && !Holds(project, m, module, new HashSet<string>()))
                     entries.Add(new CatalogEntry("block:" + m.Name, m.Name, CatalogKind.Block, module: m.Name));
@@ -122,6 +130,20 @@ namespace BitSorter.ViewModel
                     return true;
 
             return false;
+        }
+
+        /// <summary>Whether <paramref name="library"/> lets <paramref name="entry"/> be placed: everything without one.</summary>
+        private static bool Offered(GateLibrary library, CatalogEntry entry)
+        {
+            if (library == null)
+                return true;
+            switch (entry.Kind)
+            {
+                case CatalogKind.Gate: return library.Allows(entry.Gate);
+                case CatalogKind.Mux: return false;
+                case CatalogKind.Constant: return !library.NoConstants;
+                default: return true;
+            }
         }
 
         /// <summary>The entry of this key among <see cref="For"/>'s, or null.</summary>
@@ -147,8 +169,13 @@ namespace BitSorter.ViewModel
                 case CatalogKind.Reset: return new PortPart { Direction = PortDirection.Input, Name = Free(m, "rst") };
                 case CatalogKind.Constant: return new ConstantPart { Value = LogicVec.FromUInt64(0, 1) };
                 case CatalogKind.Gate:
+                    // Under a library, the fewest inputs it has a cell for, at that cell's delays.
+                    GateLibrary library = project.Settings?.Library;
                     int inputs = entry.Gate == EngineGate.Not || entry.Gate == EngineGate.Buf ? 1 : 2;
-                    return new GatePart { Kind = entry.Gate, Inputs = inputs, Rise = delay, Fall = delay };
+                    if (library != null && library.FewestInputs(entry.Gate) > 0)
+                        inputs = library.FewestInputs(entry.Gate);
+                    LibraryCell cell = library?.CellFor(entry.Gate, inputs);
+                    return new GatePart { Kind = entry.Gate, Inputs = inputs, Rise = cell?.Rise ?? delay, Fall = cell?.Fall ?? delay };
                 case CatalogKind.Mux: return new MuxPart();
                 case CatalogKind.Register: return new RegisterPart();
                 case CatalogKind.Splitter: return new SplitterPart();

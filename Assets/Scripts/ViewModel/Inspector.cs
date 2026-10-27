@@ -159,6 +159,8 @@ namespace BitSorter.ViewModel
                     if (!gate.IsTriState)
                         fields.Add(new InspectorField("width", "WIDTH", Int(gate.Width), "bits, 1 to " + BoardRules.MaxWidth));
                     says = "Rise is Tpdlh, how long a change to 1 takes to come out; fall is Tpdhl, a change to 0.";
+                    if (project.Settings?.Library?.CellFor(gate.Kind, gate.Inputs) is LibraryCell cell)
+                        says += $" It is the library's {cell.Name}: a delay changed here is the cell's, and every {cell.Name} follows.";
                     quick = new[] { "rise", "fall" };
                     break;
 
@@ -306,6 +308,7 @@ namespace BitSorter.ViewModel
             string unit = editor.Project.Settings?.TimeUnit ?? TimeUnits.Default;
             string why = null;
             Part changed = part;
+            GateLibrary retimed = null;
             if (Changed("name"))
                 changed = changed with { Name = Typed("name") };
 
@@ -320,6 +323,16 @@ namespace BitSorter.ViewModel
                         gate = gate with { Fall = fall };
                     if (Changed("width") && TryInt(Typed("width"), "width", ref why, out int gateWidth))
                         gate = gate with { Width = gateWidth };
+
+                    // Under a library (Part 14d) a gate keeps its cell's delays: a delay typed is the cell's, for every gate of
+                    // it, and new inputs take the new cell's.
+                    if (editor.Project.Settings?.Library is GateLibrary library && library.CellFor(gate.Kind, gate.Inputs) is LibraryCell cell)
+                    {
+                        if (Changed("rise") || Changed("fall"))
+                            retimed = library.Retimed(cell, gate.Rise, gate.Fall);
+                        else
+                            gate = gate with { Rise = cell.Rise, Fall = cell.Fall };
+                    }
                     changed = gate;
                     break;
 
@@ -427,12 +440,20 @@ namespace BitSorter.ViewModel
                 return EditResult.Refused(why);
 
             bool stimulus = Changed("period") || Changed("release");
-            if (changed.Equals(part) && !stimulus)
+            if (changed.Equals(part) && !stimulus && retimed == null)
                 return EditResult.Ok(part.Id);
 
             string oldName = part.Name;
             return editor.Group(() =>
             {
+                // The cell's new delays first: every gate of it follows, this one too.
+                if (retimed != null)
+                {
+                    EditResult cell = editor.SetLibrary(retimed);
+                    if (!cell.Done)
+                        return cell;
+                }
+
                 if (!changed.Equals(part))
                 {
                     EditResult done = editor.Change(module, changed);

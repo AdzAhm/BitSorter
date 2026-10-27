@@ -1693,6 +1693,8 @@ namespace BitSorter.View
             _exportMenu.Close();
             _fileMenu.Close();
             _ask.Close();
+            _libraryMenu?.Close();
+            _budgetField?.Close();
             _transcript.Notes = null;   // what an import said is about the import, which this leaves (an import sets them again)
             _notesAbout = null;
             _picker.Close();

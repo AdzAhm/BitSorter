@@ -504,6 +504,12 @@ namespace BitSorter.ViewModel
             return Replayed(Editor.SetStimulus(plan.Stimulus), 0);
         }
 
+        /// <summary>
+        /// The design held to <paramref name="library"/>, or to none for null (Part 14d, <see cref="BoardEditor.SetLibrary"/>):
+        /// every gate of a cell given the cell's delays, one step, drawn at once and run again.
+        /// </summary>
+        public EditResult SetLibrary(GateLibrary library) => Edited(Editor.SetLibrary(library));
+
         /// <summary>The document counted in <paramref name="unit"/> (<see cref="BoardEditor.SetSettings"/>), and replayed: nothing is rescaled, everything is relabelled.</summary>
         public EditResult SetUnit(string unit) =>
             unit == Unit ? EditResult.Ok() : Replayed(Editor.SetSettings(Project.Settings with { TimeUnit = unit }), 0);

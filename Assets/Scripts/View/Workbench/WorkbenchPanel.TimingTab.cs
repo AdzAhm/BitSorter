@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using BitSorter.Board;
 using BitSorter.ViewModel;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -23,7 +24,8 @@ namespace BitSorter.View
     {
         /// <summary>The tab's name, and a line's: this, and its place on screen; STEP TEST's, and the line beside it.</summary>
         public const string TimingTabName = "Workbench timing tab", TimingRowName = "Workbench timing row ",
-            StepTestName = "Workbench step test", TimingSaysName = "Workbench timing says";
+            StepTestName = "Workbench step test", TimingSaysName = "Workbench timing says", LibraryButtonName = "Workbench library button",
+            BudgetFieldName = "Workbench gate budget";
 
         private const float TimingTabLeft = CodeTabLeft + CodeTabWidth + 4f, TimingTabWidth = 100f;
 
@@ -32,6 +34,10 @@ namespace BitSorter.View
         private Label _timingEmpty;
         private readonly List<VisualElement> _timingRows = new List<VisualElement>();
         private TimingView _timingShown, _timingBase;
+        private ShellButton _libraryButton;
+        private LibraryMenu _libraryMenu;
+        private WaveRenameField _budgetField;
+        private GateLibrary _libraryShown;
         private StepMeasure _measure;
         private string _measureWhy;
         private Label _timingSays;
@@ -74,11 +80,77 @@ namespace BitSorter.View
             ShellTheme.Place(step, ToolsLeft, 5f, 140f, 34f);
             _timingTools.Add(step);
 
+            // What the design is held to (Part 14d), and the menu that changes it.
+            _libraryButton = ShellTheme.Button(LibraryButtonName, LibraryCaption(null), palette, OpenLibraryMenu, UiType.Caption);
+            ShellTheme.Place(_libraryButton, ToolsLeft + 152f, 5f, 260f, 34f);
+            _timingTools.Add(_libraryButton);
+            _libraryMenu = LibraryMenu.Build(_shell, transform, palette, SetLibrary, AskBudget);
+            _budgetField = WaveRenameField.Build(_shell, transform, palette, SetBudget, BudgetFieldName, "GATE BUDGET",
+                "a number of gates, or empty for none");
+
             _timingSays = ShellTheme.Label(TimingSaysName, "", UiType.Caption, palette.TextDim);
-            ShellTheme.Place(_timingSays, ToolsLeft + 156f, 0f, -1f, ShellLayout.DockHeaderHeight);
+            ShellTheme.Place(_timingSays, ToolsLeft + 428f, 0f, -1f, ShellLayout.DockHeaderHeight);
             _timingSays.style.right = 14f;
             ShellTheme.Ellipsis(_timingSays);
             _timingTools.Add(_timingSays);
+        }
+
+        /// <summary>The LIBRARY menu, as its button opens it.</summary>
+        public LibraryMenu LibraryMenu => _libraryMenu;
+
+        /// <summary>The field GATE BUDGET asks the budget in.</summary>
+        public WaveRenameField BudgetField => _budgetField;
+
+        private static string LibraryCaption(GateLibrary library) => "LIBRARY: " + (library == null ? "NONE" : library.Name);
+
+        /// <summary>Opens the LIBRARY menu under its button, as a click on it does.</summary>
+        public void OpenLibraryMenu()
+        {
+            if (_session == null)
+                return;
+            _libraryMenu.Open(UnderTheLibraryButton(), _session.Project.Settings?.Library, _session.Project.Settings?.DefaultGateDelay ?? 1);
+        }
+
+        private Vector2 UnderTheLibraryButton()
+        {
+            Rect at = _libraryButton.worldBound;
+            float scale = _libraryButton.panel != null ? _libraryButton.panel.scaledPixelsPerPoint : 1f;
+            return new Vector2(at.xMin * scale, Screen.height - at.yMax * scale);
+        }
+
+        /// <summary>The design held to <paramref name="library"/>, or to none: one step, refused in the rules' words when what is drawn breaks it.</summary>
+        public void SetLibrary(GateLibrary library)
+        {
+            if (_session != null)
+                Said(_session.SetLibrary(library));
+        }
+
+        private void AskBudget()
+        {
+            GateLibrary library = _session?.Project.Settings?.Library;
+            if (library == null)
+                return;
+            _budgetField.Open(library.GateBudget >= 0 ? library.GateBudget.ToString(System.Globalization.CultureInfo.InvariantCulture) : "", UnderTheLibraryButton());
+        }
+
+        /// <summary>The budget typed: a number of gates, or nothing for none.</summary>
+        public void SetBudget(string text)
+        {
+            GateLibrary library = _session?.Project.Settings?.Library;
+            if (library == null)
+                return;
+            text = (text ?? "").Trim();
+            if (text.Length == 0)
+            {
+                SetLibrary(library with { GateBudget = -1 });
+                return;
+            }
+            if (!int.TryParse(text, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out int budget))
+            {
+                Notice("A gate budget is a number of gates, 0 or more, or nothing for none.");
+                return;
+            }
+            SetLibrary(library with { GateBudget = budget });
         }
 
         /// <summary>STEP TEST: the stimulus made a step test of every input, one step, as the button does.</summary>
@@ -133,6 +205,13 @@ namespace BitSorter.View
                 if (_editor?.Path != null)
                     _editor.Light(null);
                 return;
+            }
+
+            GateLibrary library = _session.Project.Settings?.Library;
+            if (!ReferenceEquals(library, _libraryShown))
+            {
+                _libraryShown = library;
+                SetText(_libraryButton, LibraryCaption(library));
             }
 
             // The document changed: its timing worked out again, and measured again from the start -- unless the design is

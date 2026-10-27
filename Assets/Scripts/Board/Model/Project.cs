@@ -104,6 +104,12 @@ namespace BitSorter.Board
 
         /// <summary>The rise and fall a newly placed gate takes: a library cell's, as the course's cells default to.</summary>
         public long DefaultGateDelay { get; init; } = 1;
+
+        /// <summary>
+        /// The gate library the design is held to (Part 14d): the gates it may be built of and their delays, constants or
+        /// none, and a budget of gates. Null for none: any gate, at any delay.
+        /// </summary>
+        public GateLibrary Library { get; init; }
     }
 
     /// <summary>

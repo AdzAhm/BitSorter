@@ -12,6 +12,57 @@ namespace BitSorter.Board
     /// so a part is one record with a <see cref="PartRecord.kind"/> and the fields its kind uses, and a
     /// value is written as a SystemVerilog literal.
     /// </summary>
+    /// <summary>A gate library as the save file holds it (Part 14d): its cells by kind, inputs, rise and fall.</summary>
+    [Serializable]
+    public sealed class LibraryRecord
+    {
+        public string name;
+        public CellRecord[] cells = new CellRecord[0];
+        public bool noConstants;
+        public int gateBudget = -1;
+
+        public static LibraryRecord From(GateLibrary library)
+        {
+            if (library == null)
+                return new LibraryRecord();
+            var cells = new List<CellRecord>();
+            foreach (LibraryCell cell in library.Cells)
+                cells.Add(new CellRecord { kind = cell.Kind.ToString(), inputs = cell.Inputs, rise = cell.Rise, fall = cell.Fall });
+            return new LibraryRecord { name = library.Name, cells = cells.ToArray(), noConstants = library.NoConstants, gateBudget = library.GateBudget };
+        }
+
+        /// <summary>The library, a cell of no gate BitSorter has left out and said so in <paramref name="problems"/>.</summary>
+        public GateLibrary ToLibrary(List<string> problems)
+        {
+            var kept = new List<LibraryCell>();
+            foreach (CellRecord cell in cells ?? new CellRecord[0])
+            {
+                if (cell == null)
+                    continue;
+                if (Enum.TryParse(cell.kind, out GateKind kind) && CellLibrary.CellFor(kind, cell.inputs) != null)
+                    kept.Add(new LibraryCell(kind, cell.inputs, cell.rise, cell.fall));
+                else
+                    problems.Add($"The library's cell {cell.kind} of {cell.inputs} inputs is no cell BitSorter has; it was left out.");
+            }
+            return new GateLibrary
+            {
+                Name = string.IsNullOrEmpty(name) ? GateLibrary.CustomName : name,
+                Cells = kept,
+                NoConstants = noConstants,
+                GateBudget = gateBudget,
+            };
+        }
+    }
+
+    [Serializable]
+    public sealed class CellRecord
+    {
+        public string kind;
+        public int inputs;
+        public long rise;
+        public long fall;
+    }
+
     [Serializable]
     public sealed class ProjectRecord
     {
@@ -33,6 +84,11 @@ namespace BitSorter.Board
         public string timeUnit = "ns";
         public long defaultGateDelay = 1;
 
+        /// <summary>Whether the project has a gate library (Part 14d): the reader cannot leave <see cref="library"/> null. Absent in an older file, which had none.</summary>
+        public bool hasLibrary;
+
+        public LibraryRecord library = new LibraryRecord();
+
         /// <summary>The project's other files (Part 13b): includes and memory images. Absent in an older file, which had none.</summary>
         public FileRecord[] files = new FileRecord[0];
 
@@ -46,6 +102,8 @@ namespace BitSorter.Board
                 hasStimulus = project.Stimulus != null,
                 timeUnit = project.Settings.TimeUnit,
                 defaultGateDelay = project.Settings.DefaultGateDelay,
+                hasLibrary = project.Settings.Library != null,
+                library = LibraryRecord.From(project.Settings.Library),
             };
 
             var modules = new List<ModuleRecord>();
@@ -100,7 +158,12 @@ namespace BitSorter.Board
                 Bench = string.IsNullOrEmpty(bench) ? null : bench,
                 Modules = modules,
                 Stimulus = hasStimulus ? stimulus?.ToStimulus(problems) : null,
-                Settings = new ProjectSettings { TimeUnit = unit, DefaultGateDelay = defaultGateDelay },
+                Settings = new ProjectSettings
+                {
+                    TimeUnit = unit,
+                    DefaultGateDelay = defaultGateDelay,
+                    Library = hasLibrary ? library?.ToLibrary(problems) : null,
+                },
                 Files = kept,
             };
         }
