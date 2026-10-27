@@ -2366,6 +2366,40 @@ computed and measured, registers given a clock to Q and a setup, a library mode 
   changes -- what is measured here is what Icarus would measure. Play Mode: the TIMING tab measuring the full adder to
   its 4, and STEP TEST making the stimulus, keeping what was measured, and undone.
 
+**As built in Part 14d**: gate-library mode.
+
+- **`GateLibrary`** (Board, `ProjectSettings.Library`, null for none): the cells a design may be built of -- each a kind,
+  a number of inputs, a rise and a fall (`LibraryCell`) -- whether constants are refused, and a budget of gates, -1 for
+  none. Saved as `hasLibrary` and `library` beside the settings (the reader cannot leave an object null, as with the
+  stimulus); an older file reads it as absent, and a saved cell BitSorter has no gate for is left out and said so.
+- **The course's preset is BitSorter's own cells** (`GateLibrary.CourseCells`): INV, BUF, and AND, OR, NAND, NOR, XOR
+  and XNOR of two to four inputs, twenty, each at the default delay to begin with. **The course's own table of delays is
+  its handout's, which nothing here reads**, so the table is the student's to fill in: a delay typed on any gate in its
+  inspector is its cell's, and every gate of the cell follows, one step (`GateLibrary.Retimed`) -- the library is then no
+  preset's, CUSTOM. Ahmad's choice between a preset and a custom table (2026-10-27) became one table a preset fills;
+  whether the preset should carry the course's delays is his to settle, from his handout.
+- **Kept everywhere.** `BoardRules` refuses a gate the library has no cell for, a gate off its cell's delays, a MUX --
+  no cell, and so built of the library's gates -- and a constant where constants are refused, each in words naming the
+  part, and warns of a design over its budget (a warning: gates come one at a time on the way to fewer; a wide gate is a
+  cell a bit, and a block counts its contents each time it stands). `BoardEditor.SetLibrary` sets it and gives every
+  gate of a cell its delays in the same step, refused in the rules' words when what is drawn breaks it. PARTS offers only
+  what it allows (`PartsCatalog.For`), a gate placed takes the fewest inputs a cell of it has and that cell's delays, the
+  inspector says which cell a gate is, and the TIMING tab's gate count is laid against the budget, a problem when over.
+- **The LIBRARY menu** (`LibraryMenu`, under the TIMING tab's LIBRARY button, which says what the design is held to):
+  no library, or the course's cells; and, with one, constants refused or allowed, the gate budget (asked in a one-line
+  field), and each kind of gate taken out or put back (`GateLibrary.Toggled`). PARTS is made again when the library
+  changes.
+- **Checked.** `LibraryTests`: the preset is every cell BitSorter has at the delay asked; setting it gives every gate its
+  cell's delays and a delay in the table every gate of the cell, undone in a step each; a library without XOR refused
+  for the full adder, in words naming XOR2 and the cells it has; a BUFIF1, a gate off its delays, a MUX and -- where none
+  are taken -- a constant refused, a wide gate of a cell allowed; a library refused over a drawn MUX; a kind taken out and
+  put back; the budget warned of at 5 over 4 and not at 5; the save, an older file and an unknown cell.
+  `LibraryViewTests`: PARTS without MUX nor BUFIF1, and without CONST under no constants; a gate placed taking its cell,
+  a NAND of three where the library has only NAND3; a rise typed on the OR the OR2's for every OR2, one step; the gate
+  count against the budget. Play Mode: COURSE CELLS from the menu, PARTS without MUX, a NAND placed as the library's
+  NAND2, and XOR refused from the menu with the rules' words on the chip. Reference shot 48: the LIBRARY menu over the
+  TIMING tab, the full adder held to the course's cells.
+
 ---
 
 ## 11. The parts
@@ -2388,7 +2422,7 @@ Each part is one pull request into `v5`, ends with every suite green, and leaves
 | 11 | The workbench shell, in UI Toolkit -- **built**, in four: 11a the bridges and the toolbar; 11b the docked layout -- its panels (11b-1), the inspector docked (11b-2), the popups in the shell (11b-3); 11c the transcript and the hierarchy; 11d the keyboard map, the status line and the docs |
 | 12 | Hierarchy, and written blocks, edited in CodeMirror in a browser -- in six: 12a stepping inside a block **built** (see "As built in Part 12a"); 12b making a block **built** (see "As built in Part 12b"); 12c arrays **built** (see "As built in Part 12c"); 12d code blocks **built** (see "As built in Part 12d"); 12e the code panel **built** (see "As built in Part 12e"); 12f CodeMirror **built** (see "As built in Part 12f") |
 | 13 | Export and import (and a levelized path in the engine, only if a measurement asks for it) -- in six: 13a exporting a project **built** (see "As built in Part 13a"); 13b importing one **built** (see "As built in Part 13b"); 13c CONVERT **built** (see "As built in Part 13c"); 13d files **built** (see "As built in Part 13d"); 13e templates **built** (see "As built in Part 13e"); 13f limits, the security review, the measurement and the browser check **built** (see "As built in Part 13f"; the levelized path is not needed). **Part 13 is built.** |
-| 14 | The course's tools: path delays, static timing, gate-library mode, step tests, lint, tri-state -- in six: 14a the timing analysis core, 14b the TIMING tab and 14c step tests **built** (see "As built in Part 14a", "14b" and "14c"), 14d gate-library mode, 14e lint, 14f tri-state buses |
+| 14 | The course's tools: path delays, static timing, gate-library mode, step tests, lint, tri-state -- in six: 14a the timing analysis core, 14b the TIMING tab, 14c step tests and 14d gate-library mode **built** (see "As built in Part 14a", "14b", "14c" and "14d"), 14e lint, 14f tri-state buses |
 | 15 | The Exercises and the tutorial |
 | 16 | The old game retired, and a smaller download; 5.0.0 released |
 
