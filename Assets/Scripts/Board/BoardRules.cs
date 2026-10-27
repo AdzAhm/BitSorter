@@ -148,9 +148,12 @@ namespace BitSorter.Board
                 Error(null, "The library's gate budget cannot be less than 0.");
             CheckCounts(project, library, found);
 
+            // A block an exercise stocks is its part, insides and all (Part 15b): its module is not held to the cells, as its
+            // gates are not counted against the stock.
+            HashSet<string> stocked = library.Counted();
             foreach (Module module in project.Modules)
             {
-                if (module.IsWritten)
+                if (module.IsWritten || stocked.Contains(module.Name))
                     continue;
                 foreach (Part part in module.Parts)
                 {

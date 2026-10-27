@@ -39,6 +39,46 @@ namespace BitSorter.Ci.Oracle
             Assert.That(ours.Last(), Does.EndWith("checks failed"));
         }
 
+        /// <summary>
+        /// An exercise graded (Part 15b): the half adder's sum taken from an AND, so wrong at three vectors. What the grader
+        /// says failed is what the exported testbench says under Icarus, line for line.
+        /// </summary>
+        [Test]
+        public void AnExercisesGrade_IsWhatItsExportedTestbenchSaysUnderIcarus()
+        {
+            Icarus icarus = Icarus.Require();
+            var problems = new List<string>();
+            Exercise exercise = Exercise.From(new ExerciseRecord
+            {
+                id = "half-adder",
+                title = "Half adder",
+                inputs = new[] { new SignalRecord { name = "a", values = "0011" }, new SignalRecord { name = "b", values = "0101" } },
+                outputs = new[] { new SignalRecord { name = "sum", values = "0110" }, new SignalRecord { name = "carry", values = "0001" } },
+                parts = new[] { new StockRecord { kind = "And", count = 2 } },
+            }, problems);
+            Assert.IsNotNull(exercise, string.Join("\n", problems));
+            Project project = exercise.ToProject(problems);
+            Assert.IsNotNull(project, string.Join("\n", problems));
+
+            var editor = new BoardEditor(project);
+            string top = project.Top;
+            int Port(string name) => editor.Project.TopModule.Ports.Single(p => p.Name == name).Id;
+            foreach (string output in new[] { "sum", "carry" })
+            {
+                EditResult and = editor.Add(top, new GatePart { Kind = GateKind.And, Inputs = 2, Rise = 1, Fall = 1 }, new Placement(8, output == "sum" ? 0 : 4));
+                Assert.IsTrue(and.Done, and.Refusal);
+                Assert.IsTrue(editor.Connect(top, Endpoint.At(Port("a"), "out"), Endpoint.At(and.Id, "a")).Done);
+                Assert.IsTrue(editor.Connect(top, Endpoint.At(Port("b"), "out"), Endpoint.At(and.Id, "b")).Done);
+                Assert.IsTrue(editor.Connect(top, Endpoint.At(and.Id, "y"), Endpoint.At(Port(output), "in")).Done);
+            }
+
+            Grade grade = ExerciseGrader.Grade(exercise, editor.Project);
+            Assert.AreEqual(3, grade.Failures.Count, "sanity: wrong at three vectors");
+
+            string[] theirs = RunIcarus(icarus, BoardPrinter.Print(BoardCompiler.Compile(editor.Project)));
+            CollectionAssert.AreEqual(grade.Failures.Select(f => "FAIL " + f).Append("3 of 8 checks failed"), theirs);
+        }
+
         /// <summary>The lines the testbench printed under Icarus: its own, not vvp's note of where <c>$stop</c> stopped it.</summary>
         private static string[] RunIcarus(Icarus icarus, IReadOnlyList<PrintedSource> printed)
         {
