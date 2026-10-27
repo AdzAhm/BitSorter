@@ -18,6 +18,11 @@ mergeInto(LibraryManager.library, {
       window.BitSorterCode.show(!!shown);
   },
 
+  BitSorterCodeLoad: function (textPtr) {
+    if (window.BitSorterCode)
+      window.BitSorterCode.load(UTF8ToString(textPtr));
+  },
+
   BitSorterCodeSetText: function (textPtr) {
     if (window.BitSorterCode)
       window.BitSorterCode.setText(UTF8ToString(textPtr));

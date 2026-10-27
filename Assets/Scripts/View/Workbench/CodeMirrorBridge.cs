@@ -15,6 +15,7 @@ namespace BitSorter.View
         [DllImport("__Internal")] private static extern void BitSorterCodeCreate(string colours);
         [DllImport("__Internal")] private static extern void BitSorterCodePlace(float x, float y, float width, float height, float font);
         [DllImport("__Internal")] private static extern void BitSorterCodeShow(int shown);
+        [DllImport("__Internal")] private static extern void BitSorterCodeLoad(string text);
         [DllImport("__Internal")] private static extern void BitSorterCodeSetText(string text);
         [DllImport("__Internal")] private static extern string BitSorterCodeGetText();
         [DllImport("__Internal")] private static extern int BitSorterCodeTakeChanged();
@@ -30,6 +31,7 @@ namespace BitSorter.View
         private static void BitSorterCodeCreate(string colours) { }
         private static void BitSorterCodePlace(float x, float y, float width, float height, float font) { }
         private static void BitSorterCodeShow(int shown) { }
+        private static void BitSorterCodeLoad(string text) { }
         private static void BitSorterCodeSetText(string text) { }
         private static string BitSorterCodeGetText() => "";
         private static int BitSorterCodeTakeChanged() => 0;
@@ -56,6 +58,10 @@ namespace BitSorter.View
             BitSorterCodePlace(screen.xMin, Screen.height - screen.yMax, screen.width, screen.height, font);
 
         public static void Show(bool shown) => BitSorterCodeShow(shown ? 1 : 0);
+        /// <summary>A block's code shown, as it is stepped into: the editor's undo starts from it (Part 14g).</summary>
+        public static void Load(string text) => BitSorterCodeLoad(text ?? "");
+
+        /// <summary>The game's text put in over the code shown -- REVERT -- a step the editor's undo takes back.</summary>
         public static void SetText(string text) => BitSorterCodeSetText(text ?? "");
         public static string GetText() => BitSorterCodeGetText() ?? "";
         public static bool TakeChanged() => BitSorterCodeTakeChanged() != 0;

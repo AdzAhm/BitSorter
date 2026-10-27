@@ -10,10 +10,12 @@ import { verilog } from "@codemirror/legacy-modes/mode/verilog";
 import { setDiagnostics, lintGutter } from "@codemirror/lint";
 import { search, searchKeymap, searchPanelOpen, closeSearchPanel } from "@codemirror/search";
 import { tags } from "@lezer/highlight";
+import { blockState, gameText } from "./game-text.js";
 
 const state = {
   host: null,         // the box over the canvas
   view: null,         // the editor
+  extensions: null,   // what it is made of, for each block's code shown afresh
   theme: new Compartment(),
   changed: false,     // typed since the game last asked
   applyAsked: false,  // Ctrl+Enter or Ctrl+S since the game last asked
@@ -94,26 +96,21 @@ const api = {
       },
     ]);
 
-    state.view = new EditorView({
-      parent: host,
-      state: EditorState.create({
-        doc: "",
-        extensions: [
-          ours,
-          lineNumbers(), highlightActiveLineGutter(), highlightSpecialChars(), history(), drawSelection(),
-          indentOnInput(), bracketMatching(), highlightActiveLine(), lintGutter(),
-          indentUnit.of("    "), EditorState.tabSize.of(4),
-          search({ top: true }),
-          keymap.of([indentWithTab, ...searchKeymap, ...defaultKeymap, ...historyKeymap]),
-          StreamLanguage.define(verilog),
-          state.theme.of(themeOf(state.colours)),
-          EditorView.updateListener.of((update) => {
-            if (update.docChanged && !state.setting)
-              state.changed = true;
-          }),
-        ],
+    state.extensions = [
+      ours,
+      lineNumbers(), highlightActiveLineGutter(), highlightSpecialChars(), history(), drawSelection(),
+      indentOnInput(), bracketMatching(), highlightActiveLine(), lintGutter(),
+      indentUnit.of("    "), EditorState.tabSize.of(4),
+      search({ top: true }),
+      keymap.of([indentWithTab, ...searchKeymap, ...defaultKeymap, ...historyKeymap]),
+      StreamLanguage.define(verilog),
+      state.theme.of(themeOf(state.colours)),
+      EditorView.updateListener.of((update) => {
+        if (update.docChanged && !state.setting)
+          state.changed = true;
       }),
-    });
+    ];
+    state.view = new EditorView({ parent: host, state: blockState("", state.extensions) });
   },
 
   /** Lays the editor over the canvas: x and y from the canvas's top-left, width, height and its letters' size, in the canvas's own pixels. */
@@ -137,12 +134,20 @@ const api = {
       api.blur();
   },
 
-  /** The game's text put in, as the document has it now -- an undo, or another block -- which is not typing. */
+  /** A block's code shown, as the game gives it when the block is stepped into: the editor's undo starts from it (Part 14g). */
+  load(text) {
+    if (!state.view)
+      return;
+    state.view.setState(blockState(text, state.extensions));
+    state.changed = false;
+  },
+
+  /** The game's text put in over what is shown, as the document has it now -- REVERT -- which is not typing. */
   setText(text) {
     if (!state.view || state.view.state.doc.toString() === text)
       return;
     state.setting = true;
-    state.view.dispatch({ changes: { from: 0, to: state.view.state.doc.length, insert: text } });
+    state.view.dispatch(gameText(state.view.state, text));
     state.setting = false;
   },
 

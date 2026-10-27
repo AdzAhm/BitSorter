@@ -318,7 +318,8 @@ namespace BitSorter.View
                 }
                 else
                 {
-                    CodeMirrorBridge.SetText(code.Text);
+                    // Afresh: Ctrl+Z once took the code itself out, the putting in of it a step of the editor's undo.
+                    CodeMirrorBridge.Load(code.Text);
                     _browserText = code.Text;
                 }
             }
