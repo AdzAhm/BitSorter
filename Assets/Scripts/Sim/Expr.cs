@@ -113,6 +113,19 @@ namespace BitSorter.Sim
         /// </summary>
         internal virtual bool CanFloat(Func<int, bool> floats) => false;
 
+        /// <summary>
+        /// Whether it only carries bits from one place to another (Part 14g, for a gate library): a signal read, a select at
+        /// a fixed place, a concatenation, a replication, a widening, a constant -- no gate's work, so a design held to a
+        /// library may write it. An operator, a choice, or a select by a signal -- a multiplexer -- is logic.
+        /// </summary>
+        internal virtual bool IsWiring => false;
+
+        /// <summary>Whether a constant is written in it (Part 14g): what a library that takes none refuses.</summary>
+        internal virtual bool HasConstant => false;
+
+        /// <summary>Whether it is the inverse of something that only connects -- <c>!rst_n</c>, a register's reset (Part 14g).</summary>
+        internal virtual bool IsInvertedWiring => false;
+
         /// <summary>Its value, when it is a constant and nothing else.</summary>
         internal virtual bool TryConstant(out LogicVec value)
         {
@@ -246,6 +259,9 @@ namespace BitSorter.Sim
 
         private sealed class SignednessExpr : Expr
         {
+            internal override bool IsWiring => _a.IsWiring;
+            internal override bool HasConstant => _a.HasConstant;
+
             private readonly Expr _a;
             private readonly bool _signed;
 
@@ -278,6 +294,8 @@ namespace BitSorter.Sim
 
         private sealed class ReadExpr : Expr
         {
+            internal override bool IsWiring => true;
+
             private readonly int _signal;
             private readonly int _width;
 
@@ -308,6 +326,9 @@ namespace BitSorter.Sim
 
         private sealed class ConstantExpr : Expr
         {
+            internal override bool IsWiring => true;
+            internal override bool HasConstant => true;
+
             private readonly LogicVec _value;
 
             public ConstantExpr(LogicVec value) => _value = value;
@@ -334,6 +355,8 @@ namespace BitSorter.Sim
 
         private sealed class UnaryExpr : Expr
         {
+            internal override bool IsInvertedWiring => (_op == UnaryOp.Not || _op == UnaryOp.LogicalNot) && _a.IsWiring;
+
             private readonly UnaryOp _op;
             private readonly Expr _a;
 
@@ -517,6 +540,9 @@ namespace BitSorter.Sim
 
         private sealed class ConcatExpr : Expr
         {
+            internal override bool IsWiring => _high.IsWiring && _low.IsWiring;
+            internal override bool HasConstant => _high.HasConstant || _low.HasConstant;
+
             private readonly Expr _high;
             private readonly Expr _low;
 
@@ -555,6 +581,9 @@ namespace BitSorter.Sim
 
         private sealed class ReplicateExpr : Expr
         {
+            internal override bool IsWiring => _a.IsWiring;
+            internal override bool HasConstant => _a.HasConstant;
+
             private readonly Expr _a;
             private readonly int _count;
 
@@ -584,6 +613,9 @@ namespace BitSorter.Sim
 
         private sealed class SliceExpr : Expr
         {
+            internal override bool IsWiring => _a.IsWiring;
+            internal override bool HasConstant => _a.HasConstant;
+
             private readonly Expr _a;
             private readonly int _lowest;
             private readonly int _width;
@@ -613,6 +645,10 @@ namespace BitSorter.Sim
 
         private sealed class BitExpr : Expr
         {
+            // A bit chosen by a signal is a multiplexer; one chosen by a constant is a wire.
+            internal override bool IsWiring => _a.IsWiring && _index.TryConstant(out _);
+            internal override bool HasConstant => _a.HasConstant;
+
             private readonly Expr _a;
             private readonly Expr _index;
 
@@ -648,6 +684,9 @@ namespace BitSorter.Sim
 
         private sealed class PartExpr : Expr
         {
+            internal override bool IsWiring => _a.IsWiring && _offset.TryConstant(out _);
+            internal override bool HasConstant => _a.HasConstant;
+
             private readonly Expr _a;
             private readonly Expr _offset;
             private readonly int _step;
@@ -769,6 +808,9 @@ namespace BitSorter.Sim
 
         private sealed class ResizeExpr : Expr
         {
+            internal override bool IsWiring => _a.IsWiring;
+            internal override bool HasConstant => _a.HasConstant;
+
             private readonly Expr _a;
             private readonly int _width;
             private readonly bool _signExtend;

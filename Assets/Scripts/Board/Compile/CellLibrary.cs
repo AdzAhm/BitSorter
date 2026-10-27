@@ -49,18 +49,23 @@ namespace BitSorter.Board
         /// <summary>The <paramref name="index"/>th input of a cell: A, B, C, D.</summary>
         public static string Input(int index) => ((char)('A' + index)).ToString();
 
-        /// <summary>A cell's module, from its name: INV, BUF, AND2 to XNOR4.</summary>
-        public static ModuleDeclaration Build(string cell)
+        /// <summary>
+        /// A cell's module, from its name: INV, BUF, AND2 to XNOR4. Its delays default to <paramref name="library"/>'s cell of
+        /// that name when it has one (Part 14g) -- so a cell written without delays, <c>NAND2 g1 (...)</c>, takes the
+        /// library's, as a course's own library file gives them -- and to 1 otherwise.
+        /// </summary>
+        public static ModuleDeclaration Build(string cell, GateLibrary library = null)
         {
             (string primitive, int inputs) = Parse(cell);
+            LibraryCell held = library != null && TryKindOf(cell, out GateKind kind, out int count) ? library.CellFor(kind, count) : null;
 
             var module = new ModuleDeclaration { Name = cell, HasPortList = true };
             for (int i = 0; i < inputs; i++)
                 module.Ports.Add(new PortDeclaration { Direction = PortDirection.Input, Type = Sv.Logic(1), Name = Input(i) });
             module.Ports.Add(new PortDeclaration { Direction = PortDirection.Output, Type = Sv.Logic(1), Name = Output });
 
-            foreach (string delay in new[] { Rise, Fall })
-                module.Items.Add(new ParameterDeclaration { Type = new DataType(), Name = delay, Value = Sv.Number(1) });
+            module.Items.Add(new ParameterDeclaration { Type = new DataType(), Name = Rise, Value = Sv.Number(held?.Rise ?? 1) });
+            module.Items.Add(new ParameterDeclaration { Type = new DataType(), Name = Fall, Value = Sv.Number(held?.Fall ?? 1) });
 
             var gate = new PrimitiveInstantiation { Primitive = primitive, Delay = new DelayControl { Parenthesized = true } };
             gate.Delay.Values.Add(Sv.Name(Rise));
@@ -73,6 +78,23 @@ namespace BitSorter.Board
             gate.Instances.Add(instance);
             module.Items.Add(gate);
             return module;
+        }
+
+        /// <summary>The gate a cell's module is -- NAND2, a NAND of two inputs -- or false for a name that is no cell.</summary>
+        public static bool TryKindOf(string cell, out GateKind kind, out int inputs)
+        {
+            foreach (GateKind each in new[] { GateKind.Not, GateKind.Buf, GateKind.And, GateKind.Or, GateKind.Nand, GateKind.Nor, GateKind.Xor, GateKind.Xnor })
+                for (int n = 1; n <= MaxInputs; n++)
+                    if (CellFor(each, n) == cell)
+                    {
+                        kind = each;
+                        inputs = n;
+                        return true;
+                    }
+
+            kind = default;
+            inputs = 0;
+            return false;
         }
 
         private static (string Primitive, int Inputs) Parse(string cell)

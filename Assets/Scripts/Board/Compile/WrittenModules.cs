@@ -242,12 +242,13 @@ namespace BitSorter.Board
             if (declaration == null || HasError(diagnostics))
                 return new WrittenModule(declaration, Array.Empty<ModulePort>(), uses, diagnostics);
 
-            // Elaborated on its own, among what it could instantiate.
+            // Elaborated on its own, among what it could instantiate -- the cells with the library's delays, when there is one.
+            GateLibrary library = project.Settings?.Library;
             var alone = new SyntaxTree();
             var named = new HashSet<string>(StringComparer.Ordinal);
             foreach (string cell in uses)
                 if (BoardImporter.IsCell(cell) && named.Add(cell))
-                    alone.Modules.Add(CellLibrary.Build(cell));
+                    alone.Modules.Add(CellLibrary.Build(cell, library));
             foreach (Module other in project.Modules)
             {
                 if (other == module || !named.Add(other.Name))
@@ -262,13 +263,15 @@ namespace BitSorter.Board
                     alone.Modules.Add(parsed.Declaration);
                     foreach (string cell in parsed.Uses)
                         if (BoardImporter.IsCell(cell) && named.Add(cell))
-                            alone.Modules.Add(CellLibrary.Build(cell));
+                            alone.Modules.Add(CellLibrary.Build(cell, library));
                 }
             }
             alone.Modules.Add(declaration);
 
-            // As the top, for its ports' widths -- every parameter at its default, which is what a block of it has.
-            Elaboration elaboration = Elaborator.Elaborate(alone, module.Name);
+            // As the top, for its ports' widths -- every parameter at its default, which is what a block of it has. Under a
+            // gate library it is held to it as it is built, every module but the testbench (Part 14g).
+            GateLevelRules rules = library != null && module.Name != project.Bench ? library.RulesFor(module.Name) : null;
+            Elaboration elaboration = Elaborator.Elaborate(alone, module.Name, rules);
             string file = FileOf(module.Name);
             Take(elaboration, warnings: true);
             if (elaboration.HasErrors)
@@ -451,6 +454,9 @@ namespace BitSorter.Board
         {
             var key = new StringBuilder();
             key.Append(module.Name).Append('\u0001').Append(module.Source).Append(ProjectFiles.KeyOf(project.Files, module.Source));
+            // The library it is held to, and whether it is the testbench, which is not (Part 14g).
+            if (project.Settings?.Library is GateLibrary library)
+                key.Append('\u0005').Append(module.Name == project.Bench ? "bench" : library.Key());
             foreach (Module other in project.Modules)
             {
                 if (other == module)

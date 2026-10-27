@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using BitSorter.Board;
 using BitSorter.Sim;
+using BitSorter.SystemVerilog.Syntax;
 using NUnit.Framework;
 
 namespace BitSorter.ViewModel.Tests
@@ -150,6 +151,60 @@ namespace BitSorter.ViewModel.Tests
             WorkbenchSession session = new WorkbenchSession(WorkbenchSamples.Blank(), Ticking(0.01));
             Assert.IsTrue(session.SetLibrary(GateLibrary.CourseCells(1) with { GateBudget = 5 }).Done);
             Assert.AreEqual("No gates yet; the library's budget is 5", session.Timing.Lines.Single(l => l.Label == "GATE COUNT").Text);
+        }
+
+        /// <summary>
+        /// Over its library's budget, the TRANSCRIPT says so as a warning too (Part 14g, Ahmad's choice), in the TIMING tab's
+        /// own count; within the budget, or with none, the transcript has the document's diagnostics alone -- the same list.
+        /// </summary>
+        [Test]
+        public void OverTheBudget_TheTranscriptSaysSo_InTheTimingTabsCount()
+        {
+            WorkbenchSession within = Under(GateLibrary.CourseCells(1) with { GateBudget = 5 });
+            Assert.AreSame(within.Editor.Diagnostics, within.Diagnostics, "within the budget: nothing more");
+            Assert.IsNull(within.OverBudget);
+
+            WorkbenchSession session = Under(GateLibrary.CourseCells(1) with { GateBudget = 4 });
+            Assert.AreEqual(5, session.Timing.Analysis.Gates, "sanity: the full adder's five gates, as the TIMING tab counts them");
+            BoardDiagnostic over = session.Diagnostics.Last();
+            Assert.AreEqual(DiagnosticSeverity.Warning, over.Severity);
+            Assert.AreEqual("5 gates, over the library's budget of 4: the TIMING tab counts them by kind.", over.Message);
+            Assert.AreEqual(over.Message, session.OverBudget);
+            Assert.AreSame(session.Diagnostics, session.Diagnostics, "the same list until something changes");
+            Assert.IsFalse(session.Editor.Diagnostics.Any(d => d.Message == over.Message), "a warning the transcript adds, never a rule's");
+
+            var transcript = new TranscriptView();
+            transcript.Update(session.Diagnostics, null);
+            Assert.AreEqual(1, transcript.Lines.Count(l => l.Severity == TranscriptSeverity.Warning && l.Text == over.Message));
+
+            Assert.IsTrue(session.SetLibrary(session.Project.Settings.Library with { GateBudget = -1 }).Done);
+            Assert.AreSame(session.Editor.Diagnostics, session.Diagnostics, "no budget: the document's alone");
+        }
+
+        /// <summary>
+        /// Written code under a library (Part 14g): a fault of the library's is marked at its line in the code editor, as any
+        /// other is, and the text does not apply -- the document keeps the code that held to it.
+        /// </summary>
+        [Test]
+        public void WrittenCode_UnderALibrary_IsMarkedWhereItBreaksIt_AndNotApplied()
+        {
+            var session = new WorkbenchSession(WorkbenchSamples.FullAdder(), Ticking(0.01));
+            session.Finish();
+            Assert.IsTrue(session.SetLibrary(GateLibrary.CourseCells(1)).Done);
+            Assert.IsTrue(session.AddWrittenModule("code1").Done, "the template only connects, so it holds");
+            int block = session.Place(PartsCatalog.For(session.Project, session.Module).Single(e => e.Module == "code1"), new Placement(20, 20)).Id;
+            Assert.IsTrue(session.StepInto(block));
+
+            CodeDocument code = session.Code;
+            string held = code.Text;
+            string broken = held.Replace("assign y = a;", "assign y = a & a;");
+            code.Type(broken, 0);
+            code.Frame(CodeDocument.PauseMilliseconds + 1);
+
+            CodeMark mark = code.Marks.Single(m => m.IsError);
+            StringAssert.Contains("works something out with an operator", mark.Message);
+            Assert.AreEqual(broken.Substring(0, broken.IndexOf("assign")).Count(c => c == '\n') + 1, mark.Line, "at its line");
+            Assert.AreEqual(held, code.Applied, "and not applied");
         }
 
         /// <summary>The budget changed and nothing else, the session's timing says the new one: no gate moved, but its line did.</summary>

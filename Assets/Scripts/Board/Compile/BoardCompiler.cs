@@ -128,8 +128,9 @@ namespace BitSorter.Board
             // (TimeUnits; decision D7). It labels time and changes nothing the engine does.
             string unit = project.Settings?.TimeUnit ?? TimeUnits.Default;
             var tree = new SyntaxTree { Timescale = unit == TimeUnits.Default ? null : TimeUnits.Timescale(unit) };
+            // A cell's delays default to the library's (Part 14g): a cell written without them takes them, here as when it is read.
             foreach (string cell in cells)
-                tree.Modules.Add(CellLibrary.Build(cell));
+                tree.Modules.Add(CellLibrary.Build(cell, project.Settings?.Library));
             foreach (CompiledModule module in compiled)
                 tree.Modules.Add(module.Declaration);
 

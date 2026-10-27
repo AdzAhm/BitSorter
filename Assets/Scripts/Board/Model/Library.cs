@@ -159,6 +159,32 @@ namespace BitSorter.Board
             return this with { Name = CustomName, Cells = cells };
         }
 
+        /// <summary>
+        /// The rules written code is held to under this library (Part 14g), for the module <paramref name="held"/>: its cells
+        /// at their delays, every module that is a cell of BitSorter's, the parameters a cell's delays are set by, and
+        /// whether constants are taken.
+        /// </summary>
+        public GateLevelRules RulesFor(string held)
+        {
+            var rules = new GateLevelRules { NoConstants = NoConstants, RiseParameter = CellLibrary.Rise, FallParameter = CellLibrary.Fall };
+            rules.Held.Add(held);
+            foreach (LibraryCell cell in Cells)
+                rules.Cells.Add(new GateLevelCell(cell.Kind, cell.Inputs, cell.Rise, cell.Fall, cell.Name));
+            foreach (LibraryCell cell in AllCells(0))
+                if (CellLibrary.CellFor(cell.Kind, cell.Inputs) is string name)
+                    rules.CellModules[name] = (cell.Kind, cell.Inputs);
+            return rules;
+        }
+
+        /// <summary>What the library is, as text: what a reading of written code held to it is kept under (<c>WrittenModules</c>).</summary>
+        public string Key()
+        {
+            var key = new System.Text.StringBuilder(NoConstants ? "c" : "n");
+            foreach (LibraryCell cell in Cells)
+                key.Append('|').Append((int)cell.Kind).Append(',').Append(cell.Inputs).Append(',').Append(cell.Rise).Append(',').Append(cell.Fall);
+            return key.ToString();
+        }
+
         /// <summary>The course's preset: every cell of BitSorter's library, each at <paramref name="delay"/>, constants allowed, no budget.</summary>
         public static GateLibrary CourseCells(long delay) => new GateLibrary { Name = CourseCellsName, Cells = AllCells(delay) };
     }

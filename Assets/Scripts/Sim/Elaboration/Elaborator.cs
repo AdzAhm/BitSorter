@@ -71,7 +71,17 @@ namespace BitSorter.Sim
         public static Elaboration Elaborate(SyntaxTree tree, string top = null)
         {
             if (tree == null) throw new ArgumentNullException(nameof(tree));
-            return new Run(tree).Elaborate(top);
+            return new Run(tree, null).Elaborate(top);
+        }
+
+        /// <summary>
+        /// <paramref name="tree"/> elaborated with <paramref name="top"/> as the top, the modules <paramref name="rules"/> names
+        /// held to its gate library as they are built (Part 14g): each fault an error at its line.
+        /// </summary>
+        public static Elaboration Elaborate(SyntaxTree tree, string top, GateLevelRules rules)
+        {
+            if (tree == null) throw new ArgumentNullException(nameof(tree));
+            return new Run(tree, rules).Elaborate(top);
         }
 
         private readonly struct Shape
@@ -152,7 +162,14 @@ namespace BitSorter.Sim
             private readonly List<ProcessInfo> _allProcesses = new List<ProcessInfo>();
             private readonly Dictionary<ProcessInfo, SourceLocation> _processAt = new Dictionary<ProcessInfo, SourceLocation>();
 
-            public Run(SyntaxTree tree) => _tree = tree;
+            /// <summary>The gate library written code is held to as it is built (Part 14g), or null for none.</summary>
+            private readonly GateLevelRules _rules;
+
+            public Run(SyntaxTree tree, GateLevelRules rules)
+            {
+                _tree = tree;
+                _rules = rules;
+            }
 
             public Elaboration Elaborate(string top)
             {
@@ -1716,6 +1733,8 @@ namespace BitSorter.Sim
                                 List<ProcessInfo> compiled = CompileProcess(scope, process);
                                 if (compiled != null)
                                 {
+                                    HoldProcessToLibrary(scope, process, compiled);
+
                                     // The process, then its forks' branches (Part L5).
                                     foreach (ProcessInfo info in compiled)
                                     {
@@ -1814,6 +1833,7 @@ namespace BitSorter.Sim
                     return;
 
                 LintTruncation(type, target, value, scope, width, at);
+                HoldAssignToLibrary(scope, built, at);
                 Drive(parts, built, delay, type.Signed, at, null);
             }
 
@@ -1934,6 +1954,8 @@ namespace BitSorter.Sim
                     if (builder.Failed)
                         continue;
 
+                    HoldGateToLibrary(scope, kind, inputs, delay, inputExprs, p.Primitive, instance.Location);
+
                     for (int o = 0; o < outputs; o++)
                     {
                         var parts = new List<ExpressionBuilder.Part>();
@@ -2013,6 +2035,7 @@ namespace BitSorter.Sim
                     entry.Scope = child;
                     if (module.IsInterface)
                         child.Modports = Modports(child, module);
+                    HoldInstanceToLibrary(scope, mi.Module, child, instance);
 
                     Connect(scope, child, module, instance);
                 }

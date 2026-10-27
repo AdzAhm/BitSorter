@@ -18,11 +18,11 @@ namespace BitSorter.Board.Tests
         public static IEnumerable<string> Names => new[]
         {
             "half_adder", "half_adder_delayed", "full_adder", "johnson", "johnson_timed", "buses", "mux4", "tristate", "half_adders", "ripple8", "written",
-            "full_adder_steps", "false_path_steps", "bus",
+            "full_adder_steps", "false_path_steps", "bus", "written_cells",
         };
 
         /// <summary>The boards drawn throughout: what an import can draw again. A written module comes in as written with Part 13.</summary>
-        public static IEnumerable<string> DrawnNames => Names.Where(name => name != "written");
+        public static IEnumerable<string> DrawnNames => Names.Where(name => name != "written" && name != "written_cells");
 
         public static Project Build(string name)
         {
@@ -42,6 +42,7 @@ namespace BitSorter.Board.Tests
                 case "false_path_steps": return Stepped(FalsePath());
                 case "written": return Written();
                 case "bus": return Bus();
+                case "written_cells": return WrittenCells();
                 default: throw new ArgumentException(name);
             }
         }
@@ -241,6 +242,31 @@ namespace BitSorter.Board.Tests
             b.Wire(add, "s", s, "in");
             b.Wire(add, "cout", cout, "in");
             return Random(editor, new[] { ("a", 4), ("b", 4) }, 12, 10, 5);
+        }
+
+        /// <summary>
+        /// A written block of the library's cells, written without their delays, under a library that gives them (Part 14g):
+        /// a NAND2 at rise 2 and fall 3, then an INV at 1 and 2. It runs at the library's delays here, and under Icarus from
+        /// the cells' file printed with them as its defaults -- what the export hands ModelSim.
+        /// </summary>
+        private static Project WrittenCells()
+        {
+            var editor = new BoardEditor(Project.New("pair"));
+            Must(editor.AddWrittenModule("nand_inv",
+                "module nand_inv (\n    input logic a,\n    input logic b,\n    output logic y,\n    output logic n\n);\n    NAND2 g1 (.A(a), .B(b), .Z(n));\n    INV g2 (.A(n), .Z(y));\nendmodule\n"));
+            var b = new Builder(editor, "pair");
+            int a = b.In("a"), bb = b.In("b"), y = b.Out("y"), n = b.Out("n");
+            int u = b.Add(new BlockPart { Module = "nand_inv" });
+            b.Wire(a, "out", u, "a");
+            b.Wire(bb, "out", u, "b");
+            b.Wire(u, "y", y, "in");
+            b.Wire(u, "n", n, "in");
+
+            GateLibrary library = GateLibrary.CourseCells(1);
+            library = library.Retimed(library.CellFor(GateKind.Nand, 2), 2, 3);
+            library = library.Retimed(library.CellFor(GateKind.Not, 1), 1, 2);
+            Must(editor.SetLibrary(library));
+            return Exhaustive(editor, new[] { "a", "b" }, 10);
         }
 
         /// <summary>The written adder, as the printer would write it.</summary>

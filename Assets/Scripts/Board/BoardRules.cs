@@ -119,9 +119,11 @@ namespace BitSorter.Board
         /// -- errors, so an edit that breaks the library is refused as any other is.
         /// </summary>
         /// <remarks>
-        /// **A written module is not held to it**, so far: its code is checked as SystemVerilog, not cell by cell. **The
-        /// budget is not a rule here**: the TIMING tab lays the design's gate count against it, written code's gates
-        /// included, and one count in one place cannot disagree with a second (the 14d review found two).
+        /// **A written module is held to it too** (Part 14g), as it is read (<see cref="WrittenModules"/>): every gate a cell at
+        /// its delays, no logic written with operators, no constant where none is taken -- each fault at its line, which the
+        /// code editor marks. The testbench is not held. **The budget is not a rule here**: the TIMING tab lays the design's
+        /// gate count against it, and the TRANSCRIPT says when it is over in that count, never a second one (the 14d review
+        /// found two).
         /// </remarks>
         private static void CheckLibrary(Project project, List<BoardDiagnostic> found)
         {
