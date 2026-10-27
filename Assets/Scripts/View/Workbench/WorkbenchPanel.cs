@@ -421,6 +421,15 @@ namespace BitSorter.View
         {
             if (_menu == null) _menu = FindFirstObjectByType<MainMenu>();
             if (_canvas == null) _canvas = FindFirstObjectByType<Canvas>();
+            _tracker = FindFirstObjectByType<ProgressTracker>();
+            if (_tracker != null)
+                _tracker.ProgressReset += ProgressWasReset;
+        }
+
+        private void OnDestroy()
+        {
+            if (_tracker != null)
+                _tracker.ProgressReset -= ProgressWasReset;
         }
 
         /// <summary>Opens the workbench, building it the first time, and plays the run from the start.</summary>
@@ -434,8 +443,35 @@ namespace BitSorter.View
 
             SetShowing(true);
             Fit();
+            if (_forgotten)
+            {
+                _forgotten = false;
+                ShowSample(0);
+                return;
+            }
+
             FitView();
             Restart();
+        }
+
+        private ProgressTracker _tracker;
+
+        /// <summary>Whether RESET PROGRESS has emptied the save since the workbench last opened: it then opens MY CIRCUIT, blank.</summary>
+        private bool _forgotten;
+
+        /// <summary>
+        /// RESET PROGRESS (Settings) has emptied the save, the student's circuits with it: the circuit open is let go without
+        /// being written back -- its next keep would put it into the save just emptied -- and MY CIRCUIT opens, blank, the next
+        /// time the workbench does. Not at once: the workbench is out of sight under Settings, and its stage is built where it
+        /// is seen.
+        /// </summary>
+        private void ProgressWasReset()
+        {
+            if (_session != null)
+                _keptProject = _session.Project;
+            _keepAt = -1;
+            _documentKey = WorkbenchSamples.MyCircuitKey;
+            _forgotten = Root != null;
         }
 
         /// <summary>
