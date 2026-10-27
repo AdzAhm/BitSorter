@@ -2213,8 +2213,13 @@ computed and measured, registers given a clock to Q and a setup, a library mode 
   value too wide to follow bit by bit (over 4,096 bits) -- so they cost an arc each rather than one for every pair; a
   process copying a 256-word memory of four-bit words was 66,820 arcs and is 2,088. It is a node of no signal, named for
   its driver.
-  A combinational process reaches what it writes from what it reads **from outside**: what it both writes and reads is
-  its own working (`y = y ^ a[i]`), and a loop's variable no part of anything.
+  A combinational process reaches **each signal it writes from what that signal's own assignments read**, and what its
+  decisions -- its `if`s, `case`s and loop conditions -- read, from outside: what it writes and then reads is followed
+  through to what that was worked out from (`t = a & b; y = t | c` gives y a, b and c), what it reads of its own before
+  writing it is its own working (`y = y ^ a[i]`), and a loop's variable no part of anything. The first version joined
+  every read to every write, and the second review found what that costs: the course's processor sets its ALU's
+  operands in one `always_comb` and reads the ALU's result there for another output, so its operands depended on the
+  result -- a loop through the ALU, 194 bits of it. Writes that read the same things share a junction.
 - An edge-triggered process is a register: it captures the bits its statements read, its clock and asynchronous reset
   left out, and launches the bits it writes; two writing one variable launch it at the later clock to Q. A tri-state's
   control is taken at the latest of its rise, fall and turn-off, since the change it makes may be to z (tri-state buses
