@@ -1380,6 +1380,7 @@ namespace BitSorter.View
             }
 
             Light();
+            RefreshTiming();
             DrawOverlay();
             RefreshInspector();
             RefreshTranscript();

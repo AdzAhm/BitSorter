@@ -233,6 +233,23 @@ namespace BitSorter.ViewModel.Tests
             StringAssert.StartsWith("The value:", b.Apply(b.Of(constant), ("value", "8'hZQ")).Refusal);
         }
 
+        /// <summary>A register's clock to Q and setup (Part 14b): at hand beside its values, set together as one step, never below 0.</summary>
+        [Test]
+        public void ARegistersClockToQAndSetup_AreAtHand_AndSetInOneStep()
+        {
+            var b = new Bench();
+            int register = Must(b.Session.Place(PartsCatalog.Find(b.Session.Project, b.Session.Module, "register"), new Placement(9, -4)));
+            CollectionAssert.AreEqual(new[] { "resetvalue", "start", "tcq", "tsetup" }, b.Of(register).Quick.Select(f => f.Key));
+
+            EditResult made = b.Apply(b.Of(register), ("tcq", "2"), ("tsetup", "3 ps"));
+            Assert.IsTrue(made.Done, made.Refusal);
+            Assert.AreEqual((2L, 3L), (b.Part<RegisterPart>(register).Tcq, b.Part<RegisterPart>(register).Tsetup));
+            Assert.IsTrue(b.Session.Undo());
+            Assert.AreEqual((0L, 0L), (b.Part<RegisterPart>(register).Tcq, b.Part<RegisterPart>(register).Tsetup), "both, one step");
+
+            StringAssert.StartsWith("The clock to Q:", b.Apply(b.Of(register), ("tcq", "-1")).Refusal, "refused, in words");
+        }
+
         [Test]
         public void ANetRenamed_KeepsItsRowInTheWaveform_UnderItsNewName_WithItsRadix()
         {

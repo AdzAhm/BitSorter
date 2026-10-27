@@ -15,9 +15,11 @@ namespace BitSorter.ViewModel
     public sealed class NetLayout
     {
         public NetLayout(string name, string signal, IReadOnlyList<string> aliases, int width, IReadOnlyList<Vec2> junctions, IReadOnlyList<StageRoute> branches,
-            string says)
+            string says, PinRef source = default, IReadOnlyList<PinRef> loads = null)
         {
             Says = says;
+            Source = source;
+            Loads = loads ?? System.Array.Empty<PinRef>();
             Name = name;
             Signal = signal;
             Aliases = aliases;
@@ -49,6 +51,12 @@ namespace BitSorter.ViewModel
 
         /// <summary>What pointing at it says: its name, what drives it and what reads it. Written once, so hovering formats nothing.</summary>
         public string Says { get; }
+
+        /// <summary>The pin that drives it (Part 14b): what a timing path through it comes out of.</summary>
+        public PinRef Source { get; }
+
+        /// <summary>The pin each branch ends on, in the order of <see cref="Branches"/>: which of them a timing path takes.</summary>
+        public IReadOnlyList<PinRef> Loads { get; }
     }
 
     /// <summary>A part as the schematic draws it: its symbol, where it stands, and what is written beside it.</summary>

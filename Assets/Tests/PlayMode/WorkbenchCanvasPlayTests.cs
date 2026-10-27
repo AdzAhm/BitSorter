@@ -1110,6 +1110,71 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
+        /// The dock's TIMING tab (Part 14b): the full adder's critical path picked and lit from the start -- a to cout through
+        /// both blocks and the OR -- another path picked lighting its own, the light following the drawing inside a block, and
+        /// another tab putting it out. Then the counter: its minimum period, 3, moves to 5 with its register's clock to Q of 2,
+        /// typed in the register's quick field.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator TheTimingTab_LightsThePathPicked_AndFollowsARegistersClockToQ()
+        {
+            yield return TestScene.Load();
+            yield return Click(MainMenu.WorkbenchButton);
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowSample(SampleNamed("Full adder"));
+            yield return null;
+            workbench.Pause();
+            workbench.Session.Finish();
+            yield return null;
+            Assert.AreEqual(0, workbench.Overlay.PathParts.Count, "sanity: nothing lit before the tab");
+
+            yield return Click(WorkbenchPanel.TimingTabName);
+            Assert.IsTrue(workbench.TimingShown);
+            TimingView timing = workbench.Timing;
+            Assert.AreEqual(timing.Critical, workbench.TimingPicked, "the critical path, picked to begin with");
+            StringAssert.StartsWith("a → cout", timing.Lines[timing.Critical].Text);
+            Assert.AreEqual(3, workbench.Overlay.PathParts.Count, "h1, h2 and the OR lit");
+            Assert.AreEqual(2, workbench.Overlay.PathPorts.Count, "and a and cout");
+            Assert.IsNotNull(ShellPanel.Find<UnityEngine.UIElements.VisualElement>(WorkbenchPanel.TimingRowName + "0"), "its lines on screen");
+
+            int toS = timing.Lines.ToList().FindIndex(l => l.CanPick && l.Text.StartsWith("a → s"));
+            Assert.Greater(toS, 0, "sanity: a path to s is listed");
+            workbench.PickTiming(toS);
+            yield return null;
+            yield return null;
+            Assert.AreEqual(2, workbench.Overlay.PathParts.Count, "a to s is the two blocks, through both XORs");
+
+            Assert.IsTrue(workbench.StepInto(Top(workbench).FindPart("h1").Id));
+            yield return null;
+            yield return null;
+            Assert.AreEqual(1, workbench.Overlay.PathParts.Count, "inside h1, the XOR it passes through");
+            Assert.IsTrue(workbench.StepOut());
+            yield return null;
+
+            yield return Click(WorkbenchPanel.WavesTabName);
+            yield return null;
+            Assert.AreEqual(0, workbench.Overlay.PathParts.Count, "another tab puts the light out");
+            Assert.IsNull(workbench.Editor.Path);
+
+            workbench.ShowSample(SampleNamed("Counter"));
+            yield return null;
+            workbench.Pause();
+            workbench.Session.Finish();
+            yield return null;
+            yield return Click(WorkbenchPanel.TimingTabName);
+            string unit = workbench.Session.Project.Settings?.TimeUnit ?? BitSorter.SystemVerilog.TimeUnits.Default;
+            Assert.AreEqual("3 " + unit, workbench.Timing.Lines.Single(l => l.Label == "MINIMUM PERIOD").Numbers);
+
+            RegisterPart register = Top(workbench).Parts.OfType<RegisterPart>().Single();
+            yield return DoubleClick(workbench.ScreenPointOf(MiddleOf(workbench, register.Id)));
+            Assert.IsNull(workbench.ApplyQuick("tcq", "2"));
+            yield return UntilReplayed(workbench);
+            yield return null;
+            Assert.AreEqual(2, ((RegisterPart)Top(workbench).FindPart(register.Id)).Tcq);
+            Assert.AreEqual("5 " + unit, workbench.Timing.Lines.Single(l => l.Label == "MINIMUM PERIOD").Numbers, "clock to Q 2 + logic 3");
+        }
+
+        /// <summary>
         /// Two code fields at once (Part 12e): a plain click in the read-only listing leaves the workbench its keys, since it
         /// draws no caret to say it has them; a drag selects and keeps them for Ctrl+C; and a click from there into a written
         /// block's code leaves the keyboard with the code -- the listing lets go of itself alone.

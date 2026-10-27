@@ -19,7 +19,7 @@ namespace BitSorter.ViewModel
             Hint = hint ?? "";
         }
 
-        /// <summary>What <see cref="Inspector.Apply"/> knows it by: name, width, inputs, rise, fall, value, reset, start, period, release, comment.</summary>
+        /// <summary>What <see cref="Inspector.Apply"/> knows it by: name, width, inputs, rise, fall, value, reset, start, tcq, tsetup, period, release, comment.</summary>
         public string Key { get; }
 
         /// <summary>What it is called on screen.</summary>
@@ -195,8 +195,10 @@ namespace BitSorter.ViewModel
                     fields.Add(new InspectorField("reset", "RESET", register.HasReset ? "yes" : "no", "yes or no"));
                     fields.Add(new InspectorField("resetvalue", "RESET VALUE", Value(register.ResetValue), "a value, as 4'b0101 or 0"));
                     fields.Add(new InspectorField("start", "STARTS AT", Value(register.Initial), "a value, or empty for x"));
-                    says = "Takes d on each rising edge of its clock.";
-                    quick = new[] { "resetvalue", "start" };
+                    fields.Add(new InspectorField("tcq", "CLOCK TO Q", Time(register.Tcq, unit), "a time, 0 or more"));
+                    fields.Add(new InspectorField("tsetup", "SETUP", Time(register.Tsetup, unit), "a time, 0 or more"));
+                    says = "Takes d on each rising edge of its clock. Clock to Q is Tcq, how long q takes to change after the edge; setup is Tsetup, how long d must be still before it.";
+                    quick = new[] { "resetvalue", "start", "tcq", "tsetup" };
                     break;
 
                 case ConstantPart constant:
@@ -332,6 +334,10 @@ namespace BitSorter.ViewModel
                 case RegisterPart register:
                     if (Changed("width") && TryInt(Typed("width"), "width", ref why, out int registerWidth))
                         register = register with { Width = registerWidth };
+                    if (Changed("tcq") && TryTime(Typed("tcq"), unit, "clock to Q", ref why, out long tcq))
+                        register = register with { Tcq = tcq };
+                    if (Changed("tsetup") && TryTime(Typed("tsetup"), unit, "setup", ref why, out long tsetup))
+                        register = register with { Tsetup = tsetup };
                     if (Changed("reset"))
                     {
                         string yes = Typed("reset").ToLowerInvariant();

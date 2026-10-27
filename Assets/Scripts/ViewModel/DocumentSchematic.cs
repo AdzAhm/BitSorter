@@ -188,12 +188,16 @@ namespace BitSorter.ViewModel
                     junctions.Add(frame.ToStage(junction));
 
                 var loads = new List<string>();
+                var loadPins = new List<PinRef>(net.Branches.Count);
                 foreach (NetBranch branch in net.Branches)
+                {
                     loads.Add(Describe(module, branch.Load));
+                    loadPins.Add(branch.Load);
+                }
                 string name = net.Net.Width > 1 ? net.Net.Name + "[" + (net.Net.Width - 1).ToString(CultureInfo.InvariantCulture) + ":0]" : net.Net.Name;
                 string says = name + "   from " + Describe(module, net.Source) + " to " + string.Join(", ", loads);
 
-                nets.Add(new NetLayout(net.Net.Name, signal, aliases, net.Net.Width, junctions, branches, says));
+                nets.Add(new NetLayout(net.Net.Name, signal, aliases, net.Net.Width, junctions, branches, says, net.Source, loadPins));
             }
 
             // A row per port, in the order they stand on the board: top to bottom, then left to

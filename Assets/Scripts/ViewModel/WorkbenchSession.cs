@@ -285,6 +285,22 @@ namespace BitSorter.ViewModel
             }
         }
 
+        private TimingView _timing = TimingView.Empty;
+
+        /// <summary>
+        /// The document's timing (Part 14b), for the dock's TIMING tab: worked out again only once the document has changed,
+        /// as <see cref="Listing"/> is printed, so asking every frame costs nothing between edits.
+        /// </summary>
+        public TimingView Timing
+        {
+            get
+            {
+                if (!ReferenceEquals(_timing.Project, Project))
+                    _timing = TimingView.Of(Project);
+                return _timing;
+            }
+        }
+
         /// <summary>The written module shown given <paramref name="source"/> (<see cref="BoardEditor.SetSource"/>): one step, drawn now, and replayed.</summary>
         public EditResult SetSource(string source) => Edited(Editor.SetSource(Module, source));
 

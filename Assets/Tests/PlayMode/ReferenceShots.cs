@@ -1526,6 +1526,30 @@ namespace BitSorter.PlayMode.Tests
             yield return Capture("46-workbench-imported-project");
         }
 
+        /// <summary>Part 14b: the dock's TIMING tab over the full adder, its critical path -- a to cout -- lit on the canvas.</summary>
+        [UnityTest]
+        public IEnumerator Shot47_WorkbenchTimingTab()
+        {
+            yield return LoadTheGame();
+            yield return Frames(2);
+
+            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            yield return Frames(2);
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowSample(2);   // the full adder
+            yield return Frames(2);
+            workbench.Pause();
+            workbench.Session.Finish();
+            workbench.Seek(26.5);
+            workbench.ShowTiming();
+            yield return Frames(30);
+
+            Assert.AreEqual(workbench.Timing.Critical, workbench.TimingPicked, "sanity: the critical path picked");
+            Assert.AreEqual(3, workbench.Overlay.PathParts.Count, "sanity: and lit");
+            yield return Capture("47-workbench-timing-tab");
+        }
+
         private static IEnumerator OpensOnItsCircuit(string level, string fixture, string shot)
         {
             yield return LoadTheGame();

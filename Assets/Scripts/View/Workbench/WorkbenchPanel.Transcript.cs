@@ -36,11 +36,11 @@ namespace BitSorter.View
         /// <summary>The + or - opening or shutting a scope's row: this, and its place on screen.</summary>
         public const string ScopeToggleName = "Workbench scope toggle ";
 
-        // The tools start right of the three tabs: WAVES, TRANSCRIPT, and CODE (Part 12e).
+        // The tools start right of the four tabs: WAVES, TRANSCRIPT, CODE (Part 12e) and TIMING (Part 14b).
         private const float TabHeight = 30f, TranscriptRowHeight = 26f, ScopeRowHeight = 26f, ScopeIndent = 14f,
-            ToolsLeft = CodeTabLeft + CodeTabWidth + 12f;
+            ToolsLeft = TimingTabLeft + TimingTabWidth + 12f;
 
-        private enum DockTab { Waves, Transcript, Code }
+        private enum DockTab { Waves, Transcript, Code, Timing }
 
         private DockTab _dockTab = DockTab.Waves;
         private bool _designTab;
@@ -68,7 +68,7 @@ namespace BitSorter.View
         // The dock's tabs
         // -----------------------------------------------------------------
 
-        /// <summary>The dock's tabs, WAVES and TRANSCRIPT, and an underline under the one shown.</summary>
+        /// <summary>The dock's tabs, WAVES, TRANSCRIPT, CODE and TIMING, and an underline under the one shown.</summary>
         private void BuildDockTabs(VisualElement header, SchematicPalette palette)
         {
             _wavesTabButton = Tab(WavesTabName, "WAVES", palette, () => ShowDockTab(DockTab.Waves));
@@ -93,6 +93,7 @@ namespace BitSorter.View
             header.Add(_transcriptTools);
             BuildTranscriptTools(palette);
             BuildCodeTab(header, palette);
+            BuildTimingTab(header, palette);
         }
 
         /// <summary>A tab: a caption with no edge, in the accent while it is the one shown.</summary>
@@ -106,17 +107,22 @@ namespace BitSorter.View
             return tab;
         }
 
-        /// <summary>The dock shows <paramref name="tab"/>: the waves and their buttons, or the transcript and its.</summary>
+        /// <summary>The dock shows <paramref name="tab"/>: the waves and their buttons, the transcript and its, the code, or the timing.</summary>
         private void ShowDockTab(DockTab tab)
         {
             bool entering = _dockTab != tab;
             _dockTab = tab;
-            bool waves = tab == DockTab.Waves, transcript = tab == DockTab.Transcript, code = tab == DockTab.Code;
+            bool waves = tab == DockTab.Waves, transcript = tab == DockTab.Transcript, code = tab == DockTab.Code, timing = tab == DockTab.Timing;
             _wavesTools.style.display = waves ? DisplayStyle.Flex : DisplayStyle.None;
             _transcriptTools.style.display = transcript ? DisplayStyle.Flex : DisplayStyle.None;
             _transcriptList.style.display = transcript ? DisplayStyle.Flex : DisplayStyle.None;
             if (_codeTools != null)
                 _codeTools.style.display = code ? DisplayStyle.Flex : DisplayStyle.None;
+            if (_timingTools != null)
+                _timingTools.style.display = timing ? DisplayStyle.Flex : DisplayStyle.None;
+            if (_timingList != null)
+                _timingList.style.display = timing ? DisplayStyle.Flex : DisplayStyle.None;
+            _timingDrawn = false;
             _listingView?.SetShown(code);
             if (code)
             {
@@ -139,11 +145,13 @@ namespace BitSorter.View
             }
 
             SchematicPalette palette = SchematicPalette.Current;
-            ShellButton shown = waves ? _wavesTabButton : transcript ? _transcriptTabButton : _codeTabButton;
+            ShellButton shown = waves ? _wavesTabButton : transcript ? _transcriptTabButton : code ? _codeTabButton : _timingTabButton;
             _wavesTabButton.style.color = waves ? palette.Text : palette.TextDim;
             _transcriptTabButton.style.color = transcript ? palette.Text : palette.TextDim;
             if (_codeTabButton != null)
                 _codeTabButton.style.color = code ? palette.Text : palette.TextDim;
+            if (_timingTabButton != null)
+                _timingTabButton.style.color = timing ? palette.Text : palette.TextDim;
             ShellTheme.Place(_dockUnderline, shown.style.left.value.value + 10f, 36f, shown.style.width.value.value - 20f, 2f);
             _transcriptDrawn = -1;
         }

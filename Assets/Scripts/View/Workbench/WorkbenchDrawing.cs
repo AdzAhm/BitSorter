@@ -94,12 +94,21 @@ namespace BitSorter.View
         /// The editing overlay (<see cref="CanvasOverlay"/>): what is selected in the accent -- a part's outline, a
         /// wire's band under it -- a selection being dragged where it is going, its wires dashed after it, a box
         /// drawn faintly, the alignment guides in the second cursor's colour, and the part in hand where it would
-        /// land. In colours no value is drawn in, so nothing selected reads as a 0, a 1 or an x.
+        /// land. In colours no value is drawn in, so nothing selected reads as a 0, a 1 or an x. Under all of it, the
+        /// timing path picked (Part 14b) in the second cursor's colour: a wider band than a selection's, and its parts
+        /// outlined further out, so a part both selected and on the path shows both.
         /// </summary>
         public static void Edit(VectorPainter painter, CanvasOverlay overlay, SchematicPalette palette)
         {
             if (overlay == null)
                 return;
+
+            foreach (StageRoute wire in overlay.PathWires)
+                painter.Stroke(wire, SchematicStyle.OneWidth + PathBand, palette.Over(palette.Cursor, 0.4f));
+            foreach (Rect2 part in overlay.PathParts)
+                Outlined(painter, part, palette.Cursor, PathWidth);
+            foreach (Rect2 port in overlay.PathPorts)
+                Outlined(painter, Rect2.MinMaxRect(port.xMin - PathGap, port.yMin - PathGap, port.xMax + PathGap, port.yMax + PathGap), palette.Cursor, PathWidth);
 
             foreach (Vector2[] wire in overlay.SelectedWires)
                 if (wire.Length >= 2)
@@ -146,6 +155,9 @@ namespace BitSorter.View
                     painter.Cross(end, EndRing - 1f, SelectedWidth, colour);
             }
         }
+
+        /// <summary>How much wider than a wire the timing path's band is, its outlines' width, and how far round a port it runs.</summary>
+        private const float PathBand = 8f, PathWidth = 2f, PathGap = 4f;
 
         /// <summary>How wide a wire being drawn is, and how big the rings on its ends are.</summary>
         private const float DraftWidth = 3f, EndRing = 6f;

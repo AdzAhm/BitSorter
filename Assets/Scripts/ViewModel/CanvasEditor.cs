@@ -32,6 +32,18 @@ namespace BitSorter.ViewModel
         /// <summary>The corners of every selected wire, where a drag moves one (Part 10b-2).</summary>
         public readonly List<Vec2> Handles = new List<Vec2>();
 
+        /// <summary>
+        /// The timing path picked in the TIMING tab (Part 14b), as this drawing has it (<see cref="TimingLight"/>): the wires
+        /// it takes, the parts it passes through, and the ports it starts and ends at.
+        /// </summary>
+        public readonly List<StageRoute> PathWires = new List<StageRoute>();
+
+        /// <inheritdoc cref="PathWires"/>
+        public readonly List<Rect2> PathParts = new List<Rect2>();
+
+        /// <inheritdoc cref="PathWires"/>
+        public readonly List<Rect2> PathPorts = new List<Rect2>();
+
         public void Clear()
         {
             Selected.Clear();
@@ -45,6 +57,9 @@ namespace BitSorter.ViewModel
             DraftStart = DraftEnd = null;
             DraftRefused = false;
             Handles.Clear();
+            PathWires.Clear();
+            PathParts.Clear();
+            PathPorts.Clear();
         }
     }
 
@@ -868,6 +883,23 @@ namespace BitSorter.ViewModel
         // What the overlay draws
         // -----------------------------------------------------------------
 
+        /// <summary>How far outside a part the timing path's outline runs, in cells: outside a selection's, so both show.</summary>
+        public const double PathRoom = SelectedRoom + 0.12;
+
+        private IReadOnlyList<string> _path;
+
+        /// <summary>The timing path the overlay lights (Part 14b): its signals, named from the design's top; null for none.</summary>
+        public IReadOnlyList<string> Path => _path;
+
+        /// <summary>Lights the timing path through <paramref name="signals"/>, or none for null: the overlay is drawn again.</summary>
+        public void Light(IReadOnlyList<string> signals)
+        {
+            if (ReferenceEquals(signals, _path))
+                return;
+            _path = signals;
+            Version++;
+        }
+
         /// <summary>Fills <paramref name="overlay"/> with what the overlay draws now.</summary>
         public void Overlay(CanvasOverlay overlay)
         {
@@ -876,6 +908,21 @@ namespace BitSorter.ViewModel
             Module module = Module;
             if (frame == null || module == null)
                 return;
+
+            if (_path != null)
+            {
+                TimingLight light = TimingLight.Of(_layout, _path);
+                foreach (int part in light.Parts)
+                {
+                    PartOutline outline = _hit.OutlineOf(part);
+                    if (outline != null)
+                        overlay.PathParts.Add(Stage(frame, outline, PathRoom, 0, 0));
+                }
+                foreach ((int net, int branch) in light.Branches)
+                    overlay.PathWires.Add(_layout.Nets[net].Branches[branch]);
+                foreach (int port in light.Ports)
+                    overlay.PathPorts.Add(_layout.Ports[port].Box);
+            }
 
             foreach (int part in Selection.Parts)
             {
