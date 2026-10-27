@@ -1247,6 +1247,7 @@ namespace BitSorter.Sim
                         Declared = at,
                     };
                     scope.TryDeclare(name, joined);
+                    _builder.Alias(scope.Path + "." + name, net.Signal);
                     return joined;
                 }
 

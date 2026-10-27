@@ -120,7 +120,6 @@ namespace BitSorter.Board.Tests
         [TestCase("module other (input logic a, output logic y);\n  assign y = a;\nendmodule\n", "module pass")]
         [TestCase("module pass (input logic a, output logic y);\n  assign y = a;\nendmodule\nmodule more (input logic a);\nendmodule\n", "one module")]
         [TestCase("`timescale 1ns/1ps\nmodule pass (input logic a, output logic y);\n  assign y = a;\nendmodule\n", "UNIT")]
-        [TestCase("module pass (inout wire a, output logic y);\n  assign y = a;\nendmodule\n", "inout")]
         [TestCase("// nothing yet\n", "no module")]
         [TestCase("module pass (input logic a, output logic y);\n  timeunit 1ns;\n  assign y = a;\nendmodule\n", "UNIT")]
         public void WhatABlocksTextMustBe_IsSaidInItsOwnWords(string source, string said)
@@ -129,6 +128,32 @@ namespace BitSorter.Board.Tests
             EditResult refused = editor.SetSource("pass", source);
             Assert.IsFalse(refused.Done);
             StringAssert.Contains(said, refused.Refusal);
+        }
+
+        /// <summary>
+        /// An inout (Part 14f) is joined to its net inside written code: a written module may have one, and be the top, which
+        /// compiles and elaborates with its testbench -- but a block of it is refused, since a drawn block's pins are inputs
+        /// and outputs.
+        /// </summary>
+        [Test]
+        public void AWrittenModuleWithAnInout_MayBeTheTop_ButNoBlockOfItIsDrawn()
+        {
+            BoardEditor editor = WithWritten("pass", Module("pass", "    inout wire a,\n    output logic y", "    assign y = a;"));
+            Assert.IsFalse(BoardRules.Check(editor.Project).Any(d => d.IsError), "written, it is fine");
+
+            EditResult placed = editor.Add("top", new BlockPart { Module = "pass" }, new Placement(5, 5));
+            Assert.IsFalse(placed.Done);
+            StringAssert.Contains("whose port a is an inout", placed.Refusal);
+
+            Assert.IsTrue(editor.SetTop("pass").Done);
+            Assert.IsTrue(editor.SetStimulus(new Stimulus { End = 10 }).Done, "a testbench to drive it");
+            CompiledProject compiled = BoardCompiler.Compile(editor.Project);
+            Assert.IsTrue(compiled.Succeeded, string.Join("; ", compiled.Diagnostics));
+            Assert.IsNotNull(compiled.Testbench, string.Join(", ", BoardPrinter.Print(compiled).Select(p => p.Path)));
+            StringAssert.Contains("wire logic a;", BoardPrinter.Print(compiled).Single(p => p.Path == compiled.Testbench + ".sv").Text, "the testbench's end of it a net");
+            Elaboration elaboration = Elaborator.Elaborate(compiled.Tree, compiled.Top);
+            Assert.IsFalse(elaboration.HasErrors, string.Join("; ", elaboration.Diagnostics));
+            Assert.IsTrue(elaboration.Design.TryFind(compiled.DesignPath + ".a", out _), "found by the port's name, joined to the testbench's net");
         }
 
         [Test]

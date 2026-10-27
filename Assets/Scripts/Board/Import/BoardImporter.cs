@@ -255,7 +255,7 @@ namespace BitSorter.Board
 
                 if (port.Direction == PortDirection.Inout)
                 {
-                    Problem(port, $"{port.Name} is an inout; two-way ports arrive with tri-state (Part 14).");
+                    Problem(port, $"{port.Name} is an inout; a module with one comes in as written code, where an inout is joined to its net (Part 14f).");
                     return;
                 }
 

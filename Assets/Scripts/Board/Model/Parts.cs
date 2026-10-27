@@ -254,7 +254,8 @@ namespace BitSorter.Board
             int copies = Math.Max(1, Copies);
             var pins = new List<Pin>();
             foreach (ModulePort port in WrittenModules.PortsOf(project, module))
-                pins.Add(new Pin(port.Name, port.Direction == PortDirection.Input ? PinDirection.In : PinDirection.Out, port.Width * copies));
+                if (port.Direction != PortDirection.Inout)   // no pin for an inout: the rules refuse a block of one (Part 14f)
+                    pins.Add(new Pin(port.Name, port.Direction == PortDirection.Input ? PinDirection.In : PinDirection.Out, port.Width * copies));
             return pins;
         }
     }

@@ -363,7 +363,7 @@ namespace BitSorter.Sim
         private readonly Dictionary<string, SignalId> _byName;
 
         internal Design(string name, List<SignalInfo> signals, List<DriverInfo> drivers, List<ProcessInfo> processes,
-            List<MemoryInfo> memories, SignalId? time, List<ScopeInfo> scopes = null)
+            List<MemoryInfo> memories, SignalId? time, List<ScopeInfo> scopes = null, List<(string Name, SignalId Signal)> aliases = null)
         {
             Name = name;
             Signals = signals.ToArray();
@@ -376,6 +376,10 @@ namespace BitSorter.Sim
             _byName = new Dictionary<string, SignalId>(StringComparer.Ordinal);
             for (int i = 0; i < Signals.Count; i++)
                 _byName[Signals[i].Name] = new SignalId(i);
+            // An inout joined to its net is found by its own name too, as the net (Part 14f).
+            foreach ((string alias, SignalId signal) in aliases ?? new List<(string, SignalId)>())
+                if (!_byName.ContainsKey(alias))
+                    _byName[alias] = signal;
         }
 
         /// <summary>The top module's name, which a VCD scopes everything under.</summary>
@@ -725,7 +729,20 @@ namespace BitSorter.Sim
         /// <summary>A signal's declaration as it stands while the design is being built.</summary>
         internal SignalInfo InfoOf(SignalId signal) => _signals[signal.Index];
 
-        public Design Build() => new Design(_name, _signals, _drivers, _processes, _memories, _time, _scopes);
+        public Design Build() => new Design(_name, _signals, _drivers, _processes, _memories, _time, _scopes, _aliases);
+
+        private readonly List<(string Name, SignalId Signal)> _aliases = new List<(string, SignalId)>();
+
+        /// <summary>
+        /// <paramref name="name"/> found as <paramref name="signal"/> (Part 14f): an inout port joined to its net, which is no
+        /// signal of its own but is still looked for by its full name -- a waveform row, a testbench's <c>dut.io</c>.
+        /// </summary>
+        internal void Alias(string name, SignalId signal)
+        {
+            if (!_names.Add(name))
+                throw new ArgumentException($"There is already a signal called '{name}'.", nameof(name));
+            _aliases.Add((name, signal));
+        }
 
         private SignalId Add(string name, int width, SignalKind kind, bool signed, bool local = false, LogicVec? initial = null, MemoryInfo memory = null,
             int? msb = null, int? lsb = null, EnumInfo @enum = null, PortDirection? port = null, int scope = -1, bool twoState = false)

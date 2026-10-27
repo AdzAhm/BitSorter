@@ -55,7 +55,7 @@ namespace BitSorter.Board
             else if (WrittenModules.Read(project, top).Declaration is ModuleDeclaration written)
             {
                 foreach (PortDeclaration port in written.Ports)
-                    if (port.Direction == PortDirection.Output && port.NetType != null)
+                    if (port.Direction == PortDirection.Inout || port.Direction == PortDirection.Output && port.NetType != null)
                         nets.Add(port.Name);
             }
 

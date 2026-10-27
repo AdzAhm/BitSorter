@@ -296,10 +296,8 @@ namespace BitSorter.Board
             var ports = new List<ModulePort>();
             foreach (ElaboratedPort port in elaboration.Ports)
             {
-                if (port.Direction == PortDirection.Inout)
-                    diagnostics.Add(new Diagnostic(DiagnosticSeverity.Error, PortLocation(declaration, port.Name, file), ElaborationCodes.BadPort,
-                        $"{port.Name} is an inout: a block's pins are inputs and outputs, so far."));
-                else if (port.Width > BoardRules.MaxWidth)
+                // An inout is kept (Part 14f): the top may have one, and a block of a module with one is the rules' to refuse.
+                if (port.Width > BoardRules.MaxWidth)
                     diagnostics.Add(new Diagnostic(DiagnosticSeverity.Error, PortLocation(declaration, port.Name, file), ElaborationCodes.TooLarge,
                         $"{port.Name} is {port.Width} bits wide; a block's pin can be {BoardRules.MaxWidth} at most."));
                 else

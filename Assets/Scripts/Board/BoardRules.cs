@@ -371,7 +371,7 @@ namespace BitSorter.Board
                 case PortPart port:
                     Width(port.Width, "width");
                     if (port.Direction == PortDirection.Inout)
-                        Error($"{port.Name} is an inout; two-way ports arrive with tri-state (Part 14).");
+                        Error($"{port.Name} is an inout: a drawn port is an input or an output, so far. A written module may have one (Part 14f).");
                     break;
 
                 case GatePart gate:
@@ -434,7 +434,18 @@ namespace BitSorter.Board
                     break;
 
                 case BlockPart block:
-                    if (project.Find(block.Module) == null)
+                    if (project.Find(block.Module) is Module inner)
+                    {
+                        // An inout is joined inside written code (Part 14f); a drawn block's pins are inputs and outputs.
+                        foreach (ModulePort port in WrittenModules.PortsOf(project, inner))
+                            if (port.Direction == PortDirection.Inout)
+                            {
+                                Error($"{block.Name} is a {block.Module}, whose port {port.Name} is an inout: a block's pins are inputs " +
+                                    "and outputs, so far. Instantiate it in written code, where an inout is joined to its net.");
+                                break;
+                            }
+                    }
+                    else
                         Error($"{block.Name} is a {block.Module}, and there is no module called that.");
                     if (block.Copies < 1 || block.Copies > BlockPart.MaxCopies)
                         Error($"{block.Name} has {block.Copies} copies; a block can be 1 to {BlockPart.MaxCopies}.");
