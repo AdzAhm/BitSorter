@@ -2260,6 +2260,45 @@ computed and measured, registers given a clock to Q and a setup, a library mode 
   a negative value refused, a drawn full adder's two reckonings agreeing on its slowest path, and the drawn eight-bit
   ripple adder's 26. Oracle: the timed Johnson counter, a new sample board, printed and run under Icarus as here.
 
+**As built in Part 14b**: the TIMING tab, and the path picked lit on the canvas.
+
+- **`TimingView`** (view-model) reads `TimingAnalysis` into lines: for a design with registers the **minimum period**
+  as its sum (`clock to Q 2 + logic 3 + setup 1 ns`), the **maximum frequency** it gives in the unit that keeps it over
+  1 (`166.7 MHz`), and the critical path -- the slowest register to register -- with the slowest input to register and
+  register to output beside it; for one without, the critical path is the slowest input to output. Then the **gate
+  count** by kind and inputs, the most first (`5 gates: 2 AND2, 2 XOR2, 1 OR2`, a block counting its contents), any
+  loop of logic named, and **every path**, the slowest first, each with its ends -- identical ones together, `a → cout,
+  b → cout` -- the gates it passes through, and its delay rising and falling. The list stops at 200, saying how many
+  are left. A circuit with errors has one line saying so. `WorkbenchSession.Timing` works it out again only once the
+  document has changed, as `Listing` is printed.
+- **Every path is named from the design's top** (`h1.s`, `c[1]`), so one picked in the top's drawing is the same path
+  inside a block. **`TimingLight`** finds what a drawing has of it: the signals it has a net for are the path through
+  that drawing -- a bit of a bus is the bus, a cell's output the net it drives -- and between two of them the part that
+  reads the one and drives the other is the step taken, and the branch into that part the wire; a path starting at a
+  register lights the register, one ending at a port or a register lights the branch into it. So the full adder's
+  critical path lights both blocks and the OR from the top, and h1's XOR between h1's own ports from inside h1 -- and
+  h2's AND inside h2. A drawn net now knows its driver and each branch's load (`NetLayout.Source`, `Loads`) for this.
+- **The dock's fourth tab** (`WorkbenchPanel.TimingTab`), a shell list like the TRANSCRIPT: a line a row -- its label,
+  what it says, its numbers on the right -- the wheel scrolling it, and a click on a path picking it. The critical path
+  is picked until another is, and an edit that leaves the picked line there keeps it (`TimingView.Find`). **The path is
+  lit while the tab is up**, and another tab puts it out, so the canvas is never left lit by something not on screen.
+- **Lit, not the rest dimmed.** The plan said the rest of the drawing dims. The path is drawn over it instead, in the
+  editing overlay and the second cursor's colour -- a band along each of its wires, wider than a selection's, and an
+  outline round each part and port further out than a selection's, so a part both selected and on the path shows both.
+  Dimming would draw every chunk of the wires and parts again in a second set of colours on every pick, and leave the
+  values of the wires off the path harder to read while the run plays; the band reads at once without it.
+- **A register's clock to Q and setup in its inspector**, in the bar and as quick fields beside its values, with a line
+  saying what each is: CLOCK TO Q (Tcq) and SETUP (Tsetup), times in the project's unit, never below 0, set together as
+  one step. Typed into, the TIMING tab's period follows.
+- **Checked.** `TimingViewTests`: the full adder's critical path (a to cout, 4 each way), its gate count and paths; the
+  counter's period of 3 becoming 6 with a clock to Q of 2 and a setup of 1, and the frequency; frequencies in four units;
+  a broken circuit; the critical path lit from the top, inside h1 and inside h2; a register-to-register path lighting the
+  register; the session working the timing out again only on an edit, keeping the line picked. `InspectorTests`: the
+  register's quick fields, its clock to Q and setup in one step, a negative refused. Play Mode: the tab lighting the
+  full adder's critical path and another picked, inside h1, put out by WAVES, and the counter's period moving from 3 to
+  5 with a clock to Q typed in its quick field. Reference shot 47: the TIMING tab over the full adder, its critical path
+  lit.
+
 ---
 
 ## 11. The parts
@@ -2282,7 +2321,7 @@ Each part is one pull request into `v5`, ends with every suite green, and leaves
 | 11 | The workbench shell, in UI Toolkit -- **built**, in four: 11a the bridges and the toolbar; 11b the docked layout -- its panels (11b-1), the inspector docked (11b-2), the popups in the shell (11b-3); 11c the transcript and the hierarchy; 11d the keyboard map, the status line and the docs |
 | 12 | Hierarchy, and written blocks, edited in CodeMirror in a browser -- in six: 12a stepping inside a block **built** (see "As built in Part 12a"); 12b making a block **built** (see "As built in Part 12b"); 12c arrays **built** (see "As built in Part 12c"); 12d code blocks **built** (see "As built in Part 12d"); 12e the code panel **built** (see "As built in Part 12e"); 12f CodeMirror **built** (see "As built in Part 12f") |
 | 13 | Export and import (and a levelized path in the engine, only if a measurement asks for it) -- in six: 13a exporting a project **built** (see "As built in Part 13a"); 13b importing one **built** (see "As built in Part 13b"); 13c CONVERT **built** (see "As built in Part 13c"); 13d files **built** (see "As built in Part 13d"); 13e templates **built** (see "As built in Part 13e"); 13f limits, the security review, the measurement and the browser check **built** (see "As built in Part 13f"; the levelized path is not needed). **Part 13 is built.** |
-| 14 | The course's tools: path delays, static timing, gate-library mode, step tests, lint, tri-state -- in six: 14a the timing analysis core **built** (see "As built in Part 14a"); 14b the TIMING tab, 14c step tests, 14d gate-library mode, 14e lint, 14f tri-state buses |
+| 14 | The course's tools: path delays, static timing, gate-library mode, step tests, lint, tri-state -- in six: 14a the timing analysis core and 14b the TIMING tab **built** (see "As built in Part 14a" and "14b"); 14c step tests, 14d gate-library mode, 14e lint, 14f tri-state buses |
 | 15 | The Exercises and the tutorial |
 | 16 | The old game retired, and a smaller download; 5.0.0 released |
 

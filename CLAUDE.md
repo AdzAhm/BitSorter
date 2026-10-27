@@ -157,8 +157,14 @@ stretch that way.
 ### Under the 4.x token engine
 
 True of the token model, and so of the 4.x game until Part 16. In 5.0's
-engine the first is reversed, the second becomes a real clock signal, and
-the third is revisited when static timing arrives (Part 14).
+engine the first is reversed and the second becomes a real clock signal. The
+third is reversed as well now that static timing has arrived (Part 14a, on the
+workbench in 14b's TIMING tab): a design's minimum period -- the slowest
+register-to-register path, clock to Q and setup included -- and the frequency
+it gives are worked out and shown, so cutting a long path with a register
+shortens the period and raises the rate, which Part 15's pipelining Exercises
+are built on. It is a fact about the student's own circuit, never a ranking
+(see "Still off limits" below).
 
 **Hazards are not expressible.** Static and dynamic hazards need a
 continuous signal model; bits here are discrete tokens, so a glitch has
@@ -663,8 +669,10 @@ failure side.
   value made by reflection anywhere the game runs). Its panels are docked
   (`ShellLayout`, a view-model rule): the toolbar, the inspector's bar, PARTS
   and DESIGN, the circuit's window, the side panel's quick fields and minimap,
-  the splitter, the dock with WAVES, TRANSCRIPT and CODE (the SystemVerilog the
-  document prints as, read-only, Part 12e), and a one-line status that
+  the splitter, the dock with WAVES, TRANSCRIPT, CODE (the SystemVerilog the
+  document prints as, read-only, Part 12e) and TIMING (the paths, the critical
+  path, the minimum period and the gate count, the path picked lit on the
+  canvas while the tab is up, Part 14b), and a one-line status that
   names the gestures where the pointer is. **The drawings stay uGUI** -- the
   circuit, the waves, the legend, the minimap -- each placed under the panel
   that frames it, at its own size; a panel's middle takes no clicks. Its popups
@@ -754,7 +762,7 @@ failure side.
   counts from it -- the win celebration once pulsed on the game clock and a solve
   could land at the bottom of its swell.
 - **Visual changes are checked against the reference shots.**
-  `BitSorter/Capture Reference Shots` captures forty-six states (menu, a built
+  `BitSorter/Capture Reference Shots` captures forty-seven states (menu, a built
   board, bits in flight, a collision one tick out and one that takes both bits,
   the solved card, the level list, free play, the help panel, the chapter card, a
   clocked level, the tutorial's intro and its closing card, a first-time hint, a
@@ -766,7 +774,7 @@ failure side.
   built and running, its carry passing between the boxes, and 5.0's workbench
   preview with two changes on their way, whole, zoomed in, with a wire pointed at, with two rows in other
   radixes, a second cursor 9 ps on and two breakpoints flagged, with a block's inside grouped under full names, with the
-  add list searching, MY CIRCUIT being edited, two gates moving with their guides, its half adder being wired, one of its wires being reshaped, the reference's AND in its inspector, the reference zoomed in with its minimap and the canvas's menu, the full adder's transcript beside its hierarchy, the keyboard map, the full adder stepped inside h1, MAKE BLOCK asking for a name, four half adders as one block of four copies, a written adder's code with a fault marked, the full adder's code in the dock's CODE tab, the FILE menu, and a project imported with its testbench running) as an Explicit Play
+  add list searching, MY CIRCUIT being edited, two gates moving with their guides, its half adder being wired, one of its wires being reshaped, the reference's AND in its inspector, the reference zoomed in with its minimap and the canvas's menu, the full adder's transcript beside its hierarchy, the keyboard map, the full adder stepped inside h1, MAKE BLOCK asking for a name, four half adders as one block of four copies, a written adder's code with a fault marked, the full adder's code in the dock's CODE tab, the FILE menu, a project imported with its testbench running, and the full adder's critical path lit from the TIMING tab) as an Explicit Play
   Mode fixture, so it runs under `SaveGuard` --
   driving the real game for a screenshot by hand once marked a level solved on
   the developer's own save. Frame time is fixed, particle systems are seeded,
