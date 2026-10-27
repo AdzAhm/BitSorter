@@ -287,6 +287,22 @@ namespace BitSorter.ViewModel.Tests
             Assert.IsTrue(light.Parts.Any(id => module.FindPart(id) is GatePart g && g.Kind == Sim.GateKind.And), "and the AND on the carry");
         }
 
+        /// <summary>
+        /// The unit changed, the TIMING tab says its times in the new one: the design is the same, but its words are not
+        /// (the 14c review: the critical path still read "ps" beside a measured worst in "ns").
+        /// </summary>
+        [Test]
+        public void AChangeOfUnit_IsSaidInTheNewUnit()
+        {
+            var session = new WorkbenchSession(WorkbenchSamples.FullAdder(), Ticking(0.01));
+            session.Finish();
+            Assert.AreEqual("ps", Unit(session.Project), "sanity: counted in ps");
+            Assert.IsTrue(session.Timing.Lines[session.Timing.Critical].Numbers.EndsWith(" ps"));
+
+            Assert.IsTrue(session.SetUnit("ns").Done);
+            StringAssert.EndsWith(" ns", session.Timing.Lines[session.Timing.Critical].Numbers);
+        }
+
         [Test]
         public void TheSessionsTiming_IsWorkedOutAgain_OnlyWhenTheDocumentChanges()
         {
