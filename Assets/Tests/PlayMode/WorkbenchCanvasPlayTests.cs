@@ -1928,6 +1928,37 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
+        /// RESET PROGRESS empties the save, the student's circuits with it (Part 15a): the workbench lets the circuit it had open
+        /// go without writing it back, and opens MY CIRCUIT, blank. It went on showing the old one, and its next keep wrote it
+        /// back into the save just emptied (the #83 review).
+        /// </summary>
+        [UnityTest]
+        public IEnumerator ResetProgress_TakesTheCircuitsAway_AndTheWorkbenchOpensMyCircuitBlank()
+        {
+            yield return TestScene.Load();
+            yield return Click(MainMenu.WorkbenchButton);
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowSample(0);
+            yield return null;
+            workbench.NewCircuit("foo");
+            yield return null;
+            yield return Place(workbench, "xor", new BoardPoint(4, 0), new System.Collections.Generic.List<int>());
+            yield return Click(WorkbenchPanel.BackButton);
+
+            ProgressStore store = Find<ProgressTracker>().Store;
+            Assert.IsTrue(store.HasProject(Documents.KeyOf("foo")), "sanity: BACK kept it");
+            Assert.IsTrue(Find<ProgressTracker>().ResetProgress());
+            yield return Click(MainMenu.WorkbenchButton);
+            yield return null;
+
+            Assert.AreEqual(WorkbenchSamples.MyCircuitKey, workbench.DocumentKey, "the circuit open went with the save");
+            Assert.IsEmpty(workbench.Session.Project.TopModule.Parts.OfType<GatePart>(), "MY CIRCUIT, blank");
+            yield return Place(workbench, "and", new BoardPoint(2, 0), new System.Collections.Generic.List<int>());
+            yield return Click(WorkbenchPanel.BackButton);
+            Assert.IsFalse(store.HasProject(Documents.KeyOf("foo")), "nothing of it written back");
+        }
+
+        /// <summary>
         /// FILE, CONVERT is offered only while a testbench drives the inputs (Part 13d); it asks, saying what the stimulus will
         /// not keep, and then the inputs are steps SET can change.
         /// </summary>
