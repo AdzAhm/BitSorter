@@ -370,13 +370,15 @@ namespace BitSorter.ViewModel
         public TimingView For(Project project) => new TimingView(project, Analysis, Lines, Critical);
 
         /// <summary>
-        /// Whether <paramref name="a"/> and <paramref name="b"/> time alike: the same top and, module by module, the same
-        /// parts, wires and code -- where things are drawn and what the stimulus does are no part of the design's timing.
+        /// Whether <paramref name="a"/> and <paramref name="b"/> time alike: the same top, the same unit and, module by module,
+        /// the same parts, wires and code -- where things are drawn and what the stimulus does are no part of the design's timing.
         /// An edit leaves everything it did not touch as it was, so this is reference checks nearly always.
         /// </summary>
         public static bool SameDesign(Project a, Project b)
         {
-            if (a == null || b == null || a.Top != b.Top || a.Modules.Count != b.Modules.Count)
+            // The unit too: the design times alike, but every number on the tab is written in it.
+            if (a == null || b == null || a.Top != b.Top || a.Modules.Count != b.Modules.Count
+                || a.Settings?.TimeUnit != b.Settings?.TimeUnit)
                 return false;
             for (int m = 0; m < a.Modules.Count; m++)
             {
