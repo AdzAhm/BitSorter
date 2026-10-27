@@ -3,10 +3,13 @@
 
 import { EditorState } from "@codemirror/state";
 
-/** The editor's state showing <text>, a block's code as the game gives it when the block is stepped into. */
+/**
+ * The editor's state showing <text>, a block's code as the game gives it when the block is stepped into, with nothing to
+ * undo: its code is where the editor's undo starts. Put in as a change, it was a step of that undo, and the Ctrl+Z after
+ * the first thing typed took the code itself out and left nothing (the Part 14g browser smoke test).
+ */
 export function blockState(text, extensions) {
-  const empty = EditorState.create({ doc: "", extensions });
-  return empty.update({ changes: { from: 0, insert: text } }).state;
+  return EditorState.create({ doc: text, extensions });
 }
 
 /** The change that puts <text> in over <state>'s document as the game's -- REVERT -- a step Ctrl+Z takes back. */
