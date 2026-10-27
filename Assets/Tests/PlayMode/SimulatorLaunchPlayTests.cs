@@ -130,10 +130,17 @@ namespace BitSorter.PlayMode.Tests
         [UnityTest]
         public IEnumerator ASampleOpenLast_IsWhatItOpensOnAgain_AndOneSinceGoneIsTheStartPage()
         {
-            Plant(store => store.LastOpen = Documents.SampleKey(WorkbenchSamples.All[2].Name));
+            Plant(store =>
+            {
+                store.SetProject(Documents.KeyOf("adder"), Project.New("adder"));
+                store.Touch(Documents.KeyOf("adder"));
+                store.LastOpen = Documents.SampleKey(WorkbenchSamples.All[2].Name);
+            });
             yield return TestScene.LoadSimulator();
             Assert.AreEqual(3, Find<WorkbenchPanel>().Sample, "the counter, as it was left");
             Assert.IsFalse(Find<WorkbenchPanel>().StartPageShowing);
+            Assert.AreEqual(Documents.KeyOf("adder"), Find<WorkbenchPanel>().DocumentKey,
+                "the SAMPLE chip goes back to the circuit opened last before the sample");
             yield return TestScene.Clear();
 
             Plant(store => store.LastOpen = Documents.KeyOf("deleted since"));
@@ -199,6 +206,79 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsFalse(credits.IsShowing, "any key ends them");
             Assert.IsTrue(workbench.IsOpen, "back on the workbench");
             Assert.IsFalse(Find<SettingsPanel>().IsShowing, "not on Settings, where the credits are also reached");
+        }
+
+        [UnityTest]
+        public IEnumerator TheStartPage_SaysWhatItsActionsSay_AndQuestionMarkOpensTheKeyMap_AndFileLeavesTheHiddenCircuitAlone()
+        {
+            yield return TestScene.LoadSimulator();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            Assert.IsTrue(workbench.StartPageShowing);
+
+            // The chip that says what happened is under the page: the page says it too (the #84 review).
+            workbench.NewCircuit("My Circuit");
+            StringAssert.Contains("called my circuit already", workbench.StartPageNotice, "a name refused, said where it can be seen");
+            Assert.IsTrue(workbench.StartPageShowing);
+
+            yield return Tap(_keyboard.slashKey);
+            Assert.IsTrue(workbench.KeyMapPopup.IsOpen, "? opens the keyboard map on the start page");
+            yield return Tap(_keyboard.slashKey);
+            Assert.IsFalse(workbench.KeyMapPopup.IsOpen, "and closes it, as the map says");
+
+            yield return Click(WorkbenchPanel.FileButton);
+            Assert.IsTrue(workbench.FileMenu.IsOpen);
+            Assert.IsTrue(workbench.FileMenu.Offers(FileAction.NewCircuit) && workbench.FileMenu.Offers(FileAction.OpenCircuit));
+            Assert.IsFalse(workbench.FileMenu.Offers(FileAction.ExportProject), "nothing that acts on the circuit the page hides");
+            Assert.IsFalse(workbench.FileMenu.Offers(FileAction.RenameCircuit) || workbench.FileMenu.Offers(FileAction.DeleteCircuit));
+        }
+
+        [UnityTest]
+        public IEnumerator AChangeOfLook_ComesBackToSettings_OverWhicheverItWasOpenedOver()
+        {
+            yield return TestScene.LoadSimulator();
+            try
+            {
+                // Over the 4.x title screen: the reload opens the simulator, which has to go under (the #84 review).
+                yield return Click(WorkbenchPanel.SettingsButton);
+                yield return Click(SettingsPanel.GameButton);
+                Find<MainMenu>().Show(false);
+                Find<SettingsPanel>().Open();   // as the title screen's own SETTINGS does
+                yield return null;
+                yield return Click(SettingsPanel.LookButton(Looks.SchematicLight));
+                yield return UntilTheLookHasChanged();
+
+                Assert.IsTrue(Find<SettingsPanel>().IsShowing, "back on Settings");
+                Assert.IsFalse(Find<SettingsPanel>().OverTheSimulator);
+                Assert.IsFalse(Find<WorkbenchPanel>().IsOpen, "with the simulator under it, not over it");
+                Assert.IsFalse(Find<WorkbenchPanel>().Shell.Visible, "its shell, drawn over the canvas, out of sight");
+                yield return Click(SettingsPanel.BackButton);
+                Assert.IsTrue(Find<MainMenu>().IsOpen, "BACK: the title screen it was opened over");
+                Assert.IsFalse(Find<WorkbenchPanel>().IsOpen);
+
+                // Over the simulator.
+                yield return Click(MainMenu.WorkbenchButton);
+                yield return Click(WorkbenchPanel.SettingsButton);
+                yield return Click(SettingsPanel.LookButton(Look.Default));
+                yield return UntilTheLookHasChanged();
+
+                Assert.IsTrue(Find<SettingsPanel>().IsShowing && Find<SettingsPanel>().OverTheSimulator, "back on Settings, over the simulator");
+                Assert.IsFalse(Find<WorkbenchPanel>().IsOpen);
+                yield return Click(SettingsPanel.BackButton);
+                Assert.IsTrue(Find<WorkbenchPanel>().IsOpen, "BACK: the simulator");
+                Assert.IsFalse(Find<MainMenu>().IsOpen);
+            }
+            finally
+            {
+                Look.Use(null);
+            }
+        }
+
+        private static IEnumerator UntilTheLookHasChanged()
+        {
+            Assert.IsTrue(LookSwitch.Busy, "sanity: choosing a look loads the game again");
+            for (int frame = 0; frame < 600 && LookSwitch.Busy; frame++)
+                yield return null;
+            Assert.IsFalse(LookSwitch.Busy, "the switch never finished");
         }
 
         [UnityTest]

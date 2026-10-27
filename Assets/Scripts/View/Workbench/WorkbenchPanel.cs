@@ -12,9 +12,9 @@ using UnityEngine.UI;
 namespace BitSorter.View
 {
     /// <summary>
-    /// The 5.0 workbench, as a preview: a circuit run on BitSorter's own engine, drawn in the
-    /// Schematic look, with its waveform under it -- the look reference's circuit, or one of the
-    /// samples the SAMPLE chip steps through (<see cref="WorkbenchSamples"/>). Reached from the main menu.
+    /// The 5.0 workbench: a circuit run on BitSorter's own engine, drawn in the Schematic look, with
+    /// its waveform under it -- the student's own, or one of the samples the SAMPLE chip steps through
+    /// (<see cref="WorkbenchSamples"/>). What BitSorter opens on since Part 15a.
     /// </summary>
     /// <remarks>
     /// Part 3 of 5.0 put the new engine on screen early, from a circuit written in code; since Part 8
@@ -447,7 +447,7 @@ namespace BitSorter.View
             if (_forgotten)
             {
                 _forgotten = false;
-                ShowSample(0);
+                OpenAsNew();
                 return;
             }
 
@@ -1078,6 +1078,8 @@ namespace BitSorter.View
         private void Notice(string words)
         {
             _notice = words;
+            if (StartPageShowing)
+                ShowOnStartPage(words);   // the chip is under the start page (the #84 review)
             Redraw();
         }
 
@@ -1386,9 +1388,12 @@ namespace BitSorter.View
                 return;
             }
 
-            // The start page covers the circuit: nothing under it is played, scrolled, picked or deleted.
+            // The start page covers the circuit: nothing under it is played, scrolled, picked or deleted. ? still opens and
+            // closes the keyboard map, as the map says it does.
             if (StartPageShowing)
             {
+                if (keyboard != null && keyboard.slashKey.wasPressedThisFrame && !OpenedThisFrame)
+                    _keyMap.Toggle();
                 KeepMyCircuit(now: false);
                 return;
             }

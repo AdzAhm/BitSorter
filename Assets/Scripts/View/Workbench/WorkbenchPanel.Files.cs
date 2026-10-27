@@ -40,7 +40,7 @@ namespace BitSorter.View
             }
 
             _fileMenu.Open(at, _session != null && _session.Project.Bench != null, _session != null && FromATemplate(_session.Project) > 0,
-                _sample == 0 && Documents.IsOwn(_documentKey));
+                _sample == 0 && Documents.IsOwn(_documentKey), circuitShown: !StartPageShowing);
         }
 
         /// <summary>How many of <paramref name="project"/>'s modules came from a course template (Part 13e).</summary>

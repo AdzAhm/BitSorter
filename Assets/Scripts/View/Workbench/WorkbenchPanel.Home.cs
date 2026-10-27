@@ -43,6 +43,7 @@ namespace BitSorter.View
         public const string StartSays = "Start a circuit, open one, or look round a sample.";
 
         private VisualElement _home;
+        private Label _homeNotice;
         private readonly ShellButton[] _recentItems = new ShellButton[RecentShown];
         private readonly List<string> _recentKeys = new List<string>();
         private Label _recentNone;
@@ -55,6 +56,16 @@ namespace BitSorter.View
 
         /// <summary>Whether the start page is up.</summary>
         public bool StartPageShowing => _home != null && _home.style.display == DisplayStyle.Flex;
+
+        /// <summary>What the start page says under its lists: the last notice given while it was up.</summary>
+        public string StartPageNotice => _homeNotice != null ? _homeNotice.text : null;
+
+        /// <summary>A notice, on the start page, where the chip that says it is hidden.</summary>
+        private void ShowOnStartPage(string words)
+        {
+            if (_homeNotice != null)
+                _homeNotice.text = words ?? "";
+        }
 
         /// <summary>The circuits RECENT lists, the latest first.</summary>
         public IReadOnlyList<string> RecentListed => _recentKeys;
@@ -81,7 +92,14 @@ namespace BitSorter.View
             string key = Documents.LaunchKey(store != null ? store.LastOpen : null, DocumentKeys());
             int sample = Documents.SampleOf(key);
             if (sample > 0)
+            {
                 _launchSample = sample;
+
+                // The circuit the SAMPLE chip goes back to: the one opened last, as it was before the sample (the #84 review).
+                string circuit = store != null && store.Recent.Count > 0 ? Documents.LaunchKey(store.Recent[0], DocumentKeys()) : null;
+                if (Documents.IsDocument(circuit))
+                    _documentKey = circuit;
+            }
             else
             {
                 _documentKey = key ?? WorkbenchSamples.MyCircuitKey;
@@ -112,10 +130,17 @@ namespace BitSorter.View
             if (_forgotten)
             {
                 _forgotten = false;
-                ShowSample(0);
+                OpenAsNew();
             }
             if (StartPageShowing)
                 _home.BringToFront();
+        }
+
+        /// <summary>After RESET PROGRESS, as on a first launch: MY CIRCUIT, blank, with the start page over it.</summary>
+        private void OpenAsNew()
+        {
+            ShowSample(0);
+            ShowHome();
         }
 
         /// <summary>Goes under Settings, which comes back here (Part 15a).</summary>
@@ -186,6 +211,7 @@ namespace BitSorter.View
             _codeView?.Bind(null);   // a written block's code, CodeMirror's box in a browser among it, is under the page
             Pause();
             FillRecent();
+            _homeNotice.text = "";
             _home.style.display = DisplayStyle.Flex;
             _home.BringToFront();
             SetText(_description, StartSays);
@@ -273,6 +299,12 @@ namespace BitSorter.View
                 int chip = i + 1;
                 Item(samples, SampleItem(i), WorkbenchSamples.All[i].Name.ToUpperInvariant(), () => ShowSample(chip), palette);
             }
+
+            _homeNotice = ShellTheme.Label("notice", "", UiType.Body, palette.Accent, TextAnchor.MiddleCenter);
+            _homeNotice.style.whiteSpace = WhiteSpace.Normal;
+            _homeNotice.style.marginTop = 32f;
+            _homeNotice.style.maxWidth = 3f * HomeColumnWidth + 2f * HomeColumnGap;
+            _home.Add(_homeNotice);
 
             Label version = ShellTheme.Label("version", "v" + Application.version, UiType.Micro, palette.Muted, TextAnchor.MiddleCenter);
             version.style.position = Position.Absolute;

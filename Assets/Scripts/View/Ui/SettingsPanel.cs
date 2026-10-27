@@ -892,19 +892,18 @@ namespace BitSorter.View
         /// </summary>
         public void OpenAgain()
         {
-            if (_overTheSimulator)
-            {
-                WorkbenchPanel workbench = FindFirstObjectByType<WorkbenchPanel>();
-                workbench?.GoUnder();
-                if (_menu != null)
-                    _menu.Show(false);
-                OpenOver(workbench);
-                return;
-            }
-
+            // The reload opened the simulator, as every launch does, whichever Settings was over: it goes under either way,
+            // or its shell, drawn over the canvas, would hide Settings and the title screen behind it (the #84 review).
+            WorkbenchPanel workbench = FindFirstObjectByType<WorkbenchPanel>();
+            if (workbench != null)
+                workbench.GoUnder();
             if (_menu != null)
                 _menu.Show(false);
-            Open();
+
+            if (_overTheSimulator)
+                OpenOver(workbench);
+            else
+                Open();
         }
 
         /// <summary>The simulator Settings went over, which BACK goes back to; null for the title screen.</summary>

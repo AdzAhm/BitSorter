@@ -1985,6 +1985,9 @@ namespace BitSorter.PlayMode.Tests
 
             Assert.AreEqual(WorkbenchSamples.MyCircuitKey, workbench.DocumentKey, "the circuit open went with the save");
             Assert.IsEmpty(workbench.Session.Project.TopModule.Parts.OfType<GatePart>(), "MY CIRCUIT, blank");
+            Assert.IsTrue(workbench.StartPageShowing, "with the start page over it, as on a first launch");
+            yield return Tap(_keyboard.escapeKey);
+            Assert.IsFalse(workbench.StartPageShowing, "sanity: Escape took the page down");
             yield return Place(workbench, "and", new BoardPoint(2, 0), new System.Collections.Generic.List<int>());
             yield return Click(WorkbenchPanel.SettingsButton);
             Assert.IsFalse(store.HasProject(Documents.KeyOf("foo")), "nothing of it written back");

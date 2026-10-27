@@ -55,7 +55,7 @@ namespace BitSorter.View
 
         private const float ItemWidth = 420f;
 
-        private ShellButton _rename, _delete, _submission, _importFolder, _openFolder, _importFiles, _importPicked, _convert;
+        private ShellButton _rename, _delete, _export, _submission, _importFolder, _openFolder, _importFiles, _importPicked, _convert;
 
         public static FileMenu Build(ShellPanel shell, Transform owner, SchematicPalette palette, Action<FileAction> onChoose)
         {
@@ -64,8 +64,8 @@ namespace BitSorter.View
             menu.Item(ActionItem + FileAction.OpenCircuit, "OPEN A CIRCUIT", () => onChoose?.Invoke(FileAction.OpenCircuit));
             menu._rename = menu.Item(ActionItem + FileAction.RenameCircuit, "RENAME THIS CIRCUIT", () => onChoose?.Invoke(FileAction.RenameCircuit));
             menu._delete = menu.Item(ActionItem + FileAction.DeleteCircuit, "DELETE THIS CIRCUIT", () => onChoose?.Invoke(FileAction.DeleteCircuit));
-            menu.Item(ActionItem + FileAction.ExportProject, "EXPORT PROJECT: .SV FILES AND RUN.DO", () => onChoose?.Invoke(FileAction.ExportProject),
-                breakBefore: true);
+            menu._export = menu.Item(ActionItem + FileAction.ExportProject, "EXPORT PROJECT: .SV FILES AND RUN.DO",
+                () => onChoose?.Invoke(FileAction.ExportProject), breakBefore: true);
             menu._submission = menu.Item(ActionItem + FileAction.ExportSubmission, "EXPORT FOR SUBMISSION",
                 () => onChoose?.Invoke(FileAction.ExportSubmission));
             menu._importFolder = menu.Item(ActionItem + FileAction.ImportFolder, "IMPORT A PROJECT FROM THE IMPORT FOLDER",
@@ -86,6 +86,7 @@ namespace BitSorter.View
             {
                 FileAction.RenameCircuit => _rename,
                 FileAction.DeleteCircuit => _delete,
+                FileAction.ExportProject => _export,
                 FileAction.ExportSubmission => _submission,
                 FileAction.ImportFolder => _importFolder,
                 FileAction.OpenImportFolder => _openFolder,
@@ -100,13 +101,18 @@ namespace BitSorter.View
         /// <summary>
         /// Puts the menu up at <paramref name="screenPoint"/>: RENAME and DELETE only while <paramref name="ownCircuit"/> is open
         /// -- a circuit of the student's other than MY CIRCUIT -- CONVERT only while <paramref name="hasTestbench"/>, and EXPORT
-        /// FOR SUBMISSION only while <paramref name="hasTemplate"/>.
+        /// FOR SUBMISSION only while <paramref name="hasTemplate"/>. None of those, nor EXPORT PROJECT, while the start page
+        /// hides the circuit they would act on (<paramref name="circuitShown"/> false; the #84 review).
         /// </summary>
-        public void Open(Vector2 screenPoint, bool hasTestbench, bool hasTemplate, bool ownCircuit = false)
+        public void Open(Vector2 screenPoint, bool hasTestbench, bool hasTemplate, bool ownCircuit = false, bool circuitShown = true)
         {
             bool picks = FileImport.Picks;
+            ownCircuit &= circuitShown;
+            hasTestbench &= circuitShown;
+            hasTemplate &= circuitShown;
             Offer(_rename, ownCircuit);
             Offer(_delete, ownCircuit);
+            Offer(_export, circuitShown);
             Offer(_submission, hasTemplate);
             Offer(_importFolder, !picks);
             Offer(_openFolder, !picks);
