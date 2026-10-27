@@ -1557,6 +1557,39 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
+        /// A notice too long for the chip's one line is shown whole, on the lines it needs, over the timeline's row. COURSE
+        /// CELLS refused on the reference, which has a BUFIF1, names every cell the library has, and the chip cut it off
+        /// after NAND2 (the Part 14g browser smoke test). A line that fits keeps the chip as it was.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator ANoticeTooLongForOneLine_IsShownWhole_OnTheLinesItNeeds()
+        {
+            const float OneLine = 26f;
+            yield return TestScene.Load();
+            yield return Click(MainMenu.WorkbenchButton);
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowSample(SampleNamed("Reference"));
+            yield return null;
+            workbench.Pause();
+            workbench.Session.Finish();
+            yield return null;
+            UnityEngine.UIElements.VisualElement chip = workbench.Chip;
+            Assert.AreEqual(OneLine, chip.layout.height, 0.5f, "sanity: one line, as it was");
+
+            yield return Click(WorkbenchPanel.TimingTabName);
+            yield return Click(WorkbenchPanel.LibraryButtonName);
+            yield return Click(LibraryMenu.CourseItem);
+            yield return null;
+            yield return null;
+            StringAssert.Contains("which the library has no cell for: it has INV, BUF", workbench.ChipText, "sanity: COURSE CELLS refused, the cells named");
+
+            Assert.Greater(chip.layout.height, 2f * OneLine, "the whole refusal, on the lines it needs, where it was cut off");
+            UnityEngine.UIElements.VisualElement root = chip.parent.parent;
+            Assert.Greater(root.IndexOf(chip.parent), root.IndexOf(UnityEngine.UIElements.UQueryExtensions.Q(root, "timeline")), "drawn over the timeline's row");
+            Assert.AreEqual(UnityEngine.UIElements.PickingMode.Ignore, chip.pickingMode, "and taking no clicks, so the slider under it still does");
+        }
+
+        /// <summary>
         /// Two code fields at once (Part 12e): a plain click in the read-only listing leaves the workbench its keys, since it
         /// draws no caret to say it has them; a drag selects and keeps them for Ctrl+C; and a click from there into a written
         /// block's code leaves the keyboard with the code -- the listing lets go of itself alone.

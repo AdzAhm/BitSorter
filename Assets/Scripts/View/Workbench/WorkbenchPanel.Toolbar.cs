@@ -29,6 +29,9 @@ namespace BitSorter.View
         /// <summary>What the chip by the controls says now.</summary>
         public string ChipText => _chipLabel?.text;
 
+        /// <summary>The chip by the controls, which a test measures.</summary>
+        public VisualElement Chip => _chipLabel?.parent;
+
         /// <summary>What the speed between SLOWER and FASTER says now.</summary>
         public string SpeedText => _speedLabel?.text;
 
