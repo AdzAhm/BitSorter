@@ -123,7 +123,7 @@ namespace BitSorter.ViewModel
                     Vec2 a = frame.ToStage(new BoardPoint(placed.Left, placed.Top));
                     Vec2 b = frame.ToStage(new BoardPoint(placed.Right, placed.Bottom));
                     var box = Rect2.MinMaxRect(Arith.Min(a.x, b.x), Arith.Min(a.y, b.y), Arith.Max(a.x, b.x), Arith.Max(a.y, b.y));
-                    ports.Add(new PortLayout(Label(port), path + "." + port.Name, box, port.Direction == PortDirection.Output));
+                    ports.Add(new PortLayout(Label(port), path + "." + port.Name, box, port.Direction == PortDirection.Output, port.Id));
                     continue;
                 }
 
@@ -220,7 +220,7 @@ namespace BitSorter.ViewModel
                     rows.Add(new WaveRow(port.Width > 1 ? port.Name + "[" + (port.Width - 1).ToString(CultureInfo.InvariantCulture) + ":0]" : port.Name,
                         path + "." + port.Name));
 
-            return new SchematicLayout(size, nets, parts, ports, rows, compiled.DesignPath, compiled.Cells, unit, frame);
+            return new SchematicLayout(size, nets, parts, ports, rows, compiled.DesignPath, compiled.Cells, unit, frame, path);
         }
 
         /// <summary>A pin as hovering names it: <c>input a</c> for a port, <c>g1.y (NOT)</c> for a part's.</summary>

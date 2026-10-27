@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using BitSorter.Board;
 
 namespace BitSorter.ViewModel
 {
@@ -9,11 +10,14 @@ namespace BitSorter.ViewModel
     /// the design's top (<see cref="TimingLine.Signals"/>).
     /// </summary>
     /// <remarks>
-    /// A path is a run of signals; the drawing knows nets, each driven by one pin and read by the pins its branches end on.
-    /// The signals it has a net for are the path through this drawing -- a bit of a bus is the bus, a library cell's output
-    /// the net it drives -- and between two of them the part that reads the one and drives the other is the step taken, and
-    /// the branch into that part the wire. So a path through a block, drawn from outside, lights the block; drawn from inside,
-    /// it lights the gates between the block's own ports. A signal a drawing has no net for is passed over.
+    /// A path is a run of signals; the drawing knows nets, each driven by one pin and read by the pins its branches end on,
+    /// and blocks. The signals it has a net for, and those inside one of its blocks, are the path through this drawing -- a
+    /// bit of a bus is the bus, a library cell's output the net it drives, anything under <c>u.</c> the block u -- and
+    /// between two of them the part that reads the one and drives the other is the step taken, and the branch into that
+    /// part the wire. So a path through a block, drawn from outside, lights the block, as one that ends in it or never
+    /// leaves it does; drawn from inside, it lights the gates between the block's own ports. An input port is lit where the
+    /// path comes in and an output port where it goes out, never one it only passes -- a register's output that is also a
+    /// port is where a path starts, not one it reaches. A signal a drawing has neither a net nor a block for is passed over.
     /// </remarks>
     public sealed class TimingLight
     {
@@ -39,9 +43,16 @@ namespace BitSorter.ViewModel
         public bool IsEmpty => Parts.Count == 0 && Branches.Count == 0 && Ports.Count == 0;
 
         /// <summary>What <paramref name="layout"/> lights of the path through <paramref name="signals"/>.</summary>
-        public static TimingLight Of(SchematicLayout layout, IReadOnlyList<string> signals)
+        public static TimingLight Of(SchematicLayout layout, IReadOnlyList<string> signals) =>
+            Of(layout, signals == null ? null : new[] { signals });
+
+        /// <summary>
+        /// What <paramref name="layout"/> lights of every one of <paramref name="paths"/> together: identical paths from other
+        /// ends, all lit as one line of the TIMING tab is.
+        /// </summary>
+        public static TimingLight Of(SchematicLayout layout, IReadOnlyList<IReadOnlyList<string>> paths)
         {
-            if (layout == null || signals == null || signals.Count == 0 || layout.DesignPath == null)
+            if (layout == null || paths == null || paths.Count == 0 || layout.DesignPath == null)
                 return None;
 
             var netOf = new Dictionary<string, int>(StringComparer.Ordinal);
@@ -52,65 +63,127 @@ namespace BitSorter.ViewModel
                     netOf[alias] = n;
             }
 
-            var drawn = new HashSet<int>();
+            var drawn = new Dictionary<int, PartLayout>();
+            var blocks = new List<(string Prefix, int Part)>();
+            string here = layout.InstancePath ?? layout.DesignPath;
             foreach (PartLayout part in layout.Parts)
-                drawn.Add(part.Part.Id);
-
-            // The path's signals as the drawing names them, and the nets it has for them, in order, each once in a row.
-            var names = new HashSet<string>(StringComparer.Ordinal);
-            var nets = new List<int>();
-            foreach (string signal in signals)
             {
-                string full = layout.DesignPath + "." + WithoutBit(signal);
-                names.Add(full);
-                if (netOf.TryGetValue(full, out int net) && (nets.Count == 0 || nets[nets.Count - 1] != net))
-                    nets.Add(net);
+                drawn[part.Part.Id] = part;
+                if (part.Part is BlockPart)
+                    blocks.Add((here + "." + part.Part.Name, part.Part.Id));
             }
+
+            var portOfPart = new Dictionary<int, int>();
+            for (int p = 0; p < layout.Ports.Count; p++)
+                if (layout.Ports[p].Part >= 0)
+                    portOfPart[layout.Ports[p].Part] = p;
 
             var parts = new HashSet<int>();
             var branches = new List<(int, int)>();
+            var branchSeen = new HashSet<(int, int)>();
             var ports = new List<int>();
-            for (int p = 0; p < layout.Ports.Count; p++)
-                if (names.Contains(layout.Ports[p].Signal))
-                    ports.Add(p);
+            var portSeen = new HashSet<int>();
 
-            if (nets.Count > 0)
+            void Branch(int net, int branch)
             {
-                // A path that starts at a part -- a register launching it -- starts lit there.
-                int start = layout.Nets[nets[0]].Source.Part;
-                if (drawn.Contains(start))
-                    parts.Add(start);
+                if (branchSeen.Add((net, branch)))
+                    branches.Add((net, branch));
             }
 
-            for (int k = 0; k + 1 < nets.Count; k++)
+            void Port(int port)
             {
-                NetLayout from = layout.Nets[nets[k]];
-                int step = layout.Nets[nets[k + 1]].Source.Part;
-                if (!drawn.Contains(step))
+                if (portSeen.Add(port))
+                    ports.Add(port);
+            }
+
+            foreach (IReadOnlyList<string> signals in paths)
+            {
+                if (signals == null || signals.Count == 0)
                     continue;
-                bool read = false;
-                for (int b = 0; b < from.Loads.Count; b++)
-                    if (from.Loads[b].Part == step)
-                    {
-                        branches.Add((nets[k], b));
-                        read = true;
-                    }
-                if (read)
-                    parts.Add(step);
-            }
 
-            if (nets.Count > 0)
-            {
-                // Its end: the branches into an output port, or into the register that captures it.
-                int last = nets[nets.Count - 1];
-                NetLayout end = layout.Nets[last];
-                for (int b = 0; b < end.Loads.Count; b++)
+                // The path as this drawing has it: a run of nets and blocks, each once in a row.
+                var stops = new List<(bool Block, int Index)>();
+                var names = new List<string>(signals.Count);
+                foreach (string signal in signals)
                 {
-                    int load = end.Loads[b].Part;
-                    if (!drawn.Contains(load) ? ports.Count > 0 : IsRegister(layout, load))
+                    string full = layout.DesignPath + "." + WithoutBit(signal);
+                    names.Add(full);
+                    (bool, int) stop;
+                    if (netOf.TryGetValue(full, out int net))
+                        stop = (false, net);
+                    else if (BlockOf(blocks, full) is int block)
+                        stop = (true, block);
+                    else
+                        continue;
+                    if (stops.Count == 0 || stops[stops.Count - 1] != stop)
+                        stops.Add(stop);
+                }
+
+                // An input where it comes in, an output where it goes out.
+                for (int p = 0; p < layout.Ports.Count; p++)
+                {
+                    PortLayout port = layout.Ports[p];
+                    int at = names.IndexOf(port.Signal), latest = names.LastIndexOf(port.Signal);
+                    if (at >= 0 && (port.Output ? latest > 0 : at < names.Count - 1))
+                        Port(p);
+                }
+
+                if (stops.Count == 0)
+                    continue;
+
+                // A path that starts at a part -- a register launching it -- or in a block starts lit there.
+                (bool startBlock, int start) = stops[0];
+                if (startBlock)
+                    parts.Add(start);
+                else if (drawn.ContainsKey(layout.Nets[start].Source.Part))
+                    parts.Add(layout.Nets[start].Source.Part);
+
+                for (int k = 0; k + 1 < stops.Count; k++)
+                {
+                    (bool fromBlock, int from) = stops[k];
+                    (bool toBlock, int to) = stops[k + 1];
+                    if (fromBlock)
                     {
-                        branches.Add((last, b));
-                        if (drawn.Contains(load))
+                        // Out of a block: lit already; the net it drives is the next step's.
+                        if (toBlock)
+                            parts.Add(to);
+                        continue;
+                    }
+
+                    // Into the part that reads this net and drives the next, or into the block the path goes inside.
+                    int step = toBlock ? to : layout.Nets[to].Source.Part;
+                    if (!drawn.ContainsKey(step))
+                        continue;
+                    NetLayout net = layout.Nets[from];
+                    bool read = false;
+                    for (int b = 0; b < net.Loads.Count; b++)
+                        if (net.Loads[b].Part == step)
+                        {
+                            Branch(from, b);
+                            read = true;
+                        }
+                    if (read)
+                        parts.Add(step);
+                }
+
+                // Its end: the branches into an output port it goes out of, or into the register that captures it.
+                (bool endBlock, int end) = stops[stops.Count - 1];
+                if (endBlock)
+                {
+                    parts.Add(end);
+                    continue;
+                }
+
+                NetLayout last = layout.Nets[end];
+                for (int b = 0; b < last.Loads.Count; b++)
+                {
+                    int load = last.Loads[b].Part;
+                    bool intoPort = portOfPart.TryGetValue(load, out int port) && portSeen.Contains(port) && layout.Ports[port].Output;
+                    bool intoRegister = drawn.TryGetValue(load, out PartLayout part) && part.Symbol == PartSymbol.Register;
+                    if (intoPort || intoRegister)
+                    {
+                        Branch(end, b);
+                        if (intoRegister)
                             parts.Add(load);
                     }
                 }
@@ -119,12 +192,14 @@ namespace BitSorter.ViewModel
             return new TimingLight(parts, branches, ports);
         }
 
-        private static bool IsRegister(SchematicLayout layout, int part)
+        /// <summary>The block whose inside <paramref name="signal"/> is, by its part's id: <c>u.q</c> is u's, <c>ha[2].s</c> ha's.</summary>
+        private static int? BlockOf(List<(string Prefix, int Part)> blocks, string signal)
         {
-            foreach (PartLayout p in layout.Parts)
-                if (p.Part.Id == part)
-                    return p.Symbol == PartSymbol.Register;
-            return false;
+            foreach ((string prefix, int part) in blocks)
+                if (signal.Length > prefix.Length && signal.StartsWith(prefix, StringComparison.Ordinal)
+                    && (signal[prefix.Length] == '.' || signal[prefix.Length] == '['))
+                    return part;
+            return null;
         }
 
         /// <summary><c>c[1]</c> as the bus it is a bit of, <c>c</c>: a drawing has a net for a bus, not one a bit.</summary>

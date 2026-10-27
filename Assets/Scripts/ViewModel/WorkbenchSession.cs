@@ -295,8 +295,10 @@ namespace BitSorter.ViewModel
         {
             get
             {
+                // A part moved or a stimulus edited times as before, and costs nothing: the design is worked out again only
+                // once it has changed (the 14b review timed a processor at 200 ms a time).
                 if (!ReferenceEquals(_timing.Project, Project))
-                    _timing = TimingView.Of(Project);
+                    _timing = TimingView.SameDesign(_timing.Project, Project) ? _timing.For(Project) : TimingView.Of(Project);
                 return _timing;
             }
         }

@@ -157,7 +157,7 @@ namespace BitSorter.View
         }
 
         /// <summary>How much wider than a wire the timing path's band is, its outlines' width, and how far round a port it runs.</summary>
-        private const float PathBand = 8f, PathWidth = 2f, PathGap = 4f;
+        private const float PathBand = 8f, PathWidth = 2f, PathGap = 10f;
 
         /// <summary>How wide a wire being drawn is, and how big the rings on its ends are.</summary>
         private const float DraftWidth = 3f, EndRing = 6f;

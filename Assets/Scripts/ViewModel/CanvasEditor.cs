@@ -886,17 +886,25 @@ namespace BitSorter.ViewModel
         /// <summary>How far outside a part the timing path's outline runs, in cells: outside a selection's, so both show.</summary>
         public const double PathRoom = SelectedRoom + 0.12;
 
-        private IReadOnlyList<string> _path;
+        private IReadOnlyList<IReadOnlyList<string>> _path;
 
-        /// <summary>The timing path the overlay lights (Part 14b): its signals, named from the design's top; null for none.</summary>
-        public IReadOnlyList<string> Path => _path;
+        /// <summary>What of the path lit this layout has, worked out once for each layout and path rather than at every redraw.</summary>
+        private TimingLight _light;
+        private SchematicLayout _lightLayout;
+        private IReadOnlyList<IReadOnlyList<string>> _lightPath;
 
-        /// <summary>Lights the timing path through <paramref name="signals"/>, or none for null: the overlay is drawn again.</summary>
-        public void Light(IReadOnlyList<string> signals)
+        /// <summary>
+        /// The timing paths the overlay lights (Part 14b): one line of the TIMING tab, every identical path of it, each its
+        /// signals named from the design's top; null for none.
+        /// </summary>
+        public IReadOnlyList<IReadOnlyList<string>> Path => _path;
+
+        /// <summary>Lights the timing paths <paramref name="paths"/>, or none for null: the overlay is drawn again.</summary>
+        public void Light(IReadOnlyList<IReadOnlyList<string>> paths)
         {
-            if (ReferenceEquals(signals, _path))
+            if (ReferenceEquals(paths, _path))
                 return;
-            _path = signals;
+            _path = paths;
             Version++;
         }
 
@@ -911,7 +919,13 @@ namespace BitSorter.ViewModel
 
             if (_path != null)
             {
-                TimingLight light = TimingLight.Of(_layout, _path);
+                if (!ReferenceEquals(_lightLayout, _layout) || !ReferenceEquals(_lightPath, _path))
+                {
+                    _light = TimingLight.Of(_layout, _path);
+                    _lightLayout = _layout;
+                    _lightPath = _path;
+                }
+                TimingLight light = _light;
                 foreach (int part in light.Parts)
                 {
                     PartOutline outline = _hit.OutlineOf(part);

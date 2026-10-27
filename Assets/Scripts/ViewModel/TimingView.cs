@@ -17,18 +17,29 @@ namespace BitSorter.ViewModel
     /// </summary>
     public sealed class TimingLine
     {
-        internal TimingLine(TimingLineKind kind, string label, string text, string numbers, IReadOnlyList<string> signals = null)
+        internal TimingLine(TimingLineKind kind, string label, string text, string numbers, IReadOnlyList<string> signals = null,
+            IReadOnlyList<IReadOnlyList<string>> paths = null)
         {
             Kind = kind;
             Label = label ?? "";
             Text = text ?? "";
             Numbers = numbers ?? "";
             Signals = signals ?? Array.Empty<string>();
+            Paths = paths ?? (Signals.Count > 0 ? new[] { Signals } : Array.Empty<IReadOnlyList<string>>());
         }
+
+        /// <summary>
+        /// The signals along every path the line is: one, or each identical one from other ends -- what picking it lights,
+        /// all of them. The first is <see cref="Signals"/>.
+        /// </summary>
+        public IReadOnlyList<IReadOnlyList<string>> Paths { get; }
 
         public TimingLineKind Kind { get; }
 
-        /// <summary>The left column, in capitals: CRITICAL PATH, MINIMUM PERIOD, GATE COUNT, PATHS; empty for a path of the list.</summary>
+        /// <summary>
+        /// The left column, in capitals: MINIMUM PERIOD, MAXIMUM FREQUENCY, CRITICAL PATH, INPUT TO REGISTER, REGISTER TO
+        /// OUTPUT, GATE COUNT, LOOP, PATHS; empty for a path of the list.
+        /// </summary>
         public string Label { get; }
 
         /// <summary>What it says: a path's ends and the gates along it, a period's sum, the gates by kind.</summary>
@@ -114,7 +125,11 @@ namespace BitSorter.ViewModel
                 // A design with registers is clocked: the critical path is the slowest from one register to the next.
                 if (timing.Critical is StaticPath slowest)
                 {
-                    lines.Add(new TimingLine(TimingLineKind.Fact, "MINIMUM PERIOD", Sum(slowest, unit), Time(slowest.Total, unit)));
+                    // What the period leaves out is said beside it: a loop's arcs are in no path, and nothing delayed is no time.
+                    string sum = Sum(slowest, unit)
+                        + (slowest.Total == 0 ? ": nothing on its paths has a delay yet" : "")
+                        + (graph.Loops.Count > 0 ? "; a loop of logic is left out of it, see LOOP" : "");
+                    lines.Add(new TimingLine(TimingLineKind.Fact, "MINIMUM PERIOD", sum, Time(slowest.Total, unit)));
                     lines.Add(new TimingLine(TimingLineKind.Fact, "MAXIMUM FREQUENCY", "one over the minimum period", Frequency(slowest.Total, unit)));
                     critical = lines.Count;
                     lines.Add(StaticLine("CRITICAL PATH", slowest, Name, unit));
@@ -147,7 +162,7 @@ namespace BitSorter.ViewModel
                 lines.Add(new TimingLine(TimingLineKind.Fact, "CRITICAL PATH", "No input reaches an output through any gate.", ""));
             }
 
-            lines.Add(new TimingLine(TimingLineKind.Fact, "GATE COUNT", GateCount(graph), ""));
+            lines.Add(new TimingLine(TimingLineKind.Fact, "GATE COUNT", GateCount(analysis), ""));
 
             foreach (IReadOnlyList<string> loop in graph.Loops)
             {
@@ -181,16 +196,69 @@ namespace BitSorter.ViewModel
         }
 
         /// <summary>
-        /// The line a picked one is in a new view: the same label and text, as an edit that changed nothing on it leaves it --
-        /// or the new view's critical path, when it is gone.
+        /// The line a picked one is in a new view: the one through the same signals, as an edit that changed nothing on it
+        /// leaves it -- two lines can read alike and be different paths, gates of other delays in the same order -- or, when
+        /// the signals are gone, the one of the same label and text, or the new view's critical path.
         /// </summary>
         public int Find(TimingLine line)
         {
-            if (line != null)
-                for (int i = 0; i < Lines.Count; i++)
-                    if (Lines[i].CanPick && Lines[i].Label == line.Label && Lines[i].Text == line.Text)
-                        return i;
+            if (line == null)
+                return Critical;
+            for (int i = 0; i < Lines.Count; i++)
+                if (Lines[i].CanPick && Lines[i].Label == line.Label && Same(Lines[i].Signals, line.Signals))
+                    return i;
+            for (int i = 0; i < Lines.Count; i++)
+                if (Lines[i].CanPick && Lines[i].Label == line.Label && Lines[i].Text == line.Text)
+                    return i;
             return Critical;
+        }
+
+        private static bool Same(IReadOnlyList<string> a, IReadOnlyList<string> b)
+        {
+            if (a.Count != b.Count)
+                return false;
+            for (int i = 0; i < a.Count; i++)
+                if (!string.Equals(a[i], b[i], StringComparison.Ordinal))
+                    return false;
+            return true;
+        }
+
+        /// <summary>
+        /// This timing for <paramref name="project"/>, when its design is the same as the one it was worked out from
+        /// (<see cref="SameDesign"/>): a part moved, a stimulus edited, cost nothing to work out again.
+        /// </summary>
+        public TimingView For(Project project) => new TimingView(project, Analysis, Lines, Critical);
+
+        /// <summary>
+        /// Whether <paramref name="a"/> and <paramref name="b"/> time alike: the same top and, module by module, the same
+        /// parts, wires and code -- where things are drawn and what the stimulus does are no part of the design's timing.
+        /// An edit leaves everything it did not touch as it was, so this is reference checks nearly always.
+        /// </summary>
+        public static bool SameDesign(Project a, Project b)
+        {
+            if (a == null || b == null || a.Top != b.Top || a.Modules.Count != b.Modules.Count)
+                return false;
+            for (int m = 0; m < a.Modules.Count; m++)
+            {
+                Module x = a.Modules[m], y = b.Modules[m];
+                if (ReferenceEquals(x, y))
+                    continue;
+                if (x.Name != y.Name || x.Source != y.Source || !Alike(x.Parts, y.Parts) || !Alike(x.Wires, y.Wires))
+                    return false;
+            }
+            return true;
+        }
+
+        private static bool Alike<T>(IReadOnlyList<T> a, IReadOnlyList<T> b)
+        {
+            if (ReferenceEquals(a, b))
+                return true;
+            if (a.Count != b.Count)
+                return false;
+            for (int i = 0; i < a.Count; i++)
+                if (!Equals(a[i], b[i]))
+                    return false;
+            return true;
         }
 
         // -----------------------------------------------------------------
@@ -210,12 +278,16 @@ namespace BitSorter.ViewModel
                 ends.Append(" and ").Append((path.Alike.Count - 3).ToString(CultureInfo.InvariantCulture)).Append(" more");
 
             string numbers = "rise " + Delay(path.Rising) + " · fall " + Delay(path.Falling) + " " + unit;
-            return new TimingLine(TimingLineKind.Path, label, ends + "   " + Through(path.Steps), numbers, Signals(path.From, path.Arcs, name));
+            var all = new IReadOnlyList<string>[path.Alike.Count];
+            for (int i = 0; i < all.Length; i++)
+                all[i] = Signals(path.Alike[i].From, path.ArcsOf(i), name);
+            return new TimingLine(TimingLineKind.Path, label, ends + "   " + Through(path.Steps), numbers, all[0], all);
         }
 
         private static TimingLine StaticLine(string label, StaticPath path, Func<int, string> name, string unit)
         {
-            string ends = name(path.From) + " → " + (path.Capture != null && path.Capture.Launches.Count > 0 ? name(path.Capture.Launches[0]) : name(path.To));
+            // Named by the bits it starts and ends at: a register's output, an input, and a register's d or an output.
+            string ends = name(path.From) + " → " + name(path.To);
             var steps = new List<TimingArc>();
             foreach (TimingArc arc in path.Arcs)
                 if (!arc.IsWire)
@@ -258,15 +330,18 @@ namespace BitSorter.ViewModel
                 ? name + inputs.ToString(CultureInfo.InvariantCulture) : name;
         }
 
-        /// <summary>The gates by kind, the most first: <c>5 gates: 2 XOR2, 2 AND2, 1 OR2</c>; a block's gates are its own.</summary>
-        private static string GateCount(TimingGraph graph)
+        /// <summary>
+        /// The gates by kind, the most first: <c>5 gates: 2 XOR2, 2 AND2, 1 OR2</c>; a block's gates are its own, and a drawn
+        /// gate four bits wide is four (<see cref="TimingAnalysis.GateCounts"/>).
+        /// </summary>
+        private static string GateCount(TimingAnalysis analysis)
         {
-            if (graph.Gates == 0)
-                return "No gates: what it does is written as logic, not built of gates.";
-            var kinds = new List<KeyValuePair<string, int>>(graph.GateCounts);
+            if (analysis.Gates == 0)
+                return analysis.Graph.Arcs.Count == 0 ? "No gates yet." : "No gates: what it does is written as logic, not built of gates.";
+            var kinds = new List<KeyValuePair<string, int>>(analysis.GateCounts);
             kinds.Sort((a, b) => a.Value != b.Value ? b.Value.CompareTo(a.Value) : string.CompareOrdinal(a.Key, b.Key));
             var text = new StringBuilder();
-            text.Append(graph.Gates.ToString(CultureInfo.InvariantCulture)).Append(graph.Gates == 1 ? " gate: " : " gates: ");
+            text.Append(analysis.Gates.ToString(CultureInfo.InvariantCulture)).Append(analysis.Gates == 1 ? " gate: " : " gates: ");
             for (int i = 0; i < kinds.Count; i++)
             {
                 if (i > 0)
@@ -294,17 +369,33 @@ namespace BitSorter.ViewModel
         {
             if (period <= 0)
                 return "any: nothing takes time";
-            int exponent = -3 * Math.Max(0, IndexOf(unit));   // s 0, ms -3, us -6, ns -9, ps -12, fs -15
-            double hertz = 1.0 / (period * Math.Pow(10, exponent));
+
+            // In decimal, where a power of ten is exact: in binary 1 / 1e-9 is 999,999,999.99..., and 1 ns read "1000 MHz".
+            decimal hertz = Pow10(3 * Math.Max(0, IndexOf(unit))) / period;   // s 1, ms 1e3 ... fs 1e15 periods a second
             string[] names = { "Hz", "kHz", "MHz", "GHz", "THz", "PHz" };
             int step = 0;
-            while (step < names.Length - 1 && hertz >= 1000.0)
+            while (true)
             {
-                hertz /= 1000.0;
-                step++;
+                while (step < names.Length - 1 && hertz >= 1000m)
+                {
+                    hertz /= 1000m;
+                    step++;
+                }
+
+                // Rounded as it will be shown -- and moved up a unit if that makes it 1000.
+                decimal shown = Math.Round(hertz, hertz >= 100m ? 1 : 2, MidpointRounding.AwayFromZero);
+                if (shown < 1000m || step == names.Length - 1)
+                    return shown.ToString("0.##", CultureInfo.InvariantCulture) + " " + names[step];
+                hertz = shown;
             }
-            string digits = hertz >= 100 ? hertz.ToString("0.#", CultureInfo.InvariantCulture) : hertz.ToString("0.##", CultureInfo.InvariantCulture);
-            return digits + " " + names[step];
+        }
+
+        private static decimal Pow10(int power)
+        {
+            decimal value = 1m;
+            for (int i = 0; i < power; i++)
+                value *= 10m;
+            return value;
         }
 
         private static int IndexOf(string unit)

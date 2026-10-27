@@ -20,9 +20,11 @@ namespace BitSorter.Sim
             Rising = rising;
             Falling = falling;
             _alike.Add((from, to));
+            _alikeArcs.Add(arcs);
         }
 
         private readonly List<(int From, int To)> _alike = new List<(int, int)>();
+        private readonly List<IReadOnlyList<TimingArc>> _alikeArcs = new List<IReadOnlyList<TimingArc>>();
 
         /// <summary>Where it starts, by signal index.</summary>
         public int From { get; }
@@ -50,7 +52,17 @@ namespace BitSorter.Sim
         /// <summary>Each identical path's ends, this one's first.</summary>
         public IReadOnlyList<(int From, int To)> Alike => _alike;
 
-        internal void AddAlike(int from, int to) => _alike.Add((from, to));
+        internal void AddAlike(int from, int to, IReadOnlyList<TimingArc> arcs)
+        {
+            _alike.Add((from, to));
+            _alikeArcs.Add(arcs);
+        }
+
+        /// <summary>
+        /// The arcs of identical path <paramref name="alike"/> (<see cref="Alike"/>): the same gates as this one's, through
+        /// other signals -- what lighting every one of them follows (Part 14b).
+        /// </summary>
+        public IReadOnlyList<TimingArc> ArcsOf(int alike) => _alikeArcs[alike];
 
         /// <summary>The arcs that are gates or logic, a connection left out: what a path is said to pass through.</summary>
         public IEnumerable<TimingArc> Steps
@@ -248,7 +260,7 @@ namespace BitSorter.Sim
                 string key = Signature(path);
                 if (groups.TryGetValue(key, out TimingPath same))
                 {
-                    same.AddAlike(path.From, path.To);
+                    same.AddAlike(path.From, path.To, path.Arcs);
                     continue;
                 }
 

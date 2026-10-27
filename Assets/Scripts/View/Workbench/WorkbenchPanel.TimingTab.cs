@@ -111,10 +111,12 @@ namespace BitSorter.View
             {
                 _timingShown = view;
                 _timingPicked = view.Find(_timingPickedLine);
+                // What is picked now is what an edit after this one keeps: a pick that fell back to the critical path stays there.
+                _timingPickedLine = _timingPicked >= 0 && _timingPicked < view.Lines.Count ? view.Lines[_timingPicked] : null;
                 _timingDrawn = false;
             }
 
-            IReadOnlyList<string> lit = _timingPicked >= 0 && _timingPicked < view.Lines.Count ? view.Lines[_timingPicked].Signals : null;
+            IReadOnlyList<IReadOnlyList<string>> lit = _timingPicked >= 0 && _timingPicked < view.Lines.Count ? view.Lines[_timingPicked].Paths : null;
             if (_editor != null && !ReferenceEquals(_editor.Path, lit))
                 _editor.Light(lit);
 

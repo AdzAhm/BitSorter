@@ -131,13 +131,17 @@ namespace BitSorter.ViewModel
     /// <summary>A port: a rounded box, an input's on the left of its pin and an output's on the right.</summary>
     public sealed class PortLayout
     {
-        public PortLayout(string name, string signal, Rect2 box, bool output)
+        public PortLayout(string name, string signal, Rect2 box, bool output, int part = -1)
         {
             Name = name;
             Signal = signal;
             Box = box;
             Output = output;
+            Part = part;
         }
+
+        /// <summary>The port's part in the module drawn, by id; -1 for a port that is no part (Part 14b).</summary>
+        public int Part { get; }
 
         /// <summary>What the box says: the port's name, and its range when it is a bus.</summary>
         public string Name { get; }
@@ -176,8 +180,9 @@ namespace BitSorter.ViewModel
     public sealed class SchematicLayout
     {
         public SchematicLayout(Vec2 size, IReadOnlyList<NetLayout> nets, IReadOnlyList<PartLayout> parts, IReadOnlyList<PortLayout> ports, IReadOnlyList<WaveRow> rows,
-            string designPath = null, IReadOnlyList<string> cells = null, string unit = null, Frame board = null)
+            string designPath = null, IReadOnlyList<string> cells = null, string unit = null, Frame board = null, string instancePath = null)
         {
+            InstancePath = instancePath ?? designPath;
             Size = size;
             Board = board;
             Unit = unit ?? BitSorter.SystemVerilog.TimeUnits.Default;
@@ -194,6 +199,12 @@ namespace BitSorter.ViewModel
         /// what every signal's key is relative to (<see cref="SignalIndex"/>). Null for a layout not made from a document.
         /// </summary>
         public string DesignPath { get; }
+
+        /// <summary>
+        /// Where the module drawn is in the design: <see cref="DesignPath"/> for the top, <c>full_adder_tb.dut.h1</c> stepped
+        /// inside h1 (Part 12a). What the blocks drawn are named under (Part 14b).
+        /// </summary>
+        public string InstancePath { get; }
 
         /// <summary>The unit the document counts its time in, which every time on screen is written in (Part 9b-3).</summary>
         public string Unit { get; }
