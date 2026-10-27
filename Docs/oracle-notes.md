@@ -374,3 +374,19 @@ counters, casts, an enum's methods, and `$random` with and without a seed. What 
 | `s.next().name()`, a method of a method | a syntax error | supported; the corpus writes `t = s.next(); t.name()` |
 | `.name()` of a value that is no member; `next()` from one | an empty string; x | the same; 0 for a 2-state enum, its default |
 | `$display("%s", e.name())`, `%10s`, `%-6s` | the name exactly; padded; padded left | the same |
+
+## Lint (Part 14e, probed 2026-10-27)
+
+BitSorter warns, as ModelSim's `vlog` does, of a signal read that nothing drives (SV0402), one set inside a block
+that nothing reads (SV0403), a net with drivers that cannot all let go (SV0404), and a plain value given to something
+narrower (SV0405). Icarus 12 is a quieter judge, so the oracle checks the lint only where it speaks:
+
+| Question | Icarus 12 | BitSorter |
+| --- | --- | --- |
+| `-Wall` on a design that does all four | no warning at all | each of the four, at its line |
+| `-Wfloating-nets` | a warning for every net with no driver -- the top's own inputs included, which a testbench drives | SV0402 for a net or a variable that is read: an input is left alone, and a variable reads x |
+| `assign n = x;`, four bits into two | silent | SV0405, unless the value is a sum, a number, an int or a real |
+| two `assign`s to one `wire` | silent; the bits resolve, x where they disagree | SV0404, unless every driver can let go: a tri-state gate, or a value that can be z |
+
+The corpus is held to none of the four (`DesignLintTests.TheCorpus_RaisesNone`): every one of its designs is
+driven, read, driven once and sized to fit, which is the course's style.
