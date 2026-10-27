@@ -1755,7 +1755,7 @@ namespace BitSorter.View
         private const float SampleHeight = 34f;
 
         /// <summary>Where the chip starts: past STEP, the last of the row's buttons, and its key's room; and the most it takes.</summary>
-        private const float ChipLeft = 500f, ChipMostWidth = 640f;
+        private const float ChipLeft = 500f, ChipMostWidth = 640f, ChipLineHeight = 26f;
 
         /// <summary>The second row's right-hand pieces: the speed between SLOWER and FASTER, and RUN TO's caption and field.</summary>
         private const float SpeedButtonWidth = 36f, SpeedLabelWidth = 96f, RunToCaptionWidth = 64f, RunToFieldWidth = 84f, TimeWidth = 136f, RowGap = 12f;

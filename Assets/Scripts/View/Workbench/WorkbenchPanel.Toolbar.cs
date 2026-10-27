@@ -43,9 +43,10 @@ namespace BitSorter.View
             _shell = ShellPanel.Create(ShellName, transform);
             _shell.Visible = false;
 
+            // The timeline first, so the controls are drawn over it: a long notice on the chip runs down over its row.
             BuildHeader(palette);
-            BuildControls(palette);
             BuildTimeline(palette);
+            BuildControls(palette);
 
             ShellButton back = ShellTheme.Button(BackButton, "BACK", palette, Back);
             ShellTheme.PlaceRight(back, UiTheme.Margin, UiTheme.Margin, BackWidth, UiTheme.ButtonHeight);
@@ -138,15 +139,21 @@ namespace BitSorter.View
             Control(StepBackButton, "STEP BACK", ",", 254f, 120f, () => StepEdge(forward: false));
             Control(StepButton, "STEP", ".", 386f, 90f, () => StepEdge(forward: true));
 
-            // The chip takes the row's room right of STEP, as far as a sentence needs: a refusal can run long -- "clk is a
-            // clock" -- and is cut short with an ellipsis rather than spilling.
+            // The chip takes the row's room right of STEP, as far as a sentence needs, one line high. A notice longer than
+            // that -- a refusal naming every cell of the library -- takes the lines it needs, down over the timeline's row
+            // until the next thing is done, where it was cut short with an ellipsis after NAND2 (the Part 14g smoke test).
+            // It takes no clicks, so the slider under it still does.
             VisualElement chip = ShellTheme.Chip("chip", palette);
-            ShellTheme.Place(chip, ChipLeft, 9f, -1f, 26f);
+            ShellTheme.Place(chip, ChipLeft, 9f, -1f, ChipLineHeight);
+            chip.style.height = StyleKeyword.Auto;
+            chip.style.minHeight = ChipLineHeight;
             chip.style.right = 0f;
             chip.style.maxWidth = ChipMostWidth;
             _chipLabel = ShellTheme.Label("text", "", UiType.Caption, palette.TextDim, TextAnchor.MiddleCenter);
             _chipLabel.style.flexGrow = 1f;
-            ShellTheme.Ellipsis(_chipLabel);
+            _chipLabel.style.whiteSpace = WhiteSpace.Normal;
+            _chipLabel.style.paddingTop = _chipLabel.style.paddingBottom = 2f;   // a line and these within the chip's one line
+            _chipLabel.style.paddingLeft = _chipLabel.style.paddingRight = 6f;
             chip.Add(_chipLabel);
             _controls.Add(chip);
         }

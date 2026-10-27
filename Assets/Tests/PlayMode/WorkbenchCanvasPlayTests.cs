@@ -1583,7 +1583,11 @@ namespace BitSorter.PlayMode.Tests
             yield return null;
             StringAssert.Contains("which the library has no cell for: it has INV, BUF", workbench.ChipText, "sanity: COURSE CELLS refused, the cells named");
 
-            Assert.Greater(chip.layout.height, 2f * OneLine, "the whole refusal, on the lines it needs, where it was cut off");
+            Assert.Greater(chip.layout.height, OneLine + 10f, "the whole refusal, on the lines it needs, where it was cut off");
+            var words = (UnityEngine.UIElements.TextElement)chip[0];
+            Vector2 needs = words.MeasureTextSize(words.text, words.contentRect.width, UnityEngine.UIElements.VisualElement.MeasureMode.Exactly,
+                0f, UnityEngine.UIElements.VisualElement.MeasureMode.Undefined);
+            Assert.LessOrEqual(needs.y, words.contentRect.height + 0.5f, "every line of it inside the chip");
             UnityEngine.UIElements.VisualElement root = chip.parent.parent;
             Assert.Greater(root.IndexOf(chip.parent), root.IndexOf(UnityEngine.UIElements.UQueryExtensions.Q(root, "timeline")), "drawn over the timeline's row");
             Assert.AreEqual(UnityEngine.UIElements.PickingMode.Ignore, chip.pickingMode, "and taking no clicks, so the slider under it still does");
