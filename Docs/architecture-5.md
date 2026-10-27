@@ -2654,6 +2654,66 @@ thing that was open, and with nothing, on a start page like a good IDE's.
   - Reference shots: every workbench shot moves with the header; shot 1 (SIMULATOR), 17 (THE 4.x GAME), 39 (the keyboard
     map's Escape line) and 45 (FILE under its new place) differ; 50, the start page, is new.
 
+**As built in Part 15b: the Exercise model, grading and the self-checking testbench.** Pure Board code, tested under
+dotnet, that the next parts build on: 15c writes the exercises, 15d opens them on the workbench.
+
+- **An exercise** (`Exercise`, from `ExerciseRecord`) is read from a file. The fields are plain, in the shape Unity's
+  `JsonUtility` reads, and dotnet's `System.Text.Json` reads them too (`ExerciseRecordTests` holds the two to one shape).
+  A file holds:
+  - `id`, `title`, `order`, `chapter`, `goal` and `hint`;
+  - the `inputs` and `outputs`: a name, a width, and a value at each vector -- a character a vector for a bit, or binary
+    words with spaces between. An x in an output leaves that bit free;
+  - the `parts` it stocks: a gate's `kind` or a `block`'s module, and a `count` (absent, any number);
+  - `delay`, whether `constants` may be drawn, a `clock`, the `cycle`;
+  - `settleBy` for a timing exercise and `period` for a pipelining one;
+  - the `start` circuit and the `blocks` it stocks, as structural SystemVerilog;
+  - whether `code` may answer it.
+  What is wrong with a file is said in words, every fault at once.
+- **Its test is the migration's timing** (`MigrationResult`).
+  - Each vector has a cycle: its inputs change at its start, `clk` (when there is one) rises half-way, and the outputs
+    are read just before that edge.
+  - The cycle is worked out unless the file gives one. It is twice through every part stocked, at least ten, and past
+    a timing exercise's limit.
+  - So a 4.x board migrated reads what its level expected, at the moments it is graded.
+- **It opens as a document** (`ToProject`):
+  - its start circuit drawn by `BoardImporter`, or its ports on a blank board (inputs down the left, the clock first,
+    outputs down the right);
+  - each stocked block as a module, drawn on its own when the start circuit does not use it;
+  - its test as the stimulus;
+  - a library of its stock (below).
+  A start circuit is held to every rule, its stock included, and must have the test's ports.
+- **The stock is the library's** (`GateLibrary.Counts`, `PartCounts`):
+  - Its cells are each gate kind stocked, at the exercise's delay. No constants unless the exercise gives them.
+  - A count per part: past it, a part is refused, as 4.x's parts list ran out. The gate budget only warns.
+  - A gate is counted by kind, one per bit, once in every instance. A block is counted by its module, once per copy.
+  - A block's insides count too, unless its module has a count of its own. Then the block is the part: neither its
+    gates' kinds nor their delays are held to the cells. **15d must keep a stocked block's module from being edited**,
+    or its insides would be a way past the stock.
+- **The self-checking testbench** (the brief's D5): `Stimulus.Checks` -- an output, a moment, a value wanted -- printed
+  into the testbench.
+  - Each check prints as `if ((s ==? 1'b0) !== 1'b1) begin $display("FAIL s at %0t: %b, wanted 0", $time, s);
+    errors = errors + 1; end`, and `%0d of N checks failed` closes the run.
+  - It fails anything but a definite match. An output read as x where a value is wanted fails; `if (s !=? 1'b0)` would
+    have passed it, since `if` takes an x as false.
+  - A value with a z is compared with `!==`.
+  - A stimulus with no checks prints the testbench it always did. Checks are saved (`checks`).
+- **The grader** (`ExerciseGrader.Grade`) runs a design under the exercise's own test and library, whatever its
+  document has come to say. The failures it reports are the testbench's own FAIL lines, so the grade is what the
+  TRANSCRIPT will show and what the exported testbench prints in ModelSim. It also gives:
+  - the rules broken (a part not stocked, one too many);
+  - the parts, and the gates by kind, a stocked block counted whole;
+  - the static settle time (the slowest input-to-output path, Part 14a) against `settleBy`;
+  - the minimum period against `period`.
+- **Checked.**
+  - dotnet: `PartCountTests`, `SelfCheckTests` and `ExerciseTests`:
+    - the file and what is wrong with one;
+    - the document;
+    - right and wrong designs;
+    - over the stock, too slow, clocked;
+    - blocks and a start circuit.
+  - Oracle: `SelfCheckOracleTests` -- Icarus prints the same lines in five cases, an exercise's grade among them.
+  - Edit Mode: `JsonUtility` reads a file as dotnet does.
+
 ---
 
 ## 11. The parts
@@ -2677,7 +2737,7 @@ Each part is one pull request into `v5`, ends with every suite green, and leaves
 | 12 | Hierarchy, and written blocks, edited in CodeMirror in a browser -- in six: 12a stepping inside a block **built** (see "As built in Part 12a"); 12b making a block **built** (see "As built in Part 12b"); 12c arrays **built** (see "As built in Part 12c"); 12d code blocks **built** (see "As built in Part 12d"); 12e the code panel **built** (see "As built in Part 12e"); 12f CodeMirror **built** (see "As built in Part 12f") |
 | 13 | Export and import (and a levelized path in the engine, only if a measurement asks for it) -- in six: 13a exporting a project **built** (see "As built in Part 13a"); 13b importing one **built** (see "As built in Part 13b"); 13c CONVERT **built** (see "As built in Part 13c"); 13d files **built** (see "As built in Part 13d"); 13e templates **built** (see "As built in Part 13e"); 13f limits, the security review, the measurement and the browser check **built** (see "As built in Part 13f"; the levelized path is not needed). **Part 13 is built.** |
 | 14 | The course's tools: path delays, static timing, gate-library mode, step tests, lint, tri-state -- in six, **built**: 14a the timing analysis core, 14b the TIMING tab, 14c step tests, 14d gate-library mode, 14e lint and 14f tri-state buses and inout (see "As built in Part 14a" to "14f"); and 14g, its follow-ups: deleting a module, the code editor's keys, the library held in written code and over budget, and inout pins on written blocks (see "As built in Part 14g") |
-| 15 | A simulator first, the Exercises and the tutorial -- in six: 15a **built** in two (see "As built in Part 15a"): the student's circuits, and opening on the last thing or a start page, the app's menus for BACK, the 4.x game in Settings, music off; 15b the Exercise model, grading and self-checking testbenches; 15c the 35 exercises; 15d Exercises on the workbench; 15e answering in code; 15f first-time hints, the guided tutorial and the browser check |
+| 15 | A simulator first, the Exercises and the tutorial -- in six: 15a **built** in two (see "As built in Part 15a"): the student's circuits, and opening on the last thing or a start page, the app's menus for BACK, the 4.x game in Settings, music off; 15b the Exercise model, grading and self-checking testbenches **built** (see "As built in Part 15b"); 15c the 35 exercises; 15d Exercises on the workbench; 15e answering in code; 15f first-time hints, the guided tutorial and the browser check |
 | 16 | The old game retired, and a smaller download; 5.0.0 released |
 
 **Agreed after Part 9, 2026-10-19: the language, before Part 10.** A course audit ran every one of the
