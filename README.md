@@ -50,8 +50,9 @@ installed and nothing is written outside your own user folder.
 Windows will probably warn that it does not recognise the publisher — the build
 is unsigned, which is all that warning means. "More info", then "Run anyway".
 
-**Settings**, on the main menu, has the sound -- one switch for everything, and
-one each for the music and the effects -- and its volume, fullscreen on Windows
+**Settings** -- on the main menu, or in 5.0 the workbench's SETTINGS -- has the
+sound -- one switch for everything, and one each for the music (off until you
+switch it on, in 5.0) and the effects -- and its volume, fullscreen on Windows
 (`Alt`+`Enter` works too), the data switch, a way to start over, and the credits.
 On Windows it also has vertical sync, on by default so the game keeps to your
 screen's refresh rate, and with it off a frame cap from 30 to 240 frames a second,
@@ -296,6 +297,19 @@ beside it as `progress.json.unreadable`.
 Your progress file itself is never uploaded. Nothing is compared against anyone
 else either — every number the game shows is about the circuit in front of you, or
 the one you built last time.
+
+### Where 5.0 opens (5.0 preview)
+
+5.0 opens as a simulator rather than a game: on whatever you had open last -- a
+circuit of yours or a sample -- and with nothing, on a **start page**: NEW
+CIRCUIT, OPEN, IMPORT, your recent circuits, the samples, the keyboard map and
+Settings. **HOME** goes back to it. The workbench's header has the app's menus --
+HOME, FILE, HELP (the keyboard map, the start page, and the credits) and
+SETTINGS -- and no BACK: `Esc` closes whatever is on top and never leaves the
+workbench. The music is off until you switch it on in Settings.
+
+The 4.x game is still there until 5.0 replaces it: Settings, **THE 4.x GAME**,
+beside the credits. Its title screen has **SIMULATOR** to come back.
 
 ### Your own SystemVerilog, in and out (5.0 preview)
 

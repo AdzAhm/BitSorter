@@ -19,6 +19,15 @@ and the parts -- read it before any 5.0 work.** 5.0 is built *beside* the
 it, so most of this file still describes 4.x and is still true of it. Each
 part rewrites the paragraphs here that it makes stale, in the same change.
 
+**Since Part 15a BitSorter opens as a simulator** (`AppLaunch`): on the last
+thing that was open -- a circuit or a sample -- and with nothing, on the
+workbench's start page. HOME, FILE, HELP and SETTINGS head the workbench, and
+there is no BACK: Escape closes what is on top and nothing more. The 4.x game
+is one quiet row down, THE 4.x GAME beside CREDITS in Settings, which opens its
+title screen, and that screen's SIMULATOR comes back. The music is off until
+switched on. The 4.x paragraphs below hold of that game as it runs once
+entered.
+
 ## Architecture rule (do not break this)
 - Assets/Scripts/LogicCore/ = pure C#, NO UnityEngine imports.
   Deterministic tick-based simulator. Has its own asmdef. The 4.x token
@@ -503,7 +512,10 @@ failure side.
   and run it through the editor's own Roslyn. That catches compile errors in
   seconds and is independent of whatever state the editor is in.
 - **Play Mode tests load the real scene, and must put it back.** `TestScene.Load`
-  and `TestScene.Clear` are the only way in and out. A fixture that loads the game
+  and `TestScene.Clear` are the only way in and out. `Load` boots as 4.x did, its
+  title screen up over the board, which every fixture written before Part 15a
+  expects; `LoadSimulator` boots as the game does since then (`AppLaunch.Classic`,
+  set only by the tests). A fixture that loads the game
   and simply finishes leaves it loaded for whatever runs next, and NUnit orders
   fixtures alphabetically -- `AudioPlayTests` ran first and handed a fully built
   game to `PointerArbitrationPlayTests`, which builds its own canvas and assumes
@@ -764,7 +776,7 @@ failure side.
   counts from it -- the win celebration once pulsed on the game clock and a solve
   could land at the bottom of its swell.
 - **Visual changes are checked against the reference shots.**
-  `BitSorter/Capture Reference Shots` captures forty-nine states (menu, a built
+  `BitSorter/Capture Reference Shots` captures fifty states (menu, a built
   board, bits in flight, a collision one tick out and one that takes both bits,
   the solved card, the level list, free play, the help panel, the chapter card, a
   clocked level, the tutorial's intro and its closing card, a first-time hint, a
@@ -776,7 +788,7 @@ failure side.
   built and running, its carry passing between the boxes, and 5.0's workbench
   preview with two changes on their way, whole, zoomed in, with a wire pointed at, with two rows in other
   radixes, a second cursor 9 ps on and two breakpoints flagged, with a block's inside grouped under full names, with the
-  add list searching, MY CIRCUIT being edited, two gates moving with their guides, its half adder being wired, one of its wires being reshaped, the reference's AND in its inspector, the reference zoomed in with its minimap and the canvas's menu, the full adder's transcript beside its hierarchy, the keyboard map, the full adder stepped inside h1, MAKE BLOCK asking for a name, four half adders as one block of four copies, a written adder's code with a fault marked, the full adder's code in the dock's CODE tab, the FILE menu, a project imported with its testbench running, the full adder's critical path lit from the TIMING tab, the LIBRARY menu over it with the full adder held to the course's cells, and two written devices on a bus through their inout pins) as an Explicit Play
+  add list searching, MY CIRCUIT being edited, two gates moving with their guides, its half adder being wired, one of its wires being reshaped, the reference's AND in its inspector, the reference zoomed in with its minimap and the canvas's menu, the full adder's transcript beside its hierarchy, the keyboard map, the full adder stepped inside h1, MAKE BLOCK asking for a name, four half adders as one block of four copies, a written adder's code with a fault marked, the full adder's code in the dock's CODE tab, the FILE menu, a project imported with its testbench running, the full adder's critical path lit from the TIMING tab, the LIBRARY menu over it with the full adder held to the course's cells, two written devices on a bus through their inout pins, and the start page BitSorter opens on) as an Explicit Play
   Mode fixture, so it runs under `SaveGuard` --
   driving the real game for a screenshot by hand once marked a level solved on
   the developer's own save. Frame time is fixed, particle systems are seeded,
@@ -892,8 +904,15 @@ failure side.
   testbench is converted or a circuit or a module is deleted (`AskMenu`, Parts 13d, 14g
   and 15a), the add list and the three fields -- RENAME,
   BREAK ON VALUE, and SET, which a double-click on a bus or an x asks an input's
-  value in -- each hold Escape (`IHoldsEscape`), and the panel closes on Escape
-  only when nothing does. **The circuit's window is the canvas's** (Part 10a):
+  value in -- each hold Escape (`IHoldsEscape`), and with nothing holding it Escape
+  takes down the start page or puts a part in hand down, and never closes the
+  workbench: BitSorter opens on it, and nothing is behind it (Part 15a). HOME, FILE,
+  HELP and SETTINGS head it, HELP a shell menu (`HelpMenu`) with the keyboard map,
+  the start page and the credits, which come back to it; SETTINGS opens Settings
+  over it, solid where it is see-through over the 4.x board, and BACK there comes
+  back. **The start page is the shell's** (`WorkbenchPanel.Home.cs`), over
+  everything under the header, and while it is up the workbench reads no keys and
+  no pointer of its own. **The circuit's window is the canvas's** (Part 10a):
   its presses go to `CanvasPointer`, never to `WavePointer` -- a left drag moves
   the selection or draws a box, the middle button or Space with a drag pans, so
   **Space plays and pauses on its release**, and Alt held while dragging or
@@ -1039,7 +1058,9 @@ failure side.
   `AnyOpen`, and the Enter that dismissed the chapter card could also run an
   empty board, whenever the card happened to update first.
 
-  **Escape is the main menu and M is the level list.** They were the other
+  **Escape is the main menu and M is the level list** -- on the 4.x board, once the
+  4.x game is entered from Settings; on the simulator Escape never leaves the
+  workbench (Part 15a). They were the other
   way round until a playtest, 2026-09-26: Escape is the key players reach for
   to get to a menu. **Escape closes what is on top, and only with nothing on
   top does it open the main menu**; M opens and closes the list, and only
@@ -1256,7 +1277,9 @@ failure side.
   while the build finishes at 8 ms a frame, and the switch comes a moment late.
 
   **Sound is one switch for the whole game, and music and effects each have
-  one under it.** The sound switch -- N, or SOUND in Settings -- silences music
+  one under it. The music is off until switched on** (Part 15a, Ahmad's choice:
+  BitSorter opens as a simulator); a player who had switched it on keeps it on,
+  and the audio tests switch it on before they load. The sound switch -- N, or SOUND in Settings -- silences music
   and cues alike; it used to silence only the music while the clock carried on
   ticking, which is the sound somebody reaching for mute most wants gone.
   `GameAudio.MusicOn` and `EffectsOn` switch one each and are greyed out while
@@ -1686,7 +1709,10 @@ It is **not in `LevelCatalog`**: it cannot disturb the run whose order
 `CurriculumTests` pins, and it never appears in `AvailableLevels`, so Q and E
 never step into it and the banner counts the levels of the run without it. It is
 reached by a row of the level list, above free play's and apart from the run,
-and once by itself on a save with no `tutorial` milestone.
+and once by itself on a save with no `tutorial` milestone -- in the simulator,
+only once the 4.x game has been entered from Settings and its title screen
+left, since the workbench is open until then and the tutorial waits for nothing
+to be.
 
 **Off the run is before its start.** From the tutorial E goes to the first
 level and Q goes nowhere; from free play neither key goes anywhere, because
@@ -1791,8 +1817,10 @@ the call that presents the card, so there is nothing to catch.
 
 **Settings is sound and its volume, fullscreen, vertical sync, a frame cap and a
 frame-rate counter, the look, reduced motion and the shortcut keys, the data
-switch, starting over, and the credits.** `SettingsPanel` is reached only from the main menu and goes
-back to it, and it plays the menu's music. Sound and Data were rows of the menu
+switch, starting over, the credits, and THE 4.x GAME.** `SettingsPanel` is reached from the
+workbench's SETTINGS, over the simulator (`OpenOver`), and from the 4.x title screen, and BACK
+goes back to whichever it was -- a change of look reloads the game and puts Settings back over
+the same one (`OpenAgain`). It plays the menu's music. Sound and Data were rows of the menu
 until it existed.
 
 **STYLE chooses the look, and the game loads again in it** (`LookSwitch`). A
@@ -1910,6 +1938,11 @@ so it counted neither attempts nor players, only which key somebody retried
 with. Solves are deduplicated too, or a level solved twice in one session would
 report more solves than starts. `AnalyticsRules.ShouldReport` takes the answer;
 `GameAnalytics` keeps the set, cleared on boot and never persisted.
+
+**A level the simulator loads under the workbench has not started** (Part 15a).
+The game loads one at launch, out of sight, and reporting it would count a start
+for every launch of the simulator. It is reported when the 4.x game first comes on
+screen (`AppLaunch.GameShown`), as a level under the 4.x title screen always was.
 
 **Reporting is on by default and the player can turn it off**, from
 Settings on the main menu -- the PRIVACY section's DATA switch. It was a row

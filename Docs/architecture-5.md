@@ -2608,6 +2608,52 @@ workbench more than one circuit.
   old free-play board in it, an export under its name, DELETE asking and opening MY CIRCUIT; OPEN paging through sixteen;
   RESET PROGRESS leaving MY CIRCUIT blank and nothing written back; an import as a circuit, twice, MY CIRCUIT as it was.
 
+**As built in Part 15a, second half: where BitSorter opens.** As a simulator, Ahmad's choice (2026-10-27): on the last
+thing that was open, and with nothing, on a start page like a good IDE's.
+
+- **The last thing open is in the save**, as `lastOpen`: a circuit's key, a sample's (`sample/` and its name), or empty
+  for the start page. Absent, so the start page, in every older file; a rename follows it.
+- **At launch** (`WorkbenchPanel.Launch`) the workbench opens on that, if it is still there (`Documents.LaunchKey`, a
+  view-model rule): a circuit the save still keeps, MY CIRCUIT always, or a sample still of that name. Otherwise it opens
+  on MY CIRCUIT, with the start page over it.
+- **The start page** (`WorkbenchPanel.Home.cs`) is the shell's, covering everything under the header:
+  - START: NEW CIRCUIT, OPEN A CIRCUIT and IMPORT A PROJECT;
+  - HELP: the keyboard map and Settings;
+  - RECENT: eight circuits, the latest opened first;
+  - SAMPLES: the five samples.
+  HOME brings it back. While it is up the run under it is paused, and the workbench reads no keys and no pointer of its
+  own, so nothing hidden is played, scrolled or deleted. Escape takes it down onto the circuit under it. Exercises join
+  it in Part 15d, and the guided tutorial in 15f.
+- **The header is the app's**: BITSORTER, then HOME, FILE, HELP and SETTINGS, the sample's line, and SAMPLE. There is no
+  BACK, and no PREVIEW chip. HELP (`HelpMenu`) has the keyboard map, the start page, and ABOUT, which is the credits roll;
+  the roll comes back to the workbench.
+- **Escape never leaves the workbench.** It closes a popup, then the start page or a part in hand, and nothing more.
+- **Settings opens over the simulator** (`SettingsPanel.OpenOver`) and BACK comes back to it as it was left. Its
+  backdrop is solid there, where it is see-through over the 4.x board: the board under the workbench is the 4.x
+  game's. A change of look reloads the game and puts Settings back over the same thing (`OpenAgain`).
+- **The 4.x game is one quiet row down**, until Part 16 deletes it: THE 4.x GAME beside CREDITS in Settings opens its
+  title screen, whose WORKBENCH row is now SIMULATOR. Nothing of 4.x is on a first screen (Ahmad: "not deep but not
+  plainly").
+  - The tests written against the 4.x boot keep it: `AppLaunch.Classic`, set only by `TestScene.Load`.
+    `TestScene.LoadSimulator` boots as the game does.
+  - The level the simulator loads under the workbench has not been seen. Analytics reports it started only when the 4.x
+    game first comes on screen (`AppLaunch.GameShown`), and the 4.x tutorial offers itself only once the title screen
+    is left.
+- **The music is off until switched on** (Ahmad's choice). A player who had switched it on keeps it on.
+- **Checked.**
+  - dotnet: `DocumentsTests`, what it opens on, and a circuit or a sample since gone opening the start page.
+  - Edit Mode: `lastOpen` through a rename and a restart; the music's default.
+  - Play Mode (`SimulatorLaunchPlayTests`):
+    - a fresh save on the start page, the music off, and no 4.x level or tutorial started;
+    - a circuit and a sample open last opening again;
+    - RECENT, HOME, SAMPLES and Escape;
+    - HELP's keyboard map, and the credits coming back;
+    - Settings over the simulator and back;
+    - THE 4.x GAME, and SIMULATOR back.
+  - The tests of BACK became tests of SETTINGS and back, and of Escape never leaving.
+  - Reference shots: every workbench shot moves with the header; shot 1 (SIMULATOR), 17 (THE 4.x GAME), 39 (the keyboard
+    map's Escape line) and 45 (FILE under its new place) differ; 50, the start page, is new.
+
 ---
 
 ## 11. The parts
@@ -2631,7 +2677,7 @@ Each part is one pull request into `v5`, ends with every suite green, and leaves
 | 12 | Hierarchy, and written blocks, edited in CodeMirror in a browser -- in six: 12a stepping inside a block **built** (see "As built in Part 12a"); 12b making a block **built** (see "As built in Part 12b"); 12c arrays **built** (see "As built in Part 12c"); 12d code blocks **built** (see "As built in Part 12d"); 12e the code panel **built** (see "As built in Part 12e"); 12f CodeMirror **built** (see "As built in Part 12f") |
 | 13 | Export and import (and a levelized path in the engine, only if a measurement asks for it) -- in six: 13a exporting a project **built** (see "As built in Part 13a"); 13b importing one **built** (see "As built in Part 13b"); 13c CONVERT **built** (see "As built in Part 13c"); 13d files **built** (see "As built in Part 13d"); 13e templates **built** (see "As built in Part 13e"); 13f limits, the security review, the measurement and the browser check **built** (see "As built in Part 13f"; the levelized path is not needed). **Part 13 is built.** |
 | 14 | The course's tools: path delays, static timing, gate-library mode, step tests, lint, tri-state -- in six, **built**: 14a the timing analysis core, 14b the TIMING tab, 14c step tests, 14d gate-library mode, 14e lint and 14f tri-state buses and inout (see "As built in Part 14a" to "14f"); and 14g, its follow-ups: deleting a module, the code editor's keys, the library held in written code and over budget, and inout pins on written blocks (see "As built in Part 14g") |
-| 15 | A simulator first, the Exercises and the tutorial -- in six: 15a the student's circuits **built** (see "As built in Part 15a"); 15a-2 opening on the last thing or a start page, menus for BACK, the 4.x game in Settings, music off; 15b the Exercise model, grading and self-checking testbenches; 15c the 35 exercises; 15d Exercises on the workbench; 15e answering in code; 15f first-time hints, the guided tutorial and the browser check |
+| 15 | A simulator first, the Exercises and the tutorial -- in six: 15a **built** in two (see "As built in Part 15a"): the student's circuits, and opening on the last thing or a start page, the app's menus for BACK, the 4.x game in Settings, music off; 15b the Exercise model, grading and self-checking testbenches; 15c the 35 exercises; 15d Exercises on the workbench; 15e answering in code; 15f first-time hints, the guided tutorial and the browser check |
 | 16 | The old game retired, and a smaller download; 5.0.0 released |
 
 **Agreed after Part 9, 2026-10-19: the language, before Part 10.** A course audit ran every one of the
