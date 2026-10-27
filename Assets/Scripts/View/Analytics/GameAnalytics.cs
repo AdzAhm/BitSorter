@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Unity.Services.Analytics;
 using Unity.Services.Core;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.UnityConsent;
 
 namespace BitSorter.View
@@ -106,6 +107,8 @@ namespace BitSorter.View
             _unavailable = false;
 
             Subscribe();
+            SceneManager.sceneLoaded -= OnSceneLoaded;
+            SceneManager.sceneLoaded += OnSceneLoaded;
 
             try
             {
@@ -168,6 +171,18 @@ namespace BitSorter.View
 
             AppLaunch.GameCameOnScreen += OnGameCameOnScreen;
             Application.quitting += OnQuitting;
+        }
+
+        /// <summary>
+        /// A scene loaded after the first has a session and a tracker of its own, and those are what is listened to from then
+        /// on. Boot runs once, for the first scene, so a change of look -- which loads the game again (<see cref="LookSwitch"/>)
+        /// -- left analytics listening to the old scene's, destroyed, and nothing was reported for the rest of the session
+        /// (the #84 review).
+        /// </summary>
+        private static void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+        {
+            Unsubscribe();
+            Subscribe();
         }
 
         private static void Unsubscribe()
