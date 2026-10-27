@@ -35,6 +35,52 @@ namespace BitSorter.ViewModel.Tests
             return text.Replace(from, to);
         }
 
+        /// <summary>
+        /// The typing's own history (Part 14g): a burst of typing is one step back, an edit of whole lines one of its own, a
+        /// step forward again after, and what it comes to applies once it pauses, as typing does; an undo of the document
+        /// starts it afresh.
+        /// </summary>
+        [Test]
+        public void CtrlZInTheEditor_StepsBackThroughTheTyping_ABurstAStep_AndAppliesAsTypingDoes()
+        {
+            WorkbenchSession session = Inside();
+            CodeDocument code = session.Code;
+            string start = code.Text;
+            Assert.IsFalse(code.CanUndoTyping, "nothing typed yet");
+
+            code.Type(start + "// a", 0);
+            code.Type(start + "// ab", 300);
+            code.Type(start + "// abc", 600);   // one burst
+            code.Type(start + "// abc d", 2000);   // after a pause: a step of its own
+            code.Edit(CodeEdits.Indent(code.Text, 0, 0).Text, 2100);
+            string indented = code.Text;
+
+            Assert.IsTrue(code.UndoTyping(2200));
+            Assert.AreEqual(start + "// abc d", code.Text, "the indent was a step of its own");
+            Assert.IsTrue(code.UndoTyping(2300));
+            Assert.AreEqual(start + "// abc", code.Text, "the pause made a step");
+            Assert.IsTrue(code.UndoTyping(2400));
+            Assert.AreEqual(start, code.Text, "the burst was one step");
+            Assert.IsFalse(code.UndoTyping(2500), "and nothing before it");
+
+            Assert.IsTrue(code.RedoTyping(2600));
+            Assert.AreEqual(start + "// abc", code.Text);
+            code.Type(start + "// abcX", 2700);
+            Assert.IsFalse(code.CanRedoTyping, "typing after a step back drops the steps forward");
+            Assert.AreNotEqual(indented, code.Text);
+
+            // What it comes to applies once it pauses, as typing does.
+            Assert.IsTrue(code.Frame(2700 + CodeDocument.PauseMilliseconds + 1));
+            Assert.AreEqual(start + "// abcX", code.Applied);
+            Assert.IsTrue(code.CanUndoTyping, "applying keeps the typing's history");
+
+            // The document undone under the editor: the text is not what the typing remembers.
+            Assert.IsTrue(session.Undo());
+            code.Frame(5000);
+            Assert.AreEqual(start, code.Text, "the editor follows the document");
+            Assert.IsFalse(code.CanUndoTyping, "and its typing starts afresh");
+        }
+
         [Test]
         public void SteppingIntoAWrittenBlock_ShowsItsText_AndNothingDrawn()
         {

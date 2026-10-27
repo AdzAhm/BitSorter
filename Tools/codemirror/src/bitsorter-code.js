@@ -8,6 +8,7 @@ import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirro
 import { StreamLanguage, syntaxHighlighting, HighlightStyle, bracketMatching, indentOnInput, indentUnit } from "@codemirror/language";
 import { verilog } from "@codemirror/legacy-modes/mode/verilog";
 import { setDiagnostics, lintGutter } from "@codemirror/lint";
+import { search, searchKeymap, searchPanelOpen, closeSearchPanel } from "@codemirror/search";
 import { tags } from "@lezer/highlight";
 
 const state = {
@@ -15,7 +16,7 @@ const state = {
   view: null,         // the editor
   theme: new Compartment(),
   changed: false,     // typed since the game last asked
-  applyAsked: false,  // Ctrl+Enter since the game last asked
+  applyAsked: false,  // Ctrl+Enter or Ctrl+S since the game last asked
   escaped: false,     // Escape let the editor go since the game last asked
   setting: false,     // the game is setting the text: not typing
   colours: null,
@@ -36,6 +37,14 @@ function themeOf(c) {
     ".cm-lintRange-error": { backgroundImage: "none", textDecoration: "underline wavy " + c.error },
     ".cm-lintRange-warning": { backgroundImage: "none", textDecoration: "underline wavy " + c.warning },
     ".cm-tooltip": { backgroundColor: c.ground, color: c.text, border: "1px solid " + c.muted },
+    // Find and replace (Part 14g), in the game's colours like the rest.
+    ".cm-panels": { backgroundColor: c.ground, color: c.text },
+    ".cm-panels.cm-panels-top": { borderBottom: "1px solid " + c.muted },
+    ".cm-textfield": { backgroundColor: c.ground, color: c.text, border: "1px solid " + c.muted },
+    ".cm-button": { backgroundImage: "none", backgroundColor: c.ground, color: c.text, border: "1px solid " + c.muted },
+    ".cm-panel.cm-search label, .cm-panel.cm-search [name=close]": { color: c.text },
+    ".cm-searchMatch": { backgroundColor: c.selection, outline: "1px solid " + c.muted },
+    ".cm-searchMatch.cm-searchMatch-selected": { backgroundColor: c.selection, outline: "1px solid " + c.accent },
   }, { dark: c.dark });
 
   const words = HighlightStyle.define([
@@ -65,9 +74,21 @@ const api = {
     document.body.appendChild(host);
     state.host = host;
 
+    // Ctrl+S applies as Ctrl+Enter does (Part 14g), and the browser's Save Page never opens over the code. Escape closes
+    // find and replace first, and only then lets the editor go.
     const ours = keymap.of([
       { key: "Mod-Enter", run: () => { state.applyAsked = true; return true; } },
-      { key: "Escape", run: (view) => { state.escaped = true; view.contentDOM.blur(); return true; } },
+      { key: "Mod-s", run: () => { state.applyAsked = true; return true; }, preventDefault: true },
+      {
+        key: "Escape",
+        run: (view) => {
+          if (searchPanelOpen(view.state))
+            return closeSearchPanel(view);
+          state.escaped = true;
+          view.contentDOM.blur();
+          return true;
+        },
+      },
     ]);
 
     state.view = new EditorView({
@@ -79,7 +100,8 @@ const api = {
           lineNumbers(), highlightActiveLineGutter(), highlightSpecialChars(), history(), drawSelection(),
           indentOnInput(), bracketMatching(), highlightActiveLine(), lintGutter(),
           indentUnit.of("    "), EditorState.tabSize.of(4),
-          keymap.of([indentWithTab, ...defaultKeymap, ...historyKeymap]),
+          search({ top: true }),
+          keymap.of([indentWithTab, ...searchKeymap, ...defaultKeymap, ...historyKeymap]),
           StreamLanguage.define(verilog),
           state.theme.of(themeOf(state.colours)),
           EditorView.updateListener.of((update) => {
@@ -108,8 +130,8 @@ const api = {
     if (!state.host)
       return;
     state.host.style.display = shown ? "block" : "none";
-    if (!shown && state.view && state.view.hasFocus)
-      state.view.contentDOM.blur();
+    if (!shown)
+      api.blur();
   },
 
   /** The game's text put in, as the document has it now -- an undo, or another block -- which is not typing. */
@@ -176,14 +198,20 @@ const api = {
       state.view.focus();
   },
 
+  /** The keyboard let go of: by the text, or by find and replace's fields, which are the editor's too. */
   blur() {
-    if (state.view && state.view.hasFocus)
-      state.view.contentDOM.blur();
+    const active = document.activeElement;
+    if (state.host && active && state.host.contains(active))
+      active.blur();
   },
 
-  /** Whether the editor has the keyboard: while it does, the game's keys are the editor's. */
+  /**
+   * Whether the editor has the keyboard: while it does, the game's keys are the editor's. The text or anything else in its
+   * box -- find and replace's fields (Part 14g), where typing an S would otherwise have been the game's.
+   */
   focused() {
-    return !!(state.view && state.view.hasFocus);
+    const active = document.activeElement;
+    return !!(state.host && state.host.style.display !== "none" && active && state.host.contains(active));
   },
 };
 

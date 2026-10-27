@@ -22,6 +22,11 @@ namespace BitSorter.View
     ///   and only a second closes the workbench, as RUN TO's does.
     /// - **Its letters are a monospaced face the computer already has** (<see cref="CodeFont"/>): code's columns line up
     ///   only in one, and none ships with the game. In a browser, CodeMirror takes this window's place (Part 12f).
+    /// - **It answers the keys a writer reaches for, as the browser's editor does** (Part 14g): Ctrl+Z and Ctrl+Y step
+    ///   through the typing (<see cref="CodeDocument.UndoTyping"/>), Tab and Shift+Tab indent and outdent the lines by four
+    ///   spaces and Ctrl+/ comments them (<see cref="CodeEdits"/>), and Ctrl+S applies as Ctrl+Enter does. TextMesh Pro's
+    ///   field had none of them -- Tab typed a tab character, Ctrl+Z did nothing -- and it keeps what it has: Ctrl+A, C, V
+    ///   and X. No key of the workbench's reaches it while it has the keyboard (<see cref="UiText"/>).
     /// </remarks>
     public sealed class CodeEditorView : MonoBehaviour, IHoldsEscape, IScrollHandler
     {
@@ -48,6 +53,9 @@ namespace BitSorter.View
         private CodeDocument _code;
         private int _shownVersion = -1, _shownLines = -1, _letGoFrame = -1;
         private bool _applyAsked;
+
+        /// <summary>What Tab asked of the lines, taken from the field as it typed it: +1 indent, -1 outdent, 0 nothing.</summary>
+        private int _indentAsked;
 
         /// <summary>The code shown, or null.</summary>
         public CodeDocument Code => _code;
@@ -193,18 +201,93 @@ namespace BitSorter.View
         /// <summary>The game's clock, in milliseconds: a test drives it, so a pause in typing is one however loaded the machine.</summary>
         private static double Now => Time.timeAsDouble * 1000.0;
 
-        /// <summary>Ctrl+Enter applies the code rather than typing a new line; anything else is typed as it comes.</summary>
+        /// <summary>
+        /// Ctrl+Enter applies the code rather than typing a new line; Tab and Shift+Tab indent and outdent the lines rather
+        /// than typing a tab (Part 14g); a key the editor answers with Ctrl types nothing as well; anything else is typed as it
+        /// comes -- a paste included, which the field types a character at a time with Ctrl held.
+        /// </summary>
         private char Validate(string text, int index, char added)
         {
             UnityEngine.InputSystem.Keyboard keys = UiText.FieldKeys;
-            if (added == '\n' && keys != null && keys.ctrlKey.isPressed
+            if (keys == null)
+                return added;
+
+            if (added == '\n' && keys.ctrlKey.isPressed
                 && (keys.enterKey.wasPressedThisFrame || keys.numpadEnterKey.wasPressedThisFrame))
             {
                 _applyAsked = true;
                 return '\0';
             }
 
+            // Held, not pressed this frame: the field may hand a key over the frame after it went down. A tab in a paste,
+            // with no Tab held, is typed as it comes.
+            if (added == '\t' && keys.tabKey.isPressed)
+            {
+                _indentAsked = keys.shiftKey.isPressed ? -1 : 1;
+                return '\0';
+            }
+
+            // Alt with Ctrl is AltGr on many keyboards, which types characters: those are typed.
+            if (keys.ctrlKey.isPressed && !keys.altKey.isPressed
+                && (keys.zKey.isPressed || keys.yKey.isPressed || keys.sKey.isPressed || keys.slashKey.isPressed))
+                return '\0';
+
             return added;
+        }
+
+        /// <summary>
+        /// The keys the editor answers while it has the keyboard (Part 14g), read as a field may read keys it answers itself
+        /// (<see cref="UiText.FieldKeys"/>): Ctrl+Z, Ctrl+Y and Ctrl+Shift+Z through the typing, Ctrl+S to apply, Ctrl+/ to
+        /// comment the lines, and the Tab the field handed over.
+        /// </summary>
+        private void TakeKeys()
+        {
+            int indent = _indentAsked;
+            _indentAsked = 0;
+            UnityEngine.InputSystem.Keyboard keys = UiText.FieldKeys;
+            if (keys != null && keys.ctrlKey.isPressed && !keys.altKey.isPressed)
+            {
+                bool shift = keys.shiftKey.isPressed;
+                if (keys.zKey.wasPressedThisFrame)
+                    Stepped(shift ? _code.RedoTyping(Now) : _code.UndoTyping(Now));
+                else if (keys.yKey.wasPressedThisFrame)
+                    Stepped(_code.RedoTyping(Now));
+                else if (keys.sKey.wasPressedThisFrame)
+                    _applyAsked = true;
+                else if (keys.slashKey.wasPressedThisFrame)
+                    EditLines(CodeEdits.ToggleComment);
+            }
+
+            if (indent > 0)
+                EditLines(CodeEdits.Indent);
+            else if (indent < 0)
+                EditLines(CodeEdits.Outdent);
+        }
+
+        /// <summary>The field given the text a step of the typing came to, its caret where the two first differ.</summary>
+        private void Stepped(bool stepped)
+        {
+            if (!stepped)
+                return;
+            string was = _field.text;
+            int at = 0;
+            while (at < was.Length && at < _code.Text.Length && was[at] == _code.Text[at])
+                at++;
+            _field.SetTextWithoutNotify(_code.Text);
+            _field.stringPosition = at;
+        }
+
+        /// <summary>The lines the selection touches edited by <paramref name="edit"/> -- one step of the typing -- the selection kept on them.</summary>
+        private void EditLines(System.Func<string, int, int, CodeEdit> edit)
+        {
+            int anchor = _field.selectionStringAnchorPosition, focus = _field.selectionStringFocusPosition;
+            CodeEdit edited = edit(_field.text, anchor, focus);
+            if (edited.Text == _field.text)
+                return;
+            _code.Edit(edited.Text, Now);
+            _field.SetTextWithoutNotify(edited.Text);
+            _field.selectionStringAnchorPosition = edited.Start;
+            _field.selectionStringFocusPosition = edited.End;
         }
 
         /// <summary>Shows <paramref name="code"/>, or hides the editor for null.</summary>
@@ -346,6 +429,10 @@ namespace BitSorter.View
                     _applyAsked = true;
                 if (CodeMirrorBridge.TakeEscape())
                     _letGoFrame = Time.frameCount;
+            }
+            else if (_field.isFocused || _indentAsked != 0)
+            {
+                TakeKeys();
             }
 
             if (_applyAsked)

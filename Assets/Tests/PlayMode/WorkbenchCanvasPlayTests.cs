@@ -1122,6 +1122,178 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsNotNull(workbench.Session.Project.Find("code1"));
         }
 
+        /// <summary>
+        /// Every key of the workbench, each with its modifiers, pressed while a field has the keyboard: none of them does
+        /// anything -- not to the document, the run, the view, the rows, or what is open -- since each is the field's.
+        /// </summary>
+        private IEnumerator EveryWorkbenchKeyDoesNothing(WorkbenchPanel workbench, string field)
+        {
+            Assert.IsTrue(UiText.Typing, $"sanity: {field} has the keyboard");
+            Project before = workbench.Session.Project;
+            int sample = workbench.Sample, rows = workbench.List.Lines.Count;
+            double time = workbench.Time;
+            float zoom = workbench.Zoom;
+            string[] path = workbench.SteppedPath.ToArray();
+
+            foreach (KeyBinding binding in WorkbenchKeys.All)
+            {
+                KeyControl key = _keyboard[(Key)System.Enum.Parse(typeof(Key), binding.Key)];
+                if (binding.Ctrl)
+                    Press(_keyboard.leftCtrlKey);
+                if (binding.Shift)
+                    Press(_keyboard.leftShiftKey);
+                if (binding.Alt)
+                    Press(_keyboard.leftAltKey);
+                yield return null;   // the modifiers held first, as a hand holds them, so the key would act if it could
+                yield return Tap(key);
+                if (binding.Alt)
+                    Release(_keyboard.leftAltKey);
+                if (binding.Shift)
+                    Release(_keyboard.leftShiftKey);
+                if (binding.Ctrl)
+                    Release(_keyboard.leftCtrlKey);
+                yield return null;
+
+                string said = $"{binding.Cap}, pressed while {field} had the keyboard, ";
+                Assert.AreSame(before, workbench.Session.Project, said + "changed the document");
+                Assert.IsTrue(workbench.IsOpen, said + "closed the workbench");
+                Assert.AreEqual(sample, workbench.Sample, said + "changed the sample");
+                CollectionAssert.AreEqual(path, workbench.SteppedPath, said + "stepped in or out");
+                Assert.IsFalse(workbench.Playing, said + "played");
+                Assert.AreEqual(time, workbench.Time, 1e-9, said + "moved the time");
+                Assert.AreEqual(zoom, workbench.Zoom, said + "zoomed");
+                Assert.AreEqual(rows, workbench.List.Lines.Count, said + "changed the rows");
+                Assert.IsFalse(workbench.KeyMapPopup.IsOpen, said + "opened the keyboard map");
+                Assert.IsFalse(workbench.Picker.IsOpen, said + "opened the add list");
+                Assert.IsTrue(UiText.Typing, said + "took the keyboard from it");
+            }
+        }
+
+        /// <summary>
+        /// Ahmad's question (2026-10-27): is Ctrl+V the workbench's while code is typed? No -- while the code, or any field,
+        /// has the keyboard, no key of the workbench does anything, Ctrl+V, C, X, A, Z and Y, Delete, Space and the arrows
+        /// included; and the same Ctrl+V, with the code let go, pastes the parts copied, on the circuit.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator WhileAFieldHasTheKeyboard_NoWorkbenchKeyActs_AndCtrlVPastesPartsOnlyOnTheCircuit()
+        {
+            yield return TestScene.Load();
+            yield return Click(MainMenu.WorkbenchButton);
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowSample(SampleNamed("Written adder"));
+            yield return null;
+            workbench.Pause();
+            workbench.Session.Finish();
+            yield return null;
+            int add = Top(workbench).Parts.OfType<BlockPart>().Single().Id;
+
+            // Something to paste: the block, copied on the circuit.
+            yield return ClickAt(workbench, MiddleOf(workbench, add));
+            Press(_keyboard.leftCtrlKey);
+            yield return Tap(_keyboard.cKey);
+            Release(_keyboard.leftCtrlKey);
+            yield return null;
+
+            // Inside it, the keyboard in its code: every key is the code's.
+            yield return DoubleClick(workbench.ScreenPointOf(MiddleOf(workbench, add)));
+            yield return null;
+            CodeEditorView code = workbench.CodeView;
+            code.GoTo(1, 1);
+            yield return null;
+            Assert.IsTrue(code.Field.isFocused, "sanity: the code has the keyboard");
+            yield return EveryWorkbenchKeyDoesNothing(workbench, "the code");
+
+            // And in a field of the shell's, RUN TO.
+            yield return ClickAtScreen(ShellPanel.ScreenPointOf(ShellPanel.Find<UnityEngine.UIElements.TextField>(WorkbenchPanel.RunToField)));
+            yield return EveryWorkbenchKeyDoesNothing(workbench, "RUN TO");
+            Press(_keyboard.escapeKey);
+            ShellPanel.SendKey(ShellPanel.Find<UnityEngine.UIElements.TextField>(WorkbenchPanel.RunToField), KeyCode.Escape);
+            yield return null;
+            Release(_keyboard.escapeKey);
+            // The field lets go a frame or two later (ShellTheme.Field); waited for, not counted, with a cap that fails loudly.
+            for (int i = 0; i < 30 && UiText.Typing; i++)
+                yield return null;
+            Assert.IsFalse(UiText.Typing, "sanity: Escape let RUN TO go");
+
+            // The same Ctrl+V on the circuit, nothing typed: the block copied is pasted.
+            Press(_keyboard.leftAltKey);
+            yield return null;
+            yield return Tap(_keyboard.upArrowKey);
+            Release(_keyboard.leftAltKey);
+            yield return null;
+            Assert.IsEmpty(workbench.SteppedPath, "sanity: stepped back out to the circuit");
+            Press(_keyboard.leftCtrlKey);
+            yield return null;
+            yield return Tap(_keyboard.vKey);
+            Release(_keyboard.leftCtrlKey);
+            yield return null;
+            Assert.AreEqual(2, Top(workbench).Parts.OfType<BlockPart>().Count(), "Ctrl+V on the circuit pastes the block copied");
+        }
+
+        /// <summary>
+        /// The code editor answers the keys a writer reaches for, as the browser's does (Part 14g): Ctrl+Z through the typing,
+        /// Tab indenting the line by four spaces rather than typing a tab, Ctrl+/ commenting it, and Ctrl+S applying at once.
+        /// TextMesh Pro reads the platform's keys, which a test's keyboard never reaches, so the Tab is handed to the field as
+        /// it hands one over, with the key held on the test's keyboard in the same frame.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator TheCodeEditor_AnswersUndoTabCommentAndSave()
+        {
+            yield return TestScene.Load();
+            yield return Click(MainMenu.WorkbenchButton);
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowSample(SampleNamed("Written adder"));
+            yield return null;
+            workbench.Pause();
+            workbench.Session.Finish();
+            yield return null;
+            yield return DoubleClick(workbench.ScreenPointOf(MiddleOf(workbench, Top(workbench).Parts.OfType<BlockPart>().Single().Id)));
+            yield return null;
+            CodeEditorView code = workbench.CodeView;
+            string source = WorkbenchSamples.AdderSource;
+            int line = source.Substring(0, source.IndexOf("assign")).Count(c => c == '\n') + 1;
+            code.GoTo(line, 1);
+            yield return null;
+            Assert.IsTrue(code.Field.isFocused, "sanity: the code has the keyboard");
+
+            // Typed, then Ctrl+Z: the typing goes back.
+            code.Field.text = source + "// typed";
+            yield return null;
+            Press(_keyboard.leftCtrlKey);
+            yield return Tap(_keyboard.zKey);
+            Release(_keyboard.leftCtrlKey);
+            yield return null;
+            Assert.AreEqual(source, code.Field.text, "Ctrl+Z took the typing back");
+            Assert.AreEqual(source, code.Code.Text);
+
+            // Tab, as the field hands it over: the line indented by four spaces, no tab typed.
+            code.GoTo(line, 1);
+            yield return null;
+            Press(_keyboard.tabKey);
+            yield return null;
+            char typed = code.Field.onValidateInput(code.Field.text, code.Field.stringPosition, '\t');
+            yield return null;
+            Release(_keyboard.tabKey);
+            yield return null;
+            Assert.AreEqual('\0', typed, "no tab character typed");
+            StringAssert.Contains("\n        assign #3", code.Field.text, "the line indented four spaces more");
+            Assert.IsFalse(code.Field.text.Contains("\t"));
+
+            // Ctrl+/: commented out, where the line's text starts.
+            Press(_keyboard.leftCtrlKey);
+            yield return Tap(_keyboard.slashKey);
+            Release(_keyboard.leftCtrlKey);
+            yield return null;
+            StringAssert.Contains("\n        // assign #3", code.Field.text, "Ctrl+/ commented the line");
+
+            // Ctrl+S: applied at once, without waiting for the typing to pause.
+            Press(_keyboard.leftCtrlKey);
+            yield return Tap(_keyboard.sKey);
+            Release(_keyboard.leftCtrlKey);
+            yield return null;
+            Assert.AreEqual(code.Field.text, AdderText(workbench), "Ctrl+S applied the code");
+        }
+
         /// <summary>+ CODE (Part 12d) asks for a name, makes the module from its template, and puts a block of it in hand to place.</summary>
         [UnityTest]
         public IEnumerator PlusCode_AsksForAName_AndPutsABlockOfItInHand()

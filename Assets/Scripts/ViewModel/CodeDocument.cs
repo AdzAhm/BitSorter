@@ -37,15 +37,33 @@ namespace BitSorter.ViewModel
     ///
     /// **Undo is the document's.** An undo or a redo changes the module's text under the editor, and the editor follows
     /// it, setting aside anything typed since: what was undone to is the last text that applied.
+    ///
+    /// **And the typing has its own, inside the editor** (Part 14g): Ctrl+Z and Ctrl+Y while the editor has the keyboard
+    /// step back and forward through what was typed (<see cref="UndoTyping"/>), a burst of typing one step and an edit of
+    /// whole lines -- Tab, Ctrl+/ -- one of its own, as the browser's editor does; what they come to applies once they pause,
+    /// as typing does. A desktop build's field had none, so Ctrl+Z there did nothing while typing. An undo or a redo of the
+    /// document starts it afresh, since the text under it is not what it remembers.
     /// </remarks>
     public sealed class CodeDocument
     {
         /// <summary>How long the typing pauses before the text is checked and applied, in milliseconds.</summary>
         public const double PauseMilliseconds = 700;
 
+        /// <summary>How long a pause in the typing starts a step of its own history, in milliseconds.</summary>
+        public const double TypingStepMilliseconds = 1000;
+
+        /// <summary>How many steps of the typing are kept.</summary>
+        public const int TypingHistory = 200;
+
         private readonly WorkbenchSession _session;
         private readonly List<CodeMark> _marks = new List<CodeMark>();
         private readonly List<string> _elsewhere = new List<string>();
+
+        /// <summary>The texts the typing can step back to, the latest last, and forward to again after a step back.</summary>
+        private readonly List<string> _typedBack = new List<string>(), _typedOn = new List<string>();
+
+        /// <summary>When the last step of typing was, for grouping a burst into one step; NaN to start a new one.</summary>
+        private double _stepAt = double.NaN;
 
         /// <summary>The module's text the editor last took from the document, or gave it.</summary>
         private string _base;
@@ -109,15 +127,79 @@ namespace BitSorter.ViewModel
         /// <summary>Changes each time the text, its marks or what it breaks change: what the editor redraws on.</summary>
         public int Version { get; private set; }
 
-        /// <summary>The editor's text changed to <paramref name="text"/> at <paramref name="now"/> milliseconds: checked once the typing pauses.</summary>
+        /// <summary>
+        /// The editor's text changed to <paramref name="text"/> at <paramref name="now"/> milliseconds: checked once the typing
+        /// pauses, and a step of the typing's history once it has paused for <see cref="TypingStepMilliseconds"/>.
+        /// </summary>
         public void Type(string text, double now)
         {
             text = text ?? string.Empty;
             if (text == Text)
                 return;
+            if (double.IsNaN(_stepAt) || now - _stepAt > TypingStepMilliseconds)
+                Remember();
+            _stepAt = now;
+            _typedOn.Clear();
             Text = text;
             _typedAt = now;
             Version++;
+        }
+
+        /// <summary>An edit of whole lines (<see cref="CodeEdits"/>: Tab, Ctrl+/) at <paramref name="now"/>: typed, and a step of its own.</summary>
+        public void Edit(string text, double now)
+        {
+            text = text ?? string.Empty;
+            if (text == Text)
+                return;
+            Remember();
+            _stepAt = double.NaN;
+            _typedOn.Clear();
+            Text = text;
+            _typedAt = now;
+            Version++;
+        }
+
+        /// <summary>Whether Ctrl+Z in the editor has a step of typing to go back to.</summary>
+        public bool CanUndoTyping => _typedBack.Count > 0;
+
+        /// <summary>Whether Ctrl+Y in the editor has a step to go forward to.</summary>
+        public bool CanRedoTyping => _typedOn.Count > 0;
+
+        /// <summary>The typing a step back (Ctrl+Z in the editor), applied once it pauses as typing is. False with nothing to go back to.</summary>
+        public bool UndoTyping(double now) => Step(_typedBack, _typedOn, now);
+
+        /// <summary>The typing a step forward again (Ctrl+Y, Ctrl+Shift+Z in the editor). False with nothing to go forward to.</summary>
+        public bool RedoTyping(double now) => Step(_typedOn, _typedBack, now);
+
+        private bool Step(List<string> from, List<string> to, double now)
+        {
+            if (from.Count == 0)
+                return false;
+            to.Add(Text);
+            Text = from[from.Count - 1];
+            from.RemoveAt(from.Count - 1);
+            _stepAt = double.NaN;
+            _typedAt = now;
+            Version++;
+            return true;
+        }
+
+        /// <summary>The text as it is, a step the typing can go back to.</summary>
+        private void Remember()
+        {
+            if (_typedBack.Count > 0 && _typedBack[_typedBack.Count - 1] == Text)
+                return;
+            _typedBack.Add(Text);
+            if (_typedBack.Count > TypingHistory)
+                _typedBack.RemoveAt(0);
+        }
+
+        /// <summary>The typing's history forgotten: the text under the editor is no longer what it remembers.</summary>
+        private void ForgetTyping()
+        {
+            _typedBack.Clear();
+            _typedOn.Clear();
+            _stepAt = double.NaN;
         }
 
         /// <summary>
@@ -132,6 +214,7 @@ namespace BitSorter.ViewModel
                 _base = applied;
                 Text = applied;
                 _typedAt = double.NaN;
+                ForgetTyping();
                 Check();
                 return true;
             }
@@ -170,6 +253,13 @@ namespace BitSorter.ViewModel
         public void Revert()
         {
             _base = Applied ?? string.Empty;
+            if (Text != _base)
+            {
+                // What was typed is a step Ctrl+Z in the editor can go back to.
+                Remember();
+                _typedOn.Clear();
+                _stepAt = double.NaN;
+            }
             Text = _base;
             _typedAt = double.NaN;
             Check();
