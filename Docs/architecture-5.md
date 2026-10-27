@@ -2196,20 +2196,41 @@ and the measured worst, 14d gate-library mode, 14e lint, 14f tri-state buses -- 
 computed and measured, registers given a clock to Q and a setup, a library mode with a course preset and a custom one.
 
 - **The timing graph** (`Sim/Timing/TimingGraph`) is built from the flattened `Design`, so a drawn module and a written
-  one are reckoned alike: every signal a node, every way a change travels an arc -- a gate at its rise (`Tpdlh`, the
-  output going to 1) and fall (`Tpdhl`), an assignment at its delay, a combinational process at none -- each with how it
-  passes a change: the same way (AND, OR, BUF), the other way (NOT, NAND, NOR), or either (XOR, XNOR, a tri-state's
-  control, an assignment). A port joined to what it is connected to is a connection, gone through but not listed. An
-  edge-triggered process is a register: it captures what its statements read, its clock and asynchronous reset left out,
-  and launches what it writes. Signals, not bits, as the course draws a bus. A loop of logic -- a latch of two gates -- is
-  found (strongly connected components, walked without recursion) and its arcs left out of every path. Gates are counted
-  by primitive and inputs.
-- **Path delays** (`PathDelays`): every path from an input to an output, walked without recursion and capped at 10,000,
-  each one's delay from its start rising and from it falling -- each gate adding its rise where its output rises and its
-  fall where it falls, a change flipping at an inverting gate, both ways followed and the later kept where a gate can pass
-  it either way. Identical paths -- the same gates at the same delays in the same order -- are one, counted, with every
-  pair of ends; the worst comes first.
-- **Static timing** (`StaticTiming`): the latest each signal can rise and fall, worked out once in topological order from
+  one are reckoned alike: **every bit of every signal a node** (`NameOf` gives `adder.c[1]`), every way a change travels
+  an arc -- a gate at its rise (`Tpdlh`, the output going to 1) and fall (`Tpdhl`), an assignment at its delay, a
+  combinational process at none -- each with how it passes a change: the same way, the other way, or either.
+- **Bits, because a bus is fed bit by bit.** The first version was a node a signal, as the course draws a bus, and the
+  review found what that costs: a ripple adder's carries are one vector each copy feeds the next from, so the vector fed
+  itself -- a loop -- and every gate in it was dropped from every path. The drawn eight-bit ripple adder's worst path was
+  4; it is 26, the carry through every copy. Which bit of a value depends on which, and which way round, is each
+  expression's own (`Expr.Depends`, `BitDeps`): a read, a select, a part-select, a concatenation, a widening and a shift
+  by a constant only move bits; `~` inverts each; AND and OR pass a change the same way round bit by bit, XOR either way;
+  a sum carries from the bottom bit up; a condition reaches every bit either way; anything else, every bit to every bit.
+  So a gate passes its own sense through what its input reads -- NOT of `~a` is the same way round -- and **an
+  assignment that only moves bits at no delay is a connection**, gone through but not listed: a port joined to `c[1]` is
+  one. A delayed assignment keeps its sense, rising at its rise.
+- **A junction** stands between many bits and many where every one depends on every one -- a combinational process, a
+  value too wide to follow bit by bit (over 4,096 bits) -- so they cost an arc each rather than one for every pair; a
+  process copying a 256-word memory of four-bit words was 66,820 arcs and is 2,088. It is a node of no signal, named for
+  its driver.
+  A combinational process reaches what it writes from what it reads **from outside**: what it both writes and reads is
+  its own working (`y = y ^ a[i]`), and a loop's variable no part of anything.
+- An edge-triggered process is a register: it captures the bits its statements read, its clock and asynchronous reset
+  left out, and launches the bits it writes; two writing one variable launch it at the later clock to Q. A tri-state's
+  control is taken at the latest of its rise, fall and turn-off, since the change it makes may be to z (tri-state buses
+  are 14f's). A register's delay that calls a function is the run's to know, and taken as 0. A loop of logic -- a latch
+  of two gates -- is found (strongly connected components, walked without recursion) and its arcs left out of every
+  path. Gates are counted by primitive and inputs. A design of more than a million bits (`TimingGraph.MaxBits`) is
+  refused, in words, rather than reckoned.
+- **Path delays** (`PathDelays`): every path from an input bit to an output bit, walked without recursion and capped at
+  10,000, each one's delay from its start rising and from it falling -- each gate adding its rise where its output rises
+  and its fall where it falls, a change flipping at an inverting gate, both ways followed and the later kept where a gate
+  can pass it either way. **The walk only goes where an output can be reached** (worked out first, back from the
+  outputs): the review timed the first version going down every way through 26 stages that split and met again before a
+  register -- 5 seconds, four times longer for each two stages more -- and finding none, since only an output counts and
+  the cap never came. Identical paths -- the same gates at the same delays in the same order -- are one, counted, with
+  every pair of ends; the worst comes first.
+- **Static timing** (`StaticTiming`): the latest each bit can rise and fall, worked out once in topological order from
   every register's launch at its clock to Q, and once from every input at 0. The slowest register-to-register path sets
   the **minimum period** -- clock to Q, the logic, and the capturing register's setup -- and beside it the slowest input
   to register, register to output, and input to output, each walked back along the arcs that set it.
@@ -2225,10 +2246,14 @@ computed and measured, registers given a clock to Q and a setup, a library mode 
 - **Checked.** `TimingTests`: by hand, an inverter chain (8 rising, 7 falling), a mux of gates (four paths, three of them
   identical, the select through the NOT the worst at 9), XOR passing a change either way, a NAND latch's loop found and
   never followed, a path through two instances listing only their gates, a pipeline's minimum period (clock to Q 1, logic
-  3, setup 2: 6), a counter feeding itself, and the gate count. `TimingAnalysisTests`: the Johnson counter with every
-  register at 2 and 3 clocked no faster than 6, an ideal register costing nothing as before, the clock to Q in the run
-  (every change 2 later), the save, a negative value refused, and a drawn full adder's two reckonings agreeing on its
-  slowest path. Oracle: the timed Johnson counter, a new sample board, printed and run under Icarus as here.
+  3, setup 2: 6), a counter feeding itself, and the gate count; and from the review, a NOT chain along the bits of one
+  vector (no loop, 8 and 7, and 8 between registers), a ripple adder of four full adders on a carry vector (19, the
+  carry), 2^40 ways to no output never walked and 2^20 to one stopped at the cap, a bit-select and a delayed assignment
+  keeping their sense, a parity process and a memory copy, a function in a register's delay, a tri-state's turn-off, and
+  two processes on one register. `TimingAnalysisTests`: the Johnson counter with every register at 2 and 3 clocked no
+  faster than 6, an ideal register costing nothing as before, the clock to Q in the run (every change 2 later), the save,
+  a negative value refused, a drawn full adder's two reckonings agreeing on its slowest path, and the drawn eight-bit
+  ripple adder's 26. Oracle: the timed Johnson counter, a new sample board, printed and run under Icarus as here.
 
 ---
 
