@@ -269,7 +269,7 @@ namespace BitSorter.View
                 return null;
             }
 
-            string name = WaveExport.FileName(WorkbenchSamples.Chip[_sample].Name, "zip");
+            string name = WaveExport.FileName(ExportName(), "zip");
             Notice("saved " + name + " " + FileSaver.Save(name, bytes, "application/zip") + ": unzip it, and in ModelSim type do run.do");
             return name;
         }
@@ -293,7 +293,7 @@ namespace BitSorter.View
                 return null;
             }
 
-            string name = WaveExport.FileName(WorkbenchSamples.Chip[_sample].Name + " submission", "zip");
+            string name = WaveExport.FileName(ExportName() + " submission", "zip");
             string uses = submission.NotHandedIn.Count == 0 ? ""
                 : ". It uses " + string.Join(", ", submission.NotHandedIn) + ", not in it: anything the course did not give you goes between the markers";
             Notice("saved " + name + " " + FileSaver.Save(name, submission.Zip, "application/zip") + ": " + string.Join(", ", submission.Files) +

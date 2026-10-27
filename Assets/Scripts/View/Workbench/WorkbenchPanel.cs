@@ -1043,7 +1043,7 @@ namespace BitSorter.View
             if (_model == null || _wave == null)
                 return null;
 
-            string name = WaveExport.FileName(WorkbenchSamples.Chip[_sample].Name, "png");
+            string name = WaveExport.FileName(ExportName(), "png");
             int step = Mathf.Clamp(Mathf.RoundToInt((float)(_model.Time * 10.0)), 0, _playheadTexts.Length - 1);
             byte[] bytes = WaveformPng.Render(_model, _appliedNames, _appliedHeaders, _wave.View, _playheadTexts[step],
                 _cursors, _playback.Breakpoints);
@@ -1061,7 +1061,7 @@ namespace BitSorter.View
             if (_model == null)
                 return null;
 
-            string name = WaveExport.FileName(WorkbenchSamples.Chip[_sample].Name, "vcd");
+            string name = WaveExport.FileName(ExportName(), "vcd");
             byte[] bytes = new System.Text.UTF8Encoding(false).GetBytes(WaveExport.Vcd(_model));
             Notice("saved " + name + " " + FileSaver.Save(name, bytes, "text/plain"));
             return name;
@@ -1730,6 +1730,8 @@ namespace BitSorter.View
             _timeMenu.Close();
             _exportMenu.Close();
             _fileMenu.Close();
+            _openMenu?.Close();
+            _circuitName?.Close();
             _ask.Close();
             _libraryMenu?.Close();
             _budgetField?.Close();

@@ -1905,6 +1905,7 @@ namespace BitSorter.PlayMode.Tests
             yield return null;
             Assert.AreEqual(Documents.KeyOf("half adder"), workbench.DocumentKey);
             Assert.IsTrue(store.HasProject(Documents.KeyOf("half adder")) && !store.HasProject(Documents.KeyOf("adder")), "kept under its new name");
+            Assert.AreEqual(WaveExport.FileName("half adder", "vcd"), workbench.ExportVcd(), "and exported under it, not MY CIRCUIT's");
 
             workbench.OpenOpenMenu();
             yield return null;
@@ -1925,6 +1926,36 @@ namespace BitSorter.PlayMode.Tests
             Assert.AreEqual(WorkbenchSamples.MyCircuitKey, workbench.DocumentKey, "and MY CIRCUIT opens in its place");
             Assert.IsFalse(store.HasProject(Documents.KeyOf("half adder")));
             Assert.IsEmpty(workbench.Session.Project.TopModule.Parts.OfType<GatePart>(), "with nothing of the deleted circuit's in it");
+        }
+
+        /// <summary>FILE, OPEN pages through the circuits twelve at a time (Part 15a), so none is out of reach.</summary>
+        [UnityTest]
+        public IEnumerator FileOpen_PagesThroughEveryCircuit()
+        {
+            yield return TestScene.Load();
+            yield return Click(MainMenu.WorkbenchButton);
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowSample(0);
+            yield return null;
+            ProgressStore store = Find<ProgressTracker>().Store;
+            for (int i = 1; i <= 15; i++)
+                store.SetProject(Documents.KeyOf("c" + i), Project.New("c" + i));
+
+            workbench.OpenOpenMenu();
+            yield return null;
+            Assert.AreEqual(DocumentMenu.Slots, workbench.OpenMenu.Listed.Count, "a page at a time");
+            Assert.IsTrue(workbench.OpenMenu.OffersOlder && !workbench.OpenMenu.OffersNewer, "the first page, the rest older");
+            yield return Click(DocumentMenu.OlderItem);
+            yield return null;
+            Assert.IsTrue(workbench.OpenMenu.IsOpen, "OLDER keeps the list up");
+            Assert.AreEqual(16 - DocumentMenu.Slots, workbench.OpenMenu.Listed.Count, "the rest on the next page");
+            Assert.IsTrue(workbench.OpenMenu.OffersNewer && !workbench.OpenMenu.OffersOlder, "the last page, the rest newer");
+
+            int at = workbench.OpenMenu.Listed.ToList().FindIndex(key => key != WorkbenchSamples.MyCircuitKey);
+            string chosen = workbench.OpenMenu.Listed[at];
+            yield return Click(DocumentMenu.SlotName(at));
+            yield return null;
+            Assert.AreEqual(chosen, workbench.DocumentKey, "and one there opens");
         }
 
         /// <summary>
@@ -2030,7 +2061,8 @@ namespace BitSorter.PlayMode.Tests
             Module mux = workbench.Session.Project.Find("mux2");
             Assert.AreEqual("mux2.sv", mux.Template?.File, "sanity: the import remembered the template");
             Assert.AreEqual("mux2", workbench.Session.Module, "sanity: the code shown is the design's");
-            string path = System.IO.Path.Combine(FileSaver.Folder, WaveExport.FileName(WorkbenchSamples.Chip[0].Name + " submission", "zip"));
+            Assert.AreEqual(Documents.KeyOf("mux2"), workbench.DocumentKey, "sanity: the import is a circuit of its own (Part 15a)");
+            string path = System.IO.Path.Combine(FileSaver.Folder, WaveExport.FileName("mux2 submission", "zip"));   // named after it
             Assert.IsNotNull(FileSaver.Redirected, "sanity: the Exports folder is the test's scratch one, never the player's");
             if (System.IO.File.Exists(path))
                 System.IO.File.Delete(path);   // an earlier run's, in the scratch folder

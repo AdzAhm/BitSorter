@@ -383,6 +383,24 @@ namespace BitSorter.View
         public static float TextWidth(string text, UiType type) =>
             string.IsNullOrEmpty(text) ? 0f : Ruler(type, 0f).GetPreferredValues(text, float.PositiveInfinity, 0f).x;
 
+        /// <summary>
+        /// <paramref name="text"/> as it fits <paramref name="width"/> on one line in <paramref name="type"/>: whole, or cut
+        /// short with "..." -- for a name in a box that must not clip what stands beside it, as an ellipsis style clips the box's
+        /// own children (Part 15a's circuit names).
+        /// </summary>
+        public static string Shortened(string text, float width, UiType type)
+        {
+            if (string.IsNullOrEmpty(text) || TextWidth(text, type) <= width)
+                return text ?? "";
+            for (int length = text.Length - 1; length > 1; length--)
+            {
+                string shortened = text.Substring(0, length).TrimEnd() + "...";
+                if (TextWidth(shortened, type) <= width)
+                    return shortened;
+            }
+            return text.Substring(0, 1) + "...";
+        }
+
         private static TextMeshProUGUI Ruler(UiType type, float lineSpacing)
         {
             if (_ruler == null)

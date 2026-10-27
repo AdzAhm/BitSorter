@@ -66,17 +66,16 @@ namespace BitSorter.View
             if (_documentKey == WorkbenchSamples.MyCircuitKey)
                 return SampleCaption(0);
 
-            string name = Documents.NameOf(_documentKey).ToUpperInvariant();
-            if (UiTheme.TextWidth(name, UiType.Body) <= _chipTextWidth)
-                return name;
-            for (int length = name.Length - 1; length > 1; length--)
-            {
-                string shortened = name.Substring(0, length).TrimEnd() + "...";
-                if (UiTheme.TextWidth(shortened, UiType.Body) <= _chipTextWidth)
-                    return shortened;
-            }
-            return name.Substring(0, 1) + "...";
+            return UiTheme.Shortened(Documents.NameOf(_documentKey).ToUpperInvariant(), _chipTextWidth, UiType.Body);
         }
+
+        /// <summary>
+        /// What an export of what is shown is named after: a circuit of the student's by its name, MY CIRCUIT and a sample by
+        /// theirs. Every circuit was exported as MY CIRCUIT, so on a desktop the second's zip overwrote the first's (the #83
+        /// review).
+        /// </summary>
+        private string ExportName() =>
+            _sample == 0 && Documents.IsOwn(_documentKey) ? Documents.NameOf(_documentKey) : WorkbenchSamples.Chip[_sample].Name;
 
         /// <summary>What the SAMPLE chip says for its place <paramref name="sample"/>: the circuit open, or a sample.</summary>
         private string ChipCaption(int sample) => sample == 0 ? DocumentCaption() : SampleCaption(sample);
@@ -89,6 +88,8 @@ namespace BitSorter.View
         {
             if (Root == null || !Documents.IsDocument(key))
                 return;
+            if (key == _documentKey && _sample == 0)
+                return;   // open already: opening it again would build it again, its selection and undo lost (the #83 review)
 
             KeepMyCircuit(now: true);
             if (_session != null)
@@ -125,7 +126,7 @@ namespace BitSorter.View
         {
             if (_sample != 0 || !Documents.IsOwn(_documentKey))
             {
-                Notice("MY CIRCUIT keeps its name: FILE, NEW makes a circuit you can name");
+                Notice((_sample != 0 ? "a sample" : "MY CIRCUIT") + " keeps its name: FILE, NEW makes a circuit you can name");
                 return;
             }
 
@@ -198,7 +199,7 @@ namespace BitSorter.View
         {
             if (_sample != 0 || !Documents.IsOwn(_documentKey))
             {
-                Notice("MY CIRCUIT is always there, so it cannot be deleted");
+                Notice(_sample != 0 ? "a sample is not yours to delete: FILE, OPEN goes back to your circuits" : "MY CIRCUIT is always there, so it cannot be deleted");
                 return;
             }
 
