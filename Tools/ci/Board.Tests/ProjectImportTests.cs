@@ -99,6 +99,22 @@ namespace BitSorter.Board.Tests
             StringAssert.Contains("mux2 dut (", project.Find("mux2_tb").Source, "a written module is its own text");
         }
 
+        /// <summary>
+        /// A written module exported and imported again is the text it was. An import keeps the comments just above a
+        /// module, and the export heads each written module's file with "// reg4: written in BitSorter.", so each round
+        /// added that line once more (found by the 14g-4 review).
+        /// </summary>
+        [Test]
+        public void AWrittenModule_ExportedAndImportedAgain_IsTheTextItWas()
+        {
+            Project project = Import(("reg4.sv", Register), ("pipe.sv", Pipeline)).Project;
+            IReadOnlyList<PrintedSource> printed = BoardPrinter.Print(project);
+            StringAssert.Contains("// reg4: written in BitSorter.", printed.Single(p => p.Path == "reg4.sv").Text, "sanity: the export's header");
+
+            Project again = Import(printed.Select(p => (p.Path, p.Text)).ToArray()).Project;
+            Assert.AreEqual(project.Find("reg4").Source, again.Find("reg4").Source);
+        }
+
         [Test]
         public void AStructuralModule_OverAWrittenOne_IsDrawn_WithItAsABlock()
         {
