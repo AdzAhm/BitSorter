@@ -2316,6 +2316,39 @@ computed and measured, registers given a clock to Q and a setup, a library mode 
   5 with a clock to Q typed in its quick field. Reference shot 47: the TIMING tab over the full adder, its critical path
   lit.
 
+**As built in Part 14c**: step tests, and the measured worst.
+
+- **`StepTests`** (Board) makes two stimuli from the top module's input bits (a bus a bit at a time, named `a[2]`):
+  **STEP TEST's**, every input at 0 and then each bit in turn rising, left to settle, falling, left to settle -- a delay
+  read off the waves with the cursors -- and **the measuring run's**, each bit stepped up and back down from every value
+  of the others, those walked in Gray order so one changes between one pair of steps and the next. Each step is left
+  **the slowest computed path and half again** (`SettleFor`, at least 2): static timing's path is the latest any change
+  can arrive, so every change a step makes falls before the next step. Exhaustive is for at most ten input bits, 5,120
+  pairs of steps; STEP TEST steps up to 64 and holds the rest at 0, and an input driven as a clock keeps its clock.
+- **`StepMeasure`** (view-model) runs the measuring stimulus on a copy of the document -- its own stimulus, a written
+  testbench set aside -- a slice a frame at half a run's budget, and reads the waves: after each step, the last change of
+  each output bit before the next, the slowest kept for each input and output bit, rising and falling apart, with the
+  inputs as they stood before the step that showed it (`a = 0, b = 1, cin = 0`). **A glitch counts**: a change that comes
+  and goes is a change, as it is on the waves. Only a circuit without registers, which one with them is timed by its
+  clock, and of at most ten input bits; otherwise the tab says why.
+- **`TimingView.With`** lays what was measured on the computed timing: the slowest seen beside the critical path
+  (MEASURED WORST), a line for each input and output, and **every computed path longer than anything measured from its
+  input to its output marked "never fires"** -- a false path. Identical paths are one line, but a false path can have the
+  same gates in the same order as a true one, so a line of both is split in two, each lighting its own path
+  (`TimingPath.ArcsOf` keeps each identical path's arcs for this).
+- **The TIMING tab** measures while it is up and an edit starts it again, its header saying how far it has got; **STEP
+  TEST** beside it makes the document's stimulus a step test, one undo step, refused for a design a written testbench
+  drives. A bit is named by its signal's range in both reckonings (`TimingGraph.BitName`), so `[0:3]` agrees too.
+- **Checked.** `StepTestsTests`: the settle time; STEP TEST stepping a, b and cin in turn; the measuring run's 24 steps on
+  three inputs, each standing at its word before it with only its bit moving and nothing else while it settles; a bus a
+  bit at a time; eleven bits refused. `StepMeasureTests`: the full adder seen at its computed 4 (and cin's 2), nothing
+  marked; a false path -- y = s ? (s ? a : b) : c of gates, b's path of four computed at 8 and never moving y, marked,
+  split from a's identical one, which fires at 8, and s's slowest a glitch at 9, as computed; a register refused; the
+  document's own stimulus untouched; STEP TEST in one undo step. Oracle: the full adder and the false path driven by the
+  measuring stimulus (`full_adder_steps`, `false_path_steps`) run under Icarus change for change, 668 and 1,069 settled
+  changes -- what is measured here is what Icarus would measure. Play Mode: the TIMING tab measuring the full adder to
+  its 4, and STEP TEST making the stimulus and undone.
+
 ---
 
 ## 11. The parts
@@ -2338,7 +2371,7 @@ Each part is one pull request into `v5`, ends with every suite green, and leaves
 | 11 | The workbench shell, in UI Toolkit -- **built**, in four: 11a the bridges and the toolbar; 11b the docked layout -- its panels (11b-1), the inspector docked (11b-2), the popups in the shell (11b-3); 11c the transcript and the hierarchy; 11d the keyboard map, the status line and the docs |
 | 12 | Hierarchy, and written blocks, edited in CodeMirror in a browser -- in six: 12a stepping inside a block **built** (see "As built in Part 12a"); 12b making a block **built** (see "As built in Part 12b"); 12c arrays **built** (see "As built in Part 12c"); 12d code blocks **built** (see "As built in Part 12d"); 12e the code panel **built** (see "As built in Part 12e"); 12f CodeMirror **built** (see "As built in Part 12f") |
 | 13 | Export and import (and a levelized path in the engine, only if a measurement asks for it) -- in six: 13a exporting a project **built** (see "As built in Part 13a"); 13b importing one **built** (see "As built in Part 13b"); 13c CONVERT **built** (see "As built in Part 13c"); 13d files **built** (see "As built in Part 13d"); 13e templates **built** (see "As built in Part 13e"); 13f limits, the security review, the measurement and the browser check **built** (see "As built in Part 13f"; the levelized path is not needed). **Part 13 is built.** |
-| 14 | The course's tools: path delays, static timing, gate-library mode, step tests, lint, tri-state -- in six: 14a the timing analysis core and 14b the TIMING tab **built** (see "As built in Part 14a" and "14b"); 14c step tests, 14d gate-library mode, 14e lint, 14f tri-state buses |
+| 14 | The course's tools: path delays, static timing, gate-library mode, step tests, lint, tri-state -- in six: 14a the timing analysis core, 14b the TIMING tab and 14c step tests **built** (see "As built in Part 14a", "14b" and "14c"), 14d gate-library mode, 14e lint, 14f tri-state buses |
 | 15 | The Exercises and the tutorial |
 | 16 | The old game retired, and a smaller download; 5.0.0 released |
 

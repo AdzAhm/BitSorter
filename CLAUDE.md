@@ -672,7 +672,8 @@ failure side.
   the splitter, the dock with WAVES, TRANSCRIPT, CODE (the SystemVerilog the
   document prints as, read-only, Part 12e) and TIMING (the paths, the critical
   path, the minimum period and the gate count, the path picked lit on the
-  canvas while the tab is up, Part 14b), and a one-line status that
+  canvas while the tab is up, Part 14b; the worst measured by stepping every
+  input, the paths that never fire marked, and STEP TEST, 14c), and a one-line status that
   names the gestures where the pointer is. **The drawings stay uGUI** -- the
   circuit, the waves, the legend, the minimap -- each placed under the panel
   that frames it, at its own size; a panel's middle takes no clicks. Its popups
