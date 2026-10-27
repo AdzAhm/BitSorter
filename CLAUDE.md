@@ -927,6 +927,12 @@ failure side.
   takes Escape before the workbench does. **The parts are a panel of the shell**
   (Part 11b), and **the splitter over the dock is a shell control**, so a drag on
   it is never the circuit's; the wheel over the waves' names scrolls their rows.
+  **A right-click on a BLOCKS row in PARTS deletes its module** (Part 14g), after a
+  question -- Ctrl+Z still brings it back -- and is refused, saying where, while a
+  block of it is placed or other code makes one. Deleting a block leaves its module,
+  the player's work, so the bar's line says so and how it goes: Ahmad deleted
+  code1's block and found code1 still in CODE and PARTS, with nothing in the
+  workbench to take it out (2026-10-27).
   **A double-click is counted on the game's clock**
   (`Time.timeAsDouble`), which a test drives, so a test's double-click is one
   however loaded the machine; nothing in the game changes the time scale.

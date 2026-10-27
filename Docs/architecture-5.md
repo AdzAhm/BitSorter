@@ -2483,6 +2483,16 @@ computed and measured, registers given a clock to Q and a setup, a library mode 
   one inside a wrapper, the testbench driving it too through a gate and an assignment -- agrees with Icarus on every
   signal and every line printed.
 
+**As built in Part 14g**, the follow-ups Ahmad asked for once Part 14 was in (2026-10-27), in four PRs.
+
+- **A module can be deleted (14g-1).** Deleting a block leaves its module in the project -- it is the player's drawing
+  or code -- and nothing in the workbench could take one out: `BoardEditor.RemoveModule` had no caller, so code1 stayed
+  in CODE and PARTS after its block went. A right-click on a module's row in PARTS asks first (`AskMenu`) and deletes
+  it, one step Ctrl+Z puts back. `BoardEditor.WhyNotRemoveModule` refuses the top, a module a block of which is placed,
+  and one another module's code makes, each saying where, and the workbench asks it before asking the question. Deleting
+  a module's last block says, in the bar's line, that the module stays and how it goes (`CanvasEditor.Note`); over a
+  BLOCKS row the status line says the same (`PointerArea.Blocks`), and the keyboard map lists the gesture.
+
 ---
 
 ## 11. The parts
@@ -2505,7 +2515,7 @@ Each part is one pull request into `v5`, ends with every suite green, and leaves
 | 11 | The workbench shell, in UI Toolkit -- **built**, in four: 11a the bridges and the toolbar; 11b the docked layout -- its panels (11b-1), the inspector docked (11b-2), the popups in the shell (11b-3); 11c the transcript and the hierarchy; 11d the keyboard map, the status line and the docs |
 | 12 | Hierarchy, and written blocks, edited in CodeMirror in a browser -- in six: 12a stepping inside a block **built** (see "As built in Part 12a"); 12b making a block **built** (see "As built in Part 12b"); 12c arrays **built** (see "As built in Part 12c"); 12d code blocks **built** (see "As built in Part 12d"); 12e the code panel **built** (see "As built in Part 12e"); 12f CodeMirror **built** (see "As built in Part 12f") |
 | 13 | Export and import (and a levelized path in the engine, only if a measurement asks for it) -- in six: 13a exporting a project **built** (see "As built in Part 13a"); 13b importing one **built** (see "As built in Part 13b"); 13c CONVERT **built** (see "As built in Part 13c"); 13d files **built** (see "As built in Part 13d"); 13e templates **built** (see "As built in Part 13e"); 13f limits, the security review, the measurement and the browser check **built** (see "As built in Part 13f"; the levelized path is not needed). **Part 13 is built.** |
-| 14 | The course's tools: path delays, static timing, gate-library mode, step tests, lint, tri-state -- in six, **built**: 14a the timing analysis core, 14b the TIMING tab, 14c step tests, 14d gate-library mode, 14e lint and 14f tri-state buses and inout (see "As built in Part 14a" to "14f") |
+| 14 | The course's tools: path delays, static timing, gate-library mode, step tests, lint, tri-state -- in six, **built**: 14a the timing analysis core, 14b the TIMING tab, 14c step tests, 14d gate-library mode, 14e lint and 14f tri-state buses and inout (see "As built in Part 14a" to "14f"); and 14g, its follow-ups: deleting a module, the code editor's keys, the library held in written code and over budget, and inout pins on written blocks (see "As built in Part 14g") |
 | 15 | The Exercises and the tutorial |
 | 16 | The old game retired, and a smaller download; 5.0.0 released |
 
