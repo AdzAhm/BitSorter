@@ -526,6 +526,28 @@ namespace BitSorter.ViewModel.Tests
             Assert.AreNotEqual(-1, session.Listing.FileOf("code1"), "one step: undo puts it back");
         }
 
+        /// <summary>
+        /// A block in hand of a module an undo took away -- a MAKE BLOCK undone, the new block taken from PARTS first -- is put
+        /// down: it has nothing to place, and every click on the circuit would be refused, with no row in PARTS to put it back
+        /// by (found by the 14g review).
+        /// </summary>
+        [Test]
+        public void ABlockInHand_OfAModuleAnUndoTookAway_IsPutDown()
+        {
+            var session = new WorkbenchSession(WorkbenchSamples.FullAdder(), Ticking(0.01));
+            session.Finish();
+            var editor = new CanvasEditor(session);
+            editor.Selection.Pick(new CanvasTarget(CanvasTargetKind.Part, part: session.Project.TopModule.FindPart("h2").Id), false, false);
+            Assert.IsTrue(editor.MakeBlock("tail").Done);
+            editor.Take(PartsCatalog.For(session.Project, session.Module).Single(e => e.Module == "tail"));
+            Assert.IsNotNull(editor.InHand, "sanity: a block of tail in hand");
+
+            Assert.IsTrue(session.Undo());
+            editor.Relaid();
+            Assert.IsNull(session.Project.Find("tail"), "sanity: the undo took tail away");
+            Assert.IsNull(editor.InHand, "a block of a module that is not there is put down");
+        }
+
         [Test]
         public void ABlankDocument_OpensAndRuns_AndTakesItsFirstPart()
         {
