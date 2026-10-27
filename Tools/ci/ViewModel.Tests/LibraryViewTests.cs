@@ -106,5 +106,16 @@ namespace BitSorter.ViewModel.Tests
             StringAssert.EndsWith("over the library's budget of 4", over.Text);
             Assert.AreEqual(TimingLineKind.Problem, over.Kind);
         }
+
+        /// <summary>The budget changed and nothing else, the session's timing says the new one: no gate moved, but its line did.</summary>
+        [Test]
+        public void ABudgetChanged_IsSaidAtOnce()
+        {
+            WorkbenchSession session = Under(GateLibrary.CourseCells(1) with { GateBudget = 5 });
+            StringAssert.EndsWith("the library's budget is 5", session.Timing.Lines.Single(l => l.Label == "GATE COUNT").Text);
+
+            Assert.IsTrue(session.SetLibrary(session.Project.Settings.Library with { GateBudget = 4 }).Done);
+            StringAssert.EndsWith("over the library's budget of 4", session.Timing.Lines.Single(l => l.Label == "GATE COUNT").Text);
+        }
     }
 }
