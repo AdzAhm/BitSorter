@@ -5,8 +5,9 @@ using ShellButton = UnityEngine.UIElements.Button;
 namespace BitSorter.View
 {
     /// <summary>
-    /// A question before something that cannot be taken back at a click (Part 13d): replacing MY CIRCUIT with an import,
-    /// converting a testbench. The question, then the thing to do and CANCEL; Escape or a click off it is CANCEL.
+    /// A question before something a click should not do by itself (Part 13d): replacing MY CIRCUIT with an import,
+    /// converting a testbench, deleting a module (Part 14g, which Ctrl+Z still brings back). The question, then the thing to
+    /// do and CANCEL; Escape or a click off it is CANCEL.
     /// </summary>
     public sealed class AskMenu : WaveMenu
     {

@@ -538,6 +538,23 @@ namespace BitSorter.ViewModel.Tests
             Assert.IsNull(editor.InHand);
         }
 
+        /// <summary>The last blocks of two modules deleted at once: the note names both (the 14g review found only the first named).</summary>
+        [Test]
+        public void TheLastBlocksOfTwoModules_DeletedTogether_AreBothNamed()
+        {
+            (WorkbenchSession session, CanvasEditor editor, int _, int _, int _, int _) = Editing();
+            Assert.IsTrue(session.AddWrittenModule("code1").Done);
+            Assert.IsTrue(session.AddWrittenModule("code2").Done);
+            int one = session.Place(PartsCatalog.For(session.Project, session.Module).Single(e => e.Module == "code1"), new Placement(8, 4)).Id;
+            int two = session.Place(PartsCatalog.For(session.Project, session.Module).Single(e => e.Module == "code2"), new Placement(8, 8)).Id;
+            editor.Relaid();
+            editor.Selection.Pick(new CanvasTarget(CanvasTargetKind.Part, part: one), false, false);
+            editor.Selection.Pick(new CanvasTarget(CanvasTargetKind.Part, part: two), extend: true, toggle: false);
+
+            Assert.IsTrue(editor.Delete().Done);
+            StringAssert.StartsWith("code1 and code2 stay in the project", editor.Note);
+        }
+
         /// <summary>
         /// A block in hand of a module an undo took away -- a MAKE BLOCK undone, the new block taken from PARTS first -- is put
         /// down: it has nothing to place, and every click on the circuit would be refused, with no row in PARTS to put it back

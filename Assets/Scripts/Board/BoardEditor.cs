@@ -535,7 +535,8 @@ namespace BitSorter.Board
 
                 foreach (Part part in other.Parts)
                     if (part is BlockPart block && block.Module == name)
-                        return $"{name} is in use: {other.Name} has a block of it, {block.Name}. Delete that block first.";
+                        return $"{name} is in use: {other.Name} has a block of it, {block.Name}. Delete that block first" +
+                            (other.Name == Project.Top ? "." : $", inside {other.Name}: double-click a block of {other.Name} to step in.");
             }
 
             return null;

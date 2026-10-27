@@ -778,12 +778,19 @@ namespace BitSorter.ViewModel
             if (result.Done)
             {
                 Selection.Clear();
+                var left = new List<string>();
+                bool written = false;
                 foreach (string name in modules)
-                    if (_session.Project.Find(name) is Module left && _session.WhyNotRemoveModule(name) == null)
+                    if (_session.Project.Find(name) is Module kept && _session.WhyNotRemoveModule(name) == null)
                     {
-                        Note = $"{name} stays in the project, as its {(left.IsWritten ? "code" : "drawing")} does: right-click it in PARTS to delete it.";
-                        break;
+                        left.Add(name);
+                        written |= kept.IsWritten;
                     }
+
+                if (left.Count == 1)
+                    Note = $"{left[0]} stays in the project, as its {(written ? "code" : "drawing")} does: right-click it in PARTS to delete it.";
+                else if (left.Count > 1)
+                    Note = $"{string.Join(" and ", left)} stay in the project, as their work does: right-click one in PARTS to delete it.";
             }
 
             Version++;

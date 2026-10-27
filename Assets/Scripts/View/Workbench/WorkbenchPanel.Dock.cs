@@ -100,7 +100,7 @@ namespace BitSorter.View
         /// <summary>Where the pointer was when the status line last named its gestures.</summary>
         private PointerArea _statusArea = PointerArea.Elsewhere;
 
-        /// <summary>The status line naming the gestures of the circuit or the waves, whichever the pointer is over, and ? for every key.</summary>
+        /// <summary>The status line naming the gestures of the circuit, the waves or a BLOCKS row in PARTS, whichever the pointer is over, and ? for every key.</summary>
         private void ShowStatus(Vector2 pointer)
         {
             PointerArea area = InView(pointer, out _) ? PointerArea.Circuit
@@ -280,7 +280,8 @@ namespace BitSorter.View
             _partsThumb.style.position = Position.Absolute;
             _partsThumb.style.backgroundColor = palette.Muted;
             _partsPanel.Add(_partsThumb);
-            _partsScroll = 0f;
+            // The scroll is kept, and clamped to the new list as its tab shows it (ScrollParts): a module deleted from
+            // BLOCKS, at the list's foot, put the list back at its top every time (the 14g review).
 
             // PARTS and DESIGN (Part 11c), over the entries and the hierarchy.
             BuildLeftTabs(palette);

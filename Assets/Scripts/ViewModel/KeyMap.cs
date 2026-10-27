@@ -38,8 +38,8 @@ namespace BitSorter.ViewModel
 
     /// <summary>
     /// The keyboard map (Part 11d), Unity-free: every key the workbench answers, from <see cref="WorkbenchKeys"/> alone, under
-    /// RUN, CIRCUIT, WAVES and VIEW, and the mouse's gestures on the circuit and the waves -- what <c>?</c> shows; and the
-    /// status line's one line for where the pointer is.
+    /// RUN, CIRCUIT, WAVES and VIEW, and the mouse's gestures on the circuit, the waves and in PARTS -- what <c>?</c> shows;
+    /// and the status line's one line for where the pointer is.
     /// </summary>
     /// <remarks>
     /// **No second copy of a key**: a key's lines are made from its binding, so the map, the caps over the buttons and the
@@ -68,7 +68,7 @@ namespace BitSorter.ViewModel
         /// </summary>
         public static readonly IReadOnlyList<KeyMapEntry> PartsGestures = new[]
         {
-            new KeyMapEntry("RIGHT-CLICK", "a block's row to delete its module, once none of it is placed"),
+            new KeyMapEntry("RIGHT-CLICK", "a block's row to delete its module, once nothing uses it"),
         };
 
         /// <summary>The gestures on the waves, as the map lists them.</summary>

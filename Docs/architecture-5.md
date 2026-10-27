@@ -2491,7 +2491,9 @@ computed and measured, registers given a clock to Q and a setup, a library mode 
   it, one step Ctrl+Z puts back. `BoardEditor.WhyNotRemoveModule` refuses the top, a module a block of which is placed,
   and one another module's code makes, each saying where, and the workbench asks it before asking the question. Deleting
   a module's last block says, in the bar's line, that the module stays and how it goes (`CanvasEditor.Note`); over a
-  BLOCKS row the status line says the same (`PointerArea.Blocks`), and the keyboard map lists the gesture.
+  BLOCKS row the status line names the gesture (`PointerArea.Blocks`), and the keyboard map lists it under IN PARTS. A
+  block in hand of a module taken away is put down (`CanvasEditor.Relaid`), and PARTS keeps its scroll when it is laid
+  again. Only the written testbench's going makes the run again: a module nothing uses takes nothing from it.
 
 ---
 

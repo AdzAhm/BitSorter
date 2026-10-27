@@ -314,9 +314,15 @@ namespace BitSorter.ViewModel
 
         /// <summary>
         /// The module <paramref name="name"/> taken out of the project, its code or its drawing with it
-        /// (<see cref="BoardEditor.RemoveModule"/>): one step, and replayed, since the written testbench is a module too.
+        /// (<see cref="BoardEditor.RemoveModule"/>): one step. Nothing the run makes uses it, or it could not go, so the run
+        /// is made again only for the written testbench, whose going hands the inputs back to the stimulus.
         /// </summary>
-        public EditResult RemoveModule(string name) => Edited(Editor.RemoveModule(name));
+        public EditResult RemoveModule(string name)
+        {
+            bool bench = name == Project.Bench;
+            EditResult result = Editor.RemoveModule(name);
+            return bench ? Edited(result) : Laid(result);
+        }
 
         /// <summary>Why <paramref name="name"/> cannot be taken out -- something uses it -- or null when it can (<see cref="BoardEditor.WhyNotRemoveModule"/>).</summary>
         public string WhyNotRemoveModule(string name) => Editor.WhyNotRemoveModule(name);

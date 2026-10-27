@@ -334,6 +334,27 @@ namespace BitSorter.Board.Tests
             Assert.AreEqual("bench", editor.Project.Bench);
         }
 
+        /// <summary>
+        /// A module only the written testbench uses cannot be deleted while it does, the refusal naming the testbench (Part
+        /// 14g); taken out of the testbench's code first, it can.
+        /// </summary>
+        [Test]
+        public void AModuleOnlyTheTestbenchUses_IsNotDeleted_TheRefusalNamingIt()
+        {
+            const string helper = "module helper (output logic one);\n    assign one = 1'b1;\nendmodule\n";
+            string bench = MuxBench.Replace("mux2 dut (", "logic spare;\n    helper h (.one(spare));\n    mux2 dut (");
+            StringAssert.Contains("helper h", bench, "sanity: the testbench makes a helper");
+            var editor = new BoardEditor(Import(("mux2.sv", Mux), ("helper.sv", helper), ("mux2_tb.sv", bench)).Project);
+            Assert.IsNotNull(editor.Project.Find("helper"), "sanity: imported as a module of its own");
+
+            EditResult refused = editor.RemoveModule("helper");
+            Assert.IsFalse(refused.Done);
+            StringAssert.Contains("mux2_tb's code makes a helper", refused.Refusal);
+
+            Assert.IsTrue(editor.RemoveModule("mux2_tb").Done, "the testbench itself can go, handing the inputs back");
+            Assert.IsTrue(editor.RemoveModule("helper").Done, "and then nothing uses the helper");
+        }
+
         [Test]
         public void ATestbenchThatMakesTheDesignInsideAGenerateIf_IsToldWhy()
         {
