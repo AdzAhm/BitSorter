@@ -2408,6 +2408,35 @@ computed and measured, registers given a clock to Q and a setup, a library mode 
   NAND2, and XOR refused from the menu with the rules' words on the chip. Reference shot 48: the LIBRARY menu over the
   TIMING tab, the full adder held to the course's cells.
 
+**As built in Part 14e**: lint, as `vlog` warns.
+
+- **Four warnings beside the latch check (SV0401)**, in the elaborator's lint pass once the design is built
+  (`Elaborator.Lint.cs`, `LintDesign`), each at the signal's declaration or the assignment's line and said once however
+  many times its module is placed; never an error, so a run goes on:
+  - **SV0402**, a signal something reads that nothing drives or sets -- it reads z, or x for a variable. Every read
+    counts: values, conditions, delays, where a write lands, what is waited on and printed, and what the functions
+    called read in turn (`ProcessInfo.CollectAllReads`).
+  - **SV0403**, a signal set that nothing reads -- **only inside an instance of a module**: the top's signals are
+    watched on the waves, and an interface's are there for what is outside it, as a port's are.
+  - **SV0404**, a net with drivers on the same bits not all of which can let go: a tri-state gate can, and so can an
+    assignment whose value can be z (`Expr.CanFloat`), so a bus driven the course's way is said nothing of.
+  - **SV0405**, a plain value -- a name, a select, a concatenation of those -- given to something narrower, its top
+    bits dropped. Anything with an operator is sized by its context, a number fits or is cut as written, an int is a
+    testbench walking its values and a real is converted, so none of those is said.
+- A port is left alone throughout -- what is outside drives or reads it, and an input of an instance left unconnected
+  is SV0313 where it is placed -- and so are a process's own working variable, an event and a memory.
+- **A written block is linted where it is written** (`WrittenModules`): as the top for SV0402, SV0404 and SV0405, as an
+  instance for SV0403, and its warnings reach the TRANSCRIPT at its own lines. **A drawn module's** are the rules':
+  `BoardRules` already said an input nothing drives, and refuses two drivers on a wire and wires of different widths;
+  14e adds **a gate, a MUX or a register that drives nothing** -- a splitter's spare bit, an unused input and a block's
+  spare output being the ordinary way of things.
+- **Icarus is a quieter judge** (`Docs/oracle-notes.md`, "Lint"): `-Wall` says none of the four, and
+  `-Wfloating-nets` says every net with no driver, the top's inputs included. The oracle's whole corpus raises none.
+- **Checked.** `DesignLintTests`: each warning raised by a design written to raise it, at its line, and not by the
+  cases it leaves alone -- an interface's signal, a top's, two tri-state gates or two assignments that let go, bits of
+  their own, a sum, a number, an int, a real -- and the corpus raising none. `LintTests` keeps the latch check's.
+  `BoardEditorTests`: a gate that drives nothing a warning. `WrittenModuleTests`: a written block's lint at its lines.
+
 ---
 
 ## 11. The parts
@@ -2430,7 +2459,7 @@ Each part is one pull request into `v5`, ends with every suite green, and leaves
 | 11 | The workbench shell, in UI Toolkit -- **built**, in four: 11a the bridges and the toolbar; 11b the docked layout -- its panels (11b-1), the inspector docked (11b-2), the popups in the shell (11b-3); 11c the transcript and the hierarchy; 11d the keyboard map, the status line and the docs |
 | 12 | Hierarchy, and written blocks, edited in CodeMirror in a browser -- in six: 12a stepping inside a block **built** (see "As built in Part 12a"); 12b making a block **built** (see "As built in Part 12b"); 12c arrays **built** (see "As built in Part 12c"); 12d code blocks **built** (see "As built in Part 12d"); 12e the code panel **built** (see "As built in Part 12e"); 12f CodeMirror **built** (see "As built in Part 12f") |
 | 13 | Export and import (and a levelized path in the engine, only if a measurement asks for it) -- in six: 13a exporting a project **built** (see "As built in Part 13a"); 13b importing one **built** (see "As built in Part 13b"); 13c CONVERT **built** (see "As built in Part 13c"); 13d files **built** (see "As built in Part 13d"); 13e templates **built** (see "As built in Part 13e"); 13f limits, the security review, the measurement and the browser check **built** (see "As built in Part 13f"; the levelized path is not needed). **Part 13 is built.** |
-| 14 | The course's tools: path delays, static timing, gate-library mode, step tests, lint, tri-state -- in six: 14a the timing analysis core, 14b the TIMING tab, 14c step tests and 14d gate-library mode **built** (see "As built in Part 14a", "14b", "14c" and "14d"), 14e lint, 14f tri-state buses |
+| 14 | The course's tools: path delays, static timing, gate-library mode, step tests, lint, tri-state -- in six: 14a the timing analysis core, 14b the TIMING tab, 14c step tests, 14d gate-library mode and 14e lint **built** (see "As built in Part 14a", "14b", "14c", "14d" and "14e"), 14f tri-state buses |
 | 15 | The Exercises and the tutorial |
 | 16 | The old game retired, and a smaller download; 5.0.0 released |
 
