@@ -87,8 +87,8 @@ namespace BitSorter.View
                 _title.text = title;
             _popup.Open(screenPoint, new Vector2(Width, Pad + 30f + FieldHeight + Pad));
             _field.SetValueWithoutNotify(name ?? "");
-            _field.Focus();
-            _field.SelectAll();
+            // The frame after, its text all chosen: + CODE and MAKE BLOCK open it under the pointer, on their own click.
+            ShellPanel.FocusAfterTheKey(_field, selectAll: true);
             UiEscape.Opened(this);
         }
 

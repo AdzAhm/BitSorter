@@ -46,6 +46,10 @@ namespace BitSorter.View
         private static TextField _holder;
         private static int _holderFrame = -1;
 
+        // What was chosen in the holder at the end of the last frame it had the keyboard, -1 before it has had it a frame:
+        // what it is given back with.
+        private static int _holderCursor = -1, _holderSelect = -1;
+
         // A field a key asked to be given the keyboard, the frame it asked in, and whether all of its text is chosen.
         private static TextField _afterKey;
         private static int _afterKeyFrame = -1;
@@ -143,16 +147,20 @@ namespace BitSorter.View
                 return;
             _holder = field;
             _holderFrame = Time.frameCount;
+            _holderCursor = _holderSelect = -1;
         }
 
         /// <summary>
         /// Gives <paramref name="field"/> the keyboard in the frame after this one -- all of its text chosen when
-        /// <paramref name="selectAll"/> -- for a field a key asks for: A for the + SIGNAL list, Enter for the inspector.
+        /// <paramref name="selectAll"/> -- for a field a key or a click asks for: A for the + SIGNAL list, Enter for the
+        /// inspector, + CODE for the new block's name.
         /// </summary>
         /// <remarks>
         /// The platform hands a key to UI Toolkit as well as to the game, and in the browser that half can arrive after
         /// the game has read the key. A field given the keyboard in its key's frame took the key as well: A typed an "a"
         /// into the search it opened, and Enter submitted the field it asked to start typing in (the Part 11d smoke test).
+        /// A click the same the other way round: the game read + CODE's press a frame after UI Toolkit had opened the name
+        /// field on it, under the pointer, and let the field go as for a press off it (the Part 14g smoke test).
         /// </remarks>
         public static void FocusAfterTheKey(TextField field, bool selectAll = false)
         {
@@ -207,15 +215,28 @@ namespace BitSorter.View
             // go, to nothing, in the frame it is given the keyboard and in the frames after the press that gave it --
             // a click into it, a click on + SIGNAL, a double-click on a part -- with the event system's selection
             // unchanged, and the first keys typed went nowhere (the Part 11a and 11d smoke tests). Let go on purpose, it
-            // is no longer the holder: closed with its popup or its panel, or taken out with an inspection made again.
+            // is no longer the holder: closed with its popup or its panel, or taken out with an inspection made again. It
+            // is given back as it was, with what was chosen in it: it came back with the caret at its start, and a name
+            // offered all chosen, to be typed over, was typed in front of (the Part 14g smoke test).
             if (_holder != null && _holder.panel == null)
                 _holder = null;
             if (_holder != null && _holder.panel == Root.panel)
             {
                 if (!Visible || !Shown(_holder))
+                {
                     _holder = null;
+                }
                 else if (Root.focusController.focusedElement == null)
+                {
                     _holder.Focus();
+                    if (_holderCursor >= 0)
+                        _holder.SelectRange(_holderCursor, _holderSelect);
+                }
+                else if (Inside(Root.focusController.focusedElement as VisualElement, _holder))
+                {
+                    _holderCursor = _holder.cursorIndex;
+                    _holderSelect = _holder.selectIndex;
+                }
             }
         }
 
