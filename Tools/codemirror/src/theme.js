@@ -26,6 +26,16 @@ export function themeOf(c) {
     ".cm-textfield": { backgroundColor: c.ground, color: c.text, border: "1px solid " + c.muted },
     ".cm-button": { backgroundImage: "none", backgroundColor: c.ground, color: c.text, border: "1px solid " + c.muted },
     ".cm-panel.cm-search label, .cm-panel.cm-search [name=close]": { color: c.text },
+    // Its checkboxes drawn here too, not the browser's own white boxes (the Part 14g browser smoke test): on the ground,
+    // edged as the fields are, filled with the accent round a ring of the ground when ticked.
+    ".cm-panel.cm-search input[type=checkbox]": {
+      appearance: "none", width: "1em", height: "1em", margin: "0 0.35em 0 0", verticalAlign: "-0.15em",
+      backgroundColor: c.ground, border: "1px solid " + c.muted, borderRadius: "2px", cursor: "pointer",
+    },
+    ".cm-panel.cm-search input[type=checkbox]:checked": {
+      backgroundColor: c.accent, borderColor: c.accent, boxShadow: "inset 0 0 0 2px " + c.ground,
+    },
+    ".cm-panel.cm-search input[type=checkbox]:focus-visible": { outline: "1px solid " + c.accent, outlineOffset: "1px" },
     ".cm-searchMatch": { backgroundColor: c.selection, outline: "1px solid " + c.muted },
     ".cm-searchMatch.cm-searchMatch-selected": { backgroundColor: c.selection, outline: "1px solid " + c.accent },
   }, { dark: c.dark });
