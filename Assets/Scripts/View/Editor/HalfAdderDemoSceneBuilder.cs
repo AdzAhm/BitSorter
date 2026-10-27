@@ -357,7 +357,6 @@ namespace BitSorter.View.EditorTools
             Assign(settings, "_credits", credits);
             Assign(settings, "_canvas", canvas);
 
-            Assign(workbench, "_menu", mainMenu);
             Assign(workbench, "_canvas", canvas);
 
             Assign(credits, "_settings", settings);
