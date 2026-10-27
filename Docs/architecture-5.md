@@ -2494,6 +2494,18 @@ computed and measured, registers given a clock to Q and a setup, a library mode 
   BLOCKS row the status line names the gesture (`PointerArea.Blocks`), and the keyboard map lists it under IN PARTS. A
   block in hand of a module taken away is put down (`CanvasEditor.Relaid`), and PARTS keeps its scroll when it is laid
   again. Only the written testbench's going makes the run again: a module nothing uses takes nothing from it.
+- **The code editor keeps its keys (14g-2).** Asked whether Ctrl+V was the workbench's while code is typed: it is the
+  circuit's paste only while no field has the keyboard (`UiText`), which a Play Mode test now holds for every binding
+  of `WorkbenchKeys`, in the code and in RUN TO, beside the paired Ctrl+V that does paste on the circuit. Holding it
+  found a bug of Part 11's: after any click on the shell, an arrow was UI Toolkit's navigation and put the keyboard in
+  a field, so the shell ignores navigation now (`FocusController.IgnoreEvent`; a red test, then the fix). The desktop
+  build's editor, TextMesh Pro's field, answers what CodeMirror does: Ctrl+Z and Ctrl+Y through the typing
+  (`CodeDocument.UndoTyping`, a burst of typing one step, an edit of lines one of its own, started afresh when the
+  document is undone under it), Tab and Shift+Tab by four spaces and Ctrl+/ (`CodeEdits`, Unity-free), and Ctrl+S. The
+  browser's takes `@codemirror/search` 6.7.2 (Ctrl+F, Ctrl+D, in the palette's colours) and Ctrl+S, and counts its
+  whole box as having the keyboard, find's fields included -- its text alone did, and an S typed into find would have
+  been the game's. The keyboard map lists the code's keys under IN THE CODE, its columns named in `KeyMap.Columns` and
+  held to every heading once.
 
 ---
 

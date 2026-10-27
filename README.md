@@ -327,6 +327,18 @@ The workbench's **FILE** menu takes a project's files in and gives them back out
 Nothing you import or export is sent anywhere: it stays on your machine, or in
 your browser's tab.
 
+**Writing code.** `+ CODE` in PARTS makes a block you write rather than draw, and a
+double-click on one opens its code in the circuit's window. It applies itself when
+you pause typing; **Ctrl+Enter** or **Ctrl+S** applies it at once. **Ctrl+Z** and
+**Ctrl+Y** undo and redo the typing, **Tab** and **Shift+Tab** indent and outdent
+the lines by four spaces, and **Ctrl+/** comments them out or back in. In a browser
+**Ctrl+F** finds and replaces, **Ctrl+D** selects the next match and **Alt+Up** or
+**Alt+Down** moves the lines. While you type, none of the workbench's own keys act:
+Ctrl+V pastes text in the code, and pastes parts only on the circuit. `?` lists
+every key. Deleting a block leaves its module, since that is your code; to delete
+the module itself, right-click its row under BLOCKS in PARTS. It asks first, and
+Ctrl+Z brings it back.
+
 ### The course's tools (5.0 preview)
 
 Once a circuit works, the workbench answers the questions the course asks of it:

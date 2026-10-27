@@ -945,8 +945,17 @@ failure side.
   `UiTextTests` refuses a script under View that reads `Keyboard.current`
   itself. **A field may read a key it answers itself** through `UiText.FieldKeys`
   -- the code editor's Ctrl+Enter, which TextMesh Pro would type as a new line
-  (Part 12d) -- never a key the game binds. **In a browser the page's code editor
-  counts as typing too** (`CodeMirrorBridge.Focused`, asked once a frame), and
+  (Part 12d) -- never a key the game binds. **The code editor answers the keys a
+  writer reaches for, in both builds** (Part 14g, asked 2026-10-27: "is Ctrl+V
+  taken?" -- it is the circuit's paste only while nothing is typed in): Ctrl+Z and
+  Ctrl+Y through the typing (`CodeDocument.UndoTyping`), Tab and Shift+Tab indenting
+  the lines by four spaces and Ctrl+/ commenting them (`CodeEdits`), Ctrl+S applying
+  as Ctrl+Enter does. TextMesh Pro's field had only Ctrl+A, C, V and X -- Tab typed a
+  tab and Ctrl+Z did nothing -- and the browser's CodeMirror had the rest but find;
+  it takes `@codemirror/search` now (Ctrl+F, Ctrl+D), and the keyboard map lists the
+  lot under IN THE CODE. **In a browser the page's code editor
+  counts as typing too** (`CodeMirrorBridge.Focused`, asked once a frame) -- its box,
+  find's fields included, not only its text -- and
   while it has the keyboard the canvas stops taking every key. Derived, never set, for the reason pointer ownership is: a "typing"
   flag that leaked would be a game whose keys do nothing. The field answers
   Enter and Escape itself while it holds the keys (`NameBoardPanel`), and the
