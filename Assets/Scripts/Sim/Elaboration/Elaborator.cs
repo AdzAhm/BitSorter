@@ -216,7 +216,10 @@ namespace BitSorter.Sim
                     }
 
                     if (!_diagnostics.HasErrors)
+                    {
                         design = _builder.Build();
+                        LintDesign(design);
+                    }
                 }
 
                 diagnostics.AddRange(_diagnostics.Items);
@@ -1252,6 +1255,7 @@ namespace BitSorter.Sim
                 };
 
                 scope.TryDeclare(name, entry);
+                _declared.Add(entry);
                 return entry;
             }
 
@@ -1777,6 +1781,7 @@ namespace BitSorter.Sim
                 if (builder.Failed)
                     return;
 
+                LintTruncation(type, target, value, width, at);
                 Drive(parts, built, delay, type.Signed, at, null);
             }
 

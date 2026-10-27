@@ -25,6 +25,156 @@ namespace BitSorter.Sim
         /// </remarks>
         private sealed partial class Run
         {
+            /// <summary>Every signal declared, in order: what the design's lint looks at (Part 14e).</summary>
+            private readonly List<SignalEntry> _declared = new List<SignalEntry>();
+
+            /// <summary>What lint has said, so a module placed many times says each thing once.</summary>
+            private readonly HashSet<string> _linted = new HashSet<string>(StringComparer.Ordinal);
+
+            private void Lint(SourceLocation at, string code, string message)
+            {
+                if (_linted.Add(at.File + ":" + at.Line + ":" + at.Column + ":" + code + ":" + message))
+                    Warning(at, code, message);
+            }
+
+            /// <summary>
+            /// The design's lint, once it is built (Part 14e), each at the signal's declaration: a signal read that nothing
+            /// drives or sets (SV0402), one set that nothing reads (SV0403), and a net driven on the same bits by more than one
+            /// driver that cannot all let go (SV0404). A port is left alone -- what is outside drives or reads it, and an input
+            /// of an instance left unconnected is said where it is placed (SV0313) -- and so is a process's own working variable.
+            /// **What the top sets is watched, not read**: a testbench's signals are on the waves, so SV0403 is only said inside
+            /// an instance -- a block whose logic is worked out and thrown away.
+            /// </summary>
+            /// <remarks>
+            /// What vlog warns of. Icarus warns of none of these with -Wall (Docs/oracle-notes.md, "Lint"); it can be asked
+            /// for nets read and never driven with -Wfloating-nets, which this agrees with on the corpus.
+            /// </remarks>
+            private void LintDesign(Design design)
+            {
+                var reads = new HashSet<int>();
+                var written = new HashSet<int>();
+                var drivers = new Dictionary<int, List<DriverInfo>>();
+                foreach (DriverInfo driver in design.Drivers)
+                {
+                    driver.CollectReads(reads);
+                    written.Add(driver.Target.Index);
+                    if (!drivers.TryGetValue(driver.Target.Index, out List<DriverInfo> on))
+                        drivers[driver.Target.Index] = on = new List<DriverInfo>();
+                    on.Add(driver);
+                }
+                foreach (ProcessInfo process in design.Processes)
+                {
+                    process.CollectAllReads(reads);
+                    foreach (int w in process.Writes)
+                        written.Add(w);
+                }
+
+                foreach (SignalEntry s in _declared)
+                {
+                    int id = s.Signal.Index;
+                    if (id < 0 || id >= design.Signals.Count || s.IsEvent || s.Port.HasValue)
+                        continue;
+                    SignalInfo info = design.Signals[id];
+                    if (info.Local || info.Memory != null)
+                        continue;
+
+                    string name = info.Name.Substring(info.Name.LastIndexOf('.') + 1);
+                    bool read = reads.Contains(id), set = written.Contains(id) || info.Initial.HasValue;
+                    if (read && !set)
+                        Lint(s.Declared, ElaborationCodes.Undriven,
+                            $"{name} is read, but nothing drives or sets it, so it reads {(s.Kind == SignalKind.Net ? "z" : "x")}.");
+                    else if (set && !read && InsideAnInstance(design, info.Scope))
+                        Lint(s.Declared, ElaborationCodes.NeverRead, $"{name} is set, but nothing reads it.");
+
+                    if (drivers.TryGetValue(id, out List<DriverInfo> on) && on.Count > 1 && Overlapping(on, out int count) && !AllLetGo(on))
+                        Lint(s.Declared, ElaborationCodes.SeveralDrivers,
+                            $"{name} has {count} drivers on the same bits, and not all of them can let go, so where they disagree it reads x. " +
+                            "A bus's drivers are tri-state: bufif1, or a value that is z when it is not driving.");
+                }
+            }
+
+            /// <summary>
+            /// Whether <paramref name="scope"/> is inside an instance of a module -- not the top, a block of the top's own, nor
+            /// an interface, whose signals are there for what is outside it to use, as a port's are.
+            /// </summary>
+            private bool InsideAnInstance(Design design, int scope)
+            {
+                while (scope >= 0 && scope < design.Scopes.Count)
+                {
+                    ScopeInfo here = design.Scopes[scope];
+                    if (here.Kind == ScopeKind.Instance)
+                        return !_interfaces.ContainsKey(here.Module);
+                    if (here.Kind == ScopeKind.Top)
+                        return false;
+                    scope = here.Parent;
+                }
+                return false;
+            }
+
+            /// <summary>Whether two of <paramref name="on"/> drive a bit in common; how many drive the most-driven bit.</summary>
+            private static bool Overlapping(List<DriverInfo> on, out int count)
+            {
+                count = 0;
+                for (int i = 0; i < on.Count; i++)
+                {
+                    int here = 1;
+                    for (int j = 0; j < on.Count; j++)
+                        if (i != j && on[i].TargetLowest < on[j].TargetLowest + on[j].TargetWidth && on[j].TargetLowest < on[i].TargetLowest + on[i].TargetWidth)
+                            here++;
+                    count = Math.Max(count, here);
+                }
+                return count > 1;
+            }
+
+            /// <summary>Whether every one of <paramref name="on"/> can let go: a tri-state gate, or an assignment of a value that can be z.</summary>
+            private static bool AllLetGo(List<DriverInfo> on)
+            {
+                foreach (DriverInfo driver in on)
+                {
+                    bool floats = driver is GateDriver gate
+                        ? gate.Kind == GateKind.Bufif0 || gate.Kind == GateKind.Bufif1 || gate.Kind == GateKind.Notif0 || gate.Kind == GateKind.Notif1
+                        : driver is AssignDriver assign && assign.Value.CanFloat;
+                    if (!floats)
+                        return false;
+                }
+                return true;
+            }
+
+            /// <summary>
+            /// A plain value -- a name, a select of one, a concatenation of such -- given to something narrower (SV0405): its top
+            /// bits are dropped, which is seldom meant. Anything with an operator is sized by the rules of its context, and a
+            /// number fits or is cut as written, so neither is said. Nor is an int or a real: a number given to a few bits --
+            /// <c>n = i</c> in a loop -- is how a testbench walks its values, and a real is converted, not cut.
+            /// </summary>
+            private void LintTruncation(ExpressionBuilder.TypeInfo type, Expression target, Expression value, int width, SourceLocation at)
+            {
+                int from = type.Width;
+                if (from <= width || !IsPlain(value) || type.Real || type.Signed && from == 32)
+                    return;
+                int lost = from - width;
+                Lint(at, ElaborationCodes.Truncated,
+                    $"{Printer.Print(target)} is {width} bit{(width == 1 ? "" : "s")}, and {Printer.Print(value)} is {from}: its top {lost} bit{(lost == 1 ? " is" : "s are")} dropped.");
+            }
+
+            /// <summary>Whether <paramref name="value"/> is only names and selects of them, concatenated or not.</summary>
+            private static bool IsPlain(Expression value)
+            {
+                switch (value)
+                {
+                    case ParenthesizedExpression p: return IsPlain(p.Inner);
+                    case NameExpression _: return true;
+                    case IndexExpression index: return IsPlain(index.Target);
+                    case RangeSelectExpression range: return IsPlain(range.Target);
+                    case MemberExpression member: return IsPlain(member.Target);
+                    case ConcatenationExpression concat:
+                        foreach (Expression item in concat.Items)
+                            if (!IsPlain(item))
+                                return false;
+                        return concat.Items.Count > 0;
+                    default: return false;
+                }
+            }
+
             private readonly struct Paths
             {
                 public Paths(HashSet<string> always, HashSet<string> some)

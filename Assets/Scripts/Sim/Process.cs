@@ -309,6 +309,53 @@ namespace BitSorter.Sim
         /// <summary>Its place in <see cref="Design.Processes"/>, given as it is added; -1 before.</summary>
         internal int Index { get; set; } = -1;
 
+        /// <summary>
+        /// Every signal it reads anywhere (Part 14e, for lint): its values, conditions, delays, the places it writes to,
+        /// what it waits on, what it prints, its memory tasks' bounds, and what the functions it calls read in turn.
+        /// </summary>
+        internal void CollectAllReads(ICollection<int> reads) => CollectAllReads(Code, reads, new HashSet<FunctionInfo>());
+
+        private static void CollectAllReads(Instruction[] code, ICollection<int> reads, HashSet<FunctionInfo> seen)
+        {
+            var calls = new List<FunctionInfo>();
+            void Read(Expr e)
+            {
+                if (e == null)
+                    return;
+                e.CollectReads(reads);
+                e.CollectCalls(calls);
+            }
+
+            foreach (Instruction ins in code)
+            {
+                Read(ins.Value);
+                Read(ins.Other);
+                foreach (LPiece piece in ins.Target ?? Array.Empty<LPiece>())
+                {
+                    Read(piece.Offset);
+                    Read(piece.Word);
+                }
+                if (ins.Wait != null)
+                    foreach (EventItem item in ins.Wait.Items)
+                        Read(item.Value);
+                if (ins.Print != null)
+                {
+                    Read(ins.Print.Destination);
+                    foreach (PrintSegment segment in ins.Print.Segments ?? Array.Empty<PrintSegment>())
+                        Read(segment.Argument);
+                }
+                if (ins.Memory != null)
+                {
+                    Read(ins.Memory.Start);
+                    Read(ins.Memory.End);
+                }
+            }
+
+            foreach (FunctionInfo function in calls)
+                if (seen.Add(function))
+                    CollectAllReads(function.Code, reads, seen);
+        }
+
         /// <summary>Every signal its expressions read, for the scheduler to wake it on.</summary>
         internal void CollectWaitReads(int pc, ICollection<int> reads)
         {

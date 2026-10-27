@@ -107,6 +107,9 @@ namespace BitSorter.Sim
         /// <param name="first">The timing graph's first node of each signal, by index, and one past the last signal's.</param>
         internal virtual BitDeps Depends(int[] first) => BitDeps.Unknown(this, first);
 
+        /// <summary>Whether its value can be z: a driver of it can let go of a bus (Part 14e, for lint).</summary>
+        internal virtual bool CanFloat => false;
+
         /// <summary>Its value, when it is a constant and nothing else.</summary>
         internal virtual bool TryConstant(out LogicVec value)
         {
@@ -261,6 +264,8 @@ namespace BitSorter.Sim
             internal override void CollectCalls(ICollection<FunctionInfo> calls) => _a.CollectCalls(calls);
 
             internal override int Height => 1 + HeightOf(_a);
+
+            internal override bool CanFloat => _a.CanFloat;
             internal override BitDeps Depends(int[] first) => _a.Depends(first);
         }
 
@@ -305,6 +310,17 @@ namespace BitSorter.Sim
             public override int Width => _value.Width;
             public override LogicVec Evaluate(LogicVec[] values) => _value;
             public override void CollectReads(ICollection<int> reads) { }
+
+            internal override bool CanFloat
+            {
+                get
+                {
+                    for (int i = 0; i < _value.Width; i++)
+                        if (_value[i] == Logic4.Z)
+                            return true;
+                    return false;
+                }
+            }
             internal override BitDeps Depends(int[] first) => BitDeps.Bits(_value.Width, routing: true, i => SourceSet.Empty);
 
             internal override bool TryConstant(out LogicVec value)
@@ -728,6 +744,8 @@ namespace BitSorter.Sim
 
             internal override int Height => 1 + Math.Max(HeightOf(_condition), Math.Max(HeightOf(_whenTrue), HeightOf(_whenFalse)));
 
+            internal override bool CanFloat => _whenTrue.CanFloat || _whenFalse.CanFloat;
+
             /// <summary>Each bit of either side the same way round, and the condition, either way, under every bit.</summary>
             internal override BitDeps Depends(int[] first)
             {
@@ -756,6 +774,8 @@ namespace BitSorter.Sim
             internal override void CollectCalls(ICollection<FunctionInfo> calls) => _a.CollectCalls(calls);
 
             internal override int Height => 1 + HeightOf(_a);
+
+            internal override bool CanFloat => _a.CanFloat;
 
             /// <summary>Widened, the bits above are the top bit again when the sign is extended, and nothing otherwise.</summary>
             internal override BitDeps Depends(int[] first)

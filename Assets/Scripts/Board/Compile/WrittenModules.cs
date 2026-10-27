@@ -276,16 +276,18 @@ namespace BitSorter.Board
             host.Items.Add(instantiation);
             alone.Modules.Add(host);
             Elaboration asInstance = Elaborator.Elaborate(alone, HostName);
-            Take(asInstance, warnings: false);
+            Take(asInstance, warnings: false, only: ElaborationCodes.NeverRead);
             if (asInstance.HasErrors)
                 return new WrittenModule(declaration, Array.Empty<ModulePort>(), uses, diagnostics);
 
             // Its own faults where they are; another module's -- one it instantiates -- at its first line.
-            void Take(Elaboration run, bool warnings)
+            // As an instance it is linted for what it sets and never reads (Part 14e), which is said only inside one.
+            void Take(Elaboration run, bool warnings, string only = null)
             {
                 foreach (Diagnostic d in run.Diagnostics)
                 {
-                    if (d.Severity != DiagnosticSeverity.Error && !(warnings && d.Location.File == file))
+                    bool lint = only != null && d.Code == only && d.Location.File == file;
+                    if (d.Severity != DiagnosticSeverity.Error && !(warnings && d.Location.File == file) && !lint)
                         continue;
                     diagnostics.Add(d.Location.File == file ? d : new Diagnostic(d.Severity, new SourceLocation(file, 1, 1), d.Code, d.Message));
                 }

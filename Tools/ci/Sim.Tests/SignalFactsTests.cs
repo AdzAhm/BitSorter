@@ -18,13 +18,17 @@ namespace BitSorter.Sim.Tests
         // Helpers
         // -----------------------------------------------------------------
 
-        /// <summary>Elaborates, and fails the test on anything said at all.</summary>
+        /// <summary>
+        /// Elaborates, and fails the test on anything said at all -- but lint (SV04xx, Part 14e): these designs are written
+        /// to have signals in many scopes, not to use every one.
+        /// </summary>
         private static Design Clean(string text, string top = null)
         {
             SyntaxTree tree = SyntaxReader.ReadText(text, "facts.sv");
             Assert.IsEmpty(tree.Diagnostics, "the read reported:\n" + string.Join("\n", tree.Diagnostics));
             Elaboration e = Elaborator.Elaborate(tree, top);
-            Assert.IsEmpty(e.Diagnostics, "the elaboration reported:\n" + string.Join("\n", e.Diagnostics));
+            var said = e.Diagnostics.Where(d => !d.Code.StartsWith("SV04", System.StringComparison.Ordinal)).ToList();
+            Assert.IsEmpty(said, "the elaboration reported:\n" + string.Join("\n", said));
             Assert.IsNotNull(e.Design);
             return e.Design;
         }

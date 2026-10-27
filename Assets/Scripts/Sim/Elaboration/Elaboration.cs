@@ -34,6 +34,18 @@ namespace BitSorter.Sim
 
         // Lint: warnings about designs that run, but likely not as meant.
         public const string LatchProne = "SV0401";
+
+        /// <summary>A signal read that nothing drives or sets: it reads z, or x (Part 14e).</summary>
+        public const string Undriven = "SV0402";
+
+        /// <summary>A signal set that nothing reads (Part 14e).</summary>
+        public const string NeverRead = "SV0403";
+
+        /// <summary>A net with several drivers on the same bits, not all of which can let go -- tri-state (Part 14e).</summary>
+        public const string SeveralDrivers = "SV0404";
+
+        /// <summary>A plain value assigned to something narrower: its top bits are dropped (Part 14e).</summary>
+        public const string Truncated = "SV0405";
     }
 
     /// <summary>One port of the top module, as elaborated: what a testbench or the workbench drives and watches.</summary>
