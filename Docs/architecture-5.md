@@ -2266,21 +2266,35 @@ computed and measured, registers given a clock to Q and a setup, a library mode 
   as its sum (`clock to Q 2 + logic 3 + setup 1 ns`), the **maximum frequency** it gives in the unit that keeps it over
   1 (`166.7 MHz`), and the critical path -- the slowest register to register -- with the slowest input to register and
   register to output beside it; for one without, the critical path is the slowest input to output. Then the **gate
-  count** by kind and inputs, the most first (`5 gates: 2 AND2, 2 XOR2, 1 OR2`, a block counting its contents), any
-  loop of logic named, and **every path**, the slowest first, each with its ends -- identical ones together, `a → cout,
-  b → cout` -- the gates it passes through, and its delay rising and falling. The list stops at 200, saying how many
-  are left. A circuit with errors has one line saying so. `WorkbenchSession.Timing` works it out again only once the
-  document has changed, as `Listing` is printed.
+  count** by kind and inputs, the most first (`5 gates: 2 AND2, 2 XOR2, 1 OR2`, a block counting its contents, and a
+  drawn gate four bits wide four -- it prints as one bitwise assignment, which the graph sees no gate in), any loop of
+  logic named, and **every path**, the slowest first, each with its ends -- identical ones together, `a → cout, b →
+  cout` -- the gates it passes through, and its delay rising and falling. A path is named by the bits it starts and
+  ends at, a register's d included: the counter's critical path is `count[0] → next[2]`. The minimum period says
+  when nothing on its paths has a delay yet, as the course's processor, written as RTL, has none -- its period is
+  honestly 0 -- and when a loop of logic was left out of it. A frequency is reckoned in decimal, where a power of ten
+  is exact (in binary 1 ns read "1000 MHz"). The list stops at 200, saying how many are left. A circuit with errors
+  has one line saying so. `WorkbenchSession.Timing` works it out again only once the **design** has changed
+  (`TimingView.SameDesign`): a part moved or a stimulus edited is the same timing for nothing, where the review timed
+  a processor's at 200 ms a time.
 - **Every path is named from the design's top** (`h1.s`, `c[1]`), so one picked in the top's drawing is the same path
   inside a block. **`TimingLight`** finds what a drawing has of it: the signals it has a net for are the path through
   that drawing -- a bit of a bus is the bus, a cell's output the net it drives -- and between two of them the part that
   reads the one and drives the other is the step taken, and the branch into that part the wire; a path starting at a
-  register lights the register, one ending at a port or a register lights the branch into it. So the full adder's
-  critical path lights both blocks and the OR from the top, and h1's XOR between h1's own ports from inside h1 -- and
-  h2's AND inside h2. A drawn net now knows its driver and each branch's load (`NetLayout.Source`, `Loads`) for this.
+  register lights the register, one ending at a port or a register lights the branch into it. **A signal inside a block
+  of the drawing is the block** (`u.q` is u's), so a path that goes into a block, ends in one or never leaves one lights
+  it -- the review found a register's input path stopping short of the block it ended in, and a path wholly inside a
+  block lighting nothing. An input port is lit where the path comes in and an output where it goes out, never one it
+  only passes: a register's output that is also a port is where a path starts. **Every identical path of a line is
+  lit**, not only the first (`TimingPath.ArcsOf`). So the full adder's critical path lights both blocks and the OR from
+  the top, and h1's XOR between h1's own ports from inside h1 -- and h2's AND inside h2. A drawn net knows its driver
+  and each branch's load (`NetLayout.Source`, `Loads`), a drawn port its part (`PortLayout.Part`), and a layout where
+  it is in the design (`SchematicLayout.InstancePath`) for this; the editor keeps what it lit for each layout and path
+  rather than working it out at every redraw.
 - **The dock's fourth tab** (`WorkbenchPanel.TimingTab`), a shell list like the TRANSCRIPT: a line a row -- its label,
   what it says, its numbers on the right -- the wheel scrolling it, and a click on a path picking it. The critical path
-  is picked until another is, and an edit that leaves the picked line there keeps it (`TimingView.Find`). **The path is
+  is picked until another is, and an edit that leaves the picked path there keeps it (`TimingView.Find`, by the path's
+  signals: two lines can read alike and be paths through gates of other delays). **The path is
   lit while the tab is up**, and another tab puts it out, so the canvas is never left lit by something not on screen.
 - **Lit, not the rest dimmed.** The plan said the rest of the drawing dims. The path is drawn over it instead, in the
   editing overlay and the second cursor's colour -- a band along each of its wires, wider than a selection's, and an
@@ -2293,7 +2307,10 @@ computed and measured, registers given a clock to Q and a setup, a library mode 
 - **Checked.** `TimingViewTests`: the full adder's critical path (a to cout, 4 each way), its gate count and paths; the
   counter's period of 3 becoming 6 with a clock to Q of 2 and a setup of 1, and the frequency; frequencies in four units;
   a broken circuit; the critical path lit from the top, inside h1 and inside h2; a register-to-register path lighting the
-  register; the session working the timing out again only on an edit, keeping the line picked. `InspectorTests`: the
+  register; the session working the timing out again only on an edit, keeping the line picked; and from the review, 1
+  ns as 1 GHz, a path into a block's register and one wholly inside a block lighting the block, the counter's path
+  named by its d bit, two lines that read alike found apart, a move not working the timing out again, and a wide gate
+  counted a bit at a time. `InspectorTests`: the
   register's quick fields, its clock to Q and setup in one step, a negative refused. Play Mode: the tab lighting the
   full adder's critical path and another picked, inside h1, put out by WAVES, and the counter's period moving from 3 to
   5 with a clock to Q typed in its quick field. Reference shot 47: the TIMING tab over the full adder, its critical path
