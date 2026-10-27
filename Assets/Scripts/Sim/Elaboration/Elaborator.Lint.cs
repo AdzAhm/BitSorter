@@ -46,8 +46,9 @@ namespace BitSorter.Sim
             /// an instance -- a block whose logic is worked out and thrown away.
             /// </summary>
             /// <remarks>
-            /// What vlog warns of. Icarus warns of none of these with -Wall (Docs/oracle-notes.md, "Lint"); it can be asked
-            /// for nets read and never driven with -Wfloating-nets, which this agrees with on the corpus.
+            /// What vlog warns of. Icarus warns of none of these with -Wall (Docs/oracle-notes.md, "Lint"); asked with
+            /// -Wfloating-nets, it warns of every net with no driver, the top's own inputs included, where this says only
+            /// a net or a variable that something reads.
             /// </remarks>
             private void LintDesign(Design design)
             {
