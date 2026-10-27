@@ -203,6 +203,32 @@ namespace BitSorter.PlayMode.Tests
             }
         }
 
+        /// <summary>
+        /// Analytics listens to the level session of the scene loaded now, and to the new one after a change of look loads
+        /// the game again. It subscribed once, to the first scene loaded, so after a change of look -- or in any scene loaded
+        /// after the first -- it heard no level started and none solved (the #84 review).
+        /// </summary>
+        [UnityTest]
+        public IEnumerator Analytics_ListensToTheSceneLoaded_AndToTheNewOneAfterAChangeOfLook()
+        {
+            yield return TestScene.Load();
+            Assert.IsTrue(GameAnalytics.Listening, "analytics does not hear the scene loaded");
+            yield return OpenSettings();
+
+            try
+            {
+                yield return Click(SettingsPanel.LookButton(Looks.SchematicLight));
+                for (int frame = 0; frame < 600 && LookSwitch.Busy; frame++)
+                    yield return null;
+                Assert.IsFalse(LookSwitch.Busy, "sanity: the switch finished");
+                Assert.IsTrue(GameAnalytics.Listening, "after a change of look analytics hears the old, unloaded scene");
+            }
+            finally
+            {
+                Look.Use(null);
+            }
+        }
+
         /// <summary>Sound moved from the menu to here, and still switches the sound.</summary>
         [UnityTest]
         public IEnumerator TheSoundSetting_SwitchesTheSound()

@@ -50,6 +50,12 @@ namespace BitSorter.View
             private set => Preferences.SetInt(ConsentKey, value ? 1 : 0);
         }
 
+        /// <summary>
+        /// Whether analytics is hearing the levels of the scene loaded now: what it listens to is that scene's own session.
+        /// For the tests, which cannot see an event that is never sent.
+        /// </summary>
+        public static bool Listening => _session != null && _session.gameObject.scene.isLoaded;
+
         /// <summary>Turns reporting on or off and tells the SDK, for the DATA switch in Settings.</summary>
         /// <remarks>
         /// Takes effect immediately in both directions. Granting mid-session starts collection --
