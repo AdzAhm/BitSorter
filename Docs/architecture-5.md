@@ -1217,8 +1217,9 @@ on an input's row, undo and redo -- is 9b-3b-2.
   40, 40 ns, 1.5 us) and says why one does not read.
 - **Ctrl+Z and Ctrl+Y (or Ctrl+Shift+Z)** take an edit back and make it again, each replayed; the chip says
   when there is nothing to. Neither is a browser's, and Ctrl with R, W, S, T, N and L stay refused.
-- **The chip takes the controls row's room right of STEP**, its words shrinking before they are cut short:
-  a refusal can run longer than any pause's reason.
+- **The chip takes the controls row's room right of STEP**, one line high: a refusal can run longer than any pause's
+  reason, and one longer than the line takes the lines it needs, down over the timeline's row until the next thing is
+  done, taking no clicks (Part 14g; it was cut short with an ellipsis, and a library's refusal lost most of its cells).
 - **Checked.** Under dotnet, `CursorTests`' double-click. In Play Mode: a double-click flipping a bit and the
   replay taking over with the rows and their radix kept; a double-click on a bus asking in SET and Enter
   setting the stretch; an output and a clock refused, the chip saying why; UNIT and U relabelling the
@@ -2560,7 +2561,12 @@ computed and measured, registers given a clock to Q and a setup, a library mode 
   and the name field + CODE and MAKE BLOCK open under the pointer lost the keyboard to their own click, read a frame
   late, and came back without its free name chosen -- it takes the keyboard the frame after now, and the shell gives a
   field back with what was chosen in it. The review of 14g-4 found a third, older one: an exported written module came
-  back from an import with the export's header in its code, one more each round (`BoardPrinter.WithoutHeader`).
+  back from an import with the export's header in its code, one more each round (`BoardPrinter.WithoutHeader`). Two
+  things it showed are seen to as well: find's checkboxes were the browser's white boxes, and are the editor's theme's
+  now (`Tools/codemirror/src/theme.js`, held under Node like the undo); and the chip cut a long refusal short, and
+  takes the lines it needs now. The review of these found REVERT joined to typing within half a second of it, one
+  Ctrl+Z taking back both -- it is a step of its own (`isolateHistory`) -- and a written block stepped into from another
+  opening at that one's scroll; it opens at its top.
 
 ---
 
