@@ -189,6 +189,44 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsTrue(Holds(runTo), "RUN TO, let go to nothing, was not given the keyboard back");
         }
 
+        /// <summary>
+        /// Once a field of the shell has let the keyboard go, the arrows are the workbench's. They were UI Toolkit's too:
+        /// a click on the shell makes it the event system's selection, an arrow then moved the focus round the shell as
+        /// navigation and into a field, and every key of the workbench was the field's from there -- Alt+Up stepped out of
+        /// nothing, Left stepped no time back (found by the 14g key tests).
+        /// </summary>
+        [UnityTest]
+        public IEnumerator AfterAShellFieldLetsGo_TheArrowsAreTheWorkbenchs_NeverAMoveIntoAField()
+        {
+            yield return TestScene.Load();
+            yield return OpenTheWorkbench();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.Seek(10.0);
+            yield return null;
+
+            TextField runTo = ShellPanel.Find<TextField>(WorkbenchPanel.RunToField);
+            yield return ClickAt(ShellPanel.ScreenPointOf(runTo));
+            Assert.IsTrue(UiText.Typing, "sanity: a click on RUN TO gives it the keyboard");
+            Press(_keyboard.escapeKey);
+            ShellPanel.SendKey(runTo, KeyCode.Escape);
+            yield return null;
+            Release(_keyboard.escapeKey);
+            yield return null;
+            yield return null;
+            Assert.IsFalse(UiText.Typing, "sanity: Escape let RUN TO go");
+
+            foreach (KeyControl key in new[] { _keyboard.upArrowKey, _keyboard.downArrowKey })
+            {
+                yield return Tap(key);
+                Assert.IsFalse(UiText.Typing, $"{key.name} moved the keyboard into a field of the shell");
+            }
+
+            double before = workbench.Time;
+            yield return Tap(_keyboard.leftArrowKey);
+            Assert.IsFalse(UiText.Typing, "Left moved the keyboard into a field of the shell");
+            Assert.Less(workbench.Time, before, "Left stepped back in time, as it does with no field in the way");
+        }
+
         [UnityTest]
         public IEnumerator AShellField_HoldsTheKeys_AndEscapeLetsItGo_BeforeTheWorkbenchCloses()
         {
