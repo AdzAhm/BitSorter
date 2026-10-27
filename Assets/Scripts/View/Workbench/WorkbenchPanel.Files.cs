@@ -49,7 +49,8 @@ namespace BitSorter.View
                 at = new Vector2(chip.xMin, chip.yMin);
             }
 
-            _fileMenu.Open(at, _session != null && _session.Project.Bench != null, _session != null && FromATemplate(_session.Project) > 0);
+            _fileMenu.Open(at, _session != null && _session.Project.Bench != null, _session != null && FromATemplate(_session.Project) > 0,
+                _sample == 0 && Documents.IsOwn(_documentKey));
         }
 
         /// <summary>How many of <paramref name="project"/>'s modules came from a course template (Part 13e).</summary>
@@ -66,6 +67,18 @@ namespace BitSorter.View
         {
             switch (action)
             {
+                case FileAction.NewCircuit:
+                    AskNewCircuit();
+                    break;
+                case FileAction.OpenCircuit:
+                    OpenOpenMenu();
+                    break;
+                case FileAction.RenameCircuit:
+                    AskRenameCircuit();
+                    break;
+                case FileAction.DeleteCircuit:
+                    AskDeleteCircuit();
+                    break;
                 case FileAction.ExportProject:
                     ExportProject();
                     break;
@@ -95,7 +108,7 @@ namespace BitSorter.View
 
         private AskMenu _ask;
 
-        /// <summary>The question before an import replaces MY CIRCUIT, or before CONVERT.</summary>
+        /// <summary>The question before CONVERT, or before a circuit or a module is deleted.</summary>
         public AskMenu Ask => _ask;
 
         /// <summary>Where a question goes up: under the FILE chip.</summary>
@@ -111,7 +124,7 @@ namespace BitSorter.View
             return Mouse.current != null ? Mouse.current.position.ReadValue() : Vector2.zero;
         }
 
-        /// <summary>A project from every file in the Import folder (<see cref="FileImport.ReadFolder"/>), into MY CIRCUIT; the folder made if it is not there.</summary>
+        /// <summary>A project from every file in the Import folder (<see cref="FileImport.ReadFolder"/>), as a circuit of its own; the folder made if it is not there.</summary>
         public void ImportFromFolder()
         {
             List<SourceFile> files = FileImport.ReadFolder();
@@ -125,9 +138,9 @@ namespace BitSorter.View
         }
 
         /// <summary>
-        /// <paramref name="files"/> imported (<see cref="ProjectImporter"/>) into MY CIRCUIT, asking first when MY CIRCUIT has a
-        /// circuit in it. What the import said is listed in the TRANSCRIPT, each with its file and line; it is refused only
-        /// when nothing at all could be made of the files.
+        /// <paramref name="files"/> imported (<see cref="ProjectImporter"/>) as a circuit of its own, named after the project
+        /// (Part 15a: it asked before replacing MY CIRCUIT, which it no longer touches). What the import said is listed in the
+        /// TRANSCRIPT, each with its file and line; it is refused only when nothing at all could be made of the files.
         /// </summary>
         public void Import(IReadOnlyList<SourceFile> files)
         {
@@ -143,28 +156,17 @@ namespace BitSorter.View
                 return;
             }
 
-            KeepMyCircuit(now: true);
-            if (MyCircuitHasAnything())
-                _ask.Ask(UnderTheFileChip(),
-                    "MY CIRCUIT has a circuit in it. Replace it with " + import.Project.Name + ", imported from " + Count(files.Count, "file") + "?",
-                    "REPLACE MY CIRCUIT", () => Adopt(import));
-            else
-                Adopt(import);
+            Adopt(import);
         }
 
-        /// <summary>The import made MY CIRCUIT and opened, with what it said in the TRANSCRIPT.</summary>
+        /// <summary>The import made a circuit of its own, named after its project, and opened, with what it said in the TRANSCRIPT.</summary>
         private void Adopt(ProjectImport import)
         {
+            string key = Documents.KeyOf(Documents.FreeName(DocumentKeys(), import.Project.Name));
             ProgressStore store = Store();
             if (store != null)
-            {
-                store.SetProject(WorkbenchSamples.MyCircuitKey, import.Project);
-                store.Save();
-            }
-
-            _keptProject = _session.Project;   // MY CIRCUIT is the import now: nothing left to keep of the session's
-            _keepAt = -1;
-            ShowSample(0);
+                store.SetProject(key, import.Project);
+            OpenDocument(key);
 
             SayInTheTranscript(import);
             Project project = import.Project;

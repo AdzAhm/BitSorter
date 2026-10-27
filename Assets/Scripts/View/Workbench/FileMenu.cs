@@ -7,22 +7,34 @@ namespace BitSorter.View
     /// <summary>What the FILE menu does (Part 13).</summary>
     public enum FileAction
     {
+        /// <summary>A new, blank circuit, named (Part 15a).</summary>
+        NewCircuit,
+
+        /// <summary>Another of the student's circuits (Part 15a).</summary>
+        OpenCircuit,
+
+        /// <summary>The circuit open, renamed (Part 15a); never MY CIRCUIT.</summary>
+        RenameCircuit,
+
+        /// <summary>The circuit open, deleted after asking (Part 15a); never MY CIRCUIT.</summary>
+        DeleteCircuit,
+
         /// <summary>The project as a zip ModelSim opens: its files and a run.do (Part 13a).</summary>
         ExportProject,
 
         /// <summary>The course's template files, each with the student's code between its markers (Part 13e).</summary>
         ExportSubmission,
 
-        /// <summary>A project from the Import folder, into MY CIRCUIT (Part 13d; a desktop and the editor).</summary>
+        /// <summary>A project from the Import folder, as a circuit of its own (Part 13d, 15a; a desktop and the editor).</summary>
         ImportFolder,
 
         /// <summary>The Import folder opened in the system's file browser (Part 13d; a desktop and the editor).</summary>
         OpenImportFolder,
 
-        /// <summary>A project from files the player picks, into MY CIRCUIT (Part 13d; a browser).</summary>
+        /// <summary>A project from files the player picks, as a circuit of its own (Part 13d, 15a; a browser).</summary>
         ImportFiles,
 
-        /// <summary>A project from a folder the player picks, into MY CIRCUIT (Part 13d; a browser).</summary>
+        /// <summary>A project from a folder the player picks, as a circuit of its own (Part 13d, 15a; a browser).</summary>
         ImportPickedFolder,
 
         /// <summary>The written testbench turned into the stimulus, so the inputs are set on the waves (Part 13c, 13d).</summary>
@@ -30,10 +42,11 @@ namespace BitSorter.View
     }
 
     /// <summary>
-    /// The FILE menu, from the chip beside SAMPLE (Part 13): what goes out of the workbench and what comes in. A shell menu
-    /// like the waves' EXPORT, holding Escape while it is open. What it offers depends on where the game runs -- a desktop
-    /// reads the Import folder, a browser picks files -- CONVERT only while a testbench drives the inputs, and EXPORT FOR
-    /// SUBMISSION only while a module came from a course template.
+    /// The FILE menu, from the chip beside SAMPLE (Part 13): the student's circuits -- NEW, OPEN, and RENAME and DELETE for
+    /// one of their own (Part 15a) -- then what goes out of the workbench and what comes in. A shell menu like the waves'
+    /// EXPORT, holding Escape while it is open. What it offers depends on where the game runs -- a desktop reads the Import
+    /// folder, a browser picks files -- CONVERT only while a testbench drives the inputs, and EXPORT FOR SUBMISSION only
+    /// while a module came from a course template.
     /// </summary>
     public sealed class FileMenu : WaveMenu
     {
@@ -42,12 +55,17 @@ namespace BitSorter.View
 
         private const float ItemWidth = 420f;
 
-        private ShellButton _submission, _importFolder, _openFolder, _importFiles, _importPicked, _convert;
+        private ShellButton _rename, _delete, _submission, _importFolder, _openFolder, _importFiles, _importPicked, _convert;
 
         public static FileMenu Build(ShellPanel shell, Transform owner, SchematicPalette palette, Action<FileAction> onChoose)
         {
             FileMenu menu = Make<FileMenu>(shell, owner, RootName, palette, ItemWidth);
-            menu.Item(ActionItem + FileAction.ExportProject, "EXPORT PROJECT: .SV FILES AND RUN.DO", () => onChoose?.Invoke(FileAction.ExportProject));
+            menu.Item(ActionItem + FileAction.NewCircuit, "NEW CIRCUIT", () => onChoose?.Invoke(FileAction.NewCircuit));
+            menu.Item(ActionItem + FileAction.OpenCircuit, "OPEN A CIRCUIT", () => onChoose?.Invoke(FileAction.OpenCircuit));
+            menu._rename = menu.Item(ActionItem + FileAction.RenameCircuit, "RENAME THIS CIRCUIT", () => onChoose?.Invoke(FileAction.RenameCircuit));
+            menu._delete = menu.Item(ActionItem + FileAction.DeleteCircuit, "DELETE THIS CIRCUIT", () => onChoose?.Invoke(FileAction.DeleteCircuit));
+            menu.Item(ActionItem + FileAction.ExportProject, "EXPORT PROJECT: .SV FILES AND RUN.DO", () => onChoose?.Invoke(FileAction.ExportProject),
+                breakBefore: true);
             menu._submission = menu.Item(ActionItem + FileAction.ExportSubmission, "EXPORT FOR SUBMISSION",
                 () => onChoose?.Invoke(FileAction.ExportSubmission));
             menu._importFolder = menu.Item(ActionItem + FileAction.ImportFolder, "IMPORT A PROJECT FROM THE IMPORT FOLDER",
@@ -66,6 +84,8 @@ namespace BitSorter.View
         {
             ShellButton item = action switch
             {
+                FileAction.RenameCircuit => _rename,
+                FileAction.DeleteCircuit => _delete,
                 FileAction.ExportSubmission => _submission,
                 FileAction.ImportFolder => _importFolder,
                 FileAction.OpenImportFolder => _openFolder,
@@ -78,12 +98,15 @@ namespace BitSorter.View
         }
 
         /// <summary>
-        /// Puts the menu up at <paramref name="screenPoint"/>: CONVERT only while <paramref name="hasTestbench"/>, and EXPORT
+        /// Puts the menu up at <paramref name="screenPoint"/>: RENAME and DELETE only while <paramref name="ownCircuit"/> is open
+        /// -- a circuit of the student's other than MY CIRCUIT -- CONVERT only while <paramref name="hasTestbench"/>, and EXPORT
         /// FOR SUBMISSION only while <paramref name="hasTemplate"/>.
         /// </summary>
-        public void Open(Vector2 screenPoint, bool hasTestbench, bool hasTemplate)
+        public void Open(Vector2 screenPoint, bool hasTestbench, bool hasTemplate, bool ownCircuit = false)
         {
             bool picks = FileImport.Picks;
+            Offer(_rename, ownCircuit);
+            Offer(_delete, ownCircuit);
             Offer(_submission, hasTemplate);
             Offer(_importFolder, !picks);
             Offer(_openFolder, !picks);

@@ -1500,6 +1500,7 @@ namespace BitSorter.View
             _timeMenu = WaveTimeMenu.Build(_shell, transform, palette, TimeAction);
             _exportMenu = WaveExportMenu.Build(_shell, transform, palette, Export);
             _fileMenu = FileMenu.Build(_shell, transform, palette, FileChosen);
+            BuildDocuments(palette);
             _ask = AskMenu.Build(_shell, transform, palette);
             _picker = WaveSignalPicker.Build(_shell, transform, palette, AddSignal);
             _rename = WaveRenameField.Build(_shell, transform, palette, RenameRow);
@@ -1708,7 +1709,7 @@ namespace BitSorter.View
             BuildPartsPanel(SchematicPalette.Current);
 
             SetText(_description, WorkbenchSamples.Chip[_sample].Says);
-            SetText(_sampleButton, SampleCaption(_sample));
+            SetText(_sampleButton, ChipCaption(_sample));
             SliderEnd(_model.End);
             FitView();
             Restart();

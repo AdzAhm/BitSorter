@@ -62,6 +62,37 @@ namespace BitSorter.LogicCore.Tests
                 "a level solved in one session must still be solved in the next");
         }
 
+        /// <summary>
+        /// The student's circuits (Part 15a): the ones last opened, latest first, survive a restart; a circuit renamed keeps
+        /// its document and its place among them, and refuses a name another has; one deleted is gone from both.
+        /// </summary>
+        [Test]
+        public void TheCircuitsLastOpened_ARenameAndADelete_SurviveARestart()
+        {
+            var store = new ProgressStore(_path);
+            store.Load();
+            store.SetProject("doc/adder", BitSorter.Board.Project.New("adder"));
+            store.SetProject("doc/alu", BitSorter.Board.Project.New("alu"));
+            store.Touch("doc/adder");
+            store.Touch("doc/alu");
+            Assert.IsFalse(store.RenameProject("doc/adder", "doc/alu"), "a name another has");
+            Assert.IsTrue(store.RenameProject("doc/adder", "doc/half adder"));
+            store.Save();
+
+            var reloaded = new ProgressStore(_path);
+            reloaded.Load();
+            CollectionAssert.AreEqual(new[] { "doc/alu", "doc/half adder" }, reloaded.Recent, "the latest first, the renamed one in its place");
+            Assert.IsTrue(reloaded.TryGetProject("doc/half adder", out BitSorter.Board.Project renamed, null));
+            Assert.AreEqual("adder", renamed.Top, "the same document under its new name");
+
+            reloaded.RemoveProject("doc/alu");
+            reloaded.Save();
+            var again = new ProgressStore(_path);
+            again.Load();
+            Assert.IsFalse(again.HasProject("doc/alu"));
+            CollectionAssert.AreEqual(new[] { "doc/half adder" }, again.Recent);
+        }
+
         [Test]
         public void OnlyTheLevelsActuallySolvedAreRemembered()
         {

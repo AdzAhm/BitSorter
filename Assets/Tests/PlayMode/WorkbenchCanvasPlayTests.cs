@@ -1787,11 +1787,12 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
-        /// FILE, IMPORT reads the Import folder into MY CIRCUIT (Part 13d): the testbench runs the design as written, what the
-        /// import said is in the TRANSCRIPT with its file and line, and a file that does not read is named there.
+        /// FILE, IMPORT reads the Import folder as a circuit of its own, named after its project (Part 13d, 15a): the testbench
+        /// runs the design as written, what the import said is in the TRANSCRIPT with its file and line, and a file that does
+        /// not read is named there.
         /// </summary>
         [UnityTest]
-        public IEnumerator FileImport_BringsTheProjectIntoMyCircuit_RunByItsTestbench()
+        public IEnumerator FileImport_BringsTheProjectInAsACircuit_RunByItsTestbench()
         {
             PutInTheImportFolder(("mux2.sv", ImportedMux), ("mux2_tb.sv", ImportedMuxBench), ("broken.sv", "module broken (input a;\nendmodule\n"),
                 (".git/HEAD", "ref: refs/heads/main\n"), (".git/config", "[core]\n"));
@@ -1802,13 +1803,14 @@ namespace BitSorter.PlayMode.Tests
 
             yield return Click(WorkbenchPanel.FileButton);
             yield return Click(FileMenu.ActionItem + FileAction.ImportFolder);
-            Assert.IsFalse(workbench.Ask.IsOpen, "MY CIRCUIT was empty, so there was nothing to ask");
+            Assert.IsFalse(workbench.Ask.IsOpen, "an import asks nothing: it touches no circuit already there");
             yield return null;
             workbench.Pause();
             workbench.Session.Finish();
             yield return null;
 
-            Assert.AreEqual(0, workbench.Sample, "MY CIRCUIT");
+            Assert.AreEqual(0, workbench.Sample, "a circuit, not a sample");
+            Assert.AreEqual(BitSorter.ViewModel.Documents.KeyOf("mux2"), workbench.DocumentKey, "named after its project");
             Assert.AreEqual("mux2_tb", workbench.Session.Project.Bench);
             Assert.AreEqual("mux2", workbench.Session.Project.Top);
             Assert.AreEqual("mux2_tb.dut", workbench.Session.Run.Model.Layout.DesignPath);
@@ -1826,35 +1828,103 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsFalse(workbench.Transcript.Lines.Any(l => l.Text.StartsWith("broken.sv:")), "what the import said goes with the first edit");
         }
 
-        /// <summary>An import over a MY CIRCUIT with something in it asks first (Part 13d); CANCEL keeps it, and the answer replaces it.</summary>
+        /// <summary>
+        /// An import never replaces a circuit (Part 15a, where it asked before replacing MY CIRCUIT): the same project imported
+        /// twice is two circuits, the second numbered, MY CIRCUIT as it was, and FILE, OPEN lists all three, the latest first.
+        /// </summary>
         [UnityTest]
-        public IEnumerator FileImport_OverACircuit_AsksFirst()
+        public IEnumerator FileImport_IsACircuitOfItsOwn_EveryTime_AndMyCircuitIsLeftAlone()
         {
             PutInTheImportFolder(("mux2.sv", ImportedMux), ("mux2_tb.sv", ImportedMuxBench));
             yield return TestScene.Load();
             yield return Click(MainMenu.WorkbenchButton);
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowSample(0);
             yield return null;
+            Assert.AreEqual(WorkbenchSamples.MyCircuitKey, workbench.DocumentKey, "sanity: MY CIRCUIT open");
+            yield return Place(workbench, "and", new BoardPoint(4, 0), new System.Collections.Generic.List<int>());
+            Project mine = workbench.Session.Project;
 
             workbench.ImportFromFolder();
             yield return null;
-            Project first = workbench.Session.Project;
-            Assert.AreEqual("mux2", first.Top, "sanity: the first import made MY CIRCUIT");
+            Assert.AreEqual("mux2", workbench.Session.Project.Top, "sanity: imported");
+            Assert.AreEqual(BitSorter.ViewModel.Documents.KeyOf("mux2"), workbench.DocumentKey);
 
             workbench.ImportFromFolder();
             yield return null;
-            Assert.IsTrue(workbench.Ask.IsOpen, "MY CIRCUIT has a circuit now, so the second import asks");
-            StringAssert.Contains("Replace it with mux2", workbench.Ask.Question);
+            Assert.IsFalse(workbench.Ask.IsOpen, "nothing to ask");
+            Assert.AreEqual(BitSorter.ViewModel.Documents.KeyOf("mux2 2"), workbench.DocumentKey, "the same project again, numbered");
+
+            workbench.OpenOpenMenu();
+            yield return null;
+            CollectionAssert.AreEqual(new[] { BitSorter.ViewModel.Documents.KeyOf("mux2 2"), BitSorter.ViewModel.Documents.KeyOf("mux2"),
+                WorkbenchSamples.MyCircuitKey }, workbench.OpenMenu.Listed, "every circuit, the latest first");
+            yield return Click(BitSorter.View.DocumentMenu.SlotName(2));
+            yield return null;
+            Assert.AreEqual(WorkbenchSamples.MyCircuitKey, workbench.DocumentKey);
+            Assert.AreEqual(mine.TopModule.Parts.Count, workbench.Session.Project.TopModule.Parts.Count, "MY CIRCUIT as it was left, its AND and all");
+        }
+
+        /// <summary>
+        /// FILE's circuits (Part 15a): NEW asks a name, offering a free one, and opens a blank circuit of that name, kept apart
+        /// from MY CIRCUIT; RENAME and DELETE are offered for it, never for MY CIRCUIT; a name taken is refused, saying so; DELETE
+        /// asks first and opens MY CIRCUIT; and an old free-play board, which the save's migration made a document, is listed.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator FileNewRenameDeleteAndOpen_KeepEachCircuitApart()
+        {
+            yield return TestScene.Load();
+            yield return Click(MainMenu.WorkbenchButton);
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowSample(0);
+            yield return null;
+            ProgressStore store = Find<ProgressTracker>().Store;
+            string board = Documents.FreePlayPrefix + "My board";
+            store.SetProject(board, Project.New("My_board"));
+
+            yield return Click(WorkbenchPanel.FileButton);
+            Assert.IsFalse(workbench.FileMenu.Offers(FileAction.RenameCircuit), "MY CIRCUIT is not renamed");
+            Assert.IsFalse(workbench.FileMenu.Offers(FileAction.DeleteCircuit), "nor deleted");
+            yield return Click(FileMenu.ActionItem + FileAction.NewCircuit);
+            yield return null;
+            Assert.IsTrue(workbench.CircuitNameField.IsOpen, "NEW asks a name");
+            Assert.AreEqual("circuit1", workbench.CircuitNameField.Field.value, "offering a free one");
+            workbench.CircuitNameField.Confirm("adder");
+            yield return null;
+            Assert.AreEqual(Documents.KeyOf("adder"), workbench.DocumentKey);
+            Assert.AreEqual("adder", workbench.Session.Project.Top, "a blank circuit, its module named for it");
+            yield return Place(workbench, "xor", new BoardPoint(4, 0), new System.Collections.Generic.List<int>());
+            yield return Click(WorkbenchPanel.FileButton);
+            Assert.IsTrue(workbench.FileMenu.Offers(FileAction.RenameCircuit), "a circuit of their own is renamed");
+            workbench.FileMenu.Close();
+            yield return null;
+
+            workbench.RenameCircuit("My Circuit");
+            StringAssert.Contains("called my circuit already", workbench.ChipText, "a name taken, by any case, refused");
+            workbench.RenameCircuit("half adder");
+            yield return null;
+            Assert.AreEqual(Documents.KeyOf("half adder"), workbench.DocumentKey);
+            Assert.IsTrue(store.HasProject(Documents.KeyOf("half adder")) && !store.HasProject(Documents.KeyOf("adder")), "kept under its new name");
+
+            workbench.OpenOpenMenu();
+            yield return null;
+            CollectionAssert.AreEquivalent(new[] { Documents.KeyOf("half adder"), WorkbenchSamples.MyCircuitKey, board }, workbench.OpenMenu.Listed,
+                "every circuit, the old free-play board among them");
+            Assert.AreEqual(Documents.KeyOf("half adder"), workbench.OpenMenu.Listed[0], "the one open first");
+            workbench.OpenMenu.Close();
+            yield return null;
+
+            workbench.AskDeleteCircuit();
+            Assert.IsTrue(workbench.Ask.IsOpen, "DELETE asks first");
+            StringAssert.Contains("Delete the circuit half adder? It cannot be brought back.", workbench.Ask.Question);
             yield return Click(AskMenu.NoItem);
-            Assert.IsFalse(workbench.Ask.IsOpen);
-            Assert.AreSame(first, workbench.Session.Project, "CANCEL keeps MY CIRCUIT as it was");
-
-            workbench.ImportFromFolder();
-            yield return null;
+            Assert.AreEqual(Documents.KeyOf("half adder"), workbench.DocumentKey, "NO keeps it");
+            workbench.AskDeleteCircuit();
             yield return Click(AskMenu.YesItem);
             yield return null;
-            Assert.AreNotSame(first, workbench.Session.Project, "and the answer replaces it");
-            Assert.AreEqual("mux2_tb", workbench.Session.Project.Bench);
+            Assert.AreEqual(WorkbenchSamples.MyCircuitKey, workbench.DocumentKey, "and MY CIRCUIT opens in its place");
+            Assert.IsFalse(store.HasProject(Documents.KeyOf("half adder")));
+            Assert.IsEmpty(workbench.Session.Project.TopModule.Parts.OfType<GatePart>(), "with nothing of the deleted circuit's in it");
         }
 
         /// <summary>

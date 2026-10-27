@@ -32,6 +32,9 @@ namespace BitSorter.View
         /// <summary>The field a new code block's name is asked in (Part 12d).</summary>
         public const string CodeNameName = "Workbench code block name";
 
+        /// <summary>The field a circuit's name is asked in, by FILE, NEW and RENAME (Part 15a).</summary>
+        public const string CircuitNameName = "Workbench circuit name";
+
         private const float Width = 320f, Pad = 12f, TitleHeight = 24f, FieldHeight = 38f;
 
         private ShellPopup _popup;

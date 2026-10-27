@@ -97,7 +97,8 @@ namespace BitSorter.View
             for (int i = 0; i < WorkbenchSamples.Chip.Count; i++)
                 sampleWidth = Mathf.Max(sampleWidth, UiTheme.TextWidth(SampleCaption(i), UiType.Body));
             float width = sampleWidth + 40f;
-            _sampleButton = ShellTheme.Button(SampleButton, SampleCaption(_sample), palette, () => ShowSample(_sample + 1));
+            _sampleButton = ShellTheme.Button(SampleButton, ChipCaption(_sample), palette, () => ShowSample(_sample + 1));
+            ShellTheme.Ellipsis(_sampleButton);   // a circuit's name can be longer than any sample's (Part 15a)
             ShellTheme.PlaceRight(_sampleButton, 0f, (HeaderHeight - SampleHeight) * 0.5f, width, SampleHeight);
             ShellTheme.KeyBeside(_sampleButton, SampleHeight, "S", palette);
             _header.Add(_sampleButton);

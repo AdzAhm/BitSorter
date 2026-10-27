@@ -137,25 +137,19 @@ namespace BitSorter.View
             return tracker != null ? tracker.Store : null;
         }
 
-        /// <summary>MY CIRCUIT as the save keeps it, or a blank document the first time.</summary>
-        private static Project MyCircuit()
-        {
-            ProgressStore store = Store();
-            return store != null && store.TryGetProject(WorkbenchSamples.MyCircuitKey, out Project kept, new List<string>()) && kept.TopModule != null
-                ? kept
-                : WorkbenchSamples.Blank();
-        }
+        /// <summary>The circuit open as the save keeps it, or a blank one the first time (Part 15a: MY CIRCUIT, or another).</summary>
+        private Project MyCircuit() => Document(_documentKey);
 
-        /// <summary>Whether MY CIRCUIT has anything in it: what the workbench opens on, where the reference circuit is otherwise.</summary>
-        private static bool MyCircuitHasAnything()
+        /// <summary>Whether the circuit open has anything in it: what the workbench opens on, where the reference circuit is otherwise.</summary>
+        private bool MyCircuitHasAnything()
         {
             Project kept = MyCircuit();
             return kept.TopModule != null && (kept.TopModule.Parts.Count > 0 || kept.TopModule.IsWritten || kept.Modules.Count > 1);
         }
 
         /// <summary>
-        /// Writes MY CIRCUIT when it has changed: <paramref name="now"/>, or half a second after its last edit. The
-        /// samples are never written.
+        /// Writes the circuit open, under its own key (Part 15a), when it has changed: <paramref name="now"/>, or half a
+        /// second after its last edit. The samples are never written.
         /// </summary>
         private void KeepMyCircuit(bool now)
         {
@@ -178,7 +172,7 @@ namespace BitSorter.View
             ProgressStore store = Store();
             if (store != null)
             {
-                store.SetProject(WorkbenchSamples.MyCircuitKey, _session.Project);
+                store.SetProject(_documentKey, _session.Project);
                 store.Save();
             }
 

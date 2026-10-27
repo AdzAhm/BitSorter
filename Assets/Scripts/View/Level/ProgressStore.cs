@@ -75,6 +75,12 @@ namespace BitSorter.View
         /// it, and a 4.x build reading this file passes over a key it does not know.
         /// </remarks>
         public SavedProject[] projects;
+
+        /// <summary>
+        /// The keys of the documents last opened on the workbench, the latest first (Part 15a): what OPEN lists first and
+        /// the start page's RECENT. A new key, absent -- null -- in every file from before it.
+        /// </summary>
+        public string[] recent;
     }
 
     /// <summary>One document in the save, under the key of the board it belongs to.</summary>
@@ -145,6 +151,7 @@ namespace BitSorter.View
 
         /// <summary>5.0's documents, by the key of the board each belongs to, in the order they were put in.</summary>
         private readonly List<SavedProject> _projects = new List<SavedProject>();
+        private readonly List<string> _recent = new List<string>();
 
         public ProgressStore(string path)
         {
@@ -254,6 +261,7 @@ namespace BitSorter.View
             _activeFreePlay = 0;
             _library.Clear();
             _projects.Clear();
+            _recent.Clear();
             LoadedFormat = 0;
 
             string source = null;
@@ -338,6 +346,11 @@ namespace BitSorter.View
                             Put(saved.key, saved.project);
                     }
                 }
+
+                if (file.recent != null)
+                    foreach (string key in file.recent)
+                        if (!string.IsNullOrEmpty(key) && !_recent.Contains(key))
+                            _recent.Add(key);
             }
             catch (Exception exception)
             {
@@ -421,6 +434,7 @@ namespace BitSorter.View
                     blocks = _library.ToArray(),
                     format = ProjectRecord.Format,
                     projects = _projects.ToArray(),
+                    recent = _recent.ToArray(),
                 };
 
                 _completed.CopyTo(file.completed);
@@ -457,6 +471,7 @@ namespace BitSorter.View
             _activeFreePlay = 0;
             _library.Clear();
             _projects.Clear();
+            _recent.Clear();
             Save();
         }
 
@@ -546,6 +561,44 @@ namespace BitSorter.View
             if (string.IsNullOrEmpty(key) || project == null)
                 return;
             Put(key, ProjectRecord.From(project));
+        }
+
+        /// <summary>The keys of the documents last opened, the latest first (Part 15a).</summary>
+        public IReadOnlyList<string> Recent => _recent;
+
+        /// <summary>Puts <paramref name="key"/> at the front of <see cref="Recent"/>, which stays short. Not written until <see cref="Save"/>.</summary>
+        public void Touch(string key)
+        {
+            if (string.IsNullOrEmpty(key))
+                return;
+            IReadOnlyList<string> touched = BitSorter.ViewModel.Documents.Touched(_recent, key);
+            _recent.Clear();
+            _recent.AddRange(touched);
+        }
+
+        /// <summary>Takes the document under <paramref name="key"/> out of the save, and out of <see cref="Recent"/>. Not written until <see cref="Save"/>.</summary>
+        public void RemoveProject(string key)
+        {
+            int index = IndexOfProject(key);
+            if (index >= 0)
+                _projects.RemoveAt(index);
+            _recent.Remove(key);
+        }
+
+        /// <summary>
+        /// Keeps the document under <paramref name="from"/> under <paramref name="to"/> instead, in its place in the save and
+        /// in <see cref="Recent"/>; false when there is none, or <paramref name="to"/> is taken. Not written until <see cref="Save"/>.
+        /// </summary>
+        public bool RenameProject(string from, string to)
+        {
+            int index = IndexOfProject(from);
+            if (index < 0 || string.IsNullOrEmpty(to) || (to != from && IndexOfProject(to) >= 0))
+                return false;
+            _projects[index] = new SavedProject { key = to, project = _projects[index].project };
+            int recent = _recent.IndexOf(from);
+            if (recent >= 0)
+                _recent[recent] = to;
+            return true;
         }
 
         private void Put(string key, ProjectRecord file)
