@@ -1098,7 +1098,7 @@ namespace BitSorter.PlayMode.Tests
             StringAssert.Contains("initial", workbench.ListingView.Text, "the testbench made from the stimulus");
 
             // An edit draws the stage again, and its replay taking over draws it again: the file chosen stays.
-            yield return Place(workbench, "or", new BoardPoint(6, -6), ids);
+            yield return Place(workbench, "or", new BoardPoint(10, -4), ids);
             workbench.Session.Finish();
             yield return null;
             yield return null;
