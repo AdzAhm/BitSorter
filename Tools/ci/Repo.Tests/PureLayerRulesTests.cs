@@ -131,6 +131,8 @@ namespace BitSorter.Ci.Tests
         private static readonly Dictionary<string, string> UnityFreeButTheViews = new Dictionary<string, string>
         {
             ["CanvasMotion.cs"] = "it reads the player's look and reduced motion, which are the view's settings",
+            ["WorkbenchPanel.Documents.cs"] = "a part of the workbench's MonoBehaviour that opens, names and deletes circuits through the save " +
+                "and the shell's popups, all the view's; its rules are Documents', in the view-model (Part 15a)",
         };
 
         /// <summary>
