@@ -2378,25 +2378,33 @@ computed and measured, registers given a clock to Q and a setup, a library mode 
   inspector is its cell's, and every gate of the cell follows, one step (`GateLibrary.Retimed`) -- the library is then no
   preset's, CUSTOM. Ahmad's choice between a preset and a custom table (2026-10-27) became one table a preset fills;
   whether the preset should carry the course's delays is his to settle, from his handout.
-- **Kept everywhere.** `BoardRules` refuses a gate the library has no cell for, a gate off its cell's delays, a MUX --
-  no cell, and so built of the library's gates -- and a constant where constants are refused, each in words naming the
-  part, and warns of a design over its budget (a warning: gates come one at a time on the way to fewer; a wide gate is a
-  cell a bit, and a block counts its contents each time it stands). `BoardEditor.SetLibrary` sets it and gives every
-  gate of a cell its delays in the same step, refused in the rules' words when what is drawn breaks it. PARTS offers only
-  what it allows (`PartsCatalog.For`), a gate placed takes the fewest inputs a cell of it has and that cell's delays, the
-  inspector says which cell a gate is, and the TIMING tab's gate count is laid against the budget, a problem when over.
+- **Kept wherever a design is drawn.** `BoardRules` refuses a gate the library has no cell for, a gate off its cell's
+  delays, a MUX -- no cell, and so built of the library's gates -- and a constant where constants are refused, each in
+  words naming the part. `BoardEditor.SetLibrary` sets it and gives every gate of a cell its delays in the same step,
+  refused in the rules' words when what is drawn breaks it, and no step at all when it is the library there already
+  (`GateLibrary.Alike`, cell by cell, since record equality compares the lists of cells by reference). **A gate added
+  takes its cell's delays wherever it comes from** (`BoardEditor.Add`), so a gate copied before the library changed
+  pastes at the new ones. PARTS offers only what it allows (`PartsCatalog.For`), a gate placed takes the fewest inputs a
+  cell of it has and that cell's delays, and the inspector says which cell a gate is. **A written module is not held to
+  it**, so far: its code is checked as SystemVerilog, not cell by cell.
+- **The budget is one count, on the TIMING tab**: the design's gates, a wide gate's every bit, a block's contents each
+  time it stands, written code's gates included, laid against the budget and a problem when over -- never refused, since
+  gates come one at a time on the way to fewer. The rules warned of it as well until the 14d review, counting drawn gates
+  alone, so a written design over its budget was over it on the tab and not in the transcript.
 - **The LIBRARY menu** (`LibraryMenu`, under the TIMING tab's LIBRARY button, which says what the design is held to):
-  no library, or the course's cells; and, with one, constants refused or allowed, the gate budget (asked in a one-line
-  field), and each kind of gate taken out or put back (`GateLibrary.Toggled`). PARTS is made again when the library
-  changes.
+  no library, or the course's cells afresh, keeping the budget and the rule on constants; and, with one, constants
+  refused or allowed, the gate budget (asked in a one-line field), and each kind of gate taken out or put back
+  (`GateLibrary.Toggled`). PARTS is made again when the library changes, and the TIMING tab is worked out again when the
+  library does, though no gate moved.
 - **Checked.** `LibraryTests`: the preset is every cell BitSorter has at the delay asked; setting it gives every gate its
   cell's delays and a delay in the table every gate of the cell, undone in a step each; a library without XOR refused
   for the full adder, in words naming XOR2 and the cells it has; a BUFIF1, a gate off its delays, a MUX and -- where none
   are taken -- a constant refused, a wide gate of a cell allowed; a library refused over a drawn MUX; a kind taken out and
-  put back; the budget warned of at 5 over 4 and not at 5; the save, an older file and an unknown cell.
+  put back; a design over its budget never refused; the save, an older file and an unknown cell.
   `LibraryViewTests`: PARTS without MUX nor BUFIF1, and without CONST under no constants; a gate placed taking its cell,
   a NAND of three where the library has only NAND3; a rise typed on the OR the OR2's for every OR2, one step; the gate
-  count against the budget. Play Mode: COURSE CELLS from the menu, PARTS without MUX, a NAND placed as the library's
+  count against the budget, said at once when only the budget changes, and as one sentence with no gates; a gate copied
+  before the library changed pasted at its cell's delays; the same library set again no step. Play Mode: COURSE CELLS from the menu, PARTS without MUX, a NAND placed as the library's
   NAND2, and XOR refused from the menu with the rules' words on the chip. Reference shot 48: the LIBRARY menu over the
   TIMING tab, the full adder held to the course's cells.
 
