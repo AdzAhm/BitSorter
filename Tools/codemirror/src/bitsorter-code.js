@@ -103,6 +103,10 @@ const api = {
     if (!state.view)
       return;
     state.view.setState(blockState(text, state.extensions));
+    // From its top: a new state keeps the scroll the last block's code was at, and one written block stepped into from
+    // another opened as far down as that one was, its caret out of sight (the 14g review).
+    state.view.scrollDOM.scrollTop = 0;
+    state.view.scrollDOM.scrollLeft = 0;
     state.changed = false;
   },
 

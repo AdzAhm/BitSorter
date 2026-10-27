@@ -29,12 +29,18 @@ test("Ctrl+Z takes out what was typed, and never the block's code itself", () =>
   assert.equal(state.doc.toString(), device, "Ctrl+Y puts the paste back");
 });
 
-test("REVERT is a step Ctrl+Z takes back, as in the desktop build's editor", () => {
+test("REVERT is a step Ctrl+Z takes back on its own, as in the desktop build's editor", () => {
+  // As the game sends it, straight after the typing: within half a second CodeMirror joined a change with no label to
+  // the typing before it, and one Ctrl+Z took back both (the 14g review).
   let state = blockState(template, [history()]);
   state = state.update({ changes: { from: 0, insert: "// mine\n" }, userEvent: "input.type" }).state;
-  state = state.update(gameText(state, template), { userEvent: "revert" }).state;
+  state = state.update(gameText(state, template)).state;
   assert.equal(state.doc.toString(), template, "sanity: reverted");
 
   state = run(undo, state);
-  assert.equal(state.doc.toString(), "// mine\n" + template, "REVERT taken back");
+  assert.equal(state.doc.toString(), "// mine\n" + template, "REVERT taken back, and the typing before it not");
+  state = run(redo, state);
+  state = state.update({ changes: { from: 0, insert: "x" }, userEvent: "input.type" }).state;
+  state = run(undo, state);
+  assert.equal(state.doc.toString(), template, "nor the typing after it joined to it");
 });
