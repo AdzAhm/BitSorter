@@ -274,7 +274,7 @@ namespace BitSorter.Board
             Elaboration elaboration = Elaborator.Elaborate(alone, module.Name, rules);
             string file = FileOf(module.Name);
             Take(elaboration, warnings: true);
-            if (elaboration.HasErrors)
+            if (Faulty(elaboration.Diagnostics))
                 return new WrittenModule(declaration, Array.Empty<ModulePort>(), uses, diagnostics);
 
             // And as an instance, which is all a written module ever is in the design: its inputs are wires there, where
@@ -311,13 +311,32 @@ namespace BitSorter.Board
                     diagnostics.Add(new Diagnostic(DiagnosticSeverity.Error, PortLocation(declaration, port.Name, file), ElaborationCodes.TooLarge,
                         $"{port.Name} is {port.Width} bits wide; a block's pin can be {BoardRules.MaxWidth} at most."));
                 else
-                    ports.Add(new ModulePort(port.Name, port.Direction, port.Width,
-                        elaboration.Design.Signals[port.Signal.Index].Kind == SignalKind.Net));
+                    ports.Add(new ModulePort(port.Name, port.Direction, port.Width, IsNet(port)));
             }
 
-            return HasError(diagnostics)
+            // As the top made it -- or, where only a library's fault kept the top from being made (Part 14g), as the instance did.
+            bool IsNet(ElaboratedPort port)
+            {
+                if (elaboration.Design != null)
+                    return elaboration.Design.Signals[port.Signal.Index].Kind == SignalKind.Net;
+                return asInstance.Design != null && asInstance.Design.TryFind(HostName + ".u." + port.Name, out SignalId signal)
+                    && asInstance.Design.Signals[signal.Index].Kind == SignalKind.Net;
+            }
+
+            // A fault of the library's alone leaves the module's ports as they are (the 14g review): its header is fine, and a
+            // block of it keeps its pins, so the fault is what is said -- not a wire left on a pin the block no longer has.
+            return Faulty(diagnostics)
                 ? new WrittenModule(declaration, Array.Empty<ModulePort>(), uses, diagnostics)
                 : new WrittenModule(declaration, ports, uses, diagnostics);
+        }
+
+        /// <summary>Whether there is an error that leaves a module without its ports: any but a gate library's (Part 14g).</summary>
+        private static bool Faulty(IEnumerable<Diagnostic> diagnostics)
+        {
+            foreach (Diagnostic d in diagnostics)
+                if (d.Severity == DiagnosticSeverity.Error && d.Code != ElaborationCodes.OffLibrary)
+                    return true;
+            return false;
         }
 
         /// <summary>The text parsed, and held to being one module of the module's own name: what it says, and what it instantiates.</summary>

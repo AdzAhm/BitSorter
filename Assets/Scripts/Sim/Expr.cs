@@ -123,9 +123,6 @@ namespace BitSorter.Sim
         /// <summary>Whether a constant is written in it (Part 14g): what a library that takes none refuses.</summary>
         internal virtual bool HasConstant => false;
 
-        /// <summary>Whether it is the inverse of something that only connects -- <c>!rst_n</c>, a register's reset (Part 14g).</summary>
-        internal virtual bool IsInvertedWiring => false;
-
         /// <summary>Its value, when it is a constant and nothing else.</summary>
         internal virtual bool TryConstant(out LogicVec value)
         {
@@ -355,8 +352,6 @@ namespace BitSorter.Sim
 
         private sealed class UnaryExpr : Expr
         {
-            internal override bool IsInvertedWiring => (_op == UnaryOp.Not || _op == UnaryOp.LogicalNot) && _a.IsWiring;
-
             private readonly UnaryOp _op;
             private readonly Expr _a;
 
@@ -809,7 +804,8 @@ namespace BitSorter.Sim
         private sealed class ResizeExpr : Expr
         {
             internal override bool IsWiring => _a.IsWiring;
-            internal override bool HasConstant => _a.HasConstant;
+            // Widened with 0s, its top bits are constants; widened by its sign, they are its top bit again.
+            internal override bool HasConstant => _a.HasConstant || (_width > _a.Width && !_signExtend);
 
             private readonly Expr _a;
             private readonly int _width;

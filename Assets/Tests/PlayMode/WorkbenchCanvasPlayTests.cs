@@ -1379,12 +1379,6 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
-        /// The dock's TIMING tab (Part 14b): the full adder's critical path picked and lit from the start -- a to cout through
-        /// both blocks and the OR -- another path picked lighting its own, the light following the drawing inside a block, and
-        /// another tab putting it out. Then the counter: its minimum period, 3, moves to 5 with its register's clock to Q of 2,
-        /// typed in the register's quick field.
-        /// </summary>
-        /// <summary>
         /// Over its library's gate budget, the TRANSCRIPT says so as a warning (Part 14g, Ahmad's choice), in the TIMING tab's
         /// own count; a click on the warning opens the TIMING tab, where the gates are counted by kind.
         /// </summary>
@@ -1418,6 +1412,12 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsTrue(workbench.TimingShown, "a click on it opens the TIMING tab");
         }
 
+        /// <summary>
+        /// The dock's TIMING tab (Part 14b): the full adder's critical path picked and lit from the start -- a to cout through
+        /// both blocks and the OR -- another path picked lighting its own, the light following the drawing inside a block, and
+        /// another tab putting it out. Then the counter: its minimum period, 3, moves to 5 with its register's clock to Q of 2,
+        /// typed in the register's quick field.
+        /// </summary>
         [UnityTest]
         public IEnumerator TheTimingTab_LightsThePathPicked_AndFollowsARegistersClockToQ()
         {

@@ -117,12 +117,22 @@ namespace BitSorter.ViewModel
         {
             get
             {
-                int budget = Project?.Settings?.Library?.GateBudget ?? -1;
-                if (budget < 0 || Analysis == null || !Analysis.Succeeded || Analysis.Gates <= budget)
-                    return null;
-                return Number(Analysis.Gates) + " gates, over the library's budget of " + Number(budget) + ": the TIMING tab counts them by kind.";
+                // Worked out once a view, since the transcript asks every frame (the 14g review).
+                if (!_overBudgetKnown)
+                {
+                    _overBudgetKnown = true;
+                    int budget = Project?.Settings?.Library?.GateBudget ?? -1;
+                    if (budget >= 0 && Analysis != null && Analysis.Succeeded && Analysis.Gates > budget)
+                        _overBudget = Number(Analysis.Gates) + (Analysis.Gates == 1 ? " gate" : " gates") + ", over the library's budget of " +
+                            Number(budget) + ": the TIMING tab counts them by kind.";
+                }
+
+                return _overBudget;
             }
         }
+
+        private string _overBudget;
+        private bool _overBudgetKnown;
 
         /// <summary>
         /// The slowest any computed path is, register to register, in, out or straight through: what a step is left to settle

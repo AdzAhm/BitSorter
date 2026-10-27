@@ -78,7 +78,7 @@ namespace BitSorter.Board.Tests
         [Test]
         public void LogicWrittenWithOperators_IsRefused_AndAPlainConnectionIsNot()
         {
-            Breaks("    assign y = a & b;", "works something out with an operator");
+            Breaks("    assign y = a & b;", "This assignment works something out");
             Breaks("    assign y = s[0] ? a : b;", "works something out");
             Breaks("    assign y = v[s];", "a select by a signal");
             Holds("    assign y = v[3];\n    assign q = {a};");
@@ -93,7 +93,67 @@ namespace BitSorter.Board.Tests
             Holds("    always_ff @(posedge clk or negedge rst_n)\n        if (!rst_n) q <= 1'b0;\n        else q <= a;\n    assign y = q;", noConstants: true);
             Holds("    always @(posedge clk) q <= a;\n    assign y = q;");
             Breaks("    always_ff @(posedge clk) q <= q ^ a;\n    assign y = q;", "This register works something out");
-            Breaks("    always_ff @(posedge clk)\n        case (s)\n            2'd0: q <= a;\n            default: q <= b;\n        endcase\n    assign y = q;", "a case");
+            Breaks("    always_ff @(posedge clk)\n        case (s)\n            2'd0: q <= a;\n            default: q <= b;\n        endcase\n    assign y = q;", "A register's body is its writes");
+        }
+
+        /// <summary>
+        /// A register's shape is the drawn register's (the 14g review found ifs nested to any function passing): an if is its
+        /// reset -- a one-bit signal, its inverse, or one compared with a constant -- whose then loads constants and whose else
+        /// loads D; a choice between signals, a wide condition, an enable that keeps the value, are logic.
+        /// </summary>
+        [Test]
+        public void ARegistersIf_IsOnlyItsReset()
+        {
+            Holds("    always_ff @(posedge clk) if (rst_n == 1'b0) q <= 1'b0; else q <= a;\n    assign y = q;");
+            Holds("    logic [3:0] r;\n    always_ff @(posedge clk) if (~rst_n) r <= '0; else r <= v;\n    assign y = r[0];\n    assign q = r[1];");
+            Holds("    logic [3:0] r;\n    always_ff @(posedge clk) if (!rst_n) r <= {4{1'b0}}; else r <= v;\n    assign y = r[0];\n    assign q = r[1];");
+            Breaks("    always_ff @(posedge clk) if (a) q <= b; else q <= c;\n    assign y = q;", "A reset loads constants");
+            Breaks("    always_ff @(posedge clk) if (v) q <= 1'b0; else q <= c;\n    assign y = q;", "A register's if is its reset");
+            Breaks("    always_ff @(posedge clk) if (a) q <= c;\n    assign y = q;", "loads its D otherwise");
+            Breaks("    always_ff @(posedge clk)\n        if (a) begin if (b) q <= 1'b1; else q <= 1'b0; end\n        else q <= 1'b0;\n    assign y = q;", "A register's body is its writes");
+            Breaks("    always @(posedge (a & b)) q <= c;\n    assign y = q;", "works logic out in code");
+        }
+
+        /// <summary>
+        /// Logic hidden where a value is given rather than assigned -- a gate's input, a port's connection -- is held as an
+        /// assignment is: it is a gate the library and the count never see (the 14g review).
+        /// </summary>
+        [Test]
+        public void LogicInAGatesInput_OrAPortsConnection_IsRefused()
+        {
+            Breaks("    nand #(2, 3) g (y, a & b, c);", "This gate's input works something out");
+            Breaks("    NAND2 g (.A(a & b), .B(c), .Z(y));", "This connection works something out");
+            Breaks("    NAND2 g (.A(s[0] ? a : b), .B(c), .Z(y));", "This connection works something out");
+            Holds("    NAND2 g (.A(v[1]), .B({c}), .Z(y));");
+        }
+
+        /// <summary>An initial gives starting values and nothing else, and a connection has no delay of its own: a delay is a gate's (the 14g review).</summary>
+        [Test]
+        public void AnInitial_GivesStartingValuesOnly_AndAConnectionHasNoDelay()
+        {
+            Holds("    initial q = 1'b0;\n    always_ff @(posedge clk) q <= a;\n    assign y = q;");
+            Breaks("    initial y = a & b;", "only gives starting values");
+            Breaks("    initial forever #1 y = a;", "only gives starting values");
+            Breaks("    assign #3 y = a;", "A delay on a connection");
+            Breaks("    wire #3 w = a;\n    assign y = w;", "A delay on a connection");
+        }
+
+        /// <summary>Under no constants, a constant by any name is refused: a parameter into a cell, a supply net, a widening's 0s (the 14g review).</summary>
+        [Test]
+        public void UnderNoConstants_AConstantByAnyName_IsRefused()
+        {
+            Breaks("    localparam ONE = 1'b1;\n    NAND2 g (.A(a), .B(ONE), .Z(y));", "A constant, and the library takes none", noConstants: true);
+            Breaks("    NAND2 g (.A(a), .B(~1'b0), .Z(y));", "works something out", noConstants: true);
+            Breaks("    supply1 vdd;\n    NAND2 g (.A(a), .B(vdd), .Z(y));", "A constant, and the library takes none", noConstants: true);
+            Breaks("    logic [3:0] w;\n    assign w = a;\n    assign y = w[3];", "A constant, and the library takes none", noConstants: true);
+            Breaks("    always_ff @(posedge clk) q <= 1'b1;\n    assign y = q;", "A constant loaded on every clock", noConstants: true);
+        }
+
+        /// <summary>A fault in a generate loop is said once, not once for every copy the loop makes (the 14g review).</summary>
+        [Test]
+        public void AFaultInAGenerateLoop_IsSaidOnce()
+        {
+            Breaks("    logic [3:0] n;\n    for (genvar i = 0; i < 4; i++) begin : g\n        nand #5 u (n[i], v[i], a);\n    end\n    assign y = n[0];", "rise 5 and fall 5");
         }
 
         [Test]
@@ -134,8 +194,8 @@ namespace BitSorter.Board.Tests
         [Test]
         public void TheTestbench_IsNotHeld()
         {
-            Project project = With("    NAND2 g1 (.A(a), .B(b), .Z(y));\n    assign q = a;") with { Bench = "m" };
-            CollectionAssert.IsEmpty(Faults(project with { Bench = "m" }, Library()));
+            Project project = With("    assign y = a & b;\n    assign q = a;") with { Bench = "m" };
+            CollectionAssert.IsEmpty(Faults(project, Library()), "the testbench works things out, and is not held");
             CollectionAssert.IsNotEmpty(Faults(With("    assign y = a & b;"), Library()), "sanity: held when it is no testbench");
             WrittenModule bench = WrittenModules.Read(project with { Settings = new ProjectSettings { Library = Library() } },
                 project.Find("m") with { Source = project.Find("m").Source.Replace("assign q = a;", "assign q = a & b;") });
@@ -152,7 +212,16 @@ namespace BitSorter.Board.Tests
             var breaking = new BoardEditor(With("    assign y = a & b;\n    assign q = a;"));
             EditResult refused = breaking.SetLibrary(Library());
             Assert.IsFalse(refused.Done);
-            StringAssert.Contains("works something out with an operator", refused.Refusal);
+            StringAssert.Contains("This assignment works something out", refused.Refusal);
+
+            // With a block of it drawn: the code's fault is what is said, not a wire left on a pin the block lost (the 14g review).
+            Bench.Must(breaking.Add("top", new BlockPart { Module = "m" }, new Placement(4, 0)));
+            int block = breaking.Project.TopModule.Parts.OfType<BlockPart>().Single().Id;
+            int input = Bench.Must(breaking.Add("top", new PortPart { Name = "x" }, new Placement(0, 0)));
+            Bench.Must(breaking.Connect("top", Endpoint.At(input, "out"), Endpoint.At(block, "a")));
+            EditResult withBlock = breaking.SetLibrary(Library());
+            Assert.IsFalse(withBlock.Done);
+            StringAssert.Contains("This assignment works something out", withBlock.Refusal);
 
             var pinned = new BoardEditor(With("    NAND2 #(.Tpdlh(2), .Tpdhl(3)) g1 (.A(a), .B(b), .Z(y));\n    assign q = a;"));
             Assert.IsTrue(pinned.SetLibrary(Library()).Done, string.Join("; ", pinned.Diagnostics));

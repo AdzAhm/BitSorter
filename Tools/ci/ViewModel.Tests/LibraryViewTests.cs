@@ -202,7 +202,7 @@ namespace BitSorter.ViewModel.Tests
             code.Frame(CodeDocument.PauseMilliseconds + 1);
 
             CodeMark mark = code.Marks.Single(m => m.IsError);
-            StringAssert.Contains("works something out with an operator", mark.Message);
+            StringAssert.Contains("This assignment works something out", mark.Message);
             Assert.AreEqual(broken.Substring(0, broken.IndexOf("assign")).Count(c => c == '\n') + 1, mark.Line, "at its line");
             Assert.AreEqual(held, code.Applied, "and not applied");
         }

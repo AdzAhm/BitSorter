@@ -1697,9 +1697,12 @@ namespace BitSorter.Sim
                                     BuildAssign(scope, new NameExpression { Location = declarator.Location, Path = { declarator.Name } }, declarator.Initializer, d.Delay, declarator.Location);
 
                                 if ((d.NetType == "supply0" || d.NetType == "supply1") && scope.Own(declarator.Name) is SignalEntry supply)
+                                {
+                                    HoldSupplyToLibrary(scope, declarator.Location);
                                     Drive(new List<ExpressionBuilder.Part> { new ExpressionBuilder.Part(supply, 0, supply.Width) },
                                         Expr.Constant(LogicVec.Fill(d.NetType == "supply1" ? Logic4.One : Logic4.Zero, supply.Width)),
                                         Delay.Zero, false, declarator.Location, d.NetType + " " + supply.FullName);
+                                }
                             }
                             break;
 
@@ -1833,7 +1836,7 @@ namespace BitSorter.Sim
                     return;
 
                 LintTruncation(type, target, value, scope, width, at);
-                HoldAssignToLibrary(scope, built, at);
+                HoldAssignToLibrary(scope, built, delay, at);
                 Drive(parts, built, delay, type.Signed, at, null);
             }
 
@@ -2402,6 +2405,7 @@ namespace BitSorter.Sim
                 if (builder.Failed)
                     return;
 
+                HoldConnectionToLibrary(scope, value, at);
                 if (type.Width != port.Width && !(Bare(expression) is NumberLiteral))
                     Warning(at, ElaborationCodes.WidthMismatch,
                         $"Input {LastName(port)} of {instance} is {port.Width} bit{(port.Width == 1 ? "" : "s")}, and {Printer.Print(expression)} is {type.Width}.");

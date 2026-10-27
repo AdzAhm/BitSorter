@@ -2386,12 +2386,13 @@ computed and measured, registers given a clock to Q and a setup, a library mode 
   (`GateLibrary.Alike`, cell by cell, since record equality compares the lists of cells by reference). **A gate added
   takes its cell's delays wherever it comes from** (`BoardEditor.Add`), so a gate copied before the library changed
   pastes at the new ones. PARTS offers only what it allows (`PartsCatalog.For`), a gate placed takes the fewest inputs a
-  cell of it has and that cell's delays, and the inspector says which cell a gate is. **A written module is not held to
-  it**, so far: its code is checked as SystemVerilog, not cell by cell.
+  cell of it has and that cell's delays, and the inspector says which cell a gate is. **A written module was not held to
+  it** in 14d, its code checked as SystemVerilog alone; since 14g-3 it is, gates only (see "As built in Part 14g").
 - **The budget is one count, on the TIMING tab**: the design's gates, a wide gate's every bit, a block's contents each
   time it stands, written code's gates included, laid against the budget and a problem when over -- never refused, since
   gates come one at a time on the way to fewer. The rules warned of it as well until the 14d review, counting drawn gates
-  alone, so a written design over its budget was over it on the tab and not in the transcript.
+  alone, so a written design over its budget was over it on the tab and not in the transcript. Since 14g-3 the
+  transcript warns again, from the tab's own count, so the two cannot disagree.
 - **The LIBRARY menu** (`LibraryMenu`, under the TIMING tab's LIBRARY button, which says what the design is held to):
   no library, or the course's cells afresh, keeping the budget and the rule on constants; and, with one, constants
   refused or allowed, the gate budget (asked in a one-line field), and each kind of gate taken out or put back
@@ -2507,20 +2508,32 @@ computed and measured, registers given a clock to Q and a setup, a library mode 
   been the game's. The keyboard map lists the code's keys under IN THE CODE, its columns named in `KeyMap.Columns` and
   held to every heading once.
 - **The library, as Ahmad chose it (14g-3).** Over its gate budget the TRANSCRIPT warns too
-  (`WorkbenchSession.Diagnostics`), from the TIMING tab's own count (`TimingView.OverBudget`), so the two can never
-  disagree, and a click on it opens the TIMING tab. **Written code is held to the library, gates only**: the elaborator
-  takes the library as `GateLevelRules` (Sim, which knows no library of its own) and checks each module it names as it
-  builds it (`Elaborator.Library.cs`): a primitive or a cell's module must be one of the library's cells at its
-  delays, as its parameters and generate loops work them out; a continuous assignment may only connect
-  (`Expr.IsWiring`: a read, a fixed select, a concatenation, a replication, a widening -- a select by a signal is a
-  multiplexer); a process only as a register, an `always_ff` or an `always` on an edge whose writes connect and whose
-  conditions are a signal or its inverse; and no constant where the library takes none. Each fault is an error,
-  SV0501, at its line, so the code editor marks it, the text does not apply, and a library set over code that breaks
-  it is refused, as over a drawing. `WrittenModules` reads each written module held to it but the testbench, the
-  library part of what a reading is kept under. **A cell's delays default to the library's** (`CellLibrary.Build`),
-  for the run and the printed cells alike, so `NAND2 g1 (...)` takes them as a course's own library file gives them,
-  and runs so under Icarus too (the `written_cells` sample). A cell retimed is refused while code pins it at other
-  delays, and followed by code that leaves them out.
+  (`WorkbenchSession.Diagnostics`), from the TIMING tab's own count (`TimingView.OverBudget`, worked out once a view),
+  so the two can never disagree, and a click on it opens the TIMING tab. **Written code is held to the library, gates
+  only**: the elaborator takes the library as `GateLevelRules` (Sim, which knows no library of its own) and checks each
+  module it names as it builds it (`Elaborator.Library.cs`):
+  - a primitive or a cell's module is one of the library's cells at its delays, as its parameters and generate loops
+    work them out;
+  - everything else only connects (`Expr.IsWiring`: a read, a fixed select, a concatenation, a replication, a
+    widening -- a select by a signal is a multiplexer): a continuous assignment, with no delay of its own; a gate's
+    input; a port's connection;
+  - a process is a register of the drawn register's shape -- clocked by a plain signal, `q <= d`, or `if (reset) q <=
+    constant; else q <= d` with a one-bit reset, its inverse, or one compared with a constant -- or an `initial` giving
+    starting values; anything else, ifs nested into a function, a case, an enable that keeps the value, is refused;
+  - no constant where the library takes none, by any name: a number, a parameter, a supply net, a widening's 0s, a
+    constant loaded on every clock (a reset or starting value is no tie, and stays).
+
+  Each fault is an error, SV0501, at its line, said once however many copies a generate loop makes, so the code editor
+  marks it, the text does not apply, and a library set over code that breaks it is refused with that fault -- a
+  module whose only faults are the library's keeps its ports, so a block of it is not refused instead for a wire on a
+  pin it lost. `WrittenModules` reads each written module held to it but the testbench -- the one the project runs,
+  `Project.Bench` -- the library part of what a reading is kept under. **A cell's delays default to the library's**
+  (`CellLibrary.Build`), for the run and the printed cells alike, so `NAND2 g1 (...)` takes them as a course's own
+  library file gives them, and runs so under Icarus too (the `written_cells` sample). A cell retimed is refused while
+  code pins it at other delays, and followed by code that leaves them out. **Two limits, written down by the 14g review**:
+  each module is held at its own parameters' defaults, so a parent overriding a child's delay parameter is not held
+  there; and a project exported under a library and imported again keeps its cells' delays but not the library, which
+  is a setting of the project rather than of its files.
 
 ---
 
