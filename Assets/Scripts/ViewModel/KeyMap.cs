@@ -34,7 +34,7 @@ namespace BitSorter.ViewModel
     }
 
     /// <summary>Where the pointer is, as the status line names its gestures.</summary>
-    public enum PointerArea { Elsewhere, Circuit, Waves }
+    public enum PointerArea { Elsewhere, Circuit, Waves, Blocks }
 
     /// <summary>
     /// The keyboard map (Part 11d), Unity-free: every key the workbench answers, from <see cref="WorkbenchKeys"/> alone, under
@@ -60,6 +60,15 @@ namespace BitSorter.ViewModel
             new KeyMapEntry("WHEEL", "zoom about the pointer"),
             new KeyMapEntry("ALT-CLICK", "a wire to add its signal to the waveform"),
             new KeyMapEntry("CTRL-ENTER", "in a written block's code, apply it now; it applies itself when typing pauses"),
+        };
+
+        /// <summary>
+        /// The gestures in PARTS, as the map lists them (Part 14g): deleting a block leaves its module, the player's work, and
+        /// this is how a module goes.
+        /// </summary>
+        public static readonly IReadOnlyList<KeyMapEntry> PartsGestures = new[]
+        {
+            new KeyMapEntry("RIGHT-CLICK", "a block's row to delete its module, once none of it is placed"),
         };
 
         /// <summary>The gestures on the waves, as the map lists them.</summary>
@@ -139,6 +148,7 @@ namespace BitSorter.ViewModel
 
             groups.Add(new KeyMapGroup("ON THE CIRCUIT", CircuitGestures));
             groups.Add(new KeyMapGroup("ON THE WAVES", WavesGestures));
+            groups.Add(new KeyMapGroup("IN PARTS", PartsGestures));
             return groups.AsReadOnly();
         }
 
@@ -154,6 +164,9 @@ namespace BitSorter.ViewModel
                     return "circuit:  drag from a pin to wire  ·  double-click to inspect  ·  right-click for its menu  ·  wheel to zoom  ·  ? every key";
                 case PointerArea.Waves:
                     return "waves:  click to seek  ·  shift-click a second cursor  ·  wheel to zoom time  ·  right-click for a menu  ·  ? every key";
+                case PointerArea.Blocks:
+                    // A block's module stays when its last block goes, since it is the player's work: this is how it goes.
+                    return "blocks:  click to take one  ·  right-click to delete its module  ·  ? every key";
                 default:
                     return "? shows every key and gesture";
             }

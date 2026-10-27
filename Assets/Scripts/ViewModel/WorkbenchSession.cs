@@ -312,6 +312,15 @@ namespace BitSorter.ViewModel
         /// </summary>
         public EditResult AddWrittenModule(string name) => Editor.AddWrittenModule(name);
 
+        /// <summary>
+        /// The module <paramref name="name"/> taken out of the project, its code or its drawing with it
+        /// (<see cref="BoardEditor.RemoveModule"/>): one step, and replayed, since the written testbench is a module too.
+        /// </summary>
+        public EditResult RemoveModule(string name) => Edited(Editor.RemoveModule(name));
+
+        /// <summary>Why <paramref name="name"/> cannot be taken out -- something uses it -- or null when it can (<see cref="BoardEditor.WhyNotRemoveModule"/>).</summary>
+        public string WhyNotRemoveModule(string name) => Editor.WhyNotRemoveModule(name);
+
         /// <summary>Places what <paramref name="entry"/> offers at <paramref name="at"/> (<see cref="PartsCatalog.Place"/>): drawn now, and replayed.</summary>
         public EditResult Place(CatalogEntry entry, Placement at) => Edited(PartsCatalog.Place(Editor, Module, entry, at));
 

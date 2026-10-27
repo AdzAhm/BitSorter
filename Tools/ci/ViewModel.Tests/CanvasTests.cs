@@ -491,6 +491,41 @@ namespace BitSorter.ViewModel.Tests
             Assert.IsNotNull(session.Project.TopModule.FindPart(b));
         }
 
+        /// <summary>
+        /// The last block of a module deleted leaves the module, which is the player's work, and says so and how to take it
+        /// out; taken out, it is gone from the CODE tab's files and from PARTS, and undo puts it back (the 14g report: code1
+        /// stayed in both after its block was deleted, with nothing in the workbench to take it out).
+        /// </summary>
+        [Test]
+        public void TheLastBlockOfAModule_Deleted_SaysTheModuleStays_AndItsModuleCanThenBeTakenOut()
+        {
+            (WorkbenchSession session, CanvasEditor editor, int _, int _, int _, int _) = Editing();
+            Assert.IsTrue(session.AddWrittenModule("code1").Done);
+            CatalogEntry entry = PartsCatalog.For(session.Project, session.Module).Single(e => e.Module == "code1");
+            EditResult placed = session.Place(entry, new Placement(8, 4));
+            Assert.IsTrue(placed.Done);
+            int second = session.Place(entry, new Placement(8, 7)).Id;
+            editor.Relaid();
+
+            editor.Do(new CanvasCommand(CanvasGesture.Select, target: new CanvasTarget(CanvasTargetKind.Part, part: placed.Id)));
+            Assert.IsTrue(editor.Delete().Done);
+            Assert.IsNull(editor.Note, "another block of code1 is still placed");
+            Assert.IsNotNull(session.WhyNotRemoveModule("code1"));
+
+            editor.Do(new CanvasCommand(CanvasGesture.Select, target: new CanvasTarget(CanvasTargetKind.Part, part: second)));
+            Assert.IsTrue(editor.Delete().Done);
+            Assert.AreEqual("code1 stays in the project, as its code does: right-click it in PARTS to delete it.", editor.Note);
+            Assert.AreNotEqual(-1, session.Listing.FileOf("code1"), "sanity: still printed, as Ahmad found");
+
+            Assert.IsNull(session.WhyNotRemoveModule("code1"));
+            Assert.IsTrue(session.RemoveModule("code1").Done);
+            Assert.AreEqual(-1, session.Listing.FileOf("code1"), "gone from the CODE tab's files");
+            Assert.IsFalse(PartsCatalog.For(session.Project, session.Module).Any(e => e.Module == "code1"), "and from PARTS");
+
+            Assert.IsTrue(session.Undo());
+            Assert.AreNotEqual(-1, session.Listing.FileOf("code1"), "one step: undo puts it back");
+        }
+
         [Test]
         public void ABlankDocument_OpensAndRuns_AndTakesItsFirstPart()
         {

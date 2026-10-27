@@ -41,8 +41,9 @@ namespace BitSorter.ViewModel.Tests
         {
             Assert.IsTrue(KeyMap.Groups.Any(g => g.Title == "ON THE CIRCUIT" && g.Entries.Count > 0));
             Assert.IsTrue(KeyMap.Groups.Any(g => g.Title == "ON THE WAVES" && g.Entries.Count > 0));
+            Assert.IsTrue(KeyMap.Groups.Any(g => g.Title == "IN PARTS" && g.Entries.Count > 0), "how a module is deleted (Part 14g)");
 
-            foreach (PointerArea area in new[] { PointerArea.Elsewhere, PointerArea.Circuit, PointerArea.Waves })
+            foreach (PointerArea area in new[] { PointerArea.Elsewhere, PointerArea.Circuit, PointerArea.Waves, PointerArea.Blocks })
             {
                 string line = KeyMap.StatusFor(area);
                 StringAssert.Contains("?", line, "every status says how to see every key");
@@ -51,6 +52,8 @@ namespace BitSorter.ViewModel.Tests
 
             StringAssert.StartsWith("circuit:", KeyMap.StatusFor(PointerArea.Circuit));
             StringAssert.StartsWith("waves:", KeyMap.StatusFor(PointerArea.Waves));
+            StringAssert.StartsWith("blocks:", KeyMap.StatusFor(PointerArea.Blocks));
+            StringAssert.Contains("right-click to delete its module", KeyMap.StatusFor(PointerArea.Blocks));
         }
     }
 }

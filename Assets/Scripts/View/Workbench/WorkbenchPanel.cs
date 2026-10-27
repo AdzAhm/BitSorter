@@ -1372,6 +1372,7 @@ namespace BitSorter.View
 
                 TakeCanvas(mouse, pointer, keyboard, overControl);
                 TakePointer(mouse, pointer, keyboard, overControl);
+                TakeBlockRowMenu(mouse, pointer);
                 ShowStatus(pointer);
                 if (_wave == null)
                     return;

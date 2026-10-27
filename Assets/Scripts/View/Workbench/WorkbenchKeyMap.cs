@@ -23,7 +23,16 @@ namespace BitSorter.View
             MostWidth = 1800f;
 
         /// <summary>Which headings each column holds, by their place in <see cref="KeyMap.Groups"/>.</summary>
-        private static readonly int[][] Columns = { new[] { 0, 3 }, new[] { 1, 2 }, new[] { 4, 5 } };
+        private static readonly int[][] Columns = { new[] { 0, 3 }, new[] { 1, 2 }, GestureGroups() };
+
+        /// <summary>The third column: every group of gestures, each after the four of keys, so a group added is drawn without a second list.</summary>
+        private static int[] GestureGroups()
+        {
+            var groups = new System.Collections.Generic.List<int>();
+            for (int g = 4; g < KeyMap.Groups.Count; g++)
+                groups.Add(g);
+            return groups.ToArray();
+        }
 
         private ShellPopup _popup;
         private VisualElement[] _columns;

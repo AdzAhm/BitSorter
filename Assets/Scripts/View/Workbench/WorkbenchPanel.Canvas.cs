@@ -380,7 +380,7 @@ namespace BitSorter.View
                 case CanvasMenuAction.Cut: CutSelected(); break;
                 case CanvasMenuAction.Paste: CanvasEdit(_editor.Paste(_clip)); break;
                 case CanvasMenuAction.MakeBlock: AskBlockName(); break;
-                case CanvasMenuAction.Delete: CanvasEdit(_editor.Delete()); break;
+                case CanvasMenuAction.Delete: DeleteSelected(); break;
             }
         }
 
@@ -448,11 +448,21 @@ namespace BitSorter.View
         /// <summary>An edit of the selection made from a key: its refusal said, if it was one.</summary>
         private void CanvasEdit(EditResult result) => Said(result);
 
+        /// <summary>The selection deleted: why not, or what it left that the player may not expect -- a module whose last block went.</summary>
+        private void DeleteSelected()
+        {
+            EditResult result = _editor.Delete();
+            if (result.Done && _editor.Note != null)
+                Notice(_editor.Note);
+            else
+                CanvasEdit(result);
+        }
+
         /// <summary>Delete: the circuit's selection when the circuit was clicked last and something on it is selected, else the waveform's rows.</summary>
         private void RemoveSelected()
         {
             if (_canvasFocused && !_editor.Selection.IsEmpty)
-                CanvasEdit(_editor.Delete());
+                DeleteSelected();
             else
                 RemoveRows();
         }

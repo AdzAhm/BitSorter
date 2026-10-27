@@ -490,17 +490,55 @@ namespace BitSorter.Board
             });
         }
 
-        /// <summary>A module taken out of the project. Taking out the written testbench (Part 13b) gives the inputs back to the stimulus.</summary>
+        /// <summary>
+        /// A module taken out of the project, its drawing or its code with it: one step, which undo puts back. Refused while
+        /// anything uses it (<see cref="WhyNotRemoveModule"/>). Taking out the written testbench (Part 13b) gives the inputs
+        /// back to the stimulus.
+        /// </summary>
         public EditResult RemoveModule(string name)
         {
             if (!TryModule(name, out Module m, out EditResult refused))
                 return refused;
-            if (Project.Top == name)
-                return EditResult.Refused($"{name} is the top module; make another the top first.");
+            string why = WhyNotRemoveModule(name);
+            if (why != null)
+                return EditResult.Refused(why);
 
             var modules = new List<Module>(Project.Modules);
             modules.Remove(m);
             return Commit(Project with { Modules = modules, Bench = Project.Bench == name ? null : Project.Bench });
+        }
+
+        /// <summary>
+        /// Why the module <paramref name="name"/> cannot be taken out, or null when it can: the top cannot, nor a module a
+        /// block of which is placed, nor one another module's code instantiates -- each said with where, so the player knows
+        /// what to delete first. Deleting a block leaves its module in the project, as its code is the player's work: this is
+        /// asked before the workbench asks whether to delete one (the 14g report: code1 stayed after its block went).
+        /// </summary>
+        public string WhyNotRemoveModule(string name)
+        {
+            if (Project.Find(name) == null)
+                return $"There is no module called {name ?? "(none)"}.";
+            if (Project.Top == name)
+                return $"{name} is the top module; make another the top first.";
+
+            foreach (Module other in Project.Modules)
+            {
+                if (other.Name == name)
+                    continue;
+                if (other.IsWritten)
+                {
+                    foreach (Module used in WrittenModules.UsesOf(Project, other))
+                        if (used.Name == name)
+                            return $"{other.Name}'s code makes a {name}: take that out of its code first.";
+                    continue;
+                }
+
+                foreach (Part part in other.Parts)
+                    if (part is BlockPart block && block.Module == name)
+                        return $"{name} is in use: {other.Name} has a block of it, {block.Name}. Delete that block first.";
+            }
+
+            return null;
         }
 
         public EditResult SetTop(string name)

@@ -270,6 +270,52 @@ namespace BitSorter.Board.Tests
             Assert.AreEqual("chip", b.Project.Top);
         }
 
+        /// <summary>
+        /// A module nothing uses can be taken out, its code with it, in one step undo puts back (the 14g report: deleting
+        /// code1's block left code1 in CODE and PARTS, with nothing in the workbench to take it out).
+        /// </summary>
+        [Test]
+        public void AModuleNothingUses_IsTakenOut_InOneStepUndoPutsBack()
+        {
+            var b = new Bench("top");
+            Bench.Must(b.Editor.AddWrittenModule("code1", WrittenModules.Template("code1")));
+            int u = b.Add(new BlockPart { Module = "code1" });
+            Bench.Must(b.Editor.Remove("top", u));
+            Assert.IsNotNull(b.Project.Find("code1"), "sanity: deleting its block leaves the module, which is the player's code");
+
+            Assert.IsNull(b.Editor.WhyNotRemoveModule("code1"));
+            Bench.Must(b.Editor.RemoveModule("code1"));
+            Assert.IsNull(b.Project.Find("code1"));
+
+            Assert.IsTrue(b.Editor.Undo());
+            Assert.AreEqual(WrittenModules.Template("code1"), b.Project.Find("code1").Source, "undo puts the code back as it was");
+        }
+
+        /// <summary>A module in use is refused, saying where it is used, so the player knows what to delete first; so is the top.</summary>
+        [Test]
+        public void AModuleInUse_OrTheTop_IsNotTakenOut_AndSaysWhere()
+        {
+            var b = new Bench("top");
+            Bench.Must(b.Editor.AddWrittenModule("code1", WrittenModules.Template("code1")));
+            int u = b.Add(new BlockPart { Module = "code1" });
+            string block = b.Current.FindPart(u).Name;
+
+            EditResult placed = b.Editor.RemoveModule("code1");
+            Assert.IsFalse(placed.Done);
+            StringAssert.Contains($"top has a block of it, {block}", placed.Refusal);
+            Assert.AreEqual(placed.Refusal, b.Editor.WhyNotRemoveModule("code1"), "asked before and refused after alike");
+
+            Bench.Must(b.Editor.Remove("top", u));
+            Bench.Must(b.Editor.AddWrittenModule("code2",
+                "module code2 (\n    input  logic a,\n    output logic y\n);\n    code1 inner (.a(a), .y(y));\nendmodule\n"));
+            EditResult written = b.Editor.RemoveModule("code1");
+            Assert.IsFalse(written.Done);
+            StringAssert.Contains("code2's code makes a code1", written.Refusal);
+
+            StringAssert.Contains("is the top module", b.Editor.RemoveModule("top").Refusal);
+            Assert.IsNotNull(b.Project.Find("code1"));
+        }
+
         [Test]
         public void AStimulusForAPortThatIsNotThere_IsRefused()
         {

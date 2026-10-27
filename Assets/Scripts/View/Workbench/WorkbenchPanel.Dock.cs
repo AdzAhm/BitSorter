@@ -106,6 +106,7 @@ namespace BitSorter.View
             PointerArea area = InView(pointer, out _) ? PointerArea.Circuit
                 : _wave != null && _wavesClip != null && _wavesClip.gameObject.activeSelf && _wave.RegionAt(pointer, out _, out _, out _)
                     ? PointerArea.Waves
+                    : BlockRowAt(pointer) != null ? PointerArea.Blocks
                     : PointerArea.Elsewhere;
             if (area == _statusArea)
                 return;
@@ -344,6 +345,55 @@ namespace BitSorter.View
                 case CatalogGroup.More: return "MORE";
                 default: return "BLOCKS";
             }
+        }
+
+        /// <summary>The module of the BLOCKS row under a point of the screen, or null: what a right-click there would delete.</summary>
+        private string BlockRowAt(Vector2 screenPoint)
+        {
+            if (_shell == null || _partButtons.Count == 0)
+                return null;
+            VisualElement picked = _shell.PickAt(screenPoint);
+            for (VisualElement e = picked; e != null; e = e.parent)
+                foreach ((CatalogEntry entry, ShellButton button) in _partButtons)
+                    if (e == button)
+                        return entry.Kind == CatalogKind.Block ? entry.Module : null;
+            return null;
+        }
+
+        /// <summary>
+        /// A right-click on a BLOCKS row in PARTS: the question whether to delete its module, at the pointer -- or, while
+        /// something uses it, why it cannot be, in the bar's line. A block's module stays when its last block goes, since it
+        /// is the player's work, and this is how it goes (the 14g report: code1 stayed in CODE and PARTS).
+        /// </summary>
+        private void TakeBlockRowMenu(UnityEngine.InputSystem.Mouse mouse, Vector2 pointer)
+        {
+            if (!mouse.rightButton.wasPressedThisFrame || _ask == null)
+                return;
+            string module = BlockRowAt(pointer);
+            if (module == null)
+                return;
+
+            string why = _session.WhyNotRemoveModule(module);
+            if (why != null)
+            {
+                Notice(why);
+                return;
+            }
+
+            bool written = _session.Project.Find(module)?.IsWritten == true;
+            _ask.Ask(pointer, $"Delete the module {module}? Its {(written ? "code" : "drawing")} goes with it; Ctrl+Z brings it back.",
+                "DELETE " + module, () => RemoveModule(module));
+        }
+
+        /// <summary>The module <paramref name="module"/> taken out, the bar's line saying so or why not.</summary>
+        public BitSorter.Board.EditResult RemoveModule(string module)
+        {
+            BitSorter.Board.EditResult result = _session.RemoveModule(module);
+            if (result.Done)
+                Notice($"deleted the module {module}: Ctrl+Z brings it back");
+            else
+                Said(result);
+            return result;
         }
 
         /// <summary>The panel's button for the part in hand in the accent, the rest as they were.</summary>

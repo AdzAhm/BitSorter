@@ -1030,6 +1030,98 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsFalse(code.gameObject.activeInHierarchy, "the code goes with the step out");
         }
 
+        /// <summary>
+        /// The 14g report: deleting code1's block left code1 in CODE and PARTS, with nothing to take it out. Its last block
+        /// deleted says the module stays and how it goes; over its row in PARTS the status line says the same; a right-click
+        /// there asks first, CANCEL keeps it, and the answer takes it out of PARTS and the CODE tab -- which Ctrl+Z undoes.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator AModuleWhoseLastBlockWent_IsDeletedFromPARTS_AfterAQuestion_AndCtrlZBringsItBack()
+        {
+            yield return TestScene.Load();
+            yield return OpenMyCircuit();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            Assert.IsTrue(workbench.Session.AddWrittenModule("code1").Done);
+            CatalogEntry entry = PartsCatalog.For(workbench.Session.Project, workbench.Session.Module).Single(e => e.Module == "code1");
+            int block = workbench.Session.Place(entry, new Placement(4, 0)).Id;
+            yield return null;
+            yield return null;
+            string row = WorkbenchPanel.PartButtonName("block:code1");
+            Assert.IsNotNull(ShellPanel.Find<UnityEngine.UIElements.Button>(row), "sanity: PARTS offers code1");
+
+            // The last block of it deleted on the canvas: the module stays, and the bar's line says how it goes.
+            yield return ClickAt(workbench, MiddleOf(workbench, block));
+            CollectionAssert.AreEqual(new[] { block }, workbench.Editor.Selection.Parts.ToArray(), "sanity: the click selected the block");
+            yield return Tap(_keyboard.deleteKey);
+            Assert.IsEmpty(Top(workbench).Parts.OfType<BlockPart>(), "Delete took the block away");
+            Assert.IsNotNull(workbench.Session.Project.Find("code1"), "and left its module, the player's code");
+            StringAssert.Contains("right-click it in PARTS to delete it", workbench.ChipText);
+
+            // Over its row, the status line names the gesture.
+            Vector2 onRow = ShellPanel.ScreenPointOf(ShellPanel.Find<UnityEngine.UIElements.Button>(row));
+            Move(_mouse.position, onRow);
+            yield return null;
+            yield return null;
+            StringAssert.StartsWith("blocks:", workbench.StatusText);
+
+            // A right-click asks first; CANCEL keeps it.
+            Press(_mouse.rightButton);
+            yield return null;
+            Release(_mouse.rightButton);
+            yield return null;
+            Assert.IsTrue(workbench.Ask.IsOpen, "a right-click on the row asks");
+            StringAssert.Contains("Delete the module code1? Its code goes with it", workbench.Ask.Question);
+            yield return Click(AskMenu.NoItem);
+            Assert.IsFalse(workbench.Ask.IsOpen);
+            Assert.IsNotNull(workbench.Session.Project.Find("code1"), "CANCEL keeps it");
+
+            // The answer takes it out of PARTS and the CODE tab.
+            Move(_mouse.position, onRow);
+            yield return null;
+            Press(_mouse.rightButton);
+            yield return null;
+            Release(_mouse.rightButton);
+            yield return null;
+            yield return Click(AskMenu.YesItem);
+            yield return null;
+            Assert.IsNull(workbench.Session.Project.Find("code1"), "the answer deletes it");
+            Assert.IsNull(ShellPanel.Find<UnityEngine.UIElements.Button>(row), "gone from PARTS");
+            Assert.AreEqual(-1, workbench.Session.Listing.FileOf("code1"), "and from the CODE tab");
+            StringAssert.Contains("Ctrl+Z brings it back", workbench.ChipText);
+
+            Press(_keyboard.leftCtrlKey);
+            yield return Tap(_keyboard.zKey);
+            Release(_keyboard.leftCtrlKey);
+            yield return null;
+            yield return null;
+            Assert.IsNotNull(workbench.Session.Project.Find("code1"), "Ctrl+Z brings it back");
+            Assert.IsNotNull(ShellPanel.Find<UnityEngine.UIElements.Button>(row), "and PARTS offers it again");
+        }
+
+        /// <summary>A module in use is not deleted from PARTS: the right-click says where it is used instead of asking.</summary>
+        [UnityTest]
+        public IEnumerator AModuleInUse_RightClickedInPARTS_SaysWhereInsteadOfAsking()
+        {
+            yield return TestScene.Load();
+            yield return OpenMyCircuit();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            Assert.IsTrue(workbench.Session.AddWrittenModule("code1").Done);
+            CatalogEntry entry = PartsCatalog.For(workbench.Session.Project, workbench.Session.Module).Single(e => e.Module == "code1");
+            Assert.IsTrue(workbench.Session.Place(entry, new Placement(4, 0)).Done);
+            yield return null;
+            yield return null;
+
+            Move(_mouse.position, ShellPanel.ScreenPointOf(ShellPanel.Find<UnityEngine.UIElements.Button>(WorkbenchPanel.PartButtonName("block:code1"))));
+            yield return null;
+            Press(_mouse.rightButton);
+            yield return null;
+            Release(_mouse.rightButton);
+            yield return null;
+            Assert.IsFalse(workbench.Ask.IsOpen, "nothing to ask: it cannot go");
+            StringAssert.Contains("my_circuit has a block of it", workbench.ChipText);
+            Assert.IsNotNull(workbench.Session.Project.Find("code1"));
+        }
+
         /// <summary>+ CODE (Part 12d) asks for a name, makes the module from its template, and puts a block of it in hand to place.</summary>
         [UnityTest]
         public IEnumerator PlusCode_AsksForAName_AndPutsABlockOfItInHand()

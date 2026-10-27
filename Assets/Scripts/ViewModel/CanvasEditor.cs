@@ -131,6 +131,12 @@ namespace BitSorter.ViewModel
         /// <summary>Why the last edit was refused, in the document's words; null when it was not.</summary>
         public string Refusal { get; private set; }
 
+        /// <summary>
+        /// What the last delete left behind that the player may not expect, or null: a module whose last block went, which
+        /// stays in the project as the player's work, and how to take it out (the 14g report: code1 stayed in CODE and PARTS).
+        /// </summary>
+        public string Note { get; private set; }
+
         /// <summary>Counts every change to what the overlay draws.</summary>
         public int Version { get; private set; }
 
@@ -752,11 +758,29 @@ namespace BitSorter.ViewModel
         /// <summary>Takes the selection away (Delete), parts and wires; refused with nothing selected.</summary>
         public EditResult Delete()
         {
+            Note = null;
             if (Selection.IsEmpty)
                 return Said(EditResult.Refused("Nothing is selected to take away."));
+
+            // The modules of the blocks going, to say which of them is left with no block at all.
+            var modules = new List<string>();
+            Module shown = Module;
+            foreach (int part in Selection.Parts)
+                if (shown?.FindPart(part) is BlockPart block && !modules.Contains(block.Module))
+                    modules.Add(block.Module);
+
             EditResult result = _session.Remove(new List<int>(Selection.Parts), new List<int>(Selection.Wires));
             if (result.Done)
+            {
                 Selection.Clear();
+                foreach (string name in modules)
+                    if (_session.Project.Find(name) is Module left && _session.WhyNotRemoveModule(name) == null)
+                    {
+                        Note = $"{name} stays in the project, as its {(left.IsWritten ? "code" : "drawing")} does: right-click it in PARTS to delete it.";
+                        break;
+                    }
+            }
+
             Version++;
             return Said(result);
         }
