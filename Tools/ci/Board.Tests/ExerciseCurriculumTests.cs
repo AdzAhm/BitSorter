@@ -196,8 +196,8 @@ namespace BitSorter.Board.Tests
         private const int FirstClockedChapter = 7;
 
         /// <summary>
-        /// A circuit an exercise opens on fails for the reason its goal gives: too late, where it says it settles too late,
-        /// with every value right; otherwise wrong in its values.
+        /// A circuit an exercise opens on fails for the reason its goal gives: where the goal says it is right, every value is
+        /// right and it is too slow -- settling too late, or needing too long a period; otherwise it is wrong in its values.
         /// </summary>
         [TestCaseSource(nameof(Ids))]
         public void EveryStartingCircuit_FailsForTheReasonItsGoalGives(string id)
@@ -207,13 +207,13 @@ namespace BitSorter.Board.Tests
                 Assert.Pass("no starting circuit");
 
             Grade grade = ExerciseGrader.Grade(exercise, exercise.ToProject(new List<string>()));
-            if (exercise.Goal.Contains("settles too late"))
-            {
-                Assert.IsEmpty(grade.Failures, $"{id}'s goal says only its timing is wrong");
-                Assert.IsFalse(grade.SettleMet, $"{id}'s goal says it settles too late");
-            }
-            else
-                Assert.IsNotEmpty(grade.Failures, $"{id}'s circuit is to be wrong in what it reads");
+            bool right = grade.Failures.Count == 0;
+            bool saysRight = exercise.Goal.Contains("and right") || exercise.Goal.Contains("the right thing");
+            Assert.AreEqual(saysRight, right, right
+                ? $"{id}'s circuit reads every value right, and its goal has to say so: only its timing is wrong"
+                : $"{id}'s goal says its circuit is right, and it reads {grade.Failures.Count} values wrong");
+            if (right)
+                Assert.IsFalse(grade.SettleMet && grade.PeriodMet, $"{id}'s circuit is right and in time");
         }
 
         /// <summary>
