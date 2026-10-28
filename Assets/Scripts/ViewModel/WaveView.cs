@@ -38,7 +38,7 @@ namespace BitSorter.ViewModel
     /// between two units -- the reference circuit plays at 1.6 units a second, so a playhead is part of
     /// the way through one on most frames, and at the closest zoom a unit is 640 pixels wide -- so the
     /// start and every moment are doubles. What carried over: the fit is the whole run, zoom is
-    /// measured from it and never goes out past it, a notch of the wheel is 1.25 about the moment under
+    /// measured from it, a notch of the wheel is 1.25 about the moment under
     /// the cursor, a notch through time is an eighth of the view, a hair from the fit is the fit, the
     /// view follows the run until a gesture takes it elsewhere and follows again once it is brought
     /// back, and the axis's numbers thin out as units narrow.
@@ -83,6 +83,14 @@ namespace BitSorter.ViewModel
         /// exactly, or floating point leaves the view a hair zoomed and never back at the whole run.
         /// </summary>
         public const double FitSnap = 1e-4;
+
+        /// <summary>
+        /// The furthest the wheel zooms out: the whole run across a quarter of the width, the rest the time after it (Part
+        /// 15h). Zoom stopped at the fit, so the run's end was always the strip's edge and the wheel would go no further; Ahmad
+        /// asked for a limit, "but not at the limit of the line" (2026-10-28). The fit is still a stop on the way: a step that
+        /// would pass it lands on it.
+        /// </summary>
+        public const double MinZoom = 0.25;
 
         /// <summary>How far one notch moves the view through time, as a share of it: 4.x's eighth.</summary>
         public const double PanShare = 0.125;
@@ -215,7 +223,7 @@ namespace BitSorter.ViewModel
             double ppu = PixelsPerUnit;
             Span = grown;
             SetZoom(ppu * Span / Width);
-            Start = Clamp(Start, 0.0, Span - Shown);
+            Start = Clamp(Start, 0.0, LatestStart);
             return true;
         }
 
@@ -241,7 +249,10 @@ namespace BitSorter.ViewModel
             double most = MaxZoom;
             if (zoom > most)
                 zoom = most;
-            if (zoom < 1.0 + FitSnap)
+            if (zoom < MinZoom)
+                zoom = MinZoom;
+            // The fit is a stop: a step that would pass it, either way, lands on it, and a hair from it is it.
+            if ((Zoom > 1.0 && zoom < 1.0) || (Zoom < 1.0 && zoom > 1.0) || Math.Abs(zoom - 1.0) < FitSnap)
                 zoom = 1.0;
 
             if (zoom == Zoom)
@@ -249,15 +260,15 @@ namespace BitSorter.ViewModel
 
             SetZoom(zoom);
 
-            if (zoom == 1.0)
+            if (zoom <= 1.0)
             {
-                // Back out to the whole run there is nothing to hold in view, so it follows again.
+                // Out to the whole run or past it there is nothing to hold in view, so it follows again, from the run's start.
                 Start = 0.0;
                 Following = true;
             }
             else
             {
-                Start = Clamp(under - at / PixelsPerUnit, 0.0, Span - Shown);
+                Start = Clamp(under - at / PixelsPerUnit, 0.0, LatestStart);
                 Following = KeepsThePlayhead();
             }
 
@@ -277,7 +288,7 @@ namespace BitSorter.ViewModel
             if (notches == 0)
                 return false;
 
-            double start = Clamp(Start + notches * Shown * PanShare, 0.0, Span - Shown);
+            double start = Clamp(Start + notches * Shown * PanShare, 0.0, LatestStart);
             if (start == Start)
                 return false;
 
@@ -304,7 +315,7 @@ namespace BitSorter.ViewModel
             if (!Following || IsFitted || KeepsThePlayhead())
                 return false;
 
-            double start = Clamp(playhead - FollowLanding * Shown, 0.0, Span - Shown);
+            double start = Clamp(playhead - FollowLanding * Shown, 0.0, LatestStart);
             if (start == Start)
                 return false;
 
@@ -521,6 +532,9 @@ namespace BitSorter.ViewModel
 
             return found;
         }
+
+        /// <summary>The latest the view may start: where its end is the run's, or 0 when it shows more than the whole run.</summary>
+        private double LatestStart => Span - Shown > 0.0 ? Span - Shown : 0.0;
 
         private static double Clamp(double value, double min, double max) =>
             value < min ? min : value > max ? max : value;

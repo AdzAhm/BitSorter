@@ -163,6 +163,36 @@ namespace BitSorter.ViewModel.Tests
             Assert.IsTrue(twoUnits.IsFitted);
         }
 
+        /// <summary>
+        /// Past the fit, out to a quarter (Part 15h): the whole run across a quarter of the strip and the time after it, from
+        /// the run's start, following; no further; and back in, a step that would pass the fit lands on it. Ahmad asked for
+        /// a limit "not at the limit of the line" (2026-10-28).
+        /// </summary>
+        [Test]
+        public void ZoomingOutPastTheFit_GoesToAQuarter_AndBackInLandsOnTheFit()
+        {
+            WaveView view = Fitted(1000);
+            Assert.IsTrue(view.ZoomAbout(400f, -1), "from the fit, further out");
+            Assert.Less(view.Zoom, 1.0);
+            Assert.AreEqual(0.0, view.Start, "from the run's start, never before it");
+            Assert.Greater(view.End, 1000.0, "and the time after the run's end in view");
+            Assert.IsTrue(view.Following);
+
+            Assert.IsTrue(view.ZoomAbout(400f, -20));
+            Assert.AreEqual(WaveView.MinZoom, view.Zoom, "as far as a quarter");
+            Assert.AreEqual(4000.0, view.End, 1e-9, "the run across a quarter of the strip");
+            Assert.IsFalse(view.ZoomAbout(400f, -1), "and no further");
+
+            Assert.IsFalse(view.Pan(3), "nothing to pan to: the whole run is in view");
+            Assert.AreEqual(0.0, view.Start);
+            Assert.IsFalse(view.Follow(900), "nor to follow");
+
+            for (int k = 0; k < 10 && view.Zoom < 1.0; k++)
+                view.ZoomAbout(400f, 1);
+            Assert.AreEqual(1.0, view.Zoom, "back in, the fit, exactly");
+            Assert.IsTrue(view.IsFitted);
+        }
+
         [Test]
         public void ZoomingOut_StopsAtTheFit_AndLandsOnItExactly()
         {
@@ -176,7 +206,9 @@ namespace BitSorter.ViewModel.Tests
             Assert.AreEqual(1.0, view.Zoom, "as many notches out as in is the fit, exactly");
             Assert.AreEqual(0.0, view.Start, "and the whole run, from its start");
             Assert.IsTrue(view.IsFitted);
-            Assert.IsFalse(view.ZoomAbout(900f, -1), "and no further");
+            Assert.IsTrue(view.ZoomAbout(900f, -1), "and a notch more goes past it, as far as a quarter (Part 15h)");
+            Assert.IsTrue(view.ZoomAbout(900f, 1), "and back");
+            Assert.AreEqual(1.0, view.Zoom, "to the fit, exactly");
 
             // Past 22 notches 1.25 to the power is no longer exact in a double, and in at once and back
             // out a notch at a time comes to a few parts in 10^16 over the fit: only the snap brings

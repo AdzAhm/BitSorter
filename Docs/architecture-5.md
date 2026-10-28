@@ -1000,7 +1000,9 @@ Precise, and no casing under the wires.
 
 - **The waveform zooms and moves in time** (`ViewModel/WaveView`, under dotnet; `View/Workbench/WaveformView`).
   The 4.x timing diagram's gestures: the wheel over the time axis zooms about the cursor, a notch 1.25
-  times, in to 640 pixels a unit and back out to the whole run; with Shift, or sideways, it moves an
+  times, in to 640 pixels a unit and back out past the whole run, as far as the run across a quarter of the strip --
+  the fit a stop on the way, so a notch that would pass it lands on it (Part 15h: it stopped at the run's end, and
+  Ahmad asked for a limit "but not at the limit of the line", 2026-10-28); with Shift, or sideways, it moves an
   eighth of the window a notch. While the run plays, a zoomed view pages on once the playhead passes 90%
   of it and lands it at 10%, and stops following once it is moved away; a replay follows it again. The
   axis is ticked on the 1-2-5 ladder at least 40 pixels apart, in the step's own decimals (`TimeText`,
