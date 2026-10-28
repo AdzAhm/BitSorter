@@ -234,8 +234,20 @@ namespace BitSorter.ViewModel
         }
 
         /// <summary>The drawing of the module stepped into, its signals read under the instance stepped through.</summary>
-        private SchematicLayout LayoutOf(Project project, CompiledProject compiled) =>
-            DocumentSchematic.Build(project, compiled, ModuleOn(project, _path, out _), InstancePathUnder(compiled.DesignPath), m => RoutesOf(project, m));
+        private SchematicLayout LayoutOf(Project project, CompiledProject compiled)
+        {
+            double started = _now();
+            SchematicLayout layout = DocumentSchematic.Build(project, compiled, ModuleOn(project, _path, out _), InstancePathUnder(compiled.DesignPath),
+                m => RoutesOf(project, m));
+            LayoutMilliseconds = _now() - started;
+            return layout;
+        }
+
+        /// <summary>How long the document took to draw last, by the session's clock: what tells a browser it is slow (<see cref="DesktopHint"/>).</summary>
+        public double LayoutMilliseconds { get; private set; }
+
+        /// <summary>How long the document's timing took to work out last, by the session's clock; 0 until it has been.</summary>
+        public double TimingMilliseconds { get; private set; }
 
         private IReadOnlyList<Module> _routedModules;
         private Module _routedModule;
@@ -350,7 +362,16 @@ namespace BitSorter.ViewModel
                 // A part moved or a stimulus edited times as before, and costs nothing: the design is worked out again only
                 // once it has changed (the 14b review timed a processor at 200 ms a time).
                 if (!ReferenceEquals(_timing.Project, Project))
-                    _timing = TimingView.SameDesign(_timing.Project, Project) ? _timing.For(Project) : TimingView.Of(Project);
+                {
+                    if (TimingView.SameDesign(_timing.Project, Project))
+                        _timing = _timing.For(Project);
+                    else
+                    {
+                        double started = _now();
+                        _timing = TimingView.Of(Project);
+                        TimingMilliseconds = _now() - started;
+                    }
+                }
                 return _timing;
             }
         }

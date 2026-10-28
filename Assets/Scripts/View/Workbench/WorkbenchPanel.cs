@@ -152,6 +152,9 @@ namespace BitSorter.View
         /// </summary>
         private static readonly Vec2 CircuitHome = new Vec2(16f, 10f);
 
+        // Whether the browser has said the desktop version is faster: once a run of the game, a change of look included.
+        private static bool _saidDesktopIsFaster;
+
         /// <summary>Where the waveform sits in the waves' window: a little in from its left edge, and from its top.</summary>
         private static readonly Vector2 WavesAt = new Vector2(5f, 4f);
 
@@ -1504,6 +1507,14 @@ namespace BitSorter.View
             RefreshInputs();
             RefreshLogic();
             RefreshStates();
+
+            // In a browser, once a run of the game, a drawing slow to draw again says the desktop version is faster (Part 15g).
+            if (_session != null && DesktopHint.Due(Application.platform == RuntimePlatform.WebGLPlayer, _saidDesktopIsFaster,
+                    _session.LayoutMilliseconds, _session.TimingMilliseconds))
+            {
+                _saidDesktopIsFaster = true;
+                Notice(DesktopHint.Words);
+            }
             DrawOverlay();
             RefreshInspector();
             RefreshTranscript();
