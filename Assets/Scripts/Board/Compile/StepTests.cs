@@ -209,6 +209,34 @@ namespace BitSorter.Board
             return new StepPlan(Play(inputs, words, t, Array.Empty<InputBit>()), inputs, windows, settle);
         }
 
+        /// <summary>
+        /// The LOGIC tab's run (Part 15g): every combination of the input bits, in Gray order -- one bit changing between one
+        /// and the next, as a counter in the course's style walks them -- each held <paramref name="settle"/> before the next,
+        /// for its outputs to be read at the end of it. One window a combination: its <see cref="StepWindow.Word"/> is the
+        /// combination, <see cref="StepWindow.Input"/> -1. Refused for more than <see cref="MostInputBits"/> input bits.
+        /// </summary>
+        public static StepPlan Combinations(Project project, long settle)
+        {
+            if (settle < 1)
+                throw new ArgumentOutOfRangeException(nameof(settle), settle, "A combination is held at least 1.");
+            IReadOnlyList<InputBit> inputs = InputsOf(project);
+            if (inputs.Count > MostInputBits)
+                throw new ArgumentException("More than " + MostInputBits + " input bits are too many combinations to run.", nameof(project));
+
+            var words = new List<(long At, ulong Word)>();
+            var windows = new List<StepWindow>();
+            long t = 0;
+            for (ulong g = 0; g < 1UL << inputs.Count; g++)
+            {
+                ulong word = g ^ (g >> 1);
+                words.Add((t, word));
+                windows.Add(new StepWindow(t, -1, rising: false, word: word));
+                t += settle;
+            }
+
+            return new StepPlan(Play(inputs, words, t, Array.Empty<InputBit>()), inputs, windows, settle);
+        }
+
         /// <summary><paramref name="g"/>'s bits spread round bit <paramref name="skip"/>, which is left 0.</summary>
         private static ulong Spread(ulong g, int skip)
         {

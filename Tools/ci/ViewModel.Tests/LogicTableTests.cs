@@ -1,0 +1,215 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using BitSorter.Board;
+using BitSorter.Board.Tests;
+using BitSorter.SystemVerilog;
+using NUnit.Framework;
+
+namespace BitSorter.ViewModel.Tests
+{
+    /// <summary>
+    /// The LOGIC tab (Part 15g): the truth table found by running the engine, each output as a minimal sum of products, and
+    /// its K-map. Ahmad asked for a way to know more about what is built (2026-10-28).
+    /// </summary>
+    public class LogicTableTests
+    {
+        // -----------------------------------------------------------------
+        // The minimizer
+        // -----------------------------------------------------------------
+
+        private static readonly string[] AB = { "a", "b" };
+
+        [TestCase("0110", "a'b + ab'", "(~a & b) | (a & ~b)")]
+        [TestCase("0001", "ab", "a & b")]
+        [TestCase("0111", "b + a", "b | a")]
+        [TestCase("1000", "a'b'", "~a & ~b")]
+        [TestCase("0000", "0", "1'b0")]
+        [TestCase("1111", "1", "1'b1")]
+        [TestCase("0x01", "b", "b")]
+        public void AnOutput_IsWrittenAsAMinimalSumOfProducts_BothWays(string values, string textbook, string systemVerilog)
+        {
+            Minimizer.Result result = Minimizer.Minimize(2, values.ToCharArray());
+            Assert.AreEqual(textbook, Minimizer.Textbook(result.Terms, AB));
+            Assert.AreEqual(systemVerilog, Minimizer.SystemVerilog(result.Terms, AB));
+            Assert.IsTrue(result.Proven);
+        }
+
+        /// <summary>
+        /// The smallest cover there is, held against brute force: every function of three variables, and random ones of four
+        /// with don't-cares -- the fewest products, then the fewest literals, each covering every 1 and no 0.
+        /// </summary>
+        [Test]
+        public void TheCover_IsAsSmallAsBruteForceFinds()
+        {
+            int checkedFunctions = 0;
+            for (int f = 0; f < 256; f++)
+            {
+                char[] values = Enumerable.Range(0, 8).Select(r => (f >> r & 1) != 0 ? '1' : '0').ToArray();
+                Check(3, values);
+                checkedFunctions++;
+            }
+
+            var random = new Random(15_4);
+            for (int i = 0; i < 60; i++)
+            {
+                char[] values = Enumerable.Range(0, 16).Select(_ => "01x"[random.Next(3)]).ToArray();
+                Check(4, values);
+                checkedFunctions++;
+            }
+            Assert.AreEqual(316, checkedFunctions);
+        }
+
+        private static void Check(int n, char[] values)
+        {
+            Minimizer.Result result = Minimizer.Minimize(n, values);
+            for (int r = 0; r < values.Length; r++)
+            {
+                bool covered = result.Terms.Any(t => t.Covers(r));
+                if (values[r] == '1')
+                    Assert.IsTrue(covered, $"{new string(values)}: row {r} is 1 and not covered");
+                if (values[r] == '0')
+                    Assert.IsFalse(covered, $"{new string(values)}: row {r} is 0 and covered");
+            }
+
+            (int Terms, int Literals) best = BruteForce(n, values);
+            int literals = result.Terms.Sum(t => t.Literals(n));
+            Assert.AreEqual(best, (result.Terms.Count, literals), new string(values));
+        }
+
+        /// <summary>The cheapest cover by trying every set of prime implicants, the primes found by trying every cube.</summary>
+        private static (int, int) BruteForce(int n, char[] values)
+        {
+            int rows = 1 << n;
+            var cubes = new List<Implicant>();
+            for (int mask = 0; mask < rows; mask++)
+                for (int value = 0; value < rows; value++)
+                    if ((value & mask) == 0)
+                        cubes.Add(new Implicant(value, mask));
+
+            bool Implicant(Implicant c) => Enumerable.Range(0, rows).All(r => !c.Covers(r) || values[r] != '0');
+            var implicants = cubes.Where(Implicant).ToList();
+            var primes = implicants.Where(c => !implicants.Any(d => !d.Equals(c) && (d.Mask & c.Mask) == c.Mask && d.Covers(c.Value))).ToList();
+            primes = primes.Where(p => Enumerable.Range(0, rows).Any(r => values[r] == '1' && p.Covers(r))).ToList();
+            var ones = Enumerable.Range(0, rows).Where(r => values[r] == '1').ToList();
+            if (ones.Count == 0)
+                return (0, 0);
+
+            (int, int) best = (int.MaxValue, int.MaxValue);
+            for (long set = 1; set < 1L << primes.Count; set++)
+            {
+                var chosen = Enumerable.Range(0, primes.Count).Where(i => (set >> i & 1) != 0).Select(i => primes[i]).ToList();
+                if (!ones.All(r => chosen.Any(t => t.Covers(r))))
+                    continue;
+                (int, int) cost = (chosen.Count, chosen.Sum(t => t.Literals(n)));
+                if (cost.Item1 < best.Item1 || (cost.Item1 == best.Item1 && cost.Item2 < best.Item2))
+                    best = cost;
+            }
+            return best;
+        }
+
+        // -----------------------------------------------------------------
+        // The K-map
+        // -----------------------------------------------------------------
+
+        [Test]
+        public void AKMap_LaysTheTableOutInGrayOrder_TheFirstVariablesDownTheSide()
+        {
+            // f(a,b,c,d) = 1 only where a=1, b=0, c=1, d=1: row 1011 = 11.
+            char[] values = Enumerable.Range(0, 16).Select(r => r == 11 ? '1' : r == 5 ? 'x' : '0').ToArray();
+            KarnaughLayout map = KarnaughLayout.Of(new[] { "a", "b", "c", "d" }, values);
+
+            Assert.AreEqual("ab", map.Down);
+            Assert.AreEqual("cd", map.Across);
+            CollectionAssert.AreEqual(new[] { "00", "01", "11", "10" }, map.RowLabels.ToArray());
+            CollectionAssert.AreEqual(new[] { "00", "01", "11", "10" }, map.ColumnLabels.ToArray());
+            Assert.AreEqual('1', map.Cells[3, 2], "ab = 10 is the fourth row, cd = 11 the third column");
+            Assert.AreEqual('x', map.Cells[1, 1], "0101");
+            Assert.AreEqual(15, Enumerable.Range(0, 16).Count(i => map.Cells[i / 4, i % 4] != '1'));
+
+            Assert.AreEqual(1, KarnaughLayout.Of(new[] { "a" }, new[] { '0', '1' }).RowLabels.Count, "one variable: one row");
+            Assert.IsNull(KarnaughLayout.Of(new[] { "a", "b", "c", "d", "e" }, new char[32]), "five variables: no map");
+        }
+
+        // -----------------------------------------------------------------
+        // The truth table, run
+        // -----------------------------------------------------------------
+
+        private static LogicTable Tabled(Project project, out string why)
+        {
+            var session = new WorkbenchSession(project, () => 0);
+            session.Finish();
+            LogicTable table = LogicTable.Start(project, session.Timing, () => 0, out why);
+            table?.Finish();
+            return table;
+        }
+
+        [Test]
+        public void TheFullAdder_IsTabledByRunningIt()
+        {
+            LogicTable table = Tabled(WorkbenchSamples.FullAdder(), out string why);
+            Assert.IsNotNull(table, why);
+            Assert.IsNull(table.Problem);
+            CollectionAssert.AreEqual(new[] { "a", "b", "cin" }, table.Variables.Select(v => v.Name).ToArray());
+            Assert.AreEqual(8, table.Rows);
+
+            string Column(string name) => new string(table.Outputs.Single(o => o.Name == name).Values.ToArray());
+            Assert.AreEqual("01101001", Column("s"), "the sum: an odd number of 1s");
+            Assert.AreEqual("00010111", Column("cout"), "the carry: two or more");
+
+            Minimizer.Result carry = Minimizer.Minimize(3, table.Outputs.Single(o => o.Name == "cout").Values);
+            Assert.AreEqual("bcin + acin + ab", Minimizer.Textbook(carry.Terms, table.Variables.Select(v => v.Name).ToList()));
+        }
+
+        [Test]
+        public void ACircuitWithRegisters_IsNotTabled_AndSaysWhy()
+        {
+            Assert.IsNull(Tabled(WorkbenchSamples.Counter(), out string why));
+            StringAssert.Contains("registers", why);
+        }
+
+        /// <summary>
+        /// Every combinational exercise's reference solution, tabled by running it, agrees with the exercise's own test: at each
+        /// check, the row its inputs then select reads what the check wants, bit for bit where the check cares.
+        /// </summary>
+        [Test]
+        public void EveryCombinationalExercisesSolution_IsTabledAsItsTestWants()
+        {
+            int tabled = 0;
+            foreach (Exercise exercise in ExerciseFiles.InOrder())
+            {
+                Project solved = ExerciseFiles.Solution(exercise);
+                LogicTable table = Tabled(solved, out string why);
+                if (table == null)
+                {
+                    StringAssert.IsMatch("registers|input bits", why, $"{exercise.Id} is not tabled: {why}");
+                    continue;
+                }
+                Assert.IsNull(table.Problem, exercise.Id);
+
+                Stimulus test = exercise.Test();   // the solution is the design alone; the exercise brings its test
+                foreach (Check check in test.Checks)
+                {
+                    int row = 0;
+                    for (int v = 0; v < table.Variables.Count; v++)
+                    {
+                        InputBit bit = table.Variables[v];
+                        LogicVec? value = StimulusEdits.ValueAt(test, bit.Port, check.Time);
+                        if (value.HasValue && value.Value[bit.Bit] == Logic4.One)
+                            row |= 1 << (table.Variables.Count - 1 - v);
+                    }
+                    for (int b = 0; b < check.Expected.Width; b++)
+                    {
+                        Logic4 wanted = check.Expected[b];
+                        if (wanted != Logic4.Zero && wanted != Logic4.One)
+                            continue;
+                        char got = table.Outputs.Single(o => o.Port == check.Port && o.Bit == b).Values[row];
+                        Assert.AreEqual(wanted == Logic4.One ? '1' : '0', got, $"{exercise.Id}: {check.Port}[{b}] at {check.Time}, row {row}");
+                    }
+                }
+                tabled++;
+            }
+            Assert.Greater(tabled, 15, "sanity: the combinational exercises were tabled");
+        }
+    }
+}
