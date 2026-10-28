@@ -359,6 +359,8 @@ namespace BitSorter.View
                         Label cell = ShellTheme.Label(InputCellName + column.Port + " " + r, column.IsClock ? "" : row.Cells[c], UiType.Caption,
                             column.IsInput && !bench ? palette.TextDim : palette.Text);
                         ShellTheme.Place(cell, x + 8f, y, width - 8f, InputRowHeight - 4f);
+                        // Cut short at its cell, as a field is: 64 binary digits ran over the columns beside them.
+                        ShellTheme.Ellipsis(cell);
                         _inputsList.Add(cell);
                     }
                     x += width + 8f;
