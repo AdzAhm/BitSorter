@@ -9,8 +9,8 @@ namespace BitSorter.View
     /// The workbench's toolbar, in the shell (Part 11a): the app's name and its menus, SAMPLE, the run's controls and the
     /// chip that says what the run is doing, and the timeline -- the slider, the speed and RUN TO. The first of the shell's
     /// panels, and the one its bridges are proved on (<see cref="ShellPanel"/>). Across the window, over the docked panels
-    /// (Part 11b). Since Part 15a BitSorter opens here, so the header starts with the app's menus -- HOME, FILE, HELP and
-    /// SETTINGS -- as an IDE's does, and there is no BACK: nothing is behind the workbench to go back to.
+    /// (Part 11b). Since Part 15a BitSorter opens here, so the header starts with the app's menus -- HOME, FILE, EXERCISES
+    /// (Part 15d), HELP and SETTINGS -- as an IDE's does, and there is no BACK: nothing is behind the workbench to go back to.
     /// </summary>
     public sealed partial class WorkbenchPanel
     {

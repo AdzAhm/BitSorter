@@ -302,12 +302,26 @@ the one you built last time.
 ### Where 5.0 opens (5.0 preview)
 
 5.0 opens as a simulator rather than a game: on whatever you had open last -- a
-circuit of yours or a sample -- and with nothing, on a **start page**: NEW
-CIRCUIT, OPEN, IMPORT, your recent circuits, the samples, the keyboard map and
-Settings. **HOME** goes back to it. The workbench's header has the app's menus --
-HOME, FILE, HELP (the keyboard map, the start page, and the credits) and
-SETTINGS -- and no BACK: `Esc` closes whatever is on top and never leaves the
-workbench. The music is off until you switch it on in Settings.
+circuit of yours, an exercise or a sample -- and with nothing, on a **start
+page**: NEW CIRCUIT, OPEN, IMPORT, your recent circuits, the samples, the
+exercises, the keyboard map and Settings. **HOME** goes back to it. The
+workbench's header has the app's menus -- HOME, FILE, EXERCISES, HELP (the
+keyboard map, the start page, and the credits) and SETTINGS -- and no BACK:
+`Esc` closes whatever is on top and never leaves the workbench. The music is off
+until you switch it on in Settings.
+
+### Exercises (5.0 preview)
+
+The thirty levels of 4.x come back as **exercises**, with five new ones on
+tri-state buses, resets, critical paths and pipelines -- thirty-five, in the
+course's order. **EXERCISES** lists them chapter by chapter, the ones you have
+solved and the next one marked, and the start page carries on from where you
+are. An exercise opens with its brief: what to build, and a hint if you ask for
+it (**GOAL** brings it back). Its own test drives the inputs and only its parts
+are in PARTS. **CHECK** grades it: each check that failed is a line in the
+TRANSCRIPT that takes the run to its moment, and once it is solved a card says
+how many gates it took and how fast it settles, beside your best, and offers the
+next. A board you left in a 4.x level opens in its exercise.
 
 The 4.x game is still there until 5.0 replaces it: Settings, **THE 4.x GAME**,
 beside the credits. Its title screen has **SIMULATOR** to come back.
@@ -405,8 +419,8 @@ Two events come from the game itself, and nothing else does:
 
 | Event | Sent when | Data |
 | --- | --- | --- |
-| `levelStarted` | The first time a level is opened in a session | `levelName`, the level's file name |
-| `levelSolved` | The first time a level is solved in a session | `levelName`, the level's file name |
+| `levelStarted` | The first time a level, or an exercise, is opened in a session | `levelName`, the level's file name, which its exercise keeps |
+| `levelSolved` | The first time a level, or an exercise, is solved in a session | `levelName`, the level's file name, which its exercise keeps |
 
 `levelName` is the identifier, like `half-adder` — not a display title and not
 anything you typed. The pair exists to answer one question: which level people

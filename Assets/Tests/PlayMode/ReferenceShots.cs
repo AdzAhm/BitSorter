@@ -1657,6 +1657,116 @@ namespace BitSorter.PlayMode.Tests
             yield return Capture("50-start-page");
         }
 
+        /// <summary>Part 15d: the EXERCISES page, chapter by chapter, the first five solved and the sixth next.</summary>
+        [UnityTest]
+        public IEnumerator Shot51_ExercisesPage()
+        {
+            var store = new ProgressStore(ProgressStore.DefaultPath);
+            store.Load();
+            for (int i = 0; i < 5; i++)
+                store.MarkComplete(ExerciseCatalog.Run[i].Id);
+            store.Save();
+
+            yield return TestScene.LoadSimulator();
+            Look.ApplyBloom();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowExercises();
+            yield return Frames(30);
+
+            Assert.IsTrue(workbench.ExercisesShowing);
+            Assert.AreEqual("NEXT", workbench.ExerciseStatus(ExerciseCatalog.Run[5].Id), "sanity: the sixth is next");
+            yield return Capture("51-exercises-page");
+        }
+
+        /// <summary>Part 15d: the half adder opened, its goal in the header and its brief up, the hint asked for.</summary>
+        [UnityTest]
+        public IEnumerator Shot52_ExerciseBrief()
+        {
+            yield return OpenTheHalfAdder();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ExerciseCard.ShowTheHint();
+            yield return Frames(30);
+
+            Assert.IsTrue(workbench.ExerciseCard.IsOpen, "sanity: the brief");
+            yield return Capture("52-exercise-brief");
+        }
+
+        /// <summary>Part 15d: the half adder with its sum alone built, CHECKed: the failed checks in the TRANSCRIPT, the run at the first.</summary>
+        [UnityTest]
+        public IEnumerator Shot53_ExerciseCheckFailed()
+        {
+            yield return OpenTheHalfAdder();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ExerciseCard.Close();
+            BuildHalfOfTheHalfAdder(workbench.Session, withCarry: false);
+            yield return Frames(2);
+            workbench.Check();
+            workbench.FitView();
+            yield return Frames(30);
+
+            Assert.IsFalse(workbench.LastGrade.Solved, "sanity: the carry is not built");
+            yield return Capture("53-exercise-check-failed");
+        }
+
+        /// <summary>Part 15d: the half adder built and CHECKed: the solved card, what it took and NEXT.</summary>
+        [UnityTest]
+        public IEnumerator Shot54_ExerciseSolved()
+        {
+            yield return OpenTheHalfAdder();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ExerciseCard.Close();
+            BuildHalfOfTheHalfAdder(workbench.Session, withCarry: true);
+            yield return Frames(2);
+            workbench.Pause();
+            workbench.Seek(25);
+            workbench.Check();
+            workbench.FitView();
+            yield return Frames(30);
+
+            Assert.IsTrue(workbench.LastGrade.Solved, "sanity: built");
+            yield return Capture("54-exercise-solved");
+        }
+
+        private static IEnumerator OpenTheHalfAdder()
+        {
+            yield return TestScene.LoadSimulator();
+            Look.ApplyBloom();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.OpenExercise("half-adder");
+            yield return Frames(2);
+            workbench.Pause();
+            workbench.Seek(25);
+        }
+
+        /// <summary>The half adder's sum, an XOR, and with <paramref name="withCarry"/> its carry, an AND, on the exercise open.</summary>
+        private static void BuildHalfOfTheHalfAdder(WorkbenchSession session, bool withCarry)
+        {
+            int Place(string key, double x, double y)
+            {
+                BitSorter.Board.EditResult placed = session.Place(PartsCatalog.Find(session.Project, session.Module, key), new BitSorter.Board.Placement(x, y));
+                Assert.IsTrue(placed.Done, placed.Refusal);
+                return placed.Id;
+            }
+
+            int Port(string name) => session.Project.TopModule.Ports.Single(p => p.Name == name).Id;
+
+            void Wire(int from, string fromPin, int to, string toPin) =>
+                Assert.IsTrue(session.Connect(BitSorter.Board.Endpoint.At(from, fromPin), BitSorter.Board.Endpoint.At(to, toPin)).Done);
+
+            int xor = Place("xor", 8, -2);
+            Wire(Port("a"), "out", xor, "a");
+            Wire(Port("b"), "out", xor, "b");
+            Wire(xor, "y", Port("sum"), "in");
+            if (withCarry)
+            {
+                int and = Place("and", 8, 2);
+                Wire(Port("a"), "out", and, "a");
+                Wire(Port("b"), "out", and, "b");
+                Wire(and, "y", Port("carry"), "in");
+            }
+            session.Finish();
+        }
+
         private static IEnumerator OpensOnItsCircuit(string level, string fixture, string shot)
         {
             yield return LoadTheGame();

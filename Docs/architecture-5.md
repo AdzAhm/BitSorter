@@ -2813,6 +2813,36 @@ the board's own editor and printed.
   delays and through a save, and refuses one of the wrong inputs saying why; an exercise stocks one, and refuses one
   of three inputs.
 
+**As built in Part 15d: Exercises on the workbench.**
+
+- **An exercise's document is the exercise's where it says so** (Board). `ProjectSettings.Exercise` names it and
+  `RegisterStart` says where a register placed starts (`PartsCatalog`), both saved (`exercise`, `registerStart`).
+  `BoardEditor` refuses, in words and before any other check, an edit to its test (the stimulus), its library, its
+  top, its time unit -- its goals and limits say ns -- or the insides of a block it stocks, and leaves the student
+  everything built round them.
+- **It is kept under its id**, as a circuit is under its key: the thirty share their levels' names, so a 4.x board
+  the save migrated, or one migrated now (`SaveMigration.MigrateOne`, for a board the 4.x game kept since), opens in
+  its exercise. `Exercise.Adopt` makes a kept answer the exercise's again -- its test, library, settings and stocked
+  blocks as it gives them -- and refuses one that is no answer (another top, a port the test drives missing); that
+  one is moved to a circuit of its own, `<title> old`, and the notice says where, rather than written over.
+- **The workbench** (`WorkbenchPanel.Exercises.cs`, the view-model's `ExerciseRun`):
+  - EXERCISES in the header opens a page of the run in three columns, chapter by chapter, each exercise SOLVED or
+    NEXT; the start page has a fourth column, CONTINUE with the next, ALL EXERCISES, and how many are solved.
+  - An exercise open says its number, title and goal in the header; GOAL opens its brief (`ExerciseCard`), the hint
+    behind SHOW THE HINT, and it opens on it. CHECK grades it (`ExerciseGrader`): the verdict on the chip, every
+    reason at the head of the TRANSCRIPT, each failed check at its moment, which a click goes to, and the run taken
+    to the first. Solved, it is marked complete, its best kept (`ProgressStore.exerciseBests`: the fewest gates and
+    the quickest settle, each on its own; 4.x's tick latencies are not comparable and are not carried), and a card
+    says what it took and the student's best, and offers NEXT.
+  - Only the student's own numbers: what this design took, and what theirs did before.
+  - An exercise open last opens again (`exercise/<id>`); a circuit opened, made or imported, or RESET PROGRESS,
+    leaves exercise mode.
+- **Analytics** reports an exercise opened and solved as a level started and solved, under its id, once a session.
+- **Checked.** dotnet: `ExerciseLockTests` (the lock, the unit, every exercise through a save, adopting and refusing a
+  kept answer), `ExercisePartsTests`, `ExerciseRunTests`, `DocumentsTests`. Play Mode: `ExercisePlayTests` -- the
+  start page and the page, the brief and its hint, the test refused and the answer kept, CHECK failing at its moments
+  then solving and NEXT, an exercise open last, and Escape. Four new reference shots.
+
 ---
 
 ## 11. The parts
@@ -2836,7 +2866,7 @@ Each part is one pull request into `v5`, ends with every suite green, and leaves
 | 12 | Hierarchy, and written blocks, edited in CodeMirror in a browser -- in six: 12a stepping inside a block **built** (see "As built in Part 12a"); 12b making a block **built** (see "As built in Part 12b"); 12c arrays **built** (see "As built in Part 12c"); 12d code blocks **built** (see "As built in Part 12d"); 12e the code panel **built** (see "As built in Part 12e"); 12f CodeMirror **built** (see "As built in Part 12f") |
 | 13 | Export and import (and a levelized path in the engine, only if a measurement asks for it) -- in six: 13a exporting a project **built** (see "As built in Part 13a"); 13b importing one **built** (see "As built in Part 13b"); 13c CONVERT **built** (see "As built in Part 13c"); 13d files **built** (see "As built in Part 13d"); 13e templates **built** (see "As built in Part 13e"); 13f limits, the security review, the measurement and the browser check **built** (see "As built in Part 13f"; the levelized path is not needed). **Part 13 is built.** |
 | 14 | The course's tools: path delays, static timing, gate-library mode, step tests, lint, tri-state -- in six, **built**: 14a the timing analysis core, 14b the TIMING tab, 14c step tests, 14d gate-library mode, 14e lint and 14f tri-state buses and inout (see "As built in Part 14a" to "14f"); and 14g, its follow-ups: deleting a module, the code editor's keys, the library held in written code and over budget, and inout pins on written blocks (see "As built in Part 14g") |
-| 15 | A simulator first, the Exercises and the tutorial -- in six: 15a **built** in two (see "As built in Part 15a"): the student's circuits, and opening on the last thing or a start page, the app's menus for BACK, the 4.x game in Settings, music off; 15b the Exercise model, grading and self-checking testbenches **built** (see "As built in Part 15b"); 15c the 35 exercises **built** (see "As built in Part 15c"); 15d Exercises on the workbench; 15e answering in code; 15f first-time hints, the guided tutorial and the browser check |
+| 15 | A simulator first, the Exercises and the tutorial -- in six: 15a **built** in two (see "As built in Part 15a"): the student's circuits, and opening on the last thing or a start page, the app's menus for BACK, the 4.x game in Settings, music off; 15b the Exercise model, grading and self-checking testbenches **built** (see "As built in Part 15b"); 15c the 35 exercises **built** (see "As built in Part 15c"); 15d Exercises on the workbench **built** (see "As built in Part 15d"); 15e answering in code; 15f first-time hints, the guided tutorial and the browser check |
 | 16 | The old game retired, and a smaller download; 5.0.0 released |
 
 **Agreed after Part 9, 2026-10-19: the language, before Part 10.** A course audit ran every one of the

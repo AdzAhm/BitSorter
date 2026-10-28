@@ -20,9 +20,13 @@ it, so most of this file still describes 4.x and is still true of it. Each
 part rewrites the paragraphs here that it makes stale, in the same change.
 
 **Since Part 15a BitSorter opens as a simulator** (`AppLaunch`): on the last
-thing that was open -- a circuit or a sample -- and with nothing, on the
-workbench's start page. HOME, FILE, HELP and SETTINGS head the workbench, and
-there is no BACK: Escape closes what is on top and nothing more. The 4.x game
+thing that was open -- a circuit, an exercise (Part 15d) or a sample -- and with
+nothing, on the workbench's start page. HOME, FILE, EXERCISES, HELP and SETTINGS
+head the workbench, and there is no BACK: Escape closes what is on top and
+nothing more. **An exercise is a document kept under its id**, the 4.x level's
+name for the thirty, so the board a student left in a level opens in its
+exercise (`Exercise.Adopt`, `SaveMigration.MigrateOne`), and a solve marks the
+same name complete. The 4.x game
 is one quiet row down, THE 4.x GAME beside CREDITS in Settings, which opens its
 title screen, and that screen's SIMULATOR comes back. The music is off until
 switched on. The 4.x paragraphs below hold of that game as it runs once
@@ -782,7 +786,7 @@ failure side.
   counts from it -- the win celebration once pulsed on the game clock and a solve
   could land at the bottom of its swell.
 - **Visual changes are checked against the reference shots.**
-  `BitSorter/Capture Reference Shots` captures fifty states (menu, a built
+  `BitSorter/Capture Reference Shots` captures fifty-four states (menu, a built
   board, bits in flight, a collision one tick out and one that takes both bits,
   the solved card, the level list, free play, the help panel, the chapter card, a
   clocked level, the tutorial's intro and its closing card, a first-time hint, a
@@ -794,7 +798,7 @@ failure side.
   built and running, its carry passing between the boxes, and 5.0's workbench
   preview with two changes on their way, whole, zoomed in, with a wire pointed at, with two rows in other
   radixes, a second cursor 9 ps on and two breakpoints flagged, with a block's inside grouped under full names, with the
-  add list searching, MY CIRCUIT being edited, two gates moving with their guides, its half adder being wired, one of its wires being reshaped, the reference's AND in its inspector, the reference zoomed in with its minimap and the canvas's menu, the full adder's transcript beside its hierarchy, the keyboard map, the full adder stepped inside h1, MAKE BLOCK asking for a name, four half adders as one block of four copies, a written adder's code with a fault marked, the full adder's code in the dock's CODE tab, the FILE menu, a project imported with its testbench running, the full adder's critical path lit from the TIMING tab, the LIBRARY menu over it with the full adder held to the course's cells, two written devices on a bus through their inout pins, and the start page BitSorter opens on) as an Explicit Play
+  add list searching, MY CIRCUIT being edited, two gates moving with their guides, its half adder being wired, one of its wires being reshaped, the reference's AND in its inspector, the reference zoomed in with its minimap and the canvas's menu, the full adder's transcript beside its hierarchy, the keyboard map, the full adder stepped inside h1, MAKE BLOCK asking for a name, four half adders as one block of four copies, a written adder's code with a fault marked, the full adder's code in the dock's CODE tab, the FILE menu, a project imported with its testbench running, the full adder's critical path lit from the TIMING tab, the LIBRARY menu over it with the full adder held to the course's cells, two written devices on a bus through their inout pins, the start page BitSorter opens on, the EXERCISES page five solved, the half adder's brief with its hint, its CHECK failed with the carry missing, and its solved card) as an Explicit Play
   Mode fixture, so it runs under `SaveGuard` --
   driving the real game for a screenshot by hand once marked a level solved on
   the developer's own save. Frame time is fixed, particle systems are seeded,
@@ -910,15 +914,20 @@ failure side.
   testbench is converted or a circuit or a module is deleted (`AskMenu`, Parts 13d, 14g
   and 15a), the add list and the three fields -- RENAME,
   BREAK ON VALUE, and SET, which a double-click on a bus or an x asks an input's
-  value in -- each hold Escape (`IHoldsEscape`), and with nothing holding it Escape
-  takes down the start page or puts a part in hand down, and never closes the
-  workbench: BitSorter opens on it, and nothing is behind it (Part 15a). HOME, FILE,
-  HELP and SETTINGS head it, HELP a shell menu (`HelpMenu`) with the keyboard map,
+  value in -- each hold Escape (`IHoldsEscape`), as an exercise's card does (Part 15d),
+  and with nothing holding it Escape takes down the EXERCISES page, then the start
+  page, or puts a part in hand down, and never closes the workbench: BitSorter opens
+  on it, and nothing is behind it (Part 15a). HOME, FILE, EXERCISES, HELP and
+  SETTINGS head it, HELP a shell menu (`HelpMenu`) with the keyboard map,
   the start page and the credits, which come back to it; SETTINGS opens Settings
   over it, solid where it is see-through over the 4.x board, and BACK there comes
   back. **The start page is the shell's** (`WorkbenchPanel.Home.cs`), over
   everything under the header, and while it is up the workbench reads no keys and
-  no pointer of its own. **The circuit's window is the canvas's** (Part 10a):
+  no pointer of its own; so is EXERCISES' page (`WorkbenchPanel.Exercises.cs`), and
+  either up is `PageShowing`. **An exercise open puts GOAL and CHECK at the
+  controls' row's right end**, the chip beside them made room for: GOAL its brief,
+  the hint behind SHOW THE HINT, and CHECK the grade, every failed check a
+  TRANSCRIPT line at its moment. **The circuit's window is the canvas's** (Part 10a):
   its presses go to `CanvasPointer`, never to `WavePointer` -- a left drag moves
   the selection or draws a box, the middle button or Space with a drag pans, so
   **Space plays and pauses on its release**, and Alt held while dragging or
@@ -1929,7 +1938,10 @@ tutorial nor the opening setup until a restart.
 **Analytics is the one thing that sends data anywhere.** `GameAnalytics`
 reports exactly two events, `levelStarted` and `levelSolved`, each
 carrying the level's file name, to answer one question: which level
-people stop at. The README's "What it collects" section is the canonical
+people stop at. **An exercise is reported as its level is** (Part 15d):
+opened and solved on the workbench, under its id, which the thirty share with
+their levels -- the same two events and the same parameter, so a level and its
+exercise count as one place, once a session between them. The README's "What it collects" section is the canonical
 list — do not restate it elsewhere. Nothing about the player's circuit,
 their bests or their progress file is ever sent, and a reporting failure
 must never interrupt play. Adding a third event, or a new parameter, is a
