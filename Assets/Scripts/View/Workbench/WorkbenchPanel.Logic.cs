@@ -36,7 +36,7 @@ namespace BitSorter.View
         private string _logicWhy;
         private BitSorter.Board.Project _logicOf;
         private int _logicFirst;
-        private float _logicRightScroll;
+        private float _logicRightScroll, _logicRightReach;
         private bool _logicDrawn, _logicRead;
         private readonly List<(LogicOutput Output, Minimizer.Result Expression, KarnaughLayout Map)> _logicOutputs =
             new List<(LogicOutput, Minimizer.Result, KarnaughLayout)>();
@@ -89,11 +89,12 @@ namespace BitSorter.View
             _logicList.style.display = DisplayStyle.None;
             _logicList.RegisterCallback<WheelEvent>(e =>
             {
-                // The table under the pointer on the left, the expressions on the right.
+                // The table under the pointer on the left, three rows a notch; the expressions on the right, never past their foot
+                // (the 15g-5 review found no end to them, and a few notches left the pane blank).
                 if (e.localMousePosition.x < LogicTableWidth())
-                    _logicFirst = Mathf.Clamp(_logicFirst + (e.delta.y > 0f ? 1 : -1), 0, Mathf.Max(0, (_logic?.Rows ?? 0) - LogicRowsShown));
+                    _logicFirst = Mathf.Clamp(_logicFirst + (e.delta.y > 0f ? 3 : -3), 0, Mathf.Max(0, (_logic?.Rows ?? 0) - LogicRowsShown));
                 else
-                    _logicRightScroll = Mathf.Max(0f, _logicRightScroll + (e.delta.y > 0f ? 60f : -60f));
+                    _logicRightScroll = Mathf.Clamp(_logicRightScroll + (e.delta.y > 0f ? 60f : -60f), 0f, LogicRightScrollMost);
                 _logicDrawn = false;
                 e.StopPropagation();
             });
@@ -109,6 +110,10 @@ namespace BitSorter.View
                 Mathf.Max(0f, _regions.Dock.height - ShellLayout.DockHeaderHeight));
             _logicDrawn = false;
         }
+
+        /// <summary>How far the expressions scroll at most: their foot to the list's, as last drawn.</summary>
+        private float LogicRightScrollMost =>
+            Mathf.Max(0f, _logicRightReach - Mathf.Max(0f, _regions.Dock.height - ShellLayout.DockHeaderHeight));
 
         /// <summary>How many of the table's rows fit under its heads.</summary>
         private int LogicRowsShown => Mathf.Max(1, Mathf.FloorToInt((_regions.Dock.height - ShellLayout.DockHeaderHeight - 12f) / LogicRowHeight) - 1);
@@ -344,6 +349,7 @@ namespace BitSorter.View
                     y = DrawMap(map, x0 + 14f, y + 4f, palette) + 8f;
                 rowFoot = Mathf.Max(rowFoot, y + 18f);
             }
+            _logicRightReach = rowFoot + _logicRightScroll;
         }
 
         /// <summary>A K-map at <paramref name="x"/>, <paramref name="y"/>: the variables in its corner, Gray codes along its edges, a cell for each row. Its foot.</summary>
