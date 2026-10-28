@@ -221,7 +221,7 @@ namespace BitSorter.ViewModel.Tests
             Assert.AreEqual("00010111", Column("cout"), "the carry: two or more");
 
             Minimizer.Result carry = Minimizer.Minimize(3, table.Outputs.Single(o => o.Name == "cout").Values);
-            Assert.AreEqual("bcin + acin + ab", Minimizer.Textbook(carry.Terms, table.VariableNames));
+            Assert.AreEqual("b cin + a cin + a b", Minimizer.Textbook(carry.Terms, table.VariableNames));
         }
 
         /// <summary>

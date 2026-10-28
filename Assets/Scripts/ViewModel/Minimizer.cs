@@ -292,12 +292,16 @@ namespace BitSorter.ViewModel
 
         /// <summary>
         /// The textbook's way: a product's variables side by side, a complement primed, products joined by +: <c>a'b + ab'</c>;
-        /// <c>0</c> for no product, <c>1</c> for one with every variable free.
+        /// <c>0</c> for no product, <c>1</c> for one with every variable free. Where any name is longer than a letter they are
+        /// spaced apart, as the K-map's corner spaces them -- <c>b cin + a cin + a b</c> -- since bcin could be one name.
         /// </summary>
         public static string Textbook(IReadOnlyList<Implicant> terms, IReadOnlyList<string> names)
         {
             if (terms.Count == 0)
                 return "0";
+            bool spaced = false;
+            foreach (string name in names)
+                spaced |= name.Length > 1;
             var text = new StringBuilder();
             foreach (Implicant term in terms)
             {
@@ -309,6 +313,8 @@ namespace BitSorter.ViewModel
                     int bit = 1 << (names.Count - 1 - i);
                     if ((term.Mask & bit) != 0)
                         continue;
+                    if (spaced && text.Length > before)
+                        text.Append(' ');
                     text.Append(names[i]);
                     if ((term.Value & bit) == 0)
                         text.Append('\'');

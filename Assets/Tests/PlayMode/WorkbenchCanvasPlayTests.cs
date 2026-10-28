@@ -549,7 +549,7 @@ namespace BitSorter.PlayMode.Tests
             Assert.AreEqual(8, workbench.Logic.Rows, "every combination of a, b and cin");
             UnityEngine.UIElements.Label carry = ShellPanel.Find<UnityEngine.UIElements.Label>(WorkbenchPanel.LogicExpressionName + "cout");
             Assert.IsNotNull(carry, "the carry's expression is drawn");
-            StringAssert.Contains("cout = bcin + acin + ab", carry.text);
+            StringAssert.Contains("cout = b cin + a cin + a b", carry.text);
             StringAssert.Contains("assign cout = (b & cin) | (a & cin) | (a & b);",
                 ShellPanel.Find<UnityEngine.UIElements.Label>(WorkbenchPanel.LogicVerilogName + "cout").text);
 
