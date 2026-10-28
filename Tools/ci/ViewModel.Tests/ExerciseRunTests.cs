@@ -85,6 +85,21 @@ namespace BitSorter.ViewModel.Tests
         }
 
         [Test]
+        public void TheSolvedCard_SaysTheBlocksItGives_AndAPipelinesPeriod()
+        {
+            Exercise four = Run.Single(e => e.Id == "four-at-once");
+            Grade adders = ExerciseGrader.Grade(four, ExerciseFiles.Solution(four));
+            Assert.IsTrue(adders.Solved);
+            StringAssert.StartsWith("4 FA, settling in ", ExerciseRun.Took(four, adders, "ns"), "the blocks, not 0 gates");
+
+            Exercise cut = Run.Single(e => e.Id == "cut-it-in-two");
+            Grade pipeline = ExerciseGrader.Grade(cut, ExerciseFiles.Solution(cut));
+            Assert.IsTrue(pipeline.Solved);
+            StringAssert.EndsWith(", at a period of 2 ns", ExerciseRun.Took(cut, pipeline, "ns"));
+            Assert.IsNull(pipeline.Settle, "sanity: registers all round, so no settle to say");
+        }
+
+        [Test]
         public void ACheck_ThatIsRightButLate_SaysByHowMuch()
         {
             Exercise exercise = Run.Single(e => e.Id == "out-of-step");

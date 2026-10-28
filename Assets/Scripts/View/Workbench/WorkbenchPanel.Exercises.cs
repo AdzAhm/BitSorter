@@ -22,6 +22,9 @@ namespace BitSorter.View
     /// </remarks>
     public sealed partial class WorkbenchPanel
     {
+        /// <summary>The milestone that says an exercise's 4.x board has been migrated, its id following.</summary>
+        private const string MigratedMilestone = "exercise-migrated/";
+
         /// <summary>The EXERCISES chip, the page's name, and the names of GOAL and CHECK.</summary>
         public const string ExercisesButton = "Workbench exercises", ExercisesPageName = "Workbench exercises page",
             GoalButton = "Workbench goal", CheckButton = "Workbench check";
@@ -75,6 +78,9 @@ namespace BitSorter.View
             ProgressStore store = Store();
             return store != null && store.IsComplete(id);
         }
+
+        /// <summary>Whether an exercise is solved, by a store found once rather than once an exercise.</summary>
+        private static System.Func<string, bool> SolvedIn(ProgressStore store) => id => store != null && store.IsComplete(id);
 
         /// <summary>The header's line: the exercise's goal while one is open in place 0, or the sample's line.</summary>
         private string Says() => _sample == 0 && _exercise != null ? _exercise.Goal : WorkbenchSamples.Chip[_sample].Says;
@@ -136,9 +142,14 @@ namespace BitSorter.View
             ProgressStore store = Store();
             if (store != null)
             {
+                // A 4.x board of its level, migrated the first time only: one moved aside below is not made again.
                 var notes = new List<string>();
-                if (!store.HasProject(exercise.Id) && SaveMigration.MigrateOne(store, exercise.Id, notes))
+                string migrated = MigratedMilestone + exercise.Id;
+                if (!store.HasProject(exercise.Id) && !store.HasMilestone(migrated) && SaveMigration.MigrateOne(store, exercise.Id, notes))
+                {
+                    store.MarkMilestone(migrated);
                     store.Save();
+                }
 
                 if (store.TryGetProject(exercise.Id, out Project kept, problems) && kept.TopModule != null)
                 {
@@ -146,13 +157,18 @@ namespace BitSorter.View
                     if (adopted != null)
                         return adopted;
 
+                    // No answer to it now -- the exercise changed under it -- so a circuit of the student's own, unlocked,
+                    // with its test as it was (the #88 review: renamed, it kept the exercise's lock and could not be edited).
                     string name = Documents.FreeName(DocumentKeys(), exercise.Title + " old");
-                    if (store.RenameProject(exercise.Id, Documents.KeyOf(name)))
+                    Project own = kept with
                     {
-                        store.Save();
-                        _exerciseNote = "the circuit kept for " + exercise.Title + " no longer fits it, so it opens fresh: yours is kept as " +
-                                        name + ", in FILE, OPEN";
-                    }
+                        Settings = (kept.Settings ?? new ProjectSettings()) with { Exercise = null, Library = null, RegisterStart = null },
+                    };
+                    store.SetProject(Documents.KeyOf(name), own);
+                    store.RemoveProject(exercise.Id);
+                    store.Save();
+                    _exerciseNote = "the circuit kept for " + exercise.Title + " no longer fits it, so it opens fresh: yours is kept as " +
+                                    name + ", in FILE, OPEN";
                 }
             }
 
@@ -263,18 +279,17 @@ namespace BitSorter.View
             ProgressStore store = Store();
             bool hadBest = false, fewer = false, quicker = false;
             int bestGates = 0;
-            long bestSettle = 0;
+            long? bestSettle = null;
             if (store != null)
             {
                 hadBest = store.TryGetExerciseBest(solved.Id, out bestGates, out bestSettle);
                 store.MarkComplete(solved.Id);
-                if (grade.Settle.HasValue)
-                    (fewer, quicker) = store.RecordExerciseBest(solved.Id, grade.Gates, grade.Settle.Value);
+                (fewer, quicker) = store.RecordExerciseBest(solved.Id, grade.Gates, grade.Settle);
                 store.Save();
             }
             GameAnalytics.ExerciseSolved(solved.Id);
 
-            string took = "It took " + ExerciseRun.Took(grade.Gates, grade.Settle, unit) + ".";
+            string took = "It took " + ExerciseRun.Took(solved, grade, unit) + ".";
             string best = !hadBest ? "Your first solve of it."
                 : fewer || quicker ? "Your best before: " + ExerciseRun.Took(bestGates, bestSettle, unit) + ". This one beats it."
                 : "Your best: " + ExerciseRun.Took(bestGates, bestSettle, unit) + ".";
@@ -399,8 +414,9 @@ namespace BitSorter.View
         private void FillExercises()
         {
             IReadOnlyList<Exercise> run = ExerciseCatalog.Run;
-            Exercise next = ExerciseRun.Next(run, Solved, after: _exercise?.Id);
-            int solved = ExerciseRun.SolvedCount(run, Solved);
+            System.Func<string, bool> isSolved = SolvedIn(Store());
+            Exercise next = ExerciseRun.Next(run, isSolved, after: _exercise?.Id);
+            int solved = ExerciseRun.SolvedCount(run, isSolved);
             string progress = solved + " of " + run.Count + " solved";
 
             SchematicPalette palette = SchematicPalette.Current;
@@ -408,7 +424,7 @@ namespace BitSorter.View
             {
                 if (!_exerciseItems.TryGetValue(exercise.Id, out var entry))
                     continue;
-                bool done = Solved(exercise.Id), isNext = next != null && exercise.Id == next.Id;
+                bool done = isSolved(exercise.Id), isNext = next != null && exercise.Id == next.Id;
                 entry.Status.text = done ? "SOLVED" : isNext ? "NEXT" : "";
                 entry.Status.style.color = isNext ? palette.Accent : palette.TextDim;
             }

@@ -101,9 +101,12 @@ namespace BitSorter.View
                 {
                     _exercise = exercise;
                     _documentKey = exercise.Id;
+                    _exerciseNote = null;
                     _launchSample = 0;
                     Open();
                     GameAnalytics.ExerciseStarted(exercise.Id);
+                    if (_exerciseNote != null)
+                        Notice(_exerciseNote);   // a kept circuit moved aside as it opened
                     return;
                 }
                 key = null;

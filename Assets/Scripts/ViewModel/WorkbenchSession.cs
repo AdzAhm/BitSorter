@@ -368,7 +368,23 @@ namespace BitSorter.ViewModel
         public EditResult MakeBlock(IReadOnlyCollection<int> parts, string name) => Edited(BlockMaker.Make(Editor, Module, parts, name));
 
         /// <summary>Takes parts and wires away (<see cref="BoardEditor.RemoveParts"/>): drawn now, and replayed.</summary>
-        public EditResult Remove(IEnumerable<int> parts, IEnumerable<int> wires = null) => Edited(Editor.RemoveParts(Module, parts, wires));
+        public EditResult Remove(IEnumerable<int> parts, IEnumerable<int> wires = null) => Edited(Editor.RemoveParts(Module, ExerciseKeeps(parts), wires));
+
+        /// <summary>
+        /// <paramref name="parts"/> less an exercise's ports, at its top (Part 15d): they are its test's, so a select-all and
+        /// DEL, or a cut, takes everything round them and leaves them where they were (the #88 review: it was refused whole).
+        /// </summary>
+        private IEnumerable<int> ExerciseKeeps(IEnumerable<int> parts)
+        {
+            if (parts == null || Project.Settings?.Exercise == null || Module != Project.Top)
+                return parts;
+            Module top = Project.TopModule;
+            var kept = new List<int>();
+            foreach (int id in parts)
+                if (!(top?.FindPart(id) is PortPart))
+                    kept.Add(id);
+            return kept;
+        }
 
         /// <summary>Draws a wire between two ends, a pin or a tap each, through <paramref name="route"/>'s bends (<see cref="BoardEditor.Connect"/>; Part 10b): drawn now, and replayed.</summary>
         public EditResult Connect(Endpoint from, Endpoint to, Route route = null) => Edited(Editor.Connect(Module, from, to, route));

@@ -57,6 +57,24 @@ namespace BitSorter.Board.Tests
         }
 
         [Test]
+        public void ItsPorts_AreRefusedAsTheExercisesOwn_AndItsSettingsAsWell()
+        {
+            var editor = new BoardEditor(Opened("half-adder"));
+            string top = editor.Project.Top;
+            int[] all = editor.Project.TopModule.Parts.Select(p => p.Id).ToArray();
+            EditResult removed = editor.RemoveParts(top, all, null);
+            Assert.IsFalse(removed.Done);
+            StringAssert.Contains("The exercise's ports are its own", removed.Refusal, "said for what it is, not as the test's inputs");
+
+            EditResult added = editor.Add(top, new PortPart { Name = "extra", Direction = SystemVerilog.Syntax.PortDirection.Output }, new Placement(20, 0));
+            Assert.IsFalse(added.Done, "nor is one added: a pasted output once was");
+            StringAssert.Contains("ports are its own", added.Refusal);
+
+            StringAssert.Contains("are its own", editor.SetSettings(editor.Project.Settings with { DefaultGateDelay = 5 }).Refusal);
+            StringAssert.Contains("are its own", editor.SetSettings(editor.Project.Settings with { RegisterStart = LogicVec.FromBinary("1") }).Refusal);
+        }
+
+        [Test]
         public void ABlockItStocks_KeepsItsInsides()
         {
             var editor = new BoardEditor(Opened("four-at-once"));

@@ -151,6 +151,28 @@ namespace BitSorter.ViewModel
         public static string Took(int gates, long? settle, string unit) =>
             Count(gates, "gate") + (settle.HasValue ? ", settling in " + Number(settle.Value) + " " + unit : "");
 
+        /// <summary>
+        /// What <paramref name="grade"/>'s design took at <paramref name="exercise"/>: the blocks it gives, each counted whole,
+        /// and its own gates -- <c>4 FA</c>, not <c>0 gates</c> -- how fast it settles, and for a pipelining exercise the
+        /// period it can be clocked at (the #88 review).
+        /// </summary>
+        public static string Took(Exercise exercise, Grade grade, string unit)
+        {
+            var said = new List<string>();
+            foreach (PartCount count in exercise.Stock)
+                if (count.Part != PartCount.Register && !Enum.TryParse(count.Part, ignoreCase: true, out Sim.GateKind _)
+                    && grade.Parts.TryGetValue(count.Part, out int blocks) && blocks > 0)
+                    said.Add(Number(blocks) + " " + count.Part);
+            if (grade.Gates > 0 || said.Count == 0)
+                said.Add(Count(grade.Gates, "gate"));
+            string took = string.Join(" and ", said);
+            if (grade.Settle.HasValue)
+                took += ", settling in " + Number(grade.Settle.Value) + " " + unit;
+            if (exercise.Period > 0 && grade.MinimumPeriod.HasValue)
+                took += ", at a period of " + Number(grade.MinimumPeriod.Value) + " " + unit;
+            return took;
+        }
+
         /// <summary>The one line the chip says after a CHECK: solved, or the first reason it is not.</summary>
         public static string Verdict(Exercise exercise, Grade grade, string unit)
         {
@@ -169,7 +191,7 @@ namespace BitSorter.ViewModel
             if (!grade.PeriodMet)
                 return "CHECK: every value is right, but it needs a period of " + Number(grade.MinimumPeriod ?? 0) + " " + unit +
                        ", and must run at " + Number(exercise.Period) + ". The TIMING tab shows its slowest path";
-            return "CHECK: solved, with " + Took(grade.Gates, grade.Settle, unit);
+            return "CHECK: solved, with " + Took(exercise, grade, unit);
         }
 
         /// <summary>

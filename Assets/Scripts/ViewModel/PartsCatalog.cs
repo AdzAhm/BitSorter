@@ -109,7 +109,7 @@ namespace BitSorter.ViewModel
             bool exercise = project.Settings?.Exercise != null;
             var entries = new List<CatalogEntry>(Fixed.Length);
             foreach (CatalogEntry entry in Fixed)
-                if (Offered(library, entry) && !(exercise && entry.Group == CatalogGroup.Ports))
+                if (Offered(library, entry) && !(exercise && entry.Group == CatalogGroup.Ports && entry.Kind != CatalogKind.Constant))
                     entries.Add(entry);
             foreach (Module m in project.Modules)
                 if (!string.Equals(m.Name, module, StringComparison.Ordinal) && !Holds(project, m, module, new HashSet<string>()))

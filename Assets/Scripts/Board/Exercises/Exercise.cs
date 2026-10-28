@@ -571,13 +571,20 @@ namespace BitSorter.Board
                     modules.Add(given);
             }
 
-            return saved with
+            Project adopted = saved with
             {
                 Modules = modules,
                 Stimulus = opened.Stimulus,
                 Bench = null,
-                Settings = opened.Settings,
+                Settings = opened.Settings with { Library = null, Exercise = null },
             };
+
+            // Every gate given its cell's delays, as the exercise's own opening does; where that is refused, as it was kept,
+            // and CHECK says why.
+            var retiming = new BoardEditor(adopted);
+            if (retiming.SetLibrary(Library()).Done)
+                adopted = retiming.Project;
+            return adopted with { Settings = opened.Settings };
         }
 
         /// <summary>The top has <paramref name="signal"/> as a port of its width and way, as a start circuit must.</summary>

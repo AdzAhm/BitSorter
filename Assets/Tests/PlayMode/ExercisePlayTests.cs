@@ -281,6 +281,12 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsFalse(workbench.ExercisesShowing, "Escape takes it down");
             Assert.IsTrue(workbench.IsOpen, "and nothing more");
             Assert.IsNull(workbench.ExerciseOpen);
+
+            workbench.ShowExercises();
+            yield return null;
+            workbench.NewCircuit("under the page");
+            yield return null;
+            Assert.IsFalse(workbench.ExercisesShowing, "a circuit made from FILE under the page takes it down");
         }
     }
 }

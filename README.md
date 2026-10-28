@@ -318,7 +318,7 @@ course's order. **EXERCISES** lists them chapter by chapter, the ones you have
 solved and the next one marked, and the start page carries on from where you
 are. An exercise opens with its brief: what to build, and a hint if you ask for
 it (**GOAL** brings it back). Its own test drives the inputs and only its parts
-are in PARTS. **CHECK** grades it: each check that failed is a line in the
+are in PARTS, each with how many are left. **CHECK** grades it: each check that failed is a line in the
 TRANSCRIPT that takes the run to its moment, and once it is solved a card says
 how many gates it took and how fast it settles, beside your best, and offers the
 next. A board you left in a 4.x level opens in its exercise.

@@ -714,6 +714,30 @@ namespace BitSorter.Board
             return EditResult.Ok(id);
         }
 
+        /// <summary>Whether two tops have the same ports, by id, name, way and width.</summary>
+        private static bool SamePorts(Module now, Module next)
+        {
+            if (now == null || next == null)
+                return now == next;
+            if (next.IsWritten)
+                return true;   // a written top's ports are its header's, held by the test it must still compile against (Part 15e)
+            IReadOnlyList<PortPart> a = now.Ports, b = next.Ports;
+            if (now.IsWritten)
+                return true;
+            if (a.Count != b.Count)
+                return false;
+            for (int i = 0; i < a.Count; i++)
+            {
+                PortPart other = null;
+                foreach (PortPart p in b)
+                    if (p.Id == a[i].Id)
+                        other = p;
+                if (other == null || other.Name != a[i].Name || other.Direction != a[i].Direction || other.Width != a[i].Width)
+                    return false;
+            }
+            return true;
+        }
+
         /// <summary>
         /// Why <paramref name="next"/> may not follow <paramref name="now"/> in an exercise (Part 15d), or null when it may: the
         /// exercise's test drives the inputs, its library is its stock, its top and its ports are what the test drives, and a
@@ -727,6 +751,8 @@ namespace BitSorter.Board
 
             if (next.Settings?.Exercise != settings.Exercise)
                 return "This is an exercise, and stays one.";
+            if (!SamePorts(now.TopModule, next.TopModule))
+                return "The exercise's ports are its own: its test drives and reads them, so none is added, taken out or changed.";
             if (!ReferenceEquals(next.Stimulus, now.Stimulus))
                 return "The exercise's own test drives the inputs: they are not set here.";
             if (!GateLibrary.Alike(next.Settings.Library, settings.Library))
@@ -735,6 +761,8 @@ namespace BitSorter.Board
                 return "The exercise's top is its own.";
             if (next.Settings.TimeUnit != settings.TimeUnit)
                 return $"The exercise counts its time in {settings.TimeUnit}, as its goal and its limits do: its unit is not changed here.";
+            if (next.Settings.DefaultGateDelay != settings.DefaultGateDelay || !Equals(next.Settings.RegisterStart, settings.RegisterStart))
+                return "The exercise's delays and its registers' start are its own: they are not changed here.";
 
             GateLibrary library = settings.Library;
             if (library != null)

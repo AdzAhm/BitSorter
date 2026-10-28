@@ -63,6 +63,32 @@ namespace BitSorter.LogicCore.Tests
         }
 
         /// <summary>
+        /// An exercise's best (Part 15d): the fewest gates and the quickest settle, each kept on its own, through a restart --
+        /// and kept for an exercise of registers alone, which has no settle to reckon (the #88 review: it kept none).
+        /// </summary>
+        [Test]
+        public void AnExercisesBest_IsKeptPartByPart_ThroughARestart_SettleOrNot()
+        {
+            var first = new ProgressStore(_path);
+            first.Load();
+            Assert.AreEqual((true, true), first.RecordExerciseBest("half-adder", 3, 2));
+            Assert.AreEqual((true, false), first.RecordExerciseBest("half-adder", 2, 3), "fewer gates, slower");
+            Assert.AreEqual((false, true), first.RecordExerciseBest("half-adder", 4, 1), "quicker, more gates");
+            Assert.AreEqual((true, false), first.RecordExerciseBest("one-clock-late", 0, null), "no settle: the gates kept all the same");
+            first.Save();
+
+            var second = new ProgressStore(_path);
+            second.Load();
+            Assert.IsTrue(second.TryGetExerciseBest("half-adder", out int gates, out long? settle));
+            Assert.AreEqual(2, gates);
+            Assert.AreEqual(1L, settle);
+            Assert.IsTrue(second.TryGetExerciseBest("one-clock-late", out int registers, out long? none));
+            Assert.AreEqual(0, registers);
+            Assert.IsNull(none);
+            Assert.IsFalse(second.TryGetExerciseBest("odd-one-out", out _, out _));
+        }
+
+        /// <summary>
         /// The student's circuits (Part 15a): the ones last opened, latest first, survive a restart; a circuit renamed keeps
         /// its document and its place among them, and refuses a name another has; one deleted is gone from both.
         /// </summary>

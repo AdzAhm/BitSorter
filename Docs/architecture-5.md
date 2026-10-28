@@ -2817,23 +2817,36 @@ the board's own editor and printed.
 
 - **An exercise's document is the exercise's where it says so** (Board). `ProjectSettings.Exercise` names it and
   `RegisterStart` says where a register placed starts (`PartsCatalog`), both saved (`exercise`, `registerStart`).
-  `BoardEditor` refuses, in words and before any other check, an edit to its test (the stimulus), its library, its
-  top, its time unit -- its goals and limits say ns -- or the insides of a block it stocks, and leaves the student
-  everything built round them.
+  `BoardEditor` refuses, in words and before any other check, an edit to its ports, its test (the stimulus), its
+  library, its top, its time unit -- its goals and limits say ns -- its delays and its registers' start, or the insides
+  of a block it stocks, and leaves the student everything built round them. A select-all and DEL, or a cut, takes
+  everything but the ports (`WorkbenchSession.Remove`); it was refused whole, saying the test drives the inputs (the
+  #88 review).
 - **It is kept under its id**, as a circuit is under its key: the thirty share their levels' names, so a 4.x board
   the save migrated, or one migrated now (`SaveMigration.MigrateOne`, for a board the 4.x game kept since), opens in
   its exercise. `Exercise.Adopt` makes a kept answer the exercise's again -- its test, library, settings and stocked
-  blocks as it gives them -- and refuses one that is no answer (another top, a port the test drives missing); that
-  one is moved to a circuit of its own, `<title> old`, and the notice says where, rather than written over.
+  blocks as it gives them, every gate retimed to its cell -- and refuses one that is no answer (another top, a port the
+  test drives missing); that one becomes a circuit of the student's own, `<title> old`, unlocked, and the notice says
+  where, rather than written over. A 4.x board is migrated for it once only (`exercise-migrated/<id>`, a milestone), so
+  one moved aside is not made again on every open.
+  - **Not handled**: a 4.x board whose wires were lengthened migrates them as BUFs, which no exercise stocks, so CHECK
+    calls them faults until they are deleted; and a block an exercise stocks that holds another module is locked
+    only while that module is not placed on its own. No shipped exercise is either.
 - **The workbench** (`WorkbenchPanel.Exercises.cs`, the view-model's `ExerciseRun`):
   - EXERCISES in the header opens a page of the run in three columns, chapter by chapter, each exercise SOLVED or
-    NEXT; the start page has a fourth column, CONTINUE with the next, ALL EXERCISES, and how many are solved.
+    NEXT; the start page has a fourth column, CONTINUE with the next, ALL EXERCISES, and how many are solved. A circuit
+    opened from FILE or the SAMPLE chip takes the page down.
+  - PARTS offers no port in an exercise (they are its test's), no register where it stocks none, and each part it
+    counts says how many are left (`XOR 1`); SPLIT, JOIN, LAMP and the student's own blocks stay.
   - An exercise open says its number, title and goal in the header; GOAL opens its brief (`ExerciseCard`), the hint
     behind SHOW THE HINT, and it opens on it. CHECK grades it (`ExerciseGrader`): the verdict on the chip, every
     reason at the head of the TRANSCRIPT, each failed check at its moment, which a click goes to, and the run taken
     to the first. Solved, it is marked complete, its best kept (`ProgressStore.exerciseBests`: the fewest gates and
-    the quickest settle, each on its own; 4.x's tick latencies are not comparable and are not carried), and a card
-    says what it took and the student's best, and offers NEXT.
+    the quickest settle, each on its own, the settle none for an exercise of registers alone; 4.x's tick latencies are
+    not comparable and are not carried), and a card says what it took -- the blocks it gives counted whole, `4 FA`,
+    and a pipeline's period -- and the student's best, and offers NEXT.
+  - A circuit opened says its own unit on the speed and RUN TO at once; it said the last one's until an edit (red
+    test, then the fix).
   - Only the student's own numbers: what this design took, and what theirs did before.
   - An exercise open last opens again (`exercise/<id>`); a circuit opened, made or imported, or RESET PROGRESS,
     leaves exercise mode.

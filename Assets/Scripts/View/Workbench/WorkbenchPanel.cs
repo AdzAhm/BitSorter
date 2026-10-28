@@ -1742,6 +1742,7 @@ namespace BitSorter.View
             _sample = ((sample % count) + count) % count;
 
             HideHome();
+            HideExercises();   // a circuit opened from FILE or the SAMPLE chip while the page is up (the #88 review)
             CloseThePopups();
             _transcript.Notes = null;   // what an import said is about the import, which this leaves (an import sets them again)
             _notesAbout = null;
