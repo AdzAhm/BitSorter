@@ -1,0 +1,25 @@
+{
+  "id": "cut-it-in-two",
+  "title": "Cut it in two",
+  "order": 920,
+  "chapter": 9,
+  "goal": "This circuit opens already built, and right: out reads a XNOR b, two clocks late. But four gates lie between two of its registers, so its clock can run no faster than a period of 4 ns -- the slowest path from one register to the next, which the TIMING tab shows. Make it run at a period of 2, with out still two clocks late. Its registers start at 0.",
+  "hint": "a register can move along a path without changing what comes out, so long as every path through it moves alike.",
+  "inputs": [
+    {"name": "a", "values": "01100110"},
+    {"name": "b", "values": "00111100"}
+  ],
+  "outputs": [
+    {"name": "out", "values": "xx10100101"}
+  ],
+  "parts": [
+    {"kind": "Register", "count": 3},
+    {"kind": "Xor", "count": 1},
+    {"kind": "Not", "count": 3}
+  ],
+  "clock": true,
+  "registerStart": "0",
+  "period": 2,
+  "code": true,
+  "start": "`timescale 1ns/1ns\n\n// cut_it_in_two: drawn in BitSorter. Gates with a delay are cells of bitsorter_cells.sv.\n\nmodule cut_it_in_two (\n    input logic clk,\n    input logic a,\n    input logic b,\n    output logic out\n);\n    logic r1_q = 1'b0;\n    logic r2_q = 1'b0;\n    logic g1_y, g2_y, g3_y, g4_y;\n    logic r3_q = 1'b0;\n    always_ff @(posedge clk)\n        r1_q <= a;\n    always_ff @(posedge clk)\n        r2_q <= b;\n    XOR2 #(.Tpdlh(1), .Tpdhl(1)) g1 (.A(r1_q), .B(r2_q), .Z(g1_y));\n    INV #(.Tpdlh(1), .Tpdhl(1)) g2 (.A(g1_y), .Z(g2_y));\n    INV #(.Tpdlh(1), .Tpdhl(1)) g3 (.A(g2_y), .Z(g3_y));\n    INV #(.Tpdlh(1), .Tpdhl(1)) g4 (.A(g3_y), .Z(g4_y));\n    assign out = r3_q;\n    always_ff @(posedge clk)\n        r3_q <= g4_y;\nendmodule\n"
+}

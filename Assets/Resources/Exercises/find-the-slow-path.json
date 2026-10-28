@@ -1,0 +1,23 @@
+{
+  "id": "find-the-slow-path",
+  "title": "Find the slow path",
+  "order": 910,
+  "chapter": 9,
+  "goal": "This circuit opens already built, and right: odd reads 1 when an odd number of a, b, c and d are 1. But it settles in 3 ns, and must within 2. The TIMING tab lights its critical path, the slowest: shorten it.",
+  "hint": "the same gates, grouped differently, can answer sooner.",
+  "inputs": [
+    {"name": "a", "values": "0000000011111111"},
+    {"name": "b", "values": "0000111100001111"},
+    {"name": "c", "values": "0011001100110011"},
+    {"name": "d", "values": "0101010101010101"}
+  ],
+  "outputs": [
+    {"name": "odd", "values": "0110100110010110"}
+  ],
+  "parts": [
+    {"kind": "Xor", "count": 3}
+  ],
+  "settleBy": 2,
+  "code": true,
+  "start": "`timescale 1ns/1ns\n\n// find_the_slow_path: drawn in BitSorter. Gates with a delay are cells of bitsorter_cells.sv.\n\nmodule find_the_slow_path (\n    input logic a,\n    input logic b,\n    input logic c,\n    input logic d,\n    output logic odd\n);\n    logic g1_y, g2_y;\n    XOR2 #(.Tpdlh(1), .Tpdhl(1)) g1 (.A(a), .B(b), .Z(g1_y));\n    XOR2 #(.Tpdlh(1), .Tpdhl(1)) g2 (.A(g1_y), .B(c), .Z(g2_y));\n    XOR2 #(.Tpdlh(1), .Tpdhl(1)) g3 (.A(g2_y), .B(d), .Z(odd));\nendmodule\n"
+}

@@ -1,0 +1,20 @@
+{
+  "id": "start-from-nothing",
+  "title": "Start from nothing",
+  "order": 720,
+  "chapter": 7,
+  "goal": "q reads, at each clock, what d was the clock before, as in One clock late. But here a register starts at x: nothing has told it a value yet. rst is 1 for the first clock. Give the register a reset, so q reads 0 from the start.",
+  "hint": "x is a value too: it means nobody knows. Something has to say what the register holds before its first edge.",
+  "inputs": [
+    {"name": "rst", "values": "1000"},
+    {"name": "d", "values": "0110"}
+  ],
+  "outputs": [
+    {"name": "q", "values": "0011"}
+  ],
+  "parts": [
+    {"kind": "Register", "count": 1}
+  ],
+  "clock": true,
+  "code": true
+}

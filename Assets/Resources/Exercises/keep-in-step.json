@@ -1,0 +1,23 @@
+{
+  "id": "keep-in-step",
+  "title": "Keep in step",
+  "order": 930,
+  "chapter": 9,
+  "goal": "a reaches the XOR through two pipeline registers, b straight away, so out mixes a from two clocks ago with b from now. out should read a XOR b, both from two clocks ago. Its registers start at 0.",
+  "hint": "a pipeline stage delays everything that passes through it. Whatever meets what it delays has to wait as long.",
+  "inputs": [
+    {"name": "a", "values": "01101100"},
+    {"name": "b", "values": "00110110"}
+  ],
+  "outputs": [
+    {"name": "out", "values": "xx01011010"}
+  ],
+  "parts": [
+    {"kind": "Register", "count": 4},
+    {"kind": "Xor", "count": 1}
+  ],
+  "clock": true,
+  "registerStart": "0",
+  "code": true,
+  "start": "`timescale 1ns/1ns\n\n// keep_in_step: drawn in BitSorter. Gates with a delay are cells of bitsorter_cells.sv.\n\nmodule keep_in_step (\n    input logic clk,\n    input logic a,\n    input logic b,\n    output logic out\n);\n    logic r1_q = 1'b0;\n    logic r2_q = 1'b0;\n    always_ff @(posedge clk)\n        r1_q <= a;\n    always_ff @(posedge clk)\n        r2_q <= r1_q;\n    XOR2 #(.Tpdlh(1), .Tpdhl(1)) g1 (.A(r2_q), .B(b), .Z(out));\nendmodule\n"
+}
