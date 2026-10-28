@@ -370,7 +370,9 @@ namespace BitSorter.View
                 caret.style.height = height;
                 bool on = ((ViewTime.Now - since) % (2f * CaretBlink)) < CaretBlink;   // pinned in the reference shots, so it holds still there
                 caret.style.display = on ? DisplayStyle.Flex : DisplayStyle.None;
-            }).Every(50);
+                // Every frame while the field has the keyboard: on a 50 ms timer of real time the caret lagged behind what was
+                // typed, and a test's driven frames, quicker than that, found it where it had been (2026-10-29).
+            }).Every(0);
             blink.Pause();
             field.RegisterCallback<FocusInEvent>(_ => blink.Resume());
             field.RegisterCallback<FocusOutEvent>(_ =>
