@@ -56,7 +56,13 @@ namespace BitSorter.Board.Tests
         {
             string path = Path.Combine(Solutions, exercise.Id + ".sv");
             Assert.IsTrue(File.Exists(path), $"{exercise.Id} has no reference solution at {path}");
-            SyntaxTree tree = SyntaxReader.ReadText(File.ReadAllText(path), exercise.Id + ".sv");
+            return Drawn(exercise, File.ReadAllText(path));
+        }
+
+        /// <summary><paramref name="source"/>, structural SystemVerilog of <paramref name="exercise"/>'s module, drawn as a design of it.</summary>
+        public static Project Drawn(Exercise exercise, string source)
+        {
+            SyntaxTree tree = SyntaxReader.ReadText(source, exercise.Id + ".sv");
             Assert.IsFalse(tree.HasErrors, string.Join("\n", tree.Diagnostics));
             ImportResult imported = BoardImporter.Import(tree, exercise.Module);
             Assert.IsTrue(imported.Succeeded, string.Join("\n", imported.Problems));

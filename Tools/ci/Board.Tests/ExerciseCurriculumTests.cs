@@ -217,6 +217,63 @@ namespace BitSorter.Board.Tests
         }
 
         /// <summary>
+        /// A wrong answer that looks right is not solved (the #87 review): registers that move a pipeline's slow path to an
+        /// input or an output rather than cutting it; two delays that cancel, on a test where one input is the other a clock
+        /// late; and a register that starts at 0 where the exercise asks for a reset.
+        /// </summary>
+        [TestCase("cut-it-in-two", "both registers at the output", CutAtTheOutput)]
+        [TestCase("keep-in-step", "a through three registers and b through one", ThreeAndOne)]
+        [TestCase("start-from-nothing", "a register that starts at 0, with no reset", StartsAtZero)]
+        public void AWrongAnswerThatLooksRight_IsNotSolved(string id, string what, string source)
+        {
+            Exercise exercise = ExerciseFiles.Load(id);
+            Grade grade = ExerciseGrader.Grade(exercise, ExerciseFiles.Drawn(exercise, source));
+            Assert.IsEmpty(grade.Faults, $"sanity: {what} is made of what {id} gives");
+            Assert.IsFalse(grade.Solved, $"{id} is solved by {what}");
+        }
+
+        private const string CutAtTheOutput = @"module cut_it_in_two (input logic clk, input logic a, input logic b, output logic out);
+    logic g1_y, g2_y, g3_y, g4_y;
+    logic r1_q = 1'b0;
+    logic r2_q = 1'b0;
+    XOR2 #(.Tpdlh(1), .Tpdhl(1)) g1 (.A(a), .B(b), .Z(g1_y));
+    INV #(.Tpdlh(1), .Tpdhl(1)) g2 (.A(g1_y), .Z(g2_y));
+    INV #(.Tpdlh(1), .Tpdhl(1)) g3 (.A(g2_y), .Z(g3_y));
+    INV #(.Tpdlh(1), .Tpdhl(1)) g4 (.A(g3_y), .Z(g4_y));
+    always_ff @(posedge clk)
+        r1_q <= g4_y;
+    always_ff @(posedge clk)
+        r2_q <= r1_q;
+    assign out = r2_q;
+endmodule
+";
+
+        private const string ThreeAndOne = @"module keep_in_step (input logic clk, input logic a, input logic b, output logic out);
+    logic r1_q = 1'b0;
+    logic r2_q = 1'b0;
+    logic r3_q = 1'b0;
+    logic r4_q = 1'b0;
+    always_ff @(posedge clk)
+        r1_q <= a;
+    always_ff @(posedge clk)
+        r2_q <= r1_q;
+    always_ff @(posedge clk)
+        r3_q <= r2_q;
+    always_ff @(posedge clk)
+        r4_q <= b;
+    XOR2 #(.Tpdlh(1), .Tpdhl(1)) g1 (.A(r3_q), .B(r4_q), .Z(out));
+endmodule
+";
+
+        private const string StartsAtZero = @"module start_from_nothing (input logic clk, input logic rst, input logic d, output logic q);
+    logic r1_q = 1'b0;
+    always_ff @(posedge clk)
+        r1_q <= d;
+    assign q = r1_q;
+endmodule
+";
+
+        /// <summary>
         /// The words of 4.x's token game are not 5.0's: a goal or a hint never says tick, token, source, sink or bin. A wire
         /// carries a signal, an input drives it, and an output is read.
         /// </summary>
