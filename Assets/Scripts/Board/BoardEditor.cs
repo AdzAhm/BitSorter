@@ -751,6 +751,9 @@ namespace BitSorter.Board
             return true;
         }
 
+        /// <summary>Why an exercise's inputs are not set by hand: what SET and the INPUTS table say (Part 15g), one sentence for both.</summary>
+        public const string ExerciseDrivesTheInputs = "The exercise's own test drives the inputs: they are not set here.";
+
         /// <summary>
         /// Why <paramref name="next"/> may not follow <paramref name="now"/> in an exercise (Part 15d), or null when it may: the
         /// exercise's test drives the inputs, its library is its stock, its top and its ports are what the test drives, and a
@@ -767,7 +770,7 @@ namespace BitSorter.Board
             if (!SamePorts(now.TopModule, next.TopModule))
                 return "The exercise's ports are its own: its test drives and reads them, so none is added, taken out or changed.";
             if (!ReferenceEquals(next.Stimulus, now.Stimulus))
-                return "The exercise's own test drives the inputs: they are not set here.";
+                return ExerciseDrivesTheInputs;
             if (!GateLibrary.Alike(next.Settings.Library, settings.Library))
                 return "The exercise's parts are its own: its library is not changed here.";
             if (next.Top != now.Top)

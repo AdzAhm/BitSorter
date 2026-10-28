@@ -1,0 +1,224 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using BitSorter.Board;
+using BitSorter.Board.Tests;
+using BitSorter.SystemVerilog;
+using BitSorter.SystemVerilog.Syntax;
+using NUnit.Framework;
+
+namespace BitSorter.ViewModel.Tests
+{
+    /// <summary>
+    /// The INPUTS tab's table (Part 15g): what the testbench gives the inputs as a vector table -- a column per input, a row
+    /// per moment something changes -- and every edit of it a stimulus to commit. Ahmad asked for input sequences and vectors
+    /// without code, for buses as well as bits (2026-10-28).
+    /// </summary>
+    public class InputTableTests
+    {
+        private static LogicVec V(string binary) => Literal.Parse(binary.Length + "'b" + binary).Value;
+
+        /// <summary>A top with an input a, a 4-bit input s and an output y, s changing at 0 and 20 and a at 0 and 10.</summary>
+        private static WorkbenchSession Session()
+        {
+            var editor = new BoardEditor(Project.New("top"));
+            int Must(EditResult r) { Assert.IsTrue(r.Done, r.Refusal); return r.Id; }
+            int a = Must(editor.Add("top", new PortPart { Name = "a" }, new Placement(1, 1)));
+            Must(editor.Add("top", new PortPart { Name = "s", Width = 4 }, new Placement(1, -1)));
+            int y = Must(editor.Add("top", new PortPart { Name = "y", Direction = PortDirection.Output }, new Placement(6, 1)));
+            Must(editor.Connect("top", Endpoint.At(a, "out"), Endpoint.At(y, "in")));
+            Must(editor.SetStimulus(new Stimulus
+            {
+                Tracks = new[]
+                {
+                    new Track { Port = "a", Steps = new[] { new Step(0, V("0")), new Step(10, V("1")) } },
+                    new Track { Port = "s", Steps = new[] { new Step(0, V("0000")), new Step(20, V("1010")) } },
+                },
+                End = 40,
+            }));
+            var session = new WorkbenchSession(editor.Project, () => 0);
+            session.Finish();
+            return session;
+        }
+
+        private static void Commit(WorkbenchSession session, bool done, Stimulus edited, long from, string refusal)
+        {
+            Assert.IsTrue(done, refusal);
+            EditResult made = session.SetStimulus(edited, from);
+            Assert.IsTrue(made.Done, made.Refusal);
+        }
+
+        [Test]
+        public void TheTable_IsAColumnPerInput_AndARowPerMomentSomethingChanges()
+        {
+            InputTable table = InputTable.Of(Session().Project);
+
+            CollectionAssert.AreEqual(new[] { "a", "s[3:0]" }, table.Columns.Select(c => c.Name).ToArray(), "the inputs, not the output");
+            CollectionAssert.AreEqual(new long[] { 0, 10, 20 }, table.Rows.Select(r => r.Time).ToArray());
+            CollectionAssert.AreEqual(new[] { "0", "0000" }, table.Rows[0].Cells.ToArray());
+            CollectionAssert.AreEqual(new[] { "1", "" }, table.Rows[1].Cells.ToArray(), "s does not change at 10: its cell is empty");
+            CollectionAssert.AreEqual(new[] { "", "1010" }, table.Rows[2].Cells.ToArray());
+            Assert.IsFalse(table.ReadOnly);
+            Assert.AreEqual(40, table.End);
+        }
+
+        [Test]
+        public void ABusValue_IsTypedInItsColumnsRadix_OrAsAnyLiteral_AndUndoneInOneStep()
+        {
+            WorkbenchSession session = Session();
+            InputTable table = InputTable.Of(session.Project).NextRadix(1);
+            Assert.AreEqual(Radix.Hex, table.Columns[1].Radix);
+            Assert.AreEqual("a", table.Rows[2].Cells[1], "1010 written in hex");
+
+            bool done = table.TrySetCell(1, 1, "C", out Stimulus edited, out long from, out string refusal);
+            Commit(session, done, edited, from, refusal);
+            table = InputTable.Of(session.Project, table);
+            Assert.AreEqual("c", table.Rows[1].Cells[1], "C in a hex column is 1100, at 10");
+            Assert.AreEqual(10, from, "the run changed from the row's moment");
+
+            done = table.TrySetCell(0, 1, "4'b0011", out edited, out from, out refusal);
+            Commit(session, done, edited, from, refusal);
+            Assert.AreEqual("3", InputTable.Of(session.Project, table).Rows[0].Cells[1], "a literal, whatever the column's radix");
+
+            Assert.IsFalse(table.TrySetCell(0, 1, "1G", out _, out _, out string bad), "no hex digit");
+            Assert.IsNotNull(bad);
+            Assert.IsFalse(table.TrySetCell(0, 1, "1F", out _, out _, out string wide), "five bits in four");
+            StringAssert.Contains("does not fit", wide);
+
+            Assert.IsTrue(session.Undo());
+            Assert.AreEqual("c", InputTable.Of(session.Project, table).Rows[1].Cells[1], "one step back: 0011 at 0 undone, C at 10 kept");
+        }
+
+        [Test]
+        public void ARowAdded_IsTheTablesUntilItIsGivenAValue_AndEmptyingACell_TakesItsStepAway()
+        {
+            WorkbenchSession session = Session();
+            Stimulus before = session.Project.Stimulus;
+            InputTable table = InputTable.Of(session.Project).AddRow();
+            Assert.AreEqual(30, table.Rows.Last().Time, "a step after the last");
+            Assert.IsTrue(table.Rows.Last().Pending);
+            Assert.AreSame(before, session.Project.Stimulus, "nothing committed");
+
+            Assert.IsTrue(table.TrySetStep("5", out InputTable fives, out _));
+            Assert.AreEqual(35, fives.AddRow().Rows.Last().Time, "STEP 5: a row five after the last");
+
+            bool done = table.TrySetCell(3, 0, "0", out Stimulus edited, out long from, out string refusal);
+            Commit(session, done, edited, from, refusal);
+            table = InputTable.Of(session.Project, table);
+            Assert.AreEqual(30, table.Rows.Last().Time);
+            Assert.IsFalse(table.Rows.Last().Pending, "given a value, the document's own");
+
+            done = table.TrySetCell(1, 0, "", out edited, out from, out refusal);
+            Commit(session, done, edited, from, refusal);
+            table = InputTable.Of(session.Project, table);
+            CollectionAssert.AreEqual(new long[] { 0, 20 }, table.Rows.Select(r => r.Time).ToArray(),
+                "a's 1 at 10 emptied -- and its 0 at 30 with it, the value a then already held");
+        }
+
+        [Test]
+        public void ARow_IsMovedByItsTime_AndTakenAway()
+        {
+            WorkbenchSession session = Session();
+            InputTable table = InputTable.Of(session.Project);
+            bool done = table.TrySetTime(1, "25", out Stimulus edited, out long from, out _, out string refusal);
+            Commit(session, done, edited, from, refusal);
+            table = InputTable.Of(session.Project, table);
+            CollectionAssert.AreEqual(new long[] { 0, 20, 25 }, table.Rows.Select(r => r.Time).ToArray(), "10 moved past 20");
+            Assert.AreEqual(10, from, "the run changed from the earlier of the two");
+
+            Assert.IsFalse(table.TrySetTime(2, "-4", out _, out _, out _, out string never));
+            Assert.IsNotNull(never);
+
+            done = table.TryRemoveRow(2, out edited, out from, out _, out refusal);
+            Commit(session, done, edited, from, refusal);
+            CollectionAssert.AreEqual(new long[] { 0, 20 }, InputTable.Of(session.Project, table).Rows.Select(r => r.Time).ToArray());
+        }
+
+        [Test]
+        public void AllCombinations_Count_AndClock_WorkOnTheChosenInputs()
+        {
+            WorkbenchSession session = Session();
+            InputTable table = InputTable.Of(session.Project);
+            Assert.IsFalse(table.TryAllCombinations(out _, out string none), "nothing chosen");
+            StringAssert.Contains("Choose", none);
+
+            table = table.Choose(0).Choose(1);
+            Assert.IsTrue(table.Columns.All(c => c.Chosen));
+            bool done = table.TryAllCombinations(out Stimulus edited, out string refusal);
+            Commit(session, done, edited, 0, refusal);
+            table = InputTable.Of(session.Project, table);
+            Assert.AreEqual(32, table.Rows.Count, "five bits, every combination");
+            Assert.AreEqual(320, table.End, "and the run lasts for them");
+
+            Assert.IsFalse(table.TryCount(out _, out string two), "two chosen");
+            StringAssert.Contains("Choose one", two);
+            table = table.Choose(0);
+            done = table.TryCount(out edited, out refusal);
+            Commit(session, done, edited, 0, refusal);
+            Assert.AreEqual("1111", InputTable.Of(session.Project, table).Rows[15].Cells[1], "s counts 0 to 15");
+
+            table = InputTable.Of(session.Project, table).Choose(1).Choose(0);
+            done = table.TryClock(out edited, out refusal);
+            Commit(session, done, edited, 0, refusal);
+            table = InputTable.Of(session.Project, table);
+            Assert.AreEqual(20, table.Columns[0].ClockPeriod, "a clock that changes every step");
+            Assert.AreEqual("CLOCK 20", table.Columns[0].Kind);
+            Assert.IsFalse(table.TrySetCell(0, 0, "1", out _, out _, out string ticking));
+            StringAssert.Contains("clock", ticking);
+
+            done = table.TryClock(out edited, out refusal);
+            Commit(session, done, edited, 0, refusal);
+            Assert.IsFalse(InputTable.Of(session.Project, table).Columns[0].IsClock, "and back");
+        }
+
+        [Test]
+        public void TheEnd_IsTyped()
+        {
+            WorkbenchSession session = Session();
+            InputTable table = InputTable.Of(session.Project);
+            bool done = table.TrySetEnd("90", out Stimulus edited, out string refusal);
+            Commit(session, done, edited, 0, refusal);
+            Assert.AreEqual(90, InputTable.Of(session.Project, table).End);
+            Assert.IsFalse(table.TrySetEnd("soon", out _, out _));
+        }
+
+        /// <summary>
+        /// In an exercise the table is read only and shows the exercise's own test: its rows, and in a column of each output it
+        /// checks, the value it wants. An edit is refused in the document's words, as SET is.
+        /// </summary>
+        [Test]
+        public void InAnExercise_TheTableShowsItsTest_AndRefusesAnEdit()
+        {
+            Exercise exercise = ExerciseFiles.InOrder().Single(e => e.Id == "half-adder");
+            Project project = exercise.ToProject(new List<string>());
+            InputTable table = InputTable.Of(project);
+
+            Assert.IsTrue(table.ReadOnly);
+            Assert.AreEqual(BoardEditor.ExerciseDrivesTheInputs, table.Why);
+            Assert.IsTrue(table.Columns.Any(c => !c.IsInput && c.Kind == "EXPECTED"), "an output its test checks");
+            Assert.IsTrue(table.Rows.Any(r => r.Cells.Where((_, c) => !table.Columns[c].IsInput).Any(cell => cell.Length > 0)),
+                "and the values it wants");
+            Assert.IsFalse(table.TrySetCell(0, 0, "1", out _, out _, out string refusal));
+            Assert.AreEqual(BoardEditor.ExerciseDrivesTheInputs, refusal);
+
+            var session = new WorkbenchSession(project, () => 0);
+            session.Finish();
+            EditResult made = session.SetStimulus(project.Stimulus with { End = project.Stimulus.End + 1 }, 0);
+            Assert.IsFalse(made.Done, "and the document refuses it too");
+            Assert.AreEqual(BoardEditor.ExerciseDrivesTheInputs, made.Refusal);
+        }
+
+        [TestCase("A", 4, Radix.Hex, "1010")]
+        [TestCase("1010", 4, Radix.Binary, "1010")]
+        [TestCase("10", 4, Radix.Unsigned, "1010")]
+        [TestCase("'hA", 4, Radix.Binary, "1010")]
+        [TestCase("x", 4, Radix.Hex, "xxxx")]
+        [TestCase("z", 1, Radix.Binary, "z")]
+        [TestCase("1_0", 2, Radix.Binary, "10")]
+        public void WhatIsTyped_IsReadInTheColumnsRadix_UnlessItIsALiteral(string text, int width, Radix radix, string binary)
+        {
+            Assert.IsTrue(InputTable.TryRead(text, width, radix, out LogicVec value, out string error), error);
+            Assert.AreEqual(binary, value.Format(Radix.Binary));
+        }
+    }
+}

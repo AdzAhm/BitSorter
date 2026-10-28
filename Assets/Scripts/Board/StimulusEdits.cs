@@ -6,7 +6,10 @@ namespace BitSorter.Board
 {
     /// <summary>
     /// Changes to what the testbench gives an input, as the workbench makes them from its waveform
-    /// (Part 9b-3): a value set over a stretch of time, or a bit flipped over the stretch a moment is in.
+    /// (Part 9b-3): a value set over a stretch of time, or a bit flipped over the stretch a moment is in --
+    /// and from the INPUTS tab's table (Part 15g): a step set or taken away, a row of them taken away or
+    /// moved, a truth table's every combination, a bus counting up, an input made a clock and back, and
+    /// where the run ends.
     /// </summary>
     /// <remarks>
     /// **Pure, and on the stimulus alone**: each takes one and gives back another, or a refusal in
@@ -163,6 +166,326 @@ namespace BitSorter.Board
             LogicVec flipped = LogicVec.FromUInt64(value.Value[0] == Logic4.One ? 0UL : 1UL, 1);
             return TrySet(stimulus, port, start, until, flipped, out edited, out refusal);
         }
+
+        // -----------------------------------------------------------------
+        // The INPUTS table (Part 15g)
+        // -----------------------------------------------------------------
+
+        /// <summary>The most bits ALL COMBINATIONS counts through: 1,024 rows.</summary>
+        public const int MaxCombinationBits = 10;
+
+        /// <summary>How many values COUNT gives a bus at most: a byte's worth, where a wider one would count for ever.</summary>
+        public const int MaxCount = 256;
+
+        /// <summary>
+        /// <paramref name="port"/> given <paramref name="value"/> at <paramref name="time"/>, held until its next step -- or, for
+        /// null, its step there taken away, the value before it held on: a cell of the INPUTS table typed in, or emptied. Kept
+        /// to the fewest steps, so a value the input already held there is no step, and the cell stays empty.
+        /// </summary>
+        public static bool TrySetStep(Stimulus stimulus, string port, long time, LogicVec? value, out Stimulus edited, out string refusal)
+        {
+            edited = null;
+            if (!CanEdit(stimulus, port, out refusal))
+                return false;
+            if (time < 0)
+            {
+                refusal = "An input cannot change before the run starts, at 0.";
+                return false;
+            }
+            if (value.HasValue && value.Value.IsEmpty)
+            {
+                refusal = "An input is given a value, not nothing.";
+                return false;
+            }
+
+            Track track = TrackOf(stimulus, port);
+            IReadOnlyList<Step> steps = track?.Steps ?? Array.Empty<Step>();
+            var made = new List<Step>(steps.Count + 1);
+            bool placed = !value.HasValue;
+            foreach (Step step in steps)
+            {
+                if (!placed && step.Time > time)
+                {
+                    made.Add(new Step(time, value.Value));
+                    placed = true;
+                }
+                if (step.Time != time)
+                    made.Add(step);
+            }
+            if (!placed)
+                made.Add(new Step(time, value.Value));
+
+            edited = With(stimulus, port, Fewest(made, track?.Start));
+            return true;
+        }
+
+        /// <summary>Every input's step at <paramref name="time"/> taken away: a row of the INPUTS table deleted, the values before it held on.</summary>
+        public static bool TryRemoveRow(Stimulus stimulus, long time, out Stimulus edited, out string refusal)
+        {
+            edited = null;
+            refusal = null;
+            if (stimulus == null)
+            {
+                refusal = "There is no testbench to give the inputs anything.";
+                return false;
+            }
+
+            var tracks = new List<Track>(stimulus.Tracks.Count);
+            bool any = false;
+            foreach (Track track in stimulus.Tracks)
+            {
+                var steps = new List<Step>(track.Steps.Count);
+                foreach (Step step in track.Steps)
+                {
+                    if (step.Time == time)
+                        any = true;
+                    else
+                        steps.Add(step);
+                }
+                tracks.Add(track with { Steps = Fewest(steps, track.Start) });
+            }
+
+            if (!any)
+            {
+                refusal = $"Nothing changes at {time}: there is no row there to take away.";
+                return false;
+            }
+
+            edited = stimulus with { Tracks = tracks };
+            return true;
+        }
+
+        /// <summary>
+        /// Every input's step at <paramref name="from"/> moved to <paramref name="to"/>: a row's time typed again, past others
+        /// or not -- each input's steps kept in time order. Refused before 0, and onto a moment where an input it changes
+        /// already changes, which would put two values at one moment.
+        /// </summary>
+        public static bool TryMoveRow(Stimulus stimulus, long from, long to, out Stimulus edited, out string refusal)
+        {
+            edited = null;
+            refusal = null;
+            if (stimulus == null)
+            {
+                refusal = "There is no testbench to give the inputs anything.";
+                return false;
+            }
+            if (to < 0)
+            {
+                refusal = "An input cannot change before the run starts, at 0.";
+                return false;
+            }
+            if (to == from)
+            {
+                edited = stimulus;
+                return true;
+            }
+
+            var tracks = new List<Track>(stimulus.Tracks.Count);
+            bool any = false;
+            foreach (Track track in stimulus.Tracks)
+            {
+                bool moves = false, taken = false;
+                foreach (Step step in track.Steps)
+                {
+                    moves |= step.Time == from;
+                    taken |= step.Time == to;
+                }
+                if (moves && taken)
+                {
+                    refusal = $"{track.Port} already changes at {to}: a row there would give it two values at once.";
+                    return false;
+                }
+                if (!moves)
+                {
+                    tracks.Add(track);
+                    continue;
+                }
+
+                any = true;
+                var steps = new List<Step>(track.Steps.Count);
+                foreach (Step step in track.Steps)
+                    steps.Add(step.Time == from ? new Step(to, step.Value, step.Late) : step);
+                steps.Sort((a, b) => a.Time.CompareTo(b.Time));
+                tracks.Add(track with { Steps = Fewest(steps, track.Start) });
+            }
+
+            if (!any)
+            {
+                refusal = $"Nothing changes at {from}: there is no row there to move.";
+                return false;
+            }
+
+            edited = stimulus with { Tracks = tracks };
+            return true;
+        }
+
+        /// <summary>
+        /// <paramref name="ports"/> -- each with its width -- given every combination of their bits, one a <paramref name="step"/>
+        /// apart from <paramref name="start"/>, counting up with the first port's bits the most significant: a truth table's
+        /// rows, the other inputs as they were. Each chosen input's own steps are replaced, and the run ends a step after the
+        /// last combination if it ended sooner. Refused past <see cref="MaxCombinationBits"/> bits, or for a clock.
+        /// </summary>
+        public static bool TryFillCombinations(Stimulus stimulus, IReadOnlyList<(string Port, int Width)> ports, long start, long step,
+            out Stimulus edited, out string refusal)
+        {
+            edited = null;
+            if (!CanFill(stimulus, ports, start, step, out refusal))
+                return false;
+
+            int bits = 0;
+            foreach ((string _, int width) in ports)
+                bits += width;
+            if (bits > MaxCombinationBits)
+            {
+                refusal = $"Those inputs are {bits} bits between them: every combination of more than {MaxCombinationBits} is over a thousand rows.";
+                return false;
+            }
+
+            long rows = 1L << bits;
+            Stimulus made = stimulus;
+            int shift = bits;
+            foreach ((string port, int width) in ports)
+            {
+                shift -= width;
+                var steps = new List<Step>((int)rows);
+                for (long row = 0; row < rows; row++)
+                    steps.Add(new Step(start + row * step, LogicVec.FromUInt64((ulong)(row >> shift) & Mask(width), width)));
+                made = With(made, port, Fewest(steps, TrackOf(made, port)?.Start));
+            }
+
+            edited = Ended(made, start + rows * step);
+            return true;
+        }
+
+        /// <summary>
+        /// <paramref name="port"/>, <paramref name="width"/> bits wide, counting up from 0, a value a <paramref name="step"/>
+        /// apart from <paramref name="start"/>: every value it has, or <see cref="MaxCount"/> of a wider one. Its own steps
+        /// are replaced, and the run ends a step after the last if it ended sooner.
+        /// </summary>
+        public static bool TryFillCount(Stimulus stimulus, string port, int width, long start, long step, out Stimulus edited, out string refusal)
+        {
+            edited = null;
+            if (!CanFill(stimulus, new[] { (port, width) }, start, step, out refusal))
+                return false;
+
+            long count = width >= 8 ? MaxCount : 1L << width;
+            var steps = new List<Step>((int)count);
+            for (long i = 0; i < count; i++)
+                steps.Add(new Step(start + i * step, LogicVec.FromUInt64((ulong)i, width)));
+            edited = Ended(With(stimulus, port, Fewest(steps, TrackOf(stimulus, port)?.Start)), start + count * step);
+            return true;
+        }
+
+        /// <summary>
+        /// <paramref name="port"/> made a clock of <paramref name="period"/>, low for its first half from 0 -- its steps given up,
+        /// a clock being a period and not steps. Refused for a period that is not even and at least 2.
+        /// </summary>
+        public static bool TryMakeClock(Stimulus stimulus, string port, long period, out Stimulus edited, out string refusal)
+        {
+            edited = null;
+            if (!CanEdit(stimulus, port, out refusal))
+                return false;
+            if (period < 2 || period % 2 != 0)
+            {
+                refusal = $"A clock's period is even, and at least 2, so each half is a whole number: {period} is not.";
+                return false;
+            }
+
+            var tracks = new List<Track>(stimulus.Tracks.Count);
+            foreach (Track track in stimulus.Tracks)
+                if (!string.Equals(track.Port, port, StringComparison.Ordinal))
+                    tracks.Add(track);
+            var clocks = new List<ClockTrack>(stimulus.Clocks) { new ClockTrack { Port = port, Period = period } };
+            edited = stimulus with { Tracks = tracks, Clocks = clocks };
+            return true;
+        }
+
+        /// <summary><paramref name="port"/>, a clock, made an input given steps again: x until its first, as any input starts.</summary>
+        public static bool TryUnmakeClock(Stimulus stimulus, string port, out Stimulus edited, out string refusal)
+        {
+            edited = null;
+            refusal = null;
+            if (stimulus == null)
+            {
+                refusal = "There is no testbench to give the inputs anything.";
+                return false;
+            }
+
+            var clocks = new List<ClockTrack>(stimulus.Clocks.Count);
+            bool found = false;
+            foreach (ClockTrack clock in stimulus.Clocks)
+            {
+                if (string.Equals(clock.Port, port, StringComparison.Ordinal))
+                    found = true;
+                else
+                    clocks.Add(clock);
+            }
+
+            if (!found)
+            {
+                refusal = $"{port} is no clock.";
+                return false;
+            }
+
+            edited = stimulus with { Clocks = clocks };
+            return true;
+        }
+
+        /// <summary>The run ending at <paramref name="end"/>: refused before 1, where nothing would be run at all.</summary>
+        public static bool TrySetEnd(Stimulus stimulus, long end, out Stimulus edited, out string refusal)
+        {
+            edited = null;
+            refusal = null;
+            if (stimulus == null)
+            {
+                refusal = "There is no testbench to give the inputs anything.";
+                return false;
+            }
+            if (end < 1)
+            {
+                refusal = "The run has to last a moment at least: it ends at 1 or later.";
+                return false;
+            }
+
+            edited = stimulus with { End = end };
+            return true;
+        }
+
+        private static bool CanFill(Stimulus stimulus, IReadOnlyList<(string Port, int Width)> ports, long start, long step, out string refusal)
+        {
+            refusal = null;
+            if (ports == null || ports.Count == 0)
+            {
+                refusal = "Choose the inputs first: click a column's name.";
+                return false;
+            }
+            foreach ((string port, int width) in ports)
+            {
+                if (!CanEdit(stimulus, port, out refusal))
+                    return false;
+                if (width < 1)
+                {
+                    refusal = $"{port} has no bits to give.";
+                    return false;
+                }
+            }
+            if (start < 0)
+            {
+                refusal = "An input cannot change before the run starts, at 0.";
+                return false;
+            }
+            if (step < 1)
+            {
+                refusal = "A step is a moment at least: 1 or more.";
+                return false;
+            }
+            return true;
+        }
+
+        private static ulong Mask(int width) => width >= 64 ? ulong.MaxValue : (1UL << width) - 1;
+
+        /// <summary>The stimulus ending at <paramref name="end"/> at the earliest.</summary>
+        private static Stimulus Ended(Stimulus stimulus, long end) => stimulus.End >= end ? stimulus : stimulus with { End = end };
 
         private static bool CanEdit(Stimulus stimulus, string port, out string refusal)
         {

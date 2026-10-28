@@ -201,5 +201,126 @@ namespace BitSorter.Board.Tests
             StringAssert.Contains("#5 a = 1'b1;", bench);
             StringAssert.Contains("#5 a = 1'b0;", bench, "and back at 10, where the stretch ends");
         }
+
+        // -----------------------------------------------------------------
+        // The INPUTS table (Part 15g)
+        // -----------------------------------------------------------------
+
+        private static Stimulus Must(bool done, Stimulus edited, string refusal)
+        {
+            Assert.IsTrue(done, refusal);
+            return edited;
+        }
+
+        [Test]
+        public void ACell_SetsAStep_ACellEmptied_TakesItAway_AndTheStepsStayTheFewest()
+        {
+            Bench b = Board(a: new[] { S(0, "0"), S(10, "1"), S(20, "0") }, s: new[] { S(0, "0000") });
+
+            Stimulus set = Must(StimulusEdits.TrySetStep(b.Project.Stimulus, "s", 15, V("0101"), out Stimulus e1, out string r1), e1, r1);
+            Bench.Must(b.Editor.SetStimulus(set));
+            Assert.AreEqual("0:0000 15:0101", Steps(b.Project, "s"));
+
+            Stimulus same = Must(StimulusEdits.TrySetStep(b.Project.Stimulus, "s", 30, V("0101"), out Stimulus e2, out string r2), e2, r2);
+            Bench.Must(b.Editor.SetStimulus(same));
+            Assert.AreEqual("0:0000 15:0101", Steps(b.Project, "s"), "the value already held there is no step");
+
+            Stimulus emptied = Must(StimulusEdits.TrySetStep(b.Project.Stimulus, "a", 10, null, out Stimulus e3, out string r3), e3, r3);
+            Bench.Must(b.Editor.SetStimulus(emptied));
+            Assert.AreEqual("0:0", Steps(b.Project, "a"), "10's step gone, and 20's with it, which gave a the 0 it now holds");
+
+            Assert.IsFalse(StimulusEdits.TrySetStep(b.Project.Stimulus, "clk", 5, V("1"), out _, out string clock));
+            StringAssert.Contains("clock", clock);
+            Assert.IsFalse(StimulusEdits.TrySetStep(b.Project.Stimulus, "a", -1, V("1"), out _, out _), "before the run");
+        }
+
+        [Test]
+        public void ARow_IsTakenAway_OrMoved_EveryInputsStepAtItsMomentTogether()
+        {
+            Bench b = Board(a: new[] { S(0, "0"), S(10, "1"), S(30, "0") }, s: new[] { S(0, "0000"), S(10, "0011") });
+
+            Stimulus moved = Must(StimulusEdits.TryMoveRow(b.Project.Stimulus, 10, 35, out Stimulus e1, out string r1), e1, r1);
+            Bench.Must(b.Editor.SetStimulus(moved));
+            Assert.AreEqual("0:0 35:1", Steps(b.Project, "a"), "moved past 30, in time order, and 30's step -- the 0 it held -- dropped");
+            Assert.AreEqual("0:0000 35:0011", Steps(b.Project, "s"));
+
+            Assert.IsFalse(StimulusEdits.TryMoveRow(b.Project.Stimulus, 35, 0, out _, out string onto), "onto 0, where a and s change already");
+            StringAssert.Contains("already changes at 0", onto);
+
+            Stimulus removed = Must(StimulusEdits.TryRemoveRow(b.Project.Stimulus, 35, out Stimulus e2, out string r2), e2, r2);
+            Bench.Must(b.Editor.SetStimulus(removed));
+            Assert.AreEqual("0:0", Steps(b.Project, "a"));
+            Assert.AreEqual("0:0000", Steps(b.Project, "s"));
+            Assert.IsFalse(StimulusEdits.TryRemoveRow(b.Project.Stimulus, 35, out _, out _), "nothing changes there now");
+        }
+
+        [Test]
+        public void AllCombinations_CountsThroughEveryValue_TheFirstInputMostSignificant_AndTheRunLastsForThem()
+        {
+            Bench b = Board(a: new[] { S(0, "1") });
+            Stimulus all = Must(StimulusEdits.TryFillCombinations(b.Project.Stimulus, new[] { ("a", 1), ("s", 4) }, 0, 10,
+                out Stimulus e, out string r), e, r);
+            Bench.Must(b.Editor.SetStimulus(all));
+
+            Assert.AreEqual("0:0 160:1", Steps(b.Project, "a"), "a, the most significant, 0 for sixteen rows and then 1");
+            string sSteps = Steps(b.Project, "s");
+            StringAssert.StartsWith("0:0000 10:0001 20:0010", sSteps);
+            StringAssert.EndsWith("310:1111", sSteps);
+            Assert.AreEqual(320, b.Project.Stimulus.End, "the last row held a step");
+
+            Assert.IsFalse(StimulusEdits.TryFillCombinations(b.Project.Stimulus, new[] { ("s", 11) }, 0, 10, out _, out string many));
+            StringAssert.Contains("over a thousand rows", many);
+            Assert.IsFalse(StimulusEdits.TryFillCombinations(b.Project.Stimulus, new[] { ("clk", 1) }, 0, 10, out _, out _), "a clock");
+            Assert.IsFalse(StimulusEdits.TryFillCombinations(b.Project.Stimulus, new (string, int)[0], 0, 10, out _, out string none));
+            StringAssert.Contains("Choose", none);
+        }
+
+        [Test]
+        public void Count_GivesABusEveryValueUp_AStepApart()
+        {
+            Bench b = Board();
+            Stimulus counted = Must(StimulusEdits.TryFillCount(b.Project.Stimulus, "s", 4, 5, 2, out Stimulus e, out string r), e, r);
+            Bench.Must(b.Editor.SetStimulus(counted));
+            string steps = Steps(b.Project, "s");
+            StringAssert.StartsWith("5:0000 7:0001", steps);
+            StringAssert.EndsWith("35:1111", steps);
+            Assert.AreEqual(40, b.Project.Stimulus.End, "already long enough: 5 and sixteen steps of 2 end at 37");
+
+            Assert.IsTrue(StimulusEdits.TryFillCount(b.Project.Stimulus, "s", 12, 0, 1, out Stimulus wide, out string _));
+            Assert.AreEqual(StimulusEdits.MaxCount, wide.Tracks.Single(t => t.Port == "s").Steps.Count, "a wide bus counts a byte's worth");
+        }
+
+        [Test]
+        public void AnInput_IsMadeAClock_AndBack_AndOnlyAOneBitInputIsOne()
+        {
+            Bench b = Board(a: new[] { S(0, "0"), S(10, "1") });
+            Stimulus clock = Must(StimulusEdits.TryMakeClock(b.Project.Stimulus, "a", 4, out Stimulus e1, out string r1), e1, r1);
+            Bench.Must(b.Editor.SetStimulus(clock));
+            Assert.IsNull(b.Project.Stimulus.Tracks.FirstOrDefault(t => t.Port == "a"), "its steps given up");
+            Assert.AreEqual(4, b.Project.Stimulus.Clocks.Single(c => c.Port == "a").Period);
+
+            Assert.IsFalse(StimulusEdits.TryMakeClock(b.Project.Stimulus, "s", 3, out _, out string odd));
+            StringAssert.Contains("even", odd);
+            Assert.IsTrue(StimulusEdits.TryMakeClock(b.Project.Stimulus, "s", 4, out Stimulus bus, out string _));
+            EditResult wide = b.Editor.SetStimulus(bus);
+            Assert.IsFalse(wide.Done, "a 4-bit clock");
+            StringAssert.Contains("a clock is one bit", wide.Refusal);
+
+            Stimulus back = Must(StimulusEdits.TryUnmakeClock(b.Project.Stimulus, "a", out Stimulus e2, out string r2), e2, r2);
+            Bench.Must(b.Editor.SetStimulus(back));
+            Assert.IsFalse(b.Project.Stimulus.Clocks.Any(c => c.Port == "a"));
+            Assert.IsFalse(StimulusEdits.TryUnmakeClock(b.Project.Stimulus, "a", out _, out _), "no clock now");
+        }
+
+        [Test]
+        public void TheEnd_IsSet_AndNeverBeforeOne()
+        {
+            Bench b = Board();
+            Stimulus ended = Must(StimulusEdits.TrySetEnd(b.Project.Stimulus, 75, out Stimulus e, out string r), e, r);
+            Bench.Must(b.Editor.SetStimulus(ended));
+            Assert.AreEqual(75, b.Project.Stimulus.End);
+            Assert.IsFalse(StimulusEdits.TrySetEnd(b.Project.Stimulus, 0, out _, out string never));
+            StringAssert.Contains("1 or later", never);
+        }
     }
 }

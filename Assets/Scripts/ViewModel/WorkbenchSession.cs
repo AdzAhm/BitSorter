@@ -539,6 +539,18 @@ namespace BitSorter.ViewModel
         }
 
         /// <summary>
+        /// The stimulus made <paramref name="stimulus"/> -- an edit from the INPUTS table (Part 15g, <see cref="InputTable"/>) --
+        /// one step, replayed from <paramref name="from"/>, as SET's is. Refused with a written testbench, which drives the
+        /// inputs itself, and in an exercise, whose own test does (<see cref="BoardEditor.ExerciseDrivesTheInputs"/>).
+        /// </summary>
+        public EditResult SetStimulus(BitSorter.Board.Stimulus stimulus, long from)
+        {
+            if (Project.Bench != null)
+                return EditResult.Refused(BoardRules.BenchDrivesTheInputs(Project));
+            return Replayed(Editor.SetStimulus(stimulus), from);
+        }
+
+        /// <summary>
         /// The written testbench turned into the stimulus (<see cref="BoardEditor.ConvertBench"/>, Part 13c), drawn at once and
         /// run again: the design's signals move from under the testbench to under the one the stimulus makes.
         /// </summary>
