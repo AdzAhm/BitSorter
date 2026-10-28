@@ -222,6 +222,15 @@ namespace BitSorter.View
 #pragma warning restore CS0618
             field.style.marginLeft = field.style.marginRight = field.style.marginTop = field.style.marginBottom = 0f;
 
+            // A browser on a computer types on its keyboard, not a phone's on-screen one (Part 15g). Otherwise UI Toolkit
+            // edits the field as on a phone, polls the on-screen keyboard a tenth of a second apart and lets the field go
+            // while it is not up -- on a computer, always: the shell gave it back a frame later, so every field flickered,
+            // its placeholder on and off, and showed no caret. Found with a focus log in the browser (2026-10-28).
+#if UNITY_WEBGL && !UNITY_EDITOR
+            if (!Application.isMobilePlatform)
+                field.hideSoftKeyboard = true;
+#endif
+
             VisualElement input = field.Q(className: TextField.inputUssClassName) ?? field;
             Outline(input, palette.ChipEdge, palette.Chip, EdgeWidth, 6f);
             input.style.flexGrow = 1f;
