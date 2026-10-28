@@ -216,9 +216,7 @@ namespace BitSorter.View
                     StartTutorial();
                     break;
                 case HelpAction.About:
-                    if (_credits == null)
-                        return;
-                    _credits.Open(Resume);   // a page of the workbench's own, which comes back here (Part 15g)
+                    ShowAbout();   // what BitSorter is, its credits at its foot (Part 15h: it opened the credits roll)
                     break;
             }
         }

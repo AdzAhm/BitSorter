@@ -94,6 +94,13 @@ namespace BitSorter.LogicCore.Tests
             lines.Add(new Line("SettingsPanel.Question", SettingsPanel.Question));
             lines.Add(new Line("SettingsPanel.Done", SettingsPanel.Done));
 
+            // ABOUT BITSORTER (Part 15h), which names the workbench's tabs and buttons to say what it does.
+            lines.Add(new Line("WorkbenchPanel.AboutIntro", WorkbenchPanel.AboutIntro));
+            foreach ((string heading, string text) in WorkbenchPanel.AboutAbilities)
+                lines.Add(new Line("WorkbenchPanel.AboutAbilities " + heading, text));
+            foreach ((string heading, string text) in WorkbenchPanel.AboutStory)
+                lines.Add(new Line("WorkbenchPanel.AboutStory " + heading, text));
+
             // What Q and E say where they cannot go.
             lines.Add(new Line("SimulationInput.BeforeTheFirst", SimulationInput.BeforeTheFirst));
             lines.Add(new Line("SimulationInput.NotALevel", SimulationInput.NotALevel));

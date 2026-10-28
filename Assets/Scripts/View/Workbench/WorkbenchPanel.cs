@@ -1436,7 +1436,9 @@ namespace BitSorter.View
             Keyboard keyboard = UiText.Keyboard;
             if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame && !OpenedThisFrame && !UiEscape.AnyHolds)
             {
-                if (ExercisesShowing)
+                if (AboutShowing)
+                    HideAbout();
+                else if (ExercisesShowing)
                     HideExercises();
                 else if (StartPageShowing)
                     LeaveHome();

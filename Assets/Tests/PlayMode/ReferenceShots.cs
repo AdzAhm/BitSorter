@@ -1861,6 +1861,21 @@ namespace BitSorter.PlayMode.Tests
             yield return Capture("59-workbench-states-tab");
         }
 
+        /// <summary>Part 15h: ABOUT BITSORTER, from HELP -- what the simulator is and does, and where it came from.</summary>
+        [UnityTest]
+        public IEnumerator Shot60_AboutBitSorter()
+        {
+            yield return TestScene.LoadSimulator();
+            Look.ApplyBloom();
+            yield return Frames(4);
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowAbout();
+            yield return Frames(30);
+
+            Assert.IsTrue(workbench.AboutShowing, "sanity: the page up");
+            yield return Capture("60-about-bitsorter");
+        }
+
         private static IEnumerator OpenTheHalfAdder()
         {
             yield return TestScene.LoadSimulator();

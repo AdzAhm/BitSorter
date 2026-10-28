@@ -315,8 +315,13 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsFalse(Find<MainMenu>().IsOpen);
         }
 
+        /// <summary>
+        /// HELP has the keyboard map and ABOUT BITSORTER (Part 15h), which says what the simulator is and has the credits at its
+        /// foot: they roll and come back to it, and Escape takes it down. ABOUT opened the credits roll until Ahmad asked for
+        /// a page about the simulator (2026-10-28).
+        /// </summary>
         [UnityTest]
-        public IEnumerator Help_HasTheKeyboardMapAndTheCredits_WhichComeBackToTheWorkbench()
+        public IEnumerator Help_HasTheKeyboardMapAndAboutBitSorter_WithTheCreditsAtItsFoot()
         {
             Plant(store => store.LastOpen = WorkbenchSamples.MyCircuitKey);
             yield return TestScene.LoadSimulator();
@@ -332,13 +337,26 @@ namespace BitSorter.PlayMode.Tests
 
             yield return Click(WorkbenchPanel.HelpButton);
             yield return Click(HelpMenu.ActionItem + HelpAction.About);
+            Assert.IsTrue(workbench.AboutShowing, "ABOUT BITSORTER: a page about the simulator");
+            UnityEngine.UIElements.VisualElement about = ShellPanel.Find<UnityEngine.UIElements.VisualElement>(WorkbenchPanel.AboutPageName);
+            string said = string.Join(" ", UnityEngine.UIElements.UQueryExtensions.Query<UnityEngine.UIElements.Label>(about).ToList().Select(l => l.text));
+            StringAssert.Contains("Digital Systems and Computer Structure", said, "the course named in full, as Ahmad asked");
+            StringAssert.Contains("THE 4.x GAME", said, "and where the game it began as still is");
+            Assert.IsNotNull(ShellPanel.Find<UnityEngine.UIElements.Button>(WorkbenchPanel.AboutGitHubButton), "the project's page at its foot");
+
             CreditsPanel credits = Find<CreditsPanel>();
-            Assert.IsTrue(credits.IsShowing, "ABOUT: the credits");
-            Assert.IsTrue(workbench.IsOpen, "a page of the workbench's own, over it (Part 15g)");
+            yield return Click(WorkbenchPanel.AboutCreditsButton);
+            Assert.IsTrue(credits.IsShowing, "its CREDITS: the credits roll");
+            Assert.IsFalse(workbench.AboutShowing, "in its place");
             yield return Tap(_keyboard.spaceKey);
             Assert.IsFalse(credits.IsShowing, "any key ends them");
+            Assert.IsTrue(workbench.AboutShowing, "and comes back to ABOUT");
+            Assert.IsFalse(Find<SettingsPanel>().IsShowing, "not to Settings, where the credits are also reached");
+
+            yield return null;
+            yield return Tap(_keyboard.escapeKey);
+            Assert.IsFalse(workbench.AboutShowing, "Escape takes it down");
             Assert.IsTrue(workbench.IsOpen, "back on the workbench");
-            Assert.IsFalse(Find<SettingsPanel>().IsShowing, "not on Settings, where the credits are also reached");
         }
 
         [UnityTest]
