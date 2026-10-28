@@ -553,7 +553,13 @@ namespace BitSorter.ViewModel
         // -----------------------------------------------------------------
 
         /// <summary>A row's value now, and its text.</summary>
-        public LogicVec RowValue(int row, out string text)
+        public LogicVec RowValue(int row, out string text) => RowValueAt(row, Time, out text);
+
+        /// <summary>
+        /// A row's value at <paramref name="time"/>, and its text: what the values column reads at the cursor (Part 15h).
+        /// Held to what has run, as a moment shown is: past it the run has said nothing yet.
+        /// </summary>
+        public LogicVec RowValueAt(int row, double time, out string text)
         {
             int signal = _rowSignals[row];
             if (signal < 0)
@@ -562,8 +568,9 @@ namespace BitSorter.ViewModel
                 return LogicVec.AllX(1);
             }
 
+            double last = Complete ? End : Math.Min(End, Reached);
             SignalTrack track = _tracks[signal];
-            int i = track.IndexAt(Time);
+            int i = track.IndexAt(Math.Max(0.0, Math.Min(last, time)));
             text = RowText(row, i);
             return track[i].Value;
         }

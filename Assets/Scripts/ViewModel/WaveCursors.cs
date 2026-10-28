@@ -3,8 +3,9 @@ using System;
 namespace BitSorter.ViewModel
 {
     /// <summary>
-    /// The waveform's second cursor. The playhead is the first: the values column and the schematic
-    /// follow it, and the second is placed beside it to measure from one to the other.
+    /// The waveform's second cursor. The playhead is the first, and the circuit follows it; the second is placed beside it
+    /// to read a moment and to measure from one to the other, and the values column reads at it while it is placed (Part
+    /// 15h), at the playhead otherwise.
     /// </summary>
     /// <remarks>
     /// Ahmad's choice (2026-10-16): the playhead is cursor 1, C2 is placed beside it, and Δ is the time
@@ -13,7 +14,8 @@ namespace BitSorter.ViewModel
     ///
     /// **A click places C2, and Shift and a click moves the playhead** (Part 15h, Ahmad, 2026-10-28):
     /// the waves are drawn only up to the playhead, so a click that moved it back hid the rest of the
-    /// run, where C2 moves through the waves and hides nothing. It was Shift and a click until then.
+    /// run, where C2 moves through the waves and hides nothing. It was Shift and a click until then. And the values
+    /// column reads at C2 while it is placed, since that is the moment a click picks (Ahmad, the same day).
     /// </remarks>
     public sealed class WaveCursors
     {

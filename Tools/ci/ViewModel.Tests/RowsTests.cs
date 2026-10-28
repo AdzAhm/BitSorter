@@ -119,6 +119,30 @@ namespace BitSorter.ViewModel.Tests
             return text;
         }
 
+        /// <summary>
+        /// A row read at any moment (Part 15h), as the values column reads at the cursor: the value then, wherever the playhead
+        /// is, and held to the run's end past it.
+        /// </summary>
+        [Test]
+        public void ARow_ReadsAtAnyMoment_WhereverThePlayheadIs()
+        {
+            Project project = WorkbenchSamples.FullAdder();
+            WorkbenchModel model = WorkbenchModel.Of(project);
+            model.SetRows(new[] { Signal(model, Path(project) + ".h1.s") });
+            model.Seek(41.0);
+            Assert.AreEqual("0", Text(model, 0), "sanity: at the playhead, a XOR b with both 1");
+            Assert.AreEqual("0", At(model, 0, 11.0), "a XOR b with a = 0 and b = 0, at 11");
+            Assert.AreEqual("1", At(model, 0, 17.0), "with a = 0 and b = 1, at 17");
+            Assert.AreEqual("0", Text(model, 0), "and the playhead's own reading left as it was");
+            Assert.AreEqual(At(model, 0, model.End), At(model, 0, model.End + 1000.0), "past the run, its last value");
+        }
+
+        private static string At(WorkbenchModel model, int row, double time)
+        {
+            model.RowValueAt(row, time, out string text);
+            return text;
+        }
+
         [Test]
         public void ARowInsideTheCounter_GetsTheGlitchMarksSwallowedOnItsWire()
         {

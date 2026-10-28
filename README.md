@@ -321,8 +321,9 @@ point at one and it lights, and a drag from there draws a wire. While you draw o
 the pins it can end on show their circles.
 
 **On the waves**, a click puts a cursor there and a drag moves it through the run,
-reading any moment; `Shift` and a click moves the playhead, the moment the circuit
-shows. The time between the two is written under the rows. The wheel zooms, out
+reading any moment: the values beside the rows are the ones there. `Shift` and a
+click moves the playhead, the moment the circuit shows. The time between the two is
+written under the rows. The wheel zooms, out
 past the end of the run as far as a quarter of the strip.
 
 **INPUTS**, beside WAVES, is what the inputs are given, as a table you type in: a

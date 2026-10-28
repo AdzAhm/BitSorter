@@ -3217,7 +3217,8 @@ as code with its testbench, into a browser build. These are the fixes; the drawi
 - **A click on the waves places the cursor, and Shift and a click moves the playhead.**
   - The waves are drawn only up to the playhead, so a click back in a finished run hid the rest of it.
   - A press within 6 px of the playhead's line still drags it.
-  - The values column and the circuit still follow the playhead.
+  - The values column reads at the cursor while one is placed (`WorkbenchModel.RowValueAt`), at the playhead
+    otherwise: Ahmad asked for it once a click placed the cursor. The circuit still follows the playhead.
 - **The waves zoom out past the run** (`WaveView.MinZoom`): as far as the run across a quarter of the strip. The fit is
   a stop on the way in and out. Zoom stopped at the run's end, and Ahmad asked for a limit "not at the limit of the line".
 - **An empty field shows its caret in a browser.** It is placed at the text's start, measured from nothing. Only a

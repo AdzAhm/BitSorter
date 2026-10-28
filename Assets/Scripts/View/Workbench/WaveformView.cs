@@ -347,6 +347,10 @@ namespace BitSorter.View
         {
             SchematicPalette palette = SchematicPalette.Current;
 
+            // The values column reads at the cursor while there is one, and at the playhead otherwise (Part 15h): a click
+            // places the cursor, and Ahmad asked that the values be the ones it moves through (2026-10-28).
+            double reading = cursors?.Second ?? _model.Time;
+
             if (View.Start != _ticksStart || View.PixelsPerUnit != _ticksPixelsPerUnit)
             {
                 _ticksStart = View.Start;
@@ -364,7 +368,7 @@ namespace BitSorter.View
                     continue;
                 }
 
-                LogicVec value = _model.RowValue(row, out string text);
+                LogicVec value = _model.RowValueAt(row, reading, out string text);
                 bool bus = _model.RowIsBus(row);
 
                 if (!ReferenceEquals(text, _readoutOf[row]))

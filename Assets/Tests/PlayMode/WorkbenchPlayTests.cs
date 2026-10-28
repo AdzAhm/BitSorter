@@ -685,6 +685,21 @@ namespace BitSorter.PlayMode.Tests
             yield return ClickAt(workbench.WaveScreenPointOf(19.2, en));
 
             Assert.AreEqual(19.0, workbench.Cursors.Second, "placed on the whole unit nearest the click");
+            // The values column reads at the cursor (Part 15h): every row's value there, a bus's with its radix's letter after.
+            int differ = 0;
+            for (int row = 0; row < workbench.Model.RowCount; row++)
+            {
+                if (workbench.Model.RowSignal(row) < 0)
+                    continue;
+                workbench.Model.RowValueAt(row, 19.0, out string atTheCursor);
+                workbench.Model.RowValueAt(row, 10.0, out string atThePlayhead);
+                if (atTheCursor != atThePlayhead)
+                    differ++;
+                string read = workbench.ReadoutOf(row);
+                Assert.IsTrue(read == atTheCursor || read.Length == atTheCursor.Length + 1 && read.StartsWith(atTheCursor),
+                    $"row {row} reads {read}, where the cursor's value is {atTheCursor} and the playhead's {atThePlayhead}");
+            }
+            Assert.Greater(differ, 0, "sanity: some row differs between the playhead and the cursor");
             Assert.AreEqual(10.0, workbench.Time, 1e-9, "and the playhead left where it was");
             Assert.AreEqual("19 ps", workbench.SecondText);
             Assert.AreEqual("9 ps", workbench.SpanText, "the time from the playhead to it");
