@@ -122,14 +122,23 @@ namespace BitSorter.View
             if (_session == null || _logicList == null || _dockTab != DockTab.Logic)
                 return;
 
-            if (!ReferenceEquals(_session.Project, _logicOf))
+            // Made again only when the design has changed: a part moved, a wire rerouted or an input's steps edited leave the
+            // table, and where it is scrolled to, as they were (the 15g-5 review). The old table goes while the new one is made.
+            BitSorter.Board.Project project = _session.Project;
+            if (!ReferenceEquals(project, _logicOf))
             {
-                _logicOf = _session.Project;
-                _logic = LogicTable.Start(_session.Project, _session.Timing, () => UnityEngine.Time.realtimeSinceStartupAsDouble * 1000.0, out _logicWhy);
-                _logicRead = false;
-                _logicFirst = 0;
-                _logicRightScroll = 0f;
-                _logicDrawn = false;
+                bool same = _logicOf != null && TimingView.SameDesign(_logicOf, project);
+                _logicOf = project;
+                if (!same)
+                {
+                    _logic = LogicTable.Start(project, _session.Timing, () => UnityEngine.Time.realtimeSinceStartupAsDouble * 1000.0, out _logicWhy);
+                    _logicRead = false;
+                    _logicFirst = 0;
+                    _logicRightScroll = 0f;
+                    _logicOutputs.Clear();
+                    _logicList.Clear();
+                    _logicDrawn = false;
+                }
             }
 
             if (_logic != null && !_logic.Done)
