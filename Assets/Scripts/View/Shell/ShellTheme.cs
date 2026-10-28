@@ -210,8 +210,12 @@ namespace BitSorter.View
             field.AddToClassList(ControlClass);
             // Deprecated for the USS variables --unity-cursor-color and --unity-selection-color; the shell has no USS by
             // design (ShellRulesTests), and with no theme a caret would otherwise be drawn in no colour of the palette's.
+            // The selection takes it; the caret did not, in the browser, where no field showed one (2026-10-28) -- so UI
+            // Toolkit's own is put out, and the shell draws one (Caret, below).
 #pragma warning disable CS0618
-            field.textSelection.cursorColor = palette.Text;
+            Color none = palette.Text;
+            none.a = 0f;
+            field.textSelection.cursorColor = none;
             Color selection = palette.Accent;
             selection.a = 0.35f;
             field.textSelection.selectionColor = selection;
@@ -255,6 +259,7 @@ namespace BitSorter.View
             field.RegisterCallback<FocusOutEvent>(_ => ShowHint());
             field.RegisterValueChangedCallback(_ => ShowHint());
             field.RegisterCallback<GeometryChangedEvent>(_ => ShowHint());
+            Caret(field, input, palette, type);
 
             // What it held when it was clicked into, for Escape to put back; and whether Escape asked for that.
             string held = "";
@@ -290,6 +295,60 @@ namespace BitSorter.View
                 }
             }, TrickleDown.TrickleDown);
             return field;
+        }
+
+        /// <summary>The name of the bar a field draws where the next letter typed goes.</summary>
+        public const string CaretName = "Shell caret";
+
+        /// <summary>How long the caret is shown, then hidden, as it blinks, in seconds.</summary>
+        public const float CaretBlink = 0.53f;
+
+        /// <summary>
+        /// The bar where the next letter typed goes (Part 15g): in the text colour, a line of the field's text tall, blinking on
+        /// the view's clock (<see cref="ViewTime"/>) while the field has the keyboard and nothing in it is chosen, and shown
+        /// from the moment the caret moves, as a text editor's is. UI Toolkit's own is put out (<see cref="Field"/>): in the browser no field showed one. Placed on
+        /// the scheduler of the field's own panel, so it costs nothing while the field is not drawn.
+        /// </summary>
+        private static void Caret(TextField field, VisualElement input, SchematicPalette palette, UiType type)
+        {
+            TextElement text = input.Q<TextElement>();
+            if (text == null)
+                return;
+
+            var caret = new VisualElement { name = CaretName, pickingMode = PickingMode.Ignore };
+            caret.style.position = Position.Absolute;
+            caret.style.width = 1.5f;
+            caret.style.backgroundColor = palette.Text;
+            caret.style.display = DisplayStyle.None;
+            text.Add(caret);
+
+            float height = Mathf.Round(UiTheme.SizeOf(type) * 1.25f);
+            int movedAt = -1;
+            float since = 0f;
+            caret.schedule.Execute(() =>
+            {
+                bool focused = field.panel?.focusController?.focusedElement is VisualElement f && (f == field || field.Contains(f));
+                if (!focused || field.cursorIndex != field.selectIndex)
+                {
+                    caret.style.display = DisplayStyle.None;
+                    movedAt = -1;
+                    return;
+                }
+
+                if (field.cursorIndex != movedAt)
+                {
+                    movedAt = field.cursorIndex;
+                    since = ViewTime.Now;
+                }
+#pragma warning disable CS0618
+                float x = field.textSelection.cursorPosition.x;
+#pragma warning restore CS0618
+                caret.style.left = Mathf.Round(x);
+                caret.style.top = Mathf.Round((text.layout.height - height) / 2f);
+                caret.style.height = height;
+                bool on = ((ViewTime.Now - since) % (2f * CaretBlink)) < CaretBlink;   // pinned in the reference shots, so it holds still there
+                caret.style.display = on ? DisplayStyle.Flex : DisplayStyle.None;
+            }).Every(50);
         }
 
         /// <summary>Sets the quiet word a field shows while it is empty.</summary>
