@@ -356,6 +356,25 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsNull(workbench.HintShown, "and it does not come back");
         }
 
+        /// <summary>
+        /// The exercise open, while it is unsolved, is the one to do next: the page marks it NEXT and CONTINUE offers it. It
+        /// marked the one after it, while the student was still on it (the 15f browser smoke test).
+        /// </summary>
+        [UnityTest]
+        public IEnumerator TheExerciseOpen_IsNext_WhileItIsUnsolved()
+        {
+            yield return TestScene.LoadSimulator();
+            WorkbenchPanel workbench = Workbench;
+            Exercise second = ExerciseCatalog.Run[1];
+            Store.MarkComplete(ExerciseCatalog.Run[0].Id);
+            workbench.OpenExercise(second.Id);
+            yield return null;
+            workbench.ShowExercises();
+            yield return null;
+            Assert.AreEqual("NEXT", workbench.ExerciseStatus(second.Id), "the one open, unsolved");
+            StringAssert.EndsWith(second.Title.ToUpperInvariant(), workbench.StartContinueCaption, "and CONTINUE offers it");
+        }
+
         [UnityTest]
         public IEnumerator AnExerciseOpenLast_OpensAgain_AsItWasLeft()
         {
