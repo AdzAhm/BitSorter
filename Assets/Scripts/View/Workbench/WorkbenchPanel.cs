@@ -940,6 +940,13 @@ namespace BitSorter.View
                 return;
             }
 
+            // A testbench of the project's own drives every input, and no value is asked for that would only be refused.
+            if (_session.Project.Bench != null)
+            {
+                Notice(BitSorter.Board.BoardRules.BenchDrivesTheInputs(_session.Project));
+                return;
+            }
+
             BitSorter.Board.Stimulus stimulus = _session.Project.Stimulus;
             long at = Math.Max(0L, (long)Math.Floor(time + 1e-9));
             LogicVec? value = BitSorter.Board.StimulusEdits.ValueAt(stimulus, port, at);
@@ -1108,6 +1115,15 @@ namespace BitSorter.View
                 if (name == port.Signal || (bench != null && name == bench + "." + own))
                     return own;
             }
+
+            // A written top's inputs are its header's, drawn nowhere (Part 15g): a double-click on one said it was no input
+            // of the design, where the testbench driving it is what stops it being changed, and the refusal says so.
+            BitSorter.Board.Module top = _session?.Project.TopModule;
+            if (top != null && top.IsWritten)
+                foreach (BitSorter.Board.ModulePort port in BitSorter.Board.WrittenModules.PortsOf(_session.Project, top))
+                    if (port.Direction == BitSorter.SystemVerilog.Syntax.PortDirection.Input
+                        && (name == (string.IsNullOrEmpty(design) ? port.Name : design + "." + port.Name) || (bench != null && name == bench + "." + port.Name)))
+                        return port.Name;
 
             return null;
         }
