@@ -426,5 +426,45 @@ namespace BitSorter.Board.Tests
             StringAssert.Contains("$display(\"%0d of 8 checks failed\", errors);", bench);
             StringAssert.Contains("if ((sum ==? 1'b1) !== 1'b1)", bench);
         }
+
+        /// <summary>
+        /// The two timing exercises' limits can be missed (Part 15g, decision 4): their stock builds a slow answer that is
+        /// right at every check and late, and CHECK fails it on time. Before, the parts they gave could only meet them.
+        /// </summary>
+        [TestCase("the-slow-lane", @"module the_slow_lane (input logic a, input logic b, input logic c, output logic out);
+    logic g1_y, g2_y, g3_y;
+    xor #1 g1 (g1_y, a, b);
+    xor #1 g2 (g2_y, g1_y, c);
+    and #1 g3 (g3_y, g2_y, a);
+    or #1 g4 (out, g3_y, b);
+endmodule", 4L)]
+        [TestCase("balance-the-paths", @"module balance_the_paths (input logic a, input logic b, output logic out);
+    logic g1_y, g3_y;
+    xor #1 g1 (g1_y, a, b);
+    buf #1 g3 (g3_y, g1_y);
+    and #1 g2 (out, g3_y, b);
+endmodule", 3L)]
+        public void ASlowAnswer_IsRightButLate_AndFailsOnTime(string id, string slow, long settles)
+        {
+            Exercise exercise = ExerciseFiles.Load(id);
+            Grade grade = ExerciseGrader.Grade(exercise, ExerciseFiles.Drawn(exercise, slow));
+            Assert.IsEmpty(grade.Failures, "right at every check");
+            Assert.AreEqual(settles, grade.Settle, "and late");
+            Assert.IsFalse(grade.SettleMet);
+            Assert.IsFalse(grade.Solved, "so CHECK fails it on time");
+        }
+
+        /// <summary>Balance the paths without its buffer still settles in time: the buffer balances, it is not needed to pass.</summary>
+        [Test]
+        public void BalanceThePaths_WithoutItsBuffer_StillPasses()
+        {
+            Exercise exercise = ExerciseFiles.Load("balance-the-paths");
+            Grade grade = ExerciseGrader.Grade(exercise, ExerciseFiles.Drawn(exercise, @"module balance_the_paths (input logic a, input logic b, output logic out);
+    logic g1_y;
+    xor #1 g1 (g1_y, a, b);
+    and #1 g2 (out, g1_y, b);
+endmodule"));
+            Assert.IsTrue(grade.Solved);
+        }
     }
 }

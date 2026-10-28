@@ -3,8 +3,8 @@
   "title": "The slow lane",
   "order": 430,
   "chapter": 4,
-  "goal": "out reads (((a XOR b) XOR c) AND a) OR b, settled within 4 ns.",
-  "hint": "every gate a change passes through adds a nanosecond. Count the longest way from an input to out.",
+  "goal": "out reads (((a XOR b) XOR c) AND a) OR b, settled within 3 ns. Built as it is written it takes 4, since every gate costs a nanosecond: the same answer must come through fewer gates in a row.",
+  "hint": "simplify before you build. Whenever b is 1, out is 1; work out what out needs the rest of the time.",
   "inputs": [
     {"name": "a", "values": "00001111"},
     {"name": "b", "values": "00110011"},
@@ -18,6 +18,6 @@
     {"kind": "And", "count": 1},
     {"kind": "Or", "count": 1}
   ],
-  "settleBy": 4,
+  "settleBy": 3,
   "code": true
 }

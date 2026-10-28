@@ -37,6 +37,18 @@ namespace BitSorter.ViewModel.Tests
             return solution with { Stimulus = exercise.Test() };
         }
 
+        /// <summary>
+        /// Balance the paths answered without its buffer, with its test to run: b reaches the AND a nanosecond before a XOR b
+        /// does, and out flickers. Its reference solution balances the paths since Part 15g, and flickers no more.
+        /// </summary>
+        private static Project Unbalanced()
+        {
+            Exercise exercise = ExerciseFiles.Load("balance-the-paths");
+            Project drawn = ExerciseFiles.Drawn(exercise, "module balance_the_paths (input logic a, input logic b, output logic out);\n" +
+                "    logic g1_y;\n    xor #1 g1 (g1_y, a, b);\n    and #1 g2 (out, g1_y, b);\nendmodule\n");
+            return drawn with { Stimulus = exercise.Test() };
+        }
+
         [Test]
         public void EachHint_IsFiredByWhatTheRunShows_AndOnce()
         {
@@ -44,8 +56,9 @@ namespace BitSorter.ViewModel.Tests
             Assert.IsNull(DueAfterARun(Solved("half-adder"), SimulatorHints.GateDelay), "once: nothing else in a half adder");
             Assert.AreEqual(SimulatorHints.Clock, DueAfterARun(Solved("one-clock-late")), "a clock in the stimulus");
             Assert.AreEqual(SimulatorHints.HighZ, DueAfterARun(Solved("share-the-wire"), SimulatorHints.GateDelay), "a z on the bus");
-            Assert.AreEqual(SimulatorHints.Glitch, DueAfterARun(Solved("balance-the-paths"), SimulatorHints.GateDelay),
+            Assert.AreEqual(SimulatorHints.Glitch, DueAfterARun(Unbalanced(), SimulatorHints.GateDelay),
                 "the pulse its goal says the waves show");
+            Assert.IsNull(DueAfterARun(Solved("balance-the-paths"), SimulatorHints.GateDelay), "and with the paths balanced, none");
             Assert.IsNull(DueAfterARun(Solved("route-the-bit"), SimulatorHints.GateDelay), "one gate on one path earns no glitch");
         }
 
@@ -53,14 +66,13 @@ namespace BitSorter.ViewModel.Tests
         [Test]
         public void OnCode_TheHintsReadItsHeader()
         {
-            Project Written(string id)
+            Project Written(string id, Project solved)
             {
-                Project solved = Solved(id);
                 return solved.WithModule(ExerciseFiles.Load(id).Written(solved));
             }
 
-            Assert.AreEqual(SimulatorHints.Glitch, DueAfterARun(Written("balance-the-paths"), SimulatorHints.GateDelay));
-            Assert.AreEqual(SimulatorHints.HighZ, DueAfterARun(Written("share-the-wire"), SimulatorHints.GateDelay));
+            Assert.AreEqual(SimulatorHints.Glitch, DueAfterARun(Written("balance-the-paths", Unbalanced()), SimulatorHints.GateDelay));
+            Assert.AreEqual(SimulatorHints.HighZ, DueAfterARun(Written("share-the-wire", Solved("share-the-wire")), SimulatorHints.GateDelay));
         }
 
         /// <summary>

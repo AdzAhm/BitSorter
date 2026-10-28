@@ -3,8 +3,8 @@
   "title": "Balance the paths",
   "order": 420,
   "chapter": 4,
-  "goal": "out reads (a XOR b) AND b, settled within 2 ns. b reaches the AND sooner than a XOR b does, so out may flicker before it settles: the waves show it, and only where it settles is checked.",
-  "hint": "the path through two gates is the slow one. The other arrives a nanosecond early.",
+  "goal": "out reads (a XOR b) AND b, settled within 2 ns. b reaches the AND sooner than a XOR b does, so out may flicker before it settles. A buffer is stocked to make the early path as long as the late one: where it goes decides whether out still settles in time.",
+  "hint": "the path through two gates is the slow one. Delay the other, never this one.",
   "inputs": [
     {"name": "a", "values": "0011"},
     {"name": "b", "values": "0101"}
@@ -14,7 +14,8 @@
   ],
   "parts": [
     {"kind": "Xor", "count": 1},
-    {"kind": "And", "count": 1}
+    {"kind": "And", "count": 1},
+    {"kind": "Buf", "count": 1}
   ],
   "settleBy": 2,
   "code": true
