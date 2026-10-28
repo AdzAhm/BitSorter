@@ -352,7 +352,7 @@ namespace BitSorter.PlayMode.Tests
 
         /// <summary>
         /// The wheel over the waveform zooms time about the cursor, as far in as the cap and back out
-        /// to the whole run, and with Shift, or sideways, moves through it; the axis's numbers follow,
+        /// past the whole run -- a stop on the way -- and with Shift, or sideways, moves through it; the axis's numbers follow,
         /// in fractions of a nanosecond once a tick is one; and the circuit's own zoom is left alone.
         /// </summary>
         [UnityTest]
@@ -393,11 +393,16 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsTrue(workbench.TakeWaveWheel(cursor, new Vector2(-120f, 0f), false), "a sideways scroll should move through time");
             Assert.AreEqual(start, wave.Start, 1e-9, "a notch later and a sideways notch earlier should come back where they were");
 
+            // As far out as it goes is past the whole run (Part 15h), and the whole run is a stop on the way back in.
             for (int i = 0; i < 80 && workbench.TakeWaveWheel(cursor, new Vector2(0f, -120f), false); i++)
                 yield return null;
-            Assert.IsTrue(wave.IsFitted, "the wheel down, as far as it goes, should be the whole run again");
-            CollectionAssert.AreEqual(fitted, workbench.TickTexts.ToArray(), "with the fitted axis's numbers");
+            Assert.AreEqual(WaveView.MinZoom, wave.Zoom, 1e-9, "the wheel down, as far as it goes, should show the run across a quarter of the strip");
+            Assert.AreEqual(0.0, wave.Start, "from the run's start");
             Assert.IsTrue(workbench.IsFitted, "and the circuit still whole");
+            for (int i = 0; i < 20 && !wave.IsFitted && workbench.TakeWaveWheel(cursor, new Vector2(0f, 120f), false); i++)
+                yield return null;
+            Assert.IsTrue(wave.IsFitted, "the wheel back up should stop on the whole run");
+            CollectionAssert.AreEqual(fitted, workbench.TickTexts.ToArray(), "with the fitted axis's numbers");
         }
 
         /// <summary>
