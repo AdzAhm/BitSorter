@@ -71,7 +71,10 @@ namespace BitSorter.Board
         /// <summary>The slowest path from an input to an output, by the static timing (Part 14a); null when it could not be reckoned.</summary>
         public long? Settle { get; }
 
-        /// <summary>The slowest register-to-register path, clock to Q and setup included; null with no register.</summary>
+        /// <summary>
+        /// The shortest period it can be clocked at: its slowest path between two clock edges -- register to register, input to
+        /// register or register to output -- clock to Q and setup included; null with no register.
+        /// </summary>
         public long? MinimumPeriod { get; }
 
         /// <summary>Whether it settles in time for a timing exercise, and runs at the period for a pipelining one; true when not asked.</summary>
@@ -185,13 +188,28 @@ namespace BitSorter.Board
                 if (timing.Succeeded)
                 {
                     settle = timing.Paths.Worst?.Worst;
-                    period = timing.Timing.MinimumPeriod;
+                    period = ClockedPeriod(timing.Timing);
                 }
             }
 
             bool settleMet = exercise.SettleBy < 0 || (settle.HasValue && settle.Value <= exercise.SettleBy);
             bool periodMet = exercise.Period < 0 || (period.HasValue && period.Value <= exercise.Period);
             return new Grade(problems, faults, failures, graded.Stimulus.Checks.Count, parts, gates, settle, period, settleMet, periodMet);
+        }
+
+        /// <summary>
+        /// The period <paramref name="report"/>'s design can be clocked at, every path the clock times counted: register to
+        /// register, and from an input to a register and from a register to an output, since an exercise's inputs change and
+        /// its outputs are read a clock apart. Register to register alone let two registers at the output meet a period with
+        /// the whole slow path still in front of them (the #87 review). Null with no register.
+        /// </summary>
+        private static long? ClockedPeriod(TimingReport report)
+        {
+            long? period = report.MinimumPeriod;
+            foreach (StaticPath path in new[] { report.InputToRegister, report.RegisterToOutput })
+                if (path != null && (period == null || path.Total > period.Value))
+                    period = path.Total;
+            return period;
         }
     }
 }

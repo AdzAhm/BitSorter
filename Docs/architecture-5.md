@@ -2715,7 +2715,10 @@ dotnet, that the next parts build on: 15c writes the exercises, 15d opens them o
   - the rules broken (a part not stocked, one too many);
   - the parts, and the gates by kind, a stocked block counted whole;
   - the static settle time (the slowest input-to-output path, Part 14a) against `settleBy`;
-  - the minimum period against `period`.
+  - the minimum period against `period`, every path the clock times counted -- register to register, and from an
+    input to a register and a register to an output, as an exercise's inputs change and its outputs are read a clock
+    apart. The TIMING tab's minimum period is register to register alone; two registers at the output met a period that
+    way with the slow path still in front of them (the #87 review).
 - **Checked.**
   - dotnet: `PartCountTests`, `SelfCheckTests` and `ExerciseTests`:
     - the file and what is wrong with one;
