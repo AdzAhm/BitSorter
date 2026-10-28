@@ -1744,6 +1744,7 @@ namespace BitSorter.View
             _transcript.Notes = null;   // what an import said is about the import, which this leaves (an import sets them again)
             _notesAbout = null;
             OpenRun();
+            Relabel();   // the speed and RUN TO in this circuit's unit, which may not be the last one's
             RebuildStage(keepViews: false);
             BuildPartsPanel(SchematicPalette.Current);
 
