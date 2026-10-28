@@ -2930,8 +2930,13 @@ the board's own editor and printed.
   to simplify first. Balance the paths stocks a buffer: on `b` it balances the paths and out no longer flickers, on the
   XOR's path it is late. A slow answer of each is right at every check, late, and failed on time.
 - **A caret in every shell field**, drawn by the shell: UI Toolkit's took its colour from a deprecated property the
-  browser build ignored. A placeholder flickering after a click into the transcript's search, seen once in the browser,
-  is not reproduced in the editor, where a test holds a field to one focus in and none out.
+  browser build ignored.
+- **Every field in the browser lost the keyboard a tenth of a second apart**, and the shell gave it back a frame later:
+  the transcript search's placeholder flickered. A focus log in a browser build found the field's own text element
+  blurring itself every ~110 ms, nothing of BitSorter's asking. UI Toolkit edited the fields as on a phone and polled an
+  on-screen keyboard that a computer never shows. WebGL's mobile keyboard switch did not change that, but each field's
+  `hideSoftKeyboard` does: set on a computer's browser by `ShellTheme.Field`, and a field kept one focus in and none out
+  in the browser after it. The editor has no such keyboard, so a test there can only hold the fields to it.
 - **Found on a 64-bit ALU imported with its testbench**: a written top's inputs are its header's, so a double-click on
   one names the testbench that drives it and CONVERT, where it said "not an input of the design"; a wave's value beside
   its name is cut to its room; and the browser's code editor lays itself again on every resize and scroll of the page

@@ -1025,7 +1025,10 @@ failure side.
   ignored, and no field there showed where the next letter goes. The shell puts that
   one out and draws a bar in the text colour, blinking on `ViewTime` -- so the
   reference shots hold it still -- while the field has the keyboard and nothing in it
-  is chosen.
+  is chosen. **And in a computer's browser every shell field sets `hideSoftKeyboard`**:
+  without it UI Toolkit edits a field as on a phone and lets it go a tenth of a second
+  apart while no on-screen keyboard is up, and every field flickered -- found with a
+  focus log in a browser build, since the editor has no such keyboard (2026-10-28).
   **A field that stays on screen has to let go itself**: TextMesh Pro leaves a
   finished field selected, and every other field let go only by closing with
   its panel. The workbench's RUN TO kept every workbench key dead after Enter
