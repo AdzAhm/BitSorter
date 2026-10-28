@@ -2621,6 +2621,53 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsNotNull(ShellPanel.Find<UnityEngine.UIElements.TextField>(WorkbenchPanel.InputCellName + "s 1"), "a cell to type in");
         }
 
+        private const string WideAnd =
+            "module wide_and (input logic [63:0] a, input logic [63:0] b, output logic [63:0] y);\n" +
+            "    assign y = a & b;\n" +
+            "endmodule\n";
+
+        private const string WideAndBench =
+            "module wide_and_tb;\n" +
+            "    logic [63:0] a, b, y;\n" +
+            "    wide_and dut (.a(a), .b(b), .y(y));\n" +
+            "    initial begin\n" +
+            "        a = {64{1'b1}}; b = 64'h0F0F_0F0F_0F0F_0F0F;\n" +
+            "        #10 $stop;\n" +
+            "    end\n" +
+            "endmodule\n";
+
+        /// <summary>
+        /// A testbench's 64-bit value in binary is cut short at its cell, never drawn over the next column. In Ahmad's browser
+        /// build his ALU's a and b, 64 digits each, ran over b, cin and op (2026-10-29): a typed cell is a field, which clips,
+        /// and a testbench's is text, which did not.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator InputsUnderATestbench_AWideValueIsCutShort_NeverRunsIntoTheNextColumn()
+        {
+            PutInTheImportFolder(("wide_and.sv", WideAnd), ("wide_and_tb.sv", WideAndBench));
+            yield return TestScene.Load();
+            yield return Click(MainMenu.WorkbenchButton);
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            yield return null;
+            workbench.ImportFromFolder();
+            yield return null;
+            workbench.Pause();
+            workbench.ShowInputs();
+            yield return null;
+            yield return null;
+
+            Assert.AreEqual("wide_and_tb", workbench.Inputs.AppliedBy, "sanity: what the testbench applies");
+            for (int i = 0; i < 4 && workbench.Inputs.Columns[0].Radix != Radix.Binary; i++)
+                yield return Click(WorkbenchPanel.InputRadixName + "a");
+            Assert.AreEqual(Radix.Binary, workbench.Inputs.Columns[0].Radix, "sanity: a in binary");
+
+            UnityEngine.UIElements.Label cell = ShellPanel.Find<UnityEngine.UIElements.Label>(WorkbenchPanel.InputCellName + "a 0");
+            Assert.AreEqual(64, cell.text.Length, "sanity: all 64 digits, wider than any column");
+            // The shell sets every style inline -- there is no USS -- so its own styles are what the cell is drawn with.
+            Assert.AreEqual(UnityEngine.UIElements.Overflow.Hidden, cell.style.overflow.value, "cut at its cell, never drawn over the next column");
+            Assert.AreEqual(UnityEngine.UIElements.TextOverflow.Ellipsis, cell.style.textOverflow.value, "and an ellipsis says it is cut");
+        }
+
         /// <summary>
         /// FILE, CONVERT is offered only while a testbench drives the inputs (Part 13d); it asks, saying what the stimulus will
         /// not keep, and then the inputs are steps SET can change.
