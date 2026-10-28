@@ -108,6 +108,15 @@ namespace BitSorter.ViewModel
         public int ValueOf(int variable, int row) => (row >> (Variables.Count - 1 - variable)) & 1;
 
         /// <summary>
+        /// How many combinations <paramref name="bits"/> bits make, written out -- 1,024 -- or, past what a 64-bit number holds,
+        /// as a power of two: 2^131. A 64-bit 1 shifted by the count wraps round past 63, and a 64-bit ALU's 131 input bits read
+        /// "8 rows" (the 15h browser test).
+        /// </summary>
+        internal static string PowerOfTwo(int bits) => bits < 63
+            ? (1L << bits).ToString("N0", CultureInfo.InvariantCulture)
+            : "2^" + bits.ToString(CultureInfo.InvariantCulture);
+
+        /// <summary>
         /// The truth table of <paramref name="project"/>, its run's first slice made, each combination held longer than
         /// <paramref name="timing"/>'s slowest path -- or null, and why in <paramref name="why"/>.
         /// </summary>
@@ -146,7 +155,7 @@ namespace BitSorter.ViewModel
             }
             if (inputs.Count > StepTests.MostInputBits)
             {
-                why = inputs.Count.ToString(CultureInfo.InvariantCulture) + " input bits are " + (1L << inputs.Count).ToString("N0", CultureInfo.InvariantCulture)
+                why = inputs.Count.ToString(CultureInfo.InvariantCulture) + " input bits are " + PowerOfTwo(inputs.Count)
                     + " rows; the truth table goes to " + StepTests.MostInputBits.ToString(CultureInfo.InvariantCulture) + " bits, "
                     + (1 << StepTests.MostInputBits).ToString("N0", CultureInfo.InvariantCulture) + " rows.";
                 return null;

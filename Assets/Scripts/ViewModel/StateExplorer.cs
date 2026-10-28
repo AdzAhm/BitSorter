@@ -230,7 +230,7 @@ namespace BitSorter.ViewModel
             if (inputs.Count > MostInputBits)
             {
                 why = "No state diagram: " + inputs.Count.ToString(CultureInfo.InvariantCulture) + " input bits besides the clock are "
-                    + (1 << Math.Min(inputs.Count, 30)).ToString("N0", CultureInfo.InvariantCulture) + " arrows out of every state; "
+                    + LogicTable.PowerOfTwo(inputs.Count) + " arrows out of every state; "
                     + MostInputBits.ToString(CultureInfo.InvariantCulture) + " is the most drawn.";
                 return null;
             }
@@ -293,7 +293,7 @@ namespace BitSorter.ViewModel
 
         private static string TooManyRegisterBits(int bits) =>
             "No state diagram: " + bits.ToString(CultureInfo.InvariantCulture) + " register bits are up to "
-            + (1L << Math.Min(bits, 62)).ToString("N0", CultureInfo.InvariantCulture) + " states; "
+            + LogicTable.PowerOfTwo(bits) + " states; "
             + MostRegisterBits.ToString(CultureInfo.InvariantCulture) + " bits is the most drawn.";
 
         /// <summary>Whether a reset's name says it is active low, the usual ways: rst_n, resetn, nrst, rst_b, reset_l, rst_bar.</summary>
