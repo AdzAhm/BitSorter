@@ -2051,6 +2051,94 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
+        /// RESET PROGRESS on Settings with an exercise open, Settings then left by the header's HOME rather than BACK (the
+        /// 15g-2 review). Settings is a page over the workbench, which stays in sight, so MY CIRCUIT takes the exercise's
+        /// place at once: left on the stage, the exercise's circuit was MY CIRCUIT's to keep, and its next edit wrote it over
+        /// the student's own. And the start page the reset owes comes up once, not again on a later BACK.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator ResetProgress_OnSettings_LeftByHome_LeavesNothingOfTheExerciseOpen()
+        {
+            yield return TestScene.LoadSimulator();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowSample(0);
+            yield return null;
+            yield return Place(workbench, "and", new BoardPoint(2, 0), new System.Collections.Generic.List<int>());
+            workbench.OpenExercise("half-adder");
+            yield return null;
+            workbench.ExerciseCard.Close();   // its brief opens over the circuit
+            yield return null;
+            yield return Place(workbench, "xor", new BoardPoint(0, 0), new System.Collections.Generic.List<int>());
+            yield return Click(WorkbenchPanel.SettingsButton);
+
+            Assert.IsTrue(Find<ProgressTracker>().ResetProgress());
+            Assert.IsTrue(Find<SettingsPanel>().IsShowing, "sanity: still on Settings");
+            Assert.AreEqual(WorkbenchSamples.MyCircuitKey, workbench.DocumentKey);
+            Assert.AreEqual(BitSorter.Sim.GateKind.And, Top(workbench).Parts.OfType<GatePart>().Single().Kind,
+                "MY CIRCUIT's AND on the stage at once, not the exercise's XOR");
+
+            yield return Click(WorkbenchPanel.HomeButton);
+            Assert.IsFalse(Find<SettingsPanel>().IsShowing, "HOME took Settings down");
+            Assert.IsTrue(workbench.StartPageShowing);
+            yield return Tap(_keyboard.escapeKey);
+            Assert.IsFalse(workbench.StartPageShowing, "sanity: Escape took the start page down");
+            Assert.AreEqual(BitSorter.Sim.GateKind.And, Top(workbench).Parts.OfType<GatePart>().Single().Kind, "MY CIRCUIT under it");
+
+            yield return Click(WorkbenchPanel.SettingsButton);
+            yield return Click(SettingsPanel.BackButton);
+            Assert.IsFalse(workbench.StartPageShowing, "the start page the reset owed was seen to by HOME, and does not come up again");
+        }
+
+        /// <summary>
+        /// While Settings is up the workbench takes no keys (the 15g-2 review): S, the sample chip's key on the start page,
+        /// changed the circuit under Settings unseen. The chip itself, in the header over Settings, still shows the next
+        /// sample, and takes Settings down as HOME does.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator UnderSettings_TheWorkbenchTakesNoKeys_AndTheSampleChipTakesSettingsDown()
+        {
+            yield return TestScene.LoadSimulator();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowSample(0);
+            yield return null;
+            yield return Click(WorkbenchPanel.SettingsButton);
+            Assert.IsTrue(Find<SettingsPanel>().IsShowing, "sanity: Settings is up");
+
+            yield return Tap(_keyboard.sKey);
+            Assert.AreEqual(0, workbench.Sample, "S on Settings is not the sample chip's");
+            Assert.IsTrue(Find<SettingsPanel>().IsShowing);
+
+            yield return Click(WorkbenchPanel.SampleButton);
+            Assert.AreNotEqual(0, workbench.Sample, "the chip over Settings shows a sample");
+            Assert.IsFalse(Find<SettingsPanel>().IsShowing, "and takes Settings down");
+        }
+
+        /// <summary>
+        /// The key that takes the credits down is theirs alone (the 15g-2 review): from HELP's ABOUT, over a circuit with a
+        /// part chosen, Delete takes the roll down and deletes nothing. Under a uGUI panel the workbench came back "opened
+        /// this frame", which held the key; as a page over it, whichever updated second took it too.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator TheKeyThatTakesTheCreditsDown_DoesNothingElse()
+        {
+            yield return TestScene.LoadSimulator();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowSample(0);
+            yield return null;
+            yield return Place(workbench, "and", new BoardPoint(2, 0), new System.Collections.Generic.List<int>());
+            Assert.AreEqual(1, workbench.Editor.Selection.Parts.Count, "sanity: the AND is chosen");
+
+            Find<CreditsPanel>().Open(workbench.Resume);   // as HELP's ABOUT opens it
+            yield return null;
+            yield return null;
+            Assert.IsTrue(Find<CreditsPanel>().IsShowing, "sanity: the roll is up");
+
+            yield return Tap(_keyboard.deleteKey);
+            Assert.IsFalse(Find<CreditsPanel>().IsShowing, "a key takes the roll down");
+            Assert.AreEqual(1, Top(workbench).Parts.Count, "and deletes nothing");
+        }
+
+        /// <summary>
         /// FILE, CONVERT is offered only while a testbench drives the inputs (Part 13d); it asks, saying what the stimulus will
         /// not keep, and then the inputs are steps SET can change.
         /// </summary>

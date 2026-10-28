@@ -2597,7 +2597,8 @@ workbench more than one circuit.
     there. OPEN on the circuit already open does nothing, rather than building it again.
   - Each exports -- PNG, VCD, the project, a submission -- under its own name; every one was exported as MY CIRCUIT.
   - RESET PROGRESS (Settings) takes the circuits with the save: the workbench lets the one it had open go without
-    writing it back, and opens MY CIRCUIT, blank, the next time it opens.
+    writing it back, and opens MY CIRCUIT, blank, the next time it opens. (Part 15g: it starts the exercises over and
+    keeps the circuits; see "As built in Part 15g-1" and "As built in Part 15g-2".)
   - DELETE asks first and cannot be undone, and MY CIRCUIT opens in its place.
   - The SAMPLE chip's first place is the circuit open, its name on the chip.
   - The workbench keeps the circuit open under its own key (`KeepMyCircuit`).
@@ -2631,7 +2632,8 @@ thing that was open, and with nothing, on a start page like a good IDE's.
 - **Escape never leaves the workbench.** It closes a popup, then the start page or a part in hand, and nothing more.
 - **Settings opens over the simulator** (`SettingsPanel.OpenOver`) and BACK comes back to it as it was left. Its
   backdrop is solid there, where it is see-through over the 4.x board: the board under the workbench is the 4.x
-  game's. A change of look reloads the game and puts Settings back over the same thing (`OpenAgain`).
+  game's. A change of look reloads the game and puts Settings back over the same thing (`OpenAgain`). (Part 15g: Settings
+  is a page of the workbench, in the style's colours, and has no backdrop of its own; see "As built in Part 15g-2".)
 - **The 4.x game is one quiet row down**, until Part 16 deletes it: THE 4.x GAME beside CREDITS in Settings opens its
   title screen, whose WORKBENCH row became SIMULATOR -- and in Part 15g its first and largest button, BACK TO THE
   SIMULATOR, with SIMULATOR beside MENU on a 4.x board. Nothing of 4.x is on a first screen (Ahmad: "not deep but not
@@ -2948,11 +2950,26 @@ the board's own editor and printed.
 **As built in Part 15g-2: Settings and the credits, pages of the workbench.**
 
 - **Settings is a shell page** (`WorkbenchPanel.Pages.cs`: `AddPage`, `ShowPage`, `HidePage`), under the header as the
-  start page and EXERCISES are, one page up at a time and any of them `PageShowing`. It is built from `ShellTheme` and
+  start page and EXERCISES are -- Settings and the credits one at a time, over the start page or EXERCISES where one of
+  those was up, and any of them `PageShowing`. It is built from `ShellTheme` and
   the style's `SchematicPalette`, so every style colours it; it was a uGUI screen in the 4.x board's colours whatever
   the style. The sections and their controls are the same, the volume and the frame cap are `ShellSlider`s (which
-  gained `Released`, so a drag writes the preferences once), and the page scrolls where the window is short instead of
-  shrinking (`FitScale` stays, for the help panel and free play's setup).
+  gained `Released`, so a drag writes the preferences once, and `wholeNumbers`, so the thumb rests on a stop as uGUI's
+  did), and the page scrolls where the window is short instead of shrinking (`FitScale` stays, for the help panel and
+  free play's setup).
+- **What a page over a workbench in sight changed** (the 15g-2 review). Under the uGUI screens the workbench was out of
+  sight and came back through `Resume`; as pages over it, three paths still assumed that:
+  - **RESET PROGRESS with an exercise open** let the exercise go and left its circuit on the stage until `Resume`. Left
+    by the header's HOME instead of BACK, that circuit was MY CIRCUIT's to keep, and its next edit wrote it over the
+    student's own. MY CIRCUIT now takes its place at once, under Settings, and the start page goes up when Settings comes
+    down, unless something else has been opened first.
+  - **Keys under a page**: S, the sample chip's key on the start page, changed the circuit under Settings unseen, and the
+    key that took the credits down also reached the workbench whenever the credits updated first -- Delete deleting the
+    selection. While Settings or the credits are up, and in the frame one comes down, the workbench takes no key and no
+    click of its own (`PageHoldsTheKeys`).
+  - **A circuit opened from the header over a page** -- the SAMPLE chip, FILE, HELP's TUTORIAL -- left the page up over
+    it. Opening a circuit, the start page, EXERCISES or the other page takes it down through its own controller
+    (`AddPage`'s `closed`), so what Settings does on its way down is done then too.
 - **What the plan said and what was built.** The plan moved the settings' logic into a plain class and deleted the
   uGUI panel. Rewriting `SettingsPanel` in place as the page's builder did the same with less to move: the object, its
   name and its controls' names stay, so the scene, `GameAudio`'s menu music, `LookSwitch`'s reopening and the tests

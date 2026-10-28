@@ -76,7 +76,7 @@ namespace BitSorter.View
             yield return SceneManager.LoadSceneAsync(SceneManager.GetActiveScene().name, LoadSceneMode.Single);
 
             // Every Start has run once a frame has gone by: the simulator has opened itself, as it does on
-            // every launch (Part 15a), and Settings has been built, hidden.
+            // every launch (Part 15a), so Settings has a workbench to build its page in (Part 15g).
             yield return null;
             yield return null;
 

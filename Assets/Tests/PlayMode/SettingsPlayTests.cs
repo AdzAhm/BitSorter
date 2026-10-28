@@ -808,6 +808,25 @@ namespace BitSorter.PlayMode.Tests
                 "scrolled to its foot, CREDITS is still below the page");
         }
 
+        /// <summary>
+        /// The volume and the cap keep to whole stops, the thumb with them, as uGUI's whole-number sliders did (the 15g-2
+        /// review): the cap's thumb rested between two stops while its readout named one.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator TheSliders_KeepToWholeStops()
+        {
+            yield return TestScene.Load();
+            yield return OpenSettings();
+
+            ShellSlider volume = VolumeSlider(), cap = FrameCapSlider();
+            volume.value = 40.4f;
+            cap.value = 2.4f;
+            yield return null;
+            Assert.AreEqual(40f, volume.value, "the volume between two percents");
+            Assert.AreEqual(2f, cap.value, "the cap between two stops");
+            Assert.AreEqual(2, FrameRate.CapStop);
+        }
+
         private static ShellSlider VolumeSlider()
         {
             ShellSlider found = ShellPanel.Find<ShellSlider>(SettingsPanel.VolumeSlider);

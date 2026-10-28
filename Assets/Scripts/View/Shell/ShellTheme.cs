@@ -475,12 +475,20 @@ namespace BitSorter.View
             set { _high = value; Layout(); }
         }
 
+        /// <summary>
+        /// Whether the value keeps to whole numbers, the thumb with it, as uGUI's slider does: Settings' volume and frame
+        /// cap, whose thumb otherwise rested between two stops while the readout named one (the 15g-2 review).
+        /// </summary>
+        public bool wholeNumbers { get; set; }
+
         /// <summary>Moves the value without saying so: the run moving on.</summary>
         public void SetValueWithoutNotify(float to) => Set(to, false);
 
         private void Set(float to, bool notify)
         {
             to = Mathf.Clamp(to, _low, Mathf.Max(_low, _high));
+            if (wholeNumbers)
+                to = Mathf.Round(to);
             if (Mathf.Approximately(to, _value) && !notify)
                 return;
             _value = to;

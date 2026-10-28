@@ -457,15 +457,26 @@ namespace BitSorter.View
 
         private ProgressTracker _tracker;
 
-        /// <summary>Whether RESET PROGRESS has emptied the save since the workbench last opened: it then opens MY CIRCUIT, blank.</summary>
+        /// <summary>
+        /// Whether RESET PROGRESS let an exercise go while the workbench was out of sight: it opens MY CIRCUIT, with the start
+        /// page over it, when it comes back.
+        /// </summary>
         private bool _forgotten;
+
+        /// <summary>
+        /// Whether RESET PROGRESS, made on Settings over an exercise, has put MY CIRCUIT in its place: the start page goes up
+        /// when Settings comes down (<see cref="Resume"/>), unless the student has opened something else first.
+        /// </summary>
+        private bool _homeWhenBack;
 
         /// <summary>
         /// RESET PROGRESS (Settings) has started the exercises over and kept the student's circuits (Part 15g): a circuit
         /// open stays open, as it was. An exercise open is let go without being written back -- its next keep would put
-        /// its answer into the save just cleared of it -- and the start page opens, over MY CIRCUIT, the next time the
-        /// workbench does. Not at once: the workbench is out of sight under Settings, and its stage is built where it is
-        /// seen. It used to empty the save, circuits and all, and open MY CIRCUIT blank.
+        /// its answer into the save just cleared of it -- and MY CIRCUIT, kept, takes its place, with the start page over
+        /// it. At once, under Settings, which is a page of the workbench and leaves its stage in sight; the start page
+        /// when Settings comes down. Left on the stage until then, the exercise's circuit was MY CIRCUIT's to keep: HOME
+        /// from the header, Escape, and its next edit wrote it over the student's own (the 15g-2 review). It used to
+        /// empty the save, circuits and all, and open MY CIRCUIT blank.
         /// </summary>
         private void ProgressWasReset()
         {
@@ -476,7 +487,23 @@ namespace BitSorter.View
             _keepAt = -1;
             _documentKey = WorkbenchSamples.MyCircuitKey;
             _exercise = null;   // its solve and its answer went with the reset
-            _forgotten = Root != null;
+            if (Root == null)
+                return;   // built later, it opens on MY CIRCUIT
+            if (!IsShowing)
+            {
+                _forgotten = true;   // its stage is built where it is seen
+                return;
+            }
+
+            if (AnotherPageShowing)
+            {
+                ShowSample(0, underThePage: true);
+                _homeWhenBack = true;
+            }
+            else
+            {
+                OpenAsNew();
+            }
         }
 
         /// <summary>
@@ -1415,6 +1442,14 @@ namespace BitSorter.View
                 return;
             }
 
+            // Settings or the credits, a page of the workbench's own since Part 15g, has every key and the pointer while it is
+            // up and in the frame it comes down: the key that takes the credits down is that page's alone.
+            if (PageHoldsTheKeys)
+            {
+                KeepMyCircuit(now: false);
+                return;
+            }
+
             // A page -- the start page, EXERCISES -- covers the circuit: nothing under it is played, scrolled, picked or
             // deleted. ? still opens and closes the keyboard map, as the map says it does, and S, beside the chip in the
             // header over the page, shows the next sample as the chip does, leaving the page (Part 15g: it did nothing).
@@ -1760,7 +1795,13 @@ namespace BitSorter.View
         /// the stage is built again round its document and its run plays from the start. The title,
         /// the controls and the help line stay as they are.
         /// </summary>
-        public void ShowSample(int sample)
+        public void ShowSample(int sample) => ShowSample(sample, underThePage: false);
+
+        /// <summary>
+        /// <see cref="ShowSample(int)"/>, and with <paramref name="underThePage"/> under Settings or the credits, which stay
+        /// up: RESET PROGRESS, made on Settings, putting MY CIRCUIT where an exercise was.
+        /// </summary>
+        private void ShowSample(int sample, bool underThePage)
         {
             if (Root == null)
                 return;
@@ -1771,6 +1812,9 @@ namespace BitSorter.View
 
             HideHome();
             HideExercises();   // a circuit opened from FILE or the SAMPLE chip while the page is up (the #88 review)
+            if (!underThePage)
+                HideOtherPages();   // or with Settings or the credits up, from the header (the 15g-2 review)
+            _homeWhenBack = false;   // what is open now is what was chosen
             CloseThePopups();
             _transcript.Notes = null;   // what an import said is about the import, which this leaves (an import sets them again)
             _notesAbout = null;

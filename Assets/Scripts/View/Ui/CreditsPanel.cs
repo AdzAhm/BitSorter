@@ -128,7 +128,7 @@ namespace BitSorter.View
 
         private void Build()
         {
-            _page = _workbench != null ? _workbench.AddPage(PageName) : null;
+            _page = _workbench != null ? _workbench.AddPage(PageName, Close) : null;
             if (_page == null)
                 return;
             SchematicPalette palette = SchematicPalette.Current;
@@ -241,15 +241,20 @@ namespace BitSorter.View
 
         private void Back()
         {
-            _workbench.HidePage(_page);
-            _closedFrame = Time.frameCount;
-
             System.Action back = _back;
-            _back = null;
+            Close();
             if (back != null)
                 back();
             else if (_settings != null)
                 _settings.Reopen();
+        }
+
+        /// <summary>The roll down and nothing else: how the workbench takes it down, opening something over it from the header.</summary>
+        private void Close()
+        {
+            _workbench.HidePage(_page);
+            _closedFrame = Time.frameCount;
+            _back = null;
         }
     }
 }

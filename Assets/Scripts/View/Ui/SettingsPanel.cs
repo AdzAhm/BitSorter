@@ -245,7 +245,7 @@ namespace BitSorter.View
 
         private void Build()
         {
-            _page = _workbench != null ? _workbench.AddPage(PageName) : null;
+            _page = _workbench != null ? _workbench.AddPage(PageName, () => Show(false)) : null;
             if (_page == null)
                 return;
             _palette = SchematicPalette.Current;
@@ -480,6 +480,7 @@ namespace BitSorter.View
             slider.style.height = SliderHeight;
             slider.lowValue = low;
             slider.highValue = high;
+            slider.wholeNumbers = true;   // a percent or a stop, never between two
             row.Add(slider);
 
             value = ShellTheme.Label("value", "", UiType.Body, _palette.Text);

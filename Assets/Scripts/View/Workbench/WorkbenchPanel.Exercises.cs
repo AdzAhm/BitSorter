@@ -114,6 +114,7 @@ namespace BitSorter.View
             if (exercise == _exercise && _sample == 0)
             {
                 HideExercises();
+                HideOtherPages();   // Settings or the credits, HELP's TUTORIAL chosen over them (the 15g-2 review)
                 LeaveHome();   // open already: building it again would lose its selection and undo
                 return;
             }
@@ -383,6 +384,7 @@ namespace BitSorter.View
             HideOtherPages();   // Settings or the credits, under the header it was chosen from (Part 15g)
             if (Root == null || _exercisesPage == null)
                 return;
+            _homeWhenBack = false;
 
             CloseThePopups();
             LetGoOnCanvas();

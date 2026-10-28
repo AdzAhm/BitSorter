@@ -134,7 +134,8 @@ namespace BitSorter.View
         }
 
         /// <summary>
-        /// The workbench back from what it went under -- Settings, the credits, the 4.x game -- as it was left: the circuit, the
+        /// The workbench back from what was over it or it went under -- Settings or the credits over it, pages of its own since
+        /// Part 15g, the 4.x game under it -- as it was left: the circuit, the
         /// moment and whether it was playing. The first time, it opens as <see cref="Open"/> does.
         /// </summary>
         public void Resume()
@@ -153,6 +154,10 @@ namespace BitSorter.View
             {
                 _forgotten = false;
                 OpenAsNew();
+            }
+            else if (_homeWhenBack && !AnotherPageShowing)
+            {
+                ShowHome();   // RESET PROGRESS took the exercise from under Settings
             }
             if (StartPageShowing)
             {
@@ -243,6 +248,7 @@ namespace BitSorter.View
             CloseThePopups();
             HideExercises();
             HideOtherPages();   // Settings or the credits, under the header HOME is on (Part 15g)
+            _homeWhenBack = false;
             LetGoOnCanvas();
             _codeView?.Bind(null);   // a written block's code, CodeMirror's box in a browser among it, is under the page
             Pause();

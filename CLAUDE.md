@@ -937,8 +937,14 @@ failure side.
   SETTINGS head it, HELP a shell menu (`HelpMenu`) with the keyboard map,
   the start page and the credits, which come back to it; SETTINGS opens Settings,
   and BACK there comes back -- both pages of the workbench since Part 15g, as the
-  start page is, and either up is `PageShowing` too (`WorkbenchPanel.Pages.cs`,
-  one page up at a time). **The start page is the shell's** (`WorkbenchPanel.Home.cs`), over
+  start page is, one at a time over the start page or EXERCISES where one was up,
+  and either up is `PageShowing` too (`WorkbenchPanel.Pages.cs`). **While one is
+  up, and in the frame it comes down, the workbench takes no key and no click of
+  its own** (`PageHoldsTheKeys`): S changed the circuit under Settings unseen, and
+  the key that took the credits down reached the workbench too whenever the
+  credits updated first -- Delete deleted the selection (the 15g-2 review). A
+  circuit, the start page or EXERCISES opened from the header takes it down
+  through its own controller. **The start page is the shell's** (`WorkbenchPanel.Home.cs`), over
   everything under the header, and while it is up the workbench reads no keys and
   no pointer of its own -- but ? and S, the sample chip's key, which shows the next
   sample and leaves the page (Part 15g: it did nothing there); so is EXERCISES' page (`WorkbenchPanel.Exercises.cs`), and
@@ -1993,7 +1999,9 @@ PlayerPrefs, not the save, and stay as they were.
 this session, and neither it nor the workbench reads the save again.
 `ProgressTracker.ProgressReset` is for anything that keeps its own copy of
 something the save said: the tutorial offers itself again, and the workbench lets
-an exercise open go to the start page. Free play keeps its setup, which the save
+an exercise open go -- MY CIRCUIT in its place at once, under Settings, and the
+start page when Settings comes down. Left on the stage until then, the
+exercise's circuit was MY CIRCUIT's to keep (the 15g-2 review). Free play keeps its setup, which the save
 still holds.
 
 **Analytics is the one thing that sends data anywhere.** `GameAnalytics`
