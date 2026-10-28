@@ -284,9 +284,13 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsFalse(workbench.StartPageShowing);
             Assert.AreEqual(GuidedTutorial.TextFor(GuidedTutorial.Step.TakeTheNot), workbench.LessonText);
             Assert.AreEqual(WorkbenchPanel.PartButtonName("not"), workbench.Lit?.name, "the NOT in PARTS lit");
+            UnityEngine.UIElements.Button notButton = ShellPanel.Find<UnityEngine.UIElements.Button>(WorkbenchPanel.PartButtonName("not"));
+            Color before = SchematicPalette.Current.Outline;
 
             yield return Click(WorkbenchPanel.PartButtonName("not"));
             Assert.AreEqual(GuidedTutorial.Step.PutItDown, workbench.TutorialStep, "in hand");
+            yield return null;
+            Assert.AreEqual(before, notButton.resolvedStyle.borderLeftColor, "its edge put back as it was once the step moves on");
 
             WorkbenchSession session = workbench.Session;
             EditResult placed = session.Place(PartsCatalog.Find(session.Project, session.Module, "not"), new Placement(6, 0));

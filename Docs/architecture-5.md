@@ -2886,9 +2886,11 @@ the board's own editor and printed.
 - **First-time hints** (`SimulatorHints`, view-model): a gate's delay, the first time a gate's output moves after the
   run began; a clock, the first time a design's stimulus has one; a z on a port; a glitch -- an output that changes and
   changes back with no input changing between, as balance the paths' goal says its waves show (an adder rippling its
-  carry glitches too, and earns it as rightly); and an x at a check, from CHECK's grade. Each is looked for every half
-  second while none is up, marked seen in `hintsSeen` as it goes up (ids ending in 5, beside 4.x's), and taken down
-  with GOT IT.
+  carry glitches too, and earns it as rightly) -- both moves answering one input event, within the design's slowest
+  path of it, so an input pulse narrower than a path's delay followed along one path is none; and an x at a check,
+  from CHECK's grade. A written top's ports are read from its header. Each is looked for every thirty frames while none
+  is up, marked seen in `hintsSeen` as it goes up (ids ending in 5, beside 4.x's), and taken down with GOT IT. The
+  #90 review found the glitch rule firing on a narrow pulse, and the glitch and z hints never coming on code.
 - **The guided tutorial** (`GuidedTutorial`): on route the bit, from the start page's TUTORIAL and HELP's. Take the NOT,
   put it down, wire in to it and it to binOne, CHECK. Its step is read off the document and what is in hand every frame,
   so nothing blocks input and deleting the NOT or an undo goes back by itself; it lights the NOT in PARTS and then

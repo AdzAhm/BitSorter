@@ -42,10 +42,11 @@ namespace BitSorter.ViewModel
 
         /// <summary>
         /// The first hint the run earns that <paramref name="seen"/> has not been shown, or null: a clock in its stimulus; a
-        /// gate whose output changed after the run began; a z on a port of the design at <paramref name="designPath"/>; a
-        /// glitch on one of its outputs -- two changes, back to where it was, with no input changing between them.
+        /// gate whose output changed after the run began; a z on a port of the design at <paramref name="designPath"/>, drawn
+        /// or in a written top's header; a glitch on one of its outputs -- see <see cref="IsGlitch"/> -- where
+        /// <paramref name="slowest"/>, the longest an input or a clock edge takes to reach an output, is known.
         /// </summary>
-        public static string Due(Project project, Design design, History history, string designPath, Func<string, bool> seen)
+        public static string Due(Project project, Design design, History history, string designPath, long? slowest, Func<string, bool> seen)
         {
             if (project?.TopModule == null || design == null || history == null)
                 return null;
@@ -53,9 +54,10 @@ namespace BitSorter.ViewModel
             if (!seen(Clock) && project.Stimulus != null && project.Stimulus.Clocks.Count > 0)
                 return Clock;
 
+            // A written top's ports are its header's (the #90 review: on code the glitch and z hints never came).
             var inputs = new List<SignalId>();
             var outputs = new List<SignalId>();
-            foreach (PortPart port in project.TopModule.Ports)
+            foreach (ModulePort port in WrittenModules.PortsOf(project, project.TopModule))
                 if (design.TryFind(string.IsNullOrEmpty(designPath) ? port.Name : designPath + "." + port.Name, out SignalId id))
                     (port.Direction == PortDirection.Input ? inputs : outputs).Add(id);
 
@@ -63,9 +65,21 @@ namespace BitSorter.ViewModel
                 return GateDelay;
             if (!seen(HighZ) && (AnyZ(history, outputs) || AnyZ(history, inputs)))
                 return HighZ;
-            if (!seen(Glitch) && AnyGlitch(history, inputs, outputs))
+            if (!seen(Glitch) && slowest is long d && d > 0 && AnyGlitch(history, inputs, outputs, d))
                 return Glitch;
             return null;
+        }
+
+        /// <summary>
+        /// The longest a change takes from an input, or a register's clock edge, to an output of <paramref name="analysis"/>'s
+        /// design -- what <see cref="Due"/> bounds a glitch by; null where it was not reckoned.
+        /// </summary>
+        public static long? Slowest(TimingAnalysis analysis)
+        {
+            if (analysis == null || !analysis.Succeeded)
+                return null;
+            long slowest = Math.Max(analysis.Paths?.Worst?.Worst ?? 0, analysis.Timing?.RegisterToOutput?.Total ?? 0);
+            return slowest > 0 ? slowest : (long?)null;
         }
 
         /// <summary>The hint a CHECK earns, or null: an x read where a check wanted a value.</summary>
@@ -93,13 +107,21 @@ namespace BitSorter.ViewModel
         {
             foreach (SignalId signal in signals)
                 for (int i = 0; i < history.ChangeCount(signal); i++)
-                    if (history.Change(signal, i).Value.Format(Radix.Binary).IndexOf('z') >= 0)
+                {
+                    LogicVec value = history.Change(signal, i).Value;
+                    if (!value.IsKnown && value.Format(Radix.Binary).IndexOf('z') >= 0)   // formatted only where it can hold one
                         return true;
+                }
             return false;
         }
 
-        /// <summary>An output that changes and changes back with no input changing between: a pulse no input asked for.</summary>
-        private static bool AnyGlitch(History history, List<SignalId> inputs, List<SignalId> outputs)
+        /// <summary>
+        /// Whether an output glitches: changes and changes back, both in answer to one input event -- the only time an input
+        /// changed within <paramref name="slowest"/> before it moved away, nothing changing between, and both moves within
+        /// <paramref name="slowest"/> of it. Without the bound, an input pulse narrower than a path's delay, followed
+        /// faithfully along one path, read as a glitch (the #90 review).
+        /// </summary>
+        private static bool AnyGlitch(History history, List<SignalId> inputs, List<SignalId> outputs, long slowest)
         {
             var changed = new List<long>();
             foreach (SignalId input in inputs)
@@ -117,20 +139,41 @@ namespace BitSorter.ViewModel
                         continue;
                     if (!before.Value.Equals(back.Value) || before.Value.Equals(away.Value))
                         continue;
-                    if (!AnyIn(changed, away.Time, back.Time))
+                    if (Between(changed, away.Time, back.Time) > 0)
+                        continue;
+                    long first = FirstAfter(changed, away.Time - slowest - 1);
+                    if (first < 0 || first > away.Time || back.Time - first > slowest)
+                        continue;
+                    if (Between(changed, first, away.Time) == 0)   // one event, at one time, before both moves
                         return true;
                 }
             }
             return false;
         }
 
-        /// <summary>Whether a time in <paramref name="sorted"/> lies after <paramref name="from"/> and no later than <paramref name="to"/>.</summary>
-        private static bool AnyIn(List<long> sorted, long from, long to)
+        /// <summary>How many times in <paramref name="sorted"/> lie after <paramref name="from"/> and no later than <paramref name="to"/>.</summary>
+        private static int Between(List<long> sorted, long from, long to) => UpTo(sorted, to) - UpTo(sorted, from);
+
+        /// <summary>How many times in <paramref name="sorted"/> are no later than <paramref name="time"/>: a binary search.</summary>
+        private static int UpTo(List<long> sorted, long time)
         {
-            foreach (long time in sorted)
-                if (time > from && time <= to)
-                    return true;
-            return false;
+            int low = 0, high = sorted.Count;
+            while (low < high)
+            {
+                int mid = (low + high) / 2;
+                if (sorted[mid] <= time)
+                    low = mid + 1;
+                else
+                    high = mid;
+            }
+            return low;
+        }
+
+        /// <summary>The first time in <paramref name="sorted"/> after <paramref name="time"/>, or -1.</summary>
+        private static long FirstAfter(List<long> sorted, long time)
+        {
+            int at = UpTo(sorted, time);
+            return at < sorted.Count ? sorted[at] : -1;
         }
     }
 }

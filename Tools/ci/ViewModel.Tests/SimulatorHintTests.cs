@@ -25,7 +25,8 @@ namespace BitSorter.ViewModel.Tests
             Assert.IsFalse(elaboration.HasErrors, string.Join("\n", elaboration.Diagnostics));
             var sim = new Simulator(elaboration.Design);
             sim.RunTo(project.Stimulus.StopTime + 1);
-            return SimulatorHints.Due(project, elaboration.Design, sim.History, compiled.DesignPath, seen.Contains);
+            return SimulatorHints.Due(project, elaboration.Design, sim.History, compiled.DesignPath,
+                SimulatorHints.Slowest(TimingAnalysis.Of(project)), seen.Contains);
         }
 
         /// <summary>An exercise's reference solution, with the exercise's test to run.</summary>
@@ -46,6 +47,44 @@ namespace BitSorter.ViewModel.Tests
             Assert.AreEqual(SimulatorHints.Glitch, DueAfterARun(Solved("balance-the-paths"), SimulatorHints.GateDelay),
                 "the pulse its goal says the waves show");
             Assert.IsNull(DueAfterARun(Solved("route-the-bit"), SimulatorHints.GateDelay), "one gate on one path earns no glitch");
+        }
+
+        /// <summary>The glitch and z hints read a written top's ports from its header (the #90 review: they never came on code).</summary>
+        [Test]
+        public void OnCode_TheHintsReadItsHeader()
+        {
+            Project Written(string id)
+            {
+                Project solved = Solved(id);
+                return solved.WithModule(ExerciseFiles.Load(id).Written(solved));
+            }
+
+            Assert.AreEqual(SimulatorHints.Glitch, DueAfterARun(Written("balance-the-paths"), SimulatorHints.GateDelay));
+            Assert.AreEqual(SimulatorHints.HighZ, DueAfterARun(Written("share-the-wire"), SimulatorHints.GateDelay));
+        }
+
+        /// <summary>
+        /// An input pulse narrower than a path's delay, followed along one path, is no glitch: three NOTs in a row, their
+        /// input up for one nanosecond (the #90 review: it read as one, "two paths into one gate").
+        /// </summary>
+        [Test]
+        public void ANarrowPulseAlongOnePath_IsNoGlitch()
+        {
+            Exercise chain = ExerciseFiles.Load("route-the-bit");
+            Project opened = chain.ToProject(new List<string>());
+            Module written = chain.Written(opened);
+            string header = written.Source.Substring(0, written.Source.IndexOf("module "));
+            Project project = opened.WithModule(written with { Source = header +
+                "module " + opened.Top + " (input logic in, output logic binOne, output logic binZero);\n" +
+                "    logic n1, n2;\n    not #1 g1 (n1, in);\n    not #1 g2 (n2, n1);\n    not #1 g3 (binOne, n2);\nendmodule\n" });
+            var steps = new[]
+            {
+                new Board.Step(0, SystemVerilog.LogicVec.FromBinary("0")),
+                new Board.Step(5, SystemVerilog.LogicVec.FromBinary("1")),
+                new Board.Step(6, SystemVerilog.LogicVec.FromBinary("0")),
+            };
+            var pulse = new Board.Stimulus { Tracks = new[] { new Board.Track { Port = "in", Steps = steps } }, End = 30 };
+            Assert.IsNull(DueAfterARun(project with { Stimulus = pulse }, SimulatorHints.GateDelay));
         }
 
         [Test]

@@ -37,8 +37,12 @@ namespace BitSorter.View
         private string _hintShown;
         private int _hintTick;
         private VisualElement _litControl;
-        private Color _litControlEdge;
-        private float _litControlWidth;
+        private StyleColor _litControlEdge;
+        private StyleFloat _litControlWidth;
+
+        /// <summary>The document the slowest path was worked out for, and it: what bounds a glitch, reckoned once a document.</summary>
+        private Project _slowestFor;
+        private long? _slowest;
 
         private const GuidedTutorial.Step NoStep = (GuidedTutorial.Step)(-1);
 
@@ -129,7 +133,7 @@ namespace BitSorter.View
             _exerciseCard?.Close();   // the strip says what to do; GOAL still opens the brief
             _goalPending = false;
             _tutorial = true;
-            _tutorialSolved = Solved(GuidedTutorial.ExerciseId) && LastGrade != null && LastGrade.Solved;
+            _tutorialSolved = false;   // its own CHECK says so: the last grade may be another exercise's (the #90 review)
             _tutorialStep = NoStep;
             TickLessons();
         }
@@ -184,7 +188,13 @@ namespace BitSorter.View
             ProgressStore store = Store();
             if (store == null)
                 return;
-            string due = SimulatorHints.Due(_session.Project, _model.Session.Design, _model.Session.History, _model.Layout.DesignPath, store.HasSeenHint);
+            if (!store.HasSeenHint(SimulatorHints.Glitch) && !ReferenceEquals(_slowestFor, _session.Project))
+            {
+                _slowestFor = _session.Project;
+                _slowest = SimulatorHints.Slowest(TimingAnalysis.Of(_session.Project));
+            }
+            string due = SimulatorHints.Due(_session.Project, _model.Session.Design, _model.Session.History, _model.Layout.DesignPath,
+                _slowest, store.HasSeenHint);
             if (due != null)
                 ShowHint(due);
         }
@@ -223,8 +233,11 @@ namespace BitSorter.View
                 return;
             Unlight();
             _litControl = control;
-            _litControlEdge = control.resolvedStyle.borderLeftColor;
-            _litControlWidth = control.resolvedStyle.borderLeftWidth;
+
+            // Its own inline style, put back as it was: a button made this frame has no resolved style yet, and putting that
+            // back left it edged in nothing (the #90 review).
+            _litControlEdge = control.style.borderLeftColor;
+            _litControlWidth = control.style.borderLeftWidth;
             Color accent = SchematicPalette.Current.Accent;
             control.style.borderLeftColor = control.style.borderRightColor = control.style.borderTopColor = control.style.borderBottomColor = accent;
             control.style.borderLeftWidth = control.style.borderRightWidth = control.style.borderTopWidth = control.style.borderBottomWidth = 3f;
@@ -234,9 +247,8 @@ namespace BitSorter.View
         {
             if (_litControl == null)
                 return;
-            float width = _litControlWidth > 0f ? _litControlWidth : ShellTheme.EdgeWidth;
             _litControl.style.borderLeftColor = _litControl.style.borderRightColor = _litControl.style.borderTopColor = _litControl.style.borderBottomColor = _litControlEdge;
-            _litControl.style.borderLeftWidth = _litControl.style.borderRightWidth = _litControl.style.borderTopWidth = _litControl.style.borderBottomWidth = width;
+            _litControl.style.borderLeftWidth = _litControl.style.borderRightWidth = _litControl.style.borderTopWidth = _litControl.style.borderBottomWidth = _litControlWidth;
             _litControl = null;
         }
     }
