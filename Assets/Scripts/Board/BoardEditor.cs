@@ -733,6 +733,8 @@ namespace BitSorter.Board
                 return "The exercise's parts are its own: its library is not changed here.";
             if (next.Top != now.Top)
                 return "The exercise's top is its own.";
+            if (next.Settings.TimeUnit != settings.TimeUnit)
+                return $"The exercise counts its time in {settings.TimeUnit}, as its goal and its limits do: its unit is not changed here.";
 
             GateLibrary library = settings.Library;
             if (library != null)

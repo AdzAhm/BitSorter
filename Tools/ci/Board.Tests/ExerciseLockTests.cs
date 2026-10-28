@@ -49,6 +49,7 @@ namespace BitSorter.Board.Tests
             Assert.IsFalse(editor.Change(top, a with { Name = "x" }).Done, "a port the test drives keeps its name");
             Assert.IsFalse(editor.Remove(top, a.Id).Done, "and stays");
             StringAssert.Contains("stays one", editor.SetSettings(editor.Project.Settings with { Exercise = null }).Refusal);
+            StringAssert.Contains("counts its time in ns", editor.SetSettings(editor.Project.Settings with { TimeUnit = "ps" }).Refusal);
 
             EditResult xor = editor.Add(top, new GatePart { Kind = GateKind.Xor, Inputs = 2, Rise = 1, Fall = 1 }, new Placement(8, 0));
             Assert.IsTrue(xor.Done, "what the student builds is theirs");
@@ -110,6 +111,25 @@ namespace BitSorter.Board.Tests
             Assert.IsNull(exercise.Adopt(opened with { Modules = opened.Modules.Select(m => m.Name == opened.Top ? without : m).ToList() }, problems),
                 "a port the test drives missing");
             Assert.IsNotEmpty(problems);
+        }
+
+        /// <summary>Every exercise opened survives the save, as every 4.x starting circuit had to: it reopens as it was, and still fails or solves as it did.</summary>
+        [TestCaseSource(typeof(ExerciseFiles), nameof(ExerciseFiles.Ids))]
+        public void EveryExerciseOpened_SurvivesASave(string id)
+        {
+            Exercise exercise = ExerciseFiles.Load(id);
+            Project opened = Opened(id);
+            var problems = new List<string>();
+            Project back = ProjectRecord.From(opened).ToProject(problems);
+            Assert.IsEmpty(problems, string.Join("\n", problems));
+            Assert.AreEqual(id, back.Settings.Exercise);
+            Assert.AreEqual(opened.Settings.TimeUnit, back.Settings.TimeUnit);
+            Assert.AreEqual(opened.Stimulus.Checks.Count, back.Stimulus.Checks.Count, "its checks");
+            Assert.AreEqual(ExerciseGrader.Grade(exercise, opened).Solved, ExerciseGrader.Grade(exercise, back).Solved);
+
+            Project solution = ExerciseFiles.Solution(exercise);
+            Assert.IsTrue(ExerciseGrader.Grade(exercise, ProjectRecord.From(solution).ToProject(problems)).Solved,
+                "and its solution, saved and read back, still solves it");
         }
 
         [Test]
