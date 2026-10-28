@@ -2020,8 +2020,10 @@ namespace BitSorter.View
 
                 if (part.Symbol == PartSymbol.Constant)
                 {
-                    // A constant's value is its label, inside its box.
-                    StageLabel(_schematic, part.Name, bounds.center, UiType.Micro, palette.Text, TextAlignmentOptions.Center, bounds.width);
+                    // A constant's value is its label, inside its box -- which stops a lead short of its pin (Part 15g).
+                    Vector2 a = part.ToStage(part.Local.Left, 0.3).ToUnity(), b = part.ToStage(0.5 - SymbolGeometry.Lead, -0.3).ToUnity();
+                    Rect box = Rect.MinMaxRect(Mathf.Min(a.x, b.x), Mathf.Min(a.y, b.y), Mathf.Max(a.x, b.x), Mathf.Max(a.y, b.y));
+                    StageLabel(_schematic, part.Name, box.center, UiType.Micro, palette.Text, TextAlignmentOptions.Center, box.width);
                     continue;
                 }
 
@@ -2056,11 +2058,13 @@ namespace BitSorter.View
                 {
                     // A block's ports are named inside it, beside their pins: an output's name ends
                     // at its pin, so its label, given by its left edge, starts a label's width before.
-                    const float pinWidth = 60f;
+                    // Half the box each, which is a lead narrower since Part 15g, so two across a row keep apart.
+                    float pinWidth = Mathf.Min(60f, (float)SymbolGeometry.BlockHalf * part.Cell - 4f);
+                    double inside = SymbolGeometry.BlockHalf - 0.1;
                     foreach (BitSorter.Board.PinSpot pin in part.Local.Pins)
                     {
                         bool input = pin.Facing == BitSorter.Board.Facing.Left;
-                        Vector2 at = part.ToStage(input ? -1.15 : 1.15, pin.At.Y).ToUnity();
+                        Vector2 at = part.ToStage(input ? -inside : inside, pin.At.Y).ToUnity();
                         StageLabel(_schematic, pin.Pin, input ? at : at - new Vector2(pinWidth, 0f), UiType.Micro, palette.TextDim,
                             input ? TextAlignmentOptions.MidlineLeft : TextAlignmentOptions.MidlineRight, pinWidth);
                     }

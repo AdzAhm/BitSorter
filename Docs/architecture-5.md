@@ -2982,6 +2982,26 @@ the board's own editor and printed.
   shell's glyph atlas is laid out differently and every workbench shot's header text differs by 2 to 11 pixels at three
   levels or fewer. Nothing moved; Settings and the credits are reshot.
 
+**As built in Part 15g-3: a lead on every pin.** Ahmad asked for "a small tiny line that we can wire from" (2026-10-28).
+
+- **The bodies stepped back; the pins did not move.** A gate's front and back always sat half a cell in from its pins.
+  A port's box and a constant's stood on their pins, and a block's a quarter of a cell from them; each now stands
+  `SymbolGeometry.Lead`, half a cell, back. A port keeps its outline, which is what routes keep clear of, so no route
+  can move: its box gives up the half cell, and its name still fits, since `PartGeometry.PortWidth` allows 0.17 of a
+  cell a character and the type takes about 0.12. A constant's literal is sized tighter, so its outline grew by the lead
+  away from its pin, and its box kept the literal's room. A block's box is two cells wide, from two and a half, and its
+  pins' names each take half of it.
+- **A wire to a port runs on to its box**, as one to a gate always ran on to the body (`DocumentSchematic.TryBody`), and
+  `PortLayout` carries its pin, its lead's end and whether it is wired.
+- **An unwired pin's lead ends in an open circle** (`WorkbenchDrawing.PinCircle`), and the pin a press would wire from is
+  lit under the pointer (`CanvasOverlay.PinLit`, from `CanvasEditor.PinOver`), with the status line saying "drag to wire"
+  (`PointerArea.Pin`). While a wire is drawn, the pins it may end on show theirs (`PinEnds`): by direction -- from a
+  driver, an input nothing drives; from an undriven input, an output; an inout either way -- found once a draft. The
+  document still has the last word as the wire ends: a guide, not a promise, since asking it of every pin would build a
+  document per pin.
+- `PinLeadTests` holds every pin of every part the strip makes to a lead of at least a quarter cell, the ports' boxes
+  inside their outlines, and the pins of the parts that stepped back where they were.
+
 ---
 
 ## 11. The parts
@@ -3005,7 +3025,7 @@ Each part is one pull request into `v5`, ends with every suite green, and leaves
 | 12 | Hierarchy, and written blocks, edited in CodeMirror in a browser -- in six: 12a stepping inside a block **built** (see "As built in Part 12a"); 12b making a block **built** (see "As built in Part 12b"); 12c arrays **built** (see "As built in Part 12c"); 12d code blocks **built** (see "As built in Part 12d"); 12e the code panel **built** (see "As built in Part 12e"); 12f CodeMirror **built** (see "As built in Part 12f") |
 | 13 | Export and import (and a levelized path in the engine, only if a measurement asks for it) -- in six: 13a exporting a project **built** (see "As built in Part 13a"); 13b importing one **built** (see "As built in Part 13b"); 13c CONVERT **built** (see "As built in Part 13c"); 13d files **built** (see "As built in Part 13d"); 13e templates **built** (see "As built in Part 13e"); 13f limits, the security review, the measurement and the browser check **built** (see "As built in Part 13f"; the levelized path is not needed). **Part 13 is built.** |
 | 14 | The course's tools: path delays, static timing, gate-library mode, step tests, lint, tri-state -- in six, **built**: 14a the timing analysis core, 14b the TIMING tab, 14c step tests, 14d gate-library mode, 14e lint and 14f tri-state buses and inout (see "As built in Part 14a" to "14f"); and 14g, its follow-ups: deleting a module, the code editor's keys, the library held in written code and over budget, and inout pins on written blocks (see "As built in Part 14g") |
-| 15 | A simulator first, the Exercises and the tutorial -- in six: 15a **built** in two (see "As built in Part 15a"): the student's circuits, and opening on the last thing or a start page, the app's menus for BACK, the 4.x game in Settings, music off; 15b the Exercise model, grading and self-checking testbenches **built** (see "As built in Part 15b"); 15c the 35 exercises **built** (see "As built in Part 15c"); 15d Exercises on the workbench **built** (see "As built in Part 15d"); 15e answering in code **built** (see "As built in Part 15e"); 15f first-time hints, the guided tutorial and the browser check **built** (see "As built in Part 15f"). **Part 15 is built.** Then 15g, what the first playtest asked for: 15g-1 the quick fixes **built** (see "As built in Part 15g-1"); 15g-2 Settings and the credits as pages of the workbench **built** (see "As built in Part 15g-2"); 15g-3 a lead on every pin; 15g-4 INPUTS, sequences without code; 15g-5 LOGIC, the truth table, expressions and K-maps; 15g-6 STATES, the state diagram; 15g-7 big circuits stay smooth. And 15h, a drawing of any code, planned on its own. |
+| 15 | A simulator first, the Exercises and the tutorial -- in six: 15a **built** in two (see "As built in Part 15a"): the student's circuits, and opening on the last thing or a start page, the app's menus for BACK, the 4.x game in Settings, music off; 15b the Exercise model, grading and self-checking testbenches **built** (see "As built in Part 15b"); 15c the 35 exercises **built** (see "As built in Part 15c"); 15d Exercises on the workbench **built** (see "As built in Part 15d"); 15e answering in code **built** (see "As built in Part 15e"); 15f first-time hints, the guided tutorial and the browser check **built** (see "As built in Part 15f"). **Part 15 is built.** Then 15g, what the first playtest asked for: 15g-1 the quick fixes **built** (see "As built in Part 15g-1"); 15g-2 Settings and the credits as pages of the workbench **built** (see "As built in Part 15g-2"); 15g-3 a lead on every pin **built** (see "As built in Part 15g-3"); 15g-4 INPUTS, sequences without code; 15g-5 LOGIC, the truth table, expressions and K-maps; 15g-6 STATES, the state diagram; 15g-7 big circuits stay smooth. And 15h, a drawing of any code, planned on its own. |
 | 16 | The old game retired, and a smaller download; 5.0.0 released |
 
 **Agreed after Part 9, 2026-10-19: the language, before Part 10.** A course audit ran every one of the

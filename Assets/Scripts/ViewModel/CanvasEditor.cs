@@ -29,6 +29,12 @@ namespace BitSorter.ViewModel
         /// <summary>Whether the document would refuse the wire ending there: the end is drawn as one it cannot take.</summary>
         public bool DraftRefused;
 
+        /// <summary>The pin a press would wire from, its circle lit (Part 15g); null for none under the pointer.</summary>
+        public Vec2? PinLit;
+
+        /// <summary>While a wire is drawn, the pins it may end on, each with its circle shown (Part 15g).</summary>
+        public readonly List<Vec2> PinEnds = new List<Vec2>();
+
         /// <summary>The corners of every selected wire, where a drag moves one (Part 10b-2).</summary>
         public readonly List<Vec2> Handles = new List<Vec2>();
 
@@ -56,6 +62,8 @@ namespace BitSorter.ViewModel
             Draft = null;
             DraftStart = DraftEnd = null;
             DraftRefused = false;
+            PinLit = null;
+            PinEnds.Clear();
             Handles.Clear();
             PathWires.Clear();
             PathParts.Clear();
@@ -253,6 +261,21 @@ namespace BitSorter.ViewModel
                 _handShown = shown;
                 _handAt = at;
                 _handFree = free;
+                Version++;
+            }
+
+            // The pin a press would wire from (Part 15g): only while a press there would, with nothing in hand, no wire being
+            // drawn and nothing being dragged.
+            CanvasTarget pin = CanvasTarget.Nothing;
+            if (stage.HasValue && InHand == null && _draft == null && _start == null && !_boxing && _reshaping < 0)
+            {
+                CanvasTarget under = TargetAt(stage.Value, zoom);
+                if (under.Kind == CanvasTargetKind.Pin)
+                    pin = under;
+            }
+            if (!pin.Equals(_pinOver))
+            {
+                _pinOver = pin;
                 Version++;
             }
 
@@ -667,6 +690,74 @@ namespace BitSorter.ViewModel
         }
 
         /// <summary>The net an end is part of (<see cref="WireGeometry.WireNets"/>): a tapped wire's, or a pin's wires'; -1 for a pin no wire meets yet.</summary>
+        /// <summary>The pin under the pointer that a press would wire from (Part 15g): what the status line names, and the circle lit.</summary>
+        public CanvasTarget PinOver => _pinOver;
+
+        private CanvasTarget _pinOver = CanvasTarget.Nothing;
+
+        /// <summary>The draft <see cref="_ends"/> were found for, and the pins it may end on, on the board.</summary>
+        private WireDraft _endsFor;
+        private readonly List<BoardPoint> _ends = new List<BoardPoint>();
+
+        /// <summary>
+        /// The pins the wire being drawn may end on, as the overlay shows them (Part 15g), found once a draft: never its own
+        /// start; from a driver -- an output, an input a wire already drives, or a wire tapped -- an input nothing drives
+        /// yet; from an input nothing drives, an output; and an inout either way. The document has the last word as the wire
+        /// ends (<see cref="CanvasOverlay.DraftRefused"/>): this says where to look, and promises nothing.
+        /// </summary>
+        private List<BoardPoint> DraftEnds()
+        {
+            if (ReferenceEquals(_endsFor, _draft))
+                return _ends;
+            _endsFor = _draft;
+            _ends.Clear();
+            Module module = Module;
+            if (_draft == null || module == null)
+                return _ends;
+
+            var wired = new HashSet<PinRef>();
+            foreach (Wire wire in module.Wires)
+            {
+                if (!wire.From.IsTap)
+                    wired.Add(wire.From.Pin);
+                if (!wire.To.IsTap)
+                    wired.Add(wire.To.Pin);
+            }
+
+            Endpoint from = _draft.From;
+            PinDirection? start = from.IsTap ? PinDirection.Out : DirectionOf(module, from.Pin);
+            bool fromDriver = start == PinDirection.Out || (start == PinDirection.In && wired.Contains(from.Pin));
+            foreach (Part part in module.Parts)
+            {
+                PartOutline outline = _hit.OutlineOf(part.Id);
+                if (outline == null)
+                    continue;
+                foreach (Pin pin in part.Pins(_session.Project))
+                {
+                    var at = new PinRef(part.Id, pin.Name);
+                    if (!from.IsTap && at.Equals(from.Pin))
+                        continue;
+                    bool may = pin.Direction == PinDirection.InOut || start == PinDirection.InOut
+                        || (fromDriver ? pin.Direction == PinDirection.In && !wired.Contains(at) : pin.Direction == PinDirection.Out);
+                    if (may && outline.TryPin(pin.Name, out PinSpot spot))
+                        _ends.Add(spot.At);
+                }
+            }
+
+            return _ends;
+        }
+
+        private PinDirection? DirectionOf(Module module, PinRef pin)
+        {
+            Part part = module.FindPart(pin.Part);
+            if (part == null)
+                return null;
+            foreach (Pin each in part.Pins(_session.Project))
+                if (each.Name == pin.Pin)
+                    return each.Direction;
+            return null;
+        }
+
         private int NetOf(Endpoint end)
         {
             if (_draftNets == null)
@@ -1053,7 +1144,13 @@ namespace BitSorter.ViewModel
                     _draftOwn.Add(NetOf(to));
                 overlay.Draft = Stage(frame, _draft.PathTo(end, entering, around, _draftOwn));
                 overlay.DraftStart = frame.ToStage(_draft.Start);
+                foreach (BoardPoint pin in DraftEnds())
+                    overlay.PinEnds.Add(frame.ToStage(pin));
             }
+
+            if (_pinOver.Kind == CanvasTargetKind.Pin && _hit.OutlineOf(_pinOver.Part) is PartOutline over
+                && over.TryPin(_pinOver.Pin, out PinSpot lit))
+                overlay.PinLit = frame.ToStage(lit.At);
 
             if (_handShown && InHand != null)
             {

@@ -103,7 +103,7 @@ namespace BitSorter.View
         /// <summary>The status line naming the gestures of the circuit, the waves or a BLOCKS row in PARTS, whichever the pointer is over, and ? for every key.</summary>
         private void ShowStatus(Vector2 pointer)
         {
-            PointerArea area = InView(pointer, out _) ? PointerArea.Circuit
+            PointerArea area = InView(pointer, out _) ? (Editor != null && Editor.PinOver.Kind == CanvasTargetKind.Pin ? PointerArea.Pin : PointerArea.Circuit)
                 : _wave != null && _wavesClip != null && _wavesClip.gameObject.activeSelf && _wave.RegionAt(pointer, out _, out _, out _)
                     ? PointerArea.Waves
                     : BlockRowAt(pointer) != null ? PointerArea.Blocks

@@ -34,7 +34,7 @@ namespace BitSorter.ViewModel
     }
 
     /// <summary>Where the pointer is, as the status line names its gestures.</summary>
-    public enum PointerArea { Elsewhere, Circuit, Waves, Blocks }
+    public enum PointerArea { Elsewhere, Circuit, Waves, Blocks, Pin }
 
     /// <summary>
     /// The keyboard map (Part 11d), Unity-free: every key the workbench answers, from <see cref="WorkbenchKeys"/> alone, under
@@ -190,6 +190,9 @@ namespace BitSorter.ViewModel
         {
             switch (area)
             {
+                case PointerArea.Pin:
+                    // Its circle lit with it (Part 15g): where a wire starts was the one thing nothing on the circuit said.
+                    return "pin:  drag to wire  ·  ? every key";
                 case PointerArea.Circuit:
                     return "circuit:  drag from a pin to wire  ·  double-click to inspect  ·  right-click for its menu  ·  wheel to zoom  ·  ? every key";
                 case PointerArea.Waves:

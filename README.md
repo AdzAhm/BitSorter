@@ -313,6 +313,10 @@ keyboard map, the start page, and the credits) and SETTINGS -- and no BACK:
 `Esc` closes whatever is on top and never leaves the workbench. The music is off
 until you switch it on in Settings.
 
+Every pin on the circuit has a short lead with an open circle at its end: point at
+one and it lights, and a drag from there draws a wire. While you draw one, the
+pins it can end on show their circles.
+
 ### Exercises (5.0 preview)
 
 The thirty levels of 4.x come back as **exercises**, with five new ones on

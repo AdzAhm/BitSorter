@@ -457,6 +457,50 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
+        /// A lead on every pin (Part 15g): the pointer near enough to a pin to wire from it lights the pin's circle and the
+        /// status line says to drag; while a wire is drawn, the pins it may end on show their circles -- the other NOT's input,
+        /// and not the outputs, its own start among them.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator APin_LightsUnderThePointer_AndAWireBeingDrawn_ShowsWhereItMayEnd()
+        {
+            yield return TestScene.Load();
+            yield return OpenMyCircuit();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            var ids = new System.Collections.Generic.List<int>();
+            yield return Place(workbench, "not", new BoardPoint(4, -2), ids);
+            yield return Place(workbench, "not", new BoardPoint(4, -5), ids);
+            yield return ClickAt(workbench, new BoardPoint(8, 0));   // nothing chosen, nothing in hand
+
+            BoardPoint start = PinOf(workbench, ids[0], "y");
+            yield return PointAt(workbench, start);
+            yield return null;
+            Assert.AreEqual(CanvasTargetKind.Pin, workbench.Editor.PinOver.Kind, "the pointer on a pin");
+            Assert.AreEqual("y", workbench.Editor.PinOver.Pin);
+            Assert.IsNotNull(workbench.Overlay.PinLit, "its circle lit");
+            StringAssert.Contains("drag to wire", workbench.StatusText, "and the status line says what a press there does");
+
+            yield return PointAt(workbench, new BoardPoint(8, 0));
+            yield return null;
+            Assert.IsNull(workbench.Overlay.PinLit, "off the pin, nothing lit");
+
+            yield return ClickAt(workbench, start);
+            Assert.IsTrue(workbench.Editor.Drafting, "sanity: a click on the pin starts a wire");
+            yield return PointAt(workbench, new BoardPoint(7, -3));
+            yield return null;
+            Assert.IsNull(workbench.Overlay.PinLit, "nothing lit as a start while a wire is drawn");
+            var ends = new System.Collections.Generic.List<BoardPoint>();
+            foreach (Vec2 at in workbench.Overlay.PinEnds)
+                ends.Add(workbench.Editor.ToBoard(at));
+            bool Has(BoardPoint p) => ends.Exists(e => System.Math.Abs(e.X - p.X) + System.Math.Abs(e.Y - p.Y) < 1e-3);
+            Assert.IsTrue(Has(PinOf(workbench, ids[1], "a")), "the other NOT's input shows where the wire may end");
+            Assert.IsFalse(Has(start), "not the wire's own start");
+            Assert.IsFalse(Has(PinOf(workbench, ids[1], "y")), "nor another output, which two drivers on one wire would refuse");
+
+            yield return Tap(_keyboard.escapeKey);
+        }
+
+        /// <summary>
         /// A wire clicked is selected, its corners drawn as handles, and a drag on one of its pieces moves the piece
         /// across itself -- one step, layout only, nothing replayed (Part 10b-2).
         /// </summary>

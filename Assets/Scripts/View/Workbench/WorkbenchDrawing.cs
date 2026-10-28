@@ -141,6 +141,13 @@ namespace BitSorter.View
             if (overlay.Hand is Rect2 hand)
                 Outlined(painter, hand, palette.Accent, SelectedWidth);
 
+            // The pins a wire may start or end on (Part 15g): while one is drawn, the circle of every pin it may end on, in
+            // the accent; and the circle under the pointer, lit, where a press would start one.
+            foreach (Vector2 at in overlay.PinEnds)
+                PinCircle(painter, at, palette.Accent, palette.Ground);
+            if (overlay.PinLit is Vector2 pin)
+                PinCircle(painter, pin, palette.Accent, palette.Ground, lit: true);
+
             // A wire being drawn (Part 10b): where it would run, a ring on its start, and one on the end it would take --
             // crossed through, and in x's colour, on one the document would refuse, so the shape says it as well.
             if (overlay.Draft != null && overlay.Draft.Length >= 2)
@@ -500,7 +507,7 @@ namespace BitSorter.View
                     continue;
                 if (!flashes && lamp)
                 {
-                    Leads(painter, part, palette.Outline);
+                    Leads(painter, part, palette.Outline, palette.Ground);
                     if (!painter.Fits(mark))
                         break;
                     continue;
@@ -511,7 +518,7 @@ namespace BitSorter.View
                 bool tinted = flash > 0f && k > 0f;
 
                 if (!flashes)
-                    Leads(painter, part, palette.Outline);
+                    Leads(painter, part, palette.Outline, palette.Ground);
 
                 if (part.Symbol == PartSymbol.Splitter || part.Symbol == PartSymbol.Joiner)
                 {
@@ -583,6 +590,12 @@ namespace BitSorter.View
             foreach (PortLayout port in layout.Ports)
             {
                 (int, int) mark = painter.Mark();
+                if (!port.IsWired)
+                {
+                    // Its lead, a wire's length out from the box it stepped back by (Part 15g), and the pin's open circle.
+                    painter.Line(port.Pin, port.LeadEnd, SchematicStyle.OutlineWidth, palette.Outline);
+                    PinCircle(painter, port.Pin, palette.Outline, palette.Ground);
+                }
                 VectorPainter.RoundedRect(Shape, port.Box.x, port.Box.y, port.Box.width, port.Box.height, SchematicStyle.PortCorner);
                 painter.Fill(Shape, palette.Ground);
                 painter.Outline(Shape, SchematicStyle.OutlineWidth, palette.Outline);
@@ -596,17 +609,29 @@ namespace BitSorter.View
         /// is the end of its wire (<see cref="DocumentSchematic"/> runs every wire on to the body), so
         /// it is drawn in the value the wire holds rather than as a grey stub the wire stops short of.
         /// </summary>
-        private static void Leads(VectorPainter painter, PartLayout part, Color colour)
+        private static void Leads(VectorPainter painter, PartLayout part, Color colour, Color ground)
         {
             foreach (PinSpot pin in part.Local.Pins)
             {
                 if (part.IsWired(pin.Pin))
                     continue;
                 (double x, double y) = LeadEnd(part, pin);
-                if (Math.Abs(x - pin.At.X) + Math.Abs(y - pin.At.Y) < 1e-6)
-                    continue;
-                painter.Line(part.ToStage(pin.At.X, pin.At.Y), part.ToStage(x, y), SchematicStyle.OutlineWidth, colour);
+                Vector2 at = part.ToStage(pin.At.X, pin.At.Y);
+                if (Math.Abs(x - pin.At.X) + Math.Abs(y - pin.At.Y) >= 1e-6)
+                    painter.Line(at, part.ToStage(x, y), SchematicStyle.OutlineWidth, colour);
+                PinCircle(painter, at, colour, ground);
             }
+        }
+
+        /// <summary>
+        /// The open circle at a pin's end (Part 15g), filled with the ground so the lead does not run through it: where a wire
+        /// starts. <paramref name="lit"/> is the pointer near enough to wire from it, or a wire being drawn able to end on it.
+        /// </summary>
+        public static void PinCircle(VectorPainter painter, Vector2 at, Color colour, Color ground, bool lit = false)
+        {
+            VectorPainter.Circle(Shape, at, lit ? SchematicStyle.PinRadius + 1f : SchematicStyle.PinRadius, PinCircleSteps);
+            painter.Fill(Shape, lit ? WithAlpha(colour, 0.25f) : ground);
+            painter.Outline(Shape, lit ? 2f : SchematicStyle.OutlineWidth, colour);
         }
 
         /// <summary>A part's outline, as the textbook draws its kind, into <paramref name="into"/> on the stage.</summary>
@@ -675,7 +700,7 @@ namespace BitSorter.View
                     break;
 
                 case PartSymbol.Constant:
-                    Box(into, part, part.Local.Left, -0.3, 0.5, 0.3, 0.12);
+                    Box(into, part, part.Local.Left, -0.3, 0.5 - Lead, 0.3, 0.12);   // a lead short of its pin (Part 15g)
                     break;
 
                 case PartSymbol.Lamp:
@@ -692,8 +717,8 @@ namespace BitSorter.View
             }
         }
 
-        /// <summary>Half a block's box, in cells: its outline stops short of the ends of its pins.</summary>
-        private const double BlockHalfWidth = 1.25;
+        /// <summary>Half a block's box, in cells: its outline stops a lead short of its pins (Part 15g; it was a quarter cell).</summary>
+        private const double BlockHalfWidth = BlockHalf;
 
         /// <summary>How far, in cells, an array's copies are stacked behind its box, up and to the right; its name is raised as far.</summary>
         public const double ArrayBehind = 0.18;
@@ -965,7 +990,7 @@ namespace BitSorter.View
         {
             Body(Shape, part);
             int outline = Shape.Count;
-            int vertices = 64 + part.Local.Pins.Count * VectorPainter.LineVertices + 2 * (outline + 1) + 2 * outline * 4;
+            int vertices = 64 + part.Local.Pins.Count * (VectorPainter.LineVertices + PinCircleVertices) + 2 * (outline + 1) + 2 * outline * 4;
 
             if (part.Symbol == PartSymbol.Xor || part.Symbol == PartSymbol.Xnor)
                 vertices += 12 * (VectorPainter.LineVertices + 2 * VectorPainter.CapVertices);
@@ -976,8 +1001,11 @@ namespace BitSorter.View
             return vertices;
         }
 
-        /// <summary>About the most vertices the ports take, drawn by the first chunk of the parts.</summary>
-        public static int PortVertices(SchematicLayout layout) => layout.Ports.Count * 400;
+        /// <summary>About the most vertices the ports take, drawn by the first chunk of the parts: each box, its lead and its pin's circle.</summary>
+        public static int PortVertices(SchematicLayout layout) => layout.Ports.Count * (400 + VectorPainter.LineVertices + PinCircleVertices);
+
+        /// <summary>How finely a pin's open circle is cut, and what it takes filled and outlined, as a bubble is counted.</summary>
+        private const int PinCircleSteps = 16, PinCircleVertices = 2 * (PinCircleSteps + 1) + PinCircleSteps * 4;
 
         /// <summary>
         /// About the most vertices a row of the waveform takes across a time axis <paramref name="axis"/>

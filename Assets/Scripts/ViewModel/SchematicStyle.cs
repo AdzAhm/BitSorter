@@ -87,6 +87,12 @@ namespace BitSorter.ViewModel
         /// <summary>A NOT's bubble.</summary>
         public const float BubbleRadius = 5f;
 
+        /// <summary>
+        /// The open circle at the end of a pin nothing is wired to (Part 15g), where a wire starts: smaller than a bubble, so
+        /// the two never read as one, and lit in the accent when the pointer is near enough to wire from it.
+        /// </summary>
+        public const float PinRadius = 3f;
+
         /// <summary>The corner radius of a port box.</summary>
         public const float PortCorner = 8f;
 

@@ -13,6 +13,21 @@ namespace BitSorter.ViewModel
     /// </remarks>
     public static class SymbolGeometry
     {
+        /// <summary>
+        /// How far a pin's lead reaches from the pin to a body that steps back from its pins to make one, in cells: a port's
+        /// box, a constant's and a block's (Part 15g). A gate's front and back already sit half a cell in from its pins. The
+        /// pins stay where they were, so no wire, route or saved circuit moves; the bodies are drawn further in.
+        /// </summary>
+        /// <remarks>
+        /// Ahmad asked for "a small tiny line that we can wire from" on every part (2026-10-28): a port's box and a
+        /// constant's stood on their pins, and a block's a quarter of a cell from them, so nothing on those said where a
+        /// wire could start.
+        /// </remarks>
+        public const double Lead = 0.5;
+
+        /// <summary>Half a block's box, in cells: its pins, a cell and a half out, have a <see cref="Lead"/> each.</summary>
+        public const double BlockHalf = 1.0;
+
         /// <summary>Where a pin's lead meets the body, in the part's own cells: where its symbol's outline is, as the drawing draws it.</summary>
         public static (double X, double Y) LeadEnd(PartLayout part, PinSpot pin)
         {
@@ -31,7 +46,7 @@ namespace BitSorter.ViewModel
                 }
 
                 case PartSymbol.Constant:
-                    return (x, y);
+                    return (x - Lead, y);
 
                 case PartSymbol.Splitter:
                 case PartSymbol.Joiner:
@@ -41,7 +56,7 @@ namespace BitSorter.ViewModel
                     return (-0.3, y);
 
                 case PartSymbol.Block:
-                    return (left ? -1.25 : 1.25, y);
+                    return (left ? -BlockHalf : BlockHalf, y);
 
                 case PartSymbol.TriBuffer:
                 case PartSymbol.TriInverter:
@@ -55,6 +70,23 @@ namespace BitSorter.ViewModel
                         return (Shield(part.Symbol) ? BackX(-0.5, y, PartGeometry.Half(part.Local.Pins.Count - 1)) : -0.5, y);
                     return (Tip(part.Symbol) + (Inverts(part.Symbol) ? 2 * Bubble(part) : 0), y);
             }
+        }
+
+        /// <summary>Where a port's lead meets its box, in the port's own cells: a <see cref="Lead"/> in from its pin.</summary>
+        public static (double X, double Y) PortLeadEnd(PinSpot pin) =>
+            (pin.Facing == Facing.Left ? pin.At.X + Lead : pin.At.X - Lead, pin.At.Y);
+
+        /// <summary>
+        /// A port's box in its own cells: its outline -- what routes keep clear of, unchanged -- with the lead taken off the
+        /// side its pin is on. <see cref="PartGeometry.PortWidth"/> gives a name 0.17 of a cell a character and half a cell
+        /// more, and the type draws one in about 0.12: the box gives up the half cell and the name still fits.
+        /// </summary>
+        public static (double Left, double Bottom, double Right, double Top) PortBox(PartOutline local)
+        {
+            bool pinLeft = local.Pins.Count > 0 && local.Pins[0].Facing == Facing.Left;
+            return pinLeft
+                ? (local.Left + Lead, local.Bottom, local.Right, local.Top)
+                : (local.Left, local.Bottom, local.Right - Lead, local.Top);
         }
 
         public static bool Inverts(PartSymbol symbol) =>

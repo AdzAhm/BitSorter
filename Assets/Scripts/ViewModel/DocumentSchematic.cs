@@ -112,6 +112,7 @@ namespace BitSorter.ViewModel
             var parts = new List<PartLayout>();
             var partsById = new Dictionary<int, PartLayout>();
             var ports = new List<PortLayout>();
+            var portLeads = new Dictionary<int, Vec2>();
             foreach (Part part in module.Parts)
             {
                 Placement placement = module.Layout.PlacementOf(part.Id);
@@ -119,11 +120,18 @@ namespace BitSorter.ViewModel
 
                 if (part is PortPart port)
                 {
-                    PartOutline placed = outlines[part.Id];
-                    Vec2 a = frame.ToStage(new BoardPoint(placed.Left, placed.Top));
-                    Vec2 b = frame.ToStage(new BoardPoint(placed.Right, placed.Bottom));
+                    // Its box a lead in from its pin (Part 15g): the outline, which routes keep clear of, is as it was.
+                    (double boxLeft, double boxBottom, double boxRight, double boxTop) = SymbolGeometry.PortBox(local);
+                    Vec2 a = frame.ToStage(PartGeometry.Transform(placement, new BoardPoint(boxLeft, boxTop)));
+                    Vec2 b = frame.ToStage(PartGeometry.Transform(placement, new BoardPoint(boxRight, boxBottom)));
                     var box = Rect2.MinMaxRect(Arith.Min(a.x, b.x), Arith.Min(a.y, b.y), Arith.Max(a.x, b.x), Arith.Max(a.y, b.y));
-                    ports.Add(new PortLayout(Label(port), path + "." + port.Name, box, port.Direction == PortDirection.Output, port.Id));
+                    PinSpot spot = local.Pins[0];
+                    (double leadX, double leadY) = SymbolGeometry.PortLeadEnd(spot);
+                    Vec2 pinAt = frame.ToStage(PartGeometry.Transform(placement, spot.At));
+                    Vec2 leadEnd = frame.ToStage(PartGeometry.Transform(placement, new BoardPoint(leadX, leadY)));
+                    portLeads[part.Id] = leadEnd;
+                    ports.Add(new PortLayout(Label(port), path + "." + port.Name, box, port.Direction == PortDirection.Output, port.Id,
+                        pinAt, leadEnd, wired.ContainsKey(part.Id)));
                     continue;
                 }
 
@@ -151,9 +159,11 @@ namespace BitSorter.ViewModel
                 partsById[part.Id] = layout;
             }
 
-            // Where a wire meets a part's body, past its pin: a port's pin is on its box already.
+            // Where a wire meets a part's body, past its pin -- a port's box too, a lead in from its pin since Part 15g.
             bool TryBody(PinRef pin, out Vec2 at)
             {
+                if (portLeads.TryGetValue(pin.Part, out at))
+                    return true;
                 at = default;
                 if (!partsById.TryGetValue(pin.Part, out PartLayout part) || !part.Local.TryPin(pin.Pin, out PinSpot spot))
                     return false;

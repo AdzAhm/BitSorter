@@ -138,14 +138,27 @@ namespace BitSorter.ViewModel
     /// <summary>A port: a rounded box, an input's on the left of its pin and an output's on the right.</summary>
     public sealed class PortLayout
     {
-        public PortLayout(string name, string signal, Rect2 box, bool output, int part = -1)
+        public PortLayout(string name, string signal, Rect2 box, bool output, int part = -1, Vec2 pin = default, Vec2 leadEnd = default,
+            bool wired = false)
         {
             Name = name;
             Signal = signal;
             Box = box;
             Output = output;
             Part = part;
+            Pin = pin;
+            LeadEnd = leadEnd;
+            IsWired = wired;
         }
+
+        /// <summary>Its pin on the stage, where a wire starts or ends: a lead out from its box (Part 15g).</summary>
+        public Vec2 Pin { get; }
+
+        /// <summary>Where its lead meets its box, on the stage: a wire to it runs on to here.</summary>
+        public Vec2 LeadEnd { get; }
+
+        /// <summary>Whether a wire reaches its pin: then the wire is its lead, and no stub is drawn.</summary>
+        public bool IsWired { get; }
 
         /// <summary>The port's part in the module drawn, by id; -1 for a port that is no part (Part 14b).</summary>
         public int Part { get; }

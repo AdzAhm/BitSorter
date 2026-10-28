@@ -960,7 +960,16 @@ failure side.
   **Space plays and pauses on its release**, and Alt held while dragging or
   placing places freely. **A press on a pin draws a wire** (Part 10b), and a drag
   out of a wire taps it -- out of a selected one, it reshapes it instead, as a
-  drag on one of its corners does. **A double-click on a part or a wire, or Enter
+  drag on one of its corners does. **Every pin has a lead to wire from** (Part
+  15g, `SymbolGeometry.Lead`): a port's box, a constant's and a block's stand half
+  a cell back from their pins, as a gate's body always did -- the pins, and so
+  every wire, route and saved circuit, where they were; a constant's outline grew
+  by the lead away from its pin, to keep its literal's room. An unwired pin's lead
+  ends in an open circle, lit with the pointer near enough to wire from it while
+  the status line says "drag to wire" (`CanvasOverlay.PinLit`), and while a wire
+  is drawn the pins it may end on show theirs (`PinEnds`) -- a guide by
+  direction; the document still has the last word as the wire ends. Ahmad asked
+  for "a small tiny line that we can wire from" (2026-10-28). **A double-click on a part or a wire, or Enter
   with one selected, puts the keyboard in its inspector** (Part 10c), docked since
   11b-2: the bar under the toolbar holds every field and the side panel the quick
   ones with the part's line under them (a gate's rise is Tpdlh, its fall Tpdhl),
