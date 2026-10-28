@@ -2757,9 +2757,9 @@ Assets/Resources/Exercises, so its progress and its migrated board carry over (1
     so the board a student left there opens again in it. Its second output was the one `-` of the thirty -- a 4.x bin
     that had to stay empty -- and is free (`x`) now: an output nothing drives reads z, not "empty", and leaving it
     alone is what the goal asks.
-  - **Two time limits cannot be missed with the parts given**: the slow lane's and balance the paths', whose stock has
-    no more gates than the limit has nanoseconds. They are kept as the level's lesson was, a number to read on the
-    TIMING tab; out of step's and the long way round's can be missed.
+  - **Two time limits could not be missed with the parts given**: the slow lane's and balance the paths', whose stock
+    had no more gates than the limit had nanoseconds. Part 15g made both matter (see "As built in Part 15g-1"); out of
+    step's and the long way round's could always be missed.
 - **A register starts at 0 in the nine sequential exercises** (`registerStart`), as every 4.x register did and their
   tests assume; 5.0's own flip-flop starts at x, which start from nothing, in chapter 7, teaches. **15d places a register in
   an exercise at its `registerStart`, and 15e has to start a written one there too**: an `always_ff` with no
@@ -2909,6 +2909,36 @@ the board's own editor and printed.
   NEXT while the open one was unsolved (red test, then the fix). The release build's link-time optimisation ran out of
   memory on the night's machine, so the check was of a build without it; nothing in Part 15 depends on the link.
 
+**As built in Part 15g-1: what the first playtest asked for** (Ahmad played the Part 15 browser build, 2026-10-28).
+
+- **The way back from the 4.x game.** Inside it the levels played and nothing said how to leave: the way was MENU, then
+  a title-screen row captioned SIMULATOR like the rest, and Escape there showed the board under it. The title screen's
+  first and largest button is BACK TO THE SIMULATOR now, a 4.x board has SIMULATOR beside MENU, Escape on the title
+  screen goes back, and its SETTINGS is the simulator's. The path itself had worked: a test replaying it passed first.
+- **S on the start page** shows the next sample, as the chip it is drawn beside does: the page held every key.
+- **RESET PROGRESS starts the exercises over and keeps the circuits** (`ProgressStore.ForgetTheExercises`): solves,
+  answers kept under an exercise's id and their levels' 4.x boards, bests, milestones and hints go; MY CIRCUIT, named
+  circuits and free play stay. It had emptied the whole save.
+- **DRAW IT draws the code** (`Exercise.Drawn`): the project printed and read again, the written top drawn by
+  `BoardImporter` over the other modules; the exercise as it starts, with why, only where the code is not drawable.
+  Every exercise's solution goes through WRITE IT and DRAW IT and solves with the same parts.
+- **One clock period for TIMING and CHECK** (`TimingReport.ClockPeriod`): register to register, input to register and
+  register to output; TIMING shows it as CLOCK PERIOD where it is more than the minimum period.
+- **The two time limits matter.** The slow lane is 3 ns: as written its expression is four gates deep, and it
+  simplifies to `b | (a & ~c)`, three deep as `b | (a & (a ^ c))` with the XOR, AND and OR it gives -- so its lesson is
+  to simplify first. Balance the paths stocks a buffer: on `b` it balances the paths and out no longer flickers, on the
+  XOR's path it is late. A slow answer of each is right at every check, late, and failed on time.
+- **A caret in every shell field**, drawn by the shell: UI Toolkit's took its colour from a deprecated property the
+  browser build ignored. A placeholder flickering after a click into the transcript's search, seen once in the browser,
+  is not reproduced in the editor, where a test holds a field to one focus in and none out.
+- **Found on a 64-bit ALU imported with its testbench**: a written top's inputs are its header's, so a double-click on
+  one names the testbench that drives it and CONVERT, where it said "not an input of the design"; a wave's value beside
+  its name is cut to its room; and the browser's code editor lays itself again on every resize and scroll of the page
+  and stops above the hint strip, where it had stayed where the canvas had been, over PARTS.
+- **Measured for 15g-7** (dotnet, this machine): a drawn 128-bit adder (1026 parts) takes 267 ms to time, 1,159 ms to
+  build TIMING's lines, and 1,684 ms to lay out; the course-sized written CPU 135 ms to time. The glitch hint's timing
+  analysis on every edit while it was unseen is gone: it runs once a glitch-shaped change asks for it.
+
 ---
 
 ## 11. The parts
@@ -2932,7 +2962,7 @@ Each part is one pull request into `v5`, ends with every suite green, and leaves
 | 12 | Hierarchy, and written blocks, edited in CodeMirror in a browser -- in six: 12a stepping inside a block **built** (see "As built in Part 12a"); 12b making a block **built** (see "As built in Part 12b"); 12c arrays **built** (see "As built in Part 12c"); 12d code blocks **built** (see "As built in Part 12d"); 12e the code panel **built** (see "As built in Part 12e"); 12f CodeMirror **built** (see "As built in Part 12f") |
 | 13 | Export and import (and a levelized path in the engine, only if a measurement asks for it) -- in six: 13a exporting a project **built** (see "As built in Part 13a"); 13b importing one **built** (see "As built in Part 13b"); 13c CONVERT **built** (see "As built in Part 13c"); 13d files **built** (see "As built in Part 13d"); 13e templates **built** (see "As built in Part 13e"); 13f limits, the security review, the measurement and the browser check **built** (see "As built in Part 13f"; the levelized path is not needed). **Part 13 is built.** |
 | 14 | The course's tools: path delays, static timing, gate-library mode, step tests, lint, tri-state -- in six, **built**: 14a the timing analysis core, 14b the TIMING tab, 14c step tests, 14d gate-library mode, 14e lint and 14f tri-state buses and inout (see "As built in Part 14a" to "14f"); and 14g, its follow-ups: deleting a module, the code editor's keys, the library held in written code and over budget, and inout pins on written blocks (see "As built in Part 14g") |
-| 15 | A simulator first, the Exercises and the tutorial -- in six: 15a **built** in two (see "As built in Part 15a"): the student's circuits, and opening on the last thing or a start page, the app's menus for BACK, the 4.x game in Settings, music off; 15b the Exercise model, grading and self-checking testbenches **built** (see "As built in Part 15b"); 15c the 35 exercises **built** (see "As built in Part 15c"); 15d Exercises on the workbench **built** (see "As built in Part 15d"); 15e answering in code **built** (see "As built in Part 15e"); 15f first-time hints, the guided tutorial and the browser check **built** (see "As built in Part 15f"). **Part 15 is built.** |
+| 15 | A simulator first, the Exercises and the tutorial -- in six: 15a **built** in two (see "As built in Part 15a"): the student's circuits, and opening on the last thing or a start page, the app's menus for BACK, the 4.x game in Settings, music off; 15b the Exercise model, grading and self-checking testbenches **built** (see "As built in Part 15b"); 15c the 35 exercises **built** (see "As built in Part 15c"); 15d Exercises on the workbench **built** (see "As built in Part 15d"); 15e answering in code **built** (see "As built in Part 15e"); 15f first-time hints, the guided tutorial and the browser check **built** (see "As built in Part 15f"). **Part 15 is built.** Then 15g, what the first playtest asked for: 15g-1 the quick fixes **built** (see "As built in Part 15g-1"); 15g-2 Settings and the credits as pages of the workbench; 15g-3 a lead on every pin; 15g-4 INPUTS, sequences without code; 15g-5 LOGIC, the truth table, expressions and K-maps; 15g-6 STATES, the state diagram; 15g-7 big circuits stay smooth. And 15h, a drawing of any code, planned on its own. |
 | 16 | The old game retired, and a smaller download; 5.0.0 released |
 
 **Agreed after Part 9, 2026-10-19: the language, before Part 10.** A course audit ran every one of the

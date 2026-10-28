@@ -28,8 +28,11 @@ name for the thirty, so the board a student left in a level opens in its
 exercise (`Exercise.Adopt`, `SaveMigration.MigrateOne`), and a solve marks the
 same name complete. The 4.x game
 is one quiet row down, THE 4.x GAME beside CREDITS in Settings, which opens its
-title screen, and that screen's SIMULATOR comes back. The music is off until
-switched on. The 4.x paragraphs below hold of that game as it runs once
+title screen. **The way back is the title screen's first and largest button,
+BACK TO THE SIMULATOR, a 4.x board's SIMULATOR beside MENU, or Escape on the
+title screen** (Part 15g): it was a row of the menu like any other, and Escape
+there showed the board under it, so a player inside the game found no way out
+(2026-10-28). The music is off until switched on. The 4.x paragraphs below hold of that game as it runs once
 entered.
 
 ## Architecture rule (do not break this)
@@ -707,7 +710,9 @@ failure side.
   path, the minimum period and the gate count, the path picked lit on the
   canvas while the tab is up, Part 14b; the worst measured by stepping every
   input, the paths that never fire marked, and STEP TEST, 14c; and LIBRARY, the gate
-  library the design is held to, 14d), and a one-line status that
+  library the design is held to, 14d; and the CLOCK PERIOD CHECK holds an exercise
+  to, where an input's or an output's path is slower than register to register,
+  15g), and a one-line status that
   names the gestures where the pointer is. **The drawings stay uGUI** -- the
   circuit, the waves, the legend, the minimap -- each placed under the panel
   that frames it, at its own size; a panel's middle takes no clicks. Its popups
@@ -934,13 +939,15 @@ failure side.
   over it, solid where it is see-through over the 4.x board, and BACK there comes
   back. **The start page is the shell's** (`WorkbenchPanel.Home.cs`), over
   everything under the header, and while it is up the workbench reads no keys and
-  no pointer of its own; so is EXERCISES' page (`WorkbenchPanel.Exercises.cs`), and
+  no pointer of its own -- but ? and S, the sample chip's key, which shows the next
+  sample and leaves the page (Part 15g: it did nothing there); so is EXERCISES' page (`WorkbenchPanel.Exercises.cs`), and
   either up is `PageShowing`. **An exercise open puts GOAL and CHECK at the
   controls' row's right end**, the chip beside them made room for: GOAL its brief,
   the hint behind SHOW THE HINT, and CHECK the grade, every failed check a
   TRANSCRIPT line at its moment -- and WRITE IT (Part 15e), which turns the answer
   into code held to the library and the stock as a drawing is, and DRAW IT back,
-  asking first. **The circuit's window is the canvas's** (Part 10a):
+  asking first, which draws the code as its gates (Part 15g; it put back the
+  exercise as it starts) and says why where it cannot. **The circuit's window is the canvas's** (Part 10a):
   its presses go to `CanvasPointer`, never to `WavePointer` -- a left drag moves
   the selection or draws a box, the middle button or Space with a drag pans, so
   **Space plays and pauses on its release**, and Alt held while dragging or
@@ -1013,6 +1020,12 @@ failure side.
   flag that leaked would be a game whose keys do nothing. The field answers
   Enter and Escape itself while it holds the keys (`NameBoardPanel`), and the
   frame it closes is covered by `UiModal.OpenOrJustClosed` like any panel's.
+  **Every shell field draws its own caret** (`ShellTheme.Field`, Part 15g): UI
+  Toolkit's took its colour from a deprecated property that a browser build
+  ignored, and no field there showed where the next letter goes. The shell puts that
+  one out and draws a bar in the text colour, blinking on `ViewTime` -- so the
+  reference shots hold it still -- while the field has the keyboard and nothing in it
+  is chosen.
   **A field that stays on screen has to let go itself**: TextMesh Pro leaves a
   finished field selected, and every other field let go only by closing with
   its panel. The workbench's RUN TO kept every workbench key dead after Enter
@@ -1934,19 +1947,25 @@ its question where the button was, exactly the button's height, with CANCEL
 and YES, RESET below it; Enter answers nothing and Escape backs out of the
 question before the screen.
 
-**A reset switches level first and empties the save after.**
-`ProgressTracker.ResetProgress` loads the first level, then clears the store,
-so whatever is written on the way out of the old level -- its board, or the
-tutorial recording itself finished -- is emptied with the rest. Boards are
-neither saved nor restored while it runs, or the first level would come back
-with its old circuit. Sound and data live in PlayerPrefs, not the save, and
-stay as they were.
+**A reset starts the exercises over and keeps the circuits** (Part 15g,
+Ahmad's choice, 2026-10-28; it emptied the whole save). It forgets every solved
+mark, every answer kept under an exercise's id and the 4.x board of its level,
+which the exercise would otherwise migrate back, the bests, the tutorial and
+every hint seen (`ProgressStore.ForgetTheExercises`); MY CIRCUIT, every named
+circuit, the free-play boards and their blocks stay, and Settings says which is
+which. **It switches level first and forgets after**: `ProgressTracker.ResetProgress`
+loads the first level, then clears the store, so whatever is written on the way
+out of the old level -- its board, or the tutorial recording itself finished --
+goes with the rest. Boards are neither saved nor restored while it runs, or the
+first level would come back with its old circuit. Sound and data live in
+PlayerPrefs, not the save, and stay as they were.
 
-**An empty file is not a new player.** The tutorial remembers it has run this
-session and free play holds its setup in memory, and neither reads the save
-again. `ProgressTracker.ProgressReset` is for anything that keeps its own copy
-of something the save said; without it a reset brought back neither the
-tutorial nor the opening setup until a restart.
+**A forgotten exercise is not a new player.** The tutorial remembers it has run
+this session, and neither it nor the workbench reads the save again.
+`ProgressTracker.ProgressReset` is for anything that keeps its own copy of
+something the save said: the tutorial offers itself again, and the workbench lets
+an exercise open go to the start page. Free play keeps its setup, which the save
+still holds.
 
 **Analytics is the one thing that sends data anywhere.** `GameAnalytics`
 reports exactly two events, `levelStarted` and `levelSolved`, each

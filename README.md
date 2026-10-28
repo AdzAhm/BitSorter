@@ -279,12 +279,13 @@ file:
 %USERPROFILE%\AppData\LocalLow\ZADZ\BitSorter\progress.json
 ```
 
-**To start over:** main menu → **Settings** → **Reset progress** (in 5.0, the workbench's
-**SETTINGS**). It asks first,
-and nothing is forgotten unless you answer yes. After a reset the game is as it
-was on first launch: the first level, an empty board, the tutorial offering
-itself again and the sandbox back on its default setup. Sound, music, effects,
-volume, display and data settings are not progress, so they stay as they are.
+**To start over:** the workbench's **SETTINGS** → **Reset progress**. It asks first,
+and nothing is forgotten unless you answer yes. A reset starts the exercises over:
+every solved exercise, its saved answer and its best, the tutorial and the first-time
+hints are forgotten -- and the 4.x game's levels with them, which share the exercises'
+names. **Your circuits are kept**: MY CIRCUIT, every circuit you named, and free play's
+boards and blocks. Sound, music, effects, volume, display and data settings are not
+progress, so they stay as they are.
 
 In a browser the same data lives in the browser's own storage for the address
 you played at. Progress does not travel between the desktop build and a browser,
@@ -330,10 +331,12 @@ first time you meet them -- a gate's delay, a clock, a glitch, z and x.
 **WRITE IT** answers an exercise in SystemVerilog instead: your drawing becomes
 code, gate for gate, and you carry on typing. It is held to the same parts as a
 drawing -- the course's gates, no operators, no more of each than the exercise
-gives -- and graded the same way. **DRAW IT** goes back to drawing.
+gives -- and graded the same way. **DRAW IT** goes back to drawing, and draws your code
+as its gates.
 
 The 4.x game is still there until 5.0 replaces it: Settings, **THE 4.x GAME**,
-beside the credits. Its title screen has **SIMULATOR** to come back.
+beside the credits. **BACK TO THE SIMULATOR**, first on its title screen, brings you back,
+and so do **SIMULATOR** beside MENU on a 4.x board and Escape on the title screen.
 
 ### Your own SystemVerilog, in and out (5.0 preview)
 
