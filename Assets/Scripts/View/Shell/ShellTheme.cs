@@ -306,8 +306,9 @@ namespace BitSorter.View
         /// <summary>
         /// The bar where the next letter typed goes (Part 15g): in the text colour, a line of the field's text tall, blinking on
         /// the view's clock (<see cref="ViewTime"/>) while the field has the keyboard and nothing in it is chosen, and shown
-        /// from the moment the caret moves, as a text editor's is. UI Toolkit's own is put out (<see cref="Field"/>): in the browser no field showed one. Placed on
-        /// the scheduler of the field's own panel, so it costs nothing while the field is not drawn.
+        /// from the moment the caret moves, as a text editor's is. UI Toolkit's own is put out (<see cref="Field"/>): in the
+        /// browser no field showed one. Its check runs only while the field has the keyboard, started and paused with its
+        /// focus (the 15g-1 review: it ran for every field).
         /// </summary>
         private static void Caret(TextField field, VisualElement input, SchematicPalette palette, UiType type)
         {
@@ -325,7 +326,7 @@ namespace BitSorter.View
             float height = Mathf.Round(UiTheme.SizeOf(type) * 1.25f);
             int movedAt = -1;
             float since = 0f;
-            caret.schedule.Execute(() =>
+            IVisualElementScheduledItem blink = caret.schedule.Execute(() =>
             {
                 bool focused = field.panel?.focusController?.focusedElement is VisualElement f && (f == field || field.Contains(f));
                 if (!focused || field.cursorIndex != field.selectIndex)
@@ -349,6 +350,14 @@ namespace BitSorter.View
                 bool on = ((ViewTime.Now - since) % (2f * CaretBlink)) < CaretBlink;   // pinned in the reference shots, so it holds still there
                 caret.style.display = on ? DisplayStyle.Flex : DisplayStyle.None;
             }).Every(50);
+            blink.Pause();
+            field.RegisterCallback<FocusInEvent>(_ => blink.Resume());
+            field.RegisterCallback<FocusOutEvent>(_ =>
+            {
+                blink.Pause();
+                caret.style.display = DisplayStyle.None;
+                movedAt = -1;
+            });
         }
 
         /// <summary>Sets the quiet word a field shows while it is empty.</summary>

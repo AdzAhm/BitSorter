@@ -60,7 +60,8 @@ const api = {
     // on the canvas, and a page scrolled sideways, or a window made wider round a centred canvas, left it where the canvas
     // had been -- over PARTS, in Ahmad's ALU (2026-10-28).
     window.addEventListener("resize", layOut);
-    window.addEventListener("scroll", layOut, true);
+    // Any scroll on the page moves the canvas under it -- but the editor's own scrolling does not, and it fires often.
+    window.addEventListener("scroll", (e) => { if (!state.host || !state.host.contains(e.target)) layOut(); }, true);
 
     // Ctrl+S applies as Ctrl+Enter does (Part 14g), and the browser's Save Page never opens over the code. Escape closes
     // find and replace first, and only then lets the editor go.

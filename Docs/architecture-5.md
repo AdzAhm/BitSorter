@@ -2633,7 +2633,8 @@ thing that was open, and with nothing, on a start page like a good IDE's.
   backdrop is solid there, where it is see-through over the 4.x board: the board under the workbench is the 4.x
   game's. A change of look reloads the game and puts Settings back over the same thing (`OpenAgain`).
 - **The 4.x game is one quiet row down**, until Part 16 deletes it: THE 4.x GAME beside CREDITS in Settings opens its
-  title screen, whose WORKBENCH row is now SIMULATOR. Nothing of 4.x is on a first screen (Ahmad: "not deep but not
+  title screen, whose WORKBENCH row became SIMULATOR -- and in Part 15g its first and largest button, BACK TO THE
+  SIMULATOR, with SIMULATOR beside MENU on a 4.x board. Nothing of 4.x is on a first screen (Ahmad: "not deep but not
   plainly").
   - The tests written against the 4.x boot keep it: `AppLaunch.Classic`, set only by `TestScene.Load`.
     `TestScene.LoadSimulator` boots as the game does.

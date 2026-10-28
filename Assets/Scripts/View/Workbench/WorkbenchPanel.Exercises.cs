@@ -266,7 +266,7 @@ namespace BitSorter.View
             EditResult replaced = _session.ReplaceModule(drawn);
             Said(replaced);
             if (replaced.Done && notDrawn.Count > 0)
-                Notice("the code could not be drawn, so the exercise opens as it starts: " + string.Join(" ", notDrawn));
+                Notice("the code could not be drawn, so the exercise opens as it starts -- Ctrl+Z brings your code back: " + string.Join(" ", notDrawn));
             RefreshCodeButton();
         }
 

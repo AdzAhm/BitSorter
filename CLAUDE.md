@@ -1102,7 +1102,9 @@ failure side.
 
   **Escape is the main menu and M is the level list** -- on the 4.x board, once the
   4.x game is entered from Settings; on the simulator Escape never leaves the
-  workbench (Part 15a). They were the other
+  workbench (Part 15a), and on the title screen THE 4.x GAME opened, it goes back
+  to the simulator (Part 15g) -- the menu opened from a board is a pause, and Escape
+  closes it onto the board. They were the other
   way round until a playtest, 2026-09-26: Escape is the key players reach for
   to get to a menu. **Escape closes what is on top, and only with nothing on
   top does it open the main menu**; M opens and closes the list, and only
@@ -1860,8 +1862,9 @@ the call that presents the card, so there is nothing to catch.
 **Settings is sound and its volume, fullscreen, vertical sync, a frame cap and a
 frame-rate counter, the look, reduced motion and the shortcut keys, the data
 switch, starting over, the credits, and THE 4.x GAME.** `SettingsPanel` is reached from the
-workbench's SETTINGS, over the simulator (`OpenOver`), and from the 4.x title screen, and BACK
-goes back to whichever it was -- a change of look reloads the game and puts Settings back over
+workbench's SETTINGS, over the simulator (`OpenOver`) -- the 4.x title screen's SETTINGS opens the
+same, over the simulator, since Part 15g, and only the 4.x boot the tests use still opens it over
+the title screen -- and BACK goes back to whichever it was -- a change of look reloads the game and puts Settings back over
 the same one (`OpenAgain`). It plays the menu's music. Sound and Data were rows of the menu
 until it existed.
 

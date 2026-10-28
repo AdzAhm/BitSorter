@@ -643,7 +643,12 @@ namespace BitSorter.Board
                 return null;
             }
 
-            (MemorySourceFiles files, List<string> paths) = BoardPrinter.AsSources(BoardPrinter.Print(compiled));
+            // The top read as the student wrote it, not as it prints -- under a header and perhaps a timescale -- so what the
+            // import says is at the lines the editor shows (the 15g-1 review).
+            var printed = new List<PrintedSource>();
+            foreach (PrintedSource source in BoardPrinter.Print(compiled))
+                printed.Add(source.Path == project.Top + ".sv" ? new PrintedSource(source.Path, project.TopModule.Source) : source);
+            (MemorySourceFiles files, List<string> paths) = BoardPrinter.AsSources(printed);
             paths.Remove(compiled.Testbench + ".sv");
             SyntaxTree tree = SyntaxReader.ReadAll(paths, files);
 
