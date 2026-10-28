@@ -76,6 +76,23 @@ namespace BitSorter.PlayMode.Tests
             yield return null;
         }
 
+        /// <summary>
+        /// S on the start page shows the next sample, as the chip it is drawn beside does (Part 15g): the page held every
+        /// workbench key, so the one key shown over it did nothing (found in the browser, 2026-10-28).
+        /// </summary>
+        [UnityTest]
+        public IEnumerator S_OnTheStartPage_ShowsTheNextSample()
+        {
+            yield return TestScene.LoadSimulator();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            Assert.IsTrue(workbench.StartPageShowing, "sanity: a fresh save opens on the start page");
+            int before = workbench.Sample;
+
+            yield return Tap(_keyboard.sKey);
+            Assert.IsFalse(workbench.StartPageShowing, "S left the start page");
+            Assert.AreEqual((before + 1) % WorkbenchSamples.All.Count, workbench.Sample, "for the next sample");
+        }
+
         private IEnumerator Tap(KeyControl key)
         {
             Press(key);
