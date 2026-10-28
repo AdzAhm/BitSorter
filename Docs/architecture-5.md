@@ -3238,6 +3238,40 @@ as code with its testbench, into a browser build. These are the fixes; the drawi
   - Play Mode: the fold's arrows and rows on a 16-bit adder, INPUTS and its CONVERT on an imported testbench, the cursor
     placed by a click, the playhead by Shift and by its line, and an empty field's caret.
 
+
+**As built in Part 15h-1: the netlist of a module's code** (`Sim/Rtl`). The first step to drawing written code: one scope
+of an elaborated design as cells and the nets between them, word-level, the way a synthesis tool's RTL view has it.
+
+- **`RtlExtractor.Of(design, scope)`** makes an `RtlNetlist` from the elaborated design, where parameters, generate
+  loops and widths are already worked out.
+  - **A scope's own logic** is what drives its own signals and those of its generate blocks and named blocks. An
+    instance inside it is one `Instance` cell, its pins the instance's ports, named from the scope (`slice[3].s`); the
+    values on its inputs are read off the zero-delay assignments the elaborator connects a port with (`port dut.h1.a`).
+  - **Each node of an expression is one cell** (`Expr.ToRtl`): `Constant`, `Gate`, `Unary`, `Binary`, `Mux`, `Concat`,
+    `Replicate`, `Slice`, `Bit` and `Part` (a select by a signal), `Resize`, `Signedness`, `TwoState`, and `Word`, a
+    memory's read port.
+  - **Every driven signal is the output of a `Join`**: its drivers' outputs fitted to their slices, resolved as a wire
+    resolves them, and held as the signal holds them -- its width, sign and 2-state type -- exactly as the engine does
+    (`Simulator.ResolveOwn`, `Shape`). One driver of the whole signal is a wire, which a drawing collapses.
+  - **A process is a box** for now, what it reads in and what it writes out: Part 15h-2 opens each that describes
+    hardware. **A node that is no hardware** -- a call, a string, a real, `$random` -- is an `Opaque` box.
+- **`RtlEvaluator.Evaluate(netlist, signals)`** works out every net from the values of what feeds it: the inputs, and
+  what the instances and processes drive, read off the design's signals.
+  - Each cell applies the engine's own operator. `Expr.Apply`, `TryOffset`, `PartAt` and `WordAt` are what the engine's
+    nodes evaluate with as well, so the two cannot drift apart.
+  - A loop of logic is cut where it closes, each net in it read off its signal.
+- **Tests** (`RtlNetlistTests`, Board.Tests): every scope's netlist held to the engine. Every net a join drives -- every
+  signal the scope's own logic gives a value -- reads what the engine has there, over random vectors far enough apart
+  for every delay to settle, with an x or a z now and then. The designs:
+  - every exercise's reference solution, its cells' insides included;
+  - every module with ports in the oracle corpus's structural, behavioural and smoke designs, read with their folder's
+    includes, and a testbench alone run as written to its end;
+  - a module of every operator.
+
+  The shape is held too: the full adder's five instances joined by the nets the code names, and alu64's 64 slices.
+- **Found on the way:** the shell's caret was placed on a timer of 50 ms of real time, and a full Play Mode run's driven
+  frames now and then came in under it. It is placed every frame the field has the keyboard (a red test, then the fix).
+
 ---
 
 ## 11. The parts
@@ -3261,7 +3295,7 @@ Each part is one pull request into `v5`, ends with every suite green, and leaves
 | 12 | Hierarchy, and written blocks, edited in CodeMirror in a browser -- in six: 12a stepping inside a block **built** (see "As built in Part 12a"); 12b making a block **built** (see "As built in Part 12b"); 12c arrays **built** (see "As built in Part 12c"); 12d code blocks **built** (see "As built in Part 12d"); 12e the code panel **built** (see "As built in Part 12e"); 12f CodeMirror **built** (see "As built in Part 12f") |
 | 13 | Export and import (and a levelized path in the engine, only if a measurement asks for it) -- in six: 13a exporting a project **built** (see "As built in Part 13a"); 13b importing one **built** (see "As built in Part 13b"); 13c CONVERT **built** (see "As built in Part 13c"); 13d files **built** (see "As built in Part 13d"); 13e templates **built** (see "As built in Part 13e"); 13f limits, the security review, the measurement and the browser check **built** (see "As built in Part 13f"; the levelized path is not needed). **Part 13 is built.** |
 | 14 | The course's tools: path delays, static timing, gate-library mode, step tests, lint, tri-state -- in six, **built**: 14a the timing analysis core, 14b the TIMING tab, 14c step tests, 14d gate-library mode, 14e lint and 14f tri-state buses and inout (see "As built in Part 14a" to "14f"); and 14g, its follow-ups: deleting a module, the code editor's keys, the library held in written code and over budget, and inout pins on written blocks (see "As built in Part 14g") |
-| 15 | A simulator first, the Exercises and the tutorial -- in six: 15a **built** in two (see "As built in Part 15a"): the student's circuits, and opening on the last thing or a start page, the app's menus for BACK, the 4.x game in Settings, music off; 15b the Exercise model, grading and self-checking testbenches **built** (see "As built in Part 15b"); 15c the 35 exercises **built** (see "As built in Part 15c"); 15d Exercises on the workbench **built** (see "As built in Part 15d"); 15e answering in code **built** (see "As built in Part 15e"); 15f first-time hints, the guided tutorial and the browser check **built** (see "As built in Part 15f"). **Part 15 is built.** Then 15g, what the first playtest asked for: 15g-1 the quick fixes **built** (see "As built in Part 15g-1"); 15g-2 Settings and the credits as pages of the workbench **built** (see "As built in Part 15g-2"); 15g-3 a lead on every pin **built** (see "As built in Part 15g-3"); 15g-4 INPUTS, sequences without code **built** (see "As built in Part 15g-4"); 15g-5 LOGIC **built** (see "As built in Part 15g-5"); 15g-6 STATES, the state diagram, **built** (see "As built in Part 15g-6"); 15g-7 big circuits stay smooth **built** (see "As built in Part 15g-7"). And 15h, a drawing of any code, planned on its own. |
+| 15 | A simulator first, the Exercises and the tutorial -- in six: 15a **built** in two (see "As built in Part 15a"): the student's circuits, and opening on the last thing or a start page, the app's menus for BACK, the 4.x game in Settings, music off; 15b the Exercise model, grading and self-checking testbenches **built** (see "As built in Part 15b"); 15c the 35 exercises **built** (see "As built in Part 15c"); 15d Exercises on the workbench **built** (see "As built in Part 15d"); 15e answering in code **built** (see "As built in Part 15e"); 15f first-time hints, the guided tutorial and the browser check **built** (see "As built in Part 15f"). **Part 15 is built.** Then 15g, what the first playtest asked for: 15g-1 the quick fixes **built** (see "As built in Part 15g-1"); 15g-2 Settings and the credits as pages of the workbench **built** (see "As built in Part 15g-2"); 15g-3 a lead on every pin **built** (see "As built in Part 15g-3"); 15g-4 INPUTS, sequences without code **built** (see "As built in Part 15g-4"); 15g-5 LOGIC **built** (see "As built in Part 15g-5"); 15g-6 STATES, the state diagram, **built** (see "As built in Part 15g-6"); 15g-7 big circuits stay smooth **built** (see "As built in Part 15g-7"). And 15h, a drawing of any code: 15h-1 the netlist of a module's code **built** (see "As built in Part 15h-1"). |
 | 16 | The old game retired, and a smaller download; 5.0.0 released |
 
 **Agreed after Part 9, 2026-10-19: the language, before Part 10.** A course audit ran every one of the

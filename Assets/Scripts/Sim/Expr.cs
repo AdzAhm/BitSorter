@@ -130,6 +130,112 @@ namespace BitSorter.Sim
             return false;
         }
 
+        /// <summary>
+        /// Itself as cells of a netlist (Part 15h), its value's net returned: each node of the tree one cell, a read of a
+        /// signal that signal's net. A node that is no hardware -- a call, a string, a real, <c>$random</c> -- is an opaque box
+        /// the evaluator works out as the engine does.
+        /// </summary>
+        internal virtual int ToRtl(RtlBuilder b) => b.Opaque(this);
+
+        /// <summary>A unary operator applied to a value: what <see cref="Apply(UnaryOp, Expr)"/> evaluates, and a netlist's cell.</summary>
+        internal static LogicVec Apply(UnaryOp op, LogicVec a)
+        {
+            switch (op)
+            {
+                case UnaryOp.Not: return LogicVec.Not(a);
+                case UnaryOp.Negate: return LogicVec.Negate(a);
+                case UnaryOp.LogicalNot: return LogicVec.LogicalNot(a);
+                case UnaryOp.ReduceAnd: return LogicVec.ReduceAnd(a);
+                case UnaryOp.ReduceOr: return LogicVec.ReduceOr(a);
+                case UnaryOp.ReduceXor: return LogicVec.ReduceXor(a);
+                case UnaryOp.ReduceNand: return LogicVec.ReduceNand(a);
+                case UnaryOp.ReduceNor: return LogicVec.ReduceNor(a);
+                case UnaryOp.CountOnes: return LogicVec.CountOnes(a);
+                case UnaryOp.OneHot: return LogicVec.OneHot(a);
+                case UnaryOp.OneHot0: return LogicVec.OneHot0(a);
+                case UnaryOp.IsUnknown: return LogicVec.IsUnknown(a);
+                default: return LogicVec.ReduceXnor(a);
+            }
+        }
+
+        /// <summary>A binary operator applied to two values: what <see cref="Apply(BinaryOp, Expr, Expr)"/> evaluates, and a netlist's cell.</summary>
+        internal static LogicVec Apply(BinaryOp op, LogicVec a, LogicVec b)
+        {
+            switch (op)
+            {
+                case BinaryOp.And: return LogicVec.And(a, b);
+                case BinaryOp.Or: return LogicVec.Or(a, b);
+                case BinaryOp.Xor: return LogicVec.Xor(a, b);
+                case BinaryOp.Xnor: return LogicVec.Xnor(a, b);
+                case BinaryOp.Add: return LogicVec.Add(a, b);
+                case BinaryOp.Subtract: return LogicVec.Subtract(a, b);
+                case BinaryOp.Multiply: return LogicVec.Multiply(a, b);
+                case BinaryOp.Divide: return LogicVec.Divide(a, b);
+                case BinaryOp.Modulo: return LogicVec.Modulo(a, b);
+                case BinaryOp.Less: return LogicVec.LessThan(a, b);
+                case BinaryOp.LessOrEqual: return LogicVec.LessOrEqual(a, b);
+                case BinaryOp.Greater: return LogicVec.GreaterThan(a, b);
+                case BinaryOp.GreaterOrEqual: return LogicVec.GreaterOrEqual(a, b);
+                case BinaryOp.Equal: return LogicVec.Equal(a, b);
+                case BinaryOp.NotEqual: return LogicVec.NotEqual(a, b);
+                case BinaryOp.CaseEqual: return LogicVec.CaseEqual(a, b);
+                case BinaryOp.CaseNotEqual: return LogicVec.CaseNotEqual(a, b);
+                case BinaryOp.LogicalAnd: return LogicVec.LogicalAnd(a, b);
+                case BinaryOp.LogicalOr: return LogicVec.LogicalOr(a, b);
+                case BinaryOp.ShiftLeft: return LogicVec.ShiftLeft(a, b);
+                case BinaryOp.ShiftRight: return LogicVec.ShiftRight(a, b);
+                case BinaryOp.ArithmeticShiftLeft: return LogicVec.ArithmeticShiftLeft(a, b);
+                case BinaryOp.WildcardEqual: return LogicVec.WildcardEqual(a, b);
+                case BinaryOp.WildcardNotEqual: return LogicVec.WildcardNotEqual(a, b);
+                default: return LogicVec.ArithmeticShiftRight(a, b);
+            }
+        }
+
+        /// <summary>
+        /// The place an indexed select's offset gives, in steps -- false when the offset is unknown or too large to be one: what
+        /// <see cref="Part"/> evaluates, and a netlist's cell.
+        /// </summary>
+        internal static bool TryOffset(LogicVec offset, out long at)
+        {
+            at = 0;
+            if (!offset.IsKnown)
+                return false;
+            if (offset.IsSigned)
+                return offset.TryGetInt64(out at);
+            if (offset.TryGetUInt64(out ulong unsigned) && unsigned <= long.MaxValue)
+            {
+                at = (long)unsigned;
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>The <paramref name="width"/> bits of <paramref name="value"/> from step <paramref name="at"/>, or <paramref name="unknown"/> past either end.</summary>
+        internal static LogicVec PartAt(LogicVec value, long at, int step, int width, LogicVec unknown)
+        {
+            // Far enough past either end, nothing of the value is in it; that also keeps the product small.
+            long reach = (value.Width + (long)width) / step + 1;
+            if (at > reach || at < -reach)
+                return unknown;
+
+            long lowest = at * step;
+            if (lowest >= value.Width || lowest + width <= 0)
+                return unknown;
+
+            return value.Slice((int)lowest, width);
+        }
+
+        /// <summary>
+        /// Which word of a memory of <paramref name="depth"/> words an address picks, or -1 for none -- unknown, negative or
+        /// past its end: what <see cref="WordOf"/> evaluates, and a netlist's cell.
+        /// </summary>
+        internal static int WordAt(LogicVec offset, int depth)
+        {
+            if (!offset.IsKnown || (offset.IsSigned && offset[offset.Width - 1] == Logic4.One))
+                return -1;
+            return offset.TryGetUInt64(out ulong at) && at < (ulong)depth ? (int)at : -1;
+        }
+
         // -----------------------------------------------------------------
         // Building expressions
         // -----------------------------------------------------------------
@@ -200,12 +306,11 @@ namespace BitSorter.Sim
 
             public override LogicVec Evaluate(LogicVec[] values)
             {
-                LogicVec offset = _offset.Evaluate(values);
-                if (!offset.IsKnown || (offset.IsSigned && offset[offset.Width - 1] == Logic4.One))
-                    return _unknown;
-
-                return offset.TryGetUInt64(out ulong at) && at < (ulong)_depth ? values[_first + (int)at] : _unknown;
+                int at = WordAt(_offset.Evaluate(values), _depth);
+                return at >= 0 ? values[_first + at] : _unknown;
             }
+
+            internal override int ToRtl(RtlBuilder b) => b.Word(_first, _depth, _width, _offset.ToRtl(b));
 
             public override void CollectReads(ICollection<int> reads)
             {
@@ -249,6 +354,7 @@ namespace BitSorter.Sim
             public override LogicVec Evaluate(LogicVec[] values) => _a.Evaluate(values).ToTwoState();
             public override void CollectReads(ICollection<int> reads) => _a.CollectReads(reads);
             internal override void CollectCalls(ICollection<FunctionInfo> calls) => _a.CollectCalls(calls);
+            internal override int ToRtl(RtlBuilder b) => b.TwoState(_a.ToRtl(b), Width);
 
             internal override int Height => 1 + HeightOf(_a);
             internal override BitDeps Depends(int[] first) => _a.Depends(first);
@@ -275,6 +381,8 @@ namespace BitSorter.Sim
                 LogicVec v = _a.Evaluate(values);
                 return _signed ? v.AsSigned() : v.AsUnsigned();
             }
+
+            internal override int ToRtl(RtlBuilder b) => b.Signedness(_a.ToRtl(b), _signed, Width);
 
             public override void CollectReads(ICollection<int> reads) => _a.CollectReads(reads);
             internal override void CollectCalls(ICollection<FunctionInfo> calls) => _a.CollectCalls(calls);
@@ -305,6 +413,7 @@ namespace BitSorter.Sim
             public override int Width => _width;
             public override LogicVec Evaluate(LogicVec[] values) => values[_signal];
             public override void CollectReads(ICollection<int> reads) => reads.Add(_signal);
+            internal override int ToRtl(RtlBuilder b) => b.Read(_signal, _width);
 
             internal override bool CanFloat(Func<int, bool> floats) => floats != null && floats(_signal);
 
@@ -333,6 +442,7 @@ namespace BitSorter.Sim
             public override int Width => _value.Width;
             public override LogicVec Evaluate(LogicVec[] values) => _value;
             public override void CollectReads(ICollection<int> reads) { }
+            internal override int ToRtl(RtlBuilder b) => b.Constant(_value);
 
             internal override bool CanFloat(Func<int, bool> floats)
             {
@@ -363,26 +473,9 @@ namespace BitSorter.Sim
 
             public override int Width => _op == UnaryOp.Not || _op == UnaryOp.Negate ? _a.Width : _op == UnaryOp.CountOnes ? 32 : 1;
 
-            public override LogicVec Evaluate(LogicVec[] values)
-            {
-                LogicVec a = _a.Evaluate(values);
-                switch (_op)
-                {
-                    case UnaryOp.Not: return LogicVec.Not(a);
-                    case UnaryOp.Negate: return LogicVec.Negate(a);
-                    case UnaryOp.LogicalNot: return LogicVec.LogicalNot(a);
-                    case UnaryOp.ReduceAnd: return LogicVec.ReduceAnd(a);
-                    case UnaryOp.ReduceOr: return LogicVec.ReduceOr(a);
-                    case UnaryOp.ReduceXor: return LogicVec.ReduceXor(a);
-                    case UnaryOp.ReduceNand: return LogicVec.ReduceNand(a);
-                    case UnaryOp.ReduceNor: return LogicVec.ReduceNor(a);
-                    case UnaryOp.CountOnes: return LogicVec.CountOnes(a);
-                    case UnaryOp.OneHot: return LogicVec.OneHot(a);
-                    case UnaryOp.OneHot0: return LogicVec.OneHot0(a);
-                    case UnaryOp.IsUnknown: return LogicVec.IsUnknown(a);
-                    default: return LogicVec.ReduceXnor(a);
-                }
-            }
+            public override LogicVec Evaluate(LogicVec[] values) => Apply(_op, _a.Evaluate(values));
+
+            internal override int ToRtl(RtlBuilder b) => b.Unary(_op, _a.ToRtl(b), Width);
 
             public override void CollectReads(ICollection<int> reads) => _a.CollectReads(reads);
             internal override void CollectCalls(ICollection<FunctionInfo> calls) => _a.CollectCalls(calls);
@@ -444,39 +537,12 @@ namespace BitSorter.Sim
                 }
             }
 
-            public override LogicVec Evaluate(LogicVec[] values)
-            {
-                LogicVec a = _a.Evaluate(values);
-                LogicVec b = _b.Evaluate(values);
+            public override LogicVec Evaluate(LogicVec[] values) => Apply(_op, _a.Evaluate(values), _b.Evaluate(values));
 
-                switch (_op)
-                {
-                    case BinaryOp.And: return LogicVec.And(a, b);
-                    case BinaryOp.Or: return LogicVec.Or(a, b);
-                    case BinaryOp.Xor: return LogicVec.Xor(a, b);
-                    case BinaryOp.Xnor: return LogicVec.Xnor(a, b);
-                    case BinaryOp.Add: return LogicVec.Add(a, b);
-                    case BinaryOp.Subtract: return LogicVec.Subtract(a, b);
-                    case BinaryOp.Multiply: return LogicVec.Multiply(a, b);
-                    case BinaryOp.Divide: return LogicVec.Divide(a, b);
-                    case BinaryOp.Modulo: return LogicVec.Modulo(a, b);
-                    case BinaryOp.Less: return LogicVec.LessThan(a, b);
-                    case BinaryOp.LessOrEqual: return LogicVec.LessOrEqual(a, b);
-                    case BinaryOp.Greater: return LogicVec.GreaterThan(a, b);
-                    case BinaryOp.GreaterOrEqual: return LogicVec.GreaterOrEqual(a, b);
-                    case BinaryOp.Equal: return LogicVec.Equal(a, b);
-                    case BinaryOp.NotEqual: return LogicVec.NotEqual(a, b);
-                    case BinaryOp.CaseEqual: return LogicVec.CaseEqual(a, b);
-                    case BinaryOp.CaseNotEqual: return LogicVec.CaseNotEqual(a, b);
-                    case BinaryOp.LogicalAnd: return LogicVec.LogicalAnd(a, b);
-                    case BinaryOp.LogicalOr: return LogicVec.LogicalOr(a, b);
-                    case BinaryOp.ShiftLeft: return LogicVec.ShiftLeft(a, b);
-                    case BinaryOp.ShiftRight: return LogicVec.ShiftRight(a, b);
-                    case BinaryOp.ArithmeticShiftLeft: return LogicVec.ArithmeticShiftLeft(a, b);
-                    case BinaryOp.WildcardEqual: return LogicVec.WildcardEqual(a, b);
-                    case BinaryOp.WildcardNotEqual: return LogicVec.WildcardNotEqual(a, b);
-                    default: return LogicVec.ArithmeticShiftRight(a, b);
-                }
+            internal override int ToRtl(RtlBuilder b)
+            {
+                int a = _a.ToRtl(b);
+                return b.Binary(_op, a, _b.ToRtl(b), Width);
             }
 
             public override void CollectReads(ICollection<int> reads)
@@ -550,6 +616,12 @@ namespace BitSorter.Sim
             public override int Width => _high.Width + _low.Width;
             public override LogicVec Evaluate(LogicVec[] values) => LogicVec.Concat(_high.Evaluate(values), _low.Evaluate(values));
 
+            internal override int ToRtl(RtlBuilder b)
+            {
+                int high = _high.ToRtl(b);
+                return b.Concat(high, _low.ToRtl(b), Width);
+            }
+
             internal override bool CanFloat(Func<int, bool> floats) => _high.CanFloat(floats) || _low.CanFloat(floats);
 
             public override void CollectReads(ICollection<int> reads)
@@ -591,6 +663,7 @@ namespace BitSorter.Sim
 
             public override int Width => _a.Width * _count;
             public override LogicVec Evaluate(LogicVec[] values) => LogicVec.Replicate(_a.Evaluate(values), _count);
+            internal override int ToRtl(RtlBuilder b) => b.Replicate(_a.ToRtl(b), _count, Width);
             public override void CollectReads(ICollection<int> reads) => _a.CollectReads(reads);
 
             internal override bool CanFloat(Func<int, bool> floats) => _a.CanFloat(floats);
@@ -624,6 +697,7 @@ namespace BitSorter.Sim
 
             public override int Width => _width;
             public override LogicVec Evaluate(LogicVec[] values) => _a.Evaluate(values).Slice(_lowest, _width);
+            internal override int ToRtl(RtlBuilder b) => b.Slice(_a.ToRtl(b), _lowest, _width);
 
             internal override bool CanFloat(Func<int, bool> floats) => _a.CanFloat(floats);
             public override void CollectReads(ICollection<int> reads) => _a.CollectReads(reads);
@@ -655,6 +729,12 @@ namespace BitSorter.Sim
 
             public override int Width => 1;
             public override LogicVec Evaluate(LogicVec[] values) => _a.Evaluate(values).Bit(_index.Evaluate(values));
+
+            internal override int ToRtl(RtlBuilder b)
+            {
+                int a = _a.ToRtl(b);
+                return b.BitOf(a, _index.ToRtl(b));
+            }
 
             internal override bool CanFloat(Func<int, bool> floats) => _a.CanFloat(floats);
 
@@ -704,38 +784,13 @@ namespace BitSorter.Sim
 
             public override int Width => _width;
 
-            public override LogicVec Evaluate(LogicVec[] values)
+            public override LogicVec Evaluate(LogicVec[] values) =>
+                TryOffset(_offset.Evaluate(values), out long at) ? PartAt(_a.Evaluate(values), at, _step, _width, _unknown) : _unknown;
+
+            internal override int ToRtl(RtlBuilder b)
             {
-                LogicVec offset = _offset.Evaluate(values);
-                if (!offset.IsKnown)
-                    return _unknown;
-
-                long at;
-                if (offset.IsSigned)
-                {
-                    if (!offset.TryGetInt64(out at))
-                        return _unknown;
-                }
-                else if (offset.TryGetUInt64(out ulong unsigned) && unsigned <= long.MaxValue)
-                {
-                    at = (long)unsigned;
-                }
-                else
-                {
-                    return _unknown;
-                }
-
-                // Far enough past either end, nothing of the value is in it; that also keeps the product small.
-                LogicVec value = _a.Evaluate(values);
-                long reach = (value.Width + (long)_width) / _step + 1;
-                if (at > reach || at < -reach)
-                    return _unknown;
-
-                long lowest = at * _step;
-                if (lowest >= value.Width || lowest + _width <= 0)
-                    return _unknown;
-
-                return value.Slice((int)lowest, _width);
+                int a = _a.ToRtl(b);
+                return b.PartOf(a, _offset.ToRtl(b), _step, _width);
             }
 
             public override void CollectReads(ICollection<int> reads)
@@ -773,6 +828,13 @@ namespace BitSorter.Sim
 
             public override LogicVec Evaluate(LogicVec[] values) =>
                 LogicVec.Conditional(_condition.Evaluate(values), _whenTrue.Evaluate(values), _whenFalse.Evaluate(values));
+
+            internal override int ToRtl(RtlBuilder b)
+            {
+                int condition = _condition.ToRtl(b);
+                int whenTrue = _whenTrue.ToRtl(b);
+                return b.Mux(condition, whenTrue, _whenFalse.ToRtl(b), Width);
+            }
 
             public override void CollectReads(ICollection<int> reads)
             {
@@ -820,6 +882,7 @@ namespace BitSorter.Sim
 
             public override int Width => _width;
             public override LogicVec Evaluate(LogicVec[] values) => _a.Evaluate(values).Extend(_width, _signExtend);
+            internal override int ToRtl(RtlBuilder b) => b.Resize(_a.ToRtl(b), _width, _signExtend);
             public override void CollectReads(ICollection<int> reads) => _a.CollectReads(reads);
             internal override void CollectCalls(ICollection<FunctionInfo> calls) => _a.CollectCalls(calls);
 
