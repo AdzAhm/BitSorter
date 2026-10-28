@@ -165,6 +165,17 @@ namespace BitSorter.ViewModel.Tests
             Assert.IsFalse(DesktopHint.Due(true, false, DesktopHint.SlowMilliseconds), "and only past a pause a student notices");
         }
 
+        /// <summary>
+        /// The hint speaks of the design, never of a drawing: written code is as slow to work out, and on Ahmad's imported ALU --
+        /// code, with no drawing at all -- it spoke of a drawing (2026-10-28).
+        /// </summary>
+        [Test]
+        public void TheDesktopHint_SpeaksOfTheDesign_NotADrawing()
+        {
+            StringAssert.Contains("design", DesktopHint.Words);
+            StringAssert.DoesNotContain("drawing", DesktopHint.Words);
+        }
+
         [Test]
         public void TheSession_TimesItsDrawingAndItsTiming_ByItsOwnClock_TheSlowestUntilAsked()
         {
