@@ -3119,7 +3119,7 @@ the slower of the two, and it was made more than once an edit.
 
 | 1,028 parts | before | after |
 | --- | --- | --- |
-| routing every wire | 1,039 ms | about 290 ms |
+| routing every wire | 1,039 ms | about 300 ms |
 | times the drawing is routed an edit | 2, or 3 while a wire is drawn | 1 |
 | a step of a drag | 302 ms | under 1 ms |
 | the TIMING tab | 216 ms (the analysis 84) | about 80 ms, the analysis itself |
@@ -3145,17 +3145,27 @@ the slower of the two, and it was made more than once an edit.
 - **Not sliced across frames**, though the plan said so: it was planned for the 1,159 ms the TIMING tab took when measured
   for the plan; at about 80 ms for a thousand parts, worked out only while something asks for it, slicing would buy less
   than it costs. Nor routed a slice at a time: an edit's drawing is shown whole or not at all.
-- **What is left**: routing is still about 290 ms for a thousand parts -- making, sorting and asking the tries, a third
+- **What is left**: routing is still about 300 ms for a thousand parts -- making, sorting and asking the tries, a third
   each -- and more in a browser. Pruning tries by where a run first meets something was looked at and left: a tidied route
   can fold back over its pin's stub, so a run's being blocked does not always make its route blocked, and only an exact
   saving keeps every drawing as it is.
-- **The desktop is faster, and a browser says so** (`DesktopHint`): the session times its drawing and its timing by its
-  own clock; in a browser, the first time either takes more than 0.3 s, the notice line says once a run of the game that
-  the desktop version runs it faster -- one codebase, the same features in both builds (agreed with Ahmad, 2026-10-28).
+- **The desktop is faster, and a browser says so** (`DesktopHint`): the session keeps the slowest its drawing or its
+  timing took since the panel last asked (`TakeSlowestMilliseconds`), by its own clock; in a browser, the first time that
+  is more than 0.3 s, the notice line says once a run of the game that the desktop version runs it faster -- one codebase,
+  the same features in both builds (agreed with Ahmad, 2026-10-28). The slowest, not the last: an edit draws the document
+  twice, the second time from the routes the first made, and the review found a 500 ms edit told as 6 ms.
 - **Tests** (`BigDrawingTests`): a drag keeps every other wire as it lay and ends each following wire on its moved pin; the
-  session routes a document once, and an input's edit keeps the routes; the hint's rule; the session timing its own work;
-  and the 1,028-part adder drawn, timed and dragged within budgets -- the drag's tight, since the old way was three hundred
-  times slower.
+  session routes a document once, an input's edit keeps the routes, and a move and its undo route afresh to what routing
+  from nothing gives; the hit map and the drawing take the routes they are given; the hint's rule, the session keeping the
+  slowest until asked, and a slow edit of the thousand-part adder heard as slow; and that adder drawn, timed and dragged
+  within budgets, each the fastest of three after a warm run -- the drag's tight, since the old way was three hundred times
+  slower. **`WireObstaclesTests`** hold the index of squares to the old way of asking everything, kept beside it in the
+  tests (`ObstaclesAskingEverything`), on 40,000 random routes round square edges, tolerances and negative coordinates;
+  the index's tolerance made a millionth of a cell narrower fails it.
+- **The review** (Sonnet) found no route changed -- it held the old and new routing to 40,000 random modules, rotations,
+  blocks, taps on taps, kept bends and ties among them, byte for byte, and the index to eight million random cases -- and
+  three things fixed here: the hint told the last drawing rather than the slowest, a time budget measured cold, and tests
+  that asserted less than the docs claimed.
 
 ---
 
