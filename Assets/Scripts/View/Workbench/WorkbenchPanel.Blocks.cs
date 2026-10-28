@@ -54,7 +54,14 @@ namespace BitSorter.View
                 return;
             _partsProject = _session.Project;
             if (ModulesOf(_partsProject) != _partsModules || !ReferenceEquals(_partsProject.Settings?.Library, _partsLibrary))
+            {
                 BuildPartsPanel(SchematicPalette.Current);
+                return;
+            }
+
+            // How many are left of each, where the library counts them (Part 15d): every placement or deletion changes it.
+            foreach ((CatalogEntry entry, UnityEngine.UIElements.Button button) in _partButtons)
+                SetText(button, PartsCatalog.Caption(_partsProject, entry));
         }
 
         /// <summary>PARTS made for the document as it is now (<see cref="BuildPartsPanel"/>).</summary>

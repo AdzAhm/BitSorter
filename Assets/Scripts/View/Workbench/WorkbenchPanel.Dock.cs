@@ -257,7 +257,8 @@ namespace BitSorter.View
                 // A block's name is a module's, and long: it has a row to itself.
                 bool block = entry.Group == CatalogGroup.Blocks;
                 CatalogEntry chosen = entry;
-                ShellButton button = ShellTheme.Button(PartButtonName(entry.Key), entry.Label, palette, () => _editor.Take(chosen), UiType.Caption);
+                ShellButton button = ShellTheme.Button(PartButtonName(entry.Key), PartsCatalog.Caption(_session.Project, entry), palette,
+                    () => _editor.Take(chosen), UiType.Caption);
                 ShellTheme.Ellipsis(button);
                 ShellTheme.Place(button, PanelPad + (block ? 0f : (placed % PartColumns) * (column + PartGap)), y,
                     block ? inside : column, PartRowHeight);

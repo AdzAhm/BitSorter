@@ -147,7 +147,13 @@ namespace BitSorter.PlayMode.Tests
             Assert.AreEqual(Documents.ExerciseKey("half-adder"), Store.LastOpen, "remembered as what is open");
 
             ExerciseCard card = workbench.ExerciseCard;
+            for (int frame = 0; frame < 10 && workbench.GoalPending; frame++)
+                yield return null;
             Assert.IsTrue(card.IsOpen, "its brief, as it opens");
+            yield return null;
+            yield return null;
+            Assert.Greater(ShellPanel.ScreenRectOf(ShellPanel.Find<VisualElement>(ExerciseCard.HeadingName)).xMin, Screen.width / 2f,
+                "under GOAL, at the window's right, not its left edge");
             StringAssert.Contains("HALF ADDER", card.Heading);
             Assert.AreEqual(workbench.ExerciseOpen.Goal, card.Goal);
             Assert.AreEqual("", card.Hint, "the hint is asked for");
@@ -166,6 +172,8 @@ namespace BitSorter.PlayMode.Tests
             WorkbenchPanel workbench = Workbench;
             workbench.OpenExercise("half-adder");
             yield return null;
+            Assert.IsNull(PartsCatalog.Find(workbench.Session.Project, workbench.Session.Module, "input"), "no port in PARTS: its ports are its test's");
+            Assert.AreEqual("XOR 1", PartsCatalog.Caption(workbench.Session.Project, PartsCatalog.Find(workbench.Session.Project, workbench.Session.Module, "xor")));
 
             EditResult set = workbench.Session.SetInput("a", 0, 10, LogicVec.FromBinary("1"));
             Assert.IsFalse(set.Done);
@@ -198,8 +206,14 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsFalse(failed.Solved, "nothing built");
             StringAssert.Contains("checks failed", workbench.ChipText);
             Assert.IsTrue(workbench.TranscriptShown, "the TRANSCRIPT, which lists them");
-            Assert.AreEqual(failed.Failures.Count, workbench.Transcript.Notes.Count(l => l.IsMessage), "each failed check, at its moment");
             Assert.AreEqual(failed.Failures[0].Time, workbench.Time, 1e-9, "the run taken to the first");
+
+            // Each failed check is the testbench's own line, at its moment, once the run has been made that far.
+            int FailLines() => workbench.Transcript.Lines.Count(l => l.IsMessage && l.Text.StartsWith("FAIL"));
+            for (int frame = 0; frame < 600 && FailLines() < failed.Failures.Count; frame++)
+                yield return null;
+            Assert.AreEqual(failed.Failures.Count, FailLines(), "each failed check, at its moment, once");
+            Assert.AreEqual(ExerciseRun.Verdict(workbench.ExerciseOpen, failed, "ns"), workbench.Transcript.Notes[0].Text, "the verdict at the head");
             Assert.IsFalse(Store.IsComplete("half-adder"));
 
             BuildTheHalfAdder(workbench.Session);

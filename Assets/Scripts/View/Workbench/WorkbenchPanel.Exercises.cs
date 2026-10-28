@@ -167,6 +167,7 @@ namespace BitSorter.View
         private void LeaveTheExercise()
         {
             _exercise = null;
+            _goalPending = false;
             _exerciseCard?.Close();
         }
 
@@ -187,13 +188,40 @@ namespace BitSorter.View
         // GOAL and CHECK
         // -----------------------------------------------------------------
 
-        /// <summary>The exercise's brief, under GOAL: its heading, its goal, and its hint behind an item.</summary>
+        /// <summary>
+        /// The exercise's brief, under GOAL: its heading, its goal, and its hint behind an item. GOAL shown in this frame has no
+        /// place yet -- UI Toolkit lays it out the next -- so the brief waits for it (<see cref="OpenPendingGoal"/>): opened
+        /// at once, it went up at the window's left edge (the 15d shots).
+        /// </summary>
         public void OpenGoal()
         {
             if (_exercise == null || _exerciseCard == null)
                 return;
+            if (_goalButton == null || float.IsNaN(_goalButton.layout.width) || _goalButton.layout.width <= 0f)
+            {
+                _goalPending = true;
+                return;
+            }
+
+            _goalPending = false;
             _exerciseCard.Brief(UnderTheChip(GoalButton), ExerciseHeading(_exercise), _exercise.Goal, _exercise.Hint);
         }
+
+        /// <summary>The brief asked for before GOAL had its place, up once it has; dropped if the exercise was left meanwhile.</summary>
+        private void OpenPendingGoal()
+        {
+            if (!_goalPending)
+                return;
+            if (_exercise == null || _sample != 0 || PageShowing)
+                _goalPending = false;
+            else
+                OpenGoal();
+        }
+
+        /// <summary>Whether the brief is waiting for GOAL to be laid out.</summary>
+        public bool GoalPending => _goalPending;
+
+        private bool _goalPending;
 
         /// <summary>
         /// Grades the exercise open: the verdict on the chip, every reason it is not solved at the head of the TRANSCRIPT --

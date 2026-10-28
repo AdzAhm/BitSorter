@@ -173,8 +173,9 @@ namespace BitSorter.ViewModel
         }
 
         /// <summary>
-        /// What a CHECK puts at the head of the TRANSCRIPT: the verdict, then every reason it is not solved -- what stopped the
-        /// run, every rule broken, and every failed check at its moment, which a click on it goes to.
+        /// What a CHECK puts at the head of the TRANSCRIPT: the verdict, then what stopped the run and every rule broken. Each
+        /// failed check is already there, at its moment: the exercise's own self-checking testbench prints it as the run
+        /// reaches it (<c>FAIL sum at 14: 1, wanted 0</c>), and a copy here put every one in the TRANSCRIPT twice (the 15d shots).
         /// </summary>
         public static IReadOnlyList<TranscriptLine> Lines(Exercise exercise, Grade grade, string unit)
         {
@@ -184,9 +185,6 @@ namespace BitSorter.ViewModel
                 lines.Add(new TranscriptLine(TranscriptSeverity.Error, problem, -1));
             foreach (string fault in grade.Faults)
                 lines.Add(new TranscriptLine(TranscriptSeverity.Error, fault, -1));
-            foreach (CheckFailure failure in grade.Failures)
-                lines.Add(new TranscriptLine(TranscriptSeverity.Error,
-                    failure.Port + " read " + failure.Got + ", wanted " + failure.Wanted, failure.Time));
             return lines;
         }
 

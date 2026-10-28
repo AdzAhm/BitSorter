@@ -55,7 +55,7 @@ namespace BitSorter.ViewModel.Tests
         }
 
         [Test]
-        public void ACheck_ThatFails_SaysEveryCheckAtItsMoment()
+        public void ACheck_ThatFails_SaysWhy_AndLeavesEachCheckToTheTestbench()
         {
             Exercise exercise = Run.Single(e => e.Id == "half-adder");
             var problems = new List<string>();
@@ -66,12 +66,10 @@ namespace BitSorter.ViewModel.Tests
             IReadOnlyList<TranscriptLine> lines = ExerciseRun.Lines(exercise, grade, "ns");
             Assert.AreEqual(TranscriptSeverity.Error, lines[0].Severity);
             Assert.AreEqual(ExerciseRun.Verdict(exercise, grade, "ns"), lines[0].Text, "the verdict first");
-            Assert.AreEqual(grade.Failures.Count, lines.Count(l => l.IsMessage), "every failed check, at its moment");
-            CheckFailure first = grade.Failures[0];
-            TranscriptLine said = lines.First(l => l.IsMessage);
-            Assert.AreEqual(first.Time, said.Time);
-            StringAssert.Contains(first.Port + " read " + first.Got + ", wanted " + first.Wanted, said.Text);
-            StringAssert.Contains("of " + grade.Checks + " checks failed", lines[0].Text);
+            Assert.AreEqual(0, lines.Count(l => l.IsMessage), "each failed check is the testbench's own line, at its moment, not a copy");
+            StringAssert.Contains(grade.Failures.Count + " of " + grade.Checks + " checks failed", lines[0].Text);
+
+            StringAssert.Contains("a click on it goes to its moment", lines[0].Text);
         }
 
         [Test]

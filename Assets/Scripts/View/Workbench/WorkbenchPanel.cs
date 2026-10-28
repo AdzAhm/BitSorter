@@ -1375,6 +1375,8 @@ namespace BitSorter.View
             Fit();
             _shell.Opacity = Root.TryGetComponent(out CanvasGroup fading) ? fading.alpha : 1f;
 
+            OpenPendingGoal();   // an exercise's brief, once GOAL has its place (Part 15d)
+
             // Files the player picked in the page (Part 13d), once it has read them.
             if (FileImport.Picks && FileImport.TryTake(out List<BitSorter.Board.SourceFile> picked))
                 Import(picked);

@@ -99,15 +99,17 @@ namespace BitSorter.ViewModel
 
         /// <summary>
         /// The entries for building <paramref name="module"/> of <paramref name="project"/>: the fixed ones, then a block of every
-        /// other module. Under a gate library (Part 14d) only what it allows: the gates it has a cell for, no MUX, and no
-        /// constant where it takes none.
+        /// other module. Under a gate library (Part 14d) only what it allows: the gates it has a cell for, no MUX, no constant
+        /// where it takes none, and no register where it stocks none (Part 15d). In an exercise no port either: its ports are
+        /// the ones its test drives and reads.
         /// </summary>
         public static IReadOnlyList<CatalogEntry> For(Project project, string module)
         {
             GateLibrary library = project.Settings?.Library;
+            bool exercise = project.Settings?.Exercise != null;
             var entries = new List<CatalogEntry>(Fixed.Length);
             foreach (CatalogEntry entry in Fixed)
-                if (Offered(library, entry))
+                if (Offered(library, entry) && !(exercise && entry.Group == CatalogGroup.Ports))
                     entries.Add(entry);
             foreach (Module m in project.Modules)
                 if (!string.Equals(m.Name, module, StringComparison.Ordinal) && !Holds(project, m, module, new HashSet<string>()))
@@ -143,8 +145,36 @@ namespace BitSorter.ViewModel
                 case CatalogKind.Gate: return library.Allows(entry.Gate);
                 case CatalogKind.Mux: return false;
                 case CatalogKind.Constant: return !library.NoConstants;
+                case CatalogKind.Register: return library.MostOf(PartCount.Register) != 0;
                 default: return true;
             }
+        }
+
+        /// <summary>
+        /// How many more of <paramref name="entry"/> the library lets <paramref name="project"/> place (Part 15d) -- its count
+        /// less what the design has, a stocked block counted whole -- or null where it sets no count.
+        /// </summary>
+        public static int? Left(Project project, CatalogEntry entry)
+        {
+            GateLibrary library = project.Settings?.Library;
+            if (library == null)
+                return null;
+            string part = entry.Kind == CatalogKind.Gate ? PartCount.Of(entry.Gate)
+                : entry.Kind == CatalogKind.Register ? PartCount.Register
+                : entry.Kind == CatalogKind.Block ? entry.Module
+                : null;
+            int most = part != null ? library.MostOf(part) : -1;
+            if (most < 0)
+                return null;
+            PartCounts.Of(project, library.Counted()).TryGetValue(part, out int used);
+            return Math.Max(0, most - used);
+        }
+
+        /// <summary>What <paramref name="entry"/>'s button says: its name, and how many are left where the library counts them.</summary>
+        public static string Caption(Project project, CatalogEntry entry)
+        {
+            int? left = Left(project, entry);
+            return left.HasValue ? entry.Label + " " + left.Value.ToString(System.Globalization.CultureInfo.InvariantCulture) : entry.Label;
         }
 
         /// <summary>The entry of this key among <see cref="For"/>'s, or null.</summary>
