@@ -155,5 +155,31 @@ namespace BitSorter.Board.Tests
             Assert.AreEqual(1, library.Cells.Count);
             StringAssert.Contains("no cell BitSorter has", problems.Single());
         }
+
+        /// <summary>
+        /// A library may hold a tri-state gate (Part 15c): the course's cells have none, and a bus needs one -- share the wire
+        /// is built of BUFIF1s. It is held to its delays as any cell is, and saved.
+        /// </summary>
+        [Test]
+        public void ALibrary_MayHoldATriStateGate_AndKeepsItThroughASave()
+        {
+            Assert.IsTrue(GateLibrary.CanHold(GateKind.Bufif1, 2));
+            Assert.IsTrue(GateLibrary.CanHold(GateKind.Notif0, 2));
+            Assert.IsFalse(GateLibrary.CanHold(GateKind.Bufif1, 3), "a tri-state gate has a data input and an enable");
+            Assert.IsTrue(GateLibrary.CanHold(GateKind.Nand, 3), "and every cell BitSorter has");
+
+            GateLibrary bus = new GateLibrary { Cells = new[] { new LibraryCell(GateKind.Bufif1, 2, 2, 2) } };
+            var problems = new List<string>();
+            GateLibrary back = LibraryRecord.From(bus).ToLibrary(problems);
+            Assert.IsEmpty(problems);
+            Assert.AreEqual("BUFIF1", back.Cells.Single().Name);
+
+            var editor = new BoardEditor(Project.New("bus"));
+            Assert.IsTrue(editor.SetLibrary(bus).Done);
+            EditResult placed = editor.Add("bus", new GatePart { Kind = GateKind.Bufif1, Inputs = 2, Rise = 1, Fall = 1 }, new Placement(4, 0));
+            Assert.IsTrue(placed.Done, placed.Refusal);
+            GatePart gate = (GatePart)editor.Project.TopModule.FindPart(placed.Id);
+            Assert.AreEqual((2L, 2L), (gate.Rise, gate.Fall), "placed at its cell's delays, as any gate under a library is");
+        }
     }
 }

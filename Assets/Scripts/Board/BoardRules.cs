@@ -137,7 +137,7 @@ namespace BitSorter.Board
             var seen = new HashSet<(GateKind, int)>();
             foreach (LibraryCell cell in library.Cells)
             {
-                if (CellLibrary.CellFor(cell.Kind, cell.Inputs) == null)
+                if (!GateLibrary.CanHold(cell.Kind, cell.Inputs))
                     Error(null, $"The library's {cell.Name} is no cell BitSorter has.");
                 else if (!seen.Add((cell.Kind, cell.Inputs)))
                     Error(null, $"The library has {cell.Name} twice.");

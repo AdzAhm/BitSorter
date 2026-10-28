@@ -140,6 +140,13 @@ namespace BitSorter.Board
             return true;
         }
 
+        /// <summary>
+        /// Whether a library may hold a cell of <paramref name="kind"/> with <paramref name="inputs"/> inputs: one of BitSorter's
+        /// cells, or a tri-state gate -- BUFIF and NOTIF, which the course's cells have none of, and a bus needs (Part 15c).
+        /// </summary>
+        public static bool CanHold(GateKind kind, int inputs) =>
+            CellLibrary.CellFor(kind, inputs) != null || (GatePart.IsTriStateKind(kind) && inputs == 2);
+
         /// <summary>The cell of <paramref name="kind"/> with <paramref name="inputs"/> inputs, or null when the library has none.</summary>
         public LibraryCell CellFor(GateKind kind, int inputs)
         {

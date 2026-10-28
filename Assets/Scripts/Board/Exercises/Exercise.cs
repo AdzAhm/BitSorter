@@ -268,7 +268,7 @@ namespace BitSorter.Board
                 {
                     key = PartCount.Of(kind);
                     int gateInputs = part.inputs > 0 ? part.inputs : kind == GateKind.Not || kind == GateKind.Buf ? 1 : 2;
-                    if (CellLibrary.CellFor(kind, gateInputs) == null)
+                    if (!GateLibrary.CanHold(kind, gateInputs))
                         Problem($"BitSorter has no {kind.ToString().ToUpperInvariant()} of {gateInputs} inputs.");
                     else
                         cells.Add(new LibraryCell(kind, gateInputs, record.delay, record.delay));
@@ -337,14 +337,17 @@ namespace BitSorter.Board
             };
         }
 
-        /// <summary>A gate kind by its name, as a word -- not a number, nor two names with a comma, which <c>Enum.TryParse</c> takes.</summary>
+        /// <summary>
+        /// A gate kind by its name, as a word -- <c>Bufif1</c> has a digit in it, but no number nor two names with a comma, which
+        /// <c>Enum.TryParse</c> takes.
+        /// </summary>
         private static bool Gate(string name, out GateKind kind)
         {
             kind = default;
-            if (string.IsNullOrEmpty(name))
+            if (string.IsNullOrEmpty(name) || !char.IsLetter(name[0]))
                 return false;
             foreach (char c in name)
-                if (!char.IsLetter(c))
+                if (!char.IsLetterOrDigit(c))
                     return false;
             return Enum.TryParse(name, ignoreCase: true, out kind) && Enum.IsDefined(typeof(GateKind), kind);
         }

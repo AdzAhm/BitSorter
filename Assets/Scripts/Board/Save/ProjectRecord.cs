@@ -43,7 +43,7 @@ namespace BitSorter.Board
             {
                 if (cell == null)
                     continue;
-                if (Enum.TryParse(cell.kind, out GateKind kind) && CellLibrary.CellFor(kind, cell.inputs) != null)
+                if (Enum.TryParse(cell.kind, out GateKind kind) && GateLibrary.CanHold(kind, cell.inputs))
                     kept.Add(new LibraryCell(kind, cell.inputs, cell.rise, cell.fall));
                 else
                     problems.Add($"The library's cell {cell.kind} of {cell.inputs} inputs is no cell BitSorter has; it was left out.");
