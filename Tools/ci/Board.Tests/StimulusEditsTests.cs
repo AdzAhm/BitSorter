@@ -312,6 +312,26 @@ namespace BitSorter.Board.Tests
             Assert.IsFalse(StimulusEdits.TryUnmakeClock(b.Project.Stimulus, "a", out _, out _), "no clock now");
         }
 
+        /// <summary>A step retyped keeps whether it is late, as CONVERT made it, and a stimulus alike is Same (the 15g-4 review).</summary>
+        [Test]
+        public void AStepRetyped_StaysLate_AndAlikeStimuliAreTheSame()
+        {
+            Bench b = Board();
+            Stimulus late = b.Project.Stimulus with
+            {
+                Tracks = new[] { new Track { Port = "a", Steps = new[] { new Step(0, V("0")), new Step(10, V("1"), late: true) } } },
+            };
+            Bench.Must(b.Editor.SetStimulus(late));
+            Assert.IsTrue(StimulusEdits.TrySetStep(b.Project.Stimulus, "a", 10, V("x"), out Stimulus e1, out string r1), r1);
+            Assert.IsTrue(e1.Tracks.Single(t => t.Port == "a").Steps.Single(s => s.Time == 10).Late, "retyped x, still late");
+            Assert.IsTrue(StimulusEdits.TrySetStep(e1, "a", 10, V("1"), out Stimulus retyped, out string r2), r2);
+            Assert.IsTrue(retyped.Tracks.Single(t => t.Port == "a").Steps.Single(s => s.Time == 10).Late, "still made after the rest of its moment");
+
+            Assert.IsTrue(StimulusEdits.Same(b.Project.Stimulus, retyped), "the same steps again: Same, though not one object");
+            Assert.IsFalse(StimulusEdits.Same(b.Project.Stimulus, e1));
+            Assert.IsFalse(StimulusEdits.TrySetStep(b.Project.Stimulus, "a", StimulusEdits.MaxTime + 1, V("1"), out _, out _), "past the last moment");
+        }
+
         [Test]
         public void TheEnd_IsSet_AndNeverBeforeOne()
         {

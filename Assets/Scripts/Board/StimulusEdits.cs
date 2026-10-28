@@ -178,6 +178,44 @@ namespace BitSorter.Board
         public const int MaxCount = 256;
 
         /// <summary>
+        /// The latest moment the table puts a step or the end at: as far as an import runs a testbench
+        /// (<see cref="ProjectImporter.MaxRun"/>). A run needs a finite end, and one typed as the largest number there
+        /// is threw as the run was made, the document already changed (the 15g-4 review).
+        /// </summary>
+        public const long MaxTime = ProjectImporter.MaxRun;
+
+        /// <summary>
+        /// Whether <paramref name="a"/> and <paramref name="b"/> give the inputs the same: the same steps, starts, clocks, checks
+        /// and end. A stimulus is a record over lists, so two alike are not <c>Equals</c>; an edit that changes nothing is no
+        /// edit, and no undo step (the 15g-4 review).
+        /// </summary>
+        public static bool Same(Stimulus a, Stimulus b)
+        {
+            if (ReferenceEquals(a, b))
+                return true;
+            if (a == null || b == null || a.End != b.End || a.Tracks.Count != b.Tracks.Count || a.Clocks.Count != b.Clocks.Count
+                || a.Checks.Count != b.Checks.Count)
+                return false;
+
+            for (int i = 0; i < a.Tracks.Count; i++)
+            {
+                Track x = a.Tracks[i], y = b.Tracks[i];
+                if (!string.Equals(x.Port, y.Port, StringComparison.Ordinal) || x.Steps.Count != y.Steps.Count || !Equals(x.Start, y.Start))
+                    return false;
+                for (int j = 0; j < x.Steps.Count; j++)
+                    if (x.Steps[j].Time != y.Steps[j].Time || x.Steps[j].Late != y.Steps[j].Late || !x.Steps[j].Value.Equals(y.Steps[j].Value))
+                        return false;
+            }
+            for (int i = 0; i < a.Clocks.Count; i++)
+                if (a.Clocks[i] != b.Clocks[i])
+                    return false;
+            for (int i = 0; i < a.Checks.Count; i++)
+                if (a.Checks[i] != b.Checks[i])
+                    return false;
+            return true;
+        }
+
+        /// <summary>
         /// <paramref name="port"/> given <paramref name="value"/> at <paramref name="time"/>, held until its next step -- or, for
         /// null, its step there taken away, the value before it held on: a cell of the INPUTS table typed in, or emptied. Kept
         /// to the fewest steps, so a value the input already held there is no step, and the cell stays empty.
@@ -198,22 +236,35 @@ namespace BitSorter.Board
                 return false;
             }
 
+            if (time > MaxTime)
+            {
+                refusal = $"The table goes as far as {MaxTime}: a moment past it would run for ever.";
+                return false;
+            }
+
             Track track = TrackOf(stimulus, port);
             IReadOnlyList<Step> steps = track?.Steps ?? Array.Empty<Step>();
+
+            // A step retyped keeps whether it is made late, after the rest of its moment, as CONVERT made it: retyped plain,
+            // it would race the clock edge it was made to follow (the 15g-4 review).
+            bool late = false;
+            foreach (Step step in steps)
+                late |= step.Time == time && step.Late;
+
             var made = new List<Step>(steps.Count + 1);
             bool placed = !value.HasValue;
             foreach (Step step in steps)
             {
                 if (!placed && step.Time > time)
                 {
-                    made.Add(new Step(time, value.Value));
+                    made.Add(new Step(time, value.Value, late));
                     placed = true;
                 }
                 if (step.Time != time)
                     made.Add(step);
             }
             if (!placed)
-                made.Add(new Step(time, value.Value));
+                made.Add(new Step(time, value.Value, late));
 
             edited = With(stimulus, port, Fewest(made, track?.Start));
             return true;
@@ -274,6 +325,11 @@ namespace BitSorter.Board
                 refusal = "An input cannot change before the run starts, at 0.";
                 return false;
             }
+            if (to > MaxTime)
+            {
+                refusal = $"The table goes as far as {MaxTime}: a moment past it would run for ever.";
+                return false;
+            }
             if (to == from)
             {
                 edited = stimulus;
@@ -302,10 +358,17 @@ namespace BitSorter.Board
                 }
 
                 any = true;
-                var steps = new List<Step>(track.Steps.Count);
-                foreach (Step step in track.Steps)
-                    steps.Add(step.Time == from ? new Step(to, step.Value, step.Late) : step);
-                steps.Sort((a, b) => a.Time.CompareTo(b.Time));
+                // In time order, and steps at one moment in the order they were: CONVERT may give one moment two.
+                var placed = new List<(Step Step, int Order)>(track.Steps.Count);
+                for (int i = 0; i < track.Steps.Count; i++)
+                {
+                    Step step = track.Steps[i];
+                    placed.Add((step.Time == from ? new Step(to, step.Value, step.Late) : step, i));
+                }
+                placed.Sort((a, b) => a.Step.Time != b.Step.Time ? a.Step.Time.CompareTo(b.Step.Time) : a.Order.CompareTo(b.Order));
+                var steps = new List<Step>(placed.Count);
+                foreach ((Step step, int _) in placed)
+                    steps.Add(step);
                 tracks.Add(track with { Steps = Fewest(steps, track.Start) });
             }
 
@@ -342,6 +405,8 @@ namespace BitSorter.Board
             }
 
             long rows = 1L << bits;
+            if (!InTime(start, rows, step, out refusal))
+                return false;
             Stimulus made = stimulus;
             int shift = bits;
             foreach ((string port, int width) in ports)
@@ -369,6 +434,8 @@ namespace BitSorter.Board
                 return false;
 
             long count = width >= 8 ? MaxCount : 1L << width;
+            if (!InTime(start, count, step, out refusal))
+                return false;
             var steps = new List<Step>((int)count);
             for (long i = 0; i < count; i++)
                 steps.Add(new Step(start + i * step, LogicVec.FromUInt64((ulong)i, width)));
@@ -446,6 +513,11 @@ namespace BitSorter.Board
                 refusal = "The run has to last a moment at least: it ends at 1 or later.";
                 return false;
             }
+            if (end > MaxTime)
+            {
+                refusal = $"The run ends by {MaxTime} at the latest: a run longer still would take for ever to make.";
+                return false;
+            }
 
             edited = stimulus with { End = end };
             return true;
@@ -480,6 +552,16 @@ namespace BitSorter.Board
                 return false;
             }
             return true;
+        }
+
+        /// <summary>Whether <paramref name="rows"/> rows a <paramref name="step"/> apart from <paramref name="start"/> end by <see cref="MaxTime"/>.</summary>
+        private static bool InTime(long start, long rows, long step, out string refusal)
+        {
+            refusal = null;
+            if (step <= (MaxTime - start) / rows)
+                return true;
+            refusal = $"{rows} rows {step} apart go past {MaxTime}, as far as the table goes: take a smaller step.";
+            return false;
         }
 
         private static ulong Mask(int width) => width >= 64 ? ulong.MaxValue : (1UL << width) - 1;

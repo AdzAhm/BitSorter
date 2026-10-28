@@ -1647,6 +1647,7 @@ namespace BitSorter.View
             _notice = null;
             _shownListing = null;   // a new document's CODE tab starts on its module's file (Part 12e)
             _listingModule = null;
+            ForgetInputs();   // and its INPUTS table on none of the last one's choices (Part 15g)
             ShowRunTo("");
             MakeTexts();
 

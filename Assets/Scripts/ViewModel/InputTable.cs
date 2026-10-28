@@ -198,11 +198,20 @@ namespace BitSorter.ViewModel
         /// </summary>
         public static bool TryRead(string text, int width, Radix radix, out LogicVec value, out string error)
         {
-            string typed = (text ?? "").Replace(" ", "").Replace("_", "").Trim();
+            string shown = (text ?? "").Trim();
+            string typed = shown.Replace(" ", "").Replace("_", "");
             bool literal = typed.IndexOf('\'') >= 0 || (typed.Length == 1 && "xXzZ".IndexOf(typed[0]) >= 0);
             if (!literal && typed.Length > 0)
+            {
+                // 0x1F in a hex column is 1F, as a programmer writes it -- not a digit x inside the value (the 15g-4 review).
+                if (radix == Radix.Hex && typed.Length > 2 && typed[0] == '0' && (typed[1] == 'x' || typed[1] == 'X'))
+                    typed = typed.Substring(2);
                 typed = radix == Radix.Hex ? "'h" + typed : radix == Radix.Binary ? "'b" + typed : typed;
-            return Breakpoints.TryParseValue(typed, width, out value, out error);
+            }
+            if (Breakpoints.TryParseValue(typed, width, out value, out error))
+                return true;
+            error = error?.Replace(typed, shown);   // what was typed, not the literal it was made into
+            return false;
         }
 
         // -----------------------------------------------------------------
@@ -210,13 +219,21 @@ namespace BitSorter.ViewModel
         // -----------------------------------------------------------------
 
         /// <summary>A row a <see cref="Step"/> after the last, or at 0, to type into: the table's until it is given a value.</summary>
-        public InputTable AddRow()
+        public bool TryAddRow(out InputTable table, out string refusal)
         {
+            table = this;
+            refusal = null;
             long last = -Step;
             foreach (InputRow row in Rows)
                 last = Math.Max(last, row.Time);
+            if (last > StimulusEdits.MaxTime - Step)
+            {
+                refusal = $"The table goes as far as {StimulusEdits.MaxTime}: a row a step after the last would be past it.";
+                return false;
+            }
             var pending = new List<long>(_pending) { last + Step };
-            return With(pending: pending);
+            table = With(pending: pending);
+            return true;
         }
 
         /// <summary>STEP typed: a whole number of the project's unit, 1 or more.</summary>
@@ -279,7 +296,20 @@ namespace BitSorter.ViewModel
             }
 
             from = at.Time;
-            return StimulusEdits.TrySetStep(_stimulus, input.Port, at.Time, value, out edited, out refusal);
+            if (!StimulusEdits.TrySetStep(_stimulus, input.Port, at.Time, value, out edited, out refusal))
+                return false;
+            if (StimulusEdits.Same(edited, _stimulus))
+            {
+                edited = null;   // no edit, and no undo step
+                if (value.HasValue)
+                {
+                    // The input holds that already there -- from an earlier row, or from before the run starts (CONVERT's
+                    // start): the step would change nothing, so there is none, and the cell stays empty (the 15g-4 review).
+                    refusal = $"{input.Port} already holds {text.Trim()} at {at.Time}: nothing changes.";
+                    return false;
+                }
+            }
+            return true;
         }
 
         /// <summary>
@@ -304,7 +334,7 @@ namespace BitSorter.ViewModel
             }
 
             from = Math.Min(at.Time, to);
-            return StimulusEdits.TryMoveRow(_stimulus, at.Time, to, out edited, out refusal);
+            return Changes(StimulusEdits.TryMoveRow(_stimulus, at.Time, to, out edited, out refusal), ref edited);
         }
 
         /// <summary>A row taken away: its steps, or a pending row, which leaves the stimulus as it was -- <paramref name="edited"/> null.</summary>
@@ -338,7 +368,7 @@ namespace BitSorter.ViewModel
             foreach (InputColumn column in Columns)
                 if (column.Chosen)
                     ports.Add((column.Port, column.Width));
-            return StimulusEdits.TryFillCombinations(_stimulus, ports, 0, Step, out edited, out refusal);
+            return Changes(StimulusEdits.TryFillCombinations(_stimulus, ports, 0, Step, out edited, out refusal), ref edited);
         }
 
         /// <summary>COUNT: the one input chosen counting up from 0, a <see cref="Step"/> apart.</summary>
@@ -347,18 +377,30 @@ namespace BitSorter.ViewModel
             edited = null;
             if (!CanEdit(out refusal) || !TryOneChosen("count", out InputColumn column, out refusal))
                 return false;
-            return StimulusEdits.TryFillCount(_stimulus, column.Port, column.Width, 0, Step, out edited, out refusal);
+            return Changes(StimulusEdits.TryFillCount(_stimulus, column.Port, column.Width, 0, Step, out edited, out refusal), ref edited);
         }
 
-        /// <summary>CLOCK: the one input chosen made a clock that changes every <see cref="Step"/>, or a clock made an input again.</summary>
-        public bool TryClock(out Stimulus edited, out string refusal)
+        /// <summary>
+        /// CLOCK: the one input chosen made a clock that changes every <see cref="Step"/>, or a clock made an input again -- and
+        /// let go of, in <paramref name="table"/>: left chosen, a clock stood in the way of the next COUNT or ALL COMBINATIONS
+        /// (the 15g-4 review).
+        /// </summary>
+        public bool TryClock(out Stimulus edited, out InputTable table, out string refusal)
         {
             edited = null;
+            table = this;
             if (!CanEdit(out refusal) || !TryOneChosen("make a clock of", out InputColumn column, out refusal))
                 return false;
-            return column.IsClock
+            bool done = column.IsClock
                 ? StimulusEdits.TryUnmakeClock(_stimulus, column.Port, out edited, out refusal)
-                : StimulusEdits.TryMakeClock(_stimulus, column.Port, 2 * Step, out edited, out refusal);
+                : StimulusEdits.TryMakeClock(_stimulus, column.Port, Math.Min(2 * Step, StimulusEdits.MaxTime), out edited, out refusal);
+            if (done)
+            {
+                var chosen = new HashSet<string>(_chosen, StringComparer.Ordinal);
+                chosen.Remove(column.Port);
+                table = With(chosen: chosen);
+            }
+            return done;
         }
 
         /// <summary>END typed: when the run is meant to end.</summary>
@@ -367,7 +409,15 @@ namespace BitSorter.ViewModel
             edited = null;
             if (!CanEdit(out refusal) || !TryTime(text, out long end, out refusal))
                 return false;
-            return StimulusEdits.TrySetEnd(_stimulus, end, out edited, out refusal);
+            return Changes(StimulusEdits.TrySetEnd(_stimulus, end, out edited, out refusal), ref edited);
+        }
+
+        /// <summary>An edit made, with <paramref name="edited"/> null when it changes nothing: no edit, and no undo step.</summary>
+        private bool Changes(bool done, ref Stimulus edited)
+        {
+            if (done && StimulusEdits.Same(edited, _stimulus))
+                edited = null;
+            return done;
         }
 
         // -----------------------------------------------------------------
@@ -460,7 +510,12 @@ namespace BitSorter.ViewModel
         {
             refusal = null;
             if (long.TryParse((text ?? "").Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out time))
-                return true;
+            {
+                if (time <= StimulusEdits.MaxTime)
+                    return true;
+                refusal = $"The table goes as far as {StimulusEdits.MaxTime}: {time} is past it.";
+                return false;
+            }
             refusal = $"\"{(text ?? "").Trim()}\" is no moment: a whole number of the circuit's unit, 0 or more.";
             return false;
         }

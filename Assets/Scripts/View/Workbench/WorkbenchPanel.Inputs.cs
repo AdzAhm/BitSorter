@@ -128,21 +128,60 @@ namespace BitSorter.View
         /// <summary>How many rows the list has room for under its column heads.</summary>
         private int InputRowsShown => Mathf.Max(1, Mathf.FloorToInt((_regions.Dock.height - ShellLayout.DockHeaderHeight - 8f) / InputRowHeight) - 1);
 
-        /// <summary>Each frame: while the tab is shown, the table made again once the document has changed, and drawn when it has.</summary>
+        /// <summary>
+        /// Each frame: while the tab is shown, the table made again once the document has changed, and drawn when it has --
+        /// but not under a mouse button held down. A cell let go by a press elsewhere commits, the document changes, and a
+        /// redraw before the release took the button pressed out from under it, and the click with it (the 15g-4 review).
+        /// </summary>
         private void RefreshInputs()
         {
             if (_session == null || _inputsList == null || _dockTab != DockTab.Inputs)
                 return;
 
-            if (!ReferenceEquals(_session.Project, _inputsOf))
-            {
-                _inputsOf = _session.Project;
-                _inputs = InputTable.Of(_session.Project, _inputs);
-                _inputsDrawn = false;
-            }
-
-            if (!_inputsDrawn)
+            SyncInputs();
+            UnityEngine.InputSystem.Mouse mouse = UnityEngine.InputSystem.Mouse.current;
+            bool held = mouse != null && (mouse.leftButton.isPressed || mouse.rightButton.isPressed || mouse.middleButton.isPressed);
+            if (!_inputsDrawn && !held)
                 DrawInputs();
+        }
+
+        /// <summary>
+        /// The table made again if the document has changed since it was: before every edit as well as each frame, so an
+        /// edit is made on the stimulus there is now. A cell let go by a click on DEL commits in the press, and DEL's edit,
+        /// made on the table before it, threw that commit away (the 15g-4 review).
+        /// </summary>
+        private void SyncInputs()
+        {
+            if (_session == null || ReferenceEquals(_session.Project, _inputsOf))
+                return;
+            _inputsOf = _session.Project;
+            _inputs = InputTable.Of(_session.Project, _inputs);
+            _inputsDrawn = false;
+        }
+
+        /// <summary>A new document: its table starts from nothing of the last one's -- its choices, STEP, a row added (the 15g-4 review).</summary>
+        private void ForgetInputs()
+        {
+            _inputs = null;
+            _inputsOf = null;
+            _inputsFirst = _inputsFirstColumn = 0;
+            _inputsDrawn = false;
+        }
+
+        /// <summary>The row of the table now at <paramref name="time"/>, and the column of <paramref name="port"/>; -1 where there is none.</summary>
+        private (int Row, int Column) InputAt(long time, string port)
+        {
+            SyncInputs();
+            int row = -1, column = -1;
+            if (_inputs == null)
+                return (row, column);
+            for (int i = 0; i < _inputs.Rows.Count; i++)
+                if (_inputs.Rows[i].Time == time)
+                    row = i;
+            for (int c = 0; c < _inputs.Columns.Count; c++)
+                if (port != null && _inputs.Columns[c].Port == port)
+                    column = c;
+            return (row, column);
         }
 
         /// <summary>The table drawn: its column heads, and the rows that fit from the first scrolled to.</summary>
@@ -180,11 +219,11 @@ namespace BitSorter.View
             {
                 InputColumn column = table.Columns[c];
                 float width = ColumnWidth(column);
-                int at = c;
                 // A bit's radix has nothing to change, so its column's name has the room: the chip beside a bus's, a clock's
                 // and an output's says what the column is.
                 bool chip = column.Width > 1 || column.IsClock || !column.IsInput;
-                ShellButton name = ShellTheme.Button(InputColumnName + column.Port, column.Name, palette, () => ChooseInput(at), UiType.Caption);
+                string port = column.Port;
+                ShellButton name = ShellTheme.Button(InputColumnName + column.Port, column.Name, palette, () => ChooseInput(InputAt(0, port).Column), UiType.Caption);
                 if (column.Chosen)
                 {
                     ShellTheme.Outline(name, palette.Accent, palette.Ground);
@@ -195,7 +234,7 @@ namespace BitSorter.View
 
                 if (chip)
                 {
-                    ShellButton kind = ShellTheme.Button(InputRadixName + column.Port, column.Kind, palette, () => NextInputRadix(at), UiType.Micro);
+                    ShellButton kind = ShellTheme.Button(InputRadixName + column.Port, column.Kind, palette, () => NextInputRadix(InputAt(0, port).Column), UiType.Micro);
                     kind.style.color = palette.TextDim;
                     ShellTheme.Place(kind, x + width - KindWidth, 4f, KindWidth, InputRowHeight - 4f);
                     _inputsList.Add(kind);
@@ -208,9 +247,10 @@ namespace BitSorter.View
             {
                 int r = _inputsFirst + i;
                 InputRow row = table.Rows[r];
+                long moment = row.Time;   // what the controls find their row by, after an edit has renumbered the rows
                 float y = 4f + (i + 1) * InputRowHeight;
 
-                TextField when = ShellTheme.Field(InputTimeName + r, "", palette, text => SetInputTime(r, text), type: UiType.Caption);
+                TextField when = ShellTheme.Field(InputTimeName + r, "", palette, text => SetInputTime(InputAt(moment, null).Row, text), type: UiType.Caption);
                 when.SetValueWithoutNotify(row.Time.ToString(CultureInfo.InvariantCulture));
                 ShellTheme.Place(when, 14f, y, TimeColumnWidth, InputRowHeight - 4f);
                 _inputsList.Add(when);
@@ -222,9 +262,12 @@ namespace BitSorter.View
                     float width = ColumnWidth(column);
                     if (column.IsInput && !column.IsClock)
                     {
-                        int at = c;
-                        TextField cell = ShellTheme.Field(InputCellName + column.Port + " " + r, "", palette, text => SetInputCell(r, at, text),
-                            type: UiType.Caption);
+                        string port = column.Port;
+                        TextField cell = ShellTheme.Field(InputCellName + column.Port + " " + r, "", palette, text =>
+                        {
+                            (int atRow, int atColumn) = InputAt(moment, port);
+                            SetInputCell(atRow, atColumn, text);
+                        }, type: UiType.Caption);
                         cell.SetValueWithoutNotify(row.Cells[c]);
                         ShellTheme.Place(cell, x, y, width, InputRowHeight - 4f);
                         _inputsList.Add(cell);
@@ -241,7 +284,7 @@ namespace BitSorter.View
                 }
 
                 // DEL, never an x: an x in this table is a value.
-                ShellButton remove = ShellTheme.Button(InputRemoveName + r, "DEL", palette, () => RemoveInputRow(r), UiType.Micro);
+                ShellButton remove = ShellTheme.Button(InputRemoveName + r, "DEL", palette, () => RemoveInputRow(InputAt(moment, null).Row), UiType.Micro);
                 ShellTheme.Place(remove, x, y, RemoveWidth, InputRowHeight - 4f);
                 _inputsList.Add(remove);
             }
@@ -266,6 +309,7 @@ namespace BitSorter.View
         /// <summary>A cell typed in, and kept: the input given the value at the row's moment, or for nothing its step taken away.</summary>
         public void SetInputCell(int row, int column, string text)
         {
+            SyncInputs();
             if (_inputs == null || row < 0 || row >= _inputs.Rows.Count || column < 0 || column >= _inputs.Columns.Count)
                 return;
             if ((text ?? "").Trim() == _inputs.Rows[row].Cells[column])
@@ -277,6 +321,7 @@ namespace BitSorter.View
         /// <summary>A row's time typed again: its steps moved there.</summary>
         public void SetInputTime(int row, string text)
         {
+            SyncInputs();
             if (_inputs == null || row < 0 || row >= _inputs.Rows.Count)
                 return;
             if ((text ?? "").Trim() == _inputs.Rows[row].Time.ToString(CultureInfo.InvariantCulture))
@@ -289,6 +334,7 @@ namespace BitSorter.View
         /// <summary>A row taken away: × at its end.</summary>
         public void RemoveInputRow(int row)
         {
+            SyncInputs();
             if (_inputs == null)
                 return;
             bool done = _inputs.TryRemoveRow(row, out BitSorter.Board.Stimulus edited, out long from, out InputTable table, out string refusal);
@@ -299,6 +345,7 @@ namespace BitSorter.View
         /// <summary>+ ROW: a row a step after the last, to type in.</summary>
         public void AddInputRow()
         {
+            SyncInputs();
             if (_inputs == null)
                 return;
             if (_inputs.ReadOnly)
@@ -306,7 +353,12 @@ namespace BitSorter.View
                 Notice(_inputs.Why);
                 return;
             }
-            _inputs = _inputs.AddRow();
+            if (!_inputs.TryAddRow(out InputTable added, out string refusal))
+            {
+                Notice(refusal);
+                return;
+            }
+            _inputs = added;
             _inputsFirst = Mathf.Max(0, _inputs.Rows.Count - InputRowsShown);   // the new row in sight
             _inputsDrawn = false;
         }
@@ -314,6 +366,7 @@ namespace BitSorter.View
         /// <summary>STEP typed: how far apart + ROW, ALL COMBINATIONS and COUNT put rows.</summary>
         public void SetInputStep(string text)
         {
+            SyncInputs();
             if (_inputs == null || (text ?? "").Trim() == _inputs.Step.ToString(CultureInfo.InvariantCulture))
                 return;
             if (_inputs.TrySetStep(text, out InputTable table, out string refusal))
@@ -326,6 +379,7 @@ namespace BitSorter.View
         /// <summary>END typed: when the run ends.</summary>
         public void SetInputEnd(string text)
         {
+            SyncInputs();
             if (_inputs == null || (text ?? "").Trim() == _inputs.End.ToString(CultureInfo.InvariantCulture))
                 return;
             bool done = _inputs.TrySetEnd(text, out BitSorter.Board.Stimulus edited, out string refusal);
@@ -335,6 +389,7 @@ namespace BitSorter.View
         /// <summary>ALL COMBINATIONS of the inputs chosen.</summary>
         public void AllCombinations()
         {
+            SyncInputs();
             if (_inputs == null)
                 return;
             bool done = _inputs.TryAllCombinations(out BitSorter.Board.Stimulus edited, out string refusal);
@@ -344,6 +399,7 @@ namespace BitSorter.View
         /// <summary>COUNT: the input chosen counting up.</summary>
         public void CountUp()
         {
+            SyncInputs();
             if (_inputs == null)
                 return;
             bool done = _inputs.TryCount(out BitSorter.Board.Stimulus edited, out string refusal);
@@ -353,15 +409,18 @@ namespace BitSorter.View
         /// <summary>CLOCK: the input chosen made a clock, or a clock made an input again.</summary>
         public void MakeClock()
         {
+            SyncInputs();
             if (_inputs == null)
                 return;
-            bool done = _inputs.TryClock(out BitSorter.Board.Stimulus edited, out string refusal);
+            bool done = _inputs.TryClock(out BitSorter.Board.Stimulus edited, out InputTable table, out string refusal);
+            _inputs = table;   // the input let go of, so it stands in no fill's way
             Commit(done, edited, 0, refusal);
         }
 
         /// <summary>A column's name clicked: chosen, or not.</summary>
         public void ChooseInput(int column)
         {
+            SyncInputs();
             if (_inputs == null)
                 return;
             _inputs = _inputs.Choose(column);
@@ -371,6 +430,7 @@ namespace BitSorter.View
         /// <summary>A column's radix clicked: its next.</summary>
         public void NextInputRadix(int column)
         {
+            SyncInputs();
             if (_inputs == null)
                 return;
             _inputs = _inputs.NextRadix(column);

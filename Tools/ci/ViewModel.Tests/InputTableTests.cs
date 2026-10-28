@@ -94,13 +94,14 @@ namespace BitSorter.ViewModel.Tests
         {
             WorkbenchSession session = Session();
             Stimulus before = session.Project.Stimulus;
-            InputTable table = InputTable.Of(session.Project).AddRow();
+            Assert.IsTrue(InputTable.Of(session.Project).TryAddRow(out InputTable table, out string added), added);
             Assert.AreEqual(30, table.Rows.Last().Time, "a step after the last");
             Assert.IsTrue(table.Rows.Last().Pending);
             Assert.AreSame(before, session.Project.Stimulus, "nothing committed");
 
             Assert.IsTrue(table.TrySetStep("5", out InputTable fives, out _));
-            Assert.AreEqual(35, fives.AddRow().Rows.Last().Time, "STEP 5: a row five after the last");
+            Assert.IsTrue(fives.TryAddRow(out InputTable more, out _));
+            Assert.AreEqual(35, more.Rows.Last().Time, "STEP 5: a row five after the last");
 
             bool done = table.TrySetCell(3, 0, "0", out Stimulus edited, out long from, out string refusal);
             Commit(session, done, edited, from, refusal);
@@ -158,15 +159,16 @@ namespace BitSorter.ViewModel.Tests
             Assert.AreEqual("1111", InputTable.Of(session.Project, table).Rows[15].Cells[1], "s counts 0 to 15");
 
             table = InputTable.Of(session.Project, table).Choose(1).Choose(0);
-            done = table.TryClock(out edited, out refusal);
+            done = table.TryClock(out edited, out InputTable letGo, out refusal);
             Commit(session, done, edited, 0, refusal);
-            table = InputTable.Of(session.Project, table);
+            Assert.IsFalse(letGo.Columns[0].Chosen, "a made a clock and let go of, so it is not in the next fill's way");
+            table = InputTable.Of(session.Project, letGo);
             Assert.AreEqual(20, table.Columns[0].ClockPeriod, "a clock that changes every step");
             Assert.AreEqual("CLOCK 20", table.Columns[0].Kind);
             Assert.IsFalse(table.TrySetCell(0, 0, "1", out _, out _, out string ticking));
             StringAssert.Contains("clock", ticking);
 
-            done = table.TryClock(out edited, out refusal);
+            done = table.Choose(0).TryClock(out edited, out _, out refusal);
             Commit(session, done, edited, 0, refusal);
             Assert.IsFalse(InputTable.Of(session.Project, table).Columns[0].IsClock, "and back");
         }
@@ -222,9 +224,46 @@ namespace BitSorter.ViewModel.Tests
             Assert.IsTrue(emptied.Done, emptied.Refusal);
             CollectionAssert.AreEqual(new[] { "s" }, InputTable.Undriven(session.Project).ToArray());
 
-            Assert.IsTrue(InputTable.Of(session.Project).Choose(0).TryClock(out Stimulus clocked, out string refusal), refusal);
+            Assert.IsTrue(InputTable.Of(session.Project).Choose(0).TryClock(out Stimulus clocked, out _, out string refusal), refusal);
             Assert.IsTrue(session.SetStimulus(clocked with { Tracks = new Track[0] }, 0).Done);
             CollectionAssert.AreEqual(new[] { "s" }, InputTable.Undriven(session.Project).ToArray(), "a clock is driven");
+        }
+
+        /// <summary>
+        /// An edit that changes nothing commits nothing (the 15g-4 review): a value the input already holds says so, an empty
+        /// cell emptied is quiet, and the end typed as it is is no undo step. And no moment past the table's last.
+        /// </summary>
+        [Test]
+        public void AnEditThatChangesNothing_IsNoUndoStep_AndNoMomentGoesPastTheLast()
+        {
+            WorkbenchSession session = Session();
+            InputTable table = InputTable.Of(session.Project);
+
+            Assert.IsFalse(table.TrySetCell(1, 1, "0000", out _, out _, out string held), "s is 0000 at 10 already");
+            StringAssert.Contains("already holds 0000", held);
+            Assert.IsTrue(table.TrySetCell(1, 1, "", out Stimulus emptied, out _, out _), "s has no step at 10 to empty");
+            Assert.IsNull(emptied);
+            Assert.IsTrue(table.TrySetEnd("040", out Stimulus same, out _));
+            Assert.IsNull(same, "the end it has");
+
+            Assert.IsFalse(table.TrySetEnd("9223372036854775807", out _, out string forever));
+            StringAssert.Contains("as far as", forever);
+            Assert.IsFalse(table.TrySetTime(1, (StimulusEdits.MaxTime + 1).ToString(), out _, out _, out _, out _));
+            Assert.IsTrue(table.TrySetStep(StimulusEdits.MaxTime.ToString(), out InputTable wide, out _));
+            Assert.IsFalse(wide.TryAddRow(out _, out string past), "a step that would put the row past the last moment");
+            StringAssert.Contains("as far as", past);
+            Assert.IsFalse(wide.Choose(0).TryAllCombinations(out _, out string fill));
+            StringAssert.Contains("smaller step", fill);
+        }
+
+        [Test]
+        public void ARefusal_SaysWhatWasTyped_AndHexTakes0x()
+        {
+            Assert.IsFalse(InputTable.TryRead("1FF", 8, Radix.Hex, out _, out string error));
+            StringAssert.Contains("1FF", error);
+            StringAssert.DoesNotContain("'h", error, "the text typed, not the literal it was made into");
+            Assert.IsTrue(InputTable.TryRead("0x1F", 8, Radix.Hex, out LogicVec value, out error), error);
+            Assert.AreEqual("00011111", value.Format(Radix.Binary));
         }
 
         [TestCase("A", 4, Radix.Hex, "1010")]

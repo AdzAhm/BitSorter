@@ -500,6 +500,33 @@ namespace BitSorter.PlayMode.Tests
             yield return Tap(_keyboard.escapeKey);
         }
 
+        /// <summary>
+        /// The INPUTS table made again before every edit (the 15g-4 review): a cell committed and DEL pressed in one frame -- as
+        /// a press on DEL that lets a typed cell go makes them -- both stand. DEL's edit was made on the table from before the
+        /// cell's, and threw the cell's away.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator TwoEditsOfTheInputsTable_InOneFrame_BothStand()
+        {
+            yield return TestScene.LoadSimulator();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowSample(1);   // the reference
+            yield return null;
+            workbench.ShowInputs();
+            yield return null;
+            yield return null;
+            int s = workbench.Inputs.Columns.ToList().FindIndex(c => c.Port == "s");
+            long first = workbench.Inputs.Rows[0].Time, second = workbench.Inputs.Rows[1].Time;
+            Assert.AreEqual("", workbench.Inputs.Rows[0].Cells[s], "sanity: s does not change at the first row");
+            Assert.AreNotEqual("", workbench.Inputs.Rows[1].Cells[s], "sanity: and does at the second");
+
+            workbench.SetInputCell(0, s, "1111");
+            workbench.RemoveInputRow(1);   // in the same frame, before the table is drawn again
+            Assert.AreEqual("1111", InputAt(workbench, "s", first), "the cell's edit stands");
+            Assert.AreEqual("1111", InputAt(workbench, "s", second), "and the second row is gone: s holds the first row's value on");
+            yield return null;
+        }
+
         /// <summary>An input's value at a moment, in binary, as the stimulus gives it.</summary>
         private static string InputAt(WorkbenchPanel workbench, string port, long time) =>
             StimulusEdits.ValueAt(workbench.Session.Project.Stimulus, port, time)?.Format(Radix.Binary);
