@@ -274,6 +274,85 @@ namespace BitSorter.PlayMode.Tests
         }
 
         [UnityTest]
+        public IEnumerator TheTutorial_FollowsTheDocument_LightsWhatItMeans_AndEndsOnCheck()
+        {
+            yield return TestScene.LoadSimulator();
+            WorkbenchPanel workbench = Workbench;
+            yield return Click(WorkbenchPanel.StartTutorialItem);
+            Assert.IsTrue(workbench.TutorialRunning);
+            Assert.AreEqual(GuidedTutorial.ExerciseId, workbench.ExerciseOpen?.Id, "on the first exercise");
+            Assert.IsFalse(workbench.StartPageShowing);
+            Assert.AreEqual(GuidedTutorial.TextFor(GuidedTutorial.Step.TakeTheNot), workbench.LessonText);
+            Assert.AreEqual(WorkbenchPanel.PartButtonName("not"), workbench.Lit?.name, "the NOT in PARTS lit");
+
+            yield return Click(WorkbenchPanel.PartButtonName("not"));
+            Assert.AreEqual(GuidedTutorial.Step.PutItDown, workbench.TutorialStep, "in hand");
+
+            WorkbenchSession session = workbench.Session;
+            EditResult placed = session.Place(PartsCatalog.Find(session.Project, session.Module, "not"), new Placement(6, 0));
+            Assert.IsTrue(placed.Done, placed.Refusal);
+            int Port(string name) => session.Project.TopModule.Ports.Single(p => p.Name == name).Id;
+            Assert.IsTrue(session.Connect(Endpoint.At(Port(GuidedTutorial.In), "out"), Endpoint.At(placed.Id, "a")).Done);
+            yield return null;
+            Assert.AreEqual(GuidedTutorial.Step.WireOut, workbench.TutorialStep);
+            Assert.IsNull(workbench.Lit, "a wire is drawn on the canvas: nothing to light");
+            Assert.IsTrue(session.Connect(Endpoint.At(placed.Id, "y"), Endpoint.At(Port(GuidedTutorial.Out), "in")).Done);
+            session.Finish();
+            yield return null;
+            Assert.AreEqual(GuidedTutorial.Step.Check, workbench.TutorialStep);
+            Assert.AreEqual(WorkbenchPanel.CheckButton, workbench.Lit?.name, "CHECK lit");
+
+            yield return Click(WorkbenchPanel.CheckButton);
+            Assert.IsTrue(workbench.LastGrade.Solved);
+            yield return null;
+            Assert.AreEqual(GuidedTutorial.Step.Done, workbench.TutorialStep);
+            Assert.AreEqual(WorkbenchPanel.CloseLesson, ShellPanel.Find<UnityEngine.UIElements.Button>(WorkbenchPanel.LessonButtonName).text);
+            yield return Click(WorkbenchPanel.LessonButtonName);
+            Assert.IsFalse(workbench.TutorialRunning);
+            Assert.IsNull(workbench.LessonText);
+        }
+
+        [UnityTest]
+        public IEnumerator TheTutorial_IsSkipped_FromHELP_AsItWasStarted()
+        {
+            yield return TestScene.LoadSimulator();
+            WorkbenchPanel workbench = Workbench;
+            workbench.OpenHelpMenu();
+            yield return null;
+            yield return Click(HelpMenu.ActionItem + HelpAction.Tutorial);
+            Assert.IsTrue(workbench.TutorialRunning, "HELP, TUTORIAL");
+            yield return Click(WorkbenchPanel.LessonButtonName);
+            Assert.IsFalse(workbench.TutorialRunning, "SKIP stops it");
+            Assert.IsNull(workbench.Lit, "and lights nothing");
+            Assert.AreEqual(GuidedTutorial.ExerciseId, workbench.ExerciseOpen?.Id, "the exercise stays open");
+        }
+
+        [UnityTest]
+        public IEnumerator AFirstTimeHint_ComesUpOnceTheRunShowsIt_AndOnlyOnce()
+        {
+            yield return TestScene.LoadSimulator();
+            WorkbenchPanel workbench = Workbench;
+            workbench.OpenExercise("half-adder");
+            yield return null;
+            workbench.ExerciseCard.Close();
+            BuildTheHalfAdder(workbench.Session);
+            workbench.Restart();
+
+            for (int frame = 0; frame < 600 && workbench.HintShown == null; frame++)
+                yield return null;
+            Assert.AreEqual(SimulatorHints.GateDelay, workbench.HintShown, "a gate's output moved after its input");
+            Assert.AreEqual(SimulatorHints.TextFor(SimulatorHints.GateDelay), workbench.LessonText);
+            Assert.IsTrue(Store.HasSeenHint(SimulatorHints.GateDelay), "kept as seen as it went up");
+
+            yield return Click(WorkbenchPanel.LessonButtonName);
+            Assert.IsNull(workbench.LessonText, "GOT IT takes it down");
+            workbench.Restart();
+            for (int frame = 0; frame < 120; frame++)
+                yield return null;
+            Assert.IsNull(workbench.HintShown, "and it does not come back");
+        }
+
+        [UnityTest]
         public IEnumerator AnExerciseOpenLast_OpensAgain_AsItWasLeft()
         {
             Exercise exercise = ExerciseCatalog.Run.Single(e => e.Id == "half-adder");

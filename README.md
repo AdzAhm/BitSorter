@@ -323,6 +323,10 @@ TRANSCRIPT that takes the run to its moment, and once it is solved a card says
 how many gates it took and how fast it settles, beside your best, and offers the
 next. A board you left in a 4.x level opens in its exercise.
 
+New to it? **TUTORIAL**, on the start page and in HELP, walks you through the
+first exercise one click at a time, and the simulator explains a few things the
+first time you meet them -- a gate's delay, a clock, a glitch, z and x.
+
 **WRITE IT** answers an exercise in SystemVerilog instead: your drawing becomes
 code, gate for gate, and you carry on typing. It is held to the same parts as a
 drawing -- the course's gates, no operators, no more of each than the exercise
