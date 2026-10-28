@@ -427,21 +427,20 @@ namespace BitSorter.PlayMode.Tests
 
             Assert.IsNull(GameObject.Find("music credit"), "the main menu still has its music credit line");
 
-            Transform roll = null;
-
-            foreach (RectTransform rect in Resources.FindObjectsOfTypeAll<RectTransform>())
-            {
-                // Settings' button is named Credits too; the panel is the one with the roll in it.
-                if (rect.name == "Credits" && rect.gameObject.scene.IsValid() && rect.Find("roll") != null)
-                    roll = rect;
-            }
+            // The roll is a page of the workbench since Part 15g, built as it first opens: from Settings, as a player
+            // reaches it.
+            Find<SettingsPanel>().Open();
+            yield return null;
+            ShellPanel.Submit(ShellPanel.Find<UnityEngine.UIElements.Button>(SettingsPanel.CreditsButton));
+            yield return null;
+            var roll = ShellPanel.Find<UnityEngine.UIElements.VisualElement>(CreditsPanel.PageName);
 
             Assert.IsNotNull(roll, "the credits roll was not built");
 
             var lines = new System.Text.StringBuilder();
 
-            foreach (TMPro.TextMeshProUGUI label in roll.GetComponentsInChildren<TMPro.TextMeshProUGUI>(true))
-                lines.AppendLine(label.text);
+            UnityEngine.UIElements.UQueryExtensions.Query<UnityEngine.UIElements.TextElement>(roll)
+                .ForEach(label => lines.AppendLine(label.text));
 
             string text = lines.ToString();
 

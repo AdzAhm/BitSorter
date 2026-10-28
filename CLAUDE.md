@@ -935,9 +935,10 @@ failure side.
   page, or puts a part in hand down, and never closes the workbench: BitSorter opens
   on it, and nothing is behind it (Part 15a). HOME, FILE, EXERCISES, HELP and
   SETTINGS head it, HELP a shell menu (`HelpMenu`) with the keyboard map,
-  the start page and the credits, which come back to it; SETTINGS opens Settings
-  over it, solid where it is see-through over the 4.x board, and BACK there comes
-  back. **The start page is the shell's** (`WorkbenchPanel.Home.cs`), over
+  the start page and the credits, which come back to it; SETTINGS opens Settings,
+  and BACK there comes back -- both pages of the workbench since Part 15g, as the
+  start page is, and either up is `PageShowing` too (`WorkbenchPanel.Pages.cs`,
+  one page up at a time). **The start page is the shell's** (`WorkbenchPanel.Home.cs`), over
   everything under the header, and while it is up the workbench reads no keys and
   no pointer of its own -- but ? and S, the sample chip's key, which shows the next
   sample and leaves the page (Part 15g: it did nothing there); so is EXERCISES' page (`WorkbenchPanel.Exercises.cs`), and
@@ -1584,8 +1585,8 @@ failure side.
   one play session, and a static would carry "map" into every fixture after the
   one that pressed the tab.
 
-  **The help panel shrinks to fit a short window**, as Settings does and as the
-  setup panel beside it does at `UiRows.PanelFloor` -- which once only stopped its
+  **The help panel shrinks to fit a short window**, as Settings did until it
+  scrolled (Part 15g), and as the setup panel beside it does at `UiRows.PanelFloor` -- which once only stopped its
   background there and let its rows run on over the board. A browser tab 1920
   by 800 gives the canvas about 930 of height, and a sixteen-row table needs all
   of the room that leaves. `HelpPanelTests` holds every level to fitting unscaled
@@ -1871,6 +1872,16 @@ the title screen -- and BACK goes back to whichever it was -- a change of look r
 the same one (`OpenAgain`). It plays the menu's music. Sound and Data were rows of the menu
 until it existed.
 
+**Settings is a page of the workbench** (Part 15g, `WorkbenchPanel.AddPage`): under
+the header like the start page, in the style's own colours and type, its switches
+and sliders the shell's. It was a uGUI screen in the 4.x board's colours whatever
+the style, and Ahmad asked that it look like the start page and that a change of
+style through it change everything (2026-10-28). In the 4.x boot the tests use, the
+workbench comes up under it, and BACK takes both down to the title screen. The
+class kept its name, its object and its controls' names, so the scene, `GameAudio`,
+`LookSwitch` and the tests reach it as before. **The credits roll on a page of
+the workbench too** (`CreditsPanel`), in the style's colours.
+
 **STYLE chooses the look, and the game loads again in it** (`LookSwitch`). A
 palette is never changed in place, so the whole scene is built again under a cover
 of the ground's colour -- the open board written first, since a reload is not a
@@ -1884,11 +1895,17 @@ glow and its gates' flashes** (`ReducedMotion`); a change still travels its wire
 because where it has got to is what the workbench shows. Read where it is drawn,
 so it needs no reload; the 4.x board keeps its motion until Part 15.
 
-**It shrinks to fit a short window** (`SettingsPanel.FitScale`). The canvas
-scales halfway between width and height, so a wide window gives less than the
-1080 the sections are laid out against -- a browser tab 1920 by 800 gives about
-930 -- and Settings has no scroll. Past that it ran under BACK and off the
-bottom.
+**It scrolls in a short window** (Part 15g). The canvas scales halfway between
+width and height, so a wide window gives less than the 1080 the sections are laid
+out against -- a browser tab 1920 by 800 gives about 930. As a uGUI screen it had
+no scroll, ran under BACK and off the bottom, and was made to shrink to fit
+(`SettingsPanel.FitScale`, which the help panel and free play's setup still use).
+**Nothing in a shell `ScrollView` may give up its height** (`flexShrink = 0` on
+every row): UI Toolkit shrinks a column's children to the page before it lets
+the page scroll, and the first build of the page squashed every line into the
+next. **Nor does its viewport clip by itself**: the default theme does that, the
+shell has none, and the sections scrolled above the page were drawn over the
+workbench's header until the viewport was given `overflow: hidden` by hand.
 
 **The credits are `Credits`, and the roll is `CreditsPanel`.** Every role is
 Ahmad Zoabi's, the company is ZADZ, the playtesters are thanked without names,

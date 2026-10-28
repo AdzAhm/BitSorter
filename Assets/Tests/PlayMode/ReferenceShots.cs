@@ -581,7 +581,12 @@ namespace BitSorter.PlayMode.Tests
             GameObject.Find("Settings").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
             yield return Frames(2);
 
-            GameObject.Find(SettingsPanel.ResetButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            ShellPanel.Submit(ShellPanel.Find<UnityEngine.UIElements.Button>(SettingsPanel.ResetButton));   // a page of the shell's (Part 15g)
+            yield return Frames(2);
+
+            // The page scrolls since Part 15g: down to the question, the thing this shot is of.
+            ShellPanel.Find<UnityEngine.UIElements.ScrollView>("settings scroll")
+                .ScrollTo(ShellPanel.Find<UnityEngine.UIElements.VisualElement>(SettingsPanel.StatusName));
             yield return Frames(30);
 
             Assert.IsTrue(Find<SettingsPanel>().Confirming, "sanity: the settings should be asking");
@@ -607,7 +612,7 @@ namespace BitSorter.PlayMode.Tests
             GameObject.Find("Settings").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
             yield return Frames(2);
 
-            GameObject.Find(SettingsPanel.CreditsButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            ShellPanel.Submit(ShellPanel.Find<UnityEngine.UIElements.Button>(SettingsPanel.CreditsButton));
 
             const float step = 0.1f;
             Time.captureDeltaTime = step;

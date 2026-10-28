@@ -57,7 +57,9 @@ switch it on, in 5.0) and the effects -- and its volume, fullscreen on Windows
 On Windows it also has vertical sync, on by default so the game keeps to your
 screen's refresh rate, and with it off a frame cap from 30 to 240 frames a second,
 or none. A lower cap uses less power on a laptop. FPS COUNTER, on Windows and in
-the browser, puts a small frame-rate counter in the top-right corner.
+the browser, puts a small frame-rate counter in the top-right corner. In 5.0
+Settings and the credits are pages of the workbench, drawn in the style you chose,
+and Settings scrolls in a short window.
 
 The bottom-right corner of the main menu says which version you are running (in
 5.0, the foot of the start page), which is worth including if you report a bug.

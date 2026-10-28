@@ -334,7 +334,7 @@ namespace BitSorter.PlayMode.Tests
             yield return Click(HelpMenu.ActionItem + HelpAction.About);
             CreditsPanel credits = Find<CreditsPanel>();
             Assert.IsTrue(credits.IsShowing, "ABOUT: the credits");
-            Assert.IsFalse(workbench.IsOpen);
+            Assert.IsTrue(workbench.IsOpen, "a page of the workbench's own, over it (Part 15g)");
             yield return Tap(_keyboard.spaceKey);
             Assert.IsFalse(credits.IsShowing, "any key ends them");
             Assert.IsTrue(workbench.IsOpen, "back on the workbench");
@@ -382,11 +382,11 @@ namespace BitSorter.PlayMode.Tests
 
                 Assert.IsTrue(Find<SettingsPanel>().IsShowing, "back on Settings");
                 Assert.IsFalse(Find<SettingsPanel>().OverTheSimulator);
-                Assert.IsFalse(Find<WorkbenchPanel>().IsOpen, "with the simulator under it, not over it");
-                Assert.IsFalse(Find<WorkbenchPanel>().Shell.Visible, "its shell, drawn over the canvas, out of sight");
+                Assert.IsFalse(Find<MainMenu>().IsOpen, "the title screen under it, not over it");
                 yield return Click(SettingsPanel.BackButton);
-                Assert.IsTrue(Find<MainMenu>().IsOpen, "BACK: the title screen it was opened over");
-                Assert.IsFalse(Find<WorkbenchPanel>().IsOpen);
+                Assert.IsTrue(Find<MainMenu>().IsOpen, "BACK: the title screen it was opened from");
+                Assert.IsFalse(Find<WorkbenchPanel>().IsOpen, "with the workbench Settings is a page of taken down");
+                Assert.IsFalse(Find<WorkbenchPanel>().Shell.Visible, "its shell, drawn over the canvas, out of sight");
 
                 // Over the simulator.
                 yield return Click(MainMenu.WorkbenchButton);
@@ -395,7 +395,7 @@ namespace BitSorter.PlayMode.Tests
                 yield return UntilTheLookHasChanged();
 
                 Assert.IsTrue(Find<SettingsPanel>().IsShowing && Find<SettingsPanel>().OverTheSimulator, "back on Settings, over the simulator");
-                Assert.IsFalse(Find<WorkbenchPanel>().IsOpen);
+                Assert.IsTrue(Find<WorkbenchPanel>().IsOpen, "a page of the workbench (Part 15g)");
                 yield return Click(SettingsPanel.BackButton);
                 Assert.IsTrue(Find<WorkbenchPanel>().IsOpen, "BACK: the simulator");
                 Assert.IsFalse(Find<MainMenu>().IsOpen);
@@ -423,7 +423,7 @@ namespace BitSorter.PlayMode.Tests
 
             yield return Click(WorkbenchPanel.SettingsButton);
             Assert.IsTrue(settings.IsShowing && settings.OverTheSimulator, "SETTINGS, over the simulator");
-            Assert.IsFalse(workbench.IsOpen);
+            Assert.IsTrue(workbench.IsOpen, "a page of the workbench's own (Part 15g)");
             yield return Click(SettingsPanel.BackButton);
             Assert.IsTrue(workbench.IsOpen && workbench.StartPageShowing, "BACK: the start page it went over");
 

@@ -355,12 +355,12 @@ namespace BitSorter.View.EditorTools
             Assign(settings, "_progress", progress);
             Assign(settings, "_menu", mainMenu);
             Assign(settings, "_credits", credits);
-            Assign(settings, "_canvas", canvas);
+            Assign(settings, "_workbench", workbench);   // pages of the workbench's own since Part 15g
 
             Assign(workbench, "_canvas", canvas);
 
             Assign(credits, "_settings", settings);
-            Assign(credits, "_canvas", canvas);
+            Assign(credits, "_workbench", workbench);
 
             Assign(frameCounter, "_canvas", canvas);
 

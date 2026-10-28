@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using NUnit.Framework;
 using BitSorter.View;
@@ -8,13 +9,19 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.TestTools;
 using UnityEngine.UI;
+using DisplayStyle = UnityEngine.UIElements.DisplayStyle;
+using Label = UnityEngine.UIElements.Label;
+using ShellButton = UnityEngine.UIElements.Button;
+using VisualElement = UnityEngine.UIElements.VisualElement;
 using Object = UnityEngine.Object;
+using static UnityEngine.UIElements.UQueryExtensions;
 
 namespace BitSorter.PlayMode.Tests
 {
     /// <summary>
-    /// The settings screen, and above all its reset: that it asks, that saying no costs nothing, and
-    /// that saying yes leaves a game a new player would recognise.
+    /// The settings page, and above all its reset: that it asks, that saying no costs nothing, and
+    /// that saying yes leaves a game a new player would recognise. A page of the workbench's own
+    /// since Part 15g, in the shell, so its controls are found by name there.
     /// </summary>
     /// <remarks>
     /// "Like a new player" is more than an empty file. The tutorial remembers it has run this
@@ -70,19 +77,60 @@ namespace BitSorter.PlayMode.Tests
 
         private static T Find<T>() where T : Object => Object.FindFirstObjectByType<T>();
 
-        /// <summary>A button on screen by its object name; fails if it is not showing.</summary>
-        private static Button OnScreen(string name)
+        /// <summary>A button of Settings or the credits by its name in the shell; fails if it is not showing.</summary>
+        private static ShellButton OnScreen(string name)
         {
-            GameObject found = GameObject.Find(name);
+            ShellButton found = ShellPanel.Find<ShellButton>(name);
             Assert.IsNotNull(found, $"no '{name}' button on screen");
-            return found.GetComponent<Button>();
+            Assert.IsTrue(Shown(found), $"'{name}' is not showing");
+            return found;
         }
 
+        /// <summary>Whether <paramref name="element"/> is drawn: on a panel, with nothing it is in hidden.</summary>
+        private static bool Shown(VisualElement element)
+        {
+            if (element == null || element.panel == null)
+                return false;
+            for (VisualElement e = element; e != null; e = e.parent)
+                if (e.resolvedStyle.display == DisplayStyle.None)
+                    return false;
+            return true;
+        }
+
+        /// <summary>A button by its name: the shell's -- Settings, the credits -- or the 4.x menu's, which is still uGUI.</summary>
         private static IEnumerator Click(string name)
         {
-            OnScreen(name).onClick.Invoke();
+            ShellButton shell = ShellPanel.Find<ShellButton>(name);
+            if (Shown(shell))
+            {
+                ShellPanel.Submit(shell);
+            }
+            else
+            {
+                GameObject found = GameObject.Find(name);
+                Assert.IsNotNull(found, $"no '{name}' button on screen");
+                found.GetComponent<Button>().onClick.Invoke();
+            }
             yield return null;
             yield return null;
+        }
+
+        /// <summary>The settings page, in the shell.</summary>
+        private static VisualElement Page()
+        {
+            VisualElement page = ShellPanel.Find<VisualElement>(SettingsPanel.PageName);
+            Assert.IsNotNull(page, "no settings page");
+            return page;
+        }
+
+        private static Rect ScreenRect(VisualElement element) => ShellPanel.ScreenRectOf(element);
+
+        /// <summary>A label of the settings page by its name in a row, the <paramref name="index"/>th of that name.</summary>
+        private static Label PageLabel(string name, int index = 0)
+        {
+            List<Label> found = Page().Query<Label>(name).ToList();
+            Assert.Greater(found.Count, index, $"no '{name}' label on the settings page");
+            return found[index];
         }
 
         private static IEnumerator OpenSettings()
@@ -133,8 +181,9 @@ namespace BitSorter.PlayMode.Tests
         // -----------------------------------------------------------------
 
         /// <summary>
-        /// Settings is a row of the main menu, has its three headed sections, and BACK returns to
-        /// the menu rather than to the board.
+        /// Settings is a row of the main menu, has its headed sections, and BACK returns to the menu
+        /// rather than to the board. Opened from there it is the workbench's page, with the workbench
+        /// brought up under it and taken down again with it (Part 15g).
         /// </summary>
         [UnityTest]
         public IEnumerator Settings_OpensFromTheMenu_WithItsSections_AndGoesBackToIt()
@@ -144,9 +193,7 @@ namespace BitSorter.PlayMode.Tests
 
             Assert.IsFalse(Find<MainMenu>().IsOpen, "the menu stayed up under the settings");
 
-            var shown = new System.Collections.Generic.HashSet<string>();
-            foreach (TextMeshProUGUI label in GameObject.Find("Settings").GetComponentsInChildren<TextMeshProUGUI>())
-                shown.Add(label.text);
+            var shown = new HashSet<string>(Page().Query<Label>().ToList().Select(l => l.text));
 
             foreach (string heading in SettingsPanel.Headings)
                 Assert.IsTrue(shown.Contains(heading), $"the {heading} section has no heading");
@@ -155,6 +202,7 @@ namespace BitSorter.PlayMode.Tests
 
             Assert.IsFalse(Find<SettingsPanel>().IsOpen, "BACK did not close the settings");
             Assert.IsTrue(Find<MainMenu>().IsOpen, "BACK left the player on the board instead of the menu");
+            Assert.IsFalse(Find<WorkbenchPanel>().IsOpen, "BACK left the workbench up over the menu");
         }
 
         /// <summary>
@@ -183,9 +231,11 @@ namespace BitSorter.PlayMode.Tests
                 Assert.AreEqual(Looks.SchematicLight.Code, Preferences.GetInt(Look.PreferenceKey, 0), "the choice was not kept");
                 Assert.IsTrue(Find<SettingsPanel>().IsOpen, "the switch did not come back to Settings");
                 Assert.IsFalse(Find<MainMenu>().IsOpen, "the menu came up over Settings");
-                Assert.AreEqual(UiTheme.SelectedFill(true),
-                    OnScreen(SettingsPanel.LookButton(Looks.SchematicLight)).GetComponent<Image>().color,
+                Assert.AreEqual(SchematicPalette.Current.Accent,
+                    OnScreen(SettingsPanel.LookButton(Looks.SchematicLight)).resolvedStyle.borderLeftColor,
                     "the look in use should be the chosen button");
+                Assert.AreEqual(SchematicPalette.Light.Ground, Page().resolvedStyle.backgroundColor,
+                    "the page is not in the look chosen");
 
                 yield return Click(SettingsPanel.BackButton);
                 yield return Click(MainMenu.WorkbenchButton);
@@ -268,23 +318,21 @@ namespace BitSorter.PlayMode.Tests
             yield return TestScene.Load();
             yield return OpenSettings();
 
-            Slider volume = VolumeSlider();
+            ShellSlider volume = VolumeSlider();
             Assert.IsFalse(GameAudio.Muted, "sanity: a fresh machine starts with the sound on");
-            Assert.IsTrue(volume.interactable, "the volume is locked with the sound on");
+            Assert.IsTrue(volume.enabledSelf, "the volume is locked with the sound on");
 
             yield return Click(SettingsPanel.SoundButton);
 
             Assert.IsTrue(GameAudio.Muted, "sanity: the sound switch should have turned the sound off");
-            Assert.IsFalse(volume.interactable, "the volume can still be moved with the sound off");
-            Assert.AreEqual(UiTheme.TextDim, volume.handleRect.GetComponent<Image>().color,
-                "the volume's handle is not greyed out with the sound off");
+            Assert.IsFalse(volume.enabledSelf, "the volume can still be moved with the sound off");
+            Assert.Less(volume.resolvedStyle.opacity, 1f, "the volume is not greyed out with the sound off");
 
             yield return Click(SettingsPanel.SoundButton);
 
             Assert.IsFalse(GameAudio.Muted);
-            Assert.IsTrue(volume.interactable, "the volume stayed locked once the sound was back on");
-            Assert.AreEqual(UiTheme.Text, volume.handleRect.GetComponent<Image>().color,
-                "the volume's handle stayed grey once the sound was back on");
+            Assert.IsTrue(volume.enabledSelf, "the volume stayed locked once the sound was back on");
+            Assert.AreEqual(1f, volume.resolvedStyle.opacity, "the volume stayed grey once the sound was back on");
         }
 
         /// <summary>
@@ -310,15 +358,14 @@ namespace BitSorter.PlayMode.Tests
             yield return Click(SettingsPanel.SoundButton);
             Assert.IsTrue(GameAudio.Muted, "sanity: SOUND should have switched everything off");
 
-            Button music = OnScreen(SettingsPanel.MusicButton);
-            Button effects = OnScreen(SettingsPanel.EffectsButton);
-            Assert.IsFalse(music.interactable, "MUSIC can still be pressed with the sound off");
-            Assert.IsFalse(effects.interactable, "EFFECTS can still be pressed with the sound off");
-            StringAssert.Contains("ON", music.GetComponentInChildren<TextMeshProUGUI>().text,
-                "a greyed-out MUSIC stopped saying what it is set to");
+            ShellButton music = OnScreen(SettingsPanel.MusicButton);
+            ShellButton effects = OnScreen(SettingsPanel.EffectsButton);
+            Assert.IsFalse(music.enabledSelf, "MUSIC can still be pressed with the sound off");
+            Assert.IsFalse(effects.enabledSelf, "EFFECTS can still be pressed with the sound off");
+            StringAssert.Contains("ON", music.text, "a greyed-out MUSIC stopped saying what it is set to");
 
             yield return Click(SettingsPanel.SoundButton);
-            Assert.IsTrue(music.interactable && effects.interactable, "the switches stayed locked with the sound back on");
+            Assert.IsTrue(music.enabledSelf && effects.enabledSelf, "the switches stayed locked with the sound back on");
 
             // Put back: the fixture shares its scratch preferences between tests.
             yield return Click(SettingsPanel.MusicButton);
@@ -339,7 +386,7 @@ namespace BitSorter.PlayMode.Tests
             yield return TestScene.Load();
             yield return OpenSettings();
 
-            Slider volume = VolumeSlider();
+            ShellSlider volume = VolumeSlider();
             AudioSource music = Find<GameAudio>().MusicSource;
 
             volume.value = 100;
@@ -360,8 +407,8 @@ namespace BitSorter.PlayMode.Tests
             yield return TestScene.Load();
             yield return OpenSettings();
 
-            Button fullscreen = OnScreen(SettingsPanel.FullscreenButton);
-            StringAssert.StartsWith("FULLSCREEN", fullscreen.GetComponentInChildren<TextMeshProUGUI>().text);
+            ShellButton fullscreen = OnScreen(SettingsPanel.FullscreenButton);
+            StringAssert.StartsWith("FULLSCREEN", fullscreen.text);
         }
 
         /// <summary>
@@ -373,12 +420,11 @@ namespace BitSorter.PlayMode.Tests
             yield return TestScene.Load();
             yield return OpenSettings();
 
-            Button fullscreen = OnScreen(SettingsPanel.FullscreenButton);
-            Button vSync = OnScreen(SettingsPanel.VSyncButton);
-            TextMeshProUGUI caption = vSync.GetComponentInChildren<TextMeshProUGUI>();
+            ShellButton fullscreen = OnScreen(SettingsPanel.FullscreenButton);
+            ShellButton vSync = OnScreen(SettingsPanel.VSyncButton);
 
             Assert.IsTrue(FrameRate.VSync, "sanity: a fresh machine keeps up with its screen");
-            Assert.AreEqual(SettingsPanel.VSyncCaption(true), caption.text);
+            Assert.AreEqual(SettingsPanel.VSyncCaption(true), vSync.text);
 
             Rect beside = ScreenRect(fullscreen);
             Rect sync = ScreenRect(vSync);
@@ -387,7 +433,7 @@ namespace BitSorter.PlayMode.Tests
 
             yield return Click(SettingsPanel.VSyncButton);
             Assert.IsFalse(FrameRate.VSync, "VSYNC did not switch vertical sync off");
-            Assert.AreEqual(SettingsPanel.VSyncCaption(false), caption.text, "the switch does not say it is off");
+            Assert.AreEqual(SettingsPanel.VSyncCaption(false), vSync.text, "the switch does not say it is off");
 
             // Back, which also puts the fixture's shared scratch preferences as they were.
             yield return Click(SettingsPanel.VSyncButton);
@@ -404,41 +450,30 @@ namespace BitSorter.PlayMode.Tests
             yield return TestScene.Load();
             yield return OpenSettings();
 
-            Slider cap = FrameCapSlider();
-            TextMeshProUGUI readout = GameObject.Find("Settings/sections/frame cap value").GetComponent<TextMeshProUGUI>();
-            TextMeshProUGUI label = GameObject.Find("Settings/sections/frame cap label").GetComponent<TextMeshProUGUI>();
+            ShellSlider cap = FrameCapSlider();
+            Label readout = PageLabel("value", 1);   // the volume's first, the cap's under it
+            Label label = PageLabel("caption", 1);
 
             Rect sync = ScreenRect(OnScreen(SettingsPanel.VSyncButton));
             Assert.LessOrEqual(ScreenRect(cap).yMax, sync.yMin, "the cap is not under VSYNC");
             Assert.AreEqual(ScreenRect(VolumeSlider()).xMin, ScreenRect(cap).xMin, 0.5f,
                 "the cap's slider is not in line with the volume's");
-            Assert.AreEqual(ScreenRect(GameObject.Find("Settings/sections/volume value").GetComponent<RectTransform>()).xMin,
-                ScreenRect(readout).xMin, 0.5f, "the cap's readout is not in line with the volume's");
-
-            Assert.LessOrEqual(label.GetPreferredValues(label.text).x, label.rectTransform.rect.width,
-                "FRAME CAP runs out of its box");
-
-            for (int stop = 0; stop < FrameRate.Stops; stop++)
-            {
-                string caption = SettingsPanel.CapCaption(stop);
-                Assert.LessOrEqual(readout.GetPreferredValues(caption).x, readout.rectTransform.rect.width,
-                    $"'{caption}' runs out of the cap's readout");
-            }
+            Assert.AreEqual(ScreenRect(PageLabel("value", 0)).xMin, ScreenRect(readout).xMin, 0.5f,
+                "the cap's readout is not in line with the volume's");
+            Assert.AreEqual("FRAME CAP", label.text);
 
             int before = FrameRate.CapStop;
 
             Assert.IsTrue(FrameRate.VSync, "sanity: a fresh machine has vertical sync on");
-            Assert.IsFalse(cap.interactable, "the cap can be moved while vertical sync would ignore it");
-            Assert.AreEqual(UiTheme.TextDim, cap.handleRect.GetComponent<Image>().color,
-                "the cap's handle is not greyed out with vertical sync on");
+            Assert.IsFalse(cap.enabledSelf, "the cap can be moved while vertical sync would ignore it");
+            Assert.Less(cap.resolvedStyle.opacity, 1f, "the cap is not greyed out with vertical sync on");
             Assert.AreEqual(SettingsPanel.CapCaption(FrameRate.CapStop), readout.text,
                 "a greyed-out cap stopped saying what it is set to");
 
             yield return Click(SettingsPanel.VSyncButton);
 
-            Assert.IsTrue(cap.interactable, "the cap stayed locked with vertical sync off");
-            Assert.AreEqual(UiTheme.Text, cap.handleRect.GetComponent<Image>().color,
-                "the cap's handle stayed grey with vertical sync off");
+            Assert.IsTrue(cap.enabledSelf, "the cap stayed locked with vertical sync off");
+            Assert.AreEqual(1f, cap.resolvedStyle.opacity, "the cap stayed grey with vertical sync off");
 
             int top = FrameRate.Stops - 2;
             cap.value = top;
@@ -468,10 +503,10 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsNotNull(counter, "the scene has no frame-rate counter");
             Assert.IsFalse(counter.IsShowing, "a machine that never asked has a counter in the corner");
 
-            Button fps = OnScreen(SettingsPanel.CounterButton);
+            ShellButton fps = OnScreen(SettingsPanel.CounterButton);
             Assert.AreEqual(ScreenRect(OnScreen(SettingsPanel.VSyncButton)).center.y, ScreenRect(fps).center.y, 1f,
                 "FPS COUNTER is not on VSYNC's row");
-            Assert.AreEqual(SettingsPanel.CounterCaption(false), fps.GetComponentInChildren<TextMeshProUGUI>().text);
+            Assert.AreEqual(SettingsPanel.CounterCaption(false), fps.text);
 
             yield return Click(SettingsPanel.CounterButton);
             Assert.IsTrue(FrameRate.ShowsCounter, "FPS COUNTER did not switch the counter on");
@@ -530,7 +565,7 @@ namespace BitSorter.PlayMode.Tests
             yield return TestScene.Load();
             yield return OpenSettings();
 
-            Button keys = OnScreen(SettingsPanel.KeysButton);
+            ShellButton keys = OnScreen(SettingsPanel.KeysButton);
             Assert.AreEqual(ScreenRect(OnScreen(SettingsPanel.MotionButton)).center.y, ScreenRect(keys).center.y, 1f,
                 "SHORTCUT KEYS is not on REDUCED MOTION's row");
             Assert.IsTrue(KeyCaps.Shown, "the keys are shown to begin with");
@@ -539,7 +574,7 @@ namespace BitSorter.PlayMode.Tests
 
             yield return Click(SettingsPanel.KeysButton);
             Assert.IsFalse(KeyCaps.Shown, "SHORTCUT KEYS did not hide the keys");
-            Assert.AreEqual(SettingsPanel.KeysCaption(false), keys.GetComponentInChildren<TextMeshProUGUI>().text);
+            Assert.AreEqual(SettingsPanel.KeysCaption(false), keys.text);
 
             yield return Click(SettingsPanel.BackButton);
             Find<MainMenu>().Show(false);
@@ -581,9 +616,11 @@ namespace BitSorter.PlayMode.Tests
 
         private static void AssertFits(string button, string caption)
         {
-            TextMeshProUGUI label = OnScreen(button).GetComponentInChildren<TextMeshProUGUI>();
-            Assert.LessOrEqual(label.GetPreferredValues(caption).x, label.rectTransform.rect.width,
-                $"'{caption}' runs out of its button");
+            ShellButton found = OnScreen(button);
+            Vector2 size = found.MeasureTextSize(caption, 0f, VisualElement.MeasureMode.Undefined, 0f, VisualElement.MeasureMode.Undefined);
+            float room = found.resolvedStyle.width - found.resolvedStyle.paddingLeft - found.resolvedStyle.paddingRight
+                         - found.resolvedStyle.borderLeftWidth - found.resolvedStyle.borderRightWidth;
+            Assert.LessOrEqual(size.x, room, $"'{caption}' runs out of its button");
         }
 
         // -----------------------------------------------------------------
@@ -677,14 +714,16 @@ namespace BitSorter.PlayMode.Tests
             yield return OpenCredits();
             yield return null;
 
-            GameObject roll = GameObject.Find("Credits/roll");
-            GameObject help = GameObject.Find("Credits/help");
-            Assert.IsNotNull(roll, "sanity: the roll should be on screen");
+            VisualElement page = ShellPanel.Find<VisualElement>(CreditsPanel.PageName);
+            Assert.IsNotNull(page, "sanity: the credits should be on screen");
+            Label help = page.Q<Label>("help");
             Assert.IsNotNull(help, "the credits do not say how to leave them");
+            Assert.AreEqual(CreditsPanel.HelpText, help.text);
 
-            Assert.GreaterOrEqual(ScreenRect(help.GetComponent<RectTransform>()).xMin,
-                ScreenRect(roll.GetComponent<RectTransform>()).xMax,
-                "the help line sits in the column the roll rises through");
+            float column = 0f;
+            foreach (Label line in page.Q("roll").Query<Label>().ToList())
+                column = Mathf.Max(column, ScreenRect(line).xMax);
+            Assert.GreaterOrEqual(ScreenRect(help).xMin, column, "the help line sits in the column the roll rises through");
         }
 
         /// <summary>A click anywhere goes back from the credits to the settings.</summary>
@@ -741,64 +780,64 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
-        /// The sections fit between the BACK button and the help line, whatever the window gives
-        /// them.
+        /// The page scrolls in a short window, where the uGUI screen it replaced shrank to fit (Part 15g): its last control,
+        /// CREDITS, is below the bottom of a page shorter than the sections, and scrolling brings it up.
         /// </summary>
-        /// <remarks>
-        /// The canvas scales halfway between width and height, so a wide or short window has less
-        /// than 1080 to give, and Settings has no scroll. It shrinks to fit rather than running under
-        /// the BACK button and off the bottom.
-        /// </remarks>
         [UnityTest]
-        public IEnumerator TheSections_FitBetweenTheBackButtonAndTheHelpLine()
+        public IEnumerator ThePage_Scrolls_WhereTheSectionsAreTallerThanIt()
         {
             yield return TestScene.Load();
             yield return OpenSettings();
             yield return null;
 
-            Transform root = GameObject.Find("Settings").transform;
-            Rect title = ScreenRect(root.Find("sections/title").GetComponent<RectTransform>());
-            Rect help = ScreenRect(root.Find("help").GetComponent<RectTransform>());
+            var scroll = Page().Q<UnityEngine.UIElements.ScrollView>();
+            Assert.IsNotNull(scroll, "the page does not scroll");
             Rect back = ScreenRect(OnScreen(SettingsPanel.BackButton));
-            Rect credits = ScreenRect(OnScreen(SettingsPanel.CreditsButton));
+            Rect title = ScreenRect(PageLabel("title"));
+            Assert.IsFalse(back.Overlaps(title), "BACK sits on the title");
+            Assert.AreEqual(UnityEngine.UIElements.Overflow.Hidden, scroll.contentViewport.style.overflow.value,
+                "what scrolls above the page is drawn over the workbench's header");
 
-            Assert.LessOrEqual(title.yMax, back.yMin + 1f, "the sections run up under the BACK button");
-            Assert.GreaterOrEqual(credits.yMin, help.yMax - 1f, "the sections run down over the help line");
+            float tall = scroll.contentContainer.layout.height, room = scroll.layout.height;
+            if (tall <= room)
+                Assert.Pass("the window is tall enough for every section");
+            scroll.scrollOffset = new Vector2(0f, tall);
+            yield return null;
+            yield return null;
+            Assert.GreaterOrEqual(ScreenRect(OnScreen(SettingsPanel.CreditsButton)).yMin, ScreenRect(scroll).yMin - 0.5f,
+                "scrolled to its foot, CREDITS is still below the page");
         }
 
-        private static Slider VolumeSlider()
+        private static ShellSlider VolumeSlider()
         {
-            GameObject found = GameObject.Find(SettingsPanel.VolumeSlider);
-            Assert.IsNotNull(found, "no volume slider on screen");
-            return found.GetComponent<Slider>();
+            ShellSlider found = ShellPanel.Find<ShellSlider>(SettingsPanel.VolumeSlider);
+            Assert.IsTrue(Shown(found), "no volume slider on screen");
+            return found;
         }
 
-        private static Slider FrameCapSlider()
+        private static ShellSlider FrameCapSlider()
         {
-            GameObject found = GameObject.Find(SettingsPanel.FrameCapSlider);
-            Assert.IsNotNull(found, "no frame cap slider on screen");
-            return found.GetComponent<Slider>();
+            ShellSlider found = ShellPanel.Find<ShellSlider>(SettingsPanel.FrameCapSlider);
+            Assert.IsTrue(Shown(found), "no frame cap slider on screen");
+            return found;
         }
 
-        /// <summary>
-        /// Each section's line fits its box. The box is measured from the text, so this guards the
-        /// measuring being bypassed rather than any one line's length.
-        /// </summary>
+        /// <summary>Each section's line wraps inside the column, never out of it.</summary>
         [UnityTest]
-        public IEnumerator EverySectionsDescription_FitsItsBox()
+        public IEnumerator EverySectionsDescription_FitsTheColumn()
         {
             yield return TestScene.Load();
             yield return OpenSettings();
+            yield return null;
 
-            foreach (TextMeshProUGUI label in GameObject.Find("Settings").GetComponentsInChildren<TextMeshProUGUI>())
+            Rect column = ScreenRect(Page().Q("sections"));
+            List<Label> descriptions = Page().Query<Label>("description").ToList();
+            Assert.IsNotEmpty(descriptions, "sanity: the sections have descriptions");
+            foreach (Label description in descriptions)
             {
-                if (label.name != "description")
-                    continue;
-
-                label.ForceMeshUpdate();
-                Assert.IsFalse(label.isTextOverflowing, $"'{label.text}' runs out of its box");
-                Assert.LessOrEqual(label.preferredHeight, label.rectTransform.rect.height + 0.5f,
-                    $"'{label.text}' is taller than its box");
+                Rect at = ScreenRect(description);
+                Assert.LessOrEqual(at.xMax, column.xMax + 0.5f, $"'{description.text}' runs out of the column");
+                Assert.GreaterOrEqual(at.height, 1f, $"'{description.text}' has no room");
             }
         }
 

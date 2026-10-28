@@ -176,12 +176,11 @@ namespace BitSorter.View
             ShowHome();
         }
 
-        /// <summary>Goes under Settings, which comes back here (Part 15a).</summary>
+        /// <summary>Settings, a page of the workbench's own over what is open, which BACK takes down again (Part 15g).</summary>
         public void OpenSettings()
         {
-            if (_settings == null)
+            if (_settings == null || Root == null)
                 return;
-            GoUnder();
             _settings.OpenOver(this);
         }
 
@@ -214,8 +213,7 @@ namespace BitSorter.View
                 case HelpAction.About:
                     if (_credits == null)
                         return;
-                    GoUnder();
-                    _credits.Open(Resume);
+                    _credits.Open(Resume);   // a page of the workbench's own, which comes back here (Part 15g)
                     break;
             }
         }
@@ -244,6 +242,7 @@ namespace BitSorter.View
 
             CloseThePopups();
             HideExercises();
+            HideOtherPages();   // Settings or the credits, under the header HOME is on (Part 15g)
             LetGoOnCanvas();
             _codeView?.Bind(null);   // a written block's code, CodeMirror's box in a browser among it, is under the page
             Pause();

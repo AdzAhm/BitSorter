@@ -2945,6 +2945,26 @@ the board's own editor and printed.
   build TIMING's lines, and 1,684 ms to lay out; the course-sized written CPU 135 ms to time. The glitch hint's timing
   analysis on every edit while it was unseen is gone: it runs once a glitch-shaped change asks for it.
 
+**As built in Part 15g-2: Settings and the credits, pages of the workbench.**
+
+- **Settings is a shell page** (`WorkbenchPanel.Pages.cs`: `AddPage`, `ShowPage`, `HidePage`), under the header as the
+  start page and EXERCISES are, one page up at a time and any of them `PageShowing`. It is built from `ShellTheme` and
+  the style's `SchematicPalette`, so every style colours it; it was a uGUI screen in the 4.x board's colours whatever
+  the style. The sections and their controls are the same, the volume and the frame cap are `ShellSlider`s (which
+  gained `Released`, so a drag writes the preferences once), and the page scrolls where the window is short instead of
+  shrinking (`FitScale` stays, for the help panel and free play's setup).
+- **What the plan said and what was built.** The plan moved the settings' logic into a plain class and deleted the
+  uGUI panel. Rewriting `SettingsPanel` in place as the page's builder did the same with less to move: the object, its
+  name and its controls' names stay, so the scene, `GameAudio`'s menu music, `LookSwitch`'s reopening and the tests
+  reach it as they did. `CreditsPanel` likewise.
+- **The credits roll on a page of their own**, rising from its foot and resting on the farewell, any key or release of
+  a mouse button going back. 5.0's lines: the SystemVerilog language, the exercises and the workbench as Ahmad's roles;
+  IBM Plex Sans and Mono (SIL Open Font License) under BUILT WITH; Icarus Verilog under CHECKED AGAINST; and a
+  dedication to every student of digital systems, naming no university.
+- **The workbench's shots move by a few pixels of type.** Settings now draws its words in the shell's font, so the
+  shell's glyph atlas is laid out differently and every workbench shot's header text differs by 2 to 11 pixels at three
+  levels or fewer. Nothing moved; Settings and the credits are reshot.
+
 ---
 
 ## 11. The parts
@@ -2968,7 +2988,7 @@ Each part is one pull request into `v5`, ends with every suite green, and leaves
 | 12 | Hierarchy, and written blocks, edited in CodeMirror in a browser -- in six: 12a stepping inside a block **built** (see "As built in Part 12a"); 12b making a block **built** (see "As built in Part 12b"); 12c arrays **built** (see "As built in Part 12c"); 12d code blocks **built** (see "As built in Part 12d"); 12e the code panel **built** (see "As built in Part 12e"); 12f CodeMirror **built** (see "As built in Part 12f") |
 | 13 | Export and import (and a levelized path in the engine, only if a measurement asks for it) -- in six: 13a exporting a project **built** (see "As built in Part 13a"); 13b importing one **built** (see "As built in Part 13b"); 13c CONVERT **built** (see "As built in Part 13c"); 13d files **built** (see "As built in Part 13d"); 13e templates **built** (see "As built in Part 13e"); 13f limits, the security review, the measurement and the browser check **built** (see "As built in Part 13f"; the levelized path is not needed). **Part 13 is built.** |
 | 14 | The course's tools: path delays, static timing, gate-library mode, step tests, lint, tri-state -- in six, **built**: 14a the timing analysis core, 14b the TIMING tab, 14c step tests, 14d gate-library mode, 14e lint and 14f tri-state buses and inout (see "As built in Part 14a" to "14f"); and 14g, its follow-ups: deleting a module, the code editor's keys, the library held in written code and over budget, and inout pins on written blocks (see "As built in Part 14g") |
-| 15 | A simulator first, the Exercises and the tutorial -- in six: 15a **built** in two (see "As built in Part 15a"): the student's circuits, and opening on the last thing or a start page, the app's menus for BACK, the 4.x game in Settings, music off; 15b the Exercise model, grading and self-checking testbenches **built** (see "As built in Part 15b"); 15c the 35 exercises **built** (see "As built in Part 15c"); 15d Exercises on the workbench **built** (see "As built in Part 15d"); 15e answering in code **built** (see "As built in Part 15e"); 15f first-time hints, the guided tutorial and the browser check **built** (see "As built in Part 15f"). **Part 15 is built.** Then 15g, what the first playtest asked for: 15g-1 the quick fixes **built** (see "As built in Part 15g-1"); 15g-2 Settings and the credits as pages of the workbench; 15g-3 a lead on every pin; 15g-4 INPUTS, sequences without code; 15g-5 LOGIC, the truth table, expressions and K-maps; 15g-6 STATES, the state diagram; 15g-7 big circuits stay smooth. And 15h, a drawing of any code, planned on its own. |
+| 15 | A simulator first, the Exercises and the tutorial -- in six: 15a **built** in two (see "As built in Part 15a"): the student's circuits, and opening on the last thing or a start page, the app's menus for BACK, the 4.x game in Settings, music off; 15b the Exercise model, grading and self-checking testbenches **built** (see "As built in Part 15b"); 15c the 35 exercises **built** (see "As built in Part 15c"); 15d Exercises on the workbench **built** (see "As built in Part 15d"); 15e answering in code **built** (see "As built in Part 15e"); 15f first-time hints, the guided tutorial and the browser check **built** (see "As built in Part 15f"). **Part 15 is built.** Then 15g, what the first playtest asked for: 15g-1 the quick fixes **built** (see "As built in Part 15g-1"); 15g-2 Settings and the credits as pages of the workbench **built** (see "As built in Part 15g-2"); 15g-3 a lead on every pin; 15g-4 INPUTS, sequences without code; 15g-5 LOGIC, the truth table, expressions and K-maps; 15g-6 STATES, the state diagram; 15g-7 big circuits stay smooth. And 15h, a drawing of any code, planned on its own. |
 | 16 | The old game retired, and a smaller download; 5.0.0 released |
 
 **Agreed after Part 9, 2026-10-19: the language, before Part 10.** A course audit ran every one of the

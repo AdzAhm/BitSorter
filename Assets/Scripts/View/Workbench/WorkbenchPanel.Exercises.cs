@@ -65,7 +65,7 @@ namespace BitSorter.View
         public bool ExercisesShowing => _exercisesPage != null && _exercisesPage.style.display == DisplayStyle.Flex;
 
         /// <summary>Whether a page covers the circuit -- the start page or EXERCISES -- so nothing under it takes a key.</summary>
-        private bool PageShowing => StartPageShowing || ExercisesShowing;
+        private bool PageShowing => StartPageShowing || ExercisesShowing || AnotherPageShowing;
 
         /// <summary>What the EXERCISES page says under its lists: the last notice given while it was up.</summary>
         public string ExercisesNotice => _exercisesNotice != null ? _exercisesNotice.text : null;
@@ -380,6 +380,7 @@ namespace BitSorter.View
         /// <summary>Puts EXERCISES up over what is open, the run under it paused; Escape takes it down again.</summary>
         public void ShowExercises()
         {
+            HideOtherPages();   // Settings or the credits, under the header it was chosen from (Part 15g)
             if (Root == null || _exercisesPage == null)
                 return;
 

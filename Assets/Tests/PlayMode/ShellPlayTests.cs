@@ -478,7 +478,10 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsTrue(workbench.Shell.Visible);
             ShellPanel.Submit(ShellPanel.Find<Button>(WorkbenchPanel.SettingsButton));
             yield return null;
-            Assert.IsFalse(workbench.Shell.Visible, "and gone with it, under Settings");
+            Assert.IsTrue(workbench.Shell.Visible, "Settings is a page of it, since Part 15g");
+            ShellPanel.Submit(ShellPanel.Find<Button>(SettingsPanel.GameButton));
+            yield return null;
+            Assert.IsFalse(workbench.Shell.Visible, "and gone with it, under the 4.x game");
         }
 
         [UnityTest]

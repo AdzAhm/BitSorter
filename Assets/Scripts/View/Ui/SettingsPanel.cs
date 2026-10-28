@@ -1,70 +1,68 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using UnityEngine.UI;
-using TMPro;
+using UnityEngine.UIElements;
+using ShellButton = UnityEngine.UIElements.Button;
 
 namespace BitSorter.View
 {
     /// <summary>
-    /// The settings: sound and its volume; fullscreen, vertical sync, a frame cap and a frame-rate
-    /// counter on a desktop build; reporting, and starting over. Reached from the main menu, and
-    /// goes back to it.
+    /// The settings: sound and its volume; fullscreen, vertical sync, a frame cap and a frame-rate counter on a desktop
+    /// build; the look; reporting; starting over; the credits and the 4.x game. A page of the workbench's own since Part
+    /// 15g, over what is open and under the header, in the style's own colours -- it was a uGUI screen over everything, in
+    /// the 4.x board's colours whatever the style, and Ahmad asked that it look like the start page and that a change of
+    /// style through it change everything (2026-10-28). BACK and Escape take it down again.
     /// </summary>
     /// <remarks>
-    /// A section is a heading, a line saying what the setting does, and the control. Sound and data
-    /// used to be rows of the main menu itself, which had room for a caption and nothing else -- the
-    /// data switch could say ON or OFF but not what it was switching. Starting over could not be a
-    /// menu row at all: it needs a sentence saying what goes, and a question before it goes.
+    /// A section is a heading, a line saying what the setting does, and the control. Sound and data used to be rows of the
+    /// main menu itself, which had room for a caption and nothing else -- the data switch could say ON or OFF but not what
+    /// it was switching. Starting over could not be a menu row at all: it needs a sentence saying what goes, and a question
+    /// before it goes.
     ///
-    /// **Resetting asks first, and the question cannot be answered by accident.** Pressing RESET
-    /// PROGRESS puts the question where the button was and the two answers under it, so a
-    /// double-click lands on the question, which is not a button. Enter answers nothing; Escape
-    /// backs out of the question before it backs out of the screen.
+    /// **Resetting asks first, and the question cannot be answered by accident.** Pressing RESET PROGRESS puts the
+    /// question where the button was and the two answers under it, so a double-click lands on the question, which is not a
+    /// button. Enter answers nothing; Escape backs out of the question before it backs out of the page.
+    ///
+    /// The page scrolls in a short window. As a uGUI screen it had no scroll and shrank to fit instead (<see cref="FitScale"/>,
+    /// which the help panel and free play's setup still use).
     /// </remarks>
-    public sealed class SettingsPanel : FullScreenPanel
+    public sealed class SettingsPanel : MonoBehaviour, IHoldsEscape
     {
         [SerializeField] private ProgressTracker _progress;
         [SerializeField] private MainMenu _menu;
         [SerializeField] private CreditsPanel _credits;
-
-        [Tooltip("Canvas the panel is built under. Found by type when left empty.")]
-        [SerializeField] private Canvas _canvas;
+        [SerializeField] private WorkbenchPanel _workbench;
 
         private GameAudio _audio;
-
-        private TextMeshProUGUI _soundLabel;
-        private Button _musicButton;
-        private TextMeshProUGUI _musicLabel;
-        private Button _effectsButton;
-        private TextMeshProUGUI _effectsLabel;
-        private TextMeshProUGUI _dataLabel;
-        private TextMeshProUGUI _fullscreenLabel;
-        private TextMeshProUGUI _vSyncLabel;
-        private TextMeshProUGUI _counterLabel;
-        private Slider _cap;
-        private TextMeshProUGUI _capLabel;
-        private TextMeshProUGUI _capValue;
-        private Slider _volume;
-        private TextMeshProUGUI _volumeLabel;
-        private TextMeshProUGUI _volumeValue;
+        private VisualElement _page;
+        private ShellButton _sound, _music, _effects, _data, _fullscreen, _vSync, _counter, _motion, _keys, _reset;
+        private ShellSlider _volume, _cap;
+        private Label _volumeLabel, _volumeValue, _capLabel, _capValue, _status;
+        private VisualElement _question;
+        private SchematicPalette _palette;
 
         /// <summary>The volume the readout last said, so it is rewritten only when it changes.</summary>
         private int _shownVolume = -1;
 
         /// <summary>The cap's stop the readout last said, for the same reason.</summary>
         private int _shownCap = -1;
-        private TextMeshProUGUI _status;
-        private RectTransform _resetButton;
-        private RectTransform _question;
 
-        /// <summary>Whether the panel is up.</summary>
+        /// <summary>The frames it last came up and went down in: neither answers that frame's keys twice.</summary>
+        private int _openedFrame = -1, _closedFrame = -1;
+
+        /// <summary>Whether the page is up.</summary>
+        public bool IsShowing => _page != null && _page.style.display == DisplayStyle.Flex;
+
+        /// <inheritdoc cref="IsShowing"/>
         public bool IsOpen => IsShowing;
 
         /// <summary>Whether RESET PROGRESS has been pressed and is waiting for an answer.</summary>
         public bool Confirming { get; private set; }
 
-        /// <summary>The buttons' object names, which the tests look for.</summary>
+        /// <summary>The page's name in the shell.</summary>
+        public const string PageName = "Workbench settings page";
+
+        /// <summary>The controls' names in the shell, which the tests look for.</summary>
         public const string SoundButton = "Sound setting";
 
         /// <inheritdoc cref="SoundButton"/>
@@ -115,6 +113,9 @@ namespace BitSorter.View
         /// <inheritdoc cref="SoundButton"/>
         public const string KeysButton = "Keys setting";
 
+        /// <summary>The line RESET PROGRESS's answer is said in, and the question's.</summary>
+        public const string StatusName = "Settings status", QuestionName = "Settings question";
+
         /// <summary>What SHORTCUT KEYS says for its setting.</summary>
         public static string KeysCaption(bool shown) => shown ? "SHORTCUT KEYS  SHOWN" : "SHORTCUT KEYS  HIDDEN";
 
@@ -128,10 +129,10 @@ namespace BitSorter.View
         public const string ProgressHeading = "PROGRESS";
         public const string AboutHeading = "ABOUT";
 
-        /// <summary>The section headings, in order down the screen.</summary>
+        /// <summary>The section headings, in order down the page.</summary>
         /// <remarks>
-        /// DISPLAY in every build: a browser has the FPS counter, and only the counter
-        /// (<see cref="DisplaySwitches"/>). It used to leave the section out there altogether.
+        /// DISPLAY in every build: a browser has the FPS counter, and only the counter (<see cref="DisplaySwitches"/>). It
+        /// used to leave the section out there altogether.
         /// </remarks>
         public static IReadOnlyList<string> Headings => Sections;
 
@@ -139,15 +140,14 @@ namespace BitSorter.View
             { AudioHeading, DisplayHeading, StyleHeading, PrivacyHeading, ProgressHeading, AboutHeading };
 
         /// <summary>
-        /// The switches DISPLAY holds, left to right: on a desktop build fullscreen, vertical sync and
-        /// the counter, and in a browser the counter alone.
+        /// The switches DISPLAY holds, left to right: on a desktop build fullscreen, vertical sync and the counter, and in a
+        /// browser the counter alone.
         /// </summary>
         /// <remarks>
-        /// A browser keeps fullscreen and the frame rate to itself (<see cref="DisplayRules.Offered"/>),
-        /// so neither switch would do anything there; the counter only reads what the frame rate is,
-        /// which is worth seeing anywhere. Asked for after the 4.0.0 browser playtest (2026-10-05).
-        /// A question of the build rather than of the editor, so the build passes
-        /// <see cref="DisplayRules.Offered"/> and a test can ask for either.
+        /// A browser keeps fullscreen and the frame rate to itself (<see cref="DisplayRules.Offered"/>), so neither switch
+        /// would do anything there; the counter only reads what the frame rate is, which is worth seeing anywhere. Asked for
+        /// after the 4.0.0 browser playtest (2026-10-05). A question of the build rather than of the editor, so the build
+        /// passes <see cref="DisplayRules.Offered"/> and a test can ask for either.
         /// </remarks>
         public static IReadOnlyList<string> DisplaySwitches(bool desktop) => desktop ? DesktopSwitches : BrowserSwitches;
 
@@ -159,8 +159,8 @@ namespace BitSorter.View
         public static string DisplayTextFor(bool desktop) => desktop ? DisplayText : BrowserDisplayText;
 
         /// <remarks>
-        /// Each section says only what its buttons cannot: they already say what they switch, and
-        /// the screen once read as a wall of words (2026-09-30).
+        /// Each section says only what its buttons cannot: they already say what they switch, and the screen once read as
+        /// a wall of words (2026-09-30).
         /// </remarks>
         public const string AudioText = "N switches the sound from anywhere.";
 
@@ -171,10 +171,7 @@ namespace BitSorter.View
         public const string BrowserDisplayText =
             "The browser sets the frame rate here. The counter shows what it is.";
 
-        /// <summary>
-        /// STYLE's line: what a look changes, that choosing one loads the game again, and what reduced
-        /// motion leaves out.
-        /// </summary>
+        /// <summary>STYLE's line: what a look changes, that choosing one loads the game again, and what reduced motion leaves out.</summary>
         public const string StyleText =
             "How the workbench is drawn; the game loads again to switch. Reduced motion drops its glow and flashes.";
 
@@ -189,8 +186,11 @@ namespace BitSorter.View
         /// <summary>The question RESET PROGRESS asks.</summary>
         public const string Question = "Start the exercises over? This cannot be undone.";
 
-        /// <summary>What the panel says once the exercises have been forgotten.</summary>
+        /// <summary>What the page says once the exercises have been forgotten.</summary>
         public const string Done = "The exercises start over. Your circuits are kept.";
+
+        /// <summary>The line at the page's foot saying how to leave it.</summary>
+        public const string HelpText = "escape to go back";
 
         private void Awake()
         {
@@ -198,29 +198,24 @@ namespace BitSorter.View
             if (_menu == null) _menu = FindFirstObjectByType<MainMenu>();
             if (_credits == null) _credits = FindFirstObjectByType<CreditsPanel>();
             if (_audio == null) _audio = FindFirstObjectByType<GameAudio>();
-            if (_canvas == null) _canvas = FindFirstObjectByType<Canvas>();
+            if (_workbench == null) _workbench = FindFirstObjectByType<WorkbenchPanel>();
+            UiEscape.Join(this);
         }
 
-        private void Start()
-        {
-            if (_canvas == null)
-                return;
+        private void OnDestroy() => UiEscape.Leave(this);
 
-            Build();
-            Show(false);
-        }
+        /// <inheritdoc/>
+        public bool HoldsEscapeNow => IsShowing || _closedFrame == Time.frameCount;
 
         private void Update()
         {
             if (!IsShowing)
                 return;
 
-            Fit();
             Refresh();
 
             Keyboard keyboard = UiText.Keyboard;
-
-            if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame && !OpenedThisFrame)
+            if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame && _openedFrame != Time.frameCount && UiEscape.TryTake(this))
             {
                 if (Confirming)
                     Cancel();
@@ -234,521 +229,352 @@ namespace BitSorter.View
         // -----------------------------------------------------------------
 
         /// <summary>
-        /// Room kept clear above and below the sections: the BACK button at the top, the help line
-        /// at the bottom.
+        /// The scale a panel <paramref name="needed"/> tall is drawn at in <paramref name="room"/>: whole, unless the window
+        /// is too short for it. The help panel and free play's setup shrink to fit by it; Settings scrolls since Part 15g.
         /// </summary>
-        public const float FitMargin = 70f;
-
-        private RectTransform _block;
-        private float _blockHeight;
-
-        /// <summary>
-        /// The scale the sections are drawn at: whole, unless the window is too short for them.
-        /// </summary>
-        /// <remarks>
-        /// The canvas scales halfway between the screen's width and its height, so a wide or short
-        /// window has less height to give than the 1080 the sections are laid out against -- a
-        /// browser tab 1920 by 800 has about 930. Settings has no scroll, and past that height it
-        /// would run under the BACK button and off the bottom, so it shrinks to fit instead.
-        /// </remarks>
         public static float FitScale(float room, float needed) =>
             needed <= 0f || room <= 0f || room >= needed ? 1f : room / needed;
-
-        /// <summary>The scale the sections are drawn at now, for the tests.</summary>
-        public float SectionsScale => _block != null ? _block.localScale.x : 1f;
-
-        private void Fit()
-        {
-            if (_block == null || Root == null)
-                return;
-
-            float scale = FitScale(Root.rect.height - 2f * FitMargin, _blockHeight);
-
-            if (!Mathf.Approximately(_block.localScale.x, scale))
-                _block.localScale = new Vector3(scale, scale, 1f);
-        }
 
         /// <summary>How wide the column of sections is.</summary>
         public const float ColumnWidth = 600f;
 
-        /// <summary>The type a section's description is set in, and its colour.</summary>
-        /// <remarks>
-        /// Body in the text colour. It was Label in the dim colour, the smallest and faintest text on
-        /// the screen -- and the screen shrinks to fit a short window, so in a browser tab it came out
-        /// about eleven pixels tall and a playtester could not read it (2026-09-27). The headings stay
-        /// small, bold and spaced, which is what marks them as headings rather than their size.
-        /// </remarks>
-        public const UiType DescriptionType = UiType.Body;
-
-        /// <inheritdoc cref="DescriptionType"/>
-        private static Color DescriptionColour => UiTheme.Text;
-
-        private const float TitleHeight = 56f;
-        private const float TitleGap = 28f;
-        private const float HeadingHeight = 24f;
-        private const float HeadingRuleGap = 4f;
-        private const float HeadingGap = 8f;
-        private const float DescriptionGap = 12f;
-        private const float SectionGap = 34f;
-        private const float ButtonWidth = 240f;
-        private const float AnswerWidth = 200f;
-
-        /// <summary>
-        /// The question takes exactly the reset button's height, so the answers start below where
-        /// the button was. Shorter, and the answers came up under the pointer that had just pressed
-        /// it -- a double-click would have reset.
-        /// </summary>
-        private const float QuestionHeight = UiTheme.ButtonHeight;
-
-        private const float QuestionGap = 8f;
-        private const float StatusHeight = 24f;
-        private const float BackWidth = 120f;
-
-        /// <summary>The volume row: as tall as a stepper needs to be to hit, with a caption each side.</summary>
-        private const float VolumeHeight = 32f;
-        private const float VolumeGap = 10f;
-        private const float VolumeLabelWidth = 110f;
-        private const float VolumeSliderWidth = 300f;
-
-        /// <summary>
-        /// Where a slider's readout starts, past the slider's end, and how wide it is -- the same for
-        /// the volume and the frame cap, so the two read as one column: "100%" over "60 FPS".
-        /// </summary>
-        private const float ReadoutGap = 20f;
-
-        /// <inheritdoc cref="ReadoutGap"/>
-        private const float ReadoutWidth = 110f;
-
-        /// <summary>A slider row's readout, left-aligned just past its slider.</summary>
-        private static TextMeshProUGUI Readout(string name, RectTransform block, float top)
-        {
-            TextMeshProUGUI readout = UiTheme.Label(
-                name, block, UiType.Body, UiTheme.Text, TextAlignmentOptions.MidlineLeft);
-            PlaceLeft(readout.rectTransform, top, VolumeLabelWidth + VolumeSliderWidth + ReadoutGap,
-                ReadoutWidth, VolumeHeight);
-            return readout;
-        }
+        private const float SwitchWidth = 190f, SwitchGap = 15f, ControlHeight = 44f, ButtonWidth = 240f, AnswerWidth = 200f;
+        private const float LookGap = 12f, LookWidth = (ColumnWidth - LookGap) / 2f;
+        private const float SliderLabelWidth = 110f, SliderWidth = 300f, SliderHeight = 32f, ReadoutGap = 20f;
+        private const float SectionGap = 34f, RowGap = 10f;
 
         private void Build()
         {
-            Image scrim = UiTheme.Scrim("Settings", _canvas.transform, Palette.Current.MenuScrim);
-            Root = scrim.GetComponent<RectTransform>();
-            UiTheme.Stretch(Root);
+            _page = _workbench != null ? _workbench.AddPage(PageName) : null;
+            if (_page == null)
+                return;
+            _palette = SchematicPalette.Current;
 
-            // The sections are one block, centred as a whole. Its height is only known once the
-            // descriptions have been measured, so the block is laid out first and placed after.
-            RectTransform block = UiTheme.Rect("sections", Root);
-            var column = new UiColumn();
+            var scroll = new ScrollView(ScrollViewMode.Vertical) { name = "settings scroll" };
+            scroll.style.position = Position.Absolute;
+            scroll.style.left = scroll.style.right = scroll.style.top = scroll.style.bottom = 0f;
+            scroll.horizontalScrollerVisibility = ScrollerVisibility.Hidden;
+            // The default theme clips a scroll view's viewport, and the shell has no theme: scrolled down, the sections
+            // above the page were drawn over the workbench's header.
+            scroll.contentViewport.style.overflow = Overflow.Hidden;
+            _page.Add(scroll);
 
-            TextMeshProUGUI title = UiTheme.Label(
-                "title", block, UiType.Title, UiTheme.Accent, TextAlignmentOptions.Center);
-            Place(title.rectTransform, column.Take(TitleHeight, TitleGap), ColumnWidth, TitleHeight);
-            title.text = "SETTINGS";
+            var column = new VisualElement { name = "sections", pickingMode = PickingMode.Ignore };
+            column.style.width = ColumnWidth;
+            column.style.alignSelf = Align.Center;
+            column.style.paddingTop = 40f;
+            column.style.paddingBottom = 40f;
+            column.style.flexShrink = 0f;
+            scroll.Add(column);
 
-            Section(block, column, AudioHeading, AudioText);
-            // The sound switch first, and the two it governs beside it: greyed out and locked while it
-            // is off, as the volume is, so the row reads as one switch over two.
-            float switches = column.Take(UiTheme.ButtonHeight);
+            Label title = ShellTheme.Label("title", "SETTINGS", UiType.Title, _palette.Accent, TextAnchor.MiddleCenter, bold: true);
+            title.style.marginBottom = 28f;
+            column.Add(title);
 
-            Button sound = Switch(block, switches, 0, SoundButton, out _soundLabel);
-            sound.onClick.AddListener(() => Fire(ToggleSound));
-
-            _musicButton = Switch(block, switches, 1, MusicButton, out _musicLabel);
-            _musicButton.onClick.AddListener(() => Fire(ToggleMusic));
-
-            _effectsButton = Switch(block, switches, 2, EffectsButton, out _effectsLabel);
-            _effectsButton.onClick.AddListener(() => Fire(ToggleEffects));
-            column.Space(VolumeGap);
-            BuildVolume(block, column);
-            column.Space(SectionGap);
+            Section(column, AudioHeading, AudioText);
+            VisualElement sound = Row(column);
+            _sound = Switch(sound, SoundButton, ToggleSound);
+            _music = Switch(sound, MusicButton, ToggleMusic);
+            _effects = Switch(sound, EffectsButton, ToggleEffects);
+            _volume = Slider(column, VolumeSlider, "VOLUME", 0, 100, out _volumeLabel, out _volumeValue);
+            _volume.SetValueWithoutNotify(GameAudio.Volume);
+            _volume.Changed += value => { if (_audio != null) _audio.SetVolume(Mathf.RoundToInt(value), keep: false); };
+            _volume.Released += GameAudio.KeepVolume;
+            Gap(column);
 
             bool desktop = DisplayRules.Offered;
-            Section(block, column, DisplayHeading, DisplayTextFor(desktop));
-
-            // Side by side, three to a row like the sound's: settings of one screen, and a row
-            // apiece would make the panel taller than the window it shrinks to fit.
-            float display = column.Take(UiTheme.ButtonHeight);
-            IReadOnlyList<string> displaySwitches = DisplaySwitches(desktop);
-
-            for (int i = 0; i < displaySwitches.Count; i++)
+            Section(column, DisplayHeading, DisplayTextFor(desktop));
+            VisualElement display = Row(column);
+            foreach (string name in DisplaySwitches(desktop))
             {
-                switch (displaySwitches[i])
+                switch (name)
                 {
-                    case FullscreenButton:
-                        Switch(block, display, i, FullscreenButton, out _fullscreenLabel)
-                            .onClick.AddListener(() => Fire(ToggleFullscreen));
-                        break;
-
-                    case VSyncButton:
-                        Switch(block, display, i, VSyncButton, out _vSyncLabel)
-                            .onClick.AddListener(() => Fire(ToggleVSync));
-                        break;
-
-                    case CounterButton:
-                        Switch(block, display, i, CounterButton, out _counterLabel)
-                            .onClick.AddListener(() => Fire(ToggleCounter));
-                        break;
+                    case FullscreenButton: _fullscreen = Switch(display, FullscreenButton, ToggleFullscreen); break;
+                    case VSyncButton: _vSync = Switch(display, VSyncButton, ToggleVSync); break;
+                    case CounterButton: _counter = Switch(display, CounterButton, ToggleCounter); break;
                 }
             }
 
-            // The cap under the switch it depends on, as the volume sits under the sound's, and only
-            // where there is a vertical sync for it to depend on.
+            // The cap under the switch it depends on, as the volume sits under the sound's, and only where there is a
+            // vertical sync for it to depend on.
             if (desktop)
             {
-                column.Space(VolumeGap);
-                BuildCap(block, column);
+                _cap = Slider(column, FrameCapSlider, "FRAME CAP", 0, FrameRate.Stops - 1, out _capLabel, out _capValue);
+                _cap.SetValueWithoutNotify(FrameRate.CapStop);
+                _cap.Changed += value => FrameRate.SetCapStop(Mathf.RoundToInt(value), keep: false);
+                _cap.Released += FrameRate.KeepCap;
             }
+            Gap(column);
 
-            column.Space(SectionGap);
+            BuildStyle(column);
+            Gap(column);
 
-            BuildStyle(block, column);
-            column.Space(SectionGap);
+            Section(column, PrivacyHeading, PrivacyText);
+            _data = Control(Row(column), DataButton, "", ToggleData, ButtonWidth);
+            Gap(column);
 
-            Section(block, column, PrivacyHeading, PrivacyText);
-            Button data = Control(block, column, DataButton, out _dataLabel, ButtonRole.Secondary);
-            data.onClick.AddListener(() => Fire(ToggleData));
-            column.Space(SectionGap);
+            Section(column, ProgressHeading, ProgressText);
+            BuildReset(column);
+            Gap(column);
 
-            Section(block, column, ProgressHeading, ProgressText);
-            BuildReset(block, column);
-            column.Space(SectionGap);
+            // Last, below everything that changes how the game behaves. The 4.x game, kept until Part 16 deletes it, beside
+            // CREDITS and as quiet, nowhere on a first screen (Ahmad, 2026-10-27: "not deep but not plainly").
+            Section(column, AboutHeading, null);
+            VisualElement about = Row(column);
+            Control(about, CreditsButton, "CREDITS", OpenCredits, ButtonWidth).style.marginRight = LookGap;
+            Control(about, GameButton, "THE 4.x GAME", OpenTheGame, ButtonWidth);
 
-            // Last, below everything that changes how the game behaves.
-            Section(block, column, AboutHeading, null);
-            Button credits = Control(block, column, CreditsButton, out TextMeshProUGUI creditsLabel, ButtonRole.Quiet);
-            creditsLabel.text = "CREDITS";
-            credits.onClick.AddListener(() => Fire(OpenCredits));
+            Label help = ShellTheme.Label("help", HelpText, UiType.Caption, _palette.Muted, TextAnchor.MiddleCenter);
+            help.style.marginTop = 32f;
+            column.Add(help);
 
-            // The 4.x game, kept until Part 16 deletes it: beside CREDITS, as quiet, and nowhere on a first screen
-            // (Ahmad, 2026-10-27: "not deep but not plainly"). Its title screen comes back here with SIMULATOR.
-            RectTransform creditsRect = credits.GetComponent<RectTransform>();
-            Button game = UiTheme.Button_(GameButton, block, "THE 4.x GAME", out TextMeshProUGUI _, UiType.Body, ButtonRole.Quiet);
-            UiTheme.Anchor(game.GetComponent<RectTransform>(), creditsRect.anchorMin, creditsRect.anchorMax,
-                creditsRect.anchoredPosition + new Vector2(ButtonWidth + LookGap, 0f), creditsRect.sizeDelta);
-            game.onClick.AddListener(() => Fire(OpenTheGame));
+            // Nothing in the column gives up its height to fit the page: the page scrolls instead. UI Toolkit shrinks a
+            // column's children by default, and every row came out ten units short, the volume over the sound's switches.
+            foreach (VisualElement child in column.Children())
+                child.style.flexShrink = 0f;
+            foreach (VisualElement child in _question.Children())
+                child.style.flexShrink = 0f;
 
-            UiTheme.Anchor(block, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                Vector2.zero, new Vector2(ColumnWidth, column.Next));
-
-            _block = block;
-            _blockHeight = column.Next;
-
-            // Where the level list keeps its CLOSE, so the two screens off the menu leave the same way.
-            Button back = UiTheme.Button_(BackButton, Root, "BACK", out TextMeshProUGUI _, UiType.Body, ButtonRole.Quiet);
-            UiTheme.Anchor(back.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(1f, 1f),
-                new Vector2(-UiTheme.Margin, -UiTheme.Margin), new Vector2(BackWidth, UiTheme.ButtonHeight));
-            back.onClick.AddListener(() => Fire(Back));
-
-            TextMeshProUGUI help = UiTheme.Label(
-                "help", Root, UiTheme.HelpLineType, UiTheme.HelpLineColour, TextAlignmentOptions.Center);
-            UiTheme.Anchor(help.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
-                new Vector2(0f, 36f), new Vector2(600f, UiTheme.HelpLineHeight));
-            help.text = "escape to go back";
+            // Where the start page has nothing, at the page's top right: the way back.
+            ShellButton back = ShellTheme.Button(BackButton, "BACK", _palette, Back);
+            back.style.position = Position.Absolute;
+            back.style.top = 16f;
+            back.style.right = 24f;
+            back.style.width = 120f;
+            back.style.height = ControlHeight;
+            _page.Add(back);
         }
 
-        /// <summary>How wide a look's button is, two to a row, and the gap between them and between the rows.</summary>
-        private const float LookWidth = (ColumnWidth - LookGap) / 2f;
-
-        /// <inheritdoc cref="LookWidth"/>
-        private const float LookGap = 12f;
-
         /// <summary>
-        /// STYLE: a button for every look, two to a row, the one in use chosen; then reduced motion.
+        /// STYLE: a button for every look, two to a row, the one in use chosen; then reduced motion and the shortcut keys.
+        /// Choosing a look loads the game again in it (<see cref="LookSwitch"/>), so its buttons are coloured once, as they
+        /// are built.
         /// </summary>
-        /// <remarks>
-        /// Two to a row because a look's name is longer than a switch's caption -- SCHEMATIC LIGHT --
-        /// and four across the column left none of them room. Choosing one loads the game again in
-        /// it (<see cref="LookSwitch"/>), so its buttons are coloured once, as they are built.
-        /// </remarks>
-        private void BuildStyle(RectTransform block, UiColumn column)
+        private void BuildStyle(VisualElement column)
         {
-            Section(block, column, StyleHeading, StyleText);
-
+            Section(column, StyleHeading, StyleText);
             IReadOnlyList<Look> looks = Look.All;
-            float top = 0f;
+            VisualElement row = null;
             for (int i = 0; i < looks.Count; i++)
             {
                 if (i % 2 == 0)
-                    top = column.Take(UiTheme.ButtonHeight, i + 2 < looks.Count ? LookGap : 0f);
-
+                    row = Row(column);
                 Look look = looks[i];
-                Button button = UiTheme.Button_(LookButton(look), block, look.Title, out TextMeshProUGUI _, UiType.Body,
-                    ButtonRole.Secondary);
-                PlaceLeft(button.GetComponent<RectTransform>(), top, (i % 2) * (LookWidth + LookGap), LookWidth, UiTheme.ButtonHeight);
-                button.GetComponent<Image>().color = UiTheme.SelectedFill(look == Look.Current);
-                button.onClick.AddListener(() => Fire(() => LookSwitch.To(look)));
+                ShellButton button = Control(row, LookButton(look), look.Title, () => LookSwitch.To(look), LookWidth);
+                if (i % 2 == 0)
+                    button.style.marginRight = LookGap;
+                if (look == Look.Current)
+                {
+                    ShellTheme.Outline(button, _palette.Accent, _palette.Ground);
+                    button.style.color = _palette.Accent;
+                }
             }
 
-            column.Space(VolumeGap);
-            float row = column.Take(UiTheme.ButtonHeight);
-            Button motion = UiTheme.Button_(MotionButton, block, string.Empty, out _motionLabel, UiType.Body, ButtonRole.Secondary);
-            PlaceLeft(motion.GetComponent<RectTransform>(), row, 0f, LookWidth, UiTheme.ButtonHeight);
-            motion.onClick.AddListener(() => Fire(() => ReducedMotion.Set(!ReducedMotion.IsOn)));
-
-            // Beside it, on the row's free half: the keys drawn beside the buttons are part of how the game looks.
-            Button keys = UiTheme.Button_(KeysButton, block, string.Empty, out _keysLabel, UiType.Body, ButtonRole.Secondary);
-            PlaceLeft(keys.GetComponent<RectTransform>(), row, LookWidth + LookGap, LookWidth, UiTheme.ButtonHeight);
-            keys.onClick.AddListener(() => Fire(() => KeyCaps.SetShown(!KeyCaps.Shown)));
+            VisualElement switches = Row(column);
+            _motion = Control(switches, MotionButton, "", () => ReducedMotion.Set(!ReducedMotion.IsOn), LookWidth);
+            _motion.style.marginRight = LookGap;
+            _keys = Control(switches, KeysButton, "", () => KeyCaps.SetShown(!KeyCaps.Shown), LookWidth);
         }
 
-        private TextMeshProUGUI _motionLabel, _keysLabel;
+        /// <summary>The reset button, and in its place once pressed the question it asks and the two answers under it.</summary>
+        private void BuildReset(VisualElement column)
+        {
+            VisualElement row = Row(column);
+            _reset = Control(row, ResetButton, "RESET PROGRESS", Ask, ButtonWidth);
+            Destructive(_reset);
+
+            // The question takes exactly the button's height, so the answers start below where the button was. Shorter,
+            // and the answers came up under the pointer that had just pressed it -- a double-click would have reset.
+            _question = new VisualElement { name = QuestionName, pickingMode = PickingMode.Ignore };
+            Label text = ShellTheme.Label("text", Question, UiType.Body, _palette.Text);
+            text.style.height = ControlHeight;
+            _question.Add(text);
+            VisualElement answers = Row(_question);
+            Control(answers, CancelButton, "CANCEL", Cancel, AnswerWidth).style.marginRight = LookGap * 2f;
+            Destructive(Control(answers, ConfirmButton, "YES, RESET", Confirm, AnswerWidth));
+            _question.style.display = DisplayStyle.None;
+            column.Add(_question);
+
+            _status = ShellTheme.Label(StatusName, "", UiType.Body, _palette.Accent);
+            _status.style.height = 24f;
+            column.Add(_status);
+        }
 
         /// <summary>A heading with a rule under it, then the line saying what the section is for.</summary>
-        private static void Section(RectTransform block, UiColumn column, string title, string text)
+        private void Section(VisualElement column, string heading, string text)
         {
-            float top = column.Take(HeadingHeight, HeadingRuleGap);
+            Label label = ShellTheme.Label("heading", heading, UiType.Label, _palette.Text, TextAnchor.LowerLeft, bold: true);
+            label.style.letterSpacing = 6f;
+            column.Add(label);
 
-            // A size up from the level list's chapter headings: those label a run of rows, these
-            // label a screen's worth of sections, and there are only a handful of them.
-            TextMeshProUGUI heading = UiTheme.Label(
-                "heading", block, UiType.Label, UiTheme.Text, TextAlignmentOptions.BottomLeft);
-            heading.fontStyle = FontStyles.Bold;
-            heading.characterSpacing = 6f;
-            Place(heading.rectTransform, top, ColumnWidth, HeadingHeight);
-            heading.text = title;
-
-            // Two pixels: shorter than a panel's corners, so a plain hairline like the menu's.
-            Image rule = UiTheme.Panel_("rule", block, Palette.Current.Rule);
-            rule.sprite = null;
-            Place(rule.rectTransform, column.Take(2f, HeadingGap), ColumnWidth, 2f);
+            var rule = new VisualElement { name = "rule", pickingMode = PickingMode.Ignore };
+            rule.style.height = 1f;
+            rule.style.marginTop = 4f;
+            rule.style.marginBottom = 8f;
+            rule.style.backgroundColor = _palette.Outline;
+            column.Add(rule);
 
             // A section can be a heading over a single button that says what it does.
             if (string.IsNullOrEmpty(text))
                 return;
-
-            float height = DescriptionHeight(text);
-
-            TextMeshProUGUI description = UiTheme.Label(
-                "description", block, DescriptionType, DescriptionColour, TextAlignmentOptions.TopLeft);
-            description.textWrappingMode = TextWrappingModes.Normal;
-            Place(description.rectTransform, column.Take(height, DescriptionGap), ColumnWidth, height);
-            description.text = text;
+            Label description = ShellTheme.Label("description", text, UiType.Body, _palette.Text, TextAnchor.UpperLeft);
+            description.style.whiteSpace = WhiteSpace.Normal;
+            description.style.marginBottom = 12f;
+            column.Add(description);
         }
 
-        /// <summary>How tall a description is once wrapped to the column: measured, never counted.</summary>
-        public static float DescriptionHeight(string text) =>
-            Mathf.Ceil(UiTheme.TextHeight(text, DescriptionType, ColumnWidth));
-
-        /// <summary>How wide each of the three sound switches is, and the gap between them.</summary>
-        private const float SwitchWidth = 190f;
-
-        /// <inheritdoc cref="SwitchWidth"/>
-        private const float SwitchGap = 15f;
-
-        /// <summary>The <paramref name="index"/>th switch along a row that starts <paramref name="top"/> down.</summary>
-        private static Button Switch(RectTransform block, float top, int index, string name, out TextMeshProUGUI label)
+        private static VisualElement Row(VisualElement column)
         {
-            Button button = UiTheme.Button_(name, block, string.Empty, out label, UiType.Body, ButtonRole.Secondary);
-            PlaceLeft(button.GetComponent<RectTransform>(), top, index * (SwitchWidth + SwitchGap),
-                SwitchWidth, UiTheme.ButtonHeight);
+            var row = new VisualElement { name = "row", pickingMode = PickingMode.Ignore };
+            row.style.flexDirection = FlexDirection.Row;
+            row.style.marginBottom = RowGap;
+            column.Add(row);
+            return row;
+        }
+
+        private static void Gap(VisualElement column)
+        {
+            var gap = new VisualElement { name = "gap", pickingMode = PickingMode.Ignore };
+            gap.style.height = SectionGap - RowGap;
+            column.Add(gap);
+        }
+
+        private ShellButton Control(VisualElement row, string name, string caption, System.Action clicked, float width)
+        {
+            ShellButton button = ShellTheme.Button(name, caption, _palette, clicked);
+            button.style.width = width;
+            button.style.height = ControlHeight;
+            button.style.marginLeft = button.style.marginTop = button.style.marginBottom = 0f;
+            row.Add(button);
             return button;
         }
 
-        private static Button Control(
-            RectTransform block, UiColumn column, string name, out TextMeshProUGUI label, ButtonRole role)
+        private ShellButton Switch(VisualElement row, string name, System.Action clicked)
         {
-            Button button = UiTheme.Button_(name, block, string.Empty, out label, UiType.Body, role);
-            PlaceLeft(button.GetComponent<RectTransform>(), column.Take(UiTheme.ButtonHeight),
-                0f, ButtonWidth, UiTheme.ButtonHeight);
+            ShellButton button = Control(row, name, "", clicked, SwitchWidth);
+            button.style.marginRight = SwitchGap;
             return button;
         }
 
-        /// <summary>
-        /// The volume, under the switch it depends on: a caption, the slider, and what it is set to.
-        /// </summary>
-        /// <remarks>
-        /// Applied at every step of a drag, so the player hears it change, and written out once when
-        /// the drag lets go. Greyed out and locked while the sound is off, because a volume for
-        /// silence is a control that visibly does nothing -- see <see cref="Refresh"/>.
-        /// </remarks>
-        private void BuildVolume(RectTransform block, UiColumn column)
+        /// <summary>A button that destroys something, in the colour the waves draw an x in.</summary>
+        private void Destructive(ShellButton button)
         {
-            float top = column.Take(VolumeHeight);
-
-            _volumeLabel = UiTheme.Label(
-                "volume label", block, UiType.Body, UiTheme.Text, TextAlignmentOptions.MidlineLeft);
-            PlaceLeft(_volumeLabel.rectTransform, top, 0f, VolumeLabelWidth, VolumeHeight);
-            _volumeLabel.text = "VOLUME";
-
-            _volume = UiTheme.Slider_(VolumeSlider, block, 0, 100);
-            PlaceLeft(_volume.GetComponent<RectTransform>(), top, VolumeLabelWidth, VolumeSliderWidth, VolumeHeight);
-            _volume.SetValueWithoutNotify(GameAudio.Volume);
-            _volume.onValueChanged.AddListener(OnVolume);
-            _volume.gameObject.AddComponent<PointerRelease>().Released += GameAudio.KeepVolume;
-
-            _volumeValue = Readout("volume value", block, top);
-        }
-
-        private void OnVolume(float value)
-        {
-            if (_audio != null)
-                _audio.SetVolume(Mathf.RoundToInt(value), keep: false);
+            ShellTheme.Outline(button, _palette.Unknown, _palette.Ground);
+            button.style.color = _palette.Unknown;
         }
 
         /// <summary>
-        /// The frame cap, under the vertical sync it depends on, laid out as the volume is and in
-        /// line with it: a caption, the slider, and what it is set to.
+        /// A slider row: its caption, the slider, and what it is set to, the same for the volume and the frame cap so the
+        /// two read as one column: "100%" over "60 FPS". Applied at every step of a drag, and written out once it lets go.
         /// </summary>
-        /// <remarks>
-        /// One stop per cap on offer, and the last is none. Applied at every stop of a drag and
-        /// written out once when the drag lets go, like the volume. Greyed out and locked while
-        /// vertical sync is on, because Unity ignores a cap then -- see <see cref="Refresh"/>.
-        /// </remarks>
-        private void BuildCap(RectTransform block, UiColumn column)
+        private ShellSlider Slider(VisualElement column, string name, string caption, int low, int high, out Label label, out Label value)
         {
-            float top = column.Take(VolumeHeight);
+            VisualElement row = Row(column);
+            row.style.alignItems = Align.Center;
+            label = ShellTheme.Label("caption", caption, UiType.Body, _palette.Text);
+            label.style.width = SliderLabelWidth;
+            row.Add(label);
 
-            _capLabel = UiTheme.Label(
-                "frame cap label", block, UiType.Body, UiTheme.Text, TextAlignmentOptions.MidlineLeft);
-            PlaceLeft(_capLabel.rectTransform, top, 0f, VolumeLabelWidth, VolumeHeight);
-            _capLabel.text = "FRAME CAP";
+            ShellSlider slider = ShellTheme.Slider(name, _palette);
+            slider.style.width = SliderWidth;
+            slider.style.height = SliderHeight;
+            slider.lowValue = low;
+            slider.highValue = high;
+            row.Add(slider);
 
-            _cap = UiTheme.Slider_(FrameCapSlider, block, 0, FrameRate.Stops - 1);
-            PlaceLeft(_cap.GetComponent<RectTransform>(), top, VolumeLabelWidth, VolumeSliderWidth, VolumeHeight);
-            _cap.SetValueWithoutNotify(FrameRate.CapStop);
-            _cap.onValueChanged.AddListener(OnCap);
-            _cap.gameObject.AddComponent<PointerRelease>().Released += FrameRate.KeepCap;
-
-            _capValue = Readout("frame cap value", block, top);
+            value = ShellTheme.Label("value", "", UiType.Body, _palette.Text);
+            value.style.marginLeft = ReadoutGap;
+            row.Add(value);
+            return slider;
         }
-
-        private static void OnCap(float value) => FrameRate.SetCapStop(Mathf.RoundToInt(value), keep: false);
-
-        /// <summary>
-        /// The reset button, and in the same place the question it asks and the two answers under it.
-        /// </summary>
-        private void BuildReset(RectTransform block, UiColumn column)
-        {
-            float top = column.Next;
-
-            Button reset = UiTheme.Button_(ResetButton, block, "RESET PROGRESS", out TextMeshProUGUI _,
-                UiType.Body, ButtonRole.Destructive);
-            _resetButton = reset.GetComponent<RectTransform>();
-            PlaceLeft(_resetButton, top, 0f, ButtonWidth, UiTheme.ButtonHeight);
-            reset.onClick.AddListener(() => Fire(Ask));
-
-            // The question and its answers, one group so they appear and go together.
-            _question = UiTheme.Rect("question", block);
-            float groupHeight = QuestionHeight + QuestionGap + UiTheme.ButtonHeight;
-            Place(_question, top, ColumnWidth, groupHeight);
-
-            TextMeshProUGUI question = UiTheme.Label(
-                "text", _question, UiType.Body, UiTheme.Text, TextAlignmentOptions.MidlineLeft);
-            PlaceLeft(question.rectTransform, 0f, 0f, ColumnWidth, QuestionHeight);
-            question.text = Question;
-
-            float answers = QuestionHeight + QuestionGap;
-
-            // CANCEL first, where the eye lands, and quiet; the answer that destroys something is
-            // the one further away.
-            Button cancel = UiTheme.Button_(CancelButton, _question, "CANCEL", out TextMeshProUGUI _,
-                UiType.Body, ButtonRole.Quiet);
-            PlaceLeft(cancel.GetComponent<RectTransform>(), answers, 0f, AnswerWidth, UiTheme.ButtonHeight);
-            cancel.onClick.AddListener(() => Fire(Cancel));
-
-            Button confirm = UiTheme.Button_(ConfirmButton, _question, "YES, RESET", out TextMeshProUGUI _,
-                UiType.Body, ButtonRole.Destructive);
-            PlaceLeft(confirm.GetComponent<RectTransform>(), answers, AnswerWidth + UiTheme.Gap * 2f,
-                AnswerWidth, UiTheme.ButtonHeight);
-            confirm.onClick.AddListener(() => Fire(Confirm));
-
-            column.Take(groupHeight, QuestionGap);
-
-            _status = UiTheme.Label(
-                "status", block, UiType.Body, UiTheme.Good, TextAlignmentOptions.MidlineLeft);
-            Place(_status.rectTransform, column.Take(StatusHeight), ColumnWidth, StatusHeight);
-
-            _question.gameObject.SetActive(false);
-        }
-
-        /// <summary>Across the column, <paramref name="top"/> below the block's top edge.</summary>
-        private static void Place(RectTransform rect, float top, float width, float height) =>
-            UiTheme.Anchor(rect, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-                new Vector2(0f, -top), new Vector2(width, height));
-
-        /// <summary>From the left edge of whatever holds it, <paramref name="left"/> in.</summary>
-        private static void PlaceLeft(RectTransform rect, float top, float left, float width, float height) =>
-            UiTheme.Anchor(rect, new Vector2(0f, 1f), new Vector2(0f, 1f),
-                new Vector2(left, -top), new Vector2(width, height));
 
         // -----------------------------------------------------------------
         // Contents
         // -----------------------------------------------------------------
 
         /// <summary>
-        /// Every frame the panel is up, because N mutes from anywhere and the button has to agree.
-        /// The captions are constants, so this allocates nothing.
+        /// Every frame the page is up, because N mutes from anywhere and the button has to agree. The captions are
+        /// constants, and a text the same as it was is not set again.
         /// </summary>
         private void Refresh()
         {
             bool sound = !GameAudio.Muted;
 
-            _soundLabel.text = sound ? "SOUND  ON" : "SOUND  OFF";
-            _musicLabel.text = GameAudio.MusicOn ? "MUSIC  ON" : "MUSIC  OFF";
-            _effectsLabel.text = GameAudio.EffectsOn ? "EFFECTS  ON" : "EFFECTS  OFF";
+            Caption(_sound, sound ? "SOUND  ON" : "SOUND  OFF");
+            Caption(_music, GameAudio.MusicOn ? "MUSIC  ON" : "MUSIC  OFF");
+            Caption(_effects, GameAudio.EffectsOn ? "EFFECTS  ON" : "EFFECTS  OFF");
 
-            // Each keeps saying what it is set to while greyed out, so turning the sound back on
-            // brings back exactly what the player had.
-            UiTheme.SetEnabled(_musicButton, _musicLabel, sound);
-            UiTheme.SetEnabled(_effectsButton, _effectsLabel, sound);
-            _dataLabel.text = GameAnalytics.Reporting ? "DATA  ON" : "DATA  OFF";
-
-            if (_motionLabel != null)
-                _motionLabel.text = ReducedMotion.IsOn ? "REDUCED MOTION  ON" : "REDUCED MOTION  OFF";
-            if (_keysLabel != null)
-                _keysLabel.text = KeysCaption(KeyCaps.Shown);
-
-            if (_fullscreenLabel != null)
-                _fullscreenLabel.text = Screen.fullScreen ? "FULLSCREEN  ON" : "FULLSCREEN  OFF";
+            // Each keeps saying what it is set to while greyed out, so turning the sound back on brings back exactly what
+            // the player had.
+            Enable(_music, sound);
+            Enable(_effects, sound);
+            Caption(_data, GameAnalytics.Reporting ? "DATA  ON" : "DATA  OFF");
+            Caption(_motion, ReducedMotion.IsOn ? "REDUCED MOTION  ON" : "REDUCED MOTION  OFF");
+            Caption(_keys, KeysCaption(KeyCaps.Shown));
+            if (_fullscreen != null)
+                Caption(_fullscreen, Screen.fullScreen ? "FULLSCREEN  ON" : "FULLSCREEN  OFF");
 
             // On its own, because a browser has the counter and not the vertical sync it sits beside.
-            if (_counterLabel != null)
-                _counterLabel.text = CounterCaption(FrameRate.ShowsCounter);
-
-            if (_vSyncLabel != null)
+            if (_counter != null)
+                Caption(_counter, CounterCaption(FrameRate.ShowsCounter));
+            if (_vSync != null)
                 RefreshFrameRate();
 
-            // Greyed out and locked with the sound off, and live again the moment it is back on --
-            // N included, which is why this is asked every frame rather than on the button's click.
-            UiTheme.SetEnabled(_volume, sound);
-            _volumeLabel.color = sound ? UiTheme.Text : UiTheme.TextDim;
-            _volumeValue.color = sound ? UiTheme.Text : UiTheme.TextDim;
-
+            // Greyed out and locked with the sound off, and live again the moment it is back on -- N included, which is
+            // why this is asked every frame rather than on the button's click.
+            Lock(_volume, _volumeLabel, _volumeValue, !sound);
             int volume = GameAudio.Volume;
-
             if (volume != _shownVolume)
             {
                 _shownVolume = volume;
                 _volumeValue.text = volume + "%";
-
                 if (Mathf.RoundToInt(_volume.value) != volume)
                     _volume.SetValueWithoutNotify(volume);
             }
         }
 
         /// <summary>
-        /// Vertical sync's caption, and the cap greyed out and locked while it is on -- still saying
-        /// what it is set to, so turning vertical sync off brings back exactly the cap the player had.
+        /// Vertical sync's caption, and the cap greyed out and locked while it is on -- still saying what it is set to, so
+        /// turning vertical sync off brings back exactly the cap the player had. Unity ignores a cap with vertical sync on.
         /// </summary>
         private void RefreshFrameRate()
         {
             bool vSync = FrameRate.VSync;
-            _vSyncLabel.text = VSyncCaption(vSync);
-
-            UiTheme.SetEnabled(_cap, !vSync);
-            _capLabel.color = vSync ? UiTheme.TextDim : UiTheme.Text;
-            _capValue.color = vSync ? UiTheme.TextDim : UiTheme.Text;
+            Caption(_vSync, VSyncCaption(vSync));
+            Lock(_cap, _capLabel, _capValue, vSync);
 
             int stop = FrameRate.CapStop;
-
             if (stop == _shownCap)
                 return;
-
             _shownCap = stop;
             _capValue.text = CapCaption(stop);
-
             if (Mathf.RoundToInt(_cap.value) != stop)
                 _cap.SetValueWithoutNotify(stop);
+        }
+
+        private static void Caption(ShellButton button, string caption)
+        {
+            if (button != null && button.text != caption)
+                button.text = caption;
+        }
+
+        /// <summary>A switch that can or cannot be pressed: a dim caption is how a button says it cannot.</summary>
+        private void Enable(ShellButton button, bool enabled)
+        {
+            if (button == null || button.enabledSelf == enabled)
+                return;
+            button.SetEnabled(enabled);
+            button.style.color = enabled ? _palette.Text : _palette.Muted;
+        }
+
+        /// <summary>A slider row greyed out and locked, still showing what it is set to, or live.</summary>
+        private void Lock(ShellSlider slider, Label label, Label value, bool locked)
+        {
+            if (slider == null || slider.enabledSelf == !locked)
+                return;
+            slider.SetEnabled(!locked);
+            slider.style.opacity = locked ? 0.4f : 1f;
+            label.style.color = value.style.color = locked ? _palette.Muted : _palette.Text;
         }
 
         private void ToggleMusic()
@@ -775,12 +601,10 @@ namespace BitSorter.View
         /// Fullscreen at the display's own size, or back to a window the size the game opens at.
         /// </summary>
         /// <remarks>
-        /// Unity remembers the choice for the next launch itself. Changing the mode alone kept the
-        /// fullscreen resolution on the way out -- a window the size of the display, title bar off
-        /// the top -- so the size is always given with it (<see cref="DisplayRules.WindowedSize"/>).
-        ///
-        /// Measured on the display the window is on, not the main one: on a second monitor of a
-        /// different size, the main display's size filled that monitor wrongly.
+        /// Unity remembers the choice for the next launch itself. Changing the mode alone kept the fullscreen resolution on
+        /// the way out -- a window the size of the display, title bar off the top -- so the size is always given with it
+        /// (<see cref="DisplayRules.WindowedSize"/>). Measured on the display the window is on, not the main one: on a
+        /// second monitor of a different size, the main display's size filled that monitor wrongly.
         /// </remarks>
         private static void ToggleFullscreen()
         {
@@ -809,7 +633,6 @@ namespace BitSorter.View
             if (_capCaptions == null)
             {
                 _capCaptions = new string[FrameRate.Stops];
-
                 for (int i = 0; i < _capCaptions.Length; i++)
                 {
                     int cap = FrameRate.CapAt(i);
@@ -825,10 +648,7 @@ namespace BitSorter.View
         private static void ToggleVSync() => FrameRate.SetVSync(!FrameRate.VSync);
 
         /// <summary>What the counter's switch says.</summary>
-        /// <remarks>
-        /// It names the counter, not the frame rate: "FPS OFF" read as though the frames themselves
-        /// could be switched off.
-        /// </remarks>
+        /// <remarks>It names the counter, not the frame rate: "FPS OFF" read as though the frames themselves could be switched off.</remarks>
         public static string CounterCaption(bool on) => on ? "FPS COUNTER  ON" : "FPS COUNTER  OFF";
 
         private static void ToggleCounter() => FrameRate.SetCounter(!FrameRate.ShowsCounter);
@@ -849,9 +669,7 @@ namespace BitSorter.View
         {
             if (!Confirming)
                 return;
-
             SetConfirming(false);
-
             bool reset = _progress != null && _progress.ResetProgress();
             _status.text = reset ? Done : "Nothing to reset.";
         }
@@ -859,27 +677,28 @@ namespace BitSorter.View
         private void SetConfirming(bool confirming)
         {
             Confirming = confirming;
-            _resetButton.gameObject.SetActive(!confirming);
-            _question.gameObject.SetActive(confirming);
+            _reset.parent.style.display = confirming ? DisplayStyle.None : DisplayStyle.Flex;
+            _question.style.display = confirming ? DisplayStyle.Flex : DisplayStyle.None;
         }
 
         // -----------------------------------------------------------------
         // Showing
         // -----------------------------------------------------------------
 
-        /// <summary>Opens the settings. Used by the 4.x title screen's Settings item, which BACK goes back to.</summary>
+        /// <summary>
+        /// Opens the settings from the 4.x title screen, in the 4.x boot the tests use (<see cref="AppLaunch.Classic"/>):
+        /// the workbench is brought up under them, and BACK goes back to the title screen.
+        /// </summary>
         public void Open()
         {
             _over = null;
             _overTheSimulator = false;
+            if (_workbench != null)
+                _workbench.Resume();
             Show(true);
         }
 
-        /// <summary>
-        /// Opens the settings over the simulator (Part 15a), which BACK goes back to as it was left. The backdrop is solid
-        /// there, where it is see-through over the 4.x board: the board under the workbench is the 4.x game's, and not to be
-        /// glimpsed from the simulator.
-        /// </summary>
+        /// <summary>Opens the settings over the simulator, as it is, which BACK goes back to (Part 15a; a page of it since 15g).</summary>
         public void OpenOver(WorkbenchPanel workbench)
         {
             _over = workbench;
@@ -889,22 +708,21 @@ namespace BitSorter.View
 
         /// <summary>
         /// Opens the settings again where they were, after a change of look has loaded the game again (<see cref="LookSwitch"/>):
-        /// over the simulator, hiding the workbench the reload opened, or over the title screen.
+        /// over the simulator, which the reload opened, or as from the title screen.
         /// </summary>
         public void OpenAgain()
         {
-            // The reload opened the simulator, as every launch does, whichever Settings was over: it goes under either way,
-            // or its shell, drawn over the canvas, would hide Settings and the title screen behind it (the #84 review).
-            WorkbenchPanel workbench = FindFirstObjectByType<WorkbenchPanel>();
-            if (workbench != null)
-                workbench.GoUnder();
             if (_menu != null)
                 _menu.Show(false);
-
-            if (_overTheSimulator)
-                OpenOver(workbench);
+            if (_overTheSimulator && _workbench != null)
+            {
+                _workbench.Resume();
+                OpenOver(_workbench);
+            }
             else
+            {
                 Open();
+            }
         }
 
         /// <summary>The simulator Settings went over, which BACK goes back to; null for the title screen.</summary>
@@ -913,18 +731,20 @@ namespace BitSorter.View
         /// <summary>Whether Settings was last opened over the simulator: kept through the reload a change of look makes.</summary>
         private static bool _overTheSimulator;
 
-        /// <summary>Whether Settings was opened over the simulator, rather than over the 4.x title screen: the credits' backdrop asks.</summary>
+        /// <summary>Whether Settings was opened over the simulator, rather than from the 4.x title screen.</summary>
         public bool OverTheSimulator => _over != null;
 
-        /// <summary>Settings again, over what it was over: the credits roll coming back.</summary>
+        /// <summary>Settings again, as it was: the credits roll coming back.</summary>
         public void Reopen() => Show(true);
 
-        /// <summary>THE 4.x GAME: its title screen, which SIMULATOR leaves (Part 15a).</summary>
+        /// <summary>THE 4.x GAME: its title screen, which BACK TO THE SIMULATOR leaves (Part 15a).</summary>
         private void OpenTheGame()
         {
+            Show(false);
             _over = null;
             _overTheSimulator = false;
-            Show(false);
+            if (_workbench != null)
+                _workbench.GoUnder();
             AppLaunch.ShowTheGame();
             if (_menu != null)
                 _menu.OpenFromTheSimulator();   // so Escape on it comes back (Part 15g)
@@ -935,7 +755,6 @@ namespace BitSorter.View
         {
             if (_credits == null)
                 return;
-
             Show(false);
             _credits.Open();
         }
@@ -949,49 +768,47 @@ namespace BitSorter.View
             {
                 WorkbenchPanel over = _over;
                 _over = null;
-                over.Resume();
+                over.Resume();   // a reset made from here is shown on what is under it
                 return;
             }
 
+            if (_workbench != null)
+                _workbench.GoUnder();
             if (_menu != null)
                 _menu.Show(true);
         }
 
-        private void Show(bool visible) => SetShowing(visible);
-
         /// <summary>
-        /// Every visit starts with no question pending and nothing reported, so a reset reported
-        /// last time is not mistaken for one just made.
+        /// The page up or down. Every visit starts with no question pending and nothing reported, so a reset reported last
+        /// time is not mistaken for one just made.
         /// </summary>
-        protected override void OnShown()
+        private void Show(bool visible)
         {
-            if (_resetButton == null)
+            if (visible)
+            {
+                if (_page == null)
+                    Build();
+                if (_page == null || _workbench == null)
+                    return;
+                _workbench.ShowPage(_page);
+                SetConfirming(false);
+                _status.text = string.Empty;
+                _shownVolume = -1;
+                _shownCap = -1;
+                _openedFrame = Time.frameCount;
+                UiEscape.Opened(this);
+                Refresh();
                 return;
+            }
 
-            Color scrim = Palette.Current.MenuScrim;
-            Root.GetComponent<Image>().color = _over != null ? new Color(scrim.r, scrim.g, scrim.b, 1f) : scrim;
-            SetConfirming(false);
-            _status.text = string.Empty;
-            _shownVolume = -1;
-            _shownCap = -1;
-            Fit();
-            Refresh();
-        }
+            if (!IsShowing)
+                return;
+            _workbench.HidePage(_page);
+            _closedFrame = Time.frameCount;
 
-        /// <summary>
-        /// A drag keeps its volume or its cap when it lets go; this keeps one that was somehow left
-        /// staged.
-        /// </summary>
-        protected override void OnHidden()
-        {
+            // A drag keeps its volume or its cap when it lets go; this keeps one that was somehow left staged.
             GameAudio.KeepVolume();
             FrameRate.KeepCap();
-        }
-
-        private static void Fire(System.Action action)
-        {
-            action();
-            UiTheme.Defocus();
         }
     }
 }

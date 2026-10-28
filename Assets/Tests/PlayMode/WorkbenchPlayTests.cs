@@ -122,7 +122,7 @@ namespace BitSorter.PlayMode.Tests
 
             // There is no BACK since Part 15a: SETTINGS goes over the workbench, and its BACK comes back to it as it was.
             yield return Click(WorkbenchPanel.SettingsButton);
-            Assert.IsFalse(workbench.IsOpen, "SETTINGS did not go over the workbench");
+            Assert.IsTrue(workbench.IsOpen, "Settings is a page of the workbench's own (Part 15g)");
             Assert.IsTrue(Find<SettingsPanel>().IsShowing && Find<SettingsPanel>().OverTheSimulator);
             yield return Click(SettingsPanel.BackButton);
             Assert.IsTrue(workbench.IsOpen, "Settings' BACK did not come back to the workbench");

@@ -414,6 +414,9 @@ namespace BitSorter.View
         /// <summary>A press or a drag moved the value: what it moved it to.</summary>
         public event Action<float> Changed;
 
+        /// <summary>The press or the drag let go: what a setting writes out once, where every step of it was applied (Part 15g).</summary>
+        public event Action Released;
+
         public ShellSlider(string name, SchematicPalette palette)
         {
             this.name = name;
@@ -523,6 +526,7 @@ namespace BitSorter.View
                 return;
             _dragging = -1;
             this.ReleasePointer(e.pointerId);
+            Released?.Invoke();
         }
     }
 }

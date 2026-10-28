@@ -1,27 +1,24 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using UnityEngine.UI;
-using TMPro;
+using UnityEngine.UIElements;
 
 namespace BitSorter.View
 {
     /// <summary>
-    /// The credits: the roll from <see cref="Credits"/>, rising slowly up the screen. Reached from
-    /// Settings, and any key or click goes back there.
+    /// The credits: the roll from <see cref="Credits"/>, rising slowly up the page. Reached from Settings and from HELP's
+    /// ABOUT, and any key or click goes back. A page of the workbench's own since Part 15g, in the style's colours, as
+    /// Settings is: it was a uGUI screen in the 4.x board's.
     /// </summary>
     /// <remarks>
-    /// It rises from below the screen and comes to rest with the last word in the middle, rather
-    /// than rolling off into an empty screen -- a roll that ends on nothing reads as the game having
-    /// stopped. Counted on <see cref="Time.deltaTime"/>, like every other motion in the interface,
-    /// so a capture of it is the same every time.
+    /// It rises from below the page and comes to rest with the last word in the middle, rather than rolling off into an
+    /// empty page -- a roll that ends on nothing reads as the game having stopped. Counted on <see cref="Time.deltaTime"/>,
+    /// like every other motion in the interface, so a capture of it is the same every time.
     /// </remarks>
-    public sealed class CreditsPanel : FullScreenPanel
+    public sealed class CreditsPanel : MonoBehaviour, IHoldsEscape
     {
         [SerializeField] private SettingsPanel _settings;
-
-        [Tooltip("Canvas the panel is built under. Found by type when left empty.")]
-        [SerializeField] private Canvas _canvas;
+        [SerializeField] private WorkbenchPanel _workbench;
 
         /// <summary>How fast the roll rises, in reference pixels a second: slow enough to read, not a crawl.</summary>
         public const float Speed = 70f;
@@ -29,77 +26,92 @@ namespace BitSorter.View
         /// <summary>How wide the roll's lines may run before they wrap.</summary>
         public const float Width = 900f;
 
-        private RectTransform _roll;
+        /// <summary>The page's name in the shell.</summary>
+        public const string PageName = "Workbench credits page";
 
-        /// <summary>How far below the roll's top the last word's middle sits.</summary>
-        private float _restDepth;
+        private VisualElement _page, _roll;
+        private Label _farewell;
 
-        /// <summary>How far the roll's top edge has risen above the bottom of the screen.</summary>
+        /// <summary>How far the roll's top edge has risen above the bottom of the page.</summary>
         private float _risen;
 
+        /// <summary>The frames it last came up and went down in.</summary>
+        private int _openedFrame = -1, _closedFrame = -1;
+
         /// <summary>Whether the roll is up.</summary>
+        public bool IsShowing => _page != null && _page.style.display == DisplayStyle.Flex;
+
+        /// <inheritdoc cref="IsShowing"/>
         public bool IsOpen => IsShowing;
 
         /// <summary>How far the roll has risen, for the tests to watch it move.</summary>
         public float Risen => _risen;
 
         /// <summary>Whether the roll has come to rest on its last word.</summary>
-        public bool AtRest => _roll != null && _risen >= RestingRise(RoomHeight, _restDepth);
+        public bool AtRest => _roll != null && _risen >= RestingRise(RoomHeight, RestDepth);
 
-        private float RoomHeight => Root != null ? Root.rect.height : 0f;
+        private float RoomHeight => _page != null && !float.IsNaN(_page.layout.height) ? _page.layout.height : 0f;
+
+        /// <summary>How far below the roll's top the last word's middle sits, once the roll is laid out.</summary>
+        private float RestDepth =>
+            _farewell != null && !float.IsNaN(_farewell.layout.height) ? _farewell.layout.y + _farewell.layout.height * 0.5f : 0f;
 
         private void Awake()
         {
             if (_settings == null) _settings = FindFirstObjectByType<SettingsPanel>();
-            if (_canvas == null) _canvas = FindFirstObjectByType<Canvas>();
+            if (_workbench == null) _workbench = FindFirstObjectByType<WorkbenchPanel>();
+            UiEscape.Join(this);
         }
 
-        private void Start()
-        {
-            if (_canvas == null)
-                return;
+        private void OnDestroy() => UiEscape.Leave(this);
 
-            Build();
-            Show(false);
-        }
+        /// <inheritdoc/>
+        /// <remarks>Any key goes back, Escape among them, and nothing else takes that press.</remarks>
+        public bool HoldsEscapeNow => IsShowing || _closedFrame == Time.frameCount;
 
         private void Update()
         {
             if (!IsShowing)
                 return;
 
-            // Any key, or any click. Not on the frame the roll opened: the press that opened it was
-            // aimed at the CREDITS button, not at this.
-            if (!OpenedThisFrame && AnyPress())
+            // Any key, or any click. Not on the frame the roll opened: the press that opened it was aimed at the CREDITS
+            // button, not at this.
+            if (_openedFrame != Time.frameCount && AnyPress())
             {
+                Keyboard keyboard = UiText.Keyboard;
+                if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame)
+                    UiEscape.TryTake(this);
                 Back();
                 return;
             }
 
-            _risen = Mathf.Min(_risen + Speed * Time.deltaTime, RestingRise(RoomHeight, _restDepth));
-            _roll.anchoredPosition = new Vector2(0f, _risen);
+            _risen = Mathf.Min(_risen + Speed * Time.deltaTime, RestingRise(RoomHeight, RestDepth));
+            Place();
+        }
+
+        /// <summary>The roll hung from the page's foot by its top edge, risen so far: rising is one number.</summary>
+        private void Place()
+        {
+            if (_roll != null)
+                _roll.style.top = RoomHeight - _risen;
         }
 
         /// <summary>
-        /// How far the roll's top rises before it stops: until the last word's middle is at the
-        /// middle of a screen <paramref name="room"/> tall.
+        /// How far the roll's top rises before it stops: until the last word's middle is at the middle of a page
+        /// <paramref name="room"/> tall.
         /// </summary>
         public static float RestingRise(float room, float restDepth) => room * 0.5f + restDepth;
 
         private static bool AnyPress()
         {
             Keyboard keyboard = UiText.Keyboard;
-
             if (keyboard != null && keyboard.anyKey.wasPressedThisFrame)
                 return true;
 
-            // A mouse button on its release, not its press. The settings come back in the frame this
-            // answers, and a press answered here could still go on to the interface in the same
-            // frame -- to whichever setting was now under the pointer, which it then pressed on
-            // release. By the release the press has already gone to this scrim, so nothing behind it
-            // can take the click.
+            // A mouse button on its release, not its press. The page under comes back in the frame this answers, and a
+            // press answered here could still go on to it in the same frame -- to whichever setting was now under the
+            // pointer, which it then pressed on release.
             Mouse mouse = Mouse.current;
-
             return mouse != null
                    && (mouse.leftButton.wasReleasedThisFrame
                        || mouse.rightButton.wasReleasedThisFrame
@@ -116,67 +128,57 @@ namespace BitSorter.View
 
         private void Build()
         {
-            // A scrim, and a catcher for clicks: any click goes back, wherever it lands.
-            Image scrim = UiTheme.Scrim("Credits", _canvas.transform, Palette.Current.CardScrim);
-            scrim.raycastTarget = true;
-            Root = scrim.GetComponent<RectTransform>();
-            UiTheme.Stretch(Root);
+            _page = _workbench != null ? _workbench.AddPage(PageName) : null;
+            if (_page == null)
+                return;
+            SchematicPalette palette = SchematicPalette.Current;
+            _page.style.overflow = Overflow.Hidden;
 
-            // Hung from the bottom of the screen by its top edge, so rising is one number.
-            _roll = UiTheme.Rect("roll", Root);
-            _roll.anchorMin = new Vector2(0.5f, 0f);
-            _roll.anchorMax = new Vector2(0.5f, 0f);
-            _roll.pivot = new Vector2(0.5f, 1f);
+            _roll = new VisualElement { name = "roll", pickingMode = PickingMode.Ignore };
+            _roll.style.position = Position.Absolute;
+            _roll.style.left = 0f;
+            _roll.style.right = 0f;
+            _roll.style.alignItems = Align.Center;
+            _page.Add(_roll);
 
-            var column = new UiColumn();
             IReadOnlyList<Credits.Line> lines = Credits.Roll(MainMenu.Tagline, MainMenu.VersionText);
-
             foreach (Credits.Line line in lines)
             {
                 if (line.Kind == Credits.Kind.Gap)
                 {
-                    column.Space(GroupGap);
+                    var gap = new VisualElement { name = "gap", pickingMode = PickingMode.Ignore };
+                    gap.style.height = GroupGap;
+                    _roll.Add(gap);
                     continue;
                 }
 
-                UiType type = TypeOf(line.Kind);
-                float height = Mathf.Ceil(UiTheme.TextHeight(line.Text, type, Width));
-
-                TextMeshProUGUI label = UiTheme.Label(
-                    line.Kind.ToString(), _roll, type, ColourOf(line.Kind), TextAlignmentOptions.Top);
-                label.textWrappingMode = TextWrappingModes.Normal;
-
+                bool emphatic = line.Kind == Credits.Kind.Role || line.Kind == Credits.Kind.Title || line.Kind == Credits.Kind.Farewell;
+                Label label = ShellTheme.Label(line.Kind.ToString(), line.Text, TypeOf(line.Kind), ColourOf(line.Kind, palette),
+                    TextAnchor.UpperCenter, bold: emphatic);
+                label.style.whiteSpace = WhiteSpace.Normal;
+                label.style.width = Width;
+                label.style.marginBottom = line.Kind == Credits.Kind.Role ? RoleGap : LineGap;
                 if (line.Kind == Credits.Kind.Role)
-                {
-                    label.fontStyle = FontStyles.Bold;
-                    label.characterSpacing = 6f;
-                }
-
-                float top = column.Take(height, line.Kind == Credits.Kind.Role ? RoleGap : LineGap);
-                UiTheme.Anchor(label.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-                    new Vector2(0f, -top), new Vector2(Width, height));
-                label.text = line.Text;
-
+                    label.style.letterSpacing = 6f;
+                _roll.Add(label);
                 if (line.Kind == Credits.Kind.Farewell)
-                    _restDepth = top + height * 0.5f;
+                    _farewell = label;
             }
 
-            _roll.sizeDelta = new Vector2(Width, column.Next);
-
-            // In the corner, clear of the column the roll rises through. Centred at the foot, the way
-            // Settings says how to leave it, every line of the roll passed through it on the way up.
-            TextMeshProUGUI help = UiTheme.Label(
-                "help", Root, UiTheme.HelpLineType, UiTheme.HelpLineColour, TextAlignmentOptions.Right);
-            UiTheme.Anchor(help.rectTransform, new Vector2(1f, 0f), new Vector2(1f, 0f),
-                new Vector2(-UiTheme.Margin, 16f), new Vector2(HelpWidth, UiTheme.HelpLineHeight));
-            help.text = HelpText;
+            // In the corner, clear of the column the roll rises through. Centred at the foot, every line of the roll passed
+            // through it on the way up.
+            Label help = ShellTheme.Label("help", HelpText, UiType.Caption, palette.Muted, TextAnchor.MiddleRight);
+            help.style.position = Position.Absolute;
+            help.style.right = 24f;
+            help.style.bottom = 16f;
+            help.style.width = HelpWidth;
+            _page.Add(help);
         }
 
         /// <summary>The line in the corner saying how to leave the roll.</summary>
         /// <remarks>
-        /// With its verb. "any key to go back" matched the terse "escape to go back" on Settings, but
-        /// a key is a thing you press and "any key" is not one, so the line read as missing a word --
-        /// a playtest said so (2026-09-27).
+        /// With its verb. "any key to go back" matched the terse "escape to go back" on Settings, but a key is a thing you
+        /// press and "any key" is not one, so the line read as missing a word -- a playtest said so (2026-09-27).
         /// </remarks>
         public const string HelpText = "press any key to go back";
 
@@ -196,17 +198,17 @@ namespace BitSorter.View
             }
         }
 
-        private static Color ColourOf(Credits.Kind kind)
+        private static Color ColourOf(Credits.Kind kind, SchematicPalette palette)
         {
             switch (kind)
             {
                 case Credits.Kind.Title:
                 case Credits.Kind.Farewell:
-                    return UiTheme.Accent;
+                    return palette.Accent;
                 case Credits.Kind.Name:
-                    return UiTheme.Text;
+                    return palette.Text;
                 default:
-                    return UiTheme.TextDim;
+                    return palette.TextDim;
             }
         }
 
@@ -214,24 +216,33 @@ namespace BitSorter.View
         // Showing
         // -----------------------------------------------------------------
 
-        /// <summary>Starts the roll from below the screen. Used by Settings' CREDITS button, which it goes back to.</summary>
+        /// <summary>Starts the roll from below the page. Used by Settings' CREDITS button, which it goes back to.</summary>
         public void Open() => Open(null);
 
         /// <summary>
         /// Starts the roll, which goes back to <paramref name="back"/> when it is done -- the simulator, from HELP's ABOUT
-        /// (Part 15a) -- or to Settings, which opens over what it was over.
+        /// (Part 15a) -- or to Settings.
         /// </summary>
         public void Open(System.Action back)
         {
             _back = back;
-            Show(true);
+            if (_page == null)
+                Build();
+            if (_page == null)
+                return;
+            _risen = 0f;
+            _workbench.ShowPage(_page);
+            Place();
+            _openedFrame = Time.frameCount;
+            UiEscape.Opened(this);
         }
 
         private System.Action _back;
 
         private void Back()
         {
-            Show(false);
+            _workbench.HidePage(_page);
+            _closedFrame = Time.frameCount;
 
             System.Action back = _back;
             _back = null;
@@ -239,21 +250,6 @@ namespace BitSorter.View
                 back();
             else if (_settings != null)
                 _settings.Reopen();
-        }
-
-        private void Show(bool visible) => SetShowing(visible);
-
-        protected override void OnShown()
-        {
-            _risen = 0f;
-
-            // Solid over the simulator, as Settings is there (Part 15a): the board under the workbench is the 4.x game's.
-            Color scrim = Palette.Current.CardScrim;
-            bool solid = _back != null || (_settings != null && _settings.OverTheSimulator);
-            Root.GetComponent<Image>().color = solid ? new Color(scrim.r, scrim.g, scrim.b, 1f) : scrim;
-
-            if (_roll != null)
-                _roll.anchoredPosition = Vector2.zero;
         }
     }
 }

@@ -214,7 +214,7 @@ namespace BitSorter.PlayMode.Tests
             Assert.AreEqual(1, Top(workbench).Parts.Count, "MY CIRCUIT was kept while another sample was shown");
 
             yield return Click(WorkbenchPanel.SettingsButton);
-            Assert.IsFalse(workbench.IsOpen, "under Settings");
+            Assert.IsTrue(Find<SettingsPanel>().IsShowing, "Settings, a page over the workbench (Part 15g)");
             yield return Click(SettingsPanel.BackButton);
             Assert.IsTrue(workbench.IsOpen, "back from it");
             Assert.AreEqual(0, workbench.Sample, "on MY CIRCUIT, as it was left");
