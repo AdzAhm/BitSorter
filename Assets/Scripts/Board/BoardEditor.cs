@@ -447,6 +447,19 @@ namespace BitSorter.Board
             return Commit(Project.WithModule(m with { Source = source }));
         }
 
+        /// <summary>
+        /// <paramref name="replacement"/> in place of the module of its name, as a whole (Part 15e): an exercise's top written as
+        /// code, or drawn again. Checked as every edit is, an exercise's lock included.
+        /// </summary>
+        public EditResult ReplaceModule(Module replacement)
+        {
+            if (replacement == null)
+                return EditResult.Refused("No module to put in.");
+            if (!TryModule(replacement.Name, out Module _, out EditResult refused))
+                return refused;
+            return Commit(Project.WithModule(replacement));
+        }
+
         /// <summary>Renames a module, and every block of it, and the top if it was the top.</summary>
         public EditResult RenameModule(string from, string to)
         {

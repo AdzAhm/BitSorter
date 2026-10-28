@@ -1,0 +1,169 @@
+using System.Collections.Generic;
+using System.Linq;
+using NUnit.Framework;
+
+namespace BitSorter.Board.Tests
+{
+    /// <summary>
+    /// Answering an exercise in code (Part 15e): the top written -- from the drawing as it prints, or its ports -- and graded
+    /// as a drawing is: held to the library's cells with no operator, at its line, and to the stock's counts, which a
+    /// drawing's parts never saw in code; a block the exercise gives counted whole wherever it is placed; and a register
+    /// starting where the exercise says only when the code gives it that start.
+    /// </summary>
+    public class ExerciseCodeTests
+    {
+        private static Project Opened(Exercise exercise)
+        {
+            var problems = new List<string>();
+            Project project = exercise.ToProject(problems);
+            Assert.IsNotNull(project, string.Join("\n", problems));
+            return project;
+        }
+
+        /// <summary><paramref name="exercise"/> answered by <paramref name="source"/>, its top written, through the editor and its lock.</summary>
+        private static Project Answered(Exercise exercise, string source)
+        {
+            var editor = new BoardEditor(Opened(exercise));
+            Module written = exercise.Written(editor.Project);
+            EditResult wrote = editor.ReplaceModule(written with { Source = written.Source.Substring(0, written.Source.IndexOf("module ")) + source });
+            Assert.IsTrue(wrote.Done, wrote.Refusal);
+            return editor.Project;
+        }
+
+        private static string Why(Grade grade) =>
+            string.Join("\n", grade.Problems.Concat(grade.Faults).Concat(grade.Failures.Select(f => f.ToString())));
+
+        private const string HalfAdder = @"module half_adder (input logic a, input logic b, output logic sum, output logic carry);
+    xor #1 g1 (sum, a, b);
+    and #1 g2 (carry, a, b);
+endmodule
+";
+
+        [Test]
+        public void AWrittenAnswer_IsGradedAsADrawingIs()
+        {
+            Exercise exercise = ExerciseFiles.Load("half-adder");
+            Grade grade = ExerciseGrader.Grade(exercise, Answered(exercise, HalfAdder));
+            Assert.IsTrue(grade.Solved, Why(grade));
+            Assert.AreEqual(2, grade.Gates, "its gates counted, though no part is drawn");
+            Assert.AreEqual(1, grade.Parts["xor"]);
+            Assert.AreEqual(1, grade.Parts["and"]);
+        }
+
+        private const string WithAnOperator = @"module half_adder (input logic a, input logic b, output logic sum, output logic carry);
+    assign sum = a ^ b;
+    and #1 g2 (carry, a, b);
+endmodule
+";
+
+        [Test]
+        public void AnOperator_IsRefused_SayingWhy_AndGradedAtItsLine()
+        {
+            Exercise exercise = ExerciseFiles.Load("half-adder");
+            var editor = new BoardEditor(Opened(exercise));
+            Module written = exercise.Written(editor.Project);
+            string header = written.Source.Substring(0, written.Source.IndexOf("module "));
+            EditResult refused = editor.ReplaceModule(written with { Source = header + WithAnOperator });
+            Assert.IsFalse(refused.Done, "the edit adds an error, so it is refused");
+            StringAssert.Contains("an operator", refused.Refusal);
+
+            Project kept = editor.Project.WithModule(written with { Source = header + WithAnOperator });
+            Grade grade = ExerciseGrader.Grade(exercise, kept);
+            Assert.IsFalse(grade.Solved);
+            int line = header.Split('\n').Length + 1;
+            Assert.IsTrue(grade.Faults.Any(f => f.StartsWith("half_adder, line " + line + ":") && f.Contains("an operator")), Why(grade));
+        }
+
+        [Test]
+        public void OneGateTooMany_IsAFault_InCodeAsInADrawing()
+        {
+            Exercise exercise = ExerciseFiles.Load("half-adder");
+            Grade grade = ExerciseGrader.Grade(exercise, Answered(exercise, @"module half_adder (input logic a, input logic b, output logic sum, output logic carry);
+    logic t;
+    xor #1 g1 (t, a, b);
+    xor #1 g3 (sum, t, 1'b0);
+    and #1 g2 (carry, a, b);
+endmodule
+".Replace("1'b0", "b")));
+            Assert.IsFalse(grade.Solved);
+            CollectionAssert.Contains(grade.Faults, "The exercise stocks 1 XOR, and the design has 2.", Why(grade));
+        }
+
+        [Test]
+        public void AWrittenRegister_StartsWhereTheCodeSaysItDoes()
+        {
+            Exercise exercise = ExerciseFiles.Load("one-clock-late");
+            string module = Opened(exercise).Top;
+            string Register(string declared) => "module " + module + " (input logic clk, input logic in, output logic out);\n" +
+                "    logic r" + declared + ";\n    always_ff @(posedge clk)\n        r <= in;\n    assign out = r;\nendmodule\n";
+
+            Grade started = ExerciseGrader.Grade(exercise, Answered(exercise, Register(" = 1'b0")));
+            Assert.IsTrue(started.Solved, Why(started));
+            Assert.AreEqual(1, started.Parts[PartCount.Register], "its register counted");
+
+            Grade unknown = ExerciseGrader.Grade(exercise, Answered(exercise, Register("")));
+            Assert.IsFalse(unknown.Solved, "a register with no start is x until something says");
+            StringAssert.Contains("x", Why(unknown));
+            StringAssert.Contains("starts at 0 here: logic q = 1'b0;", exercise.Written(Opened(exercise)).Source, "the header says so");
+        }
+
+        [Test]
+        public void ABlockTheExerciseGives_CountsWhole_InCode()
+        {
+            Exercise exercise = ExerciseFiles.Load("four-at-once");
+            Project solution = ExerciseFiles.Solution(exercise);
+            Module written = exercise.Written(solution);
+            var editor = new BoardEditor(Opened(exercise));
+            Assert.IsTrue(editor.ReplaceModule(written).Done, "the drawn solution, as code");
+            Assert.IsTrue(editor.Project.TopModule.IsWritten);
+
+            Grade grade = ExerciseGrader.Grade(exercise, editor.Project);
+            Assert.IsTrue(grade.Solved, Why(grade));
+            Assert.AreEqual(4, grade.Parts["FA"], "four full adders, each counted once");
+            Assert.IsFalse(grade.Parts.ContainsKey("xor") && grade.Parts["xor"] > 0, "and none of the gates inside them");
+        }
+
+        [Test]
+        public void EverySolution_WrittenAsCode_StillSolvesItsExercise()
+        {
+            foreach (string id in ExerciseFiles.Ids())
+            {
+                Exercise exercise = ExerciseFiles.Load(id);
+                if (!exercise.Code)
+                    continue;
+                Project solution = ExerciseFiles.Solution(exercise);
+                Project written = solution.WithModule(exercise.Written(solution));
+                Grade grade = ExerciseGrader.Grade(exercise, written);
+                Assert.IsTrue(grade.Solved, $"{id}, written: {Why(grade)}");
+            }
+        }
+
+        [Test]
+        public void DrawnAgain_ItIsTheExercisesOwnTop_CountingItsIdsOn()
+        {
+            Exercise exercise = ExerciseFiles.Load("half-adder");
+            Project project = Answered(exercise, HalfAdder);
+            var problems = new List<string>();
+            Module drawn = exercise.Drawn(project, problems);
+            Assert.IsNotNull(drawn, string.Join("\n", problems));
+            Assert.IsFalse(drawn.IsWritten);
+            CollectionAssert.AreEquivalent(Opened(exercise).TopModule.Ports.Select(p => p.Name), drawn.Ports.Select(p => p.Name));
+            Assert.GreaterOrEqual(drawn.NextId, project.TopModule.NextId, "no id given twice");
+
+            var editor = new BoardEditor(project);
+            Assert.IsTrue(editor.ReplaceModule(drawn).Done);
+            Assert.IsFalse(editor.Project.TopModule.IsWritten);
+        }
+
+        [Test]
+        public void ABlockTheExerciseGives_IsNotReplaced()
+        {
+            Exercise exercise = ExerciseFiles.Load("four-at-once");
+            var editor = new BoardEditor(Opened(exercise));
+            Module fa = editor.Project.Find("FA");
+            EditResult replaced = editor.ReplaceModule(fa with { Source = "module FA (input logic a, input logic b, input logic cin, output logic s, output logic cout);\nendmodule\n", Parts = new Part[0] });
+            Assert.IsFalse(replaced.Done);
+            StringAssert.Contains("FA is a block the exercise gives", replaced.Refusal);
+        }
+    }
+}

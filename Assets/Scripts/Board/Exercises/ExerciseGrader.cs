@@ -113,9 +113,10 @@ namespace BitSorter.Board
             };
 
             var faults = new List<string>();
+            // Written code's at its line (Part 15e), as the code editor marks it.
             foreach (BoardDiagnostic diagnostic in BoardRules.Check(graded))
                 if (diagnostic.IsError)
-                    faults.Add(diagnostic.Message);
+                    faults.Add(diagnostic.Line > 0 ? $"{diagnostic.Module}, line {diagnostic.Line}: {diagnostic.Message}" : diagnostic.Message);
 
             // Written code is a way past the stock, which counts drawn parts: an exercise answered in code is held to its
             // gates by the gate-level rules (Part 15e), and one that is not takes none (the #85 review).
@@ -189,12 +190,113 @@ namespace BitSorter.Board
                 {
                     settle = timing.Paths.Worst?.Worst;
                     period = ClockedPeriod(timing.Timing);
+
+                    // Written code (Part 15e) is counted from the design it builds: what the stock counts of drawn parts
+                    // never sees. Over the stock, it is a fault as a drawing over it is.
+                    if (HasWritten(graded))
+                    {
+                        parts = WithWritten(graded, library, parts, timing);
+                        gates = 0;
+                        foreach (KeyValuePair<string, int> part in parts)
+                            if (Enum.TryParse(part.Key, ignoreCase: true, out GateKind kind) && PartCount.Of(kind) == part.Key)
+                                gates += part.Value;
+                        foreach (PartCount count in library.Counts)
+                            if (count.Most >= 0 && parts.TryGetValue(count.Part, out int n) && n > count.Most)
+                                faults.Add($"The exercise stocks {(count.Most == 0 ? "no " + count.Said : count.Most + " " + count.Said)}, and the design has {n}.");
+                    }
                 }
             }
 
             bool settleMet = exercise.SettleBy < 0 || (settle.HasValue && settle.Value <= exercise.SettleBy);
             bool periodMet = exercise.Period < 0 || (period.HasValue && period.Value <= exercise.Period);
             return new Grade(problems, faults, failures, graded.Stimulus.Checks.Count, parts, gates, settle, period, settleMet, periodMet);
+        }
+
+        /// <summary>Whether any module the design is made of is written, but the testbench.</summary>
+        private static bool HasWritten(Project project)
+        {
+            foreach (Module module in project.Modules)
+                if (module.IsWritten && module.Name != project.Bench)
+                    return true;
+            return false;
+        }
+
+        /// <summary>
+        /// <paramref name="drawn"/> -- the parts the stock counts of the drawing (<see cref="PartCounts"/>) -- with the written
+        /// code's added (Part 15e): every gate and register bit the design builds (<paramref name="timing"/>), less the drawn
+        /// ones and those inside the blocks the exercise stocks, which count whole, an instance each, wherever they are placed.
+        /// Worked out by what is left over, so a gate is never put down to the wrong scope by a port that joins two nets.
+        /// </summary>
+        private static Dictionary<string, int> WithWritten(Project project, GateLibrary library, Dictionary<string, int> drawn, TimingAnalysis timing)
+        {
+            HashSet<string> counted = library.Counted();
+            var total = new Dictionary<string, int>(StringComparer.Ordinal);
+            void Add(Dictionary<string, int> into, string part, int n) => into[part] = (into.TryGetValue(part, out int had) ? had : 0) + n;
+
+            foreach (KeyValuePair<string, int> cell in timing.GateCounts)
+                if (KindOf(cell.Key) is GateKind kind)
+                    Add(total, PartCount.Of(kind), cell.Value);
+            int registerBits = 0;
+            foreach (TimingRegister register in timing.Graph.Registers)
+                registerBits += register.Launches.Count;
+            Add(total, PartCount.Register, registerBits);
+
+            // Each stocked block placed, at its outermost: drawn or written, it counts one, and its insides none.
+            Design design = timing.Graph.Design;
+            var instances = new Dictionary<string, int>(StringComparer.Ordinal);
+            for (int s = 0; s < design.Scopes.Count; s++)
+            {
+                ScopeInfo scope = design.Scopes[s];
+                if (scope.Module == null || !counted.Contains(scope.Module) || project.Find(scope.Module) == null)
+                    continue;
+                bool inside = false;
+                for (int up = scope.Parent; up >= 0 && !inside; up = design.Scopes[up].Parent)
+                    inside = design.Scopes[up].Module != null && counted.Contains(design.Scopes[up].Module);
+                if (!inside)
+                    Add(instances, scope.Module, 1);
+            }
+
+            var made = new Dictionary<string, int>(drawn, StringComparer.Ordinal);
+            var insides = new Dictionary<string, int>(StringComparer.Ordinal);
+            foreach (KeyValuePair<string, int> block in instances)
+            {
+                made[block.Key] = block.Value;
+                Module module = project.Find(block.Key);
+                if (module == null || module.IsWritten)
+                    continue;
+                foreach (KeyValuePair<string, int> part in PartCounts.Of(project with { Top = block.Key }))
+                    Add(insides, part.Key, part.Value * block.Value);
+            }
+
+            foreach (KeyValuePair<string, int> part in total)
+            {
+                int written = part.Value - (drawn.TryGetValue(part.Key, out int d) ? d : 0) - (insides.TryGetValue(part.Key, out int i) ? i : 0);
+                if (written > 0)
+                    made[part.Key] = (drawn.TryGetValue(part.Key, out int had) ? had : 0) + written;
+            }
+            return made;
+        }
+
+        /// <summary>The gate a timing count's key is of: <c>and2</c> an AND, <c>bufif1</c> a BUFIF1; null for none.</summary>
+        private static GateKind? KindOf(string key)
+        {
+            GateKind? best = null;
+            int length = 0;
+            foreach (GateKind kind in (GateKind[])Enum.GetValues(typeof(GateKind)))
+            {
+                string name = PartCount.Of(kind);
+                if (name.Length <= length || !key.StartsWith(name, StringComparison.Ordinal))
+                    continue;
+                bool digits = true;
+                for (int c = name.Length; c < key.Length; c++)
+                    digits &= char.IsDigit(key[c]);
+                if (digits)
+                {
+                    best = kind;
+                    length = name.Length;
+                }
+            }
+            return best;
         }
 
         /// <summary>

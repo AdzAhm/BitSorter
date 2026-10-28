@@ -53,7 +53,8 @@ namespace BitSorter.View
             if (_session == null || ReferenceEquals(_partsProject, _session.Project))
                 return;
             _partsProject = _session.Project;
-            if (ModulesOf(_partsProject) != _partsModules || !ReferenceEquals(_partsProject.Settings?.Library, _partsLibrary))
+            if (ModulesOf(_partsProject) != _partsModules || !ReferenceEquals(_partsProject.Settings?.Library, _partsLibrary)
+                || _session.ShowsCode != _partsShowCode)
             {
                 BuildPartsPanel(SchematicPalette.Current);
                 return;
@@ -70,7 +71,11 @@ namespace BitSorter.View
             _partsProject = _session?.Project;
             _partsModules = ModulesOf(_partsProject);
             _partsLibrary = _partsProject?.Settings?.Library;
+            _partsShowCode = _session != null && _session.ShowsCode;
         }
+
+        /// <summary>Whether PARTS was made for written code, which has nothing to place: an exercise's top written or drawn again turns it (Part 15e).</summary>
+        private bool _partsShowCode;
 
         private static string ModulesOf(Board.Project project)
         {

@@ -2856,6 +2856,28 @@ the board's own editor and printed.
   start page and the page, the brief and its hint, the test refused and the answer kept, CHECK failing at its moments
   then solving and NEXT, an exercise open last, and Escape. Four new reference shots.
 
+**As built in Part 15e: answering in code.**
+
+- **WRITE IT**, beside GOAL and CHECK in an exercise that may be answered in code (every one of the 35), turns the
+  answer's top into a written module (`Exercise.Written`, `BoardEditor.ReplaceModule`): the drawing as it prints --
+  every gate a cell of the course's, wired as drawn -- or, where it does not print, its ports, under a header with the
+  goal, what it may be built of, and where a register starts. **DRAW IT** asks first and draws the exercise's own top
+  again (`Exercise.Drawn`), its ids counted on so none is given twice; Ctrl+Z undoes either, one step each.
+- **Code is held as a drawing is.** 14g's gate-level rules hold it to the library's cells and refuse an operator, and
+  since this part the grader says such a fault at its line (`half_adder, line 7: ...`), as the code editor marks it.
+  **The stock counts it too**: drawn parts are counted by `PartCounts`, which sees nothing in code, so the grader
+  counts the design it builds -- every gate and register bit `TimingAnalysis` finds, less the drawn ones and those
+  inside the blocks the exercise gives, which count one an instance wherever they are placed. Worked out by what is
+  left over, so a gate is never put down to the wrong module by a port that joins two nets.
+- **A written register starts at x** unless the code gives it a start, as in ModelSim: the header of an exercise whose
+  registers start at 0 says `logic q = 1'b0;`. Nothing starts it for the student, so what runs here is what an export
+  runs anywhere.
+- **Checked.** dotnet, `ExerciseCodeTests`: a written answer graded as a drawing, its gates counted; an operator
+  refused by the editor saying why, and graded at its line; one gate too many a fault; a register solving with its
+  start and failing without; four stocked full adders in code counted four; every one of the 35 solutions, written as
+  code, still solving; drawn again with its ids counted on; a stocked block not replaced. Play Mode: WRITE IT, a
+  written half adder through CHECK, and DRAW IT asking first.
+
 ---
 
 ## 11. The parts
@@ -2879,7 +2901,7 @@ Each part is one pull request into `v5`, ends with every suite green, and leaves
 | 12 | Hierarchy, and written blocks, edited in CodeMirror in a browser -- in six: 12a stepping inside a block **built** (see "As built in Part 12a"); 12b making a block **built** (see "As built in Part 12b"); 12c arrays **built** (see "As built in Part 12c"); 12d code blocks **built** (see "As built in Part 12d"); 12e the code panel **built** (see "As built in Part 12e"); 12f CodeMirror **built** (see "As built in Part 12f") |
 | 13 | Export and import (and a levelized path in the engine, only if a measurement asks for it) -- in six: 13a exporting a project **built** (see "As built in Part 13a"); 13b importing one **built** (see "As built in Part 13b"); 13c CONVERT **built** (see "As built in Part 13c"); 13d files **built** (see "As built in Part 13d"); 13e templates **built** (see "As built in Part 13e"); 13f limits, the security review, the measurement and the browser check **built** (see "As built in Part 13f"; the levelized path is not needed). **Part 13 is built.** |
 | 14 | The course's tools: path delays, static timing, gate-library mode, step tests, lint, tri-state -- in six, **built**: 14a the timing analysis core, 14b the TIMING tab, 14c step tests, 14d gate-library mode, 14e lint and 14f tri-state buses and inout (see "As built in Part 14a" to "14f"); and 14g, its follow-ups: deleting a module, the code editor's keys, the library held in written code and over budget, and inout pins on written blocks (see "As built in Part 14g") |
-| 15 | A simulator first, the Exercises and the tutorial -- in six: 15a **built** in two (see "As built in Part 15a"): the student's circuits, and opening on the last thing or a start page, the app's menus for BACK, the 4.x game in Settings, music off; 15b the Exercise model, grading and self-checking testbenches **built** (see "As built in Part 15b"); 15c the 35 exercises **built** (see "As built in Part 15c"); 15d Exercises on the workbench **built** (see "As built in Part 15d"); 15e answering in code; 15f first-time hints, the guided tutorial and the browser check |
+| 15 | A simulator first, the Exercises and the tutorial -- in six: 15a **built** in two (see "As built in Part 15a"): the student's circuits, and opening on the last thing or a start page, the app's menus for BACK, the 4.x game in Settings, music off; 15b the Exercise model, grading and self-checking testbenches **built** (see "As built in Part 15b"); 15c the 35 exercises **built** (see "As built in Part 15c"); 15d Exercises on the workbench **built** (see "As built in Part 15d"); 15e answering in code **built** (see "As built in Part 15e"); 15f first-time hints, the guided tutorial and the browser check |
 | 16 | The old game retired, and a smaller download; 5.0.0 released |
 
 **Agreed after Part 9, 2026-10-19: the language, before Part 10.** A course audit ran every one of the

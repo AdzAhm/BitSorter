@@ -241,6 +241,39 @@ namespace BitSorter.PlayMode.Tests
         }
 
         [UnityTest]
+        public IEnumerator WriteIt_TurnsTheAnswerToCode_ThatChecks_AndDrawIt_AsksAndTurnsItBack()
+        {
+            yield return TestScene.LoadSimulator();
+            WorkbenchPanel workbench = Workbench;
+            workbench.OpenExercise("half-adder");
+            yield return null;
+            workbench.ExerciseCard.Close();
+            Assert.IsTrue(Shown(WorkbenchPanel.CodeButton), "an exercise that may be answered in code offers it");
+
+            yield return Click(WorkbenchPanel.CodeButton);
+            WorkbenchSession session = workbench.Session;
+            Assert.IsTrue(session.Project.TopModule.IsWritten, "the top written");
+            Assert.IsTrue(session.ShowsCode, "and the circuit's window shows its code");
+            StringAssert.Contains("answered in code", session.Project.TopModule.Source);
+            Assert.AreEqual(WorkbenchPanel.DrawItCaption, ShellPanel.Find<UnityEngine.UIElements.Button>(WorkbenchPanel.CodeButton).text);
+
+            string header = session.Project.TopModule.Source.Substring(0, session.Project.TopModule.Source.IndexOf("module "));
+            EditResult typed = session.SetSource(header + "module half_adder (input logic a, input logic b, output logic sum, output logic carry);\n" +
+                "    xor #1 g1 (sum, a, b);\n    and #1 g2 (carry, a, b);\nendmodule\n");
+            Assert.IsTrue(typed.Done, typed.Refusal);
+            yield return Click(WorkbenchPanel.CheckButton);
+            Assert.IsTrue(workbench.LastGrade.Solved, string.Join("\n", workbench.LastGrade.Faults.Concat(workbench.LastGrade.Problems)));
+            Assert.AreEqual(2, workbench.LastGrade.Gates, "its gates counted from the code");
+            workbench.ExerciseCard.Close();
+
+            yield return Click(WorkbenchPanel.CodeButton);
+            Assert.IsTrue(session.Project.TopModule.IsWritten, "DRAW IT asks first");
+            yield return Click(AskMenu.YesItem);
+            Assert.IsFalse(workbench.Session.Project.TopModule.IsWritten, "drawn again");
+            Assert.AreEqual(WorkbenchPanel.WriteItCaption, ShellPanel.Find<UnityEngine.UIElements.Button>(WorkbenchPanel.CodeButton).text);
+        }
+
+        [UnityTest]
         public IEnumerator AnExerciseOpenLast_OpensAgain_AsItWasLeft()
         {
             Exercise exercise = ExerciseCatalog.Run.Single(e => e.Id == "half-adder");

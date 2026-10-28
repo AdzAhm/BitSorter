@@ -343,6 +343,9 @@ namespace BitSorter.ViewModel
         /// </summary>
         public EditResult AddWrittenModule(string name) => Editor.AddWrittenModule(name);
 
+        /// <summary>A module put in whole in place of the one of its name (<see cref="BoardEditor.ReplaceModule"/>, Part 15e), and replayed.</summary>
+        public EditResult ReplaceModule(Module module) => Edited(Editor.ReplaceModule(module));
+
         /// <summary>
         /// The module <paramref name="name"/> taken out of the project, its code or its drawing with it
         /// (<see cref="BoardEditor.RemoveModule"/>): one step. Nothing the run makes uses it, or it could not go, so the run

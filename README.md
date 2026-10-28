@@ -323,6 +323,11 @@ TRANSCRIPT that takes the run to its moment, and once it is solved a card says
 how many gates it took and how fast it settles, beside your best, and offers the
 next. A board you left in a 4.x level opens in its exercise.
 
+**WRITE IT** answers an exercise in SystemVerilog instead: your drawing becomes
+code, gate for gate, and you carry on typing. It is held to the same parts as a
+drawing -- the course's gates, no operators, no more of each than the exercise
+gives -- and graded the same way. **DRAW IT** goes back to drawing.
+
 The 4.x game is still there until 5.0 replaces it: Settings, **THE 4.x GAME**,
 beside the credits. Its title screen has **SIMULATOR** to come back.
 

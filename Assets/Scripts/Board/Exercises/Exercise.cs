@@ -587,6 +587,102 @@ namespace BitSorter.Board
             return adopted with { Settings = opened.Settings };
         }
 
+        /// <summary>
+        /// <paramref name="project"/>'s top written as code (Part 15e): the drawing as it prints -- every gate a cell of the
+        /// course's, wired as drawn -- or, where it does not print, its ports; under a header saying the goal and what it may
+        /// be built of. It keeps its ids' count, so a top drawn again never gives an id twice.
+        /// </summary>
+        public Module Written(Project project)
+        {
+            Module top = project.TopModule;
+            string body = PrintedTop(project) ?? Header(top);
+            return new Module { Name = top.Name, Comment = top.Comment, Source = Brief(project) + body, NextId = top.NextId };
+        }
+
+        /// <summary>
+        /// <paramref name="project"/>'s top drawn again (Part 15e): the exercise's own, as it opens -- its ports, or its start
+        /// circuit -- counting its ids on from where the written one had got to.
+        /// </summary>
+        public Module Drawn(Project project, List<string> problems)
+        {
+            Project opened = ToProject(problems);
+            Module top = opened?.TopModule;
+            if (top == null)
+                return null;
+            return top with { NextId = Math.Max(top.NextId, project.TopModule?.NextId ?? 1) };
+        }
+
+        /// <summary>The comment a written answer opens with: the exercise, its goal, and what it may be built of.</summary>
+        private string Brief(Project project)
+        {
+            var text = new System.Text.StringBuilder();
+            text.Append("// ").Append(Title).Append(", answered in code.\n");
+            foreach (string line in Wrapped(Goal, 96))
+                text.Append("// ").Append(line).Append('\n');
+            text.Append("//\n");
+
+            var stock = new List<string>();
+            foreach (PartCount count in Stock)
+                if (count.Most != 0)
+                    stock.Add((count.Most < 0 ? "any number of " : count.Most.ToString(CultureInfo.InvariantCulture) + " ") + count.Said);
+            foreach (string line in Wrapped("Gates only, as the course writes them: a primitive (xor #1 g1 (y, a, b);) or a cell " +
+                "(XOR2 g1 (.A(a), .B(b), .Z(y));), never an operator. It gives " + string.Join(", ", stock) + ".", 96))
+                text.Append("// ").Append(line).Append('\n');
+            if (RegisterStart is LogicVec start)
+                text.Append("// A register is an always_ff of plain writes, and starts at ").Append(start.Format(Radix.Binary))
+                    .Append(" here: logic q = 1'b").Append(start.Format(Radix.Binary)).Append(";\n");
+            text.Append('\n');
+            return text.ToString();
+        }
+
+        /// <summary>The drawn top as it prints, from its <c>module</c> on; null where the drawing does not print.</summary>
+        private static string PrintedTop(Project project)
+        {
+            foreach (PrintedSource printed in BoardPrinter.Print(project))
+            {
+                string text = printed.Text ?? "";
+                int at = text.StartsWith("module " + project.Top, StringComparison.Ordinal) ? 0 : text.IndexOf("\nmodule " + project.Top + " ", StringComparison.Ordinal);
+                if (at < 0)
+                    at = text.IndexOf("\nmodule " + project.Top + "(", StringComparison.Ordinal);
+                if (at >= 0)
+                    return text.Substring(at == 0 ? 0 : at + 1);
+            }
+            return null;
+        }
+
+        /// <summary>A module of <paramref name="top"/>'s ports and nothing in it.</summary>
+        private static string Header(Module top)
+        {
+            var text = new System.Text.StringBuilder();
+            text.Append("module ").Append(top.Name).Append(" (\n");
+            var ports = new List<PortPart>(top.Ports);
+            for (int i = 0; i < ports.Count; i++)
+            {
+                PortPart port = ports[i];
+                text.Append("    ").Append(port.Direction == PortDirection.Input ? "input" : port.Direction == PortDirection.Output ? "output" : "inout")
+                    .Append(" logic ").Append(port.Width > 1 ? "[" + (port.Width - 1).ToString(CultureInfo.InvariantCulture) + ":0] " : "")
+                    .Append(port.Name).Append(i < ports.Count - 1 ? ",\n" : "\n");
+            }
+            text.Append(");\n\nendmodule\n");
+            return text.ToString();
+        }
+
+        private static IEnumerable<string> Wrapped(string text, int width)
+        {
+            string line = "";
+            foreach (string word in (text ?? "").Split(' '))
+            {
+                if (line.Length > 0 && line.Length + 1 + word.Length > width)
+                {
+                    yield return line;
+                    line = "";
+                }
+                line = line.Length == 0 ? word : line + " " + word;
+            }
+            if (line.Length > 0)
+                yield return line;
+        }
+
         /// <summary>The top has <paramref name="signal"/> as a port of its width and way, as a start circuit must.</summary>
         private void Expect(Project project, ExerciseSignal signal, PortDirection direction, List<string> problems)
         {

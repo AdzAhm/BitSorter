@@ -927,7 +927,9 @@ failure side.
   either up is `PageShowing`. **An exercise open puts GOAL and CHECK at the
   controls' row's right end**, the chip beside them made room for: GOAL its brief,
   the hint behind SHOW THE HINT, and CHECK the grade, every failed check a
-  TRANSCRIPT line at its moment. **The circuit's window is the canvas's** (Part 10a):
+  TRANSCRIPT line at its moment -- and WRITE IT (Part 15e), which turns the answer
+  into code held to the library and the stock as a drawing is, and DRAW IT back,
+  asking first. **The circuit's window is the canvas's** (Part 10a):
   its presses go to `CanvasPointer`, never to `WavePointer` -- a left drag moves
   the selection or draws a box, the middle button or Space with a drag pans, so
   **Space plays and pauses on its release**, and Alt held while dragging or

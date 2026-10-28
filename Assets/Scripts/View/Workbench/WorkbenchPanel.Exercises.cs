@@ -25,9 +25,12 @@ namespace BitSorter.View
         /// <summary>The milestone that says an exercise's 4.x board has been migrated, its id following.</summary>
         private const string MigratedMilestone = "exercise-migrated/";
 
-        /// <summary>The EXERCISES chip, the page's name, and the names of GOAL and CHECK.</summary>
+        /// <summary>The EXERCISES chip, the page's name, and the names of GOAL, CHECK and WRITE IT (Part 15e).</summary>
         public const string ExercisesButton = "Workbench exercises", ExercisesPageName = "Workbench exercises page",
-            GoalButton = "Workbench goal", CheckButton = "Workbench check";
+            GoalButton = "Workbench goal", CheckButton = "Workbench check", CodeButton = "Workbench write it";
+
+        /// <summary>What WRITE IT says while the answer is drawn, and while it is written.</summary>
+        public const string WriteItCaption = "WRITE IT", DrawItCaption = "DRAW IT";
 
         /// <summary>The start page's items for the exercises: carry on with the next, and the whole list.</summary>
         public const string StartContinueItem = StartItem + "continue", StartExercisesItem = StartItem + "exercises";
@@ -41,7 +44,7 @@ namespace BitSorter.View
         private Exercise _exercise;
         private VisualElement _exercisesPage;
         private Label _exercisesProgress, _exercisesNotice, _startProgress;
-        private ShellButton _goalButton, _checkButton, _startContinue;
+        private ShellButton _goalButton, _checkButton, _codeButton, _startContinue;
         private readonly Dictionary<string, (ShellButton Item, Label Status)> _exerciseItems = new Dictionary<string, (ShellButton, Label)>();
         private ExerciseCard _exerciseCard;
         private string _exerciseNote;
@@ -187,17 +190,74 @@ namespace BitSorter.View
             _exerciseCard?.Close();
         }
 
-        /// <summary>GOAL and CHECK on the controls' row while an exercise is open in place 0, the chip beside them made room for.</summary>
+        /// <summary>
+        /// GOAL and CHECK on the controls' row while an exercise is open in place 0 -- and WRITE IT, where it may be answered
+        /// in code (Part 15e) -- the chip beside them made room for.
+        /// </summary>
         private void ShowExerciseControls()
         {
-            bool shown = _exercise != null && _sample == 0;
+            bool shown = _exercise != null && _sample == 0, code = shown && _exercise.Code;
             DisplayStyle display = shown ? DisplayStyle.Flex : DisplayStyle.None;
             if (_goalButton != null)
                 _goalButton.style.display = display;
             if (_checkButton != null)
                 _checkButton.style.display = display;
+            if (_codeButton != null)
+                _codeButton.style.display = code ? DisplayStyle.Flex : DisplayStyle.None;
             if (Chip != null)
-                Chip.style.right = shown ? ExerciseControlsWidth + RowGap : 0f;
+                Chip.style.right = !shown ? 0f : ExerciseControlsWidth + RowGap + (code ? CodeWidth + RowGap : 0f);
+            RefreshCodeButton();
+        }
+
+        /// <summary>WRITE IT or DRAW IT, as the answer is now: an undo can turn it either way.</summary>
+        private void RefreshCodeButton()
+        {
+            if (_codeButton != null && _session != null)
+                SetText(_codeButton, _session.Project.TopModule?.IsWritten == true ? DrawItCaption : WriteItCaption);
+        }
+
+        /// <summary>
+        /// WRITE IT (Part 15e): the answer's top written as code -- the drawing as it prints, under a header saying the goal and
+        /// what it may be built of -- held to the library's cells and the stock as a drawing is. DRAW IT asks first, since the
+        /// code is not kept but by undo, and draws the exercise's own top again.
+        /// </summary>
+        public void WriteOrDraw()
+        {
+            if (_session == null || _exercise == null || _sample != 0 || !_exercise.Code)
+                return;
+            if (_session.Project.TopModule?.IsWritten == true)
+                _ask.Ask(UnderTheChip(CodeButton), "Draw it instead? The code is not kept: the exercise opens drawn, as it starts. Ctrl+Z brings the code back.",
+                    DrawItCaption, DrawIt);
+            else
+                WriteIt();
+        }
+
+        /// <summary>The answer written as code, now: what WRITE IT does.</summary>
+        public void WriteIt()
+        {
+            if (_session == null || _exercise == null || _session.Project.TopModule?.IsWritten == true)
+                return;
+            EditResult wrote = _session.ReplaceModule(_exercise.Written(_session.Project));
+            Said(wrote);
+            if (wrote.Done)
+                Notice("written as code: gates only, as the header says. Ctrl+Enter applies what you type, and CHECK grades it as a drawing");
+            RefreshCodeButton();
+        }
+
+        /// <summary>The answer drawn again, as the exercise starts: what DRAW IT does once asked.</summary>
+        public void DrawIt()
+        {
+            if (_session == null || _exercise == null || _session.Project.TopModule?.IsWritten != true)
+                return;
+            var problems = new List<string>();
+            Module drawn = _exercise.Drawn(_session.Project, problems);
+            if (drawn == null)
+            {
+                Notice("it could not be drawn again: " + string.Join(" ", problems));
+                return;
+            }
+            Said(_session.ReplaceModule(drawn));
+            RefreshCodeButton();
         }
 
         // -----------------------------------------------------------------
@@ -226,6 +286,8 @@ namespace BitSorter.View
         /// <summary>The brief asked for before GOAL had its place, up once it has; dropped if the exercise was left meanwhile.</summary>
         private void OpenPendingGoal()
         {
+            if (_exercise != null && _sample == 0)
+                RefreshCodeButton();
             if (!_goalPending)
                 return;
             if (_exercise == null || _sample != 0 || PageShowing)
@@ -468,7 +530,7 @@ namespace BitSorter.View
         /// <summary>How wide GOAL and CHECK are on the controls' row, together.</summary>
         private const float ExerciseControlsWidth = GoalWidth + RowGap + CheckWidth;
 
-        private const float GoalWidth = 100f, CheckWidth = 120f;
+        private const float GoalWidth = 100f, CheckWidth = 120f, CodeWidth = 130f;
 
         /// <summary>GOAL and CHECK, at the controls' row's right end, shown while an exercise is open.</summary>
         private void BuildExerciseControls(SchematicPalette palette)
@@ -482,6 +544,10 @@ namespace BitSorter.View
             _goalButton = ShellTheme.Button(GoalButton, "GOAL", palette, OpenGoal);
             ShellTheme.PlaceRight(_goalButton, CheckWidth + RowGap, 0f, GoalWidth, UiTheme.ButtonHeight);
             _controls.Add(_goalButton);
+
+            _codeButton = ShellTheme.Button(CodeButton, WriteItCaption, palette, WriteOrDraw);
+            ShellTheme.PlaceRight(_codeButton, ExerciseControlsWidth + RowGap, 0f, CodeWidth, UiTheme.ButtonHeight);
+            _controls.Add(_codeButton);
 
             ShowExerciseControls();
         }
