@@ -161,6 +161,31 @@ namespace BitSorter.ViewModel.Tests
             Assert.AreEqual("bcin + acin + ab", Minimizer.Textbook(carry.Terms, table.Variables.Select(v => v.Name).ToList()));
         }
 
+        /// <summary>
+        /// Ports with ranges of their own: each bit named as it is declared, so a [0:1]'s high bit is y[0] -- the 15g-5 review found
+        /// every bus named from 0, and a [0:1]'s two columns each under the other's name.
+        /// </summary>
+        [Test]
+        public void PortsWithRangesOfTheirOwn_NameEachBitAsDeclared()
+        {
+            ProjectImport import = ProjectImporter.Import(new[]
+            {
+                new SourceFile("ranged.sv",
+                    "module ranged(input logic [7:6] a, input logic b, output logic [0:1] y);\n" +
+                    "    assign y = {a[7] & b, a[6] | b};\n" +
+                    "endmodule\n"),
+            });
+            Assert.IsTrue(import.Succeeded, string.Join("\n", import.Notes));
+            LogicTable table = Tabled(import.Project, out string why);
+            Assert.IsNotNull(table, why);
+            Assert.AreEqual(8, table.Rows);
+
+            CollectionAssert.AreEqual(new[] { "y[0]", "y[1]" }, table.Outputs.Select(o => o.Name).ToArray(), "y[0] is a [0:1]'s high bit");
+            string Column(string name) => new string(table.Outputs.Single(o => o.Name == name).Values.ToArray());
+            Assert.AreEqual("00000101", Column("y[0]"), "y[0] = a[7] & b, rows counting a[7] a[6] b");
+            Assert.AreEqual("01110111", Column("y[1]"), "y[1] = a[6] | b");
+        }
+
         [Test]
         public void ACircuitWithRegisters_IsNotTabled_AndSaysWhy()
         {
