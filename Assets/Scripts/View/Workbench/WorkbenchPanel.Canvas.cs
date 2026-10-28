@@ -253,7 +253,9 @@ namespace BitSorter.View
             _canvasCommands.Clear();
 
             // The part in hand, and the wire being drawn, follow the pointer while it is on the circuit.
-            _editor.Point(InView(pointer, out _) && !overControl ? StagePoint(pointer) : (Vec2?)null, alt, _viewState.Zoom);
+            // A pin is lit only where a press would wire from it: not under FIT or the minimap, nor while a drag pans.
+            bool pins = !OverFit(pointer) && !OverMinimap(pointer, out _) && !_canvasPointer.Held;
+            _editor.Point(InView(pointer, out _) && !overControl ? StagePoint(pointer) : (Vec2?)null, alt, _viewState.Zoom, pins);
             ShowInHand();
         }
 

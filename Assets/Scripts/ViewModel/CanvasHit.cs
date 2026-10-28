@@ -128,8 +128,11 @@ namespace BitSorter.ViewModel
 
             foreach ((int id, PartOutline outline) in _parts)
             {
-                foreach (PinSpot pin in outline.Pins)
+                // By index: the list behind an interface, whose enumerator would be boxed for every part (the 15g-3 review).
+                IReadOnlyList<PinSpot> pins = outline.Pins;
+                for (int i = 0; i < pins.Count; i++)
                 {
+                    PinSpot pin = pins[i];
                     double squared = Squared(p, pin.At);
                     if (squared <= best)
                     {

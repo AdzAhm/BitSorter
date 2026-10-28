@@ -2989,16 +2989,21 @@ the board's own editor and printed.
   `SymbolGeometry.Lead`, half a cell, back. A port keeps its outline, which is what routes keep clear of, so no route
   can move: its box gives up the half cell, and its name still fits, since `PartGeometry.PortWidth` allows 0.17 of a
   cell a character and the type takes about 0.12. A constant's literal is sized tighter, so its outline grew by the lead
-  away from its pin, and its box kept the literal's room. A block's box is two cells wide, from two and a half, and its
-  pins' names each take half of it.
+  away from its pin, and its box kept the literal's room -- the one outline that changed, so a route passing within half
+  a cell behind a constant may run again. A block's box is two cells wide, from two and a half; a pin's name has the
+  box's width where nothing is across its row and half where something is, cut short with an ellipsis rather than run
+  into the other, on whichever side a mirrored block draws its pin.
 - **A wire to a port runs on to its box**, as one to a gate always ran on to the body (`DocumentSchematic.TryBody`), and
   `PortLayout` carries its pin, its lead's end and whether it is wired.
 - **An unwired pin's lead ends in an open circle** (`WorkbenchDrawing.PinCircle`), and the pin a press would wire from is
   lit under the pointer (`CanvasOverlay.PinLit`, from `CanvasEditor.PinOver`), with the status line saying "drag to wire"
-  (`PointerArea.Pin`). While a wire is drawn, the pins it may end on show theirs (`PinEnds`): by direction -- from a
-  driver, an input nothing drives; from an undriven input, an output; an inout either way -- found once a draft. The
-  document still has the last word as the wire ends: a guide, not a promise, since asking it of every pin would build a
-  document per pin.
+  (`PointerArea.Pin`) -- asked again only when the pointer, the zoom or the drawing changes, by index rather than through
+  boxed enumerators, and not under FIT, the minimap or a pan. While a wire is drawn, the pins it may end on show theirs
+  (`PinEnds`, at most `CanvasEditor.MaxDraftEnds`, drawn after the wire and as many as fit the mesh): an inout always; an
+  output while the start's net has no driver, or as a second driver on a bus (`BoardRules.IsBus`); an input no wire
+  reaches yet while the net has a driver. They are found as the draft starts and again after any edit. The document
+  still has the last word as the wire ends: a guide, not a promise, since asking it of every pin would build a document
+  per pin.
 - `PinLeadTests` holds every pin of every part the strip makes to a lead of at least a quarter cell, the ports' boxes
   inside their outlines, and the pins of the parts that stepped back where they were.
 

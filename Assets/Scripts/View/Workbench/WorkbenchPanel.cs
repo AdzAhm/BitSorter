@@ -2056,17 +2056,26 @@ namespace BitSorter.View
 
                 if (part.Symbol == PartSymbol.Block)
                 {
-                    // A block's ports are named inside it, beside their pins: an output's name ends
-                    // at its pin, so its label, given by its left edge, starts a label's width before.
-                    // Half the box each, which is a lead narrower since Part 15g, so two across a row keep apart.
-                    float pinWidth = Mathf.Min(60f, (float)SymbolGeometry.BlockHalf * part.Cell - 4f);
+                    // A block's ports are named inside it, beside their pins, on whichever side its pin is
+                    // drawn -- a mirrored block's inputs are on its right, and were aligned as though not,
+                    // running out of the box. A right-hand name ends at its pin, so its label, given by its
+                    // left edge, starts a label's width before. A name has the box's width where nothing is
+                    // across its row and half where something is -- the box is a lead narrower since Part
+                    // 15g -- and is cut short rather than run into the other (the 15g-3 review).
                     double inside = SymbolGeometry.BlockHalf - 0.1;
+                    float whole = (float)(2 * inside) * part.Cell, half = whole / 2f - 4f;
                     foreach (BitSorter.Board.PinSpot pin in part.Local.Pins)
                     {
+                        bool across = false;
+                        foreach (BitSorter.Board.PinSpot other in part.Local.Pins)
+                            across |= other.Facing != pin.Facing && Math.Abs(other.At.Y - pin.At.Y) < 1e-6;
+                        float pinWidth = across ? half : whole;
                         bool input = pin.Facing == BitSorter.Board.Facing.Left;
                         Vector2 at = part.ToStage(input ? -inside : inside, pin.At.Y).ToUnity();
-                        StageLabel(_schematic, pin.Pin, input ? at : at - new Vector2(pinWidth, 0f), UiType.Micro, palette.TextDim,
-                            input ? TextAlignmentOptions.MidlineLeft : TextAlignmentOptions.MidlineRight, pinWidth);
+                        bool onLeft = at.x < part.ToStage(0, pin.At.Y).ToUnity().x;
+                        TextMeshProUGUI name = StageLabel(_schematic, pin.Pin, onLeft ? at : at - new Vector2(pinWidth, 0f), UiType.Micro,
+                            palette.TextDim, onLeft ? TextAlignmentOptions.MidlineLeft : TextAlignmentOptions.MidlineRight, pinWidth);
+                        name.overflowMode = TextOverflowModes.Ellipsis;
                     }
                 }
             }

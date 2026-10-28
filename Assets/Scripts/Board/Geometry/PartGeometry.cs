@@ -43,11 +43,11 @@ namespace BitSorter.Board
 
         public bool TryPin(string name, out PinSpot spot)
         {
-            foreach (PinSpot pin in Pins)
+            for (int i = 0; i < Pins.Count; i++)   // by index: an interface's enumerator would be boxed
             {
-                if (pin.Pin == name)
+                if (Pins[i].Pin == name)
                 {
-                    spot = pin;
+                    spot = Pins[i];
                     return true;
                 }
             }

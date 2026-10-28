@@ -497,5 +497,118 @@ namespace BitSorter.ViewModel.Tests
             Assert.AreEqual(before[0], after[0]);
             Assert.AreEqual(before[before.Count - 1], after[after.Count - 1], "its two ends where they were");
         }
+
+        // -----------------------------------------------------------------
+        // A lead on every pin (Part 15g)
+        // -----------------------------------------------------------------
+
+        /// <summary>The pins the wire being drawn shows it may end on, on the board.</summary>
+        private static List<BoardPoint> Ends(Sketch b)
+        {
+            b.Editor.Overlay(b.Overlay);
+            return b.Overlay.PinEnds.Select(at => b.Editor.ToBoard(at)).ToList();
+        }
+
+        private static bool Has(List<BoardPoint> ends, BoardPoint p) =>
+            ends.Exists(e => Math.Abs(e.X - p.X) + Math.Abs(e.Y - p.Y) < 1e-6);
+
+        /// <summary>
+        /// From an input port's output, a driver: every input no wire reaches shows it may end there, and no output -- two
+        /// drivers on one wire, which the document refuses -- nor the wire's own start.
+        /// </summary>
+        [Test]
+        public void AWireFromADriver_ShowsTheInputsNothingDrivesYet_AndNoOutput()
+        {
+            var b = new Sketch();
+            b.Wire(b.B, "out", b.Xor, "b");
+            b.Do(CanvasGesture.BeginWire, b.Pin(b.A, "out"), b.PinAt(b.A, "out"));
+            b.Point(new BoardPoint(4, 4));
+            List<BoardPoint> ends = Ends(b);
+
+            foreach ((int part, string pin) in new[] { (b.Xor, "a"), (b.And, "a"), (b.And, "b"), (b.S, "in"), (b.C, "in") })
+                Assert.IsTrue(Has(ends, b.PinAt(part, pin)), $"{pin} of {part}, an input nothing drives, may end it");
+            Assert.IsFalse(Has(ends, b.PinAt(b.Xor, "b")), "an input a wire already drives may not");
+            Assert.IsFalse(Has(ends, b.PinAt(b.B, "out")), "another driver may not");
+            Assert.IsFalse(Has(ends, b.PinAt(b.Xor, "y")), "nor a gate's output");
+            Assert.IsFalse(Has(ends, b.PinAt(b.A, "out")), "nor its own start");
+        }
+
+        /// <summary>
+        /// An edit made while a wire is drawn moves where it may end, and the circles move with it (the 15g-3 review): they
+        /// were found once a draft, and stayed where the XOR had stood after it turned.
+        /// </summary>
+        [Test]
+        public void WhereAWireMayEnd_IsFoundAgain_AfterAnEditWhileItIsDrawn()
+        {
+            var b = new Sketch();
+            b.Do(CanvasGesture.BeginWire, b.Pin(b.A, "out"), b.PinAt(b.A, "out"));
+            b.Point(new BoardPoint(4, 4));
+            BoardPoint stood = b.PinAt(b.Xor, "a");
+            Assert.IsTrue(Has(Ends(b), stood), "sanity: the XOR's input, where it stands");
+
+            Assert.IsTrue(b.Session.Turn(new[] { b.Xor }, 1).Done);
+            b.Editor.Relaid();
+            Assert.IsTrue(b.Editor.Drafting, "sanity: the wire is still being drawn");
+            List<BoardPoint> ends = Ends(b);
+            Assert.IsTrue(Has(ends, b.PinAt(b.Xor, "a")), "where the XOR's input is now");
+            Assert.IsFalse(Has(ends, stood), "and not where it was");
+        }
+
+        /// <summary>
+        /// A second driver may join a bus, where every driver is a tri-state gate's (Part 14f): from one BUFIF's output, the
+        /// other's shows it may end there, and a plain gate's output does not (the 15g-3 review: the guide left the bus out).
+        /// </summary>
+        [Test]
+        public void AWireFromATriStateOutput_ShowsAnotherTriStateOutput_AndNotAPlainOne()
+        {
+            var b = new Sketch();
+            var editor = new BoardEditor(b.Session.Project);
+            EditResult one = editor.Add("adder", new GatePart { Kind = EngineGate.Bufif1 }, new Placement(6, 5));
+            EditResult two = editor.Add("adder", new GatePart { Kind = EngineGate.Bufif1 }, new Placement(6, 8));
+            Assert.IsTrue(one.Done && two.Done, one.Refusal ?? two.Refusal);
+            var session = new WorkbenchSession(editor.Project, Ticking(0.01));
+            session.Finish();
+            var canvas = new CanvasEditor(session);
+            var overlay = new CanvasOverlay();
+            BoardPoint PinAt(int part, string pin) =>
+                PartGeometry.Placed(session.Project, session.Project.TopModule.FindPart(part), session.Project.TopModule.Layout.PlacementOf(part))
+                    .Pins.Single(p => p.Pin == pin).At;
+
+            canvas.Do(new CanvasCommand(CanvasGesture.BeginWire, PinAt(one.Id, "y"), target: new CanvasTarget(CanvasTargetKind.Pin, part: one.Id, pin: "y")));
+            canvas.Point(session.Run.Model.Layout.Board.ToStage(new BoardPoint(12, 12)), free: false);
+            canvas.Overlay(overlay);
+            List<BoardPoint> ends = overlay.PinEnds.Select(at => canvas.ToBoard(at)).ToList();
+
+            Assert.IsTrue(Has(ends, PinAt(two.Id, "y")), "the other tri-state output, a second driver on a bus");
+            Assert.IsFalse(Has(ends, PinAt(b.Xor, "y")), "not a plain gate's output");
+            Assert.IsTrue(Has(ends, PinAt(b.Xor, "a")), "and an input, as from any driver");
+        }
+
+        /// <summary>
+        /// The pin under the pointer, asked again only when the pointer, the zoom or the drawing changes (the 15g-3 review):
+        /// the same point after an edit that moved the pin away from it is on nothing, and the view can say it is on none.
+        /// </summary>
+        [Test]
+        public void ThePinUnderThePointer_IsAskedAgainWhenTheDrawingChanges_AndNotWhereTheViewSaysNo()
+        {
+            var b = new Sketch();
+            BoardPoint on = b.PinAt(b.A, "out");
+            b.Point(on);
+            Assert.AreEqual(new CanvasTarget(CanvasTargetKind.Pin, part: b.A, pin: "out"), b.Editor.PinOver);
+            b.Editor.Overlay(b.Overlay);
+            Assert.IsNotNull(b.Overlay.PinLit, "its circle lit");
+
+            b.Point(on);
+            Assert.AreEqual(CanvasTargetKind.Pin, b.Editor.PinOver.Kind, "still there, asked or not");
+
+            Assert.IsTrue(b.Session.Turn(new[] { b.A }, 1).Done);
+            b.Editor.Relaid();
+            b.Point(on);
+            Assert.AreEqual(CanvasTargetKind.Nothing, b.Editor.PinOver.Kind, "the pin turned away from under the pointer");
+
+            BoardPoint moved = b.PinAt(b.A, "out");
+            b.Editor.Point(b.Session.Run.Model.Layout.Board.ToStage(moved), free: false, zoom: 1f, pins: false);
+            Assert.AreEqual(CanvasTargetKind.Nothing, b.Editor.PinOver.Kind, "over FIT, the minimap or a pan, the view says none");
+        }
     }
 }

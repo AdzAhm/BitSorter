@@ -141,10 +141,7 @@ namespace BitSorter.View
             if (overlay.Hand is Rect2 hand)
                 Outlined(painter, hand, palette.Accent, SelectedWidth);
 
-            // The pins a wire may start or end on (Part 15g): while one is drawn, the circle of every pin it may end on, in
-            // the accent; and the circle under the pointer, lit, where a press would start one.
-            foreach (Vector2 at in overlay.PinEnds)
-                PinCircle(painter, at, palette.Accent, palette.Ground);
+            // The circle under the pointer, lit, where a press would start a wire (Part 15g).
             if (overlay.PinLit is Vector2 pin)
                 PinCircle(painter, pin, palette.Accent, palette.Ground, lit: true);
 
@@ -160,6 +157,16 @@ namespace BitSorter.View
                 painter.Ring(end, EndRing + 2f, SelectedWidth + 0.5f, colour);
                 if (overlay.DraftRefused)
                     painter.Cross(end, EndRing - 1f, SelectedWidth, colour);
+            }
+
+            // While a wire is drawn, the circle of every pin it may end on, in the accent (Part 15g): after the wire, so the
+            // wire is never what a full mesh leaves out, and as many as fit, so a big design's are never all of the overlay.
+            foreach (Vector2 at in overlay.PinEnds)
+            {
+                (int, int) mark = painter.Mark();
+                PinCircle(painter, at, palette.Accent, palette.Ground);
+                if (!painter.Fits(mark))
+                    break;
             }
         }
 

@@ -181,6 +181,7 @@ namespace BitSorter.ViewModel
             if (InHand != null && InHand.Kind == CatalogKind.Block && _session.Project.Find(InHand.Module) == null)
                 PutDown();
             _draftAround = null;
+            _endsFor = null;   // where it may end moved with the edit (the 15g-3 review)
             _checkedOver = CanvasTarget.Nothing;
             _draftWhyNot = null;
             Version++;
@@ -252,7 +253,7 @@ namespace BitSorter.ViewModel
         /// where the part in hand would land, on the grid or, <paramref name="free"/>, exactly -- and where the wire
         /// being drawn would run to, and what it would end on.
         /// </summary>
-        public void Point(Vec2? stage, bool free, float zoom = 1f)
+        public void Point(Vec2? stage, bool free, float zoom = 1f, bool pins = true)
         {
             bool shown = stage.HasValue && InHand != null;
             BoardPoint at = shown ? ToBoard(stage.Value) : default;
@@ -264,14 +265,30 @@ namespace BitSorter.ViewModel
                 Version++;
             }
 
-            // The pin a press would wire from (Part 15g): only while a press there would, with nothing in hand, no wire being
-            // drawn and nothing being dragged.
+            // The pin a press would wire from (Part 15g): only while a press there would -- <paramref name="pins"/>, the view
+            // says, off its own controls and not panning -- with nothing in hand, no wire being drawn and nothing being dragged.
+            // Asked again only when the pointer, the zoom or the drawing has changed: the view points every frame, and a hit
+            // test of every pin each frame was a cost a big design paid standing still (the 15g-3 review).
             CanvasTarget pin = CanvasTarget.Nothing;
-            if (stage.HasValue && InHand == null && _draft == null && _start == null && !_boxing && _reshaping < 0)
+            if (pins && stage.HasValue && InHand == null && _draft == null && _start == null && !_boxing && _reshaping < 0)
             {
-                CanvasTarget under = TargetAt(stage.Value, zoom);
-                if (under.Kind == CanvasTargetKind.Pin)
-                    pin = under;
+                if (stage.Value.Equals(_pinAskedAt) && zoom == _pinAskedZoom && ReferenceEquals(_hit, _pinAskedOf))
+                {
+                    pin = _pinOver;
+                }
+                else
+                {
+                    _pinAskedAt = stage.Value;
+                    _pinAskedZoom = zoom;
+                    _pinAskedOf = _hit;
+                    CanvasTarget under = TargetAt(stage.Value, zoom);
+                    if (under.Kind == CanvasTargetKind.Pin)
+                        pin = under;
+                }
+            }
+            else
+            {
+                _pinAskedOf = null;
             }
             if (!pin.Equals(_pinOver))
             {
@@ -689,21 +706,30 @@ namespace BitSorter.ViewModel
             return _draftAround;
         }
 
-        /// <summary>The net an end is part of (<see cref="WireGeometry.WireNets"/>): a tapped wire's, or a pin's wires'; -1 for a pin no wire meets yet.</summary>
         /// <summary>The pin under the pointer that a press would wire from (Part 15g): what the status line names, and the circle lit.</summary>
         public CanvasTarget PinOver => _pinOver;
 
         private CanvasTarget _pinOver = CanvasTarget.Nothing;
+
+        /// <summary>Where, at what zoom and of which drawing the pin under the pointer was last asked.</summary>
+        private Vec2 _pinAskedAt;
+        private float _pinAskedZoom;
+        private CanvasHit _pinAskedOf;
+
+        /// <summary>How many pins a wire being drawn shows it may end on at most: each is a circle in the overlay's one mesh.</summary>
+        public const int MaxDraftEnds = 300;
 
         /// <summary>The draft <see cref="_ends"/> were found for, and the pins it may end on, on the board.</summary>
         private WireDraft _endsFor;
         private readonly List<BoardPoint> _ends = new List<BoardPoint>();
 
         /// <summary>
-        /// The pins the wire being drawn may end on, as the overlay shows them (Part 15g), found once a draft: never its own
-        /// start; from a driver -- an output, an input a wire already drives, or a wire tapped -- an input nothing drives
-        /// yet; from an input nothing drives, an output; and an inout either way. The document has the last word as the wire
-        /// ends (<see cref="CanvasOverlay.DraftRefused"/>): this says where to look, and promises nothing.
+        /// The pins the wire being drawn may end on, as the overlay shows them (Part 15g), found as the draft starts and again
+        /// after an edit: never its own start; an inout always; an output while the start's net has no driver, or as a second
+        /// driver on a bus, where every driver is a tri-state gate's or an inout (<see cref="BoardRules.IsBus"/>); and while it
+        /// has one, an input no wire reaches yet. The document has the last word as the wire ends
+        /// (<see cref="CanvasOverlay.DraftRefused"/>): this says where to look, and promises nothing. At most
+        /// <see cref="MaxDraftEnds"/>.
         /// </summary>
         private List<BoardPoint> DraftEnds()
         {
@@ -715,18 +741,40 @@ namespace BitSorter.ViewModel
             if (_draft == null || module == null)
                 return _ends;
 
+            // Every pin a wire reaches, and the start's net's drivers: whether it has one, and whether all are a bus's.
+            DraftAround();   // the wires' nets
+            Endpoint from = _draft.From;
+            int startNet = NetOf(from);
             var wired = new HashSet<PinRef>();
-            foreach (Wire wire in module.Wires)
+            bool driven = false, bus = true;
+            void Driver(PinRef pin)
             {
-                if (!wire.From.IsTap)
-                    wired.Add(wire.From.Pin);
-                if (!wire.To.IsTap)
-                    wired.Add(wire.To.Pin);
+                PinDirection? direction = DirectionOf(module, pin);
+                if (direction != PinDirection.Out && direction != PinDirection.InOut)
+                    return;
+                driven = true;
+                bus &= BusDriver(module, pin, direction);
             }
 
-            Endpoint from = _draft.From;
-            PinDirection? start = from.IsTap ? PinDirection.Out : DirectionOf(module, from.Pin);
-            bool fromDriver = start == PinDirection.Out || (start == PinDirection.In && wired.Contains(from.Pin));
+            foreach (Wire wire in module.Wires)
+            {
+                bool onStart = startNet >= 0 && _draftNets != null && _draftNets.TryGetValue(wire.Id, out int net) && net == startNet;
+                if (!wire.From.IsTap)
+                {
+                    wired.Add(wire.From.Pin);
+                    if (onStart)
+                        Driver(wire.From.Pin);
+                }
+                if (!wire.To.IsTap)
+                {
+                    wired.Add(wire.To.Pin);
+                    if (onStart)
+                        Driver(wire.To.Pin);
+                }
+            }
+            if (!from.IsTap && startNet < 0)
+                Driver(from.Pin);   // a pin no wire meets yet is its own net
+
             foreach (Part part in module.Parts)
             {
                 PartOutline outline = _hit.OutlineOf(part.Id);
@@ -737,15 +785,24 @@ namespace BitSorter.ViewModel
                     var at = new PinRef(part.Id, pin.Name);
                     if (!from.IsTap && at.Equals(from.Pin))
                         continue;
-                    bool may = pin.Direction == PinDirection.InOut || start == PinDirection.InOut
-                        || (fromDriver ? pin.Direction == PinDirection.In && !wired.Contains(at) : pin.Direction == PinDirection.Out);
+                    bool may = pin.Direction == PinDirection.InOut
+                        || (pin.Direction == PinDirection.Out && (!driven || (bus && BusDriver(module, at, pin.Direction))))
+                        || (pin.Direction == PinDirection.In && driven && !wired.Contains(at));
                     if (may && outline.TryPin(pin.Name, out PinSpot spot))
+                    {
                         _ends.Add(spot.At);
+                        if (_ends.Count >= MaxDraftEnds)
+                            return _ends;
+                    }
                 }
             }
 
             return _ends;
         }
+
+        /// <summary>Whether a driving pin may share a bus (<see cref="BoardRules.IsBus"/>): a tri-state gate's output, or an inout.</summary>
+        private static bool BusDriver(Module module, PinRef pin, PinDirection? direction) =>
+            direction == PinDirection.InOut || (module.FindPart(pin.Part) is GatePart gate && gate.IsTriState);
 
         private PinDirection? DirectionOf(Module module, PinRef pin)
         {
@@ -758,6 +815,7 @@ namespace BitSorter.ViewModel
             return null;
         }
 
+        /// <summary>The net an end is part of (<see cref="WireGeometry.WireNets"/>): a tapped wire's, or a pin's wires'; -1 for a pin no wire meets yet.</summary>
         private int NetOf(Endpoint end)
         {
             if (_draftNets == null)
