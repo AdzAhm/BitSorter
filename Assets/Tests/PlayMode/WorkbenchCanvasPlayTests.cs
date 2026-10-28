@@ -561,6 +561,101 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
+        /// LOGIC keeps its table through an edit that leaves the design as it was: an input's steps changed, here. The 15g-5 review
+        /// found it ran every combination again, and minimized every output again, on any edit at all.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator TheLogicTab_KeepsItsTable_ThroughAnEditThatLeavesTheDesign()
+        {
+            yield return TestScene.LoadSimulator();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowSample(2);   // the full adder
+            yield return null;
+            workbench.ShowLogic();
+            yield return null;
+            workbench.FinishLogic();
+            yield return null;
+            LogicTable table = workbench.Logic;
+            Assert.IsNotNull(table, workbench.LogicSays);
+
+            Assert.IsTrue(workbench.Session.SetInput("a", 0, 5, LogicVec.FromBinary("1")).Done, "sanity: the edit made");
+            yield return null;
+            yield return null;
+            Assert.AreSame(table, workbench.Logic, "the same table, not run again");
+        }
+
+        /// <summary>
+        /// LOGIC's expressions scroll no further than they reach: the full adder's two fit, so the wheel leaves them where they
+        /// are. The 15g-5 review found no end to the scroll, and a few notches left the pane blank.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator TheLogicTabsExpressions_ScrollNoFurtherThanTheyReach()
+        {
+            yield return TestScene.LoadSimulator();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowSample(2);   // the full adder
+            yield return null;
+            workbench.ShowLogic();
+            yield return null;
+            workbench.FinishLogic();
+            yield return null;
+            yield return null;
+
+            UnityEngine.UIElements.Label carry = ShellPanel.Find<UnityEngine.UIElements.Label>(WorkbenchPanel.LogicExpressionName + "cout");
+            Assert.IsNotNull(carry, "sanity: the carry's expression drawn");
+            float top = carry.worldBound.yMin;
+            Vector2 over = carry.worldBound.center;
+            UnityEngine.UIElements.VisualElement list = carry.parent;
+            for (int i = 0; i < 10; i++)
+            {
+                Wheel(list, over, 3f);
+                yield return null;
+            }
+            yield return null;
+            carry = ShellPanel.Find<UnityEngine.UIElements.Label>(WorkbenchPanel.LogicExpressionName + "cout");
+            Assert.AreEqual(top, carry.worldBound.yMin, 0.5f, "everything fits, so nothing scrolls");
+        }
+
+        /// <summary>
+        /// An expression the minimizer could not prove the smallest says so. A lookup of eight inputs with no pattern to it is cut
+        /// short; the 15g-5 review found it called "a minimal sum of products" all the same.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator AnExpressionNotProvenTheSmallest_SaysSo()
+        {
+            yield return TestScene.LoadSimulator();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.Import(new[] { new SourceFile("lookup.sv",
+                "module lookup(input logic [7:0] a, output logic y);\n" +
+                "    localparam logic [255:0] T = 256'hb26d3d1274b1832c26fbbc9781b79e128ed0c861fa30917cbd97b21055ad85d2;\n" +
+                "    assign y = T[a];\n" +
+                "endmodule\n") });
+            yield return null;
+            workbench.ShowLogic();
+            yield return null;
+            workbench.FinishLogic();
+            yield return null;
+            yield return null;
+
+            Assert.IsNotNull(workbench.Logic, workbench.LogicSays);
+            Assert.AreEqual(256, workbench.Logic.Rows);
+            UnityEngine.UIElements.Label y = ShellPanel.Find<UnityEngine.UIElements.Label>(WorkbenchPanel.LogicExpressionName + "y");
+            Assert.IsNotNull(y, "sanity: y's expression drawn");
+            StringAssert.Contains("not proven", y.text);
+        }
+
+        /// <summary>The wheel turned over <paramref name="element"/> at <paramref name="at"/>, as UI Toolkit hands it on.</summary>
+        private static void Wheel(UnityEngine.UIElements.VisualElement element, Vector2 at, float delta)
+        {
+            var imgui = new Event { type = EventType.ScrollWheel, delta = new Vector2(0f, delta), mousePosition = at };
+            using (UnityEngine.UIElements.WheelEvent wheel = UnityEngine.UIElements.WheelEvent.GetPooled(imgui))
+            {
+                wheel.target = element;
+                element.SendEvent(wheel);
+            }
+        }
+
+        /// <summary>
         /// STATES (Part 15g): the counter's eight states found by running it, each one on to the next, drawn and tabled; and the
         /// full adder, which has no registers, told why it has none.
         /// </summary>
