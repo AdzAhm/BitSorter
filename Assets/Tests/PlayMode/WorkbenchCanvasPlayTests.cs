@@ -2061,6 +2061,36 @@ namespace BitSorter.PlayMode.Tests
             workbench.FileMenu.Close();
         }
 
+        /// <summary>
+        /// A double-click on the wave of a written design's input, which its testbench drives, says the testbench drives it and
+        /// how to change it -- never that it is no input of the design, which a 64-bit ALU imported with its testbench was told
+        /// (Ahmad, 2026-10-28): a written top's inputs are its header's, and none is drawn.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator AWrittenDesignsInput_DrivenByItsTestbench_IsSaidToBe()
+        {
+            PutInTheImportFolder(("mux2.sv", "module mux2 (input logic a, input logic b, input logic s, output logic y);\n" +
+                "    always_comb y = s ? b : a;\nendmodule\n"), ("mux2_tb.sv", ImportedMuxBench));
+            yield return TestScene.Load();
+            yield return Click(MainMenu.WorkbenchButton);
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            yield return null;
+            workbench.ImportFromFolder();
+            yield return null;
+            workbench.Pause();
+            workbench.Session.Finish();
+            Assert.IsTrue(workbench.Session.Project.TopModule.IsWritten, "sanity: the design is written code");
+
+            int row = workbench.List.Lines.ToList().FindIndex(line => workbench.List.LabelOf(line) == "a");
+            Assert.GreaterOrEqual(row, 0, "sanity: a has a row");
+            workbench.EditInputAt(row, 5, new Vector2(Screen.width * 0.5f, Screen.height * 0.3f));
+            yield return null;
+
+            StringAssert.DoesNotContain("not an input", workbench.ChipText);
+            StringAssert.Contains("testbench", workbench.ChipText, "the testbench drives it");
+            StringAssert.Contains("CONVERT", workbench.ChipText, "and how to change it");
+        }
+
         /// <summary>A homework file in the course's style, written for this test: the student's code goes between its markers.</summary>
         private const string TemplateMux =
             "// Homework: a 2-to-1 multiplexer. Written for BitSorter's tests, in the course's style.\n" +
