@@ -396,6 +396,9 @@ namespace BitSorter.PlayMode.Tests
                 yield return null;
             Assert.AreEqual(DisplayStyle.Flex, caret.resolvedStyle.display, "shown once the field has the keyboard");
             float empty = caret.resolvedStyle.left;
+            Assert.AreEqual(0f, empty, "an empty field's caret at the text's start, measured from nothing (Part 15h)");
+            Rect drawn = caret.worldBound, box = runTo.worldBound;
+            Assert.IsTrue(box.Contains(drawn.center), $"and inside the field, where it can be seen: {drawn} in {box}");
 
             runTo.value = "1234";
             runTo.SelectRange(4, 4);

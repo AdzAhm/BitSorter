@@ -1072,7 +1072,9 @@ failure side.
   ignored, and no field there showed where the next letter goes. The shell puts that
   one out and draws a bar in the text colour, blinking on `ViewTime` -- so the
   reference shots hold it still -- while the field has the keyboard and nothing in it
-  is chosen. **And in a computer's browser every shell field sets `hideSoftKeyboard`**:
+  is chosen. An empty field's is at its start, measured from nothing: in a browser an
+  empty field showed none until something was typed (Ahmad, 2026-10-28), and the editor
+  never showed the fault. **And in a computer's browser every shell field sets `hideSoftKeyboard`**:
   without it UI Toolkit edits a field as on a phone and lets it go a tenth of a second
   apart while no on-screen keyboard is up, and every field flickered -- found with a
   focus log in a browser build, since the editor has no such keyboard (2026-10-28).

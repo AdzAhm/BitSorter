@@ -350,11 +350,23 @@ namespace BitSorter.View
                     movedAt = field.cursorIndex;
                     since = ViewTime.Now;
                 }
+                // An empty field's caret is at the text's start, measured from nothing: in the browser an empty field showed no
+                // caret until something was typed (Ahmad, 2026-10-28), where measuring the cursor in no text gave no place for it.
+                // And never a place that is not a number, nor a text that has collapsed to nothing for its height.
+                float x = 0f;
+                if (!string.IsNullOrEmpty(field.text))
+                {
 #pragma warning disable CS0618
-                float x = field.textSelection.cursorPosition.x;
+                    x = field.textSelection.cursorPosition.x;
 #pragma warning restore CS0618
+                    if (float.IsNaN(x) || float.IsInfinity(x))
+                        x = 0f;
+                }
+                float tall = text.layout.height > 1f ? text.layout.height : input.layout.height;
+                if (float.IsNaN(tall))
+                    tall = height;
                 caret.style.left = Mathf.Round(x);
-                caret.style.top = Mathf.Round((text.layout.height - height) / 2f);
+                caret.style.top = Mathf.Round((tall - height) / 2f);
                 caret.style.height = height;
                 bool on = ((ViewTime.Now - since) % (2f * CaretBlink)) < CaretBlink;   // pinned in the reference shots, so it holds still there
                 caret.style.display = on ? DisplayStyle.Flex : DisplayStyle.None;
