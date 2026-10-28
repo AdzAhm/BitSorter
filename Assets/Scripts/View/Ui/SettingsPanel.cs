@@ -176,7 +176,7 @@ namespace BitSorter.View
             "How the workbench is drawn; the game loads again to switch. Reduced motion drops its glow and flashes.";
 
         public const string PrivacyText =
-            "Reports which levels people get stuck on. The README lists exactly what is sent.";
+            "Reports which exercises people get stuck on. The README lists exactly what is sent.";
 
         /// <summary>What RESET PROGRESS forgets, and what it keeps (Part 15g: it emptied the whole save, circuits included).</summary>
         public const string ProgressText =
@@ -238,10 +238,13 @@ namespace BitSorter.View
         /// <summary>How wide the column of sections is.</summary>
         public const float ColumnWidth = 600f;
 
+        /// <summary>The room between the two columns.</summary>
+        public const float ColumnGap = 80f;
+
         private const float SwitchWidth = 190f, SwitchGap = 15f, ControlHeight = 44f, ButtonWidth = 240f, AnswerWidth = 200f;
         private const float LookGap = 12f, LookWidth = (ColumnWidth - LookGap) / 2f;
         private const float SliderLabelWidth = 110f, SliderWidth = 300f, SliderHeight = 32f, ReadoutGap = 20f;
-        private const float SectionGap = 34f, RowGap = 10f;
+        private const float SectionGap = 26f, RowGap = 10f;
 
         private void Build()
         {
@@ -259,17 +262,28 @@ namespace BitSorter.View
             scroll.contentViewport.style.overflow = Overflow.Hidden;
             _page.Add(scroll);
 
-            var column = new VisualElement { name = "sections", pickingMode = PickingMode.Ignore };
-            column.style.width = ColumnWidth;
-            column.style.alignSelf = Align.Center;
-            column.style.paddingTop = 40f;
-            column.style.paddingBottom = 40f;
-            column.style.flexShrink = 0f;
-            scroll.Add(column);
+            // Two columns under the title (Part 15h): what the game sounds and looks like on the left, and what it keeps and
+            // where it came from on the right. One column ran past the foot of a 1080 window, and CREDITS, last, was found
+            // only by scrolling (Ahmad, 2026-10-28).
+            var page = new VisualElement { name = "sections", pickingMode = PickingMode.Ignore };
+            page.style.alignSelf = Align.Center;
+            page.style.paddingTop = 28f;
+            page.style.paddingBottom = 28f;
+            page.style.flexShrink = 0f;
+            scroll.Add(page);
 
             Label title = ShellTheme.Label("title", "SETTINGS", UiType.Title, _palette.Accent, TextAnchor.MiddleCenter, bold: true);
-            title.style.marginBottom = 28f;
-            column.Add(title);
+            title.style.marginBottom = 24f;
+            title.style.flexShrink = 0f;
+            page.Add(title);
+
+            var columns = new VisualElement { name = "columns", pickingMode = PickingMode.Ignore };
+            columns.style.flexDirection = FlexDirection.Row;
+            columns.style.alignItems = Align.FlexStart;
+            columns.style.flexShrink = 0f;
+            page.Add(columns);
+            VisualElement column = Column(columns), right = Column(columns);
+            right.style.marginLeft = ColumnGap;
 
             Section(column, AudioHeading, AudioText);
             VisualElement sound = Row(column);
@@ -309,28 +323,31 @@ namespace BitSorter.View
             BuildStyle(column);
             Gap(column);
 
-            Section(column, PrivacyHeading, PrivacyText);
-            _data = Control(Row(column), DataButton, "", ToggleData, ButtonWidth);
-            Gap(column);
+            Section(right, PrivacyHeading, PrivacyText);
+            _data = Control(Row(right), DataButton, "", ToggleData, ButtonWidth);
+            Gap(right);
 
-            Section(column, ProgressHeading, ProgressText);
-            BuildReset(column);
-            Gap(column);
+            Section(right, ProgressHeading, ProgressText);
+            BuildReset(right);
+            Gap(right);
 
             // Last, below everything that changes how the game behaves. The 4.x game, kept until Part 16 deletes it, beside
-            // CREDITS and as quiet, nowhere on a first screen (Ahmad, 2026-10-27: "not deep but not plainly").
-            Section(column, AboutHeading, null);
-            VisualElement about = Row(column);
+            // CREDITS and as quiet (Ahmad, 2026-10-27: "not deep but not plainly").
+            Section(right, AboutHeading, null);
+            VisualElement about = Row(right);
             Control(about, CreditsButton, "CREDITS", OpenCredits, ButtonWidth).style.marginRight = LookGap;
             Control(about, GameButton, "THE 4.x GAME", OpenTheGame, ButtonWidth);
 
             Label help = ShellTheme.Label("help", HelpText, UiType.Caption, _palette.Muted, TextAnchor.MiddleCenter);
-            help.style.marginTop = 32f;
-            column.Add(help);
+            help.style.marginTop = 20f;
+            help.style.flexShrink = 0f;
+            page.Add(help);
 
-            // Nothing in the column gives up its height to fit the page: the page scrolls instead. UI Toolkit shrinks a
+            // Nothing in a column gives up its height to fit the page: the page scrolls instead. UI Toolkit shrinks a
             // column's children by default, and every row came out ten units short, the volume over the sound's switches.
             foreach (VisualElement child in column.Children())
+                child.style.flexShrink = 0f;
+            foreach (VisualElement child in right.Children())
                 child.style.flexShrink = 0f;
             foreach (VisualElement child in _question.Children())
                 child.style.flexShrink = 0f;
@@ -398,6 +415,16 @@ namespace BitSorter.View
             _status = ShellTheme.Label(StatusName, "", UiType.Body, _palette.Accent);
             _status.style.height = 24f;
             column.Add(_status);
+        }
+
+        /// <summary>A column of sections, the column's width, side by side with the other.</summary>
+        private static VisualElement Column(VisualElement columns)
+        {
+            var column = new VisualElement { name = "column", pickingMode = PickingMode.Ignore };
+            column.style.width = ColumnWidth;
+            column.style.flexShrink = 0f;
+            columns.Add(column);
+            return column;
         }
 
         /// <summary>A heading with a rule under it, then the line saying what the section is for.</summary>

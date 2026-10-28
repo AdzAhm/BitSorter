@@ -652,6 +652,25 @@ namespace BitSorter.PlayMode.Tests
             Assert.Greater(credits.Risen, start, "the credits did not roll");
         }
 
+        /// <summary>
+        /// Every setting fits a 1080 screen with nothing to scroll (Part 15h): two columns side by side, where one ran past
+        /// the foot and CREDITS, last, was found only by scrolling (Ahmad, 2026-10-28). Measured in the page's own units,
+        /// whatever the Game view's size.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator EverySetting_FitsA1080Screen_WithNothingToScroll()
+        {
+            yield return TestScene.Load();
+            yield return OpenSettings();
+            yield return null;
+            yield return null;
+
+            var scroll = Page().Q<UnityEngine.UIElements.ScrollView>();
+            float tall = scroll.contentContainer.layout.height, room = 1080f - Page().layout.y;
+            TestContext.WriteLine($"the sections are {tall:F0} tall, in {room:F0} of a 1080 screen");
+            Assert.LessOrEqual(tall, room, "the sections run past the foot of a 1080 screen");
+        }
+
         /// <summary>The CREDITS button is below every other setting.</summary>
         [UnityTest]
         public IEnumerator TheCreditsButton_IsBelowEverySetting()
