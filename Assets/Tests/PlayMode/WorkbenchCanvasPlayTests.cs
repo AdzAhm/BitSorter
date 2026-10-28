@@ -691,6 +691,20 @@ namespace BitSorter.PlayMode.Tests
             yield return null;
             Assert.AreSame(found, workbench.StateMachine, "the same machine, not found again");
 
+            // Two states side by side, apart.
+            workbench.Import(new[] { new SourceFile("late.sv",
+                "module late(input logic clk, input logic rst, input logic in, output logic q);\n" +
+                "    always_ff @(posedge clk) if (rst) q <= 1'b0; else q <= in;\n" +
+                "endmodule\n") });
+            yield return null;
+            workbench.FinishStates();
+            yield return null;
+            yield return null;
+            Assert.AreEqual(2, workbench.StateMachine?.States.Count ?? 0, workbench.StatesSays);
+            drawn = ShellPanel.Find<StateDiagramView>(WorkbenchPanel.StatesDiagramName);
+            Assert.Less(drawn.Centres[0].x, drawn.Centres[1].x, "the start on the left");
+            Assert.Greater(Vector2.Distance(drawn.Centres[0], drawn.Centres[1]), 2f * drawn.Radius);
+
             workbench.ShowSample(2);   // the full adder
             yield return null;
             yield return null;

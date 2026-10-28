@@ -94,10 +94,14 @@ namespace BitSorter.ViewModel
     ///
     /// **A machine small enough to draw**: at most <see cref="MostRegisterBits"/> register bits, <see cref="MostInputBits"/>
     /// input bits besides the clock and a reset, and <see cref="MostStates"/> states reached; past that the rest are not
-    /// explored, and the machine says it was cut. A register read x is a state with no way on.
+    /// explored, and the machine says it was cut. **A state with an x in it is run on from like any other**: it is what a
+    /// register holds from power-up until something is written to it, and the next state may well be known.
     ///
-    /// **The clock** is the stimulus's clock, or an input called clk or clock; **a reset** is an input called rst or reset,
-    /// active low when its name ends in n (<c>rst_n</c>, <c>resetn</c>), held inactive after the first clock.
+    /// **The clock** is an input called clk or clock, or else the stimulus's clock; **a reset** is another input called rst
+    /// or reset, held for the first clock and inactive after it. It is taken as active low when its name says so the usual
+    /// ways (<c>rst_n</c>, <c>resetn</c>, <c>nrst</c>, <c>rst_b</c>, <c>reset_l</c>); and since a name is only a guess, a
+    /// machine that comes out as one state, or starting on an x, is explored again with the reset the other way round, and
+    /// the fuller of the two kept (the 15g-6 review found rst_btn taken as active low, and the machine held in reset).
     /// </remarks>
     public sealed class StateExplorer
     {
@@ -108,7 +112,9 @@ namespace BitSorter.ViewModel
 
         private readonly Project _project;
         private readonly string _clock, _reset;
-        private readonly bool _resetLow;
+        private bool _resetLow, _flipped;
+        private (List<string> States, List<int[]> Paths, List<StateTransition> Transitions, bool Cut)? _firstWay;
+        private double _progress;
         private readonly long _period;
         private readonly List<InputBit> _inputs;
         private readonly List<string> _inputNames = new List<string>();
@@ -147,7 +153,8 @@ namespace BitSorter.ViewModel
         public bool Done => Machine != null || Problem != null;
 
         /// <summary>How far it has got, 0 to 1: the runs made of those known to be needed so far.</summary>
-        public double Progress => Done ? 1 : (double)_runs / (_runs + _work.Count);
+        /// <remarks>Never back down as more states turn up to be run, and short of 1 until the machine is made.</remarks>
+        public double Progress => Done ? 1 : _progress;
 
         /// <summary>
         /// The exploration of <paramref name="project"/>'s states, nothing run yet -- or null, and why in <paramref name="why"/>:
@@ -168,19 +175,37 @@ namespace BitSorter.ViewModel
                 return null;
             }
 
-            // The clock: the stimulus's, or an input called clk or clock; a reset, an input called rst or reset.
+            // The register bits, counted from the timing's own graph before anything is compiled: a design too big to draw is
+            // told so at once (the 15g-6 review). A testbench's processes could be counted with them, so only without one.
+            if (project.Bench == null)
+            {
+                var launched = new HashSet<int>();
+                foreach (TimingRegister register in analysis.Graph.Registers)
+                    foreach (int node in register.Launches)
+                        launched.Add(node);
+                if (launched.Count > MostRegisterBits)
+                {
+                    why = TooManyRegisterBits(launched.Count);
+                    return null;
+                }
+            }
+
+            // The clock: an input called clk or clock, which is what the registers' edges are written against, or else the
+            // stimulus's -- an input clocked in INPUTS may be some other toggling input (the 15g-6 review). A reset: another
+            // input called rst or reset.
             IReadOnlyList<InputBit> all = StepTests.InputsOf(project);
             string clock = null;
+            foreach (InputBit bit in all)
+                if (clock == null && bit.Width == 1 && (bit.Port.Equals("clk", StringComparison.OrdinalIgnoreCase) || bit.Port.Equals("clock", StringComparison.OrdinalIgnoreCase)))
+                    clock = bit.Port;
             foreach (ClockTrack each in project.Stimulus?.Clocks ?? Array.Empty<ClockTrack>())
                 clock ??= each.Port;
             string reset = null;
             foreach (InputBit bit in all)
             {
                 string name = bit.Port.ToLowerInvariant();
-                if (clock == null && bit.Width == 1 && (name == "clk" || name == "clock"))
-                    clock = bit.Port;
-                if (reset == null && bit.Width == 1 && (name.StartsWith("rst", StringComparison.Ordinal) || name.StartsWith("reset", StringComparison.Ordinal)
-                    || name == "nrst" || name == "nreset"))
+                if (reset == null && bit.Width == 1 && bit.Port != clock && (name.StartsWith("rst", StringComparison.Ordinal)
+                    || name.StartsWith("reset", StringComparison.Ordinal) || name == "nrst" || name == "nreset"))
                     reset = bit.Port;
             }
             if (clock == null)
@@ -188,7 +213,7 @@ namespace BitSorter.ViewModel
                 why = "No state diagram: nothing clocks the registers. Make an input a clock in INPUTS, or call it clk.";
                 return null;
             }
-            bool resetLow = reset != null && (reset.EndsWith("n", StringComparison.OrdinalIgnoreCase) || reset.StartsWith("n", StringComparison.OrdinalIgnoreCase));
+            bool resetLow = reset != null && ActiveLow(reset);
 
             var inputs = new List<InputBit>();
             string lastPort = null;
@@ -259,14 +284,33 @@ namespace BitSorter.ViewModel
             explorer._registers.Sort((a, b) => met[a.Signal] != met[b.Signal] ? met[a.Signal].CompareTo(met[b.Signal]) : b.Bit.CompareTo(a.Bit));
             if (explorer._registers.Count > MostRegisterBits)
             {
-                why = "No state diagram: " + explorer._registers.Count.ToString(CultureInfo.InvariantCulture) + " register bits are up to "
-                    + (1L << Math.Min(explorer._registers.Count, 62)).ToString("N0", CultureInfo.InvariantCulture) + " states; "
-                    + MostRegisterBits.ToString(CultureInfo.InvariantCulture) + " bits is the most drawn.";
+                why = TooManyRegisterBits(explorer._registers.Count);
                 return null;
             }
 
             return explorer;
         }
+
+        private static string TooManyRegisterBits(int bits) =>
+            "No state diagram: " + bits.ToString(CultureInfo.InvariantCulture) + " register bits are up to "
+            + (1L << Math.Min(bits, 62)).ToString("N0", CultureInfo.InvariantCulture) + " states; "
+            + MostRegisterBits.ToString(CultureInfo.InvariantCulture) + " bits is the most drawn.";
+
+        /// <summary>Whether a reset's name says it is active low, the usual ways: rst_n, resetn, nrst, rst_b, reset_l, rst_bar.</summary>
+        private static bool ActiveLow(string name)
+        {
+            string n = name.ToLowerInvariant();
+            return n.EndsWith("_n", StringComparison.Ordinal) || n.EndsWith("_b", StringComparison.Ordinal) || n.EndsWith("_l", StringComparison.Ordinal)
+                || n.EndsWith("_bar", StringComparison.Ordinal) || n.EndsWith("_ni", StringComparison.Ordinal)
+                || n == "rstn" || n == "resetn" || n == "rstb" || n == "resetb" || n == "nrst" || n == "nreset";
+        }
+
+        /// <summary>A machine that says little: one state, or a start with an x in it -- as one held in its reset comes out.</summary>
+        private static bool SaysLittle(List<string> states) => states.Count <= 1 || states[0].IndexOf('x') >= 0;
+
+        /// <summary>Whether <paramref name="a"/> says more than <paramref name="b"/>: more states, or as many and a start with no x in it.</summary>
+        private static bool Fuller(List<string> a, List<string> b) =>
+            a.Count > b.Count || a.Count == b.Count && b[0].IndexOf('x') >= 0 && a[0].IndexOf('x') < 0;
 
         /// <summary>As many runs as fit the frame's budget. False once done.</summary>
         public bool Frame(double budgetMilliseconds = BudgetMilliseconds)
@@ -292,6 +336,34 @@ namespace BitSorter.ViewModel
         {
             if (_work.Count == 0)
             {
+                // The reset's way round is a guess from its name: a machine that says little is explored again the other way,
+                // and the fuller of the two kept -- the more states, then a start with no x in it.
+                if (_reset != null && !_flipped && SaysLittle(_states))
+                {
+                    _firstWay = (new List<string>(_states), new List<int[]>(_paths), new List<StateTransition>(_transitions), _cut);
+                    _states.Clear();
+                    _paths.Clear();
+                    _transitions.Clear();
+                    _cut = false;
+                    _resetLow = !_resetLow;
+                    _flipped = true;
+                    for (int c = 0; c < 1 << _inputs.Count; c++)
+                        _work.Enqueue((0, Array.Empty<int>(), c));
+                    return;
+                }
+                if (_firstWay.HasValue && Fuller(_firstWay.Value.States, _states))
+                {
+                    (List<string> states, List<int[]> paths, List<StateTransition> transitions, bool cut) = _firstWay.Value;
+                    _states.Clear();
+                    _states.AddRange(states);
+                    _paths.Clear();
+                    _paths.AddRange(paths);
+                    _transitions.Clear();
+                    _transitions.AddRange(transitions);
+                    _cut = cut;
+                    _resetLow = !_resetLow;
+                }
+
                 var stateBits = new List<string>();
                 foreach ((string name, string _, int _) in _registers)
                     stateBits.Add(name);
@@ -305,6 +377,7 @@ namespace BitSorter.ViewModel
 
             (int from, int[] path, int combination) = _work.Dequeue();
             _runs++;
+            _progress = Math.Max(_progress, Math.Min(0.99, (double)_runs / (_runs + _work.Count)));
             if (!TryCompile(path, combination, out Design design, out string designPath, out string why))
             {
                 Problem = why;
@@ -347,9 +420,8 @@ namespace BitSorter.ViewModel
                 Array.Copy(path, reached, path.Length);
                 reached[path.Length] = combination;
                 _paths.Add(reached);
-                if (next.IndexOf('x') < 0)   // a register read x has no way on
-                    for (int c = 0; c < 1 << _inputs.Count; c++)
-                        _work.Enqueue((to, reached, c));
+                for (int c = 0; c < 1 << _inputs.Count; c++)
+                    _work.Enqueue((to, reached, c));
             }
 
             _transitions.Add(new StateTransition(from, to, Code(combination, _inputs.Count), output));

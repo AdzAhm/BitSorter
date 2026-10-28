@@ -141,14 +141,19 @@ namespace BitSorter.View
 
             // Made again only when the design or its clock has changed: a part moved, a wire rerouted or an input's steps
             // edited leave the machine as it was (the 15g-5 review, of LOGIC restarting on every edit).
+            // The files too, which SameDesign leaves out: a memory image read with $readmemh, or an include, changes the machine
+            // (the 15g-6 review).
             BitSorter.Board.Project project = _session.Project;
             if (!ReferenceEquals(project, _statesOf))
             {
-                bool same = _statesOf != null && TimingView.SameDesign(_statesOf, project) && ClockOf(_statesOf) == ClockOf(project);
-                _statesOf = project;
-                if (!same)
+                bool same = _statesOf != null && TimingView.SameDesign(_statesOf, project) && ReferenceEquals(_statesOf.Files, project.Files)
+                    && ClockOf(_statesOf) == ClockOf(project);
+                if (same)
+                    _statesOf = project;
+                else
                 {
                     _states = StateExplorer.Start(project, _session.Timing, () => UnityEngine.Time.realtimeSinceStartupAsDouble * 1000.0, out _statesWhy);
+                    _statesOf = project;
                     _statesContent.Clear();
                     _statesScroll = Vector2.zero;
                     _statesDiagram.Machine = null;

@@ -61,16 +61,29 @@ namespace BitSorter.View
             _centres = new Vector2[0];
             StateMachine machine = _machine;
             float width = float.IsNaN(layout.width) ? 0f : layout.width, height = float.IsNaN(layout.height) ? 0f : layout.height;
-            if (machine == null || machine.States.Count == 0 || width < 4f * StateRadius || height < 4f * StateRadius)
+            SchematicPalette palette = SchematicPalette.Current;
+            if (machine == null || machine.States.Count == 0)
             {
                 MarkDirtyRepaint();
                 return;
             }
+            if (width < 4f * StateRadius || height < 4f * StateRadius)
+            {
+                Label tooSmall = ShellTheme.Label("too small", "Drag the splitter up to see the diagram.", UiType.Caption, palette.TextDim, TextAnchor.MiddleCenter);
+                ShellTheme.Place(tooSmall, 0f, 0f, width, height);
+                Add(tooSmall);
+                MarkDirtyRepaint();
+                return;
+            }
 
-            SchematicPalette palette = SchematicPalette.Current;
             int n = machine.States.Count;
             _middle = new Vector2(width / 2f, height / 2f);
-            _centres = Oval(_middle, Mathf.Max(0f, width / 2f - SideRoom - StateRadius), Mathf.Max(0f, height / 2f - UpRoom - StateRadius), n);
+            // In a short dock the room over and under the oval goes before the oval does: flattened to a line, round it twice
+            // over, every other state would stand on another (the 15g-6 review). A loop's label there may be cut off.
+            float down = height / 2f - UpRoom - StateRadius;
+            if (down < StateRadius)
+                down = Mathf.Max(0f, height / 2f - StateRadius - 6f);
+            _centres = Oval(_middle, Mathf.Max(0f, width / 2f - SideRoom - StateRadius), down, n);
             float closest = float.MaxValue;
             for (int i = 0; i < n && n > 1; i++)
                 closest = Mathf.Min(closest, Vector2.Distance(_centres[i], _centres[(i + 1) % n]));
@@ -132,16 +145,20 @@ namespace BitSorter.View
         /// <summary>Away from the oval's middle, from a state on it: up, for a state alone.</summary>
         private Vector2 Outward(Vector2 state) => _centres.Length < 2 || state == _middle ? new Vector2(0f, -1f) : (state - _middle).normalized;
 
-        /// <summary><paramref name="n"/> points round an oval, the first at its top and on clockwise, evenly along its length.</summary>
+        /// <summary>
+        /// <paramref name="n"/> points round an oval, the first at its top and on clockwise, evenly along its length -- two side by
+        /// side, the first on the left, as an oval wider than it is tall has room for them.
+        /// </summary>
         private static Vector2[] Oval(Vector2 middle, float across, float down, int n)
         {
             var at = new Vector2[n];
             const int steps = 720;
             var points = new Vector2[steps + 1];
             var lengths = new float[steps + 1];
+            float first = n == 2 ? Mathf.PI : -Mathf.PI / 2f;
             for (int i = 0; i <= steps; i++)
             {
-                float angle = -Mathf.PI / 2f + 2f * Mathf.PI * i / steps;
+                float angle = first + 2f * Mathf.PI * i / steps;
                 points[i] = middle + new Vector2(across * Mathf.Cos(angle), down * Mathf.Sin(angle));
                 if (i > 0)
                     lengths[i] = lengths[i - 1] + Vector2.Distance(points[i - 1], points[i]);

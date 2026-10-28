@@ -3068,18 +3068,21 @@ is built (2026-10-28).
 
 **As built in Part 15g-6: STATES, the state diagram.** Ahmad asked for a state diagram (2026-10-28).
 
-- **Found by running the real engine** (`StateExplorer`). The clock is the stimulus's, or an input called clk or clock; the
-  reset an input called rst... or reset..., active low when its name starts or ends with n. Every other input bit, four at
-  most, labels the arrows. Each run compiles a copy whose stimulus is the reset for a cycle, if there is one, then the
+- **Found by running the real engine** (`StateExplorer`). The clock is an input called clk or clock, or else the
+  stimulus's clock; the reset another input called rst... or reset..., active low when its name says so the usual ways
+  (rst_n, resetn, nrst, rst_b, reset_l). A name is a guess, so a machine that comes out as one state, or starting on an x,
+  is explored again with the reset the other way round, and the fuller kept. Every other input bit, four at most, labels
+  the arrows. Six register bits is checked on the timing's own graph before anything is compiled. Each run compiles a copy whose stimulus is the reset for a cycle, if there is one, then the
   inputs that reach a state, one a cycle, then one combination more. The state is read half a period after the edge from
   the register bits the timing analysis names (`TimingGraph.Of` on the copy; six at most, each register's high bit first),
   and the outputs just before the edge. The period is twice the measured settle time, or the design's minimum period if
   that is longer.
 - **Breadth first from the start**: every state reached is run with every combination, up to sixteen states (`Cut`
-  past them). A state with an x in it is drawn but not run past. **The start is the state after the reset**, or the
-  power-up state where there is none -- not the project's own stimulus, which the plan named but the sequential exercises'
-  solutions do not have. A drawn register starts at 0; a written one with no reset starts at x, which is then the start,
-  and every input takes it somewhere known.
+  past them). **A state with an x in it is run on from like any other**: it is what a register holds from power-up until
+  written, and the next state may well be known -- a two-bit shift register with no reset goes xx, then x0 or x1, then
+  somewhere known. **The start is the state after the reset**, or the power-up state where there is none -- not the
+  project's own stimulus, which the plan named but the sequential exercises' solutions do not have. A drawn register
+  starts at 0; a written one with no reset at x.
 - **Moore** when every output is the same on every arrow out of each state, otherwise **Mealy**.
 - **Each bit is named from the compiled design** as the timing names it, so an `input [7:6] a`'s bits are a[7] and a[6]
   and an `output [0:1] y`'s high bit is y[0]: the 15g-5 review found LOGIC naming every bus from 0.
@@ -3092,12 +3095,20 @@ is built (2026-10-28).
   - a circle shrinks only once its neighbours would crowd it.
   The next-state table is on the right, under a key line naming the bits; the wheel scrolls it, Shift with it across,
   never past its ends. It is made a slice a frame while the tab is up, and made again only when the design or its clock
-  changes (`TimingView.SameDesign`): an input's steps edited keep the machine (the 15g-5 review found LOGIC restarting on
-  every edit). The old diagram is cleared while a new one is made.
-- **Tests**: one-clock-late's two states; spot-the-pattern's three-state Mealy detector with its one arrow that finds the
-  pattern; one-clock-behind as Moore; the counter's eight states in order from 000; a written register on [7:6] and [0:1]
-  ports named as declared; an adder refused. In Play Mode, the counter drawn and tabled with no circle over its neighbour,
-  an input edit keeping the machine, and the adder told why there is none.
+  changes (`TimingView.SameDesign`, and the project's files, which it leaves out): an input's steps edited keep the machine
+  (the 15g-5 review found LOGIC restarting on every edit). The old diagram is cleared while a new one is made, and the
+  progress shown never goes back. In a short dock the oval keeps its height before the room round it; shorter still, the
+  tab says to drag the splitter up.
+- **Fixed after review**: a reset's way round guessed wrongly and silently, states with an x never run on, a clock
+  chosen from the stimulus over one called clk, the clock taken for the reset too, the restart missing a changed file, a
+  flattened oval putting states on each other, and progress going back -- with tests for each that the first tests
+  would have passed.
+- **Tests**: one-clock-late's two states; spot-the-pattern's three-state Mealy detector, every arrow of it; one-clock-behind's
+  three states as Moore; the counter's eight states in order from 000; a written register on [7:6] and [0:1] ports named
+  as declared; a reset's way round by its name and by trying both; a shift register run on from its x states; thirty-two
+  states cut at sixteen; clk the clock whatever else the stimulus clocks; an adder refused. In Play Mode, the counter
+  drawn and tabled with no circle over its neighbour, an input edit keeping the machine, two states side by side and
+  apart, and the adder told why there is none.
 
 ---
 

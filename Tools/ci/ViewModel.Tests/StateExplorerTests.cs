@@ -56,12 +56,19 @@ namespace BitSorter.ViewModel.Tests
             Assert.IsFalse(machine.Moore, "out = r2 & in reads the input");
             Assert.AreEqual(6, machine.Transitions.Count, "two arrows out of each of three states");
 
-            StateTransition[] found = machine.Transitions.Where(t => t.Output == "1").ToArray();
-            Assert.AreEqual(1, found.Length, "1, 0, 1 found on one arrow alone");
-            Assert.AreEqual("1", found[0].Input);
-            int sawOneZero = found[0].From;
-            Assert.IsTrue(machine.Transitions.Any(t => t.To == sawOneZero && t.Input == "0" && machine.Transitions.Any(u => u.To == t.From && u.Input == "1")),
-                "reached on a 0 from the state a 1 reaches");
+            // Every arrow, by what each state has seen: none of it yet, a 1, then a 1 and a 0. Found on the last 1, and kept on:
+            // the 1 that ends one pattern begins the next.
+            int Next(int from, string input) => machine.Transitions.Single(t => t.From == from && t.Input == input).To;
+            string Out(int from, string input) => machine.Transitions.Single(t => t.From == from && t.Input == input).Output;
+            const int nothing = 0;
+            int one = Next(nothing, "1"), oneZero = Next(one, "0");
+            CollectionAssert.AreEquivalent(new[] { 0, 1, 2 }, new[] { nothing, one, oneZero }, "three states apart");
+            Assert.AreEqual(nothing, Next(nothing, "0"));
+            Assert.AreEqual(one, Next(one, "1"));
+            Assert.AreEqual(nothing, Next(oneZero, "0"));
+            Assert.AreEqual(one, Next(oneZero, "1"));
+            Assert.AreEqual("1", Out(oneZero, "1"), "1, 0, 1 found");
+            Assert.AreEqual(1, machine.Transitions.Count(t => t.Output == "1"), "and on that arrow alone");
         }
 
         [Test]
@@ -69,7 +76,7 @@ namespace BitSorter.ViewModel.Tests
         {
             StateMachine machine = Exercise("one-clock-behind");
             Assert.IsTrue(machine.Moore, "its output depends on its state alone, as its goal says");
-            Assert.GreaterOrEqual(machine.States.Count, 2);
+            Assert.AreEqual(3, machine.States.Count, string.Join(", ", machine.States));
             for (int s = 0; s < machine.States.Count; s++)
                 Assert.IsNotNull(machine.OutputIn(s), "every state reached has a way out, and its output");
         }
@@ -102,6 +109,83 @@ namespace BitSorter.ViewModel.Tests
                 Assert.AreEqual(t.Input, machine.States[t.To], "y[0] takes a[7], y[1] a[6]: the next state reads as the input");
                 Assert.AreEqual(machine.States[t.From], t.Output, "and y is the state");
             }
+        }
+
+        private static Project Written(string source)
+        {
+            ProjectImport import = ProjectImporter.Import(new[] { new BitSorter.Board.SourceFile("machine.sv", source) });
+            Assert.IsTrue(import.Succeeded, string.Join("\n", import.Notes));
+            return import.Project;
+        }
+
+        /// <summary>
+        /// A register that holds its input, reset by a button: rst_btn is active high whatever its last letter, and reset_btn
+        /// written active low is found so by exploring the other way round once the first comes out held in reset. The 15g-6
+        /// review found rst_btn taken as active low, and one state that ignored its input.
+        /// </summary>
+        [TestCase("rst_btn", "if (rst_btn)", TestName = "AResetsWayRound_rst_btn_IsActiveHighByItsName")]
+        [TestCase("rst_n", "if (!rst_n)", TestName = "AResetsWayRound_rst_n_IsActiveLowByItsName")]
+        [TestCase("reset_btn", "if (!reset_btn)", TestName = "AResetsWayRound_reset_btn_WrittenActiveLow_IsFoundByTryingBoth")]
+        public void AResetsWayRound_IsFound(string reset, string condition)
+        {
+            StateMachine machine = Explored(Written(
+                "module held(input logic clk, input logic " + reset + ", input logic in, output logic q);\n" +
+                "    always_ff @(posedge clk) " + condition + " q <= 1'b0; else q <= in;\n" +
+                "endmodule\n"), out string why);
+            Assert.IsNotNull(machine, why);
+            Assert.AreEqual(2, machine.States.Count, string.Join(", ", machine.States));
+            Assert.AreEqual("0", machine.States[0], "from its reset");
+            CollectionAssert.AreEqual(new[] { "in" }, machine.InputBits.ToArray(), "the reset is not an arrow's input");
+            foreach (StateTransition t in machine.Transitions)
+                Assert.AreEqual(t.Input, machine.States[t.To], "out of reset, q takes in");
+        }
+
+        /// <summary>
+        /// A shift register with no reset starts unknown, and is run on from every state with an x in it: x0 and x1 are where
+        /// it is after one clock, and after two it is somewhere known. The 15g-6 review found a state with an x never run on.
+        /// </summary>
+        [Test]
+        public void AStateWithAnXInIt_IsRunOnFrom()
+        {
+            StateMachine machine = Explored(Written(
+                "module shift(input logic clk, input logic in, output logic [1:0] q);\n" +
+                "    always_ff @(posedge clk) q <= {q[0], in};\n" +
+                "endmodule\n"), out string why);
+            Assert.IsNotNull(machine, why);
+            CollectionAssert.AreEquivalent(new[] { "xx", "x0", "x1", "00", "01", "10", "11" }, machine.States.ToArray());
+            Assert.AreEqual("xx", machine.States[0]);
+            Assert.AreEqual(14, machine.Transitions.Count, "two arrows out of every state, x ones included");
+        }
+
+        /// <summary>Thirty-two states reachable, sixteen drawn, and the machine says so.</summary>
+        [Test]
+        public void PastSixteenStates_TheRestAreNotExplored_AndTheMachineSaysSo()
+        {
+            StateMachine machine = Explored(Written(
+                "module count(input logic clk, input logic rst, input logic en, output logic [4:0] q);\n" +
+                "    always_ff @(posedge clk) if (rst) q <= 5'd0; else if (en) q <= q + 5'd1;\n" +
+                "endmodule\n"), out string why);
+            Assert.IsNotNull(machine, why);
+            Assert.IsTrue(machine.Cut);
+            Assert.AreEqual(StateExplorer.MostStates, machine.States.Count);
+        }
+
+        /// <summary>
+        /// An input called clk is the clock even where the stimulus clocks another input: the registers' edges are written against
+        /// it. The 15g-6 review found the stimulus's clocked en taken for the clock, and clk an arrow's input.
+        /// </summary>
+        [Test]
+        public void AnInputCalledClk_IsTheClock_WhateverElseTheStimulusClocks()
+        {
+            Project project = Written(
+                "module enabled(input logic clk, input logic en, input logic d, output logic q);\n" +
+                "    always_ff @(posedge clk) if (en) q <= d;\n" +
+                "endmodule\n");
+            project = project with { Stimulus = new BitSorter.Board.Stimulus { Clocks = new[] { new ClockTrack { Port = "en", Period = 10 } }, End = 100 } };
+            StateMachine machine = Explored(project, out string why);
+            Assert.IsNotNull(machine, why);
+            CollectionAssert.AreEqual(new[] { "en", "d" }, machine.InputBits.ToArray(), "clk is no arrow's input");
+            Assert.IsTrue(machine.States.Contains("0") && machine.States.Contains("1"), string.Join(", ", machine.States));
         }
 
         [Test]
