@@ -62,6 +62,28 @@ namespace BitSorter.View
             return notes;
         }
 
+        /// <summary>
+        /// Migrates the one 4.x board kept for the level <paramref name="key"/>, when it has one and no document yet: what an
+        /// exercise of the level's id opens (Part 15d). One at a time and only when asked, so a board is never migrated twice
+        /// and nothing the student has since deleted comes back. True when it made a document. Does not write the file.
+        /// </summary>
+        public static bool MigrateOne(ProgressStore store, string key, List<string> notes)
+        {
+            if (store == null || string.IsNullOrEmpty(key) || key == TutorialLevel.Key || store.HasProject(key) || store.BoardFor(key) == null)
+                return false;
+
+            LevelLoadResult loaded = LevelLoader.Load(key, DefaultBoard);
+            if (!loaded.IsValid)
+            {
+                notes.Add($"The board for {key} was left as it was: the level did not load ({loaded.Error}).");
+                return false;
+            }
+
+            LevelDefinition level = loaded.Level;
+            Migrate(store, key, key, level, store.BoardFor(key), level.HasBoard ? level.BoardHalfExtents : DefaultBoard, notes);
+            return store.HasProject(key);
+        }
+
         private static void Migrate(
             ProgressStore store, string key, string name, LevelDefinition level, SavedBoard saved, Vector2Int extents, List<string> notes)
         {

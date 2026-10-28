@@ -534,6 +534,52 @@ namespace BitSorter.Board
             return problems.Count > before ? null : project;
         }
 
+        /// <summary>
+        /// <paramref name="saved"/> -- the student's own answer, kept from before, or a 4.x board of the level's migrated --
+        /// made this exercise's again (Part 15d): its test, its library, its settings, and the blocks it stocks as it gives
+        /// them. Null, saying why, when it is not an answer to it: its top is not the exercise's, or lacks a port the test
+        /// drives; the exercise then opens fresh.
+        /// </summary>
+        public Project Adopt(Project saved, List<string> problems)
+        {
+            var fresh = new List<string>();
+            Project opened = ToProject(fresh);
+            if (opened == null || saved?.TopModule == null || saved.Top != opened.Top)
+            {
+                problems.AddRange(fresh);
+                return null;
+            }
+
+            int before = problems.Count;
+            foreach (ExerciseSignal signal in Inputs)
+                Expect(saved, signal, PortDirection.Input, problems);
+            foreach (ExerciseSignal signal in Outputs)
+                Expect(saved, signal, PortDirection.Output, problems);
+            if (problems.Count > before)
+                return null;
+
+            // The blocks it gives, as it gives them: a stocked module is the exercise's, whatever the saved one became.
+            var modules = new List<Module>(saved.Modules);
+            foreach (Module given in opened.Modules)
+            {
+                if (given.Name == opened.Top)
+                    continue;
+                int at = modules.FindIndex(m => m.Name == given.Name);
+                if (at >= 0)
+                    modules[at] = given;
+                else
+                    modules.Add(given);
+            }
+
+            return saved with
+            {
+                Modules = modules,
+                Stimulus = opened.Stimulus,
+                Bench = null,
+                Settings = opened.Settings,
+            };
+        }
+
         /// <summary>The top has <paramref name="signal"/> as a port of its width and way, as a start circuit must.</summary>
         private void Expect(Project project, ExerciseSignal signal, PortDirection direction, List<string> problems)
         {

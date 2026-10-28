@@ -71,6 +71,48 @@ namespace BitSorter.Board.Tests
         }
 
         [Test]
+        public void AnAnswerKeptFromBefore_IsMadeTheExercisesAgain()
+        {
+            Exercise exercise = ExerciseFiles.Load("half-adder");
+            var editor = new BoardEditor(Opened("half-adder"));
+            string top = editor.Project.Top;
+            EditResult xor = editor.Add(top, new GatePart { Kind = GateKind.Xor, Inputs = 2, Rise = 1, Fall = 1 }, new Placement(8, 0));
+            Assert.IsTrue(xor.Done);
+
+            // A save from before the exercise's test changed: its own stimulus and none of its settings.
+            Project kept = editor.Project with
+            {
+                Stimulus = new Stimulus(),
+                Settings = editor.Project.Settings with { Exercise = null, Library = null },
+            };
+            var problems = new List<string>();
+            Project adopted = exercise.Adopt(kept, problems);
+            Assert.IsNotNull(adopted, string.Join("\n", problems));
+            Assert.AreEqual("half-adder", adopted.Settings.Exercise);
+            Assert.IsNotNull(adopted.Settings.Library, "its library again");
+            Assert.AreEqual(Opened("half-adder").Stimulus.Tracks.Count, adopted.Stimulus.Tracks.Count);
+            Assert.IsNotEmpty(adopted.Stimulus.Checks, "its own test, checks and all");
+            Assert.IsTrue(adopted.TopModule.Parts.Any(p => p.Id == xor.Id), "and the student's own gate kept");
+        }
+
+        [Test]
+        public void ACircuitThatIsNotAnAnswer_IsNotAdopted()
+        {
+            Exercise exercise = ExerciseFiles.Load("half-adder");
+            var problems = new List<string>();
+            Assert.IsNull(exercise.Adopt(SampleBoards.Build("half_adder"), problems), "another top");
+            Assert.IsNotEmpty(problems);
+
+            Project opened = Opened("half-adder");
+            PortPart a = opened.TopModule.Ports.Single(p => p.Name == "a");
+            Module without = opened.TopModule with { Parts = opened.TopModule.Parts.Where(p => p.Id != a.Id).ToList() };
+            problems.Clear();
+            Assert.IsNull(exercise.Adopt(opened with { Modules = opened.Modules.Select(m => m.Name == opened.Top ? without : m).ToList() }, problems),
+                "a port the test drives missing");
+            Assert.IsNotEmpty(problems);
+        }
+
+        [Test]
         public void ACircuitOfTheStudentsOwn_IsLockedByNothing()
         {
             var editor = new BoardEditor(SampleBoards.Build("half_adder"));

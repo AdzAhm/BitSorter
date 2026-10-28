@@ -87,6 +87,21 @@ namespace BitSorter.View
         /// (<c>sample/</c> and its name), or empty for the start page. Absent, so the start page, in every file from before it.
         /// </summary>
         public string lastOpen;
+
+        /// <summary>
+        /// Each exercise's best (Part 15d): the fewest gates and the quickest settling it has been solved with. New: 4.x's
+        /// bests were in ticks of a token game, and mean nothing here. Absent, so none, in every older file.
+        /// </summary>
+        public ExerciseBestRecord[] exerciseBests;
+    }
+
+    /// <summary>An exercise's best, as the save holds it (Part 15d): its id, the fewest gates, the quickest settle in its unit.</summary>
+    [Serializable]
+    public sealed class ExerciseBestRecord
+    {
+        public string id;
+        public int gates;
+        public long settle;
     }
 
     /// <summary>One document in the save, under the key of the board it belongs to.</summary>
@@ -159,6 +174,7 @@ namespace BitSorter.View
         private readonly List<SavedProject> _projects = new List<SavedProject>();
         private readonly List<string> _recent = new List<string>();
         private string _lastOpen = "";
+        private readonly Dictionary<string, (int Gates, long Settle)> _exerciseBests = new Dictionary<string, (int Gates, long Settle)>(StringComparer.Ordinal);
 
         public ProgressStore(string path)
         {
@@ -270,6 +286,7 @@ namespace BitSorter.View
             _projects.Clear();
             _recent.Clear();
             _lastOpen = "";
+            _exerciseBests.Clear();
             LoadedFormat = 0;
 
             string source = null;
@@ -360,6 +377,10 @@ namespace BitSorter.View
                         if (!string.IsNullOrEmpty(key) && !_recent.Contains(key))
                             _recent.Add(key);
                 _lastOpen = file.lastOpen ?? "";
+                if (file.exerciseBests != null)
+                    foreach (ExerciseBestRecord best in file.exerciseBests)
+                        if (best != null && !string.IsNullOrEmpty(best.id))
+                            _exerciseBests[best.id] = (best.gates, best.settle);
             }
             catch (Exception exception)
             {
@@ -445,6 +466,7 @@ namespace BitSorter.View
                     projects = _projects.ToArray(),
                     recent = _recent.ToArray(),
                     lastOpen = _lastOpen,
+                    exerciseBests = ExerciseBestRecords(),
                 };
 
                 _completed.CopyTo(file.completed);
@@ -483,6 +505,7 @@ namespace BitSorter.View
             _projects.Clear();
             _recent.Clear();
             _lastOpen = "";
+            _exerciseBests.Clear();
             Save();
         }
 
@@ -576,6 +599,44 @@ namespace BitSorter.View
 
         /// <summary>The keys of the documents last opened, the latest first (Part 15a).</summary>
         public IReadOnlyList<string> Recent => _recent;
+
+        /// <summary>An exercise's best so far (Part 15d); false for none yet.</summary>
+        public bool TryGetExerciseBest(string id, out int gates, out long settle)
+        {
+            gates = 0;
+            settle = 0;
+            if (string.IsNullOrEmpty(id) || !_exerciseBests.TryGetValue(id, out (int Gates, long Settle) best))
+                return false;
+            gates = best.Gates;
+            settle = best.Settle;
+            return true;
+        }
+
+        /// <summary>
+        /// Keeps <paramref name="gates"/> and <paramref name="settle"/> as <paramref name="id"/>'s best where they beat it, each
+        /// on its own, and says which did. Not written until <see cref="Save"/>.
+        /// </summary>
+        public (bool FewerGates, bool Quicker) RecordExerciseBest(string id, int gates, long settle)
+        {
+            if (string.IsNullOrEmpty(id))
+                return (false, false);
+            if (!_exerciseBests.TryGetValue(id, out (int Gates, long Settle) best))
+            {
+                _exerciseBests[id] = (gates, settle);
+                return (true, true);
+            }
+            bool fewer = gates < best.Gates, quicker = settle < best.Settle;
+            _exerciseBests[id] = (Math.Min(gates, best.Gates), Math.Min(settle, best.Settle));
+            return (fewer, quicker);
+        }
+
+        private ExerciseBestRecord[] ExerciseBestRecords()
+        {
+            var records = new List<ExerciseBestRecord>(_exerciseBests.Count);
+            foreach (KeyValuePair<string, (int Gates, long Settle)> best in _exerciseBests)
+                records.Add(new ExerciseBestRecord { id = best.Key, gates = best.Value.Gates, settle = best.Value.Settle });
+            return records.ToArray();
+        }
 
         /// <summary>What was open last on the workbench (Part 15a): a circuit's key, a sample's, or empty for the start page. Not written until <see cref="Save"/>.</summary>
         public string LastOpen
