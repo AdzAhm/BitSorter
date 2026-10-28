@@ -90,13 +90,20 @@ namespace BitSorter.ViewModel
         /// <summary>How far apart + ROW, ALL COMBINATIONS and COUNT put their rows, until STEP says otherwise.</summary>
         public const long DefaultStep = 10;
 
+        /// <summary>
+        /// The most rows a testbench's table shows (the 15h review): an exhaustive testbench applies tens of thousands of
+        /// vectors, every one a row, and the table is read one row a notch of the wheel. CONVERT gives every one.
+        /// </summary>
+        public const int MostAppliedRows = 2000;
+
         private readonly Dictionary<string, Radix> _radixes;
         private readonly HashSet<string> _chosen;
         private readonly List<long> _pending;
         private readonly Stimulus _stimulus;
 
         private InputTable(Stimulus stimulus, List<InputColumn> columns, List<InputRow> rows, string why, long step,
-            Dictionary<string, Radix> radixes, HashSet<string> chosen, List<long> pending, string appliedBy, string cannotConvert)
+            Dictionary<string, Radix> radixes, HashSet<string> chosen, List<long> pending, string appliedBy, string cannotConvert,
+            int leftOut)
         {
             _stimulus = stimulus;
             Columns = columns;
@@ -104,6 +111,7 @@ namespace BitSorter.ViewModel
             Why = why;
             AppliedBy = appliedBy;
             CannotConvert = cannotConvert;
+            LeftOut = leftOut;
             Step = step;
             _radixes = radixes;
             _chosen = chosen;
@@ -123,6 +131,9 @@ namespace BitSorter.ViewModel
 
         /// <summary>Why a written testbench driving the inputs cannot be converted, and so has no rows to show; null otherwise.</summary>
         public string CannotConvert { get; }
+
+        /// <summary>How many of a testbench's moments are past <see cref="MostAppliedRows"/>, and not shown.</summary>
+        public int LeftOut { get; }
 
         /// <summary>How far apart + ROW, ALL COMBINATIONS and COUNT put their rows.</summary>
         public long Step { get; }
@@ -144,7 +155,7 @@ namespace BitSorter.ViewModel
                 Conversion conversion = BenchConverter.Convert(project);
                 if (conversion.Succeeded)
                 {
-                    stimulus = conversion.Project.Stimulus;
+                    stimulus = Started(conversion.Project.Stimulus);
                     appliedBy = project.Bench;
                 }
                 else
@@ -155,7 +166,9 @@ namespace BitSorter.ViewModel
 
             var radixes = before != null ? new Dictionary<string, Radix>(before._radixes) : new Dictionary<string, Radix>(StringComparer.Ordinal);
             var chosen = before != null ? new HashSet<string>(before._chosen) : new HashSet<string>(StringComparer.Ordinal);
-            var pending = before != null ? new List<long>(before._pending) : new List<long>();
+            // A row added and not filled yet is the editable table's: one carried into a read-only table is a blank row nobody
+            // can fill (the 15h review: CONVERT a testbench, + ROW, Ctrl+Z).
+            var pending = before != null && why == null ? new List<long>(before._pending) : new List<long>();
             long step = before?.Step ?? DefaultStep;
 
             var columns = new List<InputColumn>();
@@ -174,13 +187,26 @@ namespace BitSorter.ViewModel
                 }
             }
 
-            // Every moment something changes, an exercise's checks among them, and the rows added and not filled yet.
-            var times = new SortedSet<long>();
+            // Every moment something changes, an exercise's checks among them, and the rows added and not filled yet: sorted
+            // once, since a testbench's stimulus may run to a great many, and a testbench's held to its most.
+            var every = new List<long>();
             foreach (Track track in stimulus.Tracks)
                 foreach (Step each in track.Steps)
-                    times.Add(each.Time);
+                    every.Add(each.Time);
             foreach (Check check in stimulus.Checks)
-                times.Add(check.Time);
+                every.Add(check.Time);
+            every.Sort();
+            var times = new SortedSet<long>();
+            int moments = 0;
+            for (int i = 0; i < every.Count; i++)
+            {
+                if (i > 0 && every[i] == every[i - 1])
+                    continue;
+                moments++;
+                if (appliedBy == null || times.Count < MostAppliedRows)
+                    times.Add(every[i]);
+            }
+            int leftOut = moments - times.Count;
             pending.RemoveAll(time => times.Contains(time));
             if (why == null && times.Count == 0 && pending.Count == 0)
                 pending.Add(0);   // somewhere to start typing
@@ -188,7 +214,7 @@ namespace BitSorter.ViewModel
                 times.Add(time);
 
             return new InputTable(stimulus, columns, RowsOf(stimulus, columns, times, pending), why, step, radixes, chosen, pending,
-                appliedBy, cannotConvert);
+                appliedBy, cannotConvert, leftOut);
         }
 
         /// <summary>
@@ -479,24 +505,69 @@ namespace BitSorter.ViewModel
                 times.Add(time);
 
             return new InputTable(_stimulus, columns, RowsOf(_stimulus, columns, times, pending), Why, step ?? Step, radixes, chosen, pending,
-                AppliedBy, CannotConvert);
+                AppliedBy, CannotConvert, LeftOut);
         }
 
         /// <summary>A row for each of <paramref name="times"/>: each column's value then, or nothing.</summary>
         private static List<InputRow> RowsOf(Stimulus stimulus, List<InputColumn> columns, SortedSet<long> times, List<long> pending)
         {
+            // Each column's values by moment, found once: a step looked for among every step, for every cell, was a table's
+            // worth of scans of the stimulus, and a testbench's ran to half a minute (the 15h review). The first step at a
+            // moment wins, as it always did.
+            var at = new Dictionary<long, LogicVec>[columns.Count];
+            var column = new Dictionary<string, int>(StringComparer.Ordinal);
+            for (int c = 0; c < columns.Count; c++)
+            {
+                at[c] = new Dictionary<long, LogicVec>();
+                column[(columns[c].IsInput ? "i " : "o ") + columns[c].Port] = c;
+            }
+            foreach (Track track in stimulus.Tracks)
+                if (column.TryGetValue("i " + track.Port, out int c))
+                    foreach (Step step in track.Steps)
+                        if (!at[c].ContainsKey(step.Time))
+                            at[c][step.Time] = step.Value;
+            foreach (Check check in stimulus.Checks)
+                if (column.TryGetValue("o " + check.Port, out int c) && !at[c].ContainsKey(check.Time))
+                    at[c][check.Time] = check.Expected;
+
             var rows = new List<InputRow>(times.Count);
             foreach (long time in times)
             {
                 var cells = new string[columns.Count];
                 for (int c = 0; c < columns.Count; c++)
-                {
-                    LogicVec? value = columns[c].IsInput ? StepAt(stimulus, columns[c].Port, time) : CheckAt(stimulus, columns[c].Port, time);
-                    cells[c] = value.HasValue ? Text(value.Value, columns[c].Radix) : "";
-                }
+                    cells[c] = at[c].TryGetValue(time, out LogicVec value) ? Text(value, columns[c].Radix) : "";
                 rows.Add(new InputRow(time, cells, pending.Contains(time)));
             }
             return rows;
+        }
+
+        /// <summary>
+        /// <paramref name="stimulus"/> with each track's start -- a declaration's value, before anything ran -- a step at 0
+        /// where it has none there: what a testbench's table shows at 0. An input given its value where it is declared read
+        /// blank, as though nothing drove it (the 15h review). Only for the table that shows a testbench, which nothing commits.
+        /// </summary>
+        private static Stimulus Started(Stimulus stimulus)
+        {
+            var tracks = new List<Track>(stimulus.Tracks.Count);
+            bool changed = false;
+            foreach (Track track in stimulus.Tracks)
+            {
+                bool atZero = false;
+                foreach (Step step in track.Steps)
+                    atZero |= step.Time == 0;
+                if (track.Start is LogicVec start && !atZero)
+                {
+                    var steps = new List<Step>(track.Steps.Count + 1) { new Step(0, start) };
+                    steps.AddRange(track.Steps);
+                    tracks.Add(track with { Steps = steps, Start = null });
+                    changed = true;
+                }
+                else
+                {
+                    tracks.Add(track);
+                }
+            }
+            return changed ? stimulus with { Tracks = tracks } : stimulus;
         }
 
         private bool CanEdit(out string refusal)
@@ -565,24 +636,6 @@ namespace BitSorter.ViewModel
                 if (string.Equals(check.Port, port, StringComparison.Ordinal))
                     return true;
             return false;
-        }
-
-        private static LogicVec? StepAt(Stimulus stimulus, string port, long time)
-        {
-            foreach (Track track in stimulus.Tracks)
-                if (string.Equals(track.Port, port, StringComparison.Ordinal))
-                    foreach (Step step in track.Steps)
-                        if (step.Time == time)
-                            return step.Value;
-            return null;
-        }
-
-        private static LogicVec? CheckAt(Stimulus stimulus, string port, long time)
-        {
-            foreach (Check check in stimulus.Checks)
-                if (check.Time == time && string.Equals(check.Port, port, StringComparison.Ordinal))
-                    return check.Expected;
-            return null;
         }
     }
 }

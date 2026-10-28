@@ -136,8 +136,13 @@ namespace BitSorter.View
         /// testbench cannot be converted.
         /// </summary>
         private static string BenchSays(InputTable table, string bench) => table.AppliedBy != null
-            ? "These are the values " + bench + " applies to the inputs, read from a run of it. To change them, CONVERT turns them "
-              + "into rows to edit here and takes " + bench + " out -- Ctrl+Z puts it back -- or change them in " + bench + "'s code."
+            ? "These are the values " + bench + " applies to the inputs, read from a run of it"
+              + (table.LeftOut > 0
+                  ? ", the first " + table.Rows.Count.ToString("N0", CultureInfo.InvariantCulture) + " moments of "
+                    + (table.Rows.Count + table.LeftOut).ToString("N0", CultureInfo.InvariantCulture)
+                  : "")
+              + ". To change them, CONVERT turns them into rows to edit here and takes " + bench
+              + " out -- Ctrl+Z puts it back -- or change them in " + bench + "'s code."
             : bench + " drives the inputs, and cannot be turned into rows here: " + table.CannotConvert;
 
         /// <summary>The table's list, in the dock under its header, shut until its tab is chosen; the wheel scrolls it, Shift sideways.</summary>

@@ -255,6 +255,93 @@ namespace BitSorter.ViewModel.Tests
             Assert.AreEqual(table.Why, refused);
         }
 
+        /// <summary>
+        /// An input given its value where the testbench declares it reads that value at 0 (the 15h review): CONVERT records a
+        /// declaration's value as the track's start, which is no step, and the table showed the input blank, as undriven.
+        /// </summary>
+        [Test]
+        public void UnderATestbench_AnInputSetWhereItIsDeclared_ReadsItsValueAtZero()
+        {
+            Project project = Imported(
+                ("pick.sv", "module pick (input logic a, input logic b, input logic s, output logic y);\n" +
+                            "    assign y = s ? b : a;\n" +
+                            "endmodule\n"),
+                ("pick_tb.sv", "module pick_tb;\n" +
+                               "    logic a = 1'b1, b = 1'b0, s = 1'b0, y;\n" +
+                               "    pick dut (.a(a), .b(b), .s(s), .y(y));\n" +
+                               "    initial begin\n" +
+                               "        #10 b = 1;\n" +
+                               "        #10 $stop;\n" +
+                               "    end\n" +
+                               "endmodule\n"));
+
+            InputTable table = InputTable.Of(project);
+            Assert.AreEqual("pick_tb", table.AppliedBy, "sanity");
+            CollectionAssert.AreEqual(new long[] { 0, 10 }, table.Rows.Select(r => r.Time).ToArray());
+            CollectionAssert.AreEqual(new[] { "1", "0", "0" }, table.Rows[0].Cells.ToArray(), "each as it is declared");
+            CollectionAssert.AreEqual(new[] { "", "1", "" }, table.Rows[1].Cells.ToArray(), "and b set at 10");
+        }
+
+        /// <summary>
+        /// An exhaustive testbench applies a vector every moment, 65,536 of them: its table shows the first
+        /// <see cref="InputTable.MostAppliedRows"/> and says how many it leaves out, and is made in good time. Its rows were found
+        /// by scanning the stimulus for every cell, and took half a minute on this testbench (the 15h review).
+        /// </summary>
+        [Test]
+        public void UnderAnExhaustiveTestbench_TheTableShowsTheFirstFew_AndIsMadeInGoodTime()
+        {
+            Project project = Imported(
+                ("add8.sv", "module add8 (input logic [7:0] a, input logic [7:0] b, output logic [8:0] y);\n" +
+                            "    assign y = a + b;\n" +
+                            "endmodule\n"),
+                ("add8_tb.sv", "module add8_tb;\n" +
+                               "    logic [7:0] a, b;\n" +
+                               "    logic [8:0] y;\n" +
+                               "    integer i;\n" +
+                               "    add8 dut (.a(a), .b(b), .y(y));\n" +
+                               "    initial begin\n" +
+                               "        for (i = 0; i < 65536; i = i + 1) begin\n" +
+                               "            {a, b} = i;\n" +
+                               "            #1;\n" +
+                               "        end\n" +
+                               "        $stop;\n" +
+                               "    end\n" +
+                               "endmodule\n"));
+
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            InputTable table = InputTable.Of(project);
+            clock.Stop();
+            Assert.AreEqual("add8_tb", table.AppliedBy, "sanity");
+            Assert.AreEqual(InputTable.MostAppliedRows, table.Rows.Count, "the first few");
+            Assert.AreEqual(65536 - InputTable.MostAppliedRows, table.LeftOut, "and how many are left out");
+            CollectionAssert.AreEqual(new long[] { 0, 1, 2 }, table.Rows.Take(3).Select(r => r.Time).ToArray());
+            Assert.Less(clock.Elapsed.TotalSeconds, 10.0, "made in good time: it took half a minute");
+        }
+
+        /// <summary>
+        /// A row added and not filled yet is the editable table's, and never reaches a read-only one (the 15h review): CONVERT, +
+        /// ROW and Ctrl+Z left a blank row on the testbench's table.
+        /// </summary>
+        [Test]
+        public void ARowNotFilledYet_IsNeverCarriedIntoAReadOnlyTable()
+        {
+            Assert.IsTrue(InputTable.Of(Session().Project).TryAddRow(out InputTable added, out string refusal), refusal);
+            Assert.IsTrue(added.Rows.Any(r => r.Pending), "sanity: a row not filled yet");
+
+            Project bench = Imported(
+                ("pick.sv", "module pick (input logic a, input logic b, input logic s, output logic y);\n" +
+                            "    assign y = s ? b : a;\n" +
+                            "endmodule\n"),
+                ("pick_tb.sv", "module pick_tb;\n" +
+                               "    logic a, b, s, y;\n" +
+                               "    pick dut (.a(a), .b(b), .s(s), .y(y));\n" +
+                               "    initial begin a = 0; b = 0; s = 0; #10 $stop; end\n" +
+                               "endmodule\n"));
+            InputTable table = InputTable.Of(bench, added);
+            Assert.IsTrue(table.ReadOnly, "sanity");
+            Assert.IsFalse(table.Rows.Any(r => r.Pending), "no blank row on a table nobody can fill");
+        }
+
         /// <summary>A testbench CONVERT cannot turn into a stimulus has no rows to show, and says why.</summary>
         [Test]
         public void UnderATestbenchThatCannotBeConverted_TheTableSaysWhy()
