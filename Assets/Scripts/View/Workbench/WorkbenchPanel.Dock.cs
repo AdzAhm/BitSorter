@@ -87,6 +87,7 @@ namespace BitSorter.View
             BuildDockHeader(palette);
             BuildTranscriptList(palette);
             BuildTimingList(palette);
+            BuildInputsList();
             ShowDockTab(DockTab.Waves);
             BuildSplitter(palette);
 
@@ -533,6 +534,7 @@ namespace BitSorter.View
             ScrollHierarchy(0f);
             PlaceTranscript();
             PlaceTiming();
+            PlaceInputs();
             FitToolbar(Window.x);
         }
 

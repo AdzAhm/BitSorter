@@ -705,7 +705,13 @@ failure side.
   value made by reflection anywhere the game runs). Its panels are docked
   (`ShellLayout`, a view-model rule): the toolbar, the inspector's bar, PARTS
   and DESIGN, the circuit's window, the side panel's quick fields and minimap,
-  the splitter, the dock with WAVES, TRANSCRIPT, CODE (the SystemVerilog the
+  the splitter, the dock with WAVES, INPUTS (Part 15g, `InputTable`: what the
+  testbench gives the inputs as a vector table to type in -- a column per input,
+  a bus one column in its own radix, BIN, HEX or DEC; a row per moment something
+  changes, an empty cell no change -- with + ROW, STEP, ALL COMBINATIONS, COUNT
+  and CLOCK on the columns chosen by their names, and END; each edit one undo
+  step, replayed as SET's is; read only in an exercise, its test's rows and the
+  values it wants shown, an edit refused in the document's words), TRANSCRIPT, CODE (the SystemVerilog the
   document prints as, read-only, Part 12e) and TIMING (the paths, the critical
   path, the minimum period and the gate count, the path picked lit on the
   canvas while the tab is up, Part 14b; the worst measured by stepping every
@@ -802,7 +808,7 @@ failure side.
   counts from it -- the win celebration once pulsed on the game clock and a solve
   could land at the bottom of its swell.
 - **Visual changes are checked against the reference shots.**
-  `BitSorter/Capture Reference Shots` captures fifty-six states (menu, a built
+  `BitSorter/Capture Reference Shots` captures fifty-seven states (menu, a built
   board, bits in flight, a collision one tick out and one that takes both bits,
   the solved card, the level list, free play, the help panel, the chapter card, a
   clocked level, the tutorial's intro and its closing card, a first-time hint, a
@@ -814,7 +820,7 @@ failure side.
   built and running, its carry passing between the boxes, and 5.0's workbench
   preview with two changes on their way, whole, zoomed in, with a wire pointed at, with two rows in other
   radixes, a second cursor 9 ps on and two breakpoints flagged, with a block's inside grouped under full names, with the
-  add list searching, MY CIRCUIT being edited, two gates moving with their guides, its half adder being wired, one of its wires being reshaped, the reference's AND in its inspector, the reference zoomed in with its minimap and the canvas's menu, the full adder's transcript beside its hierarchy, the keyboard map, the full adder stepped inside h1, MAKE BLOCK asking for a name, four half adders as one block of four copies, a written adder's code with a fault marked, the full adder's code in the dock's CODE tab, the FILE menu, a project imported with its testbench running, the full adder's critical path lit from the TIMING tab, the LIBRARY menu over it with the full adder held to the course's cells, two written devices on a bus through their inout pins, the start page BitSorter opens on, the EXERCISES page five solved, the half adder's brief with its hint, its CHECK failed with the carry missing, its solved card, the guided tutorial asking for a wire, and a first-time hint up -- every other shot taken with the hints seen) as an Explicit Play
+  add list searching, MY CIRCUIT being edited, two gates moving with their guides, its half adder being wired, one of its wires being reshaped, the reference's AND in its inspector, the reference zoomed in with its minimap and the canvas's menu, the full adder's transcript beside its hierarchy, the keyboard map, the full adder stepped inside h1, MAKE BLOCK asking for a name, four half adders as one block of four copies, a written adder's code with a fault marked, the full adder's code in the dock's CODE tab, the FILE menu, a project imported with its testbench running, the full adder's critical path lit from the TIMING tab, the LIBRARY menu over it with the full adder held to the course's cells, two written devices on a bus through their inout pins, the start page BitSorter opens on, the EXERCISES page five solved, the half adder's brief with its hint, its CHECK failed with the carry missing, its solved card, the guided tutorial asking for a wire, a first-time hint up, and the INPUTS tab with the reference's bus in hex and two inputs chosen -- every other shot taken with the hints seen) as an Explicit Play
   Mode fixture, so it runs under `SaveGuard` --
   driving the real game for a screenshot by hand once marked a level solved on
   the developer's own save. Frame time is fixed, particle systems are seeded,

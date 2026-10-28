@@ -1783,6 +1783,34 @@ namespace BitSorter.PlayMode.Tests
             yield return Capture("56-first-time-hint");
         }
 
+        /// <summary>Part 15g: the INPUTS tab on the reference -- its bus written in hex, a and b chosen for ALL COMBINATIONS.</summary>
+        [UnityTest]
+        public IEnumerator Shot57_WorkbenchInputsTab()
+        {
+            yield return LoadTheGame();
+            yield return Frames(2);
+
+            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            yield return Frames(2);
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowSample(1);   // the reference
+            yield return Frames(2);
+            workbench.Pause();
+            workbench.Session.Finish();
+            workbench.Seek(13.5);
+            workbench.ShowInputs();
+            yield return Frames(2);
+            int s = workbench.Inputs.Columns.ToList().FindIndex(c => c.Port == "s");
+            workbench.NextInputRadix(s);
+            workbench.ChooseInput(workbench.Inputs.Columns.ToList().FindIndex(c => c.Port == "a"));
+            workbench.ChooseInput(workbench.Inputs.Columns.ToList().FindIndex(c => c.Port == "b"));
+            yield return Frames(30);
+
+            Assert.IsTrue(workbench.InputsShown, "sanity: the tab up");
+            yield return Capture("57-workbench-inputs-tab");
+        }
+
         private static IEnumerator OpenTheHalfAdder()
         {
             yield return TestScene.LoadSimulator();

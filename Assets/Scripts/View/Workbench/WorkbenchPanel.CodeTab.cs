@@ -16,7 +16,7 @@ namespace BitSorter.View
         /// <summary>The tab's name, and a file's chip's: this, and what the chip says.</summary>
         public const string CodeTabName = "Workbench code tab", CodeFileName = "Workbench code file ";
 
-        private const float CodeTabLeft = 318f, CodeTabWidth = 80f, ChipGap = 8f;
+        private const float CodeTabLeft = TranscriptTabLeft + TranscriptTabWidth + 4f, CodeTabWidth = 80f, ChipGap = 8f;
 
         private ShellButton _codeTabButton;
         private VisualElement _codeTools;

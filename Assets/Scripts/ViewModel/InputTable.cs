@@ -161,6 +161,33 @@ namespace BitSorter.ViewModel
             return new InputTable(stimulus, columns, RowsOf(stimulus, columns, times, pending), why, step, radixes, chosen, pending);
         }
 
+        /// <summary>
+        /// The top's inputs nothing drives: no testbench of the project's own, and no step, start or clock in the stimulus --
+        /// what a design imported without its testbench is left with, each reading z and what it feeds x. The import names them,
+        /// and how to drive them (Part 15g): Ahmad's import of 2026-10-28 showed grey dashes and red hatching, and nothing said why.
+        /// </summary>
+        public static IReadOnlyList<string> Undriven(Project project)
+        {
+            var undriven = new List<string>();
+            Module top = project.TopModule;
+            if (project.Bench != null || top == null)
+                return undriven;
+
+            Stimulus stimulus = project.Stimulus ?? new Stimulus();
+            foreach (ModulePort port in WrittenModules.PortsOf(project, top))
+            {
+                if (port.Direction != PortDirection.Input || ClockOf(stimulus, port.Name) > 0)
+                    continue;
+                bool driven = false;
+                foreach (Track track in stimulus.Tracks)
+                    driven |= string.Equals(track.Port, port.Name, StringComparison.Ordinal) && (track.Steps.Count > 0 || track.Start.HasValue);
+                if (!driven)
+                    undriven.Add(port.Name);
+            }
+
+            return undriven;
+        }
+
         /// <summary>A value as a cell writes it: its digits in <paramref name="radix"/>, a bit as 0, 1, x or z.</summary>
         public static string Text(LogicVec value, Radix radix) =>
             value.Width == 1 ? value.Format(Radix.Binary) : !value.IsKnown && radix == Radix.Unsigned ? value.Format(Radix.Hex) : value.Format(radix);

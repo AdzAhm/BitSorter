@@ -208,6 +208,25 @@ namespace BitSorter.ViewModel.Tests
             Assert.AreEqual(BoardEditor.ExerciseDrivesTheInputs, made.Refusal);
         }
 
+        /// <summary>The inputs nothing drives -- no step, start or clock -- which an import without its testbench names.</summary>
+        [Test]
+        public void TheInputsNothingDrives_AreNamed()
+        {
+            WorkbenchSession session = Session();
+            CollectionAssert.IsEmpty(InputTable.Undriven(session.Project), "a and s both have steps");
+
+            EditResult emptied = session.SetStimulus(session.Project.Stimulus with
+            {
+                Tracks = session.Project.Stimulus.Tracks.Where(t => t.Port != "s").ToArray(),
+            }, 0);
+            Assert.IsTrue(emptied.Done, emptied.Refusal);
+            CollectionAssert.AreEqual(new[] { "s" }, InputTable.Undriven(session.Project).ToArray());
+
+            Assert.IsTrue(InputTable.Of(session.Project).Choose(0).TryClock(out Stimulus clocked, out string refusal), refusal);
+            Assert.IsTrue(session.SetStimulus(clocked with { Tracks = new Track[0] }, 0).Done);
+            CollectionAssert.AreEqual(new[] { "s" }, InputTable.Undriven(session.Project).ToArray(), "a clock is driven");
+        }
+
         [TestCase("A", 4, Radix.Hex, "1010")]
         [TestCase("1010", 4, Radix.Binary, "1010")]
         [TestCase("10", 4, Radix.Unsigned, "1010")]

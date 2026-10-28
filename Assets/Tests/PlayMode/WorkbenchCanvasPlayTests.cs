@@ -500,6 +500,84 @@ namespace BitSorter.PlayMode.Tests
             yield return Tap(_keyboard.escapeKey);
         }
 
+        /// <summary>An input's value at a moment, in binary, as the stimulus gives it.</summary>
+        private static string InputAt(WorkbenchPanel workbench, string port, long time) =>
+            StimulusEdits.ValueAt(workbench.Session.Project.Stimulus, port, time)?.Format(Radix.Binary);
+
+        /// <summary>
+        /// The INPUTS tab (Part 15g): a bus value typed into its cell in hex, ALL COMBINATIONS of two inputs chosen by their
+        /// columns' names, Ctrl+Z taking that back in one step -- and in an exercise, the table refusing an edit in the
+        /// document's words, as SET does.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator TheInputsTab_TakesABusValueTyped_AndAllCombinations_AndUndo_AndRefusesInAnExercise()
+        {
+            yield return TestScene.LoadSimulator();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowSample(1);   // the reference, the chip's first sample: a, b, s[3:0], d and en
+            yield return null;
+            workbench.ShowInputs();
+            yield return null;
+            yield return null;
+            Assert.IsNotNull(workbench.Inputs, "sanity: the table, made as its tab came up");
+            Assert.IsTrue(workbench.Inputs.Columns.Any(c => c.Port == "s" && c.Width == 4), "sanity: the reference's bus is a column");
+
+            // s written in hex, and C typed into its first row's cell.
+            ShellPanel.Submit(ShellPanel.Find<UnityEngine.UIElements.Button>(WorkbenchPanel.InputRadixName + "s"));
+            yield return null;   // drawn again
+            yield return null;   // and laid out, so the cell has a place to click
+            yield return null;
+            long first = workbench.Inputs.Rows[0].Time;
+            UnityEngine.UIElements.TextField cell = ShellPanel.Find<UnityEngine.UIElements.TextField>(WorkbenchPanel.InputCellName + "s 0");
+            Assert.IsNotNull(cell, "s's cell in the first row");
+            yield return ClickAtScreen(ShellPanel.ScreenPointOf(cell));
+            cell.value = "C";
+            yield return null;
+            Press(_keyboard.enterKey);
+            ShellPanel.SendKey(cell, KeyCode.Return);
+            yield return null;
+            Release(_keyboard.enterKey);
+            yield return null;
+            yield return null;
+            Assert.AreEqual("1100", InputAt(workbench, "s", first), "C, in a hex column, is 1100");
+
+            // a and b chosen by their names, and every combination of them.
+            BitSorter.Board.Stimulus typed = workbench.Session.Project.Stimulus;
+            ShellPanel.Submit(ShellPanel.Find<UnityEngine.UIElements.Button>(WorkbenchPanel.InputColumnName + "a"));
+            yield return null;
+            ShellPanel.Submit(ShellPanel.Find<UnityEngine.UIElements.Button>(WorkbenchPanel.InputColumnName + "b"));
+            yield return null;
+            ShellPanel.Submit(ShellPanel.Find<UnityEngine.UIElements.Button>(WorkbenchPanel.AllCombinationsName));
+            yield return null;
+            long step = workbench.Inputs.Step;
+            Assert.AreEqual(("0", "0"), (InputAt(workbench, "a", 0), InputAt(workbench, "b", 0)));
+            Assert.AreEqual(("0", "1"), (InputAt(workbench, "a", step), InputAt(workbench, "b", step)));
+            Assert.AreEqual(("1", "0"), (InputAt(workbench, "a", 2 * step), InputAt(workbench, "b", 2 * step)));
+            Assert.AreEqual(("1", "1"), (InputAt(workbench, "a", 3 * step), InputAt(workbench, "b", 3 * step)), "a the most significant");
+
+            Press(_keyboard.leftCtrlKey);
+            yield return Tap(_keyboard.zKey);
+            Release(_keyboard.leftCtrlKey);
+            yield return null;
+            Assert.AreSame(typed, workbench.Session.Project.Stimulus, "Ctrl+Z took ALL COMBINATIONS back, in one step");
+
+            // In an exercise: its own test's table, and an edit refused in the document's words.
+            workbench.OpenExercise("half-adder");
+            yield return null;
+            workbench.ExerciseCard.Close();
+            yield return null;
+            workbench.ShowInputs();
+            yield return null;
+            yield return null;
+            Assert.IsTrue(workbench.Inputs.ReadOnly);
+            Assert.IsTrue(workbench.Inputs.Columns.Any(c => !c.IsInput), "the outputs its test checks, with the values it wants");
+            BitSorter.Board.Stimulus test = workbench.Session.Project.Stimulus;
+            workbench.SetInputCell(0, 0, workbench.Inputs.Rows[0].Cells[0] == "1" ? "0" : "1");
+            yield return null;
+            Assert.AreSame(test, workbench.Session.Project.Stimulus, "nothing changed");
+            Assert.AreEqual(BitSorter.Board.BoardEditor.ExerciseDrivesTheInputs, workbench.ChipText, "and the chip says why");
+        }
+
         /// <summary>
         /// A wire clicked is selected, its corners drawn as handles, and a drag on one of its pieces moves the piece
         /// across itself -- one step, layout only, nothing replayed (Part 10b-2).

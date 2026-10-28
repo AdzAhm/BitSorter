@@ -36,11 +36,12 @@ namespace BitSorter.View
         /// <summary>The + or - opening or shutting a scope's row: this, and its place on screen.</summary>
         public const string ScopeToggleName = "Workbench scope toggle ";
 
-        // The tools start right of the four tabs: WAVES, TRANSCRIPT, CODE (Part 12e) and TIMING (Part 14b).
+        // The tools start right of the five tabs: WAVES, INPUTS (Part 15g), TRANSCRIPT, CODE (Part 12e) and TIMING (Part 14b).
         private const float TabHeight = 30f, TranscriptRowHeight = 26f, ScopeRowHeight = 26f, ScopeIndent = 14f,
+            TranscriptTabLeft = InputsTabLeft + InputsTabWidth + 4f, TranscriptTabWidth = 210f,
             ToolsLeft = TimingTabLeft + TimingTabWidth + 12f;
 
-        private enum DockTab { Waves, Transcript, Code, Timing }
+        private enum DockTab { Waves, Inputs, Transcript, Code, Timing }
 
         private DockTab _dockTab = DockTab.Waves;
         private bool _designTab;
@@ -74,8 +75,9 @@ namespace BitSorter.View
             _wavesTabButton = Tab(WavesTabName, "WAVES", palette, () => ShowDockTab(DockTab.Waves));
             ShellTheme.Place(_wavesTabButton, 8f, 6f, 92f, TabHeight);
             header.Add(_wavesTabButton);
+            BuildInputsTab(header, palette);
             _transcriptTabButton = Tab(TranscriptTabName, "TRANSCRIPT", palette, () => ShowDockTab(DockTab.Transcript));
-            ShellTheme.Place(_transcriptTabButton, 104f, 6f, 210f, TabHeight);
+            ShellTheme.Place(_transcriptTabButton, TranscriptTabLeft, 6f, TranscriptTabWidth, TabHeight);
             header.Add(_transcriptTabButton);
 
             _dockUnderline = new VisualElement { name = "underline", pickingMode = PickingMode.Ignore };
@@ -112,8 +114,14 @@ namespace BitSorter.View
         {
             bool entering = _dockTab != tab;
             _dockTab = tab;
-            bool waves = tab == DockTab.Waves, transcript = tab == DockTab.Transcript, code = tab == DockTab.Code, timing = tab == DockTab.Timing;
+            bool waves = tab == DockTab.Waves, transcript = tab == DockTab.Transcript, code = tab == DockTab.Code, timing = tab == DockTab.Timing,
+                inputs = tab == DockTab.Inputs;
             _wavesTools.style.display = waves ? DisplayStyle.Flex : DisplayStyle.None;
+            if (_inputsTools != null)
+                _inputsTools.style.display = inputs ? DisplayStyle.Flex : DisplayStyle.None;
+            if (_inputsList != null)
+                _inputsList.style.display = inputs ? DisplayStyle.Flex : DisplayStyle.None;
+            _inputsDrawn = false;
             _transcriptTools.style.display = transcript ? DisplayStyle.Flex : DisplayStyle.None;
             _transcriptList.style.display = transcript ? DisplayStyle.Flex : DisplayStyle.None;
             if (_codeTools != null)
@@ -145,8 +153,10 @@ namespace BitSorter.View
             }
 
             SchematicPalette palette = SchematicPalette.Current;
-            ShellButton shown = waves ? _wavesTabButton : transcript ? _transcriptTabButton : code ? _codeTabButton : _timingTabButton;
+            ShellButton shown = waves ? _wavesTabButton : inputs ? _inputsTabButton : transcript ? _transcriptTabButton : code ? _codeTabButton : _timingTabButton;
             _wavesTabButton.style.color = waves ? palette.Text : palette.TextDim;
+            if (_inputsTabButton != null)
+                _inputsTabButton.style.color = inputs ? palette.Text : palette.TextDim;
             _transcriptTabButton.style.color = transcript ? palette.Text : palette.TextDim;
             if (_codeTabButton != null)
                 _codeTabButton.style.color = code ? palette.Text : palette.TextDim;

@@ -3007,6 +3007,31 @@ the board's own editor and printed.
 - `PinLeadTests` holds every pin of every part the strip makes to a lead of at least a quarter cell, the ports' boxes
   inside their outlines, and the pins of the parts that stepped back where they were.
 
+**As built in Part 15g-4: INPUTS, sequences without code.** Ahmad asked for a way to make input sequences and vectors
+without code, for buses as well as bits (2026-10-28): a double-click on the waves flipped a bit or asked for one value.
+
+- **The board's edits** (`StimulusEdits`, pure, each a stimulus or a refusal in words): `TrySetStep` (a cell typed or
+  emptied), `TryRemoveRow` and `TryMoveRow` (every input's step at a moment), `TryFillCombinations` (every combination of
+  the chosen inputs, the first the most significant, up to `MaxCombinationBits`, 10), `TryFillCount` (a bus counting up,
+  `MaxCount`, 256, at most), `TryMakeClock` and `TryUnmakeClock`, and `TrySetEnd`. Each keeps the fewest steps that say the
+  same thing, so a value an input already holds is no step, and a fill ends the run a step after its last row if it ended
+  sooner.
+- **The view-model's table** (`InputTable`): a column per input of the top -- a drawn top's ports or a written one's
+  header -- in its own radix, BIN, HEX or DEC; a row per moment something changes, each cell what an input changes to then,
+  or empty. Its own state -- radixes, chosen columns, STEP, a row added with + ROW and not filled -- is carried from the
+  table before, each change in a copy. A cell takes digits in its column's radix or any literal. Every edit gives the
+  stimulus to commit and the moment the run changes from, committed by `WorkbenchSession.SetStimulus` as one undo step and
+  replayed from there, as SET's is.
+- **In an exercise it is read only** and shows the exercise's own test: its rows, and a column of the value wanted for each
+  output it checks. An edit is refused in the document's words -- `BoardEditor.ExerciseDrivesTheInputs`, now one constant
+  for SET and the table -- and with a written testbench, `BoardRules.BenchDrivesTheInputs`.
+- **The tab** (`WorkbenchPanel.Inputs.cs`) sits beside WAVES, the other tabs a tab further right. Its header has + ROW,
+  STEP, ALL COMBINATIONS, COUNT, CLOCK and END; a column's name chooses it, its radix under the name changes that. The
+  wheel scrolls the rows, Shift with it the columns. A field let go as it was is no edit, so a redraw that takes a field
+  away makes no undo step.
+- **An import without its testbench says which inputs nothing drives** (`InputTable.Undriven`): they read z and what they
+  feed x, and the notice says how to drive them -- INPUTS, a double-click on the wave, or importing the testbench too.
+
 ---
 
 ## 11. The parts
@@ -3030,7 +3055,7 @@ Each part is one pull request into `v5`, ends with every suite green, and leaves
 | 12 | Hierarchy, and written blocks, edited in CodeMirror in a browser -- in six: 12a stepping inside a block **built** (see "As built in Part 12a"); 12b making a block **built** (see "As built in Part 12b"); 12c arrays **built** (see "As built in Part 12c"); 12d code blocks **built** (see "As built in Part 12d"); 12e the code panel **built** (see "As built in Part 12e"); 12f CodeMirror **built** (see "As built in Part 12f") |
 | 13 | Export and import (and a levelized path in the engine, only if a measurement asks for it) -- in six: 13a exporting a project **built** (see "As built in Part 13a"); 13b importing one **built** (see "As built in Part 13b"); 13c CONVERT **built** (see "As built in Part 13c"); 13d files **built** (see "As built in Part 13d"); 13e templates **built** (see "As built in Part 13e"); 13f limits, the security review, the measurement and the browser check **built** (see "As built in Part 13f"; the levelized path is not needed). **Part 13 is built.** |
 | 14 | The course's tools: path delays, static timing, gate-library mode, step tests, lint, tri-state -- in six, **built**: 14a the timing analysis core, 14b the TIMING tab, 14c step tests, 14d gate-library mode, 14e lint and 14f tri-state buses and inout (see "As built in Part 14a" to "14f"); and 14g, its follow-ups: deleting a module, the code editor's keys, the library held in written code and over budget, and inout pins on written blocks (see "As built in Part 14g") |
-| 15 | A simulator first, the Exercises and the tutorial -- in six: 15a **built** in two (see "As built in Part 15a"): the student's circuits, and opening on the last thing or a start page, the app's menus for BACK, the 4.x game in Settings, music off; 15b the Exercise model, grading and self-checking testbenches **built** (see "As built in Part 15b"); 15c the 35 exercises **built** (see "As built in Part 15c"); 15d Exercises on the workbench **built** (see "As built in Part 15d"); 15e answering in code **built** (see "As built in Part 15e"); 15f first-time hints, the guided tutorial and the browser check **built** (see "As built in Part 15f"). **Part 15 is built.** Then 15g, what the first playtest asked for: 15g-1 the quick fixes **built** (see "As built in Part 15g-1"); 15g-2 Settings and the credits as pages of the workbench **built** (see "As built in Part 15g-2"); 15g-3 a lead on every pin **built** (see "As built in Part 15g-3"); 15g-4 INPUTS, sequences without code; 15g-5 LOGIC, the truth table, expressions and K-maps; 15g-6 STATES, the state diagram; 15g-7 big circuits stay smooth. And 15h, a drawing of any code, planned on its own. |
+| 15 | A simulator first, the Exercises and the tutorial -- in six: 15a **built** in two (see "As built in Part 15a"): the student's circuits, and opening on the last thing or a start page, the app's menus for BACK, the 4.x game in Settings, music off; 15b the Exercise model, grading and self-checking testbenches **built** (see "As built in Part 15b"); 15c the 35 exercises **built** (see "As built in Part 15c"); 15d Exercises on the workbench **built** (see "As built in Part 15d"); 15e answering in code **built** (see "As built in Part 15e"); 15f first-time hints, the guided tutorial and the browser check **built** (see "As built in Part 15f"). **Part 15 is built.** Then 15g, what the first playtest asked for: 15g-1 the quick fixes **built** (see "As built in Part 15g-1"); 15g-2 Settings and the credits as pages of the workbench **built** (see "As built in Part 15g-2"); 15g-3 a lead on every pin **built** (see "As built in Part 15g-3"); 15g-4 INPUTS, sequences without code **built** (see "As built in Part 15g-4"); 15g-4 INPUTS, sequences without code; 15g-5 LOGIC, the truth table, expressions and K-maps; 15g-6 STATES, the state diagram; 15g-7 big circuits stay smooth. And 15h, a drawing of any code, planned on its own. |
 | 16 | The old game retired, and a smaller download; 5.0.0 released |
 
 **Agreed after Part 9, 2026-10-19: the language, before Part 10.** A course audit ran every one of the

@@ -169,7 +169,25 @@ namespace BitSorter.View
                 (written > 0 ? ", " + written.ToString(CultureInfo.InvariantCulture) + " of them written" : "") +
                 (project.Bench != null ? ", run by its testbench " + project.Bench : "") +
                 (templates > 0 ? ". " + Count(templates, "course template") + ": write between the markers, then FILE, EXPORT FOR SUBMISSION" : "") +
+                Undriven(project) +
                 (import.Notes.Count > 0 ? ". The TRANSCRIPT has what the import said" : ""));
+        }
+
+        /// <summary>
+        /// What the notice adds for inputs nothing drives (Part 15g, <see cref="InputTable.Undriven"/>): which, that they read z
+        /// and what they feed x, and the three ways to drive them. A design imported without its testbench showed grey dashes and
+        /// red hatching, and nothing said why (Ahmad's import, 2026-10-28).
+        /// </summary>
+        private static string Undriven(Project project)
+        {
+            IReadOnlyList<string> undriven = InputTable.Undriven(project);
+            if (undriven.Count == 0)
+                return "";
+            string names = undriven.Count <= 4
+                ? string.Join(", ", undriven)
+                : string.Join(", ", new List<string>(undriven).GetRange(0, 3)) + " and " + (undriven.Count - 3).ToString(CultureInfo.InvariantCulture) + " more";
+            return ". Nothing drives " + names + " yet, so " + (undriven.Count == 1 ? "it reads" : "they read") +
+                " z and what they feed x: give them values in INPUTS, double-click their waves, or import the testbench too";
         }
 
         /// <summary>The project what the transcript's notes say was said about; null for none.</summary>

@@ -317,6 +317,14 @@ Every pin nothing is wired to yet has a short lead with an open circle at its en
 point at one and it lights, and a drag from there draws a wire. While you draw one,
 the pins it can end on show their circles.
 
+**INPUTS**, beside WAVES, is what the inputs are given, as a table you type in: a
+column per input -- a bus is one column, in binary, hex or decimal -- and a row per
+moment something changes. Click columns' names to choose them, then **ALL
+COMBINATIONS** fills in every combination of them, **COUNT** counts a bus up, and
+**CLOCK** makes one a clock; **+ ROW**, **STEP** and **END** do the rest. `Ctrl`+`Z`
+takes any of it back. A design imported without its testbench says which inputs
+nothing drives yet.
+
 ### Exercises (5.0 preview)
 
 The thirty levels of 4.x come back as **exercises**, with five new ones on
