@@ -3194,6 +3194,41 @@ the slower of the two, and it was made more than once an edit.
   - Settings is held to fitting a 1080 screen;
   - reference shot 60 is the page.
 
+**As built beside Part 15h: what Ahmad's own ALU found.** On 2026-10-28 Ahmad imported a 64-bit ALU of his own, written
+as code with its testbench, into a browser build. These are the fixes; the drawing of code is the rest of Part 15h.
+
+- **TIMING's rows fold** (`TimingFold`, view-model). His ALU listed two hundred paths, each cut short.
+  - A section folds under an arrow: a labelled line and the unlabelled lines under it, such as PATHS and its paths. It
+    starts shut past eight lines.
+  - A line too long for its row opens onto the rows under it. It is cut after a comma, or at the gap between a path's
+    ends and its gates, so no name is split.
+  - A choice is kept by what it is about: a section by its label, a line by its text. So it outlives the view made again
+    after every edit.
+  - The arrow is a Painter2D triangle. A press on it picks nothing; a press on any row of a line picks the line.
+- **INPUTS under a written testbench shows what it applies** (`InputTable.AppliedBy`).
+  - The rows are what CONVERT would record from a run of the testbench (`BenchConverter`). The table was column heads
+    over nothing.
+  - It is read only:
+    - the editing tools are hidden, with CONVERT in their place, asking first;
+    - a line over the table says in full whose values they are and how to change them;
+    - its cells are text.
+  - A testbench CONVERT refuses has no rows and says why (`CannotConvert`).
+  - The conversion runs only while the tab is up, once per document change.
+- **A click on the waves places the cursor, and Shift and a click moves the playhead.**
+  - The waves are drawn only up to the playhead, so a click back in a finished run hid the rest of it.
+  - A press within 6 px of the playhead's line still drags it.
+  - The values column and the circuit still follow the playhead.
+- **The waves zoom out past the run** (`WaveView.MinZoom`): as far as the run across a quarter of the strip. The fit is
+  a stop on the way in and out. Zoom stopped at the run's end, and Ahmad asked for a limit "not at the limit of the line".
+- **An empty field shows its caret in a browser.** It is placed at the text's start, measured from nothing. Only a
+  browser build showed the fault.
+- **The desktop hint says "this design"**, never "a drawing": written code is as slow to work out, and his has no drawing.
+- **Tests**:
+  - `TimingFoldTests`, `InputTableTests` (a testbench's rows, and one CONVERT refuses), `CursorTests` and
+    `WaveViewTests`, all under dotnet;
+  - Play Mode: the fold's arrows and rows on a 16-bit adder, INPUTS and its CONVERT on an imported testbench, the cursor
+    placed by a click, the playhead by Shift and by its line, and an empty field's caret.
+
 ---
 
 ## 11. The parts

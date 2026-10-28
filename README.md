@@ -320,13 +320,19 @@ Every pin nothing is wired to yet has a short lead with an open circle at its en
 point at one and it lights, and a drag from there draws a wire. While you draw one,
 the pins it can end on show their circles.
 
+**On the waves**, a click puts a cursor there and a drag moves it through the run,
+reading any moment; `Shift` and a click moves the playhead, the moment the circuit
+shows. The time between the two is written under the rows. The wheel zooms, out
+past the end of the run as far as a quarter of the strip.
+
 **INPUTS**, beside WAVES, is what the inputs are given, as a table you type in: a
 column per input -- a bus is one column, in binary, hex or decimal -- and a row per
 moment something changes. Click columns' names to choose them, then **ALL
 COMBINATIONS** fills in every combination of them, **COUNT** counts a bus up, and
 **CLOCK** makes one a clock; **+ ROW**, **STEP** and **END** do the rest. `Ctrl`+`Z`
 takes any of it back. A design imported without its testbench says which inputs
-nothing drives yet.
+nothing drives yet. While a testbench of your own drives them, the table shows what
+it applies, read only, with **CONVERT** beside it to turn them into rows you can edit.
 
 **LOGIC**, beside TIMING, shows what a circuit without registers does: its truth
 table, found by running it through every combination of its inputs (up to ten
@@ -389,7 +395,7 @@ gives them back out:
   more than a course project needs; a larger file is left out and named, and so
   is a file no module uses, such as a handout or the simulator's own logs.
 - **Convert.** While your testbench drives the inputs, they cannot be set on the
-  waves. FILE, CONVERT records what the testbench drove and makes it steps you can
+  waves. CONVERT, in the FILE menu or on the INPUTS tab, records what the testbench drove and makes it steps you can
   edit; it says first what it will not keep (what the testbench printed or
   checked), and Ctrl+Z undoes it.
 - **Export.** EXPORT PROJECT saves a zip of every file the project is, with a
@@ -424,7 +430,9 @@ Once a circuit works, the workbench answers the questions the course asks of it:
   an output, worked out by the textbook rule: each gate adds its Tpdlh where its
   output rises and its Tpdhl where it falls. Paths through the same gates are
   grouped, and the slowest comes first. The critical path is lit on the circuit,
-  and clicking another path lights that one. For a circuit with registers, give
+  and clicking another path lights that one. A long list folds away under the arrow
+  beside PATHS, and the arrow beside a path too long for its row shows all of it.
+  For a circuit with registers, give
   each its clock-to-Q and setup in its inspector, and the tab gives the minimum
   clock period and the frequency that allows. The tab also counts the gates.
 - **The measured worst.** For a circuit of up to ten input bits and no registers,
