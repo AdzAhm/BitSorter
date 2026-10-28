@@ -989,7 +989,15 @@ failure side.
   the drawing changes; and while a wire is drawn the pins it may end on show
   theirs (`PinEnds`, at most 300) -- a guide by direction and the bus rule, found
   again after any edit; the document still has the last word as the wire ends.
-  Ahmad asked for "a small tiny line that we can wire from" (2026-10-28). **A double-click on a part or a wire, or Enter
+  Ahmad asked for "a small tiny line that we can wire from" (2026-10-28). **A big
+  drawing stays smooth** (Part 15g): the session routes a document once for the
+  drawing, the hit map and a wire being drawn (`WorkbenchSession.RoutesOf`), which
+  each routed it for themselves; a drag routes only the wires on the parts it moves,
+  round the rest where they lie (`WireGeometry.Following`, a preview the drop routes
+  whole); and a route tried asks only the squares of the board it crosses
+  (`WireObstacles`) -- every route as it was, held to the character on fifty
+  drawings. In a browser, a drawing slow to draw again says once a run that the
+  desktop version is faster (`DesktopHint`). **A double-click on a part or a wire, or Enter
   with one selected, puts the keyboard in its inspector** (Part 10c), docked since
   11b-2: the bar under the toolbar holds every field and the side panel the quick
   ones with the part's line under them (a gate's rise is Tpdlh, its fall Tpdhl),

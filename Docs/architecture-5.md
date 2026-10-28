@@ -3111,6 +3111,50 @@ is built (2026-10-28).
   drawn and tabled with no circle over its neighbour, an input edit keeping the machine, two states side by side and
   apart, and the adder told why there is none.
 
+**As built in Part 15g-7: big circuits stay smooth.** Ahmad asked whether TIMING would slow a big project down
+(2026-10-28). Measured under dotnet on drawn ripple adders -- 8n + 4 parts, so the 128-bit one is 1,028 -- the drawing was
+the slower of the two, and it was made more than once an edit.
+
+| 1,028 parts | before | after |
+| --- | --- | --- |
+| routing every wire | 1,039 ms | about 290 ms |
+| times the drawing is routed an edit | 2, or 3 while a wire is drawn | 1 |
+| a step of a drag | 302 ms | under 1 ms |
+| the TIMING tab | 216 ms (the analysis 84) | about 80 ms, the analysis itself |
+
+- **The router asks only what is near** (`WireObstacles`): corners, pins and part bodies are kept by the square of the
+  board they are in, two cells a side, a body in every square it covers, and a piece asks only the squares under it. Each
+  of the three is a hit only where it touches the piece's own extent, so the answer is the one asking all of them gave.
+- **A route tried is made only when it is asked about** (`WireGeometry.Avoiding`): a wire across a drawing hundreds of
+  cells wide tries thousands of columns and heights, and each was two lists of points. Each try is kept as what makes it
+  and what it sorts by; sorted as before -- the same keys from the same tries in the same order, through the same unstable
+  sort -- it picks the same route, and its points are made again only for those asked whether they are clear.
+- **Every route is as it was**: a dump of every wire's points and every junction, over every sample, adders of 4, 16 and
+  64 bits, every exercise's solution and the oracle's designs -- fifty drawn modules -- is the same to the character before
+  and after, and the reference shots to the pixel.
+- **Routed once a document** (`WorkbenchSession.RoutesOf`): the drawing (`DocumentSchematic.Build`, given the routes), the
+  canvas's hit map (`CanvasHit`) and a wire being drawn each routed the whole module for themselves. Kept by the module and
+  the project's modules -- a block's outline is its module's -- so an input's steps edited route nothing.
+- **A drag routes only the wires that follow it** (`WireGeometry.Following`): the wires on the moved parts, round the
+  others where they lie; routing every wire again at each step was what made a drag of a big drawing stutter. A preview:
+  the drop routes the whole module, and a following wire may then take another way round a wire that moved too.
+- **TIMING names each signal once**: two hundred paths listed, each look-alike, each signal along them named again, made
+  the view two and a half times its analysis.
+- **Not sliced across frames**, though the plan said so: it was planned for the 1,159 ms the TIMING tab took when measured
+  for the plan; at about 80 ms for a thousand parts, worked out only while something asks for it, slicing would buy less
+  than it costs. Nor routed a slice at a time: an edit's drawing is shown whole or not at all.
+- **What is left**: routing is still about 290 ms for a thousand parts -- making, sorting and asking the tries, a third
+  each -- and more in a browser. Pruning tries by where a run first meets something was looked at and left: a tidied route
+  can fold back over its pin's stub, so a run's being blocked does not always make its route blocked, and only an exact
+  saving keeps every drawing as it is.
+- **The desktop is faster, and a browser says so** (`DesktopHint`): the session times its drawing and its timing by its
+  own clock; in a browser, the first time either takes more than 0.3 s, the notice line says once a run of the game that
+  the desktop version runs it faster -- one codebase, the same features in both builds (agreed with Ahmad, 2026-10-28).
+- **Tests** (`BigDrawingTests`): a drag keeps every other wire as it lay and ends each following wire on its moved pin; the
+  session routes a document once, and an input's edit keeps the routes; the hint's rule; the session timing its own work;
+  and the 1,028-part adder drawn, timed and dragged within budgets -- the drag's tight, since the old way was three hundred
+  times slower.
+
 ---
 
 ## 11. The parts
@@ -3134,7 +3178,7 @@ Each part is one pull request into `v5`, ends with every suite green, and leaves
 | 12 | Hierarchy, and written blocks, edited in CodeMirror in a browser -- in six: 12a stepping inside a block **built** (see "As built in Part 12a"); 12b making a block **built** (see "As built in Part 12b"); 12c arrays **built** (see "As built in Part 12c"); 12d code blocks **built** (see "As built in Part 12d"); 12e the code panel **built** (see "As built in Part 12e"); 12f CodeMirror **built** (see "As built in Part 12f") |
 | 13 | Export and import (and a levelized path in the engine, only if a measurement asks for it) -- in six: 13a exporting a project **built** (see "As built in Part 13a"); 13b importing one **built** (see "As built in Part 13b"); 13c CONVERT **built** (see "As built in Part 13c"); 13d files **built** (see "As built in Part 13d"); 13e templates **built** (see "As built in Part 13e"); 13f limits, the security review, the measurement and the browser check **built** (see "As built in Part 13f"; the levelized path is not needed). **Part 13 is built.** |
 | 14 | The course's tools: path delays, static timing, gate-library mode, step tests, lint, tri-state -- in six, **built**: 14a the timing analysis core, 14b the TIMING tab, 14c step tests, 14d gate-library mode, 14e lint and 14f tri-state buses and inout (see "As built in Part 14a" to "14f"); and 14g, its follow-ups: deleting a module, the code editor's keys, the library held in written code and over budget, and inout pins on written blocks (see "As built in Part 14g") |
-| 15 | A simulator first, the Exercises and the tutorial -- in six: 15a **built** in two (see "As built in Part 15a"): the student's circuits, and opening on the last thing or a start page, the app's menus for BACK, the 4.x game in Settings, music off; 15b the Exercise model, grading and self-checking testbenches **built** (see "As built in Part 15b"); 15c the 35 exercises **built** (see "As built in Part 15c"); 15d Exercises on the workbench **built** (see "As built in Part 15d"); 15e answering in code **built** (see "As built in Part 15e"); 15f first-time hints, the guided tutorial and the browser check **built** (see "As built in Part 15f"). **Part 15 is built.** Then 15g, what the first playtest asked for: 15g-1 the quick fixes **built** (see "As built in Part 15g-1"); 15g-2 Settings and the credits as pages of the workbench **built** (see "As built in Part 15g-2"); 15g-3 a lead on every pin **built** (see "As built in Part 15g-3"); 15g-4 INPUTS, sequences without code **built** (see "As built in Part 15g-4"); 15g-5 LOGIC **built** (see "As built in Part 15g-5"); 15g-6 STATES, the state diagram, **built** (see "As built in Part 15g-6"); 15g-7 big circuits stay smooth. And 15h, a drawing of any code, planned on its own. |
+| 15 | A simulator first, the Exercises and the tutorial -- in six: 15a **built** in two (see "As built in Part 15a"): the student's circuits, and opening on the last thing or a start page, the app's menus for BACK, the 4.x game in Settings, music off; 15b the Exercise model, grading and self-checking testbenches **built** (see "As built in Part 15b"); 15c the 35 exercises **built** (see "As built in Part 15c"); 15d Exercises on the workbench **built** (see "As built in Part 15d"); 15e answering in code **built** (see "As built in Part 15e"); 15f first-time hints, the guided tutorial and the browser check **built** (see "As built in Part 15f"). **Part 15 is built.** Then 15g, what the first playtest asked for: 15g-1 the quick fixes **built** (see "As built in Part 15g-1"); 15g-2 Settings and the credits as pages of the workbench **built** (see "As built in Part 15g-2"); 15g-3 a lead on every pin **built** (see "As built in Part 15g-3"); 15g-4 INPUTS, sequences without code **built** (see "As built in Part 15g-4"); 15g-5 LOGIC **built** (see "As built in Part 15g-5"); 15g-6 STATES, the state diagram, **built** (see "As built in Part 15g-6"); 15g-7 big circuits stay smooth **built** (see "As built in Part 15g-7"). And 15h, a drawing of any code, planned on its own. |
 | 16 | The old game retired, and a smaller download; 5.0.0 released |
 
 **Agreed after Part 9, 2026-10-19: the language, before Part 10.** A course audit ran every one of the

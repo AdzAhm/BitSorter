@@ -42,7 +42,9 @@ project and send a pull request.
 so it survives a reload but is per-browser and per-device — and a private window
 or blocked third-party storage will make the game forget between sessions. In
 the browser's fullscreen, the first `Esc` leaves fullscreen — the browser keeps
-that key for itself — so the MENU button is the way to the menu there.
+that key for itself — so the MENU button is the way to the menu there. The same
+simulator runs faster as the desktop build, which a drawing of hundreds of parts
+notices; the browser says so, once, if it is ever slow to draw yours again.
 
 **On Windows**, unzip the release anywhere and run `BitSorter.exe`. Nothing is
 installed and nothing is written outside your own user folder.
