@@ -392,8 +392,10 @@ namespace BitSorter.PlayMode.Tests
             runTo.RegisterCallback<FocusOutEvent>(_ => focusOuts++);
             yield return ClickAt(ShellPanel.ScreenPointOf(runTo));
             Assert.IsTrue(UiText.Typing, "sanity: RUN TO has the keyboard");
-            for (int frame = 0; frame < 10; frame++)
-                yield return null;
+            // Two frames, whatever a frame takes: one for the caret to be placed, one for the layout. It was placed on a timer of
+            // 50 ms of real time, and ten driven frames now and then came in under that, leaving it where it was (2026-10-29).
+            yield return null;
+            yield return null;
             Assert.AreEqual(DisplayStyle.Flex, caret.resolvedStyle.display, "shown once the field has the keyboard");
             float empty = caret.resolvedStyle.left;
             Assert.AreEqual(0f, empty, "an empty field's caret at the text's start, measured from nothing (Part 15h)");
@@ -402,8 +404,8 @@ namespace BitSorter.PlayMode.Tests
 
             runTo.value = "1234";
             runTo.SelectRange(4, 4);
-            for (int frame = 0; frame < 10; frame++)
-                yield return null;
+            yield return null;
+            yield return null;
             Assert.AreEqual(DisplayStyle.Flex, caret.resolvedStyle.display, "shown at once after the cursor moves");
             Assert.Greater(caret.resolvedStyle.left, empty + 10f, "after what was typed");
 
