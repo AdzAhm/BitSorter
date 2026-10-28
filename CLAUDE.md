@@ -718,7 +718,8 @@ failure side.
   input, the paths that never fire marked, and STEP TEST, 14c; and LIBRARY, the gate
   library the design is held to, 14d; and the CLOCK PERIOD CHECK holds an exercise
   to, where an input's or an output's path is slower than register to register,
-  15g) and LOGIC (Part 15g, for logic without registers of up to ten input bits:
+  15g; and PATHS folding under an arrow, shut to begin with past eight, and a line
+  too long for its row opening onto the rows under it, 15h, `TimingFold`) and LOGIC (Part 15g, for logic without registers of up to ten input bits:
   the truth table found by running the engine through every combination, a
   slice a frame as the measured worst is, `LogicTable`; for eight input bits or
   fewer each output as a minimal sum of products, the textbook's way and

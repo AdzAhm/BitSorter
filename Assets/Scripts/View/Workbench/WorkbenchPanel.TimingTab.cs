@@ -19,6 +19,10 @@ namespace BitSorter.View
     /// input and output, and every computed path no step ever fires marked so. An edit starts it again. **STEP TEST**, in the
     /// tab's header, makes the document's own stimulus a step test (<see cref="WorkbenchSession.StepTest"/>), one undo step,
     /// so each delay can be read off the waves with the cursors.
+    ///
+    /// **Its rows fold** (Part 15h, <see cref="TimingFold"/>): an arrow beside PATHS folds its paths away, shut to begin with
+    /// past eight, and one beside a line too long for its row opens it onto the rows under it. Ahmad's imported ALU listed
+    /// two hundred paths, each cut short (2026-10-28).
     /// </remarks>
     public sealed partial class WorkbenchPanel
     {
@@ -28,6 +32,12 @@ namespace BitSorter.View
             BudgetFieldName = "Workbench gate budget";
 
         private const float TimingTabLeft = CodeTabLeft + CodeTabWidth + 4f, TimingTabWidth = 100f;
+
+        // Where a row's text starts and how far from the right it stops, its numbers in between; its arrow just before it.
+        private const float TimingTextLeft = 222f, TimingTextRight = 250f, TimingArrowLeft = 198f, TimingArrowWidth = 22f;
+
+        /// <summary>A row's arrow's name: this and its place on screen.</summary>
+        public const string TimingArrowName = "Workbench timing arrow ";
 
         private ShellButton _timingTabButton;
         private VisualElement _timingTools, _timingList;
@@ -45,6 +55,17 @@ namespace BitSorter.View
         private TimingLine _timingPickedLine;
         private int _timingPicked = -1, _timingFirst;
         private bool _timingDrawn;
+        private readonly TimingFold _timingFold = new TimingFold();
+
+        /// <summary>The timing's rows as the tab last drew them: the lines with PATHS folded or open and long lines opened.</summary>
+        public IReadOnlyList<TimingRow> TimingRows => _timingFold.Rows;
+
+        /// <summary>Folds or opens row <paramref name="row"/>, as a click on its arrow does; a row with no arrow does nothing.</summary>
+        public void ToggleTimingRow(int row)
+        {
+            if (_timingFold.Toggle(row))
+                _timingDrawn = false;
+        }
 
         /// <summary>Whether the dock shows the timing.</summary>
         public bool TimingShown => _dockTab == DockTab.Timing;
@@ -169,8 +190,8 @@ namespace BitSorter.View
             _timingList.style.display = DisplayStyle.None;
             _timingList.RegisterCallback<WheelEvent>(e =>
             {
-                int lines = _timingShown?.Lines.Count ?? 0;
-                _timingFirst = Mathf.Clamp(_timingFirst + (e.delta.y > 0f ? 1 : -1), 0, Mathf.Max(0, lines - TranscriptRowsShown));
+                int rows = _timingFold.Rows.Count;
+                _timingFirst = Mathf.Clamp(_timingFirst + (e.delta.y > 0f ? 1 : -1), 0, Mathf.Max(0, rows - TranscriptRowsShown));
                 _timingDrawn = false;
                 e.StopPropagation();
             });
@@ -295,7 +316,10 @@ namespace BitSorter.View
             SchematicPalette palette = SchematicPalette.Current;
             IReadOnlyList<TimingLine> lines = _timingShown?.Lines ?? new TimingLine[0];
             int shown = TranscriptRowsShown;
-            _timingFirst = Mathf.Clamp(_timingFirst, 0, Mathf.Max(0, lines.Count - shown));
+            // A little under the text's room, for the ruler's face against the shell's: a line it calls a fit is never cut short.
+            float room = Mathf.Max(0f, _regions.Dock.width - TimingTextLeft - TimingTextRight) * 0.96f;
+            IReadOnlyList<TimingRow> rows = _timingFold.Of(lines, room, text => UiTheme.TextWidth(text, UiType.Caption));
+            _timingFirst = Mathf.Clamp(_timingFirst, 0, Mathf.Max(0, rows.Count - shown));
 
             while (_timingRows.Count < shown)
                 _timingRows.Add(TimingRow(_timingRows.Count, palette));
@@ -304,21 +328,26 @@ namespace BitSorter.View
             {
                 VisualElement row = _timingRows[i];
                 int at = _timingFirst + i;
-                bool used = i < shown && at < lines.Count;
+                bool used = i < shown && at < rows.Count;
                 row.style.display = used ? DisplayStyle.Flex : DisplayStyle.None;
                 if (!used)
                     continue;
 
-                TimingLine l = lines[at];
-                bool picked = at == _timingPicked;
+                // A line opened onto the rows under it keeps its label and numbers on its own row, and its mark down all of them.
+                TimingRow r = rows[at];
+                TimingLine l = lines[r.Line];
+                bool picked = r.Line == _timingPicked, own = r.Part < 0;
                 ShellTheme.Place(row, 0f, 4f + i * TranscriptRowHeight, _regions.Dock.width, TranscriptRowHeight);
                 row.style.backgroundColor = picked ? palette.Over(palette.Cursor, 0.18f) : Color.clear;
                 row[0].style.backgroundColor = picked ? palette.Cursor : l.CanPick ? palette.Muted : Color.clear;
-                SetText((Label)row[1], l.Label);
+                SetText((Label)row[1], own ? l.Label : "");
                 ((Label)row[1]).style.color = l.Kind == TimingLineKind.Problem ? palette.Unknown : palette.Text;
-                SetText((Label)row[2], l.Text);
+                SetText((Label)row[2], r.Text);
                 ((Label)row[2]).style.color = l.Kind == TimingLineKind.Fact && !l.CanPick && l.Label.Length == 0 ? palette.TextDim : palette.Text;
-                SetText((Label)row[3], l.Numbers);
+                SetText((Label)row[3], own ? l.Numbers : "");
+                var arrow = (FoldArrow)row[4];
+                arrow.style.display = r.Arrow == TimingArrow.None ? DisplayStyle.None : DisplayStyle.Flex;
+                arrow.Set(r.Arrow == TimingArrow.Open, palette.TextDim);
             }
 
             _timingEmpty.style.display = lines.Count == 0 ? DisplayStyle.Flex : DisplayStyle.None;
@@ -338,24 +367,80 @@ namespace BitSorter.View
             ShellTheme.Place(label, 26f, 0f, 190f, TranscriptRowHeight);
             row.Add(label);
             Label text = ShellTheme.Label("text", "", UiType.Caption, palette.Text);
-            ShellTheme.Place(text, 222f, 0f, -1f, TranscriptRowHeight);
-            text.style.right = 250f;
+            ShellTheme.Place(text, TimingTextLeft, 0f, -1f, TranscriptRowHeight);
+            text.style.right = TimingTextRight;
             ShellTheme.Ellipsis(text);
             row.Add(text);
             Label numbers = ShellTheme.Label("numbers", "", UiType.Caption, palette.Text, TextAnchor.MiddleRight);
             ShellTheme.PlaceRight(numbers, 14f, 0f, 230f, TranscriptRowHeight);
             row.Add(numbers);
 
+            // Its arrow, over the end of the label's column: a press on it folds or opens and picks nothing.
             int at = place;
+            var arrow = new FoldArrow { name = TimingArrowName + place.ToString(System.Globalization.CultureInfo.InvariantCulture) };
+            arrow.AddToClassList(ShellTheme.ControlClass);
+            ShellTheme.Place(arrow, TimingArrowLeft, 0f, TimingArrowWidth, TranscriptRowHeight);
+            arrow.RegisterCallback<PointerDownEvent>(e =>
+            {
+                if (e.button != 0)
+                    return;
+                ToggleTimingRow(_timingFirst + at);
+                e.StopPropagation();
+            });
+            row.Add(arrow);
+
             row.RegisterCallback<PointerDownEvent>(e =>
             {
                 if (e.button != 0)
                     return;
-                PickTiming(_timingFirst + at);
+                int shownAt = _timingFirst + at;
+                if (shownAt < _timingFold.Rows.Count)
+                    PickTiming(_timingFold.Rows[shownAt].Line);
                 e.StopPropagation();
             });
             _timingList.Add(row);
             return row;
+        }
+
+        /// <summary>A TIMING row's arrow: a small triangle, pointing right while what it folds is shut and down while it is open.</summary>
+        private sealed class FoldArrow : VisualElement
+        {
+            private bool _open;
+            private Color _colour;
+
+            public FoldArrow() => generateVisualContent += Draw;
+
+            public void Set(bool open, Color colour)
+            {
+                if (open == _open && colour == _colour)
+                    return;
+                _open = open;
+                _colour = colour;
+                MarkDirtyRepaint();
+            }
+
+            private void Draw(MeshGenerationContext context)
+            {
+                Vector2 c = contentRect.center;
+                const float r = 4.5f;
+                Painter2D painter = context.painter2D;
+                painter.fillColor = _colour;
+                painter.BeginPath();
+                if (_open)
+                {
+                    painter.MoveTo(new Vector2(c.x - r, c.y - r * 0.55f));
+                    painter.LineTo(new Vector2(c.x + r, c.y - r * 0.55f));
+                    painter.LineTo(new Vector2(c.x, c.y + r * 0.75f));
+                }
+                else
+                {
+                    painter.MoveTo(new Vector2(c.x - r * 0.55f, c.y - r));
+                    painter.LineTo(new Vector2(c.x + r * 0.75f, c.y));
+                    painter.LineTo(new Vector2(c.x - r * 0.55f, c.y + r));
+                }
+                painter.ClosePath();
+                painter.Fill();
+            }
         }
     }
 }

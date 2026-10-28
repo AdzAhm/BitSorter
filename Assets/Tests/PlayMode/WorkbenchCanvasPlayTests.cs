@@ -1747,6 +1747,97 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsTrue(workbench.TimingShown, "a click on it opens the TIMING tab");
         }
 
+        /// <summary>A pointer pressed on <paramref name="element"/>'s middle, as UI Toolkit hands it on.</summary>
+        private static void Press(UnityEngine.UIElements.VisualElement element)
+        {
+            var imgui = new Event { type = EventType.MouseDown, button = 0, clickCount = 1, mousePosition = element.worldBound.center };
+            using (UnityEngine.UIElements.PointerDownEvent down = UnityEngine.UIElements.PointerDownEvent.GetPooled(imgui))
+            {
+                down.target = element;
+                element.SendEvent(down);
+            }
+        }
+
+        /// <summary>An <paramref name="bits"/>-bit ripple adder, gate by gate: paths of every length, and one longer than any row.</summary>
+        private static string RippleAdder(int bits)
+        {
+            var s = new System.Text.StringBuilder("module add(input logic cin");
+            for (int i = 0; i < bits; i++)
+                s.Append(", input logic a" + i + ", input logic b" + i);
+            for (int i = 0; i < bits; i++)
+                s.Append(", output logic s" + i);
+            s.Append(", output logic cout);\n");
+            for (int i = 0; i <= bits; i++)
+                s.Append("    wire c" + i + ";\n");
+            for (int i = 0; i < bits; i++)
+                s.Append("    wire t" + i + ", u" + i + ", v" + i + ";\n");
+            s.Append("    buf g0(c0, cin);\n");
+            for (int i = 0; i < bits; i++)
+                s.Append($"    xor x{i}(t{i}, a{i}, b{i});\n    xor y{i}(s{i}, t{i}, c{i});\n    and p{i}(u{i}, a{i}, b{i});\n    and q{i}(v{i}, t{i}, c{i});\n    or r{i}(c{i + 1}, u{i}, v{i});\n");
+            s.Append("    buf g1(cout, c" + bits + ");\nendmodule\n");
+            return s.ToString();
+        }
+
+        /// <summary>
+        /// TIMING's rows fold (Part 15h): a 16-bit adder's paths start shut under PATHS's arrow, and a press on it opens them
+        /// and picks nothing; the critical path, longer than its row, opens onto the rows under it, its label and numbers on
+        /// its own row and its text running on; and a press on a row picks its line, a row it runs on to included. Ahmad's
+        /// imported ALU listed two hundred paths, each cut short (2026-10-28).
+        /// </summary>
+        [UnityTest]
+        public IEnumerator TheTimingTab_FoldsManyPathsUnderAnArrow_AndOpensALongLine()
+        {
+            yield return TestScene.LoadSimulator();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.Import(new[] { new SourceFile("add.sv", RippleAdder(16)) });
+            yield return null;
+            workbench.ShowTiming();
+            yield return null;
+            yield return null;
+
+            TimingView timing = workbench.Timing;
+            Assert.IsNull(workbench.Measuring, "sanity: 33 inputs are too many to measure, so nothing moves under the test");
+            int paths = timing.Lines.ToList().FindIndex(l => l.Label == "PATHS");
+            Assert.Greater(TimingFold.Under(timing.Lines, paths), TimingFold.ShutPast, "sanity: more paths than open to begin with");
+            int header = workbench.TimingRows.ToList().FindIndex(r => r.Line == paths);
+            Assert.AreEqual(TimingArrow.Shut, workbench.TimingRows[header].Arrow, "many paths start shut");
+            Assert.IsFalse(workbench.TimingRows.Any(r => r.Line > paths), "and none of them is a row");
+            UnityEngine.UIElements.VisualElement arrow = ShellPanel.Find<UnityEngine.UIElements.VisualElement>(WorkbenchPanel.TimingArrowName + header);
+            Assert.AreEqual(UnityEngine.UIElements.DisplayStyle.Flex, arrow.resolvedStyle.display, "its arrow drawn");
+
+            int picked = workbench.TimingPicked;
+            Press(arrow);
+            yield return null;
+            yield return null;
+            Assert.AreEqual(TimingArrow.Open, workbench.TimingRows[header].Arrow, "the arrow opens it");
+            Assert.IsTrue(workbench.TimingRows.Any(r => r.Line == paths + 1), "its paths rows");
+            Assert.AreEqual(picked, workbench.TimingPicked, "and a press on the arrow picks nothing");
+            Press(ShellPanel.Find<UnityEngine.UIElements.VisualElement>(WorkbenchPanel.TimingRowName + (header + 1)));
+            yield return null;
+            Assert.AreEqual(paths + 1, workbench.TimingPicked, "a press on a path's row picks it");
+
+            // The critical path, the first row, is longer than any row: its arrow opens it onto the rows under it.
+            int critical = timing.Critical;
+            Assert.AreEqual(0, workbench.TimingRows.ToList().FindIndex(r => r.Line == critical), "sanity: the critical path is the first row");
+            Assert.AreEqual(TimingArrow.Shut, workbench.TimingRows[0].Arrow, "longer than its row, so it opens");
+            Press(ShellPanel.Find<UnityEngine.UIElements.VisualElement>(WorkbenchPanel.TimingArrowName + "0"));
+            yield return null;
+            yield return null;
+            int runsOn = workbench.TimingRows.Count(r => r.Line == critical);
+            Assert.Greater(runsOn, 1, "opened onto the rows under it");
+            string LabelOf(int row) => UnityEngine.UIElements.UQueryExtensions.Q<UnityEngine.UIElements.Label>(ShellPanel.Find<UnityEngine.UIElements.VisualElement>(WorkbenchPanel.TimingRowName + row), "label").text;
+            string NumbersOf(int row) => UnityEngine.UIElements.UQueryExtensions.Q<UnityEngine.UIElements.Label>(ShellPanel.Find<UnityEngine.UIElements.VisualElement>(WorkbenchPanel.TimingRowName + row), "numbers").text;
+            Assert.AreEqual("CRITICAL PATH", LabelOf(0), "its label on its own row");
+            Assert.AreEqual(timing.Lines[critical].Numbers, NumbersOf(0), "and its numbers");
+            Assert.AreEqual("", LabelOf(1), "not on the rows it runs on to");
+            Assert.AreEqual("", NumbersOf(1));
+
+            // A press on a row the critical path runs on to picks it again.
+            Press(ShellPanel.Find<UnityEngine.UIElements.VisualElement>(WorkbenchPanel.TimingRowName + "1"));
+            yield return null;
+            Assert.AreEqual(critical, workbench.TimingPicked, "a row a line runs on to picks the line");
+        }
+
         /// <summary>
         /// The dock's TIMING tab (Part 14b): the full adder's critical path picked and lit from the start -- a to cout through
         /// both blocks and the OR -- another path picked lighting its own, the light following the drawing inside a block, and
