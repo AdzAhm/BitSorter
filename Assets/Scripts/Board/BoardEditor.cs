@@ -680,6 +680,10 @@ namespace BitSorter.Board
 
         private EditResult Commit(Project next, int id = 0, string continuing = null, bool check = true)
         {
+            string locked = Locked(Project, next);
+            if (locked != null)
+                return EditResult.Refused(locked);
+
             if (check)
             {
                 List<BoardDiagnostic> after = BoardRules.Check(next);
@@ -708,6 +712,34 @@ namespace BitSorter.Board
             Project = next;
             Changed?.Invoke();
             return EditResult.Ok(id);
+        }
+
+        /// <summary>
+        /// Why <paramref name="next"/> may not follow <paramref name="now"/> in an exercise (Part 15d), or null when it may: the
+        /// exercise's test drives the inputs, its library is its stock, its top and its ports are what the test drives, and a
+        /// block it stocks is its own -- the student builds round them, never in them.
+        /// </summary>
+        private static string Locked(Project now, Project next)
+        {
+            ProjectSettings settings = now.Settings;
+            if (settings?.Exercise == null)
+                return null;
+
+            if (next.Settings?.Exercise != settings.Exercise)
+                return "This is an exercise, and stays one.";
+            if (!ReferenceEquals(next.Stimulus, now.Stimulus))
+                return "The exercise's own test drives the inputs: they are not set here.";
+            if (!GateLibrary.Alike(next.Settings.Library, settings.Library))
+                return "The exercise's parts are its own: its library is not changed here.";
+            if (next.Top != now.Top)
+                return "The exercise's top is its own.";
+
+            GateLibrary library = settings.Library;
+            if (library != null)
+                foreach (string inside in BoardRules.StockedInsides(now, library.Counted()))
+                    if (!ReferenceEquals(now.Find(inside), next.Find(inside)))
+                        return $"{inside} is a block the exercise gives: its insides are not yours to change.";
+            return null;
         }
 
         private bool TryModule(string name, out Module module, out EditResult refused)

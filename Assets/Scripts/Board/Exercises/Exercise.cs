@@ -520,7 +520,10 @@ namespace BitSorter.Board
             EditResult set = retiming.SetLibrary(Library());
             if (!set.Done)
                 problems.Add(Id + ": " + set.Refusal);
-            project = retiming.Project with { Settings = retiming.Project.Settings with { Library = Library() } };
+            project = retiming.Project with
+            {
+                Settings = retiming.Project.Settings with { Library = Library(), Exercise = Id, RegisterStart = RegisterStart },
+            };
             foreach (ExerciseSignal signal in Inputs)
                 Expect(project, signal, PortDirection.Input, problems);
             foreach (ExerciseSignal signal in Outputs)

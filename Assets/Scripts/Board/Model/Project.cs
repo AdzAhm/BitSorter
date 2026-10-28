@@ -113,6 +113,16 @@ namespace BitSorter.Board
         /// none, and a budget of gates. Null for none: any gate, at any delay.
         /// </summary>
         public GateLibrary Library { get; init; }
+
+        /// <summary>
+        /// The exercise this document answers, by its id, or null for a circuit of the student's own (Part 15d). Its test,
+        /// its library, its top and the blocks it stocks are then the exercise's, and no edit changes them
+        /// (<see cref="BoardEditor"/>).
+        /// </summary>
+        public string Exercise { get; init; }
+
+        /// <summary>What a register placed starts at: an exercise's <c>registerStart</c>, or null for x (Part 15d).</summary>
+        public SystemVerilog.LogicVec? RegisterStart { get; init; }
     }
 
     /// <summary>

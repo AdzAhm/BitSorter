@@ -112,6 +112,12 @@ namespace BitSorter.Board
 
         public LibraryRecord library = new LibraryRecord();
 
+        /// <summary>The exercise the document answers (Part 15d); absent, so none, in every older file.</summary>
+        public string exercise;
+
+        /// <summary>What a register placed starts at (Part 15d); absent or empty for x.</summary>
+        public string registerStart;
+
         /// <summary>The project's other files (Part 13b): includes and memory images. Absent in an older file, which had none.</summary>
         public FileRecord[] files = new FileRecord[0];
 
@@ -127,6 +133,8 @@ namespace BitSorter.Board
                 defaultGateDelay = project.Settings.DefaultGateDelay,
                 hasLibrary = project.Settings.Library != null,
                 library = LibraryRecord.From(project.Settings.Library),
+                exercise = project.Settings.Exercise,
+                registerStart = project.Settings.RegisterStart is LogicVec start ? Text(start) : null,
             };
 
             var modules = new List<ModuleRecord>();
@@ -186,6 +194,8 @@ namespace BitSorter.Board
                     TimeUnit = unit,
                     DefaultGateDelay = defaultGateDelay,
                     Library = hasLibrary ? library?.ToLibrary(problems) : null,
+                    Exercise = string.IsNullOrEmpty(exercise) ? null : exercise,
+                    RegisterStart = string.IsNullOrEmpty(registerStart) ? (LogicVec?)null : Value(registerStart, problems, "where a register starts"),
                 },
                 Files = kept,
             };

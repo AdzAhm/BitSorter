@@ -178,7 +178,7 @@ namespace BitSorter.ViewModel
                     LibraryCell cell = library?.CellFor(entry.Gate, inputs);
                     return new GatePart { Kind = entry.Gate, Inputs = inputs, Rise = cell?.Rise ?? delay, Fall = cell?.Fall ?? delay };
                 case CatalogKind.Mux: return new MuxPart();
-                case CatalogKind.Register: return new RegisterPart();
+                case CatalogKind.Register: return new RegisterPart { Initial = project.Settings?.RegisterStart };   // an exercise's start (Part 15d)
                 case CatalogKind.Splitter: return new SplitterPart();
                 case CatalogKind.Joiner: return new JoinerPart();
                 case CatalogKind.Lamp: return new LampPart();
