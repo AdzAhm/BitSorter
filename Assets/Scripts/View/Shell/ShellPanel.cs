@@ -39,6 +39,22 @@ namespace BitSorter.View
 
         private static readonly List<ShellPanel> Live = new List<ShellPanel>();
 
+#if UNITY_WEBGL && !UNITY_EDITOR
+        /// <summary>
+        /// A browser on a computer types with its keyboard, not a phone's on-screen one (Part 15g). With mobile keyboard
+        /// support on -- the default -- UI Toolkit edits every field as on a phone: it polls the on-screen keyboard a tenth
+        /// of a second apart and lets the field go when that keyboard is not up, which on a computer it never is. The shell
+        /// gave each field back a frame later, so every field flickered, its placeholder on and off, and showed no caret --
+        /// found with a focus log in the browser (2026-10-28). On a phone the support stays.
+        /// </summary>
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+        private static void TypeOnTheComputersKeyboard()
+        {
+            if (!Application.isMobilePlatform)
+                WebGLInput.mobileKeyboardSupport = false;
+        }
+#endif
+
         private UIDocument _document;
 
         // The field given the keyboard -- by a press into it, or by a click or a key that asked for it -- and the frame it

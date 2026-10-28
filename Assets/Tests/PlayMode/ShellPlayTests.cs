@@ -415,6 +415,30 @@ namespace BitSorter.PlayMode.Tests
             Assert.AreEqual(DisplayStyle.None, caret.resolvedStyle.display, "gone with the keyboard");
         }
 
+        /// <summary>
+        /// The transcript's search keeps the keyboard it is given (Part 15g): in the browser it was let go and given back
+        /// every tenth of a second, and its placeholder flickered (Ahmad, 2026-10-28; the browser's own focus log).
+        /// </summary>
+        [UnityTest]
+        public IEnumerator TheTranscriptsSearch_KeepsTheKeyboard()
+        {
+            yield return TestScene.Load();
+            yield return OpenTheWorkbench();
+            Find<WorkbenchPanel>().ShowTranscript();
+            yield return null;
+            yield return null;
+            TextField search = ShellPanel.Find<TextField>(WorkbenchPanel.TranscriptSearchName);
+            int focusIns = 0, focusOuts = 0;
+            search.RegisterCallback<FocusInEvent>(_ => focusIns++);
+            search.RegisterCallback<FocusOutEvent>(_ => focusOuts++);
+            yield return ClickAt(ShellPanel.ScreenPointOf(search));
+            Assert.IsTrue(UiText.Typing, "sanity: the search has the keyboard");
+            for (int frame = 0; frame < 90; frame++)
+                yield return null;
+            Assert.AreEqual(1, focusIns, "given the keyboard once");
+            Assert.AreEqual(0, focusOuts, "and never let go and given back");
+        }
+
         [UnityTest]
         public IEnumerator AClickOffAShellField_OnTheCanvasUnderIt_LetsItGo()
         {
