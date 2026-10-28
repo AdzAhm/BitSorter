@@ -219,14 +219,14 @@ namespace BitSorter.View
         /// <summary>
         /// WRITE IT (Part 15e): the answer's top written as code -- the drawing as it prints, under a header saying the goal and
         /// what it may be built of -- held to the library's cells and the stock as a drawing is. DRAW IT asks first, since the
-        /// code is not kept but by undo, and draws the exercise's own top again.
+        /// code is not kept but by undo, and draws the code as gates (Part 15g), or the exercise's own top where it cannot.
         /// </summary>
         public void WriteOrDraw()
         {
             if (_session == null || _exercise == null || _sample != 0 || !_exercise.Code)
                 return;
             if (_session.Project.TopModule?.IsWritten == true)
-                _ask.Ask(UnderTheChip(CodeButton), "Draw it instead? The code is not kept: the exercise opens drawn, as it starts. Ctrl+Z brings the code back.",
+                _ask.Ask(UnderTheChip(CodeButton), DrawItQuestion,
                     DrawItCaption, DrawIt);
             else
                 WriteIt();
@@ -244,19 +244,29 @@ namespace BitSorter.View
             RefreshCodeButton();
         }
 
-        /// <summary>The answer drawn again, as the exercise starts: what DRAW IT does once asked.</summary>
+        /// <summary>What DRAW IT asks first.</summary>
+        public const string DrawItQuestion = "Draw it instead? Your code is drawn as its gates, or, where it cannot be, the exercise opens as it starts. Ctrl+Z brings the code back.";
+
+        /// <summary>
+        /// The answer drawn again, what DRAW IT does once asked: the code drawn as its gates (Part 15g), or the exercise as it
+        /// starts where the code cannot be drawn, saying why.
+        /// </summary>
         public void DrawIt()
         {
             if (_session == null || _exercise == null || _session.Project.TopModule?.IsWritten != true)
                 return;
             var problems = new List<string>();
-            Module drawn = _exercise.Drawn(_session.Project, problems);
+            var notDrawn = new List<string>();
+            Module drawn = _exercise.Drawn(_session.Project, problems, notDrawn);
             if (drawn == null)
             {
                 Notice("it could not be drawn again: " + string.Join(" ", problems));
                 return;
             }
-            Said(_session.ReplaceModule(drawn));
+            EditResult replaced = _session.ReplaceModule(drawn);
+            Said(replaced);
+            if (replaced.Done && notDrawn.Count > 0)
+                Notice("the code could not be drawn, so the exercise opens as it starts: " + string.Join(" ", notDrawn));
             RefreshCodeButton();
         }
 

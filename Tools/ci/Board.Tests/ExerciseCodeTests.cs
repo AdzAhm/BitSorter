@@ -189,20 +189,70 @@ endmodule
         }
 
         [Test]
-        public void DrawnAgain_ItIsTheExercisesOwnTop_CountingItsIdsOn()
+        public void DrawnAgain_ItIsTheCodeDrawn_CountingItsIdsOn()
         {
             Exercise exercise = ExerciseFiles.Load("half-adder");
             Project project = Answered(exercise, HalfAdder);
             var problems = new List<string>();
-            Module drawn = exercise.Drawn(project, problems);
+            var notDrawn = new List<string>();
+            Module drawn = exercise.Drawn(project, problems, notDrawn);
             Assert.IsNotNull(drawn, string.Join("\n", problems));
+            CollectionAssert.IsEmpty(notDrawn, "the code is drawn");
             Assert.IsFalse(drawn.IsWritten);
             CollectionAssert.AreEquivalent(Opened(exercise).TopModule.Ports.Select(p => p.Name), drawn.Ports.Select(p => p.Name));
+            CollectionAssert.AreEquivalent(new[] { BitSorter.Sim.GateKind.Xor, BitSorter.Sim.GateKind.And }, drawn.Parts.OfType<GatePart>().Select(g => g.Kind),
+                "its gates, as the code has them (Part 15g: it drew the exercise as it starts)");
             Assert.GreaterOrEqual(drawn.NextId, project.TopModule.NextId, "no id given twice");
 
             var editor = new BoardEditor(project);
             Assert.IsTrue(editor.ReplaceModule(drawn).Done);
             Assert.IsFalse(editor.Project.TopModule.IsWritten);
+            Assert.IsTrue(ExerciseGrader.Grade(exercise, editor.Project).Solved, "drawn, it still solves the exercise");
+        }
+
+        [Test]
+        public void CodeThatCannotBeDrawn_OpensTheExerciseAsItStarts_SayingWhy()
+        {
+            Exercise exercise = ExerciseFiles.Load("half-adder");
+            // Gates only, so it is an answer, but in a generate loop, which an import does not draw.
+            Project project = Answered(exercise, "module half_adder (input logic a, input logic b, output logic sum, output logic carry);\n" +
+                "    genvar i;\n    for (i = 0; i < 1; i++) begin : one\n        xor #1 g1 (sum, a, b);\n    end\n" +
+                "    and #1 g2 (carry, a, b);\nendmodule\n");
+            var problems = new List<string>();
+            var notDrawn = new List<string>();
+            Module drawn = exercise.Drawn(project, problems, notDrawn);
+            Assert.IsNotNull(drawn, string.Join("\n", problems));
+            CollectionAssert.IsNotEmpty(notDrawn, "it says why the code was not drawn");
+            Assert.IsFalse(drawn.IsWritten);
+            Assert.IsEmpty(drawn.Parts.OfType<GatePart>(), "the exercise as it starts: its ports, no gates");
+        }
+
+        [Test]
+        public void EverySolution_WrittenThenDrawn_IsItsCodeDrawn_AndStillSolves()
+        {
+            foreach (string id in ExerciseFiles.Ids())
+            {
+                Exercise exercise = ExerciseFiles.Load(id);
+                if (!exercise.Code)
+                    continue;
+                Project solution = ExerciseFiles.Solution(exercise);
+                Grade solved = ExerciseGrader.Grade(exercise, solution);
+                var editor = new BoardEditor(Opened(exercise));
+                EditResult wrote = editor.ReplaceModule(exercise.Written(solution));
+                Assert.IsTrue(wrote.Done, $"{id}: {wrote.Refusal}");
+
+                var problems = new List<string>();
+                var notDrawn = new List<string>();
+                Module drawn = exercise.Drawn(editor.Project, problems, notDrawn);
+                Assert.IsNotNull(drawn, $"{id}: {string.Join("\n", problems)}");
+                CollectionAssert.IsEmpty(notDrawn, $"{id}: its code is drawn");
+                EditResult replaced = editor.ReplaceModule(drawn);
+                Assert.IsTrue(replaced.Done, $"{id}: {replaced.Refusal}");
+
+                Grade grade = ExerciseGrader.Grade(exercise, editor.Project);
+                Assert.IsTrue(grade.Solved, $"{id}, written and drawn again: {Why(grade)}");
+                CollectionAssert.AreEquivalent(solved.Parts, grade.Parts, $"{id}: the same parts");
+            }
         }
 
         [Test]
