@@ -33,13 +33,39 @@ namespace BitSorter.View
                 "NAME THE NEW CODE BLOCK", "a module's name, add4");
         }
 
-        private void PlaceCodeView() => _codeView?.Place(CornerOf(_regions.Circuit), SizeOf(_regions.Circuit));
+        /// <summary>
+        /// The editor over the circuit's window, and above the strip along its foot while a hint or the tutorial is up
+        /// (Part 15g): the browser's editor is a box the page lays over the canvas, and it covered the strip's words, leaving
+        /// GOT IT showing beside them (Ahmad, 2026-10-28).
+        /// </summary>
+        private void PlaceCodeView()
+        {
+            if (_codeView == null)
+                return;
+            _codeInset = LessonInset();
+            Vector2 size = SizeOf(_regions.Circuit);
+            size.y = Mathf.Max(0f, size.y - _codeInset);
+            _codeView.Place(CornerOf(_regions.Circuit), size);
+        }
+
+        /// <summary>How much of the circuit's window's foot the strip takes, with its margin; 0 while it is down.</summary>
+        private float LessonInset()
+        {
+            if (LessonText == null)
+                return 0f;
+            float height = _lesson.resolvedStyle.height;
+            return float.IsNaN(height) ? 0f : height + 2f * 12f;
+        }
+
+        private float _codeInset;
 
         /// <summary>The editor given the code shown, if any, and its frame: a pause in typing applied, an undo followed.</summary>
         private void TickCode()
         {
             if (_codeView == null)
                 return;
+            if (!Mathf.Approximately(LessonInset(), _codeInset))
+                PlaceCodeView();
             _codeView.Bind(_session?.Code);
             _codeView.Tick();
         }

@@ -22,7 +22,23 @@ const state = {
   escaped: false,     // Escape let the editor go since the game last asked
   setting: false,     // the game is setting the text: not typing
   colours: null,
+  placed: null,       // where the game last laid it, in the canvas's pixels: laid again when the page moves under it
+  watched: null,      // the canvas whose size and place are watched for that
 };
+
+/** The editor laid where the game last placed it, from where the canvas is on the page now. */
+function layOut() {
+  const p = state.placed;
+  if (!state.host || !p)
+    return;
+  const box = p.canvas.getBoundingClientRect();
+  const sx = box.width / p.canvas.width, sy = box.height / p.canvas.height;
+  state.host.style.left = (window.scrollX + box.left + p.x * sx) + "px";
+  state.host.style.top = (window.scrollY + box.top + p.y * sy) + "px";
+  state.host.style.width = Math.max(0, p.width * sx) + "px";
+  state.host.style.height = Math.max(0, p.height * sy) + "px";
+  state.host.style.fontSize = Math.max(1, p.font * sy) + "px";
+}
 
 const api = {
   /** Makes the editor, hidden, its colours the game's: a JSON object of CSS colours, and whether the ground is dark. */
@@ -39,6 +55,12 @@ const api = {
     host.style.overflow = "hidden";
     document.body.appendChild(host);
     state.host = host;
+
+    // Laid again wherever the canvas moves on the page (Part 15g): the game lays it only when the circuit's window moves
+    // on the canvas, and a page scrolled sideways, or a window made wider round a centred canvas, left it where the canvas
+    // had been -- over PARTS, in Ahmad's ALU (2026-10-28).
+    window.addEventListener("resize", layOut);
+    window.addEventListener("scroll", layOut, true);
 
     // Ctrl+S applies as Ctrl+Enter does (Part 14g), and the browser's Save Page never opens over the code. Escape closes
     // find and replace first, and only then lets the editor go.
@@ -81,13 +103,12 @@ const api = {
   place(canvas, x, y, width, height, font) {
     if (!state.host || !canvas)
       return;
-    const box = canvas.getBoundingClientRect();
-    const sx = box.width / canvas.width, sy = box.height / canvas.height;
-    state.host.style.left = (window.scrollX + box.left + x * sx) + "px";
-    state.host.style.top = (window.scrollY + box.top + y * sy) + "px";
-    state.host.style.width = Math.max(0, width * sx) + "px";
-    state.host.style.height = Math.max(0, height * sy) + "px";
-    state.host.style.fontSize = Math.max(1, font * sy) + "px";
+    state.placed = { canvas, x, y, width, height, font };
+    if (state.watched !== canvas && typeof ResizeObserver !== "undefined") {
+      state.watched = canvas;
+      new ResizeObserver(layOut).observe(canvas);
+    }
+    layOut();
   },
 
   show(shown) {
