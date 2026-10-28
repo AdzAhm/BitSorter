@@ -145,11 +145,12 @@ namespace BitSorter.View
                 return;
 
             // Made again only when the design has changed: a part moved, a wire rerouted or an input's steps edited leave the
-            // table, and where it is scrolled to, as they were (the 15g-5 review). The old table goes while the new one is made.
+            // table, and where it is scrolled to, as they were (the 15g-5 review). The files count too, which SameDesign leaves
+            // out: a ROM's image read with $readmemh is the design's. The old table goes while the new one is made.
             BitSorter.Board.Project project = _session.Project;
             if (!ReferenceEquals(project, _logicOf))
             {
-                bool same = _logicOf != null && TimingView.SameDesign(_logicOf, project);
+                bool same = _logicOf != null && TimingView.SameDesign(_logicOf, project) && ReferenceEquals(_logicOf.Files, project.Files);
                 _logicOf = project;
                 if (!same)
                 {
