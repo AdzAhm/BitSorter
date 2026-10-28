@@ -150,7 +150,7 @@ namespace BitSorter.ViewModel.Tests
             LogicTable table = Tabled(WorkbenchSamples.FullAdder(), out string why);
             Assert.IsNotNull(table, why);
             Assert.IsNull(table.Problem);
-            CollectionAssert.AreEqual(new[] { "a", "b", "cin" }, table.Variables.Select(v => v.Name).ToArray());
+            CollectionAssert.AreEqual(new[] { "a", "b", "cin" }, table.VariableNames.ToArray());
             Assert.AreEqual(8, table.Rows);
 
             string Column(string name) => new string(table.Outputs.Single(o => o.Name == name).Values.ToArray());
@@ -158,7 +158,7 @@ namespace BitSorter.ViewModel.Tests
             Assert.AreEqual("00010111", Column("cout"), "the carry: two or more");
 
             Minimizer.Result carry = Minimizer.Minimize(3, table.Outputs.Single(o => o.Name == "cout").Values);
-            Assert.AreEqual("bcin + acin + ab", Minimizer.Textbook(carry.Terms, table.Variables.Select(v => v.Name).ToList()));
+            Assert.AreEqual("bcin + acin + ab", Minimizer.Textbook(carry.Terms, table.VariableNames));
         }
 
         /// <summary>
@@ -180,6 +180,7 @@ namespace BitSorter.ViewModel.Tests
             Assert.IsNotNull(table, why);
             Assert.AreEqual(8, table.Rows);
 
+            CollectionAssert.AreEqual(new[] { "a[7]", "a[6]", "b" }, table.VariableNames.ToArray(), "a [7:6]'s bits are a[7] and a[6]");
             CollectionAssert.AreEqual(new[] { "y[0]", "y[1]" }, table.Outputs.Select(o => o.Name).ToArray(), "y[0] is a [0:1]'s high bit");
             string Column(string name) => new string(table.Outputs.Single(o => o.Name == name).Values.ToArray());
             Assert.AreEqual("00000101", Column("y[0]"), "y[0] = a[7] & b, rows counting a[7] a[6] b");

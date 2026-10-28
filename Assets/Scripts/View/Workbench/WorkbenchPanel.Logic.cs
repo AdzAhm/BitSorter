@@ -145,14 +145,11 @@ namespace BitSorter.View
             {
                 _logicRead = true;
                 _logicOutputs.Clear();
-                var names = new List<string>(_logic.Variables.Count);
-                foreach (BitSorter.Board.InputBit bit in _logic.Variables)
-                    names.Add(bit.Name);
                 foreach (LogicOutput output in _logic.Outputs)
                 {
                     Minimizer.Result expression = _logic.Variables.Count <= Minimizer.MostVariables
                         ? Minimizer.Minimize(_logic.Variables.Count, output.Values) : null;
-                    _logicOutputs.Add((output, expression, KarnaughLayout.Of(names, output.Values)));
+                    _logicOutputs.Add((output, expression, KarnaughLayout.Of(_logic.VariableNames, output.Values)));
                 }
                 _logicDrawn = false;
             }
@@ -176,25 +173,33 @@ namespace BitSorter.View
         private List<(string Port, int Width, string Head)> LogicPorts()
         {
             var ports = new List<(string, int, string)>();
-            string last = null;
-            foreach (BitSorter.Board.InputBit bit in _logic.Variables)
-                if (bit.Port != last)
+            for (int v = 0; v < _logic.Variables.Count; v++)
+                if (v == 0 || _logic.Variables[v].Port != _logic.Variables[v - 1].Port)
                 {
-                    last = bit.Port;
-                    ports.Add((bit.Port, bit.Width, bit.Width > 1 ? bit.Port + "[" + (bit.Width - 1).ToString(CultureInfo.InvariantCulture) + ":0]" : bit.Port));
+                    BitSorter.Board.InputBit bit = _logic.Variables[v];
+                    ports.Add((bit.Port, bit.Width, LogicHead(bit.Port, bit.Width, _logic.VariableNames[v], _logic.VariableNames[v + bit.Width - 1])));
                 }
-            last = null;
-            foreach (LogicOutput output in _logic.Outputs)
-                if (output.Port != last)
+            for (int o = 0; o < _logic.Outputs.Count; o++)
+                if (o == 0 || _logic.Outputs[o].Port != _logic.Outputs[o - 1].Port)
                 {
-                    last = output.Port;
                     int width = 0;
-                    foreach (LogicOutput each in _logic.Outputs)
-                        if (each.Port == output.Port)
-                            width++;
-                    ports.Add((output.Port, width, width > 1 ? output.Port + "[" + (width - 1).ToString(CultureInfo.InvariantCulture) + ":0]" : output.Port));
+                    while (o + width < _logic.Outputs.Count && _logic.Outputs[o + width].Port == _logic.Outputs[o].Port)
+                        width++;
+                    ports.Add((_logic.Outputs[o].Port, width, LogicHead(_logic.Outputs[o].Port, width, _logic.Outputs[o].Name, _logic.Outputs[o + width - 1].Name)));
                 }
             return ports;
+        }
+
+        /// <summary>A port's head: its name, and a bus's range as declared, read off its first and last bits' names -- a[7:6].</summary>
+        private static string LogicHead(string port, int width, string first, string last)
+        {
+            static string Index(string name)
+            {
+                int open = name.LastIndexOf('[');
+                return open >= 0 && name.EndsWith("]", System.StringComparison.Ordinal) ? name.Substring(open + 1, name.Length - open - 2) : null;
+            }
+            string high = Index(first), low = Index(last);
+            return width > 1 && high != null && low != null ? port + "[" + high + ":" + low + "]" : port;
         }
 
         private static float LogicPortWidth(int width, string head) =>
@@ -293,9 +298,7 @@ namespace BitSorter.View
             }
 
             // Beside it, each output's expression, both ways, and its K-map.
-            var names = new List<string>(_logic.Variables.Count);
-            foreach (BitSorter.Board.InputBit bit in _logic.Variables)
-                names.Add(bit.Name);
+            IReadOnlyList<string> names = _logic.VariableNames;
             // Each output a block, side by side in columns as many as fit, a row of them as tall as its tallest.
             float left = LogicTableWidth() + 20f, top = 6f - _logicRightScroll;
             float room = Mathf.Max(LogicBlockWidth, _regions.Dock.width - 14f - left);
