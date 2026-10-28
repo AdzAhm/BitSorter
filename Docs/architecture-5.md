@@ -1062,10 +1062,13 @@ half adds the add-signal list, groups, full names and Alt+click on a wire.
 - **A row and its wire light each other.** Selecting a row lights its net on the circuit, and pointing at a
   wire puts a faint band behind every row showing it (`SchematicPalette.Selection`, opaque, with every
   word 4.5:1 and every value 3:1 on it in all four looks).
-- **The playhead is cursor 1** (Ahmad's choice). A click on the waves seeks there and pauses, snapped to an
-  edge of the row under it within 8 px or else to a whole unit (`WaveSnap`); a drag scrubs. Shift and a
-  click places C2, a press within 6 px of it takes hold of it, and C takes it away; the time from the
-  playhead to it is written over a bracket under the rows. C2 is in its own colour (`SchematicPalette.Cursor`:
+- **The playhead is cursor 1** (Ahmad's choice). Shift and a click on the waves seeks there and pauses,
+  snapped to an edge of the row under it within 8 px or else to a whole unit (`WaveSnap`); a drag scrubs, as
+  a press within 6 px of the playhead's own line does. A click places C2, snapped alike, a drag moves it
+  through the waves, and C takes it away; the time from the playhead to it is written over a bracket under
+  the rows. **The two clicks were the other way round until Part 15h**: the waves are drawn only up to the
+  playhead, so a click back in a finished run hid everything after it, and Ahmad asked for the click to be
+  the cursor that moves through the waves and Shift's the one that cuts them (2026-10-28). C2 is in its own colour (`SchematicPalette.Cursor`:
   amber, olive on paper, Neon's gold, and Classic's text white, its 1 being yellow), 3:1 on the ground and
   apart from every value and the playhead. The font has no Δ, so the bracket says only the time.
 - **The mouse as gestures** (`WavePointer`, tested from scripted events under dotnet), and **a press on a

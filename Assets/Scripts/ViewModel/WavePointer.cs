@@ -102,8 +102,8 @@ namespace BitSorter.ViewModel
 
         public bool Shift, Ctrl, Alt;
 
-        /// <summary>How far from the second cursor the press is, in pixels; null while there is none.</summary>
-        public float? FromSecond;
+        /// <summary>How far from the playhead the press is, in pixels; null where the view cannot say.</summary>
+        public float? FromPlayhead;
 
         /// <summary>Which press of a quick run this is, as the view counts them: 2 for the second of a double-click.</summary>
         public int Clicks;
@@ -115,10 +115,15 @@ namespace BitSorter.ViewModel
     /// of events under dotnet, and Part 10's canvas can take the same pattern.
     /// </summary>
     /// <remarks>
-    /// - **On the waves or the axis:** a press seeks the playhead and a drag scrubs it; with Shift it
-    ///   places the second cursor, and a press within <see cref="GrabPixels"/> of the second cursor
-    ///   takes hold of it, and a drag moves it. A double-click on a row's wave changes the input it
-    ///   shows -- the first click has sought there already -- and scrubs nothing.
+    /// - **On the waves or the axis:** a press places the second cursor and a drag moves it through the
+    ///   waves; with Shift it seeks the playhead and a drag scrubs it, and a press within
+    ///   <see cref="GrabPixels"/> of the playhead takes hold of it. A double-click on a row's wave changes
+    ///   the input it shows -- the first click has put the cursor there already -- and scrubs nothing.
+    ///
+    ///   **They were the other way round until Part 15h.** The waves are drawn only up to the playhead,
+    ///   so a click back in a finished run hid everything after it; the second cursor reads any moment
+    ///   and hides nothing. Ahmad asked for the cursor that moves through the waves to be the click's,
+    ///   and the one that cuts them Shift's (2026-10-28).
     /// - **On a row's name or value:** a press selects the row -- with Shift every row to it, with Ctrl
     ///   in or out of the selection -- and a press on a group's mark opens or shuts it. The right button
     ///   opens the row's menu.
@@ -129,14 +134,14 @@ namespace BitSorter.ViewModel
     /// </remarks>
     public sealed class WavePointer
     {
-        /// <summary>How near the second cursor, in pixels, a press takes hold of it.</summary>
+        /// <summary>How near the playhead, in pixels, a press takes hold of it.</summary>
         public const float GrabPixels = 6f;
 
         private enum Hold { None, Scrubbing, MovingSecond }
 
         private Hold _hold;
 
-        /// <summary>Whether a press is being dragged: scrubbing the playhead or moving the second cursor.</summary>
+        /// <summary>Whether a press is being dragged: moving the second cursor or scrubbing the playhead.</summary>
         public bool Dragging => _hold != Hold.None;
 
         /// <summary>A button pressed: what it asks for, added to <paramref name="into"/>.</summary>
@@ -162,20 +167,15 @@ namespace BitSorter.ViewModel
                         return;
                     }
 
-                    if (press.Shift)
-                    {
-                        into.Add(new WaveCommand(WaveGesture.PlaceSecond, press.Time));
-                        _hold = Hold.MovingSecond;
-                    }
-                    else if (press.FromSecond.HasValue && press.FromSecond.Value <= GrabPixels)
-                    {
-                        into.Add(new WaveCommand(WaveGesture.MoveSecond, press.Time));
-                        _hold = Hold.MovingSecond;
-                    }
-                    else
+                    if (press.Shift || press.FromPlayhead.HasValue && press.FromPlayhead.Value <= GrabPixels)
                     {
                         into.Add(new WaveCommand(WaveGesture.Seek, press.Time));
                         _hold = Hold.Scrubbing;
+                    }
+                    else
+                    {
+                        into.Add(new WaveCommand(WaveGesture.PlaceSecond, press.Time));
+                        _hold = Hold.MovingSecond;
                     }
 
                     return;

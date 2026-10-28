@@ -622,11 +622,12 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
-        /// A click on the waves moves the playhead there and pauses: onto an edge of the row under it
-        /// within 8 px, or else onto a whole unit.
+        /// Shift and a click on the waves moves the playhead there and pauses: onto an edge of the row under it within 8 px, or
+        /// else onto a whole unit. A plain click there did until Part 15h, when Ahmad asked for the two cursors' clicks the
+        /// other way round (2026-10-28).
         /// </summary>
         [UnityTest]
-        public IEnumerator AClickOnTheWaves_SeeksThePlayhead_SnappedToAnEdgeOrAWholeUnit()
+        public IEnumerator ShiftAndAClickOnTheWaves_SeeksThePlayhead_SnappedToAnEdgeOrAWholeUnit()
         {
             yield return TestScene.Load();
             yield return OpenTheWorkbench();
@@ -637,17 +638,40 @@ namespace BitSorter.PlayMode.Tests
             double edge = track[1].Time;
             Assert.Greater(workbench.Wave.PixelsPerUnit, 10.0, "sanity: a unit is wide enough for 0.2 of one to be within 8 px");
 
+            Press(_keyboard.shiftKey);
+            yield return null;
             yield return ClickAt(workbench.WaveScreenPointOf(edge + 0.2, a));
-            Assert.IsFalse(workbench.Playing, "a click on the waves pauses");
+            Assert.IsFalse(workbench.Playing, "Shift and a click on the waves pauses");
             Assert.AreEqual(edge, workbench.Time, 1e-9, "a click just past a's edge lands on it");
 
             yield return ClickAt(workbench.WaveScreenPointOf(20.4, a));
+            Release(_keyboard.shiftKey);
+            yield return null;
             Assert.AreEqual(20.0, workbench.Time, 1e-9, "and with no edge near, on the nearest whole unit");
+            Assert.IsNull(workbench.Cursors.Second, "and no cursor placed");
+
+            // A drag that starts on the playhead's own line scrubs it, with no Shift.
+            var mouse = InputSystem.GetDevice<Mouse>();
+            Move(mouse.position, workbench.WaveScreenPointOf(20.0, a));
+            yield return null;
+            Press(mouse.leftButton);
+            yield return null;
+            Move(mouse.position, workbench.WaveScreenPointOf(24.0, a));
+            yield return null;
+            Release(mouse.leftButton);
+            yield return null;
+            Assert.AreEqual(System.Math.Min(workbench.Model.End, WaveSnap.Snap(24.0, workbench.Wave.PixelsPerUnit, track)), workbench.Time, 1e-9,
+                "the playhead dragged by its line, snapped as a click is");
+            Assert.Greater(workbench.Time, 22.0, "sanity: well past where it was");
+            Assert.IsNull(workbench.Cursors.Second, "and still no cursor");
         }
 
-        /// <summary>Shift and a click places the second cursor; its time and the span from the playhead are written; C takes it away.</summary>
+        /// <summary>
+        /// A click places the second cursor, and leaves the playhead and every wave after it as they were (Part 15h); its time
+        /// and the span from the playhead are written; C takes it away.
+        /// </summary>
         [UnityTest]
-        public IEnumerator ShiftAndAClick_PlacesTheSecondCursor_AndTheSpanIsWritten()
+        public IEnumerator AClick_PlacesTheCursor_AndTheSpanIsWritten()
         {
             yield return TestScene.Load();
             yield return OpenTheWorkbench();
@@ -658,11 +682,7 @@ namespace BitSorter.PlayMode.Tests
             int en = RowLabelled(workbench, "en");
             Assert.IsNull(workbench.SecondText, "sanity: no second cursor yet");
 
-            Press(_keyboard.shiftKey);
-            yield return null;
             yield return ClickAt(workbench.WaveScreenPointOf(19.2, en));
-            Release(_keyboard.shiftKey);
-            yield return null;
 
             Assert.AreEqual(19.0, workbench.Cursors.Second, "placed on the whole unit nearest the click");
             Assert.AreEqual(10.0, workbench.Time, 1e-9, "and the playhead left where it was");
@@ -736,7 +756,8 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsTrue(workbench.RowMenuOpen);
             yield return ClickAt(workbench.WaveScreenPointOf(20.0, y + 2));
             Assert.IsFalse(workbench.RowMenuOpen, "a click off the menu closes it");
-            Assert.AreEqual(5.0, workbench.Time, 1e-9, "and is the menu's: the waves under it were not clicked");
+            Assert.IsNull(workbench.Cursors.Second, "and is the menu's: the waves under it were not clicked");
+            Assert.AreEqual(5.0, workbench.Time, 1e-9);
 
             yield return Tap(_keyboard.escapeKey);
             Assert.IsTrue(workbench.IsOpen, "with nothing over it, Escape still leaves the workbench up (Part 15a)");
@@ -818,7 +839,8 @@ namespace BitSorter.PlayMode.Tests
 
             yield return ClickAt(workbench.WaveScreenPointOf(30.0, 0));
             Assert.IsFalse(workbench.Picker.IsOpen, "a click off it closes it");
-            Assert.AreEqual(17.0, workbench.Time, 1e-9, "and is the list's: the waves under it were not clicked");
+            Assert.IsNull(workbench.Cursors.Second, "and is the list's: the waves under it were not clicked");
+            Assert.AreEqual(17.0, workbench.Time, 1e-9);
 
             yield return Click(WaveformView.AddButton);
             Assert.IsTrue(workbench.Picker.IsOpen, "+ SIGNAL on the waveform's toolbar opens it too");

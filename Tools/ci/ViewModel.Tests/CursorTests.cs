@@ -88,8 +88,8 @@ namespace BitSorter.ViewModel.Tests
         // -----------------------------------------------------------------
 
         private static WavePress On(WaveRegion region, double time = 0, int row = -1, int button = 0, bool shift = false, bool ctrl = false,
-            bool alt = false, float? fromSecond = null, bool mark = false, int clicks = 1) =>
-            new WavePress { Region = region, Time = time, Row = row, Button = button, Shift = shift, Ctrl = ctrl, Alt = alt, FromSecond = fromSecond, OnGroupMark = mark, Clicks = clicks };
+            bool alt = false, float? fromPlayhead = null, bool mark = false, int clicks = 1) =>
+            new WavePress { Region = region, Time = time, Row = row, Button = button, Shift = shift, Ctrl = ctrl, Alt = alt, FromPlayhead = fromPlayhead, OnGroupMark = mark, Clicks = clicks };
 
         private static string Run(WavePointer pointer, WavePress press, params double[] moves)
         {
@@ -105,22 +105,28 @@ namespace BitSorter.ViewModel.Tests
                 ? " " + c.Time : c.Row >= 0 ? " " + c.Row + (c.Extend ? "+" : "") + (c.Toggle ? "^" : "") : "")));
         }
 
+        /// <summary>
+        /// A press on the waves places the second cursor and a drag moves it through them, until it is let go (Part 15h: a
+        /// press sought the playhead, which hides the waves after it, until Ahmad asked for the two the other way round).
+        /// </summary>
         [Test]
-        public void APressOnTheWaves_Seeks_AndADragScrubs_UntilItIsLetGo()
+        public void APressOnTheWaves_PlacesTheCursor_AndADragMovesIt_UntilItIsLetGo()
         {
             var pointer = new WavePointer();
-            Assert.AreEqual("Seek 4, Seek 5, Seek 6", Run(pointer, On(WaveRegion.Waves, 4), 5, 6));
-            Assert.AreEqual("Seek 2", Run(pointer, On(WaveRegion.Axis, 2)), "the axis is the waves' too");
+            Assert.AreEqual("PlaceSecond 4, MoveSecond 5, MoveSecond 6", Run(pointer, On(WaveRegion.Waves, 4), 5, 6));
+            Assert.AreEqual("PlaceSecond 2", Run(pointer, On(WaveRegion.Axis, 2)), "the axis is the waves' too");
             Assert.IsFalse(pointer.Dragging);
         }
 
+        /// <summary>Shift and a press seeks the playhead and a drag scrubs it, as a press on the playhead's own line does.</summary>
         [Test]
-        public void ShiftAndAPress_PlacesTheSecondCursor_AndAPressNearItTakesHoldOfIt()
+        public void ShiftAndAPress_SeeksThePlayhead_AndAPressOnItTakesHoldOfIt()
         {
             var pointer = new WavePointer();
-            Assert.AreEqual("PlaceSecond 19, MoveSecond 20", Run(pointer, On(WaveRegion.Waves, 19, shift: true), 20));
-            Assert.AreEqual("MoveSecond 18, MoveSecond 17", Run(pointer, On(WaveRegion.Waves, 18, fromSecond: 4f), 17), "4 px from it");
-            Assert.AreEqual("Seek 12", Run(pointer, On(WaveRegion.Waves, 12, fromSecond: WavePointer.GrabPixels + 1)), "7 px from it is a seek");
+            Assert.AreEqual("Seek 19, Seek 20", Run(pointer, On(WaveRegion.Waves, 19, shift: true), 20));
+            Assert.AreEqual("Seek 18, Seek 17", Run(pointer, On(WaveRegion.Waves, 18, fromPlayhead: 4f), 17), "4 px from it");
+            Assert.AreEqual("PlaceSecond 12", Run(pointer, On(WaveRegion.Waves, 12, fromPlayhead: WavePointer.GrabPixels + 1)),
+                "7 px from it places the cursor");
         }
 
         [Test]
@@ -156,13 +162,13 @@ namespace BitSorter.ViewModel.Tests
         public void ADoubleClickOnARowsWave_AsksToEditItsInput_AndScrubsNothing()
         {
             var pointer = new WavePointer();
-            Assert.AreEqual("Seek 4", Run(pointer, On(WaveRegion.Waves, 4, row: 2)), "the first click seeks, as any does");
+            Assert.AreEqual("PlaceSecond 4", Run(pointer, On(WaveRegion.Waves, 4, row: 2)), "the first click places the cursor, as any does");
             Assert.AreEqual("EditInput 2", Run(pointer, On(WaveRegion.Waves, 4, row: 2, clicks: 2), 5, 6), "the second asks to edit row 2, and its drag scrubs nothing");
             Assert.IsFalse(pointer.Dragging);
 
-            Assert.AreEqual("Seek 4", Run(pointer, On(WaveRegion.Waves, 4, clicks: 2)), "below the rows there is no input to edit");
-            Assert.AreEqual("Seek 4", Run(pointer, On(WaveRegion.Axis, 4, row: 2, clicks: 2)), "nor on the axis");
-            Assert.AreEqual("PlaceSecond 4", Run(pointer, On(WaveRegion.Waves, 4, row: 2, shift: true, clicks: 2), 5).Split(',')[0], "Shift places the second cursor however quick");
+            Assert.AreEqual("PlaceSecond 4", Run(pointer, On(WaveRegion.Waves, 4, clicks: 2)), "below the rows there is no input to edit");
+            Assert.AreEqual("PlaceSecond 4", Run(pointer, On(WaveRegion.Axis, 4, row: 2, clicks: 2)), "nor on the axis");
+            Assert.AreEqual("Seek 4", Run(pointer, On(WaveRegion.Waves, 4, row: 2, shift: true, clicks: 2), 5).Split(',')[0], "Shift seeks however quick");
         }
 
         [Test]

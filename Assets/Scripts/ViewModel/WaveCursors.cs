@@ -7,9 +7,13 @@ namespace BitSorter.ViewModel
     /// follow it, and the second is placed beside it to measure from one to the other.
     /// </summary>
     /// <remarks>
-    /// Ahmad's choice (2026-10-16): the playhead is cursor 1, Shift+click places C2, and Δ is the time
+    /// Ahmad's choice (2026-10-16): the playhead is cursor 1, C2 is placed beside it, and Δ is the time
     /// between them -- one moment the whole workbench shows, and one to measure against, where two
     /// cursors beside the playhead would leave the values column to choose between three.
+    ///
+    /// **A click places C2, and Shift and a click moves the playhead** (Part 15h, Ahmad, 2026-10-28):
+    /// the waves are drawn only up to the playhead, so a click that moved it back hid the rest of the
+    /// run, where C2 moves through the waves and hides nothing. It was Shift and a click until then.
     /// </remarks>
     public sealed class WaveCursors
     {

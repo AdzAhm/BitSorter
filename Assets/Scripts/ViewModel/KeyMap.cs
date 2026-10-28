@@ -73,8 +73,8 @@ namespace BitSorter.ViewModel
         /// <summary>The gestures on the waves, as the map lists them.</summary>
         public static readonly IReadOnlyList<KeyMapEntry> WavesGestures = new[]
         {
-            new KeyMapEntry("CLICK", "the waves to seek there; drag to scrub"),
-            new KeyMapEntry("SHIFT-CLICK", "a second cursor"),
+            new KeyMapEntry("CLICK", "the waves for a cursor; drag it through them"),
+            new KeyMapEntry("SHIFT-CLICK", "the playhead there, hiding the waves after it; drag it to scrub"),
             new KeyMapEntry("WHEEL", "zoom time about the pointer; SHIFT and the wheel moves through it"),
             new KeyMapEntry("RIGHT-CLICK", "a row's menu, or a moment's"),
             new KeyMapEntry("DOUBLE-CLICK", "an input's wave to set its value"),
@@ -196,7 +196,7 @@ namespace BitSorter.ViewModel
                 case PointerArea.Circuit:
                     return "circuit:  drag from a pin to wire  ·  double-click to inspect  ·  right-click for its menu  ·  wheel to zoom  ·  ? every key";
                 case PointerArea.Waves:
-                    return "waves:  click to seek  ·  shift-click a second cursor  ·  wheel to zoom time  ·  right-click for a menu  ·  ? every key";
+                    return "waves:  click for a cursor  ·  shift-click to move the playhead  ·  wheel to zoom time  ·  right-click for a menu  ·  ? every key";
                 case PointerArea.Blocks:
                     // A block's module stays when its last block goes, since it is the player's work: this is how it goes.
                     return "blocks:  click to take one  ·  right-click to delete its module  ·  ? every key";

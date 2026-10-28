@@ -41,10 +41,12 @@ namespace BitSorter.View
     /// names every row by its whole path; a row's menu renames it. The waveform's own toolbar holds
     /// those three buttons.
     ///
-    /// **The playhead is cursor 1** (Ahmad's choice, 2026-10-16): a click on the waves moves it there,
-    /// snapped to an edge of the row under the pointer within 8 px or else to a whole unit
-    /// (<see cref="WaveSnap"/>), and a drag scrubs. Shift and a click places C2, a drag near it moves
-    /// it, C takes it away, and the time between them is written over a bracket under the rows. The
+    /// **The playhead is cursor 1** (Ahmad's choice, 2026-10-16): Shift and a click on the waves moves
+    /// it there, snapped to an edge of the row under the pointer within 8 px or else to a whole unit
+    /// (<see cref="WaveSnap"/>), and a drag scrubs, as a drag on its own line does. A click places C2,
+    /// snapped alike, and a drag moves it through the waves (Part 15h: the two were the other way round,
+    /// and a click back in a run hid the waves after it); C takes it away, and the time between them is
+    /// written over a bracket under the rows. The
     /// mouse is read as gestures (<see cref="WavePointer"/>), and a press on a control is never one: the
     /// controls are sampled before anything reacts to the frame (<see cref="WorkbenchControlSample"/>),
     /// so the click that closes the row menu never seeks.
@@ -731,8 +733,8 @@ namespace BitSorter.View
                     press.Time = Snapped(time, row);
                     // A press on a group's header opens or shuts it; its menu is the right button's.
                     press.OnGroupMark = row >= 0 && row < _list.Lines.Count && _list.Lines[row].IsHeader;
-                    if (_cursors.Second.HasValue)
-                        press.FromSecond = _wave.PixelsBetween(time, _cursors.Second.Value);
+                    if (_wave.View.Shows(_model.Time))
+                        press.FromPlayhead = _wave.PixelsBetween(time, _model.Time);
                 }
 
                 _movedTo = double.NaN;
@@ -1770,7 +1772,7 @@ namespace BitSorter.View
             ChooseRadix(radix);
         }
 
-        /// <summary>Places the second cursor at <paramref name="time"/>, as Shift and a click there does.</summary>
+        /// <summary>Places the second cursor at <paramref name="time"/>, as a click there does.</summary>
         public void PlaceSecond(double time)
         {
             if (_cursors.Place(time))
