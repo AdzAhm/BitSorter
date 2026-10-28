@@ -3167,6 +3167,28 @@ the slower of the two, and it was made more than once an edit.
   three things fixed here: the hint told the last drawing rather than the slowest, a time budget measured cold, and tests
   that asserted less than the docs claimed.
 
+
+**As built beside Part 15h: Settings on one screen, and ABOUT BITSORTER.** Ahmad asked on 2026-10-28.
+
+- **Settings is two columns** (`SettingsPanel`): AUDIO, DISPLAY and STYLE on the left, PRIVACY, PROGRESS and ABOUT on
+  the right, under one title. One column ran past the foot of a 1080 screen, and CREDITS, last, was found only by
+  scrolling. A shorter window still scrolls. PRIVACY's line says it reports which exercises people get stuck on, as
+  it does since Part 15d.
+- **ABOUT BITSORTER** (`WorkbenchPanel.About.cs`), from HELP, is a page of the workbench's own:
+  - what the simulator is, in a line, and what it does, under the workbench's own names: draw, write, run, read the
+    waves, drive it, analyse it, bring your own project, practise, and how it simulates;
+  - where it runs, and where it came from, which is the only place the course is named, in full: Digital Systems and
+    Computer Structure;
+  - at its foot, who made it and three buttons: CREDITS, which roll and come back to the page; KEYBOARD MAP; and GITHUB,
+    the project's page.
+
+  HELP's item opened the credits roll until then. Escape takes the page down, first of everything.
+- **Tests**:
+  - `PlayerTextTests` holds every line of the page to the buttons it names;
+  - a Play Mode test goes HELP, ABOUT, CREDITS and back, then Escape;
+  - Settings is held to fitting a 1080 screen;
+  - reference shot 60 is the page.
+
 ---
 
 ## 11. The parts

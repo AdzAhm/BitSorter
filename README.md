@@ -311,7 +311,8 @@ circuit of yours, an exercise or a sample -- and with nothing, on a **start
 page**: NEW CIRCUIT, OPEN, IMPORT, your recent circuits, the samples, the
 exercises, the keyboard map and Settings. **HOME** goes back to it. The
 workbench's header has the app's menus -- HOME, FILE, EXERCISES, HELP (the
-keyboard map, the start page, and the credits) and SETTINGS -- and no BACK:
+keyboard map, the start page, the tutorial, and ABOUT BITSORTER: what the simulator
+does, with the credits at its foot) and SETTINGS -- and no BACK:
 `Esc` closes whatever is on top and never leaves the workbench. The music is off
 until you switch it on in Settings.
 
