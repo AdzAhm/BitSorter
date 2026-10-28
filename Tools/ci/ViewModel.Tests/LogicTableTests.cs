@@ -61,6 +61,20 @@ namespace BitSorter.ViewModel.Tests
         }
 
         /// <summary>
+        /// Names longer than a letter are spaced apart in a product, as the K-map's corner spaces them: "bcin" could be one name.
+        /// The 15g-5 review found the full adder's carry written "bcin + acin + ab".
+        /// </summary>
+        [Test]
+        public void ALongerName_IsSpacedApartInAProduct()
+        {
+            Minimizer.Result carry = Minimizer.Minimize(3, "00010111".ToCharArray());
+            Assert.AreEqual("b cin + a cin + a b", Minimizer.Textbook(carry.Terms, new[] { "a", "b", "cin" }));
+            Minimizer.Result sum = Minimizer.Minimize(2, "0110".ToCharArray());
+            Assert.AreEqual("a[1]' a[0] + a[1] a[0]'", Minimizer.Textbook(sum.Terms, new[] { "a[1]", "a[0]" }));
+            Assert.AreEqual("a'b + ab'", Minimizer.Textbook(sum.Terms, AB), "one letter each, side by side as the textbook writes them");
+        }
+
+        /// <summary>
         /// The search made a slice at a time ends where it does all at once, on five to eight variables with don't-cares -- the
         /// tangled ones it cuts short included -- and every cover it keeps, proven the smallest or not, covers every 1 and no 0.
         /// </summary>
