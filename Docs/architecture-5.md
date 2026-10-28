@@ -3036,6 +3036,28 @@ without code, for buses as well as bits (2026-10-28): a double-click on the wave
 - **An import without its testbench says which inputs nothing drives** (`InputTable.Undriven`): they read z and what they
   feed x, and the notice says how to drive them -- INPUTS, a double-click on the wave, or importing the testbench too.
 
+**As built in Part 15g-5: LOGIC, the truth table, expressions and K-maps.** Ahmad asked for a way to know more about what
+is built (2026-10-28).
+
+- **The truth table is found by running the real engine** (`LogicTable`): `StepTests.Combinations` walks every combination
+  of the input bits in Gray order, each held for the settle time the measured worst uses -- the slowest path and half
+  again -- on a copy, a slice a frame while the tab is up. Each output bit is read at the end of each hold; an x, a z, or a
+  row the run did not reach reads x. Rows count up with the first input most significant: ports in order, a bus's highest
+  bit first. Refused with the reason, as the measured worst is, for registers, a loop of logic, a delay the run works
+  out, no input or output, or more than ten input bits -- saying how many rows that would be.
+- **Each output a minimal sum of products** (`Minimizer`, up to eight variables): Quine and McCluskey's prime implicants,
+  then an exact cover -- the fewest products, then the fewest literals -- searched with the row fewest primes cover first,
+  bounded at `MostTried` tries (keeping the best found, `Result.Proven` false, never yet reached in the tests). An x row is
+  a don't-care, and the tab says so. Written the textbook's way (`a'b + ab'`) and SystemVerilog's
+  (`assign s = (~a & b) | (a & ~b);`).
+- **A K-map for four inputs or fewer** (`KarnaughLayout`): the first half of the variables down the side and the rest
+  across, Gray order both ways, x where the output reads x, its 1s shaded. No groups are drawn: the expression is beside it.
+- **The tab** (`WorkbenchPanel.Logic.cs`) sits right of TIMING: the table on the left, each output's block -- its
+  expression both ways and its map -- in columns on the right; the wheel scrolls whichever the pointer is over.
+- **Tests**: the minimizer against brute force on every three-variable function and sixty random four-variable ones with
+  don't-cares; the full adder tabled and its carry minimized; the counter refused; and every combinational exercise's
+  reference solution, tabled by running it, agreeing with that exercise's own test at every check.
+
 ---
 
 ## 11. The parts
@@ -3059,7 +3081,7 @@ Each part is one pull request into `v5`, ends with every suite green, and leaves
 | 12 | Hierarchy, and written blocks, edited in CodeMirror in a browser -- in six: 12a stepping inside a block **built** (see "As built in Part 12a"); 12b making a block **built** (see "As built in Part 12b"); 12c arrays **built** (see "As built in Part 12c"); 12d code blocks **built** (see "As built in Part 12d"); 12e the code panel **built** (see "As built in Part 12e"); 12f CodeMirror **built** (see "As built in Part 12f") |
 | 13 | Export and import (and a levelized path in the engine, only if a measurement asks for it) -- in six: 13a exporting a project **built** (see "As built in Part 13a"); 13b importing one **built** (see "As built in Part 13b"); 13c CONVERT **built** (see "As built in Part 13c"); 13d files **built** (see "As built in Part 13d"); 13e templates **built** (see "As built in Part 13e"); 13f limits, the security review, the measurement and the browser check **built** (see "As built in Part 13f"; the levelized path is not needed). **Part 13 is built.** |
 | 14 | The course's tools: path delays, static timing, gate-library mode, step tests, lint, tri-state -- in six, **built**: 14a the timing analysis core, 14b the TIMING tab, 14c step tests, 14d gate-library mode, 14e lint and 14f tri-state buses and inout (see "As built in Part 14a" to "14f"); and 14g, its follow-ups: deleting a module, the code editor's keys, the library held in written code and over budget, and inout pins on written blocks (see "As built in Part 14g") |
-| 15 | A simulator first, the Exercises and the tutorial -- in six: 15a **built** in two (see "As built in Part 15a"): the student's circuits, and opening on the last thing or a start page, the app's menus for BACK, the 4.x game in Settings, music off; 15b the Exercise model, grading and self-checking testbenches **built** (see "As built in Part 15b"); 15c the 35 exercises **built** (see "As built in Part 15c"); 15d Exercises on the workbench **built** (see "As built in Part 15d"); 15e answering in code **built** (see "As built in Part 15e"); 15f first-time hints, the guided tutorial and the browser check **built** (see "As built in Part 15f"). **Part 15 is built.** Then 15g, what the first playtest asked for: 15g-1 the quick fixes **built** (see "As built in Part 15g-1"); 15g-2 Settings and the credits as pages of the workbench **built** (see "As built in Part 15g-2"); 15g-3 a lead on every pin **built** (see "As built in Part 15g-3"); 15g-4 INPUTS, sequences without code **built** (see "As built in Part 15g-4"); 15g-5 LOGIC, the truth table, expressions and K-maps; 15g-6 STATES, the state diagram; 15g-7 big circuits stay smooth. And 15h, a drawing of any code, planned on its own. |
+| 15 | A simulator first, the Exercises and the tutorial -- in six: 15a **built** in two (see "As built in Part 15a"): the student's circuits, and opening on the last thing or a start page, the app's menus for BACK, the 4.x game in Settings, music off; 15b the Exercise model, grading and self-checking testbenches **built** (see "As built in Part 15b"); 15c the 35 exercises **built** (see "As built in Part 15c"); 15d Exercises on the workbench **built** (see "As built in Part 15d"); 15e answering in code **built** (see "As built in Part 15e"); 15f first-time hints, the guided tutorial and the browser check **built** (see "As built in Part 15f"). **Part 15 is built.** Then 15g, what the first playtest asked for: 15g-1 the quick fixes **built** (see "As built in Part 15g-1"); 15g-2 Settings and the credits as pages of the workbench **built** (see "As built in Part 15g-2"); 15g-3 a lead on every pin **built** (see "As built in Part 15g-3"); 15g-4 INPUTS, sequences without code **built** (see "As built in Part 15g-4"); 15g-5 LOGIC **built** (see "As built in Part 15g-5"); 15g-5 LOGIC, the truth table, expressions and K-maps; 15g-6 STATES, the state diagram; 15g-7 big circuits stay smooth. And 15h, a drawing of any code, planned on its own. |
 | 16 | The old game retired, and a smaller download; 5.0.0 released |
 
 **Agreed after Part 9, 2026-10-19: the language, before Part 10.** A course audit ran every one of the

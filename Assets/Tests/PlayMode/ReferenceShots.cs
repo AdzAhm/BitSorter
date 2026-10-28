@@ -1811,6 +1811,31 @@ namespace BitSorter.PlayMode.Tests
             yield return Capture("57-workbench-inputs-tab");
         }
 
+        /// <summary>Part 15g: the LOGIC tab on the full adder -- its truth table, each output's expression both ways, and their K-maps.</summary>
+        [UnityTest]
+        public IEnumerator Shot58_WorkbenchLogicTab()
+        {
+            yield return LoadTheGame();
+            yield return Frames(2);
+
+            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            yield return Frames(2);
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowSample(2);   // the full adder
+            yield return Frames(2);
+            workbench.Pause();
+            workbench.Session.Finish();
+            workbench.Seek(26.5);
+            workbench.ShowLogic();
+            yield return Frames(2);
+            workbench.FinishLogic();
+            yield return Frames(30);
+
+            Assert.IsTrue(workbench.Logic != null && workbench.Logic.Done, "sanity: the table made");
+            yield return Capture("58-workbench-logic-tab");
+        }
+
         private static IEnumerator OpenTheHalfAdder()
         {
             yield return TestScene.LoadSimulator();

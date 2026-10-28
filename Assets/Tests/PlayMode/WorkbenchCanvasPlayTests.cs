@@ -527,6 +527,39 @@ namespace BitSorter.PlayMode.Tests
             yield return null;
         }
 
+        /// <summary>
+        /// LOGIC (Part 15g): the full adder's truth table run and read, its carry written the textbook's way and SystemVerilog's;
+        /// and the counter, which has registers, told why it has none.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator TheLogicTab_TablesTheFullAdder_AndSaysWhyACounterHasNone()
+        {
+            yield return TestScene.LoadSimulator();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowSample(2);   // the full adder
+            yield return null;
+            workbench.ShowLogic();
+            yield return null;
+            workbench.FinishLogic();
+            yield return null;
+            yield return null;
+
+            Assert.IsNotNull(workbench.Logic, workbench.LogicSays);
+            Assert.IsTrue(workbench.Logic.Done);
+            Assert.AreEqual(8, workbench.Logic.Rows, "every combination of a, b and cin");
+            UnityEngine.UIElements.Label carry = ShellPanel.Find<UnityEngine.UIElements.Label>(WorkbenchPanel.LogicExpressionName + "cout");
+            Assert.IsNotNull(carry, "the carry's expression is drawn");
+            StringAssert.Contains("cout = bcin + acin + ab", carry.text);
+            StringAssert.Contains("assign cout = (b & cin) | (a & cin) | (a & b);",
+                ShellPanel.Find<UnityEngine.UIElements.Label>(WorkbenchPanel.LogicVerilogName + "cout").text);
+
+            workbench.ShowSample(3);   // the counter
+            yield return null;
+            yield return null;
+            Assert.IsNull(workbench.Logic);
+            StringAssert.Contains("registers", workbench.LogicSays, "and a circuit with registers is told why there is no table");
+        }
+
         /// <summary>An input's value at a moment, in binary, as the stimulus gives it.</summary>
         private static string InputAt(WorkbenchPanel workbench, string port, long time) =>
             StimulusEdits.ValueAt(workbench.Session.Project.Stimulus, port, time)?.Format(Radix.Binary);

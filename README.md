@@ -325,6 +325,11 @@ COMBINATIONS** fills in every combination of them, **COUNT** counts a bus up, an
 takes any of it back. A design imported without its testbench says which inputs
 nothing drives yet.
 
+**LOGIC**, beside TIMING, shows what a circuit without registers does: its truth
+table, found by running it through every combination of its inputs (up to ten
+bits), each output as a minimal sum of products -- the textbook's way, `a'b + ab'`,
+and SystemVerilog's -- and for four inputs or fewer, each output's K-map.
+
 ### Exercises (5.0 preview)
 
 The thirty levels of 4.x come back as **exercises**, with five new ones on

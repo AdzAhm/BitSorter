@@ -88,6 +88,7 @@ namespace BitSorter.View
             BuildTranscriptList(palette);
             BuildTimingList(palette);
             BuildInputsList();
+            BuildLogicList();
             ShowDockTab(DockTab.Waves);
             BuildSplitter(palette);
 
@@ -139,7 +140,7 @@ namespace BitSorter.View
             header.style.right = 0f;
             _dockPanel.Add(header);
 
-            // WAVES and TRANSCRIPT (Part 11c), CODE (12e), TIMING (14b) and INPUTS (15g), and each one's tools beside them.
+            // WAVES and TRANSCRIPT (Part 11c), CODE (12e), TIMING (14b), INPUTS and LOGIC (15g), and each one's tools beside them.
             BuildDockTabs(header, palette);
 
             var line = new VisualElement { name = "rule", pickingMode = PickingMode.Ignore };
@@ -535,6 +536,7 @@ namespace BitSorter.View
             PlaceTranscript();
             PlaceTiming();
             PlaceInputs();
+            PlaceLogic();
             FitToolbar(Window.x);
         }
 
