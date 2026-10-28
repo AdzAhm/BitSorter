@@ -207,6 +207,31 @@ namespace BitSorter.ViewModel.Tests
             return table;
         }
 
+        private static Project Written(string source)
+        {
+            ProjectImport import = ProjectImporter.Import(new[] { new SourceFile("wide.sv", source) });
+            Assert.IsTrue(import.Succeeded, string.Join("\n", import.Notes));
+            return import.Project;
+        }
+
+        /// <summary>
+        /// Too many input bits to table says how many rows they would be, exactly. A 64-bit ALU's 131 input bits read "8 rows"
+        /// in the 15h browser test: a 64-bit 1 shifted 131 places wraps round to one shifted 3.
+        /// </summary>
+        [Test]
+        public void TooManyInputBits_SayHowManyRowsTheyAre_PastSixtyFour()
+        {
+            Assert.IsNull(Tabled(Written("module wide (input logic [63:0] a, input logic [63:0] b, input logic [2:0] c, output logic y);\n" +
+                                         "    assign y = ^a ^ ^b ^ ^c;\n" +
+                                         "endmodule\n"), out string why), "sanity: too many to table");
+            StringAssert.StartsWith("131 input bits are 2^131 rows", why);
+
+            Assert.IsNull(Tabled(Written("module forty (input logic [39:0] a, output logic y);\n" +
+                                         "    assign y = ^a;\n" +
+                                         "endmodule\n"), out why), "sanity");
+            StringAssert.StartsWith("40 input bits are 1,099,511,627,776 rows", why, "and below 63, the number itself");
+        }
+
         [Test]
         public void TheFullAdder_IsTabledByRunningIt()
         {

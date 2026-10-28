@@ -23,6 +23,24 @@ namespace BitSorter.ViewModel.Tests
             return explorer.Machine;
         }
 
+        /// <summary>
+        /// Too many input or register bits to draw says how many arrows or states that is, exactly: the counts were capped at
+        /// 2^30 and 2^62, so forty input bits read as 2^30 arrows (the 15h browser test found LOGIC's like it).
+        /// </summary>
+        [Test]
+        public void TooManyBits_SayHowManyArrowsOrStatesTheyAre()
+        {
+            Assert.IsNull(Explored(Written("module many (input logic clk, input logic [39:0] a, output logic q);\n" +
+                                           "    always_ff @(posedge clk) q <= ^a;\n" +
+                                           "endmodule\n"), out string why), "sanity: too many inputs to draw");
+            StringAssert.Contains("40 input bits besides the clock are 1,099,511,627,776 arrows", why);
+
+            Assert.IsNull(Explored(Written("module long (input logic clk, input logic d, output logic [63:0] q);\n" +
+                                           "    always_ff @(posedge clk) q <= {q[62:0], d};\n" +
+                                           "endmodule\n"), out why), "sanity: too many register bits to draw");
+            StringAssert.Contains("64 register bits are up to 2^64 states", why);
+        }
+
         private static StateMachine Exercise(string id)
         {
             Exercise exercise = ExerciseFiles.Load(id);
