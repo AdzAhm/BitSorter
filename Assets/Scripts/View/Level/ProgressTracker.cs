@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace BitSorter.View
@@ -204,8 +205,10 @@ namespace BitSorter.View
         // -----------------------------------------------------------------
 
         /// <summary>
-        /// Forgets everything the save holds and puts the game back where a new player starts: the
-        /// first level, on an empty board, with the tutorial waiting.
+        /// Starts the exercises over (Part 15g): every solved exercise, its saved answer and best, the tutorial and the
+        /// first-time hints are forgotten -- the 4.x game's levels with them, since they share the exercises' names -- and
+        /// the student's circuits are kept: MY CIRCUIT, every named circuit, the free-play boards and their blocks
+        /// (<see cref="ProgressStore.ForgetTheExercises"/>). It used to empty the whole save, circuits included.
         /// </summary>
         /// <remarks>
         /// The level is switched first and the save emptied after, so that anything written on the
@@ -229,7 +232,10 @@ namespace BitSorter.View
                 if (_session != null && _session.AvailableLevels.Count > 0)
                     _session.LoadLevel(_session.AvailableLevels[0]);
 
-                _store.Clear();
+                var exercises = new HashSet<string>(StringComparer.Ordinal);
+                foreach (BitSorter.Board.Exercise exercise in ExerciseCatalog.Run)
+                    exercises.Add(exercise.Id);
+                _store.ForgetTheExercises(exercises);
             }
             finally
             {

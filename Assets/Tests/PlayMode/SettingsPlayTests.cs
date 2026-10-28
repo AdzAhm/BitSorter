@@ -989,8 +989,9 @@ namespace BitSorter.PlayMode.Tests
         // -----------------------------------------------------------------
 
         /// <summary>
-        /// Saying yes empties the save, on disk as well as in memory, and puts the player on the
-        /// first level with nothing on it.
+        /// Saying yes forgets the exercises -- the levels' solves, boards, milestones and hints -- on disk as well as in
+        /// memory, and puts the player on the first level with nothing on it. Circuits are kept (Part 15g): see
+        /// <c>WorkbenchCanvasPlayTests</c>.
         /// </summary>
         [UnityTest]
         public IEnumerator ConfirmingTheReset_EmptiesTheSave_AndStartsOnTheFirstLevel()
@@ -1076,10 +1077,11 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
-        /// After a reset free play opens on the default setup, not the one held from before.
+        /// After a reset free play opens on the setup it had: its boards are the student's, and a reset starts only the
+        /// exercises over (Part 15g). It opened on the default setup while a reset emptied the whole save.
         /// </summary>
         [UnityTest]
-        public IEnumerator AfterAReset_FreePlayOpensOnItsDefaultSetup()
+        public IEnumerator AfterAReset_FreePlayKeepsItsSetup()
         {
             yield return TestScene.Load();
 
@@ -1107,8 +1109,8 @@ namespace BitSorter.PlayMode.Tests
             yield return null;
 
             Assert.AreEqual(SandboxLevel.Key, session.LevelName, "sanity: free play did not reopen");
-            Assert.AreEqual(opening, session.Level.Fixtures.Count,
-                "free play came back with the setup from before the reset");
+            Assert.AreEqual(opening + 1, session.Level.Fixtures.Count,
+                "free play lost its setup in the reset");
         }
 
         /// <summary>The - or + on a setup row, found by sitting at the height of its caption.</summary>

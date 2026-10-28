@@ -512,6 +512,32 @@ namespace BitSorter.View
             Save();
         }
 
+        /// <summary>
+        /// Forgets the exercises and nothing the student made outside them (Part 15g, RESET PROGRESS): every solved mark,
+        /// every answer kept under one of <paramref name="exercises"/>' ids, and every 4.x board of their levels, which an
+        /// exercise would otherwise migrate back; the bests; the tutorial and every first-time hint, which are milestones and
+        /// hints seen; and an exercise in the recent list or as the last thing open. MY CIRCUIT, every named circuit, the
+        /// free-play boards and their blocks are kept.
+        /// </summary>
+        public void ForgetTheExercises(ICollection<string> exercises)
+        {
+            _completed.Clear();
+            _boards.Clear();
+            _hintsSeen.Clear();
+            _milestones.Clear();
+            _exerciseBests.Clear();
+            _projects.RemoveAll(p => p != null && exercises.Contains(p.key));
+            _recent.RemoveAll(IsAnExercise);
+            if (IsAnExercise(_lastOpen))
+                _lastOpen = "";
+            Save();
+
+            bool IsAnExercise(string key) => key != null && (key.StartsWith(ExerciseKeyPrefix, StringComparison.Ordinal) || exercises.Contains(key));
+        }
+
+        /// <summary>What an exercise is kept as in the recent list and as the last thing open: the view-model's <c>Documents.ExercisePrefix</c>.</summary>
+        private const string ExerciseKeyPrefix = BitSorter.ViewModel.Documents.ExercisePrefix;
+
         // -----------------------------------------------------------------
         // Free play's library of blocks
         // -----------------------------------------------------------------

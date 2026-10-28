@@ -461,18 +461,21 @@ namespace BitSorter.View
         private bool _forgotten;
 
         /// <summary>
-        /// RESET PROGRESS (Settings) has emptied the save, the student's circuits with it: the circuit open is let go without
-        /// being written back -- its next keep would put it into the save just emptied -- and MY CIRCUIT opens, blank, the next
-        /// time the workbench does. Not at once: the workbench is out of sight under Settings, and its stage is built where it
-        /// is seen.
+        /// RESET PROGRESS (Settings) has started the exercises over and kept the student's circuits (Part 15g): a circuit
+        /// open stays open, as it was. An exercise open is let go without being written back -- its next keep would put
+        /// its answer into the save just cleared of it -- and the start page opens, over MY CIRCUIT, the next time the
+        /// workbench does. Not at once: the workbench is out of sight under Settings, and its stage is built where it is
+        /// seen. It used to empty the save, circuits and all, and open MY CIRCUIT blank.
         /// </summary>
         private void ProgressWasReset()
         {
+            if (_exercise == null)
+                return;
             if (_session != null)
                 _keptProject = _session.Project;
             _keepAt = -1;
             _documentKey = WorkbenchSamples.MyCircuitKey;
-            _exercise = null;   // its solve and its answer went with the save
+            _exercise = null;   // its solve and its answer went with the reset
             _forgotten = Root != null;
         }
 

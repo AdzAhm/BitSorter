@@ -136,27 +136,8 @@ namespace BitSorter.View
             Build();
         }
 
-        private void OnEnable()
-        {
-            if (_progress != null)
-                _progress.ProgressReset += ForgetSetup;
-        }
-
-        private void OnDisable()
-        {
-            if (_progress != null)
-                _progress.ProgressReset -= ForgetSetup;
-        }
-
-        /// <summary>
-        /// A reset save has no free-play setup, so the next visit opens on the default one.
-        /// </summary>
-        /// <remarks>
-        /// The setup is held here once free play has been opened, and read from the save only when
-        /// it has not been. Without this a reset left it in memory, and the next visit staged it
-        /// straight back into the save that had just been emptied.
-        /// </remarks>
-        private void ForgetSetup() => _config = null;
+        // A reset forgot free play's setup with the rest of the save until Part 15g, which keeps the student's boards -- free
+        // play's among them -- and starts only the exercises over: the setup held here is the save's still, and stays.
 
         private void Update()
         {

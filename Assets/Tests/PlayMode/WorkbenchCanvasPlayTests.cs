@@ -1960,12 +1960,12 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
-        /// RESET PROGRESS empties the save, the student's circuits with it (Part 15a): the workbench lets the circuit it had open
-        /// go without writing it back, and opens MY CIRCUIT, blank. It went on showing the old one, and its next keep wrote it
-        /// back into the save just emptied (the #83 review).
+        /// RESET PROGRESS starts the exercises over and keeps the student's circuits (Part 15g): the circuit open stays open,
+        /// as it was, and is still in the save. It used to empty the save, circuits and all (Part 15a), and Ahmad asked for
+        /// it to forget the exercises only (2026-10-28).
         /// </summary>
         [UnityTest]
-        public IEnumerator ResetProgress_TakesTheCircuitsAway_AndTheWorkbenchOpensMyCircuitBlank()
+        public IEnumerator ResetProgress_KeepsTheCircuits_AndTheOneOpen()
         {
             yield return TestScene.Load();
             yield return Click(MainMenu.WorkbenchButton);
@@ -1983,14 +1983,47 @@ namespace BitSorter.PlayMode.Tests
             yield return Click(SettingsPanel.BackButton);
             yield return null;
 
-            Assert.AreEqual(WorkbenchSamples.MyCircuitKey, workbench.DocumentKey, "the circuit open went with the save");
-            Assert.IsEmpty(workbench.Session.Project.TopModule.Parts.OfType<GatePart>(), "MY CIRCUIT, blank");
-            Assert.IsTrue(workbench.StartPageShowing, "with the start page over it, as on a first launch");
-            yield return Tap(_keyboard.escapeKey);
-            Assert.IsFalse(workbench.StartPageShowing, "sanity: Escape took the page down");
+            Assert.IsTrue(store.HasProject(Documents.KeyOf("foo")), "the circuit is kept");
+            Assert.AreEqual(Documents.KeyOf("foo"), workbench.DocumentKey, "the circuit open stays open");
+            Assert.AreEqual(1, workbench.Session.Project.TopModule.Parts.OfType<GatePart>().Count(), "as it was");
+            Assert.IsFalse(workbench.StartPageShowing);
+        }
+
+        /// <summary>
+        /// RESET PROGRESS with an exercise open (Part 15g): its solve and its answer are forgotten, the workbench lets it go
+        /// without writing it back, and the start page opens over MY CIRCUIT, which is kept.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator ResetProgress_WithAnExerciseOpen_ForgetsItsAnswer_AndOpensTheStartPage()
+        {
+            yield return TestScene.Load();
+            yield return Click(MainMenu.WorkbenchButton);
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowSample(0);
+            yield return null;
             yield return Place(workbench, "and", new BoardPoint(2, 0), new System.Collections.Generic.List<int>());
+            workbench.OpenExercise("half-adder");
+            yield return null;
+            workbench.ExerciseCard.Close();   // its brief opens over the circuit
+            yield return null;
+            yield return Place(workbench, "xor", new BoardPoint(0, 0), new System.Collections.Generic.List<int>());
             yield return Click(WorkbenchPanel.SettingsButton);
-            Assert.IsFalse(store.HasProject(Documents.KeyOf("foo")), "nothing of it written back");
+
+            ProgressStore store = Find<ProgressTracker>().Store;
+            store.MarkComplete("half-adder");
+            Assert.IsTrue(store.HasProject("half-adder"), "sanity: its answer was kept");
+            Assert.IsTrue(Find<ProgressTracker>().ResetProgress());
+            Assert.IsFalse(store.HasProject("half-adder"), "its answer is forgotten");
+            Assert.IsFalse(store.IsComplete("half-adder"), "and its solve");
+            Assert.IsTrue(store.HasProject(WorkbenchSamples.MyCircuitKey), "MY CIRCUIT is kept");
+
+            yield return Click(SettingsPanel.BackButton);
+            yield return null;
+            Assert.IsTrue(workbench.StartPageShowing, "the start page, over MY CIRCUIT");
+            Assert.AreEqual(WorkbenchSamples.MyCircuitKey, workbench.DocumentKey);
+            Assert.AreEqual(1, workbench.Session.Project.TopModule.Parts.OfType<GatePart>().Count(), "MY CIRCUIT as it was");
+            yield return Click(WorkbenchPanel.SettingsButton);
+            Assert.IsFalse(store.HasProject("half-adder"), "nothing of the exercise written back");
         }
 
         /// <summary>

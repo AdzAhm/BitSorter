@@ -181,15 +181,16 @@ namespace BitSorter.View
         public const string PrivacyText =
             "Reports which levels people get stuck on. The README lists exactly what is sent.";
 
+        /// <summary>What RESET PROGRESS forgets, and what it keeps (Part 15g: it emptied the whole save, circuits included).</summary>
         public const string ProgressText =
-            "Start over from the tutorial: every solved level, board, best and hint is forgotten. " +
-            "Settings are kept.";
+            "Start the exercises over: every solved exercise, its saved answer and best, the tutorial and the " +
+            "first-time hints are forgotten. Your circuits and settings are kept.";
 
         /// <summary>The question RESET PROGRESS asks.</summary>
-        public const string Question = "Reset all progress? This cannot be undone.";
+        public const string Question = "Start the exercises over? This cannot be undone.";
 
-        /// <summary>What the panel says once the save has been emptied.</summary>
-        public const string Done = "Progress reset. The tutorial is waiting on the first level.";
+        /// <summary>What the panel says once the exercises have been forgotten.</summary>
+        public const string Done = "The exercises start over. Your circuits are kept.";
 
         private void Awake()
         {
