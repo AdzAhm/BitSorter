@@ -4,7 +4,7 @@
   "order": 930,
   "chapter": 9,
   "goal": "a reaches the XOR through two pipeline registers, b straight away, so out mixes a from two clocks ago with b from now. out should read a XOR b, both from two clocks ago. Its registers start at 0.",
-  "hint": "a pipeline stage delays everything that passes through it. Whatever meets what it delays has to wait as long.",
+  "hint": "a pipeline stage delays everything that passes through it, and whatever meets what it delays has to be delayed as much.",
   "inputs": [
     {"name": "a", "values": "01101100"},
     {"name": "b", "values": "00110110"}
