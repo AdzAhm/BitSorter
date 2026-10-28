@@ -35,7 +35,10 @@ namespace BitSorter.LogicCore.Tests
             Exercise exercise = Exercise.From(record, problems);
             Assert.IsNotNull(exercise, string.Join("\n", problems));
             Assert.IsNotNull(exercise.ToProject(problems), string.Join("\n", problems));
-            Assert.AreEqual(1, exercise.Library().Counts.Count, "the XOR's count; the AND has none");
+            GateLibrary library = exercise.Library();
+            Assert.AreEqual(1, library.MostOf("xor"));
+            Assert.AreEqual(-1, library.MostOf("and"), "stocked, any number of it");
+            Assert.AreEqual(0, library.MostOf(PartCount.Register), "no register where none is stocked");
         }
     }
 }

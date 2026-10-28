@@ -2662,8 +2662,11 @@ dotnet, that the next parts build on: 15c writes the exercises, 15d opens them o
   A file holds:
   - `id`, `title`, `order`, `chapter`, `goal` and `hint`;
   - the `inputs` and `outputs`: a name, a width, and a value at each vector -- a character a vector for a bit, or binary
-    words with spaces between. An x in an output leaves that bit free;
-  - the `parts` it stocks: a gate's `kind` or a `block`'s module, and a `count` (absent, any number);
+    words with spaces between. An x in an output leaves that bit free (in a value with a z, x means x). Every input
+    has as many values; every output as many again, or more when a register hands one on after the inputs run out;
+    and the outputs must ask something, or an empty board would pass;
+  - the `parts` it stocks: a gate's `kind`, `Register`, or a `block`'s module, each once, and a `count` (absent, any
+    number);
   - `delay`, whether `constants` may be drawn, a `clock`, the `cycle`;
   - `settleBy` for a timing exercise and `period` for a pipelining one;
   - the `start` circuit and the `blocks` it stocks, as structural SystemVerilog;
@@ -2673,7 +2676,8 @@ dotnet, that the next parts build on: 15c writes the exercises, 15d opens them o
   - Each vector has a cycle: its inputs change at its start, `clk` (when there is one) rises half-way, and the outputs
     are read just before that edge.
   - The cycle is worked out unless the file gives one. It is twice through every part stocked, at least ten, and past
-    a timing exercise's limit.
+    a timing exercise's limit with a moment to spare: a path settling at the very instant the outputs are read would be
+    read before it settled (the #85 review). A cycle given must leave a gate's delay and that moment before the read.
   - So a 4.x board migrated reads what its level expected, at the moments it is graded.
 - **It opens as a document** (`ToProject`):
   - its start circuit drawn by `BoardImporter`, or its ports on a blank board (inputs down the left, the clock first,
@@ -2681,14 +2685,19 @@ dotnet, that the next parts build on: 15c writes the exercises, 15d opens them o
   - each stocked block as a module, drawn on its own when the start circuit does not use it;
   - its test as the stimulus;
   - a library of its stock (below).
-  A start circuit is held to every rule, its stock included, and must have the test's ports.
+  A start circuit takes its cells' delays, as setting a library gives them, is held to every rule, its stock included,
+  and must have the test's ports. A stocked block must be a module of it, and not its top.
 - **The stock is the library's** (`GateLibrary.Counts`, `PartCounts`):
   - Its cells are each gate kind stocked, at the exercise's delay. No constants unless the exercise gives them.
-  - A count per part: past it, a part is refused, as 4.x's parts list ran out. The gate budget only warns.
-  - A gate is counted by kind, one per bit, once in every instance. A block is counted by its module, once per copy.
-  - A block's insides count too, unless its module has a count of its own. Then the block is the part: neither its
-    gates' kinds nor their delays are held to the cells. **15d must keep a stocked block's module from being edited**,
-    or its insides would be a way past the stock.
+  - A count per part: past it, a part is refused, as 4.x's parts list ran out; -1 is any number. The gate budget only
+    warns. A register not stocked is stocked at 0: an exercise without one is no place for one.
+  - A gate is counted by kind and a register as one, one per bit, once in every instance. A block is counted by its
+    module, once per copy. A module is counted once and its count multiplied, so a deep hierarchy costs its modules.
+  - A block's insides count too, unless its module is stocked, capped or not. Then the block is the part: its module,
+    and every module only it reaches (`BoardRules.StockedInsides`), is held to neither the cells nor the counts. **15d
+    must keep a stocked block's modules from being edited**, or its insides would be a way past the stock.
+  - Written code is a way past it too: an exercise not answered in code takes no written module (Part 15e holds one
+    that is to the gate-level rules).
 - **The self-checking testbench** (the brief's D5): `Stimulus.Checks` -- an output, a moment, a value wanted -- printed
   into the testbench.
   - Each check prints as `if ((s ==? 1'b0) !== 1'b1) begin $display("FAIL s at %0t: %b, wanted 0", $time, s);
@@ -2696,10 +2705,13 @@ dotnet, that the next parts build on: 15c writes the exercises, 15d opens them o
   - It fails anything but a definite match. An output read as x where a value is wanted fails; `if (s !=? 1'b0)` would
     have passed it, since `if` takes an x as false.
   - A value with a z is compared with `!==`.
-  - A stimulus with no checks prints the testbench it always did. Checks are saved (`checks`).
+  - A stimulus with no checks prints the testbench it always did. Checks are saved (`checks`), follow their port when
+    it is renamed and go with it when it is removed, and must be on an output, as wide as it, at a moment of the run.
 - **The grader** (`ExerciseGrader.Grade`) runs a design under the exercise's own test and library, whatever its
   document has come to say. The failures it reports are the testbench's own FAIL lines, so the grade is what the
-  TRANSCRIPT will show and what the exported testbench prints in ModelSim. It also gives:
+  TRANSCRIPT will show and what the exported testbench prints in ModelSim. A run that stops before the line closing the
+  test -- a loop that never settles, a `$finish` -- is no pass: the checks it never made could never fail. A design
+  breaking a rule is not run. A test that makes no check solves nothing. It also gives:
   - the rules broken (a part not stocked, one too many);
   - the parts, and the gates by kind, a stocked block counted whole;
   - the static settle time (the slowest input-to-output path, Part 14a) against `settleBy`;
@@ -2709,9 +2721,12 @@ dotnet, that the next parts build on: 15c writes the exercises, 15d opens them o
     - the file and what is wrong with one;
     - the document;
     - right and wrong designs;
-    - over the stock, too slow, clocked;
-    - blocks and a start circuit.
-  - Oracle: `SelfCheckOracleTests` -- Icarus prints the same lines in five cases, an exercise's grade among them.
+    - over the stock, too slow, clocked, a register counted;
+    - blocks and a start circuit, a block stocked with no count and the modules inside it;
+    - and the #85 review's: a run stopped early, a test checking nothing, a cycle leaving its moment, written code, a
+      stock validated, a check following its port, a hierarchy thirty deep.
+  - Oracle: `SelfCheckOracleTests` -- Icarus prints the same lines in six cases, an output read as x and an exercise's
+    grade among them.
   - Edit Mode: `JsonUtility` reads a file as dotnet does.
 
 ---

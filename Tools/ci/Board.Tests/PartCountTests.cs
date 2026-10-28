@@ -75,6 +75,30 @@ namespace BitSorter.Board.Tests
         }
 
         [Test]
+        public void ARegister_IsCountedAndStocked_AndADeepHierarchyCostsItsModulesOnly()
+        {
+            Project johnson = SampleBoards.Build("johnson");
+            Dictionary<string, int> counts = PartCounts.Of(johnson);
+            Assert.Greater(counts[PartCount.Register], 0, "the Johnson counter's registers");
+
+            var editor = new BoardEditor(johnson);
+            EditResult set = editor.SetLibrary(Stocking(new PartCount(PartCount.Register, 0)) with { Cells = GateLibrary.AllCells(0) });
+            StringAssert.Contains("The exercise stocks no register", set.Refusal);
+
+            // Thirty levels of two blocks each: a billion instances, counted as thirty modules.
+            var modules = new List<Module> { new Module { Name = "m0", Parts = new Part[] { new GatePart { Id = 1, Name = "g1", Kind = GateKind.Not, Inputs = 1 } } } };
+            for (int i = 1; i <= 30; i++)
+                modules.Add(new Module
+                {
+                    Name = "m" + i,
+                    Parts = new Part[] { new BlockPart { Id = 1, Name = "u1", Module = "m" + (i - 1) }, new BlockPart { Id = 2, Name = "u2", Module = "m" + (i - 1) } },
+                });
+            Dictionary<string, int> deep = PartCounts.Of(new Project { Name = "deep", Top = "m30", Modules = modules });
+            Assert.AreEqual(1 << 30, deep["not"]);
+            Assert.AreEqual(2, deep["m29"]);
+        }
+
+        [Test]
         public void TheCounts_AreSaved_AndAnOlderFileHasNone()
         {
             GateLibrary stocked = Stocking(new PartCount("xor", 1), new PartCount("fa", 4));

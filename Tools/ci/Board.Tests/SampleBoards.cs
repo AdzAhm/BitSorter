@@ -100,7 +100,6 @@ namespace BitSorter.Board.Tests
             b.Wire(n, "y", c, "in");
         }
 
-        /// <summary>Every combination of one-bit inputs, the first input the most significant, <paramref name="gap"/> apart.</summary>
         /// <summary>
         /// The half adder, stepped through its four inputs ten apart, each output checked just before the next step against
         /// <paramref name="sums"/> and <paramref name="carries"/>, a character a step (Part 15b's self-checks).
@@ -117,6 +116,7 @@ namespace BitSorter.Board.Tests
             return project with { Stimulus = project.Stimulus with { Checks = checks } };
         }
 
+        /// <summary>Every combination of one-bit inputs, the first input the most significant, <paramref name="gap"/> apart.</summary>
         internal static Project Exhaustive(BoardEditor editor, string[] inputs, long gap)
         {
             var tracks = new List<Track>();

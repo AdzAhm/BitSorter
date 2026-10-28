@@ -188,9 +188,10 @@ namespace BitSorter.Board
             if (stimulus == null || project.Top != module.Name)
                 return project;
 
+            // An input's tracks, and an output's checks (Part 15b): the test of a port that is gone is gone with it.
             var ports = new HashSet<string>(StringComparer.Ordinal);
             foreach (int id in parts)
-                if (module.FindPart(id) is PortPart port && port.Direction == PortDirection.Input)
+                if (module.FindPart(id) is PortPart port)
                     ports.Add(port.Name);
             if (ports.Count == 0)
                 return project;
@@ -203,8 +204,12 @@ namespace BitSorter.Board
             foreach (ClockTrack clock in stimulus.Clocks)
                 if (!ports.Contains(clock.Port))
                     clocks.Add(clock);
+            var checks = new List<Check>();
+            foreach (Check check in stimulus.Checks)
+                if (!ports.Contains(check.Port))
+                    checks.Add(check);
 
-            return project with { Stimulus = stimulus with { Tracks = tracks, Clocks = clocks } };
+            return project with { Stimulus = stimulus with { Tracks = tracks, Clocks = clocks, Checks = checks } };
         }
 
         /// <summary>
@@ -787,7 +792,10 @@ namespace BitSorter.Board
                 var clocks = new List<ClockTrack>();
                 foreach (ClockTrack clock in stimulus.Clocks)
                     clocks.Add(clock.Port == from ? clock with { Port = to } : clock);
-                stimulus = stimulus with { Tracks = tracks, Clocks = clocks };
+                var checks = new List<Check>();
+                foreach (Check check in stimulus.Checks)
+                    checks.Add(check.Port == from ? check with { Port = to } : check);
+                stimulus = stimulus with { Tracks = tracks, Clocks = clocks, Checks = checks };
             }
 
             return project with { Modules = modules, Stimulus = stimulus };

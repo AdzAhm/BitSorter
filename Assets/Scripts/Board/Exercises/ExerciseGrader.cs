@@ -47,7 +47,10 @@ namespace BitSorter.Board
             PeriodMet = periodMet;
         }
 
-        /// <summary>Why it could not be run at all: it does not compile, or does not elaborate. Empty when it ran.</summary>
+        /// <summary>
+        /// Why it could not be run, or not to its end: it does not compile or elaborate, or its run stopped before the test had
+        /// made every check -- a loop that never settles, a <c>$finish</c>. Empty when the test ran through.
+        /// </summary>
         public IReadOnlyList<string> Problems { get; }
 
         /// <summary>The rules it breaks under the exercise's library: a part it does not stock, one too many, a constant.</summary>
@@ -75,7 +78,8 @@ namespace BitSorter.Board
         public bool SettleMet { get; }
         public bool PeriodMet { get; }
 
-        public bool Solved => Problems.Count == 0 && Faults.Count == 0 && Failures.Count == 0 && SettleMet && PeriodMet;
+        /// <summary>Whether it is solved: run through, breaking no rule, every check made and passed, in time and at the period.</summary>
+        public bool Solved => Problems.Count == 0 && Faults.Count == 0 && Checks > 0 && Failures.Count == 0 && SettleMet && PeriodMet;
     }
 
     /// <summary>
@@ -87,6 +91,7 @@ namespace BitSorter.Board
     public static class ExerciseGrader
     {
         private static readonly Regex Failed = new Regex(@"^FAIL (\S+) at (\d+): (\S+), wanted (\S+)$", RegexOptions.CultureInvariant);
+        private static readonly Regex Summary = new Regex(@"^(\d+) of (\d+) checks failed$", RegexOptions.CultureInvariant);
 
         public static Grade Grade(Exercise exercise, Project project)
         {
@@ -109,6 +114,12 @@ namespace BitSorter.Board
                 if (diagnostic.IsError)
                     faults.Add(diagnostic.Message);
 
+            // Written code is a way past the stock, which counts drawn parts: an exercise answered in code is held to its
+            // gates by the gate-level rules (Part 15e), and one that is not takes none (the #85 review).
+            foreach (Module module in graded.Modules)
+                if (module.IsWritten && !exercise.Code)
+                    faults.Add($"{module.Name} is written, and this exercise is answered by drawing it.");
+
             Dictionary<string, int> parts = PartCounts.Of(graded, library.Counted());
             int gates = 0;
             foreach (KeyValuePair<string, int> part in parts)
@@ -117,14 +128,16 @@ namespace BitSorter.Board
 
             var problems = new List<string>();
             var failures = new List<CheckFailure>();
-            CompiledProject compiled = BoardCompiler.Compile(graded);
-            if (!compiled.Succeeded)
+
+            // A design that breaks a rule is not run: the rules are the reason, already said, and it would not compile.
+            CompiledProject compiled = faults.Count > 0 ? null : BoardCompiler.Compile(graded);
+            if (compiled != null && !compiled.Succeeded)
             {
                 foreach (BoardDiagnostic d in compiled.Diagnostics)
                     if (d.IsError)
                         problems.Add(d.Message);
             }
-            else
+            else if (compiled != null)
             {
                 Elaboration elaboration = Elaborator.Elaborate(compiled.Tree, compiled.Top);
                 if (elaboration.HasErrors)
@@ -139,18 +152,34 @@ namespace BitSorter.Board
                     var asked = new HashSet<(string, long)>();
                     foreach (Check check in graded.Stimulus.Checks)
                         asked.Add((check.Port, check.Time));
+
+                    // The testbench's own lines: each check that failed, and the line that closes the test -- which says it
+                    // ran to its end. A run stopped before it -- a loop that never settles, a $finish -- made only some of its
+                    // checks, and is not passed for the ones it never made (the #85 review).
+                    bool closed = false;
+                    var said = new List<string>();
                     foreach (SimMessage message in sim.History.Messages)
                     {
-                        Match failed = Failed.Match(message.Text ?? "");
+                        string text = message.Text ?? "";
+                        Match failed = Failed.Match(text);
+                        Match summary = Summary.Match(text);
                         if (failed.Success && long.TryParse(failed.Groups[2].Value, NumberStyles.None, CultureInfo.InvariantCulture, out long time)
                             && asked.Contains((failed.Groups[1].Value, time)))
                             failures.Add(new CheckFailure(failed.Groups[1].Value, time, failed.Groups[3].Value, failed.Groups[4].Value));
+                        else if (summary.Success && summary.Groups[2].Value == asked.Count.ToString(CultureInfo.InvariantCulture)
+                            && summary.Groups[1].Value == failures.Count.ToString(CultureInfo.InvariantCulture))
+                            closed = true;
+                        else if (!text.StartsWith("$stop", StringComparison.Ordinal))
+                            said.Add(text);
                     }
+
+                    if (!closed && asked.Count > 0)
+                        problems.Add("The test stopped before it had made every check" + (said.Count > 0 ? ": " + said[said.Count - 1] : "."));
                 }
             }
 
             long? settle = null, period = null;
-            if (problems.Count == 0)
+            if (problems.Count == 0 && faults.Count == 0)
             {
                 TimingAnalysis timing = TimingAnalysis.Of(graded);
                 if (timing.Succeeded)

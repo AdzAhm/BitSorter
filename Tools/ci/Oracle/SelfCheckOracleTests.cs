@@ -39,6 +39,26 @@ namespace BitSorter.Ci.Oracle
             Assert.That(ours.Last(), Does.EndWith("checks failed"));
         }
 
+        /// <summary>An output read as x where a value is wanted fails in both (the #85 review): a driven to x at the last vector.</summary>
+        [Test]
+        public void AnOutputReadAsX_FailsUnderIcarusAsItFailsHere()
+        {
+            Icarus icarus = Icarus.Require();
+            Project project = SampleBoards.CheckedHalfAdder("0110", "0001");
+            Track a = project.Stimulus.Tracks.Single(t => t.Port == "a");
+            Track unknown = a with { Steps = a.Steps.Select(s => s.Time == 30 ? new Step(30, SystemVerilog.LogicVec.FromBinary("x")) : s).ToList() };
+            project = project with { Stimulus = project.Stimulus with { Tracks = project.Stimulus.Tracks.Select(t => t.Port == "a" ? unknown : t).ToList() } };
+
+            CompiledProject compiled = BoardCompiler.Compile(project);
+            Elaboration elaboration = Elaborator.Elaborate(compiled.Tree, compiled.Top);
+            var sim = new Simulator(elaboration.Design);
+            sim.RunTo(project.Stimulus.StopTime + 10);
+            string[] ours = sim.History.Messages.Select(m => m.Text).Where(t => !t.StartsWith("$stop", StringComparison.Ordinal)).ToArray();
+
+            CollectionAssert.AreEqual(ours, RunIcarus(icarus, BoardPrinter.Print(compiled)));
+            CollectionAssert.Contains(ours, "FAIL s at 39: x, wanted 0");
+        }
+
         /// <summary>
         /// An exercise graded (Part 15b): the half adder's sum taken from an AND, so wrong at three vectors. What the grader
         /// says failed is what the exported testbench says under Icarus, line for line.

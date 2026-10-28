@@ -94,6 +94,33 @@ namespace BitSorter.Board.Tests
             StringAssert.DoesNotContain("errors", unchecked_, "a stimulus with no checks prints the testbench it always did");
         }
 
+        /// <summary>A check follows its port: renamed with it, and gone with it (the #85 review); and a check on no output is refused.</summary>
+        [Test]
+        public void ACheck_FollowsItsPort_AndOneOnNoOutputIsRefused()
+        {
+            var editor = new BoardEditor(Checked("0110", "0001"));
+            Module top = editor.Project.TopModule;
+            PortPart s = top.Ports.Single(p => p.Name == "s");
+            Assert.IsTrue(editor.Change(top.Name, s with { Name = "sum" }).Done);
+            Assert.That(editor.Project.Stimulus.Checks.Where(c => c.Port != "c").Select(c => c.Port), Is.All.EqualTo("sum"));
+
+            Assert.IsTrue(editor.Remove(top.Name, s.Id).Done);
+            Assert.That(editor.Project.Stimulus.Checks.Select(c => c.Port), Is.All.EqualTo("c"), "the sum's checks went with it");
+
+            Project onAnInput = editor.Project with
+            {
+                Stimulus = editor.Project.Stimulus with { Checks = new[] { new Check { Port = "a", Time = 9, Expected = LogicVec.FromBinary("1") } } },
+            };
+            StringAssert.Contains("The test checks a, which is not an output of half_adder.",
+                string.Join("\n", BoardRules.Check(onAnInput).Where(d => d.IsError).Select(d => d.Message)));
+            Project tooWide = editor.Project with
+            {
+                Stimulus = editor.Project.Stimulus with { Checks = new[] { new Check { Port = "c", Time = 9, Expected = LogicVec.FromBinary("01") } } },
+            };
+            StringAssert.Contains("c is 1 bit, and the test wants 2 bits of it at 9.",
+                string.Join("\n", BoardRules.Check(tooWide).Where(d => d.IsError).Select(d => d.Message)));
+        }
+
         [Test]
         public void TheChecks_AreSaved_AndAnOlderFileHasNone()
         {

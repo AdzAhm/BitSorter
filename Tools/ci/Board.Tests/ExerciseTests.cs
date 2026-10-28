@@ -183,7 +183,8 @@ namespace BitSorter.Board.Tests
         {
             Exercise late = Make(@"{ ""id"": ""one-clock-late"", ""title"": ""One clock late"", ""clock"": true,
                 ""inputs"": [ { ""name"": ""d"", ""values"": ""10110"" } ],
-                ""outputs"": [ { ""name"": ""q"", ""values"": ""x1011"" } ] }");
+                ""outputs"": [ { ""name"": ""q"", ""values"": ""x1011"" } ],
+                ""parts"": [ { ""kind"": ""Register"", ""count"": 1 } ] }");
             Project project = Open(late);
             Assert.AreEqual(Exercise.ClockName, project.TopModule.Ports[0].Name, "the clock first");
             Assert.AreEqual(late.Cycle, project.Stimulus.Clocks.Single().Period);
@@ -258,6 +259,134 @@ namespace BitSorter.Board.Tests
             Exercise overStock = Make(HalfAdderJson.Replace(@"""parts"":", @"""start"": ""module half_adder (input logic a, input logic b, output logic sum, output logic carry); xor g1 (sum, a, b); xor g2 (carry, a, b); endmodule"", ""parts"":"));
             Assert.IsNull(overStock.ToProject(problems), "a start circuit over its own stock");
             StringAssert.Contains("stocks 1 XOR", string.Join("\n", problems));
+        }
+
+        /// <summary>
+        /// A run that stops before the test is through is no pass (the #85 review): here a ring of a NAND and two NOTs at no
+        /// delay, which once a is 1 has three inversions and never settles, so the engine stops it long before the last check --
+        /// which, never made, could never fail.
+        /// </summary>
+        [Test]
+        public void ARunThatStopsBeforeTheTestIsThrough_IsNotSolved()
+        {
+            Exercise invert = Make(@"{ ""id"": ""invert"", ""title"": ""Invert"", ""delay"": 0,
+                ""inputs"": [ { ""name"": ""a"", ""values"": ""0101"" } ], ""outputs"": [ { ""name"": ""y"", ""values"": ""1010"" } ],
+                ""parts"": [ { ""kind"": ""Not"" }, { ""kind"": ""Nand"" } ] }");
+            var editor = new BoardEditor(Open(invert));
+            int not = Gate(editor, GateKind.Not, 8, 0, delay: 0);
+            Wire(editor, Port(editor, "a"), "out", not, "a");
+            Wire(editor, not, "y", Port(editor, "y"), "in");
+            Assert.IsTrue(ExerciseGrader.Grade(invert, editor.Project).Solved, "sanity: the answer alone is right");
+
+            int g1 = Gate(editor, GateKind.Nand, 8, 8, 0), g2 = Gate(editor, GateKind.Not, 12, 8, 0), g3 = Gate(editor, GateKind.Not, 16, 8, 0);
+            Wire(editor, Port(editor, "a"), "out", g1, "a");
+            Wire(editor, g1, "y", g2, "a");
+            Wire(editor, g2, "y", g3, "a");
+            Wire(editor, g3, "y", g1, "b");
+
+            Grade grade = ExerciseGrader.Grade(invert, editor.Project);
+            Assert.IsFalse(grade.Solved);
+            StringAssert.Contains("The test stopped before it had made every check", string.Join("\n", grade.Problems));
+        }
+
+        [Test]
+        public void ATestThatChecksNothing_OrAnOutputShorterThanTheInputs_IsRefused()
+        {
+            var problems = new List<string>();
+            Assert.IsNull(Exercise.From(Record(HalfAdderJson.Replace(@"""values"": ""0110""", @"""value"": ""0110""")
+                .Replace(@"""values"": ""0001""", @"""values"": ""xxxx""")), problems), "a misspelt field leaves the test checking nothing");
+            StringAssert.Contains("its test checks nothing", string.Join("\n", problems));
+
+            problems.Clear();
+            Assert.IsNull(Exercise.From(Record(HalfAdderJson.Replace(@"""values"": ""0110""", @"""values"": ""011""")), problems));
+            StringAssert.Contains("the output carry has 4 values, and sum 3", string.Join("\n", problems));
+            StringAssert.Contains("its outputs have 3 values for 4 vectors of inputs", string.Join("\n", problems));
+        }
+
+        [Test]
+        public void ACycle_LeavesAMomentToSpare_BeforeTheOutputsAreRead()
+        {
+            var problems = new List<string>();
+            Assert.IsNull(Exercise.From(Record(HalfAdderJson.Replace(@"""chapter"": 6,", @"""chapter"": 6, ""cycle"": 4,")), problems));
+            StringAssert.Contains("an even length of at least 6", string.Join("\n", problems), "a gate of delay 1 answers at 1; 4 reads at 1");
+
+            // A design that only just meets its limit is read settled: two NOTs in a row, settling at 2, against 2.
+            Exercise twice = Make(@"{ ""id"": ""twice"", ""title"": ""Twice"", ""settleBy"": 2,
+                ""inputs"": [ { ""name"": ""a"", ""values"": ""0101"" } ], ""outputs"": [ { ""name"": ""y"", ""values"": ""0101"" } ],
+                ""parts"": [ { ""kind"": ""Not"", ""count"": 2 } ] }");
+            var editor = new BoardEditor(Open(twice));
+            int n1 = Gate(editor, GateKind.Not, 6, 0), n2 = Gate(editor, GateKind.Not, 10, 0);
+            Wire(editor, Port(editor, "a"), "out", n1, "a");
+            Wire(editor, n1, "y", n2, "a");
+            Wire(editor, n2, "y", Port(editor, "y"), "in");
+            Grade grade = ExerciseGrader.Grade(twice, editor.Project);
+            Assert.AreEqual(2L, grade.Settle);
+            Assert.IsTrue(grade.Solved, string.Join("\n", grade.Failures.Select(f => f.ToString())));
+        }
+
+        [Test]
+        public void ABlockStockedWithNoCount_IsCountedWhole_AndSoAreTheModulesInsideIt()
+        {
+            string fullAdderBlock = HalfAdderBlock + "module fa (input logic a, input logic b, input logic cin, output logic s, output logic cout);\n" +
+                "    logic s1, c1, c2;\n    ha h1 (.a(a), .b(b), .s(s1), .c(c1));\n    ha h2 (.a(s1), .b(cin), .s(s), .c(c2));\n" +
+                "    or g3 (cout, c1, c2);\nendmodule\n";
+            Exercise any = Make(@"{ ""id"": ""any"", ""title"": ""Any"",
+                ""inputs"": [ { ""name"": ""a"", ""values"": ""01"" } ], ""outputs"": [ { ""name"": ""y"", ""values"": ""01"" } ],
+                ""parts"": [ { ""block"": ""ha"" }, { ""kind"": ""Or"", ""count"": 1 } ],
+                ""blocks"": " + JsonSerializer.Serialize(HalfAdderBlock) + " }");
+            Open(any);
+
+            Exercise nested = Make(@"{ ""id"": ""nested"", ""title"": ""Nested"",
+                ""inputs"": [ { ""name"": ""a"", ""values"": ""01"" } ], ""outputs"": [ { ""name"": ""y"", ""values"": ""01"" } ],
+                ""parts"": [ { ""block"": ""fa"", ""count"": 2 } ],
+                ""blocks"": " + JsonSerializer.Serialize(fullAdderBlock) + " }");
+            Project project = Open(nested);
+            CollectionAssert.AreEquivalent(new[] { "fa", "ha" }, BoardRules.StockedInsides(project, project.Settings.Library.Counted()),
+                "the half adder is the full adder's, inside it");
+        }
+
+        [Test]
+        public void WrittenCode_IsAFault_WhereTheExerciseIsAnsweredByDrawing()
+        {
+            Exercise exercise = Make(HalfAdderJson);
+            var editor = new BoardEditor(HalfAdder(exercise, GateKind.Xor));
+            Assert.IsTrue(editor.AddWrittenModule("w", "module w (input logic a, output logic y);\n    assign y = a;\nendmodule\n").Done);
+
+            Grade grade = ExerciseGrader.Grade(exercise, editor.Project);
+            Assert.IsFalse(grade.Solved);
+            StringAssert.Contains("w is written, and this exercise is answered by drawing it.", string.Join("\n", grade.Faults));
+        }
+
+        [Test]
+        public void TheStock_IsValidated()
+        {
+            var problems = new List<string>();
+            Assert.IsNull(Exercise.From(Record(HalfAdderJson.Replace(@"{ ""kind"": ""And"", ""count"": 1 }",
+                @"{ ""kind"": ""And"", ""count"": 1 }, { ""kind"": ""and"", ""inputs"": 3, ""count"": 1 }, { ""kind"": ""1"" }, { ""kind"": ""and,or"" }")), problems));
+            string all = string.Join("\n", problems);
+            StringAssert.Contains("it stocks and twice", all);
+            StringAssert.Contains("'1' is no gate", all);
+            StringAssert.Contains("'and,or' is no gate", all);
+
+            problems.Clear();
+            Exercise missing = Make(HalfAdderJson.Replace(@"{ ""kind"": ""And"", ""count"": 1 }", @"{ ""kind"": ""And"", ""count"": 1 }, { ""block"": ""nowhere"" }"));
+            Assert.IsNull(missing.ToProject(problems));
+            StringAssert.Contains("it stocks the block nowhere, which its blocks do not have", string.Join("\n", problems));
+
+            problems.Clear();
+            Exercise itself = Make(HalfAdderJson.Replace(@"{ ""kind"": ""And"", ""count"": 1 }", @"{ ""kind"": ""And"", ""count"": 1 }, { ""block"": ""half_adder"" }"));
+            Assert.IsNull(itself.ToProject(problems));
+            StringAssert.Contains("the top, half_adder, cannot be a block it stocks", string.Join("\n", problems));
+        }
+
+        [Test]
+        public void AStartCircuit_OfPlainPrimitives_TakesItsCellsDelays()
+        {
+            Exercise exercise = Make(HalfAdderJson.Replace(@"""parts"":",
+                @"""delay"": 3, ""start"": ""module half_adder (input logic a, input logic b, output logic sum, output logic carry); xor g1 (sum, a, b); and g2 (carry, a, b); endmodule"", ""parts"":"));
+            Project project = Open(exercise);
+            Assert.That(project.TopModule.Parts.OfType<GatePart>().Select(g => (g.Rise, g.Fall)), Is.All.EqualTo((3L, 3L)));
+            Assert.IsTrue(ExerciseGrader.Grade(exercise, project).Solved, "the start circuit here is already the answer");
         }
 
         [Test]

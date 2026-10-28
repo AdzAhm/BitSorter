@@ -30,10 +30,10 @@ namespace BitSorter.Board
 
         public SignalRecord[] inputs = new SignalRecord[0];
 
-        /// <summary>What each output must read at each vector; an x leaves a bit free.</summary>
+        /// <summary>What each output must read at each vector: an x leaves a bit free, but in a value with a z, x means x.</summary>
         public SignalRecord[] outputs = new SignalRecord[0];
 
-        /// <summary>The parts it stocks: a gate of a kind, or a block, each with how many; a count of -1 is any number.</summary>
+        /// <summary>The parts it stocks: a gate of a kind, a register, or a block, each with how many; a count of -1 is any number.</summary>
         public StockRecord[] parts = new StockRecord[0];
 
         /// <summary>Every gate's rise and fall.</summary>
@@ -75,7 +75,7 @@ namespace BitSorter.Board
         public string values;
     }
 
-    /// <summary>A part an exercise stocks, as its file holds it: a gate's <c>kind</c> or a <c>block</c>'s module, and how many.</summary>
+    /// <summary>A part an exercise stocks, as its file holds it: a gate's <c>kind</c> -- or <c>Register</c> -- or a <c>block</c>'s module, and how many.</summary>
     [Serializable]
     public sealed class StockRecord
     {
@@ -205,16 +205,33 @@ namespace BitSorter.Board
             List<ExerciseSignal> inputs = Signals(record.inputs, "input");
             List<ExerciseSignal> outputs = Signals(record.outputs, "output");
 
-            int vectors = 0;
+            // Every input as long as every other; every output as long, or longer when a register hands on a value after the
+            // inputs have run out -- the inputs then hold their last. Anything else is a slip in the file, and a slip that went
+            // unchecked would leave vectors the test never asks about (the #85 review).
+            int given = inputs.Count > 0 ? inputs[0].Values.Count : 0;
+            int vectors = outputs.Count > 0 ? outputs[0].Values.Count : 0;
             foreach (ExerciseSignal signal in inputs)
-                vectors = Math.Max(vectors, signal.Values.Count);
+                if (signal.Values.Count != given)
+                    Problem($"the input {signal.Name} has {signal.Values.Count} values, and {inputs[0].Name} {given}: every input has as many.");
             foreach (ExerciseSignal signal in outputs)
-                vectors = Math.Max(vectors, signal.Values.Count);
-            if (vectors == 0)
-                Problem("its test has no vectors.");
+                if (signal.Values.Count != vectors)
+                    Problem($"the output {signal.Name} has {signal.Values.Count} values, and {outputs[0].Name} {vectors}: every output has as many.");
+            if (vectors < given)
+                Problem($"its outputs have {vectors} values for {given} vectors of inputs: every vector is checked.");
+            if (given == 0)
+                Problem("its inputs have no values.");
+
+            // A test that asks nothing is passed by an empty board: a value misspelt in the file would do it.
+            bool asks = false;
+            foreach (ExerciseSignal output in outputs)
+                foreach (LogicVec value in output.Values)
+                    asks |= !value.IsAllX;
+            if (outputs.Count > 0 && !asks)
+                Problem("its test checks nothing: every output's every value is x.");
 
             var stock = new List<PartCount>();
             var cells = new List<LibraryCell>();
+            var stockedParts = new HashSet<string>(StringComparer.Ordinal);
             long stocked = 0;
             foreach (StockRecord part in record.parts ?? new StockRecord[0])
             {
@@ -224,38 +241,56 @@ namespace BitSorter.Board
                     Problem($"a count of {part.count} is no count.");
                 long counted = part.count < 0 ? 8 : part.count;
 
+                string key;
                 if (!string.IsNullOrEmpty(part.block))
                 {
-                    stock.Add(new PartCount(part.block, part.count));
+                    key = part.block;
                     stocked += 4 * counted;
-                    continue;
                 }
-
-                if (!Enum.TryParse(part.kind, ignoreCase: true, out GateKind kind))
+                else if (string.Equals(part.kind, PartCount.Register, StringComparison.OrdinalIgnoreCase))
+                {
+                    key = PartCount.Register;
+                    stocked += counted;
+                }
+                else if (Gate(part.kind, out GateKind kind))
+                {
+                    key = PartCount.Of(kind);
+                    int gateInputs = part.inputs > 0 ? part.inputs : kind == GateKind.Not || kind == GateKind.Buf ? 1 : 2;
+                    if (CellLibrary.CellFor(kind, gateInputs) == null)
+                        Problem($"BitSorter has no {kind.ToString().ToUpperInvariant()} of {gateInputs} inputs.");
+                    else
+                        cells.Add(new LibraryCell(kind, gateInputs, record.delay, record.delay));
+                    stocked += counted;
+                }
+                else
                 {
                     Problem($"'{part.kind}' is no gate.");
                     continue;
                 }
 
-                int gateInputs = part.inputs > 0 ? part.inputs : kind == GateKind.Not || kind == GateKind.Buf ? 1 : 2;
-                if (CellLibrary.CellFor(kind, gateInputs) == null)
-                    Problem($"BitSorter has no {kind.ToString().ToUpperInvariant()} of {gateInputs} inputs.");
-                else
-                    cells.Add(new LibraryCell(kind, gateInputs, record.delay, record.delay));
-                stock.Add(new PartCount(PartCount.Of(kind), part.count));
-                stocked += counted;
+                // A count is a kind's, of whatever inputs: two of one kind would be two counts of one thing.
+                if (!stockedParts.Add(key))
+                    Problem($"it stocks {key} twice: one count a part.");
+                stock.Add(new PartCount(key, part.count));
             }
 
             if (record.delay < 0)
                 Problem("a delay cannot be below 0.");
-            if (record.cycle < 0 || record.cycle % 2 != 0)
-                Problem($"a cycle of {record.cycle} is no cycle: 0 to have it worked out, or an even length.");
+
+            // A vector's outputs are read just before half-way (SampleTime), and a gate a delay after its inputs change must
+            // have answered by then -- with a moment to spare, or the read and the answer fall in one instant and the read,
+            // made first, sees the old value (the #85 review).
+            long least = 2 * Math.Max(0, record.delay) + 4;
+            if (record.cycle < 0 || record.cycle % 2 != 0 || (record.cycle > 0 && record.cycle < least))
+                Problem($"a cycle of {record.cycle} is no cycle: 0 to have it worked out, or an even length of at least {least}.");
 
             // Long enough for any answer of its stock to settle -- twice through every part it stocks, at least ten -- and
-            // past a timing exercise's limit, so one that only just meets it still has its outputs read settled.
+            // past a timing exercise's limit, with the moment to spare, so one that only just meets it still has its outputs
+            // read settled.
             long cycle = record.cycle > 0 ? record.cycle : Math.Max(10, 2 * Math.Max(1, record.delay) * (stocked + 2));
             if (record.settleBy > 0)
-                cycle = Math.Max(cycle, 2 * record.settleBy + 2);
+                cycle = Math.Max(cycle, 2 * record.settleBy + 4);
+            cycle = Math.Max(cycle, least);
             cycle += cycle % 2;
 
             if (problems.Count > before)
@@ -286,9 +321,21 @@ namespace BitSorter.Board
             };
         }
 
+        /// <summary>A gate kind by its name, as a word -- not a number, nor two names with a comma, which <c>Enum.TryParse</c> takes.</summary>
+        private static bool Gate(string name, out GateKind kind)
+        {
+            kind = default;
+            if (string.IsNullOrEmpty(name))
+                return false;
+            foreach (char c in name)
+                if (!char.IsLetter(c))
+                    return false;
+            return Enum.TryParse(name, ignoreCase: true, out kind) && Enum.IsDefined(typeof(GateKind), kind);
+        }
+
         /// <summary>
         /// <paramref name="text"/> as a value a vector: a character each for a bit, or for a wider signal a binary word each,
-        /// spaces between them.
+        /// spaces, tabs or new lines between them.
         /// </summary>
         private static List<LogicVec> Values(string text, int width, string what, Action<string> problem)
         {
@@ -296,9 +343,9 @@ namespace BitSorter.Board
             if (string.IsNullOrWhiteSpace(text))
                 return values;
 
-            string[] words = width == 1 && text.Trim().IndexOf(' ') < 0
-                ? Array.ConvertAll(text.Trim().ToCharArray(), c => c.ToString())
-                : text.Split(new[] { ' ', '\t', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            string[] words = text.Split(new[] { ' ', '\t', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            if (width == 1 && words.Length == 1)
+                words = Array.ConvertAll(words[0].ToCharArray(), c => c.ToString());
             foreach (string word in words)
             {
                 bool good = word.Length == width;
@@ -320,10 +367,11 @@ namespace BitSorter.Board
         /// </summary>
         public GateLibrary Library()
         {
-            var counts = new List<PartCount>();
-            foreach (PartCount count in Stock)
-                if (count.Most >= 0)
-                    counts.Add(count);
+            // Every part it stocks is counted, any number of it at -1 -- a block stocked so is still counted whole -- and a
+            // register, when it stocks none, at 0: an exercise without one is no place for one.
+            var counts = new List<PartCount>(Stock);
+            if (!counts.Exists(c => c.Part == PartCount.Register))
+                counts.Add(new PartCount(PartCount.Register, 0));
             return new GateLibrary { Name = LibraryName, Cells = Cells, NoConstants = !Constants, Counts = counts };
         }
 
@@ -373,7 +421,8 @@ namespace BitSorter.Board
                 ImportResult imported = BoardImporter.Import(tree, top);
                 if (!imported.Succeeded)
                 {
-                    problems.AddRange(imported.Problems);
+                    foreach (string problem in imported.Problems)
+                        problems.Add(Id + ": " + problem);
                     return null;
                 }
                 project = imported.Project;
@@ -412,7 +461,8 @@ namespace BitSorter.Board
                     ImportResult imported = BoardImporter.Import(tree, block.Name);
                     if (!imported.Succeeded)
                     {
-                        problems.AddRange(imported.Problems);
+                        foreach (string problem in imported.Problems)
+                            problems.Add(Id + ": " + problem);
                         return null;
                     }
                     foreach (Module module in imported.Project.Modules)
@@ -427,10 +477,31 @@ namespace BitSorter.Board
                 Name = top,
                 Top = top,
                 Stimulus = Test(),
-                Settings = (project.Settings ?? new ProjectSettings()) with { DefaultGateDelay = Delay, Library = Library() },
+                Settings = (project.Settings ?? new ProjectSettings()) with { DefaultGateDelay = Delay },
             };
 
             int before = problems.Count;
+
+            // Every block it stocks is a module of the design, and not its top -- or the top would be a block's insides, held
+            // to nothing.
+            foreach (PartCount part in Stock)
+                if (part.Part != PartCount.Register && !Gate(part.Part, out _))
+                {
+                    if (part.Part == top)
+                        problems.Add($"{Id}: the top, {top}, cannot be a block it stocks.");
+                    else if (project.Find(part.Part) == null)
+                        problems.Add($"{Id}: it stocks the block {part.Part}, which its blocks do not have.");
+                }
+            if (problems.Count > before)
+                return null;
+
+            // Its library, every gate given its cell's delays as setting one gives them -- a start circuit written with plain
+            // primitives has none of its own.
+            var retiming = new BoardEditor(project);
+            EditResult set = retiming.SetLibrary(Library());
+            if (!set.Done)
+                problems.Add(Id + ": " + set.Refusal);
+            project = retiming.Project with { Settings = retiming.Project.Settings with { Library = Library() } };
             foreach (ExerciseSignal signal in Inputs)
                 Expect(project, signal, PortDirection.Input, problems);
             foreach (ExerciseSignal signal in Outputs)

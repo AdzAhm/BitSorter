@@ -148,12 +148,12 @@ namespace BitSorter.Board
                 Error(null, "The library's gate budget cannot be less than 0.");
             CheckCounts(project, library, found);
 
-            // A block an exercise stocks is its part, insides and all (Part 15b): its module is not held to the cells, as its
-            // gates are not counted against the stock.
-            HashSet<string> stocked = library.Counted();
+            // A block an exercise stocks is its part, insides and all (Part 15b): its module, and every module only it reaches,
+            // is not held to the cells, as their gates are not counted against the stock.
+            HashSet<string> inside = StockedInsides(project, library.Counted());
             foreach (Module module in project.Modules)
             {
-                if (module.IsWritten || stocked.Contains(module.Name))
+                if (module.IsWritten || inside.Contains(module.Name))
                     continue;
                 foreach (Part part in module.Parts)
                 {
@@ -162,7 +162,7 @@ namespace BitSorter.Board
                         case GatePart gate:
                             LibraryCell cell = library.CellFor(gate.Kind, gate.Inputs);
                             if (cell == null)
-                                Error(module.Name, $"{gate.Name} is a {new LibraryCell(gate.Kind, gate.Inputs, 0, 0).Name}, which the library has no cell for: it has {library.Listed()}.", gate.Id);
+                                Error(module.Name, $"{gate.Name} is a {new LibraryCell(gate.Kind, gate.Inputs, 0, 0).Name}, which the library has no cell for: it has {(library.Cells.Count == 0 ? "none" : library.Listed())}.", gate.Id);
                             else if (gate.Rise != cell.Rise || gate.Fall != cell.Fall)
                                 Error(module.Name, $"{gate.Name} is a {cell.Name} at rise {gate.Rise} and fall {gate.Fall}, but the library's {cell.Name} is rise {cell.Rise} and fall {cell.Fall}: a gate keeps its cell's delays.", gate.Id);
                             break;
@@ -191,7 +191,7 @@ namespace BitSorter.Board
             var seen = new HashSet<string>(StringComparer.Ordinal);
             foreach (PartCount count in library.Counts)
             {
-                if (string.IsNullOrEmpty(count.Part) || count.Most < 0)
+                if (string.IsNullOrEmpty(count.Part) || count.Most < -1)
                     found.Add(new BoardDiagnostic(DiagnosticSeverity.Error, null, $"The library's count of '{count.Part}' is no count a part can have."));
                 else if (!seen.Add(count.Part))
                     found.Add(new BoardDiagnostic(DiagnosticSeverity.Error, null, $"The library counts {count.Said} twice."));
@@ -201,18 +201,50 @@ namespace BitSorter.Board
             Module top = project.TopModule;
             foreach (PartCount count in library.Counts)
             {
-                if (count.Most < 0 || !has.TryGetValue(count.Part, out int n) || n <= count.Most)
+                // -1 is any number: stocked, with no cap.
+                if (string.IsNullOrEmpty(count.Part) || count.Most < 0 || !has.TryGetValue(count.Part, out int n) || n <= count.Most)
                     continue;
 
                 int last = -1;
                 if (top != null && !top.IsWritten)
                     foreach (Part part in top.Parts)
-                        if ((part is GatePart gate && PartCount.Of(gate.Kind) == count.Part) || (part is BlockPart block && block.Module == count.Part))
+                        if ((part is GatePart gate && PartCount.Of(gate.Kind) == count.Part) || (part is BlockPart block && block.Module == count.Part)
+                            || (part is RegisterPart && count.Part == PartCount.Register))
                             last = part.Id;
 
                 string most = count.Most == 0 ? "no " + count.Said : count.Most + " " + count.Said;
                 found.Add(new BoardDiagnostic(DiagnosticSeverity.Error, top?.Name, $"The exercise stocks {most}, and the design has {n}.", last));
             }
+        }
+
+        /// <summary>
+        /// The modules a stocked block's insides are made of (Part 15b): every module reached through a block of a module in
+        /// <paramref name="stocked"/>, itself included, and not otherwise from the top. Those are the block's, and are held to
+        /// neither the cells nor the counts; a module the top reaches some other way too is the design's, and is.
+        /// </summary>
+        public static HashSet<string> StockedInsides(Project project, ICollection<string> stocked)
+        {
+            var inside = new HashSet<string>(StringComparer.Ordinal);
+            if (stocked == null || stocked.Count == 0)
+                return inside;
+
+            void Reach(string name, HashSet<string> reached, bool stopAtStocked)
+            {
+                if (!(project.Find(name) is Module module) || !reached.Add(name))
+                    return;
+                foreach (Part part in module.Parts)
+                    if (part is BlockPart block && !string.IsNullOrEmpty(block.Module) && !(stopAtStocked && stocked.Contains(block.Module)))
+                        Reach(block.Module, reached, stopAtStocked);
+            }
+
+            var design = new HashSet<string>(StringComparer.Ordinal);
+            if (project.Top != null && !stocked.Contains(project.Top))
+                Reach(project.Top, design, stopAtStocked: true);
+
+            foreach (string block in stocked)
+                Reach(block, inside, stopAtStocked: false);
+            inside.ExceptWith(design);
+            return inside;
         }
 
         /// <summary>
@@ -706,6 +738,21 @@ namespace BitSorter.Board
 
             if (stimulus.End < 0)
                 Error("The run cannot end before it starts.");
+
+            // What an output must read (Part 15b): an output of the top, as wide as the value wanted, at a moment of the run.
+            foreach (Check check in stimulus.Checks)
+            {
+                ModulePort? port = null;
+                foreach (ModulePort each in WrittenModules.PortsOf(project, top))
+                    if (each.Direction != PortDirection.Input && string.Equals(each.Name, check.Port, StringComparison.Ordinal))
+                        port = each;
+                if (port == null)
+                    Error($"The test checks {check.Port}, which is not an output of {top.Name}.");
+                else if (check.Expected.Width != port.Value.Width)
+                    Error($"{check.Port} is {Bits(port.Value.Width)}, and the test wants {Bits(check.Expected.Width)} of it at {check.Time}.");
+                if (check.Time < 0)
+                    Error($"The test checks {check.Port} at {check.Time}, before the run starts.");
+            }
         }
 
         private static string Primitive(GateKind kind) => kind.ToString().ToLowerInvariant();

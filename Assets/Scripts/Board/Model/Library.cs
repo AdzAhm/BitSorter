@@ -45,11 +45,17 @@ namespace BitSorter.Board
             Most = most;
         }
 
-        /// <summary>A gate kind's name in lower case -- <c>xor</c>, <c>not</c> (<see cref="Of"/>) -- or a module's name, for a block of it.</summary>
+        /// <summary>
+        /// A gate kind's name in lower case -- <c>xor</c>, <c>not</c> (<see cref="Of"/>) -- <see cref="Register"/>, or a module's
+        /// name, for a block of it.
+        /// </summary>
         public string Part { get; init; }
 
-        /// <summary>The most there may be: 0 for none.</summary>
+        /// <summary>The most there may be: 0 for none, -1 for any number -- stocked, and so a block of it counted whole, but with no cap.</summary>
         public int Most { get; init; }
+
+        /// <summary>What a register is counted as, a bit at a time.</summary>
+        public const string Register = "register";
 
         /// <summary>What a gate of <paramref name="kind"/> is counted as.</summary>
         public static string Of(GateKind kind) => kind.ToString().ToLowerInvariant();
@@ -105,7 +111,7 @@ namespace BitSorter.Board
             return -1;
         }
 
-        /// <summary>The parts with a count: what <see cref="PartCounts"/> takes as counted whole.</summary>
+        /// <summary>The parts the library stocks, capped or not: a block of any of them is counted whole (<see cref="PartCounts"/>).</summary>
         public HashSet<string> Counted()
         {
             var counted = new HashSet<string>(StringComparer.Ordinal);
