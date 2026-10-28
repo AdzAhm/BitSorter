@@ -142,6 +142,15 @@ namespace BitSorter.PlayMode.Tests
             // that follow it -- the grid's shimmer, a warning's throb -- landed somewhere different
             // in every run. Pinned, two captures of the same code are the same picture.
             ViewTime.Pinned = PinnedMoment;
+
+            // The simulator's first-time hints (Part 15f) come up as a run shows what they explain, a moment after the
+            // workbench opens: seen already, so each shot is of what it is about. Shot 56 is of one, and leaves it unseen.
+            var store = new ProgressStore(ProgressStore.DefaultPath);
+            store.Load();
+            bool hintShot = TestContext.CurrentContext.Test.MethodName == nameof(Shot56_FirstTimeHint);
+            foreach (string hint in SimulatorHints.All)
+                if (!(hintShot && hint == SimulatorHints.GateDelay))
+                    store.MarkHintSeen(hint);
         }
 
         [TearDown]
@@ -1725,6 +1734,48 @@ namespace BitSorter.PlayMode.Tests
 
             Assert.IsTrue(workbench.LastGrade.Solved, "sanity: built");
             yield return Capture("54-exercise-solved");
+        }
+
+        /// <summary>Part 15f: the guided tutorial on the first exercise, the NOT put down and the wire into it asked for.</summary>
+        [UnityTest]
+        public IEnumerator Shot55_Tutorial()
+        {
+            yield return TestScene.LoadSimulator();
+            Look.ApplyBloom();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.StartTutorial();
+            yield return Frames(2);
+            WorkbenchSession session = workbench.Session;
+            BitSorter.Board.EditResult placed = session.Place(PartsCatalog.Find(session.Project, session.Module, "not"), new BitSorter.Board.Placement(6, 0));
+            Assert.IsTrue(placed.Done, placed.Refusal);
+            session.Finish();
+            workbench.Pause();
+            workbench.Seek(0.5);
+            workbench.FitView();
+            yield return Frames(30);
+
+            Assert.AreEqual(GuidedTutorial.Step.WireIn, workbench.TutorialStep, "sanity: the wire in asked for");
+            yield return Capture("55-tutorial");
+        }
+
+        /// <summary>Part 15f: a first-time hint up -- the half adder built, its gates' delay seen on the waves.</summary>
+        [UnityTest]
+        public IEnumerator Shot56_FirstTimeHint()
+        {
+            yield return OpenTheHalfAdder();   // the gate-delay hint left unseen by FixTheClock
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ExerciseCard.Close();
+            BuildHalfOfTheHalfAdder(workbench.Session, withCarry: true);
+            workbench.Restart();
+            for (int frame = 0; frame < 600 && workbench.HintShown == null; frame++)
+                yield return null;
+            workbench.Pause();
+            workbench.Seek(25);
+            workbench.FitView();
+            yield return Frames(30);
+
+            Assert.AreEqual(SimulatorHints.GateDelay, workbench.HintShown, "sanity: the hint up");
+            yield return Capture("56-first-time-hint");
         }
 
         private static IEnumerator OpenTheHalfAdder()
