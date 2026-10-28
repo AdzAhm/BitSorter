@@ -167,6 +167,11 @@ namespace BitSorter.View
                 _readouts[row] = WorkbenchPanel.StageLabel(Rect, "", new Vector2(WorkbenchDrawing.ReadoutLeft, middle),
                     UiType.Micro, palette.Text, TextAlignmentOptions.MidlineLeft, 60f);
 
+                // Cut to its room, never over the waves (Part 15g): a 64-bit value, FFFFFFFFFFFFFFFFh, ran on across them
+                // (Ahmad's ALU, 2026-10-28). The whole value is the cursor's and the bus's own labels'.
+                _readouts[row].textWrappingMode = TextWrappingModes.NoWrap;
+                _readouts[row].overflowMode = TextOverflowModes.Ellipsis;
+
                 if (model.RowIsBus(row))
                     _busLabels[row] = new List<TextMeshProUGUI>();
             }
