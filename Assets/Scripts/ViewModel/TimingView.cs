@@ -424,8 +424,8 @@ namespace BitSorter.ViewModel
         {
             // The unit and the library too: the design times alike, but every number on the tab is written in the one, and
             // the gate count is laid against the other's budget. And the files: an include is code, and a memory image is
-            // what a run reads, so STATES' machine changes with one (the 15g-6 review). Compared by value, after a reference
-            // check, so a document read again with the same files is the same design.
+            // what a run reads, so LOGIC's table and STATES' machine change with one (the 15g-6 review). Compared by value,
+            // after a reference check, so a document read again with the same files is the same design.
             if (a == null || b == null || a.Top != b.Top || a.Modules.Count != b.Modules.Count
                 || a.Settings?.TimeUnit != b.Settings?.TimeUnit || !GateLibrary.Alike(a.Settings?.Library, b.Settings?.Library)
                 || !Alike(a.Files, b.Files))

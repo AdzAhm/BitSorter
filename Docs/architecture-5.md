@@ -3059,7 +3059,7 @@ is built (2026-10-28).
 - **The tab** (`WorkbenchPanel.Logic.cs`) sits right of TIMING: the table on the left, each output's block -- its
   expression both ways and its map -- in columns on the right; the wheel scrolls whichever the pointer is over, the table
   three rows a notch and the expressions no further than they reach. It is made again only when the design changes
-  (`TimingView.SameDesign`, and the project's files, which it leaves out), so an input's steps edited keep it, and the old
+  (`TimingView.SameDesign`, the project's files included), so an input's steps edited keep it, and the old
   table is cleared while a new one is made.
 - **Fixed after review**: the names on ranged ports, the restart on every edit, the scroll with no end, the expressions
   all minimized in one frame and never saying when one was cut short, and products run together -- each a red test, then
