@@ -205,6 +205,12 @@ namespace BitSorter.Board
                                 faults.Add($"The exercise stocks {(count.Most == 0 ? "no " + count.Said : count.Most + " " + count.Said)}, and the design has {n}.");
                     }
                 }
+                else if (HasWritten(graded))
+                {
+                    // Code is counted from the design it builds, and this one was not reckoned: it is not passed uncounted
+                    // (the #89 review: a signal too wide to time let any number of gates through).
+                    faults.Add("Its gates could not be counted against what the exercise gives: " + timing.Problem);
+                }
             }
 
             bool settleMet = exercise.SettleBy < 0 || (settle.HasValue && settle.Value <= exercise.SettleBy);
@@ -236,10 +242,13 @@ namespace BitSorter.Board
             foreach (KeyValuePair<string, int> cell in timing.GateCounts)
                 if (KindOf(cell.Key) is GateKind kind)
                     Add(total, PartCount.Of(kind), cell.Value);
-            int registerBits = 0;
+            // A bit each, however many processes write a vector: a process launches every bit of what it writes, so four
+            // writing a bit each of one vector counted sixteen (the #89 review).
+            var registerBits = new HashSet<int>();
             foreach (TimingRegister register in timing.Graph.Registers)
-                registerBits += register.Launches.Count;
-            Add(total, PartCount.Register, registerBits);
+                foreach (int bit in register.Launches)
+                    registerBits.Add(bit);
+            Add(total, PartCount.Register, registerBits.Count);
 
             // Each stocked block placed, at its outermost: drawn or written, it counts one, and its insides none.
             Design design = timing.Graph.Design;

@@ -2867,8 +2867,11 @@ the board's own editor and printed.
   since this part the grader says such a fault at its line (`half_adder, line 7: ...`), as the code editor marks it.
   **The stock counts it too**: drawn parts are counted by `PartCounts`, which sees nothing in code, so the grader
   counts the design it builds -- every gate and register bit `TimingAnalysis` finds, less the drawn ones and those
-  inside the blocks the exercise gives, which count one an instance wherever they are placed. Worked out by what is
-  left over, so a gate is never put down to the wrong module by a port that joins two nets.
+  inside the blocks the exercise gives, which count one an instance wherever they are placed -- a register a bit each,
+  however many processes write a vector. Worked out by what is left over, so a gate is never put down to the wrong
+  module by a port that joins two nets. A design too big to time cannot be counted, and is a fault rather than a pass.
+- **A written answer is kept as one**: opened again, its ports are its header's (`WrittenModules.PortsOf`), so it is
+  adopted like a drawn one; it was moved aside as no answer (the #89 review).
 - **A written register starts at x** unless the code gives it a start, as in ModelSim: the header of an exercise whose
   registers start at 0 says `logic q = 1'b0;`. Nothing starts it for the student, so what runs here is what an export
   runs anywhere.

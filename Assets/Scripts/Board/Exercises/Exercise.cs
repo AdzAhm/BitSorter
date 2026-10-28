@@ -550,11 +550,16 @@ namespace BitSorter.Board
                 return null;
             }
 
+            // A written top's ports are its header's (Part 15e): one that does not read is still the student's code, and
+            // is kept for them to put right rather than moved aside (the #89 review: every written answer was).
             int before = problems.Count;
-            foreach (ExerciseSignal signal in Inputs)
-                Expect(saved, signal, PortDirection.Input, problems);
-            foreach (ExerciseSignal signal in Outputs)
-                Expect(saved, signal, PortDirection.Output, problems);
+            if (!saved.TopModule.IsWritten || WrittenModules.PortsOf(saved, saved.TopModule).Count > 0)
+            {
+                foreach (ExerciseSignal signal in Inputs)
+                    Expect(saved, signal, PortDirection.Input, problems);
+                foreach (ExerciseSignal signal in Outputs)
+                    Expect(saved, signal, PortDirection.Output, problems);
+            }
             if (problems.Count > before)
                 return null;
 
@@ -670,7 +675,7 @@ namespace BitSorter.Board
         private static IEnumerable<string> Wrapped(string text, int width)
         {
             string line = "";
-            foreach (string word in (text ?? "").Split(' '))
+            foreach (string word in (text ?? "").Split(new[] { ' ', '\t', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
             {
                 if (line.Length > 0 && line.Length + 1 + word.Length > width)
                 {
@@ -683,10 +688,10 @@ namespace BitSorter.Board
                 yield return line;
         }
 
-        /// <summary>The top has <paramref name="signal"/> as a port of its width and way, as a start circuit must.</summary>
+        /// <summary>The top has <paramref name="signal"/> as a port of its width and way, as a start circuit must: drawn, or in its header.</summary>
         private void Expect(Project project, ExerciseSignal signal, PortDirection direction, List<string> problems)
         {
-            foreach (PortPart port in project.TopModule.Ports)
+            foreach (ModulePort port in WrittenModules.PortsOf(project, project.TopModule))
                 if (port.Name == signal.Name)
                 {
                     if (port.Direction != direction || port.Width != signal.Width)

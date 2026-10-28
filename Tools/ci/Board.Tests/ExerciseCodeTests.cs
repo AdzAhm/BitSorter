@@ -139,6 +139,56 @@ endmodule
         }
 
         [Test]
+        public void AWrittenAnswer_KeptAndOpenedAgain_IsAdopted_NotMovedAside()
+        {
+            Exercise exercise = ExerciseFiles.Load("half-adder");
+            Project kept = ProjectRecord.From(Answered(exercise, HalfAdder)).ToProject(new List<string>());
+            var problems = new List<string>();
+            Project adopted = exercise.Adopt(kept, problems);
+            Assert.IsNotNull(adopted, "its ports are its header's: " + string.Join("\n", problems));
+            Assert.IsTrue(adopted.TopModule.IsWritten, "the code kept");
+            Assert.IsTrue(ExerciseGrader.Grade(exercise, adopted).Solved);
+        }
+
+        [Test]
+        public void ARegisterWrittenABitAtATime_CountsABitEach()
+        {
+            Exercise late = Exercise.From(System.Text.Json.JsonSerializer.Deserialize<ExerciseRecord>(@"{
+                ""id"": ""late4"", ""title"": ""Late by four"", ""clock"": true, ""code"": true,
+                ""inputs"": [ { ""name"": ""d"", ""width"": 4, ""values"": ""0011 0101 1111"" } ],
+                ""outputs"": [ { ""name"": ""q"", ""width"": 4, ""values"": ""xxxx 0011 0101 1111"" } ],
+                ""parts"": [ { ""kind"": ""Register"", ""count"": 4 } ] }",
+                new System.Text.Json.JsonSerializerOptions { IncludeFields = true }), new List<string>());
+            Assert.IsNotNull(late, "sanity: the exercise reads");
+            Grade grade = ExerciseGrader.Grade(late, Answered(late, @"module late4 (input logic clk, input logic [3:0] d, output logic [3:0] q);
+    logic [3:0] r;
+    genvar i;
+    for (i = 0; i < 4; i++) begin : each
+        always_ff @(posedge clk)
+            r[i] <= d[i];
+    end
+    assign q = r;
+endmodule
+"));
+            Assert.AreEqual(4, grade.Parts[PartCount.Register], Why(grade));
+            Assert.IsTrue(grade.Solved, Why(grade));
+        }
+
+        [Test]
+        public void CodeTooBigToCount_IsAFault_NotAPass()
+        {
+            Exercise exercise = ExerciseFiles.Load("half-adder");
+            Grade grade = ExerciseGrader.Grade(exercise, Answered(exercise, @"module half_adder (input logic a, input logic b, output logic sum, output logic carry);
+    logic [1048575:0] big;
+    xor #1 g1 (sum, a, b);
+    and #1 g2 (carry, a, b);
+endmodule
+"));
+            Assert.IsFalse(grade.Solved, "not passed uncounted");
+            Assert.IsTrue(grade.Faults.Any(f => f.StartsWith("Its gates could not be counted")), Why(grade));
+        }
+
+        [Test]
         public void DrawnAgain_ItIsTheExercisesOwnTop_CountingItsIdsOn()
         {
             Exercise exercise = ExerciseFiles.Load("half-adder");
