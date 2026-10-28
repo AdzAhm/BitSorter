@@ -324,6 +324,13 @@ namespace BitSorter.ViewModel
                         critical = lines.Count;
                     lines.Add(StaticLine("REGISTER TO OUTPUT", outward, Name, unit));
                 }
+
+                // The clock every one of those three meets, the period CHECK holds an exercise to (Part 15g): beside the
+                // minimum period only where an input's or an output's path is the slower, so the two cannot disagree unseen.
+                if (timing.ClockPeriod is long clock && clock != (timing.MinimumPeriod ?? -1))
+                    lines.Add(new TimingLine(TimingLineKind.Fact, "CLOCK PERIOD",
+                        "the shortest clock all three paths meet, inputs changing on one edge and outputs read on the next; " +
+                        Frequency(clock, unit) + ". CHECK holds an exercise's period to this", Time(clock, unit)));
             }
             else if (paths.Worst is TimingPath worst)
             {

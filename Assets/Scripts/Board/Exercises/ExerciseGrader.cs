@@ -189,7 +189,7 @@ namespace BitSorter.Board
                 if (timing.Succeeded)
                 {
                     settle = timing.Paths.Worst?.Worst;
-                    period = ClockedPeriod(timing.Timing);
+                    period = timing.Timing.ClockPeriod;
 
                     // Written code (Part 15e) is counted from the design it builds: what the stock counts of drawn parts
                     // never sees. Over the stock, it is a fault as a drawing over it is.
@@ -306,21 +306,6 @@ namespace BitSorter.Board
                 }
             }
             return best;
-        }
-
-        /// <summary>
-        /// The period <paramref name="report"/>'s design can be clocked at, every path the clock times counted: register to
-        /// register, and from an input to a register and from a register to an output, since an exercise's inputs change and
-        /// its outputs are read a clock apart. Register to register alone let two registers at the output meet a period with
-        /// the whole slow path still in front of them (the #87 review). Null with no register.
-        /// </summary>
-        private static long? ClockedPeriod(TimingReport report)
-        {
-            long? period = report.MinimumPeriod;
-            foreach (StaticPath path in new[] { report.InputToRegister, report.RegisterToOutput })
-                if (path != null && (period == null || path.Total > period.Value))
-                    period = path.Total;
-            return period;
         }
     }
 }

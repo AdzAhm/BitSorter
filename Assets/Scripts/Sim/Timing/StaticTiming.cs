@@ -32,6 +32,23 @@ namespace BitSorter.Sim
 
         /// <summary>The slowest path from an input straight to an output; null when there is none.</summary>
         public StaticPath InputToOutput { get; }
+
+        /// <summary>
+        /// The shortest clock every clocked path meets (Part 15g): register to register, and input to register and register
+        /// to output as well, as a design is clocked whose inputs change on one edge and whose outputs are read on the next --
+        /// what an exercise's period is held to, and what TIMING shows beside the minimum period. Null with no register.
+        /// </summary>
+        public long? ClockPeriod
+        {
+            get
+            {
+                long? period = MinimumPeriod;
+                foreach (StaticPath path in new[] { InputToRegister, RegisterToOutput })
+                    if (path != null && (period == null || path.Total > period.Value))
+                        period = path.Total;
+                return period;
+            }
+        }
     }
 
     /// <summary>

@@ -211,6 +211,33 @@ namespace BitSorter.ViewModel.Tests
             Assert.IsEmpty(inside.Ports, "and t, which v's register also drives, is no part of it");
         }
 
+        /// <summary>
+        /// TIMING shows the period CHECK holds an exercise to (Part 15g): the minimum period where register to register is the
+        /// slowest, and CLOCK PERIOD beside it where an input's or an output's path is -- for every clocked exercise's
+        /// solution, the number CHECK's grade gives. The two could differ unseen (decision 6, 2026-10-28).
+        /// </summary>
+        [Test]
+        public void EveryClockedExercise_TimingShowsThePeriodCheckUses()
+        {
+            int clocked = 0;
+            foreach (string id in Board.Tests.ExerciseFiles.Ids())
+            {
+                Exercise exercise = Board.Tests.ExerciseFiles.Load(id);
+                Project solution = Board.Tests.ExerciseFiles.Solution(exercise);
+                Grade grade = ExerciseGrader.Grade(exercise, solution);
+                if (grade.MinimumPeriod is not long period)
+                    continue;
+                clocked++;
+
+                TimingView view = TimingView.Of(solution);
+                TimingLine shown = view.Lines.FirstOrDefault(l => l.Label == "CLOCK PERIOD") ?? view.Lines.Single(l => l.Label == "MINIMUM PERIOD");
+                string unit = solution.Settings?.TimeUnit ?? TimeUnits.Default;
+                StringAssert.StartsWith(period.ToString(System.Globalization.CultureInfo.InvariantCulture) + " ", shown.Numbers,
+                    $"{id}: TIMING's {shown.Label} against CHECK's {period} {unit}");
+            }
+            Assert.Greater(clocked, 5, "sanity: the clocked exercises were graded");
+        }
+
         /// <summary>The counter's critical path is named by where it ends, the register's d bit -- never by its output's bit 0.</summary>
         [Test]
         public void ARegisterPath_IsNamedByTheBitItEndsAt()
