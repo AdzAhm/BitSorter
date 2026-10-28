@@ -210,6 +210,73 @@ namespace BitSorter.ViewModel.Tests
             Assert.AreEqual(BoardEditor.ExerciseDrivesTheInputs, made.Refusal);
         }
 
+        private static Project Imported(params (string Path, string Text)[] files)
+        {
+            ProjectImport import = ProjectImporter.Import(files.Select(f => new SourceFile(f.Path, f.Text)).ToList());
+            Assert.IsTrue(import.Succeeded, string.Join("\n", import.Notes));
+            return import.Project;
+        }
+
+        /// <summary>
+        /// Under a written testbench (Part 15h) the table is what the testbench applies, read from a run of it as CONVERT would
+        /// record it -- read only, and an edit refused in the same words as ever. It was the column heads over nothing, and Ahmad
+        /// "couldn't do anything in inputs" (2026-10-28).
+        /// </summary>
+        [Test]
+        public void UnderATestbench_TheTableIsWhatItApplies_ReadOnly()
+        {
+            Project project = Imported(
+                ("pick.sv", "module pick (input logic a, input logic b, input logic s, output logic y);\n" +
+                            "    assign y = s ? b : a;\n" +
+                            "endmodule\n"),
+                ("pick_tb.sv", "module pick_tb;\n" +
+                               "    logic a, b, s, y;\n" +
+                               "    pick dut (.a(a), .b(b), .s(s), .y(y));\n" +
+                               "    initial begin\n" +
+                               "        a = 0; b = 1; s = 0;\n" +
+                               "        #10 s = 1;\n" +
+                               "        #10 a = 1;\n" +
+                               "        #10 $stop;\n" +
+                               "    end\n" +
+                               "endmodule\n"));
+            Assert.AreEqual("pick_tb", project.Bench, "sanity: imported with its testbench");
+
+            InputTable table = InputTable.Of(project);
+            Assert.AreEqual("pick_tb", table.AppliedBy);
+            Assert.IsNull(table.CannotConvert);
+            Assert.IsTrue(table.ReadOnly);
+            Assert.AreEqual(BoardRules.BenchDrivesTheInputs(project), table.Why, "an edit refused in the same words as ever");
+            CollectionAssert.AreEqual(new[] { "a", "b", "s" }, table.Columns.Select(c => c.Port).ToArray());
+            CollectionAssert.AreEqual(new long[] { 0, 10, 20 }, table.Rows.Select(r => r.Time).ToArray());
+            CollectionAssert.AreEqual(new[] { "0", "1", "0" }, table.Rows[0].Cells.ToArray(), "what it sets at 0");
+            CollectionAssert.AreEqual(new[] { "", "", "1" }, table.Rows[1].Cells.ToArray(), "s at 10, and nothing else");
+            CollectionAssert.AreEqual(new[] { "1", "", "" }, table.Rows[2].Cells.ToArray(), "a at 20");
+            Assert.IsFalse(table.TrySetCell(1, 0, "1", out _, out _, out string refused), "a cell typed in");
+            Assert.AreEqual(table.Why, refused);
+        }
+
+        /// <summary>A testbench CONVERT cannot turn into a stimulus has no rows to show, and says why.</summary>
+        [Test]
+        public void UnderATestbenchThatCannotBeConverted_TheTableSaysWhy()
+        {
+            Project project = Imported(
+                ("wide.sv", "module wide #(parameter W = 1) (input logic [W-1:0] a, output logic [W-1:0] y);\n" +
+                            "    assign y = a;\n" +
+                            "endmodule\n"),
+                ("wide_tb.sv", "module wide_tb;\n" +
+                               "    logic a, y;\n" +
+                               "    wide #(.W(1)) dut (.a(a), .y(y));\n" +
+                               "    initial begin a = 0; #5 a = 1; #5 $stop; end\n" +
+                               "endmodule\n"));
+            Assert.AreEqual("wide_tb", project.Bench, "sanity: imported with its testbench");
+
+            InputTable table = InputTable.Of(project);
+            Assert.IsNull(table.AppliedBy);
+            StringAssert.Contains("parameters", table.CannotConvert);
+            Assert.IsTrue(table.ReadOnly);
+            CollectionAssert.IsEmpty(table.Rows);
+        }
+
         /// <summary>The inputs nothing drives -- no step, start or clock -- which an import without its testbench names.</summary>
         [Test]
         public void TheInputsNothingDrives_AreNamed()

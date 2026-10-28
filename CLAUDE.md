@@ -711,7 +711,10 @@ failure side.
   changes, an empty cell no change -- with + ROW, STEP, ALL COMBINATIONS, COUNT
   and CLOCK on the columns chosen by their names, and END; each edit one undo
   step, replayed as SET's is; read only in an exercise, its test's rows and the
-  values it wants shown, an edit refused in the document's words), TRANSCRIPT, CODE (the SystemVerilog the
+  values it wants shown, an edit refused in the document's words; and read only under
+  a written testbench, what it applies as CONVERT would record it from a run of it, its
+  line in full over the table and CONVERT where the editing tools were, Part 15h:
+  it was column heads over nothing), TRANSCRIPT, CODE (the SystemVerilog the
   document prints as, read-only, Part 12e) and TIMING (the paths, the critical
   path, the minimum period and the gate count, the path picked lit on the
   canvas while the tab is up, Part 14b; the worst measured by stepping every

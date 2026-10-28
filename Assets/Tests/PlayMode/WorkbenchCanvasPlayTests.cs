@@ -2564,6 +2564,55 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
+        /// INPUTS under a written testbench (Part 15h): what it applies, read from a run of it, read only -- its line in full over
+        /// the table, its values as text, no DEL, and CONVERT where the editing tools were, which asks and then leaves the rows
+        /// to edit. It was the column heads over nothing, and Ahmad "couldn't do anything in inputs" (2026-10-28).
+        /// </summary>
+        [UnityTest]
+        public IEnumerator InputsUnderATestbench_ShowWhatItApplies_AndConvertIsBesideThem()
+        {
+            PutInTheImportFolder(("mux2.sv", ImportedMux), ("mux2_tb.sv", ImportedMuxBench));
+            yield return TestScene.Load();
+            yield return Click(MainMenu.WorkbenchButton);
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            yield return null;
+            workbench.ImportFromFolder();
+            yield return null;
+            workbench.Pause();
+            workbench.ShowInputs();
+            yield return null;
+            yield return null;
+
+            Assert.AreEqual("mux2_tb", workbench.Inputs.AppliedBy, "what the testbench applies");
+            UnityEngine.UIElements.Label line = ShellPanel.Find<UnityEngine.UIElements.Label>(WorkbenchPanel.InputsBenchName);
+            Assert.IsNotNull(line, "its line over the table");
+            StringAssert.Contains("mux2_tb applies to the inputs", line.text);
+            StringAssert.Contains("CONVERT", line.text, "and how to change them");
+            UnityEngine.UIElements.Label s10 = ShellPanel.Find<UnityEngine.UIElements.Label>(WorkbenchPanel.InputCellName + "s 1");
+            Assert.IsNotNull(s10, "a cell is text, never a field to type in");
+            Assert.AreEqual("1", s10.text, "s set to 1 at 10");
+            Assert.IsNull(ShellPanel.Find<UnityEngine.UIElements.VisualElement>(WorkbenchPanel.InputRemoveName + "0"), "no DEL");
+            Assert.AreEqual(UnityEngine.UIElements.DisplayStyle.None,
+                ShellPanel.Find<UnityEngine.UIElements.VisualElement>(WorkbenchPanel.AddRowName).resolvedStyle.display, "+ ROW edits nothing here, so it is gone");
+
+            yield return Click(WorkbenchPanel.InputsConvertName);
+            Assert.IsTrue(workbench.Ask.IsOpen, "CONVERT asks first, as FILE's does");
+            yield return Click(AskMenu.YesItem);
+            yield return null;
+            yield return null;
+
+            Assert.IsNull(workbench.Session.Project.Bench, "converted");
+            Assert.IsNull(workbench.Inputs.AppliedBy, "the rows are the stimulus's own now");
+            Assert.IsFalse(workbench.Inputs.ReadOnly);
+            Assert.IsNull(ShellPanel.Find<UnityEngine.UIElements.Label>(WorkbenchPanel.InputsBenchName), "the line gone");
+            Assert.AreEqual(UnityEngine.UIElements.DisplayStyle.Flex,
+                ShellPanel.Find<UnityEngine.UIElements.VisualElement>(WorkbenchPanel.AddRowName).resolvedStyle.display, "and + ROW back");
+            Assert.AreEqual(UnityEngine.UIElements.DisplayStyle.None,
+                ShellPanel.Find<UnityEngine.UIElements.VisualElement>(WorkbenchPanel.InputsConvertName).resolvedStyle.display, "CONVERT gone");
+            Assert.IsNotNull(ShellPanel.Find<UnityEngine.UIElements.TextField>(WorkbenchPanel.InputCellName + "s 1"), "a cell to type in");
+        }
+
+        /// <summary>
         /// FILE, CONVERT is offered only while a testbench drives the inputs (Part 13d); it asks, saying what the stimulus will
         /// not keep, and then the inputs are steps SET can change.
         /// </summary>

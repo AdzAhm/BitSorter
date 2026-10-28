@@ -79,6 +79,11 @@ namespace BitSorter.ViewModel
     /// **In an exercise it is read only**, and shows the exercise's own test: its rows, and in a column of each output it
     /// checks, the value it wants. An edit is refused in the document's own words -- the exercise's test drives the inputs
     /// -- as SET is; and with a written testbench it says the testbench drives them.
+    ///
+    /// **Under a written testbench it shows what the testbench applies** (Part 15h), read only: the testbench's stimulus is
+    /// its code, so the table was its column heads over nothing, and Ahmad "couldn't do anything in inputs" (2026-10-28). The
+    /// rows are what CONVERT would record (<see cref="BenchConverter"/>, a run of the testbench), so what is shown is what
+    /// CONVERT gives, and the view offers CONVERT beside it.
     /// </remarks>
     public sealed class InputTable
     {
@@ -91,12 +96,14 @@ namespace BitSorter.ViewModel
         private readonly Stimulus _stimulus;
 
         private InputTable(Stimulus stimulus, List<InputColumn> columns, List<InputRow> rows, string why, long step,
-            Dictionary<string, Radix> radixes, HashSet<string> chosen, List<long> pending)
+            Dictionary<string, Radix> radixes, HashSet<string> chosen, List<long> pending, string appliedBy, string cannotConvert)
         {
             _stimulus = stimulus;
             Columns = columns;
             Rows = rows;
             Why = why;
+            AppliedBy = appliedBy;
+            CannotConvert = cannotConvert;
             Step = step;
             _radixes = radixes;
             _chosen = chosen;
@@ -111,6 +118,12 @@ namespace BitSorter.ViewModel
 
         public bool ReadOnly => Why != null;
 
+        /// <summary>The testbench whose values the rows are, read from a run of it; null when the rows are the stimulus's own.</summary>
+        public string AppliedBy { get; }
+
+        /// <summary>Why a written testbench driving the inputs cannot be converted, and so has no rows to show; null otherwise.</summary>
+        public string CannotConvert { get; }
+
         /// <summary>How far apart + ROW, ALL COMBINATIONS and COUNT put their rows.</summary>
         public long Step { get; }
 
@@ -123,6 +136,22 @@ namespace BitSorter.ViewModel
             Stimulus stimulus = project.Stimulus ?? new Stimulus();
             string why = project.Settings?.Exercise != null ? BoardEditor.ExerciseDrivesTheInputs
                 : project.Bench != null ? BoardRules.BenchDrivesTheInputs(project) : null;
+
+            // A written testbench's stimulus is its code: what it applies, as CONVERT would record it from a run of it.
+            string appliedBy = null, cannotConvert = null;
+            if (project.Settings?.Exercise == null && project.Bench != null)
+            {
+                Conversion conversion = BenchConverter.Convert(project);
+                if (conversion.Succeeded)
+                {
+                    stimulus = conversion.Project.Stimulus;
+                    appliedBy = project.Bench;
+                }
+                else
+                {
+                    cannotConvert = conversion.Refusal;
+                }
+            }
 
             var radixes = before != null ? new Dictionary<string, Radix>(before._radixes) : new Dictionary<string, Radix>(StringComparer.Ordinal);
             var chosen = before != null ? new HashSet<string>(before._chosen) : new HashSet<string>(StringComparer.Ordinal);
@@ -158,7 +187,8 @@ namespace BitSorter.ViewModel
             foreach (long time in pending)
                 times.Add(time);
 
-            return new InputTable(stimulus, columns, RowsOf(stimulus, columns, times, pending), why, step, radixes, chosen, pending);
+            return new InputTable(stimulus, columns, RowsOf(stimulus, columns, times, pending), why, step, radixes, chosen, pending,
+                appliedBy, cannotConvert);
         }
 
         /// <summary>
@@ -448,7 +478,8 @@ namespace BitSorter.ViewModel
             foreach (long time in pending)
                 times.Add(time);
 
-            return new InputTable(_stimulus, columns, RowsOf(_stimulus, columns, times, pending), Why, step ?? Step, radixes, chosen, pending);
+            return new InputTable(_stimulus, columns, RowsOf(_stimulus, columns, times, pending), Why, step ?? Step, radixes, chosen, pending,
+                AppliedBy, CannotConvert);
         }
 
         /// <summary>A row for each of <paramref name="times"/>: each column's value then, or nothing.</summary>

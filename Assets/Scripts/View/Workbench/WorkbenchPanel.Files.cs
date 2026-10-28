@@ -205,8 +205,11 @@ namespace BitSorter.View
             _transcriptDrawn = -1;
         }
 
-        /// <summary>Asks before CONVERT, saying what the stimulus will not keep; says why not when it cannot be.</summary>
-        public void AskConvert()
+        /// <summary>Asks before CONVERT, under the FILE chip, saying what the stimulus will not keep; says why not when it cannot be.</summary>
+        public void AskConvert() => AskConvert(UnderTheFileChip());
+
+        /// <summary>Asks before CONVERT, the question going up at <paramref name="at"/>.</summary>
+        private void AskConvert(Vector2 at)
         {
             if (_session == null || _session.Project.Bench == null)
                 return;
@@ -220,7 +223,7 @@ namespace BitSorter.View
 
             string bench = _session.Project.Bench;
             string lost = conversion.Lost.Count == 0 ? "" : "\nIt keeps nothing else " + bench + " does: " + string.Join("; ", conversion.Lost) + ".";
-            _ask.Ask(UnderTheFileChip(),
+            _ask.Ask(at,
                 "CONVERT records what " + bench + " drives into the inputs as steps you can set on the waves, and takes " + bench +
                 " out. Ctrl+Z puts it back." + lost,
                 "CONVERT", ConvertTestbench);

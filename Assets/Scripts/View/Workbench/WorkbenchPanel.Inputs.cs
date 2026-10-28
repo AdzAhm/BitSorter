@@ -27,7 +27,8 @@ namespace BitSorter.View
             StepFieldName = "Workbench inputs step", AllCombinationsName = "Workbench inputs all combinations",
             CountName = "Workbench inputs count", ClockName = "Workbench inputs clock", EndFieldName = "Workbench inputs end",
             InputsSaysName = "Workbench inputs says", InputColumnName = "Workbench input column ", InputRadixName = "Workbench input radix ",
-            InputCellName = "Workbench input cell ", InputTimeName = "Workbench input time ", InputRemoveName = "Workbench input remove ";
+            InputCellName = "Workbench input cell ", InputTimeName = "Workbench input time ", InputRemoveName = "Workbench input remove ",
+            InputsConvertName = "Workbench inputs convert", InputsBenchName = "Workbench inputs bench";
 
         private const float InputsTabLeft = 104f, InputsTabWidth = 90f, InputRowHeight = 30f, TimeColumnWidth = 96f, RemoveWidth = 50f,
             KindWidth = 52f;
@@ -36,6 +37,8 @@ namespace BitSorter.View
         private VisualElement _inputsTools, _inputsList;
         private TextField _stepField, _endField;
         private Label _inputsSays;
+        private ShellButton _inputsConvert;
+        private float _inputsSaysLeft;
         private InputTable _inputs;
         private BitSorter.Board.Project _inputsOf;
         private int _inputsFirst, _inputsFirstColumn;
@@ -88,12 +91,54 @@ namespace BitSorter.View
             _endField = ShellTheme.Field(EndFieldName, "", palette, SetInputEnd, type: UiType.Caption);
             Add(_endField, 80f);
 
+            // Under a written testbench the tools above edit nothing (Part 15h): CONVERT in their place, which asks first.
+            _inputsConvert = ShellTheme.Button(InputsConvertName, "CONVERT", palette, () => AskConvert(UnderTheConvertButton()), UiType.Caption);
+            ShellTheme.Place(_inputsConvert, ToolsLeft, 5f, 120f, 34f);
+            _inputsConvert.style.display = DisplayStyle.None;
+            _inputsTools.Add(_inputsConvert);
+
+            _inputsSaysLeft = x;
             _inputsSays = ShellTheme.Label(InputsSaysName, "", UiType.Caption, palette.TextDim);
             ShellTheme.Place(_inputsSays, x, 0f, -1f, ShellLayout.DockHeaderHeight);
             _inputsSays.style.right = 14f;
             ShellTheme.Ellipsis(_inputsSays);
             _inputsTools.Add(_inputsSays);
         }
+
+        /// <summary>Where CONVERT's question goes up from INPUTS: under its button.</summary>
+        private Vector2 UnderTheConvertButton()
+        {
+            Rect at = ShellPanel.ScreenRectOf(_inputsConvert);
+            return new Vector2(at.xMin, at.yMin);
+        }
+
+        /// <summary>Whether a written testbench drives the inputs: the table then shows what it applies, and edits nothing.</summary>
+        private static bool BenchDrives(InputTable table) => table != null && (table.AppliedBy != null || table.CannotConvert != null);
+
+        /// <summary>
+        /// The tools of the tab's header for <paramref name="table"/>: under a written testbench, CONVERT where the editing tools
+        /// were, since nothing here edits the inputs; otherwise the editing tools.
+        /// </summary>
+        private void ShowInputTools(InputTable table)
+        {
+            bool bench = BenchDrives(table);
+            foreach (VisualElement tool in _inputsTools.Children())
+                if (tool != _inputsSays && tool != _inputsConvert)
+                    tool.style.display = bench ? DisplayStyle.None : DisplayStyle.Flex;
+            _inputsConvert.style.display = table?.AppliedBy != null ? DisplayStyle.Flex : DisplayStyle.None;
+            float left = !bench ? _inputsSaysLeft : table.AppliedBy != null ? ToolsLeft + 132f : ToolsLeft;
+            ShellTheme.Place(_inputsSays, left, 0f, -1f, ShellLayout.DockHeaderHeight);
+            _inputsSays.style.right = 14f;
+        }
+
+        /// <summary>
+        /// What the line over a testbench's table says in full: whose values the rows are and how to change them, or why the
+        /// testbench cannot be converted.
+        /// </summary>
+        private static string BenchSays(InputTable table, string bench) => table.AppliedBy != null
+            ? "These are the values " + bench + " applies to the inputs, read from a run of it. To change them, CONVERT turns them "
+              + "into rows to edit here and takes " + bench + " out -- Ctrl+Z puts it back -- or change them in " + bench + "'s code."
+            : bench + " drives the inputs, and cannot be turned into rows here: " + table.CannotConvert;
 
         /// <summary>The table's list, in the dock under its header, shut until its tab is chosen; the wheel scrolls it, Shift sideways.</summary>
         private void BuildInputsList()
@@ -125,8 +170,12 @@ namespace BitSorter.View
             _inputsDrawn = false;
         }
 
-        /// <summary>How many rows the list has room for under its column heads.</summary>
-        private int InputRowsShown => Mathf.Max(1, Mathf.FloorToInt((_regions.Dock.height - ShellLayout.DockHeaderHeight - 8f) / InputRowHeight) - 1);
+        /// <summary>How many rows the list has room for under its column heads, and a testbench's line over them.</summary>
+        private int InputRowsShown => Mathf.Max(1, Mathf.FloorToInt((_regions.Dock.height - ShellLayout.DockHeaderHeight - 8f) / InputRowHeight) - 1
+            - (BenchDrives(_inputs) ? BenchLines : 0));
+
+        // The rows a testbench's line takes, over the table: room for it to run on to a second line.
+        private const int BenchLines = 2;
 
         /// <summary>
         /// Each frame: while the tab is shown, the table made again once the document has changed, and drawn when it has --
@@ -198,9 +247,25 @@ namespace BitSorter.View
                 _stepField.SetValueWithoutNotify(table.Step.ToString(CultureInfo.InvariantCulture));
             if (!IsFocused(_endField))
                 _endField.SetValueWithoutNotify(table.End.ToString(CultureInfo.InvariantCulture));
-            SetText(_inputsSays, table.Why ?? (table.Columns.Count == 0
-                ? "The circuit has no inputs yet."
-                : "Click a column's name to choose it, and a bus's radix to change it."));
+            bool bench = BenchDrives(table);
+            ShowInputTools(table);
+            string benchName = _session.Project.Bench;
+            SetText(_inputsSays, bench
+                ? (table.AppliedBy != null ? "Read only: what " + benchName + " applies, from a run of it." : "Read only: " + benchName + " drives the inputs.")
+                : table.Why ?? (table.Columns.Count == 0
+                    ? "The circuit has no inputs yet."
+                    : "Click a column's name to choose it, and a bus's radix to change it."));
+
+            // The whole of what a testbench's table is and how to change it, over the table, where it has the dock's width.
+            float top = 0f;
+            if (bench)
+            {
+                Label says = ShellTheme.Label(InputsBenchName, BenchSays(table, benchName), UiType.Caption, palette.Text);
+                says.style.whiteSpace = WhiteSpace.Normal;
+                ShellTheme.Place(says, 14f, 6f, _regions.Dock.width - 28f, BenchLines * InputRowHeight - 4f);
+                _inputsList.Add(says);
+                top = BenchLines * InputRowHeight;
+            }
 
             if (table.Columns.Count == 0)
                 return;
@@ -211,7 +276,7 @@ namespace BitSorter.View
 
             // The column heads: TIME, then each column's name -- a click chooses it -- and its radix, a click changes it.
             Label time = ShellTheme.Label("time head", "TIME (" + _session.Unit + ")", UiType.Caption, palette.TextDim);
-            ShellTheme.Place(time, 14f, 4f, TimeColumnWidth, InputRowHeight);
+            ShellTheme.Place(time, 14f, top + 4f, TimeColumnWidth, InputRowHeight);
             _inputsList.Add(time);
 
             float x = 14f + TimeColumnWidth + 8f;
@@ -229,14 +294,14 @@ namespace BitSorter.View
                     ShellTheme.Outline(name, palette.Accent, palette.Ground);
                     name.style.color = palette.Accent;
                 }
-                ShellTheme.Place(name, x, 4f, chip ? width - KindWidth - 4f : width, InputRowHeight - 4f);
+                ShellTheme.Place(name, x, top + 4f, chip ? width - KindWidth - 4f : width, InputRowHeight - 4f);
                 _inputsList.Add(name);
 
                 if (chip)
                 {
                     ShellButton kind = ShellTheme.Button(InputRadixName + column.Port, column.Kind, palette, () => NextInputRadix(InputAt(0, port).Column), UiType.Micro);
                     kind.style.color = palette.TextDim;
-                    ShellTheme.Place(kind, x + width - KindWidth, 4f, KindWidth, InputRowHeight - 4f);
+                    ShellTheme.Place(kind, x + width - KindWidth, top + 4f, KindWidth, InputRowHeight - 4f);
                     _inputsList.Add(kind);
                 }
                 x += width + 8f;
@@ -248,19 +313,29 @@ namespace BitSorter.View
                 int r = _inputsFirst + i;
                 InputRow row = table.Rows[r];
                 long moment = row.Time;   // what the controls find their row by, after an edit has renumbered the rows
-                float y = 4f + (i + 1) * InputRowHeight;
+                float y = top + 4f + (i + 1) * InputRowHeight;
 
-                TextField when = ShellTheme.Field(InputTimeName + r, "", palette, text => SetInputTime(InputAt(moment, null).Row, text), type: UiType.Caption);
-                when.SetValueWithoutNotify(row.Time.ToString(CultureInfo.InvariantCulture));
-                ShellTheme.Place(when, 14f, y, TimeColumnWidth, InputRowHeight - 4f);
-                _inputsList.Add(when);
+                // A testbench's rows are read, never typed: its times and values are text, and no row has DEL.
+                if (bench)
+                {
+                    Label at = ShellTheme.Label(InputTimeName + r, row.Time.ToString(CultureInfo.InvariantCulture), UiType.Caption, palette.Text);
+                    ShellTheme.Place(at, 22f, y, TimeColumnWidth - 8f, InputRowHeight - 4f);
+                    _inputsList.Add(at);
+                }
+                else
+                {
+                    TextField when = ShellTheme.Field(InputTimeName + r, "", palette, text => SetInputTime(InputAt(moment, null).Row, text), type: UiType.Caption);
+                    when.SetValueWithoutNotify(row.Time.ToString(CultureInfo.InvariantCulture));
+                    ShellTheme.Place(when, 14f, y, TimeColumnWidth, InputRowHeight - 4f);
+                    _inputsList.Add(when);
+                }
 
                 x = 14f + TimeColumnWidth + 8f;
                 for (int c = _inputsFirstColumn; c < table.Columns.Count && x < _regions.Dock.width - 40f; c++)
                 {
                     InputColumn column = table.Columns[c];
                     float width = ColumnWidth(column);
-                    if (column.IsInput && !column.IsClock)
+                    if (column.IsInput && !column.IsClock && !bench)
                     {
                         string port = column.Port;
                         TextField cell = ShellTheme.Field(InputCellName + column.Port + " " + r, "", palette, text =>
@@ -274,9 +349,10 @@ namespace BitSorter.View
                     }
                     else
                     {
-                        // A clock ticks by itself, and an output's cell is the value its test wants: read, never typed.
+                        // A clock ticks by itself, an output's cell is the value its test wants, and a testbench's is what it
+                        // applies: read, never typed.
                         Label cell = ShellTheme.Label(InputCellName + column.Port + " " + r, column.IsClock ? "" : row.Cells[c], UiType.Caption,
-                            column.IsInput ? palette.TextDim : palette.Text);
+                            column.IsInput && !bench ? palette.TextDim : palette.Text);
                         ShellTheme.Place(cell, x + 8f, y, width - 8f, InputRowHeight - 4f);
                         _inputsList.Add(cell);
                     }
@@ -284,9 +360,12 @@ namespace BitSorter.View
                 }
 
                 // DEL, never an x: an x in this table is a value.
-                ShellButton remove = ShellTheme.Button(InputRemoveName + r, "DEL", palette, () => RemoveInputRow(InputAt(moment, null).Row), UiType.Micro);
-                ShellTheme.Place(remove, x, y, RemoveWidth, InputRowHeight - 4f);
-                _inputsList.Add(remove);
+                if (!bench)
+                {
+                    ShellButton remove = ShellTheme.Button(InputRemoveName + r, "DEL", palette, () => RemoveInputRow(InputAt(moment, null).Row), UiType.Micro);
+                    ShellTheme.Place(remove, x, y, RemoveWidth, InputRowHeight - 4f);
+                    _inputsList.Add(remove);
+                }
             }
         }
 
