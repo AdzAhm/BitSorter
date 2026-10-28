@@ -2764,7 +2764,7 @@ Assets/Resources/Exercises, so its progress and its migrated board carry over (1
 - **Owed to 15f**: no first-time hint or tutorial text of 5.0's exists yet, so the four-word rule between them and the
   exercises' goals and hints has nothing to hold. 15f writes them as pure data, where `ExerciseCurriculumTests` can.
 - **Chapters follow the course's order**: 1 gates, 2 K-maps, 3 NAND and NOR, 4 delay, 5 building blocks, 6 adders, 7
-  flip-flops, 8 counters and state machines; 9, critical path and pipelining, comes with the five new exercises.
+  flip-flops, 8 counters and state machines; 9, critical path and pipelining, came with the five new exercises below.
 - **Checked.** dotnet, `ExerciseCurriculumTests`:
   - every file opens and its reference solution solves it;
   - every start circuit fails as it opens;
@@ -2778,6 +2778,25 @@ Assets/Resources/Exercises, so its progress and its migrated board carry over (1
   - every start circuit fails for the reason its goal gives -- too late with every value right, or wrong;
   - no goal or hint speaks of ticks, tokens, sources, sinks or bins.
   Oracle, `ExerciseOracleTests`: every reference solution passes its own self-checking testbench under Icarus.
+
+**As built in Part 15c, second half: five new exercises.** Written for BitSorter, their starts and solutions drawn with
+the board's own editor and printed.
+
+- **Share the wire** (chapter 4): one output, `bus`, that two BUFIF1s share -- a, b, or z when neither drives it; two
+  disagreeing make an x, left free. Its test asks for a z (`!==`). **A library may hold a tri-state gate**
+  (`GateLibrary.CanHold`): the course's cells have none, and two drawn blocks cannot share a wire, which only tri-state
+  gates and a written device's inout pins may.
+- **Start from nothing** (chapter 7): a register starts at x here (no `registerStart`), and only a reset makes q read
+  0 from the first clock -- what the converted sequential exercises' `registerStart` of 0 hides.
+- **Find the slow path** (chapter 9): odd one out's parity, opening on a chain of three XORs that settles in 3 against
+  a limit of 2; a tree of the same gates meets it. The lesson odd one out lost by coming before timing.
+- **Cut it in two** (chapter 9), the first with a **period**: a XNOR b two clocks late, opening with four gates between
+  two registers (a period of 4); moving one register into the middle meets 2 with the same latency. Its first two
+  vectors are free, while its registers fill.
+- **Keep in step** (chapter 9): a reaches the XOR through two pipeline registers and b straight away; b needs its own
+  two.
+- **Checked.** The curriculum's tests take all 35, and the oracle holds every solution to its testbench under Icarus,
+  the bus's z and x among them; `LibraryTests` holds a tri-state cell to its delays and through a save.
 
 ---
 
@@ -2802,7 +2821,7 @@ Each part is one pull request into `v5`, ends with every suite green, and leaves
 | 12 | Hierarchy, and written blocks, edited in CodeMirror in a browser -- in six: 12a stepping inside a block **built** (see "As built in Part 12a"); 12b making a block **built** (see "As built in Part 12b"); 12c arrays **built** (see "As built in Part 12c"); 12d code blocks **built** (see "As built in Part 12d"); 12e the code panel **built** (see "As built in Part 12e"); 12f CodeMirror **built** (see "As built in Part 12f") |
 | 13 | Export and import (and a levelized path in the engine, only if a measurement asks for it) -- in six: 13a exporting a project **built** (see "As built in Part 13a"); 13b importing one **built** (see "As built in Part 13b"); 13c CONVERT **built** (see "As built in Part 13c"); 13d files **built** (see "As built in Part 13d"); 13e templates **built** (see "As built in Part 13e"); 13f limits, the security review, the measurement and the browser check **built** (see "As built in Part 13f"; the levelized path is not needed). **Part 13 is built.** |
 | 14 | The course's tools: path delays, static timing, gate-library mode, step tests, lint, tri-state -- in six, **built**: 14a the timing analysis core, 14b the TIMING tab, 14c step tests, 14d gate-library mode, 14e lint and 14f tri-state buses and inout (see "As built in Part 14a" to "14f"); and 14g, its follow-ups: deleting a module, the code editor's keys, the library held in written code and over budget, and inout pins on written blocks (see "As built in Part 14g") |
-| 15 | A simulator first, the Exercises and the tutorial -- in six: 15a **built** in two (see "As built in Part 15a"): the student's circuits, and opening on the last thing or a start page, the app's menus for BACK, the 4.x game in Settings, music off; 15b the Exercise model, grading and self-checking testbenches **built** (see "As built in Part 15b"); 15c the 35 exercises (the thirty **built**, see "As built in Part 15c"); 15d Exercises on the workbench; 15e answering in code; 15f first-time hints, the guided tutorial and the browser check |
+| 15 | A simulator first, the Exercises and the tutorial -- in six: 15a **built** in two (see "As built in Part 15a"): the student's circuits, and opening on the last thing or a start page, the app's menus for BACK, the 4.x game in Settings, music off; 15b the Exercise model, grading and self-checking testbenches **built** (see "As built in Part 15b"); 15c the 35 exercises **built** (see "As built in Part 15c"); 15d Exercises on the workbench; 15e answering in code; 15f first-time hints, the guided tutorial and the browser check |
 | 16 | The old game retired, and a smaller download; 5.0.0 released |
 
 **Agreed after Part 9, 2026-10-19: the language, before Part 10.** A course audit ran every one of the

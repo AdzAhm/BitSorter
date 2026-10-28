@@ -57,7 +57,8 @@ entered.
 - **5.0's Exercises are JSON in Assets/Resources/Exercises/** (Part 15c), each
   with its reference solution in Tools/ci/Exercises/solutions/, held under dotnet
   by `ExerciseCurriculumTests` and, against Icarus, `ExerciseOracleTests`. The
-  thirty keep their levels' file names as ids. The levels below stay the 4.x
+  thirty keep their levels' file names as ids; five more are new (share the
+  wire, start from nothing, find the slow path, cut it in two, keep in step). The levels below stay the 4.x
   game's until Part 16, and the rules of this section that name them are theirs.
 - Levels are JSON in Assets/Resources/Levels/, and each one names its own
   `order` — play order is authored, not the ordinal sort of file names.
