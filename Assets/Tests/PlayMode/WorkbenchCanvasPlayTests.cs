@@ -1990,6 +1990,30 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
+        /// RESET PROGRESS with the start page up (the 15g-1 review): coming back from Settings, its EXERCISES column says the
+        /// exercises start over -- it went on saying what had been solved until HOME.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator ResetProgress_WithTheStartPageUp_ShowsTheExercisesStartingOver()
+        {
+            yield return TestScene.LoadSimulator();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            Assert.IsTrue(workbench.StartPageShowing, "sanity: a fresh save opens on the start page");
+            ProgressStore store = Find<ProgressTracker>().Store;
+            store.MarkComplete(ExerciseCatalog.Run[0].Id);
+            workbench.ShowHome();
+            yield return null;
+            StringAssert.Contains(ExerciseCatalog.Run[1].Title.ToUpperInvariant(), workbench.StartContinueCaption, "sanity: the next after the first solved");
+
+            yield return Click(WorkbenchPanel.SettingsButton);
+            Assert.IsTrue(Find<ProgressTracker>().ResetProgress());
+            yield return Click(SettingsPanel.BackButton);
+            yield return null;
+            Assert.IsTrue(workbench.StartPageShowing);
+            StringAssert.Contains(ExerciseCatalog.Run[0].Title.ToUpperInvariant(), workbench.StartContinueCaption, "the first again");
+        }
+
+        /// <summary>
         /// RESET PROGRESS with an exercise open (Part 15g): its solve and its answer are forgotten, the workbench lets it go
         /// without writing it back, and the start page opens over MY CIRCUIT, which is kept.
         /// </summary>

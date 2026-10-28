@@ -155,7 +155,13 @@ namespace BitSorter.View
                 OpenAsNew();
             }
             if (StartPageShowing)
+            {
+                // A reset made under it is shown: its CONTINUE and its count (the 15g-1 review -- a reset with the start
+                // page up left it saying what had been solved, until HOME).
+                FillRecent();
+                FillExercises();
                 _home.BringToFront();
+            }
             if (ExercisesShowing)
             {
                 FillExercises();   // a solve made under it, or a reset, is shown
