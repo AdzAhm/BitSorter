@@ -62,8 +62,14 @@ namespace BitSorter.ViewModel
             0.1, 0.2, 0.4, 0.8, 1.6, 3.2, 6.4, 12.8, 25.6, 51.2, 102.4, 204.8, 409.6, 819.2, 1638.4,
         });
 
-        /// <summary>The reference's speed, <see cref="SchematicStyle.NanosecondsPerSecond"/>.</summary>
-        public const int DefaultSpeed = 4;
+        /// <summary>The reference's speed, <see cref="SchematicStyle.NanosecondsPerSecond"/>: what a flash's length is measured at.</summary>
+        public const int ReferenceSpeed = 4;
+
+        /// <summary>
+        /// The speed a run plays at to begin with: 3.2 a second, twice the reference's -- Ahmad asked for it (2026-10-28), the
+        /// reference's speed reading slow for a whole run. A flash still lasts as long in seconds (<see cref="WorkbenchModel.UnitsPerSecond"/>).
+        /// </summary>
+        public const int DefaultSpeed = 5;
 
         /// <summary>INSTANT's place on the ladder: one past the fastest speed.</summary>
         public static int InstantSpeed => Speeds.Count;

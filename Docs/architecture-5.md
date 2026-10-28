@@ -1216,7 +1216,7 @@ on an input's row, undo and redo -- is 9b-3b-2.
   be the far side of the stretch meant. The legend line says the gesture, since the help line had no room.
 - **UNIT on the waveform's toolbar, or U,** counts time in the next unit, s to fs and round, written as
   SystemVerilog writes it -- lower case, since MS would be megaseconds. Every time on screen is written in
-  the run's unit: the moment, the axis's cursors and span, the chip's reasons, the speed (`1.6 ps/s`), the
+  the run's unit: the moment, the axis's cursors and span, the chip's reasons, the speed (`3.2 ps/s`), the
   gates' delays, and RUN TO's field, which now reads a time with a unit or without (`TimeText.TryParse`:
   40, 40 ns, 1.5 us) and says why one does not read.
 - **Ctrl+Z and Ctrl+Y (or Ctrl+Shift+Z)** take an edit back and make it again, each replayed; the chip says

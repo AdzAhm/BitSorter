@@ -995,18 +995,18 @@ namespace BitSorter.PlayMode.Tests
             yield return OpenTheWorkbench();
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
-            Assert.AreEqual("1.6 ps/s", workbench.SpeedText, "the reference's speed to begin with");
+            Assert.AreEqual("3.2 ps/s", workbench.SpeedText, "3.2 a second to begin with");
 
             yield return Tap(_keyboard.rightBracketKey);
-            Assert.AreEqual("3.2 ps/s", workbench.SpeedText, "] plays faster");
-            Assert.AreEqual(3.2, workbench.Playback.UnitsPerSecond, 1e-9);
+            Assert.AreEqual("6.4 ps/s", workbench.SpeedText, "] plays faster");
+            Assert.AreEqual(6.4, workbench.Playback.UnitsPerSecond, 1e-9);
 
             yield return Click(WorkbenchPanel.SlowerButton);
             yield return Click(WorkbenchPanel.SlowerButton);
-            Assert.AreEqual("0.8 ps/s", workbench.SpeedText, "SLOWER, twice");
+            Assert.AreEqual("1.6 ps/s", workbench.SpeedText, "SLOWER, twice");
 
             yield return Tap(_keyboard.leftBracketKey);
-            Assert.AreEqual("0.4 ps/s", workbench.SpeedText, "[ plays slower");
+            Assert.AreEqual("0.8 ps/s", workbench.SpeedText, "[ plays slower");
 
             workbench.SetSpeed(Playback.InstantSpeed - 1);
             yield return Click(WorkbenchPanel.FasterButton);
@@ -1297,12 +1297,12 @@ namespace BitSorter.PlayMode.Tests
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             workbench.Pause();
             workbench.Seek(11.0);
-            Assert.AreEqual("1.6 ps/s", workbench.SpeedText, "sanity: in ps to begin with, as the course's ModelSim counts");
+            Assert.AreEqual("3.2 ps/s", workbench.SpeedText, "sanity: in ps to begin with, as the course's ModelSim counts");
 
             yield return Click(WaveformView.UnitButton);
             yield return UntilReplayed(workbench);
             Assert.AreEqual("fs", workbench.Model.Unit);
-            Assert.AreEqual("1.6 fs/s", workbench.SpeedText);
+            Assert.AreEqual("3.2 fs/s", workbench.SpeedText);
             Assert.AreEqual("t = 11.0 fs", workbench.MomentText, "the moment, where it was");
             StringAssert.EndsWith(" fs", workbench.Model.Layout.Parts.First(p => p.Delay.Length > 0).Delay, "and the gates' delays");
             Assert.AreEqual("UNIT: fs", ShellPanel.Find<UnityEngine.UIElements.Button>(WaveformView.UnitButton).text, "and the button says so");

@@ -293,16 +293,17 @@ endmodule", "t");
         public void Playing_MovesAtTheSpeed_OnTheLadder()
         {
             Playback playback = Counter();
-            Assert.AreEqual(SchematicStyle.NanosecondsPerSecond, playback.UnitsPerSecond, "the reference's speed to begin with");
+            Assert.AreEqual(3.2, playback.UnitsPerSecond, "3.2 a second to begin with, as Ahmad asked");
+            Assert.AreEqual(2 * SchematicStyle.NanosecondsPerSecond, playback.UnitsPerSecond, "twice the reference's");
 
             playback.Play();
             playback.Frame(1.0);
-            Assert.AreEqual(1.6, playback.Model.Time, 1e-9);
+            Assert.AreEqual(3.2, playback.Model.Time, 1e-9);
 
             Assert.IsTrue(playback.Faster());
             playback.Frame(1.0);
-            Assert.AreEqual(1.6 + 3.2, playback.Model.Time, 1e-9);
-            Assert.AreEqual(3.2, playback.Model.UnitsPerSecond, "and the model is told it");
+            Assert.AreEqual(3.2 + 6.4, playback.Model.Time, 1e-9);
+            Assert.AreEqual(6.4, playback.Model.UnitsPerSecond, "and the model is told it");
 
             playback.SetSpeed(0);
             Assert.IsFalse(playback.Slower(), "nothing slower than the slowest");
@@ -451,6 +452,7 @@ endmodule", "t");
         public void AGatesFlash_LastsTheSameSeconds_AtAnySpeed()
         {
             Playback playback = Counter();
+            playback.SetSpeed(Playback.ReferenceSpeed);
             WorkbenchModel model = playback.Model;
 
             int gate = -1;
@@ -476,7 +478,7 @@ endmodule", "t");
             model.Seek(at + SchematicStyle.FlashTime);
             Assert.AreEqual(0f, model.GateFlash(gate, out _), "over after FlashTime at the reference's speed, exactly as before");
 
-            playback.SetSpeed(Playback.DefaultSpeed + 1);
+            playback.SetSpeed(Playback.ReferenceSpeed + 1);
             model.Seek(at + SchematicStyle.FlashTime);
             Assert.AreEqual(atTheReference, model.GateFlash(gate, out _), 1e-6, "twice the speed, twice the time units: the same seconds");
         }
