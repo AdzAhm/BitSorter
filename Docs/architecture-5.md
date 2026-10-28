@@ -3058,6 +3058,39 @@ is built (2026-10-28).
   don't-cares; the full adder tabled and its carry minimized; the counter refused; and every combinational exercise's
   reference solution, tabled by running it, agreeing with that exercise's own test at every check.
 
+**As built in Part 15g-6: STATES, the state diagram.** Ahmad asked for a state diagram (2026-10-28).
+
+- **Found by running the real engine** (`StateExplorer`). The clock is the stimulus's, or an input called clk or clock; the
+  reset an input called rst... or reset..., active low when its name starts or ends with n. Every other input bit, four at
+  most, labels the arrows. Each run compiles a copy whose stimulus is the reset for a cycle, if there is one, then the
+  inputs that reach a state, one a cycle, then one combination more. The state is read half a period after the edge from
+  the register bits the timing analysis names (`TimingGraph.Of` on the copy; six at most, each register's high bit first),
+  and the outputs just before the edge. The period is twice the measured settle time, or the design's minimum period if
+  that is longer.
+- **Breadth first from the start**: every state reached is run with every combination, up to sixteen states (`Cut`
+  past them). A state with an x in it is drawn but not run past. **The start is the state after the reset**, or the
+  power-up state where there is none -- not the project's own stimulus, which the plan named but the sequential exercises'
+  solutions do not have. A drawn register starts at 0; a written one with no reset starts at x, which is then the start,
+  and every input takes it somewhere known.
+- **Moore** when every output is the same on every arrow out of each state, otherwise **Mealy**.
+- **Each bit is named from the compiled design** as the timing names it, so an `input [7:6] a`'s bits are a[7] and a[6]
+  and an `output [0:1] y`'s high bit is y[0]: the 15g-5 review found LOGIC naming every bus from 0.
+- **The tab** (`WorkbenchPanel.States.cs`) sits right of LOGIC. The diagram is on the left (`StateDiagramView`), drawn
+  with UI Toolkit's own painter rather than the waves' uGUI the plan named, since the dock is the shell's:
+  - the states round an oval, evenly along it, in the order reached, the start ringed in the accent with an arrow in;
+  - an arrow for each way on, labelled with its inputs (a Mealy machine's as in/out), bowed apart where both ways are
+    taken, and a loop where a state keeps itself;
+  - a Moore machine's outputs under a bar in each circle;
+  - a circle shrinks only once its neighbours would crowd it.
+  The next-state table is on the right, under a key line naming the bits; the wheel scrolls it, Shift with it across,
+  never past its ends. It is made a slice a frame while the tab is up, and made again only when the design or its clock
+  changes (`TimingView.SameDesign`): an input's steps edited keep the machine (the 15g-5 review found LOGIC restarting on
+  every edit). The old diagram is cleared while a new one is made.
+- **Tests**: one-clock-late's two states; spot-the-pattern's three-state Mealy detector with its one arrow that finds the
+  pattern; one-clock-behind as Moore; the counter's eight states in order from 000; a written register on [7:6] and [0:1]
+  ports named as declared; an adder refused. In Play Mode, the counter drawn and tabled with no circle over its neighbour,
+  an input edit keeping the machine, and the adder told why there is none.
+
 ---
 
 ## 11. The parts
@@ -3081,7 +3114,7 @@ Each part is one pull request into `v5`, ends with every suite green, and leaves
 | 12 | Hierarchy, and written blocks, edited in CodeMirror in a browser -- in six: 12a stepping inside a block **built** (see "As built in Part 12a"); 12b making a block **built** (see "As built in Part 12b"); 12c arrays **built** (see "As built in Part 12c"); 12d code blocks **built** (see "As built in Part 12d"); 12e the code panel **built** (see "As built in Part 12e"); 12f CodeMirror **built** (see "As built in Part 12f") |
 | 13 | Export and import (and a levelized path in the engine, only if a measurement asks for it) -- in six: 13a exporting a project **built** (see "As built in Part 13a"); 13b importing one **built** (see "As built in Part 13b"); 13c CONVERT **built** (see "As built in Part 13c"); 13d files **built** (see "As built in Part 13d"); 13e templates **built** (see "As built in Part 13e"); 13f limits, the security review, the measurement and the browser check **built** (see "As built in Part 13f"; the levelized path is not needed). **Part 13 is built.** |
 | 14 | The course's tools: path delays, static timing, gate-library mode, step tests, lint, tri-state -- in six, **built**: 14a the timing analysis core, 14b the TIMING tab, 14c step tests, 14d gate-library mode, 14e lint and 14f tri-state buses and inout (see "As built in Part 14a" to "14f"); and 14g, its follow-ups: deleting a module, the code editor's keys, the library held in written code and over budget, and inout pins on written blocks (see "As built in Part 14g") |
-| 15 | A simulator first, the Exercises and the tutorial -- in six: 15a **built** in two (see "As built in Part 15a"): the student's circuits, and opening on the last thing or a start page, the app's menus for BACK, the 4.x game in Settings, music off; 15b the Exercise model, grading and self-checking testbenches **built** (see "As built in Part 15b"); 15c the 35 exercises **built** (see "As built in Part 15c"); 15d Exercises on the workbench **built** (see "As built in Part 15d"); 15e answering in code **built** (see "As built in Part 15e"); 15f first-time hints, the guided tutorial and the browser check **built** (see "As built in Part 15f"). **Part 15 is built.** Then 15g, what the first playtest asked for: 15g-1 the quick fixes **built** (see "As built in Part 15g-1"); 15g-2 Settings and the credits as pages of the workbench **built** (see "As built in Part 15g-2"); 15g-3 a lead on every pin **built** (see "As built in Part 15g-3"); 15g-4 INPUTS, sequences without code **built** (see "As built in Part 15g-4"); 15g-5 LOGIC **built** (see "As built in Part 15g-5"); 15g-5 LOGIC, the truth table, expressions and K-maps; 15g-6 STATES, the state diagram; 15g-7 big circuits stay smooth. And 15h, a drawing of any code, planned on its own. |
+| 15 | A simulator first, the Exercises and the tutorial -- in six: 15a **built** in two (see "As built in Part 15a"): the student's circuits, and opening on the last thing or a start page, the app's menus for BACK, the 4.x game in Settings, music off; 15b the Exercise model, grading and self-checking testbenches **built** (see "As built in Part 15b"); 15c the 35 exercises **built** (see "As built in Part 15c"); 15d Exercises on the workbench **built** (see "As built in Part 15d"); 15e answering in code **built** (see "As built in Part 15e"); 15f first-time hints, the guided tutorial and the browser check **built** (see "As built in Part 15f"). **Part 15 is built.** Then 15g, what the first playtest asked for: 15g-1 the quick fixes **built** (see "As built in Part 15g-1"); 15g-2 Settings and the credits as pages of the workbench **built** (see "As built in Part 15g-2"); 15g-3 a lead on every pin **built** (see "As built in Part 15g-3"); 15g-4 INPUTS, sequences without code **built** (see "As built in Part 15g-4"); 15g-5 LOGIC **built** (see "As built in Part 15g-5"); 15g-6 STATES, the state diagram, **built** (see "As built in Part 15g-6"); 15g-7 big circuits stay smooth. And 15h, a drawing of any code, planned on its own. |
 | 16 | The old game retired, and a smaller download; 5.0.0 released |
 
 **Agreed after Part 9, 2026-10-19: the language, before Part 10.** A course audit ran every one of the

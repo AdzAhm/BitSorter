@@ -560,6 +560,49 @@ namespace BitSorter.PlayMode.Tests
             StringAssert.Contains("registers", workbench.LogicSays, "and a circuit with registers is told why there is no table");
         }
 
+        /// <summary>
+        /// STATES (Part 15g): the counter's eight states found by running it, each one on to the next, drawn and tabled; and the
+        /// full adder, which has no registers, told why it has none.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator TheStatesTab_DrawsTheCountersEightStates_AndSaysWhyAnAdderHasNone()
+        {
+            yield return TestScene.LoadSimulator();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowSample(3);   // the counter
+            yield return null;
+            workbench.ShowStates();
+            yield return null;
+            workbench.FinishStates();
+            yield return null;
+            yield return null;
+
+            Assert.IsNotNull(workbench.StateMachine, workbench.StatesSays);
+            Assert.AreEqual(8, workbench.StateMachine.States.Count, workbench.StatesSays);
+            StringAssert.Contains("Moore", workbench.StatesSays);
+            UnityEngine.UIElements.Label first = ShellPanel.Find<UnityEngine.UIElements.Label>(WorkbenchPanel.StatesNextName + "0 0");
+            Assert.IsNotNull(first, "the start's row is tabled");
+            Assert.AreEqual("001", first.text, "000 counts on to 001");
+            StateDiagramView drawn = ShellPanel.Find<StateDiagramView>(WorkbenchPanel.StatesDiagramName);
+            Assert.IsNotNull(drawn, "and drawn");
+            Assert.AreEqual(8, drawn.Centres.Count);
+            for (int i = 0; i < 8; i++)
+                Assert.Greater(Vector2.Distance(drawn.Centres[i], drawn.Centres[(i + 1) % 8]), 2f * drawn.Radius, "no state over its neighbour");
+
+            // An input's steps edited leave the design as it was, and the machine with it: nothing is run again.
+            StateMachine found = workbench.StateMachine;
+            Assert.IsTrue(workbench.Session.SetInput("rst", 0, 5, LogicVec.FromBinary("1")).Done, "sanity: the edit made");
+            yield return null;
+            yield return null;
+            Assert.AreSame(found, workbench.StateMachine, "the same machine, not found again");
+
+            workbench.ShowSample(2);   // the full adder
+            yield return null;
+            yield return null;
+            Assert.IsNull(workbench.StateMachine);
+            StringAssert.Contains("registers", workbench.StatesSays, "a circuit without registers is told why there is no diagram");
+        }
+
         /// <summary>An input's value at a moment, in binary, as the stimulus gives it.</summary>
         private static string InputAt(WorkbenchPanel workbench, string port, long time) =>
             StimulusEdits.ValueAt(workbench.Session.Project.Stimulus, port, time)?.Format(Radix.Binary);

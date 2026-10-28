@@ -36,13 +36,13 @@ namespace BitSorter.View
         /// <summary>The + or - opening or shutting a scope's row: this, and its place on screen.</summary>
         public const string ScopeToggleName = "Workbench scope toggle ";
 
-        // The tools start right of the six tabs: WAVES, INPUTS (Part 15g), TRANSCRIPT, CODE (Part 12e), TIMING (Part 14b) and
-        // LOGIC (Part 15g).
+        // The tools start right of the seven tabs: WAVES, INPUTS (Part 15g), TRANSCRIPT, CODE (Part 12e), TIMING (Part 14b), LOGIC
+        // and STATES (Part 15g).
         private const float TabHeight = 30f, TranscriptRowHeight = 26f, ScopeRowHeight = 26f, ScopeIndent = 14f,
             TranscriptTabLeft = InputsTabLeft + InputsTabWidth + 4f, TranscriptTabWidth = 210f,
-            ToolsLeft = LogicTabLeft + LogicTabWidth + 12f;
+            ToolsLeft = StatesTabLeft + StatesTabWidth + 12f;
 
-        private enum DockTab { Waves, Inputs, Transcript, Code, Timing, Logic }
+        private enum DockTab { Waves, Inputs, Transcript, Code, Timing, Logic, States }
 
         private DockTab _dockTab = DockTab.Waves;
         private bool _designTab;
@@ -98,6 +98,7 @@ namespace BitSorter.View
             BuildCodeTab(header, palette);
             BuildTimingTab(header, palette);
             BuildLogicTab(header, palette);
+            BuildStatesTab(header, palette);
         }
 
         /// <summary>A tab: a caption with no edge, in the accent while it is the one shown.</summary>
@@ -117,7 +118,12 @@ namespace BitSorter.View
             bool entering = _dockTab != tab;
             _dockTab = tab;
             bool waves = tab == DockTab.Waves, transcript = tab == DockTab.Transcript, code = tab == DockTab.Code, timing = tab == DockTab.Timing,
-                inputs = tab == DockTab.Inputs, logic = tab == DockTab.Logic;
+                inputs = tab == DockTab.Inputs, logic = tab == DockTab.Logic, states = tab == DockTab.States;
+            if (_statesTools != null)
+                _statesTools.style.display = states ? DisplayStyle.Flex : DisplayStyle.None;
+            if (_statesList != null)
+                _statesList.style.display = states ? DisplayStyle.Flex : DisplayStyle.None;
+            _statesDrawn = false;
             if (_logicTools != null)
                 _logicTools.style.display = logic ? DisplayStyle.Flex : DisplayStyle.None;
             if (_logicList != null)
@@ -161,12 +167,14 @@ namespace BitSorter.View
 
             SchematicPalette palette = SchematicPalette.Current;
             ShellButton shown = waves ? _wavesTabButton : inputs ? _inputsTabButton : transcript ? _transcriptTabButton : code ? _codeTabButton
-                : logic ? _logicTabButton : _timingTabButton;
+                : logic ? _logicTabButton : states ? _statesTabButton : _timingTabButton;
             _wavesTabButton.style.color = waves ? palette.Text : palette.TextDim;
             if (_inputsTabButton != null)
                 _inputsTabButton.style.color = inputs ? palette.Text : palette.TextDim;
             if (_logicTabButton != null)
                 _logicTabButton.style.color = logic ? palette.Text : palette.TextDim;
+            if (_statesTabButton != null)
+                _statesTabButton.style.color = states ? palette.Text : palette.TextDim;
             _transcriptTabButton.style.color = transcript ? palette.Text : palette.TextDim;
             if (_codeTabButton != null)
                 _codeTabButton.style.color = code ? palette.Text : palette.TextDim;

@@ -1836,6 +1836,31 @@ namespace BitSorter.PlayMode.Tests
             yield return Capture("58-workbench-logic-tab");
         }
 
+        /// <summary>Part 15g: the STATES tab on the counter -- its eight states on a ring, each arrow one count on, and the next-state table.</summary>
+        [UnityTest]
+        public IEnumerator Shot59_WorkbenchStatesTab()
+        {
+            yield return LoadTheGame();
+            yield return Frames(2);
+
+            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            yield return Frames(2);
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowSample(3);   // the counter
+            yield return Frames(2);
+            workbench.Pause();
+            workbench.Session.Finish();
+            workbench.Seek(26.5);
+            workbench.ShowStates();
+            yield return Frames(2);
+            workbench.FinishStates();
+            yield return Frames(30);
+
+            Assert.IsTrue(workbench.StateMachine != null && workbench.StateMachine.States.Count == 8, "sanity: the machine found");
+            yield return Capture("59-workbench-states-tab");
+        }
+
         private static IEnumerator OpenTheHalfAdder()
         {
             yield return TestScene.LoadSimulator();
