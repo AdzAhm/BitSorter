@@ -1,0 +1,19 @@
+{
+  "id": "nothing-but-nand",
+  "title": "Nothing but NAND",
+  "order": 310,
+  "chapter": 3,
+  "goal": "out reads a XOR b, built of NAND gates alone.",
+  "hint": "NAND alone can build every gate there is, even the one with a single input.",
+  "inputs": [
+    {"name": "a", "values": "0011"},
+    {"name": "b", "values": "0101"}
+  ],
+  "outputs": [
+    {"name": "out", "values": "0110"}
+  ],
+  "parts": [
+    {"kind": "Nand", "count": 6}
+  ],
+  "code": true
+}

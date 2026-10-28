@@ -1,0 +1,21 @@
+{
+  "id": "odd-one-out",
+  "title": "Odd one out",
+  "order": 120,
+  "chapter": 1,
+  "goal": "odd reads 1 when an odd number of a, b, c and d are 1. You have three XOR gates.",
+  "hint": "a gate that says whether two bits differ is half the job. Combine its answers.",
+  "inputs": [
+    {"name": "a", "values": "0000000011111111"},
+    {"name": "b", "values": "0000111100001111"},
+    {"name": "c", "values": "0011001100110011"},
+    {"name": "d", "values": "0101010101010101"}
+  ],
+  "outputs": [
+    {"name": "odd", "values": "0110100110010110"}
+  ],
+  "parts": [
+    {"kind": "Xor", "count": 3}
+  ],
+  "code": true
+}

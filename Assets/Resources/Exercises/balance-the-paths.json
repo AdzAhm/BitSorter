@@ -1,0 +1,21 @@
+{
+  "id": "balance-the-paths",
+  "title": "Balance the paths",
+  "order": 420,
+  "chapter": 4,
+  "goal": "out reads (a XOR b) AND b, settled within 2 ns. b reaches the AND sooner than a XOR b does, so out may flicker before it settles: the waves show it, and only where it settles is checked.",
+  "hint": "the path through two gates is the slow one. The other arrives a nanosecond early.",
+  "inputs": [
+    {"name": "a", "values": "0011"},
+    {"name": "b", "values": "0101"}
+  ],
+  "outputs": [
+    {"name": "out", "values": "0100"}
+  ],
+  "parts": [
+    {"kind": "Xor", "count": 1},
+    {"kind": "And", "count": 1}
+  ],
+  "settleBy": 2,
+  "code": true
+}

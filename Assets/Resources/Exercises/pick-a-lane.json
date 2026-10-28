@@ -1,0 +1,24 @@
+{
+  "id": "pick-a-lane",
+  "title": "Pick a lane",
+  "order": 520,
+  "chapter": 5,
+  "goal": "out reads a when s is 0, and b when s is 1 -- a 2-to-1 multiplexer -- settled within 3 ns.",
+  "hint": "s chooses which input gets through. It has to be in two places at once.",
+  "inputs": [
+    {"name": "a", "values": "00001111"},
+    {"name": "b", "values": "00110011"},
+    {"name": "s", "values": "01010101"}
+  ],
+  "outputs": [
+    {"name": "out", "values": "00011011"}
+  ],
+  "parts": [
+    {"kind": "Not", "count": 1},
+    {"kind": "And", "count": 2},
+    {"kind": "Or", "count": 1},
+    {"kind": "Xor", "count": 2}
+  ],
+  "settleBy": 3,
+  "code": true
+}

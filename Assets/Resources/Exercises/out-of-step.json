@@ -1,0 +1,26 @@
+{
+  "id": "out-of-step",
+  "title": "Out of step",
+  "order": 440,
+  "chapter": 4,
+  "goal": "This circuit opens already built, and every gate in it computes the right thing: out should read (a AND b) OR (NOT c AND d). But it settles too late -- it must within 3 ns. Find what slows it down, and take it out.",
+  "hint": "some parts here compute nothing at all. They only wait.",
+  "inputs": [
+    {"name": "a", "values": "0000000011111111"},
+    {"name": "b", "values": "0000111100001111"},
+    {"name": "c", "values": "0011001100110011"},
+    {"name": "d", "values": "0101010101010101"}
+  ],
+  "outputs": [
+    {"name": "out", "values": "0100010001001111"}
+  ],
+  "parts": [
+    {"kind": "And", "count": 2},
+    {"kind": "Not", "count": 1},
+    {"kind": "Or", "count": 1},
+    {"kind": "Buf", "count": 2}
+  ],
+  "settleBy": 3,
+  "code": true,
+  "start": "// out_of_step: drawn in BitSorter. Gates with a delay are cells of bitsorter_cells.sv.\n\nmodule out_of_step (\n    input logic a,\n    input logic b,\n    input logic c,\n    input logic d,\n    output logic out\n);\n    logic g1_y, g2_y, g5_y, g3_y, g6_y;\n    AND2 #(.Tpdlh(1), .Tpdhl(1)) g1 (.A(a), .B(b), .Z(g1_y));\n    INV #(.Tpdlh(1), .Tpdhl(1)) g2 (.A(c), .Z(g2_y));\n    AND2 #(.Tpdlh(1), .Tpdhl(1)) g3 (.A(g5_y), .B(d), .Z(g3_y));\n    OR2 #(.Tpdlh(1), .Tpdhl(1)) g4 (.A(g6_y), .B(g3_y), .Z(out));\n    BUF #(.Tpdlh(1), .Tpdhl(1)) g5 (.A(g2_y), .Z(g5_y));\n    BUF #(.Tpdlh(1), .Tpdhl(1)) g6 (.A(g1_y), .Z(g6_y));\nendmodule\n"
+}

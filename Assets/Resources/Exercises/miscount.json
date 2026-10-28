@@ -1,0 +1,24 @@
+{
+  "id": "miscount",
+  "title": "Miscount",
+  "order": 820,
+  "chapter": 8,
+  "goal": "This 2-bit counter opens already built, counting the clocks where in is 1, but it miscounts. high low should read the count in binary. Fix it.",
+  "hint": "watch when the high bit changes, against when it should.",
+  "inputs": [
+    {"name": "in", "values": "1101111"}
+  ],
+  "outputs": [
+    {"name": "high", "values": "00111001"},
+    {"name": "low", "values": "01001010"}
+  ],
+  "parts": [
+    {"kind": "Register", "count": 2},
+    {"kind": "Xor", "count": 2},
+    {"kind": "And", "count": 1}
+  ],
+  "clock": true,
+  "registerStart": "0",
+  "code": true,
+  "start": "// miscount: drawn in BitSorter. Gates with a delay are cells of bitsorter_cells.sv.\n\nmodule miscount (\n    input logic in,\n    input logic clk,\n    output logic high,\n    output logic low\n);\n    logic g1_y, g2_y, g3_y;\n    logic r1_q = 1'b0;\n    logic r2_q = 1'b0;\n    XOR2 #(.Tpdlh(1), .Tpdhl(1)) g1 (.A(in), .B(low), .Z(g1_y));\n    assign low = r1_q;\n    always_ff @(posedge clk)\n        r1_q <= g1_y;\n    AND2 #(.Tpdlh(1), .Tpdhl(1)) g2 (.A(in), .B(low), .Z(g2_y));\n    XOR2 #(.Tpdlh(1), .Tpdhl(1)) g3 (.A(low), .B(g2_y), .Z(g3_y));\n    assign high = r2_q;\n    always_ff @(posedge clk)\n        r2_q <= g3_y;\nendmodule\n"
+}

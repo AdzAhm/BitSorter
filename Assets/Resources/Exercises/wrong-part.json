@@ -1,0 +1,25 @@
+{
+  "id": "wrong-part",
+  "title": "Wrong part",
+  "order": 630,
+  "chapter": 6,
+  "goal": "This full adder opens already built, and fast enough, but one of its parts is the wrong gate. sum should read the sum and cout the carry out. Replace the wrong part.",
+  "hint": "one output is right on every row. The other goes wrong only where it should read 1: follow it back from there.",
+  "inputs": [
+    {"name": "a", "values": "00001111"},
+    {"name": "b", "values": "00110011"},
+    {"name": "cin", "values": "01010101"}
+  ],
+  "outputs": [
+    {"name": "sum", "values": "01101001"},
+    {"name": "cout", "values": "00010111"}
+  ],
+  "parts": [
+    {"kind": "Xor", "count": 3},
+    {"kind": "And", "count": 3},
+    {"kind": "Or", "count": 1}
+  ],
+  "settleBy": 3,
+  "code": true,
+  "start": "// wrong_part: drawn in BitSorter. Gates with a delay are cells of bitsorter_cells.sv.\n\nmodule wrong_part (\n    input logic a,\n    input logic b,\n    input logic cin,\n    output logic sum,\n    output logic cout\n);\n    logic g1_y, g2_y, g4_y;\n    XOR2 #(.Tpdlh(1), .Tpdhl(1)) g1 (.A(a), .B(b), .Z(g1_y));\n    AND2 #(.Tpdlh(1), .Tpdhl(1)) g2 (.A(a), .B(b), .Z(g2_y));\n    XOR2 #(.Tpdlh(1), .Tpdhl(1)) g3 (.A(g1_y), .B(cin), .Z(sum));\n    AND2 #(.Tpdlh(1), .Tpdhl(1)) g4 (.A(g1_y), .B(cin), .Z(g4_y));\n    AND2 #(.Tpdlh(1), .Tpdhl(1)) g5 (.A(g2_y), .B(g4_y), .Z(cout));\nendmodule\n"
+}

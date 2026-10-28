@@ -1,0 +1,33 @@
+{
+  "id": "look-ahead",
+  "title": "Look ahead",
+  "order": 670,
+  "chapter": 6,
+  "goal": "Add a, b and cin, settled within 7 ns: quicker than a ripple of four FAs. FA is a full adder. LA is a carry lookahead block: given two columns of a and b and their carry in, it works out their carry out at once.",
+  "hint": "the sum is only as quick as the carry that reaches the top. Let it get there without passing through every box on the way.",
+  "inputs": [
+    {"name": "a3", "values": "1110110000100101"},
+    {"name": "a2", "values": "0101101010101001"},
+    {"name": "a1", "values": "0011111001010001"},
+    {"name": "a0", "values": "1001010000111011"},
+    {"name": "b3", "values": "1011000011010110"},
+    {"name": "b2", "values": "1100001100110110"},
+    {"name": "b1", "values": "1001011001101100"},
+    {"name": "b0", "values": "1100000011101011"},
+    {"name": "cin", "values": "1100010110011010"}
+  ],
+  "outputs": [
+    {"name": "s3", "values": "1000111011001010"},
+    {"name": "s2", "values": "0000111111100110"},
+    {"name": "s1", "values": "0110110010000110"},
+    {"name": "s0", "values": "1001000101001010"},
+    {"name": "cout", "values": "1111000000110101"}
+  ],
+  "parts": [
+    {"block": "FA", "count": 4},
+    {"block": "LA", "count": 2}
+  ],
+  "settleBy": 7,
+  "code": true,
+  "blocks": "// FA: drawn in BitSorter. Gates with a delay are cells of bitsorter_cells.sv.\n\nmodule FA (\n    input logic a,\n    input logic b,\n    input logic cin,\n    output logic s,\n    output logic cout\n);\n    logic g1_y, g2_y, g4_y;\n    XOR2 #(.Tpdlh(1), .Tpdhl(1)) g1 (.A(a), .B(b), .Z(g1_y));\n    AND2 #(.Tpdlh(1), .Tpdhl(1)) g2 (.A(a), .B(b), .Z(g2_y));\n    XOR2 #(.Tpdlh(1), .Tpdhl(1)) g3 (.A(g1_y), .B(cin), .Z(s));\n    AND2 #(.Tpdlh(1), .Tpdhl(1)) g4 (.A(g1_y), .B(cin), .Z(g4_y));\n    OR2 #(.Tpdlh(1), .Tpdhl(1)) g5 (.A(g2_y), .B(g4_y), .Z(cout));\nendmodule\n\n// LA: drawn in BitSorter. Gates with a delay are cells of bitsorter_cells.sv.\n\nmodule LA (\n    input logic a0,\n    input logic b0,\n    input logic cin,\n    input logic a1,\n    input logic b1,\n    output logic cout\n);\n    logic g1_y, g2_y, g3_y, g4_y, g5_y, g6_y, g7_y, g8_y;\n    XOR2 #(.Tpdlh(1), .Tpdhl(1)) g1 (.A(a0), .B(b0), .Z(g1_y));\n    AND2 #(.Tpdlh(1), .Tpdhl(1)) g2 (.A(a0), .B(b0), .Z(g2_y));\n    XOR2 #(.Tpdlh(1), .Tpdhl(1)) g3 (.A(a1), .B(b1), .Z(g3_y));\n    AND2 #(.Tpdlh(1), .Tpdhl(1)) g4 (.A(a1), .B(b1), .Z(g4_y));\n    AND2 #(.Tpdlh(1), .Tpdhl(1)) g5 (.A(g3_y), .B(g2_y), .Z(g5_y));\n    AND2 #(.Tpdlh(1), .Tpdhl(1)) g6 (.A(g3_y), .B(g1_y), .Z(g6_y));\n    OR2 #(.Tpdlh(1), .Tpdhl(1)) g7 (.A(g4_y), .B(g5_y), .Z(g7_y));\n    AND2 #(.Tpdlh(1), .Tpdhl(1)) g8 (.A(g6_y), .B(cin), .Z(g8_y));\n    OR2 #(.Tpdlh(1), .Tpdhl(1)) g9 (.A(g7_y), .B(g8_y), .Z(cout));\nendmodule\n"
+}

@@ -1,0 +1,25 @@
+{
+  "id": "highest-wins",
+  "title": "Highest wins",
+  "order": 540,
+  "chapter": 5,
+  "goal": "y1 y0 give the number of the highest input that is 1, in binary: i3 gives 11, i0 gives 00. v reads 1 if any input is 1; when none is, y1 y0 are free. This is a priority encoder.",
+  "hint": "a lower line only counts while every line above it is quiet.",
+  "inputs": [
+    {"name": "i3", "values": "0000000011111111"},
+    {"name": "i2", "values": "0000111100001111"},
+    {"name": "i1", "values": "0011001100110011"},
+    {"name": "i0", "values": "0101010101010101"}
+  ],
+  "outputs": [
+    {"name": "y1", "values": "x000111111111111"},
+    {"name": "y0", "values": "x011000011111111"},
+    {"name": "v", "values": "0111111111111111"}
+  ],
+  "parts": [
+    {"kind": "Or", "count": 4},
+    {"kind": "Not", "count": 1},
+    {"kind": "And", "count": 1}
+  ],
+  "code": true
+}

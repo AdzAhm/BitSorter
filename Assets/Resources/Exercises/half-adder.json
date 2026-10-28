@@ -1,0 +1,21 @@
+{
+  "id": "half-adder",
+  "title": "Half adder",
+  "order": 610,
+  "chapter": 6,
+  "goal": "Add two bits: sum reads the result, carry the overflow.",
+  "hint": "two outputs, two questions about the same pair of bits. Each input has to answer both.",
+  "inputs": [
+    {"name": "a", "values": "0011"},
+    {"name": "b", "values": "0101"}
+  ],
+  "outputs": [
+    {"name": "sum", "values": "0110"},
+    {"name": "carry", "values": "0001"}
+  ],
+  "parts": [
+    {"kind": "Xor", "count": 1},
+    {"kind": "And", "count": 1}
+  ],
+  "code": true
+}

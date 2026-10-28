@@ -1,0 +1,23 @@
+{
+  "id": "one-of-four",
+  "title": "One of four",
+  "order": 510,
+  "chapter": 5,
+  "goal": "Each pair a b lights exactly one output: d0 for 00, d1 for 01, d2 for 10, d3 for 11. The other three read 0 -- a 2-to-4 decoder.",
+  "hint": "every output is one row of the table. Three of them need an input flipped first.",
+  "inputs": [
+    {"name": "a", "values": "0011"},
+    {"name": "b", "values": "0101"}
+  ],
+  "outputs": [
+    {"name": "d0", "values": "1000"},
+    {"name": "d1", "values": "0100"},
+    {"name": "d2", "values": "0010"},
+    {"name": "d3", "values": "0001"}
+  ],
+  "parts": [
+    {"kind": "Not", "count": 2},
+    {"kind": "And", "count": 4}
+  ],
+  "code": true
+}

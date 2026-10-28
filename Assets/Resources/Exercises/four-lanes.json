@@ -1,0 +1,26 @@
+{
+  "id": "four-lanes",
+  "title": "Four lanes",
+  "order": 530,
+  "chapter": 5,
+  "goal": "s1 s0 is a number from 0 to 3. out reads d0, d1, d2 or d3 to match it -- a 4-to-1 multiplexer -- settled within 5 ns.",
+  "hint": "you have chosen between two before. Choose within each pair first, then between the pairs.",
+  "inputs": [
+    {"name": "d0", "values": "10010101"},
+    {"name": "d1", "values": "01100101"},
+    {"name": "d2", "values": "01011001"},
+    {"name": "d3", "values": "01010110"},
+    {"name": "s1", "values": "00001111"},
+    {"name": "s0", "values": "00110011"}
+  ],
+  "outputs": [
+    {"name": "out", "values": "10101010"}
+  ],
+  "parts": [
+    {"kind": "Not", "count": 2},
+    {"kind": "And", "count": 6},
+    {"kind": "Or", "count": 3}
+  ],
+  "settleBy": 5,
+  "code": true
+}

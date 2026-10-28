@@ -1,0 +1,22 @@
+{
+  "id": "rising-edge",
+  "title": "Rising edge",
+  "order": 730,
+  "chapter": 7,
+  "goal": "out reads 1 for one clock when in has just gone from 0 to 1, and 0 otherwise.",
+  "hint": "compare in with what it was a clock ago.",
+  "inputs": [
+    {"name": "in", "values": "01101"}
+  ],
+  "outputs": [
+    {"name": "out", "values": "01001"}
+  ],
+  "parts": [
+    {"kind": "Register", "count": 1},
+    {"kind": "Not", "count": 1},
+    {"kind": "And", "count": 1}
+  ],
+  "clock": true,
+  "registerStart": "0",
+  "code": true
+}

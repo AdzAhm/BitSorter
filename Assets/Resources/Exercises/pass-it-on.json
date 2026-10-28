@@ -1,0 +1,26 @@
+{
+  "id": "pass-it-on",
+  "title": "Pass it on",
+  "order": 640,
+  "chapter": 6,
+  "goal": "Add two 2-bit numbers, a1 a0 and b1 b0: s1 s0 read the sum and cout the carry out of the top bit, settled within 3 ns.",
+  "hint": "the low column's carry is the high column's third input.",
+  "inputs": [
+    {"name": "a1", "values": "0000000011111111"},
+    {"name": "a0", "values": "0000111100001111"},
+    {"name": "b1", "values": "0011001100110011"},
+    {"name": "b0", "values": "0101010101010101"}
+  ],
+  "outputs": [
+    {"name": "s1", "values": "0011011011001001"},
+    {"name": "s0", "values": "0101101001011010"},
+    {"name": "cout", "values": "0000000100110111"}
+  ],
+  "parts": [
+    {"kind": "Xor", "count": 3},
+    {"kind": "And", "count": 3},
+    {"kind": "Or", "count": 1}
+  ],
+  "settleBy": 3,
+  "code": true
+}

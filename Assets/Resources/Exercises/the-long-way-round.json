@@ -1,0 +1,22 @@
+{
+  "id": "the-long-way-round",
+  "title": "The long way round",
+  "order": 410,
+  "chapter": 4,
+  "goal": "out reads NOT (a AND b) -- a NAND -- without a NAND gate. Every gate here takes 1 ns, and out must settle within 2 ns of an input changing: the TIMING tab shows how long yours takes.",
+  "hint": "there are two ways to make one. Either takes two gates in a row.",
+  "inputs": [
+    {"name": "a", "values": "0011"},
+    {"name": "b", "values": "0101"}
+  ],
+  "outputs": [
+    {"name": "out", "values": "1110"}
+  ],
+  "parts": [
+    {"kind": "Not", "count": 2},
+    {"kind": "And", "count": 1},
+    {"kind": "Or", "count": 1}
+  ],
+  "settleBy": 2,
+  "code": true
+}

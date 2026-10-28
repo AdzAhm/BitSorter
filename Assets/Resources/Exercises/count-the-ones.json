@@ -1,0 +1,23 @@
+{
+  "id": "count-the-ones",
+  "title": "Count the ones",
+  "order": 810,
+  "chapter": 8,
+  "goal": "Count the clocks where in is 1, from 0 to 3 and round again: high low read the count in binary. Both registers start at 0.",
+  "hint": "the low bit flips on every 1. The high bit flips only when the low bit is about to wrap.",
+  "inputs": [
+    {"name": "in", "values": "111101"}
+  ],
+  "outputs": [
+    {"name": "high", "values": "0011000"},
+    {"name": "low", "values": "0101001"}
+  ],
+  "parts": [
+    {"kind": "Register", "count": 2},
+    {"kind": "Xor", "count": 2},
+    {"kind": "And", "count": 1}
+  ],
+  "clock": true,
+  "registerStart": "0",
+  "code": true
+}

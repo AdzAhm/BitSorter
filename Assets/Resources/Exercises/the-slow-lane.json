@@ -1,0 +1,23 @@
+{
+  "id": "the-slow-lane",
+  "title": "The slow lane",
+  "order": 430,
+  "chapter": 4,
+  "goal": "out reads (((a XOR b) XOR c) AND a) OR b, settled within 4 ns.",
+  "hint": "every gate a change passes through adds a nanosecond. Count the longest way from an input to out.",
+  "inputs": [
+    {"name": "a", "values": "00001111"},
+    {"name": "b", "values": "00110011"},
+    {"name": "c", "values": "01010101"}
+  ],
+  "outputs": [
+    {"name": "out", "values": "00111011"}
+  ],
+  "parts": [
+    {"kind": "Xor", "count": 2},
+    {"kind": "And", "count": 1},
+    {"kind": "Or", "count": 1}
+  ],
+  "settleBy": 4,
+  "code": true
+}

@@ -1,0 +1,21 @@
+{
+  "id": "flip-on-one",
+  "title": "Flip on one",
+  "order": 740,
+  "chapter": 7,
+  "goal": "out flips at each clock where in is 1, and holds where in is 0 -- a toggle flip-flop. It starts at 0.",
+  "hint": "the next value is the last one, changed or kept depending on in.",
+  "inputs": [
+    {"name": "in", "values": "1101"}
+  ],
+  "outputs": [
+    {"name": "out", "values": "1001"}
+  ],
+  "parts": [
+    {"kind": "Register", "count": 1},
+    {"kind": "Xor", "count": 1}
+  ],
+  "clock": true,
+  "registerStart": "0",
+  "code": true
+}

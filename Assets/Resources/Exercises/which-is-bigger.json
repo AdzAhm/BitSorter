@@ -1,0 +1,23 @@
+{
+  "id": "which-is-bigger",
+  "title": "Which is bigger",
+  "order": 550,
+  "chapter": 5,
+  "goal": "Compare a with b. lt reads 1 when a is less than b, gt when it is greater, and eq when they are equal.",
+  "hint": "two of the outputs can be read off the inputs. The third can be read off the other two.",
+  "inputs": [
+    {"name": "a", "values": "0011"},
+    {"name": "b", "values": "0101"}
+  ],
+  "outputs": [
+    {"name": "lt", "values": "0100"},
+    {"name": "eq", "values": "1001"},
+    {"name": "gt", "values": "0010"}
+  ],
+  "parts": [
+    {"kind": "Not", "count": 2},
+    {"kind": "And", "count": 2},
+    {"kind": "Nor", "count": 1}
+  ],
+  "code": true
+}

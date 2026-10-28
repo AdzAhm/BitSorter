@@ -1,0 +1,20 @@
+{
+  "id": "one-clock-late",
+  "title": "One clock late",
+  "order": 710,
+  "chapter": 7,
+  "goal": "out reads, at each clock, what in was the clock before. This is the first circuit with a clock: clk rises half-way through each step, and a register here starts at 0.",
+  "hint": "a register remembers one bit, from one rising edge to the next.",
+  "inputs": [
+    {"name": "in", "values": "1011"}
+  ],
+  "outputs": [
+    {"name": "out", "values": "01011"}
+  ],
+  "parts": [
+    {"kind": "Register", "count": 1}
+  ],
+  "clock": true,
+  "registerStart": "0",
+  "code": true
+}

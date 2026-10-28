@@ -1,0 +1,22 @@
+{
+  "id": "one-clock-behind",
+  "title": "One clock behind",
+  "order": 840,
+  "chapter": 8,
+  "goal": "Spot the same 1, 0, 1, but out reads it a clock later, from a register, as a Moore machine does: its output depends on its state alone.",
+  "hint": "a Moore machine's output is a question about its state alone.",
+  "inputs": [
+    {"name": "in", "values": "011010"}
+  ],
+  "outputs": [
+    {"name": "out", "values": "0010010"}
+  ],
+  "parts": [
+    {"kind": "Register", "count": 2},
+    {"kind": "Not", "count": 1},
+    {"kind": "And", "count": 1}
+  ],
+  "clock": true,
+  "registerStart": "0",
+  "code": true
+}

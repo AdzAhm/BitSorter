@@ -1,0 +1,22 @@
+{
+  "id": "dont-care",
+  "title": "Don't care",
+  "order": 220,
+  "chapter": 2,
+  "goal": "a b c d is a digit from 0 to 9: the other six combinations never happen. out reads 1 when the digit is 5 or more. Those six can be whatever makes the circuit smallest.",
+  "hint": "a group on the map may reach into squares the test never asks about.",
+  "inputs": [
+    {"name": "a", "values": "0000000011"},
+    {"name": "b", "values": "0000111100"},
+    {"name": "c", "values": "0011001100"},
+    {"name": "d", "values": "0101010101"}
+  ],
+  "outputs": [
+    {"name": "out", "values": "0000011111"}
+  ],
+  "parts": [
+    {"kind": "And", "count": 2},
+    {"kind": "Or", "count": 2}
+  ],
+  "code": true
+}

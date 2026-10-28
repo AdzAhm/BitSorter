@@ -1,0 +1,25 @@
+{
+  "id": "hold-when-told",
+  "title": "Hold when told",
+  "order": 750,
+  "chapter": 7,
+  "goal": "out takes d at each clock where en is 1, and keeps its value where en is 0 -- a register with an enable. It starts at 0.",
+  "hint": "en picks between two things: the new value, or the one already held.",
+  "inputs": [
+    {"name": "d", "values": "11010"},
+    {"name": "en", "values": "10101"}
+  ],
+  "outputs": [
+    {"name": "out", "values": "011000"}
+  ],
+  "parts": [
+    {"kind": "Register", "count": 1},
+    {"kind": "Not", "count": 1},
+    {"kind": "And", "count": 2},
+    {"kind": "Or", "count": 1},
+    {"kind": "Xor", "count": 2}
+  ],
+  "clock": true,
+  "registerStart": "0",
+  "code": true
+}

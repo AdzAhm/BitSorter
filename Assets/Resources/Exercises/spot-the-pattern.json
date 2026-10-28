@@ -1,0 +1,22 @@
+{
+  "id": "spot-the-pattern",
+  "title": "Spot the pattern",
+  "order": 830,
+  "chapter": 8,
+  "goal": "out reads 1 for one clock right after in has been 1, 0, 1 on three clocks in a row -- a sequence detector.",
+  "hint": "two registers can hold the last two bits. The pattern is then a question about three bits at once.",
+  "inputs": [
+    {"name": "in", "values": "1101011"}
+  ],
+  "outputs": [
+    {"name": "out", "values": "0001010"}
+  ],
+  "parts": [
+    {"kind": "Register", "count": 2},
+    {"kind": "Not", "count": 1},
+    {"kind": "And", "count": 2}
+  ],
+  "clock": true,
+  "registerStart": "0",
+  "code": true
+}

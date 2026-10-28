@@ -1,0 +1,24 @@
+{
+  "id": "carry-the-one",
+  "title": "Carry the one",
+  "order": 620,
+  "chapter": 6,
+  "goal": "Add three bits, a, b and cin: sum reads the result and cout the carry out, settled within 3 ns.",
+  "hint": "a full adder is two half adders stacked. Their carries need joining.",
+  "inputs": [
+    {"name": "a", "values": "00001111"},
+    {"name": "b", "values": "00110011"},
+    {"name": "cin", "values": "01010101"}
+  ],
+  "outputs": [
+    {"name": "sum", "values": "01101001"},
+    {"name": "cout", "values": "00010111"}
+  ],
+  "parts": [
+    {"kind": "Xor", "count": 3},
+    {"kind": "And", "count": 2},
+    {"kind": "Or", "count": 1}
+  ],
+  "settleBy": 3,
+  "code": true
+}

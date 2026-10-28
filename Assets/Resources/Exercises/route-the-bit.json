@@ -1,0 +1,19 @@
+{
+  "id": "route-the-bit",
+  "title": "Route the bit",
+  "order": 110,
+  "chapter": 1,
+  "goal": "binOne must read 1 while in is 0. binZero is free: leave it alone.",
+  "hint": "in is the opposite of what binOne wants.",
+  "inputs": [
+    {"name": "in", "values": "0"}
+  ],
+  "outputs": [
+    {"name": "binOne", "values": "1"},
+    {"name": "binZero", "values": "x"}
+  ],
+  "parts": [
+    {"kind": "Not", "count": 1}
+  ],
+  "code": true
+}

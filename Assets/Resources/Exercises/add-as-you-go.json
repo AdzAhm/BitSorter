@@ -1,0 +1,24 @@
+{
+  "id": "add-as-you-go",
+  "title": "Add as you go",
+  "order": 850,
+  "chapter": 8,
+  "goal": "a and b arrive one bit at each clock, lowest first. sum reads their sum, bit by bit, a clock later -- a serial adder. The carry waits in a register, starting at 0.",
+  "hint": "a full adder for one column, with its carry kept for the next clock.",
+  "inputs": [
+    {"name": "a", "values": "10110"},
+    {"name": "b", "values": "11010"}
+  ],
+  "outputs": [
+    {"name": "sum", "values": "00011"}
+  ],
+  "parts": [
+    {"kind": "Register", "count": 1},
+    {"kind": "Xor", "count": 2},
+    {"kind": "And", "count": 2},
+    {"kind": "Or", "count": 1}
+  ],
+  "clock": true,
+  "registerStart": "0",
+  "code": true
+}

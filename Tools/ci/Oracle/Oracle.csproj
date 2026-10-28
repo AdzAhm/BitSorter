@@ -28,6 +28,8 @@
     <Compile Include="../Sim.Tests/Probes.cs" Link="Shared/Probes.cs" />
     <!-- The sample boards the document layer's tests compile, run here as printed. -->
     <Compile Include="../Board.Tests/SampleBoards.cs" Link="Shared/SampleBoards.cs" />
+    <!-- The exercises as shipped, and their reference solutions (Part 15c). -->
+    <Compile Include="../Board.Tests/ExerciseFiles.cs" Link="Shared/ExerciseFiles.cs" />
   </ItemGroup>
 
   <ItemGroup>

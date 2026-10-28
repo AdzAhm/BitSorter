@@ -62,6 +62,12 @@ namespace BitSorter.Board
 
         /// <summary>Whether it may be answered in code (Part 15e).</summary>
         public bool code;
+
+        /// <summary>
+        /// What a register placed in it starts at: <c>0</c> or <c>1</c>, as every 4.x register started at 0 -- or empty for x,
+        /// as a flip-flop starts in 5.0 until something resets it (Part 15c).
+        /// </summary>
+        public string registerStart;
     }
 
     /// <summary>An input or an output of an exercise, as its file holds it.</summary>
@@ -121,6 +127,9 @@ namespace BitSorter.Board
         /// <summary>The clock's name, when there is one.</summary>
         public const string ClockName = "clk";
 
+        /// <summary>The unit an exercise counts time in: the course's, so a gate of delay 1 is 1 ns.</summary>
+        public const string TimeUnit = "ns";
+
         /// <summary>What the library an exercise is held to is called.</summary>
         public const string LibraryName = "EXERCISE";
 
@@ -150,6 +159,9 @@ namespace BitSorter.Board
         public string Start { get; private set; }
         public string Blocks { get; private set; }
         public bool Code { get; private set; }
+
+        /// <summary>What a register placed in it starts at; null for x (<see cref="ExerciseRecord.registerStart"/>).</summary>
+        public LogicVec? RegisterStart { get; private set; }
 
         /// <summary>How many vectors the test runs: the longest of the inputs' and the outputs'.</summary>
         public int Vectors { get; private set; }
@@ -276,6 +288,9 @@ namespace BitSorter.Board
 
             if (record.delay < 0)
                 Problem("a delay cannot be below 0.");
+            string start = (record.registerStart ?? "").Trim();
+            if (start.Length > 0 && start != "0" && start != "1")
+                Problem($"a register cannot start at '{start}': 0, 1, or empty for x.");
 
             // A vector's outputs are read just before half-way (SampleTime), and a gate a delay after its inputs change must
             // have answered by then -- with a moment to spare, or the read and the answer fall in one instant and the read,
@@ -317,6 +332,7 @@ namespace BitSorter.Board
                 Start = record.start ?? "",
                 Blocks = record.blocks ?? "",
                 Code = record.code,
+                RegisterStart = start == "0" || start == "1" ? LogicVec.FromBinary(start) : (LogicVec?)null,
                 Vectors = vectors,
             };
         }
@@ -477,7 +493,7 @@ namespace BitSorter.Board
                 Name = top,
                 Top = top,
                 Stimulus = Test(),
-                Settings = (project.Settings ?? new ProjectSettings()) with { DefaultGateDelay = Delay },
+                Settings = (project.Settings ?? new ProjectSettings()) with { DefaultGateDelay = Delay, TimeUnit = TimeUnit },
             };
 
             int before = problems.Count;
