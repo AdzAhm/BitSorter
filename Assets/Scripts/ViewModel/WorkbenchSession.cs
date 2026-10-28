@@ -239,15 +239,24 @@ namespace BitSorter.ViewModel
             double started = _now();
             SchematicLayout layout = DocumentSchematic.Build(project, compiled, ModuleOn(project, _path, out _), InstancePathUnder(compiled.DesignPath),
                 m => RoutesOf(project, m));
-            LayoutMilliseconds = _now() - started;
+            _slowest = Math.Max(_slowest, _now() - started);
             return layout;
         }
 
-        /// <summary>How long the document took to draw last, by the session's clock: what tells a browser it is slow (<see cref="DesktopHint"/>).</summary>
-        public double LayoutMilliseconds { get; private set; }
+        private double _slowest;
 
-        /// <summary>How long the document's timing took to work out last, by the session's clock; 0 until it has been.</summary>
-        public double TimingMilliseconds { get; private set; }
+        /// <summary>
+        /// The slowest the document took to draw, or its timing to work out, since this was last asked -- by the session's
+        /// clock, in milliseconds -- and forgotten as it is told: what tells a browser it is slow (<see cref="DesktopHint"/>).
+        /// The slowest, not the last: an edit draws the document twice, the second time from routes the first made, and the
+        /// last alone said 6 ms of an edit that took 500 (the 15g-7 review).
+        /// </summary>
+        public double TakeSlowestMilliseconds()
+        {
+            double slowest = _slowest;
+            _slowest = 0;
+            return slowest;
+        }
 
         private IReadOnlyList<Module> _routedModules;
         private Module _routedModule;
@@ -369,7 +378,7 @@ namespace BitSorter.ViewModel
                     {
                         double started = _now();
                         _timing = TimingView.Of(Project);
-                        TimingMilliseconds = _now() - started;
+                        _slowest = Math.Max(_slowest, _now() - started);
                     }
                 }
                 return _timing;

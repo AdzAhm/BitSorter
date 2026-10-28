@@ -13,8 +13,11 @@ namespace BitSorter.ViewModel
 
         public const string Words = "A drawing this big takes the browser a moment after each edit: the desktop version of BitSorter runs it faster.";
 
-        /// <summary>Whether to say it now: in a browser, not said yet this session, and after work that took longer than <see cref="SlowMilliseconds"/>.</summary>
-        public static bool Due(bool inBrowser, bool saidAlready, double layoutMilliseconds, double timingMilliseconds) =>
-            inBrowser && !saidAlready && (layoutMilliseconds > SlowMilliseconds || timingMilliseconds > SlowMilliseconds);
+        /// <summary>
+        /// Whether to say it now: in a browser, not said yet this session, after drawing or timing work that took longer than
+        /// <see cref="SlowMilliseconds"/> -- the slowest since last asked (<see cref="WorkbenchSession.TakeSlowestMilliseconds"/>).
+        /// </summary>
+        public static bool Due(bool inBrowser, bool saidAlready, double slowestMilliseconds) =>
+            inBrowser && !saidAlready && slowestMilliseconds > SlowMilliseconds;
     }
 }

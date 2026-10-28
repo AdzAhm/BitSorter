@@ -63,7 +63,8 @@ namespace BitSorter.Board
         /// every other wire kept where <paramref name="kept"/> has it: what a drag shows as it goes (Part 15g). Routing every
         /// wire again at each step of a drag took a third of a second a step on a 1,000-part drawing. The rest keep still,
         /// so a wire that follows keeps clear of them where they are, not where routing them all again might move them --
-        /// a preview, which the drop then routes whole.
+        /// a preview, which the drop then routes whole. A kept wire that taps one that follows keeps its old junction too:
+        /// only the wires that follow are meant to be drawn from it.
         /// </summary>
         public static Dictionary<int, IReadOnlyList<Point>> Following(Project project, Module module, IReadOnlyDictionary<int, IReadOnlyList<Point>> kept,
             ICollection<int> moved)

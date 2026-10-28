@@ -1510,7 +1510,7 @@ namespace BitSorter.View
 
             // In a browser, once a run of the game, a drawing slow to draw again says the desktop version is faster (Part 15g).
             if (_session != null && DesktopHint.Due(Application.platform == RuntimePlatform.WebGLPlayer, _saidDesktopIsFaster,
-                    _session.LayoutMilliseconds, _session.TimingMilliseconds))
+                    _session.TakeSlowestMilliseconds()))
             {
                 _saidDesktopIsFaster = true;
                 Notice(DesktopHint.Words);
