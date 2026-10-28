@@ -161,12 +161,12 @@ namespace BitSorter.View
             // so each joins UiEscape instead. And not on the frame this opened: the Escape that leaves
             // Settings opens this in the same frame, and must not close it again.
             //
-            // Up, it goes back to the simulator rather than on to the 4.x board under it (Part 15g): BitSorter opens on the
-            // simulator, and the 4.x game is a side trip from it, so Escape here takes you back, not further in. The 4.x boot
-            // the tests use keeps the old answer.
+            // Up from the simulator, it goes back there rather than on to the 4.x board under it (Part 15g): the 4.x game is
+            // a side trip from the simulator, so Escape takes you back, not further in. Up from a board it is a pause, and
+            // closes onto the board. The 4.x boot the tests use keeps the old answer.
             if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame && !OpenedThisFrame)
             {
-                if (IsShowing && !AppLaunch.Classic && _workbench != null)
+                if (IsShowing && _fromTheSimulator && !AppLaunch.Classic && _workbench != null)
                     OpenWorkbench();
                 else if (IsShowing)
                     Show(false);
@@ -341,9 +341,10 @@ namespace BitSorter.View
         /// and is not part of the block.
         ///
         /// The workbench's row put a row back, and half a row on this: 70. The way back to the simulator taking that row's
-        /// place at the top, larger by <see cref="BackExtraHeight"/>, took the block 30 shorter and half of it off this: 55.
+        /// place at the top, taller by <see cref="BackExtraHeight"/>, made the block that much taller and put half of it on
+        /// this: 82 (the 15g-1 review measured the menu hanging low at 55, which had the sum the wrong way round).
         /// </remarks>
-        private const float Lift = 55f;
+        private const float Lift = 82f;
 
         private Button Item(string name, float y, out TextMeshProUGUI label,
             ButtonRole role = ButtonRole.Secondary)
@@ -524,7 +525,23 @@ namespace BitSorter.View
 
         public void Show(bool visible) => SetShowing(visible);
 
+        /// <summary>
+        /// The title screen, opened from the simulator -- Settings' THE 4.x GAME -- so that Escape on it goes back there
+        /// (Part 15g). Opened from a board, by MENU or Escape, it is a pause, and Escape closes it onto the board again: the
+        /// 15g-1 review found Escape, Escape on a board throwing the player out to the simulator.
+        /// </summary>
+        public void OpenFromTheSimulator()
+        {
+            Show(true);
+            _fromTheSimulator = true;
+        }
+
+        /// <summary>Whether the title screen was opened from the simulator, rather than from a board.</summary>
+        private bool _fromTheSimulator;
+
         protected override void OnShown() => Refresh();
+
+        protected override void OnHidden() => _fromTheSimulator = false;
 
         private void Fire(System.Action action)
         {

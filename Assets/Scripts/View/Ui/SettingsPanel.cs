@@ -927,7 +927,7 @@ namespace BitSorter.View
             Show(false);
             AppLaunch.ShowTheGame();
             if (_menu != null)
-                _menu.Show(true);
+                _menu.OpenFromTheSimulator();   // so Escape on it comes back (Part 15g)
         }
 
         /// <summary>The credits roll, which comes back here.</summary>

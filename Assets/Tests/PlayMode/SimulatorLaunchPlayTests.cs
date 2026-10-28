@@ -144,12 +144,18 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsTrue(workbench.IsOpen, State("Escape on the title screen comes back"));
             Assert.IsFalse(Find<MainMenu>().IsOpen);
 
-            // From a board, Escape is the menu, and its way back is the big button.
+            // From a board, Escape is the menu, a pause: Escape again closes it onto the board (the 15g-1 review), and its way
+            // back is the big button.
             yield return IntoThe4xGame();
             yield return PointAndClick("Continue");
             yield return Tap(_keyboard.escapeKey);
             Assert.IsTrue(Find<MainMenu>().IsOpen, State("Escape on a board opens the menu"));
             Assert.IsFalse(workbench.IsOpen);
+            yield return Tap(_keyboard.escapeKey);
+            Assert.IsFalse(Find<MainMenu>().IsOpen, State("Escape again closes it"));
+            Assert.IsFalse(workbench.IsOpen, State("onto the board, not out of the game"));
+            yield return Tap(_keyboard.escapeKey);
+            Assert.IsTrue(Find<MainMenu>().IsOpen, State("sanity: the menu again"));
             yield return PointAndClick(MainMenu.WorkbenchButton);
             Assert.IsTrue(workbench.IsOpen, State("BACK TO THE SIMULATOR comes back"));
         }

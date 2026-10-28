@@ -129,7 +129,8 @@ namespace BitSorter.View
         /// A third rendering, and it needs its own flag for the reason the first one does: the menu
         /// is a front door, and its line names only what a key does on the menu itself -- which is
         /// the sound, and nothing else. It named H, M and Escape as well, and with the menu open the
-        /// first two do nothing and Escape closes it; the menu's buttons are the way on from there.
+        /// first two do nothing and Escape closes it -- or, the title screen opened from the simulator, goes back there
+        /// (Part 15g); the menu's buttons are the way on from there.
         ///
         /// It exists at all because the menu used to draw a literal of its own. Two hand-written
         /// copies of the bindings is the drift this whole type was extracted to stop, and the copy
