@@ -12,6 +12,11 @@ namespace BitSorter.Board
     /// <remarks>
     /// Pieces are kept by the line they run along -- a piece across by its height, one up or down by its column -- so a
     /// route asks only the pieces on its own lines, and a board of hundreds of wires asks a handful each time.
+    ///
+    /// **Corners, pins and bodies are kept by the square of the board they are in** (Part 15g), <see cref="Square"/> cells a
+    /// side, a body in every square it covers, so a piece asks only the squares under it. Each of the three is a hit only
+    /// where it touches the piece's own extent, so the answer is the one asking all of them gives; asking all of them for
+    /// every piece of every route tried made routing a 1,000-part drawing take a second, on every edit.
     /// </remarks>
     public sealed class WireObstacles
     {
@@ -22,9 +27,12 @@ namespace BitSorter.Board
 
         private readonly Dictionary<long, List<(double Lo, double Hi, int Net)>> _across = new Dictionary<long, List<(double, double, int)>>();
         private readonly Dictionary<long, List<(double Lo, double Hi, int Net)>> _upright = new Dictionary<long, List<(double, double, int)>>();
-        private readonly List<(Point At, int Net)> _corners = new List<(Point, int)>();
-        private readonly List<Point> _pins = new List<Point>();
-        private readonly List<PartOutline> _bodies = new List<PartOutline>();
+        private readonly Dictionary<long, List<(Point At, int Net)>> _corners = new Dictionary<long, List<(Point, int)>>();
+        private readonly Dictionary<long, List<Point>> _pins = new Dictionary<long, List<Point>>();
+        private readonly Dictionary<long, List<PartOutline>> _bodies = new Dictionary<long, List<PartOutline>>();
+
+        /// <summary>How many cells a side the squares are that corners, pins and bodies are kept by.</summary>
+        public const double Square = 2;
 
         /// <summary>A wire of net <paramref name="net"/>, drawn through <paramref name="points"/>.</summary>
         public void AddWire(IReadOnlyList<Point> points, int net)
@@ -41,7 +49,7 @@ namespace BitSorter.Board
             }
 
             for (int i = 1; i < points.Count - 1; i++)
-                _corners.Add((points[i], net));
+                In(_corners, SquareOf(points[i].X), SquareOf(points[i].Y)).Add((points[i], net));
         }
 
         /// <summary>A part, by its outline: its body, which no route crosses, and its pins, which no route runs over but its own.</summary>
@@ -49,9 +57,11 @@ namespace BitSorter.Board
         {
             if (outline == null)
                 return;
-            _bodies.Add(outline);
+            for (int x = SquareOf(outline.Left - Near); x <= SquareOf(outline.Right + Near); x++)
+                for (int y = SquareOf(outline.Bottom - Near); y <= SquareOf(outline.Top + Near); y++)
+                    In(_bodies, x, y).Add(outline);
             foreach (PinSpot pin in outline.Pins)
-                _pins.Add(pin.At);
+                In(_pins, SquareOf(pin.At.X), SquareOf(pin.At.Y)).Add(pin.At);
         }
 
         /// <summary>Whether a piece of <paramref name="route"/> runs along, or ends against on its line, a wire of a net not in <paramref name="own"/>.</summary>
@@ -89,15 +99,26 @@ namespace BitSorter.Board
             for (int i = 1; i < route.Count; i++)
             {
                 Point a = route[i - 1], b = route[i];
-                foreach ((Point At, int Net) corner in _corners)
-                    if (!Owns(own, corner.Net) && OnPiece(corner.At, a, b))
-                        return false;
-                foreach (Point pin in _pins)
-                    if (!Same(pin, start) && !Same(pin, end) && OnPiece(pin, a, b))
-                        return false;
-                foreach (PartOutline body in _bodies)
-                    if (Through(body, a, b))
-                        return false;
+                // The squares under the piece, a hair wider than it: nothing outside them can touch it.
+                int x0 = SquareOf(Math.Min(a.X, b.X) - Near), x1 = SquareOf(Math.Max(a.X, b.X) + Near);
+                int y0 = SquareOf(Math.Min(a.Y, b.Y) - Near), y1 = SquareOf(Math.Max(a.Y, b.Y) + Near);
+                for (int x = x0; x <= x1; x++)
+                    for (int y = y0; y <= y1; y++)
+                    {
+                        long square = SquareKey(x, y);
+                        if (_corners.TryGetValue(square, out var corners))
+                            foreach ((Point At, int Net) corner in corners)
+                                if (!Owns(own, corner.Net) && OnPiece(corner.At, a, b))
+                                    return false;
+                        if (_pins.TryGetValue(square, out var pins))
+                            foreach (Point pin in pins)
+                                if (!Same(pin, start) && !Same(pin, end) && OnPiece(pin, a, b))
+                                    return false;
+                        if (_bodies.TryGetValue(square, out var bodies))
+                            foreach (PartOutline body in bodies)
+                                if (Through(body, a, b))
+                                    return false;
+                    }
             }
 
             for (int i = 1; i < route.Count - 1; i++)
@@ -146,5 +167,17 @@ namespace BitSorter.Board
 
         /// <summary>A line's key: its height or column to a thousandth of a cell, finer than any grid a wire runs on.</summary>
         private static long Key(double at) => (long)Math.Round(at * 1000);
+
+        private static int SquareOf(double at) => (int)Math.Floor(at / Square);
+
+        private static long SquareKey(int x, int y) => (long)x << 32 | (uint)y;
+
+        private static List<T> In<T>(Dictionary<long, List<T>> squares, int x, int y)
+        {
+            long key = SquareKey(x, y);
+            if (!squares.TryGetValue(key, out List<T> there))
+                squares[key] = there = new List<T>();
+            return there;
+        }
     }
 }

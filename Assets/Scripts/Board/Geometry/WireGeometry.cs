@@ -56,7 +56,28 @@ namespace BitSorter.Board
         public const double Stub = 0.5;
 
         /// <summary>Every wire's points, from its <see cref="Wire.From"/> end to its <see cref="Wire.To"/> end.</summary>
-        public static Dictionary<int, IReadOnlyList<Point>> Wires(Project project, Module module)
+        public static Dictionary<int, IReadOnlyList<Point>> Wires(Project project, Module module) => Route(project, module, null, null);
+
+        /// <summary>
+        /// The wires on <paramref name="moved"/> parts routed again, as <paramref name="module"/>'s layout now places them, and
+        /// every other wire kept where <paramref name="kept"/> has it: what a drag shows as it goes (Part 15g). Routing every
+        /// wire again at each step of a drag took a third of a second a step on a 1,000-part drawing. The rest keep still,
+        /// so a wire that follows keeps clear of them where they are, not where routing them all again might move them --
+        /// a preview, which the drop then routes whole.
+        /// </summary>
+        public static Dictionary<int, IReadOnlyList<Point>> Following(Project project, Module module, IReadOnlyDictionary<int, IReadOnlyList<Point>> kept,
+            ICollection<int> moved)
+        {
+            var again = new HashSet<int>();
+            foreach (Wire wire in module.Wires)
+                if ((!wire.From.IsTap && moved.Contains(wire.From.Pin.Part)) || (!wire.To.IsTap && moved.Contains(wire.To.Pin.Part)))
+                    again.Add(wire.Id);
+            return Route(project, module, kept, again);
+        }
+
+        /// <summary>The routing itself: every wire, or only those <paramref name="again"/> names with the rest as <paramref name="kept"/> has them.</summary>
+        private static Dictionary<int, IReadOnlyList<Point>> Route(Project project, Module module, IReadOnlyDictionary<int, IReadOnlyList<Point>> kept,
+            HashSet<int> again)
         {
             var outlines = new Dictionary<int, PartOutline>();
             foreach (Part part in module.Parts)
@@ -73,6 +94,15 @@ namespace BitSorter.Board
             foreach (PartOutline outline in outlines.Values)
                 around.AddPart(outline);
             var own = new HashSet<int>();
+
+            // The wires kept where they are, in the way of those routed again from the start.
+            if (again != null)
+                foreach (Wire wire in module.Wires)
+                    if (!again.Contains(wire.Id) && kept != null && kept.TryGetValue(wire.Id, out IReadOnlyList<Point> keep))
+                    {
+                        done[wire.Id] = keep;
+                        around.AddWire(keep, nets[wire.Id]);
+                    }
 
             IReadOnlyList<Point> RouteOf(Wire wire)
             {
@@ -120,14 +150,17 @@ namespace BitSorter.Board
             }
 
             foreach (Wire wire in module.Wires)
-                RouteOf(wire);
+                if (again == null || again.Contains(wire.Id))
+                    RouteOf(wire);
             return done;
         }
 
         /// <summary>Each net's paths from its driver to every load, through the wires and the taps between.</summary>
-        public static List<NetPath> Nets(Project project, Module module, Netlist netlist)
+        public static List<NetPath> Nets(Project project, Module module, Netlist netlist) => Nets(module, netlist, Wires(project, module));
+
+        /// <summary>The same, from routes already made (<see cref="Wires"/>): the workbench routes a document once for all that asks.</summary>
+        public static List<NetPath> Nets(Module module, Netlist netlist, IReadOnlyDictionary<int, IReadOnlyList<Point>> wires)
         {
-            Dictionary<int, IReadOnlyList<Point>> wires = Wires(project, module);
 
             // Each wire is cut where other wires tap it; the pieces join pins and tap junctions.
             var edges = new List<(string A, string B, IReadOnlyList<Point> Points)>();
@@ -222,11 +255,11 @@ namespace BitSorter.Board
                     branches.Add(new NetBranch(pin, points));
                 }
 
+                // A wire's tap junction, by its key: every junction asked of every wire was a string made for each pair.
                 var dots = new List<Point>();
                 foreach (int wire in net.Wires)
-                    foreach (KeyValuePair<string, Point> junction in junctions)
-                        if (junction.Key == TapKey(wire))
-                            dots.Add(junction.Value);
+                    if (junctions.TryGetValue(TapKey(wire), out Point dot))
+                        dots.Add(dot);
 
                 paths.Add(new NetPath(net, source, branches, dots));
             }
@@ -341,17 +374,24 @@ namespace BitSorter.Board
 
             Point s = fa == null ? a : Add(a, PartGeometry.Step(fa.Value), Stub);
             Point e = fb == null ? b : Add(b, PartGeometry.Step(fb.Value), Stub);
-            var tries = new List<(List<Point> Points, int Corners, double Length, double Off)>();
+
+            // Each try is kept as what makes it -- across at a column, or up and down at a height -- and what it is sorted by,
+            // and its points are made again only for the tries asked whether they are clear: a wire across a drawing hundreds
+            // of cells wide has thousands, and a list of points apiece made routing a 1,000-part drawing take half a second
+            // (Part 15g). Sorted as before, by the same keys from the same tries in the same order, it picks the same route.
+            var raw = new List<Point>(6);
+            var tidy = new List<Point>(6);
+            var tries = new List<(bool Across, double At, int Corners, double Length, double Off)>();
 
             // Across, up or down at a column, and across again.
             double middle = Snap((s.X + e.X) / 2);
             for (double m = Snap(Math.Min(s.X, e.X) - SearchReach); m <= Math.Max(s.X, e.X) + SearchReach + 1e-9; m += 0.25)
-                Try(new List<Point> { a, s, new Point(m, s.Y), new Point(m, e.Y), e, b }, Math.Abs(m - middle));
+                Try(true, m, Math.Abs(m - middle));
 
             // Up or down, across at a height, and up or down again.
             middle = Snap((s.Y + e.Y) / 2);
             for (double m = Snap(Math.Min(s.Y, e.Y) - SearchReach); m <= Math.Max(s.Y, e.Y) + SearchReach + 1e-9; m += 0.25)
-                Try(new List<Point> { a, s, new Point(s.X, m), new Point(e.X, m), e, b }, Math.Abs(m - middle));
+                Try(false, m, Math.Abs(m - middle));
 
             tries.Sort((p, q) =>
             {
@@ -361,16 +401,32 @@ namespace BitSorter.Board
                 int byLength = p.Length.CompareTo(q.Length);
                 return byLength != 0 ? byLength : p.Off.CompareTo(q.Off);
             });
-            foreach ((List<Point> Points, int Corners, double Length, double Off) tried in tries)
-                if (around.Clear(tried.Points, own))
-                    return tried.Points;
+            foreach ((bool Across, double At, int Corners, double Length, double Off) tried in tries)
+            {
+                Made(tried.Across, tried.At);
+                if (around.Clear(tidy, own))
+                    return new List<Point>(tidy);
+            }
             return route;
 
-            void Try(List<Point> points, double off)
+            // The try at <paramref name="at"/>, tidied, into tidy.
+            void Made(bool across, double at)
             {
-                List<Point> tidy = Tidy(points);
+                raw.Clear();
+                raw.Add(a);
+                raw.Add(s);
+                raw.Add(across ? new Point(at, s.Y) : new Point(s.X, at));
+                raw.Add(across ? new Point(at, e.Y) : new Point(e.X, at));
+                raw.Add(e);
+                raw.Add(b);
+                TidyInto(raw, tidy);
+            }
+
+            void Try(bool across, double at, double off)
+            {
+                Made(across, at);
                 if (tidy.Count >= 2 && Ends(tidy[0], tidy[1], fa) && Ends(tidy[tidy.Count - 1], tidy[tidy.Count - 2], fb))
-                    tries.Add((tidy, tidy.Count - 2, Length(tidy), off));
+                    tries.Add((across, at, tidy.Count - 2, Length(tidy), off));
             }
         }
 
@@ -575,6 +631,14 @@ namespace BitSorter.Board
         public static List<Point> Tidy(List<Point> points)
         {
             var tidy = new List<Point>();
+            TidyInto(points, tidy);
+            return tidy;
+        }
+
+        /// <summary><see cref="Tidy"/>, into a list of the caller's, emptied first: a route tried thousands of times allocates nothing.</summary>
+        private static void TidyInto(List<Point> points, List<Point> tidy)
+        {
+            tidy.Clear();
             foreach (Point p in points)
             {
                 if (tidy.Count > 0 && Distance(tidy[tidy.Count - 1], p) < 1e-9)
@@ -592,8 +656,6 @@ namespace BitSorter.Board
                     continue;
                 tidy.Add(p);
             }
-
-            return tidy;
         }
 
         private static void Link(Dictionary<string, List<(int, bool)>> adjacent, string key, int edge, bool forward)
