@@ -19,7 +19,7 @@ namespace BitSorter.View
     public sealed partial class WorkbenchPanel
     {
         /// <summary>The tab's name, and its parts': each a name a test finds them by.</summary>
-        public const string StatesTabName = "Workbench states tab", StatesSaysName = "Workbench states says",
+        public const string StatesTabName = "Workbench states tab", StatesSaysName = "Workbench states says", StatesWhyNotName = "Workbench states why not",
             StatesDiagramName = "Workbench states diagram", StatesNextName = "Workbench states next ", StatesKeyName = "Workbench states key";
 
         private const float StatesTabLeft = LogicTabLeft + LogicTabWidth + 4f, StatesTabWidth = 90f, StatesRowHeight = 24f;
@@ -28,7 +28,7 @@ namespace BitSorter.View
         private VisualElement _statesTools, _statesList, _statesTable, _statesContent;
         private Vector2 _statesScroll, _statesExtent;
         private StateDiagramView _statesDiagram;
-        private Label _statesSays;
+        private Label _statesSays, _statesWhyNot;
         private StateExplorer _states;
         private string _statesWhy;
         private BitSorter.Board.Project _statesOf;
@@ -40,8 +40,10 @@ namespace BitSorter.View
         /// <summary>The machine found, once it is; null until then, and when there is none.</summary>
         public StateMachine StateMachine => _states?.Machine;
 
-        /// <summary>What the STATES tab's header says.</summary>
-        public string StatesSays => _statesSays?.text;
+        /// <summary>What the STATES tab says: its header's line, or, with no machine, why there is none, as its body says it.</summary>
+        public string StatesSays => _states?.Machine == null && !string.IsNullOrEmpty(_states?.Problem ?? _statesWhy)
+            ? _states?.Problem ?? _statesWhy
+            : _statesSays?.text;
 
         /// <summary>Shows STATES, as its tab does.</summary>
         public void ShowStates() => ShowDockTab(DockTab.States);
@@ -88,6 +90,9 @@ namespace BitSorter.View
             _statesContent = new VisualElement { name = "next states content", pickingMode = PickingMode.Ignore };
             _statesContent.style.position = Position.Absolute;
             _statesTable.Add(_statesContent);
+            _statesWhyNot = WhyNotLine(StatesWhyNotName, "", SchematicPalette.Current);
+            _statesWhyNot.style.display = DisplayStyle.None;
+            _statesList.Add(_statesWhyNot);
             _statesList.RegisterCallback<WheelEvent>(e =>
             {
                 // The table under the pointer scrolls, down with the wheel and across with Shift held, never past its ends: sixteen
@@ -188,9 +193,13 @@ namespace BitSorter.View
             _statesExtent = Vector2.zero;
             StateMachine machine = _states?.Machine;
             _statesDiagram.Machine = machine;
+            // No machine: why not, in the body, and the header's line left empty rather than saying it twice.
+            string whyNot = machine == null ? _states?.Problem ?? _statesWhy ?? "" : "";
+            SetText(_statesWhyNot, whyNot);
+            _statesWhyNot.style.display = whyNot.Length > 0 ? DisplayStyle.Flex : DisplayStyle.None;
             if (machine == null)
             {
-                SetText(_statesSays, _states?.Problem ?? _statesWhy ?? "");
+                SetText(_statesSays, "");
                 return;
             }
 

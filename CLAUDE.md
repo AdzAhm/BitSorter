@@ -733,7 +733,9 @@ failure side.
   besides its clock and reset, and sixteen states reached: found by running the
   engine breadth first from its start, a run for each state and input, `StateExplorer`;
   Moore or Mealy as the runs show it; the states round an oval with their arrows,
-  `StateDiagramView`, and the next-state table beside them), and a one-line status that
+  `StateDiagramView`, and the next-state table beside them; with nothing to show,
+  LOGIC and STATES say why across their body, never only in the header's dim line --
+  a 64-bit ALU's empty tabs looked broken, Part 15h), and a one-line status that
   names the gestures where the pointer is. **The drawings stay uGUI** -- the
   circuit, the waves, the legend, the minimap -- each placed under the panel
   that frames it, at its own size; a panel's middle takes no clicks. Its popups

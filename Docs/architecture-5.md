@@ -3224,6 +3224,14 @@ as code with its testbench, into a browser build. These are the fixes; the drawi
 - **An empty field shows its caret in a browser.** It is placed at the text's start, measured from nothing. Only a
   browser build showed the fault.
 - **The desktop hint says "this design"**, never "a drawing": written code is as slow to work out, and his has no drawing.
+- **LOGIC and STATES say why they are empty, where it is read** (after the merge, from the same ALU in the browser build).
+  - Empty was right: LOGIC tables up to ten input bits, and his ALU has 131; STATES is for registers, and it has none.
+    But the reason was the header's dim line alone, cut short, so both looked broken.
+  - Now the reason runs across the top of the tab's body, and the header's line is left empty rather than saying it twice.
+  - The count in it was wrong: "131 input bits are 8 rows". A 64-bit 1 shifted 131 places wraps round to one shifted
+    3, and STATES capped its own counts at 2^30 and 2^62. `LogicTable.PowerOfTwo` writes the number itself below 63
+    bits, and 2^131 past it. It was a red test, then the fix.
+  - STATES says "and LOGIC tables it" only where LOGIC can.
 - **Tests**:
   - `TimingFoldTests`, `InputTableTests` (a testbench's rows, and one CONVERT refuses), `CursorTests` and
     `WaveViewTests`, all under dotnet;

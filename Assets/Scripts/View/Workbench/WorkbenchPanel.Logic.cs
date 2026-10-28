@@ -24,7 +24,8 @@ namespace BitSorter.View
     {
         /// <summary>The tab's name, and its parts' names: each a name a test finds them by.</summary>
         public const string LogicTabName = "Workbench logic tab", LogicSaysName = "Workbench logic says",
-            LogicExpressionName = "Workbench logic expression ", LogicVerilogName = "Workbench logic verilog ";
+            LogicExpressionName = "Workbench logic expression ", LogicVerilogName = "Workbench logic verilog ",
+            LogicWhyNotName = "Workbench logic why not";
 
         private const float LogicTabLeft = TimingTabLeft + TimingTabWidth + 4f, LogicTabWidth = 84f, LogicRowHeight = 24f,
             LogicColumnGap = 10f, LogicCellWidth = 30f, LogicBlockWidth = 620f, LogicBlockGap = 30f;
@@ -48,8 +49,21 @@ namespace BitSorter.View
         /// <summary>The truth table as the tab has it; null when there is none, and until the tab has been shown.</summary>
         public LogicTable Logic => _logic;
 
-        /// <summary>What the LOGIC tab's header says.</summary>
-        public string LogicSays => _logicSays?.text;
+        /// <summary>
+        /// A tab's line saying why it has nothing to show, across the top of its body (Part 15h). It was the header's line
+        /// alone, dim and cut short, and on Ahmad's 64-bit ALU LOGIC and STATES looked like tabs that had failed (2026-10-29).
+        /// </summary>
+        private static Label WhyNotLine(string name, string text, SchematicPalette palette)
+        {
+            Label line = ShellTheme.Label(name, text, UiType.Body, palette.Text);
+            line.style.whiteSpace = WhiteSpace.Normal;
+            ShellTheme.Place(line, 20f, 16f, -1f, -1f);
+            line.style.right = 20f;
+            return line;
+        }
+
+        /// <summary>What the LOGIC tab says: its header's line, or, with no table, why there is none, as its body says it.</summary>
+        public string LogicSays => _logic == null && !string.IsNullOrEmpty(_logicWhy) ? _logicWhy : _logicSays?.text;
 
         /// <summary>Shows LOGIC, as its tab does.</summary>
         public void ShowLogic() => ShowDockTab(DockTab.Logic);
@@ -300,9 +314,12 @@ namespace BitSorter.View
             _logicList.Clear();
             SchematicPalette palette = SchematicPalette.Current;
 
+            // No table: why not, in the body, and the header's line left empty rather than saying it twice.
             if (_logic == null)
             {
-                SetText(_logicSays, _logicWhy ?? "");
+                SetText(_logicSays, "");
+                if (!string.IsNullOrEmpty(_logicWhy))
+                    _logicList.Add(WhyNotLine(LogicWhyNotName, _logicWhy, palette));
                 return;
             }
 

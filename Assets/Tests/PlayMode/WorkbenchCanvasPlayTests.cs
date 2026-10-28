@@ -558,6 +558,10 @@ namespace BitSorter.PlayMode.Tests
             yield return null;
             Assert.IsNull(workbench.Logic);
             StringAssert.Contains("registers", workbench.LogicSays, "and a circuit with registers is told why there is no table");
+            UnityEngine.UIElements.Label whyNot = ShellPanel.Find<UnityEngine.UIElements.Label>(WorkbenchPanel.LogicWhyNotName);
+            Assert.IsNotNull(whyNot, "in the tab's body, where it is read (Part 15h)");
+            StringAssert.Contains("registers", whyNot.text);
+            Assert.AreEqual("", ShellPanel.Find<UnityEngine.UIElements.Label>(WorkbenchPanel.LogicSaysName).text, "and not in the header too");
         }
 
         /// <summary>
@@ -710,6 +714,11 @@ namespace BitSorter.PlayMode.Tests
             yield return null;
             Assert.IsNull(workbench.StateMachine);
             StringAssert.Contains("registers", workbench.StatesSays, "a circuit without registers is told why there is no diagram");
+            UnityEngine.UIElements.Label whyNot = ShellPanel.Find<UnityEngine.UIElements.Label>(WorkbenchPanel.StatesWhyNotName);
+            Assert.AreEqual(UnityEngine.UIElements.DisplayStyle.Flex, whyNot.resolvedStyle.display, "in the tab's body, where it is read (Part 15h)");
+            StringAssert.Contains("registers", whyNot.text);
+            StringAssert.Contains("LOGIC tables it", whyNot.text, "the full adder's three inputs LOGIC can table");
+            Assert.AreEqual("", ShellPanel.Find<UnityEngine.UIElements.Label>(WorkbenchPanel.StatesSaysName).text, "and not in the header too");
         }
 
         /// <summary>An input's value at a moment, in binary, as the stimulus gives it.</summary>
