@@ -110,6 +110,25 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsFalse(Find<TutorialDirector>().IsRunning, "nor has the 4.x tutorial, behind the workbench");
         }
 
+        /// <summary>
+        /// A circuit in another unit, opened from FILE, says its own unit on the speed and RUN TO at once: they were written
+        /// again only after an edit, and a circuit in ns opened from MY CIRCUIT in ps read "1.6 ps/s" (the 15d shots).
+        /// </summary>
+        [UnityTest]
+        public IEnumerator ACircuitInAnotherUnit_SaysItsUnit_AsItOpens()
+        {
+            Project nano = Project.New("nano");
+            Plant(store => store.SetProject(Documents.KeyOf("nano"), nano with { Settings = nano.Settings with { TimeUnit = "ns" } }));
+            yield return TestScene.LoadSimulator();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            StringAssert.EndsWith(" ps/s", workbench.SpeedText, "sanity: MY CIRCUIT counts in ps");
+
+            workbench.OpenDocument(Documents.KeyOf("nano"));
+            yield return null;
+            Assert.AreEqual("ns", workbench.Session.Unit, "sanity: the circuit counts in ns");
+            StringAssert.EndsWith(" ns/s", workbench.SpeedText, "the speed in its unit");
+        }
+
         [UnityTest]
         public IEnumerator ACircuitOpenLast_IsWhatItOpensOnAgain()
         {
