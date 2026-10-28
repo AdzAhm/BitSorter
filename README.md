@@ -624,7 +624,8 @@ The game's font is **IBM Plex Sans**, © IBM Corp., from
 with it in `Assets/Fonts/IBMPlexSans/`. Liberation Sans stays on as the fallback for
 any character Plex does not have. Code is set in **IBM Plex Mono**, from the same
 family and under the [same licence](Assets/Fonts/IBMPlexMono/LICENSE.txt), in
-`Assets/Fonts/IBMPlexMono/`.
+`Assets/Fonts/IBMPlexMono/`. Both are named in the game's credits, as is Icarus
+Verilog, the simulator BitSorter's engine is checked against.
 
 The browser build's code editor is **[CodeMirror](https://codemirror.net)** 6,
 © Marijn Haverbeke and others, under the MIT licence: bundled into

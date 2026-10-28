@@ -132,6 +132,26 @@ namespace BitSorter.LogicCore.Tests
         }
 
         /// <summary>
+        /// 5.0's lines (Ahmad's choice, 2026-10-28): the roles of the simulator's own, the typefaces it draws its words in
+        /// and the simulator its engine is checked against, and who it is for -- no university named.
+        /// </summary>
+        [Test]
+        public void TheRoll_HasFivePointOhsRoles_ItsTypefaces_ItsOracle_AndItsDedication()
+        {
+            List<string> roll = RollText();
+
+            foreach (string role in new[] { "SYSTEMVERILOG LANGUAGE", "EXERCISE DESIGN", "WORKBENCH DESIGN" })
+                CollectionAssert.Contains(Credits.Roles, role);
+            CollectionAssert.Contains(roll, "IBM Plex Sans and IBM Plex Mono");
+            Assert.IsTrue(roll.Exists(line => line.Contains("SIL Open Font License")), "the typefaces' licence is not named");
+            CollectionAssert.Contains(roll, "CHECKED AGAINST");
+            CollectionAssert.Contains(roll, "Icarus Verilog");
+            CollectionAssert.Contains(roll, "DEDICATED TO");
+            CollectionAssert.Contains(roll, Credits.Dedication);
+            Assert.IsFalse(roll.Exists(line => line.Contains("Technion") || line.Contains("University")), "a university is named");
+        }
+
+        /// <summary>
         /// The roll ends on its farewell, with the copyright and the version under it -- the version
         /// the build says, not one written here.
         /// </summary>

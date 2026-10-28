@@ -1894,7 +1894,13 @@ bottom.
 Ahmad Zoabi's, the company is ZADZ, the playtesters are thanked without names,
 and the roll ends on what the game is built with -- all as asked, 2026-09-26,
 and nothing else is credited. What it is built with is Unity, and since Part 12f
-CodeMirror, the browser build's code editor (asked 2026-10-26). **The roll is the only place the menu's music is
+CodeMirror, the browser build's code editor (asked 2026-10-26). **5.0 added four
+things** (Part 15g, Ahmad's choice, 2026-10-28): his roles for it -- the
+SystemVerilog language, the exercises and the workbench, beside the engine --
+IBM Plex Sans and Mono under BUILT WITH with their licence, the SIL Open Font
+License; Icarus Verilog under CHECKED AGAINST, the simulator the engine is held
+to; and a dedication to every student of digital systems, naming no university.
+No line for the assistant that helped write it. **The roll is the only place the menu's music is
 credited**: a line along the foot of the main menu credited it too, until a
 playtest asked for it gone (2026-09-27). CC BY 3.0 asks that a credit in a list
 of credits be at least as prominent as the others, so each track's title is set

@@ -30,7 +30,8 @@ namespace BitSorter.View
         /// <remarks>
         /// Four were added on 2026-09-27, as asked, each for work the game shows: what it teaches and
         /// in what order, the simulator every level runs on, the goals, hints and tutorial, and how
-        /// its screens read and respond.
+        /// its screens read and respond. Three more came with 5.0 (Ahmad's choice, 2026-10-28): the
+        /// SystemVerilog it reads, the exercises, and the workbench.
         /// </remarks>
         public static readonly string[] Roles =
         {
@@ -38,6 +39,9 @@ namespace BitSorter.View
             "CURRICULUM DESIGN",
             "PROGRAMMING",
             "SIMULATION ENGINEERING",
+            "SYSTEMVERILOG LANGUAGE",
+            "EXERCISE DESIGN",
+            "WORKBENCH DESIGN",
             "LEVEL DESIGN",
             "WRITING",
             "ART AND INTERFACE",
@@ -114,6 +118,9 @@ namespace BitSorter.View
 
         /// <summary>The thanks to the people who played it early. By role, not by name, as asked.</summary>
         public const string PlaytesterThanks = "Every playtester who found a problem before anyone else could";
+
+        /// <summary>Who it is for (5.0, Ahmad's choice, 2026-10-28): no university named, and nothing of a course's own.</summary>
+        public const string Dedication = "every student of digital systems";
 
         /// <summary>The last word.</summary>
         public const string Farewell = "THANK YOU FOR PLAYING";
@@ -205,6 +212,18 @@ namespace BitSorter.View
             roll.Add(new Line(Kind.Gap));
             roll.Add(new Line(Kind.Name, "CodeMirror"));
             roll.Add(new Line(Kind.Detail, "the code editor in a browser, by Marijn Haverbeke and others (MIT)"));
+            roll.Add(new Line(Kind.Gap));
+            roll.Add(new Line(Kind.Name, "IBM Plex Sans and IBM Plex Mono"));
+            roll.Add(new Line(Kind.Detail, "the typefaces, by Mike Abbink and Bold Monday for IBM (SIL Open Font License)"));
+            roll.Add(new Line(Kind.Gap));
+
+            roll.Add(new Line(Kind.Role, "CHECKED AGAINST"));
+            roll.Add(new Line(Kind.Name, "Icarus Verilog"));
+            roll.Add(new Line(Kind.Detail, "the simulator BitSorter's engine is checked against, by Stephen Williams and others"));
+            roll.Add(new Line(Kind.Gap));
+
+            roll.Add(new Line(Kind.Role, "DEDICATED TO"));
+            roll.Add(new Line(Kind.Name, Dedication));
             roll.Add(new Line(Kind.Gap));
             roll.Add(new Line(Kind.Gap));
 
