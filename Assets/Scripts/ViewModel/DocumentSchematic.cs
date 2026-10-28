@@ -40,7 +40,12 @@ namespace BitSorter.ViewModel
         /// runs it, <c>full_adder_tb.dut.h1</c> (Part 12a, stepping inside a block). Null for a module the project
         /// does not have.
         /// </summary>
-        public static SchematicLayout Build(Project project, CompiledProject compiled, string moduleName = null, string instancePath = null)
+        public static SchematicLayout Build(Project project, CompiledProject compiled, string moduleName = null, string instancePath = null) =>
+            Build(project, compiled, moduleName, instancePath, null);
+
+        /// <summary>The same, its wires as <paramref name="routes"/> has them when it is given -- worked out once for the document (Part 15g).</summary>
+        public static SchematicLayout Build(Project project, CompiledProject compiled, string moduleName, string instancePath,
+            Func<Module, IReadOnlyDictionary<int, IReadOnlyList<BoardPoint>>> routes)
         {
             Module module = moduleName == null ? project.TopModule : project.Find(moduleName);
             if (module == null)
@@ -54,7 +59,7 @@ namespace BitSorter.ViewModel
             foreach (Part part in module.Parts)
                 outlines[part.Id] = PartGeometry.Placed(project, part, module.Layout.PlacementOf(part.Id));
 
-            List<NetPath> paths = WireGeometry.Nets(project, module, netlist);
+            List<NetPath> paths = routes != null ? WireGeometry.Nets(module, netlist, routes(module)) : WireGeometry.Nets(project, module, netlist);
 
             // The board's extent: every part and every wire, so nothing is drawn off the stage.
             double left = double.MaxValue, right = double.MinValue, bottom = double.MaxValue, topY = double.MinValue;

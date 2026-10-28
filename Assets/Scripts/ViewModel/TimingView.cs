@@ -290,7 +290,16 @@ namespace BitSorter.ViewModel
             TimingReport timing = analysis.Timing;
             PathReport paths = analysis.Paths;
             string top = graph.Design.Scopes.Count > 0 ? graph.Design.Scopes[0].Path : project.Top;
-            string Name(int node) => Relative(graph.NameOf(node), top);
+
+            // Each signal named once (Part 15g): two hundred paths listed, each of every look-alike, each signal along it named
+            // again, made this view take two and a half times the analysis on a 1,000-part drawing.
+            var named = new Dictionary<int, string>();
+            string Name(int node)
+            {
+                if (!named.TryGetValue(node, out string name))
+                    named[node] = name = Relative(graph.NameOf(node), top);
+                return name;
+            }
 
             int critical = -1;
             if (graph.Registers.Count > 0)

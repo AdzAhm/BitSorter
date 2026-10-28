@@ -90,7 +90,12 @@ namespace BitSorter.ViewModel
         private readonly Dictionary<int, PartOutline> _outlines = new Dictionary<int, PartOutline>();
         private readonly List<(int Id, IReadOnlyList<BoardPoint> Points)> _wires = new List<(int, IReadOnlyList<BoardPoint>)>();
 
-        public CanvasHit(Project project, Module module)
+        public CanvasHit(Project project, Module module) : this(project, module, null)
+        {
+        }
+
+        /// <summary>The same, its wires as <paramref name="routes"/> has them when it is given: the routes the drawing was made with (Part 15g).</summary>
+        public CanvasHit(Project project, Module module, IReadOnlyDictionary<int, IReadOnlyList<BoardPoint>> routes)
         {
             if (module == null)
                 return;
@@ -102,7 +107,7 @@ namespace BitSorter.ViewModel
                 _outlines[part.Id] = outline;
             }
 
-            Dictionary<int, IReadOnlyList<BoardPoint>> routes = WireGeometry.Wires(project, module);
+            routes ??= WireGeometry.Wires(project, module);
             foreach (Wire wire in module.Wires)
                 if (routes.TryGetValue(wire.Id, out IReadOnlyList<BoardPoint> points) && points.Count >= 2)
                     _wires.Add((wire.Id, points));

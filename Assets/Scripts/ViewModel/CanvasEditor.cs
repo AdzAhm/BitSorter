@@ -169,7 +169,8 @@ namespace BitSorter.ViewModel
         public void Relaid()
         {
             _layout = _session.Run.Model.Layout;
-            _hit = new CanvasHit(_session.Project, Module);
+            Module module = Module;
+            _hit = new CanvasHit(_session.Project, module, module == null ? null : _session.RoutesOf(_session.Project, module));
             Selection.Keep(Module);
 
             // A wire being drawn from something an undo took away has nowhere to start; and what it may end on is asked again.
@@ -700,7 +701,7 @@ namespace BitSorter.ViewModel
             {
                 Module module = Module;
                 _draftNets = WireGeometry.WireNets(module);
-                _draftAround = WireGeometry.Obstacles(_session.Project, module, WireGeometry.Wires(_session.Project, module), _draftNets);
+                _draftAround = WireGeometry.Obstacles(_session.Project, module, _session.RoutesOf(_session.Project, module), _draftNets);
             }
 
             return _draftAround;
@@ -1152,11 +1153,13 @@ namespace BitSorter.ViewModel
                         overlay.Ghosts.Add(Stage(frame, outline, SelectedRoom, _dx, _dy));
                 }
 
-                // The wires on the parts being dragged, routed to where the parts are going.
+                // The wires on the parts being dragged, routed to where the parts are going: those alone, round the rest where they
+                // are (Part 15g) -- every wire routed again at each step was a third of a second a step on a 1,000-part drawing.
                 Layout moved = module.Layout;
                 foreach (KeyValuePair<int, Placement> part in _start)
                     moved = moved.WithPart(part.Key, new Placement(new BoardPoint(part.Value.Position.X + _dx, part.Value.Position.Y + _dy), part.Value.QuarterTurns, part.Value.Flipped));
-                Dictionary<int, IReadOnlyList<BoardPoint>> routes = WireGeometry.Wires(_session.Project, module with { Layout = moved });
+                Dictionary<int, IReadOnlyList<BoardPoint>> routes = WireGeometry.Following(_session.Project, module with { Layout = moved },
+                    _session.RoutesOf(_session.Project, module), _start.Keys);
                 foreach (Wire wire in module.Wires)
                 {
                     bool follows = (!wire.From.IsTap && _start.ContainsKey(wire.From.Pin.Part)) || (!wire.To.IsTap && _start.ContainsKey(wire.To.Pin.Part));

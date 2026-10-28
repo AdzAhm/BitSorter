@@ -235,7 +235,28 @@ namespace BitSorter.ViewModel
 
         /// <summary>The drawing of the module stepped into, its signals read under the instance stepped through.</summary>
         private SchematicLayout LayoutOf(Project project, CompiledProject compiled) =>
-            DocumentSchematic.Build(project, compiled, ModuleOn(project, _path, out _), InstancePathUnder(compiled.DesignPath));
+            DocumentSchematic.Build(project, compiled, ModuleOn(project, _path, out _), InstancePathUnder(compiled.DesignPath), m => RoutesOf(project, m));
+
+        private IReadOnlyList<Module> _routedModules;
+        private Module _routedModule;
+        private Dictionary<int, IReadOnlyList<Point>> _routes;
+
+        /// <summary>
+        /// Every wire of <paramref name="module"/> routed, once a document (Part 15g): the drawing, the canvas's hit map and a
+        /// wire being drawn each routed the whole module for themselves, two and three times an edit. Kept by the module and
+        /// the project's modules -- a block's outline is its module's -- so an edit to anything else, an input's steps, keeps
+        /// them. Shared: nothing that asks may change what it is given.
+        /// </summary>
+        public IReadOnlyDictionary<int, IReadOnlyList<Point>> RoutesOf(Project project, Module module)
+        {
+            if (!ReferenceEquals(module, _routedModule) || !ReferenceEquals(project.Modules, _routedModules))
+            {
+                _routes = WireGeometry.Wires(project, module);
+                _routedModule = module;
+                _routedModules = project.Modules;
+            }
+            return _routes;
+        }
 
         private void Stepped()
         {
