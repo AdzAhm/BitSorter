@@ -221,6 +221,15 @@ namespace BitSorter.View
             Record(AnalyticsRules.LevelSolved, levelName);
         }
 
+        /// <summary>
+        /// An exercise opened on the workbench (Part 15d), reported as a level started under its id, once a session: the same
+        /// event and the same parameter as a 4.x level's, so a level and its exercise count as one place where people stop.
+        /// </summary>
+        public static void ExerciseStarted(string id) => Record(AnalyticsRules.LevelStarted, id);
+
+        /// <summary>An exercise solved by CHECK (Part 15d), reported as a level solved under its id, once a session.</summary>
+        public static void ExerciseSolved(string id) => Record(AnalyticsRules.LevelSolved, id);
+
         private static void Record(string eventName, string levelName)
         {
             // Every reason to stay quiet lives in AnalyticsRules, where it can be tested without a

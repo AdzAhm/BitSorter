@@ -63,6 +63,8 @@ namespace BitSorter.View
         /// </summary>
         private string DocumentCaption()
         {
+            if (_exercise != null)
+                return UiTheme.Shortened(ExerciseHeading(_exercise), _chipTextWidth, UiType.Body);
             if (_documentKey == WorkbenchSamples.MyCircuitKey)
                 return SampleCaption(0);
 
@@ -75,7 +77,8 @@ namespace BitSorter.View
         /// review).
         /// </summary>
         private string ExportName() =>
-            _sample == 0 && Documents.IsOwn(_documentKey) ? Documents.NameOf(_documentKey) : WorkbenchSamples.Chip[_sample].Name;
+            _sample == 0 && _exercise != null ? _exercise.Id
+            : _sample == 0 && Documents.IsOwn(_documentKey) ? Documents.NameOf(_documentKey) : WorkbenchSamples.Chip[_sample].Name;
 
         /// <summary>What the SAMPLE chip says for its place <paramref name="sample"/>: the circuit open, or a sample.</summary>
         private string ChipCaption(int sample) => sample == 0 ? DocumentCaption() : SampleCaption(sample);
@@ -88,7 +91,7 @@ namespace BitSorter.View
         {
             if (Root == null || !Documents.IsDocument(key))
                 return;
-            if (key == _documentKey && _sample == 0)
+            if (key == _documentKey && _sample == 0 && _exercise == null)
             {
                 LeaveHome();   // open already, under the start page or not: building it again would lose its selection and undo
                 return;
@@ -98,6 +101,7 @@ namespace BitSorter.View
             if (_session != null)
                 _keptProject = _session.Project;   // kept: nothing of it is written under the next key
             _keepAt = -1;
+            LeaveTheExercise();
             _documentKey = key;
 
             ProgressStore store = Store();
@@ -129,7 +133,7 @@ namespace BitSorter.View
         {
             if (_sample != 0 || !Documents.IsOwn(_documentKey))
             {
-                Notice((_sample != 0 ? "a sample" : "MY CIRCUIT") + " keeps its name: FILE, NEW makes a circuit you can name");
+                Notice((_sample != 0 ? "a sample" : _exercise != null ? "an exercise" : "MY CIRCUIT") + " keeps its name: FILE, NEW makes a circuit you can name");
                 return;
             }
 
@@ -202,7 +206,9 @@ namespace BitSorter.View
         {
             if (_sample != 0 || !Documents.IsOwn(_documentKey))
             {
-                Notice(_sample != 0 ? "a sample is not yours to delete: FILE, OPEN goes back to your circuits" : "MY CIRCUIT is always there, so it cannot be deleted");
+                Notice(_sample != 0 ? "a sample is not yours to delete: FILE, OPEN goes back to your circuits"
+                    : _exercise != null ? "an exercise is always there, so it cannot be deleted: FILE, OPEN goes back to your circuits"
+                    : "MY CIRCUIT is always there, so it cannot be deleted");
                 return;
             }
 

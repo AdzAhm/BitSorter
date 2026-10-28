@@ -48,6 +48,7 @@ namespace BitSorter.View
             BuildHeader(palette);
             BuildTimeline(palette);
             BuildControls(palette);
+            BuildExerciseControls(palette);
         }
 
         /// <summary>A strip across the top of the window, in from its edges (<see cref="FitToolbar"/>).</summary>
@@ -85,6 +86,7 @@ namespace BitSorter.View
             float left = UiTheme.TextWidth(AppName, UiType.Heading) * 1.08f + 18f;
             left = MenuChip(HomeButton, "HOME", left, ShowHome, palette);
             left = MenuChip(FileButton, "FILE", left, OpenFileMenu, palette);
+            left = MenuChip(ExercisesButton, "EXERCISES", left, ShowExercises, palette);
             left = MenuChip(HelpButton, "HELP", left, OpenHelpMenu, palette);
             left = MenuChip(SettingsButton, "SETTINGS", left, OpenSettings, palette);
 
@@ -100,7 +102,7 @@ namespace BitSorter.View
             _header.Add(_sampleButton);
 
             // The line describing the sample, past the menus, as far as SAMPLE's key; cut short where it runs longer.
-            _description = ShellTheme.Label("description", WorkbenchSamples.Chip[_sample].Says, UiType.Label, palette.TextDim);
+            _description = ShellTheme.Label("description", Says(), UiType.Label, palette.TextDim);
             ShellTheme.Place(_description, left + 12f, 0f, -1f, HeaderHeight);
             _description.style.right = width + KeyRoom + 16f;
             ShellTheme.Ellipsis(_description);

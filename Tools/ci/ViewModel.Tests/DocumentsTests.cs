@@ -79,6 +79,11 @@ namespace BitSorter.ViewModel.Tests
             Assert.IsNull(Documents.LaunchKey("doc/gone", Saved), "a circuit since deleted: the start page");
             Assert.IsNull(Documents.LaunchKey(Documents.SampleKey("No such sample"), Saved), "a sample since taken out");
             Assert.IsNull(Documents.LaunchKey("half-adder", Saved), "a level's board is no circuit");
+            Assert.AreEqual("exercise/half-adder", Documents.LaunchKey(Documents.ExerciseKey("half-adder"), Saved),
+                "an exercise, under its own id: the workbench knows which there are");
+            Assert.AreEqual("half-adder", Documents.ExerciseOf("exercise/half-adder"));
+            Assert.IsNull(Documents.ExerciseOf("half-adder"), "its document's key is not what it is remembered as");
+            Assert.IsNull(Documents.ExerciseOf("exercise/"));
             Assert.IsNull(Documents.LaunchKey("", Saved), "the start page last, or nothing");
             Assert.IsNull(Documents.LaunchKey(null, Saved));
             Assert.AreEqual(-1, Documents.SampleOf("doc/adder"));

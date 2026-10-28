@@ -472,6 +472,7 @@ namespace BitSorter.View
                 _keptProject = _session.Project;
             _keepAt = -1;
             _documentKey = WorkbenchSamples.MyCircuitKey;
+            _exercise = null;   // its solve and its answer went with the save
             _forgotten = Root != null;
         }
 
@@ -1078,7 +1079,9 @@ namespace BitSorter.View
         private void Notice(string words)
         {
             _notice = words;
-            if (StartPageShowing)
+            if (ExercisesShowing && _exercisesNotice != null)
+                _exercisesNotice.text = words ?? "";   // the chip is under the page, as under the start page
+            else if (StartPageShowing)
                 ShowOnStartPage(words);   // the chip is under the start page (the #84 review)
             Redraw();
         }
@@ -1381,16 +1384,18 @@ namespace BitSorter.View
             Keyboard keyboard = UiText.Keyboard;
             if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame && !OpenedThisFrame && !UiEscape.AnyHolds)
             {
-                if (StartPageShowing)
+                if (ExercisesShowing)
+                    HideExercises();
+                else if (StartPageShowing)
                     LeaveHome();
                 else
                     LetGoOnCanvas();
                 return;
             }
 
-            // The start page covers the circuit: nothing under it is played, scrolled, picked or deleted. ? still opens and
-            // closes the keyboard map, as the map says it does.
-            if (StartPageShowing)
+            // A page -- the start page, EXERCISES -- covers the circuit: nothing under it is played, scrolled, picked or
+            // deleted. ? still opens and closes the keyboard map, as the map says it does.
+            if (PageShowing)
             {
                 if (keyboard != null && keyboard.slashKey.wasPressedThisFrame && !OpenedThisFrame)
                     _keyMap.Toggle();
@@ -1537,6 +1542,7 @@ namespace BitSorter.View
             BuildListingView(palette);
             RefreshDockButtons();
             BuildHome(palette);   // over the docked panels, under the popups, which come to the front as they open (Part 15a)
+            BuildExercises(palette);   // over the start page, which it can be opened from (Part 15d)
 
             // Over everything else on the workbench, when it is up: in the shell, over its docked panels (Part 11b-3).
             _rowMenu = WaveRowMenu.Build(_shell, transform, palette, ChooseRadix, RowAction);
@@ -1741,8 +1747,9 @@ namespace BitSorter.View
             RebuildStage(keepViews: false);
             BuildPartsPanel(SchematicPalette.Current);
 
-            SetText(_description, WorkbenchSamples.Chip[_sample].Says);
+            SetText(_description, Says());
             SetText(_sampleButton, ChipCaption(_sample));
+            ShowExerciseControls();
             SliderEnd(_model.End);
             FitView();
             Restart();
@@ -1759,6 +1766,7 @@ namespace BitSorter.View
             _openMenu?.Close();
             _circuitName?.Close();
             _helpMenu?.Close();
+            _exerciseCard?.Close();
             _ask.Close();
             _libraryMenu?.Close();
             _budgetField?.Close();

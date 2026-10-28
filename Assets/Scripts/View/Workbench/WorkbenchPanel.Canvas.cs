@@ -138,7 +138,7 @@ namespace BitSorter.View
         }
 
         /// <summary>The circuit open as the save keeps it, or a blank one the first time (Part 15a: MY CIRCUIT, or another).</summary>
-        private Project MyCircuit() => Document(_documentKey);
+        private Project MyCircuit() => _exercise != null ? ExerciseDocument(_exercise) : Document(_documentKey);
 
         /// <summary>Whether the circuit open has anything in it: what the workbench opens on, where the reference circuit is otherwise.</summary>
         private bool MyCircuitHasAnything()

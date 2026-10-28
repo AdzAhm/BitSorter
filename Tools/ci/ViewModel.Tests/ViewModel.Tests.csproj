@@ -24,6 +24,8 @@
   <ItemGroup>
     <!-- The boards the oracle runs (Part 14c): the step tests measured here are the runs Icarus is held to. -->
     <Compile Include="../Board.Tests/SampleBoards.cs" Link="Shared/SampleBoards.cs" />
+    <!-- The exercises as the game ships them (Part 15d): the run the EXERCISES page lists. -->
+    <Compile Include="../Board.Tests/ExerciseFiles.cs" Link="Shared/ExerciseFiles.cs" />
   </ItemGroup>
 
   <ItemGroup>

@@ -140,6 +140,15 @@ namespace BitSorter.ViewModel
         /// <summary>What sample <paramref name="name"/> of <see cref="WorkbenchSamples.All"/> is remembered as when it was the last thing open.</summary>
         public static string SampleKey(string name) => SamplePrefix + name;
 
+        /// <summary>The start of what an exercise is remembered as when it was the last thing open (Part 15d), its id following.</summary>
+        public const string ExercisePrefix = "exercise/";
+
+        /// <summary>What the exercise <paramref name="id"/> is remembered as when it was the last thing open.</summary>
+        public static string ExerciseKey(string id) => ExercisePrefix + id;
+
+        /// <summary>The id of the exercise <paramref name="key"/> remembers, or null for none. Its document is kept under the id itself.</summary>
+        public static string ExerciseOf(string key) => IsNamed(key, ExercisePrefix) ? key.Substring(ExercisePrefix.Length) : null;
+
         /// <summary>The place in <see cref="WorkbenchSamples.Chip"/> of the sample <paramref name="key"/> remembers; -1 for none.</summary>
         public static int SampleOf(string key)
         {
@@ -155,11 +164,12 @@ namespace BitSorter.ViewModel
         /// <summary>
         /// What BitSorter opens on (Part 15a), from <paramref name="lastOpen"/>, the last thing that was: that circuit, while the
         /// save still keeps it among <paramref name="keys"/> -- MY CIRCUIT always -- or that sample, while there is one of its
-        /// name. Null for the start page: when nothing was open last, the start page was, or what was is gone.
+        /// name, or that exercise (Part 15d), which the workbench looks for among its own. Null for the start page: when
+        /// nothing was open last, the start page was, or what was is gone.
         /// </summary>
         public static string LaunchKey(string lastOpen, IEnumerable<string> keys)
         {
-            if (SampleOf(lastOpen) > 0 || lastOpen == WorkbenchSamples.MyCircuitKey)
+            if (SampleOf(lastOpen) > 0 || lastOpen == WorkbenchSamples.MyCircuitKey || ExerciseOf(lastOpen) != null)
                 return lastOpen;
             if (!IsDocument(lastOpen))
                 return null;

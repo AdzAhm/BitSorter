@@ -1,0 +1,272 @@
+using System.Collections;
+using System.Linq;
+using BitSorter.Board;
+using BitSorter.SystemVerilog;
+using BitSorter.View;
+using BitSorter.ViewModel;
+using NUnit.Framework;
+using UnityEngine;
+using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.Controls;
+using UnityEngine.TestTools;
+using UnityEngine.UIElements;
+using Object = UnityEngine.Object;
+
+namespace BitSorter.PlayMode.Tests
+{
+    /// <summary>
+    /// The exercises on the workbench (Part 15d): the start page's column and the EXERCISES page, opening one on its brief
+    /// and its hint, its test locked and saying why, CHECK failing with every check at its moment and then solving it, the
+    /// solved card with the student's best and NEXT, an exercise open last opening again as it was left, and a circuit of
+    /// the student's own leaving exercise mode.
+    /// </summary>
+    [TestFixture]
+    public class ExercisePlayTests : InputTestFixture
+    {
+        private Keyboard _keyboard;
+        private Mouse _mouse;
+
+        [OneTimeSetUp]
+        public void OneTimeSetup()
+        {
+            SaveGuard.Redirect();
+            GameAnalytics.SetReporting(false);
+        }
+
+        [OneTimeTearDown]
+        public void OneTimeCleanup() => SaveGuard.Release();
+
+        public override void Setup()
+        {
+            base.Setup();
+            InputSystem.settings.SetInternalFeatureFlag("USE_READ_VALUE_CACHING", false);
+            _keyboard = InputSystem.AddDevice<Keyboard>();
+            _mouse = InputSystem.AddDevice<Mouse>();   // as every fixture adds one: the UI's input module wants a pointer
+            _mouse.MakeCurrent();
+        }
+
+        public override void TearDown()
+        {
+            SaveGuard.Clear();
+            base.TearDown();
+        }
+
+        [UnityTearDown]
+        public IEnumerator ClearTheScene()
+        {
+            yield return TestScene.Clear();
+        }
+
+        private static WorkbenchPanel Workbench => Object.FindFirstObjectByType<WorkbenchPanel>();
+
+        private static ProgressStore Store => Object.FindFirstObjectByType<ProgressTracker>().Store;
+
+        private static IEnumerator Click(string name)
+        {
+            UnityEngine.UIElements.Button shell = ShellPanel.Find<UnityEngine.UIElements.Button>(name);
+            Assert.IsNotNull(shell, $"no '{name}' on screen");
+            ShellPanel.Submit(shell);
+            yield return null;
+            yield return null;
+        }
+
+        private IEnumerator Tap(KeyControl key)
+        {
+            Press(key);
+            yield return null;
+            Release(key);
+            yield return null;
+        }
+
+        private static bool Shown(string name)
+        {
+            VisualElement element = ShellPanel.Find<VisualElement>(name);
+            return element != null && element.resolvedStyle.display == DisplayStyle.Flex;
+        }
+
+        /// <summary>The save as the last session left it, written before the game loads.</summary>
+        private static void Plant(System.Action<ProgressStore> write)
+        {
+            var store = new ProgressStore(ProgressStore.DefaultPath);
+            store.Load();
+            write(store);
+            store.Save();
+        }
+
+        /// <summary>The half adder built on the exercise open: an XOR for sum, an AND for carry, both from a and b.</summary>
+        private static void BuildTheHalfAdder(WorkbenchSession session)
+        {
+            int Place(string key, double x, double y)
+            {
+                EditResult placed = session.Place(PartsCatalog.Find(session.Project, session.Module, key), new Placement(x, y));
+                Assert.IsTrue(placed.Done, placed.Refusal);
+                return placed.Id;
+            }
+
+            int Port(string name) => session.Project.TopModule.Ports.Single(p => p.Name == name).Id;
+
+            void Wire(int from, string fromPin, int to, string toPin)
+            {
+                EditResult wired = session.Connect(Endpoint.At(from, fromPin), Endpoint.At(to, toPin));
+                Assert.IsTrue(wired.Done, wired.Refusal);
+            }
+
+            int xor = Place("xor", 8, -2), and = Place("and", 8, 2);
+            foreach (int gate in new[] { xor, and })
+            {
+                Wire(Port("a"), "out", gate, "a");
+                Wire(Port("b"), "out", gate, "b");
+            }
+            Wire(xor, "y", Port("sum"), "in");
+            Wire(and, "y", Port("carry"), "in");
+            session.Finish();
+        }
+
+        [UnityTest]
+        public IEnumerator TheStartPage_CarriesOnWithTheExercises_AndTheirPageOpensOne()
+        {
+            yield return TestScene.LoadSimulator();
+            WorkbenchPanel workbench = Workbench;
+            Exercise first = ExerciseCatalog.Run[0];
+            Assert.IsTrue(workbench.StartPageShowing, "sanity: a fresh save opens on the start page");
+            StringAssert.StartsWith("START: 1  " + first.Title.ToUpperInvariant(), workbench.StartContinueCaption, "nothing solved: the first");
+
+            yield return Click(WorkbenchPanel.StartExercisesItem);
+            Assert.IsTrue(workbench.ExercisesShowing, "ALL EXERCISES opens the page");
+            Assert.AreEqual("NEXT", workbench.ExerciseStatus(first.Id));
+            Assert.AreEqual("", workbench.ExerciseStatus("half-adder"));
+            Assert.AreEqual(ExerciseCatalog.Run.Count, ExerciseCatalog.Run.Select(e => e.Id).Count(id => workbench.ExerciseStatus(id) != null),
+                "every exercise has its item");
+
+            yield return Click(WorkbenchPanel.ExerciseItem("half-adder"));
+            Assert.IsFalse(workbench.ExercisesShowing);
+            Assert.IsFalse(workbench.StartPageShowing, "an exercise open takes both pages down");
+            Assert.AreEqual("half-adder", workbench.ExerciseOpen?.Id);
+            Assert.AreEqual("half-adder", workbench.Session.Project.Settings.Exercise, "its own document, locked");
+            Assert.IsTrue(Shown(WorkbenchPanel.GoalButton) && Shown(WorkbenchPanel.CheckButton), "GOAL and CHECK");
+            Assert.AreEqual(Documents.ExerciseKey("half-adder"), Store.LastOpen, "remembered as what is open");
+
+            ExerciseCard card = workbench.ExerciseCard;
+            Assert.IsTrue(card.IsOpen, "its brief, as it opens");
+            StringAssert.Contains("HALF ADDER", card.Heading);
+            Assert.AreEqual(workbench.ExerciseOpen.Goal, card.Goal);
+            Assert.AreEqual("", card.Hint, "the hint is asked for");
+            yield return Click(ExerciseCard.HintItem);
+            Assert.AreEqual("HINT: " + workbench.ExerciseOpen.Hint, card.Hint);
+
+            yield return Tap(_keyboard.escapeKey);
+            Assert.IsFalse(card.IsOpen, "Escape closes the card");
+            Assert.AreEqual("half-adder", workbench.ExerciseOpen?.Id, "and nothing more");
+        }
+
+        [UnityTest]
+        public IEnumerator AnExercisesTest_IsRefusedAnyEdit_SayingWhy_AndWhatTheStudentBuildsIsKept()
+        {
+            yield return TestScene.LoadSimulator();
+            WorkbenchPanel workbench = Workbench;
+            workbench.OpenExercise("half-adder");
+            yield return null;
+
+            EditResult set = workbench.Session.SetInput("a", 0, 10, LogicVec.FromBinary("1"));
+            Assert.IsFalse(set.Done);
+            StringAssert.Contains("The exercise's own test drives the inputs", set.Refusal);
+
+            BuildTheHalfAdder(workbench.Session);
+            workbench.OpenDocument(WorkbenchSamples.MyCircuitKey);
+            yield return null;
+            Assert.IsNull(workbench.ExerciseOpen, "a circuit of the student's own leaves the exercise");
+            Assert.IsFalse(Shown(WorkbenchPanel.CheckButton), "and CHECK with it");
+            Assert.IsTrue(Store.TryGetProject("half-adder", out Project kept, new System.Collections.Generic.List<string>()), "the answer kept under its id");
+            Assert.AreEqual(2, kept.TopModule.Parts.OfType<GatePart>().Count());
+
+            workbench.OpenExercise("half-adder");
+            yield return null;
+            Assert.AreEqual(2, workbench.Session.Project.TopModule.Parts.OfType<GatePart>().Count(), "and opened again as it was left");
+        }
+
+        [UnityTest]
+        public IEnumerator Check_ThatFails_ListsEachCheckAtItsMoment_ThenSolvesIt_AndOffersTheNext()
+        {
+            yield return TestScene.LoadSimulator();
+            WorkbenchPanel workbench = Workbench;
+            workbench.OpenExercise("half-adder");
+            yield return null;
+
+            yield return Click(WorkbenchPanel.CheckButton);
+            Grade failed = workbench.LastGrade;
+            Assert.IsNotNull(failed);
+            Assert.IsFalse(failed.Solved, "nothing built");
+            StringAssert.Contains("checks failed", workbench.ChipText);
+            Assert.IsTrue(workbench.TranscriptShown, "the TRANSCRIPT, which lists them");
+            Assert.AreEqual(failed.Failures.Count, workbench.Transcript.Notes.Count(l => l.IsMessage), "each failed check, at its moment");
+            Assert.AreEqual(failed.Failures[0].Time, workbench.Time, 1e-9, "the run taken to the first");
+            Assert.IsFalse(Store.IsComplete("half-adder"));
+
+            BuildTheHalfAdder(workbench.Session);
+            yield return Click(WorkbenchPanel.CheckButton);
+            Grade solved = workbench.LastGrade;
+            Assert.IsTrue(solved.Solved, string.Join("\n", solved.Faults.Concat(solved.Failures.Select(f => f.ToString()))));
+            StringAssert.StartsWith("CHECK: solved", workbench.ChipText);
+            Assert.IsTrue(Store.IsComplete("half-adder"), "marked solved");
+            Assert.IsTrue(Store.TryGetExerciseBest("half-adder", out int gates, out _), "and its best kept");
+            Assert.AreEqual(2, gates);
+
+            ExerciseCard card = workbench.ExerciseCard;
+            Assert.IsTrue(card.IsOpen && card.Solved, "the solved card");
+            StringAssert.Contains("It took 2 gates", card.Goal);
+            Assert.AreEqual("Your first solve of it.", card.Hint);
+            Exercise next = ExerciseRun.Next(ExerciseCatalog.Run, Store.IsComplete, after: "half-adder");
+            StringAssert.StartsWith("NEXT: ", card.NextCaption);
+            StringAssert.EndsWith(next.Title.ToUpperInvariant(), card.NextCaption);
+
+            yield return Click(ExerciseCard.NextItem);
+            Assert.AreEqual(next.Id, workbench.ExerciseOpen?.Id, "NEXT opens it");
+            workbench.ShowExercises();
+            yield return null;
+            Assert.AreEqual("SOLVED", workbench.ExerciseStatus("half-adder"));
+        }
+
+        [UnityTest]
+        public IEnumerator AnExerciseOpenLast_OpensAgain_AsItWasLeft()
+        {
+            Exercise exercise = ExerciseCatalog.Run.Single(e => e.Id == "half-adder");
+            Plant(store =>
+            {
+                var problems = new System.Collections.Generic.List<string>();
+                Project opened = exercise.ToProject(problems);
+                var editor = new BoardEditor(opened);
+                Assert.IsTrue(editor.Add(opened.Top, new GatePart { Kind = BitSorter.Sim.GateKind.Xor, Inputs = 2, Rise = 1, Fall = 1 }, new Placement(8, 0)).Done);
+                store.SetProject("half-adder", editor.Project);
+                store.LastOpen = Documents.ExerciseKey("half-adder");
+            });
+            yield return TestScene.LoadSimulator();
+            WorkbenchPanel workbench = Workbench;
+
+            Assert.IsFalse(workbench.StartPageShowing);
+            Assert.AreEqual("half-adder", workbench.ExerciseOpen?.Id);
+            Assert.AreEqual(1, workbench.Session.Project.TopModule.Parts.OfType<GatePart>().Count(), "its XOR, as it was left");
+            Assert.IsTrue(Shown(WorkbenchPanel.CheckButton));
+            Assert.AreEqual(workbench.ExerciseOpen.Goal, workbench.Description, "the header says its goal");
+        }
+
+        [UnityTest]
+        public IEnumerator EXERCISES_InTheHeader_IsAPage_ThatEscapeTakesDown()
+        {
+            yield return TestScene.LoadSimulator();
+            WorkbenchPanel workbench = Workbench;
+            yield return Tap(_keyboard.escapeKey);
+            Assert.IsFalse(workbench.StartPageShowing, "sanity: MY CIRCUIT under it");
+
+            yield return Click(WorkbenchPanel.ExercisesButton);
+            Assert.IsTrue(workbench.ExercisesShowing);
+            Assert.AreEqual(WorkbenchPanel.ExercisesSays, workbench.Description);
+            yield return Tap(_keyboard.spaceKey);
+            Assert.IsFalse(workbench.Playing, "nothing under it plays");
+
+            yield return Tap(_keyboard.escapeKey);
+            Assert.IsFalse(workbench.ExercisesShowing, "Escape takes it down");
+            Assert.IsTrue(workbench.IsOpen, "and nothing more");
+            Assert.IsNull(workbench.ExerciseOpen);
+        }
+    }
+}

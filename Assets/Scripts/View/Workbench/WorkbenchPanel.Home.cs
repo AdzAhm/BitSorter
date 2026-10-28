@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using BitSorter.Board;
 using BitSorter.ViewModel;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -90,6 +91,24 @@ namespace BitSorter.View
 
             ProgressStore store = Store();
             string key = Documents.LaunchKey(store != null ? store.LastOpen : null, DocumentKeys());
+
+            // An exercise open last opens again, while it is one of the run (Part 15d); one since taken out, the start page.
+            string exerciseId = Documents.ExerciseOf(key);
+            if (exerciseId != null)
+            {
+                Exercise exercise = ExerciseRun.Find(ExerciseCatalog.Run, exerciseId);
+                if (exercise != null)
+                {
+                    _exercise = exercise;
+                    _documentKey = exercise.Id;
+                    _launchSample = 0;
+                    Open();
+                    GameAnalytics.ExerciseStarted(exercise.Id);
+                    return;
+                }
+                key = null;
+            }
+
             int sample = Documents.SampleOf(key);
             if (sample > 0)
             {
@@ -134,6 +153,11 @@ namespace BitSorter.View
             }
             if (StartPageShowing)
                 _home.BringToFront();
+            if (ExercisesShowing)
+            {
+                FillExercises();   // a solve made under it, or a reset, is shown
+                _exercisesPage.BringToFront();
+            }
         }
 
         /// <summary>After RESET PROGRESS, as on a first launch: MY CIRCUIT, blank, with the start page over it.</summary>
@@ -207,10 +231,12 @@ namespace BitSorter.View
                 return;
 
             CloseThePopups();
+            HideExercises();
             LetGoOnCanvas();
             _codeView?.Bind(null);   // a written block's code, CodeMirror's box in a browser among it, is under the page
             Pause();
             FillRecent();
+            FillExercises();
             _homeNotice.text = "";
             _home.style.display = DisplayStyle.Flex;
             _home.BringToFront();
@@ -224,7 +250,7 @@ namespace BitSorter.View
             if (!StartPageShowing)
                 return;
             _home.style.display = DisplayStyle.None;
-            SetText(_description, WorkbenchSamples.Chip[_sample].Says);
+            SetText(_description, Says());
         }
 
         /// <summary>Escape on the start page: down, the circuit under it what is open.</summary>
@@ -234,8 +260,11 @@ namespace BitSorter.View
             RememberWhatIsOpen(OpenKey());
         }
 
-        /// <summary>What is open, as the save remembers it: the circuit's key, or the sample's.</summary>
-        private string OpenKey() => _sample == 0 ? _documentKey : Documents.SampleKey(WorkbenchSamples.Chip[_sample].Name);
+        /// <summary>What is open, as the save remembers it: the circuit's key, the exercise's (Part 15d), or the sample's.</summary>
+        private string OpenKey() =>
+            _sample != 0 ? Documents.SampleKey(WorkbenchSamples.Chip[_sample].Name)
+            : _exercise != null ? Documents.ExerciseKey(_exercise.Id)
+            : _documentKey;
 
         /// <summary>Writes <paramref name="key"/> down as what BitSorter opens on next (<see cref="ProgressStore.LastOpen"/>).</summary>
         private static void RememberWhatIsOpen(string key)
@@ -300,10 +329,12 @@ namespace BitSorter.View
                 Item(samples, SampleItem(i), WorkbenchSamples.All[i].Name.ToUpperInvariant(), () => ShowSample(chip), palette);
             }
 
+            BuildStartExercises(columns, palette);
+
             _homeNotice = ShellTheme.Label("notice", "", UiType.Body, palette.Accent, TextAnchor.MiddleCenter);
             _homeNotice.style.whiteSpace = WhiteSpace.Normal;
             _homeNotice.style.marginTop = 32f;
-            _homeNotice.style.maxWidth = 3f * HomeColumnWidth + 2f * HomeColumnGap;
+            _homeNotice.style.maxWidth = 4f * HomeColumnWidth + 3f * HomeColumnGap;
             _home.Add(_homeNotice);
 
             Label version = ShellTheme.Label("version", "v" + Application.version, UiType.Micro, palette.Muted, TextAnchor.MiddleCenter);
