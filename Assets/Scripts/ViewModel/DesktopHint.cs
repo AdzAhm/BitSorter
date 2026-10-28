@@ -11,7 +11,11 @@ namespace BitSorter.ViewModel
         /// <summary>How long, in milliseconds, is long: a pause a student notices after an edit.</summary>
         public const double SlowMilliseconds = 300;
 
-        public const string Words = "A drawing this big takes the browser a moment after each edit: the desktop version of BitSorter runs it faster.";
+        /// <summary>
+        /// What it says: "this design", not "this drawing" -- written code is as slow to work out, and on Ahmad's imported ALU,
+        /// code with no drawing at all, the line spoke of a drawing (2026-10-28).
+        /// </summary>
+        public const string Words = "This design takes the browser a moment to work out after each edit: the desktop version of BitSorter runs it faster.";
 
         /// <summary>
         /// Whether to say it now: in a browser, not said yet this session, after drawing or timing work that took longer than
