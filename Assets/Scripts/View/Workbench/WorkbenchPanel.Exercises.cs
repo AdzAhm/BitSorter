@@ -478,7 +478,7 @@ namespace BitSorter.View
         {
             IReadOnlyList<Exercise> run = ExerciseCatalog.Run;
             System.Func<string, bool> isSolved = SolvedIn(Store());
-            Exercise next = ExerciseRun.Next(run, isSolved, after: _exercise?.Id);
+            Exercise next = NextToDo(isSolved);
             int solved = ExerciseRun.SolvedCount(run, isSolved);
             string progress = solved + " of " + run.Count + " solved";
 
@@ -504,6 +504,13 @@ namespace BitSorter.View
             }
         }
 
+        /// <summary>
+        /// The exercise to do next: the one open, while it is unsolved, or the first unsolved after it. It was always the one
+        /// after, so the page marked the next exercise while the student was still on this one (the 15f browser smoke test).
+        /// </summary>
+        private Exercise NextToDo(System.Func<string, bool> solved) =>
+            _exercise != null && !solved(_exercise.Id) ? _exercise : ExerciseRun.Next(ExerciseCatalog.Run, solved, after: _exercise?.Id);
+
         /// <summary>The start page's EXERCISES column: carry on with the next, the whole list, and how far the student is.</summary>
         private void BuildStartExercises(VisualElement columns, SchematicPalette palette)
         {
@@ -517,7 +524,7 @@ namespace BitSorter.View
         /// <summary>CONTINUE on the start page: the next exercise to do, after the one open last.</summary>
         private void ContinueExercises()
         {
-            Exercise next = ExerciseRun.Next(ExerciseCatalog.Run, Solved, after: _exercise?.Id);
+            Exercise next = NextToDo(SolvedIn(Store()));
             if (next != null)
                 OpenExercise(next.Id);
         }
