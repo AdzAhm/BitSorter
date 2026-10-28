@@ -327,8 +327,10 @@ nothing drives yet.
 
 **LOGIC**, beside TIMING, shows what a circuit without registers does: its truth
 table, found by running it through every combination of its inputs (up to ten
-bits), each output as a minimal sum of products -- the textbook's way, `a'b + ab'`,
-and SystemVerilog's -- and for four inputs or fewer, each output's K-map.
+bits); for eight inputs or fewer, each output as a minimal sum of products -- the
+textbook's way, `a'b + ab'`, and SystemVerilog's -- marked where the search had to
+stop short of proving it the smallest; and for four inputs or fewer, each output's
+K-map.
 
 **STATES**, beside LOGIC, draws a clocked circuit's state diagram: every state it
 can reach from its reset, found by running it with every input from every state,

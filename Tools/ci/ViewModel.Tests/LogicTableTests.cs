@@ -60,6 +60,69 @@ namespace BitSorter.ViewModel.Tests
             Assert.AreEqual(316, checkedFunctions);
         }
 
+        /// <summary>
+        /// Names longer than a letter are spaced apart in a product, as the K-map's corner spaces them: "bcin" could be one name.
+        /// The 15g-5 review found the full adder's carry written "bcin + acin + ab".
+        /// </summary>
+        [Test]
+        public void ALongerName_IsSpacedApartInAProduct()
+        {
+            Minimizer.Result carry = Minimizer.Minimize(3, "00010111".ToCharArray());
+            Assert.AreEqual("b cin + a cin + a b", Minimizer.Textbook(carry.Terms, new[] { "a", "b", "cin" }));
+            Minimizer.Result sum = Minimizer.Minimize(2, "0110".ToCharArray());
+            Assert.AreEqual("a[1]' a[0] + a[1] a[0]'", Minimizer.Textbook(sum.Terms, new[] { "a[1]", "a[0]" }));
+            Assert.AreEqual("a'b + ab'", Minimizer.Textbook(sum.Terms, AB), "one letter each, side by side as the textbook writes them");
+        }
+
+        /// <summary>
+        /// The search made a slice at a time ends where it does all at once, on five to eight variables with don't-cares -- the
+        /// tangled ones it cuts short included -- and every cover it keeps, proven the smallest or not, covers every 1 and no 0.
+        /// </summary>
+        [Test]
+        public void TheSearchInSlices_EndsWhereItDoesAtOnce_AndACoverCutShortStillCovers()
+        {
+            var random = new Random(15_5);
+            int cut = 0;
+            for (int i = 0; i < 24; i++)
+            {
+                int n = 5 + i % 4;
+                char[] values = Enumerable.Range(0, 1 << n).Select(_ => "011x"[random.Next(4)]).ToArray();
+                Minimizer.Result whole = Minimizer.Minimize(n, values);
+
+                var search = new Minimizer.Search(n, values);
+                int slices = 0;
+                while (!search.Run(997))
+                    slices++;
+                CollectionAssert.AreEqual(whole.Terms, search.Result.Terms, $"{n} variables, {slices} slices");
+                Assert.AreEqual(whole.Proven, search.Result.Proven);
+                if (!whole.Proven)
+                    cut++;
+
+                for (int r = 0; r < values.Length; r++)
+                {
+                    bool covered = whole.Terms.Any(t => t.Covers(r));
+                    if (values[r] == '1')
+                        Assert.IsTrue(covered, $"{n} variables: row {r} is 1 and not covered");
+                    if (values[r] == '0')
+                        Assert.IsFalse(covered, $"{n} variables: row {r} is 0 and covered");
+                }
+            }
+            Assert.Greater(cut, 0, "sanity: some were tangled enough to be cut short");
+        }
+
+        /// <summary>The eight-input lookup the LOGIC tab's Play Mode test draws: no pattern, so its search is cut short.</summary>
+        [Test]
+        public void ALookupWithNoPattern_IsCutShort_AndSaysSo()
+        {
+            var table = System.Numerics.BigInteger.Parse("0b26d3d1274b1832c26fbbc9781b79e128ed0c861fa30917cbd97b21055ad85d2",
+                System.Globalization.NumberStyles.HexNumber);
+            char[] values = Enumerable.Range(0, 256).Select(r => ((table >> r) & 1) == 1 ? '1' : '0').ToArray();
+            Minimizer.Result result = Minimizer.Minimize(8, values);
+            Assert.IsFalse(result.Proven);
+            for (int r = 0; r < 256; r++)
+                Assert.AreEqual(values[r] == '1', result.Terms.Any(t => t.Covers(r)), "row " + r);
+        }
+
         private static void Check(int n, char[] values)
         {
             Minimizer.Result result = Minimizer.Minimize(n, values);
@@ -150,7 +213,7 @@ namespace BitSorter.ViewModel.Tests
             LogicTable table = Tabled(WorkbenchSamples.FullAdder(), out string why);
             Assert.IsNotNull(table, why);
             Assert.IsNull(table.Problem);
-            CollectionAssert.AreEqual(new[] { "a", "b", "cin" }, table.Variables.Select(v => v.Name).ToArray());
+            CollectionAssert.AreEqual(new[] { "a", "b", "cin" }, table.VariableNames.ToArray());
             Assert.AreEqual(8, table.Rows);
 
             string Column(string name) => new string(table.Outputs.Single(o => o.Name == name).Values.ToArray());
@@ -158,7 +221,33 @@ namespace BitSorter.ViewModel.Tests
             Assert.AreEqual("00010111", Column("cout"), "the carry: two or more");
 
             Minimizer.Result carry = Minimizer.Minimize(3, table.Outputs.Single(o => o.Name == "cout").Values);
-            Assert.AreEqual("bcin + acin + ab", Minimizer.Textbook(carry.Terms, table.Variables.Select(v => v.Name).ToList()));
+            Assert.AreEqual("b cin + a cin + a b", Minimizer.Textbook(carry.Terms, table.VariableNames));
+        }
+
+        /// <summary>
+        /// Ports with ranges of their own: each bit named as it is declared, so a [0:1]'s high bit is y[0] -- the 15g-5 review found
+        /// every bus named from 0, and a [0:1]'s two columns each under the other's name.
+        /// </summary>
+        [Test]
+        public void PortsWithRangesOfTheirOwn_NameEachBitAsDeclared()
+        {
+            ProjectImport import = ProjectImporter.Import(new[]
+            {
+                new SourceFile("ranged.sv",
+                    "module ranged(input logic [7:6] a, input logic b, output logic [0:1] y);\n" +
+                    "    assign y = {a[7] & b, a[6] | b};\n" +
+                    "endmodule\n"),
+            });
+            Assert.IsTrue(import.Succeeded, string.Join("\n", import.Notes));
+            LogicTable table = Tabled(import.Project, out string why);
+            Assert.IsNotNull(table, why);
+            Assert.AreEqual(8, table.Rows);
+
+            CollectionAssert.AreEqual(new[] { "a[7]", "a[6]", "b" }, table.VariableNames.ToArray(), "a [7:6]'s bits are a[7] and a[6]");
+            CollectionAssert.AreEqual(new[] { "y[0]", "y[1]" }, table.Outputs.Select(o => o.Name).ToArray(), "y[0] is a [0:1]'s high bit");
+            string Column(string name) => new string(table.Outputs.Single(o => o.Name == name).Values.ToArray());
+            Assert.AreEqual("00000101", Column("y[0]"), "y[0] = a[7] & b, rows counting a[7] a[6] b");
+            Assert.AreEqual("01110111", Column("y[1]"), "y[1] = a[6] | b");
         }
 
         [Test]

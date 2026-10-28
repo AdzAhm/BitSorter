@@ -55,12 +55,14 @@ namespace BitSorter.ViewModel
         private RunSlicer _slicer;
         private readonly char[][] _values;
 
-        private LogicTable(Project project, StepPlan plan, IReadOnlyList<InputBit> variables, int[] variableOfInput,
-            List<(string Name, string Port, int Bit)> outputs, List<(SignalId, int)> signals, SimSession session, RunSlicer slicer)
+        private LogicTable(Project project, StepPlan plan, IReadOnlyList<InputBit> variables, IReadOnlyList<string> variableNames,
+            int[] variableOfInput, List<(string Name, string Port, int Bit)> outputs, List<(SignalId, int)> signals, SimSession session,
+            RunSlicer slicer)
         {
             Project = project;
             _plan = plan;
             Variables = variables;
+            VariableNames = variableNames;
             _variableOfInput = variableOfInput;
             _signals = signals;
             _session = session;
@@ -80,6 +82,12 @@ namespace BitSorter.ViewModel
 
         /// <summary>The input bits, as the rows count them: ports in order, a bus's highest bit first.</summary>
         public IReadOnlyList<InputBit> Variables { get; }
+
+        /// <summary>
+        /// Each input bit's name as the design declares it, in <see cref="Variables"/>' order: an <c>input [7:6] a</c>'s bits are
+        /// a[7] and a[6], where <see cref="InputBit.Name"/> counts from 0 (the 15g-5 review).
+        /// </summary>
+        public IReadOnlyList<string> VariableNames { get; }
 
         /// <summary>Each output bit, ports in order and a bus's highest bit first, with its value in every row once done.</summary>
         public IReadOnlyList<LogicOutput> Outputs { get; }
@@ -175,6 +183,17 @@ namespace BitSorter.ViewModel
                     if (variables[v].Port == inputs[k].Port && variables[v].Bit == inputs[k].Bit)
                         variableOf[k] = v;
 
+            // Every bit named as the timing names it, from the design, its range's index and all: a [0:1]'s high bit is y[0].
+            string Named(string port, int bit, string otherwise) =>
+                design.TryFind(compiled.DesignPath + "." + port, out SignalId id)
+                    ? TimingView.Relative(TimingGraph.BitName(design.Signals[id.Index], bit), compiled.DesignPath)
+                    : otherwise;
+            var variableNames = new List<string>(variables.Count);
+            foreach (InputBit variable in variables)
+                variableNames.Add(Named(variable.Port, variable.Bit, variable.Name));
+            for (int o = 0; o < outputs.Count; o++)
+                outputs[o] = (Named(outputs[o].Port, outputs[o].Bit, outputs[o].Name), outputs[o].Port, outputs[o].Bit);
+
             var signals = new List<(SignalId, int)>(outputs.Count);
             foreach ((string _, string port, int bit) in outputs)
                 signals.Add(design.TryFind(compiled.DesignPath + "." + port, out SignalId signal) ? (signal, bit) : (default, -1));
@@ -182,7 +201,7 @@ namespace BitSorter.ViewModel
             var options = new SimOptions { Files = ProjectFiles.ForRun(copy), RecordTransitions = false };
             var session = new SimSession(design, null, options);
             var slicer = new RunSlicer(session, plan.Stimulus.StopTime, nowMilliseconds, budgetMilliseconds: budgetMilliseconds);
-            var table = new LogicTable(project, plan, variables, variableOf, outputs, signals, session, slicer);
+            var table = new LogicTable(project, plan, variables, variableNames, variableOf, outputs, signals, session, slicer);
             table.Frame();
             return table;
         }

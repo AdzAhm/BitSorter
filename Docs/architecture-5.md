@@ -3045,20 +3045,29 @@ is built (2026-10-28).
   of the input bits in Gray order, each held for the settle time the measured worst uses -- the slowest path and half
   again -- on a copy, a slice a frame while the tab is up. Each output bit is read at the end of each hold; an x, a z, or a
   row the run did not reach reads x. Rows count up with the first input most significant: ports in order, a bus's highest
-  bit first. Refused with the reason, as the measured worst is, for registers, a loop of logic, a delay the run works
+  bit first, each bit named as the design declares it (`VariableNames`: an `input [7:6] a`'s are a[7] and a[6]). Refused with the reason, as the measured worst is, for registers, a loop of logic, a delay the run works
   out, no input or output, or more than ten input bits -- saying how many rows that would be.
 - **Each output a minimal sum of products** (`Minimizer`, up to eight variables): Quine and McCluskey's prime implicants,
   then an exact cover -- the fewest products, then the fewest literals -- searched with the row fewest primes cover first,
-  bounded at `MostTried` tries (keeping the best found, `Result.Proven` false, never yet reached in the tests). An x row is
-  a don't-care, and the tab says so. Written the textbook's way (`a'b + ab'`) and SystemVerilog's
-  (`assign s = (~a & b) | (a & ~b);`).
+  bounded at `MostTried` tries: an eight-input lookup with no pattern to it reaches that, and keeps the best found,
+  `Result.Proven` false, which the tab says. The search is a stack of choices rather than a recursion
+  (`Minimizer.Search`), so the tab makes it 4 ms a frame; however sliced, it tries the same covers in the same order to the
+  same result. An x row is a don't-care, and the tab says so. Written the textbook's way (`a'b + ab'`; names longer than
+  a letter spaced apart, `b cin + a cin + a b`) and SystemVerilog's (`assign s = (~a & b) | (a & ~b);`).
 - **A K-map for four inputs or fewer** (`KarnaughLayout`): the first half of the variables down the side and the rest
   across, Gray order both ways, x where the output reads x, its 1s shaded. No groups are drawn: the expression is beside it.
 - **The tab** (`WorkbenchPanel.Logic.cs`) sits right of TIMING: the table on the left, each output's block -- its
-  expression both ways and its map -- in columns on the right; the wheel scrolls whichever the pointer is over.
+  expression both ways and its map -- in columns on the right; the wheel scrolls whichever the pointer is over, the table
+  three rows a notch and the expressions no further than they reach. It is made again only when the design changes
+  (`TimingView.SameDesign`, and the project's files, which it leaves out), so an input's steps edited keep it, and the old
+  table is cleared while a new one is made.
+- **Fixed after review**: the names on ranged ports, the restart on every edit, the scroll with no end, the expressions
+  all minimized in one frame and never saying when one was cut short, and products run together -- each a red test, then
+  its fix.
 - **Tests**: the minimizer against brute force on every three-variable function and sixty random four-variable ones with
-  don't-cares; the full adder tabled and its carry minimized; the counter refused; and every combinational exercise's
-  reference solution, tabled by running it, agreeing with that exercise's own test at every check.
+  don't-cares, and the search in slices against the search at once on five to eight variables; the full adder tabled and
+  its carry minimized; ranged ports named as declared; the counter refused; and every combinational exercise's reference
+  solution, tabled by running it, agreeing with that exercise's own test at every check.
 
 **As built in Part 15g-6: STATES, the state diagram.** Ahmad asked for a state diagram (2026-10-28).
 

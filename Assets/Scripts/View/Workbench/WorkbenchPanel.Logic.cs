@@ -36,8 +36,9 @@ namespace BitSorter.View
         private string _logicWhy;
         private BitSorter.Board.Project _logicOf;
         private int _logicFirst;
-        private float _logicRightScroll;
-        private bool _logicDrawn, _logicRead;
+        private float _logicRightScroll, _logicRightReach;
+        private bool _logicDrawn, _logicRead, _logicFinishing;
+        private Minimizer.Search _logicSearch;
         private readonly List<(LogicOutput Output, Minimizer.Result Expression, KarnaughLayout Map)> _logicOutputs =
             new List<(LogicOutput, Minimizer.Result, KarnaughLayout)>();
 
@@ -56,9 +57,17 @@ namespace BitSorter.View
         /// <summary>The rest of the table's run now: what a test and a reference shot do.</summary>
         public void FinishLogic()
         {
-            RefreshLogic();
-            _logic?.Finish();
-            RefreshLogic();
+            _logicFinishing = true;
+            try
+            {
+                RefreshLogic();
+                _logic?.Finish();
+                RefreshLogic();
+            }
+            finally
+            {
+                _logicFinishing = false;
+            }
         }
 
         /// <summary>The LOGIC tab beside TIMING, and the line its header says how far the table has got on.</summary>
@@ -89,11 +98,12 @@ namespace BitSorter.View
             _logicList.style.display = DisplayStyle.None;
             _logicList.RegisterCallback<WheelEvent>(e =>
             {
-                // The table under the pointer on the left, the expressions on the right.
+                // The table under the pointer on the left, three rows a notch; the expressions on the right, never past their foot
+                // (the 15g-5 review found no end to them, and a few notches left the pane blank).
                 if (e.localMousePosition.x < LogicTableWidth())
-                    _logicFirst = Mathf.Clamp(_logicFirst + (e.delta.y > 0f ? 1 : -1), 0, Mathf.Max(0, (_logic?.Rows ?? 0) - LogicRowsShown));
+                    _logicFirst = Mathf.Clamp(_logicFirst + (e.delta.y > 0f ? 3 : -3), 0, Mathf.Max(0, (_logic?.Rows ?? 0) - LogicRowsShown));
                 else
-                    _logicRightScroll = Mathf.Max(0f, _logicRightScroll + (e.delta.y > 0f ? 60f : -60f));
+                    _logicRightScroll = Mathf.Clamp(_logicRightScroll + (e.delta.y > 0f ? 60f : -60f), 0f, LogicRightScrollMost);
                 _logicDrawn = false;
                 e.StopPropagation();
             });
@@ -110,6 +120,18 @@ namespace BitSorter.View
             _logicDrawn = false;
         }
 
+        // A frame's share of the expressions' search: tries a slice, and the time a frame spends on them.
+        private const int LogicTriesASlice = 2000;
+        private const double LogicBudgetMilliseconds = 4.0;
+
+        /// <summary>What the header says while the expressions are being written: how many are.</summary>
+        private string LogicWriting() => "Writing each output as a sum of products: "
+            + _logicOutputs.Count.ToString(CultureInfo.InvariantCulture) + " of " + _logic.Outputs.Count.ToString(CultureInfo.InvariantCulture) + ".";
+
+        /// <summary>How far the expressions scroll at most: their foot to the list's, as last drawn.</summary>
+        private float LogicRightScrollMost =>
+            Mathf.Max(0f, _logicRightReach - Mathf.Max(0f, _regions.Dock.height - ShellLayout.DockHeaderHeight));
+
         /// <summary>How many of the table's rows fit under its heads.</summary>
         private int LogicRowsShown => Mathf.Max(1, Mathf.FloorToInt((_regions.Dock.height - ShellLayout.DockHeaderHeight - 12f) / LogicRowHeight) - 1);
 
@@ -122,14 +144,24 @@ namespace BitSorter.View
             if (_session == null || _logicList == null || _dockTab != DockTab.Logic)
                 return;
 
-            if (!ReferenceEquals(_session.Project, _logicOf))
+            // Made again only when the design has changed: a part moved, a wire rerouted or an input's steps edited leave the
+            // table, and where it is scrolled to, as they were (the 15g-5 review). The files count too, which SameDesign leaves
+            // out: a ROM's image read with $readmemh is the design's. The old table goes while the new one is made.
+            BitSorter.Board.Project project = _session.Project;
+            if (!ReferenceEquals(project, _logicOf))
             {
-                _logicOf = _session.Project;
-                _logic = LogicTable.Start(_session.Project, _session.Timing, () => UnityEngine.Time.realtimeSinceStartupAsDouble * 1000.0, out _logicWhy);
-                _logicRead = false;
-                _logicFirst = 0;
-                _logicRightScroll = 0f;
-                _logicDrawn = false;
+                bool same = _logicOf != null && TimingView.SameDesign(_logicOf, project) && ReferenceEquals(_logicOf.Files, project.Files);
+                _logicOf = project;
+                if (!same)
+                {
+                    _logic = LogicTable.Start(project, _session.Timing, () => UnityEngine.Time.realtimeSinceStartupAsDouble * 1000.0, out _logicWhy);
+                    _logicRead = false;
+                    _logicFirst = 0;
+                    _logicRightScroll = 0f;
+                    _logicOutputs.Clear();
+                    _logicList.Clear();
+                    _logicDrawn = false;
+                }
             }
 
             if (_logic != null && !_logic.Done)
@@ -145,16 +177,35 @@ namespace BitSorter.View
             {
                 _logicRead = true;
                 _logicOutputs.Clear();
-                var names = new List<string>(_logic.Variables.Count);
-                foreach (BitSorter.Board.InputBit bit in _logic.Variables)
-                    names.Add(bit.Name);
-                foreach (LogicOutput output in _logic.Outputs)
-                {
-                    Minimizer.Result expression = _logic.Variables.Count <= Minimizer.MostVariables
-                        ? Minimizer.Minimize(_logic.Variables.Count, output.Values) : null;
-                    _logicOutputs.Add((output, expression, KarnaughLayout.Of(names, output.Values)));
-                }
+                _logicSearch = null;
                 _logicDrawn = false;
+            }
+
+            // Each output's expression, a few milliseconds a frame -- all at once for a test or a shot. An eight-input output with
+            // no pattern to it takes the search's every try, a quarter of a second at once (the 15g-5 review).
+            if (_logic != null && _logicRead && _logicOutputs.Count < _logic.Outputs.Count)
+            {
+                double start = UnityEngine.Time.realtimeSinceStartupAsDouble * 1000.0;
+                bool spent = false;
+                while (_logicOutputs.Count < _logic.Outputs.Count && !spent)
+                {
+                    LogicOutput output = _logic.Outputs[_logicOutputs.Count];
+                    Minimizer.Result expression = null;
+                    if (_logic.Variables.Count <= Minimizer.MostVariables)
+                    {
+                        _logicSearch ??= new Minimizer.Search(_logic.Variables.Count, output.Values);
+                        bool done = _logicSearch.Run(_logicFinishing ? int.MaxValue : LogicTriesASlice);
+                        spent = !_logicFinishing && UnityEngine.Time.realtimeSinceStartupAsDouble * 1000.0 - start >= LogicBudgetMilliseconds;
+                        if (!done)
+                            continue;
+                        expression = _logicSearch.Result;
+                        _logicSearch = null;
+                    }
+                    _logicOutputs.Add((output, expression, KarnaughLayout.Of(_logic.VariableNames, output.Values)));
+                    _logicDrawn = false;
+                }
+                if (_logicDrawn)
+                    SetText(_logicSays, LogicWriting());
             }
 
             if (!_logicDrawn)
@@ -176,25 +227,33 @@ namespace BitSorter.View
         private List<(string Port, int Width, string Head)> LogicPorts()
         {
             var ports = new List<(string, int, string)>();
-            string last = null;
-            foreach (BitSorter.Board.InputBit bit in _logic.Variables)
-                if (bit.Port != last)
+            for (int v = 0; v < _logic.Variables.Count; v++)
+                if (v == 0 || _logic.Variables[v].Port != _logic.Variables[v - 1].Port)
                 {
-                    last = bit.Port;
-                    ports.Add((bit.Port, bit.Width, bit.Width > 1 ? bit.Port + "[" + (bit.Width - 1).ToString(CultureInfo.InvariantCulture) + ":0]" : bit.Port));
+                    BitSorter.Board.InputBit bit = _logic.Variables[v];
+                    ports.Add((bit.Port, bit.Width, LogicHead(bit.Port, bit.Width, _logic.VariableNames[v], _logic.VariableNames[v + bit.Width - 1])));
                 }
-            last = null;
-            foreach (LogicOutput output in _logic.Outputs)
-                if (output.Port != last)
+            for (int o = 0; o < _logic.Outputs.Count; o++)
+                if (o == 0 || _logic.Outputs[o].Port != _logic.Outputs[o - 1].Port)
                 {
-                    last = output.Port;
                     int width = 0;
-                    foreach (LogicOutput each in _logic.Outputs)
-                        if (each.Port == output.Port)
-                            width++;
-                    ports.Add((output.Port, width, width > 1 ? output.Port + "[" + (width - 1).ToString(CultureInfo.InvariantCulture) + ":0]" : output.Port));
+                    while (o + width < _logic.Outputs.Count && _logic.Outputs[o + width].Port == _logic.Outputs[o].Port)
+                        width++;
+                    ports.Add((_logic.Outputs[o].Port, width, LogicHead(_logic.Outputs[o].Port, width, _logic.Outputs[o].Name, _logic.Outputs[o + width - 1].Name)));
                 }
             return ports;
+        }
+
+        /// <summary>A port's head: its name, and a bus's range as declared, read off its first and last bits' names -- a[7:6].</summary>
+        private static string LogicHead(string port, int width, string first, string last)
+        {
+            static string Index(string name)
+            {
+                int open = name.LastIndexOf('[');
+                return open >= 0 && name.EndsWith("]", System.StringComparison.Ordinal) ? name.Substring(open + 1, name.Length - open - 2) : null;
+            }
+            string high = Index(first), low = Index(last);
+            return width > 1 && high != null && low != null ? port + "[" + high + ":" + low + "]" : port;
         }
 
         private static float LogicPortWidth(int width, string head) =>
@@ -248,7 +307,8 @@ namespace BitSorter.View
             }
 
             int inputs = _logic.Variables.Count;
-            SetText(_logicSays, _logic.Problem ?? (_logic.Rows.ToString(CultureInfo.InvariantCulture) + " rows: every combination of "
+            SetText(_logicSays, _logicOutputs.Count < _logic.Outputs.Count ? LogicWriting()
+                : _logic.Problem ?? (_logic.Rows.ToString(CultureInfo.InvariantCulture) + " rows: every combination of "
                 + inputs.ToString(CultureInfo.InvariantCulture) + " input bit" + (inputs == 1 ? "" : "s")
                 + ", each output read once it has settled. The wheel scrolls the table, and the expressions beside it."));
 
@@ -293,9 +353,7 @@ namespace BitSorter.View
             }
 
             // Beside it, each output's expression, both ways, and its K-map.
-            var names = new List<string>(_logic.Variables.Count);
-            foreach (BitSorter.Board.InputBit bit in _logic.Variables)
-                names.Add(bit.Name);
+            IReadOnlyList<string> names = _logic.VariableNames;
             // Each output a block, side by side in columns as many as fit, a row of them as tall as its tallest.
             float left = LogicTableWidth() + 20f, top = 6f - _logicRightScroll;
             float room = Mathf.Max(LogicBlockWidth, _regions.Dock.width - 14f - left);
@@ -313,7 +371,8 @@ namespace BitSorter.View
                     free |= value == 'x';
                 string textbook = expression == null
                     ? "no expression past " + Minimizer.MostVariables.ToString(CultureInfo.InvariantCulture) + " input bits"
-                    : Minimizer.Textbook(expression.Terms, names) + (free ? "     (x read as don't care)" : "");
+                    : Minimizer.Textbook(expression.Terms, names) + (free ? "     (x read as don't care)" : "")
+                        + (expression.Proven ? "" : "     (the smallest found, not proven the smallest there is)");
                 Label says = ShellTheme.Label(LogicExpressionName + output.Name, output.Name + " = " + textbook, UiType.Body, palette.Text);
                 ShellTheme.Place(says, x0, y, right - x0, 28f);
                 ShellTheme.Ellipsis(says);
@@ -332,6 +391,7 @@ namespace BitSorter.View
                     y = DrawMap(map, x0 + 14f, y + 4f, palette) + 8f;
                 rowFoot = Mathf.Max(rowFoot, y + 18f);
             }
+            _logicRightReach = rowFoot + _logicRightScroll;
         }
 
         /// <summary>A K-map at <paramref name="x"/>, <paramref name="y"/>: the variables in its corner, Gray codes along its edges, a cell for each row. Its foot.</summary>
