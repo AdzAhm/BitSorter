@@ -979,6 +979,13 @@ namespace BitSorter.View
                 return;
             }
 
+            // The waves zoom out past the run's end (Part 15h), and there is nothing there to change.
+            if (time > _model.End)
+            {
+                Notice("Past the end of the run there is nothing to change: double-click an input's wave inside the run.");
+                return;
+            }
+
             BitSorter.Board.Stimulus stimulus = _session.Project.Stimulus;
             long at = Math.Max(0L, (long)Math.Floor(time + 1e-9));
             LogicVec? value = BitSorter.Board.StimulusEdits.ValueAt(stimulus, port, at);

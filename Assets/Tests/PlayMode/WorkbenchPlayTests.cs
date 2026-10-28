@@ -1196,6 +1196,30 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>What row <paramref name="row"/> shows at <paramref name="time"/>, in binary, as the model shown has it.</summary>
+        /// <summary>
+        /// A double-click past the run's end -- the waves zoom out past it since Part 15h -- changes nothing and says so. The
+        /// 15h review found it would have put a step there and run the testbench on to it.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator ADoubleClickPastTheRunsEnd_ChangesNothing()
+        {
+            yield return TestScene.Load();
+            yield return OpenTheWorkbench();
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.Pause();
+            workbench.Session.Finish();
+            int a = RowLabelled(workbench, "a");
+            for (int i = 0; i < 40 && workbench.TakeWaveWheel(workbench.WaveScreenPointOf(1.0), new Vector2(0f, -120f), false); i++)
+                yield return null;
+            Assert.AreEqual(WaveView.MinZoom, workbench.Wave.Zoom, 1e-9, "sanity: zoomed out past the run");
+
+            BitSorter.Board.Project before = workbench.Session.Project;
+            yield return DoubleClickAt(workbench.WaveScreenPointOf(workbench.Model.End * 2.0, a));
+            Assert.AreSame(before, workbench.Session.Project, "nothing changed");
+            StringAssert.Contains("Past the end of the run", workbench.ChipText ?? "", "and it says why");
+        }
+
         private static string ValueAt(WorkbenchPanel workbench, int row, double time)
         {
             SignalTrack track = workbench.Model.RowTrack(row);
