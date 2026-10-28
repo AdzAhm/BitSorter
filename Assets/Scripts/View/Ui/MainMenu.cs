@@ -111,17 +111,40 @@ namespace BitSorter.View
             UiTheme.Anchor(key.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 1f),
                 new Vector2(0f, -4f), new Vector2(HudButtonWidth, UiTheme.KeyCaptionHeight));
             key.text = ControlsReference.At(ControlSpot.MenuButton);
+
+            // And the way back to the simulator, beside it (Part 15g): from a level, the tutorial or free play, straight to
+            // the workbench as it was left. Its only way back was MENU and then a row of the menu that looked like every
+            // other, and Ahmad, inside the 4.x game, found no way out of it (2026-10-28).
+            Button back = UiTheme.Button_(
+                HudSimulatorButtonName, _canvas.transform, "SIMULATOR", out TextMeshProUGUI _, UiType.Body, ButtonRole.Quiet);
+            _hudSimulatorButton = back.GetComponent<RectTransform>();
+            UiTheme.Anchor(_hudSimulatorButton, new Vector2(0f, 1f), new Vector2(0f, 1f),
+                new Vector2(UiTheme.Margin + HudButtonWidth + HudButtonGap, -UiTheme.Margin),
+                new Vector2(HudSimulatorWidth, UiTheme.ButtonHeight));
+            back.onClick.AddListener(() => { OpenWorkbench(); UiTheme.Defocus(); });
         }
 
         /// <summary>The HUD's menu button's object name, which the HUD tests look for.</summary>
         public const string HudButtonName = "Menu button";
 
-        /// <summary>The row back to the simulator: its object name, and its caption in capitals (WORKBENCH until Part 15a).</summary>
+        /// <summary>The HUD's button back to the simulator, beside MENU (Part 15g).</summary>
+        public const string HudSimulatorButtonName = "Simulator button";
+
+        /// <summary>
+        /// The way back to the simulator, the first and largest thing on this screen (Part 15g; a row of the column, captioned
+        /// SIMULATOR, from Part 15a): its object name.
+        /// </summary>
         public const string WorkbenchButton = "Simulator";
 
-        private const float HudButtonWidth = 110f;
+        /// <summary>What it says.</summary>
+        public const string WorkbenchCaption = "BACK TO THE SIMULATOR";
 
-        private RectTransform _hudButton;
+        private const float HudButtonWidth = 110f, HudSimulatorWidth = 150f, HudButtonGap = 10f;
+
+        /// <summary>How much wider and taller the way back is than the rows under it.</summary>
+        private const float BackWidth = 360f, BackExtraHeight = 24f;
+
+        private RectTransform _hudButton, _hudSimulatorButton;
 
         private void Update()
         {
@@ -137,9 +160,15 @@ namespace BitSorter.View
             // over the board holds Escape -- the solved card, a hint, the help panel: none is a modal,
             // so each joins UiEscape instead. And not on the frame this opened: the Escape that leaves
             // Settings opens this in the same frame, and must not close it again.
+            //
+            // Up, it goes back to the simulator rather than on to the 4.x board under it (Part 15g): BitSorter opens on the
+            // simulator, and the 4.x game is a side trip from it, so Escape here takes you back, not further in. The 4.x boot
+            // the tests use keeps the old answer.
             if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame && !OpenedThisFrame)
             {
-                if (IsShowing)
+                if (IsShowing && !AppLaunch.Classic && _workbench != null)
+                    OpenWorkbench();
+                else if (IsShowing)
                     Show(false);
                 else if (!UiModal.OpenOrJustClosed && !UiEscape.AnyHolds)
                     Show(true);
@@ -148,6 +177,8 @@ namespace BitSorter.View
             // Part of the HUD, so it steps aside for any full-screen panel -- this menu included.
             if (_hudButton != null)
                 UiTheme.SetShown(_hudButton, UiModal.HudVisible);
+            if (_hudSimulatorButton != null)
+                UiTheme.SetShown(_hudSimulatorButton, UiModal.HudVisible && _workbench != null);
 
             if (IsShowing)
                 Refresh();
@@ -205,7 +236,16 @@ namespace BitSorter.View
             // that only ever appeared in the shipped web build.
             float row = FirstRow;
 
-            Button resume = Item("Continue", row, out _continueLabel, ButtonRole.Primary);
+            // The way back to the simulator, first and largest (Part 15g): BitSorter opens on the simulator, and this screen
+            // is a side trip from it. It was a row under free play, captioned SIMULATOR like any other, and a player inside
+            // the 4.x game found no way out (2026-10-28). The one solid button, so CONTINUE is drawn as the rows under it.
+            Button workbench = UiTheme.Button_(WorkbenchButton, Root, WorkbenchCaption, out TextMeshProUGUI _, UiType.Lead, ButtonRole.Primary);
+            UiTheme.Anchor(workbench.GetComponent<RectTransform>(), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                new Vector2(0f, row - BackExtraHeight / 2f + Lift), new Vector2(BackWidth, UiTheme.ButtonHeight + 6f + BackExtraHeight));
+            workbench.onClick.AddListener(() => Fire(OpenWorkbench));
+            row -= RowStep + BackExtraHeight;
+
+            Button resume = Item("Continue", row, out _continueLabel);
             resume.onClick.AddListener(() => Fire(Continue));
             row -= RowStep;
 
@@ -218,12 +258,6 @@ namespace BitSorter.View
             // has not yet been told what a board is for.
             Button sandbox = Item("Sandbox", row, out TextMeshProUGUI _);
             sandbox.onClick.AddListener(() => Fire(OpenSandbox));
-            row -= RowStep;
-
-            // Back to the simulator, which BitSorter opens on since Part 15a: the workbench, as it was
-            // left. Under free play, the other way off the run.
-            Button workbench = Item(WorkbenchButton, row, out TextMeshProUGUI _);
-            workbench.onClick.AddListener(() => Fire(OpenWorkbench));
             row -= RowStep;
 
             // Sound and the off switch for reporting live here, one click down, beside starting
@@ -306,9 +340,10 @@ namespace BitSorter.View
         /// stops being true. The keys line at the bottom is anchored to the screen's edge instead
         /// and is not part of the block.
         ///
-        /// The workbench's row put a row back, and half a row on this: 70.
+        /// The workbench's row put a row back, and half a row on this: 70. The way back to the simulator taking that row's
+        /// place at the top, larger by <see cref="BackExtraHeight"/>, took the block 30 shorter and half of it off this: 55.
         /// </remarks>
-        private const float Lift = 70f;
+        private const float Lift = 55f;
 
         private Button Item(string name, float y, out TextMeshProUGUI label,
             ButtonRole role = ButtonRole.Secondary)
@@ -458,6 +493,15 @@ namespace BitSorter.View
                 return;
 
             Show(false);
+
+            // The simulator's Settings, over the simulator, which BACK then comes back to (Part 15g): the 4.x game is a side
+            // trip from it, and Settings belongs to the simulator. The 4.x boot the tests use keeps Settings over this screen.
+            if (!AppLaunch.Classic && _workbench != null)
+            {
+                _workbench.Resume();
+                _workbench.OpenSettings();
+                return;
+            }
             _settings.Open();
         }
 

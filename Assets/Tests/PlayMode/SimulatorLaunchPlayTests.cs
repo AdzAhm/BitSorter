@@ -76,6 +76,84 @@ namespace BitSorter.PlayMode.Tests
             yield return null;
         }
 
+        /// <summary>A uGUI button pressed as a player presses it: the pointer moved over it, pressed and let go.</summary>
+        private IEnumerator PointAndClick(string name)
+        {
+            GameObject found = GameObject.Find(name);
+            Assert.IsNotNull(found, $"no '{name}' on screen");
+            var corners = new Vector3[4];
+            found.GetComponent<RectTransform>().GetWorldCorners(corners);   // an overlay canvas: world is screen
+            Set(_mouse.position, (Vector2)((corners[0] + corners[2]) / 2f));
+            yield return null;
+            Press(_mouse.leftButton);
+            yield return null;
+            Release(_mouse.leftButton);
+            yield return null;
+            yield return null;
+        }
+
+        private static string State(string at)
+        {
+            return at + ": menu " + Find<MainMenu>().IsOpen + ", workbench " + Find<WorkbenchPanel>().IsOpen
+                + ", settings " + Find<SettingsPanel>().IsShowing + ", level " + Find<LevelSession>().LevelName;
+        }
+
+        private IEnumerator IntoThe4xGame()
+        {
+            yield return Click(WorkbenchPanel.SettingsButton);
+            yield return Click(SettingsPanel.GameButton);
+            Assert.IsTrue(Find<MainMenu>().IsOpen, State("THE 4.x GAME opens its title screen"));
+        }
+
+        /// <summary>
+        /// The way back from the 4.x game is on its board and first on its menu (Part 15g): Ahmad, inside it, found none
+        /// (2026-10-28). Pressed as a player presses them, with the pointer, after a level has been played.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator TheFourXGame_HasAWayBack_FromItsBoardAndFromItsMenu()
+        {
+            yield return TestScene.LoadSimulator();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+
+            // The menu: its way back, first and largest.
+            yield return IntoThe4xGame();
+            GameObject back = GameObject.Find(MainMenu.WorkbenchButton);
+            Assert.AreEqual(MainMenu.WorkbenchCaption, back.GetComponentInChildren<TMPro.TextMeshProUGUI>().text);
+            Rect backRect = back.GetComponent<RectTransform>().rect;
+            foreach (string row in new[] { "Continue", "Levels", "Sandbox", "Settings" })
+            {
+                RectTransform other = GameObject.Find(row).GetComponent<RectTransform>();
+                Assert.Greater(backRect.width, other.rect.width, row + " is as wide as the way back");
+                Assert.Greater(backRect.height, other.rect.height, row + " is as tall as the way back");
+                Assert.Greater(back.transform.position.y, other.position.y, row + " is above the way back");
+            }
+
+            // On a board, played: its SIMULATOR beside MENU.
+            yield return PointAndClick("Continue");
+            for (int i = 0; i < 10; i++)
+                yield return null;
+            Assert.IsFalse(Find<MainMenu>().IsOpen, State("CONTINUE: a board"));
+            Find<SimulationRunner>().StepOneTick();
+            yield return null;
+            yield return PointAndClick(MainMenu.HudSimulatorButtonName);
+            Assert.IsTrue(workbench.IsOpen, State("the board's SIMULATOR comes back"));
+
+            // Escape on the title screen goes back, not on to the board under it.
+            yield return IntoThe4xGame();
+            yield return Tap(_keyboard.escapeKey);
+            Assert.IsTrue(workbench.IsOpen, State("Escape on the title screen comes back"));
+            Assert.IsFalse(Find<MainMenu>().IsOpen);
+
+            // From a board, Escape is the menu, and its way back is the big button.
+            yield return IntoThe4xGame();
+            yield return PointAndClick("Continue");
+            yield return Tap(_keyboard.escapeKey);
+            Assert.IsTrue(Find<MainMenu>().IsOpen, State("Escape on a board opens the menu"));
+            Assert.IsFalse(workbench.IsOpen);
+            yield return PointAndClick(MainMenu.WorkbenchButton);
+            Assert.IsTrue(workbench.IsOpen, State("BACK TO THE SIMULATOR comes back"));
+        }
+
         /// <summary>
         /// S on the start page shows the next sample, as the chip it is drawn beside does (Part 15g): the page held every
         /// workbench key, so the one key shown over it did nothing (found in the browser, 2026-10-28).
@@ -91,6 +169,19 @@ namespace BitSorter.PlayMode.Tests
             yield return Tap(_keyboard.sKey);
             Assert.IsFalse(workbench.StartPageShowing, "S left the start page");
             Assert.AreEqual((before + 1) % WorkbenchSamples.All.Count, workbench.Sample, "for the next sample");
+        }
+
+        /// <summary>The 4.x title screen's SETTINGS is the simulator's, over the simulator, which BACK comes back to (Part 15g).</summary>
+        [UnityTest]
+        public IEnumerator TheFourXMenusSettings_IsTheSimulators()
+        {
+            yield return TestScene.LoadSimulator();
+            yield return IntoThe4xGame();
+            yield return PointAndClick("Settings");
+            Assert.IsTrue(Find<SettingsPanel>().IsShowing && Find<SettingsPanel>().OverTheSimulator, State("SETTINGS"));
+            yield return Click(SettingsPanel.BackButton);
+            Assert.IsTrue(Find<WorkbenchPanel>().IsOpen, State("BACK: the simulator"));
+            Assert.IsFalse(Find<MainMenu>().IsOpen);
         }
 
         private IEnumerator Tap(KeyControl key)
