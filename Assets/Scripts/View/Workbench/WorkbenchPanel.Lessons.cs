@@ -44,6 +44,20 @@ namespace BitSorter.View
         private Project _slowestFor;
         private long? _slowest;
 
+        /// <summary>
+        /// The slowest path of the document open, worked out the first time a glitch-shaped change asks for it, and once a
+        /// document (Part 15g): it is a whole timing analysis, which ran on every edit while the hint was unseen.
+        /// </summary>
+        private long? SlowestPath()
+        {
+            if (!ReferenceEquals(_slowestFor, _session.Project))
+            {
+                _slowestFor = _session.Project;
+                _slowest = SimulatorHints.Slowest(TimingAnalysis.Of(_session.Project));
+            }
+            return _slowest;
+        }
+
         private const GuidedTutorial.Step NoStep = (GuidedTutorial.Step)(-1);
 
         /// <summary>Whether the guided tutorial is running, and the step it is at.</summary>
@@ -188,13 +202,8 @@ namespace BitSorter.View
             ProgressStore store = Store();
             if (store == null)
                 return;
-            if (!store.HasSeenHint(SimulatorHints.Glitch) && !ReferenceEquals(_slowestFor, _session.Project))
-            {
-                _slowestFor = _session.Project;
-                _slowest = SimulatorHints.Slowest(TimingAnalysis.Of(_session.Project));
-            }
             string due = SimulatorHints.Due(_session.Project, _model.Session.Design, _model.Session.History, _model.Layout.DesignPath,
-                _slowest, store.HasSeenHint);
+                SlowestPath, store.HasSeenHint);
             if (due != null)
                 ShowHint(due);
         }

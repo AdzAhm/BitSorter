@@ -46,7 +46,15 @@ namespace BitSorter.ViewModel
         /// or in a written top's header; a glitch on one of its outputs -- see <see cref="IsGlitch"/> -- where
         /// <paramref name="slowest"/>, the longest an input or a clock edge takes to reach an output, is known.
         /// </summary>
-        public static string Due(Project project, Design design, History history, string designPath, long? slowest, Func<string, bool> seen)
+        public static string Due(Project project, Design design, History history, string designPath, long? slowest, Func<string, bool> seen) =>
+            Due(project, design, history, designPath, () => slowest, seen);
+
+        /// <summary>
+        /// The same, the slowest path asked of <paramref name="slowestOf"/> only once a change shaped like a glitch has been
+        /// seen (Part 15g): it is a whole timing analysis, and was worked out on every edit of a circuit while the hint was
+        /// unseen -- 267 ms on a drawing of a thousand gates.
+        /// </summary>
+        public static string Due(Project project, Design design, History history, string designPath, Func<long?> slowestOf, Func<string, bool> seen)
         {
             if (project?.TopModule == null || design == null || history == null)
                 return null;
@@ -65,7 +73,7 @@ namespace BitSorter.ViewModel
                 return GateDelay;
             if (!seen(HighZ) && (AnyZ(history, outputs) || AnyZ(history, inputs)))
                 return HighZ;
-            if (!seen(Glitch) && slowest is long d && d > 0 && AnyGlitch(history, inputs, outputs, d))
+            if (!seen(Glitch) && AnyGlitch(history, inputs, outputs, slowestOf))
                 return Glitch;
             return null;
         }
@@ -119,10 +127,12 @@ namespace BitSorter.ViewModel
         /// Whether an output glitches: changes and changes back, both in answer to one input event -- the only time an input
         /// changed within <paramref name="slowest"/> before it moved away, nothing changing between, and both moves within
         /// <paramref name="slowest"/> of it. Without the bound, an input pulse narrower than a path's delay, followed
-        /// faithfully along one path, read as a glitch (the #90 review).
+        /// faithfully along one path, read as a glitch (the #90 review). The bound is asked for only once a change shaped like
+        /// one is found, and once.
         /// </summary>
-        private static bool AnyGlitch(History history, List<SignalId> inputs, List<SignalId> outputs, long slowest)
+        private static bool AnyGlitch(History history, List<SignalId> inputs, List<SignalId> outputs, Func<long?> slowestOf)
         {
+            long slowest = -1;
             var changed = new List<long>();
             foreach (SignalId input in inputs)
                 for (int i = 0; i < history.ChangeCount(input); i++)
@@ -141,6 +151,12 @@ namespace BitSorter.ViewModel
                         continue;
                     if (Between(changed, away.Time, back.Time) > 0)
                         continue;
+                    if (slowest < 0)
+                    {
+                        slowest = slowestOf?.Invoke() ?? 0;
+                        if (slowest <= 0)
+                            return false;
+                    }
                     long first = FirstAfter(changed, away.Time - slowest - 1);
                     if (first < 0 || first > away.Time || back.Time - first > slowest)
                         continue;
