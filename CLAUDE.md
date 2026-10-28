@@ -720,8 +720,10 @@ failure side.
   to, where an input's or an output's path is slower than register to register,
   15g) and LOGIC (Part 15g, for logic without registers of up to ten input bits:
   the truth table found by running the engine through every combination, a
-  slice a frame as the measured worst is, `LogicTable`; each output as a minimal
-  sum of products, the textbook's way and SystemVerilog's, `Minimizer`; and for
+  slice a frame as the measured worst is, `LogicTable`; for eight input bits or
+  fewer each output as a minimal sum of products, the textbook's way and
+  SystemVerilog's, a slice a frame too and marked where its search was cut
+  short of proving it the smallest, `Minimizer`; and for
   four inputs or fewer its K-map, no groups drawn, `KarnaughLayout`) and STATES
   (Part 15g, for a clocked circuit of up to six register bits, four input bits
   besides its clock and reset, and sixteen states reached: found by running the
