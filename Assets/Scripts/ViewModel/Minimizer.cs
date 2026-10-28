@@ -76,58 +76,134 @@ namespace BitSorter.ViewModel
 
         /// <summary>
         /// The smallest sum of products of <paramref name="variables"/> variables that is 1 in every row of <paramref name="values"/>
-        /// that is '1', 0 in every one that is '0', and either in one that is 'x'.
+        /// that is '1', 0 in every one that is '0', and either in one that is 'x'. All at once: <see cref="Search"/> makes it a slice
+        /// at a time, to the same result.
         /// </summary>
         public static Result Minimize(int variables, IReadOnlyList<char> values)
         {
-            if (variables < 0 || variables > MostVariables)
-                throw new ArgumentOutOfRangeException(nameof(variables), variables, "0 to " + MostVariables + " variables.");
-            int rows = 1 << variables;
-            var ones = new List<int>();
-            var cares = new List<int>();
-            for (int r = 0; r < rows; r++)
+            var search = new Search(variables, values);
+            search.Run(int.MaxValue);
+            return search.Result;
+        }
+
+        /// <summary>
+        /// The search for the smallest cover, made a slice at a time (the 15g-5 review): an eight-input output with no pattern
+        /// to it takes all of <see cref="MostTried"/> tries, a quarter of a second at once, which the LOGIC tab spends a few
+        /// milliseconds a frame on instead. However it is sliced, it tries the same covers in the same order and ends on the same
+        /// result as <see cref="Minimize"/>.
+        /// </summary>
+        /// <remarks>
+        /// The primes for the row with the fewest covering it are tried in turn, each with the rows it leaves; a stack of those
+        /// choices stands for the recursion this once was, so a slice can stop between any two tries.
+        /// </remarks>
+        public sealed class Search
+        {
+            private sealed class Choice
             {
-                if (values[r] == '1')
-                    ones.Add(r);
-                if (values[r] != '0')
-                    cares.Add(r);
+                public List<int> Uncovered;
+                public List<Implicant> Options;
+                public int Next;
             }
-            if (ones.Count == 0)
-                return new Result(Array.Empty<Implicant>(), true);
 
-            List<Implicant> primes = Primes(variables, cares);
+            private readonly int _variables, _rows;
+            private readonly List<int> _ones = new List<int>();
+            private readonly List<Implicant> _primes;
+            private readonly List<Implicant> _chosen = new List<Implicant>();
+            private readonly Stack<Choice> _stack = new Stack<Choice>();
+            private List<Implicant> _best;
+            private (int Terms, int Literals) _bestCost = (int.MaxValue, int.MaxValue);
+            private int _tried;
+            private bool _cut;
 
-            // Only primes that cover a 1 earn a place: one that covers only don't-cares adds nothing.
-            primes.RemoveAll(p => !ones.Exists(p.Covers));
-
-            int tried = 0;
-            List<Implicant> best = null;
-            (int Terms, int Literals) bestCost = (int.MaxValue, int.MaxValue);
-            var chosen = new List<Implicant>();
-
-            void Search(List<int> uncovered)
+            public Search(int variables, IReadOnlyList<char> values)
             {
-                if (++tried > MostTried)
+                if (variables < 0 || variables > MostVariables)
+                    throw new ArgumentOutOfRangeException(nameof(variables), variables, "0 to " + MostVariables + " variables.");
+                _variables = variables;
+                _rows = 1 << variables;
+                var cares = new List<int>();
+                for (int r = 0; r < _rows; r++)
+                {
+                    if (values[r] == '1')
+                        _ones.Add(r);
+                    if (values[r] != '0')
+                        cares.Add(r);
+                }
+                if (_ones.Count == 0)
+                {
+                    Result = new Result(Array.Empty<Implicant>(), true);
                     return;
-                (int, int) cost = Cost(chosen, variables);
+                }
+
+                _primes = Primes(variables, cares);
+                // Only primes that cover a 1 earn a place: one that covers only don't-cares adds nothing.
+                _primes.RemoveAll(p => !_ones.Exists(p.Covers));
+                Enter(_ones);
+                if (_stack.Count == 0)
+                    End();
+            }
+
+            /// <summary>The cover once the search is done; null until then.</summary>
+            public Result Result { get; private set; }
+
+            public bool Done => Result != null;
+
+            /// <summary>At most <paramref name="tries"/> more covers tried. True once done.</summary>
+            public bool Run(int tries)
+            {
+                while (!Done && tries-- > 0)
+                {
+                    if (_stack.Count == 0 || _cut)
+                    {
+                        End();
+                        break;
+                    }
+                    Choice top = _stack.Peek();
+                    if (top.Next > 0)
+                        _chosen.RemoveAt(_chosen.Count - 1);   // the last option tried here, taken back
+                    if (top.Next >= top.Options.Count)
+                    {
+                        _stack.Pop();
+                        continue;
+                    }
+                    Implicant p = top.Options[top.Next++];
+                    _chosen.Add(p);
+                    Enter(top.Uncovered.FindAll(r => !p.Covers(r)));
+                }
+                if (!Done && (_stack.Count == 0 || _cut))
+                    End();
+                return Done;
+            }
+
+            /// <summary>
+            /// A cover tried with <paramref name="uncovered"/> left: kept if it is the best yet, given up if it cannot be, or the
+            /// next choice made -- the row fewest primes cover, each of them in turn.
+            /// </summary>
+            private void Enter(List<int> uncovered)
+            {
+                if (++_tried > MostTried)
+                {
+                    _cut = true;
+                    return;
+                }
+                (int, int) cost = Cost(_chosen, _variables);
                 if (uncovered.Count == 0)
                 {
-                    if (Less(cost, bestCost))
+                    if (Less(cost, _bestCost))
                     {
-                        bestCost = cost;
-                        best = new List<Implicant>(chosen);
+                        _bestCost = cost;
+                        _best = new List<Implicant>(_chosen);
                     }
                     return;
                 }
-                if (chosen.Count + 1 > bestCost.Terms)
+                if (_chosen.Count + 1 > _bestCost.Terms)
                     return;   // one more product cannot beat what is had
 
-                // The row with the fewest primes covering it: each of them in turn.
                 int row = uncovered[0], fewest = int.MaxValue;
                 foreach (int r in uncovered)
                 {
                     int count = 0;
-                    foreach (Implicant p in primes)
+                    foreach (Implicant p in _primes)
                         if (p.Covers(r))
                             count++;
                     if (count < fewest)
@@ -136,28 +212,24 @@ namespace BitSorter.ViewModel
                         row = r;
                     }
                 }
-
-                foreach (Implicant p in primes)
-                {
-                    if (!p.Covers(row))
-                        continue;
-                    chosen.Add(p);
-                    Search(uncovered.FindAll(r => !p.Covers(r)));
-                    chosen.RemoveAt(chosen.Count - 1);
-                }
+                _stack.Push(new Choice { Uncovered = uncovered, Options = _primes.FindAll(p => p.Covers(row)) });
             }
 
-            Search(ones);
-            if (best == null)
+            private void End()
             {
-                // Cut short before any cover was found: one prime for each 1 not covered yet, which covers every 1 and no 0.
-                best = new List<Implicant>();
-                foreach (int r in ones)
-                    if (!best.Exists(t => t.Covers(r)))
-                        best.Add(primes.Find(p => p.Covers(r)));
+                List<Implicant> best = _best;
+                if (best == null)
+                {
+                    // Cut short before any cover was found: one prime for each 1 not covered yet, which covers every 1 and no 0.
+                    best = new List<Implicant>();
+                    foreach (int r in _ones)
+                        if (!best.Exists(t => t.Covers(r)))
+                            best.Add(_primes.Find(p => p.Covers(r)));
+                }
+                best.Sort((a, b) => Lowest(a, _rows).CompareTo(Lowest(b, _rows)));
+                Result = new Result(best, !_cut);
+                _stack.Clear();
             }
-            best.Sort((a, b) => Lowest(a, rows).CompareTo(Lowest(b, rows)));
-            return new Result(best, tried <= MostTried);
         }
 
         /// <summary>Every prime implicant of the rows in <paramref name="cares"/>: each combined with its neighbours until none combine.</summary>

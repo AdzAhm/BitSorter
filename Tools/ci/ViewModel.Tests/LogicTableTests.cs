@@ -60,6 +60,55 @@ namespace BitSorter.ViewModel.Tests
             Assert.AreEqual(316, checkedFunctions);
         }
 
+        /// <summary>
+        /// The search made a slice at a time ends where it does all at once, on five to eight variables with don't-cares -- the
+        /// tangled ones it cuts short included -- and every cover it keeps, proven the smallest or not, covers every 1 and no 0.
+        /// </summary>
+        [Test]
+        public void TheSearchInSlices_EndsWhereItDoesAtOnce_AndACoverCutShortStillCovers()
+        {
+            var random = new Random(15_5);
+            int cut = 0;
+            for (int i = 0; i < 24; i++)
+            {
+                int n = 5 + i % 4;
+                char[] values = Enumerable.Range(0, 1 << n).Select(_ => "011x"[random.Next(4)]).ToArray();
+                Minimizer.Result whole = Minimizer.Minimize(n, values);
+
+                var search = new Minimizer.Search(n, values);
+                int slices = 0;
+                while (!search.Run(997))
+                    slices++;
+                CollectionAssert.AreEqual(whole.Terms, search.Result.Terms, $"{n} variables, {slices} slices");
+                Assert.AreEqual(whole.Proven, search.Result.Proven);
+                if (!whole.Proven)
+                    cut++;
+
+                for (int r = 0; r < values.Length; r++)
+                {
+                    bool covered = whole.Terms.Any(t => t.Covers(r));
+                    if (values[r] == '1')
+                        Assert.IsTrue(covered, $"{n} variables: row {r} is 1 and not covered");
+                    if (values[r] == '0')
+                        Assert.IsFalse(covered, $"{n} variables: row {r} is 0 and covered");
+                }
+            }
+            Assert.Greater(cut, 0, "sanity: some were tangled enough to be cut short");
+        }
+
+        /// <summary>The eight-input lookup the LOGIC tab's Play Mode test draws: no pattern, so its search is cut short.</summary>
+        [Test]
+        public void ALookupWithNoPattern_IsCutShort_AndSaysSo()
+        {
+            var table = System.Numerics.BigInteger.Parse("0b26d3d1274b1832c26fbbc9781b79e128ed0c861fa30917cbd97b21055ad85d2",
+                System.Globalization.NumberStyles.HexNumber);
+            char[] values = Enumerable.Range(0, 256).Select(r => ((table >> r) & 1) == 1 ? '1' : '0').ToArray();
+            Minimizer.Result result = Minimizer.Minimize(8, values);
+            Assert.IsFalse(result.Proven);
+            for (int r = 0; r < 256; r++)
+                Assert.AreEqual(values[r] == '1', result.Terms.Any(t => t.Covers(r)), "row " + r);
+        }
+
         private static void Check(int n, char[] values)
         {
             Minimizer.Result result = Minimizer.Minimize(n, values);

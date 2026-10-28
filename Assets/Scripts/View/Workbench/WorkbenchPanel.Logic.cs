@@ -37,7 +37,8 @@ namespace BitSorter.View
         private BitSorter.Board.Project _logicOf;
         private int _logicFirst;
         private float _logicRightScroll, _logicRightReach;
-        private bool _logicDrawn, _logicRead;
+        private bool _logicDrawn, _logicRead, _logicFinishing;
+        private Minimizer.Search _logicSearch;
         private readonly List<(LogicOutput Output, Minimizer.Result Expression, KarnaughLayout Map)> _logicOutputs =
             new List<(LogicOutput, Minimizer.Result, KarnaughLayout)>();
 
@@ -56,9 +57,17 @@ namespace BitSorter.View
         /// <summary>The rest of the table's run now: what a test and a reference shot do.</summary>
         public void FinishLogic()
         {
-            RefreshLogic();
-            _logic?.Finish();
-            RefreshLogic();
+            _logicFinishing = true;
+            try
+            {
+                RefreshLogic();
+                _logic?.Finish();
+                RefreshLogic();
+            }
+            finally
+            {
+                _logicFinishing = false;
+            }
         }
 
         /// <summary>The LOGIC tab beside TIMING, and the line its header says how far the table has got on.</summary>
@@ -111,6 +120,14 @@ namespace BitSorter.View
             _logicDrawn = false;
         }
 
+        // A frame's share of the expressions' search: tries a slice, and the time a frame spends on them.
+        private const int LogicTriesASlice = 2000;
+        private const double LogicBudgetMilliseconds = 4.0;
+
+        /// <summary>What the header says while the expressions are being written: how many are.</summary>
+        private string LogicWriting() => "Writing each output as a sum of products: "
+            + _logicOutputs.Count.ToString(CultureInfo.InvariantCulture) + " of " + _logic.Outputs.Count.ToString(CultureInfo.InvariantCulture) + ".";
+
         /// <summary>How far the expressions scroll at most: their foot to the list's, as last drawn.</summary>
         private float LogicRightScrollMost =>
             Mathf.Max(0f, _logicRightReach - Mathf.Max(0f, _regions.Dock.height - ShellLayout.DockHeaderHeight));
@@ -159,13 +176,35 @@ namespace BitSorter.View
             {
                 _logicRead = true;
                 _logicOutputs.Clear();
-                foreach (LogicOutput output in _logic.Outputs)
-                {
-                    Minimizer.Result expression = _logic.Variables.Count <= Minimizer.MostVariables
-                        ? Minimizer.Minimize(_logic.Variables.Count, output.Values) : null;
-                    _logicOutputs.Add((output, expression, KarnaughLayout.Of(_logic.VariableNames, output.Values)));
-                }
+                _logicSearch = null;
                 _logicDrawn = false;
+            }
+
+            // Each output's expression, a few milliseconds a frame -- all at once for a test or a shot. An eight-input output with
+            // no pattern to it takes the search's every try, a quarter of a second at once (the 15g-5 review).
+            if (_logic != null && _logicRead && _logicOutputs.Count < _logic.Outputs.Count)
+            {
+                double start = UnityEngine.Time.realtimeSinceStartupAsDouble * 1000.0;
+                bool spent = false;
+                while (_logicOutputs.Count < _logic.Outputs.Count && !spent)
+                {
+                    LogicOutput output = _logic.Outputs[_logicOutputs.Count];
+                    Minimizer.Result expression = null;
+                    if (_logic.Variables.Count <= Minimizer.MostVariables)
+                    {
+                        _logicSearch ??= new Minimizer.Search(_logic.Variables.Count, output.Values);
+                        bool done = _logicSearch.Run(_logicFinishing ? int.MaxValue : LogicTriesASlice);
+                        spent = !_logicFinishing && UnityEngine.Time.realtimeSinceStartupAsDouble * 1000.0 - start >= LogicBudgetMilliseconds;
+                        if (!done)
+                            continue;
+                        expression = _logicSearch.Result;
+                        _logicSearch = null;
+                    }
+                    _logicOutputs.Add((output, expression, KarnaughLayout.Of(_logic.VariableNames, output.Values)));
+                    _logicDrawn = false;
+                }
+                if (_logicDrawn)
+                    SetText(_logicSays, LogicWriting());
             }
 
             if (!_logicDrawn)
@@ -267,7 +306,8 @@ namespace BitSorter.View
             }
 
             int inputs = _logic.Variables.Count;
-            SetText(_logicSays, _logic.Problem ?? (_logic.Rows.ToString(CultureInfo.InvariantCulture) + " rows: every combination of "
+            SetText(_logicSays, _logicOutputs.Count < _logic.Outputs.Count ? LogicWriting()
+                : _logic.Problem ?? (_logic.Rows.ToString(CultureInfo.InvariantCulture) + " rows: every combination of "
                 + inputs.ToString(CultureInfo.InvariantCulture) + " input bit" + (inputs == 1 ? "" : "s")
                 + ", each output read once it has settled. The wheel scrolls the table, and the expressions beside it."));
 
@@ -330,7 +370,8 @@ namespace BitSorter.View
                     free |= value == 'x';
                 string textbook = expression == null
                     ? "no expression past " + Minimizer.MostVariables.ToString(CultureInfo.InvariantCulture) + " input bits"
-                    : Minimizer.Textbook(expression.Terms, names) + (free ? "     (x read as don't care)" : "");
+                    : Minimizer.Textbook(expression.Terms, names) + (free ? "     (x read as don't care)" : "")
+                        + (expression.Proven ? "" : "     (the smallest found, not proven the smallest there is)");
                 Label says = ShellTheme.Label(LogicExpressionName + output.Name, output.Name + " = " + textbook, UiType.Body, palette.Text);
                 ShellTheme.Place(says, x0, y, right - x0, 28f);
                 ShellTheme.Ellipsis(says);
