@@ -202,6 +202,9 @@ namespace BitSorter.View
                 case HelpAction.StartPage:
                     ShowHome();
                     break;
+                case HelpAction.Tutorial:
+                    StartTutorial();
+                    break;
                 case HelpAction.About:
                     if (_credits == null)
                         return;
@@ -313,6 +316,7 @@ namespace BitSorter.View
             Item(start, StartOpenItem, "OPEN A CIRCUIT", OpenOpenMenu, palette);
             Item(start, StartImportItem, "IMPORT A PROJECT", () => FileChosen(FileImport.Picks ? FileAction.ImportFiles : FileAction.ImportFolder), palette);
             Heading(start, "HELP", palette, 28f);
+            Item(start, StartTutorialItem, "TUTORIAL", StartTutorial, palette);
             Item(start, StartKeysItem, "KEYBOARD MAP", () => { if (!_keyMap.IsOpen) _keyMap.Toggle(); }, palette);
             Item(start, StartSettingsItem, "SETTINGS", OpenSettings, palette);
 

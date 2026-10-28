@@ -8,12 +8,13 @@ namespace BitSorter.View
     {
         KeyboardMap,
         StartPage,
+        Tutorial,
         About,
     }
 
     /// <summary>
     /// HELP, in the toolbar (Part 15a): the keyboard map, as ? opens it; the start page, as HOME does; and ABOUT, the credits
-    /// roll, which comes back to the workbench. A shell menu like FILE. The guided tutorial joins it in Part 15f.
+    /// roll, which comes back to the workbench. A shell menu like FILE. And the guided tutorial (Part 15f).
     /// </summary>
     public sealed class HelpMenu : WaveMenu
     {
@@ -27,6 +28,7 @@ namespace BitSorter.View
             HelpMenu menu = Make<HelpMenu>(shell, owner, RootName, palette, ItemWidth);
             menu.Item(ActionItem + HelpAction.KeyboardMap, "KEYBOARD MAP  ( ? )", () => onChoose?.Invoke(HelpAction.KeyboardMap));
             menu.Item(ActionItem + HelpAction.StartPage, "START PAGE", () => onChoose?.Invoke(HelpAction.StartPage));
+            menu.Item(ActionItem + HelpAction.Tutorial, "TUTORIAL", () => onChoose?.Invoke(HelpAction.Tutorial));
             menu.Item(ActionItem + HelpAction.About, "ABOUT BITSORTER", () => onChoose?.Invoke(HelpAction.About), breakBefore: true);
             return menu;
         }

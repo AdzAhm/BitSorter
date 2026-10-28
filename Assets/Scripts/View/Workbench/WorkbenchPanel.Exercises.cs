@@ -319,6 +319,7 @@ namespace BitSorter.View
             _notesAbout = _session.Project;
             _transcriptDrawn = -1;
             Notice(ExerciseRun.Verdict(_exercise, grade, unit));
+            LessonsAfterCheck(grade);
 
             if (!grade.Solved)
             {

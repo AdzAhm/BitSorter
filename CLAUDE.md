@@ -96,6 +96,17 @@ entered.
   means. They are fired by what happens, not by which level is loaded, and
   `hintsSeen` in the save remembers them.
 
+  **5.0 keeps the four apart the same way** (Part 15f): an exercise's `goal` and
+  `hint`; the simulator's first-time hints (`SimulatorHints`, the view-model's) --
+  a gate's delay, a clock, a z, a glitch on an output, an x at a check -- fired by
+  what the run shows, each once, kept in `hintsSeen` under ids of their own and
+  marked as they go up, on a strip along the circuit window's foot; and the guided
+  tutorial (`GuidedTutorial`), on the first exercise, from the start page and
+  HELP, which teaches which input does what, reads its step off the document,
+  lights the control it means and is skipped with SKIP. `SimulatorHintTests` holds
+  every hint and tutorial step to the four-word rule against each other and every
+  exercise's goal and hint. What follows is the 4.x game's.
+
   **The wire-delay hint is the one that stays.** It is up until the player
   re-times a wire, and only then counts as seen, where every other one is
   marked as it goes up and then timed. It explains a verb rather than something

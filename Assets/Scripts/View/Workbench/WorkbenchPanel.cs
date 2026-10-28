@@ -1376,6 +1376,7 @@ namespace BitSorter.View
             _shell.Opacity = Root.TryGetComponent(out CanvasGroup fading) ? fading.alpha : 1f;
 
             OpenPendingGoal();   // an exercise's brief, once GOAL has its place (Part 15d)
+            TickLessons();   // the tutorial's step, or a first-time hint the run has earned (Part 15f)
 
             // Files the player picked in the page (Part 13d), once it has read them.
             if (FileImport.Picks && FileImport.TryTake(out List<BitSorter.Board.SourceFile> picked))
@@ -1538,6 +1539,7 @@ namespace BitSorter.View
             BuildInspector(palette);
             BuildPartsPanel(palette);
             BuildBreadcrumb();
+            BuildLesson(palette);   // the tutorial's steps and the first-time hints, along the circuit window's foot (Part 15f)
             Fit();
             BuildStage(palette);
             BuildCodeView(palette);
