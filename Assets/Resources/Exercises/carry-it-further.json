@@ -4,7 +4,7 @@
   "order": 650,
   "chapter": 6,
   "goal": "Add two 3-bit numbers, a2 a1 a0 and b2 b1 b0: s2 s1 s0 read the sum and cout the carry out of the top bit, settled within 5 ns.",
-  "hint": "the carry reaches each column later than the one before. Whatever meets it there has to wait for it.",
+  "hint": "the carry reaches each column later than the one before, and no column has settled until its carry has.",
   "inputs": [
     {"name": "a2", "values": "0000000001111111"},
     {"name": "a1", "values": "0000011110011111"},

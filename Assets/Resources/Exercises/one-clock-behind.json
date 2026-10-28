@@ -3,7 +3,7 @@
   "title": "One clock behind",
   "order": 840,
   "chapter": 8,
-  "goal": "Spot the same 1, 0, 1, but out reads it a clock later, from a register, as a Moore machine does: its output depends on its state alone.",
+  "goal": "Spot the same rising edge -- in going from 0 to 1 -- but out reads it a clock later, from a register, as a Moore machine does: its output depends on its state alone.",
   "hint": "a Moore machine's output is a question about its state alone.",
   "inputs": [
     {"name": "in", "values": "011010"}

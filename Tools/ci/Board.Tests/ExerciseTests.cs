@@ -201,6 +201,27 @@ namespace BitSorter.Board.Tests
             Assert.AreEqual(4, grade.Checks, "the first vector's x asks nothing");
         }
 
+        [Test]
+        public void ItsRegisters_StartWhereTheFileSays_AndItIsTimedInNanoseconds()
+        {
+            string Clocked(string start) => @"{ ""id"": ""late"", ""title"": ""Late"", ""clock"": true, ""registerStart"": """ + start + @""",
+                ""inputs"": [ { ""name"": ""d"", ""values"": ""10"" } ],
+                ""outputs"": [ { ""name"": ""q"", ""values"": ""x1"" } ],
+                ""parts"": [ { ""kind"": ""Register"", ""count"": 1 } ] }";
+
+            Assert.AreEqual("0", Make(Clocked("0")).RegisterStart?.Format(Radix.Binary));
+            Assert.AreEqual("1", Make(Clocked("1")).RegisterStart?.Format(Radix.Binary));
+            Assert.IsNull(Make(Clocked("")).RegisterStart, "empty: x, until a reset");
+            foreach (string junk in new[] { "x", "2" })
+            {
+                var problems = new List<string>();
+                Assert.IsNull(Exercise.From(Record(Clocked(junk)), problems), junk);
+                StringAssert.Contains($"a register cannot start at '{junk}'", string.Join("\n", problems));
+            }
+
+            Assert.AreEqual("ns", Open(Make(HalfAdderJson)).Settings.TimeUnit, "its goals and its limits are in ns");
+        }
+
         private const string HalfAdderBlock = "module ha (input logic a, input logic b, output logic s, output logic c);\n" +
             "    xor g1 (s, a, b);\n    and g2 (c, a, b);\nendmodule\n";
 

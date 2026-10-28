@@ -4,7 +4,7 @@
   "order": 210,
   "chapter": 2,
   "goal": "out reads 1 on every row of a b c but two: 011 and 100. Find the smallest sum of products -- a K-map of a, b and c shows three groups.",
-  "hint": "the two zeros sit in opposite corners of the map. Group the ones round them.",
+  "hint": "the two zeros differ in every bit. Group the ones round them.",
   "inputs": [
     {"name": "a", "values": "00001111"},
     {"name": "b", "values": "00110011"},

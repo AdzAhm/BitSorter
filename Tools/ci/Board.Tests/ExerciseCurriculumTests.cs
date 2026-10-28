@@ -129,6 +129,7 @@ namespace BitSorter.Board.Tests
 
             First("a time to settle by", e => e.SettleBy > 0, "settle", "TIMING");
             First("a clock", e => e.Clocked, "clock", "starts at");
+            First("a register", e => e.Stock.Any(s => s.Part == PartCount.Register), "register");
             First("a circuit to open on", e => !string.IsNullOrWhiteSpace(e.Start), "opens already built");
             First("a block", e => e.Stock.Any(s => !IsGateOrRegister(s.Part)), "block");
             First("a period", e => e.Period > 0, "period");
@@ -145,13 +146,88 @@ namespace BitSorter.Board.Tests
             List<Exercise> run = ExerciseFiles.InOrder();
             int dontCare = run.FindIndex(e => e.Id == "dont-care");
             Assert.GreaterOrEqual(dontCare, 0, "sanity: the don't-care exercise is here");
+            Assert.IsTrue(LeavesAnAnswerFree(run[dontCare]), "sanity: the don't-care exercise leaves answers free itself");
             for (int i = 0; i < dontCare; i++)
-                foreach (ExerciseSignal output in run[i].Outputs)
-                {
-                    int free = output.Values.Count(v => v.IsAllX);
-                    Assert.IsTrue(free == 0 || free == output.Values.Count,
-                        $"{run[i].Id} leaves {output.Name} free on some rows, before the don't-care exercise teaches it");
-                }
+                Assert.IsFalse(LeavesAnAnswerFree(run[i]), $"{run[i].Id} leaves an answer free, before the don't-care exercise teaches it");
+        }
+
+        /// <summary>
+        /// Whether <paramref name="exercise"/> leaves an answer free, either of the two ways: an x among an output's values,
+        /// or a combination left out of a combinational test of two to four input bits, which could have listed every one.
+        /// A clocked test is a sequence, not a table, and leaves combinations out as a matter of course.
+        /// </summary>
+        private static bool LeavesAnAnswerFree(Exercise exercise)
+        {
+            foreach (ExerciseSignal output in exercise.Outputs)
+            {
+                int free = output.Values.Count(v => !v.IsKnown);
+                if (free > 0 && free < output.Values.Count)
+                    return true;
+            }
+
+            int bits = exercise.Inputs.Sum(i => i.Width);
+            if (exercise.Clocked || bits < 2 || bits > 4)
+                return false;
+            var combinations = new HashSet<string>();
+            for (int v = 0; v < exercise.Inputs[0].Values.Count; v++)
+                combinations.Add(string.Join(",", exercise.Inputs.Select(i => i.Values[v].Format(SystemVerilog.Radix.Binary))));
+            return combinations.Count < 1 << bits;
+        }
+
+        /// <summary>
+        /// The chapters about circuits that forget come before those about circuits that remember, and do not interleave:
+        /// nothing before chapter <see cref="FirstClockedChapter"/> has a clock or a register, and everything in it and the
+        /// chapter after does. The last chapter, timing's own, may have either.
+        /// </summary>
+        [Test]
+        public void TheCombinationalChapters_ComeBeforeTheClockedOnes()
+        {
+            foreach (Exercise exercise in ExerciseFiles.InOrder())
+            {
+                bool remembers = exercise.Clocked || exercise.Stock.Any(s => s.Part == PartCount.Register && s.Most != 0);
+                if (exercise.Chapter < FirstClockedChapter)
+                    Assert.IsFalse(remembers, $"{exercise.Id}, in chapter {exercise.Chapter}, has a clock or a register before chapter {FirstClockedChapter}");
+                else if (exercise.Chapter <= FirstClockedChapter + 1)
+                    Assert.IsTrue(exercise.Clocked, $"{exercise.Id}, in chapter {exercise.Chapter}, has no clock");
+            }
+        }
+
+        /// <summary>Where the circuits that remember begin: flip-flops and registers.</summary>
+        private const int FirstClockedChapter = 7;
+
+        /// <summary>
+        /// A circuit an exercise opens on fails for the reason its goal gives: too late, where it says it settles too late,
+        /// with every value right; otherwise wrong in its values.
+        /// </summary>
+        [TestCaseSource(nameof(Ids))]
+        public void EveryStartingCircuit_FailsForTheReasonItsGoalGives(string id)
+        {
+            Exercise exercise = ExerciseFiles.Load(id);
+            if (string.IsNullOrWhiteSpace(exercise.Start))
+                Assert.Pass("no starting circuit");
+
+            Grade grade = ExerciseGrader.Grade(exercise, exercise.ToProject(new List<string>()));
+            if (exercise.Goal.Contains("settles too late"))
+            {
+                Assert.IsEmpty(grade.Failures, $"{id}'s goal says only its timing is wrong");
+                Assert.IsFalse(grade.SettleMet, $"{id}'s goal says it settles too late");
+            }
+            else
+                Assert.IsNotEmpty(grade.Failures, $"{id}'s circuit is to be wrong in what it reads");
+        }
+
+        /// <summary>
+        /// The words of 4.x's token game are not 5.0's: a goal or a hint never says tick, token, source, sink or bin. A wire
+        /// carries a signal, an input drives it, and an output is read.
+        /// </summary>
+        [TestCaseSource(nameof(Ids))]
+        public void NoGoalOrHint_SpeaksOfTheTokenGame(string id)
+        {
+            Exercise exercise = ExerciseFiles.Load(id);
+            var old = new System.Text.RegularExpressions.Regex(@"\b(ticks?|tokens?|sources?|sinks?|bins?)\b",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            foreach (string text in new[] { exercise.Goal, exercise.Hint })
+                Assert.IsFalse(old.IsMatch(text), $"{id} says '{old.Match(text).Value}': {text}");
         }
 
         private static bool IsGateOrRegister(string part) =>

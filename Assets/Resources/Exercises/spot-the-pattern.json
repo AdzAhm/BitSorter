@@ -3,8 +3,8 @@
   "title": "Spot the pattern",
   "order": 830,
   "chapter": 8,
-  "goal": "out reads 1 for one clock right after in has been 1, 0, 1 on three clocks in a row -- a sequence detector.",
-  "hint": "two registers can hold the last two bits. The pattern is then a question about three bits at once.",
+  "goal": "out reads 1 on the clock that completes 1, 0, 1 -- in was 1 two clocks ago, 0 one clock ago, and is 1 now -- a sequence detector.",
+  "hint": "the pattern is three bits long, and only one of them is in front of you on any clock.",
   "inputs": [
     {"name": "in", "values": "1101011"}
   ],

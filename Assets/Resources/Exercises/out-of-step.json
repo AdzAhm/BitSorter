@@ -4,7 +4,7 @@
   "order": 440,
   "chapter": 4,
   "goal": "This circuit opens already built, and every gate in it computes the right thing: out should read (a AND b) OR (NOT c AND d). But it settles too late -- it must within 3 ns. Find what slows it down, and take it out.",
-  "hint": "some parts here compute nothing at all. They only wait.",
+  "hint": "some parts here compute nothing at all. They only pass their input on, late.",
   "inputs": [
     {"name": "a", "values": "0000000011111111"},
     {"name": "b", "values": "0000111100001111"},

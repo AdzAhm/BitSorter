@@ -2748,10 +2748,21 @@ Assets/Resources/Exercises, so its progress and its migrated board carry over (1
   comes before timing is taught (chapter 1), and its lesson, a tree beating a chain, belongs to chapter 9.
 - **Its words are new**: an input or an output, never a source or a bin; nanoseconds, never ticks; the K-map exercises
   say their function, as there is no truth-table panel to point at. Each goal of a first time says so -- a time limit
-  and the TIMING tab, the clock, a circuit to open on, a block.
+  and the TIMING tab, the clock, a register, a circuit to open on, a block.
+  - **Route the bit keeps its ports' names**, `binOne` and `binZero`, which the save's migration gave the level's board,
+    so the board a student left there opens again in it. Its second output was the one `-` of the thirty -- a 4.x bin
+    that had to stay empty -- and is free (`x`) now: an output nothing drives reads z, not "empty", and leaving it
+    alone is what the goal asks.
+  - **Two time limits cannot be missed with the parts given**: the slow lane's and balance the paths', whose stock has
+    no more gates than the limit has nanoseconds. They are kept as the level's lesson was, a number to read on the
+    TIMING tab; out of step's and the long way round's can be missed.
 - **A register starts at 0 in the nine sequential exercises** (`registerStart`), as every 4.x register did and their
   tests assume; 5.0's own flip-flop starts at x, which an exercise of chapter 7 will teach. **15d places a register in
-  an exercise at its `registerStart`.** Exercises count time in ns (`Exercise.TimeUnit`), the course's unit.
+  an exercise at its `registerStart`, and 15e has to start a written one there too**: an `always_ff` with no
+  initial value starts at x, and would fail all nine. Exercises count time in ns (`Exercise.TimeUnit`), the course's
+  unit, and their goals and limits say ns, so **15d holds an exercise's unit to it**.
+- **Owed to 15f**: no first-time hint or tutorial text of 5.0's exists yet, so the four-word rule between them and the
+  exercises' goals and hints has nothing to hold. 15f writes them as pure data, where `ExerciseCurriculumTests` can.
 - **Chapters follow the course's order**: 1 gates, 2 K-maps, 3 NAND and NOR, 4 delay, 5 building blocks, 6 adders, 7
   flip-flops, 8 counters and state machines; 9, critical path and pipelining, comes with the five new exercises.
 - **Checked.** dotnet, `ExerciseCurriculumTests`:
@@ -2761,7 +2772,11 @@ Assets/Resources/Exercises, so its progress and its migrated board carry over (1
   - the run is in order, chapter by chapter;
   - every exercise has a goal and a hint, the hint naming at most one of its parts and never which makes which output;
   - the first exercise to ask each thing says so;
-  - an answer left free comes after the don't-care exercise.
+  - an answer left free comes after the don't-care exercise, either way it is left free -- an x, or a combination
+    left out of a combinational test -- and the don't-care exercise is itself one;
+  - nothing before chapter 7 has a clock or a register, and chapters 7 and 8 are clocked throughout;
+  - every start circuit fails for the reason its goal gives -- too late with every value right, or wrong;
+  - no goal or hint speaks of ticks, tokens, sources, sinks or bins.
   Oracle, `ExerciseOracleTests`: every reference solution passes its own self-checking testbench under Icarus.
 
 ---

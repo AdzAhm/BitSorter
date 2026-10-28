@@ -3,8 +3,8 @@
   "title": "Add as you go",
   "order": 850,
   "chapter": 8,
-  "goal": "a and b arrive one bit at each clock, lowest first. sum reads their sum, bit by bit, a clock later -- a serial adder. The carry waits in a register, starting at 0.",
-  "hint": "a full adder for one column, with its carry kept for the next clock.",
+  "goal": "a and b arrive one bit at each clock, lowest first, and sum reads their sum bit by bit on the same clock as the bits it adds -- a serial adder. The carry out of each column is kept in a register for the next clock, starting at 0.",
+  "hint": "each clock adds three bits: a, b and what the column before carried.",
   "inputs": [
     {"name": "a", "values": "10110"},
     {"name": "b", "values": "11010"}
