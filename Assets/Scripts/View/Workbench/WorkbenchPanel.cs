@@ -1397,11 +1397,18 @@ namespace BitSorter.View
             }
 
             // A page -- the start page, EXERCISES -- covers the circuit: nothing under it is played, scrolled, picked or
-            // deleted. ? still opens and closes the keyboard map, as the map says it does.
+            // deleted. ? still opens and closes the keyboard map, as the map says it does, and S, beside the chip in the
+            // header over the page, shows the next sample as the chip does, leaving the page (Part 15g: it did nothing).
             if (PageShowing)
             {
                 if (keyboard != null && keyboard.slashKey.wasPressedThisFrame && !OpenedThisFrame)
                     _keyMap.Toggle();
+                if (keyboard != null && keyboard.sKey.wasPressedThisFrame && !OpenedThisFrame
+                    && !keyboard.ctrlKey.isPressed && !keyboard.altKey.isPressed && !keyboard.shiftKey.isPressed)
+                {
+                    ShowSample(_sample + 1);
+                    return;
+                }
                 KeepMyCircuit(now: false);
                 return;
             }
