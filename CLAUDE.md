@@ -54,6 +54,11 @@ entered.
   Verilog wherever the oracle can run it (`Tools/ci/Oracle`, the
   `oracle-compare` skill). Where Icarus and the language standard disagree,
   the standard wins and the difference is written down.
+- **5.0's Exercises are JSON in Assets/Resources/Exercises/** (Part 15c), each
+  with its reference solution in Tools/ci/Exercises/solutions/, held under dotnet
+  by `ExerciseCurriculumTests` and, against Icarus, `ExerciseOracleTests`. The
+  thirty keep their levels' file names as ids. The levels below stay the 4.x
+  game's until Part 16, and the rules of this section that name them are theirs.
 - Levels are JSON in Assets/Resources/Levels/, and each one names its own
   `order` — play order is authored, not the ordinal sort of file names.
   Two levels claiming the same place are an error: `LevelCatalog` names them,

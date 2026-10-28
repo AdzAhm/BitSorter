@@ -2729,6 +2729,41 @@ dotnet, that the next parts build on: 15c writes the exercises, 15d opens them o
     grade among them.
   - Edit Mode: `JsonUtility` reads a file as dotnet does.
 
+**As built in Part 15c, first half: the thirty levels as exercises.** Each level is an exercise of the same id, in
+Assets/Resources/Exercises, so its progress and its migrated board carry over (15d).
+
+- **Made from the levels, not copied by hand.** A one-off Edit Mode tool (not kept) read each level and its own
+  solution -- the one its tests prove, `MigrationTests` -- migrated it, and wrote:
+  - the exercise's inputs and outputs, named as the migration names them;
+  - its test, from the level's streams and expectations;
+  - its stock, from the parts list;
+  - its start circuit and blocks, printed;
+  - its reference solution, printed, to Tools/ci/Exercises/solutions.
+  Every wire was put back to one tick first: in 5.0 nothing is balanced by a wire's delay, and the migration's buffers
+  would be parts the stock lacks.
+  - **Out of step keeps its slow wires**, as BUFs it stocks, since slowness is what is wrong with it: it settles in 4
+    against a limit of 3, and the student takes them out.
+- **Its time limit** is the level's latency less one -- a 4.x path of k gates was k + 1 wires of a tick each, and in 5.0
+  is k gates of 1 ns -- or, for the four wire-delay levels, what their solution settles in. Odd one out keeps none: it
+  comes before timing is taught (chapter 1), and its lesson, a tree beating a chain, belongs to chapter 9.
+- **Its words are new**: an input or an output, never a source or a bin; nanoseconds, never ticks; the K-map exercises
+  say their function, as there is no truth-table panel to point at. Each goal of a first time says so -- a time limit
+  and the TIMING tab, the clock, a circuit to open on, a block.
+- **A register starts at 0 in the nine sequential exercises** (`registerStart`), as every 4.x register did and their
+  tests assume; 5.0's own flip-flop starts at x, which an exercise of chapter 7 will teach. **15d places a register in
+  an exercise at its `registerStart`.** Exercises count time in ns (`Exercise.TimeUnit`), the course's unit.
+- **Chapters follow the course's order**: 1 gates, 2 K-maps, 3 NAND and NOR, 4 delay, 5 building blocks, 6 adders, 7
+  flip-flops, 8 counters and state machines; 9, critical path and pipelining, comes with the five new exercises.
+- **Checked.** dotnet, `ExerciseCurriculumTests`:
+  - every file opens and its reference solution solves it;
+  - every start circuit fails as it opens;
+  - the thirty levels are all here under their ids;
+  - the run is in order, chapter by chapter;
+  - every exercise has a goal and a hint, the hint naming at most one of its parts and never which makes which output;
+  - the first exercise to ask each thing says so;
+  - an answer left free comes after the don't-care exercise.
+  Oracle, `ExerciseOracleTests`: every reference solution passes its own self-checking testbench under Icarus.
+
 ---
 
 ## 11. The parts
@@ -2752,7 +2787,7 @@ Each part is one pull request into `v5`, ends with every suite green, and leaves
 | 12 | Hierarchy, and written blocks, edited in CodeMirror in a browser -- in six: 12a stepping inside a block **built** (see "As built in Part 12a"); 12b making a block **built** (see "As built in Part 12b"); 12c arrays **built** (see "As built in Part 12c"); 12d code blocks **built** (see "As built in Part 12d"); 12e the code panel **built** (see "As built in Part 12e"); 12f CodeMirror **built** (see "As built in Part 12f") |
 | 13 | Export and import (and a levelized path in the engine, only if a measurement asks for it) -- in six: 13a exporting a project **built** (see "As built in Part 13a"); 13b importing one **built** (see "As built in Part 13b"); 13c CONVERT **built** (see "As built in Part 13c"); 13d files **built** (see "As built in Part 13d"); 13e templates **built** (see "As built in Part 13e"); 13f limits, the security review, the measurement and the browser check **built** (see "As built in Part 13f"; the levelized path is not needed). **Part 13 is built.** |
 | 14 | The course's tools: path delays, static timing, gate-library mode, step tests, lint, tri-state -- in six, **built**: 14a the timing analysis core, 14b the TIMING tab, 14c step tests, 14d gate-library mode, 14e lint and 14f tri-state buses and inout (see "As built in Part 14a" to "14f"); and 14g, its follow-ups: deleting a module, the code editor's keys, the library held in written code and over budget, and inout pins on written blocks (see "As built in Part 14g") |
-| 15 | A simulator first, the Exercises and the tutorial -- in six: 15a **built** in two (see "As built in Part 15a"): the student's circuits, and opening on the last thing or a start page, the app's menus for BACK, the 4.x game in Settings, music off; 15b the Exercise model, grading and self-checking testbenches **built** (see "As built in Part 15b"); 15c the 35 exercises; 15d Exercises on the workbench; 15e answering in code; 15f first-time hints, the guided tutorial and the browser check |
+| 15 | A simulator first, the Exercises and the tutorial -- in six: 15a **built** in two (see "As built in Part 15a"): the student's circuits, and opening on the last thing or a start page, the app's menus for BACK, the 4.x game in Settings, music off; 15b the Exercise model, grading and self-checking testbenches **built** (see "As built in Part 15b"); 15c the 35 exercises (the thirty **built**, see "As built in Part 15c"); 15d Exercises on the workbench; 15e answering in code; 15f first-time hints, the guided tutorial and the browser check |
 | 16 | The old game retired, and a smaller download; 5.0.0 released |
 
 **Agreed after Part 9, 2026-10-19: the language, before Part 10.** A course audit ran every one of the
