@@ -4,7 +4,7 @@
   "order": 450,
   "chapter": 4,
   "goal": "bus is one wire that two drivers share. It reads a while ea is 1, b while eb is 1, and nothing -- z, high impedance -- while neither drives it. A BUFIF1 passes its input through while its enable is 1, and lets go of the wire while it is 0. Two drivers disagreeing at once make an x, which the test leaves free.",
-  "hint": "each input needs its own way onto the wire: one that can let go of it.",
+  "hint": "a and b each need a driver of their own, and a way to stop it driving.",
   "inputs": [
     {"name": "a", "values": "01001110"},
     {"name": "ea", "values": "01100011"},

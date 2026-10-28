@@ -265,6 +265,32 @@ endmodule
 endmodule
 ";
 
+        /// <summary>
+        /// Nor is a reset that waits for the clock, which the board does not draw but code can write (Part 15e): rst comes
+        /// again on the last clock, where d is 1, and only a reset that clears q at once reads 0 there.
+        /// </summary>
+        [Test]
+        public void AResetThatWaitsForTheClock_DoesNotStartFromNothing()
+        {
+            Exercise exercise = ExerciseFiles.Load("start-from-nothing");
+            Project opened = exercise.ToProject(new List<string>());
+            var written = new Module { Name = opened.Top, Source = ResetAtTheClock };
+            Project project = opened with { Modules = opened.Modules.Select(m => m.Name == opened.Top ? written : m).ToList() };
+            Grade grade = ExerciseGrader.Grade(exercise, project);
+            Assert.IsEmpty(grade.Problems, string.Join("\n", grade.Problems));
+            Assert.IsNotEmpty(grade.Failures, "a reset at the clock edge clears q after the last clock's check");
+            Assert.IsFalse(grade.Solved);
+        }
+
+        private const string ResetAtTheClock = @"module start_from_nothing (input logic clk, input logic rst, input logic d, output logic q);
+    always_ff @(posedge clk)
+        if (rst)
+            q <= 1'b0;
+        else
+            q <= d;
+endmodule
+";
+
         private const string StartsAtZero = @"module start_from_nothing (input logic clk, input logic rst, input logic d, output logic q);
     logic r1_q = 1'b0;
     always_ff @(posedge clk)

@@ -3,14 +3,14 @@
   "title": "Start from nothing",
   "order": 720,
   "chapter": 7,
-  "goal": "q reads, at each clock, what d was the clock before, as in One clock late. But here a register starts at x: nothing has told it a value yet. rst is 1 for the first clock. Give the register a reset, so q reads 0 from the start.",
-  "hint": "x is a value too: it means nobody knows. Something has to say what the register holds before its first edge.",
+  "goal": "q reads, at each clock, what d was the clock before, as in One clock late. But here a register starts at x -- nothing has told it a value yet -- and rst is 1 on the first clock and on the last. Whenever rst is 1, q must read 0 at once, whatever d was: give the register a reset.",
+  "hint": "x is a value too: it means nobody knows. A reset says what a register holds, and need not wait for the clock to say it.",
   "inputs": [
-    {"name": "rst", "values": "1000"},
-    {"name": "d", "values": "0110"}
+    {"name": "rst", "values": "1001"},
+    {"name": "d", "values": "0111"}
   ],
   "outputs": [
-    {"name": "q", "values": "0011"}
+    {"name": "q", "values": "x010"}
   ],
   "parts": [
     {"kind": "Register", "count": 1}

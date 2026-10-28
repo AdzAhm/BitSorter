@@ -7,10 +7,10 @@
   "hint": "a pipeline stage delays everything that passes through it, and whatever meets what it delays has to be delayed as much.",
   "inputs": [
     {"name": "a", "values": "01101100"},
-    {"name": "b", "values": "00110110"}
+    {"name": "b", "values": "01011001"}
   ],
   "outputs": [
-    {"name": "out", "values": "xx01011010"}
+    {"name": "out", "values": "xx00110101"}
   ],
   "parts": [
     {"kind": "Register", "count": 4},

@@ -390,6 +390,13 @@ namespace BitSorter.Board.Tests
             StringAssert.Contains("'and,or' is no gate", all);
 
             problems.Clear();
+            Assert.IsNotNull(Exercise.From(Record(HalfAdderJson.Replace(@"{ ""kind"": ""And"", ""count"": 1 }",
+                @"{ ""kind"": ""And"", ""count"": 1 }, { ""kind"": ""Bufif1"", ""count"": 2 }")), problems), "a tri-state gate is stocked: " + string.Join("\n", problems));
+            Assert.IsNull(Exercise.From(Record(HalfAdderJson.Replace(@"{ ""kind"": ""And"", ""count"": 1 }",
+                @"{ ""kind"": ""And"", ""count"": 1 }, { ""kind"": ""Bufif1"", ""inputs"": 3 }")), problems));
+            StringAssert.Contains("BitSorter has no BUFIF1 of 3 inputs", string.Join("\n", problems));
+
+            problems.Clear();
             Exercise missing = Make(HalfAdderJson.Replace(@"{ ""kind"": ""And"", ""count"": 1 }", @"{ ""kind"": ""And"", ""count"": 1 }, { ""block"": ""nowhere"" }"));
             Assert.IsNull(missing.ToProject(problems));
             StringAssert.Contains("it stocks the block nowhere, which its blocks do not have", string.Join("\n", problems));

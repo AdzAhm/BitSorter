@@ -2384,7 +2384,8 @@ computed and measured, registers given a clock to Q and a setup, a library mode 
 - **`GateLibrary`** (Board, `ProjectSettings.Library`, null for none): the cells a design may be built of -- each a kind,
   a number of inputs, a rise and a fall (`LibraryCell`) -- whether constants are refused, and a budget of gates, -1 for
   none. Saved as `hasLibrary` and `library` beside the settings (the reader cannot leave an object null, as with the
-  stimulus); an older file reads it as absent, and a saved cell BitSorter has no gate for is left out and said so.
+  stimulus); an older file reads it as absent, and a saved cell BitSorter has no gate for is left out and said so. (Since Part 15c a
+  library may hold a tri-state gate too, of two inputs: `GateLibrary.CanHold`.)
 - **The course's preset is BitSorter's own cells** (`GateLibrary.CourseCells`): INV, BUF, and AND, OR, NAND, NOR, XOR
   and XNOR of two to four inputs, twenty, each at the default delay to begin with. **The course's own table of delays is
   its handout's, which nothing here reads**, so the table is the student's to fill in: a delay typed on any gate in its
@@ -2760,7 +2761,7 @@ Assets/Resources/Exercises, so its progress and its migrated board carry over (1
     no more gates than the limit has nanoseconds. They are kept as the level's lesson was, a number to read on the
     TIMING tab; out of step's and the long way round's can be missed.
 - **A register starts at 0 in the nine sequential exercises** (`registerStart`), as every 4.x register did and their
-  tests assume; 5.0's own flip-flop starts at x, which an exercise of chapter 7 will teach. **15d places a register in
+  tests assume; 5.0's own flip-flop starts at x, which start from nothing, in chapter 7, teaches. **15d places a register in
   an exercise at its `registerStart`, and 15e has to start a written one there too**: an `always_ff` with no
   initial value starts at x, and would fail all nine. Exercises count time in ns (`Exercise.TimeUnit`), the course's
   unit, and their goals and limits say ns, so **15d holds an exercise's unit to it**.
@@ -2778,7 +2779,8 @@ Assets/Resources/Exercises, so its progress and its migrated board carry over (1
   - an answer left free comes after the don't-care exercise, either way it is left free -- an x, or a combination
     left out of a combinational test -- and the don't-care exercise is itself one;
   - nothing before chapter 7 has a clock or a register, and chapters 7 and 8 are clocked throughout;
-  - every start circuit fails for the reason its goal gives -- too late with every value right, or wrong;
+  - every start circuit fails for the reason its goal gives -- right in every value but too slow, by its settle or
+    its period, or wrong;
   - no goal or hint speaks of ticks, tokens, sources, sinks or bins.
   Oracle, `ExerciseOracleTests`: every reference solution passes its own self-checking testbench under Icarus.
 
@@ -2789,17 +2791,27 @@ the board's own editor and printed.
   disagreeing make an x, left free. Its test asks for a z (`!==`). **A library may hold a tri-state gate**
   (`GateLibrary.CanHold`): the course's cells have none, and two drawn blocks cannot share a wire, which only tri-state
   gates and a written device's inout pins may.
-- **Start from nothing** (chapter 7): a register starts at x here (no `registerStart`), and only a reset makes q read
-  0 from the first clock -- what the converted sequential exercises' `registerStart` of 0 hides.
+- **Start from nothing** (chapter 7): a register starts at x here (no `registerStart`) -- what the converted sequential
+  exercises' `registerStart` of 0 hides -- and rst is 1 on the first clock and again on the last, where d is 1, so q
+  reads 0 there only through a reset that clears it at once. A register that starts at 0, and a reset that waits for
+  the clock, both fail it (the #87 review: rst on the first clock alone let a register that starts at 0 pass). Its
+  first value is free: an exported testbench's rst going 1 at time 0 is a race with the register's process starting,
+  which ModelSim need not see as an edge.
 - **Find the slow path** (chapter 9): odd one out's parity, opening on a chain of three XORs that settles in 3 against
   a limit of 2; a tree of the same gates meets it. The lesson odd one out lost by coming before timing.
 - **Cut it in two** (chapter 9), the first with a **period**: a XNOR b two clocks late, opening with four gates between
   two registers (a period of 4); moving one register into the middle meets 2 with the same latency. Its first two
-  vectors are free, while its registers fill.
+  vectors are free, while its registers fill. Two registers at the output do not meet it: an exercise's period counts
+  the paths from an input to a register and from a register to an output too (15b's grader, fixed here).
 - **Keep in step** (chapter 9): a reaches the XOR through two pipeline registers and b straight away; b needs its own
-  two.
+  two. Its b is no copy of a shifted, so delays that cancel -- a through three registers, b through one -- do not
+  pass.
 - **Checked.** The curriculum's tests take all 35, and the oracle holds every solution to its testbench under Icarus,
-  the bus's z and x among them; `LibraryTests` holds a tri-state cell to its delays and through a save.
+  the bus's z among them (its x is left free; two drivers disagreeing are the 14f corpus's `shared_bus`).
+  `AWrongAnswerThatLooksRight_IsNotSolved` holds the three above to failing the wrong answers that once passed, and a
+  reset at the clock, written as code, to failing start from nothing. `LibraryTests` holds a tri-state cell to its
+  delays and through a save, and refuses one of the wrong inputs saying why; an exercise stocks one, and refuses one
+  of three inputs.
 
 ---
 

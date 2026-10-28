@@ -168,6 +168,13 @@ namespace BitSorter.Board.Tests
             Assert.IsFalse(GateLibrary.CanHold(GateKind.Bufif1, 3), "a tri-state gate has a data input and an enable");
             Assert.IsTrue(GateLibrary.CanHold(GateKind.Nand, 3), "and every cell BitSorter has");
 
+            Project held = Project.New("bus") with
+            {
+                Settings = new ProjectSettings { Library = new GateLibrary { Cells = new[] { new LibraryCell(GateKind.Bufif1, 1, 1, 1) } } },
+            };
+            StringAssert.Contains("a tri-state gate has a data input and an enable",
+                string.Join("\n", BoardRules.Check(held).Select(d => d.Message)), "a BUFIF1 of one input is refused, saying why");
+
             GateLibrary bus = new GateLibrary { Cells = new[] { new LibraryCell(GateKind.Bufif1, 2, 2, 2) } };
             var problems = new List<string>();
             GateLibrary back = LibraryRecord.From(bus).ToLibrary(problems);

@@ -138,7 +138,9 @@ namespace BitSorter.Board
             foreach (LibraryCell cell in library.Cells)
             {
                 if (!GateLibrary.CanHold(cell.Kind, cell.Inputs))
-                    Error(null, $"The library's {cell.Name} is no cell BitSorter has.");
+                    Error(null, GatePart.IsTriStateKind(cell.Kind)
+                        ? $"The library's {cell.Kind.ToString().ToUpperInvariant()} of {cell.Inputs} inputs is no cell: a tri-state gate has a data input and an enable."
+                        : $"The library's {cell.Name} is no cell BitSorter has.");
                 else if (!seen.Add((cell.Kind, cell.Inputs)))
                     Error(null, $"The library has {cell.Name} twice.");
                 if (cell.Rise < 0 || cell.Fall < 0)
