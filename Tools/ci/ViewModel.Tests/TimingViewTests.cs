@@ -399,5 +399,40 @@ namespace BitSorter.ViewModel.Tests
             Assert.AreNotSame(before, after, "an edit works it out again");
             Assert.AreEqual(picked.Text, after.Lines[after.Find(picked)].Text, "and the line picked is found again");
         }
+
+        /// <summary>
+        /// The project's files are part of its design (the 15g-6 review): an include added builds what could not be built, and
+        /// one changed builds another circuit, so neither keeps the timing worked out before -- where the same files again,
+        /// as a document opened a second time reads them, are the same design. Each view made by the rule the session
+        /// applies (<see cref="WorkbenchSession.Timing"/>): the old view for the new project when the design is the same.
+        /// </summary>
+        [Test]
+        public void AFileAddedOrChanged_IsWorkedOutAgain_TheSameFilesAgainAreNot()
+        {
+            static TimingView Next(TimingView before, Project project) =>
+                TimingView.SameDesign(before.Project, project) ? before.For(project) : TimingView.Of(project);
+            static ProjectFile[] Defs(string body) => new[] { new ProjectFile { Name = "defs.svh", Text = "`define BODY " + body + "\n" } };
+
+            Project missing = Project.New("top").WithModule(new Module
+            {
+                Name = "top",
+                Source = "`include \"defs.svh\"\nmodule top (input logic a, input logic b, output logic y);\n    `BODY\nendmodule\n",
+            });
+            TimingView cannot = TimingView.Of(missing);
+            Assert.IsFalse(cannot.Analysis.Succeeded, "sanity: without its include the design does not build");
+
+            Project one = missing with { Files = Defs("and g (y, a, b);") };
+            Assert.IsTrue(TimingView.Of(one).Analysis.Succeeded, "sanity: with it, it does: " + string.Join(" / ", TimingView.Of(one).Lines));
+            TimingView built = Next(cannot, one);
+            Assert.IsTrue(built.Analysis.Succeeded, "the include added, it builds: " + string.Join(" / ", built.Lines));
+
+            Project two = one with { Files = Defs("wire n; and g1 (n, a, b); not g2 (y, n);") };
+            Assert.AreEqual(2, TimingView.Of(two).Analysis.Gates, "sanity: the changed include is two gates");
+            Assert.AreEqual(2, Next(built, two).Analysis.Gates, "the include changed, it is counted again");
+
+            Project again = one with { Files = Defs("and g (y, a, b);") };
+            Assert.AreNotSame(one.Files, again.Files, "sanity: the same files, read a second time");
+            Assert.AreSame(built.Lines, Next(built, again).Lines, "the same files again are the same design, and cost nothing");
+        }
     }
 }

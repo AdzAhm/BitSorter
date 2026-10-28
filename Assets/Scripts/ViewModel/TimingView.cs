@@ -425,16 +425,19 @@ namespace BitSorter.ViewModel
         public TimingView For(Project project) => new TimingView(project, Analysis, Lines, Critical);
 
         /// <summary>
-        /// Whether <paramref name="a"/> and <paramref name="b"/> time alike: the same top, unit and library and, module by module,
-        /// the same parts, wires and code -- where things are drawn and what the stimulus does are no part of the design's timing.
-        /// An edit leaves everything it did not touch as it was, so this is reference checks nearly always.
+        /// Whether <paramref name="a"/> and <paramref name="b"/> time alike: the same top, unit, library and files and, module by
+        /// module, the same parts, wires and code -- where things are drawn and what the stimulus does are no part of the
+        /// design's timing. An edit leaves everything it did not touch as it was, so this is reference checks nearly always.
         /// </summary>
         public static bool SameDesign(Project a, Project b)
         {
             // The unit and the library too: the design times alike, but every number on the tab is written in the one, and
-            // the gate count is laid against the other's budget.
+            // the gate count is laid against the other's budget. And the files: an include is code, and a memory image is
+            // what a run reads, so LOGIC's table and STATES' machine change with one (the 15g-6 review). Compared by value,
+            // after a reference check, so a document read again with the same files is the same design.
             if (a == null || b == null || a.Top != b.Top || a.Modules.Count != b.Modules.Count
-                || a.Settings?.TimeUnit != b.Settings?.TimeUnit || !GateLibrary.Alike(a.Settings?.Library, b.Settings?.Library))
+                || a.Settings?.TimeUnit != b.Settings?.TimeUnit || !GateLibrary.Alike(a.Settings?.Library, b.Settings?.Library)
+                || !Alike(a.Files, b.Files))
                 return false;
             for (int m = 0; m < a.Modules.Count; m++)
             {

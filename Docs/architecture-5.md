@@ -2289,7 +2289,9 @@ computed and measured, registers given a clock to Q and a setup, a library mode 
   is exact (in binary 1 ns read "1000 MHz"). The list stops at 200, saying how many are left. A circuit with errors
   has one line saying so. `WorkbenchSession.Timing` works it out again only once the **design** has changed
   (`TimingView.SameDesign`): a part moved or a stimulus edited is the same timing for nothing, where the review timed
-  a processor's at 200 ms a time.
+  a processor's at 200 ms a time. The project's files are part of the design -- an include is code, a memory image what
+  a run reads -- compared by value once their references differ; `SameDesign` left them out until the 15g-6 review
+  found STATES keeping its machine past a changed file.
 - **Every path is named from the design's top** (`h1.s`, `c[1]`), so one picked in the top's drawing is the same path
   inside a block. **`TimingLight`** finds what a drawing has of it: the signals it has a net for are the path through
   that drawing -- a bit of a bus is the bus, a cell's output the net it drives -- and between two of them the part that
@@ -3057,7 +3059,7 @@ is built (2026-10-28).
 - **The tab** (`WorkbenchPanel.Logic.cs`) sits right of TIMING: the table on the left, each output's block -- its
   expression both ways and its map -- in columns on the right; the wheel scrolls whichever the pointer is over, the table
   three rows a notch and the expressions no further than they reach. It is made again only when the design changes
-  (`TimingView.SameDesign`, and the project's files, which it leaves out), so an input's steps edited keep it, and the old
+  (`TimingView.SameDesign`, the project's files included), so an input's steps edited keep it, and the old
   table is cleared while a new one is made.
 - **Fixed after review**: the names on ranged ports, the restart on every edit, the scroll with no end, the expressions
   all minimized in one frame and never saying when one was cut short, and products run together -- each a red test, then
@@ -3096,7 +3098,7 @@ is built (2026-10-28).
   - a circle shrinks only once its neighbours would crowd it.
   The next-state table is on the right, under a key line naming the bits; the wheel scrolls it, Shift with it across,
   never past its ends. It is made a slice a frame while the tab is up, and made again only when the design or its clock
-  changes (`TimingView.SameDesign`, and the project's files, which it leaves out): an input's steps edited keep the machine
+  changes (`TimingView.SameDesign`, the project's files included): an input's steps edited keep the machine
   (the 15g-5 review found LOGIC restarting on every edit). The old diagram is cleared while a new one is made, and the
   progress shown never goes back. In a short dock the oval keeps its height before the room round it; shorter still, the
   tab says to drag the splitter up.
