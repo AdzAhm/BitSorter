@@ -372,6 +372,49 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsTrue(workbench.IsOpen, "and was the field's alone");
         }
 
+        /// <summary>
+        /// A field with the keyboard shows where the next letter goes, a bar the shell draws (Part 15g: in the browser no
+        /// field showed one); it moves with what is typed, and goes with the keyboard. And the field keeps the keyboard the
+        /// whole time, never let go and given back, which in the browser made a placeholder flicker.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator AFieldWithTheKeyboard_ShowsACaret_AndKeepsTheKeyboard()
+        {
+            yield return TestScene.Load();
+            yield return OpenTheWorkbench();
+            TextField runTo = ShellPanel.Find<TextField>(WorkbenchPanel.RunToField);
+            VisualElement caret = runTo.Q(ShellTheme.CaretName);
+            Assert.IsNotNull(caret, "the field has a caret");
+            Assert.AreEqual(DisplayStyle.None, caret.resolvedStyle.display, "hidden while the field has no keyboard");
+
+            int focusIns = 0, focusOuts = 0;
+            runTo.RegisterCallback<FocusInEvent>(_ => focusIns++);
+            runTo.RegisterCallback<FocusOutEvent>(_ => focusOuts++);
+            yield return ClickAt(ShellPanel.ScreenPointOf(runTo));
+            Assert.IsTrue(UiText.Typing, "sanity: RUN TO has the keyboard");
+            for (int frame = 0; frame < 10; frame++)
+                yield return null;
+            Assert.AreEqual(DisplayStyle.Flex, caret.resolvedStyle.display, "shown once the field has the keyboard");
+            float empty = caret.resolvedStyle.left;
+
+            runTo.value = "1234";
+            runTo.SelectRange(4, 4);
+            for (int frame = 0; frame < 10; frame++)
+                yield return null;
+            Assert.AreEqual(DisplayStyle.Flex, caret.resolvedStyle.display, "shown at once after the cursor moves");
+            Assert.Greater(caret.resolvedStyle.left, empty + 10f, "after what was typed");
+
+            for (int frame = 0; frame < 60; frame++)
+                yield return null;
+            Assert.AreEqual(1, focusIns, "given the keyboard once");
+            Assert.AreEqual(0, focusOuts, "and never let go and given back");
+
+            yield return ClickAt(new Vector2(Screen.width * 0.5f, Screen.height * 0.6f));
+            for (int frame = 0; frame < 10; frame++)
+                yield return null;
+            Assert.AreEqual(DisplayStyle.None, caret.resolvedStyle.display, "gone with the keyboard");
+        }
+
         [UnityTest]
         public IEnumerator AClickOffAShellField_OnTheCanvasUnderIt_LetsItGo()
         {
