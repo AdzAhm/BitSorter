@@ -218,6 +218,12 @@ namespace BitSorter.ViewModel
         }
 
         /// <summary>
+        /// For a drawing of code (Part 15h-4), the values of its wires no signal holds, worked out from the signals the code
+        /// reads; null for any other drawing, whose every wire is a signal.
+        /// </summary>
+        public DrawnValues Drawn { get; internal set; }
+
+        /// <summary>
         /// Where the drawn module's signals are in the elaborated design (<see cref="Board.CompiledProject.DesignPath"/>):
         /// what every signal's key is relative to (<see cref="SignalIndex"/>). Null for a layout not made from a document.
         /// </summary>

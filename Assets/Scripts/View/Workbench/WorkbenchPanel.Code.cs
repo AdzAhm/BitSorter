@@ -15,6 +15,11 @@ namespace BitSorter.View
         /// <summary>+ CODE in PARTS, and the note PARTS shows inside written code.</summary>
         public const string NewCodeBlockName = "Workbench new code block", CodeNoteName = "Workbench code note";
 
+        /// <summary>The switch between a written module's code and the drawing of it (Part 15h-4), in the circuit window's corner.</summary>
+        public const string DrawingSwitchName = "Workbench drawing switch";
+
+        public const string DrawingCaption = "DRAWING", CodeCaption = "CODE";
+
         private CodeEditorView _codeView;
         private WaveRenameField _codeName;
 
@@ -25,9 +30,25 @@ namespace BitSorter.View
         public WaveRenameField CodeNameField => _codeName;
 
         /// <summary>The editor over the circuit's window, hidden until a written block is stepped into.</summary>
+        private UnityEngine.UI.Button _drawingSwitch;
+        private TMPro.TextMeshProUGUI _drawingCaption;
+
+        /// <summary>DRAWING over a written module's code, CODE over its drawing: which the circuit's window shows (Part 15h-4).</summary>
+        public UnityEngine.UI.Button DrawingSwitch => _drawingSwitch;
+
         private void BuildCodeView(SchematicPalette palette)
         {
             _codeView = CodeEditorView.Build(Root, palette);
+
+            // Over the code and over the drawing alike, in the window's lower right corner, where neither puts anything.
+            _drawingSwitch = CanvasButton(DrawingSwitchName, Root, DrawingCaption, out _drawingCaption, UiType.Body, palette);
+            _drawingSwitch.onClick.AddListener(() =>
+            {
+                if (_session != null)
+                    _session.DrawCode(!_session.ShowsDrawingOfCode);
+                UiTheme.Defocus();
+            });
+            Show(_drawingSwitch, false);
             PlaceCodeView();
             _codeName = WaveRenameField.Build(_shell, transform, palette, NewCodeBlockNamed, WaveRenameField.CodeNameName,
                 "NAME THE NEW CODE BLOCK", "a module's name, add4");
@@ -46,6 +67,33 @@ namespace BitSorter.View
             Vector2 size = SizeOf(_regions.Circuit);
             size.y = Mathf.Max(0f, size.y - _codeInset);
             _codeView.Place(CornerOf(_regions.Circuit), size);
+            if (_drawingSwitch != null)
+            {
+                var switchSize = new Vector2(124f, 32f);
+                TopLeft(_drawingSwitch.GetComponent<RectTransform>(), CornerOf(_regions.Circuit) + size - switchSize - new Vector2(10f, 10f), switchSize);
+            }
+        }
+
+        private bool _drawingSwitchShown;
+
+        /// <summary>The switch shown over a written module, saying what it turns to, and kept over the code's editor.</summary>
+        private void TickDrawingSwitch()
+        {
+            if (_drawingSwitch == null)
+                return;
+            bool shown = _session != null && _session.ShowsWritten && !PageShowing;
+            if (shown != _drawingSwitchShown)
+            {
+                Show(_drawingSwitch, shown);
+                if (shown)
+                    _drawingSwitch.transform.SetAsLastSibling();
+                _drawingSwitchShown = shown;
+            }
+            if (!shown)
+                return;
+            string caption = _session.ShowsDrawingOfCode ? CodeCaption : DrawingCaption;
+            if (_drawingCaption.text != caption)
+                _drawingCaption.text = caption;
         }
 
         /// <summary>How much of the circuit's window's foot the strip takes, with its margin; 0 while it is down.</summary>

@@ -247,14 +247,15 @@ namespace BitSorter.Board
                     Left("in", 0, -0.75);
                     return new PartOutline(-0.75, -0.35, 0.35, 0.35, pins);
 
-                case BlockPart block:
+                case BlockPart _:
+                case BoxPart _:
                 {
                     // A box with its ports' names inside, inputs down the left and outputs down the right, its inouts under
-                    // them (Part 14g).
+                    // them (Part 14g); a drawing of code's box the same (Part 15h-4).
                     var inputs = new List<Pin>();
                     var outputs = new List<Pin>();
                     var inouts = new List<Pin>();
-                    foreach (Pin pin in block.Pins(project))
+                    foreach (Pin pin in part.Pins(project))
                         (pin.Direction == PinDirection.In ? inputs : pin.Direction == PinDirection.InOut ? inouts : outputs).Add(pin);
                     outputs.AddRange(inouts);
 

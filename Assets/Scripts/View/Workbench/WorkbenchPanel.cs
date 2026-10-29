@@ -1532,6 +1532,7 @@ namespace BitSorter.View
             RefreshHierarchy();
             RefreshPartsPanel();
             TickCode();
+            TickDrawingSwitch();
             RefreshCode();
 
             // The run is made a slice a frame until it is done, and a moment past where it has got waits;

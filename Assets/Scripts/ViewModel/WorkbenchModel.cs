@@ -195,6 +195,8 @@ namespace BitSorter.ViewModel
             foreach (int signal in _netSignals) Track(signal);
             foreach (int signal in _partOutputs) Track(signal);
             foreach (int signal in _portSignals) Track(signal);
+            if (layout.Drawn != null)
+                foreach (int signal in layout.Drawn.Reads) Track(signal);
 
             SetRows(rows);
             Grow(complete);
@@ -492,8 +494,14 @@ namespace BitSorter.ViewModel
         // What the schematic shows
         // -----------------------------------------------------------------
 
-        /// <summary>The value a net holds now.</summary>
-        public LogicVec NetValue(int net) => ValueAt(_netSignals[net], Layout.Nets[net].Width, Time);
+        /// <summary>The value a net holds now: its signal's, or for a wire of a drawing of code no signal holds, worked out (Part 15h-4).</summary>
+        public LogicVec NetValue(int net)
+        {
+            int signal = _netSignals[net];
+            if (signal < 0 && Layout.Drawn != null && Layout.Drawn.Has(net))
+                return Layout.Drawn.ValueAt(net, Time, Session.Design.Signals.Count, s => ValueAt(s, 1, Time));
+            return ValueAt(signal, Layout.Nets[net].Width, Time);
+        }
 
         /// <summary>The value a part's signal holds now: a lamp's, what it shows.</summary>
         public LogicVec PartValue(int part) => ValueAt(_partOutputs[part], 1, Time);

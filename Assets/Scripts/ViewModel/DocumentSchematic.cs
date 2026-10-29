@@ -53,9 +53,16 @@ namespace BitSorter.ViewModel
             Module module = moduleName == null ? project.TopModule : project.Find(moduleName);
             if (module == null)
                 return null;
-            CompiledModule top = compiled.Find(module.Name);
-            Netlist netlist = top.Nets;
-            string path = instancePath ?? compiled.DesignPath;
+            return Build(project, module, compiled.Find(module.Name).Nets, instancePath ?? compiled.DesignPath, compiled.DesignPath, compiled.Cells, routes);
+        }
+
+        /// <summary>
+        /// A module laid out from its own board netlist, its signals read under <paramref name="path"/>: one the project does
+        /// not compile -- the drawing of a written module's code (Part 15h-4), held beside the project -- as well as one it does.
+        /// </summary>
+        public static SchematicLayout Build(Project project, Module module, Netlist netlist, string path, string designPath,
+            IReadOnlyList<string> cells, Func<Module, IReadOnlyDictionary<int, IReadOnlyList<BoardPoint>>> routes)
+        {
             string unit = project.Settings?.TimeUnit ?? TimeUnits.Default;
 
             var outlines = new Dictionary<int, PartOutline>();
@@ -260,7 +267,7 @@ namespace BitSorter.ViewModel
                     rows.Add(new WaveRow(port.Width > 1 ? port.Name + "[" + (port.Width - 1).ToString(CultureInfo.InvariantCulture) + ":0]" : port.Name,
                         path + "." + port.Name));
 
-            return new SchematicLayout(size, nets, parts, ports, rows, compiled.DesignPath, compiled.Cells, unit, frame, path);
+            return new SchematicLayout(size, nets, parts, ports, rows, designPath, cells, unit, frame, path);
         }
 
         private static bool Contains(IReadOnlyList<PinRef> pins, PinRef pin)
@@ -323,6 +330,7 @@ namespace BitSorter.ViewModel
             {
                 case GatePart gate: return gate.Kind.ToString().ToUpperInvariant();
                 case BlockPart block: return block.Copies > 1 ? block.Module + " ×" + block.Copies : block.Module;   // an array: half_adder x4
+                case BoxPart box: return box.Label;
                 case ConstantPart constant: return constant.Value.ToLiteral(SystemVerilog.Radix.Binary);
                 case MuxPart mux: return "MUX";
                 case OperatorPart op: return Operators.Token(op.Op);

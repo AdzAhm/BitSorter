@@ -237,7 +237,11 @@ namespace BitSorter.ViewModel
         private SchematicLayout LayoutOf(Project project, CompiledProject compiled)
         {
             double started = _now();
-            SchematicLayout layout = DocumentSchematic.Build(project, compiled, ModuleOn(project, _path, out _), InstancePathUnder(compiled.DesignPath),
+            string shown = ModuleOn(project, _path, out _);
+            SchematicLayout layout = null;
+            if (project.Find(shown)?.IsWritten == true && _drawnCode.Contains(shown))
+                layout = DrawingLayout(project, compiled, InstancePathUnder(compiled.DesignPath), shown);
+            layout ??= DocumentSchematic.Build(project, compiled, shown, InstancePathUnder(compiled.DesignPath),
                 m => RoutesOf(project, m));
             _slowest = Math.Max(_slowest, _now() - started);
             return layout;
@@ -295,8 +299,80 @@ namespace BitSorter.ViewModel
 
         private CodeDocument _code;
 
-        /// <summary>Whether the module shown is written: the circuit's window shows its text rather than a drawing.</summary>
-        public bool ShowsCode => Project.Find(Module)?.IsWritten == true;
+        /// <summary>Whether the module shown is written: the circuit's window shows its text rather than a drawing, unless it shows the drawing of its code.</summary>
+        public bool ShowsCode => ShowsWritten && !_drawnCode.Contains(Module);
+
+        /// <summary>Whether the module shown is written, as its code or as the drawing of its code (Part 15h-4).</summary>
+        public bool ShowsWritten => Project.Find(Module)?.IsWritten == true;
+
+        /// <summary>
+        /// Whether the written module shown is shown as the drawing of its code (Part 15h-4): what it builds, as the circuit's
+        /// window draws any circuit, its values the run's. Remembered for each module.
+        /// </summary>
+        public bool ShowsDrawingOfCode => ShowsWritten && _drawnCode.Contains(Module);
+
+        private readonly HashSet<string> _drawnCode = new HashSet<string>(StringComparer.Ordinal);
+
+        /// <summary>Shows the written module shown as the drawing of its code, or as its code again.</summary>
+        public void DrawCode(bool drawn)
+        {
+            if (!ShowsWritten)
+                return;
+            if (drawn ? !_drawnCode.Add(Module) : !_drawnCode.Remove(Module))
+                return;
+            Relayout();
+        }
+
+        /// <summary>What an edit on the drawing of code is told: it is the code's, and changes with it.</summary>
+        public const string DrawingRefusal = "This is the drawing of the code: change the code to change it.";
+
+        private EditResult? OnTheDrawing => ShowsDrawingOfCode ? EditResult.Refused(DrawingRefusal) : (EditResult?)null;
+
+        private IReadOnlyList<Module> _drawnModules;
+        private string _drawnPath;
+        private RtlDrawing _drawing;
+
+        /// <summary>
+        /// The drawing of the written module at <paramref name="path"/>, made once for the document's modules and the instance
+        /// stepped into: its code elaborated as the run elaborates it, its netlist drawn.
+        /// </summary>
+        private RtlDrawing DrawingOf(Project project, CompiledProject compiled, string path, string module)
+        {
+            if (ReferenceEquals(_drawnModules, project.Modules) && _drawnPath == path && _drawing?.Module.Name == module)
+                return _drawing;
+            Elaboration elaboration = Elaborator.Elaborate(compiled.Tree, compiled.Top);
+            if (elaboration.HasErrors)
+                return null;
+            RtlNetlist netlist = RtlExtractor.Of(elaboration.Design, path);
+            if (netlist == null)
+                return null;
+            _drawing = RtlDrawing.Of(project, netlist, module);
+            _drawnNetlist = netlist;
+            _drawnModules = project.Modules;
+            _drawnPath = path;
+            return _drawing;
+        }
+
+        private RtlNetlist _drawnNetlist;
+
+        /// <summary>The drawing of code laid out, its wires no signal holds valued from the netlist.</summary>
+        private SchematicLayout DrawingLayout(Project project, CompiledProject compiled, string path, string module)
+        {
+            RtlDrawing drawing = DrawingOf(project, compiled, path, module);
+            if (drawing == null)
+                return null;
+            Netlist nets = Netlist.Of(drawing.Project, drawing.Module);
+            SchematicLayout layout = DocumentSchematic.Build(drawing.Project, drawing.Module, nets, path, compiled.DesignPath, compiled.Cells,
+                m => RoutesOf(drawing.Project, m));
+            var rtlNetOf = new int[layout.Nets.Count];
+            for (int i = 0; i < rtlNetOf.Length; i++)
+            {
+                Net net = nets.Named(layout.Nets[i].Name);
+                rtlNetOf[i] = net != null && net.Wires.Count > 0 ? drawing.NetOfWire(net.Wires[0]) : -1;
+            }
+            layout.Drawn = new DrawnValues(_drawnNetlist, rtlNetOf);
+            return layout;
+        }
 
         /// <summary>The text of the written module shown, as its editor has it; null while the module shown is drawn.</summary>
         public CodeDocument Code
@@ -413,16 +489,16 @@ namespace BitSorter.ViewModel
         public string WhyNotRemoveModule(string name) => Editor.WhyNotRemoveModule(name);
 
         /// <summary>Places what <paramref name="entry"/> offers at <paramref name="at"/> (<see cref="PartsCatalog.Place"/>): drawn now, and replayed.</summary>
-        public EditResult Place(CatalogEntry entry, Placement at) => Edited(PartsCatalog.Place(Editor, Module, entry, at));
+        public EditResult Place(CatalogEntry entry, Placement at) => OnTheDrawing ?? Edited(PartsCatalog.Place(Editor, Module, entry, at));
 
         /// <summary>
         /// The parts of the module shown made into a block called <paramref name="name"/> (<see cref="BlockMaker.Make"/>, Part
         /// 12b): drawn now, and replayed -- the circuit doing exactly what it did. The result's id is the new instance's.
         /// </summary>
-        public EditResult MakeBlock(IReadOnlyCollection<int> parts, string name) => Edited(BlockMaker.Make(Editor, Module, parts, name));
+        public EditResult MakeBlock(IReadOnlyCollection<int> parts, string name) => OnTheDrawing ?? Edited(BlockMaker.Make(Editor, Module, parts, name));
 
         /// <summary>Takes parts and wires away (<see cref="BoardEditor.RemoveParts"/>): drawn now, and replayed.</summary>
-        public EditResult Remove(IEnumerable<int> parts, IEnumerable<int> wires = null) => Edited(Editor.RemoveParts(Module, ExerciseKeeps(parts), wires));
+        public EditResult Remove(IEnumerable<int> parts, IEnumerable<int> wires = null) => OnTheDrawing ?? Edited(Editor.RemoveParts(Module, ExerciseKeeps(parts), wires));
 
         /// <summary>
         /// <paramref name="parts"/> less an exercise's ports, at its top (Part 15d): they are its test's, so a select-all and
@@ -441,18 +517,20 @@ namespace BitSorter.ViewModel
         }
 
         /// <summary>Draws a wire between two ends, a pin or a tap each, through <paramref name="route"/>'s bends (<see cref="BoardEditor.Connect"/>; Part 10b): drawn now, and replayed.</summary>
-        public EditResult Connect(Endpoint from, Endpoint to, Route route = null) => Edited(Editor.Connect(Module, from, to, route));
+        public EditResult Connect(Endpoint from, Endpoint to, Route route = null) => OnTheDrawing ?? Edited(Editor.Connect(Module, from, to, route));
 
         /// <summary>What the inspector's fields were changed to (<see cref="Inspector.Apply"/>; Part 10c), as one step: drawn now, and replayed.</summary>
         public EditResult Inspect(Inspection inspection, IReadOnlyDictionary<string, string> typed)
         {
+            if (OnTheDrawing is EditResult refused)
+                return refused;
             Project before = Project;
             EditResult result = Inspector.Apply(Editor, Module, inspection, typed);
             return ReferenceEquals(before, Project) ? result : Edited(result);
         }
 
         /// <summary><paramref name="clip"/> pasted (<see cref="Clipboard.Paste"/>; Part 10d), one step: drawn now, and replayed.</summary>
-        public EditResult Paste(Clip clip, List<int> parts, List<int> wires) => Edited(Clipboard.Paste(Editor, Module, clip, parts, wires));
+        public EditResult Paste(Clip clip, List<int> parts, List<int> wires) => OnTheDrawing ?? Edited(Clipboard.Paste(Editor, Module, clip, parts, wires));
 
         /// <summary>
         /// <paramref name="wires"/> put back on the automatic route, their bends forgotten and a tap's place along its wire
@@ -460,6 +538,8 @@ namespace BitSorter.ViewModel
         /// </summary>
         public EditResult AutoRoute(IReadOnlyCollection<int> wires)
         {
+            if (OnTheDrawing is EditResult refused)
+                return refused;
             Module module = Project.Find(Module);
             if (module == null || wires == null || wires.Count == 0)
                 return EditResult.Refused("There is no wire selected to route again.");
@@ -479,10 +559,10 @@ namespace BitSorter.ViewModel
         }
 
         /// <summary>Changes how a wire runs, its bends (<see cref="BoardEditor.Reroute"/>; Part 10b-2): drawn again, and nothing replayed.</summary>
-        public EditResult Reroute(int wire, Route route) => Laid(Editor.Reroute(Module, wire, route));
+        public EditResult Reroute(int wire, Route route) => OnTheDrawing ?? Laid(Editor.Reroute(Module, wire, route));
 
         /// <summary>Moves, turns or mirrors parts (<see cref="BoardEditor.MoveParts"/>): drawn again, and nothing replayed.</summary>
-        public EditResult Move(IReadOnlyDictionary<int, Placement> to, bool continuing = false) => Laid(Editor.MoveParts(Module, to, continuing));
+        public EditResult Move(IReadOnlyDictionary<int, Placement> to, bool continuing = false) => OnTheDrawing ?? Laid(Editor.MoveParts(Module, to, continuing));
 
         /// <summary>
         /// Turns the parts <paramref name="parts"/> by <paramref name="quarterTurns"/>, counter-clockwise, about their
@@ -492,6 +572,8 @@ namespace BitSorter.ViewModel
         /// </summary>
         public EditResult Turn(IReadOnlyCollection<int> parts, int quarterTurns, bool mirror = false)
         {
+            if (OnTheDrawing is EditResult refused)
+                return refused;
             Module module = Project.Find(Module);
             if (module == null || parts == null || parts.Count == 0)
                 return EditResult.Refused("There is nothing selected to turn.");

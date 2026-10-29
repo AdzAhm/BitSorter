@@ -1983,6 +1983,64 @@ namespace BitSorter.PlayMode.Tests
             yield return Capture("62-workbench-turned-block");
         }
 
+        /// <summary>
+        /// Part 15h-4: written code shown as the drawing of what it builds -- the written adder's block, its code made a small
+        /// ALU, a case on a's top bits choosing a + b, a - b, a &amp; b or a | b: its operators, the muxes the case is, and the
+        /// run's values on every wire, those inside the expressions included.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator Shot63_WorkbenchDrawingOfCode()
+        {
+            yield return LoadTheGame();
+            yield return Frames(2);
+
+            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            yield return Frames(2);
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            int written = -1;
+            for (int i = 0; i < WorkbenchSamples.Chip.Count; i++)
+                if (WorkbenchSamples.Chip[i].Name == "Written adder")
+                    written = i;
+            workbench.ShowSample(written);
+            yield return Frames(2);
+            workbench.Pause();
+            int add = workbench.Session.Project.TopModule.Parts.First(p => p is BitSorter.Board.BlockPart).Id;
+            Assert.IsTrue(workbench.StepInto(add));
+            yield return Frames(2);
+
+            BitSorter.Board.EditResult applied = workbench.Session.SetSource(DrawnAlu);
+            Assert.IsTrue(applied.Done, applied.Refusal);
+            workbench.DrawingSwitch.onClick.Invoke();
+            workbench.Session.Finish();
+            yield return Frames(2);
+            workbench.FitView();
+            workbench.Seek(4 * WorkbenchSamples.WrittenAdderStep + 4.5);
+            yield return Frames(30);
+
+            Assert.IsTrue(workbench.Session.ShowsDrawingOfCode, "sanity: the drawing");
+            yield return Capture("63-workbench-drawing-of-code");
+        }
+
+        /// <summary>The written adder's block made a small ALU for the drawing of code's shot: its ports as they were.</summary>
+        private const string DrawnAlu =
+            "module add4 #(\n" +
+            "    parameter N = 4\n" +
+            ") (\n" +
+            "    input  logic [N-1:0] a,\n" +
+            "    input  logic [N-1:0] b,\n" +
+            "    output logic [N-1:0] s,\n" +
+            "    output logic         cout\n" +
+            ");\n" +
+            "    always_comb\n" +
+            "        case (a[3:2])\n" +
+            "            2'b00:   {cout, s} = a + b;\n" +
+            "            2'b01:   {cout, s} = a - b;\n" +
+            "            2'b10:   {cout, s} = {1'b0, a & b};\n" +
+            "            default: {cout, s} = {1'b0, a | b};\n" +
+            "        endcase\n" +
+            "endmodule\n";
+
         private static IEnumerator OpenTheHalfAdder()
         {
             yield return TestScene.LoadSimulator();

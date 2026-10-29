@@ -232,6 +232,25 @@ namespace BitSorter.Board
         }
     }
 
+    /// <summary>
+    /// A box a drawing of code shows where no other part is the same thing (Part 15h-4): a slice <c>[3:0]</c>, a join of
+    /// bits, a process that is no circuit -- its label and its pins, for showing only. Nothing compiles it, saves it or
+    /// places it: a drawing of code is held beside the project, never in it.
+    /// </summary>
+    public sealed record BoxPart : Part
+    {
+        /// <summary>What it says it is: <c>[3:0]</c>, <c>{ , }</c>, <c>always@16</c>.</summary>
+        public string Label { get; init; } = "";
+
+        /// <summary>Its pins, inputs and outputs, in order.</summary>
+        public IReadOnlyList<Pin> Ports { get; init; } = Array.Empty<Pin>();
+
+        /// <summary>For a process that is no circuit, why; null for anything else.</summary>
+        public string Says { get; init; }
+
+        public override IReadOnlyList<Pin> Pins(Project project) => Ports;
+    }
+
     /// <summary>A bus taken apart: o<i>i</i> is bit <i>i</i> of in.</summary>
     public sealed record SplitterPart : Part
     {

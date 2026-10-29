@@ -50,11 +50,11 @@ namespace BitSorter.View
         /// </summary>
         private void RefreshPartsPanel()
         {
-            if (_session == null || ReferenceEquals(_partsProject, _session.Project))
+            if (_session == null || (ReferenceEquals(_partsProject, _session.Project) && _session.ShowsDrawingOfCode == _partsDrawing))
                 return;
             _partsProject = _session.Project;
             if (ModulesOf(_partsProject) != _partsModules || !ReferenceEquals(_partsProject.Settings?.Library, _partsLibrary)
-                || _session.ShowsCode != _partsShowCode)
+                || _session.ShowsCode != _partsShowCode || _session.ShowsDrawingOfCode != _partsDrawing)
             {
                 BuildPartsPanel(SchematicPalette.Current);
                 return;
@@ -72,7 +72,11 @@ namespace BitSorter.View
             _partsModules = ModulesOf(_partsProject);
             _partsLibrary = _partsProject?.Settings?.Library;
             _partsShowCode = _session != null && _session.ShowsCode;
+            _partsDrawing = _session != null && _session.ShowsDrawingOfCode;
         }
+
+        /// <summary>Whether PARTS was made for the drawing of written code (Part 15h-4), which says so.</summary>
+        private bool _partsDrawing;
 
         /// <summary>Whether PARTS was made for written code, which has nothing to place: an exercise's top written or drawn again turns it (Part 15e).</summary>
         private bool _partsShowCode;

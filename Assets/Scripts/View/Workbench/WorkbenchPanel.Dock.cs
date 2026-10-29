@@ -216,10 +216,12 @@ namespace BitSorter.View
             int placed = 0;
             CatalogGroup? group = null;
 
-            // Inside written code there is nothing to place: its text is the block (Part 12d).
-            if (_session.ShowsCode)
+            // Inside written code there is nothing to place: its text is the block (Part 12d), and its drawing is the text's (15h-4).
+            if (_session.ShowsWritten)
             {
-                Label note = ShellTheme.Label(CodeNoteName, "A written block has no parts: its code is what it does. Type it on the right; Alt+Up steps out.",
+                Label note = ShellTheme.Label(CodeNoteName, _session.ShowsDrawingOfCode
+                        ? "This drawing is what the code builds: change the code to change it. CODE shows the text; Alt+Up steps out."
+                        : "A written block has no parts: its code is what it does. Type it on the right; Alt+Up steps out.",
                     UiType.Caption, palette.TextDim);
                 note.style.whiteSpace = WhiteSpace.Normal;
                 ShellTheme.Place(note, PanelPad, y, inside, PartRowHeight * 4f);
@@ -239,7 +241,7 @@ namespace BitSorter.View
                     y += PartRowHeight + PartGap;
             }
 
-            foreach (CatalogEntry entry in _session.ShowsCode ? new CatalogEntry[0] : PartsCatalog.For(_session.Project, _session.Module))
+            foreach (CatalogEntry entry in _session.ShowsWritten ? new CatalogEntry[0] : PartsCatalog.For(_session.Project, _session.Module))
             {
                 if (entry.Group != group && group == CatalogGroup.More)
                     PlaceCodeCell();
