@@ -390,25 +390,36 @@ namespace BitSorter.View
                     ? "no expression past " + Minimizer.MostVariables.ToString(CultureInfo.InvariantCulture) + " input bits"
                     : Minimizer.Textbook(expression.Terms, names) + (free ? "     (x read as don't care)" : "")
                         + (expression.Proven ? "" : "     (the smallest found, not proven the smallest there is)");
-                Label says = ShellTheme.Label(LogicExpressionName + output.Name, output.Name + " = " + textbook, UiType.Body, palette.Text);
-                ShellTheme.Place(says, x0, y, right - x0, 28f);
-                ShellTheme.Ellipsis(says);
-                _logicList.Add(says);
-                y += 28f;
+                // Whole, on as many rows as it needs, cut between its products (Part 15h-4d): it ended in "..." at the
+                // block's edge, and a 2-bit ALU's could not be read (Ahmad, 2026-10-29).
+                y += Rows(LogicExpressionName + output.Name, output.Name + " = " + textbook, " + ", UiType.Body, LogicBodyRow,
+                    x0, y, right - x0, palette.Text);
                 if (expression != null)
-                {
-                    Label verilog = ShellTheme.Label(LogicVerilogName + output.Name,
-                        "assign " + output.Name + " = " + Minimizer.SystemVerilog(expression.Terms, names) + ";", UiType.Caption, palette.TextDim);
-                    ShellTheme.Place(verilog, x0 + 14f, y, right - x0 - 14f, 24f);
-                    ShellTheme.Ellipsis(verilog);
-                    _logicList.Add(verilog);
-                    y += 26f;
-                }
+                    y += 2f + Rows(LogicVerilogName + output.Name, "assign " + output.Name + " = " + Minimizer.SystemVerilog(expression.Terms, names) + ";",
+                        " | ", UiType.Caption, LogicCaptionRow, x0 + 14f, y, right - x0 - 14f, palette.TextDim);
                 if (map != null)
                     y = DrawMap(map, x0 + 14f, y + 4f, palette) + 8f;
                 rowFoot = Mathf.Max(rowFoot, y + 18f);
             }
             _logicRightReach = rowFoot + _logicRightScroll;
+        }
+
+        // The height of a row of an expression, and of its assign line under it.
+        private const float LogicBodyRow = 24f, LogicCaptionRow = 18f;
+
+        /// <summary>
+        /// <paramref name="text"/> as one label of as many rows as it needs within <paramref name="width"/>, cut after each
+        /// <paramref name="mark"/> (<see cref="TextRows"/>), at <paramref name="x"/>, <paramref name="y"/>. How tall it is.
+        /// </summary>
+        private float Rows(string name, string text, string mark, UiType type, float row, float x, float y, float width, Color colour)
+        {
+            System.Collections.Generic.List<string> rows = TextRows.Of(text, width - 4f, t => UiTheme.TextWidth(t, type), mark);
+            Label label = ShellTheme.Label(name, string.Join("\n", rows), type, colour);
+            label.style.whiteSpace = WhiteSpace.Normal;
+            float height = rows.Count * row + 4f;
+            ShellTheme.Place(label, x, y, width, height);
+            _logicList.Add(label);
+            return height;
         }
 
         /// <summary>A K-map at <paramref name="x"/>, <paramref name="y"/>: the variables in its corner, Gray codes along its edges, a cell for each row. Its foot.</summary>
