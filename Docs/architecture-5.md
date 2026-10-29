@@ -3501,6 +3501,15 @@ instances inside written code stepped into, and GATES opening its small operator
   shown on an adder's operand; a signal named p3 losing its name to a part named p3; a box reading and writing one
   signal with a pin named twice; text typed and not applied lost by a look at the drawing; DRAWING not refitting the
   view; and two loops the square of the nets. All are fixed and held by tests now.
+- **A timing path is lit through the whole of each step** (a fix after Ahmad's first look, 2026-10-29: "the yellow
+  line indicating critical path isnt in everything"). TIMING's path is a run of signals and one assign one step of it,
+  and `TimingLight` lit a step only where one part both read a signal and drove the next -- true of every drawn circuit,
+  and of next to nothing on a drawing of code, where an assign is the operators it is made of, joined by wires named
+  `$` and a number, and an instance takes its bits through a slice and gives them back through a join. So the path lit
+  its two ports and its last wire. Where no one part joins two of the path's signals, the light now follows the `$`
+  wires from the one to the other, through anything but a block or a register, and takes the longest way, the most
+  parts -- as a path through gates is the one through the most of them; a drawn circuit has no such wire and lights as
+  before, to the part.
 - **Known, and left** (the second half, or 15h-6's measuring): an inout port is not drawn; an operator's sign and a
   register's negedge are not shown; why a process is a box is held (`BoxPart.Says`) but not shown; a library cell is
   known by its name; and the code is elaborated again for each drawing, which 15h-6 measures with a cap on the parts
