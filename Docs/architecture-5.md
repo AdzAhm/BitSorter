@@ -3571,28 +3571,40 @@ projects"). A circuit locked against change, so a look round an imported project
   lock at the circuit's corner to change it":
   - placing, wiring, moving, turning, deleting, pasting, routing, the inspector and MAKE BLOCK, beside the drawing's own
     refusal, and a drag as it begins (`CanvasEditor`);
-  - the code, a module added, replaced or deleted, and a written testbench converted, which takes code out;
-  - an undo or a redo that would change them (`WhyNotUndo`, `WhyNotRedo`: the step's modules are not the project's;
-    `BoardEditor.UndoTarget` and `RedoTarget` say what a step goes to), so the lock has no hole through Ctrl+Z.
-  - Not its inputs, a test of them, its gate library or its unit: trying values changes no circuit, and their steps
-    still undo.
+  - the code, a module added, replaced or deleted, a written testbench converted, which takes code out, and a gate
+    library, which retimes the gates -- each refused before anything asks for a name (`WhyNotChange`,
+    `WhyNotChangeCode`, `WhyNotRemoveModule`);
+  - an undo or a redo that would change them (`WhyNotUndo`, `WhyNotRedo`: the step's modules are not the project's,
+    compared one by one, since a library chosen builds its list afresh; `BoardEditor.UndoTarget` and `RedoTarget` say
+    what a step goes to), so the lock has no hole through Ctrl+Z.
+  - Not its inputs, a test of them or its unit: trying values changes no circuit, and their steps still undo.
+  - Typed code not yet applied is applied as the lock goes on, or the lock refused, as EXPORT does; the desktop
+    editor's own keys (a comment, a step of the typing) are off while locked, and the browser's editor is set unlocked
+    whenever it is made, since the page's editor outlives a change of style.
   - On a drawing of code its own refusal comes first: unlocked, the drawing still takes no edit until 15h-4g, and "press
     the lock" would send the student the wrong way.
 - **It is no edit, and not in the project**: no undo step, the run not made again, nothing of the document changed.
   The save keeps the keys of the locked circuits (`ProgressStore.locked`, absent -- nothing locked -- in every file from
   before it), following a rename and going with a delete.
 - **Where**: the padlock is a button in the circuit window's top strip, left of FIT's place, drawn by the workbench's
-  painter (`WorkbenchDrawing.Padlock`): shut in the accent, open in the text's colour. Not the lower corner first asked
+  painter (`WorkbenchDrawing.Padlock`): shut in the accent, open in the text's colour; over code, just left of the
+  DRAWING switch, the code's strip keeping it room clear of REVERT only while it is up (`CodeEditorView.LockRoom`,
+  `KeepsLockRoom`: a sample's strip showed a gap where nothing stood), and the strip's line saying LOCKED where it said
+  the code applies itself as you type. Not the lower corner first asked
   for: in a browser the code is a box over everything under that strip, and the lock would be under it exactly when the
   code was to be unlocked. Only a circuit has one; a sample and an exercise never lock.
 - **An import opens locked**, but for a course template (`Module.Template`), which is imported to be written into.
 - **The code's editor is read only while locked**, in both builds: TextMesh Pro's field by its own switch, CodeMirror by
   `EditorState.readOnly` in a compartment (`BitSorterCode.setReadOnly`), kept over a new block's code loaded -- the
   text still selected, copied and searched, and set by the game.
-- **Tests**: every edit refused and nothing changed, the code refused, the inputs, library and unit still taken, the
-  lock no undo step, an undo across it refused for the circuit and not for an input, a drag refused as it begins
-  (`LockTests`); the save over a restart, a rename and a delete (`ProgressStoreTests`); in Play Mode an import opening
-  locked with its code read only until the padlock is pressed, and CONVERT refused until then.
+- **Tests**: every edit refused and nothing changed -- wiring, rerouting, pasting and the library among them -- the code
+  refused, the inputs and unit still taken and both undone, the lock no undo step, an undo across it refused for the
+  circuit and not for an input, a library that retimed nothing going back while locked, a drag refused as it begins
+  (`LockTests`); the save over a restart, a rename, a delete and a file from before it (`ProgressStoreTests`); in Play
+  Mode an import opening locked with its code read only until the padlock is pressed, and CONVERT refused until then;
+  shot 66, an imported written design's code, locked.
+  The Sonnet review found the library hole, the editor's keys, typed code at the lock, the browser editor after a
+  change of style and the padlock over REVERT; all fixed.
 
 ---
 

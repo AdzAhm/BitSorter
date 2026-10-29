@@ -572,9 +572,9 @@ namespace BitSorter.ViewModel
         /// <summary>
         /// The document locked against change (Part 15h-4d, asked 2026-10-29; an imported project opens locked): every edit
         /// of its circuit and its code is refused, saying how to unlock it -- placing, wiring, moving, turning, deleting,
-        /// pasting, routing, the inspector, MAKE BLOCK, the code, a module added, replaced or deleted, a testbench converted --
-        /// and so is an undo or a redo that would change them. Nothing else is: its inputs and a test of them, its gate
-        /// library and its unit are tried as before, and a copy is taken. Not an edit itself: no undo step, the run not made
+        /// pasting, routing, the inspector, MAKE BLOCK, the code, a module added, replaced or deleted, a testbench converted,
+        /// its gate library, which retimes its gates -- and so is an undo or a redo that would change them. Nothing else is:
+        /// its inputs and a test of them and its unit are tried as before, and a copy is taken. Not an edit itself: no undo step, the run not made
         /// again; the workbench keeps it in the save beside the document.
         /// </summary>
         public bool Locked
@@ -582,17 +582,11 @@ namespace BitSorter.ViewModel
             get => _locked;
             set
             {
-                if (_locked == value)
-                    return;
                 _locked = value;
-                LockVersion++;
             }
         }
 
         private bool _locked;
-
-        /// <summary>Moves on whenever <see cref="Locked"/> changes, for what shows it to redraw.</summary>
-        public int LockVersion { get; private set; }
 
         /// <summary>What an edit of a locked document is told.</summary>
         public const string LockedRefusal = "Locked: press the lock at the circuit's corner to change it.";
@@ -600,13 +594,38 @@ namespace BitSorter.ViewModel
         private EditResult? Unchangeable => _locked ? EditResult.Refused(LockedRefusal) : (EditResult?)null;
 
         /// <summary>
+        /// Why the circuit shown takes no edit -- the drawing of code's or the lock's reason -- or null: asked before a name
+        /// is asked for, so MAKE BLOCK refuses at once rather than after the name (the review of the lock).
+        /// </summary>
+        public string WhyNotChange => OnTheDrawing?.Refusal;
+
+        /// <summary>Why no code can be added or changed -- the lock -- or null: asked before + CODE asks a name.</summary>
+        public string WhyNotChangeCode => Unchangeable?.Refusal;
+
+        /// <summary>
+        /// Whether two projects' modules are the same, one by one: a library chosen builds its list afresh and keeps every
+        /// module it retimes nothing in (the review of the lock: compared as lists, its step never went back while locked).
+        /// </summary>
+        private static bool SameModules(IReadOnlyList<Module> a, IReadOnlyList<Module> b)
+        {
+            if (ReferenceEquals(a, b))
+                return true;
+            if (a.Count != b.Count)
+                return false;
+            for (int i = 0; i < a.Count; i++)
+                if (!ReferenceEquals(a[i], b[i]))
+                    return false;
+            return true;
+        }
+
+        /// <summary>
         /// Why the last edit cannot be taken back now -- the document is locked and the step would change its circuit or its
         /// code -- or null. A step of its inputs, its library or its unit leaves the modules as they were, and goes back.
         /// </summary>
-        public string WhyNotUndo => _locked && Editor.UndoTarget is Project before && !ReferenceEquals(before.Modules, Project.Modules) ? LockedRefusal : null;
+        public string WhyNotUndo => _locked && Editor.UndoTarget is Project before && !SameModules(before.Modules, Project.Modules) ? LockedRefusal : null;
 
         /// <summary>As <see cref="WhyNotUndo"/>, for making the edit last taken back again.</summary>
-        public string WhyNotRedo => _locked && Editor.RedoTarget is Project after && !ReferenceEquals(after.Modules, Project.Modules) ? LockedRefusal : null;
+        public string WhyNotRedo => _locked && Editor.RedoTarget is Project after && !SameModules(after.Modules, Project.Modules) ? LockedRefusal : null;
 
         private IReadOnlyList<Module> _drawnModules;
         private string _drawnPath;
@@ -787,7 +806,7 @@ namespace BitSorter.ViewModel
         }
 
         /// <summary>Why <paramref name="name"/> cannot be taken out -- something uses it -- or null when it can (<see cref="BoardEditor.WhyNotRemoveModule"/>).</summary>
-        public string WhyNotRemoveModule(string name) => Editor.WhyNotRemoveModule(name);
+        public string WhyNotRemoveModule(string name) => Unchangeable?.Refusal ?? Editor.WhyNotRemoveModule(name);
 
         /// <summary>Places what <paramref name="entry"/> offers at <paramref name="at"/> (<see cref="PartsCatalog.Place"/>): drawn now, and replayed.</summary>
         public EditResult Place(CatalogEntry entry, Placement at) => OnTheDrawing ?? Edited(PartsCatalog.Place(Editor, Module, entry, at));
@@ -1022,7 +1041,7 @@ namespace BitSorter.ViewModel
         /// The design held to <paramref name="library"/>, or to none for null (Part 14d, <see cref="BoardEditor.SetLibrary"/>):
         /// every gate of a cell given the cell's delays, one step, drawn at once and run again.
         /// </summary>
-        public EditResult SetLibrary(GateLibrary library) => Edited(Editor.SetLibrary(library));
+        public EditResult SetLibrary(GateLibrary library) => Unchangeable ?? Edited(Editor.SetLibrary(library));   // it retimes the gates
 
         /// <summary>The document counted in <paramref name="unit"/> (<see cref="BoardEditor.SetSettings"/>), and replayed: nothing is rescaled, everything is relabelled.</summary>
         public EditResult SetUnit(string unit) =>

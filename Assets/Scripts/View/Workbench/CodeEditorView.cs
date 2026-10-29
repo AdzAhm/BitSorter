@@ -45,6 +45,28 @@ namespace BitSorter.View
         /// </summary>
         public const float SwitchRoom = 124f + Pad;
 
+        /// <summary>Room the strip keeps left of the switch for the padlock (Part 15h-4d): its width and a gap.</summary>
+        public const float LockRoom = 48f;
+
+        /// <summary>
+        /// Whether the padlock is up beside the switch, so the strip keeps it room: a sample's code has none, and its strip
+        /// showed a gap where nothing stood.
+        /// </summary>
+        public bool KeepsLockRoom
+        {
+            get => _keepsLockRoom;
+            set
+            {
+                if (_keepsLockRoom == value)
+                    return;
+                _keepsLockRoom = value;
+                if (_root != null)
+                    Lay(_root.sizeDelta);
+            }
+        }
+
+        private bool _keepsLockRoom;
+
         /// <summary>How many faults are listed under the text; the rest are counted, so the list never takes the code's room.</summary>
         public const int ListedProblems = 3;
 
@@ -99,6 +121,7 @@ namespace BitSorter.View
                 if (_readOnly == value)
                     return;
                 _readOnly = value;
+                _shownVersion = -1;   // the strip says it
                 if (_field != null)
                     _field.readOnly = value;
                 if (_browser)
@@ -132,6 +155,7 @@ namespace BitSorter.View
             {
                 view._browser = true;
                 CodeMirrorBridge.Create(ColoursOf(palette));
+                CodeMirrorBridge.SetReadOnly(false);   // the page's editor outlives a change of style, read only or not (the review of the lock)
                 view._gutterView.gameObject.SetActive(false);
                 view._field.gameObject.SetActive(false);
             }
@@ -271,6 +295,8 @@ namespace BitSorter.View
         {
             int indent = _indentAsked;
             _indentAsked = 0;
+            if (_readOnly)
+                return;   // locked: these keys type too -- a comment, a step of the typing (the review of the lock)
             UnityEngine.InputSystem.Keyboard keys = UiText.FieldKeys;
             if (keys != null && Command(keys) && !keys.altKey.isPressed)
             {
@@ -547,8 +573,8 @@ namespace BitSorter.View
                 return;
 
             float problems = ProblemRows() * ProblemHeight + (ProblemRows() > 0 ? Pad : 0f);
-            WorkbenchPanel.TopLeft(_status.rectTransform, new Vector2(Pad, 8f), new Vector2(Mathf.Max(0f, size.x - 2f * Pad - RevertWidth - Pad - SwitchRoom), ButtonHeight));
-            WorkbenchPanel.TopLeft((RectTransform)_revert.transform, new Vector2(size.x - Pad - RevertWidth - SwitchRoom, 8f), new Vector2(RevertWidth, ButtonHeight));
+            WorkbenchPanel.TopLeft(_status.rectTransform, new Vector2(Pad, 8f), new Vector2(Mathf.Max(0f, size.x - 2f * Pad - RevertWidth - Pad - SwitchRoom - (_keepsLockRoom ? LockRoom : 0f)), ButtonHeight));
+            WorkbenchPanel.TopLeft((RectTransform)_revert.transform, new Vector2(size.x - Pad - RevertWidth - SwitchRoom - (_keepsLockRoom ? LockRoom : 0f), 8f), new Vector2(RevertWidth, ButtonHeight));
             WorkbenchPanel.TopLeft(_body, new Vector2(0f, TopStrip), new Vector2(size.x, Mathf.Max(0f, size.y - TopStrip - problems)));
             WorkbenchPanel.TopLeft(_gutterView, new Vector2(0f, 0f), new Vector2(GutterWidth, _body.sizeDelta.y));
             WorkbenchPanel.TopLeft(_gutterText, new Vector2(0f, 0f), new Vector2(GutterWidth - Pad, 100000f));
@@ -636,6 +662,8 @@ namespace BitSorter.View
                 return "NOT APPLIED: the waves are the last code that worked.";
             if (_code.Pending)
                 return "TYPING: applied when you pause, or now with Ctrl+Enter.";
+            if (_readOnly)
+                return "LOCKED: the waves are this code's. Press the lock to change it.";   // nothing typed applies (Part 15h-4d)
             return "APPLIED: the waves are this code's. It applies itself as you type.";
         }
 

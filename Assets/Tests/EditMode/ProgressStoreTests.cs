@@ -149,6 +149,12 @@ namespace BitSorter.LogicCore.Tests
             reloaded.RemoveProject("doc/alu");
             Assert.IsFalse(reloaded.IsLocked("doc/half adder"), "unlocked");
             Assert.IsFalse(reloaded.IsLocked("doc/alu"), "and a circuit deleted takes its lock with it");
+
+            // A file from before the lock has no `locked`: nothing in it is locked.
+            System.IO.File.WriteAllText(_path, "{\"format\":5,\"projects\":[]}");
+            var older = new ProgressStore(_path);
+            older.Load();
+            Assert.IsFalse(older.IsLocked("doc/half adder"), "a file from before the lock locks nothing");
         }
 
         [Test]

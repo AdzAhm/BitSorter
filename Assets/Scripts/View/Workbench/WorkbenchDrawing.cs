@@ -279,7 +279,6 @@ namespace BitSorter.View
         /// <inheritdoc cref="LegendSwatchX"/>
         public static float LegendTextX => LegendSwatchX(4) + 4f;
 
-        /// <summary>A short stretch of each value as a wire draws it, along a line <paramref name="y"/> down: 0, 1, x hatched, z dashed.</summary>
         /// <summary>
         /// The lock's padlock (Part 15h-4d), about <paramref name="centre"/>: a body with a keyhole under a shackle -- shut, both
         /// its legs in the body, in the accent, for a circuit that takes no change; open, lifted with one leg free, in the
@@ -305,6 +304,7 @@ namespace BitSorter.View
             painter.Stroke(new StageRoute(points.ToArray()), stroke, colour);
         }
 
+        /// <summary>A short stretch of each value as a wire draws it, along a line <paramref name="y"/> down: 0, 1, x hatched, z dashed.</summary>
         public static void Legend(VectorPainter painter, SchematicPalette palette, float y)
         {
             const float length = 18f;

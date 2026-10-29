@@ -1542,6 +1542,41 @@ namespace BitSorter.PlayMode.Tests
             yield return Capture("46-workbench-imported-project");
         }
 
+        /// <summary>
+        /// Part 15h-4d: an imported written design shown as its code, locked -- the padlock shut beside the DRAWING switch, the
+        /// strip keeping it room clear of REVERT, the code read only.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator Shot66_WorkbenchLockedCode()
+        {
+            Assert.IsNotNull(FileImport.Redirected, "sanity: the Import folder is the capture's scratch one, never the player's");
+            System.IO.Directory.CreateDirectory(FileImport.Folder);
+            foreach (string old in System.IO.Directory.GetFiles(FileImport.Folder))
+                System.IO.File.Delete(old);
+            System.IO.File.WriteAllText(System.IO.Path.Combine(FileImport.Folder, "mux2.sv"),
+                "// A 2-to-1 multiplexer, written for BitSorter's reference shots.\n" +
+                "module mux2 (input logic a, input logic b, input logic s, output logic y);\n" +
+                "    always_comb y = s ? b : a;\n" +
+                "endmodule\n");
+
+            yield return LoadTheGame();
+            yield return Frames(2);
+
+            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            yield return Frames(2);
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ImportFromFolder();
+            yield return Frames(2);
+            workbench.Pause();
+            workbench.Session.Finish();
+            workbench.Session.DrawCode(false);   // its code, which opens as its drawing
+            yield return Frames(30);
+
+            Assert.IsTrue(workbench.Session.Locked && workbench.Session.ShowsCode, "sanity: imported, locked, its code shown");
+            yield return Capture("66-workbench-locked-code");
+        }
+
         /// <summary>Part 14b: the dock's TIMING tab over the full adder, its critical path -- a to cout -- lit on the canvas.</summary>
         [UnityTest]
         public IEnumerator Shot47_WorkbenchTimingTab()

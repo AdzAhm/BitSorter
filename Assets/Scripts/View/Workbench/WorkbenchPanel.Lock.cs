@@ -48,6 +48,10 @@ namespace BitSorter.View
         {
             if (!Lockable)
                 return;
+            // Code typed and not yet applied is applied first, as EXPORT does, or the lock refused: locked, it could never
+            // be applied, nor the circuit exported with it (the review of the lock).
+            if (!_session.Locked && !ApplyTypedCode("locked"))
+                return;
             _session.Locked = !_session.Locked;
             if (Store() is ProgressStore store)
             {
@@ -66,6 +70,8 @@ namespace BitSorter.View
                 return;
 
             bool shown = Lockable && !PageShowing;
+            if (_codeView != null)
+                _codeView.KeepsLockRoom = shown;
             if (shown != _lockShown)
             {
                 Show(_lock, shown);
@@ -76,7 +82,10 @@ namespace BitSorter.View
             if (!shown)
                 return;
 
-            float right = _fit != null ? _fit.GetComponent<RectTransform>().anchoredPosition.x - 72f - 8f : -8f;
+            // Left of FIT's place; over code, just left of the DRAWING switch, where the code's strip keeps room for it
+            // (CodeEditorView.LockRoom) clear of REVERT.
+            float right = _session.ShowsCode ? -(CodeEditorView.SwitchRoom + 8f)
+                : _fit != null ? _fit.GetComponent<RectTransform>().anchoredPosition.x - 72f - 8f : -8f;
             Vector2 window = SizeOf(_regions.Circuit);
             Vector2 at = CornerOf(_regions.Circuit) + new Vector2(window.x + right - LockWidth, 8f);
             var rect = _lock.GetComponent<RectTransform>();

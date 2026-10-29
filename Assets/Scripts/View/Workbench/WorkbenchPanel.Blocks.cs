@@ -24,6 +24,11 @@ namespace BitSorter.View
         {
             if (_editor == null || _editor.Selection.Parts.Count == 0)
                 return;
+            if (_session?.WhyNotChange is string why)
+            {
+                Notice(why);   // the drawing's or the lock's reason before the name, never after it (the review of the lock)
+                return;
+            }
             Vector2 at = screenPoint ?? (Mouse.current != null ? Mouse.current.position.ReadValue() : new Vector2(Screen.width * 0.5f, Screen.height * 0.5f));
             _blockName.Open(_editor.FreeBlockName, at);
         }

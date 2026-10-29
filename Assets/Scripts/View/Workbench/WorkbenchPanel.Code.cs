@@ -177,6 +177,11 @@ namespace BitSorter.View
         {
             if (_session == null || _session.ShowsCode)
                 return;
+            if (_session.WhyNotChangeCode is string why)
+            {
+                Notice(why);   // before the name, never after it (the review of the lock)
+                return;
+            }
             Vector2 at = screenPoint ?? (Mouse.current != null ? Mouse.current.position.ReadValue() : new Vector2(Screen.width * 0.5f, Screen.height * 0.5f));
             _codeName.Open(FreeCodeName(), at);
         }

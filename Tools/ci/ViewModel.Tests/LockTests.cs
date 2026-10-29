@@ -48,10 +48,19 @@ namespace BitSorter.ViewModel.Tests
             Refused(session.Remove(new[] { gate.Id }), "deleting");
             Refused(session.Move(new Dictionary<int, Placement> { [gate.Id] = new Placement(new Point(at.Position.X, at.Position.Y + 3)) }), "moving");
             Refused(session.Turn(new[] { gate.Id }, 1), "turning");
+            Wire wire = session.Project.TopModule.Wires.First();
+            Refused(session.Connect(wire.From, wire.To), "wiring");
+            Refused(session.Reroute(wire.Id, new Route()), "a wire reshaped");
+            Refused(session.AutoRoute(new[] { wire.Id }), "routing again");
+            Refused(session.Paste(Clipboard.Copy(session.Project, session.Module, new[] { gate.Id }), new List<int>(), new List<int>()), "pasting");
             Refused(session.MakeBlock(new[] { gate.Id }, "lump"), "MAKE BLOCK");
             Refused(session.AddWrittenModule("code1"), "+ CODE");
             Refused(session.ReplaceModule(session.Project.TopModule), "a module put in");
             Refused(session.RemoveModule("half_adder"), "a module deleted");
+            Assert.AreEqual(WorkbenchSession.LockedRefusal, session.WhyNotRemoveModule("half_adder"), "said before it is asked");
+            Assert.AreEqual(WorkbenchSession.LockedRefusal, session.WhyNotChange, "MAKE BLOCK told before it asks a name");
+            Assert.AreEqual(WorkbenchSession.LockedRefusal, session.WhyNotChangeCode, "+ CODE the same");
+            Refused(session.SetLibrary(GateLibrary.CourseCells(2)), "a gate library, which retimes the gates");
             Assert.AreSame(before, session.Project, "nothing changed");
             Assert.IsFalse(session.Editor.CanUndo, "and nothing to undo");
         }
@@ -67,14 +76,38 @@ namespace BitSorter.ViewModel.Tests
         }
 
         [Test]
-        public void ALockedCircuit_StillTakesItsInputs_ItsLibrary_AndItsUnit()
+        public void ALockedCircuit_StillTakesItsInputs_AndItsUnit()
         {
             WorkbenchSession session = Locked(WorkbenchSamples.FullAdder());
             Assert.IsTrue(session.SetInput("b", 0, 5, LogicVec.FromBinary("1")).Done, "an input set on the waves or in INPUTS");
-            Assert.IsTrue(session.SetLibrary(GateLibrary.CourseCells(2)).Done, "a gate library chosen");
             string other = session.Project.Settings?.TimeUnit == "ns" ? "ps" : "ns";
             Assert.IsTrue(session.SetUnit(other).Done, "the unit");
-            Assert.IsTrue(session.Undo(), "and each of them taken back again");
+            Assert.IsTrue(session.Undo(), "the unit taken back");
+            Assert.IsTrue(session.Undo(), "and the input");
+            Assert.IsFalse(session.Editor.CanUndo);
+        }
+
+        /// <summary>
+        /// A library chosen before the lock that retimed nothing -- no drawn gate to retime -- goes back while locked: it builds
+        /// its list of modules afresh, every module the same, and the modules are compared one by one (the review of the lock).
+        /// </summary>
+        [Test]
+        public void ALibraryThatRetimedNothing_GoesBackWhileLocked()
+        {
+            // An input wired straight to an output: nothing a library could retime.
+            var editor = new BoardEditor(Project.New("t"));
+            EditResult a = PartsCatalog.Place(editor, "t", PartsCatalog.Find(editor.Project, "t", "input"), new Placement(1, 0));
+            EditResult y = PartsCatalog.Place(editor, "t", PartsCatalog.Find(editor.Project, "t", "output"), new Placement(8, 0));
+            Assert.IsTrue(a.Done && y.Done && editor.Connect("t", Endpoint.At(a.Id, "out"), Endpoint.At(y.Id, "in")).Done);
+            var session = new WorkbenchSession(editor.Project, Ticking(0.01));
+            session.Finish();
+            Project before = session.Project;
+            EditResult chosen = session.SetLibrary(GateLibrary.CourseCells(2));
+            Assert.IsTrue(chosen.Done, chosen.Refusal);
+            Assert.AreNotSame(before.Modules, session.Project.Modules, "sanity: its list made afresh");
+            session.Locked = true;
+            Assert.IsNull(session.WhyNotUndo, "the same modules, one by one");
+            Assert.IsTrue(session.Undo());
         }
 
         [Test]
@@ -83,14 +116,11 @@ namespace BitSorter.ViewModel.Tests
             var session = new WorkbenchSession(WorkbenchSamples.FullAdder(), Ticking(0.01));
             session.Finish();
             Project before = session.Project;
-            int version = session.LockVersion;
 
             session.Locked = true;
             Assert.AreSame(before, session.Project, "the project untouched");
             Assert.IsFalse(session.Editor.CanUndo, "no step to undo");
-            Assert.AreEqual(version + 1, session.LockVersion, "what shows it hears");
-            session.Locked = true;
-            Assert.AreEqual(version + 1, session.LockVersion, "locking it again is nothing");
+            Assert.IsTrue(session.Locked);
             session.Locked = false;
             Assert.IsTrue(session.Place(PartsCatalog.Find(session.Project, session.Module, "not"), new Placement(20, 20)).Done, "unlocked, it takes edits");
         }
