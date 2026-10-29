@@ -520,6 +520,16 @@ namespace BitSorter.PlayMode.Tests
             yield return Tap(_keyboard.sKey);
             Assert.AreEqual(5, workbench.Sample, "S should step to the written adder (Part 12d)");
 
+            // Then the samples written as code (Part 15h-4d), each its testbench's run, each opened as the drawing of its code.
+            for (int sample = 6; sample < WorkbenchSamples.Chip.Count; sample++)
+            {
+                yield return Tap(_keyboard.sKey);
+                Assert.AreEqual(sample, workbench.Sample, "S should step to " + WorkbenchSamples.Chip[sample].Name);
+                workbench.Session.Finish();
+                yield return null;
+                Assert.IsTrue(workbench.Session.ShowsDrawingOfCode, WorkbenchSamples.Chip[sample].Name + " shown as the drawing of its code");
+            }
+
             yield return Tap(_keyboard.sKey);
             Assert.AreEqual(0, workbench.Sample, "past the last sample, S should come back to the first, MY CIRCUIT");
             Assert.IsTrue(Captioned(WorkbenchPanel.SampleButton, "MY CIRCUIT"));

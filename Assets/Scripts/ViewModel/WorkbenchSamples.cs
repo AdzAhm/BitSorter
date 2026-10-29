@@ -59,6 +59,21 @@ namespace BitSorter.ViewModel
                 ("Written adder",
                     "A four-bit adder written as SystemVerilog rather than drawn. Double-click it to edit its code: the waves follow as you type.",
                     WrittenAdder),
+                ("Traffic light",
+                    "A traffic light written as code: four states, the road green until a car waits on the side street. STATES draws its machine; double-click u_lights to step inside.",
+                    TrafficLight),
+                ("Two-bit ALU",
+                    "A 2-bit ALU written as code, its adder two full adders: LOGIC tables all 64 inputs, GATES opens its operators, and a double-click on adder steps inside.",
+                    TwoBitAlu),
+                ("Is it prime?",
+                    "Whether a 4-bit number is prime, written as one case: LOGIC shows its truth table, its K-map and the smallest sum of products.",
+                    IsItPrime),
+                ("Sequence detector",
+                    "Finds 1 0 1 in a stream of bits, overlapping, written as code: a Mealy machine, its output reading the input too -- STATES draws its three states.",
+                    SequenceDetector),
+                ("Seven segments",
+                    "A hex digit to a seven-segment display, written as one case: four inputs, seven outputs -- LOGIC gives each segment its K-map.",
+                    SevenSegments),
             });
 
         /// <summary>
@@ -203,6 +218,315 @@ namespace BitSorter.ViewModel
         public const long WrittenAdderStep = 8;
 
         /// <summary>The written adder's text: a parameter for its width, and its sum and carry three units after its operands.</summary>
+        // -----------------------------------------------------------------
+        // Written as code, as a student's would be (Part 15h-4d, asked 2026-10-29: "a couple more samples")
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// A project written as SystemVerilog files, imported as FILE's IMPORT would read them -- its testbench the run, its
+        /// design shown as the drawing of its code. Each a few lines, written for BitSorter, nothing from the course.
+        /// </summary>
+        private static Project Written(params (string File, string Text)[] files)
+        {
+            var sources = new SourceFile[files.Length];
+            for (int i = 0; i < files.Length; i++)
+                sources[i] = new SourceFile(files[i].File, files[i].Text);
+            ProjectImport import = ProjectImporter.Import(sources);
+            if (!import.Succeeded)
+                throw new InvalidOperationException("a written sample did not import");
+            return import.Project;
+        }
+
+        /// <summary>A traffic light where a side street meets a main road: four states, a Moore machine -- for STATES.</summary>
+        public static Project TrafficLight() => Written(("traffic.sv", TrafficSource), ("lights.sv", LightsSource), ("traffic_tb.sv", TrafficBenchSource));
+
+        /// <summary>A 2-bit ALU whose adder is two full adders, a block inside a block -- for LOGIC, GATES and stepping inside.</summary>
+        public static Project TwoBitAlu() => Written(("fa.sv", FullAdderGatesSource), ("add2.sv", Add2Source), ("alu2.sv", Alu2Source), ("alu2_tb.sv", Alu2BenchSource));
+
+        /// <summary>Whether a 4-bit number is prime: four inputs -- for LOGIC's truth table, K-map and smallest sum of products.</summary>
+        public static Project IsItPrime() => Written(("prime4.sv", Prime4Source), ("prime4_tb.sv", Prime4BenchSource));
+
+        /// <summary>A 1-0-1 detector, overlapping: three states, a Mealy machine -- for STATES beside the traffic light's Moore.</summary>
+        public static Project SequenceDetector() => Written(("seq101.sv", Seq101Source), ("seq101_tb.sv", Seq101BenchSource));
+
+        /// <summary>A hex digit to seven segments: four inputs, seven outputs -- a K-map a segment.</summary>
+        public static Project SevenSegments() => Written(("seg7.sv", Seg7Source), ("seg7_tb.sv", Seg7BenchSource));
+
+        private const string Seq101Source =
+            "// Says 1 the moment the last three bits in were 1, 0, 1 -- overlapping, so\n" +
+            "// 1 0 1 0 1 finds two. A Mealy machine: its output reads the input as well\n" +
+            "// as the state.\n" +
+            "module seq101 (\n" +
+            "    input  logic clk,\n" +
+            "    input  logic reset,\n" +
+            "    input  logic x,       // a bit in, each clock\n" +
+            "    output logic found    // 1 while x completes 1 0 1\n" +
+            ");\n" +
+            "    localparam logic [1:0] NONE = 2'd0,   // nothing of it yet\n" +
+            "                           ONE  = 2'd1,   // seen 1\n" +
+            "                           ONE0 = 2'd2;   // seen 1 0\n" +
+            "\n" +
+            "    logic [1:0] state, next;\n" +
+            "\n" +
+            "    always_ff @(posedge clk or posedge reset)\n" +
+            "        if (reset) state <= NONE;\n" +
+            "        else       state <= next;\n" +
+            "\n" +
+            "    always_comb begin\n" +
+            "        next  = NONE;\n" +
+            "        found = 1'b0;\n" +
+            "        case (state)\n" +
+            "            NONE: next = x ? ONE : NONE;\n" +
+            "            ONE:  next = x ? ONE : ONE0;\n" +
+            "            ONE0: begin\n" +
+            "                next  = x ? ONE : NONE;\n" +
+            "                found = x;\n" +
+            "            end\n" +
+            "            default: next = NONE;\n" +
+            "        endcase\n" +
+            "    end\n" +
+            "endmodule\n";
+
+        private const string Seq101BenchSource =
+            "// Feeds the detector the bits 1 0 1 0 1 1 0 1 0 0 1, one a clock.\n" +
+            "module seq101_tb;\n" +
+            "    logic clk = 1'b0, reset = 1'b1, x = 1'b0;\n" +
+            "    logic found;\n" +
+            "    logic [10:0] bits = 11'b10101101001;\n" +
+            "\n" +
+            "    seq101 dut (.clk(clk), .reset(reset), .x(x), .found(found));\n" +
+            "\n" +
+            "    always #5 clk = ~clk;\n" +
+            "\n" +
+            "    initial begin\n" +
+            "        #7 reset = 1'b0;\n" +
+            "        for (int i = 10; i >= 0; i--) begin\n" +
+            "            x = bits[i];\n" +
+            "            #10;\n" +
+            "        end\n" +
+            "        $stop;\n" +
+            "    end\n" +
+            "endmodule\n";
+
+        private const string Seg7Source =
+            "// A hex digit to the seven segments of a display, a lit segment a 1:\n" +
+            "//      a\n" +
+            "//    f   b\n" +
+            "//      g\n" +
+            "//    e   c\n" +
+            "//      d\n" +
+            "// Four inputs and seven outputs: LOGIC gives each segment its truth table,\n" +
+            "// its K-map and its smallest sum of products.\n" +
+            "module seg7 (\n" +
+            "    input  logic [3:0] digit,\n" +
+            "    output logic [6:0] seg      // {a, b, c, d, e, f, g}\n" +
+            ");\n" +
+            "    always_comb\n" +
+            "        case (digit)\n" +
+            "            4'h0:    seg = 7'b1111110;\n" +
+            "            4'h1:    seg = 7'b0110000;\n" +
+            "            4'h2:    seg = 7'b1101101;\n" +
+            "            4'h3:    seg = 7'b1111001;\n" +
+            "            4'h4:    seg = 7'b0110011;\n" +
+            "            4'h5:    seg = 7'b1011011;\n" +
+            "            4'h6:    seg = 7'b1011111;\n" +
+            "            4'h7:    seg = 7'b1110000;\n" +
+            "            4'h8:    seg = 7'b1111111;\n" +
+            "            4'h9:    seg = 7'b1111011;\n" +
+            "            4'hA:    seg = 7'b1110111;\n" +
+            "            4'hB:    seg = 7'b0011111;\n" +
+            "            4'hC:    seg = 7'b1001110;\n" +
+            "            4'hD:    seg = 7'b0111101;\n" +
+            "            4'hE:    seg = 7'b1001111;\n" +
+            "            default: seg = 7'b1000111;   // F\n" +
+            "        endcase\n" +
+            "endmodule\n";
+
+        private const string Seg7BenchSource =
+            "// Counts the digit through all sixteen values, 10 ps apart.\n" +
+            "module seg7_tb;\n" +
+            "    logic [3:0] digit = 4'h0;\n" +
+            "    logic [6:0] seg;\n" +
+            "\n" +
+            "    seg7 dut (.digit(digit), .seg(seg));\n" +
+            "\n" +
+            "    initial begin\n" +
+            "        repeat (16) #10 digit = digit + 4'h1;\n" +
+            "        $stop;\n" +
+            "    end\n" +
+            "endmodule\n";
+
+        private const string TrafficSource =
+            "// A traffic light where a quiet side street meets a main road.\n" +
+            "// The road stays green until a car waits on the side street. Then the road\n" +
+            "// turns yellow, the side street goes green for as long as cars keep coming,\n" +
+            "// turns yellow, and the road goes green again.\n" +
+            "// Four states, a Moore machine: the lights depend on the state alone.\n" +
+            "module traffic (\n" +
+            "    input  logic       clk,\n" +
+            "    input  logic       reset,   // back to ROAD_GO\n" +
+            "    input  logic       car,     // a car waiting on the side street\n" +
+            "    output logic [1:0] road,    // 2 = green, 1 = yellow, 0 = red\n" +
+            "    output logic [1:0] side\n" +
+            ");\n" +
+            "    localparam logic [1:0] ROAD_GO   = 2'd0,\n" +
+            "                           ROAD_SLOW = 2'd1,\n" +
+            "                           SIDE_GO   = 2'd2,\n" +
+            "                           SIDE_SLOW = 2'd3;\n" +
+            "\n" +
+            "    logic [1:0] state, next;\n" +
+            "\n" +
+            "    // The state register: a flip-flop per bit, reset to ROAD_GO.\n" +
+            "    always_ff @(posedge clk or posedge reset)\n" +
+            "        if (reset) state <= ROAD_GO;\n" +
+            "        else       state <= next;\n" +
+            "\n" +
+            "    // The next state.\n" +
+            "    always_comb\n" +
+            "        case (state)\n" +
+            "            ROAD_GO:   next = car ? ROAD_SLOW : ROAD_GO;\n" +
+            "            ROAD_SLOW: next = SIDE_GO;\n" +
+            "            SIDE_GO:   next = car ? SIDE_GO : SIDE_SLOW;\n" +
+            "            default:   next = ROAD_GO;\n" +
+            "        endcase\n" +
+            "\n" +
+            "    // The lights, from the state alone.\n" +
+            "    lights u_lights (.state(state), .road(road), .side(side));\n" +
+            "endmodule\n";
+
+        private const string LightsSource =
+            "// Which light each street shows in each state of the traffic light.\n" +
+            "module lights (\n" +
+            "    input  logic [1:0] state,\n" +
+            "    output logic [1:0] road,   // 2 = green, 1 = yellow, 0 = red\n" +
+            "    output logic [1:0] side\n" +
+            ");\n" +
+            "    always_comb\n" +
+            "        case (state)\n" +
+            "            2'd0:    begin road = 2'd2; side = 2'd0; end   // ROAD_GO\n" +
+            "            2'd1:    begin road = 2'd1; side = 2'd0; end   // ROAD_SLOW\n" +
+            "            2'd2:    begin road = 2'd0; side = 2'd2; end   // SIDE_GO\n" +
+            "            default: begin road = 2'd0; side = 2'd1; end   // SIDE_SLOW\n" +
+            "        endcase\n" +
+            "endmodule\n";
+
+        private const string TrafficBenchSource =
+            "// Drives the traffic light: a clock every 10 ps, a reset, and cars coming and going.\n" +
+            "module traffic_tb;\n" +
+            "    logic clk = 1'b0, reset = 1'b1, car = 1'b0;\n" +
+            "    logic [1:0] road, side;\n" +
+            "\n" +
+            "    traffic dut (.clk(clk), .reset(reset), .car(car), .road(road), .side(side));\n" +
+            "\n" +
+            "    always #5 clk = ~clk;\n" +
+            "\n" +
+            "    initial begin\n" +
+            "        #12 reset = 1'b0;\n" +
+            "        #20 car = 1'b1;     // a car arrives on the side street\n" +
+            "        #40 car = 1'b0;     // the side street empties\n" +
+            "        #40 car = 1'b1;     // another car\n" +
+            "        #10 car = 1'b0;\n" +
+            "        #50 $stop;\n" +
+            "    end\n" +
+            "endmodule\n";
+
+        private const string FullAdderGatesSource =
+            "// A full adder from gates: the sum is the odd parity, the carry the majority.\n" +
+            "module fa (\n" +
+            "    input  logic a, b, cin,\n" +
+            "    output logic s, cout\n" +
+            ");\n" +
+            "    assign s    = a ^ b ^ cin;\n" +
+            "    assign cout = (a & b) | (cin & (a ^ b));\n" +
+            "endmodule\n";
+
+        private const string Add2Source =
+            "// A 2-bit ripple adder: two full adders, the carry handed from one to the next.\n" +
+            "module add2 (\n" +
+            "    input  logic [1:0] a, b,\n" +
+            "    input  logic       cin,\n" +
+            "    output logic [1:0] s,\n" +
+            "    output logic       cout\n" +
+            ");\n" +
+            "    logic c1;\n" +
+            "\n" +
+            "    fa bit0 (.a(a[0]), .b(b[0]), .cin(cin), .s(s[0]), .cout(c1));\n" +
+            "    fa bit1 (.a(a[1]), .b(b[1]), .cin(c1),  .s(s[1]), .cout(cout));\n" +
+            "endmodule\n";
+
+        private const string Alu2Source =
+            "// A 2-bit ALU: op chooses a + b, a - b, a AND b or a OR b.\n" +
+            "// Subtraction is a + ~b + 1: the same adder, b inverted and a carry in.\n" +
+            "module alu2 (\n" +
+            "    input  logic [1:0] a, b,\n" +
+            "    input  logic [1:0] op,      // 0 add, 1 subtract, 2 AND, 3 OR\n" +
+            "    output logic [1:0] y,\n" +
+            "    output logic       carry\n" +
+            ");\n" +
+            "    logic       sub;\n" +
+            "    logic [1:0] bx, sum;\n" +
+            "    logic       c;\n" +
+            "\n" +
+            "    assign sub = (op == 2'd1);\n" +
+            "    assign bx  = sub ? ~b : b;\n" +
+            "\n" +
+            "    add2 adder (.a(a), .b(bx), .cin(sub), .s(sum), .cout(c));\n" +
+            "\n" +
+            "    always_comb\n" +
+            "        case (op)\n" +
+            "            2'd0, 2'd1: begin y = sum;   carry = c;    end\n" +
+            "            2'd2:       begin y = a & b; carry = 1'b0; end\n" +
+            "            default:    begin y = a | b; carry = 1'b0; end\n" +
+            "        endcase\n" +
+            "endmodule\n";
+
+        private const string Alu2BenchSource =
+            "// Tries the ALU on every op, a and b: 64 combinations, 10 ps apart.\n" +
+            "module alu2_tb;\n" +
+            "    logic [1:0] a = 2'd0, b = 2'd0, op = 2'd0;\n" +
+            "    logic [1:0] y;\n" +
+            "    logic       carry;\n" +
+            "\n" +
+            "    alu2 dut (.a(a), .b(b), .op(op), .y(y), .carry(carry));\n" +
+            "\n" +
+            "    initial begin\n" +
+            "        for (int i = 0; i < 64; i++) begin\n" +
+            "            {op, a, b} = i;\n" +
+            "            #10;\n" +
+            "        end\n" +
+            "        $stop;\n" +
+            "    end\n" +
+            "endmodule\n";
+
+        private const string Prime4Source =
+            "// Is a 4-bit number prime? 2, 3, 5, 7, 11 and 13 are.\n" +
+            "// Four inputs, so the LOGIC tab shows its truth table, its K-map and the\n" +
+            "// smallest sum of products.\n" +
+            "module prime4 (\n" +
+            "    input  logic [3:0] n,\n" +
+            "    output logic       prime\n" +
+            ");\n" +
+            "    always_comb\n" +
+            "        case (n)\n" +
+            "            4'd2, 4'd3, 4'd5, 4'd7, 4'd11, 4'd13: prime = 1'b1;\n" +
+            "            default:                            prime = 1'b0;\n" +
+            "        endcase\n" +
+            "endmodule\n";
+
+        private const string Prime4BenchSource =
+            "// Counts n through all sixteen values, 10 ps apart.\n" +
+            "module prime4_tb;\n" +
+            "    logic [3:0] n = 4'd0;\n" +
+            "    logic       prime;\n" +
+            "\n" +
+            "    prime4 dut (.n(n), .prime(prime));\n" +
+            "\n" +
+            "    initial begin\n" +
+            "        repeat (16) #10 n = n + 4'd1;\n" +
+            "        $stop;\n" +
+            "    end\n" +
+            "endmodule\n";
+
         public const string AdderSource =
             "// A four-bit adder, written rather than drawn: its sum and its carry\n" +
             "// three time units after its operands.\n" +

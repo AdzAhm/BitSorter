@@ -25,7 +25,11 @@ namespace BitSorter.ViewModel.Tests
     /// </remarks>
     public class SampleTests
     {
-        private static IEnumerable<string> Names => WorkbenchSamples.All.Select(s => s.Name);
+        // The samples drawn as circuits, held to every rule of a drawing below; the ones written as code (Part 15h-4d) have
+        // their own tests, at the end.
+        private static IEnumerable<string> Names => WorkbenchSamples.All.Where(s => !s.Build().TopModule.IsWritten).Select(s => s.Name);
+
+        private static IEnumerable<string> WrittenNames => WorkbenchSamples.All.Where(s => s.Build().TopModule.IsWritten).Select(s => s.Name);
 
         private static Project Build(string name) => WorkbenchSamples.All.Single(s => s.Name == name).Build();
 
@@ -48,6 +52,8 @@ namespace BitSorter.ViewModel.Tests
         public void TheChip_OffersTheReference_ThenTheFullAdder_ThenTheCounter()
         {
             CollectionAssert.AreEqual(new[] { "Reference", "Full adder", "Counter", "Four half adders", "Written adder" }, Names);
+            CollectionAssert.AreEqual(new[] { "Traffic light", "Two-bit ALU", "Is it prime?", "Sequence detector", "Seven segments" }, WrittenNames,
+                "and then five written as code");
 
             Project reference = WorkbenchSamples.All[0].Build();
             Assert.AreEqual(ReferenceCircuit.Document().Top, reference.Top);
@@ -600,6 +606,53 @@ namespace BitSorter.ViewModel.Tests
 
             double dx = Gap(a.X, b.X, c.X, d.X), dy = Gap(a.Y, b.Y, c.Y, d.Y);
             return Math.Sqrt(dx * dx + dy * dy);
+        }
+
+        // -----------------------------------------------------------------
+        // Written as code (Part 15h-4d)
+        // -----------------------------------------------------------------
+
+        /// <summary>A sample written as code imports, opens as the drawing of its code, and its testbench runs it to its stop with nothing to say.</summary>
+        [TestCaseSource(nameof(WrittenNames))]
+        public void AWrittenSample_OpensAsItsDrawing_AndItsTestbenchRunsToItsStop(string name)
+        {
+            Project project = Build(name);
+            Assert.IsNotNull(project.Bench, "run by its testbench");
+            double now = 0;
+            var session = new WorkbenchSession(project, () => now += 0.01);
+            session.Finish();
+            Assert.IsTrue(session.ShowsDrawingOfCode, "the drawing of its code");
+            Assert.IsNotEmpty(session.Run.Model.Layout.Parts);
+            Assert.Greater(session.Run.Model.End, 0.0, "it ran");
+        }
+
+        [TestCase("Traffic light", 4, true)]
+        [TestCase("Sequence detector", 3, false)]
+        public void AWrittenStateMachine_IsItsStates_MooreOrMealy(string name, int states, bool moore)
+        {
+            Project project = Build(name);
+            var session = new WorkbenchSession(project, () => 0);
+            session.Finish();
+            StateExplorer explorer = StateExplorer.Start(project, session.Timing, () => 0, out string why);
+            Assert.IsNotNull(explorer, why);
+            explorer.Finish();
+            Assert.IsNull(explorer.Problem, explorer.Problem);
+            Assert.AreEqual(states, explorer.Machine.States.Count);
+            Assert.AreEqual(moore, explorer.Machine.Moore, moore ? "its output the state's alone" : "its output reading the input too");
+        }
+
+        [TestCase("Two-bit ALU", 64)]
+        [TestCase("Is it prime?", 16)]
+        [TestCase("Seven segments", 16)]
+        public void AWrittenLogicSample_IsTabled_EveryCombination(string name, int rows)
+        {
+            Project project = Build(name);
+            var session = new WorkbenchSession(project, () => 0);
+            session.Finish();
+            LogicTable table = LogicTable.Start(project, session.Timing, () => 0, out string why);
+            Assert.IsNotNull(table, why);
+            table.Finish();
+            Assert.AreEqual(rows, table.Rows);
         }
     }
 }
