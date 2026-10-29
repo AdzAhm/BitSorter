@@ -3587,7 +3587,9 @@ projects"). A circuit locked against change, so a look round an imported project
 - **It is no edit, and not in the project**: no undo step, the run not made again, nothing of the document changed.
   The save keeps the keys of the locked circuits (`ProgressStore.locked`, absent -- nothing locked -- in every file from
   before it), following a rename and going with a delete.
-- **Where**: the padlock is a button in the circuit window's top strip, left of FIT's place, drawn by the workbench's
+- **Where**: the padlock is a button in the circuit window's top strip, left of FIT's place and of the cap holding FIT's
+  key, F (`KeyRoom`) -- it stood 8 px left of FIT itself until 2026-10-29, over that cap, so FIT came up zoomed without
+  its key (shot 33) -- drawn by the workbench's
   painter (`WorkbenchDrawing.Padlock`): shut in the accent, open in the text's colour; over code, just left of the
   DRAWING switch, the code's strip keeping it room clear of REVERT only while it is up (`CodeEditorView.LockRoom`,
   `KeepsLockRoom`: a sample's strip showed a gap where nothing stood), and the strip's line saying LOCKED where it said
@@ -3602,8 +3604,8 @@ projects"). A circuit locked against change, so a look round an imported project
   refused, the inputs and unit still taken and both undone, the lock no undo step, an undo across it refused for the
   circuit and not for an input, a library that retimed nothing going back while locked, a drag refused as it begins
   (`LockTests`); the save over a restart, a rename, a delete and a file from before it (`ProgressStoreTests`); in Play
-  Mode an import opening locked with its code read only until the padlock is pressed, and CONVERT refused until then;
-  shot 66, an imported written design's code, locked.
+  Mode an import opening locked with its code read only until the padlock is pressed, CONVERT refused until then, and
+  the padlock clear of FIT's key with MY CIRCUIT zoomed; shot 66, an imported written design's code, locked.
 
 **As built in Part 15h-4d, second half: FILE, BACK TO AS IMPORTED** (asked 2026-10-29: "a button to reset all to the
 original imported project as it was"; nothing did it).

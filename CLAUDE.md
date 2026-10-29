@@ -1021,8 +1021,9 @@ failure side.
   applied is still what EXPORT applies or refuses with the drawing up
   (`WorkbenchSession.PendingCode`). **A circuit can be locked** (Part 15h-4d, asked
   2026-10-29; `WorkbenchSession.Locked`): the padlock in the circuit window's top strip,
-  left of FIT's place -- not the lower corner Ahmad first asked for, which a browser's code
-  box covers just when the code is to be unlocked. An imported project opens locked, but
+  left of FIT's place and of FIT's key, F, which it stood over until a reference shot
+  showed FIT without its key -- not the lower corner Ahmad first asked for, which a
+  browser's code box covers just when the code is to be unlocked. An imported project opens locked, but
   for a course template, imported to be written into; a sample and an exercise never
   lock. Locked, every edit of the circuit and its code is refused saying how to unlock it
   -- a testbench converted, a gate library (it retimes the gates), and an undo or a redo

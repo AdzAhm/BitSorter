@@ -6,10 +6,10 @@ using Button = UnityEngine.UI.Button;
 namespace BitSorter.View
 {
     /// <summary>
-    /// The lock (Part 15h-4d, asked 2026-10-29): a padlock in the circuit's window's top strip, left of FIT, that locks the
-    /// circuit open against change and unlocks it (<see cref="WorkbenchSession.Locked"/>), kept in the save beside it. An
-    /// imported project opens locked, but for a course template, which is imported to be written into. Locked, the code's
-    /// editor is read only too. In the top strip rather than the window's lower corner, which Ahmad asked for: in a browser
+    /// The lock (Part 15h-4d, asked 2026-10-29): a padlock in the circuit's window's top strip, left of FIT and its key, that
+    /// locks the circuit open against change and unlocks it (<see cref="WorkbenchSession.Locked"/>), kept in the save beside
+    /// it. An imported project opens locked, but for a course template, which is imported to be written into. Locked, the
+    /// code's editor is read only too. In the top strip rather than the window's lower corner, which Ahmad asked for: in a browser
     /// the code is a box the page lays over everything under that strip, and the lock was under it exactly when the code
     /// was to be unlocked. Only a circuit has one: a sample and an exercise never lock.
     /// </summary>
@@ -61,7 +61,7 @@ namespace BitSorter.View
             Notice(_session.Locked ? LockedNotice : UnlockedNotice);
         }
 
-        /// <summary>The padlock up over a circuit, drawn shut or open as it is, left of FIT's place; the code read only while shut.</summary>
+        /// <summary>The padlock up over a circuit, drawn shut or open as it is, left of FIT's place and its key; the code read only while shut.</summary>
         private void TickLock()
         {
             if (_codeView != null)
@@ -82,10 +82,10 @@ namespace BitSorter.View
             if (!shown)
                 return;
 
-            // Left of FIT's place; over code, just left of the DRAWING switch, where the code's strip keeps room for it
-            // (CodeEditorView.LockRoom) clear of REVERT.
+            // Left of FIT's place and of its key, F, in the cap just left of FIT (KeyRoom), which it once stood over; over code,
+            // just left of the DRAWING switch, where the code's strip keeps room for it (CodeEditorView.LockRoom) clear of REVERT.
             float right = _session.ShowsCode ? -(CodeEditorView.SwitchRoom + 8f)
-                : _fit != null ? _fit.GetComponent<RectTransform>().anchoredPosition.x - 72f - 8f : -8f;
+                : _fit != null ? _fit.GetComponent<RectTransform>().anchoredPosition.x - 72f - KeyRoom - 8f : -8f;
             Vector2 window = SizeOf(_regions.Circuit);
             Vector2 at = CornerOf(_regions.Circuit) + new Vector2(window.x + right - LockWidth, 8f);
             var rect = _lock.GetComponent<RectTransform>();
