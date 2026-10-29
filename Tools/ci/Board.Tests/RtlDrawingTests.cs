@@ -470,6 +470,84 @@ namespace BitSorter.Board.Tests
                 Assert.IsFalse(string.IsNullOrEmpty(drawing.Describe(part.Id)), (part as BoxPart).Label + " says what it does");
         }
 
+        private static RtlDrawing DrawWritten(string top, params (string Name, string Source)[] modules)
+        {
+            var editor = new BoardEditor(Project.New("scratch"));
+            foreach ((string name, string source) in modules)
+                Assert.IsTrue(editor.AddWrittenModule(name, source).Done);
+            Project project = editor.Project with { Top = top };
+            CompiledProject compiled = BoardCompiler.Compile(project);
+            Elaboration e = Elaborator.Elaborate(compiled.Tree, compiled.Top);
+            Assert.IsFalse(e.HasErrors, string.Join("; ", e.Diagnostics));
+            RtlNetlist netlist = RtlExtractor.Of(e.Design, top);
+            RtlDrawing drawing = RtlDrawing.Of(project, netlist, top);
+            Hold(drawing, netlist, top);
+            // A drawing's made-up names are the printer's to clean; what a block of copies must be, the board's rules say.
+            Assert.IsEmpty(BoardRules.Check(drawing.Project).Where(d => d.IsError && d.Message.Contains("copies")).Select(d => d.Message),
+                "the board rules take every block of copies");
+            return drawing;
+        }
+
+        /// <summary>Two loops into one signal: the first is one block, the second drawn copy by copy, every output wired (the review of #118).</summary>
+        [Test]
+        public void TwoLoopsIntoOneSignal_FoldTheFirst_AndWireEveryOutput()
+        {
+            RtlDrawing drawing = DrawWritten("top2", ("slice1", Slice1), ("top2",
+                "module top2 (input logic [7:0] a, b, input logic [1:0] op, input logic cin, output logic [7:0] s, output logic cout);\n" +
+                "    logic [8:0] c;\n" +
+                "    assign c[0] = cin;\n" +
+                "    genvar i, j;\n" +
+                "    for (i = 0; i < 4; i++) begin : lo\n" +
+                "        slice1 u (.a(a[i]), .b(b[i]), .cin(c[i]), .op(op), .y(s[i]), .cout(c[i+1]));\n" +
+                "    end\n" +
+                "    for (j = 4; j < 8; j++) begin : hi\n" +
+                "        slice1 u (.a(a[j]), .b(b[j]), .cin(c[j]), .op(op), .y(s[j]), .cout(c[j+1]));\n" +
+                "    end\n" +
+                "    assign cout = c[8];\n" +
+                "endmodule\n"));
+            Assert.AreEqual(1, drawing.Module.Parts.OfType<BlockPart>().Count(b => b.Copies == 4), "one loop one block");
+            Assert.AreEqual(4, drawing.Module.Parts.OfType<BlockPart>().Count(b => b.Copies == 1), "the other copy by copy");
+            Assert.IsFalse(drawing.Module.Parts.OfType<BoxPart>().Any(b => b.Undriven), "no output left unwired");
+        }
+
+        /// <summary>A loop of a module with an inout, or whose bus would be wider than a wire may be, is drawn copy by copy (the review of #118).</summary>
+        [Test]
+        public void ALoopOfAModuleWithAnInout_OrTooWideABus_IsDrawnCopyByCopy()
+        {
+            RtlDrawing bus = DrawWritten("t5", ("drv", "module drv (input logic d, en, inout wire io);\n    assign io = en ? d : 1'bz;\nendmodule\n"), ("t5",
+                "module t5 (input logic [3:0] d, e, output wire bus);\n" +
+                "    genvar i;\n" +
+                "    for (i = 0; i < 4; i++) begin : g\n" +
+                "        drv u (.d(d[i]), .en(e[i]), .io(bus));\n" +
+                "    end\n" +
+                "endmodule\n"));
+            Assert.AreEqual(0, bus.FoldedInstances, "an inout: not folded");
+
+            RtlDrawing wide = DrawWritten("t6", ("sh", "module sh (input logic a, input logic [31:0] k, output logic y);\n    assign y = a ^ k[0];\nendmodule\n"), ("t6",
+                "module t6 (input logic [63:0] a, input logic [31:0] k, output logic [63:0] y);\n" +
+                "    genvar i;\n" +
+                "    for (i = 0; i < 64; i++) begin : g\n" +
+                "        sh u (.a(a[i]), .k(k), .y(y[i]));\n" +
+                "    end\n" +
+                "endmodule\n"));
+            Assert.AreEqual(0, wide.FoldedInstances, "64 copies of a 32-bit k is 2048 bits: not folded");
+        }
+
+        /// <summary>A casez's labels are no box of ===, which would not take a z as a wildcard as the casez does (the review of #118).</summary>
+        [Test]
+        public void ACasezsLabels_AreNoBoxOfExactMatches()
+        {
+            RtlDrawing drawing = Draw(
+                "module pz (input logic [3:0] n, output logic p);\n" +
+                "    always_comb\n" +
+                "        casez (n)\n" +
+                "            4'd2, 4'd3, 4'd5, 4'd7, 4'd11, 4'd13: p = 1'b1;\n" +
+                "            default: p = 1'b0;\n" +
+                "        endcase\n" +
+                "endmodule\n", "pz");
+            Assert.IsFalse(drawing.Module.Parts.OfType<BoxPart>().Any(b => b.Label.StartsWith("= ", StringComparison.Ordinal) && b.Label.Contains(",")));
+        }
+
         /// <summary>A constant stands in the column before what reads it, not by the inputs across the drawing from it (Part 15h-4e).</summary>
         [Test]
         public void AConstant_StandsBesideWhatReadsIt()

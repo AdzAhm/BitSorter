@@ -655,7 +655,10 @@ namespace BitSorter.Board
                     var labels = new List<ulong>();
                     var matches = new List<RtlCell>();
                     var glue = new List<int>();
-                    if (Labels(cell.Output, ref subject, labels, matches, glue, 0) && labels.Count >= 2 && WidthOf(subject) <= 64)
+                    // Of a case's own matches only: a casez's or a casex's take a z or an x as a wildcard, which the box's === does
+                    // not (the review of #118).
+                    if (Labels(cell.Output, ref subject, labels, matches, glue, 0) && labels.Count >= 2 && WidthOf(subject) <= 64
+                        && matches.TrueForAll(m => m.Case == CaseKind.Exact))
                         sets[cell.Id] = (subject, labels, matches, glue);
                 }
                 foreach (KeyValuePair<int, (int Subject, List<ulong> Labels, List<RtlCell> Matches, List<int> Glue)> set in sets)

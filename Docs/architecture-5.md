@@ -3701,7 +3701,8 @@ the parts the drawing makes up -- `&`, `|`, `~`, `==`, `= 10` -- should say what
   `m0 || m1`; the arm's ORs, ANDs, NOTs and matches are drawn no more once nothing else reads them.
 - **An OR of matches on one subject that no case's mux is is one box of its labels**, `= 2, 3, 5, 7, 11, 13` -- a case on
   a subject too wide for one mux, an is-it-prime -- saying "1 when n is any of 2, 3, 5, 7, 11, 13", written as code the OR
-  of the case's own matches (`===`), so the code written from it does what the case did.
+  of the case's own matches (`===`), so the code written from it does what the case did -- a `case`'s only: a `casez`'s or a
+  `casex`'s labels take a z or an x as a wildcard, which `===` does not (the review of #118).
 - **Tests**: a two-label arm one mux of four inputs with no OR or match left; the prime test's box, its line and its code
   written again the same; a constant read three sums in standing past the last sum (`RtlDrawingTests`); every drawing's
   operators counted as parts or as folded into a case or a set (`RtlDrawing.Folded`).
@@ -3711,7 +3712,9 @@ as one column of 64 blocks, all at one depth).
 - **What folds** (`RtlArrays.cs`): the instances of one project module named `p[i]...` for i a run of whole numbers, two to
   `BlockPart.MaxCopies`, whose every input pin reads one net bit for bit in turn -- `a[i]`, or the carry's `c[i]` -- or
   the same net for every copy -- `op` -- and whose every output goes into one signal's drivers in turn. Anything else is
-  drawn as it was, copy by copy, which is always right.
+  drawn as it was, copy by copy, which is always right -- and so, since the review of #118, is a loop of a module with an
+  inout (a block of copies may have none), one whose bus would be wider than a wire may be (1024 bits), and a second loop
+  into a signal a first already gives its value to, whose outputs were left with no wire.
 - **How it is drawn**: one `BlockPart` of so many copies, its buses fed by the net straight on where it is exactly the
   bus, else by a slice box of it (`[7:0]` of the carry's `c[8:0]`) or a `{8{ }}` box for a value every copy is given; its
   outputs the signal they were joined into (`s`), or, where that signal has other pieces -- the carry's c, its cin at 0

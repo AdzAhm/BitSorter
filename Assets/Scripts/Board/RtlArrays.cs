@@ -84,6 +84,16 @@ namespace BitSorter.Board
                         contiguous &= index == expected++;
                     if (n < 2 || n > BlockPart.MaxCopies || !contiguous)
                         continue;
+                    // Not a module with an inout, which a block of copies cannot have (BoardRules), nor one whose bus pins would
+                    // be wider than a wire may be (the review of #118).
+                    bool inout = false, wide = false;
+                    foreach (Pin pin in new BlockPart { Module = copies[0].Module }.Pins(_project))
+                    {
+                        inout |= pin.Direction == PinDirection.InOut;
+                        wide |= (long)pin.Width * n > BoardRules.MaxWidth;
+                    }
+                    if (inout || wide)
+                        continue;
                     var fold = new ArrayFold { Name = group.Key.Substring(0, group.Key.IndexOf('|')), Module = copies[0].Module, Copies = copies.ToArray() };
                     if (Fold(fold, readers, outputNets))
                         foreach (RtlCell copy in copies)
@@ -173,6 +183,10 @@ namespace BitSorter.Board
                         if (j != join || at != bottom + i * w)
                             return false;
                     }
+                    // A signal one loop already gives its value to is that loop's: a second loop into it is drawn copy by copy
+                    // (the review of #118: its outputs were left with no wire).
+                    if (_joinsOfArrays.ContainsKey(join.Id))
+                        return false;
                     fold.Outputs.Add((pin, w, join, bottom));
                 }
 
