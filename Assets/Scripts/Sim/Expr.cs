@@ -310,7 +310,7 @@ namespace BitSorter.Sim
                 return at >= 0 ? values[_first + at] : _unknown;
             }
 
-            internal override int ToRtl(RtlBuilder b) => b.Word(_first, _depth, _width, _offset.ToRtl(b));
+            internal override int ToRtl(RtlBuilder b) => b.Word(_first, _depth, _width, b.Of(_offset));
 
             public override void CollectReads(ICollection<int> reads)
             {
@@ -354,7 +354,7 @@ namespace BitSorter.Sim
             public override LogicVec Evaluate(LogicVec[] values) => _a.Evaluate(values).ToTwoState();
             public override void CollectReads(ICollection<int> reads) => _a.CollectReads(reads);
             internal override void CollectCalls(ICollection<FunctionInfo> calls) => _a.CollectCalls(calls);
-            internal override int ToRtl(RtlBuilder b) => b.TwoState(_a.ToRtl(b), Width);
+            internal override int ToRtl(RtlBuilder b) => b.TwoState(b.Of(_a), Width);
 
             internal override int Height => 1 + HeightOf(_a);
             internal override BitDeps Depends(int[] first) => _a.Depends(first);
@@ -382,7 +382,7 @@ namespace BitSorter.Sim
                 return _signed ? v.AsSigned() : v.AsUnsigned();
             }
 
-            internal override int ToRtl(RtlBuilder b) => b.Signedness(_a.ToRtl(b), _signed, Width);
+            internal override int ToRtl(RtlBuilder b) => b.Signedness(b.Of(_a), _signed, Width);
 
             public override void CollectReads(ICollection<int> reads) => _a.CollectReads(reads);
             internal override void CollectCalls(ICollection<FunctionInfo> calls) => _a.CollectCalls(calls);
@@ -475,7 +475,7 @@ namespace BitSorter.Sim
 
             public override LogicVec Evaluate(LogicVec[] values) => Apply(_op, _a.Evaluate(values));
 
-            internal override int ToRtl(RtlBuilder b) => b.Unary(_op, _a.ToRtl(b), Width);
+            internal override int ToRtl(RtlBuilder b) => b.Unary(_op, b.Of(_a), Width);
 
             public override void CollectReads(ICollection<int> reads) => _a.CollectReads(reads);
             internal override void CollectCalls(ICollection<FunctionInfo> calls) => _a.CollectCalls(calls);
@@ -541,8 +541,8 @@ namespace BitSorter.Sim
 
             internal override int ToRtl(RtlBuilder b)
             {
-                int a = _a.ToRtl(b);
-                return b.Binary(_op, a, _b.ToRtl(b), Width);
+                int a = b.Of(_a);
+                return b.Binary(_op, a, b.Of(_b), Width);
             }
 
             public override void CollectReads(ICollection<int> reads)
@@ -618,8 +618,8 @@ namespace BitSorter.Sim
 
             internal override int ToRtl(RtlBuilder b)
             {
-                int high = _high.ToRtl(b);
-                return b.Concat(high, _low.ToRtl(b), Width);
+                int high = b.Of(_high);
+                return b.Concat(high, b.Of(_low), Width);
             }
 
             internal override bool CanFloat(Func<int, bool> floats) => _high.CanFloat(floats) || _low.CanFloat(floats);
@@ -663,7 +663,7 @@ namespace BitSorter.Sim
 
             public override int Width => _a.Width * _count;
             public override LogicVec Evaluate(LogicVec[] values) => LogicVec.Replicate(_a.Evaluate(values), _count);
-            internal override int ToRtl(RtlBuilder b) => b.Replicate(_a.ToRtl(b), _count, Width);
+            internal override int ToRtl(RtlBuilder b) => b.Replicate(b.Of(_a), _count, Width);
             public override void CollectReads(ICollection<int> reads) => _a.CollectReads(reads);
 
             internal override bool CanFloat(Func<int, bool> floats) => _a.CanFloat(floats);
@@ -697,7 +697,7 @@ namespace BitSorter.Sim
 
             public override int Width => _width;
             public override LogicVec Evaluate(LogicVec[] values) => _a.Evaluate(values).Slice(_lowest, _width);
-            internal override int ToRtl(RtlBuilder b) => b.Slice(_a.ToRtl(b), _lowest, _width);
+            internal override int ToRtl(RtlBuilder b) => b.Slice(b.Of(_a), _lowest, _width);
 
             internal override bool CanFloat(Func<int, bool> floats) => _a.CanFloat(floats);
             public override void CollectReads(ICollection<int> reads) => _a.CollectReads(reads);
@@ -732,8 +732,8 @@ namespace BitSorter.Sim
 
             internal override int ToRtl(RtlBuilder b)
             {
-                int a = _a.ToRtl(b);
-                return b.BitOf(a, _index.ToRtl(b));
+                int a = b.Of(_a);
+                return b.BitOf(a, b.Of(_index));
             }
 
             internal override bool CanFloat(Func<int, bool> floats) => _a.CanFloat(floats);
@@ -789,8 +789,8 @@ namespace BitSorter.Sim
 
             internal override int ToRtl(RtlBuilder b)
             {
-                int a = _a.ToRtl(b);
-                return b.PartOf(a, _offset.ToRtl(b), _step, _width);
+                int a = b.Of(_a);
+                return b.PartOf(a, b.Of(_offset), _step, _width);
             }
 
             public override void CollectReads(ICollection<int> reads)
@@ -831,9 +831,9 @@ namespace BitSorter.Sim
 
             internal override int ToRtl(RtlBuilder b)
             {
-                int condition = _condition.ToRtl(b);
-                int whenTrue = _whenTrue.ToRtl(b);
-                return b.Mux(condition, whenTrue, _whenFalse.ToRtl(b), Width);
+                int condition = b.Of(_condition);
+                int whenTrue = b.Of(_whenTrue);
+                return b.Mux(condition, whenTrue, b.Of(_whenFalse), Width);
             }
 
             public override void CollectReads(ICollection<int> reads)
@@ -882,7 +882,7 @@ namespace BitSorter.Sim
 
             public override int Width => _width;
             public override LogicVec Evaluate(LogicVec[] values) => _a.Evaluate(values).Extend(_width, _signExtend);
-            internal override int ToRtl(RtlBuilder b) => b.Resize(_a.ToRtl(b), _width, _signExtend);
+            internal override int ToRtl(RtlBuilder b) => b.Resize(b.Of(_a), _width, _signExtend);
             public override void CollectReads(ICollection<int> reads) => _a.CollectReads(reads);
             internal override void CollectCalls(ICollection<FunctionInfo> calls) => _a.CollectCalls(calls);
 

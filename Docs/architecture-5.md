@@ -3244,9 +3244,16 @@ of an elaborated design as cells and the nets between them, word-level, the way 
 
 - **`RtlExtractor.Of(design, scope)`** makes an `RtlNetlist` from the elaborated design, where parameters, generate
   loops and widths are already worked out.
-  - **A scope's own logic** is what drives its own signals and those of its generate blocks and named blocks. An
-    instance inside it is one `Instance` cell, its pins the instance's ports, named from the scope (`slice[3].s`); the
-    values on its inputs are read off the zero-delay assignments the elaborator connects a port with (`port dut.h1.a`).
+  - **A driver belongs to the scope it is written in** (`DriverInfo.WrittenIn`, which the elaborator records), not its
+    target's. A scope's own logic is what is written in it and its generate and named blocks.
+    - An instance inside it is one `Instance` cell, its pins the instance's ports, named from the scope (`slice[3].s`).
+      The values on its inputs are the zero-delay connections the elaborator writes in the parent (`port dut.h1.a`), so
+      the instance's own netlist has its input ports for inputs.
+    - An inout joined to its net is a pin on that net (`Design.Aliases`). A signal driven from more than one scope -- an
+      inout bus -- has in each scope only what that scope gives it, on a net of its own (`bus (driven here)`); its
+      resolved value is the design's.
+  - **Each expression node is one cell**, however many places use it (`RtlBuilder.Of`): `{cout, sum} = a + b + cin` is
+    sliced once for each, and is still two adders.
   - **Each node of an expression is one cell** (`Expr.ToRtl`): `Constant`, `Gate`, `Unary`, `Binary`, `Mux`, `Concat`,
     `Replicate`, `Slice`, `Bit` and `Part` (a select by a signal), `Resize`, `Signedness`, `TwoState`, and `Word`, a
     memory's read port.
@@ -3260,15 +3267,25 @@ of an elaborated design as cells and the nets between them, word-level, the way 
   - Each cell applies the engine's own operator. `Expr.Apply`, `TryOffset`, `PartAt` and `WordAt` are what the engine's
     nodes evaluate with as well, so the two cannot drift apart.
   - A loop of logic is cut where it closes, each net in it read off its signal.
-- **Tests** (`RtlNetlistTests`, Board.Tests): every scope's netlist held to the engine. Every net a join drives -- every
-  signal the scope's own logic gives a value -- reads what the engine has there, over random vectors far enough apart
-  for every delay to settle, with an x or a z now and then. The designs:
+- **Tests** (`RtlNetlistTests`, Board.Tests): every scope's netlist held to the engine.
+  - Every net a join drives -- every signal the scope's own logic gives a value -- reads what the engine has there, and
+    every instance's input pin what the instance's port has, over random vectors far enough apart for every delay to
+    settle, with an x or a z now and then.
+  - A net whose value passes through an opaque box is left out: the engine leaves a function's value stale when a
+    signal it reads but is not given changes, as Icarus does, which no circuit computes.
+  - And every netlist's inputs are signals of its own scopes or of what is inside them, never its parent's.
+
+  The designs:
   - every exercise's reference solution, its cells' insides included;
   - every module with ports in the oracle corpus's structural, behavioural and smoke designs, read with their folder's
-    includes, and a testbench alone run as written to its end;
+    includes, and every testbench run as written to its end;
   - a module of every operator.
 
-  The shape is held too: the full adder's five instances joined by the nets the code names, and alu64's 64 slices.
+  The shape is held too: the full adder's five instances joined by the nets the code names, alu64's 64 slices, a shared
+  value one cell, a child's inputs its own, and an inout bus driven in each scope by what that scope gives it.
+- **The Sonnet review** found the extractor putting a port's connection into the instance's own netlist, an inout bus's
+  drivers into the wrong scope, and a shared value drawn twice -- every value right, every structure wrong for a drawing
+  -- and the test too weak to see any of it; all of it is fixed and held now.
 - **Found on the way:** the shell's caret was placed on a timer of 50 ms of real time, and a full Play Mode run's driven
   frames now and then came in under it. It is placed every frame the field has the keyboard (a red test, then the fix).
 

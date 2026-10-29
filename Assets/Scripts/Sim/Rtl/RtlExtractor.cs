@@ -19,6 +19,14 @@ namespace BitSorter.Sim
     /// slices or several drivers are put together as the engine puts them -- so a netlist computes exactly what the design
     /// does, its signals' sign and 2-state type included, and a drawing collapses the wires.
     ///
+    /// **A driver belongs to the scope it is written in** (<see cref="DriverInfo.WrittenIn"/>), not its target's: a port's
+    /// connection, written in the parent, is an instance pin there and nothing in the instance, whose input ports are inputs;
+    /// and a signal driven from more than one scope -- an inout bus, each device's driver written in its own -- has in each
+    /// scope only what that scope gives it, as a net of its own, its resolved value read off the design.
+    ///
+    /// **Each expression node is one cell**, however many places use it: <c>{cout, sum} = a + b + cin</c> is sliced once for
+    /// each, and is still one adder of two.
+    ///
     /// **A process is a box here.** Part 15h-2 opens each that describes hardware into muxes and registers.
     /// </remarks>
     public static class RtlExtractor
@@ -59,6 +67,7 @@ namespace BitSorter.Sim
         private readonly List<RtlNet> _nets = new List<RtlNet>();
         private readonly List<RtlCell> _cells = new List<RtlCell>();
         private readonly Dictionary<int, int> _netOfSignal = new Dictionary<int, int>();
+        private readonly Dictionary<Expr, int> _made = new Dictionary<Expr, int>();
         private int _unnamed;
 
         public RtlBuilder(Design design, int scope)
@@ -82,29 +91,42 @@ namespace BitSorter.Sim
 
         public void Build()
         {
-            // Every driver of a signal of the scope's own, by its target; and the connections of each instance's inputs.
+            // The signals driven from more than one module's instance: an inout bus, each device's driver written in its own.
+            var writer = new Dictionary<int, int>();
+            var shared = new HashSet<int>();
+            foreach (DriverInfo d in _design.Drivers)
+            {
+                int module = ModuleOf(WrittenIn(d));
+                if (writer.TryGetValue(d.Target.Index, out int first) && first != module)
+                    shared.Add(d.Target.Index);
+                else
+                    writer[d.Target.Index] = module;
+            }
+
+            // Every driver written in the scope's own, by its target -- a connection to an instance's input apart, as its pin.
             var drivers = new Dictionary<int, List<DriverInfo>>();
             var targets = new List<int>();
             var connections = new Dictionary<int, Expr>();
             foreach (DriverInfo d in _design.Drivers)
             {
+                if (!_own.Contains(WrittenIn(d)))
+                    continue;
                 int target = d.Target.Index;
-                int at = _design.Signals[target].Scope;
-                if (_own.Contains(at))
-                {
-                    if (!drivers.TryGetValue(target, out List<DriverInfo> list))
-                    {
-                        drivers[target] = list = new List<DriverInfo>();
-                        targets.Add(target);
-                    }
-                    list.Add(d);
-                }
-                else if (d is AssignDriver a && _instances.Contains(at) && _design.Signals[target].Port == PortDirection.Input
-                         && d.Name.StartsWith("port ", StringComparison.Ordinal))
+                SignalInfo info = _design.Signals[target];
+                if (d is AssignDriver a && _instances.Contains(info.Scope) && info.Port == PortDirection.Input
+                    && d.Name.StartsWith("port ", StringComparison.Ordinal))
                 {
                     connections[target] = a.Value;
+                    continue;
                 }
+                if (!drivers.TryGetValue(target, out List<DriverInfo> list))
+                {
+                    drivers[target] = list = new List<DriverInfo>();
+                    targets.Add(target);
+                }
+                list.Add(d);
             }
+            _shared = shared;
 
             // The scope's ports first, so they are its first nets, in the order declared.
             for (int i = 0; i < _design.Signals.Count; i++)
@@ -123,6 +145,29 @@ namespace BitSorter.Sim
                 if (!process.Dormant && _own.Contains(ScopeOf(process.Name)))
                     Process(process);
             }
+        }
+
+        private HashSet<int> _shared = new HashSet<int>();
+
+        /// <summary>The scope a driver is written in: as the elaborator recorded it, or, for a circuit built in code, its target's.</summary>
+        private int WrittenIn(DriverInfo d) => d.WrittenIn >= 0 ? d.WrittenIn : _design.Signals[d.Target.Index].Scope;
+
+        /// <summary>The instance -- or the top -- a scope belongs to: itself, or the nearest such around a generate or named block.</summary>
+        private int ModuleOf(int scope)
+        {
+            while (scope >= 0 && _design.Scopes[scope].Kind != ScopeKind.Top && _design.Scopes[scope].Kind != ScopeKind.Instance)
+                scope = _design.Scopes[scope].Parent;
+            return scope;
+        }
+
+        /// <summary>The net of an expression's value, each node made once: two places using one value share its cell.</summary>
+        public int Of(Expr e)
+        {
+            if (_made.TryGetValue(e, out int net))
+                return net;
+            net = e.ToRtl(this);
+            _made[e] = net;
+            return net;
         }
 
         public RtlNetlist Finish()
@@ -158,10 +203,19 @@ namespace BitSorter.Sim
             return net;
         }
 
+        /// <summary>
+        /// A signal's name from this scope: its own, past the scope's path -- or, for a net of another scope this one reaches
+        /// by an alias, an inout's own name, as the code here names it (<c>bus</c>, not <c>tb.bus</c>).
+        /// </summary>
         private string NameOf(int signal)
         {
             string name = _design.Signals[signal].Name;
-            return name.StartsWith(_prefix, StringComparison.Ordinal) ? name.Substring(_prefix.Length) : name;
+            if (name.StartsWith(_prefix, StringComparison.Ordinal))
+                return name.Substring(_prefix.Length);
+            foreach ((string alias, SignalId aliased) in _design.Aliases)
+                if (aliased.Index == signal && alias.StartsWith(_prefix, StringComparison.Ordinal) && alias.IndexOf('.', _prefix.Length) < 0)
+                    return alias.Substring(_prefix.Length);
+            return name;
         }
 
         /// <summary>A signal's drivers, each its value's cells, joined into the signal's net.</summary>
@@ -179,19 +233,22 @@ namespace BitSorter.Sim
                 {
                     var inputs = new int[g.InputCount];
                     for (int k = 0; k < inputs.Length; k++)
-                        inputs[k] = g.Input(k).ToRtl(this);
-                    RtlCell gate = NewCell(RtlKind.Gate, g.Name, inputs, 1);
+                        inputs[k] = Of(g.Input(k));
+                    string name = g.Name.StartsWith(_prefix, StringComparison.Ordinal) ? g.Name.Substring(_prefix.Length) : g.Name;
+                    RtlCell gate = NewCell(RtlKind.Gate, name, inputs, 1);
                     gate.Gate = g.Kind;
                     values[i] = gate.Output;
                 }
                 else if (d is AssignDriver a)
                 {
-                    values[i] = a.Value.ToRtl(this);
+                    values[i] = Of(a.Value);
                 }
             }
 
+            // A signal other scopes drive as well gets only what this one gives it, on a net of its own; its value, all of them
+            // resolved, is the design's.
             SignalInfo info = _design.Signals[target];
-            int net = Read(target, info.Width);
+            int net = _shared.Contains(target) ? NewNet(info.Width, NameOf(target) + " (driven here)", -1) : Read(target, info.Width);
             RtlCell join = NewCellDriving(RtlKind.Join, NameOf(target), values, net);
             join.Signal = target;
             join.Lowests = lowests;
@@ -222,9 +279,21 @@ namespace BitSorter.Sim
                 }
                 else
                 {
-                    inputs.Add(connections.TryGetValue(i, out Expr value) ? value.ToRtl(this) : -1);
+                    inputs.Add(connections.TryGetValue(i, out Expr value) ? Of(value) : -1);
                     inputNames.Add(pin);
                 }
+            }
+
+            // An inout joined to the net it is connected to is that net, by another name: a pin on the net.
+            foreach ((string alias, SignalId signal) in _design.Aliases)
+            {
+                if (alias.Length <= scope.Path.Length + 1 || !alias.StartsWith(scope.Path + ".", StringComparison.Ordinal))
+                    continue;
+                string pin = alias.Substring(scope.Path.Length + 1);
+                if (pin.IndexOf('.') >= 0)
+                    continue;
+                inputs.Add(Read(signal.Index, _design.Signals[signal.Index].Width));
+                inputNames.Add(pin);
             }
 
             // Named from this scope, so a generate loop's are told apart: slice[3].s.
@@ -251,6 +320,8 @@ namespace BitSorter.Sim
                 inputNames.Add(NameOf(signal));
             }
 
+            // Every signal it writes, each an output -- one written by several processes, a generate loop's always_ff q[i] say, an
+            // output of each, its net driven by the first.
             var outputs = new List<int>();
             var outputNames = new List<string>();
             var writes = new SortedSet<int>(process.Writes);
@@ -259,10 +330,7 @@ namespace BitSorter.Sim
                 SignalInfo info = _design.Signals[signal];
                 if (info.Local || info.Memory != null)
                     continue;
-                int net = Read(signal, info.Width);
-                if (_nets[net].Driver >= 0)
-                    continue;
-                outputs.Add(net);
+                outputs.Add(Read(signal, info.Width));
                 outputNames.Add(NameOf(signal));
             }
 
@@ -403,7 +471,8 @@ namespace BitSorter.Sim
             var cell = new RtlCell(_cells.Count, kind, name, inputs, outputs);
             _cells.Add(cell);
             foreach (int net in outputs)
-                _nets[net].Driver = cell.Id;
+                if (_nets[net].Driver < 0)
+                    _nets[net].Driver = cell.Id;
             return cell;
         }
     }

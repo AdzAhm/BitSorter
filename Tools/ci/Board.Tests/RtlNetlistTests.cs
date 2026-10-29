@@ -44,6 +44,8 @@ namespace BitSorter.Board.Tests
 
             var sim = new Simulator(design, stimulus, null);
             List<RtlNetlist> netlists = Netlists(design);
+            foreach (RtlNetlist netlist in netlists)
+                HoldItsShape(design, netlist, what);
             int compared = 0;
             for (int v = 0; v < Vectors; v++)
             {
@@ -51,9 +53,14 @@ namespace BitSorter.Board.Tests
                 compared += Compare(design, sim, netlists, $"{what} at vector {v}");
             }
 
-            // A design with nothing to compare must be one with nothing combinational: processes and instances alone.
+            // A design with nothing to compare must be one with nothing combinational -- processes and instances alone -- but what
+            // passes through an opaque box.
             if (compared == 0)
-                Assert.IsTrue(netlists.All(n => n.Count(RtlKind.Join) == 0), $"{what}: joins, and none compared");
+                foreach (RtlNetlist n in netlists)
+                {
+                    bool[] opaque = ThroughAnOpaqueBox(n);
+                    Assert.IsTrue(n.Cells.Where(c => c.Kind == RtlKind.Join).All(c => opaque[c.Output]), $"{what}: joins, and none compared");
+                }
             return compared;
         }
 
@@ -67,7 +74,12 @@ namespace BitSorter.Board.Tests
             return netlists;
         }
 
-        /// <summary>Every net a join drives in <paramref name="netlists"/>, worked out, against the engine now; how many there were.</summary>
+        /// <summary>
+        /// Every net a join drives in <paramref name="netlists"/>, worked out, against the engine now, and every instance's input
+        /// pin against the instance's own port; how many there were. A net whose value passes through an opaque box is left out:
+        /// the box is worked out from the signals as they are now, and the engine leaves a function's value stale when a signal it
+        /// reads but is not given changes -- as Icarus does, and as no circuit computes.
+        /// </summary>
         private static int Compare(Design design, Simulator sim, List<RtlNetlist> netlists, string when)
         {
             var signals = new LogicVec[design.Signals.Count];
@@ -78,16 +90,77 @@ namespace BitSorter.Board.Tests
             foreach (RtlNetlist netlist in netlists)
             {
                 LogicVec[] values = RtlEvaluator.Evaluate(netlist, signals);
+                bool[] opaque = ThroughAnOpaqueBox(netlist);
                 foreach (RtlNet net in netlist.Nets)
                 {
-                    if (net.Signal < 0 || net.Driver < 0 || netlist.Cells[net.Driver].Kind != RtlKind.Join)
+                    if (net.Signal < 0 || net.Driver < 0 || netlist.Cells[net.Driver].Kind != RtlKind.Join || opaque[net.Id])
                         continue;
                     Assert.AreEqual(signals[net.Signal].Format(Radix.Binary), values[net.Id].Format(Radix.Binary),
                         $"{when}: {netlist.Scope}.{net.Name}");
                     compared++;
                 }
+
+                foreach (RtlCell cell in netlist.Cells)
+                {
+                    if (cell.Kind != RtlKind.Instance)
+                        continue;
+                    for (int pin = 0; pin < cell.Inputs.Count; pin++)
+                    {
+                        int net = cell.Inputs[pin];
+                        if (net < 0 || opaque[net] || !design.TryFind(netlist.Scope + "." + cell.Name + "." + cell.InputNames[pin], out SignalId port))
+                            continue;
+                        Assert.AreEqual(signals[port.Index].Format(Radix.Binary), values[net].Format(Radix.Binary),
+                            $"{when}: {netlist.Scope}.{cell.Name}'s pin {cell.InputNames[pin]}");
+                        compared++;
+                    }
+                }
             }
             return compared;
+        }
+
+        /// <summary>Each net whose value passes through an opaque box, working back through the logic to the box.</summary>
+        private static bool[] ThroughAnOpaqueBox(RtlNetlist netlist)
+        {
+            var through = new bool[netlist.Nets.Count];
+            var seen = new bool[netlist.Nets.Count];
+            bool Through(int net)
+            {
+                if (net < 0 || seen[net])
+                    return net >= 0 && through[net];
+                seen[net] = true;
+                int driver = netlist.Nets[net].Driver;
+                if (driver < 0)
+                    return false;
+                RtlCell cell = netlist.Cells[driver];
+                if (cell.Kind == RtlKind.Instance || cell.Kind == RtlKind.Process)
+                    return false;
+                bool any = cell.Kind == RtlKind.Opaque;
+                foreach (int input in cell.Inputs)
+                    any |= Through(input);
+                return through[net] = any;
+            }
+            for (int n = 0; n < through.Length; n++)
+                Through(n);
+            return through;
+        }
+
+        /// <summary>
+        /// What every netlist is: its undriven nets -- its inputs -- signals of its own scopes or of what is inside them, an
+        /// inout's net by an alias, never a signal of its parent's or another's. A child's netlist once read its parent's logic
+        /// for its inputs (the 15h-1 review).
+        /// </summary>
+        private static void HoldItsShape(Design design, RtlNetlist netlist, string what)
+        {
+            int scope = design.Scopes.ToList().FindIndex(s => s.Path == netlist.Scope);
+            var within = new HashSet<int> { scope };
+            for (int i = scope + 1; i < design.Scopes.Count; i++)
+                if (within.Contains(design.Scopes[i].Parent))
+                    within.Add(i);
+            var aliased = new HashSet<int>(design.Aliases.Where(a => a.Name.StartsWith(netlist.Scope + ".", StringComparison.Ordinal)).Select(a => a.Signal.Index));
+            foreach (RtlNet net in netlist.Nets)
+                if (net.Driver < 0 && net.Signal >= 0)
+                    Assert.IsTrue(within.Contains(design.Signals[net.Signal].Scope) || aliased.Contains(net.Signal),
+                        $"{what}: {netlist.Scope} reads {design.Signals[net.Signal].Name}, of another scope, as an input");
         }
 
         /// <summary>A random value of <paramref name="width"/> bits, now and then with an x or a z in it.</summary>
@@ -175,18 +248,23 @@ namespace BitSorter.Board.Tests
                 TestContext.WriteLine("not a top alone: " + why);
             Assert.That(refused.All(r => r.Contains("interface")), "a module that does not elaborate alone:\n" + string.Join("\n", refused));
 
-            // A testbench alone: run as written, and compared where it ends, everything having settled.
-            if (tops == 0)
-                foreach (ModuleDeclaration module in tree.Modules)
-                {
-                    Elaboration e = Elaborator.Elaborate(tree, module.Name);
-                    if (e.HasErrors)
-                        continue;
-                    var sim = new Simulator(e.Design, null, null);
-                    sim.RunTo(10_000_000);
-                    Compare(e.Design, sim, Netlists(e.Design), file + " " + module.Name + " at its end");
-                    tops++;
-                }
+            // Every testbench as written, compared where it ends, everything having settled (the 15h-1 review: only a file with
+            // no module with ports was run this way, and eight testbenches never were).
+            foreach (ModuleDeclaration module in tree.Modules)
+            {
+                if (module.Ports.Count > 0)
+                    continue;
+                Elaboration e = Elaborator.Elaborate(tree, module.Name);
+                if (e.HasErrors)
+                    continue;
+                var sim = new Simulator(e.Design, null, null);
+                sim.RunTo(10_000_000);
+                List<RtlNetlist> netlists = Netlists(e.Design);
+                foreach (RtlNetlist netlist in netlists)
+                    HoldItsShape(e.Design, netlist, file + " " + module.Name);
+                Compare(e.Design, sim, netlists, file + " " + module.Name + " at its end");
+                tops++;
+            }
             Assert.Greater(tops, 0, "sanity: a module of the file was a top");
         }
 
@@ -226,6 +304,76 @@ namespace BitSorter.Board.Tests
             Assert.AreEqual(g1.Output, half.Inputs.Single(), "and that driver is g1's output");
             CollectionAssert.AreEqual(new[] { "a", "b", "cin" }, netlist.Inputs.Select(n => netlist.Nets[n].Name).ToArray());
             CollectionAssert.AreEqual(new[] { "sum", "cout" }, netlist.Outputs.Select(n => netlist.Nets[n].Name).ToArray());
+        }
+
+        /// <summary>
+        /// A value used in two places is one cell: <c>{cout, sum} = a + b + cin</c> is sliced once for each, and is two adders,
+        /// not four (the 15h-1 review).
+        /// </summary>
+        [Test]
+        public void AValueUsedTwice_IsOneCell()
+        {
+            SyntaxTree tree = SyntaxReader.ReadText(
+                "module add (input logic [3:0] a, b, input logic cin, output logic [3:0] sum, output logic cout);\n" +
+                "    assign {cout, sum} = a + b + cin;\n" +
+                "endmodule\n", "add.sv");
+            Assert.IsFalse(tree.HasErrors, string.Join("; ", tree.Diagnostics));
+            RtlNetlist netlist = RtlExtractor.Of(Elaborate(tree, "add"), "add");
+            Assert.AreEqual(2, netlist.Count(RtlKind.Binary), "a + b, and + cin");
+        }
+
+        /// <summary>
+        /// A child's netlist has its own input ports for inputs, never its parent's logic: the connection is the parent's, as a
+        /// pin of the instance (the 15h-1 review found the child's a and b driven by its parent's p and ~q).
+        /// </summary>
+        [Test]
+        public void AChildsInputPorts_AreItsInputs_AndTheConnectionIsTheParents()
+        {
+            SyntaxTree tree = SyntaxReader.ReadText(
+                "module inner (input logic [3:0] a, b, output logic [3:0] y);\n" +
+                "    assign y = a + b;\n" +
+                "endmodule\n" +
+                "module outer (input logic [3:0] p, q, output logic [3:0] r);\n" +
+                "    inner u (.a(p), .b(~q), .y(r));\n" +
+                "endmodule\n", "nest.sv");
+            Assert.IsFalse(tree.HasErrors, string.Join("; ", tree.Diagnostics));
+            Design design = Elaborate(tree, "outer");
+
+            RtlNetlist inner = RtlExtractor.Of(design, "outer.u");
+            Assert.AreEqual(0, inner.Count(RtlKind.Unary), "no ~q of its parent's");
+            Assert.AreEqual(1, inner.Count(RtlKind.Join), "y alone is driven in it: not a, not b");
+            foreach (int input in inner.Inputs)
+                Assert.AreEqual(-1, inner.Nets[input].Driver, inner.Nets[input].Name + " is an input");
+
+            RtlNetlist outer = RtlExtractor.Of(design, "outer");
+            RtlCell u = outer.Cells.Single(c => c.Kind == RtlKind.Instance);
+            Assert.AreEqual(RtlKind.Unary, outer.Cells[outer.Nets[u.Inputs[1]].Driver].Kind, "the ~q on u's pin b is the parent's");
+        }
+
+        /// <summary>
+        /// An inout bus driven from several scopes: each device's netlist has its own driver of the bus, on a net of its own, and
+        /// the testbench's has its own and the devices as pins on the bus -- never a device's logic (the 15h-1 review found the
+        /// testbench's join reading a device's en and value, and the devices with no driver at all).
+        /// </summary>
+        [Test]
+        public void AnInoutBus_IsDrivenInEachScopeByWhatThatScopeGivesIt()
+        {
+            string folder = RepoRoot.Combine("Tools/ci/Oracle/corpus/behavioural");
+            SyntaxTree tree = SyntaxReader.ReadText(File.ReadAllText(Path.Combine(folder, "shared_bus.sv")), "shared_bus.sv");
+            Assert.IsFalse(tree.HasErrors, string.Join("; ", tree.Diagnostics));
+            Design design = Elaborate(tree, "shared_bus_tb");
+
+            RtlNetlist device = RtlExtractor.Of(design, "shared_bus_tb.a");
+            RtlCell drives = device.Cells.Single(c => c.Kind == RtlKind.Join && device.Nets[c.Output].Name == "bus (driven here)");
+            Assert.AreEqual(RtlKind.Mux, device.Cells[device.Nets[drives.Inputs.Single()].Driver].Kind, "en ? value : z, in the device");
+
+            RtlNetlist bench = RtlExtractor.Of(design, "shared_bus_tb");
+            RtlCell a = bench.Cells.Single(c => c.Kind == RtlKind.Instance && c.Name == "a");
+            int pin = a.InputNames.ToList().IndexOf("bus");
+            Assert.GreaterOrEqual(pin, 0, "the device's inout is a pin of it");
+            Assert.AreEqual(bench.NetNamed("bus"), a.Inputs[pin], "on the bus");
+            Assert.IsFalse(bench.Cells.Any(c => c.Kind == RtlKind.Mux && c.Inputs.Any(i => bench.Nets[i].Name.StartsWith("a.", StringComparison.Ordinal))),
+                "and nothing of the device's own logic in the testbench");
         }
 
         /// <summary>A generate loop's instances are the scope's own cells, each named for its pass: alu64's 64 slices.</summary>
