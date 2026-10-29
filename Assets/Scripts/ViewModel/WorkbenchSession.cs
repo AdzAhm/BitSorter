@@ -102,7 +102,7 @@ namespace BitSorter.ViewModel
         public int LayoutVersion { get; private set; }
 
         /// <summary>The module the canvas edits: the design's top, or the module of the instance stepped into last (Part 12a).</summary>
-        public string Module => ModuleOn(Project, _path, out _);
+        public string Module => ModuleOn(Project, _path, out _, _throughCode);
 
         // -----------------------------------------------------------------
         // Stepping inside a block (Part 12a)
@@ -125,6 +125,16 @@ namespace BitSorter.ViewModel
         /// </summary>
         public bool StepInto(int part)
         {
+            // A block of the drawing of written code (Part 15h-4): the instance its code makes, which no block of the module is.
+            if (ShowsDrawingOfCode && _drawing != null && _drawing.Module.FindPart(part) is BlockPart inCode
+                && Project.Find(inCode.Module) != null && _drawing.InstanceOf(part) is string instance)
+            {
+                _path.Add(instance);
+                _throughCode[string.Join("/", _path)] = inCode.Module;
+                Stepped();
+                return true;
+            }
+
             Module module = Project.Find(Module);
             if (!(module?.FindPart(part) is BlockPart block) || string.IsNullOrEmpty(block.Name) || Project.Find(block.Module) == null)
                 return false;
@@ -169,14 +179,73 @@ namespace BitSorter.ViewModel
                     i++;
             }
 
-            ModuleOn(Project, names, out int valid);
-            if (valid < names.Count)
+            ModuleOn(Project, names, out int valid, _throughCode);
+            if (valid < names.Count && !ThroughCodeTo(compiled, names, valid, scope))
                 return false;
-            _path.Clear();
-            _path.AddRange(names);
+            if (valid == names.Count)
+            {
+                _path.Clear();
+                _path.AddRange(names);
+            }
             Stepped();
             return true;
         }
+
+        /// <summary>
+        /// The steps to <paramref name="scope"/> where the way there passes through written code (Part 15h-4): the steps that
+        /// are blocks, then from the written module each instance scope on the way, named from the one before as the design
+        /// names it, and noted in <see cref="ThroughCode"/>. False when the design has no such instance.
+        /// </summary>
+        private bool ThroughCodeTo(CompiledProject compiled, List<string> names, int valid, string scope)
+        {
+            Design design = Run?.Model?.Session.Design;
+            if (design == null)
+                return false;
+            int target = -1;
+            for (int i = 0; i < design.Scopes.Count; i++)
+                if (design.Scopes[i].Path == scope)
+                    target = i;
+            if (target < 0 || design.Scopes[target].Kind != ScopeKind.Instance)
+                return false;
+
+            var steps = new List<string>(names.GetRange(0, valid));
+            string from = compiled.DesignPath;
+            foreach (string step in steps)
+                from += "." + step;
+
+            // The instances from the written module down to the scope, outermost first.
+            var chain = new List<ScopeInfo>();
+            for (int at = target; at >= 0 && design.Scopes[at].Path != from; at = design.Scopes[at].Parent)
+                if (design.Scopes[at].Kind == ScopeKind.Instance)
+                    chain.Insert(0, design.Scopes[at]);
+            if (chain.Count == 0 || !chain[0].Path.StartsWith(from + ".", StringComparison.Ordinal))
+                return false;
+
+            var noted = new List<(string Key, string Module)>();
+            string before = from;
+            foreach (ScopeInfo instance in chain)
+            {
+                if (Project.Find(instance.Module) == null)
+                    return false;
+                steps.Add(instance.Path.Substring(before.Length + 1));
+                noted.Add((string.Join("/", steps), instance.Module));
+                before = instance.Path;
+            }
+
+            foreach ((string key, string module) in noted)
+                _throughCode[key] = module;
+            _path.Clear();
+            _path.AddRange(steps);
+            return true;
+        }
+
+        /// <summary>
+        /// The instances stepped into inside written code (Part 15h-4), by the path to each, joined with <c>/</c>: the module it
+        /// is of, which no block of a drawn module says.
+        /// </summary>
+        public IReadOnlyDictionary<string, string> ThroughCode => _throughCode;
+
+        private readonly Dictionary<string, string> _throughCode = new Dictionary<string, string>(StringComparer.Ordinal);
 
         /// <summary>How many instances of <paramref name="module"/> the design has: what an edit inside it changes.</summary>
         public int InstancesOf(string module)
@@ -192,14 +261,29 @@ namespace BitSorter.ViewModel
         /// The module at the end of <paramref name="path"/> from the top of <paramref name="project"/>, and how many of
         /// its steps were blocks of modules the document has: the module of the last of those.
         /// </summary>
-        public static string ModuleOn(Project project, IReadOnlyList<string> path, out int valid)
+        public static string ModuleOn(Project project, IReadOnlyList<string> path, out int valid, IReadOnlyDictionary<string, string> throughCode = null)
         {
             Module module = project.TopModule;
             valid = 0;
             if (module == null)
                 return project.Top;
-            foreach (string step in path)
+            for (int i = 0; i < path.Count; i++)
             {
+                string step = path[i];
+
+                // Inside written code a step is an instance its code makes (Part 15h-4), the module it is of noted as it was taken.
+                if (module.IsWritten)
+                {
+                    var prefix = new string[i + 1];
+                    for (int j = 0; j <= i; j++)
+                        prefix[j] = path[j];
+                    if (throughCode == null || !throughCode.TryGetValue(string.Join("/", prefix), out string inCode) || !(project.Find(inCode) is Module of))
+                        break;
+                    module = of;
+                    valid++;
+                    continue;
+                }
+
                 if (!TryCopy(step, out string name, out int copy) || !(module.FindPart(name) is BlockPart block)
                     || !(project.Find(block.Module) is Module inner) || (block.Copies > 1) != (copy >= 0) || copy >= block.Copies)
                     break;
@@ -228,8 +312,12 @@ namespace BitSorter.ViewModel
         private string InstancePathUnder(string designPath)
         {
             string path = designPath;
-            foreach (string step in _path)
-                path += step.EndsWith("]", StringComparison.Ordinal) ? "." + step + "." + BoardCompiler.ArrayInstance : "." + step;
+            for (int i = 0; i < _path.Count; i++)
+            {
+                string step = _path[i];
+                bool inCode = _throughCode.ContainsKey(string.Join("/", _path.GetRange(0, i + 1)));
+                path += step.EndsWith("]", StringComparison.Ordinal) && !inCode ? "." + step + "." + BoardCompiler.ArrayInstance : "." + step;
+            }
             return path;
         }
 
@@ -237,7 +325,7 @@ namespace BitSorter.ViewModel
         private SchematicLayout LayoutOf(Project project, CompiledProject compiled)
         {
             double started = _now();
-            string shown = ModuleOn(project, _path, out _);
+            string shown = ModuleOn(project, _path, out _, _throughCode);
             SchematicLayout layout = null;
             if (project.Find(shown)?.IsWritten == true && _drawnCode.Contains(shown))
                 layout = DrawingLayout(project, compiled, InstancePathUnder(compiled.DesignPath), shown);
@@ -641,7 +729,7 @@ namespace BitSorter.ViewModel
         /// </summary>
         private void Relayout()
         {
-            ModuleOn(Project, _path, out int valid);
+            ModuleOn(Project, _path, out int valid, _throughCode);
             if (valid < _path.Count)
             {
                 _path.RemoveRange(valid, _path.Count - valid);

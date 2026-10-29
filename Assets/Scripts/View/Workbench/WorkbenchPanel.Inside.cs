@@ -135,7 +135,7 @@ namespace BitSorter.View
             var path = new System.Collections.Generic.List<string>();
             for (int i = 0; i < depth; i++)
                 path.Add(_session.Path[i]);
-            return WorkbenchSession.ModuleOn(_session.Project, path, out _);
+            return WorkbenchSession.ModuleOn(_session.Project, path, out _, _session.ThroughCode);
         }
 
         /// <summary>What the inspector's line says inside a block while nothing is selected: that an edit here is the module's.</summary>

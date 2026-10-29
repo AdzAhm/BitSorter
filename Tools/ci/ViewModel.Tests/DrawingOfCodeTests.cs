@@ -122,6 +122,67 @@ namespace BitSorter.ViewModel.Tests
             Assert.AreEqual(typed, session.Code.Text);
         }
 
+        private const string HalfAdderCode =
+            "module ha (input logic a, b, output logic s, c);\n" +
+            "    assign s = a ^ b;\n" +
+            "    assign c = a & b;\n" +
+            "endmodule\n";
+
+        private const string FullAdderCode =
+            "module fa (input logic a, b, cin, output logic s, cout);\n" +
+            "    logic s1, c1, c2;\n" +
+            "    ha h1 (.a(a), .b(b), .s(s1), .c(c1));\n" +
+            "    ha h2 (.a(s1), .b(cin), .s(s), .c(c2));\n" +
+            "    assign cout = c1 | c2;\n" +
+            "endmodule\n";
+
+        /// <summary>A full adder written as code, of two half adders written as code: its top, fa, written too.</summary>
+        private static Project WrittenFullAdder()
+        {
+            var editor = new BoardEditor(Project.New("top"));
+            Assert.IsTrue(editor.AddWrittenModule("ha", HalfAdderCode).Done);
+            Assert.IsTrue(editor.AddWrittenModule("fa", FullAdderCode).Done);
+            EditResult top = editor.SetTop("fa");
+            Assert.IsTrue(top.Done, top.Refusal);
+            return editor.Project;
+        }
+
+        /// <summary>
+        /// An instance inside written code is stepped into from its block on the drawing, and out again; and from the
+        /// hierarchy, as a drawn block's is -- the breadcrumb's path each instance's name in the code.
+        /// </summary>
+        [Test]
+        public void AnInstanceInsideWrittenCode_IsSteppedInto_AndOutAgain()
+        {
+            var session = new WorkbenchSession(WrittenFullAdder(), Ticking(0.01));
+            session.Finish();
+            Assert.IsTrue(session.ShowsCode, "sanity: fa is code");
+            session.DrawCode(true);
+
+            SchematicLayout layout = session.Run.Model.Layout;
+            Assert.AreEqual(2, layout.Parts.Count(p => p.Part is BlockPart b && b.Module == "ha"), "h1 and h2, each a block of ha");
+            PartLayout h1 = layout.Parts.Single(p => p.Part is BlockPart b && b.Name == "h1");
+            Assert.IsTrue(session.StepInto(h1.Part.Id));
+            CollectionAssert.AreEqual(new[] { "h1" }, session.Path);
+            Assert.AreEqual("ha", session.Module);
+            Assert.IsTrue(session.ShowsCode, "inside, ha's code");
+
+            session.DrawCode(true);
+            Assert.AreEqual(2, session.Run.Model.Layout.Parts.Count(p => p.Symbol == PartSymbol.Operator), "a ^ b and a & b");
+            StringAssert.EndsWith(".h1", session.Run.Model.Layout.InstancePath, "its values read under h1");
+
+            Assert.IsTrue(session.StepOut());
+            Assert.AreEqual("fa", session.Module);
+            Assert.IsTrue(session.ShowsDrawingOfCode, "fa's drawing as it was left");
+
+            string design = session.Run.Model.Layout.DesignPath;
+            Assert.IsTrue(session.StepToScope(design + ".h2"), "from the hierarchy");
+            CollectionAssert.AreEqual(new[] { "h2" }, session.Path);
+            Assert.AreEqual("ha", session.Module);
+            Assert.IsTrue(session.StepToScope(design));
+            Assert.IsEmpty(session.Path);
+        }
+
         [Test]
         public void TheChoiceOfCodeOrDrawing_IsKeptForEachModule()
         {

@@ -24,12 +24,21 @@ namespace BitSorter.Board
     /// </remarks>
     public sealed class RtlDrawing
     {
-        private RtlDrawing(Project project, Module module, Dictionary<int, int> netOfWire)
+        private RtlDrawing(Project project, Module module, Dictionary<int, int> netOfWire, Dictionary<int, string> instanceOf)
         {
             Project = project;
             Module = module;
             _netOfWire = netOfWire;
+            _instanceOf = instanceOf;
         }
+
+        private readonly Dictionary<int, string> _instanceOf;
+
+        /// <summary>
+        /// The instance a block of the drawing is, by its part's id, named from the scope as the design names it -- <c>h1</c>,
+        /// <c>gen[2].u</c> -- what stepping inside it steps to; null for a part that is no instance.
+        /// </summary>
+        public string InstanceOf(int part) => _instanceOf.TryGetValue(part, out string name) ? name : null;
 
         private readonly Dictionary<int, int> _netOfWire;
 
@@ -58,7 +67,7 @@ namespace BitSorter.Board
                 if (m.Name != name)
                     modules.Add(m);
             modules.Add(module);
-            return new RtlDrawing(project with { Modules = modules }, module, drawing.NetOfWire);
+            return new RtlDrawing(project with { Modules = modules }, module, drawing.NetOfWire, drawing.InstanceOf);
         }
 
         private sealed class Builder
@@ -71,6 +80,9 @@ namespace BitSorter.Board
 
             /// <summary>The netlist's net each wire made carries, by the wire's id.</summary>
             public readonly Dictionary<int, int> NetOfWire = new Dictionary<int, int>();
+
+            /// <summary>The instance each block made is, by the part's id.</summary>
+            public readonly Dictionary<int, string> InstanceOf = new Dictionary<int, string>();
 
             // Where each net comes from -- a part's pin -- and each place it goes; and a join of one driver, a wire, merged.
             private readonly (int Part, string Pin)[] _source;
@@ -159,6 +171,8 @@ namespace BitSorter.Board
                         continue;   // said on the matches that use it
                     Part part = PartFor(cell, out string[] ins, out string[] outs);
                     int id = Add(part);
+                    if (cell.Kind == RtlKind.Instance)
+                        InstanceOf[id] = cell.Name;
                     if (cell.Kind == RtlKind.Register)
                         _registers.Add(_parts.Count - 1);
                     for (int i = 0; i < cell.Inputs.Count && i < ins.Length; i++)
