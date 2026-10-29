@@ -168,9 +168,10 @@ namespace BitSorter.Board
 
         /// <summary>
         /// For a register of a drawing of code (Part 15h-4g): the edge of clk it waits on as written, <c>negedge clk</c> as
-        /// well as <c>posedge</c> -- and then its reset is already in d, as the code's process works it out, and rst only
-        /// the other edge it waits on (<see cref="ResetEdge"/>). Null for a register drawn on a board, which waits on the
-        /// rising edges and puts its reset value in itself.
+        /// well as <c>posedge</c>; with a reset, the edge of rst too (<see cref="ResetEdge"/>, a rising one where none is
+        /// given), active low on a falling edge, which puts <see cref="ResetValue"/> in inside the process as the code did --
+        /// d already holds it as well, as the code's process works it out. Null for a register drawn on a board, which
+        /// waits on the rising edges.
         /// </summary>
         public EdgeKind? ClockEdge { get; init; }
 

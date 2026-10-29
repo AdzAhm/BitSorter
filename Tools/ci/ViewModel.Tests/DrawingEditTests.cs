@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using BitSorter.Board;
 using NUnit.Framework;
@@ -116,6 +117,36 @@ namespace BitSorter.ViewModel.Tests
             string code = Code(session);
             StringAssert.DoesNotContain("|", code);
             StringAssert.Contains("g1 (.A(a), .B(b), .Z(y));", code, "the AND placed and wired, in the code as the cell it is");
+        }
+
+        /// <summary>
+        /// A clock's period set in the inspector on the drawing changes the stimulus, which code written from the drawing does
+        /// not carry: refused, saying where it is set, rather than reported done and lost (the review of #117).
+        /// </summary>
+        [Test]
+        public void AClocksPeriodSetOnTheDrawing_IsRefused_NotLost()
+        {
+            var editor = new BoardEditor(Project.New("scratch"));
+            Assert.IsTrue(editor.AddWrittenModule("ff",
+                "module ff (input logic clk, input logic d, output logic q);\n    always_ff @(posedge clk) q <= d;\nendmodule\n").Done);
+            Project project = editor.Project with
+            {
+                Top = "ff",
+                Stimulus = new BitSorter.Board.Stimulus { Clocks = new[] { new ClockTrack { Port = "clk", Period = 10 } }, End = 100 },
+            };
+            var session = new WorkbenchSession(project, Ticking(0.01));
+            session.Finish();
+            Assert.IsTrue(session.ShowsDrawingOfCode);
+            session.Remove(new int[0], new int[0]);
+            session.AnswerRewrite(true);   // the question out of the way
+
+            int clk = session.Run.Model.Layout.Ports.Single(p => p.Name.Split('[')[0] == "clk").Part;
+            Inspection inspection = Inspector.Of(session.DrawnProject, session.Module, new CanvasTarget(CanvasTargetKind.Part, part: clk));
+            Assert.IsNotNull(inspection, "sanity: the clock's port inspected on the drawing");
+            EditResult set = session.Inspect(inspection, new Dictionary<string, string> { ["period"] = "40" });
+            Assert.IsFalse(set.Done);
+            Assert.AreEqual(WorkbenchSession.BeyondTheCodeRefusal, set.Refusal);
+            Assert.AreEqual(10, session.Project.Stimulus.Clocks[0].Period, "nothing changed");
         }
 
         [Test]

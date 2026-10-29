@@ -172,8 +172,15 @@ namespace BitSorter.Sim
         /// </summary>
         public Delay Delay { get; internal set; }
 
-        /// <summary>A <see cref="RtlKind.Register"/>'s signal's starting value as declared, <c>logic [3:0] n = 0;</c>; null for none.</summary>
+        /// <summary>A <see cref="RtlKind.Register"/>'s starting value as declared, <c>logic [3:0] n = 0;</c>, its own bits of it; null for none.</summary>
         public LogicVec? Initial { get; internal set; }
+
+        /// <summary>
+        /// What a <see cref="RtlKind.Register"/>'s asynchronous reset or set puts in (Part 15h-4g): its D with the other edge's
+        /// signal at its active value -- 0 for a negedge, 1 for a posedge -- the same whatever else is. Null for a register with
+        /// one edge, or whose reset gives no one value; code written from a drawing puts it in inside its process, as written.
+        /// </summary>
+        public LogicVec? Reset { get; internal set; }
         public UnaryOp Unary { get; internal set; }
         public BinaryOp Binary { get; internal set; }
 
@@ -282,7 +289,7 @@ namespace BitSorter.Sim
     public sealed class RtlNetlist
     {
         internal RtlNetlist(string scope, string module, RtlNet[] nets, RtlCell[] cells, int[] inputs, int[] outputs, RtlProcessRecord[] processes,
-            string[] unshown = null)
+            IReadOnlyList<string> unshown = null)
         {
             Processes = processes;
             Unshown = unshown ?? Array.Empty<string>();

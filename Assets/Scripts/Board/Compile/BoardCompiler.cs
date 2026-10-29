@@ -474,10 +474,20 @@ namespace BitSorter.Board
 
                 if (register.ClockEdge is EdgeKind clock)
                 {
-                    // As the code it was drawn from waits (Part 15h-4g): its reset already in d.
-                    edge = register.HasReset && register.ResetEdge is EdgeKind reset
-                        ? Sv.On((EdgeWord(clock), NetName(register, "clk")), (EdgeWord(reset), NetName(register, "rst")))
-                        : Sv.On((EdgeWord(clock), NetName(register, "clk")));
+                    // As the code it was drawn from waits (Part 15h-4g), and with a reset putting its value in inside the process,
+                    // as it was written: on the reset's edge the process reads the reset itself, never a net worked out from it a
+                    // moment later, which it would wake before (the review of #117: an asynchronous reset never applied).
+                    edge = Sv.On((EdgeWord(clock), NetName(register, "clk")));
+                    if (register.HasReset)
+                    {
+                        EdgeKind reset = register.ResetEdge ?? EdgeKind.Posedge;
+                        LogicVec value = register.ResetValue ?? LogicVec.FromUInt64(0, register.Width);
+                        Expression active = reset == EdgeKind.Negedge
+                            ? new UnaryExpression { Operator = "!", Operand = At(register, "rst") }
+                            : At(register, "rst");
+                        body = new IfStatement { Condition = active, Then = Write(Sv.Value(value.AsUnsigned())), Else = body };
+                        edge = Sv.On((EdgeWord(clock), NetName(register, "clk")), (EdgeWord(reset), NetName(register, "rst")));
+                    }
                 }
                 else if (register.HasReset)
                 {

@@ -5,6 +5,7 @@ using System.Linq;
 using BitSorter.Ci;
 using BitSorter.Sim;
 using BitSorter.SystemVerilog;
+using BitSorter.SystemVerilog.Syntax;
 using NUnit.Framework;
 
 namespace BitSorter.Board.Tests
@@ -81,10 +82,13 @@ namespace BitSorter.Board.Tests
                         continue;
                     }
                     refused++;
+                    TestContext.Out.WriteLine($"{what} {module}: {why}");
                     Assert.IsTrue(Reasons.Any(r => why.StartsWith(r, StringComparison.Ordinal)), $"{what} {module}: {why}");
                 }
             TestContext.Out.WriteLine($"{written} written again as they were, {refused} refused");
-            Assert.GreaterOrEqual(written, 36, "as many as on the day it was built (2026-10-29), every exercise's among them");
+            // 36 on the day it was built (2026-10-29); 35 since the review of #117 found alu_slice's instance given a parameter,
+            // which the drawing had dropped.
+            Assert.GreaterOrEqual(written, 35, "as many as on the day, every exercise's among them");
         }
 
         private static (Project Project, RtlNetlist Netlist, Design Design, RtlDrawing Drawing) Drawn(string source)
@@ -101,7 +105,8 @@ namespace BitSorter.Board.Tests
 
         private static string Written((Project Project, RtlNetlist Netlist, Design Design, RtlDrawing Drawing) d)
         {
-            Assert.IsNull(DrawingPrinter.Differs(d.Project, d.Netlist, d.Design, d.Drawing), "written again, it does what it did");
+            string differs = DrawingPrinter.Differs(d.Project, d.Netlist, d.Design, d.Drawing);
+            Assert.IsNull(differs, "written again, it does what it did: " + differs + Environment.NewLine + DrawingPrinter.Print(d.Project, d.Drawing, d.Drawing.Module, out _));
             string source = DrawingPrinter.Print(d.Project, d.Drawing, d.Drawing.Module, out string why);
             Assert.IsNotNull(source, why);
             return source;
@@ -178,6 +183,141 @@ namespace BitSorter.Board.Tests
         {
             var d = Drawn("module late (input logic a, output logic y);\n    assign #2 y = ~a;\nendmodule\n");
             StringAssert.StartsWith("The drawing does not show the delay on the assign to y", DrawingPrinter.Differs(d.Project, d.Netlist, d.Design, d.Drawing));
+        }
+
+        // -----------------------------------------------------------------
+        // The review of #117
+        // -----------------------------------------------------------------
+
+        private const string Counter =
+            "module cnt (input logic clk, rst_n, en, output logic [3:0] q);\n" +
+            "    always_ff @(posedge clk or negedge rst_n)\n" +
+            "        if (!rst_n) q <= 4'd0;\n" +
+            "        else if (en) q <= q + 4'd1;\n" +
+            "endmodule\n";
+
+        private const string CounterBench =
+            "module tb;\n" +
+            "    logic clk = 1'b0, rst_n = 1'b1, en = 1'b1;\n" +
+            "    logic [3:0] q;\n" +
+            "    cnt dut (.clk(clk), .rst_n(rst_n), .en(en), .q(q));\n" +
+            "    always #5 clk = ~clk;\n" +
+            "    initial begin\n" +
+            "        #17 rst_n = 1'b0;\n" +
+            "        #1 $display(\"%0d\", q);\n" +
+            "        #1 rst_n = 1'b1;\n" +
+            "        #20 $display(\"%0d\", q);\n" +
+            "        $finish;\n" +
+            "    end\n" +
+            "endmodule\n";
+
+        private static string[] Printed(string design, string bench)
+        {
+            var files = new MemorySourceFiles();
+            SyntaxTree tree = SyntaxReader.ReadText(design + bench, "run.sv", files);
+            Elaboration e = Elaborator.Elaborate(tree, "tb");
+            Assert.IsFalse(e.HasErrors, string.Join("\n", e.Diagnostics));
+            var sim = new Simulator(e.Design, null, null);
+            sim.RunTo(200);
+            return sim.History.Messages.Where(m => m.Severity == Severity.Info && !m.Text.StartsWith("$")).Select(m => m.Text).ToArray();
+        }
+
+        /// <summary>
+        /// An asynchronous reset is put in inside the process, as written: on its edge the process reads the reset itself. Written
+        /// as d alone, worked out by an assign it woke before, the reset never applied and the counter stayed x (the review of #117).
+        /// </summary>
+        [Test]
+        public void AnAsynchronousReset_IsPutInInsideItsProcess_AndApplies()
+        {
+            string source = Written(Drawn(Counter));
+            StringAssert.Contains("if (!rst_n)", source);
+            CollectionAssert.AreEqual(new[] { "0", "2" }, Printed(Counter, CounterBench), "sanity: the code");
+            CollectionAssert.AreEqual(new[] { "0", "2" }, Printed(source, CounterBench), "the code written from its drawing");
+        }
+
+        /// <summary>The code written from a drawing is drawn and written again: a register with an asynchronous reset is still one.</summary>
+        [Test]
+        public void TheCodeWrittenFromADrawing_IsWrittenAgain_ItsAsynchronousResetStillARegister()
+        {
+            string once = Written(Drawn(Counter));
+            string twice = Written(Drawn(once));
+            StringAssert.Contains("negedge rst_n", twice);
+        }
+
+        [Test]
+        public void AResetNamedFirst_IsTheSameRegister()
+        {
+            Written(Drawn(
+                "module r (input logic clk, rst_n, input logic [1:0] d, output logic [1:0] q);\n" +
+                "    always_ff @(negedge rst_n or posedge clk)\n" +
+                "        if (!rst_n) q <= 2'b10;\n" +
+                "        else q <= d;\n" +
+                "endmodule\n"));
+        }
+
+        /// <summary>A sum wider than its operands is a widening drawn as a wire, written as a box of its own with a name (the review of #117).</summary>
+        [Test]
+        public void ASumWithItsCarry_IsWritten()
+        {
+            Written(Drawn(
+                "module add (input logic [3:0] a, b, input logic cin, output logic [3:0] s, output logic cout);\n" +
+                "    assign {cout, s} = a + b + cin;\n" +
+                "endmodule\n"));
+        }
+
+        [Test]
+        public void AChildGivenParameters_IsNotWritten_AndSaysSo()
+        {
+            var editor = new BoardEditor(Project.New("scratch"));
+            Assert.IsTrue(editor.AddWrittenModule("child", "module child #(parameter INVERT = 0) (input logic a, output logic y);\n    assign y = INVERT ? ~a : a;\nendmodule\n").Done);
+            Assert.IsTrue(editor.AddWrittenModule("top1", "module top1 (input logic x, output logic z);\n    child #(.INVERT(1)) c (.a(x), .y(z));\nendmodule\n").Done);
+            Project project = editor.Project with { Top = "top1" };
+            var (module, netlist, design, drawing) = WrittenModules(project).First(m => m.Module == "top1");
+            StringAssert.StartsWith("Its instance c is given parameters", DrawingPrinter.Differs(project, netlist, design, drawing));
+        }
+
+        [Test]
+        public void AnInoutPort_IsNotWritten_AndSaysSo()
+        {
+            var d = Drawn("module dev (input logic en, a, inout wire p, output logic y);\n    assign p = en ? a : 1'bz;\n    assign y = p;\nendmodule\n");
+            StringAssert.StartsWith("Its inout port p", DrawingPrinter.Differs(d.Project, d.Netlist, d.Design, d.Drawing));
+        }
+
+        /// <summary>Names the code gives are its own: an instance u keeps its name beside parts the code names nothing, and d and d_ stay two.</summary>
+        [Test]
+        public void TheNamesTheCodeGives_AreKept()
+        {
+            var editor = new BoardEditor(Project.New("scratch"));
+            Assert.IsTrue(editor.AddWrittenModule("pass", "module pass (input logic a, output logic y);\n    assign y = a;\nendmodule\n").Done);
+            Assert.IsTrue(editor.AddWrittenModule("named",
+                "module named (input logic x, w, output logic z, output logic d, d_);\n" +
+                "    logic t;\n" +
+                "    assign t = x & w;\n" +
+                "    pass u (.a(t), .y(z));\n" +
+                "    assign d = x | w;\n" +
+                "    assign d_ = x ^ w;\n" +
+                "endmodule\n").Done);
+            Project project = editor.Project with { Top = "named" };
+            var (module, netlist, design, drawing) = WrittenModules(project).First(m => m.Module == "named");
+            Assert.IsNull(DrawingPrinter.Differs(project, netlist, design, drawing));
+            string source = DrawingPrinter.Print(project, drawing, drawing.Module, out string why);
+            StringAssert.Contains("pass u (", source, why);
+            StringAssert.Contains("d_", source);
+        }
+
+        /// <summary>A generate loop's flops each take their own bit of the signal's starting value (the review of #117).</summary>
+        [Test]
+        public void AGenerateLoopsFlops_EachStartAtTheirOwnBit()
+        {
+            Written(Drawn(
+                "module shift (input logic clk, input logic [3:0] d, output logic [3:0] q);\n" +
+                "    logic [3:0] r = 4'b1010;\n" +
+                "    genvar i;\n" +
+                "    for (i = 0; i < 4; i++) begin : g\n" +
+                "        always_ff @(posedge clk) r[i] <= d[i];\n" +
+                "    end\n" +
+                "    assign q = r;\n" +
+                "endmodule\n"));
         }
 
         /// <summary>An edit of the drawing -- its OR taken out, an AND put in and wired -- is the code, and the code does it.</summary>

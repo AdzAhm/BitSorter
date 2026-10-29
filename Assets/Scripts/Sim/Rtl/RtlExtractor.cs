@@ -238,7 +238,11 @@ namespace BitSorter.Sim
             foreach (RtlCell cell in _cells)
                 if (cell.Kind == RtlKind.Register && cell.Signal >= 0)
                 {
-                    cell.Initial = _design.Signals[cell.Signal].Initial;
+                    // Its own bits of it: a generate loop's flops each hold one of the signal's (the review of #117).
+                    LogicVec? initial = _design.Signals[cell.Signal].Initial;
+                    int width = _nets[cell.Output].Width;
+                    cell.Initial = initial is LogicVec whole && (cell.Lowest != 0 || whole.Width != width) && cell.Lowest + width <= whole.Width
+                        ? whole.Slice(cell.Lowest, width) : initial;
                     held.Add(cell.Signal);
                 }
             for (int i = 0; i < _design.Signals.Count; i++)
@@ -249,8 +253,52 @@ namespace BitSorter.Sim
             }
 
             ScopeInfo scope = _design.Scopes[_scope];
-            return new RtlNetlist(scope.Path, scope.Module, _nets.ToArray(), _cells.ToArray(), inputs.ToArray(), outputs.ToArray(),
-                _processes.ToArray(), _unshown.ToArray());
+            var netlist = new RtlNetlist(scope.Path, scope.Module, _nets.ToArray(), _cells.ToArray(), inputs.ToArray(), outputs.ToArray(),
+                _processes.ToArray(), _unshown);
+
+            // What each asynchronous reset or set puts in, worked out on the netlist itself (Part 15h-4g).
+            foreach (RtlCell cell in _cells)
+            {
+                if (cell.Kind != RtlKind.Register || cell.Clock <= 0 || cell.Inputs.Count != 3)
+                    continue;
+                int at = 3 - cell.Clock, net = cell.Inputs[at];
+                EdgeKind edge = cell.Edges[at - 1];
+                int signal = net >= 0 ? _nets[net].Signal : -1;
+                cell.Reset = signal >= 0 && (edge == EdgeKind.Posedge || edge == EdgeKind.Negedge)
+                    ? ResetValue(netlist, cell, signal, edge == EdgeKind.Posedge) : (LogicVec?)null;
+                if (cell.Reset == null)
+                    _unshown.Add("the asynchronous reset of " + (cell.Signal >= 0 ? NameOf(cell.Signal) : cell.Name) + ", which puts in no one value");
+            }
+            return netlist;
+        }
+
+        /// <summary>
+        /// A register's D with <paramref name="signal"/> -- its reset -- held at its active value and every other signal at random,
+        /// four times over: the one known value it is each time, or null.
+        /// </summary>
+        private LogicVec? ResetValue(RtlNetlist netlist, RtlCell register, int signal, bool active)
+        {
+            var random = new Random(register.Id * 7919 + 17);
+            LogicVec? value = null;
+            for (int round = 0; round < 4; round++)
+            {
+                var signals = new LogicVec[_design.Signals.Count];
+                for (int i = 0; i < signals.Length; i++)
+                {
+                    SignalInfo info = _design.Signals[i];
+                    var digits = new char[Math.Max(1, info.Width)];
+                    for (int k = 0; k < digits.Length; k++)
+                        digits[k] = random.Next(2) == 0 ? '0' : '1';
+                    LogicVec v = LogicVec.FromBinary(new string(digits));
+                    signals[i] = info.Signed ? v.AsSigned() : v;
+                }
+                signals[signal] = LogicVec.FromUInt64(active ? 1UL : 0UL, Math.Max(1, _design.Signals[signal].Width));
+                LogicVec d = RtlEvaluator.Evaluate(netlist, signals)[register.Inputs[0]];
+                if (!d.IsKnown || value is LogicVec seen && !seen.Equals(d))
+                    return null;
+                value = d;
+            }
+            return value;
         }
 
         /// <summary>

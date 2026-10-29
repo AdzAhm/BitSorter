@@ -3680,8 +3680,13 @@ through the lock I can add and do anything I want; changes I do in code/drawing 
   back, for an instance that connects by order), every signal's name (a wire named for a signal names its net; one
   made up, `$p4_y`, is left to the board; a generate's `slice[3].s` is `slice_3_s`), every gate's delay (on the netlist
   since this part: `RtlCell.Delay`, a primitive's, or a library cell's when the instance is one gate and nothing else),
-  each register's edges as written with its reset already in d (`RegisterPart.ClockEdge`, `ResetEdge`), a register's
-  starting value (`RtlCell.Initial`), and the comment lines the module's code opens with. What is not: the comments
+  each register's edges as written (`RegisterPart.ClockEdge`, `ResetEdge`), an asynchronous reset or set put in inside
+  its process as written -- `if (!rst_n) q <= 9; else q <= d;`, the value worked out on the netlist as D with the reset
+  at its active value (`RtlCell.Reset`) -- a register's starting value, its own bits of it (`RtlCell.Initial`), and the
+  comment lines the module's code opens with. **The reset inside the process is not style**: written as d alone, the
+  process woke on the reset's edge before the assign that works d out from the reset, read the d before, and never
+  reset -- a counter that printed 0 and 2 printed x and x (the review of #117, which `Differs`, comparing values and not
+  the order of events, could not see; a test now runs both on the engine). What is not: the comments
   inside, and the code's shape -- a case is the mux it is, a loop the instances it made, an expression its operators.
   The first edit of each module asks so, once a session (`RewriteQuestion`, the workbench's ask menu by the pointer).
 - **Every part prints**: a box is an expression of its pins (`BoxPart.Code`) -- a slice, a join of pieces at their
@@ -3691,26 +3696,42 @@ through the lock I can add and do anything I want; changes I do in code/drawing 
   output nothing drives left undriven.
 - **Refused, saying which**, where the drawing is not the code: what the netlist says it leaves out
   (`RtlNetlist.Unshown`: a delay on an `assign`, a `$display` in an opened process, a tri-state gate's own delay to z,
-  a starting value on a signal no register holds); a box no expression is (a process that is no circuit, a memory's
-  word, a call, a write at a place, a 2-state value, a casez); a signal another scope gives its value; a parameter,
-  since the drawing is of one instance. And **the drawing is checked before it is trusted** (`DrawingPrinter.Differs`):
+  a starting value on a signal no register holds, an asynchronous reset that puts in no one value); a box no expression
+  is (a process that is no circuit, a memory's word, a call, a write at a place, a 2-state value, a casez); a signal
+  another scope gives its value; a parameter, since the drawing is of one instance; a child instance given parameters,
+  which a block does not keep (`#(.N(8))` was dropped and the check passed, since it reads an instance's outputs off
+  its signals); an `inout` port, drawn as an input; and an inspector field that sets more than the module's code -- a
+  clock's period, a reset's release, a library -- which was made on the drawing's project and lost
+  (`BeyondTheCodeRefusal`). And **the drawing is checked before it is trusted** (`DrawingPrinter.Differs`):
   written again unedited, compiled, elaborated as the run elaborates it, and its scope's netlist run against the
   drawing's on 24 rounds of random values -- inputs and registers the same by name, a register matched through every
-  name a wire of it alone gives it (`assign count = r1_q` is one wire on the drawing), a library cell worked out as its
-  gate -- each output and each register's next value compared, and the registers' edges and the gates' delays. The
-  session asks it once for each text of a module, before the question.
+  name a wire of it alone gives it (`assign count = r1_q` is one wire on the drawing) or its place in a signal joined
+  or concatenated from pieces (a generate loop's flop is its own variable written again), a library cell worked out as
+  its gate -- each output and each register's next value compared, and the registers' edges in any order, their reset
+  and starting values, and the gates' delays. The session asks it once for each text of a module, before the question.
+- **What the check does not see, and stands**: the order of events in one moment -- code written again works out a
+  register's d in an assign beside its process, as every drawn circuit does, so a testbench that changes an input in
+  the same moment as the clock's edge may be read a moment apart, a race in that testbench already; an x or a z on a
+  case's subject, which the case's mux takes as the chain of `?:` it is rather than the default; and a port's sign,
+  which the operators keep with `$signed` and only a reference through the hierarchy would see. A generate loop's
+  instances are named `g_0_u` written again, and the check, giving values by name, refuses them rather than pass them.
 - **A part placed and not yet wired** is written with its pins on nets of their own that nothing drives; drawn again, a
   signal of the module's own that nothing drives is an open pin, never a box of its name -- a box would be a second
   driver for the wire drawn to it next -- and so is an output left empty.
+- **Names**: the code's own first, a made-up one by kind and id (`g12`, `op7`) only for a part it names nothing, so none
+  takes an instance's; a name that is already an identifier kept to the character (`d` and `d_` stay two); a widening
+  box named.
 - **Still refused on the drawing**: a move, a turn, a reshape, a route (`ArrangeRefusal`: it lays itself out, until
   15h-4f), a copy, MAKE BLOCK, and any edit with GATES on (`GatesRefusal`: the code is written from the boxes). The
   lock's refusal comes first. A drawn register is named for its signal after a `$`, never its own wire's name.
 - **Tests**: every exercise answer written as code (as WRITE IT writes it) and every corpus design, each written module
-  drawn and written again, does what its code did or is refused for one of those reasons -- 36 written again of 59 on
-  the day -- and an active-low reset, gate and cell delays, a wide case, slices, joins and a signed comparison, the
-  comments and the port order, an edited drawing and a placed gate's open pins (`DrawingPrinterTests`); in the session
-  the question asked once, answered either way, one undo step, refused locked, with GATES on and where the drawing is
-  not the code (`DrawingEditTests`); in Play Mode an import unlocked, its mux deleted with Delete, the question
+  drawn and written again, does what its code did or is refused for one of those reasons -- 35 written again of 59 since the
+  review, which found one more instance given a parameter -- and an active-low reset, gate and cell delays, a wide case, slices, joins and a signed comparison, the
+  comments and the port order, an edited drawing and a placed gate's open pins, and from the review an asynchronous reset
+  run on the engine before and after and written twice, a reset named first, a sum with its carry, a child given
+  parameters, an inout port, the code's own names and a generate loop's flops (`DrawingPrinterTests`); in the session
+  the question asked once, answered either way, one undo step, refused locked, with GATES on, where the drawing is not
+  the code and for a clock's period (`DrawingEditTests`); in Play Mode an import unlocked, its mux deleted with Delete, the question
   answered, and Ctrl+Z.
 
 ---

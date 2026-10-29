@@ -807,7 +807,7 @@ namespace BitSorter.Board
                         {
                             // Named for its signal after a $, as a part the drawing names is: never its own wire's name.
                             Name = "$" + Identifier(_netlist.Nets[cell.Output].Name),
-                            Width = width, HasReset = cell.Inputs.Count == 3, Initial = cell.Initial,
+                            Width = width, HasReset = cell.Inputs.Count == 3, Initial = cell.Initial, ResetValue = cell.Reset,
                             ClockEdge = cell.Edges[cell.Clock - 1],
                             ResetEdge = cell.Inputs.Count == 3 ? cell.Edges[3 - cell.Clock - 1] : (EdgeKind?)null,
                         };   // its name is its signal's, which is the net's

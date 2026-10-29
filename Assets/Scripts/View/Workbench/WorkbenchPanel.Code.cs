@@ -115,6 +115,7 @@ namespace BitSorter.View
         public const string RewrittenNotice = "written into the code: Ctrl+Z brings the code back";
 
         private int _rewriteAsksSeen;
+        private WorkbenchSession _rewriteAsksOf;
 
         /// <summary>
         /// The question the first edit of a module's drawing of code asks (<see cref="WorkbenchSession.RewriteQuestion"/>), asked
@@ -122,6 +123,12 @@ namespace BitSorter.View
         /// </summary>
         private void TickRewriteQuestion()
         {
+            if (_session != null && !ReferenceEquals(_session, _rewriteAsksOf))
+            {
+                // Another document's session counts from nothing (the review of #117: its first question went unasked).
+                _rewriteAsksOf = _session;
+                _rewriteAsksSeen = 0;
+            }
             if (_session == null || _session.RewriteAsks == _rewriteAsksSeen)
                 return;
             _rewriteAsksSeen = _session.RewriteAsks;

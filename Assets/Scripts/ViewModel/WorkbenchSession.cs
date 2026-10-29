@@ -611,11 +611,33 @@ namespace BitSorter.ViewModel
             EditResult done = edit(onDrawing, drawing.Module.Name);
             if (!done.Done || ReferenceEquals(onDrawing.Project, drawing.Project))
                 return done;   // refused, or nothing changed: the code as it is
+            if (!OnlyTheModule(drawing.Project, onDrawing.Project, drawing.Module.Name))
+                return EditResult.Refused(BeyondTheCodeRefusal);
             string source = DrawingPrinter.Print(Project, drawing, onDrawing.Project.Find(drawing.Module.Name), out why);
             if (source == null)
                 return EditResult.Refused(why);
             EditResult written = Edited(Editor.SetSource(Module, source));
             return written.Done ? EditResult.Ok() : written;   // its ids were the drawing's, which is drawn again
+        }
+
+        /// <summary>What an edit of the drawing of code that would change more than the module's code is told.</summary>
+        public const string BeyondTheCodeRefusal =
+            "Only this module's code is written from its drawing: set a clock or a reset in INPUTS, and a library in TIMING.";
+
+        /// <summary>
+        /// Whether <paramref name="after"/> differs from <paramref name="before"/> in <paramref name="module"/> alone: an inspector
+        /// field on a clock or a reset changes the stimulus, and a library the settings, which code written from the drawing
+        /// does not carry, so such an edit is refused rather than lost (the review of #117).
+        /// </summary>
+        private static bool OnlyTheModule(Project before, Project after, string module)
+        {
+            if (!ReferenceEquals(before.Stimulus, after.Stimulus) || !ReferenceEquals(before.Settings, after.Settings)
+                || before.Bench != after.Bench || before.Top != after.Top || before.Modules.Count != after.Modules.Count)
+                return false;
+            for (int i = 0; i < before.Modules.Count; i++)
+                if (before.Modules[i].Name != module && !ReferenceEquals(before.Modules[i], after.Modules[i]))
+                    return false;
+            return true;
         }
 
         private readonly HashSet<string> _rewriting = new HashSet<string>(StringComparer.Ordinal);
@@ -947,7 +969,7 @@ namespace BitSorter.ViewModel
         {
             if (parts == null || Project.Settings?.Exercise == null || Module != Project.Top)
                 return parts;
-            Module top = Project.TopModule;
+            Module top = ShowsDrawingOfCode ? DrawnModule : Project.TopModule;   // its drawing's ports, on the drawing of its code
             var kept = new List<int>();
             foreach (int id in parts)
                 if (!(top?.FindPart(id) is PortPart))

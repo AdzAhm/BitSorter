@@ -64,8 +64,20 @@ namespace BitSorter.Board
                     return null;
                 }
 
+            foreach (PortDeclaration port in declaration.Ports)
+                if (port.Direction == PortDirection.Inout)
+                {
+                    why = "Its inout port " + port.Name + " is drawn as an input, so the drawing cannot be written as its code: change the code instead.";
+                    return null;
+                }
+            if (Overridden(declaration.Items) is string instance)
+            {
+                why = "Its instance " + instance + " is given parameters, which the drawing does not keep: change the code instead.";
+                return null;
+            }
+
             List<string> order = PortOrder(declaration);
-            Module printable = Printable(edited, order, out why);
+            Module printable = Printable(drawing.Project, edited, order, out why);
             if (printable == null)
                 return null;
 
@@ -86,6 +98,31 @@ namespace BitSorter.Board
             ModuleDeclaration printed = compiled.Find(printable.Name).Declaration;
             printed.Ports.Sort((a, b) => Place(order, a.Name).CompareTo(Place(order, b.Name)));
             return Head(written.Source) + Printer.Print(printed);
+        }
+
+        /// <summary>
+        /// The first instance in <paramref name="items"/>, generate blocks included, given parameters -- <c>child #(.N(8)) c</c> --
+        /// other than a library cell's delays, which its gate keeps; null for none.
+        /// </summary>
+        private static string Overridden(IEnumerable<ModuleItem> items)
+        {
+            foreach (ModuleItem item in items)
+            {
+                string found = item switch
+                {
+                    ModuleInstantiation made when made.Parameters.Count > 0 && !CellLibrary.TryKindOf(made.Module, out _, out _)
+                        => made.Instances.Count > 0 ? made.Instances[0].Name : made.Module,
+                    GenerateRegion region => Overridden(region.Items),
+                    GenerateBlock block => Overridden(block.Items),
+                    LoopGenerate loop when loop.Body != null => Overridden(loop.Body.Items),
+                    IfGenerate choice => (choice.Then != null ? Overridden(choice.Then.Items) : null)
+                        ?? (choice.Else != null ? Overridden(choice.Else.Items) : null),
+                    _ => null,
+                };
+                if (found != null)
+                    return found;
+            }
+            return null;
         }
 
         /// <summary>The comments and blank lines a module's code opens with, kept over the code written again.</summary>
@@ -117,7 +154,7 @@ namespace BitSorter.Board
         /// language takes and none twice, a case on a wide subject a box of the <c>?:</c> it is, and a widening drawn as a
         /// wire a box of its own.
         /// </summary>
-        private static Module Printable(Module module, List<string> portOrder, out string why)
+        private static Module Printable(Project project, Module module, List<string> portOrder, out string why)
         {
             why = null;
             int next = module.NextId;
@@ -189,22 +226,36 @@ namespace BitSorter.Board
                     named.Add(name);
             }
 
-            // Every other part's name its own: an instance keeps its name, made one the language takes.
+            // Every other part's name its own -- an instance keeps its name, made one the language takes -- the parts the code
+            // names first, so a name made up for one the code does not, by its kind and id, never takes an instance's (the
+            // review of #117: u, the made-up name, took instance u's).
+            string Unique(string name)
+            {
+                string unique = name;
+                for (int n = 2; taken.Contains(unique) || named.Contains(unique); n++)
+                    unique = name + "_" + n.ToString(CultureInfo.InvariantCulture);
+                taken.Add(unique);
+                return unique;
+            }
+            var unnamed = new List<int>();
             for (int i = 0; i < parts.Count; i++)
             {
                 Part part = parts[i];
                 if (part is PortPart || part.Name == null)
                     continue;
-                string name = Identifier(part is RegisterPart && part.Name.StartsWith("$", StringComparison.Ordinal) ? part.Name.Substring(1) : part.Name) ?? "u";
+                string name = Identifier(part is RegisterPart && part.Name.StartsWith("$", StringComparison.Ordinal) ? part.Name.Substring(1) : part.Name);
+                if (name == null)
+                {
+                    unnamed.Add(i);
+                    continue;
+                }
                 // A register given a variable of its own -- its q a port's -- calls it its name and _q: r1_q is r1's.
                 if (part is RegisterPart && name.Length > 2 && name.EndsWith("_q", StringComparison.Ordinal))
                     name = name.Substring(0, name.Length - 2);
-                string unique = name;
-                for (int n = 2; taken.Contains(unique) || named.Contains(unique); n++)
-                    unique = name + "_" + n.ToString(CultureInfo.InvariantCulture);
-                taken.Add(unique);
-                parts[i] = part with { Name = unique };
+                parts[i] = part with { Name = Unique(name) };
             }
+            foreach (int i in unnamed)
+                parts[i] = parts[i] with { Name = Unique(KindOf(parts[i]) + parts[i].Id.ToString(CultureInfo.InvariantCulture)) };
 
             foreach (Part part in parts)
                 byId[part.Id] = part;
@@ -215,13 +266,14 @@ namespace BitSorter.Board
                 Wire wire = wires[i];
                 if (wire.From.IsTap || wire.To.IsTap)
                     continue;
-                int from = WidthOf(byId, wire.From.Pin), to = WidthOf(byId, wire.To.Pin);
+                int from = WidthOf(project, byId, wire.From.Pin), to = WidthOf(project, byId, wire.To.Pin);
                 if (from <= 0 || to <= 0 || from == to)
                     continue;
                 int id = next++;
                 var widen = new BoxPart
                 {
                     Id = id,
+                    Name = Unique("ext" + id.ToString(CultureInfo.InvariantCulture)),   // a part with none is refused (the review of #117)
                     Label = "ext",
                     Ports = new[] { new Pin("a", PinDirection.In, from), new Pin("y", PinDirection.Out, to) },
                     Code = at => at("a") ?? Sv.Value(LogicVec.AllX(from)),
@@ -241,8 +293,20 @@ namespace BitSorter.Board
             return at < 0 ? int.MaxValue : at;
         }
 
-        private static int WidthOf(Dictionary<int, Part> parts, PinRef pin) =>
-            parts.TryGetValue(pin.Part, out Part part) && part.TryPin(null, pin.Pin, out Pin found) ? found.Width : -1;
+        private static int WidthOf(Project project, Dictionary<int, Part> parts, PinRef pin) =>
+            parts.TryGetValue(pin.Part, out Part part) && part.TryPin(project, pin.Pin, out Pin found) ? found.Width : -1;
+
+        /// <summary>What a part the code names nothing is called after, with its id: <c>g12</c>, <c>op7</c>.</summary>
+        private static string KindOf(Part part) => part switch
+        {
+            GatePart _ => "g",
+            OperatorPart _ => "op",
+            MuxPart _ => "mux",
+            RegisterPart _ => "r",
+            ConstantPart _ => "k",
+            BlockPart _ => "u",
+            _ => "p",
+        };
 
         /// <summary>
         /// A case on a subject of more than three bits -- more inputs than the board's mux takes -- as a box of the <c>?:</c> it
@@ -287,6 +351,8 @@ namespace BitSorter.Board
         {
             if (string.IsNullOrEmpty(name) || name[0] == '$')
                 return null;
+            if (IsIdentifier(name))
+                return name;   // d and d_ two names still (the review of #117)
             var text = new StringBuilder(name.Length);
             foreach (char c in name)
                 text.Append(c < 128 && (char.IsLetterOrDigit(c) || c == '_') ? c : '_');
@@ -294,6 +360,16 @@ namespace BitSorter.Board
                 text.Length--;
             string made = text.ToString().Replace("__", "_");
             return char.IsDigit(made[0]) ? "_" + made : made;
+        }
+
+        private static bool IsIdentifier(string name)
+        {
+            if (!(char.IsLetter(name[0]) && name[0] < 128 || name[0] == '_'))
+                return false;
+            foreach (char c in name)
+                if (!(c < 128 && (char.IsLetterOrDigit(c) || c == '_')))
+                    return false;
+            return true;
         }
 
         // -----------------------------------------------------------------
@@ -353,14 +429,14 @@ namespace BitSorter.Board
             var byName = new Dictionary<string, int>(StringComparer.Ordinal);
             for (int i = 0; i < was.Count; i++)
                 foreach (string name in Aliases(before, beforeDesign, was[i].Cell))
-                    byName[name + "@" + was[i].Cell.Lowest.ToString(CultureInfo.InvariantCulture)] = i;
+                    byName[name] = i;
             var pair = new int[now.Count];
             var used = new bool[was.Count];
             for (int k = 0; k < now.Count; k++)
             {
                 int i = -1;
                 foreach (string name in Aliases(after, afterDesign, now[k].Cell))
-                    if (byName.TryGetValue(name + "@" + now[k].Cell.Lowest.ToString(CultureInfo.InvariantCulture), out int found) && !used[found])
+                    if (byName.TryGetValue(name, out int found) && !used[found])
                     {
                         i = found;
                         break;
@@ -371,6 +447,8 @@ namespace BitSorter.Board
                 pair[k] = i;
                 if (!Same(was[i].Cell.Edges, now[k].Cell.Edges))
                     return "The register " + Short(was[i].Name, before) + " waits on other edges in the code written from the drawing.";
+                if (!Equals(was[i].Cell.Reset, now[k].Cell.Reset) || !Equals(was[i].Cell.Initial, now[k].Cell.Initial))
+                    return "The register " + Short(was[i].Name, before) + " starts or resets to another value in the code written from the drawing.";
             }
 
             // Every gate's delays, as a list of what there are: a primitive's, or a library cell's it is written as.
@@ -401,7 +479,11 @@ namespace BitSorter.Board
                 }
                 for (int k = 0; k < now.Count; k++)
                     if (given.TryGetValue(was[pair[k]].Name, out LogicVec held))
-                        given[now[k].Name] = held;
+                    {
+                        // A register of some of a signal's bits holds those bits of it: a generate loop's flop, its own variable now.
+                        int width = afterDesign.Signals[now[k].Cell.Signal].Width, lowest = was[pair[k]].Cell.Lowest;
+                        given[now[k].Name] = held.Width == width || lowest + width > held.Width ? held : held.Slice(lowest, width);
+                    }
                 LogicVec[] afterSignals = new LogicVec[afterDesign.Signals.Count];
                 for (int i = 0; i < afterSignals.Length; i++)
                 {
@@ -470,20 +552,40 @@ namespace BitSorter.Board
             return nets;
         }
 
-        /// <summary>Every name a register's value goes by in <paramref name="netlist"/>: its signal's, and each a wire of it alone makes.</summary>
+        /// <summary>
+        /// Every place a register's value goes by in <paramref name="netlist"/>, as a signal's name and the bit it starts at: its
+        /// own, each a wire of it alone makes, and its place in a signal several drivers are joined into -- a generate loop's
+        /// flop, <c>r[2]</c>, is its own variable in the code written from the drawing, joined into r.
+        /// </summary>
         private static List<string> Aliases(RtlNetlist netlist, Design design, RtlCell register)
         {
-            var names = new List<string> { design.Signals[register.Signal].Name };
-            var nets = new List<int> { register.Output };
-            for (int at = 0; at < nets.Count; at++)
+            string Key(int signal, int lowest) => design.Signals[signal].Name + "@" + lowest.ToString(CultureInfo.InvariantCulture);
+            var names = new List<string> { Key(register.Signal, register.Lowest) };
+
+            // Each net its value reaches, and the bit of that net its own bit 0 is: through a join of a signal's drivers, at the
+            // piece's place, and through a concatenation, above the parts after it.
+            var nets = new List<(int Net, int At)> { (register.Output, 0) };
+            for (int k = 0; k < nets.Count; k++)
                 foreach (RtlCell cell in netlist.Cells)
-                    if (cell.Kind == RtlKind.Join && cell.Inputs.Count == 1 && cell.Inputs[0] == nets[at] && cell.Lowests[0] == 0
-                        && netlist.Nets[cell.Output].Width == netlist.Nets[nets[at]].Width && !nets.Contains(cell.Output))
+                {
+                    if (!(cell.Kind == RtlKind.Join && cell.Signal >= 0 || cell.Kind == RtlKind.Concat) || nets.Exists(n => n.Net == cell.Output))
+                        continue;
+                    for (int i = 0; i < cell.Inputs.Count; i++)
                     {
-                        nets.Add(cell.Output);
-                        if (cell.Signal >= 0)
-                            names.Add(design.Signals[cell.Signal].Name);
+                        if (cell.Inputs[i] != nets[k].Net)
+                            continue;
+                        int at = nets[k].At;
+                        if (cell.Kind == RtlKind.Join)
+                            at += cell.Lowests[i];
+                        else
+                            for (int j = i + 1; j < cell.Inputs.Count; j++)
+                                at += cell.Inputs[j] >= 0 ? netlist.Nets[cell.Inputs[j]].Width : 0;
+                        nets.Add((cell.Output, at));
+                        if (cell.Kind == RtlKind.Join)
+                            names.Add(Key(cell.Signal, at));
+                        break;
                     }
+                }
             return names;
         }
 
@@ -493,12 +595,17 @@ namespace BitSorter.Board
             return name.StartsWith(prefix, StringComparison.Ordinal) ? name.Substring(prefix.Length) : name;
         }
 
+        /// <summary>The same edges, in any order: the code may name its reset first, and the code written from it names the clock first.</summary>
         private static bool Same(IReadOnlyList<EdgeKind> a, IReadOnlyList<EdgeKind> b)
         {
             if (a.Count != b.Count)
                 return false;
-            for (int i = 0; i < a.Count; i++)
-                if (a[i] != b[i])
+            var left = new List<EdgeKind>(a);
+            var right = new List<EdgeKind>(b);
+            left.Sort();
+            right.Sort();
+            for (int i = 0; i < left.Count; i++)
+                if (left[i] != right[i])
                     return false;
             return true;
         }

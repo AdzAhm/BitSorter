@@ -1055,7 +1055,9 @@ failure side.
   the rest of the code's shape not. The first such edit of a module asks first
   (`WorkbenchSession.RewriteQuestion`). It is refused, saying which, where the drawing is
   not the code: what it does not show (`RtlDrawing.Unshown`: an `assign #d`, a
-  `$display`, a starting value off a register), a box no expression is, a parameter, or
+  `$display`, a starting value off a register), a box no expression is, a parameter, a
+  child instance given parameters, an `inout` port, an inspector field that sets more
+  than the code (a clock's period, a reset's release, a library), or
   -- the drawing written again unedited -- any difference from the code on random values
   (`DrawingPrinter.Differs`, asked once for each text of the module, and of every
   exercise answer and corpus design by `DrawingPrinterTests`). A move, a turn or a
