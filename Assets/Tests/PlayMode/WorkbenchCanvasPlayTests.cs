@@ -1356,6 +1356,49 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
+        /// TIDY on a drawn circuit (Part 15h-4f): two gates placed by hand on MY CIRCUIT put TIDY up, left of the padlock; a
+        /// right-click on nothing offers it in the canvas's menu, which lays the circuit out -- one column for two parts fed
+        /// by nothing, and TIDY down, it being tidy -- and Ctrl+Z puts it back as it was drawn, TIDY up again.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator ADrawnCircuit_TidiedFromTheMenu_IsLaidOut_AndCtrlZPutsItBack()
+        {
+            yield return TestScene.Load();
+            yield return OpenMyCircuit();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.Pause();
+
+            var ids = new System.Collections.Generic.List<int>();
+            yield return Place(workbench, "and", new BoardPoint(3, -2), ids);
+            yield return Place(workbench, "or", new BoardPoint(7, -3.5), ids);
+            yield return null;
+            Assert.IsTrue(workbench.TidySwitch.gameObject.activeSelf, "TIDY up over a circuit laid out by hand");
+            var tidyCorners = new Vector3[4];
+            var lockCorners = new Vector3[4];
+            workbench.TidySwitch.GetComponent<RectTransform>().GetWorldCorners(tidyCorners);
+            workbench.LockButton.GetComponent<RectTransform>().GetWorldCorners(lockCorners);
+            Assert.LessOrEqual(tidyCorners[2].x, lockCorners[0].x, "left of the padlock");
+            Placement and = Top(workbench).Layout.PlacementOf(ids[0]), or = Top(workbench).Layout.PlacementOf(ids[1]);
+
+            yield return RightClickAt(workbench, new BoardPoint(5, -6));
+            Assert.IsTrue(workbench.CanvasMenu.IsOpen, "a right-click on nothing opens the menu, for TIDY");
+            UnityEngine.UIElements.Button tidy = ShellPanel.Find<UnityEngine.UIElements.Button>(CanvasMenu.ActionItem + CanvasMenuAction.Tidy);
+            Assert.IsTrue(tidy != null && tidy.style.display.value != UnityEngine.UIElements.DisplayStyle.None, "TIDY offered");
+            ShellPanel.Submit(tidy);
+            yield return null;
+            yield return null;
+            Assert.AreEqual(Top(workbench).Layout.PlacementOf(ids[0]).Position.X, Top(workbench).Layout.PlacementOf(ids[1]).Position.X, 1e-9,
+                "laid out: two parts fed by nothing in one column");
+            Assert.IsFalse(workbench.TidySwitch.gameObject.activeSelf, "TIDY down: it is tidy");
+
+            yield return Chord(_keyboard.zKey);
+            yield return null;
+            Assert.AreEqual(and, Top(workbench).Layout.PlacementOf(ids[0]), "Ctrl+Z: as it was drawn");
+            Assert.AreEqual(or, Top(workbench).Layout.PlacementOf(ids[1]));
+            Assert.IsTrue(workbench.TidySwitch.gameObject.activeSelf, "TIDY up again");
+        }
+
+        /// <summary>
         /// Part 12b: h2 and the OR selected, the canvas's menu's MAKE BLOCK asks for a name -- block1 offered -- and Enter makes
         /// the block, selected, in PARTS, the waves' rows as they were; Escape in the name asks nothing and makes nothing.
         /// </summary>

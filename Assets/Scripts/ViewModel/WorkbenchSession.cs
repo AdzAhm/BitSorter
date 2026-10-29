@@ -1051,15 +1051,71 @@ namespace BitSorter.ViewModel
         }
 
         /// <summary>
-        /// TIDY on the drawing of code (Part 15h-4f): what was put by hand forgotten, the drawing laid out by itself again --
-        /// one step. Refused locked, and with nothing put by hand.
+        /// TIDY (Part 15h-4f): on the drawing of code, what was put by hand forgotten and the drawing laid out by itself again;
+        /// on a drawn circuit, its parts laid out as the drawing of code is and its wires' bends dropped
+        /// (<see cref="BoardEditor.Tidy"/>). One step either way; refused locked, over code, and with nothing to tidy.
         /// </summary>
-        public EditResult Tidy() => Unchangeable ?? (ShowsDrawingOfCode
-            ? Laid(Editor.Arrange(Module, null))
-            : EditResult.Refused("TIDY lays the drawing of code out again; a drawn circuit is laid out by hand."));
+        public EditResult Tidy() => Unchangeable ?? (ShowsDrawingOfCode ? Laid(Editor.Arrange(Module, null))
+            : ShowsCode ? EditResult.Refused("TIDY lays out a drawing: press DRAWING to see one.")
+            : Laid(Editor.Tidy(Module)));
 
-        /// <summary>Whether TIDY would do something: on the drawing of code, unlocked, with parts of it put by hand.</summary>
-        public bool CanTidy => ShowsDrawingOfCode && !_locked && (Project.Find(Module)?.Arrangement.Count ?? 0) > 0;
+        /// <summary>
+        /// Whether TIDY would do something: on the drawing of code, boxes shown, with a part of it standing where it was put
+        /// by hand; or on a drawn circuit not laid out as TIDY would lay it -- worked out once for each document. Whatever the
+        /// lock, so the padlock never moves for it (the review of #119); pressed locked, TIDY says so.
+        /// </summary>
+        public bool CanTidy
+        {
+            get
+            {
+                if (ShowsDrawingOfCode)
+                    return !ShowsGatesOfCode && ArrangedByHand(ShownDrawing);
+                if (ShowsWritten)
+                    return false;
+                if (!ReferenceEquals(_tidyAskedOf, Project) || _tidyAskedFor != Module)
+                {
+                    _tidyAskedOf = Project;
+                    _tidyAskedFor = Module;
+                    Module module = Project.Find(Module);
+                    _untidy = module != null && module.Parts.Count > 0 && !Tidying.Same(Tidying.Of(Project, module), module.Layout);
+                }
+                return _untidy;
+            }
+        }
+
+        private Project _tidyAskedOf;
+        private string _tidyAskedFor;
+        private bool _untidy;
+
+        /// <summary>
+        /// Whether a part of <paramref name="drawing"/> stands where it was put by hand: a key of the arrangement it is drawn
+        /// with, a numbered one only while the code is the code it was put against. A place forgotten, or a signal gone, kept
+        /// TIDY up with nothing to tidy (the review of #119).
+        /// </summary>
+        private bool ArrangedByHand(RtlDrawing drawing)
+        {
+            Module module = Project.Find(Module);
+            if (drawing == null || module == null || module.Arrangement.Count == 0)
+                return false;
+            if (ReferenceEquals(_arrangedAskedOf, drawing) && ReferenceEquals(_arrangedFor, module))
+                return _arranged;
+            _arrangedAskedOf = drawing;
+            _arrangedFor = module;
+            _arranged = false;
+            bool sameCode = module.ArrangedFor == module.Source;
+            foreach (Part part in drawing.Module.Parts)
+                if (drawing.KeyOf(part.Id) is string key && module.Arrangement.ContainsKey(key) &&
+                    (sameCode || !key.StartsWith("cell:", StringComparison.Ordinal)))
+                {
+                    _arranged = true;
+                    break;
+                }
+            return _arranged;
+        }
+
+        private RtlDrawing _arrangedAskedOf;
+        private Module _arrangedFor;
+        private bool _arranged;
 
         /// <summary>
         /// Turns the parts <paramref name="parts"/> by <paramref name="quarterTurns"/>, counter-clockwise, about their

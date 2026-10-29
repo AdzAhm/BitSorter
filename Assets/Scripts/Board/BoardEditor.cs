@@ -368,6 +368,26 @@ namespace BitSorter.Board
             return Commit(Project.WithModule(m with { Arrangement = arrangement, ArrangedFor = m.Source }), 0, step, check: false);
         }
 
+        /// <summary>
+        /// TIDY on a drawn module (Part 15h-4f): its parts laid out as the drawing of code is, unturned, every wire's bends
+        /// dropped, the whole kept where it was (<see cref="Tidying"/>) -- one step, layout only, as <see cref="MoveParts"/>
+        /// is. Refused with nothing to lay out, or with it tidy already. A written module's drawing is tidied by
+        /// <see cref="Arrange"/> with nothing.
+        /// </summary>
+        public EditResult Tidy(string module)
+        {
+            if (!TryModule(module, out Module m, out EditResult refused))
+                return refused;
+            if (m.IsWritten)
+                return EditResult.Refused($"{module} is written: its drawing lays itself out.");
+            if (m.Parts.Count == 0)
+                return EditResult.Refused("There is nothing to tidy.");
+            Layout tidy = Tidying.Of(Project, m);
+            if (Tidying.Same(tidy, m.Layout))
+                return EditResult.Refused("It is tidy already.");
+            return Commit(Project.WithModule(m with { Layout = tidy }), check: false);
+        }
+
         // -----------------------------------------------------------------
         // Wires
         // -----------------------------------------------------------------

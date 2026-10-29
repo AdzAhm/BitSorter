@@ -93,6 +93,16 @@ namespace BitSorter.ViewModel.Tests
             Assert.IsTrue(session.Undo());
             Assert.AreEqual(1, session.Project.Find(session.Module).Arrangement.Count, "one Ctrl+Z, the arrangement back");
 
+            // With GATES on, the gates opened are laid out by themselves: the boxes' arrangement is not theirs, a move is
+            // refused saying so, and TIDY is not up (the review of #119).
+            session.DrawGates(true);
+            Assert.IsTrue(session.ShowsGatesOfCode);
+            Assert.IsFalse(session.CanTidy, "nothing of the gates put by hand");
+            int gate = session.DrawnModule.Parts.First().Id;
+            Assert.AreEqual(WorkbenchSession.GatesArrangeRefusal, session.Move(new Dictionary<int, Placement> { [gate] = new Placement(30, 3) }).Refusal);
+            session.DrawGates(false);
+            Assert.IsTrue(session.CanTidy, "BOXES again: the arrangement is theirs");
+
             EditResult removed = session.Remove(new[] { part });
             Assert.IsFalse(removed.Done);
             StringAssert.Contains("delay on the assign", removed.Refusal);

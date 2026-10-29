@@ -30,7 +30,13 @@ namespace BitSorter.View
 
         private const float GatesWidth = 104f;
 
-        /// <summary>TIDY, left of GATES over a drawing of code with parts put by hand: lays it out by itself again (Part 15h-4f).</summary>
+        /// <summary>The DRAWING or CODE switch's width, at the right of the code's top strip.</summary>
+        private const float DrawingSwitchWidth = 124f;
+
+        /// <summary>
+        /// TIDY (Part 15h-4f): left of GATES over a drawing of code with parts put by hand, laying it out by itself again; and
+        /// left of the padlock over a drawn circuit not laid out as TIDY would lay it.
+        /// </summary>
         public const string TidySwitchName = "Workbench tidy switch";
 
         public const string TidyCaption = "TIDY";
@@ -119,14 +125,11 @@ namespace BitSorter.View
             _codeView.Place(CornerOf(_regions.Circuit), size);
             if (_drawingSwitch != null)
             {
-                var switchSize = new Vector2(124f, 32f);
+                var switchSize = new Vector2(DrawingSwitchWidth, 32f);
                 TopLeft(_drawingSwitch.GetComponent<RectTransform>(), CornerOf(_regions.Circuit) + new Vector2(size.x - 10f - switchSize.x, 8f), switchSize);
                 if (_gatesSwitch != null)
                     TopLeft(_gatesSwitch.GetComponent<RectTransform>(),
                         CornerOf(_regions.Circuit) + new Vector2(size.x - 10f - switchSize.x - 8f - GatesWidth, 8f), new Vector2(GatesWidth, 32f));
-                if (_tidySwitch != null)
-                    TopLeft(_tidySwitch.GetComponent<RectTransform>(),
-                        CornerOf(_regions.Circuit) + new Vector2(size.x - 10f - switchSize.x - 8f - GatesWidth - 8f - TidyWidth, 8f), new Vector2(TidyWidth, 32f));
             }
         }
 
@@ -192,14 +195,25 @@ namespace BitSorter.View
                 _gatesSwitchShown = gates;
             }
 
-            // TIDY beside them while some of the drawing is put by hand.
-            bool tidy = gates && _session.CanTidy;
+            // TIDY beside them while some of the drawing is put by hand; over a drawn circuit, left of the padlock while it is not
+            // laid out as TIDY would lay it.
+            bool tidy = gates ? _session.CanTidy : _session != null && !shown && !PageShowing && _session.CanTidy;
             if (tidy != _tidySwitchShown && _tidySwitch != null)
             {
                 Show(_tidySwitch, tidy);
                 if (tidy)
                     _tidySwitch.transform.SetAsLastSibling();
                 _tidySwitchShown = tidy;
+            }
+            if (tidy && _tidySwitch != null)
+            {
+                float window = SizeOf(_regions.Circuit).x;
+                float left = gates ? window - 10f - DrawingSwitchWidth - 8f - GatesWidth - 8f - TidyWidth
+                    : window - 8f - 72f - KeyRoom - (Lockable ? 8f + LockWidth : 0f) - 8f - TidyWidth;   // clear of FIT's key, F, and the padlock
+                Vector2 at = CornerOf(_regions.Circuit) + new Vector2(left, 8f);
+                var rect = _tidySwitch.GetComponent<RectTransform>();
+                if (rect.anchoredPosition != new Vector2(at.x, -at.y))
+                    TopLeft(rect, at, new Vector2(TidyWidth, 32f));
             }
 
             // FIT steps left of the switches while they are up.

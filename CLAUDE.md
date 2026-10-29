@@ -1064,9 +1064,13 @@ failure side.
   15h-4f): kept with the module by a key that names it as the code does (`port:a`,
   `inst:u`, `reg:state`, `sig:next`, else its kind and place, `Module.Arrangement`), one
   step a drag, the drawing laid out round it; a numbered key is forgotten once the code
-  changes; TIDY, beside GATES while anything is put by hand, lays it out by itself
-  again. A reshape is refused -- it routes its own wires -- and so is any edit with GATES
-  on. **A part the drawing makes up says what it does** (Part 15h-4e, asked
+  changes, an edit written into it from the drawing included; TIDY, beside GATES while a
+  part of it stands where it was put, lays it out by itself again. A reshape is refused --
+  it routes its own wires -- and so is any edit with GATES on, whose gates lay themselves
+  out. **TIDY on a drawn circuit** (`Tidying`) lays its parts out as the drawing of code
+  is, unturned, its wires' bends dropped and the whole kept where it was -- layout only,
+  one step; its button stands left of the padlock while the circuit is not laid out so,
+  and the canvas's menu offers it on a right-click anywhere. **A part the drawing makes up says what it does** (Part 15h-4e, asked
   2026-10-29) -- an operator, a mux, a case's choice, a slice, a join, a match, a
   constant -- in the inspector's line, in its operands' own names ("(a & b) OR c, bit by
   bit: 2 bits."), and goes by what it is, never `$p4`; a wire out of one no signal holds
@@ -1111,7 +1115,7 @@ failure side.
   popup is open (`ShellPopup.AnyOpen`).
   + CODE, the last cell of PARTS' MORE, asks for a name and puts a block of one in
   hand. **A right-click opens the canvas's menu**
-  (Part 10d) -- align, spread, turn, mirror, route again, copy, cut, paste,
+  (Part 10d) -- align, spread, turn, mirror, route again, tidy (Part 15h-4f), copy, cut, paste,
   make block (Part 12b; it asks for the new module's name first), delete --
   and Ctrl+C, X and V copy, cut and paste; a minimap at the side
   panel's foot, up while some of the drawing is out of sight, moves the view on a
