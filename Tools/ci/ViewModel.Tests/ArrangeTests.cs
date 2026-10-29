@@ -240,5 +240,26 @@ namespace BitSorter.ViewModel.Tests
             Assert.AreEqual(view.Drawing.x * 0.25f, middle.x, 1f, "the window's middle on the drawing where the map was clicked");
             Assert.AreEqual(view.Drawing.y * 0.5f, middle.y, 1f);
         }
+
+        /// <summary>
+        /// A drawing far taller than the window -- a 64-bit ALU's column of instances -- is whole at the fit, the wheel goes
+        /// out as far as that, and zoomed in the map is up (Part 15h-4d: the fit stopped at a sixteenth, so the drawing never
+        /// fitted, could not be zoomed out to, and its map hid while the view counted as fitted).
+        /// </summary>
+        [Test]
+        public void ADrawingFarTallerThanTheWindow_IsWholeAtTheFit_AndItsMapIsUpOnceZoomedIn()
+        {
+            var view = new SchematicView(new Vec2(800f, 400f), new Vec2(0f, 0f), new Vec2(300f, 40000f));
+            view.Fit();
+            Assert.Less(view.Zoom, SchematicView.MinZoom * 0.25f, "past the old floor");
+            Vec2 from = (new Vec2(0f, 0f) - view.Offset) / view.Zoom, to = (view.Window - view.Offset) / view.Zoom;
+            Assert.LessOrEqual(from.y, 0.5f);
+            Assert.GreaterOrEqual(to.y, view.Drawing.y - 0.5f, "all of it in the window");
+            Assert.IsNull(Minimap.Of(view), "whole in the window: no map");
+
+            Assert.IsFalse(view.ZoomAbout(new Vec2(400f, 200f), -1), "no further out than the whole of it");
+            Assert.IsTrue(view.ZoomAbout(new Vec2(400f, 200f), 3));
+            Assert.IsNotNull(Minimap.Of(view), "zoomed in, some of it out of the window: the map");
+        }
     }
 }
