@@ -434,5 +434,118 @@ namespace BitSorter.ViewModel.Tests
             Assert.AreNotSame(one.Files, again.Files, "sanity: the same files, read a second time");
             Assert.AreSame(built.Lines, Next(built, again).Lines, "the same files again are the same design, and cost nothing");
         }
+
+        // -----------------------------------------------------------------
+        // A drawing of code (Ahmad, 2026-10-29: "the yellow line indicating critical path isnt in everything")
+        // -----------------------------------------------------------------
+
+        private const string WrittenFullAdder =
+            "module fa (input logic a, b, cin, output logic s, cout);\n" +
+            "    assign #2 s = a ^ b ^ cin;\n" +
+            "    assign #3 cout = (a & b) | (cin & (a ^ b));\n" +
+            "endmodule\n";
+
+        private const string WrittenTwoBitAdder =
+            "module add2 (input logic [1:0] a, b, input logic cin, output logic [1:0] s, output logic cout);\n" +
+            "    logic c1;\n" +
+            "    fa f0 (.a(a[0]), .b(b[0]), .cin(cin), .s(s[0]), .cout(c1));\n" +
+            "    fa f1 (.a(a[1]), .b(b[1]), .cin(c1), .s(s[1]), .cout(cout));\n" +
+            "endmodule\n";
+
+        private static Project Written(string top, params (string Name, string Code)[] modules)
+        {
+            var editor = new BoardEditor(Project.New("top"));
+            foreach ((string name, string code) in modules)
+                Must(editor.AddWrittenModule(name, code));
+            Must(editor.SetTop(top));
+            return editor.Project;
+        }
+
+        /// <summary>The layout the workbench draws <paramref name="project"/>'s written top as: the drawing of its code.</summary>
+        private static SchematicLayout DrawingOf(Project project)
+        {
+            var session = new WorkbenchSession(project, Ticking(0.01));
+            session.Finish();
+            session.DrawCode(true);
+            Assert.IsTrue(session.ShowsDrawingOfCode, "sanity: the drawing of the code");
+            return session.Run.Model.Layout;
+        }
+
+        private static string NameIn(SchematicLayout layout, int part) => layout.Parts.Single(p => p.Part.Id == part).Name;
+
+        /// <summary>
+        /// One assign is one step of a path, from a signal it reads to the signal it drives, and on its drawing that step is
+        /// a run of parts joined by wires no signal holds: a -> cout goes through the ^, the &amp; it feeds and the |. Every one
+        /// of them is lit, and the wires between them -- the longest way through the assign, as a path through gates is.
+        /// </summary>
+        [Test]
+        public void APathThroughAnAssign_LightsEveryPartOfItOnTheDrawingOfItsCode()
+        {
+            Project project = Written("fa", ("fa", WrittenFullAdder));
+            TimingLine critical = TimingView.Of(project).Lines.First(l => l.Label == "CRITICAL PATH");
+            StringAssert.StartsWith("a → cout", critical.Text, "sanity: through the slower assign");
+            SchematicLayout layout = DrawingOf(project);
+
+            TimingLight light = TimingLight.Of(layout, critical.Signals);
+            CollectionAssert.AreEquivalent(new[] { "^", "&", "|" }, light.Parts.Select(id => NameIn(layout, id)),
+                "the gates the path goes through, and only one of each");
+            int xor = light.Parts.Single(id => NameIn(layout, id) == "^");
+            int and = light.Parts.Single(id => NameIn(layout, id) == "&");
+            Assert.IsTrue(layout.Nets.Any(n => n.Source.Part == xor && n.Loads.Any(l => l.Part == and)),
+                "the AND lit is the one the XOR feeds: the longer way to cout");
+            CollectionAssert.AreEquivalent(new[] { "a", "cout" }, light.Ports.Select(p => layout.Ports[p].Name));
+            Assert.AreEqual(4, light.Branches.Count, "a into the ^, the ^ into the &, the & into the |, the | into cout");
+        }
+
+        /// <summary>
+        /// A path into an instance of written code goes through the slice that takes its bit out of the bus: the slice is lit,
+        /// and the instance, and the carry on to the next one -- not the bus's port alone.
+        /// </summary>
+        [Test]
+        public void APathIntoAnInstanceThroughASlice_LightsTheSliceAndTheInstance()
+        {
+            Project project = Written("add2", ("fa", WrittenFullAdder), ("add2", WrittenTwoBitAdder));
+            TimingLine critical = TimingView.Of(project).Lines.First(l => l.Label == "CRITICAL PATH");
+            StringAssert.StartsWith("a[0] → cout", critical.Text, "sanity: in at the first copy, out of the second's carry");
+            SchematicLayout layout = DrawingOf(project);
+
+            TimingLight light = TimingLight.Of(layout, critical.Signals);
+            string[] lit = light.Parts.Select(id => layout.Parts.Single(p => p.Part.Id == id).Part.Name).ToArray();   // an instance by its own name
+            CollectionAssert.IsSubsetOf(new[] { "f0", "f1" }, lit, "both copies the carry runs through");
+            int f0 = layout.Parts.Single(p => p.Part is BlockPart && p.Part.Name == "f0").Part.Id;
+            Assert.IsTrue(light.Parts.Any(id => layout.Parts.Single(p => p.Part.Id == id).Part is BoxPart
+                    && layout.Nets.Any(n => n.Source.Part == id && n.Loads.Any(l => l.Part == f0))),
+                "and the slice that hands a[0] to f0");
+            CollectionAssert.AreEquivalent(new[] { "a", "cout" }, light.Ports.Select(p => layout.Ports[p].Name.Split('[')[0]));
+        }
+
+        private const string WrittenRipple =
+            "module rca (input logic [3:0] a, b, input logic cin, output logic [3:0] s, output logic cout);\n" +
+            "    logic [4:0] c;\n" +
+            "    assign c[0] = cin;\n" +
+            "    genvar i;\n" +
+            "    generate for (i = 0; i < 4; i++) begin : bit_loop\n" +
+            "        fa u (.a(a[i]), .b(b[i]), .cin(c[i]), .s(s[i]), .cout(c[i+1]));\n" +
+            "    end endgenerate\n" +
+            "    assign cout = c[4];\n" +
+            "endmodule\n";
+
+        /// <summary>
+        /// A carry through a generate loop's copies, as in a ripple adder: each copy's carry joined into the bus c and sliced
+        /// out of it into the next. Every copy is lit, and the bus's branches from each join to each slice.
+        /// </summary>
+        [Test]
+        public void APathThroughAGenerateLoopsCopies_LightsEveryCopy()
+        {
+            Project project = Written("rca", ("fa", WrittenFullAdder), ("rca", WrittenRipple));
+            TimingLine critical = TimingView.Of(project).Lines.First(l => l.Label == "CRITICAL PATH");
+            StringAssert.StartsWith("a[0] → cout", critical.Text, "sanity: in at the first copy, out of the carry");
+            SchematicLayout layout = DrawingOf(project);
+
+            TimingLight light = TimingLight.Of(layout, critical.Signals);
+            Assert.AreEqual(4, light.Parts.Count(id => layout.Parts.Single(p => p.Part.Id == id).Part is BlockPart), "all four copies");
+            int bus = Enumerable.Range(0, layout.Nets.Count).Single(n => layout.Nets[n].Name == "c");
+            Assert.GreaterOrEqual(light.Branches.Count(b => b.Net == bus), 3, "the carry along c from each copy to the next");
+        }
     }
 }
