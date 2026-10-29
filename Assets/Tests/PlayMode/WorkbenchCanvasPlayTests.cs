@@ -2939,6 +2939,31 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
+        /// The padlock stands clear of FIT's key (found 2026-10-29 in shot 33): FIT comes up with the circuit zoomed, its key, F,
+        /// in a cap just left of it, and the padlock left of FIT's place used to stand over that cap and hide it.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator ThePadlock_StandsClearOfFitsKey()
+        {
+            yield return TestScene.Load();
+            yield return OpenMyCircuit();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ZoomAboutTheMiddleForTests(3);
+            yield return null;
+            yield return null;
+
+            GameObject fit = GameObject.Find(WorkbenchPanel.FitButton);
+            Assert.IsNotNull(fit, "sanity: FIT up, the circuit zoomed");
+            var key = fit.transform.Find("key") as RectTransform;
+            Assert.IsNotNull(key, "sanity: FIT's key in its cap");
+            Assert.IsTrue(key.gameObject.activeInHierarchy, "sanity: FIT's key shown");
+            Assert.IsTrue(workbench.LockButton.gameObject.activeInHierarchy, "sanity: the padlock up over MY CIRCUIT");
+
+            Rect cap = WorldRect(key), padlock = WorldRect((RectTransform)workbench.LockButton.transform);
+            Assert.IsFalse(padlock.Overlaps(cap), $"the padlock {padlock} stands over FIT's key {cap}");
+        }
+
+        /// <summary>
         /// The zoom controls (Part 15h-4d, asked 2026-10-29): the circuit's slider follows its zoom -- the keys, FIT -- and a
         /// drag on it zooms the circuit; the waves' range bar shows the stretch on screen, an end dragged zooming and the
         /// middle dragged moving through time, and is down while another dock tab is up.
