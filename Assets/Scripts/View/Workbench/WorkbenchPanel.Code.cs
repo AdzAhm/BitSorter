@@ -30,6 +30,19 @@ namespace BitSorter.View
 
         private const float GatesWidth = 104f;
 
+        /// <summary>TIDY, left of GATES over a drawing of code with parts put by hand: lays it out by itself again (Part 15h-4f).</summary>
+        public const string TidySwitchName = "Workbench tidy switch";
+
+        public const string TidyCaption = "TIDY";
+
+        private const float TidyWidth = 88f;
+
+        private UnityEngine.UI.Button _tidySwitch;
+        private bool _tidySwitchShown;
+
+        /// <summary>TIDY over a drawing of code arranged by hand.</summary>
+        public UnityEngine.UI.Button TidySwitch => _tidySwitch;
+
         private CodeEditorView _codeView;
         private WaveRenameField _codeName;
 
@@ -78,6 +91,14 @@ namespace BitSorter.View
                 UiTheme.Defocus();
             });
             Show(_gatesSwitch, false);
+            _tidySwitch = CanvasButton(TidySwitchName, Root, TidyCaption, out _, UiType.Body, palette);
+            _tidySwitch.onClick.AddListener(() =>
+            {
+                if (_session != null)
+                    Said(_session.Tidy());
+                UiTheme.Defocus();
+            });
+            Show(_tidySwitch, false);
             PlaceCodeView();
             _codeName = WaveRenameField.Build(_shell, transform, palette, NewCodeBlockNamed, WaveRenameField.CodeNameName,
                 "NAME THE NEW CODE BLOCK", "a module's name, add4");
@@ -103,6 +124,9 @@ namespace BitSorter.View
                 if (_gatesSwitch != null)
                     TopLeft(_gatesSwitch.GetComponent<RectTransform>(),
                         CornerOf(_regions.Circuit) + new Vector2(size.x - 10f - switchSize.x - 8f - GatesWidth, 8f), new Vector2(GatesWidth, 32f));
+                if (_tidySwitch != null)
+                    TopLeft(_tidySwitch.GetComponent<RectTransform>(),
+                        CornerOf(_regions.Circuit) + new Vector2(size.x - 10f - switchSize.x - 8f - GatesWidth - 8f - TidyWidth, 8f), new Vector2(TidyWidth, 32f));
             }
         }
 
@@ -168,10 +192,20 @@ namespace BitSorter.View
                 _gatesSwitchShown = gates;
             }
 
+            // TIDY beside them while some of the drawing is put by hand.
+            bool tidy = gates && _session.CanTidy;
+            if (tidy != _tidySwitchShown && _tidySwitch != null)
+            {
+                Show(_tidySwitch, tidy);
+                if (tidy)
+                    _tidySwitch.transform.SetAsLastSibling();
+                _tidySwitchShown = tidy;
+            }
+
             // FIT steps left of the switches while they are up.
             if (_fit != null)
             {
-                float right = shown ? -(8f + CodeEditorView.SwitchRoom + (gates ? GatesWidth + 8f : 0f)) : -8f;
+                float right = shown ? -(8f + CodeEditorView.SwitchRoom + (gates ? GatesWidth + 8f : 0f) + (tidy ? TidyWidth + 8f : 0f)) : -8f;
                 var fit = _fit.GetComponent<RectTransform>();
                 if (!Mathf.Approximately(fit.anchoredPosition.x, right))
                     TopRight(fit, new Vector2(right, 8f), new Vector2(72f, 32f));

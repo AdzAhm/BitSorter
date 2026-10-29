@@ -702,6 +702,58 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
+        /// The drawing of code arranged by hand through the workbench's own controls (Part 15h-4f): an import unlocked, its mux
+        /// dragged three cells right and kept there, the code untouched; TIDY up and pressed, laying it out by itself again;
+        /// and Ctrl+Z putting the mux back where it was dragged.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator APartOfTheDrawingOfCode_DraggedByHand_StaysThere_AndTidyLaysItOutAgain()
+        {
+            yield return TestScene.LoadSimulator();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            const string pick =
+                "module pick (input logic [1:0] a, b, input logic s, output logic [1:0] y);\n" +
+                "    always_comb y = s ? b : a;   // a process, so the importer keeps it written code\n" +
+                "endmodule\n";
+            workbench.Import(new[] { new SourceFile("pick.sv", pick) });
+            yield return null;
+            workbench.Pause();
+            workbench.Session.Finish();
+            yield return null;
+            yield return Click(WorkbenchPanel.LockButtonName);
+            Assert.IsFalse(workbench.Session.Locked);
+            Assert.IsFalse(workbench.TidySwitch.gameObject.activeSelf, "no TIDY with nothing put by hand");
+
+            MuxPart mux = workbench.Session.DrawnModule.Parts.OfType<MuxPart>().Single();
+            Placement was = workbench.Session.DrawnModule.Layout.PlacementOf(mux.Id);
+            PartOutline box = PartGeometry.Placed(workbench.Session.DrawnProject, mux, was);
+            var middle = new BoardPoint((box.Left + box.Right) / 2, (box.Bottom + box.Top) / 2);
+            yield return Drag(workbench, middle, new BoardPoint(middle.X + 3, middle.Y));
+            workbench.Session.Finish();
+            yield return null;
+            Assert.AreEqual(1, workbench.Session.Project.Find("pick").Arrangement.Count, "kept with the module");
+            Assert.AreEqual(pick, workbench.Session.Project.Find("pick").Source, "the code untouched");
+            mux = workbench.Session.DrawnModule.Parts.OfType<MuxPart>().Single();
+            Placement moved = workbench.Session.DrawnModule.Layout.PlacementOf(mux.Id);
+            Assert.AreEqual(was.Position.X + 3, moved.Position.X, 1e-9, "drawn again where it was put");
+            yield return null;
+            Assert.IsTrue(workbench.TidySwitch.gameObject.activeSelf, "TIDY up");
+
+            yield return Click(WorkbenchPanel.TidySwitchName);
+            workbench.Session.Finish();
+            yield return null;
+            Assert.AreEqual(0, workbench.Session.Project.Find("pick").Arrangement.Count, "TIDY: laid out by itself again");
+            mux = workbench.Session.DrawnModule.Parts.OfType<MuxPart>().Single();
+            Assert.AreEqual(was, workbench.Session.DrawnModule.Layout.PlacementOf(mux.Id));
+
+            yield return Chord(_keyboard.zKey);
+            workbench.Session.Finish();
+            yield return null;
+            mux = workbench.Session.DrawnModule.Parts.OfType<MuxPart>().Single();
+            Assert.AreEqual(moved, workbench.Session.DrawnModule.Layout.PlacementOf(mux.Id), "Ctrl+Z: where it was dragged");
+        }
+
+        /// <summary>
         /// Written code shown as the drawing of what it builds (Part 15h-4), through the workbench's own controls: DRAWING over a
         /// written full adder's code, GATES beside it saying BOXES while its gates are drawn, a drag on the drawing refused as it
         /// begins with the chip saying why, and a double-click on one of the half adders its code makes stepping inside it.

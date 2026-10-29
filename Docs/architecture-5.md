@@ -3730,6 +3730,26 @@ as one column of 64 blocks, all at one depth).
   four copies and c along the way (`TimingViewTests`); every drawing counting a loop's copies as one
   (`RtlDrawing.FoldedInstances`).
 
+**As built in Part 15h-4f: a drawing of code arranged by hand** (asked 2026-10-29: move and turn parts on the drawing,
+the code untouched, and find them there again).
+- **`Module.Arrangement`**: where parts of the drawing of a written module's code were put, by a key naming each as the
+  code does -- `port:a`, `inst:u`, `array:slice`, `reg:state`, `sig:next` for a part driving a signal -- else its kind and
+  its place among them (`cell:OperatorPart:3`), with the code it was put against (`ArrangedFor`). Saved with the module
+  (`arranged`, `arrangedFor`; absent in an older file).
+- **Kept through a change of the code**: a key naming something keeps its place; a numbered one may now be another part,
+  so it is dropped once the code is other (`BoardEditor.Arrange`, and `RtlDrawing.Of`'s `arranged`).
+- **Drawn round it**: the drawing laid out by itself, then each part the arrangement keeps put where it was put, and any
+  other part one of them stands on moved down its column, clear of them all (`RtlDrawing.KeyOf`).
+- **On the workbench**: on a drawing of code, unlocked and with GATES off, a move or a turn is an arrangement by keys --
+  one step, a drag one step -- and the canvas begins a drag on it, previewed on the drawing's project; reshaping or routing
+  a wire stays refused, the drawing routing its own. TIDY, a button left of GATES while anything is put by hand, clears it
+  (`WorkbenchSession.Tidy`, `CanTidy`), one step.
+- **Not yet**: TIDY on a drawn circuit, laid out as a drawing of code is -- the rest of this part.
+- **Tests**: a part put by hand where it was put, by the name it drives; saved and read again; a code change keeping the
+  named place and forgetting the numbered; a part put on another leaving nothing on anything; TIDY one step
+  (`ArrangementTests`); in the session the written adder's part moved, turned, TIDY and Ctrl+Z (`DrawingOfCodeTests`); in
+  Play Mode an import's mux dragged three cells and kept there, TIDY up and pressed, and Ctrl+Z.
+
 **As built in Part 15h-4g: the drawing and the code follow each other** (asked 2026-10-29: "When I unlock the project
 through the lock I can add and do anything I want; changes I do in code/drawing convert to changes in drawing/code").
 - **The code is what is kept.** An edit of a drawing of code, unlocked -- a part placed, a wire drawn, parts or wires

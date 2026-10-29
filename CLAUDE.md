@@ -1060,8 +1060,12 @@ failure side.
   than the code (a clock's period, a reset's release, a library), or
   -- the drawing written again unedited -- any difference from the code on random values
   (`DrawingPrinter.Differs`, asked once for each text of the module, and of every
-  exercise answer and corpus design by `DrawingPrinterTests`). A move, a turn or a
-  reshape is refused -- it lays itself out until 15h-4f -- and so is any edit with GATES
+  exercise answer and corpus design by `DrawingPrinterTests`). **A part of it is moved and turned by hand, the code untouched** (Part
+  15h-4f): kept with the module by a key that names it as the code does (`port:a`,
+  `inst:u`, `reg:state`, `sig:next`, else its kind and place, `Module.Arrangement`), one
+  step a drag, the drawing laid out round it; a numbered key is forgotten once the code
+  changes; TIDY, beside GATES while anything is put by hand, lays it out by itself
+  again. A reshape is refused -- it routes its own wires -- and so is any edit with GATES
   on. **A part the drawing makes up says what it does** (Part 15h-4e, asked
   2026-10-29) -- an operator, a mux, a case's choice, a slice, a join, a match, a
   constant -- in the inspector's line, in its operands' own names ("(a & b) OR c, bit by
