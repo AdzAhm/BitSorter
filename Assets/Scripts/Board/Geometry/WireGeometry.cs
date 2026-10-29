@@ -454,8 +454,9 @@ namespace BitSorter.Board
         /// </summary>
         public static List<Point> Orthogonal(Point a, Facing? fa, Point b, Facing? fb)
         {
+            // A route of one point -- a wire being drawn, still on the pin it starts from -- has no piece to go wrong.
             List<Point> route = Straight(a, fa, b, fb);
-            if ((fa == null || Ends(route[0], route[1], fa)) && (fb == null || Ends(route[route.Count - 1], route[route.Count - 2], fb)))
+            if (route.Count < 2 || ((fa == null || Ends(route[0], route[1], fa)) && (fb == null || Ends(route[route.Count - 1], route[route.Count - 2], fb))))
                 return route;
             return Round(a, fa, b, fb) ?? route;
         }
