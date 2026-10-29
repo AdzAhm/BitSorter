@@ -204,6 +204,7 @@ namespace BitSorter.View
                 CanvasEdit(made);
                 return;
             }
+            _session.ShowCodeOf(chosen);   // a template to type into: its code, not its drawing (Part 15h-4d)
 
             foreach (CatalogEntry entry in PartsCatalog.For(_session.Project, _session.Module))
             {

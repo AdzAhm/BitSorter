@@ -238,6 +238,7 @@ namespace BitSorter.View
         {
             if (_session == null || _exercise == null || _session.Project.TopModule?.IsWritten == true)
                 return;
+            _session.ShowCodeOf(_session.Project.Top);   // the answer to type: its code, not its drawing (Part 15h-4d)
             EditResult wrote = _session.ReplaceModule(_exercise.Written(_session.Project));
             Said(wrote);
             if (wrote.Done)

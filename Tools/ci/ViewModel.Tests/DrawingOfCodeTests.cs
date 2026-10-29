@@ -26,7 +26,9 @@ namespace BitSorter.ViewModel.Tests
             session.Finish();
             int add = session.Project.TopModule.Parts.OfType<BlockPart>().Single().Id;
             Assert.IsTrue(session.StepInto(add));
-            Assert.IsTrue(session.ShowsCode, "sanity: inside, the code");
+            Assert.IsTrue(session.ShowsDrawingOfCode, "a written block opens as its drawing (Part 15h-4d)");
+            session.DrawCode(false);
+            Assert.IsTrue(session.ShowsCode, "sanity: CODE, its code");
             return session;
         }
 
@@ -156,8 +158,7 @@ namespace BitSorter.ViewModel.Tests
         {
             var session = new WorkbenchSession(WrittenFullAdder(), Ticking(0.01));
             session.Finish();
-            Assert.IsTrue(session.ShowsCode, "sanity: fa is code");
-            session.DrawCode(true);
+            Assert.IsTrue(session.ShowsDrawingOfCode, "fa is written, and shown as its drawing (Part 15h-4d)");
 
             SchematicLayout layout = session.Run.Model.Layout;
             Assert.AreEqual(2, layout.Parts.Count(p => p.Part is BlockPart b && b.Module == "ha"), "h1 and h2, each a block of ha");
@@ -165,9 +166,8 @@ namespace BitSorter.ViewModel.Tests
             Assert.IsTrue(session.StepInto(h1.Part.Id));
             CollectionAssert.AreEqual(new[] { "h1" }, session.Path);
             Assert.AreEqual("ha", session.Module);
-            Assert.IsTrue(session.ShowsCode, "inside, ha's code");
+            Assert.IsTrue(session.ShowsDrawingOfCode, "inside, ha's drawing too");
 
-            session.DrawCode(true);
             Assert.AreEqual(2, session.Run.Model.Layout.Parts.Count(p => p.Symbol == PartSymbol.Operator), "a ^ b and a & b");
             StringAssert.EndsWith(".h1", session.Run.Model.Layout.InstancePath, "its values read under h1");
 
@@ -215,6 +215,21 @@ namespace BitSorter.ViewModel.Tests
             Assert.IsTrue(session.ShowsGatesOfCode, "kept for the module");
             session.DrawGates(false);
             Assert.AreEqual(1, session.Run.Model.Layout.Parts.Count(p => p.Symbol == PartSymbol.Operator), "the box again");
+        }
+
+        /// <summary>A block made with + CODE opens on its code, the template to type into, though a written block opens as its drawing.</summary>
+        [Test]
+        public void ANewCodeBlock_OpensOnItsCode()
+        {
+            var session = new WorkbenchSession(WorkbenchSamples.WrittenAdder(), Ticking(0.01));
+            session.Finish();
+            Assert.IsTrue(session.AddWrittenModule("code1").Done);
+            session.ShowCodeOf("code1");
+            int block = session.Place(PartsCatalog.For(session.Project, session.Module).Single(e => e.Module == "code1"), new Placement(20, 20)).Id;
+            session.Finish();
+            Assert.IsTrue(session.StepInto(block));
+            Assert.IsTrue(session.ShowsCode, "its code");
+            Assert.IsNotNull(session.Code);
         }
 
         [Test]

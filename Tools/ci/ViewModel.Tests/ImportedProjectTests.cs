@@ -70,11 +70,13 @@ namespace BitSorter.ViewModel.Tests
         }
 
         [Test]
-        public void AWrittenDesign_ShowsItsCode_AtTheTop()
+        public void AWrittenDesign_ShowsItsDrawing_AtTheTop_AndCodeItsText()
         {
             WorkbenchSession session = Imported();
 
             Assert.AreEqual("gate", session.Module);
+            Assert.IsTrue(session.ShowsDrawingOfCode, "the drawing first (Part 15h-4d)");
+            session.DrawCode(false);
             Assert.IsTrue(session.ShowsCode);
             StringAssert.Contains("always_comb y = a ^ b;", session.Code.Text);
         }

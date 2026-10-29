@@ -1430,6 +1430,7 @@ namespace BitSorter.PlayMode.Tests
             workbench.Seek(4 * WorkbenchSamples.WrittenAdderStep + 4.5);
             int add = workbench.Session.Project.TopModule.Parts.First(p => p is BitSorter.Board.BlockPart).Id;
             Assert.IsTrue(workbench.StepInto(add));
+            workbench.Session.DrawCode(false);   // a written block opens as its drawing (Part 15h-4d): its code
             yield return Frames(2);
 
             // Not focused, so no caret blinks into the picture.
@@ -2011,8 +2012,7 @@ namespace BitSorter.PlayMode.Tests
 
             BitSorter.Board.EditResult applied = workbench.Session.SetSource(DrawnAlu);
             Assert.IsTrue(applied.Done, applied.Refusal);
-            workbench.DrawingSwitch.onClick.Invoke();
-            workbench.Session.Finish();
+            workbench.Session.Finish();   // a written block opens as its drawing (Part 15h-4d)
             yield return Frames(2);
             workbench.FitView();
             workbench.Seek(4 * WorkbenchSamples.WrittenAdderStep + 4.5);
@@ -2047,8 +2047,7 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsTrue(workbench.StepInto(add));
             yield return Frames(2);
 
-            workbench.DrawingSwitch.onClick.Invoke();
-            workbench.Session.Finish();
+            workbench.Session.Finish();   // a written block opens as its drawing (Part 15h-4d)
             yield return Frames(2);
             workbench.GatesSwitch.onClick.Invoke();
             workbench.Session.Finish();

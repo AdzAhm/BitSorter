@@ -194,6 +194,7 @@ namespace BitSorter.ViewModel.Tests
             Assert.IsTrue(session.AddWrittenModule("code1").Done, "the template only connects, so it holds");
             int block = session.Place(PartsCatalog.For(session.Project, session.Module).Single(e => e.Module == "code1"), new Placement(20, 20)).Id;
             Assert.IsTrue(session.StepInto(block));
+            session.DrawCode(false);
 
             CodeDocument code = session.Code;
             string held = code.Text;

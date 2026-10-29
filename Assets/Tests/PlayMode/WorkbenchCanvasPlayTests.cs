@@ -678,15 +678,20 @@ namespace BitSorter.PlayMode.Tests
             workbench.Session.Finish();
             yield return null;
             Assert.AreEqual("fa", workbench.Session.Module, "sanity: the full adder the top");
-            Assert.IsTrue(workbench.Session.ShowsCode, "sanity: its code");
+            Assert.IsTrue(workbench.Session.ShowsDrawingOfCode, "a written top opens as its drawing (Part 15h-4d)");
+            Assert.IsTrue(workbench.GatesSwitch.gameObject.activeSelf, "GATES beside it");
+
+            yield return Click(WorkbenchPanel.DrawingSwitchName);
+            workbench.Session.Finish();
+            yield return null;
+            Assert.IsTrue(workbench.Session.ShowsCode, "CODE: its code");
             Assert.IsTrue(workbench.DrawingSwitch.gameObject.activeSelf, "DRAWING over the code");
             Assert.IsFalse(workbench.GatesSwitch.gameObject.activeSelf, "GATES only over a drawing");
 
             yield return Click(WorkbenchPanel.DrawingSwitchName);
             workbench.Session.Finish();
             yield return null;
-            Assert.IsTrue(workbench.Session.ShowsDrawingOfCode);
-            Assert.IsTrue(workbench.GatesSwitch.gameObject.activeSelf, "GATES beside it");
+            Assert.IsTrue(workbench.Session.ShowsDrawingOfCode, "and DRAWING back");
             Module drawing = workbench.Session.DrawnModule;
             Assert.AreEqual(2, drawing.Parts.OfType<BlockPart>().Count(), "h1 and h2");
 
@@ -1403,7 +1408,11 @@ namespace BitSorter.PlayMode.Tests
             yield return DoubleClick(workbench.ScreenPointOf(MiddleOf(workbench, add)));
             yield return null;
             CollectionAssert.AreEqual(new[] { "add" }, workbench.SteppedPath);
-            Assert.IsTrue(code.gameObject.activeInHierarchy, "its code in the circuit's window");
+            Assert.IsTrue(workbench.Session.ShowsDrawingOfCode, "a written block opens as its drawing (Part 15h-4d)");
+            Assert.IsFalse(code.gameObject.activeInHierarchy, "no code over its drawing");
+            yield return Click(WorkbenchPanel.DrawingSwitchName);
+            yield return null;
+            Assert.IsTrue(code.gameObject.activeInHierarchy, "CODE: its code in the circuit's window");
             Assert.AreEqual(WorkbenchSamples.AdderSource, code.Field.text);
             StringAssert.StartsWith("APPLIED", code.Status);
             Assert.IsNotNull(ShellPanel.Find<UnityEngine.UIElements.Label>(WorkbenchPanel.CodeNoteName), "PARTS says a written block has no parts");
@@ -1618,6 +1627,8 @@ namespace BitSorter.PlayMode.Tests
             // Inside it, the keyboard in its code: every key is the code's.
             yield return DoubleClick(workbench.ScreenPointOf(MiddleOf(workbench, add)));
             yield return null;
+            workbench.Session.DrawCode(false);   // a written block opens as its drawing (Part 15h-4d): its code
+            yield return null;
             CodeEditorView code = workbench.CodeView;
             code.GoTo(1, 1);
             yield return null;
@@ -1669,6 +1680,8 @@ namespace BitSorter.PlayMode.Tests
             workbench.Session.Finish();
             yield return null;
             yield return DoubleClick(workbench.ScreenPointOf(MiddleOf(workbench, Top(workbench).Parts.OfType<BlockPart>().Single().Id)));
+            yield return null;
+            workbench.Session.DrawCode(false);   // a written block opens as its drawing (Part 15h-4d): its code
             yield return null;
             CodeEditorView code = workbench.CodeView;
             string source = WorkbenchSamples.AdderSource;
@@ -2122,6 +2135,7 @@ namespace BitSorter.PlayMode.Tests
             workbench.Session.Finish();
             yield return null;
             Assert.IsTrue(workbench.StepInto(Top(workbench).Parts.OfType<BlockPart>().Single().Id));
+            workbench.Session.DrawCode(false);   // a written block opens as its drawing (Part 15h-4d): its code
             workbench.ShowCode();
             yield return null;
             yield return null;
@@ -2223,6 +2237,7 @@ namespace BitSorter.PlayMode.Tests
             workbench.Session.Finish();
             yield return null;
             Assert.IsTrue(workbench.StepInto(Top(workbench).Parts.OfType<BlockPart>().Single().Id));
+            workbench.Session.DrawCode(false);   // a written block opens as its drawing (Part 15h-4d): its code
             yield return null;
             CodeDocument code = workbench.Session.Code;
             Assert.IsNotNull(code, "sanity: the written block's code is on screen");
@@ -2855,6 +2870,8 @@ namespace BitSorter.PlayMode.Tests
 
             // Typed with a fault, and not applied: refused, and nothing saved. Typed on the code editor's clock, in
             // milliseconds (CodeEditorView), or the view would find the pause long over and apply clean code itself.
+            workbench.Session.DrawCode(false);   // a written top opens as its drawing (Part 15h-4d): its code
+            yield return null;
             CodeDocument code = workbench.Session.Code;
             code.Type(mux.Source.Replace("    // Put your code here\n", "    // Put your code here\n    assign y = s ? b : a\n"), Time.timeAsDouble * 1000.0);
             yield return Click(WorkbenchPanel.FileButton);
@@ -2927,6 +2944,7 @@ namespace BitSorter.PlayMode.Tests
             workbench.Session.Finish();
             yield return null;
             Assert.IsTrue(workbench.StepInto(Top(workbench).Parts.OfType<BlockPart>().Single().Id));
+            workbench.Session.DrawCode(false);   // a written block opens as its drawing (Part 15h-4d): its code
             yield return null;
             CodeEditorView code = workbench.CodeView;
 

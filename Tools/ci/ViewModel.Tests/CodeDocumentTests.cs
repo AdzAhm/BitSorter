@@ -19,13 +19,14 @@ namespace BitSorter.ViewModel.Tests
             return () => { double read = now; now += step; return read; };
         }
 
-        /// <summary>The written adder, its run made, stepped inside its block.</summary>
+        /// <summary>The written adder, its run made, stepped inside its block and CODE chosen: a written block opens as its drawing (Part 15h-4d).</summary>
         private static WorkbenchSession Inside()
         {
             var session = new WorkbenchSession(WorkbenchSamples.WrittenAdder(), Ticking(0.01));
             session.Finish();
             int add = session.Project.TopModule.Parts.OfType<BlockPart>().Single().Id;
             Assert.IsTrue(session.StepInto(add));
+            session.DrawCode(false);
             return session;
         }
 
@@ -102,8 +103,12 @@ namespace BitSorter.ViewModel.Tests
             Assert.AreEqual(start, code.Text, "the step back to \"y\", the text as it is, is passed over");
         }
 
+        /// <summary>
+        /// A written block opens as its drawing (Part 15h-4d: Ahmad wanted the drawing first, CODE a click away), and CODE
+        /// shows its text, nothing drawn.
+        /// </summary>
         [Test]
-        public void SteppingIntoAWrittenBlock_ShowsItsText_AndNothingDrawn()
+        public void SteppingIntoAWrittenBlock_ShowsItsDrawing_AndCodeItsText_NothingDrawn()
         {
             var session = new WorkbenchSession(WorkbenchSamples.WrittenAdder(), Ticking(0.01));
             session.Finish();
@@ -112,6 +117,9 @@ namespace BitSorter.ViewModel.Tests
 
             int add = session.Project.TopModule.Parts.OfType<BlockPart>().Single().Id;
             Assert.IsTrue(session.StepInto(add));
+            Assert.IsTrue(session.ShowsDrawingOfCode, "the drawing first");
+            Assert.IsNull(session.Code);
+            session.DrawCode(false);
             Assert.IsTrue(session.ShowsCode);
             CodeDocument code = session.Code;
             Assert.AreEqual("add4", code.Module);
@@ -155,6 +163,7 @@ namespace BitSorter.ViewModel.Tests
             Assert.AreEqual(x ^ y, sum, "the waves are the new code's");
 
             Assert.IsTrue(session.StepInto(session.Project.TopModule.Parts.OfType<BlockPart>().Single().Id));
+            Assert.IsTrue(session.ShowsCode, "CODE, chosen for add4, is remembered");
             code = session.Code;
             Assert.AreEqual(xor, code.Text);
             Assert.IsTrue(session.Undo());

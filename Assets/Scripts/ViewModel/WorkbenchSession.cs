@@ -420,7 +420,7 @@ namespace BitSorter.ViewModel
             string shown = ModuleOn(project, _path, out _, _codeSteps);
             SchematicLayout layout = null;
             _shownDrawing = null;
-            if (project.Find(shown)?.IsWritten == true && _drawnCode.Contains(shown))
+            if (project.Find(shown)?.IsWritten == true && !_codeChosen.Contains(shown))
                 layout = DrawingLayout(project, compiled, InstancePathUnder(compiled.DesignPath), shown);
             layout ??= DocumentSchematic.Build(project, compiled, shown, InstancePathUnder(compiled.DesignPath),
                 m => RoutesOf(project, m));
@@ -480,19 +480,35 @@ namespace BitSorter.ViewModel
 
         private CodeDocument _code;
 
-        /// <summary>Whether the module shown is written: the circuit's window shows its text rather than a drawing, unless it shows the drawing of its code.</summary>
-        public bool ShowsCode => ShowsWritten && !_drawnCode.Contains(Module);
+        /// <summary>Whether the module shown is written and its text is shown: CODE chosen for it, or no drawing of it could be made.</summary>
+        public bool ShowsCode => ShowsWritten && !ShowsDrawingOfCode;
 
         /// <summary>Whether the module shown is written, as its code or as the drawing of its code (Part 15h-4).</summary>
         public bool ShowsWritten => Project.Find(Module)?.IsWritten == true;
 
         /// <summary>
         /// Whether the written module shown is shown as the drawing of its code (Part 15h-4): what it builds, as the circuit's
-        /// window draws any circuit, its values the run's. Remembered for each module.
+        /// window draws any circuit, its values the run's. **A written module opens as its drawing** -- a double-click on its
+        /// block showed its code, and Ahmad wanted the drawing first, CODE a click away (2026-10-29) -- unless CODE was chosen
+        /// for it, which is remembered, or its code cannot be drawn: code that does not elaborate shows its text and faults.
         /// </summary>
-        public bool ShowsDrawingOfCode => ShowsWritten && _drawnCode.Contains(Module);
+        public bool ShowsDrawingOfCode => _shownDrawing != null && _shownDrawing.Module.Name == Module && !_codeChosen.Contains(Module)
+            && ShowsWritten;
 
-        private readonly HashSet<string> _drawnCode = new HashSet<string>(StringComparer.Ordinal);
+        // The written modules CODE was chosen for: their text shown rather than their drawing.
+        private readonly HashSet<string> _codeChosen = new HashSet<string>(StringComparer.Ordinal);
+
+        /// <summary>
+        /// The written module <paramref name="module"/> shown as its code from now on -- what + CODE and WRITE IT ask, since the
+        /// student is about to type -- and drawn afresh if it is the one shown.
+        /// </summary>
+        public void ShowCodeOf(string module)
+        {
+            if (module == null || !_codeChosen.Add(module))
+                return;
+            if (module == Module)
+                Stepped();
+        }
 
         /// <summary>
         /// Whether the drawing of code shown draws its small operators and muxes as their gates (Part 15h-4, GATES): a sum of
@@ -520,7 +536,7 @@ namespace BitSorter.ViewModel
         {
             if (!ShowsWritten)
                 return;
-            if (drawn ? !_drawnCode.Add(Module) : !_drawnCode.Remove(Module))
+            if (drawn ? !_codeChosen.Remove(Module) : !_codeChosen.Add(Module))
                 return;
             Stepped();   // as a step inside: drawn afresh and fitted, not kept in place (the review of #108)
         }

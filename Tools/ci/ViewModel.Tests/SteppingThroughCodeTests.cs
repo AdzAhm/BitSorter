@@ -96,6 +96,7 @@ namespace BitSorter.ViewModel.Tests
         public void TheCanvasMadeOverTheCode_FindsTheDrawingsBlocks_OnceDrawingIsPressed()
         {
             WorkbenchSession session = WrittenFullAdder();
+            session.DrawCode(false);
             var editor = new CanvasEditor(session);
             Assert.IsTrue(session.ShowsCode, "sanity: made over the code");
 
