@@ -532,7 +532,7 @@ namespace BitSorter.ViewModel.Tests
 
         /// <summary>
         /// A carry through a generate loop's copies, as in a ripple adder: each copy's carry joined into the bus c and sliced
-        /// out of it into the next. Every copy is lit, and the bus's branches from each join to each slice.
+        /// out of it into the next. The copies are one block since Part 15h-4e, and it is lit, with c along the way.
         /// </summary>
         [Test]
         public void APathThroughAGenerateLoopsCopies_LightsEveryCopy()
@@ -543,9 +543,10 @@ namespace BitSorter.ViewModel.Tests
             SchematicLayout layout = DrawingOf(project);
 
             TimingLight light = TimingLight.Of(layout, critical.Signals);
-            Assert.AreEqual(4, light.Parts.Count(id => layout.Parts.Single(p => p.Part.Id == id).Part is BlockPart), "all four copies");
+            BlockPart copies = light.Parts.Select(id => layout.Parts.Single(p => p.Part.Id == id).Part).OfType<BlockPart>().Single();
+            Assert.AreEqual(4, copies.Copies, "the four copies, one block, lit");
             int bus = Enumerable.Range(0, layout.Nets.Count).Single(n => layout.Nets[n].Name == "c");
-            Assert.GreaterOrEqual(light.Branches.Count(b => b.Net == bus), 3, "the carry along c from each copy to the next");
+            Assert.GreaterOrEqual(light.Branches.Count(b => b.Net == bus), 1, "the carry along c, back into the block");
         }
 
         /// <summary>

@@ -18,6 +18,7 @@ namespace BitSorter.Board
         private readonly Dictionary<int, RtlCell> _cellOf;
         private readonly Dictionary<int, int> _caseSubjectWidth;
         private readonly Dictionary<int, List<ulong>> _matchSets;
+        private readonly Dictionary<int, (string Says, string Expression)> _made;
         private readonly RtlNetlist _netlist;
 
         /// <summary>
@@ -33,6 +34,8 @@ namespace BitSorter.Board
                 return Operand(part, "s") + " picks which input reaches y: d" + "k when it is k, each of the " + chooser.Inputs.ToString(CultureInfo.InvariantCulture) + " values a case arm.";
             if (drawn is ConstantPart constant)
                 return "The value " + constant.Value.ToLiteral(Radix.Binary) + ", as the code writes it.";
+            if (_made != null && _made.TryGetValue(part, out (string Says, string Expression) made))
+                return made.Says;
             if (_matchSets != null && _matchSets.TryGetValue(part, out List<ulong> set))
                 return "1 when " + Operand(part, "a") + " is any of " + Join(set) + ": the labels of one arm, or a set the code tests.";
             if (_cellOf == null || !_cellOf.TryGetValue(part, out RtlCell cell))
@@ -110,6 +113,8 @@ namespace BitSorter.Board
                 return "case (" + In("s") + ")";
             if (_matchSets != null && _matchSets.TryGetValue(part, out List<ulong> labels))
                 return In("a") + " inside {" + Join(labels) + "}";
+            if (_made != null && _made.TryGetValue(part, out (string Says, string Expression) made))
+                return made.Expression;
             if (_cellOf == null || !_cellOf.TryGetValue(part, out RtlCell cell))
                 return drawn is OperatorPart op ? (Operators.IsUnary(op.Op) ? Operators.Token(op.Op) + In("a") : In("a") + " " + Operators.Token(op.Op) + " " + In("b")) : null;
 

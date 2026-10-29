@@ -45,6 +45,8 @@ namespace BitSorter.Board
             _cellOf = builder.CellOf;
             _caseSubjectWidth = builder.CaseParts;
             _matchSets = builder.MatchSets;
+            _made = builder.Made;
+            FoldedInstances = builder.FoldedInstances;
             _netlist = builder.Netlist;
         }
 
@@ -89,6 +91,14 @@ namespace BitSorter.Board
         /// </summary>
         private sealed class InnerNet
         {
+            /// <summary>A wire a fold of a generate loop makes (Part 15h-4e): a bus of its copies' nets, a slice, a value given to every copy.</summary>
+            public InnerNet(Func<IReadOnlyList<LogicVec>, LogicVec[], LogicVec> compute)
+            {
+                _compute = compute;
+            }
+
+            private readonly Func<IReadOnlyList<LogicVec>, LogicVec[], LogicVec> _compute;
+
             public InnerNet(Part part, string pin, int[] from)
             {
                 _part = part;
@@ -103,6 +113,8 @@ namespace BitSorter.Board
 
             public LogicVec Value(IReadOnlyList<LogicVec> nets, LogicVec[] inner)
             {
+                if (_compute != null)
+                    return _compute(nets, inner);
                 switch (_part)
                 {
                     case GatePart gate:
@@ -183,7 +195,7 @@ namespace BitSorter.Board
             return new RtlDrawing(project with { Modules = modules }, module, drawing);
         }
 
-        private sealed class Builder
+        private sealed partial class Builder
         {
             private readonly Project _project;
             private readonly RtlNetlist _netlist;
@@ -336,6 +348,7 @@ namespace BitSorter.Board
                 foreach (int output in _netlist.Outputs)
                     reads[Root(output)]++;
                 FindCases(reads);
+                FindArrays();
 
                 foreach (int input in _netlist.Inputs)
                 {
@@ -345,10 +358,19 @@ namespace BitSorter.Board
                     _source[input] = (id, "out");
                 }
 
+                // A generate loop's copies as one block, drawn before the cells that read its buses (Part 15h-4e).
+                foreach (ArrayFold fold in _arrays.Values)
+                    DrawArray(fold);
+
                 foreach (RtlCell cell in _netlist.Cells)
                 {
-                    if (_merged.Contains(cell.Id) || _swallowed.Contains(cell.Id))
+                    if (_merged.Contains(cell.Id) || _swallowed.Contains(cell.Id) || _foldedAway.Contains(cell.Id) || _arrays.ContainsKey(cell.Id))
                         continue;
+                    if (_joinsOfArrays.ContainsKey(cell.Id))
+                    {
+                        DrawJoinOfArray(cell);
+                        continue;
+                    }
                     if (_cases.TryGetValue(cell.Id, out (int Subject, int[] Data) choice))
                     {
                         // A case on one subject, one mux of as many inputs as the subject has values, the subject its select.

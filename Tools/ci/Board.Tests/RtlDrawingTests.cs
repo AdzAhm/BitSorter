@@ -401,6 +401,75 @@ namespace BitSorter.Board.Tests
             Assert.IsNull(DrawingPrinter.Differs(project, netlist, e.Design, RtlDrawing.Of(project, netlist, "prime")), "written again, the same");
         }
 
+        private const string Slice1 =
+            "module slice1 (input logic a, b, cin, input logic [1:0] op, output logic y, cout);\n" +
+            "    always_comb\n" +
+            "        case (op)\n" +
+            "            2'd0:    {cout, y} = a + b + cin;\n" +
+            "            2'd1:    begin y = a & b; cout = 1'b0; end\n" +
+            "            default: begin y = a | b; cout = 1'b0; end\n" +
+            "        endcase\n" +
+            "endmodule\n";
+
+        private const string Alu8 =
+            "module alu8 (input logic [7:0] a, b, input logic cin, input logic [1:0] op, output logic [7:0] s, output logic cout);\n" +
+            "    logic [8:0] c;\n" +
+            "    assign c[0] = cin;\n" +
+            "    genvar i;\n" +
+            "    for (i = 0; i < 8; i++) begin : slice\n" +
+            "        slice1 u (.a(a[i]), .b(b[i]), .cin(c[i]), .op(op), .y(s[i]), .cout(c[i+1]));\n" +
+            "    end\n" +
+            "    assign cout = c[8];\n" +
+            "endmodule\n";
+
+        /// <summary>
+        /// A generate loop's instances of one module are one block of so many copies (Part 15h-4e, Ahmad's choice of 2026-10-29:
+        /// his 64-bit ALU drew as a column of 64 blocks): a and b straight on, op given to every copy, the carry's c put
+        /// together from cin and the copies' couts and its slice fed back, s the copies' ys -- every wire valued on random
+        /// values as the copies' own nets are, and a double-click stepping into the first copy.
+        /// </summary>
+        [Test]
+        public void AGenerateLoopsInstances_AreOneBlockOfSoManyCopies_EveryWireValued()
+        {
+            var editor = new BoardEditor(Project.New("scratch"));
+            Assert.IsTrue(editor.AddWrittenModule("slice1", Slice1).Done);
+            Assert.IsTrue(editor.AddWrittenModule("alu8", Alu8).Done);
+            Project project = editor.Project with { Top = "alu8" };
+            CompiledProject compiled = BoardCompiler.Compile(project);
+            Elaboration e = Elaborator.Elaborate(compiled.Tree, compiled.Top);
+            Assert.IsFalse(e.HasErrors, string.Join("; ", e.Diagnostics));
+            RtlNetlist netlist = RtlExtractor.Of(e.Design, "alu8");
+            RtlDrawing drawing = RtlDrawing.Of(project, netlist, "alu8");
+            Hold(drawing, netlist, "alu8");
+
+            BlockPart block = drawing.Module.Parts.OfType<BlockPart>().Single();
+            Assert.AreEqual(8, block.Copies);
+            Assert.AreEqual("slice1", block.Module);
+            Assert.AreEqual(7, drawing.FoldedInstances);
+            Assert.AreEqual("slice[0].u", drawing.InstanceOf(block.Id), "a double-click steps into the first copy");
+            Assert.AreEqual("a", NetAt(drawing, block, "a"), "a straight on");
+            Assert.AreEqual("s", NetAt(drawing, block, "y"), "the copies' ys are s");
+
+            var random = new Random(8);
+            for (int round = 0; round < 6; round++)
+            {
+                LogicVec[] signals = e.Design.Signals.Select(s => Known(random, s.Width)).ToArray();
+                LogicVec[] nets = RtlEvaluator.Evaluate(netlist, signals);
+                LogicVec[] inner = drawing.Inner(nets);
+                foreach (Wire wire in drawing.Module.Wires)
+                {
+                    int at = drawing.InnerOfWire(wire.Id);
+                    if (at < 0)
+                        continue;
+                    Part to = drawing.Module.FindPart(wire.To.Pin.Part);
+                    Assert.IsTrue(to.TryPin(project, wire.To.Pin.Pin, out Pin pin));
+                    Assert.AreEqual(pin.Width, inner[at].Width, $"the wire into {to.Name}.{pin.Name} carries its width");
+                }
+            }
+            foreach (Part part in drawing.Module.Parts.OfType<BoxPart>())
+                Assert.IsFalse(string.IsNullOrEmpty(drawing.Describe(part.Id)), (part as BoxPart).Label + " says what it does");
+        }
+
         /// <summary>A constant stands in the column before what reads it, not by the inputs across the drawing from it (Part 15h-4e).</summary>
         [Test]
         public void AConstant_StandsBesideWhatReadsIt()
@@ -534,12 +603,12 @@ namespace BitSorter.Board.Tests
                 Assert.LessOrEqual(module.Parts.OfType<OperatorPart>().Count(), operators, $"{what}: an operator a part or its gates");
             else
                 Assert.AreEqual(operators - drawing.Folded, module.Parts.OfType<OperatorPart>().Count(), $"{what}: an operator a part, but those a case or a set of labels is drawn as");
-            if (drawing.Opened == 0)
-                Assert.AreEqual(0, drawing.InnerCount, $"{what}: wires inside only of an opening");
+            if (drawing.Opened == 0 && drawing.FoldedInstances == 0)
+                Assert.AreEqual(0, drawing.InnerCount, $"{what}: wires inside only of an opening or a generate loop's block");
             Assert.AreEqual(netlist.Cells.Count(c => c.Kind == RtlKind.Register && c.Clock > 0 && (c.Inputs.Count == 2 || c.Inputs.Count == 3)),
                 module.Parts.OfType<RegisterPart>().Count(), $"{what}: a register a part");
             if (!gates)
-                Assert.AreEqual(netlist.Count(RtlKind.Gate) + netlist.Count(RtlKind.Instance), module.Parts.Count(p => p is GatePart || p is BlockPart
+                Assert.AreEqual(netlist.Count(RtlKind.Gate) + netlist.Count(RtlKind.Instance) - drawing.FoldedInstances, module.Parts.Count(p => p is GatePart || p is BlockPart
                     || p is BoxPart box && netlist.Cells.Any(c => c.Kind == RtlKind.Instance && c.Module == box.Label)), $"{what}: a gate or a block an instance");
             Assert.AreEqual(netlist.Inputs.Count + netlist.Outputs.Count, module.Parts.OfType<PortPart>().Count(), $"{what}: a port each");
 

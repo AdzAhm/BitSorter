@@ -3706,6 +3706,27 @@ the parts the drawing makes up -- `&`, `|`, `~`, `==`, `= 10` -- should say what
   written again the same; a constant read three sums in standing past the last sum (`RtlDrawingTests`); every drawing's
   operators counted as parts or as folded into a case or a set (`RtlDrawing.Folded`).
 
+**As built in Part 15h-4e, third part: a generate loop is one block** (Ahmad's choice of 2026-10-29: his 64-bit ALU drew
+as one column of 64 blocks, all at one depth).
+- **What folds** (`RtlArrays.cs`): the instances of one project module named `p[i]...` for i a run of whole numbers, two to
+  `BlockPart.MaxCopies`, whose every input pin reads one net bit for bit in turn -- `a[i]`, or the carry's `c[i]` -- or
+  the same net for every copy -- `op` -- and whose every output goes into one signal's drivers in turn. Anything else is
+  drawn as it was, copy by copy, which is always right.
+- **How it is drawn**: one `BlockPart` of so many copies, its buses fed by the net straight on where it is exactly the
+  bus, else by a slice box of it (`[7:0]` of the carry's `c[8:0]`) or a `{8{ }}` box for a value every copy is given; its
+  outputs the signal they were joined into (`s`), or, where that signal has other pieces -- the carry's c, its cin at 0
+  and each copy's cout above it -- a box putting it together from the bus and the rest, so `c` is still on the drawing by
+  its name. The copies' slices and joins are drawn no more. A double-click steps into the first copy (`InstanceOf`), and
+  DESIGN still to any.
+- **Every wire valued**: a bus or a box no netlist net holds is worked out from the copies' own nets as a wire inside an
+  opening is (`InnerNet` takes a function now): a bus the copies' outputs side by side, a slice a slice, a value given
+  to every copy repeated.
+- **Tests**: an 8-bit ALU of one-bit slices -- a and b straight on, op to every copy, c put together and fed back, s the
+  copies' ys -- one block of 8 holding every drawing rule, every wire into a pin valued at its width on random values,
+  every box it makes saying what it does (`RtlDrawingTests`); a ripple adder's critical path lighting its one block of
+  four copies and c along the way (`TimingViewTests`); every drawing counting a loop's copies as one
+  (`RtlDrawing.FoldedInstances`).
+
 **As built in Part 15h-4g: the drawing and the code follow each other** (asked 2026-10-29: "When I unlock the project
 through the lock I can add and do anything I want; changes I do in code/drawing convert to changes in drawing/code").
 - **The code is what is kept.** An edit of a drawing of code, unlocked -- a part placed, a wire drawn, parts or wires

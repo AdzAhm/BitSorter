@@ -1067,7 +1067,10 @@ failure side.
   constant -- in the inspector's line, in its operands' own names ("(a & b) OR c, bit by
   bit: 2 bits."), and goes by what it is, never `$p4`; a wire out of one no signal holds
   goes by its expression, "a & b [1:0] from the & to the |'s a" (`RtlDrawing.Describe`,
-  `ExpressionOf`). A double-click on a block in it, or its row in DESIGN, steps into the instance the
+  `ExpressionOf`). **A generate loop of one module's instances is one array block**
+  (`slice × 8`, `RtlArrays.cs`), a double-click stepping into its first copy; constants
+  stand beside what reads them, and a case arm of several labels is one input of its
+  mux. A double-click on a block in it, or its row in DESIGN, steps into the instance the
   code makes, its module read again from the code whenever it is drawn again
   (`WorkbenchSession.CodeSteps`). **GATES beside it opens the small ones** --
   every operator and mux of four bits or fewer, and a sum or a difference of 4-bit

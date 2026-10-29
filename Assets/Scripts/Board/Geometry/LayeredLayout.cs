@@ -83,8 +83,10 @@ namespace BitSorter.Board
                 int reader = int.MaxValue;
                 foreach (int v in outOf[i])
                     reader = Math.Min(reader, column[v]);
-                if (reader != int.MaxValue && reader - 1 > column[i])
-                    column[i] = reader - 1;
+                // Never in its reader's own column, which drew a wire looping up and back into it -- beside the inputs, if
+                // that is the column before.
+                if (reader != int.MaxValue && reader - 1 != column[i])
+                    column[i] = Math.Max(0, reader - 1);
             }
 
             int columns = 0;
@@ -181,29 +183,49 @@ namespace BitSorter.Board
             // columns before -- or, with readers, what a part fed by nothing feeds -- where it fits, else below the part above.
             void Stand(int c, bool readers)
             {
+                // With readers, the column taken in the order of the heights its parts want, so a constant slots in level with
+                // what it feeds rather than under everything else in the column (the 15h-4e shots).
+                var wants = new Dictionary<int, double?>();
+                foreach (int v in inColumn[c])
+                    wants[v] = Wanted(v, c, readers);
+                if (readers)
+                    inColumn[c].Sort((a, b) =>
+                    {
+                        double wa = wants[a] ?? y[a], wb = wants[b] ?? y[b];
+                        int byHeight = wb.CompareTo(wa);
+                        return byHeight != 0 ? byHeight : place[a].CompareTo(place[b]);
+                    });
+
                 double floor = double.MaxValue;   // the lowest the next part's top may be, going down the column
                 foreach (int v in inColumn[c])
                 {
-                    double sum = 0;
-                    int count = 0;
-                    foreach (int u in into[v])
-                        if (column[u] < c)
-                        {
-                            sum += y[u];
-                            count++;
-                        }
-                    if (readers && count == 0 && !first.Contains(v))
-                        foreach (int u in outOf[v])
-                            if (column[u] > c)
-                            {
-                                sum += y[u];
-                                count++;
-                            }
-                    double wanted = count > 0 ? sum / count : (floor == double.MaxValue ? 0 : floor - outlines[v].Top);
+                    double wanted = wants[v] ?? (floor == double.MaxValue ? 0 : floor - outlines[v].Top);
                     double highest = floor == double.MaxValue ? double.MaxValue : floor - outlines[v].Top;
                     y[v] = Snap(Math.Min(wanted, highest));
                     floor = y[v] + outlines[v].Bottom - RowGap;
                 }
+            }
+
+            // The mean height of what feeds a part from the columns before -- or, with readers, of what a part fed by nothing
+            // feeds -- or null for none.
+            double? Wanted(int v, int c, bool readers)
+            {
+                double sum = 0;
+                int count = 0;
+                foreach (int u in into[v])
+                    if (column[u] < c)
+                    {
+                        sum += y[u];
+                        count++;
+                    }
+                if (readers && count == 0 && !first.Contains(v))
+                    foreach (int u in outOf[v])
+                        if (column[u] > c)
+                        {
+                            sum += y[u];
+                            count++;
+                        }
+                return count > 0 ? sum / count : (double?)null;
             }
 
             var placements = new Placement[n];
