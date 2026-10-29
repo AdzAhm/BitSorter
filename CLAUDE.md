@@ -2019,7 +2019,8 @@ things** (Part 15g, Ahmad's choice, 2026-10-28): his roles for it -- the
 SystemVerilog language, the exercises and the workbench, beside the engine --
 IBM Plex Sans and Mono under BUILT WITH with their licence, the SIL Open Font
 License; Icarus Verilog under CHECKED AGAINST, the simulator the engine is held
-to; and a dedication to every student of digital systems, naming no university.
+to; and a dedication to every student of Digital Systems and Computer Structure -- the
+course's name in full, as Ahmad asked (2026-10-29) -- naming no university.
 No line for the assistant that helped write it. **The roll is the only place the menu's music is
 credited**: a line along the foot of the main menu credited it too, until a
 playtest asked for it gone (2026-09-27). CC BY 3.0 asks that a credit in a list

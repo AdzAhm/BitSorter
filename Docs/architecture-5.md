@@ -2984,7 +2984,8 @@ the board's own editor and printed.
 - **The credits roll on a page of their own**, rising from its foot and resting on the farewell, any key or release of
   a mouse button going back. 5.0's lines: the SystemVerilog language, the exercises and the workbench as Ahmad's roles;
   IBM Plex Sans and Mono (SIL Open Font License) under BUILT WITH; Icarus Verilog under CHECKED AGAINST; and a
-  dedication to every student of digital systems, naming no university.
+  dedication to every student of Digital Systems and Computer Structure, the course's name in full (Ahmad, 2026-10-29),
+  naming no university.
 - **The workbench's shots move by a few pixels of type.** Settings now draws its words in the shell's font, so the
   shell's glyph atlas is laid out differently and every workbench shot's header text differs by 2 to 11 pixels at three
   levels or fewer. Nothing moved; Settings and the credits are reshot.

@@ -119,8 +119,11 @@ namespace BitSorter.View
         /// <summary>The thanks to the people who played it early. By role, not by name, as asked.</summary>
         public const string PlaytesterThanks = "Every playtester who found a problem before anyone else could";
 
-        /// <summary>Who it is for (5.0, Ahmad's choice, 2026-10-28): no university named, and nothing of a course's own.</summary>
-        public const string Dedication = "every student of digital systems";
+        /// <summary>
+        /// Who it is for (5.0, Ahmad's choice, 2026-10-28): every student of the course, its name in full (2026-10-29: it said
+        /// "digital systems"), and no university named.
+        /// </summary>
+        public const string Dedication = "every student of Digital Systems and Computer Structure";
 
         /// <summary>The last word.</summary>
         public const string Farewell = "THANK YOU FOR PLAYING";
