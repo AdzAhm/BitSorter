@@ -175,8 +175,11 @@ namespace BitSorter.View
             {
                 bool none = parts + wires == 0;
                 SetText(_barTitle, none ? "NOTHING SELECTED" : SelectedText(parts, wires));
+                // On the drawing of code a part or a wire is the code's, with nothing here to change (Part 15h-4): it says so,
+                // where it said to click one thing alone with one thing selected (the GATES browser check).
                 SetText(_barSays, none
                     ? InsideText() ?? "Click a part or a wire to see it here and change it; a double-click on one, or Enter, starts typing."
+                    : _session.ShowsDrawingOfCode ? WorkbenchSession.DrawingRefusal
                     : "One thing at a time is inspected: click one alone to see it here.");
                 _barSays.style.color = palette.TextDim;
                 SetText(_quickTitle, none ? "Select a part or a wire." : SelectedText(parts, wires).ToLowerInvariant());
