@@ -1990,7 +1990,7 @@ namespace BitSorter.View
             // The waves' window, which clips them, and the rows inside it, which the wheel over the names scrolls.
             Rect2 waves = _regions.Waves;
             _wavesClip = UiTheme.Rect("waves", _stage);
-            TopLeft(_wavesClip, CornerOf(waves), SizeOf(waves));
+            TopLeft(_wavesClip, OnPixels(CornerOf(waves)), SizeOf(waves));
             _wavesClip.gameObject.AddComponent<RectMask2D>();
             _wavesContent = UiTheme.Rect("rows", _wavesClip);
             TopLeft(_wavesContent, Vector2.zero, new Vector2(waves.width, WavesAt.y + WorkbenchDrawing.WaveHeight(_model.RowCount)));
@@ -2029,7 +2029,7 @@ namespace BitSorter.View
             Rect2 circuit = _regions.Circuit, waves = _regions.Waves, legend = _regions.Legend;
             TopLeft(_view, CornerOf(circuit), SizeOf(circuit));
             _viewState.Resize(new Vec2(circuit.width, circuit.height));
-            TopLeft(_wavesClip, CornerOf(waves), SizeOf(waves));
+            TopLeft(_wavesClip, OnPixels(CornerOf(waves)), SizeOf(waves));
             TopLeft((RectTransform)_legend.transform, CornerOf(legend), SizeOf(legend));
             PlaceCodeView();
             PlaceListing();
@@ -2394,6 +2394,21 @@ namespace BitSorter.View
             return ScrollWavesBy(scroll.y > 0f ? -WorkbenchDrawing.RowHeight : WorkbenchDrawing.RowHeight);
         }
 
+        /// <summary>
+        /// <paramref name="units"/> of the canvas on a whole screen pixel (Part 15h-4d): the waves' window and their scroll are
+        /// put there, so a wave's line never falls between two rows of pixels -- it did by a share that changed with the dock's
+        /// height and the scroll held at its foot, and the same line came out pale and soft at one height and bright at
+        /// another (Ahmad, 2026-10-29; found by capturing the waves at four dock heights).
+        /// </summary>
+        private float OnPixels(float units)
+        {
+            Canvas canvas = Root != null ? Root.GetComponentInParent<Canvas>() : null;
+            float scale = canvas != null ? canvas.rootCanvas.scaleFactor : 1f;
+            return scale > 0f ? Mathf.Round(units * scale) / scale : units;
+        }
+
+        private Vector2 OnPixels(Vector2 at) => new Vector2(OnPixels(at.x), OnPixels(at.y));
+
         /// <summary>Moves the rows by <paramref name="units"/>, within what they can scroll, and the bar with them. True when they moved.</summary>
         private bool ScrollWavesBy(float units)
         {
@@ -2404,7 +2419,7 @@ namespace BitSorter.View
             float scroll = Mathf.Clamp(_wavesScroll + units, 0f, overflow);
             bool moved = !Mathf.Approximately(scroll, _wavesScroll);
             _wavesScroll = scroll;
-            _wavesContent.anchoredPosition = new Vector2(0f, _wavesScroll);
+            _wavesContent.anchoredPosition = new Vector2(0f, OnPixels(_wavesScroll));
 
             bool scrolls = overflow > 0.5f;
             Show(_wavesThumb, scrolls);

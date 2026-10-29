@@ -3623,6 +3623,15 @@ original imported project as it was"; nothing did it).
   again, nothing typed left, and the item never offered on MY CIRCUIT. Its Sonnet review found the typed text, the
   question's wording for a template and the answer's circuit; all fixed.
 
+**As built in Part 15h-4d, second half: the waves on whole pixels** (Ahmad, 2026-10-29: "why the lines so pale here and
+when I expand it more its the opposite"). Captured at four dock heights, the same wave line fell on whole rows of pixels
+at some and across them at others: the waves' window and their scroll took the dock's height as it came, fractions of a
+pixel included (at a dock 301.5 tall the window's top was at 289.5), and a two-pixel line spread over three rows came out
+pale and soft. Now the window and the scroll stand on whole screen pixels (`WorkbenchPanel.OnPixels`), and each level of
+a row is put where its own width fills whole rows -- an even number of pixels on a pixel's edge, an odd one on its middle
+(`WorkbenchDrawing.OnPixels`); captured again, every line came out the same at every height.
+`TheWaves_StandOnWholePixels_AtAnyDockHeight` holds the window and the rows to whole pixels.
+
 **As built in Part 15h-4d, second half: the zoom controls** (asked 2026-10-29: "a small zoom slider ... make sure it is
 compatible with everything and not working on its own"; for the waves, Ahmad drew "a line that you can drag its edges to
 zoom/unzoom and move it to move through the wave").

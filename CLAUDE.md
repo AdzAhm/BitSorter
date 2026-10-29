@@ -742,7 +742,9 @@ failure side.
   a 64-bit ALU's empty tabs looked broken, Part 15h), and a one-line status that
   names the gestures where the pointer is. **The drawings stay uGUI** -- the
   circuit, the waves, the legend, the minimap -- each placed under the panel
-  that frames it, at its own size; a panel's middle takes no clicks. Its popups
+  that frames it, at its own size, **the waves on whole screen pixels** at any
+  dock height, their window, scroll and every line's level (Part 15h-4d: off a
+  whole pixel the same line came out pale at one height and bright at another); a panel's middle takes no clicks. Its popups
   are the shell's (`ShellPopup`): the menus, the + SIGNAL list, the one-line
   fields and the keyboard map, which `?` opens (`KeyMap`, every key from
   `WorkbenchKeys` and the gestures, so the keys are listed once).

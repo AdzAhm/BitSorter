@@ -66,6 +66,21 @@ namespace BitSorter.View
         /// <summary>The middle of a row.</summary>
         public static float RowMiddle(int row) => WaveTop + RowHeight * 0.5f + row * RowHeight;
 
+        /// <summary>
+        /// <paramref name="y"/> put where a line <paramref name="width"/> wide fills whole rows of pixels: an even number of
+        /// them on a pixel's edge, an odd number on its middle. The graphic stands on a whole pixel (the waves' window and
+        /// scroll are put there), so the painter's own pixel is the screen's.
+        /// </summary>
+        private static float OnPixels(VectorPainter painter, float y, float width)
+        {
+            float pixel = painter.Pixel;
+            if (!(pixel > 0f))
+                return y;
+            int across = Mathf.Max(1, Mathf.RoundToInt(width / pixel));
+            float snapped = Mathf.Round(y / pixel) * pixel;
+            return across % 2 == 1 ? snapped + 0.5f * pixel : snapped;
+        }
+
         private static readonly List<Vector2> Shape = new List<Vector2>(64);
         private static readonly List<WaveSpan> Spans = new List<WaveSpan>(64);
         private static readonly List<double> Swallowed = new List<double>(4);
@@ -804,7 +819,11 @@ namespace BitSorter.View
             for (int row = from; row < last; row++)
             {
                 (int, int) mark = painter.Mark();
-                float middle = RowMiddle(row), high = middle - LevelOffset, low = middle + LevelOffset;
+                // Each level on whole pixels for its own width (Part 15h-4d): a line of an even number of pixels on a pixel's
+                // edge and of an odd number on its middle, so every row of it is full rather than two half-lit rows.
+                float middle = OnPixels(painter, RowMiddle(row), SchematicStyle.HighZWidth);
+                float high = OnPixels(painter, middle - LevelOffset, SchematicStyle.OneWidth);
+                float low = OnPixels(painter, middle + LevelOffset, SchematicStyle.ZeroWidth);
                 RowSpans(model, view, row, start, end, Spans);
 
                 if (model.RowIsBus(row))
