@@ -113,6 +113,25 @@ namespace BitSorter.Board.Tests
             Assert.Greater(checkedPins, 0);
         }
 
+        /// <summary>
+        /// A wire being drawn, its end on or beside the pin it starts from, is routed whatever way each end faces: the check of
+        /// which way a route leaves its pins read a second point of a route tidied down to one (the Play Mode run of 15h-3,
+        /// every wire drawn with the mouse).
+        /// </summary>
+        [Test]
+        public void AWireBeingDrawn_OnOrBesideItsPin_IsRouted()
+        {
+            var facings = new Facing?[] { null, Facing.Left, Facing.Right, Facing.Up, Facing.Down };
+            var start = new Point(1, 1);
+            foreach (Point end in new[] { start, new Point(1.25, 1), new Point(1, 0.75), new Point(0.5, 1.5) })
+                foreach (Facing? fa in facings)
+                    foreach (Facing? fb in facings)
+                    {
+                        List<Point> route = WireGeometry.Orthogonal(start, fa, end, fb);
+                        Assert.IsTrue(Near(route[0], start) && Near(route[route.Count - 1], end), $"{fa} to {fb}, {start} to {end}");
+                    }
+        }
+
         private static bool Near(Point a, Point b) => Math.Abs(a.X - b.X) < 1e-9 && Math.Abs(a.Y - b.Y) < 1e-9;
     }
 }
