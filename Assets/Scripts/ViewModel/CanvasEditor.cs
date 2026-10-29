@@ -169,9 +169,24 @@ namespace BitSorter.ViewModel
 
         private Project Drawn => _session.DrawnProject;
 
+        /// <summary>
+        /// Stepped in or out, or the code shown as its drawing, where the step was not the canvas's own -- DRAWING, a row of
+        /// the hierarchy, the breadcrumb (<see cref="WorkbenchSession.StepVersion"/>): found again, as a step of its own is.
+        /// Asked as the canvas is pointed at, so it is never the module before's (the 15h-4 Play Mode test: after DRAWING the
+        /// drawing could not be clicked, its hit map still the written module's, which has no parts).
+        /// </summary>
+        private void Fresh()
+        {
+            if (_session.StepVersion != _step)
+                Stepped(true);
+        }
+
+        private int _step;
+
         /// <summary>The document drawn again (<see cref="WorkbenchSession.LayoutVersion"/>, or a replay taking over): found again, and the selection kept to what is still there.</summary>
         public void Relaid()
         {
+            _step = _session.StepVersion;
             _layout = _session.Run.Model.Layout;
             Module module = Module;
             _hit = new CanvasHit(Drawn, module, module == null ? null : _session.RoutesOf(Drawn, module));
@@ -198,6 +213,7 @@ namespace BitSorter.ViewModel
         /// <summary>What a point of the stage is on, the view <paramref name="zoom"/>ed as it is.</summary>
         public CanvasTarget TargetAt(Vec2 stage, float zoom)
         {
+            Fresh();
             if (_layout.Board == null)
                 return CanvasTarget.Nothing;
             BoardPoint at = ToBoard(stage);
@@ -260,6 +276,7 @@ namespace BitSorter.ViewModel
         /// </summary>
         public void Point(Vec2? stage, bool free, float zoom = 1f, bool pins = true)
         {
+            Fresh();
             bool shown = stage.HasValue && InHand != null;
             BoardPoint at = shown ? ToBoard(stage.Value) : default;
             if (shown != _handShown || (shown && (!at.Equals(_handAt) || free != _handFree)))
@@ -329,6 +346,7 @@ namespace BitSorter.ViewModel
         /// <summary>Does what a gesture asks: the selection, a drag, a box, a part placed. The edit made, if one was; null for none.</summary>
         public EditResult? Do(CanvasCommand command)
         {
+            Fresh();
             Refusal = null;
 
             // The drawing of code takes no edit (Part 15h-4): a drag that would begin one is refused as it begins, saying why,

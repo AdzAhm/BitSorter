@@ -88,6 +88,31 @@ namespace BitSorter.ViewModel.Tests
             Assert.AreEqual("ha", session.Module);
         }
 
+        /// <summary>
+        /// The canvas made while the code is shown, then DRAWING pressed -- the session's step, not the canvas's -- and the
+        /// drawing's block is what the pointer is on all the same, and a double-click steps into it (the 15h-4 Play Mode test).
+        /// </summary>
+        [Test]
+        public void TheCanvasMadeOverTheCode_FindsTheDrawingsBlocks_OnceDrawingIsPressed()
+        {
+            WorkbenchSession session = WrittenFullAdder();
+            var editor = new CanvasEditor(session);
+            Assert.IsTrue(session.ShowsCode, "sanity: made over the code");
+
+            session.DrawCode(true);
+            PartLayout h1 = BlockOnTheDrawing(session, "h1");
+            CanvasTarget target = editor.TargetAt(Middle(h1), 1f);
+            Assert.AreEqual(CanvasTargetKind.Part, target.Kind, "the drawing's block, though the canvas did not take the step");
+            Assert.AreEqual(h1.Part.Id, target.Part);
+            editor.Do(new CanvasCommand(CanvasGesture.Select, target: target));
+            CollectionAssert.AreEqual(new[] { h1.Part.Id }, editor.Selection.Parts.ToArray());
+
+            // A step out by the session's hand leaves nothing of the drawing selected.
+            Assert.IsTrue(session.StepToScope(session.Run.Model.Layout.DesignPath + ".h1"));
+            editor.TargetAt(Middle(h1), 1f);   // the pointer moved, inside h1 now
+            Assert.IsEmpty(editor.Selection.Parts, "what was selected was the module before's");
+        }
+
         /// <summary>A drag on the drawing is refused as it begins, and a copy of it too; a click still selects.</summary>
         [Test]
         public void ADragOnTheDrawing_IsRefusedAsItBegins()

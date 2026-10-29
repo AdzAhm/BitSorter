@@ -3462,7 +3462,8 @@ wires no signal and no netlist net holds, and showing their values needs the ope
   wires ask. `DrawnValues` names those signals, and each model finds them in its own run by name: the layout of an
   edit is handed to the run shown until its replay takes over, and that run's design numbers its signals otherwise.
 - **Stepping inside written code**: a double-click on a block of the drawing steps into the instance its code makes --
-  the canvas finds what is under the pointer on the drawing itself (`WorkbenchSession.DrawnModule`, `CanStepInto`) -- and
+  the canvas finds what is under the pointer on the drawing itself (`WorkbenchSession.DrawnModule`, `CanStepInto`),
+  found again whenever a step is taken outside it -- DRAWING among them -- and
   the hierarchy's row of one inside code steps to it through the design's own scopes, a copy of a block array on the way
   one step as ever. The breadcrumb's path is each instance's name in the code (`h1`, `gen[2].u`), and beside each step
   the session keeps the module of one taken through code (`WorkbenchSession.CodeSteps`), since no block says it.
