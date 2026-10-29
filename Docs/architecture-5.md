@@ -3504,12 +3504,20 @@ instances inside written code stepped into, and GATES opening its small operator
 - **A timing path is lit through the whole of each step** (a fix after Ahmad's first look, 2026-10-29: "the yellow
   line indicating critical path isnt in everything"). TIMING's path is a run of signals and one assign one step of it,
   and `TimingLight` lit a step only where one part both read a signal and drove the next -- true of every drawn circuit,
-  and of next to nothing on a drawing of code, where an assign is the operators it is made of, joined by wires named
-  `$` and a number, and an instance takes its bits through a slice and gives them back through a join. So the path lit
-  its two ports and its last wire. Where no one part joins two of the path's signals, the light now follows the `$`
-  wires from the one to the other, through anything but a block or a register, and takes the longest way, the most
-  parts -- as a path through gates is the one through the most of them; a drawn circuit has no such wire and lights as
-  before, to the part.
+  and of next to nothing on a drawing of code, where an assign is the operators it is made of, joined by wires no
+  signal holds, and an instance takes its bits through a slice. So the path lit its two ports and its last wire.
+  - **Every wire no signal holds is named `$` and the pin that drives it** (`$p4_y`; a gate the code names, `$g1_y`)
+    -- no signal of the language is named so, an escaped identifier aside. Left to the netlist, a named gate's output
+    was `g1_y`, like a signal.
+  - **Where no one part joins two of the path's signals, the light follows the `$` wires** from the one to the other,
+    through anything but a block or a register, and takes the longest way, the most parts -- as a path through gates is
+    the one through the most of them -- lighting every wire into each part on it, both of `a & a`'s.
+  - **A step that leaves a bus from one bit**, `a[1]`, goes through a slice only where its label takes that bit: one
+    gate a bit, the ways through the bits are as long as each other, and the first lit the wrong gate.
+  - **Out of an instance needs nothing of it**: its outputs are always on signals the path names, so the join after
+    it is lit as on any drawing. A drawn circuit has no `$` wire (a name starts with a letter or `_`) and lights as
+    before, to the part.
+  - Its Sonnet review swept 40 layouts and a 64-copy ripple (about 1.2 ms a light).
 - **Known, and left** (the second half, or 15h-6's measuring): an inout port is not drawn; an operator's sign and a
   register's negedge are not shown; why a process is a box is held (`BoxPart.Says`) but not shown; a library cell is
   known by its name; and the code is elaborated again for each drawing, which 15h-6 measures with a cap on the parts

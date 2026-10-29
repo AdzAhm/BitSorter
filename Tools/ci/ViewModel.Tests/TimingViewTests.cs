@@ -547,5 +547,45 @@ namespace BitSorter.ViewModel.Tests
             int bus = Enumerable.Range(0, layout.Nets.Count).Single(n => layout.Nets[n].Name == "c");
             Assert.GreaterOrEqual(light.Branches.Count(b => b.Net == bus), 3, "the carry along c from each copy to the next");
         }
+
+        /// <summary>
+        /// A gate the code names, out of a bus's bit (the review of the fix): its output holds no signal, and the drawing names
+        /// it with a $ as every such wire, so the path a[1] -> y[1] is lit through the slice, the gate and the join -- where
+        /// left to the netlist it was g1_y, and the light stopped at the port.
+        /// </summary>
+        [Test]
+        public void APathThroughAGateTheCodeNames_LightsTheGate()
+        {
+            Project project = Written("pr", ("pr",
+                "module pr (input logic [1:0] a, b, output logic [1:0] y);\n" +
+                "    and #2 g0 (y[0], a[0], b[0]);\n" +
+                "    or #3 g1 (y[1], a[1], b[1]);\n" +
+                "endmodule\n"));
+            TimingLine critical = TimingView.Of(project).Lines.First(l => l.Label == "CRITICAL PATH");
+            StringAssert.Contains("y[1]", critical.Text, "sanity: through the slower gate");
+            SchematicLayout layout = DrawingOf(project);
+
+            TimingLight light = TimingLight.Of(layout, critical.Signals);
+            CollectionAssert.Contains(light.Parts.Select(id => layout.Parts.Single(p => p.Part.Id == id).Part.Name).ToArray(), "g1");
+            Assert.IsFalse(light.Parts.Any(id => layout.Parts.Single(p => p.Part.Id == id).Part.Name == "g0"), "and not the faster one");
+        }
+
+        /// <summary>A part reading one wire on both its pins, as a &amp; a: both wires into it are lit, as a step to one part lights them all.</summary>
+        [Test]
+        public void APartReadingOneWireTwice_IsLitOnBothItsWires()
+        {
+            Project project = Written("tw", ("tw",
+                "module tw (input logic a, b, output logic y);\n" +
+                "    assign #2 y = ~(a & a) ^ b;\n" +
+                "endmodule\n"));
+            TimingLine critical = TimingView.Of(project).Lines.First(l => l.Label == "CRITICAL PATH");
+            SchematicLayout layout = DrawingOf(project);
+            int and = layout.Parts.Single(p => p.Name == "&").Part.Id;
+            int a = Enumerable.Range(0, layout.Nets.Count).Single(n => layout.Nets[n].Name == "a");
+            Assert.AreEqual(2, layout.Nets[a].Loads.Count(l => l.Part == and), "sanity: a into both of the AND's pins");
+
+            TimingLight light = TimingLight.Of(layout, critical.Signals.Take(1).Concat(new[] { "y" }).ToArray());
+            Assert.AreEqual(2, light.Branches.Count(b => b.Net == a && layout.Nets[a].Loads[b.Branch].Part == and), "both wires into the AND");
+        }
     }
 }

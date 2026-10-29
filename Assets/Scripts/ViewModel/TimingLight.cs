@@ -21,10 +21,14 @@ namespace BitSorter.ViewModel
     ///
     /// **On the drawing of code a step is often several parts** (Ahmad, 2026-10-29): one assign is one step of the path,
     /// from a signal it reads to the one it drives, and its drawing is the operators it is made of, joined by wires no signal
-    /// holds -- named <c>$</c> and a number, which no signal of the language can be. Where no one part joins the two, the
-    /// light follows those wires from the one to the other, through anything but a block or a register, and takes the
-    /// longest way, the most parts, as a path through gates is the one through the most of them; into a block through the
-    /// slice that takes its bits out of a bus, and out of one through the join that puts them back, the same.
+    /// holds -- named <c>$</c> and the pin that drives them (<see cref="RtlDrawing"/>), which no signal of the language is
+    /// named, an escaped identifier aside. Where no one part joins the two, the light follows those wires from the one to
+    /// the other, through anything but a block or a register, and takes the longest way, the most parts, as a path through
+    /// gates is the one through the most of them -- every wire into each part on it, a part reading one wire on two pins
+    /// lit on both; and into a block through the slice that takes its bits out of a bus the same. A step that leaves a bus
+    /// from one bit of it, as <c>a[1]</c>, goes through a slice only where the slice takes that bit: one gate a bit, the
+    /// ways through the bits are as long as each other, and the first would light the wrong one. Out of a block needs
+    /// nothing of it: an instance's outputs are always on signals the path names.
     /// </remarks>
     public sealed class TimingLight
     {
@@ -114,27 +118,27 @@ namespace BitSorter.ViewModel
                     ports.Add(port);
             }
 
-            // The longest way from the nets <paramref name="starts"/> to one of the parts <paramref name="targets"/>, every
-            // net after the first one no signal holds, lit -- its branches and the parts they go into. False for none.
-            bool LightTheWay(IEnumerable<int> starts, ICollection<int> targets, int atLeast)
+            // The longest way from the net start to one of the parts targets, every net after the first one no signal holds,
+            // lit -- its branches and the parts they go into -- when it has at least atLeast parts. False otherwise.
+            bool LightTheWay(int start, int bit, ICollection<int> targets, int atLeast)
             {
-                List<(int Net, int Branch, int Part)> best = null;
-                var known = new Dictionary<int, List<(int, int, int)>>();
-                var walking = new HashSet<int>();
-                foreach (int start in starts)
-                    if (Way(start, targets, known, walking) is List<(int, int, int)> way && (best == null || way.Count > best.Count))
-                        best = way;
+                List<(int Net, int Branch, int Part)> best = Way(start, bit, targets, new Dictionary<int, List<(int, int, int)>>(), new HashSet<int>());
                 if (best == null || best.Count < atLeast)
                     return false;
                 foreach ((int net, int branch, int part) in best)
                 {
-                    Branch(net, branch);
+                    // Every wire of the net into the part, as a step to one part lights them all (the review of the fix).
+                    IReadOnlyList<PinRef> loads = layout.Nets[net].Loads;
+                    for (int b = 0; b < loads.Count; b++)
+                        if (loads[b].Part == part)
+                            Branch(net, b);
                     parts.Add(part);
                 }
                 return true;
             }
 
-            List<(int, int, int)> Way(int net, ICollection<int> targets, Dictionary<int, List<(int, int, int)>> known, HashSet<int> walking)
+            // bit: the bit of the bus the step leaves from, -1 for none; only the first hop asks it, out of the bus.
+            List<(int, int, int)> Way(int net, int bit, ICollection<int> targets, Dictionary<int, List<(int, int, int)>> known, HashSet<int> walking)
             {
                 if (known.TryGetValue(net, out List<(int, int, int)> found))
                     return found;
@@ -145,14 +149,14 @@ namespace BitSorter.ViewModel
                 for (int b = 0; b < loads.Count; b++)
                 {
                     int load = loads[b].Part;
-                    if (!drawn.TryGetValue(load, out PartLayout part))
+                    if (!drawn.TryGetValue(load, out PartLayout part) || !Takes(part, bit))
                         continue;
                     List<(int, int, int)> way = null;
                     if (targets.Contains(load))
                         way = new List<(int, int, int)> { (net, b, load) };
                     else if (!(part.Part is BlockPart) && part.Symbol != PartSymbol.Register && drives.TryGetValue(load, out List<int> outs))
                         foreach (int next in outs)
-                            if (IsMadeUp(layout.Nets[next]) && Way(next, targets, known, walking) is List<(int, int, int)> rest
+                            if (IsMadeUp(layout.Nets[next]) && Way(next, -1, targets, known, walking) is List<(int, int, int)> rest
                                 && (way == null || rest.Count + 1 > way.Count))
                             {
                                 way = new List<(int, int, int)>(rest.Count + 1) { (net, b, load) };
@@ -166,17 +170,6 @@ namespace BitSorter.ViewModel
                 return best;
             }
 
-            // The nets no signal holds that the block <paramref name="block"/> drives: the way out of it to a join.
-            List<int> MadeUpOutOf(int block)
-            {
-                var outs = new List<int>();
-                if (drives.TryGetValue(block, out List<int> nets))
-                    foreach (int net in nets)
-                        if (IsMadeUp(layout.Nets[net]))
-                            outs.Add(net);
-                return outs;
-            }
-
             foreach (IReadOnlyList<string> signals in paths)
             {
                 if (signals == null || signals.Count == 0)
@@ -184,6 +177,7 @@ namespace BitSorter.ViewModel
 
                 // The path as this drawing has it: a run of nets and blocks, each once in a row.
                 var stops = new List<(bool Block, int Index)>();
+                var leftAt = new List<int>();   // each stop's bit the path leaves it from, -1 for none
                 var names = new List<string>(signals.Count);
                 foreach (string signal in signals)
                 {
@@ -197,7 +191,11 @@ namespace BitSorter.ViewModel
                     else
                         continue;
                     if (stops.Count == 0 || stops[stops.Count - 1] != stop)
+                    {
                         stops.Add(stop);
+                        leftAt.Add(-1);
+                    }
+                    leftAt[leftAt.Count - 1] = BitOf(signal);
                 }
 
                 // An input where it comes in, an output where it goes out.
@@ -223,20 +221,16 @@ namespace BitSorter.ViewModel
                 {
                     (bool fromBlock, int from) = stops[k];
                     (bool toBlock, int to) = stops[k + 1];
-                    ICollection<int> into = toBlock ? new[] { to } : DriversOf(layout.Nets[to]);
                     if (fromBlock)
                     {
-                        // Out of a block: lit already; the net it drives is the next step's -- through the join that
-                        // takes its bits into a bus, on a drawing of code.
-                        if (!into.Contains(from))
-                            LightTheWay(MadeUpOutOf(from), into, 1);
+                        // Out of a block: lit already; the net it drives is the next step's.
                         if (toBlock)
                             parts.Add(to);
                         continue;
                     }
 
                     // On a drawing of code, through the parts of an assign, or the slice into a block.
-                    if (LightTheWay(new[] { from }, into, 2))
+                    if (LightTheWay(from, leftAt[k], toBlock ? new[] { to } : DriversOf(layout.Nets[to]), 2))
                         continue;
 
                     // Into the part that reads this net and drives the next, or into the block the path goes inside.
@@ -314,10 +308,40 @@ namespace BitSorter.ViewModel
         }
 
         /// <summary>
-        /// A net no signal holds: a value inside an expression on the drawing of code, named <c>$</c> and its number
-        /// (<see cref="RtlDrawing"/>) -- no signal of the language starts so.
+        /// A net no signal holds: a value inside an expression on the drawing of code, named <c>$</c> and the pin that
+        /// drives it (<see cref="RtlDrawing"/>) -- no signal of the language is named so, an escaped identifier aside.
         /// </summary>
         private static bool IsMadeUp(NetLayout net) => net.Name != null && net.Name.Length > 0 && net.Name[0] == '$';
+
+        /// <summary>The bit <paramref name="signal"/> names, as <c>c[1]</c> names 1; -1 for a whole signal or anything else.</summary>
+        private static int BitOf(string signal)
+        {
+            if (signal.Length < 3 || signal[signal.Length - 1] != ']')
+                return -1;
+            int open = signal.LastIndexOf('[');
+            return open > 0 && int.TryParse(signal.Substring(open + 1, signal.Length - open - 2), System.Globalization.NumberStyles.None,
+                System.Globalization.CultureInfo.InvariantCulture, out int bit) ? bit : -1;
+        }
+
+        /// <summary>
+        /// Whether <paramref name="part"/> carries bit <paramref name="bit"/> of the bus it reads: a slice box of the drawing
+        /// of code only where its label, <c>[3]</c> or <c>[3:0]</c> as <see cref="RtlDrawing"/> writes it, takes the bit;
+        /// any other part, a slice by a variable included, and every part when no bit is asked.
+        /// </summary>
+        private static bool Takes(PartLayout part, int bit)
+        {
+            if (bit < 0 || !(part.Part is BoxPart box) || box.Label == null || box.Label.Length < 3 || box.Label[0] != '['
+                || box.Label[box.Label.Length - 1] != ']')
+                return true;
+            string inside = box.Label.Substring(1, box.Label.Length - 2);
+            int colon = inside.IndexOf(':');
+            var digits = System.Globalization.NumberStyles.None;
+            var culture = System.Globalization.CultureInfo.InvariantCulture;
+            if (colon < 0)
+                return !int.TryParse(inside, digits, culture, out int only) || only == bit;
+            return !int.TryParse(inside.Substring(0, colon), digits, culture, out int high)
+                || !int.TryParse(inside.Substring(colon + 1), digits, culture, out int low) || (low <= bit && bit <= high);
+        }
 
         /// <summary><c>c[1]</c> as the bus it is a bit of, <c>c</c>: a drawing has a net for a bus, not one a bit.</summary>
         private static string WithoutBit(string signal)

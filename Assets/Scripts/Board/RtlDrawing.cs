@@ -339,16 +339,25 @@ namespace BitSorter.Board
                     _source[net] = (id, "y");
                 }
 
-                // A wire from each net's source to each place it goes, named for the signal the net is.
+                // A wire from each net's source to each place it goes, named for the signal the net is -- or, holding none,
+                // for the pin that drives it after a $, as the parts it joins are named (`$p4_y`, `$g0_y`): no signal of
+                // the language starts so, which is how a timing path's light tells a wire inside an expression from a
+                // signal (TimingLight). Left to the netlist, a gate the code names gave `g0_y`, and the light stopped there.
                 var links = new List<(int From, int To)>();
                 var index = new Dictionary<int, int>();
                 for (int i = 0; i < _parts.Count; i++)
                     index[_parts[i].Id] = i;
+                string MadeUp(int part, string pin)
+                {
+                    string name = _parts[index[part]].Name;
+                    return (name.Length > 0 && name[0] == '$' ? name : "$" + name) + "_" + pin;
+                }
+
                 for (int net = 0; net < _netlist.Nets.Count; net++)
                 {
                     if (Root(net) != net || _source[net].Part < 0)
                         continue;
-                    string netName = NameOfNet(net);
+                    string netName = NameOfNet(net) ?? MadeUp(_source[net].Part, _source[net].Pin);
                     foreach ((int part, string pin) in _loads[net])
                     {
                         NetOfWire[_next] = net;
@@ -363,11 +372,11 @@ namespace BitSorter.Board
                     }
                 }
 
-                // The wires inside the openings into gates, on no net of the netlist: named for none, valued by Inner.
+                // The wires inside the openings into gates, on no net of the netlist: named as no signal is, valued by Inner.
                 foreach ((int from, string fromPin, int to, string toPin, int inner) in _innerWires)
                 {
                     InnerOfWire[_next] = inner;
-                    _wires.Add(new Wire { Id = _next++, From = Endpoint.At(from, fromPin), To = Endpoint.At(to, toPin) });
+                    _wires.Add(new Wire { Id = _next++, From = Endpoint.At(from, fromPin), To = Endpoint.At(to, toPin), NetName = MadeUp(from, fromPin) });
                     links.Add((index[from], index[to]));
                 }
 

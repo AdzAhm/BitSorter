@@ -718,8 +718,9 @@ failure side.
   document prints as, read-only, Part 12e) and TIMING (the paths, the critical
   path, the minimum period and the gate count, the path picked lit on the
   canvas while the tab is up, Part 14b -- on the drawing of code every part of
-  an assign between two of its signals, the longest way through them, and the
-  slice into an instance and the join out of it, 15h-4's fix; the worst measured by stepping every
+  an assign between two of its signals, the longest way through them, out of a
+  bus through the slice that takes the path's bit, and the slice into an
+  instance, 15h-4's fix; the worst measured by stepping every
   input, the paths that never fire marked, and STEP TEST, 14c; and LIBRARY, the gate
   library the design is held to, 14d; and the CLOCK PERIOD CHECK holds an exercise
   to, where an input's or an output's path is slower than register to register,
