@@ -70,7 +70,9 @@ namespace BitSorter.ViewModel
 
         /// <summary>
         /// The zoom the fit is: 1 while the drawing fits the room the window keeps for it, less once it has
-        /// outgrown it. A drawing the window was built round fits it exactly, to the last rounding error.
+        /// outgrown it. A drawing the window was built round fits it exactly, to the last rounding error. **However tall
+        /// the drawing, the fit holds all of it** (Part 15h-4d): it stopped at a sixteenth, and a 64-bit ALU's column of
+        /// instances, which needs far less, could never be seen whole nor zoomed out to (Ahmad, 2026-10-29).
         /// </summary>
         public float FitZoom
         {
@@ -79,7 +81,7 @@ namespace BitSorter.ViewModel
                 Vec2 room = Window - Home * 2f;
                 if (room.x >= Drawing.x - 1e-3f && room.y >= Drawing.y - 1e-3f)
                     return 1f;
-                return Arith.Max(MinZoom * 0.25f, Arith.Min(room.x / Arith.Max(Drawing.x, 1f), room.y / Arith.Max(Drawing.y, 1f)));
+                return Arith.Max(1e-4f, Arith.Min(room.x / Arith.Max(Drawing.x, 1f), room.y / Arith.Max(Drawing.y, 1f)));
             }
         }
 

@@ -295,7 +295,9 @@ namespace BitSorter.ViewModel
         /// </summary>
         public static Minimap Of(SchematicView view, float maxWidth = MaxWidth)
         {
-            if (view == null || view.IsFitted || view.Drawing.x <= 0 || view.Drawing.y <= 0)
+            // Whether some of the drawing is out of the window decides, never whether the view is the fit (Part 15h-4d: a fit
+            // that could not hold a tall drawing hid the map while half of it was out of sight).
+            if (view == null || view.Drawing.x <= 0 || view.Drawing.y <= 0)
                 return null;
 
             // What the window shows, in drawing units: from where its corner is to where its far corner is.
