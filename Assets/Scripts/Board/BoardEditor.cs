@@ -334,6 +334,40 @@ namespace BitSorter.Board
             return Commit(Project.WithModule(m with { Layout = layout }), ids[0], key, check: false);
         }
 
+        /// <summary>
+        /// Parts of the drawing of a written module's code put where <paramref name="to"/> says, by their keys (Part 15h-4f):
+        /// kept with the module, the code untouched. One step, or one with the steps before it of the same parts while
+        /// <paramref name="continuing"/> -- a drag. With <paramref name="to"/> null, the arrangement cleared: TIDY.
+        /// </summary>
+        public EditResult Arrange(string module, IReadOnlyDictionary<string, Placement> to, bool continuing = false)
+        {
+            if (!TryModule(module, out Module m, out EditResult refused))
+                return refused;
+            if (!m.IsWritten)
+                return EditResult.Refused($"{module} is drawn: move its parts themselves.");
+            if (to == null)
+            {
+                if (m.Arrangement.Count == 0)
+                    return EditResult.Refused("The drawing is laid out by itself already.");
+                return Commit(Project.WithModule(m with { Arrangement = new Dictionary<string, Placement>(), ArrangedFor = null }), check: false);
+            }
+            if (to.Count == 0)
+                return EditResult.Refused("There is nothing to move.");
+
+            // Once the code is other, a part the code names nothing may be another part: its place is forgotten.
+            var arrangement = new Dictionary<string, Placement>(StringComparer.Ordinal);
+            foreach (KeyValuePair<string, Placement> kept in m.Arrangement)
+                if (m.ArrangedFor == m.Source || !kept.Key.StartsWith("cell:", StringComparison.Ordinal))
+                    arrangement[kept.Key] = kept.Value;
+            var keys = new List<string>(to.Keys);
+            keys.Sort(StringComparer.Ordinal);
+            foreach (string key in keys)
+                arrangement[key] = to[key];
+
+            string step = continuing ? $"arrange {module} {string.Join(",", keys)}" : null;
+            return Commit(Project.WithModule(m with { Arrangement = arrangement, ArrangedFor = m.Source }), 0, step, check: false);
+        }
+
         // -----------------------------------------------------------------
         // Wires
         // -----------------------------------------------------------------

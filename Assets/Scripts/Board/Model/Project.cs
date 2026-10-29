@@ -34,6 +34,17 @@ namespace BitSorter.Board
         /// <summary>The next id to give a part or a wire: they share one count, and an id is never given twice.</summary>
         public int NextId { get; init; } = 1;
 
+        /// <summary>
+        /// For a written module, where parts of the drawing of its code were put by hand (Part 15h-4f): each part's placement
+        /// by a key that names it as the code does -- <c>port:a</c>, <c>inst:u</c>, <c>reg:state</c>, <c>sig:next</c> -- or,
+        /// for one the code names nothing, by its kind and its place among them (<c>cell:OperatorPart:3</c>). The code is
+        /// untouched; the drawing puts these parts here and lays out the rest round them. Empty for none.
+        /// </summary>
+        public IReadOnlyDictionary<string, Placement> Arrangement { get; init; } = new Dictionary<string, Placement>();
+
+        /// <summary>The code <see cref="Arrangement"/> was made against: its numbered keys are dropped once the code is other.</summary>
+        public string ArrangedFor { get; init; }
+
         public Part FindPart(int id)
         {
             foreach (Part part in Parts)
