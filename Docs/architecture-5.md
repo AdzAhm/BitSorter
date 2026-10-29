@@ -3527,6 +3527,27 @@ instances inside written code stepped into, and GATES opening its small operator
   another module showed the old one and one that took h1 away left the path on nothing; and that a step from the
   hierarchy into code inside a copy of an array gave the path an extra crumb and no values. All are fixed and held by tests.
 
+**As built in Part 15h-4d, first half: the drawing first, the whole of it in view** (Ahmad's first look at 15h-4,
+2026-10-29).
+- **A written module opens as the drawing of its code**: the session keeps the modules CODE was chosen for
+  (`_codeChosen`) where it kept those DRAWING was, and shows the drawing of any other -- whenever one could be made; code
+  that cannot be drawn shows its text. + CODE and WRITE IT choose CODE for their module (`ShowCodeOf`), since the student
+  is about to type.
+- **The fit holds the whole drawing, however tall** (`SchematicView.FitZoom`): it stopped at a sixteenth, so the column of
+  a 64-bit ALU's instances never fitted and could not be zoomed out to; and **the minimap is up whenever some of the
+  drawing is out of the window** (`Minimap.Of`), never hidden for the view being the fit.
+- **LOGIC's expressions are shown whole**, each on as many rows as it needs, cut after a product's ` + ` or an assign's
+  ` | ` (`TextRows`), where they ended in "..." at the block's edge.
+- **Five samples written as code** (asked 2026-10-29), after the five drawn: Traffic light (four states, Moore), Two-bit
+  ALU (its adder two full adders: LOGIC, GATES, stepping in), Is it prime? (a K-map), Sequence detector (1 0 1, three
+  states, Mealy) and Seven segments (seven K-maps). Each is a few files imported as IMPORT reads them
+  (`WorkbenchSamples.Written`), testbench and all, written for BitSorter; the same files are in `Build/Samples`,
+  git-ignored, for trying IMPORT with. `SampleTests` holds the drawn ones to every rule of a drawing as before, and the
+  written ones to opening as their drawing, running their testbench, and their states or their truth tables.
+- **Tests**: a block opening as its drawing and CODE kept; a new code block opening on its code; a drawing 40,000 units
+  tall whole at the fit, no further out than that, and its map once zoomed in; the rows of a sum of products, an assign
+  and a long piece, each in its room with nothing lost.
+
 ---
 
 ## 11. The parts

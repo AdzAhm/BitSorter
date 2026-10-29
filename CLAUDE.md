@@ -727,7 +727,8 @@ failure side.
   slice a frame as the measured worst is, `LogicTable`; for eight input bits or
   fewer each output as a minimal sum of products, the textbook's way and
   SystemVerilog's, a slice a frame too and marked where its search was cut
-  short of proving it the smallest, `Minimizer`; and for
+  short of proving it the smallest, `Minimizer`, each shown whole, on as many rows as
+  it needs, cut between its products (15h-4d, `TextRows`: it ended in "..."); and for
   four inputs or fewer its K-map, no groups drawn, `KarnaughLayout`) and STATES
   (Part 15g, for a clocked circuit of up to six register bits, four input bits
   besides its clock and reset, and sixteen states reached: found by running the
@@ -1006,9 +1007,13 @@ failure side.
   with wires leaving its top has its name under it or beside it. **An operator part**
   (`OperatorPart`, Part 15h-3) is one of the language's operators as a box with its
   symbol, compiling to one `assign`; not in PARTS yet, for the drawing of code (Part
-  15h-4) to place. **A written module is shown as its code or as the drawing of it**
-  (Part 15h-4): DRAWING at the right of the code's top strip turns it -- in a browser
-  the code is a box laid over everything under that strip -- CODE turns it back, kept for each module (`WorkbenchSession.ShowsDrawingOfCode`). The
+  15h-4) to place. **A written module is shown as the drawing of its code, or as its
+  code** (Part 15h-4): **it opens as its drawing** (15h-4d: a double-click on a written
+  block showed its code, and Ahmad wanted the drawing first) -- unless CODE was chosen
+  for it, which is kept for each module, or its code cannot be drawn; + CODE and
+  WRITE IT open on the code, to be typed into (`WorkbenchSession.ShowCodeOf`). CODE and
+  DRAWING sit at the right of the code's top strip -- in a browser the code is a box
+  laid over everything under that strip (`WorkbenchSession.ShowsDrawingOfCode`). The
   drawing is what the code builds (`RtlDrawing` from `RtlExtractor`'s netlist, laid
   out in columns by `LayeredLayout`), held beside the project and never in it; its
   values are the run's, a wire no signal holds worked out from the ones that are
