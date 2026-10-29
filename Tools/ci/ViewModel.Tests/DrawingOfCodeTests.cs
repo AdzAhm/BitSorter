@@ -67,20 +67,31 @@ namespace BitSorter.ViewModel.Tests
         }
 
         /// <summary>
-        /// A drawing of code lays itself out, so a move or a turn is refused saying so (Part 15h-4g); and the adder's code, with
-        /// its #3 and its parameter, is no code a drawing can write, so an edit is refused saying which -- with no question asked.
+        /// A part of the drawing of code is moved and turned by hand, kept with the module, the code untouched, and TIDY lays it
+        /// out by itself again (Part 15h-4f); the adder's code, with its #3 and its parameter, is no code a drawing can write,
+        /// so an edit of what it is is refused saying which -- with no question asked.
         /// </summary>
         [Test]
-        public void ADrawingOfCode_IsNotMovedOrTurned_AndTheAddersIsNotWrittenFrom()
+        public void ADrawingOfCode_IsArrangedByHand_AndTheAddersIsNotWrittenFrom()
         {
             WorkbenchSession session = InsideTheWrittenAdder();
             session.DrawCode(true);
+            string code = session.Project.Find(session.Module).Source;
             int part = session.Run.Model.Layout.Parts.First().Part.Id;
+            Assert.IsFalse(session.CanTidy, "nothing put by hand yet");
 
-            EditResult moved = session.Move(new Dictionary<int, Placement> { [part] = new Placement(3, 3) });
-            Assert.IsFalse(moved.Done);
-            Assert.AreEqual(WorkbenchSession.ArrangeRefusal, moved.Refusal);
-            Assert.IsFalse(session.Turn(new[] { part }, 1).Done);
+            EditResult moved = session.Move(new Dictionary<int, Placement> { [part] = new Placement(30, 3) });
+            Assert.IsTrue(moved.Done, moved.Refusal);
+            Assert.AreEqual(1, session.Project.Find(session.Module).Arrangement.Count, "kept with the module");
+            Assert.AreEqual(code, session.Project.Find(session.Module).Source, "the code untouched");
+            Assert.AreEqual(new Placement(30, 3), session.DrawnModule.Layout.PlacementOf(part), "drawn again where it was put");
+            Assert.IsTrue(session.Turn(new[] { part }, 1).Done);
+            Assert.AreEqual(1, session.DrawnModule.Layout.PlacementOf(part).QuarterTurns, "and turned");
+            Assert.IsTrue(session.CanTidy);
+            Assert.IsTrue(session.Tidy().Done);
+            Assert.AreEqual(0, session.Project.Find(session.Module).Arrangement.Count, "TIDY: laid out by itself again");
+            Assert.IsTrue(session.Undo());
+            Assert.AreEqual(1, session.Project.Find(session.Module).Arrangement.Count, "one Ctrl+Z, the arrangement back");
 
             EditResult removed = session.Remove(new[] { part });
             Assert.IsFalse(removed.Done);

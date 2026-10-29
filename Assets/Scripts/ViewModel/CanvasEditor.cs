@@ -356,8 +356,8 @@ namespace BitSorter.ViewModel
             bool drag = command.Gesture == CanvasGesture.BeginMove || command.Gesture == CanvasGesture.BeginWire || command.Gesture == CanvasGesture.BeginReshape;
             if (drag && _session.Locked)
                 return EditResult.Refused(WorkbenchSession.LockedRefusal);
-            if (drag && _session.ShowsDrawingOfCode && command.Gesture != CanvasGesture.BeginWire)
-                return EditResult.Refused(WorkbenchSession.ArrangeRefusal);
+            if (drag && _session.ShowsDrawingOfCode && command.Gesture == CanvasGesture.BeginReshape)
+                return EditResult.Refused(WorkbenchSession.ArrangeRefusal);   // it routes its own wires; its parts move (15h-4f)
             if (drag && _session.ShowsDrawingOfCode && !_session.EditsDrawingOfCode)
                 return EditResult.Refused(WorkbenchSession.GatesRefusal);
 
@@ -1199,8 +1199,8 @@ namespace BitSorter.ViewModel
                 Layout moved = module.Layout;
                 foreach (KeyValuePair<int, Placement> part in _start)
                     moved = moved.WithPart(part.Key, new Placement(new BoardPoint(part.Value.Position.X + _dx, part.Value.Position.Y + _dy), part.Value.QuarterTurns, part.Value.Flipped));
-                Dictionary<int, IReadOnlyList<BoardPoint>> routes = WireGeometry.Following(_session.Project, module with { Layout = moved },
-                    _session.RoutesOf(_session.Project, module), _start.Keys);
+                Dictionary<int, IReadOnlyList<BoardPoint>> routes = WireGeometry.Following(Drawn, module with { Layout = moved },
+                    _session.RoutesOf(Drawn, module), _start.Keys);
                 foreach (Wire wire in module.Wires)
                 {
                     bool follows = (!wire.From.IsTap && _start.ContainsKey(wire.From.Pin.Part)) || (!wire.To.IsTap && _start.ContainsKey(wire.To.Pin.Part));

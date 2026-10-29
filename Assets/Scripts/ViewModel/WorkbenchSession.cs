@@ -566,7 +566,7 @@ namespace BitSorter.ViewModel
         public const string DrawingRefusal = "This is the drawing of the code: change the code to change it.";
 
         /// <summary>What moving or turning a part of the drawing of code is told: it lays itself out, from the code.</summary>
-        public const string ArrangeRefusal = "The drawing of code lays itself out: place, wire and delete on it, and it is drawn again from the code it writes.";
+        public const string ArrangeRefusal = "The drawing of code routes its own wires: move a part, and its wires are routed again.";
 
         /// <summary>What an edit of the drawing of code with GATES on is told: the code is written from the boxes.</summary>
         public const string GatesRefusal = "Press BOXES to edit the drawing: its code is written from the boxes, not from their gates.";
@@ -789,7 +789,7 @@ namespace BitSorter.ViewModel
                 _drawnNetlist = netlist;
                 _drawnDesign = design;
             }
-            _drawing = RtlDrawing.Of(project, _drawnNetlist, module, gates);
+            _drawing = RtlDrawing.Of(project, _drawnNetlist, module, gates, project.Find(module));
             _drawnGates = gates;
             _drawnModules = project.Modules;
             _drawnPath = path;
@@ -1026,7 +1026,37 @@ namespace BitSorter.ViewModel
         public EditResult Reroute(int wire, Route route) => OnTheDrawing ?? Laid(Editor.Reroute(Module, wire, route));
 
         /// <summary>Moves, turns or mirrors parts (<see cref="BoardEditor.MoveParts"/>): drawn again, and nothing replayed.</summary>
-        public EditResult Move(IReadOnlyDictionary<int, Placement> to, bool continuing = false) => OnTheDrawing ?? Laid(Editor.MoveParts(Module, to, continuing));
+        public EditResult Move(IReadOnlyDictionary<int, Placement> to, bool continuing = false)
+        {
+            if (Unchangeable is EditResult locked)
+                return locked;
+            if (!ShowsDrawingOfCode)
+                return Laid(Editor.MoveParts(Module, to, continuing));
+
+            // On the drawing of code, the parts put by hand, kept with the module by their keys, the code untouched (Part 15h-4f).
+            if (ShowsGatesOfCode)
+                return EditResult.Refused(GatesRefusal);
+            RtlDrawing drawing = ShownDrawing;
+            var keyed = new Dictionary<string, Placement>(StringComparer.Ordinal);
+            if (to != null && drawing != null)
+                foreach (KeyValuePair<int, Placement> part in to)
+                    if (drawing.KeyOf(part.Key) is string key)
+                        keyed[key] = part.Value;
+            if (keyed.Count == 0)
+                return EditResult.Refused("There is nothing to move.");
+            return Laid(Editor.Arrange(Module, keyed, continuing));
+        }
+
+        /// <summary>
+        /// TIDY on the drawing of code (Part 15h-4f): what was put by hand forgotten, the drawing laid out by itself again --
+        /// one step. Refused locked, and with nothing put by hand.
+        /// </summary>
+        public EditResult Tidy() => Unchangeable ?? (ShowsDrawingOfCode
+            ? Laid(Editor.Arrange(Module, null))
+            : EditResult.Refused("TIDY lays the drawing of code out again; a drawn circuit is laid out by hand."));
+
+        /// <summary>Whether TIDY would do something: on the drawing of code, unlocked, with parts of it put by hand.</summary>
+        public bool CanTidy => ShowsDrawingOfCode && !_locked && (Project.Find(Module)?.Arrangement.Count ?? 0) > 0;
 
         /// <summary>
         /// Turns the parts <paramref name="parts"/> by <paramref name="quarterTurns"/>, counter-clockwise, about their
@@ -1036,9 +1066,9 @@ namespace BitSorter.ViewModel
         /// </summary>
         public EditResult Turn(IReadOnlyCollection<int> parts, int quarterTurns, bool mirror = false)
         {
-            if (OnTheDrawing is EditResult refused)
-                return refused;
-            Module module = Project.Find(Module);
+            if (Unchangeable is EditResult locked)
+                return locked;
+            Module module = ShowsDrawingOfCode ? DrawnModule : Project.Find(Module);   // the drawing's parts, turned by hand (15h-4f)
             if (module == null || parts == null || parts.Count == 0)
                 return EditResult.Refused("There is nothing selected to turn.");
 
@@ -1076,7 +1106,7 @@ namespace BitSorter.ViewModel
                 to[part] = new Placement(new Board.Point(cx + x, cy + y), was.QuarterTurns + quarterTurns, was.Flipped);
             }
 
-            return Laid(Editor.MoveParts(Module, to));
+            return Move(to);
         }
 
         /// <summary>A circuit edit made: drawn over the run there is, and replayed from <paramref name="from"/>.</summary>

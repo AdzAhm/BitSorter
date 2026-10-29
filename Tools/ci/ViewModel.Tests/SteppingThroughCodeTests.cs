@@ -116,7 +116,7 @@ namespace BitSorter.ViewModel.Tests
 
         /// <summary>A drag on the drawing is refused as it begins, and a copy of it too; a click still selects.</summary>
         [Test]
-        public void ADragOnTheDrawing_IsRefusedAsItBegins()
+        public void ADragOnTheDrawing_Begins_ButACopyIsRefused()
         {
             WorkbenchSession session = WrittenFullAdder();
             session.DrawCode(true);
@@ -129,9 +129,8 @@ namespace BitSorter.ViewModel.Tests
             CollectionAssert.AreEqual(new[] { h1.Part.Id }, editor.Selection.Parts.ToArray(), "selected");
 
             EditResult? begun = editor.Do(new CanvasCommand(CanvasGesture.BeginMove, from: h1.Placement.Position, target: target));
-            Assert.IsTrue(begun.HasValue && !begun.Value.Done);
-            Assert.AreEqual(WorkbenchSession.ArrangeRefusal, begun.Value.Refusal, "it lays itself out (Part 15h-4g)");
-            Assert.IsFalse(editor.Moving);
+            Assert.IsFalse(begun.HasValue && !begun.Value.Done, "a drag on the drawing begins: it is arranged by hand (Part 15h-4f)");
+            Assert.IsTrue(editor.Moving);
 
             Assert.IsNull(editor.Copy());
             StringAssert.StartsWith("The drawing of code is not copied", editor.Refusal);
