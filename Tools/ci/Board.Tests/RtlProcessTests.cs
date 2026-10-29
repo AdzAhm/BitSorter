@@ -27,10 +27,13 @@ namespace BitSorter.Board.Tests
             return e.Design;
         }
 
-        private static RtlNetlist Opened(Design design, string top, int seed)
+        private static RtlNetlist Opened(Design design, string top, int seed, int vectors = 12)
         {
-            Assert.Greater(RtlNetlistTests.HoldToTheEngine(design, seed, top), 0, "sanity: something was compared");
-            return RtlExtractor.Of(design, top);
+            Assert.Greater(RtlNetlistTests.HoldToTheEngine(design, seed, top, vectors), 0, "sanity: something was compared");
+            RtlNetlist netlist = RtlExtractor.Of(design, top);
+            Assert.IsTrue(netlist.Processes.All(p => p.Opened || p.Name.StartsWith("initial@", StringComparison.Ordinal)),
+                "every process opened: " + string.Join("; ", netlist.Processes));
+            return netlist;
         }
 
         /// <summary>A design that is a box: held to the engine all the same, though a box's outputs are read off it and leave nothing to compare.</summary>
@@ -265,6 +268,332 @@ namespace BitSorter.Board.Tests
         }
 
         private static bool IsBox(RtlCell cell) => cell.Kind == RtlKind.Instance || cell.Kind == RtlKind.Process || cell.Kind == RtlKind.Register;
+
+        // -----------------------------------------------------------------
+        // What the review of #106 found
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// A case arm of several labels chooses that arm for each of them, wherever it stands and whatever the default -- in an
+        /// always_comb and as a register's D. Joined by the shared splits alone, the path of two labels chose the wrong arm.
+        /// </summary>
+        [TestCase("2'b00: y = a; 2'b01, 2'b10: y = b; default: y = c;")]
+        [TestCase("2'b00, 2'b11: y = a; 2'b01: y = b; default: y = c;")]
+        [TestCase("default: y = c; 2'b01, 2'b10: y = b; 2'b00: y = a;")]
+        [TestCase("2'b00: y = a; default: y = c; 2'b01, 2'b10: y = b;")]
+        public void ACaseArmOfSeveralLabels_IsChosenForEachOfThem(string arms)
+        {
+            Opened(Elaborate(
+                "module pick (input logic [1:0] op, input logic [3:0] a, b, c, output logic [3:0] y);\n" +
+                "    always_comb\n" +
+                "        case (op)\n" +
+                "            " + arms + "\n" +
+                "        endcase\n" +
+                "endmodule\n", "pick"), "pick", 21, vectors: 48);
+
+            Opened(Elaborate(
+                "module held (input logic clk, input logic [1:0] op, input logic [3:0] a, b, c, output logic [3:0] y);\n" +
+                "    always_ff @(posedge clk)\n" +
+                "        case (op)\n" +
+                "            " + arms.Replace(" = ", " <= ") + "\n" +
+                "        endcase\n" +
+                "endmodule\n", "held"), "held", 22, vectors: 48);
+        }
+
+        /// <summary>A function's early return, and a loop's break and continue beside an if that joins again, leave the right values.</summary>
+        [Test]
+        public void AnEarlyReturn_AndABreakAndAContinue_LeaveTheRightValues()
+        {
+            Opened(Elaborate(
+                "module early (input logic a, b, input logic [3:0] p, q, output logic [3:0] y, z);\n" +
+                "    function automatic logic [3:0] pick(input logic a, b, input logic [3:0] p, q);\n" +
+                "        logic [3:0] x;\n" +
+                "        if (a) x = p;\n" +
+                "        else begin\n" +
+                "            if (b) return q;\n" +
+                "            x = ~p;\n" +
+                "        end\n" +
+                "        return x + 1;\n" +
+                "    endfunction\n" +
+                "    assign y = pick(a, b, p, q);\n" +
+                "    always_comb z = pick(b, a, q, p);\n" +
+                "endmodule\n", "early"), "early", 23, vectors: 48);
+
+            Opened(Elaborate(
+                "module leave (input logic [3:0] a, b, s, output logic [3:0] y);\n" +
+                "    always_comb begin\n" +
+                "        y = a;\n" +
+                "        for (int i = 0; i < 3; i++) begin\n" +
+                "            if (s[i]) y = y + b;\n" +
+                "            else begin\n" +
+                "                if (s[3]) break;\n" +
+                "                y = y ^ b;\n" +
+                "            end\n" +
+                "            if (a[i]) continue;\n" +
+                "            y = y - 1;\n" +
+                "        end\n" +
+                "    end\n" +
+                "endmodule\n", "leave"), "leave", 24, vectors: 48);
+        }
+
+        /// <summary>
+        /// Several processes each writing some of a signal's bits are each drawn, joined into the signal by their places: a
+        /// generate loop's registers a bit each, and two always_comb a bit each with no loop through the signal.
+        /// </summary>
+        [Test]
+        public void SeveralProcesses_EachWritingSomeBits_AreEachDrawn()
+        {
+            RtlNetlist shift = Opened(Elaborate(
+                "module bits (input logic clk, input logic [3:0] d, output logic [3:0] q);\n" +
+                "    for (genvar i = 0; i < 4; i++) begin : bit_\n" +
+                "        always_ff @(posedge clk) q[i] <= d[i];\n" +
+                "    end\n" +
+                "endmodule\n", "bits"), "bits", 25);
+            Assert.AreEqual(4, shift.Count(RtlKind.Register), "a register a bit");
+            RtlCell join = shift.Cells.Single(c => c.Kind == RtlKind.Join && c.Name == "q");
+            CollectionAssert.AreEquivalent(new[] { 0, 1, 2, 3 }, join.Lowests);
+
+            RtlNetlist two = Opened(Elaborate(
+                "module two (input logic a, b, c, output logic [1:0] y);\n" +
+                "    always_comb y[0] = a & b;\n" +
+                "    always_comb y[1] = b | c;\n" +
+                "endmodule\n", "two"), "two", 26);
+            Assert.IsFalse(Reaches(two, two.NetNamed("y"), two.NetNamed("y")), "no loop through y");
+            Assert.AreEqual(2, two.Cells.Single(c => c.Kind == RtlKind.Join && c.Name == "y").Inputs.Count);
+        }
+
+        /// <summary>An initial written before the always_ff that also writes its signal leaves the register drawn, the box beside it.</summary>
+        [Test]
+        public void AnInitialBeforeItsAlwaysFf_LeavesTheRegister()
+        {
+            RtlNetlist netlist = Opened(Elaborate(
+                "module count (input logic clk, output logic [3:0] q);\n" +
+                "    initial q = 4'd0;\n" +
+                "    always_ff @(posedge clk) q <= q + 1;\n" +
+                "endmodule\n", "count"), "count", 27);
+            RtlCell register = netlist.Cells.Single(c => c.Kind == RtlKind.Register);
+            Assert.AreEqual(netlist.NetNamed("q"), register.Output, "the register drives q");
+            Assert.AreEqual(1, netlist.Count(RtlKind.Process), "and the initial is a box beside it");
+        }
+
+        /// <summary>A pipeline written into an array a word at a time is a register a word.</summary>
+        [Test]
+        public void APipelineInAnArray_IsARegisterAWord()
+        {
+            RtlNetlist netlist = Opened(Elaborate(
+                "module pipe (input logic clk, input logic [3:0] d, output logic [3:0] y);\n" +
+                "    logic [3:0] st [0:2];\n" +
+                "    always_ff @(posedge clk) begin\n" +
+                "        st[0] <= d;\n" +
+                "        st[1] <= st[0];\n" +
+                "        st[2] <= st[1];\n" +
+                "    end\n" +
+                "    assign y = st[2];\n" +
+                "endmodule\n", "pipe"), "pipe", 28, vectors: 24);
+            Assert.AreEqual(3, netlist.Count(RtlKind.Register), "a register a word");
+        }
+
+        /// <summary>What sees an old value no circuit holds stays a box: a read of what it writes before writing it, a memory it does not wait on, and $time.</summary>
+        [Test]
+        public void WhatSeesAnOldValue_StaysABox()
+        {
+            StringAssert.Contains("before it writes it", Box(Boxed(Elaborate(
+                "module late (input logic [3:0] a, output logic [3:0] y);\n" +
+                "    logic [3:0] t;\n" +
+                "    always_comb begin\n" +
+                "        y = t;\n" +
+                "        t = a;\n" +
+                "    end\n" +
+                "endmodule\n", "late"), "late", 29)).Why);
+
+            RtlNetlist memory = Boxed(Elaborate(
+                "module ram (input logic clk, we, input logic [1:0] wa, ra, input logic [3:0] wd, output logic [3:0] rd);\n" +
+                "    logic [3:0] mem [0:3];\n" +
+                "    always_ff @(posedge clk) if (we) mem[wa] <= wd;\n" +
+                "    always @(ra) rd = mem[ra];\n" +
+                "endmodule\n", "ram"), "ram", 30);
+            StringAssert.Contains("reads mem but does not wait on it", memory.Processes.Single(p => p.Name.Contains("always@")).Why);
+
+            StringAssert.Contains("$time", Box(Boxed(Elaborate(
+                "module stamp (input logic clk, output logic [31:0] t);\n" +
+                "    always_ff @(posedge clk) t <= $time;\n" +
+                "endmodule\n", "stamp"), "stamp", 31)).Why);
+        }
+
+        /// <summary>A case's subject is one cell however many labels it is matched against.</summary>
+        [Test]
+        public void ACasesSubject_IsOneCell()
+        {
+            RtlNetlist netlist = Opened(Elaborate(
+                "module sum (input logic [1:0] a, b, input logic [3:0] p, q, r, output logic [3:0] y);\n" +
+                "    always_comb\n" +
+                "        case (a + b)\n" +
+                "            2'd0: y = p;\n" +
+                "            2'd1: y = q;\n" +
+                "            2'd2: y = r;\n" +
+                "            default: y = 4'd0;\n" +
+                "        endcase\n" +
+                "endmodule\n", "sum"), "sum", 32, vectors: 48);
+            Assert.AreEqual(1, netlist.Count(RtlKind.Binary), "a + b once");
+        }
+
+        /// <summary>A case of many labels -- a table in code -- is opened in time to draw it.</summary>
+        [Test]
+        public void ACaseOfManyLabels_IsOpenedQuickly()
+        {
+            var table = new System.Text.StringBuilder();
+            for (int i = 0; i < 256; i++)
+                table.Append("            8'd" + i + ": y = 8'd" + ((i * 37 + 11) & 255) + ";\n");
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            RtlNetlist netlist = Opened(Elaborate(
+                "module rom (input logic [7:0] a, output logic [7:0] y);\n" +
+                "    always_comb\n" +
+                "        case (a)\n" + table +
+                "            default: y = 8'd0;\n" +
+                "        endcase\n" +
+                "endmodule\n", "rom"), "rom", 33);
+            clock.Stop();
+            Assert.AreEqual(256, netlist.Count(RtlKind.Match));
+            Assert.Less(clock.ElapsedMilliseconds, 3000, "a table of 256 opened in good time");
+        }
+
+        /// <summary>
+        /// Random always_comb programs -- if and else, case arms of one label or several with a default or none, loops with
+        /// break and continue, signed and not -- each opened and held to the engine. The joins are where an opening goes wrong,
+        /// and a program a person writes finds only the ones they thought of.
+        /// </summary>
+        [Test]
+        public void RandomPrograms_AreOpened_AndComputeWhatTheEngineDoes()
+        {
+            int tried = 0;
+            for (int seed = 1; seed <= 240; seed++)
+            {
+                string source = RandomProgram(new Random(seed * 7919), signed: seed % 2 == 0);
+                SyntaxTree tree = SyntaxReader.ReadText(source, "fz.sv");
+                if (tree.HasErrors)
+                    continue;
+                Elaboration e = Elaborator.Elaborate(tree, "fz");
+                if (e.HasErrors)
+                    continue;
+                tried++;
+                RtlNetlist netlist = RtlExtractor.Of(e.Design, "fz");
+                Assert.AreEqual(0, netlist.Count(RtlKind.Process), "opened:\n" + source + "\n" + string.Join("\n", netlist.Processes));
+                RtlNetlistTests.HoldToTheEngine(e.Design, seed, "program " + seed + ":\n" + source, vectors: 24);
+            }
+            Assert.Greater(tried, 200, "sanity: the programs elaborate");
+        }
+
+        private static string RandomProgram(Random r, bool signed)
+        {
+            var text = new System.Text.StringBuilder();
+            int loops = 0;
+            string[] names = { "a", "b", "c", "d", "y", "z" };
+            string Operand() => names[r.Next(names.Length)];
+            string Value()
+            {
+                switch (r.Next(6))
+                {
+                    case 0: return Operand();
+                    case 1: return Operand() + " + " + Operand();
+                    case 2: return Operand() + " ^ " + Operand();
+                    case 3: return "4'd" + r.Next(16);
+                    case 4: return signed ? "(" + Operand() + " >>> 1)" : "~" + Operand();
+                    default: return Operand() + " & " + Operand();
+                }
+            }
+            string Condition()
+            {
+                string[] tests = { "s[0]", "s[1]", "s[2]", "s[3]", "a[0]", "b[1]", "(a > b)", "(c == d)", "(y < z)" };
+                string c = tests[r.Next(tests.Length)];
+                if (r.Next(4) == 0)
+                    c = "!" + c;
+                if (r.Next(5) == 0)
+                    c += " && " + tests[r.Next(tests.Length)];
+                return c;
+            }
+            void Block(int depth, string indent)
+            {
+                int n = r.Next(1, 4);
+                for (int i = 0; i < n; i++)
+                    Statement(depth, indent);
+            }
+            void Statement(int depth, string indent)
+            {
+                if (loops > 0 && r.Next(6) == 0)
+                {
+                    text.Append(indent + "if (" + Condition() + ") " + (r.Next(2) == 0 ? "break" : "continue") + ";\n");
+                    return;
+                }
+                switch (depth >= 3 ? 0 : r.Next(7))
+                {
+                    case 1:
+                    case 2:
+                        text.Append(indent + "if (" + Condition() + ") begin\n");
+                        Block(depth + 1, indent + "    ");
+                        text.Append(indent + "end");
+                        if (r.Next(2) == 0)
+                        {
+                            text.Append(" else begin\n");
+                            Block(depth + 1, indent + "    ");
+                            text.Append(indent + "end");
+                        }
+                        text.Append("\n");
+                        break;
+                    case 3:
+                    case 4:
+                    {
+                        text.Append(indent + "case (s[1:0])\n");
+                        var used = new List<int>();
+                        int arms = r.Next(2, 4);
+                        for (int arm = 0; arm < arms && used.Count < 4; arm++)
+                        {
+                            var labels = new List<string>();
+                            int count = r.Next(2) == 0 ? 2 : 1;
+                            for (int l = 0; l < count && used.Count < 4; l++)
+                            {
+                                int label;
+                                do label = r.Next(4); while (used.Contains(label));
+                                used.Add(label);
+                                labels.Add("2'd" + label);
+                            }
+                            text.Append(indent + "    " + string.Join(", ", labels) + ": begin\n");
+                            Block(depth + 1, indent + "        ");
+                            text.Append(indent + "    end\n");
+                        }
+                        if (r.Next(2) == 0)
+                        {
+                            text.Append(indent + "    default: begin\n");
+                            Block(depth + 1, indent + "        ");
+                            text.Append(indent + "    end\n");
+                        }
+                        text.Append(indent + "endcase\n");
+                        break;
+                    }
+                    case 5:
+                        if (loops > 0)
+                            goto default;
+                        text.Append(indent + "for (int i = 0; i < " + r.Next(1, 4) + "; i++) begin\n");
+                        loops++;
+                        Block(depth + 1, indent + "    ");
+                        loops--;
+                        text.Append(indent + "end\n");
+                        break;
+                    default:
+                        text.Append(indent + (r.Next(2) == 0 ? "y" : "z") + " = " + Value() + ";\n");
+                        break;
+                }
+            }
+
+            text.Append(signed
+                ? "module fz (input logic signed [3:0] a, input logic [3:0] b, c, d, s, output logic signed [3:0] y, output bit [3:0] z);\n"
+                : "module fz (input logic [3:0] a, b, c, d, s, output logic [3:0] y, z);\n");
+            text.Append("    always_comb begin\n        y = a;\n        z = b;\n");
+            int statements = r.Next(2, 5);
+            for (int i = 0; i < statements; i++)
+                Statement(0, "        ");
+            text.Append("    end\nendmodule\n");
+            return text.ToString();
+        }
 
         /// <summary>Whether a net's value feeds <paramref name="to"/>, through the netlist's cells, a box's or a register's never.</summary>
         private static bool Reaches(RtlNetlist netlist, int from, int to)

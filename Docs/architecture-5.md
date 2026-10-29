@@ -3296,8 +3296,16 @@ that describes a circuit is opened into cells, and what is no circuit stays a bo
 - **A process runs symbolically** from its wait to its next, every path at once. A path keeps the value each signal has
   on it, so a blocking write is seen at once, as the language has it.
   - **A branch** -- decided as the engine decides it, by `LogicVec.Truth` or `Matching.CaseMatches` -- parts the path in
-    two, unless its condition is a constant. Paths meeting again are joined by a mux on the condition that parted them:
-    an `if` is one mux a signal, and a `case` a mux for each label, on its `Match`.
+    two, unless its condition is a constant. Paths meeting again are joined two at a time, the two that parted last
+    first: two that parted at one split by a mux on its condition, so an `if` is one mux a signal and a `case` of single
+    labels a mux for each, on its `Match`.
+  - **Any other two are joined by a mux on whichever went through splits of its own past the ones they share**, and the
+    joined path keeps a split that says it is the one or the other -- a `case` arm of several labels, a path that left
+    early by a `break` or a `return`. No run takes both paths, so where one's splits hold the other's do not.
+  - **In the order of their splits, the two that parted last are neighbours**, so each join looks along the paths once:
+    a `case` of 256 labels opens in a fraction of a second.
+  - **A value made on a path is used again until the path writes something**, so a `case`'s subject is one cell however
+    many labels it is matched against.
   - **A loop whose condition folds to a constant is simply run**, so constant bounds unroll, and `break` and `continue`
     are jumps. Its counter is a constant on each pass, so `y[i]` is written at its place and `a[i]` is the bit itself.
   - **A write is the old value's bits either side of it and the part between, concatenated**, and a slice reads through
@@ -3306,12 +3314,18 @@ that describes a circuit is opened into cells, and what is no circuit stays a bo
     each carry where the pass before made it. A splice cell would have looped every such signal back into itself.
   - **A write at a place worked out as it runs**, `y[sel] = d`, is one `Put` cell, a demultiplexer: the part goes where
     the engine's own `TryOffset` and `Clip` put it, and nothing is written where the place is unknown.
-- **What a process drives:**
+- **What a process drives** -- every process opened first, then what they drive, then the boxes beside them:
   - An `always_comb`, or an `always` on levels, drives its outputs through joins.
   - An `always_ff`, or any `always` on edges, is a `Register` a signal. Its D is the value the body gives it: the
     reset's mux and the enable's, the register's own output fed back. Its pins are the edges it waits on. Its `Clock` is
     the edge the body never tests; one it does test, `if (!rst_n)`, is an asynchronous reset.
+  - **Several processes each writing some bits of one signal** -- a generate loop's `q[i] <= d[i]`, two `always_comb` on
+    `y[0]` and `y[1]` -- are each a register or a value on their own bits (`RtlCell.Lowest`, `Width`), joined into the
+    signal by their places as continuous drivers are.
+  - A word of an array written at a constant place is a signal like any, so a pipeline written into an array is a
+    register a word.
   - An output left as it was on some path is fed back too, so an `always_comb` that is a latch draws as one.
+  - `RtlNetlist.Processes` says of every process what became of it: opened, or a box and why, and what it writes.
 - **A function is opened where it is called**, once a call, as a synthesis tool inlines one (`RtlBuilder.Call`). It
   mirrors `FunctionRunner`:
   - the arguments are shaped as its inputs hold them;
@@ -3321,24 +3335,45 @@ that describes a circuit is opened into cells, and what is no circuit stays a bo
 - **What is no circuit stays a box, with why** (`RtlCell.Why`):
   - an `initial`; a delay, `#d`, which makes a testbench's clock or timer; a wait inside the body;
   - a loop past 200,000 steps, or more than 1,024 paths open at once;
-  - a write into a memory, a signal written both blocking and nonblocking, a string, a real, `$random`;
+  - a write into a memory at a place worked out as it runs, a signal written both blocking and nonblocking, a string, a
+    real, `$random`, `$time`;
   - a recursion more than 32 calls deep with no constant end, and a static function reading one of its own signals
     before writing it, which gives what its last call left;
   - **a process that reads a signal it does not wait on**: `@(a)` reading `b`, or an `@*` calling a function that reads
-    one, which `@*` does not wait on (IEEE 1800, 9.2.2.2.1). The engine leaves it as it was when that signal changes
-    alone, which no circuit does, so a circuit drawn there would show what the simulation does not do.
+    one, which `@*` does not wait on (IEEE 1800, 9.2.2.2.1), or a memory read at a place its wait leaves out. The engine
+    leaves it as it was when that signal changes alone, which no circuit does, so a circuit drawn there would show what
+    the simulation does not do;
+  - **a process on levels that reads something it writes before writing it**, `y = t; t = a;`: it sees what its last
+    run left there, which no circuit holds. A value kept where a path does not write it -- a latch -- is no such read.
 
   In a continuous assignment, a call that cannot be opened, or one whose function reads the module's signals, stays an
   `Opaque` box.
+- **Nothing is left over** (`RtlBuilder.Prune`): the constants and values a loop or a function folded away are taken
+  out, and the ids given again in order.
 - **Tests** (`RtlProcessTests`, and the register check in `RtlNetlistTests.HoldToTheEngine`):
-  - Every netlist is held to the engine before and after each clock edge. A one-bit input named as a clock moves half a
-    vector after the data, and every register its edge reaches holds the D worked out just before it -- in all eighteen
-    designs with such a register, the sequential exercises among them.
+  - Every netlist is held to the engine before and after each clock edge. A clock -- a one-bit input a register takes as
+    its clock, or one named as one -- moves half a vector after the data, and every register its edge reaches holds the
+    D worked out just before it, each register checked at least once. Every signal an opened process writes is driven,
+    and no cell is left unused.
   - Each construct is held to its shape: an `if`, a `case`, an unrolled loop, a ripple written a bit at a time, functions
     in an assignment and in a process, recursions with and without a constant end, a static function's memory, a stale
     sensitivity list, a register with an asynchronous reset and an enable, a demultiplexer and a latch.
   - Every process of every exercise solution and corpus design opens, but the initial blocks and the three listed: two
     testbench clocks, and one `@*` whose function reads what it does not wait on.
+  - **240 random `always_comb` programs** -- if and else, `case` arms of one label or several with a default or none,
+    loops with `break` and `continue`, signed and not -- each opened and held to the engine. With either half of the join
+    fix taken out, it fails.
+- **The Sonnet review** found the join wrong for a `case` arm of several labels and for a path that left early, a second
+  writer of a signal dropped, a word of an array written and never drawn, a memory read not held to the wait, and a read
+  of what a process writes before writing it opened as a circuit -- each confirmed against the engine, none in the
+  exercises or the corpus, so no test had seen them; all are fixed and held now. Also its findings on structure: a
+  `case`'s subject made once a label, the unused constants of unrolled loops, and a join of many paths taking time in
+  the cube of them.
+- **Where the netlist and the engine still part, and why it is right to:** an `always @*` or `@(a or b)` waits from
+  time 0, and inputs set at time 0 land before it waits, so the engine shows its outputs as x until an input first
+  changes, while the cells show the value the inputs give -- the circuit, which has no first moment (the course's
+  `always_comb` runs once at time 0 for exactly this). A blocking temporary in an `always_ff` is a register, as the
+  engine holds it from edge to edge.
 - **Left for the drawing (15h-4):** a `case`'s chain of muxes on one subject drawn as one N-input mux; a `Resize` or a
   `Signedness` that changes nothing on screen drawn as a wire; a memory as a box with its ports. The plan's latch box is
   not needed: a mux fed back is the latch.

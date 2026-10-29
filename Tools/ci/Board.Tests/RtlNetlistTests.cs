@@ -24,11 +24,23 @@ namespace BitSorter.Board.Tests
         /// Runs <paramref name="design"/> through random vectors and holds every scope's netlist to the engine: every net a join
         /// drives -- a signal the scope's own logic gives a value -- reads what the engine has, after the data settles and again
         /// after the clock's edge; and every register clocked then holds what its D was worked out to be just before (Part
-        /// 15h-2). A clock -- a one-bit input named as one -- moves half a vector after the data, so the two never race. Returns
-        /// how many comparisons there were, so a test can say it compared something.
+        /// 15h-2). A clock -- a one-bit input a top register's edge is its clock, or one named as a clock -- moves half a vector
+        /// after the data, so the two never race. Returns how many comparisons there were, so a test can say it compared
+        /// something.
         /// </summary>
-        internal static int HoldToTheEngine(Design design, int seed, string what)
+        internal static int HoldToTheEngine(Design design, int seed, string what, int vectors = Vectors)
         {
+            List<RtlNetlist> netlists = Netlists(design);
+            foreach (RtlNetlist netlist in netlists)
+                HoldItsShape(design, netlist, what);
+
+            // The clocks: what the top's registers take as theirs, and the inputs named as one.
+            var clocking = new HashSet<int>();
+            foreach (RtlNetlist netlist in netlists)
+                foreach (RtlCell register in netlist.Cells.Where(c => c.Kind == RtlKind.Register && c.Clock > 0))
+                    if (netlist.Nets[register.Inputs[register.Clock]].Signal is int clockSignal && clockSignal >= 0)
+                        clocking.Add(clockSignal);
+
             var random = new Random(seed);
             var inputs = new List<SignalId>();
             var clocks = new List<SignalId>();
@@ -36,13 +48,13 @@ namespace BitSorter.Board.Tests
             {
                 SignalInfo info = design.Signals[i];
                 if (info.Scope == 0 && info.Port == PortDirection.Input)
-                    (IsClock(info.Name) && info.Width == 1 ? clocks : inputs).Add(design.SignalAt(i));
+                    ((IsClock(info.Name) || clocking.Contains(i)) && info.Width == 1 ? clocks : inputs).Add(design.SignalAt(i));
             }
 
             var stimulus = new BitSorter.Sim.Stimulus();
             foreach (SignalId clock in clocks)
                 stimulus.Set(0, clock, Logic4.Zero);
-            for (int v = 0; v < Vectors; v++)
+            for (int v = 0; v < vectors; v++)
             {
                 foreach (SignalId input in inputs)
                     stimulus.Set(v * Gap, input, Random(random, design[input].Width));
@@ -51,11 +63,10 @@ namespace BitSorter.Board.Tests
             }
 
             var sim = new Simulator(design, stimulus, null);
-            List<RtlNetlist> netlists = Netlists(design);
-            foreach (RtlNetlist netlist in netlists)
-                HoldItsShape(design, netlist, what);
-            int compared = 0, clocked = 0;
-            for (int v = 0; v < Vectors; v++)
+            var moved = new HashSet<int>(clocks.Select(c => c.Index));
+            var checkedRegisters = new HashSet<(RtlNetlist, RtlCell)>();
+            int compared = 0;
+            for (int v = 0; v < vectors; v++)
             {
                 // Before the clock: the logic settled on the data, and each register's D worked out.
                 sim.RunTo(v * Gap + Gap / 2 - 1);
@@ -78,19 +89,27 @@ namespace BitSorter.Board.Tests
                 {
                     if (!Clocked(netlist, register, before, after))
                         continue;
-                    RtlNet q = netlist.Nets[register.Output];
-                    Assert.AreEqual(d.Format(Radix.Binary), after[q.Signal].Format(Radix.Binary),
-                        $"{what}: {netlist.Scope}.{q.Name} after the clock at vector {v}: its D before");
-                    clocked++;
+                    // A register of some of a signal's bits holds those bits of it.
+                    int width = netlist.Nets[register.Output].Width;
+                    Assert.AreEqual(d.Format(Radix.Binary), after[register.Signal].Slice(register.Lowest, width).Format(Radix.Binary),
+                        $"{what}: {netlist.Scope}.{register.Name} after the clock at vector {v}: its D before");
+                    checkedRegisters.Add((netlist, register));
                     compared++;
                 }
             }
 
-            // Every register on a clock the test moves is reached by its edge now and then.
+            // Every register on a clock the test moves is reached by its edge now and then, each of them (the review of #106: one
+            // check for all let every register but one go unchecked).
             foreach (RtlNetlist netlist in netlists)
                 foreach (RtlCell register in netlist.Cells.Where(c => c.Kind == RtlKind.Register))
-                    if (register.InputNames.Skip(1).Any(IsClock))
-                        Assert.Greater(clocked, 0, $"{what}: {netlist.Scope}.{register.Name} on a clock, and no register clocked");
+                {
+                    int pin = register.Clock;
+                    bool onAMovedClock = pin > 0
+                        ? moved.Contains(netlist.Nets[register.Inputs[pin]].Signal) || IsClock(register.InputNames[pin])
+                        : register.InputNames.Skip(1).Any(IsClock);
+                    if (onAMovedClock && vectors >= 4)
+                        Assert.IsTrue(checkedRegisters.Contains((netlist, register)), $"{what}: {netlist.Scope}.{register.Name} on a clock, and never checked at it");
+                }
 
             // A design with nothing to compare must be one with nothing combinational -- processes and instances alone -- but what
             // passes through an opaque box.
@@ -120,8 +139,8 @@ namespace BitSorter.Board.Tests
 
         /// <summary>
         /// Whether a register's clock moved the way it waits for between <paramref name="before"/> and <paramref name="after"/>,
-        /// and none of its other edges moved at all: only a clock named as one is followed, since what one register's edge gives
-        /// another clocked by it is not settled before that edge.
+        /// and none of its other edges moved at all: its clock as the netlist found it, or one named as one; what one register's
+        /// edge gives another clocked by it is not settled before that edge.
         /// </summary>
         private static bool Clocked(RtlNetlist netlist, RtlCell register, LogicVec[] before, LogicVec[] after)
         {
@@ -134,7 +153,7 @@ namespace BitSorter.Board.Tests
                 Logic4 was = before[net.Signal][0], now = after[net.Signal][0];
                 if (was == now)
                     continue;
-                if (!IsClock(register.InputNames[pin]))
+                if (register.Clock > 0 ? pin != register.Clock : !IsClock(register.InputNames[pin]))
                     return false;
                 EdgeKind edge = register.Edges[pin - 1];
                 bool rise = was == Logic4.Zero && now == Logic4.One, fall = was == Logic4.One && now == Logic4.Zero;
@@ -240,6 +259,29 @@ namespace BitSorter.Board.Tests
                 if (net.Driver < 0 && net.Signal >= 0)
                     Assert.IsTrue(within.Contains(design.Signals[net.Signal].Scope) || aliased.Contains(net.Signal),
                         $"{what}: {netlist.Scope} reads {design.Signals[net.Signal].Name}, of another scope, as an input");
+
+            // Everything a process opened writes is driven: none dropped for another writer of the same signal, a word of an
+            // array, or a box that took its net first (the review of #106).
+            foreach (RtlProcessRecord process in netlist.Processes.Where(p => p.Opened))
+                foreach (int signal in process.Writes)
+                {
+                    int net = netlist.NetOf(signal);
+                    Assert.IsTrue(net >= 0 && netlist.Nets[net].Driver >= 0, $"{what}: {netlist.Scope}.{process.Name} writes {design.Signals[signal].Name}, and nothing drives it");
+                }
+
+            // And nothing is left over: every cell is a box, a join, or feeds one or a signal.
+            var read = new HashSet<int>(netlist.Cells.SelectMany(c => c.Inputs).Where(i => i >= 0));
+            foreach (RtlCell cell in netlist.Cells)
+            {
+                if (cell.Kind == RtlKind.Instance || cell.Kind == RtlKind.Process || cell.Kind == RtlKind.Register || cell.Kind == RtlKind.Join)
+                    continue;
+                Assert.IsTrue(cell.Outputs.Any(o => read.Contains(o) || netlist.Nets[o].Signal >= 0),
+                    $"{what}: {netlist.Scope} has a {cell.Kind} nothing uses");
+            }
+            for (int i = 0; i < netlist.Nets.Count; i++)
+                Assert.AreEqual(i, netlist.Nets[i].Id, $"{what}: a net's id is its place");
+            for (int i = 0; i < netlist.Cells.Count; i++)
+                Assert.AreEqual(i, netlist.Cells[i].Id, $"{what}: a cell's id is its place");
         }
 
         /// <summary>A random value of <paramref name="width"/> bits, now and then with an x or a z in it.</summary>

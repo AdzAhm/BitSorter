@@ -87,7 +87,9 @@ namespace BitSorter.Sim
 
         /// <summary>
         /// A register, what an <c>always_ff</c> writes: inputs its D -- the value the process would give it -- then each signal
-        /// it waits on, by <see cref="RtlCell.Edges"/>; its output the signal itself.
+        /// it waits on, by <see cref="RtlCell.Edges"/>. Its output is the signal, <see cref="RtlCell.Signal"/>; or where several
+        /// processes each write some of its bits, those bits -- <see cref="RtlCell.Width"/> of them from
+        /// <see cref="RtlCell.Lowest"/> -- joined into the signal with the others'.
         /// </summary>
         Register,
 
@@ -109,7 +111,7 @@ namespace BitSorter.Sim
             Signal = signal;
         }
 
-        public int Id { get; }
+        public int Id { get; internal set; }
 
         public int Width { get; }
 
@@ -143,7 +145,7 @@ namespace BitSorter.Sim
         internal int[] InputList;
         internal int[] OutputList;
 
-        public int Id { get; }
+        public int Id { get; internal set; }
         public RtlKind Kind { get; }
 
         /// <summary>
@@ -231,6 +233,32 @@ namespace BitSorter.Sim
         public override string ToString() => Name.Length > 0 ? $"{Kind} {Name}" : Kind.ToString();
     }
 
+    /// <summary>What became of one process of a netlist's scope (Part 15h-2): opened into cells, or a box, and why.</summary>
+    public sealed class RtlProcessRecord
+    {
+        internal RtlProcessRecord(string name, bool opened, string why, int[] writes)
+        {
+            Name = name;
+            Opened = opened;
+            Why = why;
+            Writes = writes;
+        }
+
+        /// <summary>Its place in the source from the scope: <c>always_ff@21</c>, <c>gen[2].always_ff@9</c>.</summary>
+        public string Name { get; }
+
+        /// <summary>Whether it was opened into cells; false for a box.</summary>
+        public bool Opened { get; }
+
+        /// <summary>Why it is a box; null for one opened.</summary>
+        public string Why { get; }
+
+        /// <summary>The design's signals it writes, but its own working ones, by index into <see cref="Design.Signals"/>.</summary>
+        public IReadOnlyList<int> Writes { get; }
+
+        public override string ToString() => Opened ? Name : Name + " (a box: " + Why + ")";
+    }
+
     /// <summary>
     /// What one scope of an elaborated design builds, as cells and the nets between them (Part 15h): a module's code as a
     /// circuit -- word-level, an adder one cell and a mux another -- the way a synthesis tool's RTL view draws it.
@@ -239,8 +267,9 @@ namespace BitSorter.Sim
     /// </summary>
     public sealed class RtlNetlist
     {
-        internal RtlNetlist(string scope, string module, RtlNet[] nets, RtlCell[] cells, int[] inputs, int[] outputs)
+        internal RtlNetlist(string scope, string module, RtlNet[] nets, RtlCell[] cells, int[] inputs, int[] outputs, RtlProcessRecord[] processes)
         {
+            Processes = processes;
             Scope = scope;
             Module = module;
             Nets = nets;
@@ -275,6 +304,9 @@ namespace BitSorter.Sim
 
         /// <summary>The nets of its output ports.</summary>
         public IReadOnlyList<int> Outputs { get; }
+
+        /// <summary>Every process written in the scope, in the order written: opened into cells, or drawn as a box and why.</summary>
+        public IReadOnlyList<RtlProcessRecord> Processes { get; }
 
         /// <summary>The net of this name, as <see cref="RtlNet.Name"/> has it; -1 for none.</summary>
         public int NetNamed(string name) => _byName.TryGetValue(name, out int id) ? id : -1;

@@ -35,7 +35,10 @@ namespace BitSorter.Sim
                 RtlCell driver = net.Driver >= 0 ? netlist.Cells[net.Driver] : null;
                 if (driver == null || IsBox(driver))
                 {
-                    values[net.Id] = net.Signal >= 0 ? signals[net.Signal] : LogicVec.AllX(net.Width);
+                    // A register of some of a signal's bits holds those bits of it.
+                    values[net.Id] = net.Signal >= 0 ? signals[net.Signal]
+                        : driver != null && driver.Kind == RtlKind.Register && driver.Signal >= 0 ? signals[driver.Signal].Slice(driver.Lowest, net.Width)
+                        : LogicVec.AllX(net.Width);
                     known[net.Id] = true;
                 }
             }

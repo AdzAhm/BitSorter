@@ -142,13 +142,41 @@ namespace BitSorter.Sim
             foreach (int instance in _instances)
                 Instance(instance, connections);
 
+            // Every process that describes a circuit opened first, then what they drive, then the boxes: a box made first took
+            // the net a register drives, an initial q = 0 before its always_ff (the review of #106).
+            var opened = new List<Opened>();
+            var boxed = new List<(ProcessInfo Process, string Why)>();
             for (int p = 0; p < _design.Processes.Count; p++)
             {
                 ProcessInfo process = _design.Processes[p];
-                if (!process.Dormant && _own.Contains(ScopeOf(process.Name)))
-                    Process(process);
+                if (process.Dormant || !_own.Contains(ScopeOf(process.Name)))
+                    continue;
+                int cellsBefore = _cells.Count, netsBefore = _nets.Count;
+                Opened o = OpenProcess(process, out string why);
+                if (o != null)
+                {
+                    opened.Add(o);
+                    var written = new List<int>();
+                    foreach (var write in o.Writes)
+                        if (!written.Contains(write.Signal))
+                            written.Add(write.Signal);
+                    _processes.Add(new RtlProcessRecord(Relative(process.Name), true, null, written.ToArray()));
+                }
+                else
+                {
+                    Rollback(cellsBefore, netsBefore);
+                    boxed.Add((process, why));
+                }
             }
+
+            DriveOpened(opened);
+            foreach ((ProcessInfo process, string why) in boxed)
+                Box(process, why);
         }
+
+        private readonly List<RtlProcessRecord> _processes = new List<RtlProcessRecord>();
+
+        private string Relative(string name) => name.StartsWith(_prefix, StringComparison.Ordinal) ? name.Substring(_prefix.Length) : name;
 
         private HashSet<int> _shared = new HashSet<int>();
 
@@ -166,9 +194,16 @@ namespace BitSorter.Sim
         /// <summary>The net of an expression's value, each node made once: two places using one value share its cell.</summary>
         public int Of(Expr e)
         {
-            // On a process's path a node's value depends on what the path has written, so it is made again each time.
+            // On a process's path a node's value depends on what the path has written: kept with the path, until it writes.
             if (_overlay != null)
-                return e.ToRtl(this);
+            {
+                if (_pathMade != null && _pathMade.TryGetValue(e, out int made))
+                    return made;
+                made = e.ToRtl(this);
+                if (_pathMade != null)
+                    _pathMade[e] = made;
+                return made;
+            }
             if (_made.TryGetValue(e, out int net))
                 return net;
             net = e.ToRtl(this);
@@ -178,6 +213,7 @@ namespace BitSorter.Sim
 
         public RtlNetlist Finish()
         {
+            Prune();
             var inputs = new List<int>();
             var outputs = new List<int>();
             for (int i = 0; i < _design.Signals.Count; i++)
@@ -192,7 +228,100 @@ namespace BitSorter.Sim
             }
 
             ScopeInfo scope = _design.Scopes[_scope];
-            return new RtlNetlist(scope.Path, scope.Module, _nets.ToArray(), _cells.ToArray(), inputs.ToArray(), outputs.ToArray());
+            return new RtlNetlist(scope.Path, scope.Module, _nets.ToArray(), _cells.ToArray(), inputs.ToArray(), outputs.ToArray(),
+                _processes.ToArray());
+        }
+
+        /// <summary>
+        /// Every cell nothing uses taken out, and the nets only they drove: a loop unrolled or a function opened leaves the
+        /// constants and values of every pass it folded away (the review of #106: a 4-bit loop left 45 of its 65 cells). A cell
+        /// is used when it is a box -- an instance, a process, a register -- or a join, what the scope gives a signal, or drives
+        /// a signal, or feeds one that is used.
+        /// Ids are given again in order, so a net's or a cell's id is still its place.
+        /// </summary>
+        private void Prune()
+        {
+            var used = new bool[_cells.Count];
+            var stack = new Stack<int>();
+            foreach (RtlCell cell in _cells)
+            {
+                bool root = RtlEvaluator.IsBox(cell) || cell.Kind == RtlKind.Join;
+                foreach (int output in cell.OutputList)
+                    root |= _nets[output].Signal >= 0;
+                if (root)
+                {
+                    used[cell.Id] = true;
+                    stack.Push(cell.Id);
+                }
+            }
+            while (stack.Count > 0)
+            {
+                foreach (int input in _cells[stack.Pop()].InputList)
+                {
+                    int driver = input >= 0 ? _nets[input].Driver : -1;
+                    if (driver >= 0 && !used[driver])
+                    {
+                        used[driver] = true;
+                        stack.Push(driver);
+                    }
+                }
+            }
+
+            var keptNet = new bool[_nets.Count];
+            foreach (RtlNet net in _nets)
+                keptNet[net.Id] = net.Signal >= 0;
+            foreach (RtlCell cell in _cells)
+            {
+                if (!used[cell.Id])
+                    continue;
+                foreach (int input in cell.InputList)
+                    if (input >= 0)
+                        keptNet[input] = true;
+                foreach (int output in cell.OutputList)
+                    keptNet[output] = true;
+            }
+
+            var netId = new int[_nets.Count];
+            var nets = new List<RtlNet>();
+            foreach (RtlNet net in _nets)
+            {
+                netId[net.Id] = keptNet[net.Id] ? nets.Count : -1;
+                if (keptNet[net.Id])
+                    nets.Add(net);
+            }
+            var cellId = new int[_cells.Count];
+            var cells = new List<RtlCell>();
+            foreach (RtlCell cell in _cells)
+            {
+                cellId[cell.Id] = used[cell.Id] ? cells.Count : -1;
+                if (used[cell.Id])
+                    cells.Add(cell);
+            }
+
+            foreach (RtlCell cell in cells)
+            {
+                for (int i = 0; i < cell.InputList.Length; i++)
+                    cell.InputList[i] = cell.InputList[i] >= 0 ? netId[cell.InputList[i]] : -1;
+                for (int i = 0; i < cell.OutputList.Length; i++)
+                    cell.OutputList[i] = netId[cell.OutputList[i]];
+                cell.Id = cellId[cell.Id];
+            }
+            foreach (RtlNet net in nets)
+            {
+                net.Driver = net.Driver >= 0 ? cellId[net.Driver] : -1;
+                net.Id = netId[net.Id];
+            }
+            var bySignal = new Dictionary<int, int>(_netOfSignal.Count);
+            foreach (KeyValuePair<int, int> entry in _netOfSignal)
+                if (netId[entry.Value] >= 0)
+                    bySignal[entry.Key] = netId[entry.Value];
+            _netOfSignal.Clear();
+            foreach (KeyValuePair<int, int> entry in bySignal)
+                _netOfSignal[entry.Key] = entry.Value;
+            _nets.Clear();
+            _nets.AddRange(nets);
+            _cells.Clear();
+            _cells.AddRange(cells);
         }
 
         // -----------------------------------------------------------------
@@ -208,7 +337,11 @@ namespace BitSorter.Sim
                     return written;
                 if (_unbound != null && _unbound.Contains(signal))
                     Unbound(signal);
+                if (_design.Time is SignalId time && time.Index == signal)
+                    throw new NotHardware("It reads $time, the simulation's own clock: behaviour, not a circuit.");
                 _readHere?.Add(signal);
+                if (!_keeping)
+                    _readInExpr?.Add(signal);
             }
             if (_netOfSignal.TryGetValue(signal, out int net))
                 return net;
@@ -319,13 +452,8 @@ namespace BitSorter.Sim
         }
 
         /// <summary>A process opened into cells; one that is no hardware, a box -- every signal it reads in, every one it writes out.</summary>
-        private void Process(ProcessInfo process)
+        private void Box(ProcessInfo process, string why)
         {
-            int cellsBefore = _cells.Count, netsBefore = _nets.Count;
-            if (OpenProcess(process, out string why))
-                return;
-            Rollback(cellsBefore, netsBefore);
-
             var reads = new SortedSet<int>();
             process.CollectAllReads(reads);
             var inputs = new List<int>();
@@ -353,11 +481,16 @@ namespace BitSorter.Sim
                 outputNames.Add(NameOf(signal));
             }
 
-            string name = process.Name.StartsWith(_prefix, StringComparison.Ordinal) ? process.Name.Substring(_prefix.Length) : process.Name;
+            string name = Relative(process.Name);
             RtlCell cell = NewCellDriving(RtlKind.Process, name, inputs.ToArray(), outputs.ToArray());
             cell.InputNames = inputNames.ToArray();
             cell.OutputNames = outputNames.ToArray();
             cell.Why = why;
+
+            var written = new List<int>();
+            foreach (int output in outputs)
+                written.Add(_nets[output].Signal);
+            _processes.Add(new RtlProcessRecord(name, false, why, written.ToArray()));
         }
 
         /// <summary>Nothing of a run that gave up is kept: the cells and nets made since the counts given go.</summary>
@@ -576,6 +709,8 @@ namespace BitSorter.Sim
         {
             RtlCell cell = NewCell(RtlKind.Word, "", new[] { offset }, width);
             MemoryInfo memory = _design.Signals[first].Memory;
+            if (_overlay != null && memory != null)
+                _memoriesRead?.Add(memory);
             cell.Memory = memory;
             cell.Name = memory != null && memory.Name.StartsWith(_prefix, StringComparison.Ordinal) ? memory.Name.Substring(_prefix.Length) : memory?.Name ?? "";
             return cell.Output;
