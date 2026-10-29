@@ -413,9 +413,12 @@ namespace BitSorter.View
         /// </summary>
         private float Rows(string name, string text, string mark, UiType type, float row, float x, float y, float width, Color colour)
         {
-            System.Collections.Generic.List<string> rows = TextRows.Of(text, width - 4f, t => UiTheme.TextWidth(t, type), mark);
+            // Its own rows, and no wrapping of the label's: the text is measured a little wider in a browser than here, and a
+            // label left to wrap broke the rows again, a block taller than its room over the line under it (the 15h-4d
+            // browser check). So the rows are made for nine tenths of the room, and drawn as they are.
+            System.Collections.Generic.List<string> rows = TextRows.Of(text, (width - 4f) * 0.9f, t => UiTheme.TextWidth(t, type), mark);
             Label label = ShellTheme.Label(name, string.Join("\n", rows), type, colour);
-            label.style.whiteSpace = WhiteSpace.Normal;
+            label.style.whiteSpace = WhiteSpace.Pre;   // broken at its rows' ends, and nowhere else
             float height = rows.Count * row + 4f;
             ShellTheme.Place(label, x, y, width, height);
             _logicList.Add(label);

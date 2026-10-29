@@ -1837,6 +1837,38 @@ namespace BitSorter.PlayMode.Tests
             yield return Capture("58-workbench-logic-tab");
         }
 
+        /// <summary>
+        /// Part 15h-4d: the LOGIC tab on the Two-bit ALU, written as code -- its long sums of products and their assign lines
+        /// whole, each on as many rows as it needs and none over the next (they ended in "...", and wrapped over each other in
+        /// a browser on the first try).
+        /// </summary>
+        [UnityTest]
+        public IEnumerator Shot65_WorkbenchLogicTabLongExpressions()
+        {
+            yield return LoadTheGame();
+            yield return Frames(2);
+
+            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            yield return Frames(2);
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            int alu = -1;
+            for (int i = 0; i < WorkbenchSamples.Chip.Count; i++)
+                if (WorkbenchSamples.Chip[i].Name == "Two-bit ALU")
+                    alu = i;
+            workbench.ShowSample(alu);
+            yield return Frames(2);
+            workbench.Pause();
+            workbench.Session.Finish();
+            workbench.ShowLogic();
+            yield return Frames(2);
+            workbench.FinishLogic();
+            yield return Frames(30);
+
+            Assert.IsTrue(workbench.Logic != null && workbench.Logic.Done, "sanity: the table made");
+            yield return Capture("65-workbench-logic-long-expressions");
+        }
+
         /// <summary>Part 15g: the STATES tab on the counter -- its eight states on a ring, each arrow one count on, and the next-state table.</summary>
         [UnityTest]
         public IEnumerator Shot59_WorkbenchStatesTab()
