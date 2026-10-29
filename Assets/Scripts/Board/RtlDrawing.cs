@@ -21,15 +21,112 @@ namespace BitSorter.Board
     /// **It is for showing**: the module made is held beside the project, never in it, and nothing compiles it. Every wire on
     /// a signal's net is named for the signal, so the drawing finds its values by name; a value inside an expression, which
     /// no signal holds, is named <c>$</c> and its number.
+    ///
+    /// **With gates, the small ones are opened** (Part 15h-4, the GATES switch): an operator or a mux <see cref="RtlGates"/>
+    /// opens is drawn as its gates in its place, wired to what the box was. A wire inside an opening is on no net of the
+    /// netlist; it is worked out from them (<see cref="Inner"/>), each gate by the engine's own gate, so the gates show what
+    /// real gates would -- the bits below an x of a sum still known -- while the wire out of them carries the code's value,
+    /// which is what everything after them reads.
     /// </remarks>
     public sealed class RtlDrawing
     {
-        private RtlDrawing(Project project, Module module, Dictionary<int, int> netOfWire, Dictionary<int, string> instanceOf)
+        private RtlDrawing(Project project, Module module, Builder builder)
         {
             Project = project;
             Module = module;
-            _netOfWire = netOfWire;
-            _instanceOf = instanceOf;
+            _netOfWire = builder.NetOfWire;
+            _instanceOf = builder.InstanceOf;
+            _innerOfWire = builder.InnerOfWire;
+            _inner = builder.Inner.ToArray();
+            Opened = builder.Opened;
+        }
+
+        private readonly Dictionary<int, int> _innerOfWire;
+        private readonly InnerNet[] _inner;
+
+        /// <summary>How many operators and muxes are drawn as their gates.</summary>
+        public int Opened { get; }
+
+        /// <summary>The wires inside openings into gates: how many values <see cref="Inner"/> works out.</summary>
+        public int InnerCount => _inner.Length;
+
+        /// <summary>The wire inside an opening into gates a wire of the drawing is, by its id; -1 for one on a net of the netlist.</summary>
+        public int InnerOfWire(int wire) => _innerOfWire.TryGetValue(wire, out int inner) ? inner : -1;
+
+        /// <summary>
+        /// The values of the wires inside the openings into gates, given the netlist's (<see cref="RtlEvaluator"/>), each by the
+        /// engine's own gate, splitter, joiner and mux.
+        /// </summary>
+        public LogicVec[] Inner(IReadOnlyList<LogicVec> nets)
+        {
+            if (nets == null)
+                throw new ArgumentNullException(nameof(nets));
+            var values = new LogicVec[_inner.Length];
+            for (int i = 0; i < values.Length; i++)
+                values[i] = _inner[i].Value(nets, values);
+            return values;
+        }
+
+        /// <summary>
+        /// A wire inside an opening into gates: the part it comes out of, and what each of that part's inputs reads, in its
+        /// pins' order -- a net of the netlist, or for <c>-1 - k</c> the k-th wire inside, which always comes before it.
+        /// </summary>
+        private sealed class InnerNet
+        {
+            public InnerNet(Part part, string pin, int[] from)
+            {
+                _part = part;
+                _from = from;
+                if (part is SplitterPart)
+                    _bit = int.Parse(pin.Substring(1), NumberStyles.None, CultureInfo.InvariantCulture);
+            }
+
+            private readonly Part _part;
+            private readonly int[] _from;
+            private readonly int _bit;
+
+            public LogicVec Value(IReadOnlyList<LogicVec> nets, LogicVec[] inner)
+            {
+                switch (_part)
+                {
+                    case GatePart gate:
+                    {
+                        var inputs = new LogicVec[_from.Length];
+                        for (int i = 0; i < inputs.Length; i++)
+                            inputs[i] = In(i, nets, inner);
+                        return Gates.Evaluate(gate.Kind, inputs);
+                    }
+                    case SplitterPart _:
+                        return In(0, nets, inner).Slice(_bit, 1);
+                    case JoinerPart _:
+                    {
+                        LogicVec joined = In(0, nets, inner);
+                        for (int i = 1; i < _from.Length; i++)
+                            joined = LogicVec.Concat(In(i, nets, inner), joined);
+                        return joined;
+                    }
+                    case ConstantPart constant:
+                        return constant.Value;
+                    case MuxPart mux:
+                        return Choose(mux, 0, mux.Inputs, mux.SelectWidth - 1, nets, inner);
+                    default:
+                        return LogicVec.AllX(1);
+                }
+            }
+
+            private LogicVec In(int i, IReadOnlyList<LogicVec> nets, LogicVec[] inner) => _from[i] >= 0 ? nets[_from[i]] : inner[-1 - _from[i]];
+
+            /// <summary>A mux's inputs <paramref name="low"/> on, chosen as the board compiles it: a tree of <c>?:</c> from the select's top bit.</summary>
+            private LogicVec Choose(MuxPart mux, int low, int count, int bit, IReadOnlyList<LogicVec> nets, LogicVec[] inner)
+            {
+                if (count == 1)
+                    return In(low, nets, inner);
+                LogicVec select = In(mux.Inputs, nets, inner);
+                if (mux.SelectWidth > 1)
+                    select = select.Slice(bit, 1);
+                int half = count / 2;
+                return LogicVec.Conditional(select, Choose(mux, low + half, half, bit - 1, nets, inner), Choose(mux, low, half, bit - 1, nets, inner));
+            }
         }
 
         private readonly Dictionary<int, string> _instanceOf;
@@ -53,27 +150,28 @@ namespace BitSorter.Board
 
         /// <summary>
         /// <paramref name="netlist"/> drawn as a module named <paramref name="name"/>, beside the modules of
-        /// <paramref name="project"/>.
+        /// <paramref name="project"/>; with <paramref name="gates"/>, every operator and mux that opens into gates drawn as them.
         /// </summary>
-        public static RtlDrawing Of(Project project, RtlNetlist netlist, string name)
+        public static RtlDrawing Of(Project project, RtlNetlist netlist, string name, bool gates = false)
         {
             if (netlist == null)
                 throw new ArgumentNullException(nameof(netlist));
 
-            var drawing = new Builder(project, netlist);
+            var drawing = new Builder(project, netlist, gates);
             Module module = drawing.Make(name);
             var modules = new List<Module>();
             foreach (Module m in project.Modules)
                 if (m.Name != name)
                     modules.Add(m);
             modules.Add(module);
-            return new RtlDrawing(project with { Modules = modules }, module, drawing.NetOfWire, drawing.InstanceOf);
+            return new RtlDrawing(project with { Modules = modules }, module, drawing);
         }
 
         private sealed class Builder
         {
             private readonly Project _project;
             private readonly RtlNetlist _netlist;
+            private readonly bool _gates;
             private readonly List<Part> _parts = new List<Part>();
             private readonly List<Wire> _wires = new List<Wire>();
             private int _next = 1;
@@ -83,6 +181,17 @@ namespace BitSorter.Board
 
             /// <summary>The instance each block made is, by the part's id.</summary>
             public readonly Dictionary<int, string> InstanceOf = new Dictionary<int, string>();
+
+            /// <summary>The wires inside openings into gates, in the order they are worked out, and which each wire made is.</summary>
+            public readonly List<InnerNet> Inner = new List<InnerNet>();
+            public readonly Dictionary<int, int> InnerOfWire = new Dictionary<int, int>();
+
+            /// <summary>How many parts were opened into gates.</summary>
+            public int Opened;
+
+            // The wires inside the openings, made once every part is placed: from a part's pin to another's, and which inner wire.
+            private readonly List<(int From, string FromPin, int To, string ToPin, int Inner)> _innerWires =
+                new List<(int, string, int, string, int)>();
 
             // Where each net comes from -- a part's pin -- and each place it goes; and a join of one driver, a wire, merged.
             private readonly (int Part, string Pin)[] _source;
@@ -94,10 +203,11 @@ namespace BitSorter.Board
             private readonly HashSet<int> _last = new HashSet<int>();
             private readonly HashSet<int> _registers = new HashSet<int>();
 
-            public Builder(Project project, RtlNetlist netlist)
+            public Builder(Project project, RtlNetlist netlist, bool gates)
             {
                 _project = project;
                 _netlist = netlist;
+                _gates = gates;
                 int nets = netlist.Nets.Count;
                 _source = new (int, string)[nets];
                 _loads = new List<(int, string)>[nets];
@@ -160,7 +270,16 @@ namespace BitSorter.Board
                     if (_cases.TryGetValue(cell.Id, out (int Subject, int[] Data) choice))
                     {
                         // A case on one subject, one mux of as many inputs as the subject has values, the subject its select.
-                        int mux = Add(new MuxPart { Inputs = choice.Data.Length, Width = WidthOf(cell.Output) });
+                        var chooser = new MuxPart { Inputs = choice.Data.Length, Width = WidthOf(cell.Output) };
+                        if (_gates)
+                        {
+                            var feeds = new List<(string, int)> { ("s", choice.Subject) };
+                            for (int i = 0; i < choice.Data.Length; i++)
+                                feeds.Add(("d" + i.ToString(CultureInfo.InvariantCulture), choice.Data[i]));
+                            if (Open(chooser, feeds, cell.Output))
+                                continue;
+                        }
+                        int mux = Add(chooser);
                         _loads[Root(choice.Subject)].Add((mux, "s"));
                         for (int i = 0; i < choice.Data.Length; i++)
                             _loads[Root(choice.Data[i])].Add((mux, "d" + i.ToString(CultureInfo.InvariantCulture)));
@@ -170,6 +289,15 @@ namespace BitSorter.Board
                     if (cell.Kind == RtlKind.Constant && reads[Root(cell.Output)] == 0 && _netlist.Nets[cell.Output].Signal < 0)
                         continue;   // said on the matches that use it
                     Part part = PartFor(cell, out string[] ins, out string[] outs);
+                    if (_gates && (part is OperatorPart || part is MuxPart) && cell.Outputs.Count == 1)
+                    {
+                        var feeds = new List<(string, int)>();
+                        for (int i = 0; i < cell.Inputs.Count && i < ins.Length; i++)
+                            if (cell.Inputs[i] >= 0 && ins[i] != null && !_absorbed.Contains((cell.Id, i)))
+                                feeds.Add((ins[i], cell.Inputs[i]));
+                        if (Open(part, feeds, cell.Output))
+                            continue;
+                    }
                     int id = Add(part);
                     if (cell.Kind == RtlKind.Instance)
                         InstanceOf[id] = cell.Name;
@@ -224,6 +352,14 @@ namespace BitSorter.Board
                         });
                         links.Add((index[_source[net].Part], index[part]));
                     }
+                }
+
+                // The wires inside the openings into gates, on no net of the netlist: named for none, valued by Inner.
+                foreach ((int from, string fromPin, int to, string toPin, int inner) in _innerWires)
+                {
+                    InnerOfWire[_next] = inner;
+                    _wires.Add(new Wire { Id = _next++, From = Endpoint.At(from, fromPin), To = Endpoint.At(to, toPin) });
+                    links.Add((index[from], index[to]));
                 }
 
                 Placement[] placements = LayeredLayout.Arrange(_project, _parts, links, _first, _last, _registers);
@@ -421,6 +557,105 @@ namespace BitSorter.Board
                 if (driver < 0 || _netlist.Cells[driver].Kind != RtlKind.Constant)
                     return null;
                 return _netlist.Cells[driver].Value.Format(Radix.Binary);
+            }
+
+            /// <summary>
+            /// <paramref name="part"/> drawn as its gates (<see cref="RtlGates.Open"/>) in its place: each pin's net,
+            /// <paramref name="feeds"/>, wired to what reads that port inside, and what drives the opening's output to
+            /// <paramref name="output"/>'s readers. False, with nothing added, for a part that stays a box, or whose pins'
+            /// widths are not its nets'.
+            /// </summary>
+            private bool Open(Part part, List<(string Pin, int Net)> feeds, int output)
+            {
+                Project opening = RtlGates.Open(part, "gates", out _);
+                Module inside = opening?.TopModule;
+                if (inside == null || output < 0)
+                    return false;
+
+                // Its ports: each input the net of the pin of its name, the output's width the net's.
+                var inputs = new Dictionary<int, int>();
+                int y = -1;
+                foreach (Part p in inside.Parts)
+                {
+                    if (!(p is PortPart port))
+                        continue;
+                    if (port.Direction == PortDirection.Output)
+                    {
+                        if (port.Width != WidthOf(output))
+                            return false;
+                        y = port.Id;
+                        continue;
+                    }
+                    int net = -1;
+                    foreach ((string pin, int fed) in feeds)
+                        if (pin == port.Name)
+                            net = fed;
+                    if (net < 0 || WidthOf(net) != port.Width)
+                        return false;
+                    inputs[port.Id] = net;
+                }
+                if (y < 0)
+                    return false;
+
+                // What each pin inside reads, and what drives the output; every input of every part inside read.
+                var into = new Dictionary<PinRef, PinRef>();
+                PinRef? last = null;
+                foreach (Wire wire in inside.Wires)
+                {
+                    if (wire.From.IsTap || wire.To.IsTap || inputs.ContainsKey(wire.From.Pin.Part) && wire.To.Pin.Part == y)
+                        return false;
+                    into[wire.To.Pin] = wire.From.Pin;
+                    if (wire.To.Pin.Part == y)
+                        last = wire.From.Pin;
+                }
+                if (last == null)
+                    return false;
+                foreach (Part p in inside.Parts)
+                    if (!(p is PortPart))
+                        foreach (Pin pin in p.Pins(null))
+                            if (pin.Direction == PinDirection.In && !into.ContainsKey(new PinRef(p.Id, pin.Name)))
+                                return false;
+
+                var ids = new Dictionary<int, int>();
+                foreach (Part p in inside.Parts)
+                    if (!(p is PortPart))
+                        ids[p.Id] = Add(p with { Name = null });
+                var inner = new Dictionary<PinRef, int>();
+
+                // A place a wire inside starts from: the netlist's net of a port, the code's value where it drives the output,
+                // or a wire inside, worked out after every wire inside it reads.
+                int Ref(PinRef from) =>
+                    inputs.TryGetValue(from.Part, out int net) ? net : from.Equals(last.Value) ? output : -1 - InnerOf(from);
+
+                int InnerOf(PinRef from)
+                {
+                    if (inner.TryGetValue(from, out int k))
+                        return k;
+                    Part p = inside.FindPart(from.Part);
+                    var reads = new List<int>();
+                    foreach (Pin pin in p.Pins(null))
+                        if (pin.Direction == PinDirection.In)
+                            reads.Add(Ref(into[new PinRef(p.Id, pin.Name)]));
+                    k = Inner.Count;
+                    Inner.Add(new InnerNet(p, from.Pin, reads.ToArray()));
+                    inner[from] = k;
+                    return k;
+                }
+
+                foreach (Wire wire in inside.Wires)
+                {
+                    PinRef from = wire.From.Pin, to = wire.To.Pin;
+                    if (to.Part == y)
+                        _source[Root(output)] = (ids[from.Part], from.Pin);
+                    else if (inputs.TryGetValue(from.Part, out int net))
+                        _loads[Root(net)].Add((ids[to.Part], to.Pin));
+                    else if (from.Equals(last.Value))
+                        _loads[Root(output)].Add((ids[to.Part], to.Pin));
+                    else
+                        _innerWires.Add((ids[from.Part], from.Pin, ids[to.Part], to.Pin, InnerOf(from)));
+                }
+                Opened++;
+                return true;
             }
 
             private int Add(Part part)

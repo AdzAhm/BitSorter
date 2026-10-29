@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using BitSorter.Ci;
 using BitSorter.Sim;
+using BitSorter.SystemVerilog;
 using BitSorter.SystemVerilog.Syntax;
 using NUnit.Framework;
 
@@ -45,6 +46,193 @@ namespace BitSorter.Board.Tests
                         $"{name} {scope.Path}: drawn the same again");
                 }
             Assert.Greater(drawn, 0);
+        }
+
+        /// <summary>
+        /// With GATES (Part 15h-4) every operator and mux that opens into gates is drawn as them, the drawing held as any is;
+        /// and on random values every part of an opening agrees with its wires -- the last of each, out of which the code's
+        /// own value comes, included, so every opening computes what its box did.
+        /// </summary>
+        [TestCaseSource(nameof(Designs))]
+        public void ADesignsNetlist_IsDrawnWithItsGates_EachOpeningComputingWhatItsBoxDid(string kind, string name)
+        {
+            int drawn = 0;
+            foreach ((Project project, Design design) in Load(kind, name))
+                foreach (ScopeInfo scope in design.Scopes)
+                {
+                    if (scope.Kind != ScopeKind.Top && scope.Kind != ScopeKind.Instance)
+                        continue;
+                    RtlNetlist netlist = RtlExtractor.Of(design, scope.Path);
+                    RtlDrawing drawing = RtlDrawing.Of(project, netlist, "drawing_of_" + scope.Module, gates: true);
+                    string what = name + " " + scope.Path;
+                    Hold(drawing, netlist, what, gates: true);
+                    var random = new Random(what.Length * 7919 + what[what.Length - 1]);
+                    for (int vector = 0; vector < 6; vector++)
+                        HoldOpenings(drawing, netlist, design.Signals.Select(s => Known(random, s.Width)).ToArray(), what);
+                    drawn++;
+
+                    RtlDrawing again = RtlDrawing.Of(project, netlist, "drawing_of_" + scope.Module, gates: true);
+                    CollectionAssert.AreEqual(drawing.Module.Parts.Select(p => drawing.Module.Layout.PlacementOf(p.Id).Position.ToString()).ToArray(),
+                        again.Module.Parts.Select(p => again.Module.Layout.PlacementOf(p.Id).Position.ToString()).ToArray(),
+                        $"{what}: drawn the same again");
+                }
+            Assert.Greater(drawn, 0);
+        }
+
+        /// <summary>
+        /// A small ALU with GATES: its four 4-bit operators and its 4-input mux each drawn as their gates, nothing left a box,
+        /// and on every one of the 1,024 values of op, a and b every part of every opening agreeing with its wires.
+        /// </summary>
+        [Test]
+        public void ASmallAlu_WithGates_IsItsGates_OnEveryValue()
+        {
+            RtlNetlist netlist = Extract(SmallAlu, "alu", out Design design);
+            RtlDrawing drawing = RtlDrawing.Of(Project.New("p"), netlist, "alu", gates: true);
+            Hold(drawing, netlist, "alu", gates: true);
+            Assert.AreEqual(5, drawing.Opened, "+, -, &, | and the mux");
+            Assert.IsEmpty(drawing.Module.Parts.OfType<OperatorPart>(), "no operator left a box");
+            Assert.IsEmpty(drawing.Module.Parts.OfType<MuxPart>().Where(m => m.Inputs == 4), "no 4-input mux left a box");
+            Assert.Greater(drawing.InnerCount, 0);
+
+            int op = Signal(design, "alu.op"), a = Signal(design, "alu.a"), b = Signal(design, "alu.b");
+            for (int value = 0; value < 1024; value++)
+            {
+                var signals = design.Signals.Select(s => LogicVec.AllX(s.Width)).ToArray();
+                signals[a] = LogicVec.FromUInt64((ulong)(value & 15), 4);
+                signals[b] = LogicVec.FromUInt64((ulong)((value >> 4) & 15), 4);
+                signals[op] = LogicVec.FromUInt64((ulong)(value >> 8), 2);
+                HoldOpenings(drawing, netlist, signals, "alu " + value);
+            }
+        }
+
+        /// <summary>A sum with its carry, <c>{cout, s} = a + b</c> of 4-bit a and b, is a 5-bit sum: past four bits, a box.</summary>
+        [Test]
+        public void ASumWithItsCarry_IsFiveBitsWide_AndStaysABox()
+        {
+            RtlNetlist netlist = Extract("module c (input logic [3:0] a, b, output logic [3:0] s, output logic cout);\n    assign {cout, s} = a + b;\nendmodule\n", "c", out _);
+            RtlDrawing drawing = RtlDrawing.Of(Project.New("p"), netlist, "c", gates: true);
+            Assert.AreEqual(0, drawing.Opened);
+        }
+
+        /// <summary>Past four bits an operator stays the box it is with GATES, and nothing is opened.</summary>
+        [Test]
+        public void AWideOperator_StaysABox_WithGates()
+        {
+            RtlNetlist netlist = Extract("module w (input logic [7:0] a, b, output logic [7:0] y);\n    assign y = a + b;\nendmodule\n", "w", out _);
+            RtlDrawing drawing = RtlDrawing.Of(Project.New("p"), netlist, "w", gates: true);
+            Assert.AreEqual(0, drawing.Opened);
+            Assert.AreEqual(1, drawing.Module.Parts.OfType<OperatorPart>().Count());
+            Assert.AreEqual(0, drawing.InnerCount);
+        }
+
+        private const string SmallAlu =
+            "module alu (input logic [1:0] op, input logic [3:0] a, b, output logic [3:0] y);\n" +
+            "    always_comb\n" +
+            "        case (op)\n" +
+            "            2'b00:   y = a + b;\n" +
+            "            2'b01:   y = a - b;\n" +
+            "            2'b10:   y = a & b;\n" +
+            "            default: y = a | b;\n" +
+            "        endcase\n" +
+            "endmodule\n";
+
+        private static RtlNetlist Extract(string source, string top, out Design design)
+        {
+            SyntaxTree tree = SyntaxReader.ReadText(source, top + ".sv");
+            Assert.IsFalse(tree.HasErrors, string.Join("; ", tree.Diagnostics));
+            Elaboration e = Elaborator.Elaborate(tree, top);
+            Assert.IsFalse(e.HasErrors, string.Join("; ", e.Diagnostics));
+            design = e.Design;
+            return RtlExtractor.Of(design, top);
+        }
+
+        private static int Signal(Design design, string name)
+        {
+            for (int i = 0; i < design.Signals.Count; i++)
+                if (design.Signals[i].Name == name)
+                    return i;
+            Assert.Fail("no signal " + name);
+            return -1;
+        }
+
+        private static LogicVec Widened(LogicVec value, int width) =>
+            value.Width >= width ? value : LogicVec.Concat(LogicVec.FromUInt64(0, width - value.Width), value);
+
+        /// <summary>A random value of <paramref name="width"/> bits, every bit a 0 or a 1.</summary>
+        private static LogicVec Known(Random random, int width)
+        {
+            var bits = new char[width];
+            for (int i = 0; i < width; i++)
+                bits[i] = random.Next(2) == 0 ? '0' : '1';
+            return Literal.Parse(width + "'b" + new string(bits)).Value;
+        }
+
+        /// <summary>
+        /// On <paramref name="signals"/>, every part with a wire inside an opening into gates gives what its wires show: a gate
+        /// its gate of its inputs, a splitter each bit, a joiner the bits joined, a mux the input its select picks. Where an
+        /// input is not known it is not asked, and where the code's own value is not known while the gates' is -- a gate knows
+        /// more than the language's arithmetic -- it is not asked either.
+        /// </summary>
+        private static void HoldOpenings(RtlDrawing drawing, RtlNetlist netlist, LogicVec[] signals, string what)
+        {
+            Module module = drawing.Module;
+            LogicVec[] nets = RtlEvaluator.Evaluate(netlist, signals);
+            LogicVec[] inner = drawing.Inner(nets);
+            LogicVec Of(Wire wire) => drawing.InnerOfWire(wire.Id) >= 0 ? inner[drawing.InnerOfWire(wire.Id)] : nets[drawing.NetOfWire(wire.Id)];
+            bool Inside(Wire wire) => drawing.InnerOfWire(wire.Id) >= 0;
+
+            var into = new Dictionary<PinRef, Wire>();
+            var outOf = new Dictionary<PinRef, Wire>();
+            foreach (Wire wire in module.Wires)
+            {
+                into[wire.To.Pin] = wire;
+                outOf[wire.From.Pin] = wire;
+            }
+
+            foreach (Part part in module.Parts)
+            {
+                if (!(part is GatePart || part is SplitterPart || part is JoinerPart || part is MuxPart))
+                    continue;
+                Pin[] pins = part.Pins(null).ToArray();
+                Wire Into(Pin pin) => into[new PinRef(part.Id, pin.Name)];
+                Wire OutOf(Pin pin) => outOf.TryGetValue(new PinRef(part.Id, pin.Name), out Wire wire) ? wire : null;
+                Pin[] ins = pins.Where(p => p.Direction == PinDirection.In).ToArray();
+                Pin[] outs = pins.Where(p => p.Direction == PinDirection.Out && OutOf(p) != null).ToArray();
+                if (!ins.Any(p => Inside(Into(p))) && !outs.Any(p => Inside(OutOf(p))))
+                    continue;   // no part of an opening
+
+                // A wire a widening with 0s was folded into shows the narrower value its reader sees widened.
+                LogicVec[] given = ins.Select(p => Widened(Of(Into(p)), p.Width)).ToArray();
+                if (given.Any(v => !v.IsKnown))
+                    continue;
+                foreach (Pin pin in outs)
+                {
+                    LogicVec expected;
+                    switch (part)
+                    {
+                        case GatePart gate:
+                            expected = Gates.Evaluate(gate.Kind, given);
+                            break;
+                        case SplitterPart _:
+                            expected = given[0].Slice(int.Parse(pin.Name.Substring(1)), 1);
+                            break;
+                        case JoinerPart _:
+                            expected = given[0];
+                            for (int i = 1; i < given.Length; i++)
+                                expected = LogicVec.Concat(given[i], expected);
+                            break;
+                        default:
+                            var mux = (MuxPart)part;
+                            Assert.AreEqual(2, mux.Inputs, $"{what}: an opening's mux has two inputs");
+                            expected = LogicVec.Conditional(given[2], given[1], given[0]);
+                            break;
+                    }
+                    LogicVec actual = Of(OutOf(pin));
+                    if (!actual.IsKnown && !Inside(OutOf(pin)))
+                        continue;   // the gates know more than the code
+                    Assert.AreEqual(expected.ToString(), actual.ToString(), $"{what}: {part.Name}.{pin.Name} of {string.Join(", ", given.Select(g => g.ToString()))}");
+                }
+            }
         }
 
         /// <summary>
@@ -190,20 +378,27 @@ namespace BitSorter.Board.Tests
             }
         }
 
-        private static void Hold(RtlDrawing drawing, RtlNetlist netlist, string what)
+        private static void Hold(RtlDrawing drawing, RtlNetlist netlist, string what, bool gates = false)
         {
             Module module = drawing.Module;
             Project project = drawing.Project;
 
             // Every operator, register, gate and instance a part of its own; glue -- a widening, a sign, a bit's truth, a join
-            // of one driver -- is the wire it stands on, and a case label's constant is said on its match.
+            // of one driver -- is the wire it stands on, and a case label's constant is said on its match. With gates, an
+            // operator drawn as its gates is none, and its gates are more.
             int operators = netlist.Cells.Count(c => c.Kind == RtlKind.Binary && Operators.TryFrom(c.Binary, out _)
                 || c.Kind == RtlKind.Unary && Operators.TryFrom(c.Unary, out _));
-            Assert.AreEqual(operators, module.Parts.OfType<OperatorPart>().Count(), $"{what}: an operator a part");
+            if (gates)
+                Assert.LessOrEqual(module.Parts.OfType<OperatorPart>().Count(), operators, $"{what}: an operator a part or its gates");
+            else
+                Assert.AreEqual(operators, module.Parts.OfType<OperatorPart>().Count(), $"{what}: an operator a part");
+            if (drawing.Opened == 0)
+                Assert.AreEqual(0, drawing.InnerCount, $"{what}: wires inside only of an opening");
             Assert.AreEqual(netlist.Cells.Count(c => c.Kind == RtlKind.Register && c.Clock > 0 && (c.Inputs.Count == 2 || c.Inputs.Count == 3)),
                 module.Parts.OfType<RegisterPart>().Count(), $"{what}: a register a part");
-            Assert.AreEqual(netlist.Count(RtlKind.Gate) + netlist.Count(RtlKind.Instance), module.Parts.Count(p => p is GatePart || p is BlockPart
-                || p is BoxPart box && netlist.Cells.Any(c => c.Kind == RtlKind.Instance && c.Module == box.Label)), $"{what}: a gate or a block an instance");
+            if (!gates)
+                Assert.AreEqual(netlist.Count(RtlKind.Gate) + netlist.Count(RtlKind.Instance), module.Parts.Count(p => p is GatePart || p is BlockPart
+                    || p is BoxPart box && netlist.Cells.Any(c => c.Kind == RtlKind.Instance && c.Module == box.Label)), $"{what}: a gate or a block an instance");
             Assert.AreEqual(netlist.Inputs.Count + netlist.Outputs.Count, module.Parts.OfType<PortPart>().Count(), $"{what}: a port each");
 
             // Every wire ends on pins its parts have, and the board's netlist of it has no problem.
