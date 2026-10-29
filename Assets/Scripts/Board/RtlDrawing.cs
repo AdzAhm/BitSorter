@@ -295,7 +295,10 @@ namespace BitSorter.Board
                     if (cell.Kind == RtlKind.Constant && reads[Root(cell.Output)] == 0 && _netlist.Nets[cell.Output].Signal < 0)
                         continue;   // said on the matches that use it
                     Part part = PartFor(cell, out string[] ins, out string[] outs);
-                    if (_gates && (part is OperatorPart || part is MuxPart) && cell.Outputs.Count == 1)
+                    // An operator the sign changes the answer of -- a comparison, >>> -- opens only where it is shown to be
+                    // unsigned: the gates RtlGates draws are the unsigned ones (the review of #110).
+                    bool signDecides = part is OperatorPart signs && Operators.SignMatters(signs.Op) && cell.Signed;
+                    if (_gates && (part is OperatorPart || part is MuxPart) && cell.Outputs.Count == 1 && !signDecides)
                     {
                         var feeds = new List<(string, int)>();
                         for (int i = 0; i < cell.Inputs.Count && i < ins.Length; i++)

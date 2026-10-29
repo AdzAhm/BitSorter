@@ -26,7 +26,7 @@ namespace BitSorter.View
         public const string GatesCaption = "GATES", BoxesCaption = "BOXES";
 
         /// <summary>What GATES says when it opens nothing: every operator past four bits.</summary>
-        public const string NothingOpens = "Nothing here opens into gates: past 4 bits an operator stays a box.";
+        public const string NothingOpens = "Nothing here opens into gates: only an operator or a mux of four bits or fewer does.";
 
         private const float GatesWidth = 104f;
 

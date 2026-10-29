@@ -563,6 +563,12 @@ namespace BitSorter.Sim
                 return Constant(Expr.Apply(op, va, vb));
             RtlCell cell = NewCell(RtlKind.Binary, "", new[] { a, b }, width);
             cell.Binary = op;
+
+            // Whether it may be the signed operation, as far as the netlist can tell: a value's sign is the engine's to
+            // know as it runs, so what is not shown to be unsigned may be signed (the review of #110: a signed a < b was
+            // opened into an unsigned comparator's gates, which disagreed with the code's value out of them).
+            bool shift = op == BinaryOp.ShiftLeft || op == BinaryOp.ShiftRight || op == BinaryOp.ArithmeticShiftLeft || op == BinaryOp.ArithmeticShiftRight;
+            cell.Signed = shift ? !IsUnsigned(a) : !IsUnsigned(a) && !IsUnsigned(b);
             return cell.Output;
         }
 

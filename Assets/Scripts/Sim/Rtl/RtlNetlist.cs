@@ -182,7 +182,11 @@ namespace BitSorter.Sim
         /// <summary>A part's step, in bits.</summary>
         public int Step { get; internal set; }
 
-        /// <summary>A resize that extends the sign, or a <see cref="RtlKind.Signedness"/> to signed.</summary>
+        /// <summary>
+        /// A resize that extends the sign, or a <see cref="RtlKind.Signedness"/> to signed; for a
+        /// <see cref="RtlKind.Binary"/>, whether it may be the signed operation -- both its operands may be signed, or for a
+        /// shift its left one -- which is all a comparison and <c>&gt;&gt;&gt;</c> answer differently by (Part 15h-4).
+        /// </summary>
         public bool Signed { get; internal set; }
 
         /// <summary>A <see cref="RtlKind.Join"/>'s signal, by index into <see cref="Design.Signals"/>; -1 for any other cell.</summary>

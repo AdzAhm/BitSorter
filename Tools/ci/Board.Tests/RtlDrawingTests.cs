@@ -166,6 +166,26 @@ namespace BitSorter.Board.Tests
             Assert.AreEqual(0, RtlDrawing.Of(Project.New("p"), wide, "w", gates: true).Opened, "5-bit numbers: a box");
         }
 
+        /// <summary>
+        /// A comparison or a <c>&gt;&gt;&gt;</c> the sign may change stays a box with GATES, since the gates drawn are the
+        /// unsigned ones; on numbers shown to be unsigned it opens (the review of #110: a signed a &lt; b opened into gates
+        /// that said 0 where the code's wire out of them said 1).
+        /// </summary>
+        [TestCase("input logic signed [3:0] a, b, output logic y", "assign y = a < b;", 0)]
+        [TestCase("input logic signed [3:0] a, input logic [1:0] n, output logic signed [3:0] y", "assign y = a >>> n;", 0)]
+        [TestCase("input logic [3:0] a, b, output logic y", "assign y = a < b;", 1)]
+        [TestCase("input logic [3:0] a, input logic signed [1:0] n, output logic [3:0] y", "assign y = a >>> n;", 1)]
+        public void AComparisonOrShiftTheSignMayChange_StaysABox(string ports, string body, int opened)
+        {
+            RtlNetlist netlist = Extract("module s (" + ports + ");\n    " + body + "\nendmodule\n", "s", out Design design);
+            RtlDrawing drawing = RtlDrawing.Of(Project.New("p"), netlist, "s", gates: true);
+            Hold(drawing, netlist, "s", gates: true);
+            Assert.AreEqual(opened, drawing.Opened);
+            var random = new Random(opened * 31 + body.Length);
+            for (int vector = 0; vector < 64; vector++)
+                HoldOpenings(drawing, netlist, design.Signals.Select(s => Known(random, s.Width)).ToArray(), "s " + vector);
+        }
+
         /// <summary>Past four bits an operator stays the box it is with GATES, and nothing is opened.</summary>
         [Test]
         public void AWideOperator_StaysABox_WithGates()

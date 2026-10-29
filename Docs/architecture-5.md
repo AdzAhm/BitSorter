@@ -3484,8 +3484,13 @@ instances inside written code stepped into, and GATES opening its small operator
     the two agree, and with an x the gates may know more, as `RtlGates` says.
   - **A number is split into its bits once**, however many openings read it, so they tap the same bit lines: six openings
     of a small ALU each splitting a and b made a dozen splitters fanned out to the same gates.
+  - **A comparison or a `>>>` the sign may change stays a box**: the gates `RtlGates` draws are the unsigned ones, and a
+    value's sign is the engine's to know as it runs, so the extractor marks a binary cell that may be the signed operation
+    -- both operands not shown to be unsigned, a shift's left one -- and only one shown to be unsigned opens.
   - **Known**: a whole ALU opened -- a hundred gates or so -- is dense at the fitted zoom, the layout's columns not
-    knowing a bit slice from another; drawing by bit slices is for 15h-6.
+    knowing a bit slice from another, and nothing caps how many open -- 128 openings drew 2,694 parts in 0.6 s and routed
+    in 3.1 on the desktop; bit slices and a cap are 15h-6's to measure. A gate opened has no signal of its own, so it
+    never flashes as the design's gates do.
 - **It takes no edit**: placing, wiring, moving, turning, deleting, pasting, routing and the inspector are each refused
   with "This is the drawing of the code: change the code to change it" (`WorkbenchSession.DrawingRefusal`), and PARTS
   says so where it lists nothing to place.
@@ -3513,6 +3518,10 @@ instances inside written code stepped into, and GATES opening its small operator
   written adder's ripple valued; in Play Mode, DRAWING, GATES and BOXES pressed, a drag refused and a double-click stepping
   into an instance; shot 63, the written adder's block made a small ALU and drawn, and shot 64, the written adder's own sum
   with GATES, the 4-bit ripple.
+- **The Sonnet review of #110** ran 1,711 random designs with 3,294 openings through the drawing's own checks, x and z
+  included, and every corpus design and exercise: no throw, no wire inside an opening read before it is worked out. It
+  found the signed comparison and `>>>` drawn as unsigned gates, and the chip's "nothing opens" line wrong for a module
+  with no operator at all; both are fixed.
 - **The Sonnet review of #109** found that a double-click on the drawing's blocks could not step in -- the canvas hit-tested
   the written module, which has no parts; that a step through code remembered its module for good, so an undo that made h1
   another module showed the old one and one that took h1 away left the path on nothing; and that a step from the
