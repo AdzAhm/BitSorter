@@ -46,6 +46,7 @@ namespace BitSorter.Board
             _caseSubjectWidth = builder.CaseParts;
             _matchSets = builder.MatchSets;
             _made = builder.Made;
+            _keys = builder.Keys;
             FoldedInstances = builder.FoldedInstances;
             _netlist = builder.Netlist;
         }
@@ -180,13 +181,18 @@ namespace BitSorter.Board
         /// <paramref name="netlist"/> drawn as a module named <paramref name="name"/>, beside the modules of
         /// <paramref name="project"/>; with <paramref name="gates"/>, every operator and mux that opens into gates drawn as them.
         /// </summary>
-        public static RtlDrawing Of(Project project, RtlNetlist netlist, string name, bool gates = false)
+        /// <param name="arranged">
+        /// The written module whose <see cref="Module.Arrangement"/> puts parts where they were put by hand (Part 15h-4f): its
+        /// numbered keys only while its code is the code they were put against.
+        /// </param>
+        public static RtlDrawing Of(Project project, RtlNetlist netlist, string name, bool gates = false, Module arranged = null)
         {
             if (netlist == null)
                 throw new ArgumentNullException(nameof(netlist));
 
             var drawing = new Builder(project, netlist, gates);
             Module module = drawing.Make(name);
+            module = drawing.Arrange(module, arranged);
             var modules = new List<Module>();
             foreach (Module m in project.Modules)
                 if (m.Name != name)

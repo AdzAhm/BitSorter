@@ -351,13 +351,14 @@ namespace BitSorter.ViewModel
             Refusal = null;
 
             // A drag that would begin an edit the document refuses is refused as it begins, saying why, rather than drawn and then
-            // refused where it ends: any, locked (Part 15h-4d); on the drawing of code, a move or a reshape -- it lays itself out
-            // -- and a wire with GATES on (Part 15h-4g). A click, a box, a double-click and the menu still work.
+            // refused where it ends: any, locked (Part 15h-4d); on the drawing of code, a reshape -- it routes its own wires; a
+            // move arranges it by hand (Part 15h-4f) -- and a wire with GATES on (Part 15h-4g). A click, a box, a double-click
+            // and the menu still work.
             bool drag = command.Gesture == CanvasGesture.BeginMove || command.Gesture == CanvasGesture.BeginWire || command.Gesture == CanvasGesture.BeginReshape;
             if (drag && _session.Locked)
                 return EditResult.Refused(WorkbenchSession.LockedRefusal);
-            if (drag && _session.ShowsDrawingOfCode && command.Gesture != CanvasGesture.BeginWire)
-                return EditResult.Refused(WorkbenchSession.ArrangeRefusal);
+            if (drag && _session.ShowsDrawingOfCode && command.Gesture == CanvasGesture.BeginReshape)
+                return EditResult.Refused(WorkbenchSession.ArrangeRefusal);   // it routes its own wires; its parts move (15h-4f)
             if (drag && _session.ShowsDrawingOfCode && !_session.EditsDrawingOfCode)
                 return EditResult.Refused(WorkbenchSession.GatesRefusal);
 
@@ -1032,7 +1033,9 @@ namespace BitSorter.ViewModel
         /// <summary>The selected parts lined up or spread <paramref name="by"/>: layout only, one step.</summary>
         public EditResult Arrange(ArrangeBy by)
         {
-            Dictionary<int, Placement> to = BitSorter.ViewModel.Arrange.Of(_session.Project, _session.Module, new List<int>(Selection.Parts), by);
+            // The drawing's parts on a drawing of code, which the move then arranges (the review of #119: they were looked for
+            // in the written module, which has none, and nothing moved).
+            Dictionary<int, Placement> to = BitSorter.ViewModel.Arrange.Of(Drawn, _session.Module, new List<int>(Selection.Parts), by);
             if (to.Count == 0)
             {
                 bool spread = by == ArrangeBy.SpreadAcross || by == ArrangeBy.SpreadDown;
@@ -1199,8 +1202,8 @@ namespace BitSorter.ViewModel
                 Layout moved = module.Layout;
                 foreach (KeyValuePair<int, Placement> part in _start)
                     moved = moved.WithPart(part.Key, new Placement(new BoardPoint(part.Value.Position.X + _dx, part.Value.Position.Y + _dy), part.Value.QuarterTurns, part.Value.Flipped));
-                Dictionary<int, IReadOnlyList<BoardPoint>> routes = WireGeometry.Following(_session.Project, module with { Layout = moved },
-                    _session.RoutesOf(_session.Project, module), _start.Keys);
+                Dictionary<int, IReadOnlyList<BoardPoint>> routes = WireGeometry.Following(Drawn, module with { Layout = moved },
+                    _session.RoutesOf(Drawn, module), _start.Keys);
                 foreach (Wire wire in module.Wires)
                 {
                     bool follows = (!wire.From.IsTap && _start.ContainsKey(wire.From.Pin.Part)) || (!wire.To.IsTap && _start.ContainsKey(wire.To.Pin.Part));

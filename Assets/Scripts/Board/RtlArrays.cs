@@ -9,6 +9,15 @@ namespace BitSorter.Board
 {
     public sealed partial class RtlDrawing
     {
+        private readonly Dictionary<int, string> _keys;
+
+        /// <summary>
+        /// The key a part of the drawing is kept by in a <see cref="Module.Arrangement"/> (Part 15h-4f): <c>port:a</c>,
+        /// <c>inst:u</c>, <c>reg:state</c>, <c>sig:next</c> for a part the code names, else its kind and its place among
+        /// them; null for none.
+        /// </summary>
+        public string KeyOf(int part) => _keys != null && _keys.TryGetValue(part, out string key) ? key : null;
+
         /// <summary>How many instances a generate loop's are drawn as one array block of (Part 15h-4e): each loop's copies but one.</summary>
         public int FoldedInstances { get; private set; }
 
@@ -36,6 +45,77 @@ namespace BitSorter.Board
             public readonly Dictionary<int, (string Says, string Expression)> Made = new Dictionary<int, (string, string)>();
 
             public int FoldedInstances;
+
+            /// <summary>Each part's key in an arrangement, by its id (<see cref="RtlDrawing.KeyOf"/>).</summary>
+            public readonly Dictionary<int, string> Keys = new Dictionary<int, string>();
+
+            /// <summary>
+            /// <paramref name="module"/>, laid out by itself, with the parts <paramref name="arranged"/> keeps put where they were
+            /// put by hand, and any other part one of them stands on moved down its column, clear of them all.
+            /// </summary>
+            public Module Arrange(Module module, Module arranged)
+            {
+                var ordinals = new Dictionary<string, int>(StringComparer.Ordinal);
+                foreach (Part part in module.Parts)
+                    Keys[part.Id] = KeyFor(module, part, ordinals);
+                if (arranged == null || arranged.Arrangement.Count == 0)
+                    return module;
+
+                bool sameCode = arranged.ArrangedFor == arranged.Source;
+                var placed = new Dictionary<int, Placement>(module.Layout.Parts);
+                var kept = new HashSet<int>();
+                foreach (Part part in module.Parts)
+                    if (Keys[part.Id] is string key && arranged.Arrangement.TryGetValue(key, out Placement put)
+                        && (sameCode || !key.StartsWith("cell:", StringComparison.Ordinal)))
+                    {
+                        placed[part.Id] = put;
+                        kept.Add(part.Id);
+                    }
+                if (kept.Count == 0)
+                    return module;
+
+                var outlines = new List<PartOutline>();
+                foreach (Part part in module.Parts)
+                    if (kept.Contains(part.Id))
+                        outlines.Add(PartGeometry.Placed(_project, part, placed[part.Id]));
+                foreach (Part part in module.Parts)
+                {
+                    if (kept.Contains(part.Id))
+                        continue;
+                    Placement at = placed[part.Id];
+                    for (int tries = 0; tries < 200; tries++)
+                    {
+                        PartOutline mine = PartGeometry.Placed(_project, part, at);
+                        PartOutline over = outlines.Find(o => mine.Left < o.Right + 0.5 && o.Left < mine.Right + 0.5 && mine.Bottom < o.Top + 0.5 && o.Bottom < mine.Top + 0.5);
+                        if (over == null)
+                            break;
+                        at = new Placement(new Point(at.Position.X, at.Position.Y - (mine.Top - over.Bottom) - 1), at.QuarterTurns, at.Flipped);
+                    }
+                    placed[part.Id] = at;
+                    outlines.Add(PartGeometry.Placed(_project, part, at));
+                }
+                return module with { Layout = module.Layout with { Parts = placed } };
+            }
+
+            private string KeyFor(Module module, Part part, Dictionary<string, int> ordinals)
+            {
+                switch (part)
+                {
+                    case PortPart port:
+                        return "port:" + port.Name;
+                    case BlockPart block when InstanceOf.TryGetValue(block.Id, out string instance):
+                        return (block.Copies > 1 ? "array:" : "inst:") + (block.Copies > 1 ? block.Name : instance);
+                    case RegisterPart register when register.Name != null:
+                        return "reg:" + register.Name.TrimStart('$');
+                }
+                foreach (Wire wire in module.Wires)
+                    if (!wire.From.IsTap && wire.From.Pin.Part == part.Id && !string.IsNullOrEmpty(wire.NetName) && wire.NetName[0] != '$')
+                        return "sig:" + wire.NetName;
+                string kind = part.GetType().Name;
+                int n = ordinals.TryGetValue(kind, out int seen) ? seen : 0;
+                ordinals[kind] = n + 1;
+                return "cell:" + kind + ":" + n.ToString(CultureInfo.InvariantCulture);
+            }
 
             /// <summary>
             /// Every generate loop of one project module's instances -- <c>slice[0].u</c> to <c>slice[7].u</c> -- whose every input

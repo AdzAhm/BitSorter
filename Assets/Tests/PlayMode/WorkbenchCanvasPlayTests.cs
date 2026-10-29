@@ -702,6 +702,58 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
+        /// The drawing of code arranged by hand through the workbench's own controls (Part 15h-4f): an import unlocked, its mux
+        /// dragged three cells right and kept there, the code untouched; TIDY up and pressed, laying it out by itself again;
+        /// and Ctrl+Z putting the mux back where it was dragged.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator APartOfTheDrawingOfCode_DraggedByHand_StaysThere_AndTidyLaysItOutAgain()
+        {
+            yield return TestScene.LoadSimulator();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            const string pick =
+                "module pick (input logic [1:0] a, b, input logic s, output logic [1:0] y);\n" +
+                "    always_comb y = s ? b : a;   // a process, so the importer keeps it written code\n" +
+                "endmodule\n";
+            workbench.Import(new[] { new SourceFile("pick.sv", pick) });
+            yield return null;
+            workbench.Pause();
+            workbench.Session.Finish();
+            yield return null;
+            yield return Click(WorkbenchPanel.LockButtonName);
+            Assert.IsFalse(workbench.Session.Locked);
+            Assert.IsFalse(workbench.TidySwitch.gameObject.activeSelf, "no TIDY with nothing put by hand");
+
+            MuxPart mux = workbench.Session.DrawnModule.Parts.OfType<MuxPart>().Single();
+            Placement was = workbench.Session.DrawnModule.Layout.PlacementOf(mux.Id);
+            PartOutline box = PartGeometry.Placed(workbench.Session.DrawnProject, mux, was);
+            var middle = new BoardPoint((box.Left + box.Right) / 2, (box.Bottom + box.Top) / 2);
+            yield return Drag(workbench, middle, new BoardPoint(middle.X + 3, middle.Y));
+            workbench.Session.Finish();
+            yield return null;
+            Assert.AreEqual(1, workbench.Session.Project.Find("pick").Arrangement.Count, "kept with the module");
+            Assert.AreEqual(pick, workbench.Session.Project.Find("pick").Source, "the code untouched");
+            mux = workbench.Session.DrawnModule.Parts.OfType<MuxPart>().Single();
+            Placement moved = workbench.Session.DrawnModule.Layout.PlacementOf(mux.Id);
+            Assert.AreEqual(was.Position.X + 3, moved.Position.X, 1e-9, "drawn again where it was put");
+            yield return null;
+            Assert.IsTrue(workbench.TidySwitch.gameObject.activeSelf, "TIDY up");
+
+            yield return Click(WorkbenchPanel.TidySwitchName);
+            workbench.Session.Finish();
+            yield return null;
+            Assert.AreEqual(0, workbench.Session.Project.Find("pick").Arrangement.Count, "TIDY: laid out by itself again");
+            mux = workbench.Session.DrawnModule.Parts.OfType<MuxPart>().Single();
+            Assert.AreEqual(was, workbench.Session.DrawnModule.Layout.PlacementOf(mux.Id));
+
+            yield return Chord(_keyboard.zKey);
+            workbench.Session.Finish();
+            yield return null;
+            mux = workbench.Session.DrawnModule.Parts.OfType<MuxPart>().Single();
+            Assert.AreEqual(moved, workbench.Session.DrawnModule.Layout.PlacementOf(mux.Id), "Ctrl+Z: where it was dragged");
+        }
+
+        /// <summary>
         /// Written code shown as the drawing of what it builds (Part 15h-4), through the workbench's own controls: DRAWING over a
         /// written full adder's code, GATES beside it saying BOXES while its gates are drawn, a drag on the drawing refused as it
         /// begins with the chip saying why, and a double-click on one of the half adders its code makes stepping inside it.
@@ -1301,6 +1353,49 @@ namespace BitSorter.PlayMode.Tests
             PartOutline b = PartGeometry.Placed(workbench.Session.Project, top.FindPart(ids[1]), top.Layout.PlacementOf(ids[1]));
             Assert.AreEqual(a.Top, b.Top, 1e-9, "their tops in line");
             Assert.IsFalse(workbench.Session.Replaying, "and nothing replays");
+        }
+
+        /// <summary>
+        /// TIDY on a drawn circuit (Part 15h-4f): two gates placed by hand on MY CIRCUIT put TIDY up, left of the padlock; a
+        /// right-click on nothing offers it in the canvas's menu, which lays the circuit out -- one column for two parts fed
+        /// by nothing, and TIDY down, it being tidy -- and Ctrl+Z puts it back as it was drawn, TIDY up again.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator ADrawnCircuit_TidiedFromTheMenu_IsLaidOut_AndCtrlZPutsItBack()
+        {
+            yield return TestScene.Load();
+            yield return OpenMyCircuit();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.Pause();
+
+            var ids = new System.Collections.Generic.List<int>();
+            yield return Place(workbench, "and", new BoardPoint(3, -2), ids);
+            yield return Place(workbench, "or", new BoardPoint(7, -3.5), ids);
+            yield return null;
+            Assert.IsTrue(workbench.TidySwitch.gameObject.activeSelf, "TIDY up over a circuit laid out by hand");
+            var tidyCorners = new Vector3[4];
+            var lockCorners = new Vector3[4];
+            workbench.TidySwitch.GetComponent<RectTransform>().GetWorldCorners(tidyCorners);
+            workbench.LockButton.GetComponent<RectTransform>().GetWorldCorners(lockCorners);
+            Assert.LessOrEqual(tidyCorners[2].x, lockCorners[0].x, "left of the padlock");
+            Placement and = Top(workbench).Layout.PlacementOf(ids[0]), or = Top(workbench).Layout.PlacementOf(ids[1]);
+
+            yield return RightClickAt(workbench, new BoardPoint(5, -6));
+            Assert.IsTrue(workbench.CanvasMenu.IsOpen, "a right-click on nothing opens the menu, for TIDY");
+            UnityEngine.UIElements.Button tidy = ShellPanel.Find<UnityEngine.UIElements.Button>(CanvasMenu.ActionItem + CanvasMenuAction.Tidy);
+            Assert.IsTrue(tidy != null && tidy.style.display.value != UnityEngine.UIElements.DisplayStyle.None, "TIDY offered");
+            ShellPanel.Submit(tidy);
+            yield return null;
+            yield return null;
+            Assert.AreEqual(Top(workbench).Layout.PlacementOf(ids[0]).Position.X, Top(workbench).Layout.PlacementOf(ids[1]).Position.X, 1e-9,
+                "laid out: two parts fed by nothing in one column");
+            Assert.IsFalse(workbench.TidySwitch.gameObject.activeSelf, "TIDY down: it is tidy");
+
+            yield return Chord(_keyboard.zKey);
+            yield return null;
+            Assert.AreEqual(and, Top(workbench).Layout.PlacementOf(ids[0]), "Ctrl+Z: as it was drawn");
+            Assert.AreEqual(or, Top(workbench).Layout.PlacementOf(ids[1]));
+            Assert.IsTrue(workbench.TidySwitch.gameObject.activeSelf, "TIDY up again");
         }
 
         /// <summary>

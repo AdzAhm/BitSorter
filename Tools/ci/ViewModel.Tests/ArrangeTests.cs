@@ -56,6 +56,46 @@ namespace BitSorter.ViewModel.Tests
         }
 
         // -----------------------------------------------------------------
+        // TIDY (Part 15h-4f)
+        // -----------------------------------------------------------------
+
+        [Test]
+        public void Tidy_LaysTheCircuitOutLeftToRight_DropsItsBends_KeepsItsTap_InOneStep()
+        {
+            var bench = new Bench();
+            Assert.IsTrue(bench.Session.CanTidy, "laid out by hand");
+            Module before = bench.Module;
+
+            EditResult done = bench.Session.Tidy();
+            Assert.IsTrue(done.Done, done.Refusal);
+            Layout tidy = bench.Module.Layout;
+            Assert.IsFalse(tidy.Routes.TryGetValue(bench.Bent, out Route bent) && bent.Bends.Count > 0, "its bends dropped");
+            Assert.AreEqual(0.25, tidy.Routes[bench.ToNot].TapAt, "the tap joins where it did");
+            Assert.Less(tidy.PlacementOf(bench.A).Position.X, tidy.PlacementOf(bench.Not).Position.X, "the input first");
+            Assert.Less(tidy.PlacementOf(bench.Not).Position.X, tidy.PlacementOf(bench.And).Position.X, "each part past what feeds it");
+            Assert.Less(tidy.PlacementOf(bench.And).Position.X, tidy.PlacementOf(bench.Y).Position.X, "the output last");
+            Assert.AreSame(before.Parts, bench.Module.Parts, "layout only: what the circuit does is untouched");
+            Assert.AreSame(before.Wires, bench.Module.Wires);
+
+            Assert.IsFalse(bench.Session.CanTidy, "tidy now");
+            Assert.IsFalse(bench.Session.Tidy().Done, "nothing left to tidy");
+            Assert.IsTrue(bench.Session.Undo());
+            Assert.AreSame(before, bench.Module, "one Ctrl+Z, laid out by hand again");
+        }
+
+        /// <summary>Locked, TIDY stays up -- the padlock beside it never moves for it (the review of #119) -- and says it is locked.</summary>
+        [Test]
+        public void Tidy_StaysUpLocked_AndIsRefusedSayingSo()
+        {
+            var bench = new Bench();
+            Module before = bench.Module;
+            bench.Session.Locked = true;
+            Assert.IsTrue(bench.Session.CanTidy);
+            Assert.AreEqual(WorkbenchSession.LockedRefusal, bench.Session.Tidy().Refusal);
+            Assert.AreSame(before, bench.Module, "nothing moved");
+        }
+
+        // -----------------------------------------------------------------
         // Copy and paste
         // -----------------------------------------------------------------
 

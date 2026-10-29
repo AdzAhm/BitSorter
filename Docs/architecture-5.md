@@ -3732,6 +3732,42 @@ as one column of 64 blocks, all at one depth).
   four copies and c along the way (`TimingViewTests`); every drawing counting a loop's copies as one
   (`RtlDrawing.FoldedInstances`).
 
+**As built in Part 15h-4f: a drawing of code arranged by hand** (asked 2026-10-29: move and turn parts on the drawing,
+the code untouched, and find them there again).
+- **`Module.Arrangement`**: where parts of the drawing of a written module's code were put, by a key naming each as the
+  code does -- `port:a`, `inst:u`, `array:slice`, `reg:state`, `sig:next` for a part driving a signal -- else its kind and
+  its place among them (`cell:OperatorPart:3`), with the code it was put against (`ArrangedFor`). Saved with the module
+  (`arranged`, `arrangedFor`; absent in an older file).
+- **Kept through a change of the code**: a key naming something keeps its place; a numbered one may now be another part,
+  so it is dropped once the code is other (`BoardEditor.Arrange`, and `RtlDrawing.Of`'s `arranged`) -- an edit made on the
+  drawing and written into the code (15h-4g) included, which is the commonest change of all; a rename is not one, the code
+  it was put against renamed with it.
+- **One arrangement for the module**, as its code is one: every instance of it is drawn with it, and a numbered part of an
+  instance whose parameters make other parts may stand where another instance's was put. With GATES on, the gates opened
+  are laid out by themselves -- the arrangement is the boxes' -- and a move there says to press BOXES.
+- **Drawn round it**: the drawing laid out by itself, then each part the arrangement keeps put where it was put, and any
+  other part one of them stands on moved down its column, clear of them all (`RtlDrawing.KeyOf`).
+- **On the workbench**: on a drawing of code, unlocked and with GATES off, a move or a turn is an arrangement by keys --
+  one step, a drag one step -- and the canvas begins a drag on it, previewed on the drawing's project; reshaping or routing
+  a wire stays refused, the drawing routing its own; ALIGN and SPREAD line up the drawing's parts and arrange them. TIDY, a
+  button left of GATES while a part of the drawing shown stands where it was put by hand, clears it (`WorkbenchSession.Tidy`,
+  `CanTidy`), one step -- up whatever the lock, so the padlock never moves for it, and refused locked.
+- **TIDY on a drawn circuit** (`Tidying`, `BoardEditor.Tidy`): its parts laid out as the drawing of code is -- by
+  `LayeredLayout`, from what drives what on its nets, the inputs first, the outputs last, a register after the logic that
+  feeds it -- every part unturned, every wire's bends dropped (a tap keeps where it joins), and the whole kept where it was,
+  its middle moved by whole quarter cells, so a circuit tidied once is tidy. Layout only (ADR-7), so it cannot change what
+  the circuit does; one step; refused locked, and with it tidy already. The button stands left of the padlock while the
+  circuit is not laid out so (worked out once a document), and the canvas's menu offers it on a right-click anywhere.
+- **Tests**: a part put by hand where it was put, by the name it drives; saved and read again; a code change keeping the
+  named place and forgetting the numbered; a part put on another leaving nothing on anything; TIDY one step
+  (`ArrangementTests`); in the session the written adder's part moved, turned, TIDY and Ctrl+Z (`DrawingOfCodeTests`); in
+  Play Mode an import's mux dragged three cells and kept there, TIDY up and pressed, and Ctrl+Z. After its review: a rename
+  keeping the numbered places, an older save reading as nothing put by hand, GATES ignoring the arrangement, TIDY up but
+  refused locked. On drawn circuits (`TidyingTests`): every drawn sample and every exercise's reference solution tidied --
+  nothing standing on anything, nothing turned or bent, the circuit printed to the character as before, tidy once tidied,
+  one step back; in the session the bench's tap kept and its bends gone; in Play Mode TIDY from the canvas's menu on MY
+  CIRCUIT and Ctrl+Z.
+
 **As built in Part 15h-4g: the drawing and the code follow each other** (asked 2026-10-29: "When I unlock the project
 through the lock I can add and do anything I want; changes I do in code/drawing convert to changes in drawing/code").
 - **The code is what is kept.** An edit of a drawing of code, unlocked -- a part placed, a wire drawn, parts or wires
@@ -3784,8 +3820,9 @@ through the lock I can add and do anything I want; changes I do in code/drawing 
 - **Names**: the code's own first, a made-up one by kind and id (`g12`, `op7`) only for a part it names nothing, so none
   takes an instance's; a name that is already an identifier kept to the character (`d` and `d_` stay two); a widening
   box named.
-- **Still refused on the drawing**: a move, a turn, a reshape, a route (`ArrangeRefusal`: it lays itself out, until
-  15h-4f), a copy, MAKE BLOCK, and any edit with GATES on (`GatesRefusal`: the code is written from the boxes). The
+- **Still refused on the drawing**: a reshape and a route (`ArrangeRefusal`: it routes its own wires; a move and a turn
+  arrange it by hand since 15h-4f), a copy, MAKE BLOCK, and any edit with GATES on (`GatesRefusal`: the code is written
+  from the boxes). The
   lock's refusal comes first. A drawn register is named for its signal after a `$`, never its own wire's name.
 - **Tests**: every exercise answer written as code (as WRITE IT writes it) and every corpus design, each written module
   drawn and written again, does what its code did or is refused for one of those reasons -- 35 written again of 59 since the

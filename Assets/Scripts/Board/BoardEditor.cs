@@ -334,6 +334,60 @@ namespace BitSorter.Board
             return Commit(Project.WithModule(m with { Layout = layout }), ids[0], key, check: false);
         }
 
+        /// <summary>
+        /// Parts of the drawing of a written module's code put where <paramref name="to"/> says, by their keys (Part 15h-4f):
+        /// kept with the module, the code untouched. One step, or one with the steps before it of the same parts while
+        /// <paramref name="continuing"/> -- a drag. With <paramref name="to"/> null, the arrangement cleared: TIDY.
+        /// </summary>
+        public EditResult Arrange(string module, IReadOnlyDictionary<string, Placement> to, bool continuing = false)
+        {
+            if (!TryModule(module, out Module m, out EditResult refused))
+                return refused;
+            if (!m.IsWritten)
+                return EditResult.Refused($"{module} is drawn: move its parts themselves.");
+            if (to == null)
+            {
+                if (m.Arrangement.Count == 0)
+                    return EditResult.Refused("The drawing is laid out by itself already.");
+                return Commit(Project.WithModule(m with { Arrangement = new Dictionary<string, Placement>(), ArrangedFor = null }), check: false);
+            }
+            if (to.Count == 0)
+                return EditResult.Refused("There is nothing to move.");
+
+            // Once the code is other, a part the code names nothing may be another part: its place is forgotten.
+            var arrangement = new Dictionary<string, Placement>(StringComparer.Ordinal);
+            foreach (KeyValuePair<string, Placement> kept in m.Arrangement)
+                if (m.ArrangedFor == m.Source || !kept.Key.StartsWith("cell:", StringComparison.Ordinal))
+                    arrangement[kept.Key] = kept.Value;
+            var keys = new List<string>(to.Keys);
+            keys.Sort(StringComparer.Ordinal);
+            foreach (string key in keys)
+                arrangement[key] = to[key];
+
+            string step = continuing ? $"arrange {module} {string.Join(",", keys)}" : null;
+            return Commit(Project.WithModule(m with { Arrangement = arrangement, ArrangedFor = m.Source }), 0, step, check: false);
+        }
+
+        /// <summary>
+        /// TIDY on a drawn module (Part 15h-4f): its parts laid out as the drawing of code is, unturned, every wire's bends
+        /// dropped, the whole kept where it was (<see cref="Tidying"/>) -- one step, layout only, as <see cref="MoveParts"/>
+        /// is. Refused with nothing to lay out, or with it tidy already. A written module's drawing is tidied by
+        /// <see cref="Arrange"/> with nothing.
+        /// </summary>
+        public EditResult Tidy(string module)
+        {
+            if (!TryModule(module, out Module m, out EditResult refused))
+                return refused;
+            if (m.IsWritten)
+                return EditResult.Refused($"{module} is written: its drawing lays itself out.");
+            if (m.Parts.Count == 0)
+                return EditResult.Refused("There is nothing to tidy.");
+            Layout tidy = Tidying.Of(Project, m);
+            if (Tidying.Same(tidy, m.Layout))
+                return EditResult.Refused("It is tidy already.");
+            return Commit(Project.WithModule(m with { Layout = tidy }), check: false);
+        }
+
         // -----------------------------------------------------------------
         // Wires
         // -----------------------------------------------------------------
@@ -487,7 +541,11 @@ namespace BitSorter.Board
 
                 // Written text says the name too (Part 12d): in its own header, and wherever it instantiates the module.
                 if (each.IsWritten)
-                    renamed = renamed with { Source = WrittenModules.Renamed(Project, each, from, to) };
+                {
+                    // A drawing arranged against the code keeps its numbered places through the name (the review of #119).
+                    string source = WrittenModules.Renamed(Project, each, from, to);
+                    renamed = renamed with { Source = source, ArrangedFor = each.ArrangedFor == each.Source ? source : each.ArrangedFor };
+                }
 
                 var parts = new List<Part>(renamed.Parts.Count);
                 bool changed = false;

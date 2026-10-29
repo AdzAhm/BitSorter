@@ -30,6 +30,25 @@ namespace BitSorter.View
 
         private const float GatesWidth = 104f;
 
+        /// <summary>The DRAWING or CODE switch's width, at the right of the code's top strip.</summary>
+        private const float DrawingSwitchWidth = 124f;
+
+        /// <summary>
+        /// TIDY (Part 15h-4f): left of GATES over a drawing of code with parts put by hand, laying it out by itself again; and
+        /// left of the padlock over a drawn circuit not laid out as TIDY would lay it.
+        /// </summary>
+        public const string TidySwitchName = "Workbench tidy switch";
+
+        public const string TidyCaption = "TIDY";
+
+        private const float TidyWidth = 88f;
+
+        private UnityEngine.UI.Button _tidySwitch;
+        private bool _tidySwitchShown;
+
+        /// <summary>TIDY over a drawing of code arranged by hand.</summary>
+        public UnityEngine.UI.Button TidySwitch => _tidySwitch;
+
         private CodeEditorView _codeView;
         private WaveRenameField _codeName;
 
@@ -78,6 +97,14 @@ namespace BitSorter.View
                 UiTheme.Defocus();
             });
             Show(_gatesSwitch, false);
+            _tidySwitch = CanvasButton(TidySwitchName, Root, TidyCaption, out _, UiType.Body, palette);
+            _tidySwitch.onClick.AddListener(() =>
+            {
+                if (_session != null)
+                    Said(_session.Tidy());
+                UiTheme.Defocus();
+            });
+            Show(_tidySwitch, false);
             PlaceCodeView();
             _codeName = WaveRenameField.Build(_shell, transform, palette, NewCodeBlockNamed, WaveRenameField.CodeNameName,
                 "NAME THE NEW CODE BLOCK", "a module's name, add4");
@@ -98,7 +125,7 @@ namespace BitSorter.View
             _codeView.Place(CornerOf(_regions.Circuit), size);
             if (_drawingSwitch != null)
             {
-                var switchSize = new Vector2(124f, 32f);
+                var switchSize = new Vector2(DrawingSwitchWidth, 32f);
                 TopLeft(_drawingSwitch.GetComponent<RectTransform>(), CornerOf(_regions.Circuit) + new Vector2(size.x - 10f - switchSize.x, 8f), switchSize);
                 if (_gatesSwitch != null)
                     TopLeft(_gatesSwitch.GetComponent<RectTransform>(),
@@ -168,10 +195,31 @@ namespace BitSorter.View
                 _gatesSwitchShown = gates;
             }
 
+            // TIDY beside them while some of the drawing is put by hand; over a drawn circuit, left of the padlock while it is not
+            // laid out as TIDY would lay it.
+            bool tidy = gates ? _session.CanTidy : _session != null && !shown && !PageShowing && _session.CanTidy;
+            if (tidy != _tidySwitchShown && _tidySwitch != null)
+            {
+                Show(_tidySwitch, tidy);
+                if (tidy)
+                    _tidySwitch.transform.SetAsLastSibling();
+                _tidySwitchShown = tidy;
+            }
+            if (tidy && _tidySwitch != null)
+            {
+                float window = SizeOf(_regions.Circuit).x;
+                float left = gates ? window - 10f - DrawingSwitchWidth - 8f - GatesWidth - 8f - TidyWidth
+                    : window - 8f - 72f - KeyRoom - (Lockable ? 8f + LockWidth : 0f) - 8f - TidyWidth;   // clear of FIT's key, F, and the padlock
+                Vector2 at = CornerOf(_regions.Circuit) + new Vector2(left, 8f);
+                var rect = _tidySwitch.GetComponent<RectTransform>();
+                if (rect.anchoredPosition != new Vector2(at.x, -at.y))
+                    TopLeft(rect, at, new Vector2(TidyWidth, 32f));
+            }
+
             // FIT steps left of the switches while they are up.
             if (_fit != null)
             {
-                float right = shown ? -(8f + CodeEditorView.SwitchRoom + (gates ? GatesWidth + 8f : 0f)) : -8f;
+                float right = shown ? -(8f + CodeEditorView.SwitchRoom + (gates ? GatesWidth + 8f : 0f) + (tidy ? TidyWidth + 8f : 0f)) : -8f;
                 var fit = _fit.GetComponent<RectTransform>();
                 if (!Mathf.Approximately(fit.anchoredPosition.x, right))
                     TopRight(fit, new Vector2(right, 8f), new Vector2(72f, 32f));

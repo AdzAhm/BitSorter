@@ -252,6 +252,12 @@ namespace BitSorter.Board
         public double panY;
         public double zoom = 1;
 
+        /// <summary>Where parts of the drawing of a written module's code were put by hand (Part 15h-4f); absent in an older file.</summary>
+        public ArrangedRecord[] arranged = new ArrangedRecord[0];
+
+        /// <inheritdoc cref="Module.ArrangedFor"/>
+        public string arrangedFor;
+
         public static ModuleRecord From(Module module)
         {
             var file = new ModuleRecord
@@ -291,6 +297,17 @@ namespace BitSorter.Board
                     routes.Add(RouteRecord.From(wire.Id, r));
             file.routes = routes.ToArray();
 
+            var arranged = new List<ArrangedRecord>();
+            var keys = new List<string>(module.Arrangement.Keys);
+            keys.Sort(StringComparer.Ordinal);   // the same file however the dictionary is kept
+            foreach (string key in keys)
+            {
+                Placement p = module.Arrangement[key];
+                arranged.Add(new ArrangedRecord { key = key, x = p.Position.X, y = p.Position.Y, turns = p.QuarterTurns, flipped = p.Flipped });
+            }
+            file.arranged = arranged.ToArray();
+            file.arrangedFor = module.ArrangedFor;
+
             return file;
         }
 
@@ -326,8 +343,30 @@ namespace BitSorter.Board
                 Parts = parts,
                 Wires = wires,
                 Layout = new Layout { Parts = places, Routes = routed, Pan = new Point(panX, panY), Zoom = zoom },
+                Arrangement = Arranged(),
+                ArrangedFor = string.IsNullOrEmpty(arrangedFor) ? null : arrangedFor,
             };
         }
+
+        private Dictionary<string, Placement> Arranged()
+        {
+            var arrangement = new Dictionary<string, Placement>(StringComparer.Ordinal);
+            foreach (ArrangedRecord a in arranged ?? new ArrangedRecord[0])
+                if (!string.IsNullOrEmpty(a.key))
+                    arrangement[a.key] = new Placement(new Point(a.x, a.y), a.turns, a.flipped);
+            return arrangement;
+        }
+    }
+
+    /// <summary>A part of a drawing of code put by hand: its key, and where (Part 15h-4f).</summary>
+    [Serializable]
+    public sealed class ArrangedRecord
+    {
+        public string key;
+        public double x;
+        public double y;
+        public int turns;
+        public bool flipped;
     }
 
     /// <summary>One part: its <see cref="kind"/> says which of the other fields it uses.</summary>
