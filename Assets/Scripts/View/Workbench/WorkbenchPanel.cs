@@ -1046,7 +1046,7 @@ namespace BitSorter.View
             if (_session.Undo())
                 Said(BitSorter.Board.EditResult.Ok());
             else
-                Notice("nothing to undo");
+                Notice(_session.WhyNotUndo ?? "nothing to undo");
         }
 
         /// <summary>Makes the edit last taken back again, and replays the run with it.</summary>
@@ -1057,7 +1057,7 @@ namespace BitSorter.View
             if (_session.Redo())
                 Said(BitSorter.Board.EditResult.Ok());
             else
-                Notice("nothing to redo");
+                Notice(_session.WhyNotRedo ?? "nothing to redo");
         }
 
         /// <summary>Opens the export menu under EXPORT, as the button and E do.</summary>
@@ -1533,6 +1533,7 @@ namespace BitSorter.View
             RefreshPartsPanel();
             TickCode();
             TickDrawingSwitch();
+            TickLock();
             RefreshCode();
 
             // The run is made a slice a frame until it is done, and a moment past where it has got waits;
@@ -1630,6 +1631,7 @@ namespace BitSorter.View
             Fit();
             BuildStage(palette);
             BuildCodeView(palette);
+            BuildLock(palette);
             BuildListingView(palette);
             RefreshDockButtons();
             BuildHome(palette);   // over the docked panels, under the popups, which come to the front as they open (Part 15a)
@@ -1664,6 +1666,8 @@ namespace BitSorter.View
         private void OpenRun()
         {
             _session = new WorkbenchSession(_sample == 0 ? MyCircuit() : WorkbenchSamples.Chip[_sample].Build(), () => UnityEngine.Time.realtimeSinceStartupAsDouble * 1000.0);
+            // A circuit opens as it was left, locked or not (Part 15h-4d); a sample and an exercise never are.
+            _session.Locked = _sample == 0 && _exercise == null && Store() is ProgressStore locks && locks.IsLocked(_documentKey);
             _run = _session.Run;
             _model = _run.Model;
             _playback = new Playback(_run, _speed);

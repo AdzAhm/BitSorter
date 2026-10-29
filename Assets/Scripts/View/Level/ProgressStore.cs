@@ -83,6 +83,12 @@ namespace BitSorter.View
         public string[] recent;
 
         /// <summary>
+        /// The keys of the documents locked against change (Part 15h-4d; an imported project opens locked). A new key,
+        /// absent -- null, nothing locked -- in every file from before it.
+        /// </summary>
+        public string[] locked;
+
+        /// <summary>
         /// What was open last on the workbench (Part 15a), which BitSorter opens on again: a circuit's key, a sample's
         /// (<c>sample/</c> and its name), or empty for the start page. Absent, so the start page, in every file from before it.
         /// </summary>
@@ -176,6 +182,7 @@ namespace BitSorter.View
         /// <summary>5.0's documents, by the key of the board each belongs to, in the order they were put in.</summary>
         private readonly List<SavedProject> _projects = new List<SavedProject>();
         private readonly List<string> _recent = new List<string>();
+        private readonly List<string> _locked = new List<string>();
         private string _lastOpen = "";
         private readonly Dictionary<string, (int Gates, long? Settle)> _exerciseBests = new Dictionary<string, (int Gates, long? Settle)>(StringComparer.Ordinal);
 
@@ -288,6 +295,7 @@ namespace BitSorter.View
             _library.Clear();
             _projects.Clear();
             _recent.Clear();
+            _locked.Clear();
             _lastOpen = "";
             _exerciseBests.Clear();
             LoadedFormat = 0;
@@ -379,6 +387,10 @@ namespace BitSorter.View
                     foreach (string key in file.recent)
                         if (!string.IsNullOrEmpty(key) && !_recent.Contains(key))
                             _recent.Add(key);
+                if (file.locked != null)
+                    foreach (string key in file.locked)
+                        if (!string.IsNullOrEmpty(key) && !_locked.Contains(key))
+                            _locked.Add(key);
                 _lastOpen = file.lastOpen ?? "";
                 if (file.exerciseBests != null)
                     foreach (ExerciseBestRecord best in file.exerciseBests)
@@ -468,6 +480,7 @@ namespace BitSorter.View
                     format = ProjectRecord.Format,
                     projects = _projects.ToArray(),
                     recent = _recent.ToArray(),
+                    locked = _locked.ToArray(),
                     lastOpen = _lastOpen,
                     exerciseBests = ExerciseBestRecords(),
                 };
@@ -507,6 +520,7 @@ namespace BitSorter.View
             _library.Clear();
             _projects.Clear();
             _recent.Clear();
+            _locked.Clear();
             _lastOpen = "";
             _exerciseBests.Clear();
             Save();
@@ -692,6 +706,21 @@ namespace BitSorter.View
             if (index >= 0)
                 _projects.RemoveAt(index);
             _recent.Remove(key);
+            _locked.Remove(key);
+        }
+
+        /// <summary>Whether the document under <paramref name="key"/> is locked against change (Part 15h-4d).</summary>
+        public bool IsLocked(string key) => !string.IsNullOrEmpty(key) && _locked.Contains(key);
+
+        /// <summary>Locks or unlocks the document under <paramref name="key"/>. Not written until <see cref="Save"/>.</summary>
+        public void SetLocked(string key, bool locked)
+        {
+            if (string.IsNullOrEmpty(key))
+                return;
+            if (!locked)
+                _locked.Remove(key);
+            else if (!_locked.Contains(key))
+                _locked.Add(key);
         }
 
         /// <summary>
@@ -707,6 +736,9 @@ namespace BitSorter.View
             int recent = _recent.IndexOf(from);
             if (recent >= 0)
                 _recent[recent] = to;
+            int locked = _locked.IndexOf(from);
+            if (locked >= 0)
+                _locked[locked] = to;
             if (_lastOpen == from)
                 _lastOpen = to;
             return true;

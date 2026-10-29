@@ -87,6 +87,27 @@ namespace BitSorter.View
         public bool HoldsEscapeNow => (_field != null && _field.isFocused) || _letGoFrame == Time.frameCount
             || (_browser && CodeMirrorBridge.Focused);
 
+        /// <summary>
+        /// Read only while the document is locked (Part 15h-4d): the text selected, copied and searched, never typed into --
+        /// the field's own switch here, CodeMirror's in a browser.
+        /// </summary>
+        public bool ReadOnly
+        {
+            get => _readOnly;
+            set
+            {
+                if (_readOnly == value)
+                    return;
+                _readOnly = value;
+                if (_field != null)
+                    _field.readOnly = value;
+                if (_browser)
+                    CodeMirrorBridge.SetReadOnly(value);
+            }
+        }
+
+        private bool _readOnly;
+
         // In a browser (Part 12f): CodeMirror over the body, the text it was last given or read, and where it was laid.
         private bool _browser, _browserShown;
         private string _browserText;

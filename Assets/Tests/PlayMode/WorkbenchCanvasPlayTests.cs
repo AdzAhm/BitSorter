@@ -2696,6 +2696,9 @@ namespace BitSorter.PlayMode.Tests
             Assert.AreEqual(UnityEngine.UIElements.DisplayStyle.None,
                 ShellPanel.Find<UnityEngine.UIElements.VisualElement>(WorkbenchPanel.AddRowName).resolvedStyle.display, "+ ROW edits nothing here, so it is gone");
 
+            // An import opens locked (Part 15h-4d), and CONVERT takes its testbench, code, out of it: the padlock first.
+            Assert.IsTrue(workbench.Session.Locked, "sanity: an import opens locked");
+            yield return Click(WorkbenchPanel.LockButtonName);
             yield return Click(WorkbenchPanel.InputsConvertName);
             Assert.IsTrue(workbench.Ask.IsOpen, "CONVERT asks first, as FILE's does");
             yield return Click(AskMenu.YesItem);
@@ -2778,6 +2781,13 @@ namespace BitSorter.PlayMode.Tests
             workbench.Session.Finish();
             Assert.IsFalse(workbench.Session.SetInput("a", 0, 5, LogicVec.FromBinary("1")).Done, "sanity: the testbench drives the inputs");
 
+            // An import opens locked (Part 15h-4d), and CONVERT takes its written testbench, code, out of it: refused, saying
+            // how to unlock it, until the lock is pressed.
+            Assert.IsTrue(workbench.Session.Locked, "an import opens locked");
+            Assert.AreEqual(WorkbenchSession.LockedRefusal, workbench.Session.ConvertBench().Refusal);
+            yield return Click(WorkbenchPanel.LockButtonName);
+            Assert.IsFalse(workbench.Session.Locked, "the lock pressed, unlocked");
+
             yield return Click(WorkbenchPanel.FileButton);
             yield return Click(FileMenu.ActionItem + FileAction.ConvertTestbench);
             Assert.IsTrue(workbench.Ask.IsOpen, "CONVERT asks first");
@@ -2823,6 +2833,35 @@ namespace BitSorter.PlayMode.Tests
             StringAssert.DoesNotContain("not an input", workbench.ChipText);
             StringAssert.Contains("testbench", workbench.ChipText, "the testbench drives it");
             StringAssert.Contains("CONVERT", workbench.ChipText, "and how to change it");
+        }
+
+        /// <summary>
+        /// An imported project opens locked (Part 15h-4d, asked 2026-10-29): the padlock shut over it, its code read only, an
+        /// edit refused saying how to unlock it; the padlock pressed, the code takes typing again.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator AnImportOpensLocked_ItsCodeReadOnly_UntilThePadlockIsPressed()
+        {
+            PutInTheImportFolder(("mux2.sv", "module mux2 (input logic a, input logic b, input logic s, output logic y);\n" +
+                "    always_comb y = s ? b : a;\nendmodule\n"), ("mux2_tb.sv", ImportedMuxBench));
+            yield return TestScene.Load();
+            yield return Click(MainMenu.WorkbenchButton);
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            yield return null;
+            workbench.ImportFromFolder();
+            yield return null;
+            Assert.IsTrue(workbench.Session.Locked, "an import opens locked");
+            workbench.Session.DrawCode(false);   // its code, which opens as its drawing (Part 15h-4d)
+            yield return null;
+            Assert.IsTrue(workbench.Session.ShowsCode, "sanity: its code shown");
+            Assert.IsTrue(workbench.CodeView.Field.readOnly, "read only while locked");
+            Assert.AreEqual(WorkbenchSession.LockedRefusal, workbench.Session.SetSource(workbench.Session.Project.TopModule.Source + "// a note\n").Refusal);
+
+            yield return Click(WorkbenchPanel.LockButtonName);
+            yield return null;
+            Assert.IsFalse(workbench.Session.Locked, "the padlock pressed, unlocked");
+            Assert.IsFalse(workbench.CodeView.Field.readOnly, "the code takes typing again");
+            Assert.IsTrue(workbench.Session.SetSource(workbench.Session.Project.TopModule.Source + "// a note\n").Done);
         }
 
         /// <summary>A homework file in the course's style, written for this test: the student's code goes between its markers.</summary>

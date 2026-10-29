@@ -21,13 +21,16 @@ namespace BitSorter.View
     public sealed class WorkbenchGraphic : MaskableGraphic
     {
         /// <summary>The layers, back to front.</summary>
-        public enum Layer { Legend, Wires, Changes, Parts, Flashes, Grid, Timing, Glitches, Playhead, Edit, Minimap }
+        public enum Layer { Legend, Wires, Changes, Parts, Flashes, Grid, Timing, Glitches, Playhead, Edit, Minimap, Padlock }
 
         /// <summary>How many layers there are: what the per-layer diagnostics are sized by.</summary>
         public static readonly int LayerCount = System.Enum.GetValues(typeof(Layer)).Length;
 
         /// <summary>Which layer this one draws.</summary>
         public Layer Draws { get; set; }
+
+        /// <summary>The padlock's (<see cref="Layer.Padlock"/>): drawn shut, or open.</summary>
+        public bool Closed { get; set; }
 
         /// <summary>The first of its layer's items this one draws -- a net, a part or a row -- and how many.</summary>
         public int From { get; set; }
@@ -185,6 +188,12 @@ namespace BitSorter.View
             if (Draws == Layer.Legend)
             {
                 WorkbenchDrawing.Legend(_painter, palette, rectTransform.rect.height * 0.5f);
+                return;
+            }
+
+            if (Draws == Layer.Padlock)
+            {
+                WorkbenchDrawing.Padlock(_painter, palette, (rectTransform.rect.size * 0.5f).ToStage(), Closed);
                 return;
             }
 

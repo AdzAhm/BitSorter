@@ -351,9 +351,10 @@ namespace BitSorter.ViewModel
 
             // The drawing of code takes no edit (Part 15h-4): a drag that would begin one is refused as it begins, saying why,
             // rather than drawn and then refused where it ends. A click, a box, a double-click and the menu still work on it.
-            if (_session.ShowsDrawingOfCode && (command.Gesture == CanvasGesture.BeginMove || command.Gesture == CanvasGesture.BeginWire
-                || command.Gesture == CanvasGesture.BeginReshape))
-                return EditResult.Refused(WorkbenchSession.DrawingRefusal);
+            // A locked document the same (Part 15h-4d).
+            if ((_session.Locked || _session.ShowsDrawingOfCode) && (command.Gesture == CanvasGesture.BeginMove
+                || command.Gesture == CanvasGesture.BeginWire || command.Gesture == CanvasGesture.BeginReshape))
+                return EditResult.Refused(_session.ShowsDrawingOfCode ? WorkbenchSession.DrawingRefusal : WorkbenchSession.LockedRefusal);
 
             switch (command.Gesture)
             {

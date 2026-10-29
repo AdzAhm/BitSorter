@@ -25,6 +25,7 @@ namespace BitSorter.View
         [DllImport("__Internal")] private static extern void BitSorterCodeGoTo(int line, int column);
         [DllImport("__Internal")] private static extern void BitSorterCodeBlur();
         [DllImport("__Internal")] private static extern int BitSorterCodeFocused();
+        [DllImport("__Internal")] private static extern void BitSorterCodeSetReadOnly(int on);
 
         public static bool Available => true;
 #else
@@ -41,6 +42,7 @@ namespace BitSorter.View
         private static void BitSorterCodeGoTo(int line, int column) { }
         private static void BitSorterCodeBlur() { }
         private static int BitSorterCodeFocused() => 0;
+        private static void BitSorterCodeSetReadOnly(int on) { }
 
         public static bool Available => false;
 #endif
@@ -70,6 +72,9 @@ namespace BitSorter.View
         public static void SetMarks(string marks) => BitSorterCodeSetMarks(marks ?? "[]");
         public static void GoTo(int line, int column) => BitSorterCodeGoTo(line, column);
         public static void Blur() => BitSorterCodeBlur();
+
+        /// <summary>Read only while the document is locked (Part 15h-4d): selected, copied and searched, never typed into.</summary>
+        public static void SetReadOnly(bool on) => BitSorterCodeSetReadOnly(on ? 1 : 0);
 
         /// <summary>
         /// Whether the editor has the keyboard -- so the game's keys are the editor's -- asked of the page once a frame, since

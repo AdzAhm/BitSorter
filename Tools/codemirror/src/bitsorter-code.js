@@ -17,6 +17,8 @@ const state = {
   view: null,         // the editor
   extensions: null,   // what it is made of, for each block's code shown afresh
   theme: new Compartment(),
+  locked: new Compartment(),   // read only while the document is locked (Part 15h-4d)
+  lockedNow: false,
   changed: false,     // typed since the game last asked
   applyAsked: false,  // Ctrl+Enter or Ctrl+S since the game last asked
   escaped: false,     // Escape let the editor go since the game last asked
@@ -92,6 +94,7 @@ const api = {
       keymap.of([indentWithTab, ...searchKeymap, ...defaultKeymap, ...historyKeymap]),
       StreamLanguage.define(verilog),
       state.theme.of(themeOf(state.colours)),
+      state.locked.of(EditorState.readOnly.of(false)),
       EditorView.updateListener.of((update) => {
         if (update.docChanged && !state.setting)
           state.changed = true;
@@ -125,11 +128,23 @@ const api = {
     if (!state.view)
       return;
     state.view.setState(blockState(text, state.extensions));
+    if (state.lockedNow)   // a new state starts as the extensions say, unlocked
+      state.view.dispatch({ effects: state.locked.reconfigure(EditorState.readOnly.of(true)) });
     // From its top: a new state keeps the scroll the last block's code was at, and one written block stepped into from
     // another opened as far down as that one was, its caret out of sight (the 14g review).
     state.view.scrollDOM.scrollTop = 0;
     state.view.scrollDOM.scrollLeft = 0;
     state.changed = false;
+  },
+
+  /**
+   * Read only, or not (Part 15h-4d): while the document is locked nothing typed changes the text, and the text can still be
+   * selected, copied and searched -- and set by the game, which is not typing.
+   */
+  setReadOnly(on) {
+    state.lockedNow = !!on;
+    if (state.view)
+      state.view.dispatch({ effects: state.locked.reconfigure(EditorState.readOnly.of(state.lockedNow)) });
   },
 
   /** The game's text put in over what is shown, as the document has it now -- REVERT -- which is not typing. */

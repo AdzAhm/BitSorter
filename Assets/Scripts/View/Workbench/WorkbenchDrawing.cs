@@ -280,6 +280,31 @@ namespace BitSorter.View
         public static float LegendTextX => LegendSwatchX(4) + 4f;
 
         /// <summary>A short stretch of each value as a wire draws it, along a line <paramref name="y"/> down: 0, 1, x hatched, z dashed.</summary>
+        /// <summary>
+        /// The lock's padlock (Part 15h-4d), about <paramref name="centre"/>: a body with a keyhole under a shackle -- shut, both
+        /// its legs in the body, in the accent, for a circuit that takes no change; open, lifted with one leg free, in the
+        /// text's colour.
+        /// </summary>
+        public static void Padlock(VectorPainter painter, SchematicPalette palette, Vector2 centre, bool closed)
+        {
+            Color colour = closed ? palette.Accent : palette.Text;
+            const float halfWidth = 7f, top = 0f, bottom = 9f, legs = 4.5f, stroke = 2.2f;
+            painter.Rect(centre.x - halfWidth, centre.y + top, centre.x + halfWidth, centre.y + bottom, colour);
+            painter.Disc(new Vector2(centre.x, centre.y + 4f), 1.6f, palette.Ground);
+
+            // The shackle: down the left leg to the body, round the top, and down the right -- into the body when shut,
+            // lifted clear of it when open.
+            float lift = closed ? 0f : 3.5f, rise = 5f;
+            var points = new List<Vector2>(14) { new Vector2(centre.x - legs, centre.y + top - lift + (closed ? 0.5f : 2.5f)) };
+            for (int k = 0; k <= 10; k++)
+            {
+                float angle = Mathf.PI * (1f - k / 10f);
+                points.Add(new Vector2(centre.x + Mathf.Cos(angle) * legs, centre.y + top - lift - rise - Mathf.Sin(angle) * legs));
+            }
+            points.Add(new Vector2(centre.x + legs, centre.y + top - lift - (closed ? -0.5f : 1.5f)));
+            painter.Stroke(new StageRoute(points.ToArray()), stroke, colour);
+        }
+
         public static void Legend(VectorPainter painter, SchematicPalette palette, float y)
         {
             const float length = 18f;

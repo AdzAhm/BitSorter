@@ -23,6 +23,12 @@ mergeInto(LibraryManager.library, {
       window.BitSorterCode.load(UTF8ToString(textPtr));
   },
 
+  // Read only while the document is locked (Part 15h-4d); a bundle from before it has no setReadOnly.
+  BitSorterCodeSetReadOnly: function (on) {
+    if (window.BitSorterCode && window.BitSorterCode.setReadOnly)
+      window.BitSorterCode.setReadOnly(!!on);
+  },
+
   BitSorterCodeSetText: function (textPtr) {
     if (window.BitSorterCode)
       window.BitSorterCode.setText(UTF8ToString(textPtr));

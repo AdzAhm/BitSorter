@@ -121,6 +121,36 @@ namespace BitSorter.LogicCore.Tests
             CollectionAssert.AreEqual(new[] { "doc/half adder" }, again.Recent);
         }
 
+        /// <summary>
+        /// A circuit locked against change (Part 15h-4d) stays locked over a restart, follows a rename, goes with a delete; a
+        /// file from before the lock reads as nothing locked.
+        /// </summary>
+        [Test]
+        public void ALockedCircuit_StaysLockedOverARestart_AndFollowsARenameAndADelete()
+        {
+            var store = new ProgressStore(_path);
+            store.Load();
+            store.SetProject("doc/adder", BitSorter.Board.Project.New("adder"));
+            store.SetProject("doc/alu", BitSorter.Board.Project.New("alu"));
+            Assert.IsFalse(store.IsLocked("doc/adder"), "nothing locked to begin with");
+            store.SetLocked("doc/adder", true);
+            store.SetLocked("doc/adder", true);
+            Assert.IsTrue(store.RenameProject("doc/adder", "doc/half adder"));
+            store.Save();
+
+            var reloaded = new ProgressStore(_path);
+            reloaded.Load();
+            Assert.IsTrue(reloaded.IsLocked("doc/half adder"), "locked under its new name, over a restart");
+            Assert.IsFalse(reloaded.IsLocked("doc/adder"));
+            Assert.IsFalse(reloaded.IsLocked("doc/alu"));
+
+            reloaded.SetLocked("doc/alu", true);
+            reloaded.SetLocked("doc/half adder", false);
+            reloaded.RemoveProject("doc/alu");
+            Assert.IsFalse(reloaded.IsLocked("doc/half adder"), "unlocked");
+            Assert.IsFalse(reloaded.IsLocked("doc/alu"), "and a circuit deleted takes its lock with it");
+        }
+
         [Test]
         public void OnlyTheLevelsActuallySolvedAreRemembered()
         {

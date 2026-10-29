@@ -180,6 +180,7 @@ namespace BitSorter.View
                 SetText(_barSays, none
                     ? InsideText() ?? "Click a part or a wire to see it here and change it; a double-click on one, or Enter, starts typing."
                     : _session.ShowsDrawingOfCode ? WorkbenchSession.DrawingRefusal
+                    : _session.Locked ? WorkbenchSession.LockedRefusal
                     : "One thing at a time is inspected: click one alone to see it here.");
                 _barSays.style.color = palette.TextDim;
                 SetText(_quickTitle, none ? "Select a part or a wire." : SelectedText(parts, wires).ToLowerInvariant());

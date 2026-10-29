@@ -155,7 +155,12 @@ namespace BitSorter.View
             string key = Documents.KeyOf(Documents.FreeName(DocumentKeys(), import.Project.Name));
             ProgressStore store = Store();
             if (store != null)
+            {
                 store.SetProject(key, import.Project);
+                // Locked, so a look round it cannot change it by accident (Part 15h-4d, Ahmad, 2026-10-29) -- but for a course
+                // template, which is imported to be written into.
+                store.SetLocked(key, FromATemplate(import.Project) == 0);
+            }
             OpenDocument(key);
             foreach (Module module in import.Project.Modules)
                 if (module.Template != null)

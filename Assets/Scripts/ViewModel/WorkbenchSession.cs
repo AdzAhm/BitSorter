@@ -565,7 +565,48 @@ namespace BitSorter.ViewModel
         /// <summary>What an edit on the drawing of code is told: it is the code's, and changes with it.</summary>
         public const string DrawingRefusal = "This is the drawing of the code: change the code to change it.";
 
-        private EditResult? OnTheDrawing => ShowsDrawingOfCode ? EditResult.Refused(DrawingRefusal) : (EditResult?)null;
+        // The drawing's own refusal first: unlocked, a drawing of code still takes no edit (until 15h-4g), so the lock's
+        // "press the lock" would send the student the wrong way.
+        private EditResult? OnTheDrawing => ShowsDrawingOfCode ? EditResult.Refused(DrawingRefusal) : Unchangeable;
+
+        /// <summary>
+        /// The document locked against change (Part 15h-4d, asked 2026-10-29; an imported project opens locked): every edit
+        /// of its circuit and its code is refused, saying how to unlock it -- placing, wiring, moving, turning, deleting,
+        /// pasting, routing, the inspector, MAKE BLOCK, the code, a module added, replaced or deleted, a testbench converted --
+        /// and so is an undo or a redo that would change them. Nothing else is: its inputs and a test of them, its gate
+        /// library and its unit are tried as before, and a copy is taken. Not an edit itself: no undo step, the run not made
+        /// again; the workbench keeps it in the save beside the document.
+        /// </summary>
+        public bool Locked
+        {
+            get => _locked;
+            set
+            {
+                if (_locked == value)
+                    return;
+                _locked = value;
+                LockVersion++;
+            }
+        }
+
+        private bool _locked;
+
+        /// <summary>Moves on whenever <see cref="Locked"/> changes, for what shows it to redraw.</summary>
+        public int LockVersion { get; private set; }
+
+        /// <summary>What an edit of a locked document is told.</summary>
+        public const string LockedRefusal = "Locked: press the lock at the circuit's corner to change it.";
+
+        private EditResult? Unchangeable => _locked ? EditResult.Refused(LockedRefusal) : (EditResult?)null;
+
+        /// <summary>
+        /// Why the last edit cannot be taken back now -- the document is locked and the step would change its circuit or its
+        /// code -- or null. A step of its inputs, its library or its unit leaves the modules as they were, and goes back.
+        /// </summary>
+        public string WhyNotUndo => _locked && Editor.UndoTarget is Project before && !ReferenceEquals(before.Modules, Project.Modules) ? LockedRefusal : null;
+
+        /// <summary>As <see cref="WhyNotUndo"/>, for making the edit last taken back again.</summary>
+        public string WhyNotRedo => _locked && Editor.RedoTarget is Project after && !ReferenceEquals(after.Modules, Project.Modules) ? LockedRefusal : null;
 
         private IReadOnlyList<Module> _drawnModules;
         private string _drawnPath;
@@ -720,16 +761,16 @@ namespace BitSorter.ViewModel
         }
 
         /// <summary>The written module shown given <paramref name="source"/> (<see cref="BoardEditor.SetSource"/>): one step, drawn now, and replayed.</summary>
-        public EditResult SetSource(string source) => Edited(Editor.SetSource(Module, source));
+        public EditResult SetSource(string source) => Unchangeable ?? Edited(Editor.SetSource(Module, source));
 
         /// <summary>
         /// A new written module called <paramref name="name"/>, from the template (<see cref="BoardEditor.AddWrittenModule"/>):
         /// one step. Nothing uses it yet, so the run is as it was; PARTS offers a block of it.
         /// </summary>
-        public EditResult AddWrittenModule(string name) => Editor.AddWrittenModule(name);
+        public EditResult AddWrittenModule(string name) => Unchangeable ?? Editor.AddWrittenModule(name);
 
         /// <summary>A module put in whole in place of the one of its name (<see cref="BoardEditor.ReplaceModule"/>, Part 15e), and replayed.</summary>
-        public EditResult ReplaceModule(Module module) => Edited(Editor.ReplaceModule(module));
+        public EditResult ReplaceModule(Module module) => Unchangeable ?? Edited(Editor.ReplaceModule(module));
 
         /// <summary>
         /// The module <paramref name="name"/> taken out of the project, its code or its drawing with it
@@ -738,6 +779,8 @@ namespace BitSorter.ViewModel
         /// </summary>
         public EditResult RemoveModule(string name)
         {
+            if (Unchangeable is EditResult locked)
+                return locked;
             bool bench = name == Project.Bench;
             EditResult result = Editor.RemoveModule(name);
             return bench ? Edited(result) : Laid(result);
@@ -948,6 +991,8 @@ namespace BitSorter.ViewModel
         /// </summary>
         public EditResult ConvertBench()
         {
+            if (Unchangeable is EditResult locked)
+                return locked;   // it takes the written testbench, code, out of the project
             EditResult result = Editor.ConvertBench();
             if (result.Done)
             {
@@ -986,7 +1031,7 @@ namespace BitSorter.ViewModel
         /// <summary>The last edit taken back, drawn at once, and replayed. False when there is none.</summary>
         public bool Undo()
         {
-            if (!Editor.Undo())
+            if (WhyNotUndo != null || !Editor.Undo())
                 return false;
             Relayout();
             StartReplay(0);
@@ -996,7 +1041,7 @@ namespace BitSorter.ViewModel
         /// <summary>The last edit taken back, made again, drawn at once, and replayed. False when there is none.</summary>
         public bool Redo()
         {
-            if (!Editor.Redo())
+            if (WhyNotRedo != null || !Editor.Redo())
                 return false;
             Relayout();
             StartReplay(0);

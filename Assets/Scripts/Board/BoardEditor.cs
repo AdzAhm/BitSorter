@@ -657,6 +657,12 @@ namespace BitSorter.Board
         // Undo
         // -----------------------------------------------------------------
 
+        /// <summary>The project an <see cref="Undo"/> would go back to; null for none.</summary>
+        public Project UndoTarget => _undo.Count > 0 ? _undo[_undo.Count - 1] : null;
+
+        /// <summary>The project a <see cref="Redo"/> would go on to; null for none.</summary>
+        public Project RedoTarget => _redo.Count > 0 ? _redo[_redo.Count - 1] : null;
+
         public bool Undo()
         {
             if (_undo.Count == 0)
