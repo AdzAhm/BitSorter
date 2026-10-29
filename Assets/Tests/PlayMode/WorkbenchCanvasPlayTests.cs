@@ -2945,6 +2945,33 @@ namespace BitSorter.PlayMode.Tests
             Assert.AreEqual(UnityEngine.UIElements.DisplayStyle.None, waves.resolvedStyle.display, "down over another tab");
         }
 
+        /// <summary>
+        /// The waves stand on whole screen pixels at any dock height (Ahmad, 2026-10-29: "why the lines so pale here and when I
+        /// expand it more its the opposite"): their window and their rows, scrolled to the foot or not. Off a whole pixel a
+        /// two-pixel line falls across three rows and comes out pale and soft, and the share changed as the dock was dragged.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator TheWaves_StandOnWholePixels_AtAnyDockHeight()
+        {
+            yield return TestScene.Load();
+            yield return Click(MainMenu.WorkbenchButton);
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            yield return null;
+            workbench.Pause();
+            var corners = new Vector3[4];
+            foreach (float height in new[] { 300f, 301.5f, 350.7f, 452.3f })
+            {
+                workbench.SetDockHeight(height);
+                yield return null;
+                foreach (RectTransform rect in new[] { workbench.WavesWindow, workbench.WavesRows })
+                {
+                    rect.GetWorldCorners(corners);   // an overlay canvas: world is screen pixels
+                    float top = corners[1].y;
+                    Assert.AreEqual(Mathf.Round(top), top, 1e-3f, $"{rect.name}'s top at a dock {height} tall is on a whole pixel");
+                }
+            }
+        }
+
         /// <summary>A homework file in the course's style, written for this test: the student's code goes between its markers.</summary>
         private const string TemplateMux =
             "// Homework: a 2-to-1 multiplexer. Written for BitSorter's tests, in the course's style.\n" +

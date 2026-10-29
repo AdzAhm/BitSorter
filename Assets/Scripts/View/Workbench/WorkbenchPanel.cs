@@ -403,6 +403,12 @@ namespace BitSorter.View
         /// <summary>The time the waveform shows; null until the panel has first opened.</summary>
         public WaveView Wave => _wave != null ? _wave.View : null;
 
+        /// <summary>The waves' window, which clips them, and the rows inside it, which the wheel over the names scrolls.</summary>
+        public RectTransform WavesWindow => _wavesClip;
+
+        /// <inheritdoc cref="WavesWindow"/>
+        public RectTransform WavesRows => _wavesContent;
+
         /// <summary>The time axis's numbers shown now, left to right.</summary>
         public IEnumerable<string> TickTexts => _wave != null ? _wave.TickTexts : Array.Empty<string>();
 
