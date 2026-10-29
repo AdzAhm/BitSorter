@@ -1007,12 +1007,14 @@ failure side.
   (`OperatorPart`, Part 15h-3) is one of the language's operators as a box with its
   symbol, compiling to one `assign`; not in PARTS yet, for the drawing of code (Part
   15h-4) to place. **A written module is shown as its code or as the drawing of it**
-  (Part 15h-4): DRAWING in the circuit window's lower right corner turns it, CODE
-  turns it back, kept for each module (`WorkbenchSession.ShowsDrawingOfCode`). The
+  (Part 15h-4): DRAWING at the right of the code's top strip turns it -- in a browser
+  the code is a box laid over everything under that strip -- CODE turns it back, kept for each module (`WorkbenchSession.ShowsDrawingOfCode`). The
   drawing is what the code builds (`RtlDrawing` from `RtlExtractor`'s netlist, laid
   out in columns by `LayeredLayout`), held beside the project and never in it; its
   values are the run's, a wire no signal holds worked out from the ones that are
-  (`DrawnValues`); and it takes no edit -- "change the code to change it". **A big
+  (`DrawnValues`); it takes no edit -- "change the code to change it"; and a
+  double-click on a block in it, or its row in DESIGN, steps into the instance the
+  code makes (`WorkbenchSession.ThroughCode`). **A big
   drawing stays smooth** (Part 15g): the session routes a document once for the
   drawing, the hit map and a wire being drawn (`WorkbenchSession.RoutesOf`), which
   each routed it for themselves; a drag routes only the wires on the parts it moves,
