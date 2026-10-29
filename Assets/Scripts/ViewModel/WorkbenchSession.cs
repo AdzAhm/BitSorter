@@ -644,6 +644,12 @@ namespace BitSorter.ViewModel
         private Func<EditResult> _pendingRewrite;
         private Project _pendingProject;
 
+        /// <summary>
+        /// What a part of the drawing of code shown does, in a sentence in its operands' names (<see cref="RtlDrawing.Describe"/>,
+        /// Part 15h-4e) -- what the inspector says of an operator, a mux, a slice, a match the drawing makes up -- or null.
+        /// </summary>
+        public string DescribePart(int part) => ShownDrawing?.Describe(part);
+
         /// <summary>Whether an edit of the drawing of code waits on <see cref="RewriteQuestion"/>: the workbench asks it.</summary>
         public bool AsksToRewrite => _pendingRewrite != null && ReferenceEquals(_pendingProject, Project);
 
@@ -801,7 +807,7 @@ namespace BitSorter.ViewModel
                 return null;
             Netlist nets = Netlist.Of(drawing.Project, drawing.Module);
             SchematicLayout layout = DocumentSchematic.Build(drawing.Project, drawing.Module, nets, path, compiled.DesignPath, compiled.Cells,
-                m => RoutesOf(drawing.Project, m));
+                m => RoutesOf(drawing.Project, m), drawing.ExpressionOf);
             var rtlNetOf = new int[layout.Nets.Count];
             for (int i = 0; i < rtlNetOf.Length; i++)
             {

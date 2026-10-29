@@ -149,6 +149,26 @@ namespace BitSorter.ViewModel.Tests
             Assert.AreEqual(10, session.Project.Stimulus.Clocks[0].Period, "nothing changed");
         }
 
+        /// <summary>
+        /// A part the drawing makes up says what it does in the inspector, by what it is and not its made-up name, and a wire
+        /// out of one no signal holds goes by its expression (Part 15h-4e, Ahmad's picture of 2026-10-29: "$p4_y from $p4.y").
+        /// </summary>
+        [Test]
+        public void APartTheDrawingMakesUp_SaysWhatItDoes_AndItsWireGoesByItsExpression()
+        {
+            WorkbenchSession session = Written(
+                "module m (input logic [1:0] a, b, c, output logic [1:0] y);\n    assign y = (a & b) | c;\nendmodule\n", "m");
+            OperatorPart and = session.DrawnModule.Parts.OfType<OperatorPart>().Single(p => p.Op == OperatorKind.And);
+
+            Inspection inspection = Inspector.Of(session.DrawnProject, session.Module, new CanvasTarget(CanvasTargetKind.Part, part: and.Id), session.DescribePart);
+            Assert.AreEqual("OPERATOR", inspection.Title, "by what it is, not $p");
+            Assert.AreEqual("a AND b, bit by bit: 2 bits.", inspection.Says);
+
+            NetLayout wire = session.Run.Model.Layout.Nets.Single(n => n.Source.Part == and.Id);
+            Assert.AreEqual("a & b [1:0]   from the & to the |'s a", wire.Says);
+            StringAssert.DoesNotContain("$p", wire.Says);
+        }
+
         [Test]
         public void LockedOrWithGatesOn_TheDrawingTakesNoEdit_AndNothingIsAsked()
         {

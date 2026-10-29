@@ -60,8 +60,13 @@ namespace BitSorter.ViewModel
         /// A module laid out from its own board netlist, its signals read under <paramref name="path"/>: one the project does
         /// not compile -- the drawing of a written module's code (Part 15h-4), held beside the project -- as well as one it does.
         /// </summary>
+        /// <param name="expressionOf">
+        /// On a drawing of code, what a part the drawing makes up works out (<see cref="RtlDrawing.ExpressionOf"/>): a wire out of
+        /// one that no signal holds is named for it -- <c>a &amp; b</c> where it read <c>$p4_y</c> (Part 15h-4e).
+        /// </param>
         public static SchematicLayout Build(Project project, Module module, Netlist netlist, string path, string designPath,
-            IReadOnlyList<string> cells, Func<Module, IReadOnlyDictionary<int, IReadOnlyList<BoardPoint>>> routes)
+            IReadOnlyList<string> cells, Func<Module, IReadOnlyDictionary<int, IReadOnlyList<BoardPoint>>> routes,
+            Func<int, string> expressionOf = null)
         {
             string unit = project.Settings?.TimeUnit ?? TimeUnits.Default;
 
@@ -240,7 +245,10 @@ namespace BitSorter.ViewModel
                         loads.Add(Describe(module, branch.Load));
                     loadPins.Add(branch.Load);
                 }
-                string name = net.Net.Width > 1 ? net.Net.Name + "[" + (net.Net.Width - 1).ToString(CultureInfo.InvariantCulture) + ":0]" : net.Net.Name;
+                string shown = net.Net.Name;
+                if (expressionOf != null && shown.StartsWith("$", StringComparison.Ordinal) && expressionOf(net.Source.Part) is string expression)
+                    shown = expression;
+                string name = net.Net.Width > 1 ? shown + (shown == net.Net.Name ? "[" : " [") + (net.Net.Width - 1).ToString(CultureInfo.InvariantCulture) + ":0]" : shown;
                 string says = name + "   from " + string.Join(" and ", drivers) + " to " + string.Join(", ", loads);
 
                 nets.Add(new NetLayout(net.Net.Name, signal, aliases, net.Net.Width, junctions, branches, says, net.Source, loadPins,
@@ -284,6 +292,10 @@ namespace BitSorter.ViewModel
             Part part = module.FindPart(pin.Part);
             if (part is PortPart port)
                 return (port.Direction == PortDirection.Output ? "output " : "input ") + port.Name;
+            // A part the drawing of code makes up goes by what it is, not its made-up name: "the &", "the |'s a" (Part 15h-4e).
+            if (part.Name != null && part.Name.StartsWith("$", StringComparison.Ordinal))
+                return part.TryPin(null, pin.Pin, out Pin each) && each.Direction == PinDirection.Out
+                    ? "the " + NameOf(part) : "the " + NameOf(part) + "'s " + pin.Pin;
             return part.Name + "." + pin.Pin + " (" + NameOf(part) + ")";
         }
 

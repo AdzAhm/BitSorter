@@ -1062,7 +1062,12 @@ failure side.
   (`DrawingPrinter.Differs`, asked once for each text of the module, and of every
   exercise answer and corpus design by `DrawingPrinterTests`). A move, a turn or a
   reshape is refused -- it lays itself out until 15h-4f -- and so is any edit with GATES
-  on. A double-click on a block in it, or its row in DESIGN, steps into the instance the
+  on. **A part the drawing makes up says what it does** (Part 15h-4e, asked
+  2026-10-29) -- an operator, a mux, a case's choice, a slice, a join, a match, a
+  constant -- in the inspector's line, in its operands' own names ("(a & b) OR c, bit by
+  bit: 2 bits."), and goes by what it is, never `$p4`; a wire out of one no signal holds
+  goes by its expression, "a & b [1:0] from the & to the |'s a" (`RtlDrawing.Describe`,
+  `ExpressionOf`). A double-click on a block in it, or its row in DESIGN, steps into the instance the
   code makes, its module read again from the code whenever it is drawn again
   (`WorkbenchSession.CodeSteps`). **GATES beside it opens the small ones** --
   every operator and mux of four bits or fewer, and a sum or a difference of 4-bit

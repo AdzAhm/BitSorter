@@ -29,7 +29,7 @@ namespace BitSorter.Board
     /// real gates would -- the bits below an x of a sum still known -- while the wire out of them carries the code's value,
     /// which is what everything after them reads.
     /// </remarks>
-    public sealed class RtlDrawing
+    public sealed partial class RtlDrawing
     {
         private RtlDrawing(Project project, Module module, Builder builder)
         {
@@ -41,6 +41,9 @@ namespace BitSorter.Board
             _inner = builder.Inner.ToArray();
             Opened = builder.Opened;
             Unshown = builder.Unshown;
+            _cellOf = builder.CellOf;
+            _caseSubjectWidth = builder.CaseParts;
+            _netlist = builder.Netlist;
         }
 
         /// <summary>What the code does that the drawing does not show (<see cref="RtlNetlist.Unshown"/>): code written from it would lose it.</summary>
@@ -216,6 +219,14 @@ namespace BitSorter.Board
 
             public IReadOnlyList<string> Unshown => _netlist.Unshown;
 
+            public RtlNetlist Netlist => _netlist;
+
+            /// <summary>The cell each part made of one is, by the part's id: what it says it does (<see cref="RtlDrawing.Describe"/>).</summary>
+            public readonly Dictionary<int, RtlCell> CellOf = new Dictionary<int, RtlCell>();
+
+            /// <summary>The muxes a case's chain of them is drawn as, by id, with their subject's width.</summary>
+            public readonly Dictionary<int, int> CaseParts = new Dictionary<int, int>();
+
             public Builder(Project project, RtlNetlist netlist, bool gates)
             {
                 _project = project;
@@ -293,6 +304,7 @@ namespace BitSorter.Board
                                 continue;
                         }
                         int mux = Add(chooser);
+                        CaseParts[mux] = WidthOf(choice.Subject);
                         _loads[Root(choice.Subject)].Add((mux, "s"));
                         for (int i = 0; i < choice.Data.Length; i++)
                             _loads[Root(choice.Data[i])].Add((mux, "d" + i.ToString(CultureInfo.InvariantCulture)));
@@ -315,6 +327,7 @@ namespace BitSorter.Board
                             continue;
                     }
                     int id = Add(part);
+                    CellOf[id] = cell;
                     if (cell.Kind == RtlKind.Instance)
                         InstanceOf[id] = cell.Name;
                     if (cell.Kind == RtlKind.Register)

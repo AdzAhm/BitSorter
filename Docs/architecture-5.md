@@ -3669,6 +3669,29 @@ zoom/unzoom and move it to move through the wave").
   The Sonnet review found the library hole, the editor's keys, typed code at the lock, the browser editor after a
   change of style and the padlock over REVERT; all fixed.
 
+**As built in Part 15h-4e, first part: a part the drawing makes up says what it does** (Ahmad's picture of 2026-10-29:
+the parts the drawing makes up -- `&`, `|`, `~`, `==`, `= 10` -- should say what they do, and only those; their wires read
+"$p4_y[1:0] from $p4.y").
+- **`RtlDrawing.Describe`** (`RtlDescriptions.cs`): a sentence for each part made of a cell -- every operator by its own
+  words ("a AND b, bit by bit: 2 bits.", "1 when a is less than b, as signed numbers."), a mux and a case's choice, a
+  slice, a join, a replicate, a select at a place, a widening, a sign, an `if`'s truth, a match with its label, a
+  memory's word, a write at a place, a constant, and a process box its own reason. Null for a port, a register, a block
+  and a gate the code names, which go by their names.
+- **In its operands' names, read off the drawing**: the signal on the wire into a pin, or else the expression of the part
+  that drives it, bracketed where it nests -- "(a & b) OR c" -- and never a made-up name; so it is true of the drawing
+  as it is, an edit (15h-4g) included.
+- **Where it shows**: the inspector's line for the part selected (`Inspector.Of`'s `describe`, the session's
+  `DescribePart`), its title by what it is -- OPERATOR, never OPERATOR $p4; and a wire no signal holds is named by its
+  expression (`RtlDrawing.ExpressionOf`, through `DocumentSchematic.Build`'s `expressionOf`) -- "a & b [1:0] from the &
+  to the |'s a" where it read "$p4_y[1:0] from $p4.y (OPERATOR)".
+- **The processor is drawn in the tests now** (`corpus/processor/mcpu.sv`, and `corpus/system`): every scope of the
+  multicycle RV32I drawn, every net wired, nothing on anything, with GATES and without, and every part it makes up
+  describing itself -- the first step to the three processors of 15h-6.
+- **Tests**: every part of every exercise answer's and corpus design's drawing that the drawing makes up describes itself
+  with no made-up name, and none that goes by its own name does (`RtlDescriptionTests`); an operator nested in brackets,
+  a slice, a signed comparison; in the session the inspector's title and line and a wire's hover line
+  (`DrawingEditTests`).
+
 **As built in Part 15h-4g: the drawing and the code follow each other** (asked 2026-10-29: "When I unlock the project
 through the lock I can add and do anything I want; changes I do in code/drawing convert to changes in drawing/code").
 - **The code is what is kept.** An edit of a drawing of code, unlocked -- a part placed, a wire drawn, parts or wires

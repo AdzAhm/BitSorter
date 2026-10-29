@@ -21,7 +21,7 @@ namespace BitSorter.Board.Tests
         {
             foreach (string id in ExerciseFiles.Ids())
                 yield return new TestCaseData("exercise", id).SetName("exercise " + id);
-            foreach (string folder in new[] { "structural", "behavioural" })
+            foreach (string folder in new[] { "structural", "behavioural", "processor", "system" })
                 foreach (string path in Directory.GetFiles(RepoRoot.Combine("Tools/ci/Oracle/corpus/" + folder), "*.sv").OrderBy(p => p, StringComparer.Ordinal))
                     yield return new TestCaseData(folder, Path.GetFileName(path)).SetName(folder + " " + Path.GetFileName(path));
         }
