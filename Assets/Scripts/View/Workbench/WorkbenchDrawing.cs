@@ -706,6 +706,10 @@ namespace BitSorter.View
                     Box(into, part, -0.6, -0.75, 0.6, 0.75, 0.06);
                     break;
 
+                case PartSymbol.Operator:
+                    Box(into, part, -BlockHalfWidth, -OperatorHalfHeight, BlockHalfWidth, OperatorHalfHeight, 0.12);
+                    break;
+
                 case PartSymbol.Constant:
                     Box(into, part, part.Local.Left, -0.3, 0.5 - Lead, 0.3, 0.12);   // a lead short of its pin (Part 15g)
                     break;

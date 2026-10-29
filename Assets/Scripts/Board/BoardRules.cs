@@ -171,6 +171,9 @@ namespace BitSorter.Board
                         case MuxPart mux:
                             Error(module.Name, $"{mux.Name} is a MUX, which is no cell of the library: build it of the library's gates.", mux.Id);
                             break;
+                        case OperatorPart op:
+                            Error(module.Name, $"{op.Name} is {Operators.Called(op.Op)}, which is no cell of the library: build it of the library's gates.", op.Id);
+                            break;
                         case ConstantPart constant when library.NoConstants:
                             Error(module.Name, $"{constant.Name} is a constant, and the library takes none: give the design its 0s and 1s from an input.", constant.Id);
                             break;
@@ -430,7 +433,7 @@ namespace BitSorter.Board
                 {
                     PinRef driver = net.Drivers[0];
                     Part part = partsById[driver.Part];
-                    if (part is GatePart || part is MuxPart || part is RegisterPart)
+                    if (part is GatePart || part is MuxPart || part is RegisterPart || part is OperatorPart)
                         Warning($"{part.Name}.{driver.Pin} drives nothing, so what it works out is never used.", part.Id);
                 }
             }
@@ -518,6 +521,19 @@ namespace BitSorter.Board
                     Width(mux.Width, "width");
                     if (mux.Inputs != 2 && mux.Inputs != 4 && mux.Inputs != 8)
                         Error($"{mux.Name} has {mux.Inputs} inputs; a multiplexer has 2, 4 or 8.");
+                    break;
+
+                case OperatorPart op:
+                    Width(op.Width, "width");
+                    if (op.BWidth != 0)
+                    {
+                        if (!Operators.BOwnWidth(op.Op))
+                            Error($"{op.Name} is {Operators.Called(op.Op)}, whose b is as wide as a; only a shift's amount and a logical operator's b are a width of their own.");
+                        else
+                            Width(op.BWidth, "b's width");
+                    }
+                    if (op.Signed && !Operators.SignMatters(op.Op))
+                        Error($"{op.Name} is {Operators.Called(op.Op)}, which gives the same bits signed or not: only a comparison, /, % and >>> take a sign.");
                     break;
 
                 case SplitterPart splitter:

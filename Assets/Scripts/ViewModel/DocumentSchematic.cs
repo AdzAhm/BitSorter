@@ -295,6 +295,7 @@ namespace BitSorter.ViewModel
                     }
 
                 case MuxPart _: return PartSymbol.Mux;
+                case OperatorPart _: return PartSymbol.Operator;
                 case RegisterPart _: return PartSymbol.Register;
                 case ConstantPart _: return PartSymbol.Constant;
                 case LampPart _: return PartSymbol.Lamp;
@@ -313,6 +314,7 @@ namespace BitSorter.ViewModel
                 case BlockPart block: return block.Copies > 1 ? block.Module + " ×" + block.Copies : block.Module;   // an array: half_adder x4
                 case ConstantPart constant: return constant.Value.ToLiteral(SystemVerilog.Radix.Binary);
                 case MuxPart mux: return "MUX";
+                case OperatorPart op: return Operators.Token(op.Op);
                 case RegisterPart _: return "REG";
                 default: return part.Name;
             }

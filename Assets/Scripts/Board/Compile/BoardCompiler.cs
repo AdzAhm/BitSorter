@@ -333,6 +333,10 @@ namespace BitSorter.Board
                         _items.Add(Sv.Assign(At(mux, "y"), Choose(mux, 0, mux.Inputs, mux.SelectWidth - 1)));
                         break;
 
+                    case OperatorPart op:
+                        _items.Add(Sv.Assign(At(op, "y"), Operator(op)));
+                        break;
+
                     case SplitterPart splitter:
                         for (int i = 0; i < splitter.Width; i++)
                             _items.Add(Sv.Assign(At(splitter, "o" + i), Sv.Bit(NetName(splitter, "in"), i)));
@@ -351,6 +355,19 @@ namespace BitSorter.Board
 
                     // Ports are the header; lamps only look.
                 }
+            }
+
+            /// <summary>An operator part's expression: <c>a + b</c>, <c>$signed(a) &lt; $signed(b)</c>, <c>~&amp;a</c>.</summary>
+            private Expression Operator(OperatorPart op)
+            {
+                bool signed = op.Signed && Operators.SignMatters(op.Op);
+                Expression Operand(string pin) => signed ? Sv.Signed(At(op, pin)) : Sv.Paren(At(op, pin));
+                if (Operators.IsUnary(op.Op))
+                    return new UnaryExpression { Operator = Operators.Token(op.Op), Operand = Operand("a") };
+
+                // A shift's amount is a count, unsigned whatever the value shifted is.
+                Expression b = Operators.IsShift(op.Op) ? Sv.Paren(At(op, "b")) : Operand("b");
+                return new BinaryExpression { Operator = Operators.Token(op.Op), Left = Operand("a"), Right = b };
             }
 
             private void Gate(GatePart gate)

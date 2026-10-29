@@ -18,11 +18,11 @@ namespace BitSorter.Board.Tests
         public static IEnumerable<string> Names => new[]
         {
             "half_adder", "half_adder_delayed", "full_adder", "johnson", "johnson_timed", "buses", "mux4", "tristate", "half_adders", "ripple8", "written",
-            "full_adder_steps", "false_path_steps", "bus", "written_cells", "devices_bus",
+            "full_adder_steps", "false_path_steps", "bus", "written_cells", "devices_bus", "operators",
         };
 
         /// <summary>The boards drawn throughout: what an import can draw again. A written module comes in as written with Part 13.</summary>
-        public static IEnumerable<string> DrawnNames => Names.Where(name => name != "written" && name != "written_cells" && name != "devices_bus");
+        public static IEnumerable<string> DrawnNames => Names.Where(name => name != "written" && name != "written_cells" && name != "devices_bus" && name != "operators");
 
         public static Project Build(string name)
         {
@@ -44,6 +44,7 @@ namespace BitSorter.Board.Tests
                 case "bus": return Bus();
                 case "written_cells": return WrittenCells();
                 case "devices_bus": return DevicesBus();
+                case "operators": return OperatorsBoard();
                 default: throw new ArgumentException(name);
             }
         }
@@ -459,6 +460,64 @@ namespace BitSorter.Board.Tests
                     new Track { Port = "s", Steps = steps["s"] },
                 },
                 End = 100,
+            }));
+            return editor.Project;
+        }
+
+        /// <summary>The output port each operator of <see cref="OperatorsBoard"/> drives: y_add, and ys_less for a signed one.</summary>
+        public static string OperatorOutput(OperatorKind op, bool signed) => (signed ? "ys_" : "y_") + op.ToString().ToLowerInvariant();
+
+        /// <summary>
+        /// One operator part of every kind (Part 15h-3), and a signed one of each a sign changes, on a 3-bit a and b and a 2-bit s
+        /// -- a shift's amount, and a logical operator's b of its own width -- through every combination of them, then x and z.
+        /// </summary>
+        private static Project OperatorsBoard()
+        {
+            var editor = new BoardEditor(Project.New("operators"));
+            var b = new Builder(editor, "operators");
+            int a = b.In("a", 3), bb = b.In("b", 3), s = b.In("s", 2);
+            foreach (OperatorKind kind in Operators.All)
+            {
+                foreach (bool signed in new[] { false, true })
+                {
+                    if (signed && !Operators.SignMatters(kind))
+                        continue;
+                    bool own = Operators.BOwnWidth(kind);
+                    var part = new OperatorPart { Op = kind, Width = 3, BWidth = own ? 2 : 0, Signed = signed };
+                    int op = b.Add(part);
+                    int y = b.Out(OperatorOutput(kind, signed), part.WidthOfY);
+                    b.Wire(a, "out", op, "a");
+                    if (!Operators.IsUnary(kind))
+                        b.Wire(own ? s : bb, "out", op, "b");
+                    b.Wire(op, "y", y, "in");
+                }
+            }
+
+            var tracks = new Dictionary<string, List<Step>> { ["a"] = new List<Step>(), ["b"] = new List<Step>(), ["s"] = new List<Step>() };
+            for (int v = 0; v < 256; v++)
+            {
+                tracks["a"].Add(new Step(v * 10, Bits((ulong)v & 7, 3)));
+                tracks["b"].Add(new Step(v * 10, Bits((ulong)(v >> 3) & 7, 3)));
+                tracks["s"].Add(new Step(v * 10, Bits((ulong)(v >> 6) & 3, 2)));
+            }
+            string[] unknown = { "1x0", "z01", "x1", "011", "10z", "0x", "xxx", "110", "zz" };
+            for (int i = 0; i < 3; i++)
+            {
+                long t = (256 + i) * 10;
+                tracks["a"].Add(new Step(t, Literal.Parse("3'b" + unknown[3 * i]).Value));
+                tracks["b"].Add(new Step(t, Literal.Parse("3'b" + unknown[3 * i + 1]).Value));
+                tracks["s"].Add(new Step(t, Literal.Parse("2'b" + unknown[3 * i + 2]).Value));
+            }
+
+            Must(editor.SetStimulus(new Stimulus
+            {
+                Tracks = new[]
+                {
+                    new Track { Port = "a", Steps = tracks["a"] },
+                    new Track { Port = "b", Steps = tracks["b"] },
+                    new Track { Port = "s", Steps = tracks["s"] },
+                },
+                End = 260 * 10,
             }));
             return editor.Project;
         }

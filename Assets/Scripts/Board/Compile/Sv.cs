@@ -44,6 +44,14 @@ namespace BitSorter.Board
 
         public static Expression Not(Expression e) => new UnaryExpression { Operator = "~", Operand = Paren(e) };
 
+        /// <summary><c>$signed(e)</c>: the same bits, taken as signed.</summary>
+        public static Expression Signed(Expression e)
+        {
+            var call = new CallExpression { Name = "$signed", HasParentheses = true };
+            call.Arguments.Add(e);
+            return call;
+        }
+
         public static Expression Paren(Expression e) =>
             e is NameExpression || e is NumberLiteral || e is IndexExpression || e is ParenthesizedExpression || e is ConcatenationExpression
                 ? e

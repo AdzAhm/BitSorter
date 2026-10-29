@@ -337,8 +337,13 @@ namespace BitSorter.Board
         public int id;
         public string name;
 
-        /// <summary>port, gate, constant, register, mux, splitter, joiner, lamp or block.</summary>
+        /// <summary>port, gate, constant, register, mux, operator, splitter, joiner, lamp or block.</summary>
         public string kind;
+
+        /// <summary>An operator's (Part 15h-3): add, less, shiftleft ...; its b's own width in <see cref="inputs"/>, and its sign.</summary>
+        public string op;
+
+        public bool signed;
 
         /// <summary>A port's: input or output.</summary>
         public string direction;
@@ -412,6 +417,13 @@ namespace BitSorter.Board
                     file.inputs = m.Inputs;
                     file.width = m.Width;
                     break;
+                case OperatorPart o:
+                    file.kind = "operator";
+                    file.op = o.Op.ToString().ToLowerInvariant();
+                    file.width = o.Width;
+                    file.inputs = o.BWidth;
+                    file.signed = o.Signed;
+                    break;
                 case SplitterPart s:
                     file.kind = "splitter";
                     file.width = s.Width;
@@ -469,6 +481,14 @@ namespace BitSorter.Board
                     };
 
                 case "mux": return new MuxPart { Id = id, Name = name, Inputs = inputs, Width = width };
+                case "operator":
+                    if (!Enum.TryParse(op, true, out OperatorKind kindOfOperator) || int.TryParse(op, out _))
+                    {
+                        problems.Add($"{where} is an operator this BitSorter does not know, \"{op}\"; it was left out.");
+                        return null;
+                    }
+
+                    return new OperatorPart { Id = id, Name = name, Op = kindOfOperator, Width = width, BWidth = inputs, Signed = signed };
                 case "splitter": return new SplitterPart { Id = id, Name = name, Width = width };
                 case "joiner": return new JoinerPart { Id = id, Name = name, Width = width };
                 case "lamp": return new LampPart { Id = id, Name = name, Width = width };

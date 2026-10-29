@@ -909,6 +909,7 @@ namespace BitSorter.Board
                 RegisterPart _ => "r",
                 ConstantPart _ => "k",
                 MuxPart _ => "m",
+                OperatorPart _ => "op",
                 SplitterPart _ => "sp",
                 JoinerPart _ => "j",
                 LampPart _ => "lamp",

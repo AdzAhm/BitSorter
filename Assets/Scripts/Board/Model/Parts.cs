@@ -196,6 +196,42 @@ namespace BitSorter.Board
         }
     }
 
+    /// <summary>
+    /// One of the language's operators as a part (Part 15h-3): an adder, a comparator, a shifter -- word-level, as a synthesis
+    /// tool's RTL view draws one, a box with its symbol. It compiles to one continuous assignment, <c>assign y = a + b;</c>, so
+    /// it computes what the language's operator does, in this engine and in every simulator.
+    /// </summary>
+    /// <remarks>
+    /// a is <see cref="Width"/> bits, and so is b but for a shift's amount and a logical operator's operand, which are any
+    /// width (<see cref="BWidth"/>). y is one bit for a comparison, a logical operator and a reduction, and a's width
+    /// otherwise: the operator's own width (IEEE 1800, table 11-21), so nothing is widened out of sight. A shift's amount comes
+    /// in on top, as an ALU's control is drawn.
+    /// </remarks>
+    public sealed record OperatorPart : Part
+    {
+        public OperatorKind Op { get; init; } = OperatorKind.Add;
+
+        /// <summary>a's width, and y's but for a one-bit answer.</summary>
+        public int Width { get; init; } = 4;
+
+        /// <summary>b's width where it may be its own (<see cref="Operators.BOwnWidth"/>); 0 for a's.</summary>
+        public int BWidth { get; init; }
+
+        /// <summary>Whether a and b are taken as signed, where that changes the answer (<see cref="Operators.SignMatters"/>).</summary>
+        public bool Signed { get; init; }
+
+        public int WidthOfB => BWidth > 0 ? BWidth : Width;
+
+        public int WidthOfY => Operators.OneBit(Op) ? 1 : Width;
+
+        public override IReadOnlyList<Pin> Pins(Project project)
+        {
+            if (Operators.IsUnary(Op))
+                return new[] { new Pin("a", PinDirection.In, Width), new Pin("y", PinDirection.Out, WidthOfY) };
+            return new[] { new Pin("a", PinDirection.In, Width), new Pin("b", PinDirection.In, WidthOfB), new Pin("y", PinDirection.Out, WidthOfY) };
+        }
+    }
+
     /// <summary>A bus taken apart: o<i>i</i> is bit <i>i</i> of in.</summary>
     public sealed record SplitterPart : Part
     {

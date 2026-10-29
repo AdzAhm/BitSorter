@@ -1876,6 +1876,113 @@ namespace BitSorter.PlayMode.Tests
             yield return Capture("60-about-bitsorter");
         }
 
+        /// <summary>
+        /// Part 15h-3: operator parts on MY CIRCUIT, wired from a, b and s -- an adder, a signed comparison, a shifter with its
+        /// amount coming in on top, a reduction -- and a subtractor and a shifter turned a quarter, each wire coming in the way
+        /// its pin faces.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator Shot61_WorkbenchOperatorParts()
+        {
+            yield return LoadTheGame();
+            yield return Frames(2);
+
+            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            yield return Frames(2);
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowSample(0);   // MY CIRCUIT, blank under SaveGuard
+            yield return Frames(2);
+            workbench.Pause();
+
+            WorkbenchSession session = workbench.Session;
+            int Add(BitSorter.Board.Part part, double x, double y, int turns = 0)
+            {
+                BitSorter.Board.EditResult added = session.Editor.Add(session.Module, part,
+                    new BitSorter.Board.Placement(new BitSorter.Board.Point(x, y), turns));
+                Assert.IsTrue(added.Done, added.Refusal);
+                return added.Id;
+            }
+
+            void Wire(int from, string fromPin, int to, string toPin)
+            {
+                BitSorter.Board.EditResult wired = session.Connect(BitSorter.Board.Endpoint.At(from, fromPin), BitSorter.Board.Endpoint.At(to, toPin));
+                Assert.IsTrue(wired.Done, wired.Refusal);
+            }
+
+            int a = Add(new BitSorter.Board.PortPart { Name = "a", Width = 4 }, 1, -2);
+            int b = Add(new BitSorter.Board.PortPart { Name = "b", Width = 4 }, 1, -6);
+            int s = Add(new BitSorter.Board.PortPart { Name = "s", Width = 2 }, 1, -11);
+            int sum = Add(new BitSorter.Board.OperatorPart { Op = BitSorter.Board.OperatorKind.Add }, 8, -1.75);
+            int less = Add(new BitSorter.Board.OperatorPart { Op = BitSorter.Board.OperatorKind.Less, Signed = true }, 8, -4.75);
+            int shift = Add(new BitSorter.Board.OperatorPart { Op = BitSorter.Board.OperatorKind.ShiftLeft, BWidth = 2 }, 8, -9);
+            int odd = Add(new BitSorter.Board.OperatorPart { Op = BitSorter.Board.OperatorKind.ReduceXor }, 8, -12);
+            int diff = Add(new BitSorter.Board.OperatorPart { Op = BitSorter.Board.OperatorKind.Subtract }, 18.25, -3, turns: 3);
+            int right = Add(new BitSorter.Board.OperatorPart { Op = BitSorter.Board.OperatorKind.ShiftRight, BWidth = 2 }, 18, -10, turns: 1);
+            int y = Add(new BitSorter.Board.PortPart { Name = "y", Direction = BitSorter.SystemVerilog.Syntax.PortDirection.Output, Width = 4 }, 14, -1.75);
+            int lt = Add(new BitSorter.Board.PortPart { Name = "lt", Direction = BitSorter.SystemVerilog.Syntax.PortDirection.Output }, 14, -4.75);
+            int sh = Add(new BitSorter.Board.PortPart { Name = "sh", Direction = BitSorter.SystemVerilog.Syntax.PortDirection.Output, Width = 4 }, 14, -9);
+            int p = Add(new BitSorter.Board.PortPart { Name = "p", Direction = BitSorter.SystemVerilog.Syntax.PortDirection.Output }, 14, -12);
+            int d = Add(new BitSorter.Board.PortPart { Name = "d", Direction = BitSorter.SystemVerilog.Syntax.PortDirection.Output, Width = 4 }, 24, -6);
+            int r = Add(new BitSorter.Board.PortPart { Name = "r", Direction = BitSorter.SystemVerilog.Syntax.PortDirection.Output, Width = 4 }, 24, -13);
+
+            Wire(a, "out", sum, "a");
+            Wire(b, "out", sum, "b");
+            Wire(a, "out", less, "a");
+            Wire(b, "out", less, "b");
+            Wire(a, "out", shift, "a");
+            Wire(s, "out", shift, "b");
+            Wire(b, "out", odd, "a");
+            Wire(sum, "y", y, "in");
+            Wire(less, "y", lt, "in");
+            Wire(shift, "y", sh, "in");
+            Wire(odd, "y", p, "in");
+            Wire(sum, "y", diff, "a");
+            Wire(b, "out", diff, "b");
+            Wire(diff, "y", d, "in");
+            Wire(shift, "y", right, "a");
+            Wire(s, "out", right, "b");
+            Wire(right, "y", r, "in");
+            session.Finish();
+            yield return Frames(2);
+            workbench.FitView();
+            workbench.Seek(0.0);
+            yield return Frames(30);
+
+            Assert.AreEqual(6, workbench.Model.Layout.Parts.Count(part => part.Symbol == PartSymbol.Operator), "sanity: six operators drawn");
+            yield return Capture("61-workbench-operator-parts");
+        }
+
+        /// <summary>
+        /// Part 15h-3: the full adder with h1 turned a quarter -- its pins on its top and bottom edges, each named along its pin
+        /// inside the box, and its wires coming in from above and below as its pins face.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator Shot62_WorkbenchTurnedBlock()
+        {
+            yield return LoadTheGame();
+            yield return Frames(2);
+
+            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            yield return Frames(2);
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowSample(2);   // the full adder
+            yield return Frames(2);
+            workbench.Pause();
+            WorkbenchSession session = workbench.Session;
+            int h1 = session.Project.Find(session.Module).Parts.Single(part => part.Name == "h1").Id;
+            BitSorter.Board.EditResult turned = session.Turn(new[] { h1 }, 1);
+            Assert.IsTrue(turned.Done, turned.Refusal);
+            session.Finish();
+            yield return Frames(2);
+            workbench.FitView();
+            workbench.Seek(26.5);
+            yield return Frames(30);
+
+            yield return Capture("62-workbench-turned-block");
+        }
+
         private static IEnumerator OpenTheHalfAdder()
         {
             yield return TestScene.LoadSimulator();

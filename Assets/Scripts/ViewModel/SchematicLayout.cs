@@ -9,6 +9,9 @@ namespace BitSorter.ViewModel
     {
         And, Or, Xor, Nand, Nor, Xnor, Not, Buffer, TriBuffer, TriInverter,
         Mux, Register, Constant, Lamp, Splitter, Joiner, Block,
+
+        /// <summary>An operator part (Part 15h-3): a box with its symbol, <c>+</c> or <c>&lt;</c>, as a block's but smaller in name.</summary>
+        Operator,
     }
 
     /// <summary>A net as the schematic draws it: its branches from its driver to each load, and where its wires meet.</summary>
@@ -126,7 +129,7 @@ namespace BitSorter.ViewModel
         /// </summary>
         public static bool NameAbove(PartSymbol symbol) =>
             !NamedInside(symbol) && symbol != PartSymbol.Constant && symbol != PartSymbol.Lamp &&
-            symbol != PartSymbol.Splitter && symbol != PartSymbol.Joiner;
+            symbol != PartSymbol.Splitter && symbol != PartSymbol.Joiner && symbol != PartSymbol.Operator;
 
         /// <summary>A point of the part's own drawing, in cells, where it lands on the stage.</summary>
         public Vec2 ToStage(double x, double y) => _frame.ToStage(PartGeometry.Transform(Placement, new BoardPoint(x, y)));

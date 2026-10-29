@@ -137,6 +137,7 @@ namespace BitSorter.Board
             void Left(string pin, double y, double x) => pins.Add(new PinSpot(pin, new Point(x, y), Facing.Left));
             void Right(string pin, double y, double x) => pins.Add(new PinSpot(pin, new Point(x, y), Facing.Right));
             void Down(string pin, double x, double y) => pins.Add(new PinSpot(pin, new Point(x, y), Facing.Down));
+            void Up(string pin, double x, double y) => pins.Add(new PinSpot(pin, new Point(x, y), Facing.Up));
 
             switch (part)
             {
@@ -220,6 +221,26 @@ namespace BitSorter.Board
                         Left("i" + i, Row(joiner.Width - 1 - i, joiner.Width), -0.5);
                     Right("out", 0, 0.5);
                     return new PartOutline(-0.5, -half, 0.5, half, pins);
+                }
+
+                case OperatorPart op:
+                {
+                    // A box with its symbol, as a block's: a and b down the left, y on the right; a shift's amount on top, as an
+                    // ALU's control is drawn (Part 15h-3).
+                    if (Operators.IsUnary(op.Op) || Operators.IsShift(op.Op))
+                        Left("a", 0, -1.5);
+                    else
+                    {
+                        Left("a", Row(0, 2), -1.5);
+                        Left("b", Row(1, 2), -1.5);
+                    }
+                    Right("y", 0, 1.5);
+                    if (Operators.IsShift(op.Op))
+                    {
+                        Up("b", 0, 1.0);
+                        return new PartOutline(-1.5, -0.5, 1.5, 1.0, pins);
+                    }
+                    return new PartOutline(-1.5, -0.5, 1.5, 0.5, pins);
                 }
 
                 case LampPart _:

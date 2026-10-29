@@ -217,6 +217,24 @@ namespace BitSorter.ViewModel
                     says = "Passes the input its select picks.";
                     break;
 
+                case OperatorPart op:
+                {
+                    kind = "OPERATOR";
+                    bool unary = Operators.IsUnary(op.Op);
+                    fields.Add(new InspectorField("op", "OPERATOR", Operators.Token(op.Op), unary
+                        ? "-, ~, !, &, |, ^, ~&, ~| or ~^"
+                        : "+, -, *, /, %, &, |, ^, ~^, <, <=, >, >=, ==, !=, ===, !==, &&, ||, <<, >>, <<< or >>>"));
+                    fields.Add(new InspectorField("width", "WIDTH", Int(op.Width), "bits, 1 to " + BoardRules.MaxWidth));
+                    if (Operators.BOwnWidth(op.Op))
+                        fields.Add(new InspectorField("bwidth", Operators.IsShift(op.Op) ? "AMOUNT WIDTH" : "B WIDTH", Int(op.WidthOfB), "bits, 1 to " + BoardRules.MaxWidth));
+                    if (Operators.SignMatters(op.Op))
+                        fields.Add(new InspectorField("signed", "SIGNED", op.Signed ? "yes" : "no", "yes or no"));
+                    string token = Operators.Token(op.Op);
+                    says = unary ? "y = " + token + "a, as the code writes it." : "y = a " + token + " b, as the code writes it.";
+                    quick = new[] { "op", "width" };
+                    break;
+                }
+
                 case SplitterPart splitter:
                     kind = "SPLITTER";
                     fields.Add(new InspectorField("width", "WIDTH", Int(splitter.Width), "bits, 2 to 64"));
@@ -403,6 +421,37 @@ namespace BitSorter.ViewModel
                     if (Changed("width") && TryInt(Typed("width"), "width", ref why, out int muxWidth))
                         mux = mux with { Width = muxWidth };
                     changed = mux;
+                    break;
+
+                case OperatorPart op:
+                    if (Changed("op"))
+                    {
+                        // A token both kinds have -- &, -, ^ -- keeps the part's own: a reduction stays one, a binary & stays one.
+                        if (Operators.TryToken(Typed("op").Trim(), Operators.IsUnary(op.Op), out OperatorKind operatorKind))
+                            op = op with
+                            {
+                                Op = operatorKind,
+                                BWidth = Operators.BOwnWidth(operatorKind) ? op.BWidth : 0,
+                                Signed = Operators.SignMatters(operatorKind) && op.Signed,
+                            };
+                        else
+                            why ??= "The operator is one SystemVerilog writes between a and b, as + or <, or before a, as ~ or &.";
+                    }
+                    if (Changed("width") && TryInt(Typed("width"), "width", ref why, out int operatorWidth))
+                        op = op with { Width = operatorWidth };
+                    if (Changed("bwidth") && TryInt(Typed("bwidth"), "b's width", ref why, out int bWidth))
+                        op = op with { BWidth = bWidth };
+                    if (Changed("signed"))
+                    {
+                        string yes = Typed("signed").ToLowerInvariant();
+                        if (yes == "yes" || yes == "y" || yes == "1" || yes == "true")
+                            op = op with { Signed = true };
+                        else if (yes == "no" || yes == "n" || yes == "0" || yes == "false")
+                            op = op with { Signed = false };
+                        else
+                            why ??= "Signed is yes or no.";
+                    }
+                    changed = op;
                     break;
 
                 case SplitterPart splitter:

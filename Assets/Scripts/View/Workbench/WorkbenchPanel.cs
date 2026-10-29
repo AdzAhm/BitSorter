@@ -2053,6 +2053,18 @@ namespace BitSorter.View
                     continue;
                 }
 
+                // An operator's symbol large inside its box, its operands' names beside their pins, and signed said under it.
+                if (part.Symbol == PartSymbol.Operator)
+                {
+                    StageLabel(_schematic, part.Name, part.ToStage(0, 0.04).ToUnity(), UiType.Numeral, palette.Text,
+                        TextAlignmentOptions.Center, 2f * part.Cell);
+                    if (part.Part is BitSorter.Board.OperatorPart { Signed: true })
+                        StageLabel(_schematic, "signed", part.ToStage(0, -0.3).ToUnity(), UiType.Micro, palette.TextDim,
+                            TextAlignmentOptions.Center, 2f * part.Cell);
+                    OperandNames(part, palette);
+                    continue;
+                }
+
                 // A gate's kind inside its body, as the reference writes it; other names over the part.
                 if (PartLayout.NamedInside(part.Symbol))
                     StageLabel(_schematic, part.Name, part.ToStage(0.05, 0).ToUnity(), UiType.Micro, palette.TextDim,
@@ -2062,11 +2074,21 @@ namespace BitSorter.View
                     // Over what is drawn. A triangle is a third of a cell tall where its outline is half,
                     // and placed from the outline its name floated as near the row above as its own
                     // part (Part 8's review); over the triangle's taller back it is plainly the part's.
+                    // A part turned so wires leave its top (Part 15h-3) has its name under it, or, with wires leaving
+                    // its foot as well, beside it on the left: over it, the wires ran through the name.
+                    bool wiredAbove = PinsFace(part, up: true), wiredBelow = PinsFace(part, up: false);
                     Vector2 over = Triangle(part.Symbol) ? part.ToStage(-0.2, 0.32).ToUnity() : new Vector2(bounds.center.x, bounds.yMin);
                     if (part.Part is BitSorter.Board.BlockPart { Copies: > 1 })
                         over.y -= (float)WorkbenchDrawing.ArrayBehind * part.Cell;
-                    StageLabel(_schematic, part.Name, new Vector2(over.x, over.y - 9f), UiType.Micro, palette.TextDim,
-                        TextAlignmentOptions.Center, Mathf.Max(80f, bounds.width + 40f));
+                    if (wiredAbove && !wiredBelow)
+                        StageLabel(_schematic, part.Name, new Vector2(bounds.center.x, bounds.yMax + 9f), UiType.Micro, palette.TextDim,
+                            TextAlignmentOptions.Center, Mathf.Max(80f, bounds.width + 40f));
+                    else if (wiredAbove)
+                        StageLabel(_schematic, part.Name, new Vector2(bounds.xMin - 6f - 160f, bounds.center.y), UiType.Micro, palette.TextDim,
+                            TextAlignmentOptions.MidlineRight, 160f);
+                    else
+                        StageLabel(_schematic, part.Name, new Vector2(over.x, over.y - 9f), UiType.Micro, palette.TextDim,
+                            TextAlignmentOptions.Center, Mathf.Max(80f, bounds.width + 40f));
                 }
 
                 // Its delay just past its output, over the wire leaving it: under or over the body it
@@ -2098,6 +2120,23 @@ namespace BitSorter.View
                         float pinWidth = across ? half : whole;
                         bool input = pin.Facing == BitSorter.Board.Facing.Left;
                         Vector2 at = part.ToStage(input ? -inside : inside, pin.At.Y).ToUnity();
+
+                        // A block turned a quarter has its pins on its top and bottom edges: each name runs along its pin,
+                        // turned as the pin is, ending at a top edge and starting at a bottom one -- level, it ran out of the
+                        // box across its neighbours' (Part 15h-3).
+                        Vector2 edge = part.ToStage(input ? -inside - 0.1 : inside + 0.1, pin.At.Y).ToUnity();
+                        Vector2 outward = edge - part.ToStage(0, pin.At.Y).ToUnity();
+                        if (Mathf.Abs(outward.y) > Mathf.Abs(outward.x))
+                        {
+                            bool top = outward.y < 0f;   // the stage runs y-down
+                            Vector2 middle = edge - outward.normalized * (0.1f * part.Cell + pinWidth / 2f);
+                            TextMeshProUGUI along = StageLabel(_schematic, pin.Pin, middle, UiType.Micro, palette.TextDim, TextAlignmentOptions.Center, pinWidth);
+                            along.alignment = top ? TextAlignmentOptions.MidlineRight : TextAlignmentOptions.MidlineLeft;
+                            along.rectTransform.localRotation = Quaternion.Euler(0f, 0f, 90f);
+                            along.overflowMode = TextOverflowModes.Ellipsis;
+                            continue;
+                        }
+
                         bool onLeft = at.x < part.ToStage(0, pin.At.Y).ToUnity().x;
                         TextMeshProUGUI name = StageLabel(_schematic, pin.Pin, onLeft ? at : at - new Vector2(pinWidth, 0f), UiType.Micro,
                             palette.TextDim, onLeft ? TextAlignmentOptions.MidlineLeft : TextAlignmentOptions.MidlineRight, pinWidth);
@@ -2117,6 +2156,38 @@ namespace BitSorter.View
                 Vector2 at = net.Branches[0].PointAt(net.Branches[0].Length * 0.28f).ToUnity();
                 StageLabel(_schematic, net.Width.ToString(CultureInfo.InvariantCulture), at + new Vector2(4f, -15f),
                     UiType.Micro, palette.Muted, TextAlignmentOptions.MidlineLeft, 30f);
+            }
+        }
+
+        /// <summary>Whether any of a part's pins faces up -- or, not <paramref name="up"/>, down -- on the stage, as it is turned.</summary>
+        private static bool PinsFace(PartLayout part, bool up)
+        {
+            foreach (BitSorter.Board.PinSpot pin in part.Local.Pins)
+            {
+                BitSorter.Board.Point step = BitSorter.Board.PartGeometry.Step(pin.Facing);
+                Vector2 outward = part.ToStage(pin.At.X + step.X, pin.At.Y + step.Y).ToUnity() - part.ToStage(pin.At.X, pin.At.Y).ToUnity();
+                if (Mathf.Abs(outward.y) > Mathf.Abs(outward.x) && (outward.y < 0f) == up)   // the stage runs y-down
+                    return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// An operator's a and b named inside its box beside their pins, so a - b and a &lt; b read the right way round at any
+        /// turn: a name stands a little in from its pin, along the way the pin faces, and is set level whatever the turn.
+        /// </summary>
+        private void OperandNames(PartLayout part, SchematicPalette palette)
+        {
+            if (part.Local.Pins.Count < 3)
+                return;
+            foreach (BitSorter.Board.PinSpot pin in part.Local.Pins)
+            {
+                if (pin.Pin == "y")
+                    continue;
+                (double x, double y) = SymbolGeometry.LeadEnd(part, pin);
+                BitSorter.Board.Point step = BitSorter.Board.PartGeometry.Step(pin.Facing);
+                Vector2 at = part.ToStage(x - 0.22 * step.X, y - 0.22 * step.Y).ToUnity();
+                StageLabel(_schematic, pin.Pin, at, UiType.Micro, palette.TextDim, TextAlignmentOptions.Center, 0.5f * part.Cell);
             }
         }
 
