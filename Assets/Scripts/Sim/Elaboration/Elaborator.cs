@@ -1699,7 +1699,7 @@ namespace BitSorter.Sim
                                 if ((d.NetType == "supply0" || d.NetType == "supply1") && scope.Own(declarator.Name) is SignalEntry supply)
                                 {
                                     HoldSupplyToLibrary(scope, declarator.Location);
-                                    Drive(new List<ExpressionBuilder.Part> { new ExpressionBuilder.Part(supply, 0, supply.Width) },
+                                    Drive(scope, new List<ExpressionBuilder.Part> { new ExpressionBuilder.Part(supply, 0, supply.Width) },
                                         Expr.Constant(LogicVec.Fill(d.NetType == "supply1" ? Logic4.One : Logic4.Zero, supply.Width)),
                                         Delay.Zero, false, declarator.Location, d.NetType + " " + supply.FullName);
                                 }
@@ -1837,13 +1837,27 @@ namespace BitSorter.Sim
 
                 LintTruncation(type, target, value, scope, width, at);
                 HoldAssignToLibrary(scope, built, delay, at);
-                Drive(parts, built, delay, type.Signed, at, null);
+                Drive(scope, parts, built, delay, type.Signed, at, null);
             }
 
             /// <summary>
             /// Drives each piece of a target from its bits of <paramref name="value"/>: the last piece
             /// from the lowest bits, as a concatenation on the left of an assignment takes them.
             /// </summary>
+            /// <summary>Drives the parts with the value's bits, each driver told the scope it is written in, <paramref name="scope"/>.</summary>
+            private void Drive(Scope scope, List<ExpressionBuilder.Part> parts, Expr value, Delay delay, bool signExtend, SourceLocation at, string name)
+            {
+                _builder.WrittenIn = scope.Recorded;
+                try
+                {
+                    Drive(parts, value, delay, signExtend, at, name);
+                }
+                finally
+                {
+                    _builder.WrittenIn = -1;
+                }
+            }
+
             private void Drive(List<ExpressionBuilder.Part> parts, Expr value, Delay delay, bool signExtend, SourceLocation at, string name)
             {
                 int total = 0;
@@ -1974,7 +1988,15 @@ namespace BitSorter.Sim
 
                         try
                         {
-                            _builder.Gate(kind, name, parts[0].Signal.Signal, parts[0].Lowest, delay, inputExprs);
+                            _builder.WrittenIn = scope.Recorded;
+                            try
+                            {
+                                _builder.Gate(kind, name, parts[0].Signal.Signal, parts[0].Lowest, delay, inputExprs);
+                            }
+                            finally
+                            {
+                                _builder.WrittenIn = -1;
+                            }
                         }
                         catch (InvalidOperationException ex)
                         {
@@ -2410,7 +2432,7 @@ namespace BitSorter.Sim
                     Warning(at, ElaborationCodes.WidthMismatch,
                         $"Input {LastName(port)} of {instance} is {port.Width} bit{(port.Width == 1 ? "" : "s")}, and {Printer.Print(expression)} is {type.Width}.");
 
-                Drive(new List<ExpressionBuilder.Part> { new ExpressionBuilder.Part(port, 0, port.Width) }, value, Delay.Zero, type.Signed, at, "port " + port.FullName);
+                Drive(scope, new List<ExpressionBuilder.Part> { new ExpressionBuilder.Part(port, 0, port.Width) }, value, Delay.Zero, type.Signed, at, "port " + port.FullName);
             }
 
             private void ConnectOutput(Scope scope, SignalEntry port, Expression expression, string instance, SourceLocation at)
@@ -2428,7 +2450,7 @@ namespace BitSorter.Sim
                     Warning(at, ElaborationCodes.WidthMismatch,
                         $"Output {LastName(port)} of {instance} is {port.Width} bit{(port.Width == 1 ? "" : "s")}, and {Printer.Print(expression)} is {width}.");
 
-                Drive(parts, Expr.Read(port.Signal, port.Width), Delay.Zero, port.Signed, at, "port " + port.FullName);
+                Drive(scope, parts, Expr.Read(port.Signal, port.Width), Delay.Zero, port.Signed, at, "port " + port.FullName);
             }
 
             private static Expression Bare(Expression e)

@@ -289,6 +289,13 @@ namespace BitSorter.Sim
 
         public Delay Delay { get; }
 
+        /// <summary>
+        /// The scope it is written in, an index into <see cref="Design.Scopes"/>; -1 for a circuit built in code. Not always its
+        /// target's: a port's connection is written in the instance's parent and drives the instance's port, and a driver of an
+        /// inout drives the net its port is joined to, a signal of another scope (Part 15h).
+        /// </summary>
+        public int WrittenIn { get; internal set; } = -1;
+
         /// <summary>Its output for the signals' current values.</summary>
         internal abstract LogicVec Evaluate(LogicVec[] values);
 
@@ -372,6 +379,7 @@ namespace BitSorter.Sim
             Memories = memories.ToArray();
             Time = time;
             Scopes = scopes != null ? scopes.ToArray() : Array.Empty<ScopeInfo>();
+            Aliases = aliases != null ? aliases.ToArray() : Array.Empty<(string, SignalId)>();
 
             _byName = new Dictionary<string, SignalId>(StringComparer.Ordinal);
             for (int i = 0; i < Signals.Count; i++)
@@ -400,6 +408,12 @@ namespace BitSorter.Sim
         /// Empty for a circuit built in code, which has a name for its top and nothing else.
         /// </summary>
         public IReadOnlyList<ScopeInfo> Scopes { get; }
+
+        /// <summary>
+        /// Names that are another signal: an inout port joined to the net it is connected to (Part 14f), found by its own name
+        /// as that net. What an instance's inout pin is, in a netlist of its parent (Part 15h).
+        /// </summary>
+        public IReadOnlyList<(string Name, SignalId Signal)> Aliases { get; }
 
         /// <summary>
         /// The signal <c>$time</c> reads, if the design reads it: the engine sets it as time moves, with
@@ -682,7 +696,7 @@ namespace BitSorter.Sim
 
             RequireBits(output, outputBit, 1, $"the output of {name}");
             CountDriver(output, outputBit, 1, name);
-            _drivers.Add(new GateDriver(name, kind, output, outputBit, delay, inputs));
+            _drivers.Add(new GateDriver(name, kind, output, outputBit, delay, inputs) { WrittenIn = WrittenIn });
         }
 
         /// <summary>
@@ -701,7 +715,7 @@ namespace BitSorter.Sim
 
             string driverName = name ?? $"assign {_signals[target.Index].Name}";
             CountDriver(target, 0, width, driverName);
-            _drivers.Add(new AssignDriver(driverName, target, 0, width, delay, sized));
+            _drivers.Add(new AssignDriver(driverName, target, 0, width, delay, sized) { WrittenIn = WrittenIn });
         }
 
         /// <summary>
@@ -720,7 +734,7 @@ namespace BitSorter.Sim
 
             string driverName = name ?? $"assign {_signals[target.Index].Name}[{lowest + width - 1}:{lowest}]";
             CountDriver(target, lowest, width, driverName);
-            _drivers.Add(new AssignDriver(driverName, target, lowest, width, delay, sized));
+            _drivers.Add(new AssignDriver(driverName, target, lowest, width, delay, sized) { WrittenIn = WrittenIn });
         }
 
         /// <summary>An expression reading a signal of this design, at its own width.</summary>
@@ -730,6 +744,9 @@ namespace BitSorter.Sim
         internal SignalInfo InfoOf(SignalId signal) => _signals[signal.Index];
 
         public Design Build() => new Design(_name, _signals, _drivers, _processes, _memories, _time, _scopes, _aliases);
+
+        /// <summary>The scope the drivers made now are written in, which the elaborator sets as it makes them (<see cref="DriverInfo.WrittenIn"/>).</summary>
+        internal int WrittenIn = -1;
 
         private readonly List<(string Name, SignalId Signal)> _aliases = new List<(string, SignalId)>();
 
