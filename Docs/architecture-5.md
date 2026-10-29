@@ -3461,11 +3461,15 @@ wires no signal and no netlist net holds, and showing their values needs the ope
   out at the playhead from the signals the netlist reads, with the engine's own operators, once a moment however many
   wires ask. `DrawnValues` names those signals, and each model finds them in its own run by name: the layout of an
   edit is handed to the run shown until its replay takes over, and that run's design numbers its signals otherwise.
-- **Stepping inside written code**: a double-click on a block of the drawing steps into the instance its code makes, and
-  the hierarchy's row of one inside code steps to it through the design's own scopes -- the breadcrumb's path each
-  instance's name in the code (`h1`, `gen[2].u`), and the module of each step taken through code kept in the session
-  (`WorkbenchSession.ThroughCode`), since no block of a drawn module says it. Inside, the module is shown as its code or
-  its drawing as it was chosen for it, its values read under the instance.
+- **Stepping inside written code**: a double-click on a block of the drawing steps into the instance its code makes --
+  the canvas finds what is under the pointer on the drawing itself (`WorkbenchSession.DrawnModule`, `CanStepInto`) -- and
+  the hierarchy's row of one inside code steps to it through the design's own scopes, a copy of a block array on the way
+  one step as ever. The breadcrumb's path is each instance's name in the code (`h1`, `gen[2].u`), and beside each step
+  the session keeps the module of one taken through code (`WorkbenchSession.CodeSteps`), since no block says it.
+  **That is read again from the code as it is now whenever the document is drawn again**: an edit, an undo or a redo
+  that makes h1 another module shows that module inside it, and one that takes h1 away steps out. Inside, the module is
+  shown as its code or its drawing as it was chosen for it, its values read under the instance. A drag on the drawing is
+  refused as it begins, and a copy of it too.
 - **It takes no edit**: placing, wiring, moving, turning, deleting, pasting, routing and the inspector are each refused
   with "This is the drawing of the code: change the code to change it" (`WorkbenchSession.DrawingRefusal`), and PARTS
   says so where it lists nothing to place.
@@ -3484,8 +3488,14 @@ wires no signal and no netlist net holds, and showing their values needs the ope
   and instance a part, a port each, every wire on pins its parts have and named for its signal, nothing on anything,
   every wire routed, the same drawing twice; a case drawn as its mux; in the view-model, the written adder's drawing an
   adder with its sum valued 15 + 15 where no signal holds it, edits refused, the choice kept for the module, and a written
-  full adder's two written half adders stepped into from the drawing and from the hierarchy, and out again; shot 63,
-  the written adder's block made a small ALU and drawn.
+  full adder's two written half adders stepped into from the drawing and from the hierarchy, and out again; through the
+  canvas's own hit test, across an undo and a redo that change or take away the instance, from the hierarchy after an
+  edit, through a copy of a block array, and to a block array inside an instance the code makes (`SteppingThroughCodeTests`);
+  shot 63, the written adder's block made a small ALU and drawn.
+- **The Sonnet review of #109** found that a double-click on the drawing's blocks could not step in -- the canvas hit-tested
+  the written module, which has no parts; that a step through code remembered its module for good, so an undo that made h1
+  another module showed the old one and one that took h1 away left the path on nothing; and that a step from the
+  hierarchy into code inside a copy of an array gave the path an extra crumb and no values. All are fixed and held by tests.
 
 ---
 

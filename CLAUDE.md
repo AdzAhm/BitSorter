@@ -1014,7 +1014,8 @@ failure side.
   values are the run's, a wire no signal holds worked out from the ones that are
   (`DrawnValues`); it takes no edit -- "change the code to change it"; and a
   double-click on a block in it, or its row in DESIGN, steps into the instance the
-  code makes (`WorkbenchSession.ThroughCode`). **A big
+  code makes, its module read again from the code whenever it is drawn again
+  (`WorkbenchSession.CodeSteps`). **A big
   drawing stays smooth** (Part 15g): the session routes a document once for the
   drawing, the hit map and a wire being drawn (`WorkbenchSession.RoutesOf`), which
   each routed it for themselves; a drag routes only the wires on the parts it moves,

@@ -135,7 +135,7 @@ namespace BitSorter.View
             var path = new System.Collections.Generic.List<string>();
             for (int i = 0; i < depth; i++)
                 path.Add(_session.Path[i]);
-            return WorkbenchSession.ModuleOn(_session.Project, path, out _, _session.ThroughCode);
+            return WorkbenchSession.ModuleOn(_session.Project, path, out _, _session.CodeSteps);
         }
 
         /// <summary>What the inspector's line says inside a block while nothing is selected: that an edit here is the module's.</summary>
@@ -150,8 +150,7 @@ namespace BitSorter.View
                 : $"Inside {instance}, a {module}: what you change here is the module's. Alt+Up steps out.";
         }
 
-        /// <summary>Whether <paramref name="part"/> of the module shown is a block that can be stepped into.</summary>
-        private bool IsBlock(int part) =>
-            _session != null && _session.Project.Find(_session.Module)?.FindPart(part) is BlockPart block && _session.Project.Find(block.Module) != null;
+        /// <summary>Whether <paramref name="part"/> of what the circuit's window draws is a block that can be stepped into -- on the drawing of code too.</summary>
+        private bool IsBlock(int part) => _session != null && _session.CanStepInto(part);
     }
 }

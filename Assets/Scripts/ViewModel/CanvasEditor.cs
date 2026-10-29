@@ -163,14 +163,18 @@ namespace BitSorter.ViewModel
         /// <summary>Why the document would refuse the wire being drawn ending where the pointer is; null when it would take it, or the pointer is on nothing it could end on.</summary>
         public string DraftRefusal => _draftWhyNot;
 
-        private Module Module => _session.Project.Find(_session.Module);
+        // What the canvas draws, and so what a point of it is on: the module shown, or the drawing of its code (Part 15h-4) --
+        // a block of which a double-click steps into (the review of #109: the hit map was the written module's, which has no parts).
+        private Module Module => _session.DrawnModule;
+
+        private Project Drawn => _session.DrawnProject;
 
         /// <summary>The document drawn again (<see cref="WorkbenchSession.LayoutVersion"/>, or a replay taking over): found again, and the selection kept to what is still there.</summary>
         public void Relaid()
         {
             _layout = _session.Run.Model.Layout;
             Module module = Module;
-            _hit = new CanvasHit(_session.Project, module, module == null ? null : _session.RoutesOf(_session.Project, module));
+            _hit = new CanvasHit(Drawn, module, module == null ? null : _session.RoutesOf(Drawn, module));
             Selection.Keep(Module);
 
             // A wire being drawn from something an undo took away has nowhere to start; and what it may end on is asked again.
@@ -271,7 +275,7 @@ namespace BitSorter.ViewModel
             // Asked again only when the pointer, the zoom or the drawing has changed: the view points every frame, and a hit
             // test of every pin each frame was a cost a big design paid standing still (the 15g-3 review).
             CanvasTarget pin = CanvasTarget.Nothing;
-            if (pins && stage.HasValue && InHand == null && _draft == null && _start == null && !_boxing && _reshaping < 0)
+            if (pins && stage.HasValue && InHand == null && _draft == null && _start == null && !_boxing && _reshaping < 0 && !_session.ShowsDrawingOfCode)
             {
                 if (stage.Value.Equals(_pinAskedAt) && zoom == _pinAskedZoom && ReferenceEquals(_hit, _pinAskedOf))
                 {
@@ -326,6 +330,13 @@ namespace BitSorter.ViewModel
         public EditResult? Do(CanvasCommand command)
         {
             Refusal = null;
+
+            // The drawing of code takes no edit (Part 15h-4): a drag that would begin one is refused as it begins, saying why,
+            // rather than drawn and then refused where it ends. A click, a box, a double-click and the menu still work on it.
+            if (_session.ShowsDrawingOfCode && (command.Gesture == CanvasGesture.BeginMove || command.Gesture == CanvasGesture.BeginWire
+                || command.Gesture == CanvasGesture.BeginReshape))
+                return EditResult.Refused(WorkbenchSession.DrawingRefusal);
+
             switch (command.Gesture)
             {
                 case CanvasGesture.Select:
@@ -961,6 +972,11 @@ namespace BitSorter.ViewModel
         public Clip Copy()
         {
             Refusal = null;
+            if (_session.ShowsDrawingOfCode)
+            {
+                Refusal = WorkbenchSession.DrawingRefusal;   // its parts are the code's, some of them boxes no circuit has
+                return null;
+            }
             Clip clip = Clipboard.Copy(_session.Project, _session.Module, new List<int>(Selection.Parts));
             if (clip == null)
                 Refusal = "Select a part to copy: a wire goes with the parts at both its ends.";

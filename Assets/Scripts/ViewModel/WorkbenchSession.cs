@@ -58,8 +58,10 @@ namespace BitSorter.ViewModel
         /// <summary>Whether the replay has been asked to run on as far as the shown run's timeline.</summary>
         private bool _replayRanOn;
 
-        // The instances stepped through from the top, outermost first (Part 12a).
+        // The instances stepped through from the top, outermost first (Part 12a); and beside each, the module of a step taken
+        // through written code (Part 15h-4), which no block says -- null for a step into a block.
         private readonly List<string> _path = new List<string>();
+        private readonly List<string> _codeSteps = new List<string>();
 
         /// <summary>
         /// <paramref name="project"/>, compiled and its first slice run, each slice timed by
@@ -102,7 +104,7 @@ namespace BitSorter.ViewModel
         public int LayoutVersion { get; private set; }
 
         /// <summary>The module the canvas edits: the design's top, or the module of the instance stepped into last (Part 12a).</summary>
-        public string Module => ModuleOn(Project, _path, out _, _throughCode);
+        public string Module => ModuleOn(Project, _path, out _, _codeSteps);
 
         // -----------------------------------------------------------------
         // Stepping inside a block (Part 12a)
@@ -125,23 +127,45 @@ namespace BitSorter.ViewModel
         /// </summary>
         public bool StepInto(int part)
         {
+            if (!CanStepInto(part))
+                return false;
+
             // A block of the drawing of written code (Part 15h-4): the instance its code makes, which no block of the module is.
-            if (ShowsDrawingOfCode && _drawing != null && _drawing.Module.FindPart(part) is BlockPart inCode
-                && Project.Find(inCode.Module) != null && _drawing.InstanceOf(part) is string instance)
+            if (ShownDrawing != null)
             {
-                _path.Add(instance);
-                _throughCode[string.Join("/", _path)] = inCode.Module;
+                _path.Add(ShownDrawing.InstanceOf(part));
+                _codeSteps.Add(((BlockPart)ShownDrawing.Module.FindPart(part)).Module);
                 Stepped();
                 return true;
             }
 
-            Module module = Project.Find(Module);
-            if (!(module?.FindPart(part) is BlockPart block) || string.IsNullOrEmpty(block.Name) || Project.Find(block.Module) == null)
-                return false;
+            var block = (BlockPart)Project.Find(Module).FindPart(part);
             _path.Add(block.Copies > 1 ? block.Name + "[0]" : block.Name);   // an array is stepped into at its first copy (Part 12c)
+            _codeSteps.Add(null);
             Stepped();
             return true;
         }
+
+        /// <summary>
+        /// Whether <paramref name="part"/> of what the circuit's window draws is a block <see cref="StepInto"/> steps inside:
+        /// one of a module the document has -- on the drawing of written code (Part 15h-4), an instance its code makes.
+        /// </summary>
+        public bool CanStepInto(int part)
+        {
+            if (ShowsDrawingOfCode)
+                return ShownDrawing?.Module.FindPart(part) is BlockPart inCode && Project.Find(inCode.Module) != null
+                    && ShownDrawing.InstanceOf(part) != null;
+            return Project.Find(Module)?.FindPart(part) is BlockPart block && !string.IsNullOrEmpty(block.Name) && Project.Find(block.Module) != null;
+        }
+
+        /// <summary>
+        /// The project and module the circuit's window draws, what a point of it is on: the module shown, or over a written
+        /// module, the drawing of its code (Part 15h-4) -- and none while its code is shown.
+        /// </summary>
+        public Project DrawnProject => ShownDrawing?.Project ?? Project;
+
+        /// <inheritdoc cref="DrawnProject"/>
+        public Module DrawnModule => ShowsDrawingOfCode ? ShownDrawing?.Module : Project.Find(Module);
 
         /// <summary>Steps <paramref name="levels"/> out, no further than the top: false at the top already.</summary>
         public bool StepOut(int levels = 1)
@@ -150,6 +174,7 @@ namespace BitSorter.ViewModel
                 return false;
             levels = Math.Min(levels, _path.Count);
             _path.RemoveRange(_path.Count - levels, levels);
+            _codeSteps.RemoveRange(_codeSteps.Count - levels, levels);
             Stepped();
             return true;
         }
@@ -179,73 +204,145 @@ namespace BitSorter.ViewModel
                     i++;
             }
 
-            ModuleOn(Project, names, out int valid, _throughCode);
-            if (valid < names.Count && !ThroughCodeTo(compiled, names, valid, scope))
-                return false;
+            // Blocks all the way, as before code could be stepped through; past written code, the design says the way.
+            var codeSteps = new List<string>();
+            ModuleOn(Project, names, out int valid);
             if (valid == names.Count)
-            {
-                _path.Clear();
-                _path.AddRange(names);
-            }
+                codeSteps.AddRange(new string[names.Count]);
+            else if (!WayThroughCode(compiled, scope, names, codeSteps))
+                return false;
+            _path.Clear();
+            _path.AddRange(names);
+            _codeSteps.Clear();
+            _codeSteps.AddRange(codeSteps);
             Stepped();
             return true;
         }
 
         /// <summary>
-        /// The steps to <paramref name="scope"/> where the way there passes through written code (Part 15h-4): the steps that
-        /// are blocks, then from the written module each instance scope on the way, named from the one before as the design
-        /// names it, and noted in <see cref="ThroughCode"/>. False when the design has no such instance.
+        /// The steps from the top to the instance at <paramref name="scope"/>, found in the elaboration of the code as it is now
+        /// (Part 15h-4): in a drawn module, a block -- an array's copy <c>name[i]</c>, and the one instance in it, one step --
+        /// and in a written one, the outermost instance on the way, named from where it stands as the design names it,
+        /// <c>h1</c> or <c>gen[2].u</c>, with the module it is of. False when there is no such instance.
         /// </summary>
-        private bool ThroughCodeTo(CompiledProject compiled, List<string> names, int valid, string scope)
+        private bool WayThroughCode(CompiledProject compiled, string scope, List<string> steps, List<string> codeSteps)
         {
-            Design design = Run?.Model?.Session.Design;
-            if (design == null)
-                return false;
-            int target = -1;
-            for (int i = 0; i < design.Scopes.Count; i++)
-                if (design.Scopes[i].Path == scope)
-                    target = i;
-            if (target < 0 || design.Scopes[target].Kind != ScopeKind.Instance)
+            steps.Clear();
+            codeSteps.Clear();
+            Design design = DesignOf(Project, compiled);
+            if (design == null || !_scopes.TryGetValue(scope, out int goal) || design.Scopes[goal].Kind != ScopeKind.Instance)
                 return false;
 
-            var steps = new List<string>(names.GetRange(0, valid));
-            string from = compiled.DesignPath;
-            foreach (string step in steps)
-                from += "." + step;
-
-            // The instances from the written module down to the scope, outermost first.
-            var chain = new List<ScopeInfo>();
-            for (int at = target; at >= 0 && design.Scopes[at].Path != from; at = design.Scopes[at].Parent)
-                if (design.Scopes[at].Kind == ScopeKind.Instance)
-                    chain.Insert(0, design.Scopes[at]);
-            if (chain.Count == 0 || !chain[0].Path.StartsWith(from + ".", StringComparison.Ordinal))
-                return false;
-
-            var noted = new List<(string Key, string Module)>();
-            string before = from;
-            foreach (ScopeInfo instance in chain)
+            string at = compiled.DesignPath;
+            Module module = Project.TopModule;
+            while (at != scope)
             {
-                if (Project.Find(instance.Module) == null)
+                if (module == null || !scope.StartsWith(at + ".", StringComparison.Ordinal))
                     return false;
-                steps.Add(instance.Path.Substring(before.Length + 1));
-                noted.Add((string.Join("/", steps), instance.Module));
-                before = instance.Path;
-            }
+                if (module.IsWritten)
+                {
+                    ScopeInfo next = null;
+                    for (int s = goal; s >= 0 && design.Scopes[s].Path != at; s = design.Scopes[s].Parent)
+                        if (design.Scopes[s].Kind == ScopeKind.Instance)
+                            next = design.Scopes[s];
+                    if (next == null || !next.Path.StartsWith(at + ".", StringComparison.Ordinal) || !(Project.Find(next.Module) is Module of))
+                        return false;
+                    steps.Add(next.Path.Substring(at.Length + 1));
+                    codeSteps.Add(next.Module);
+                    at = next.Path;
+                    module = of;
+                    continue;
+                }
 
-            foreach ((string key, string module) in noted)
-                _throughCode[key] = module;
-            _path.Clear();
-            _path.AddRange(steps);
+                string rest = scope.Substring(at.Length + 1);
+                int dot = rest.IndexOf('.');
+                string step = dot < 0 ? rest : rest.Substring(0, dot);
+                if (!BlockStep(Project, module, step, out Module inner, out bool copy))
+                    return false;
+                steps.Add(step);
+                codeSteps.Add(null);
+                at += copy ? "." + step + "." + BoardCompiler.ArrayInstance : "." + step;
+                module = inner;
+            }
             return true;
         }
 
         /// <summary>
-        /// The instances stepped into inside written code (Part 15h-4), by the path to each, joined with <c>/</c>: the module it
-        /// is of, which no block of a drawn module says.
+        /// Each step's module where it was taken through written code (Part 15h-4) -- null for a step into a block -- side by
+        /// side with <see cref="Path"/>, and checked against the code again whenever the document is drawn again.
         /// </summary>
-        public IReadOnlyDictionary<string, string> ThroughCode => _throughCode;
+        public IReadOnlyList<string> CodeSteps => _codeSteps;
 
-        private readonly Dictionary<string, string> _throughCode = new Dictionary<string, string>(StringComparer.Ordinal);
+        /// <summary>
+        /// How many of the path's steps still lead somewhere: each block a block of the module before it, each step through
+        /// code an instance the code as it is now makes -- its module read again from the design, for an edit, an undo or a redo
+        /// may have changed which module the code makes it of (the review of #109).
+        /// </summary>
+        private int ValidSteps(CompiledProject compiled)
+        {
+            ModuleOn(Project, _path, out int valid, _codeSteps);
+            if (!compiled.Succeeded || !_codeSteps.Exists(m => m != null) && valid == _path.Count)
+                return valid;
+
+            Design design = DesignOf(Project, compiled);
+            string at = compiled.DesignPath;
+            Module module = Project.TopModule;
+            for (int i = 0; i < _path.Count; i++)
+            {
+                if (module == null)
+                    return i;
+                if (module.IsWritten)
+                {
+                    if (design == null || !_scopes.TryGetValue(at + "." + _path[i], out int s) || design.Scopes[s].Kind != ScopeKind.Instance
+                        || !(Project.Find(design.Scopes[s].Module) is Module of))
+                        return i;
+                    _codeSteps[i] = of.Name;
+                    at = design.Scopes[s].Path;
+                    module = of;
+                    continue;
+                }
+
+                if (!BlockStep(Project, module, _path[i], out Module inner, out bool copy))
+                    return i;
+                _codeSteps[i] = null;
+                at += copy ? "." + _path[i] + "." + BoardCompiler.ArrayInstance : "." + _path[i];
+                module = inner;
+            }
+            return _path.Count;
+        }
+
+        /// <summary>Whether <paramref name="step"/> is a block of <paramref name="module"/>'s -- an array's at one of its copies -- and the module inside.</summary>
+        private static bool BlockStep(Project project, Module module, string step, out Module inner, out bool copy)
+        {
+            inner = null;
+            copy = false;
+            if (!TryCopy(step, out string name, out int index) || !(module.FindPart(name) is BlockPart block)
+                || !(project.Find(block.Module) is Module of) || (block.Copies > 1) != (index >= 0) || index >= block.Copies)
+                return false;
+            inner = of;
+            copy = index >= 0;
+            return true;
+        }
+
+        // The code elaborated as it is now, made once for the document's modules, and its scopes by their paths: what steps
+        // through code are found and checked in, and what the drawing of code is drawn from.
+        private IReadOnlyList<Module> _designModules;
+        private Design _design;
+        private readonly Dictionary<string, int> _scopes = new Dictionary<string, int>(StringComparer.Ordinal);
+
+        private Design DesignOf(Project project, CompiledProject compiled)
+        {
+            if (ReferenceEquals(_designModules, project.Modules))
+                return _design;
+            Elaboration elaboration = Elaborator.Elaborate(compiled.Tree, compiled.Top);
+            _design = elaboration.HasErrors ? null : elaboration.Design;
+            _designModules = project.Modules;
+            _scopes.Clear();
+            if (_design != null)
+                for (int i = 0; i < _design.Scopes.Count; i++)
+                    _scopes[_design.Scopes[i].Path] = i;
+            return _design;
+        }
 
         /// <summary>How many instances of <paramref name="module"/> the design has: what an edit inside it changes.</summary>
         public int InstancesOf(string module)
@@ -261,7 +358,7 @@ namespace BitSorter.ViewModel
         /// The module at the end of <paramref name="path"/> from the top of <paramref name="project"/>, and how many of
         /// its steps were blocks of modules the document has: the module of the last of those.
         /// </summary>
-        public static string ModuleOn(Project project, IReadOnlyList<string> path, out int valid, IReadOnlyDictionary<string, string> throughCode = null)
+        public static string ModuleOn(Project project, IReadOnlyList<string> path, out int valid, IReadOnlyList<string> codeSteps = null)
         {
             Module module = project.TopModule;
             valid = 0;
@@ -269,23 +366,18 @@ namespace BitSorter.ViewModel
                 return project.Top;
             for (int i = 0; i < path.Count; i++)
             {
-                string step = path[i];
-
-                // Inside written code a step is an instance its code makes (Part 15h-4), the module it is of noted as it was taken.
+                // Inside written code a step is an instance its code makes (Part 15h-4), of the module noted beside it -- asked
+                // every frame, so read, not found (the review of #109: it allocated a key a step).
                 if (module.IsWritten)
                 {
-                    var prefix = new string[i + 1];
-                    for (int j = 0; j <= i; j++)
-                        prefix[j] = path[j];
-                    if (throughCode == null || !throughCode.TryGetValue(string.Join("/", prefix), out string inCode) || !(project.Find(inCode) is Module of))
+                    if (codeSteps == null || i >= codeSteps.Count || codeSteps[i] == null || !(project.Find(codeSteps[i]) is Module of))
                         break;
                     module = of;
                     valid++;
                     continue;
                 }
 
-                if (!TryCopy(step, out string name, out int copy) || !(module.FindPart(name) is BlockPart block)
-                    || !(project.Find(block.Module) is Module inner) || (block.Copies > 1) != (copy >= 0) || copy >= block.Copies)
+                if (!BlockStep(project, module, path[i], out Module inner, out _))
                     break;
                 module = inner;
                 valid++;
@@ -315,7 +407,7 @@ namespace BitSorter.ViewModel
             for (int i = 0; i < _path.Count; i++)
             {
                 string step = _path[i];
-                bool inCode = _throughCode.ContainsKey(string.Join("/", _path.GetRange(0, i + 1)));
+                bool inCode = i < _codeSteps.Count && _codeSteps[i] != null;
                 path += step.EndsWith("]", StringComparison.Ordinal) && !inCode ? "." + step + "." + BoardCompiler.ArrayInstance : "." + step;
             }
             return path;
@@ -325,8 +417,9 @@ namespace BitSorter.ViewModel
         private SchematicLayout LayoutOf(Project project, CompiledProject compiled)
         {
             double started = _now();
-            string shown = ModuleOn(project, _path, out _, _throughCode);
+            string shown = ModuleOn(project, _path, out _, _codeSteps);
             SchematicLayout layout = null;
+            _shownDrawing = null;
             if (project.Find(shown)?.IsWritten == true && _drawnCode.Contains(shown))
                 layout = DrawingLayout(project, compiled, InstancePathUnder(compiled.DesignPath), shown);
             layout ??= DocumentSchematic.Build(project, compiled, shown, InstancePathUnder(compiled.DesignPath),
@@ -420,6 +513,11 @@ namespace BitSorter.ViewModel
         private string _drawnPath;
         private RtlDrawing _drawing;
 
+        /// <summary>The drawing of code the circuit's window shows now; null for none (the review of #109: a stale one was stepped through).</summary>
+        private RtlDrawing ShownDrawing => ShowsDrawingOfCode ? _shownDrawing : null;
+
+        private RtlDrawing _shownDrawing;
+
         /// <summary>
         /// The drawing of the written module at <paramref name="path"/>, made once for the document's modules and the instance
         /// stepped into: its code elaborated as the run elaborates it, its netlist drawn.
@@ -428,15 +526,17 @@ namespace BitSorter.ViewModel
         {
             if (ReferenceEquals(_drawnModules, project.Modules) && _drawnPath == path && _drawing?.Module.Name == module)
                 return _drawing;
-            Elaboration elaboration = Elaborator.Elaborate(compiled.Tree, compiled.Top);
-            if (elaboration.HasErrors)
+            _drawing = null;
+            _drawnModules = null;
+            Design design = DesignOf(project, compiled);
+            if (design == null)
                 return null;
-            RtlNetlist netlist = RtlExtractor.Of(elaboration.Design, path);
+            RtlNetlist netlist = RtlExtractor.Of(design, path);
             if (netlist == null)
                 return null;
             _drawing = RtlDrawing.Of(project, netlist, module);
             _drawnNetlist = netlist;
-            _drawnDesign = elaboration.Design;
+            _drawnDesign = design;
             _drawnModules = project.Modules;
             _drawnPath = path;
             return _drawing;
@@ -461,6 +561,7 @@ namespace BitSorter.ViewModel
                 rtlNetOf[i] = net != null && net.Wires.Count > 0 ? drawing.NetOfWire(net.Wires[0]) : -1;
             }
             layout.Drawn = new DrawnValues(_drawnNetlist, rtlNetOf, _drawnDesign);
+            _shownDrawing = drawing;
             return layout;
         }
 
@@ -729,14 +830,15 @@ namespace BitSorter.ViewModel
         /// </summary>
         private void Relayout()
         {
-            ModuleOn(Project, _path, out int valid, _throughCode);
+            CompiledProject compiled = BoardCompiler.Compile(Project);
+            int valid = ValidSteps(compiled);
             if (valid < _path.Count)
             {
                 _path.RemoveRange(valid, _path.Count - valid);
+                _codeSteps.RemoveRange(valid, _codeSteps.Count - valid);
                 StepVersion++;
             }
 
-            CompiledProject compiled = BoardCompiler.Compile(Project);
             if (!compiled.Succeeded)
                 return;   // a document the rules let through compiles; this is only never-throw
 
