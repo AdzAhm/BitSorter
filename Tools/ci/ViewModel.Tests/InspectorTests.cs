@@ -120,6 +120,44 @@ namespace BitSorter.ViewModel.Tests
             Assert.AreEqual((1L, 1L), (b.Part<GatePart>(b.And).Rise, b.Part<GatePart>(b.And).Fall), "both fields, one step");
         }
 
+        /// <summary>
+        /// An operator part's fields: its operator as written, its width, a shift's amount width and a comparison's sign only
+        /// where they are; a token both kinds have keeps the part's own; a width of nothing is refused; and its symbol is its token.
+        /// </summary>
+        [Test]
+        public void AnOperatorPart_IsInspected_AsItsOperatorIsWritten()
+        {
+            var editor = new BoardEditor(Project.New("ops"));
+            int shift = Must(editor.Add("ops", new OperatorPart { Op = OperatorKind.ShiftLeft, Width = 4, BWidth = 2 }, new Placement(2, 0)));
+            int reduce = Must(editor.Add("ops", new OperatorPart { Op = OperatorKind.ReduceAnd, Width = 4 }, new Placement(2, -4)));
+            var session = new WorkbenchSession(editor.Project, Ticking(0.01));
+            session.Finish();
+            Inspection Of(int part) => Inspector.Of(session.Project, session.Module, new CanvasTarget(CanvasTargetKind.Part, part: part));
+            EditResult Apply(int part, params (string Key, string Text)[] typed) => session.Inspect(Of(part), typed.ToDictionary(t => t.Key, t => t.Text));
+            OperatorPart Part(int id) => (OperatorPart)session.Project.TopModule.FindPart(id);
+
+            CollectionAssert.AreEqual(new[] { "name", "op", "width", "bwidth" }, Of(shift).Fields.Select(f => f.Key).ToArray(), "a shift: no sign");
+            Assert.AreEqual("<<", Of(shift).Fields[1].Text);
+
+            Must(Apply(shift, ("op", "<")));
+            Assert.AreEqual(OperatorKind.Less, Part(shift).Op);
+            Assert.AreEqual(0, Part(shift).BWidth, "a comparison's b is as wide as a");
+            CollectionAssert.AreEqual(new[] { "name", "op", "width", "signed" }, Of(shift).Fields.Select(f => f.Key).ToArray());
+            Must(Apply(shift, ("signed", "yes")));
+            Must(Apply(shift, ("op", "+")));
+            Assert.IsFalse(Part(shift).Signed, "an adder takes no sign");
+
+            Must(Apply(reduce, ("op", "^")));
+            Assert.AreEqual(OperatorKind.ReduceXor, Part(reduce).Op, "^ before a stays a reduction");
+            Assert.IsFalse(Apply(reduce, ("op", "?")).Done);
+
+            Must(Apply(shift, ("op", ">>")));
+            StringAssert.Contains("a bit or more", Apply(shift, ("bwidth", "0")).Refusal);
+
+            Assert.AreEqual(PartSymbol.Operator, DocumentSchematic.SymbolOf(Part(shift)));
+            Assert.AreEqual(">>", DocumentSchematic.NameOf(Part(shift)));
+        }
+
         [Test]
         public void WhatIsNoNumberOrTime_IsRefusedWithWords_AndWhatTheDocumentForbids_InItsOwn()
         {

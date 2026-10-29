@@ -34,6 +34,9 @@ namespace BitSorter.ViewModel
         /// <summary>How far over its outline a part's name reaches, in cells.</summary>
         private const double NameRoom = 0.4;
 
+        /// <summary>The room a turned part's name takes beside it, on the left, in cells: the view's 160 units at the cell's 48.</summary>
+        private const double TurnedNameRoom = 3.5;
+
         /// <summary>
         /// The layout of <paramref name="moduleName"/> -- the top when null -- its signals read under
         /// <paramref name="instancePath"/>, the design path when null: an inner module drawn as one of its instances
@@ -77,9 +80,17 @@ namespace BitSorter.ViewModel
                 Include(new BoardPoint(outline.Left, outline.Bottom));
                 Include(new BoardPoint(outline.Right, outline.Top));
 
-                // And what is written round it: a name over it, a delay over the wire leaving it.
+                // And what is written round it: a name over it -- or, turned a quarter, under it or beside it (Part 15h-3) -- and
+                // a delay over the wire leaving it.
                 if (!(part is PortPart) && PartLayout.NameAbove(SymbolOf(part)))
+                {
                     Include(new BoardPoint((outline.Left + outline.Right) / 2, outline.Top + NameRoom));
+                    if (module.Layout.PlacementOf(part.Id).QuarterTurns % 2 == 1)
+                    {
+                        Include(new BoardPoint((outline.Left + outline.Right) / 2, outline.Bottom - NameRoom));
+                        Include(new BoardPoint(outline.Left - TurnedNameRoom, (outline.Top + outline.Bottom) / 2));
+                    }
+                }
                 if (DelayOf(part, unit).Length > 0)
                     Include(PartGeometry.Transform(module.Layout.PlacementOf(part.Id), new BoardPoint(0.55, 0.3 + NameRoom / 2)));
             }

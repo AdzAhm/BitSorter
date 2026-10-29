@@ -482,7 +482,7 @@ namespace BitSorter.Board
 
                 case "mux": return new MuxPart { Id = id, Name = name, Inputs = inputs, Width = width };
                 case "operator":
-                    if (!Enum.TryParse(op, true, out OperatorKind kindOfOperator) || int.TryParse(op, out _))
+                    if (!Enum.TryParse(op, true, out OperatorKind kindOfOperator) || int.TryParse(op, out _) || op.IndexOf(',') >= 0)
                     {
                         problems.Add($"{where} is an operator this BitSorter does not know, \"{op}\"; it was left out.");
                         return null;

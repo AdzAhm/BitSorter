@@ -440,7 +440,12 @@ namespace BitSorter.ViewModel
                     if (Changed("width") && TryInt(Typed("width"), "width", ref why, out int operatorWidth))
                         op = op with { Width = operatorWidth };
                     if (Changed("bwidth") && TryInt(Typed("bwidth"), "b's width", ref why, out int bWidth))
-                        op = op with { BWidth = bWidth };
+                    {
+                        if (bWidth < 1)
+                            why ??= "b's width is a bit or more.";
+                        else
+                            op = op with { BWidth = bWidth };
+                    }
                     if (Changed("signed"))
                     {
                         string yes = Typed("signed").ToLowerInvariant();

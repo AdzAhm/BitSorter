@@ -467,6 +467,11 @@ namespace BitSorter.Board
         /// up or down (Part 15h-3) came back over itself through its part when the route to it went round a cell above both
         /// ends: a select wired from below and to the right came down into the mux from inside it.
         /// </summary>
+        /// <remarks>
+        /// It knows nothing of the parts, as the first route does not: of 10.6 million pin pairs the review of #107 swept, the
+        /// routes that cross a part fell from 6.15 million to 1.53 million, and of those 11,440 cross one the first route did
+        /// not -- every one between parts under a cell and a half apart. <see cref="Avoiding"/> takes the obstacles in.
+        /// </remarks>
         private static List<Point> Round(Point a, Facing? fa, Point b, Facing? fb)
         {
             Point s = fa == null ? a : Add(a, PartGeometry.Step(fa.Value), Stub);

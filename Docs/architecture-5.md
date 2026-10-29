@@ -3415,6 +3415,18 @@ that describes a circuit is opened into cells, and what is no circuit stays a bo
   saved, routed, printed, exported and run under Icarus with every other sample (84 signals agree), and held here to
   `LogicVec`'s own operators; every opening into gates runs on every 0/1 input against its operator (195 cases, a broken
   adder caught); shots 61 and 62 show operator parts, two turned, and the full adder with a block turned a quarter.
+- **The Sonnet review** found no wrong answer: the operator part matched Icarus in 268 configurations, every kind at
+  widths 1 to 8, signed and not, x and z included, and the router's change fixed 25,736 routes that came back over a pin
+  and changed none that were right. It found what it fixed here: `RtlGates.Open` threw on a part the rules refuse
+  rather than saying why; the openings carried gates that fed nothing -- an adder's carry out, a comparison's sums -- so
+  `Ripple` makes only what is read; an operator read from a file as a list, `add,subtract`, was taken as one; a b of no
+  bits was taken from the inspector; and a turned part's name, under it or beside it, could fall outside the view a
+  drawing is fitted to. Its tests: the inspector on an operator, the openings feeding nothing dead, invalid parts
+  refused, and every route leaving both pins the way they face at every place on the quarter grid within three cells.
+- **Known, and left:** `Round` knows nothing of parts, as the first route does not. Of 10.6 million pin pairs the review
+  swept, the routes crossing a part fell from 6.15 million to 1.53 million, and 11,440 of those cross one the first route
+  did not, every one between parts under a cell and a half apart; `Avoiding` takes the obstacles in. A mux opened into
+  gates gives x for a select of x where the language's mux gives what its inputs agree on.
 
 ---
 

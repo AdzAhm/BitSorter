@@ -132,6 +132,42 @@ namespace BitSorter.Board.Tests
                     }
         }
 
+        /// <summary>
+        /// Whichever way two pins face and wherever one is from the other, the route between them leaves each the way it
+        /// faces -- every pair of facings at every place on the quarter grid within three cells (the review of #107 swept 60,025
+        /// such and found every route right).
+        /// </summary>
+        [Test]
+        public void ARoute_LeavesEachPinTheWayItFaces_WhereverTheyAre()
+        {
+            var facings = new[] { Facing.Left, Facing.Right, Facing.Up, Facing.Down };
+            var start = new Point(0, 0);
+            int routes = 0;
+            for (double x = -3; x <= 3; x += 0.25)
+                for (double y = -3; y <= 3; y += 0.25)
+                {
+                    var end = new Point(x, y);
+                    if (Near(start, end))
+                        continue;
+                    foreach (Facing fa in facings)
+                        foreach (Facing fb in facings)
+                        {
+                            List<Point> route = WireGeometry.Orthogonal(start, fa, end, fb);
+                            Assert.IsTrue(Leaves(route[0], route[1], fa) && Leaves(route[route.Count - 1], route[route.Count - 2], fb),
+                                $"{fa} at {start} to {fb} at {end}: {string.Join(" ", route)}");
+                            routes++;
+                        }
+                }
+            Assert.Greater(routes, 9000);
+        }
+
+        private static bool Leaves(Point end, Point next, Facing facing)
+        {
+            Point step = PartGeometry.Step(facing);
+            double dx = next.X - end.X, dy = next.Y - end.Y;
+            return dx * step.X + dy * step.Y > 1e-9 && Math.Abs(dx * step.Y - dy * step.X) < 1e-9;
+        }
+
         private static bool Near(Point a, Point b) => Math.Abs(a.X - b.X) < 1e-9 && Math.Abs(a.Y - b.Y) < 1e-9;
     }
 }

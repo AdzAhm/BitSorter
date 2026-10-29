@@ -50,6 +50,24 @@ namespace BitSorter.Board.Tests
             });
         }
 
+        /// <summary>A part the board's rules refuse -- as one read from a file may be -- opens into nothing, and says why rather than throwing.</summary>
+        [Test]
+        public void APartTheRulesRefuse_OpensIntoNothing_AndSaysWhy()
+        {
+            foreach (Part part in new Part[]
+            {
+                new OperatorPart { Op = OperatorKind.Add, Width = 0 },
+                new OperatorPart { Op = OperatorKind.Add, Width = -3 },
+                new OperatorPart { Op = OperatorKind.And, Width = 4, BWidth = 2 },
+                new MuxPart { Inputs = 1 },
+                new MuxPart { Inputs = 16 },
+            })
+            {
+                Assert.IsNull(RtlGates.Open(part, "g", out string why), part.ToString());
+                StringAssert.Contains("the board takes", why);
+            }
+        }
+
         [Test]
         public void WhatStaysABox_SaysWhy()
         {
@@ -119,6 +137,13 @@ namespace BitSorter.Board.Tests
             }
 
             Assert.IsEmpty(wrong, string.Join("\n", wrong.Take(12)));
+
+            // Every gate feeds the answer: no carry out an adder drops, no sum a comparison never reads (the review of #107).
+            Module gates2 = gates.Find("gates");
+            Netlist nets = Netlist.Of(gates, gates2);
+            foreach (Net net in nets.Nets)
+                if (net.Drivers.Count > 0 && !(gates2.FindPart(net.Drivers[0].Part) is PortPart))
+                    Assert.Greater(net.Pins.Count, net.Drivers.Count, $"{gates2.FindPart(net.Drivers[0].Part).Name}.{net.Drivers[0].Pin} feeds nothing");
         }
     }
 }

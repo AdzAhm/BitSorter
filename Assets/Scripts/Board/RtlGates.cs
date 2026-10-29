@@ -13,9 +13,11 @@ namespace BitSorter.Board
     /// its ports the part's pins, so it compiles and runs as any drawing does.
     /// </summary>
     /// <remarks>
-    /// **On 0s and 1s it computes what the box does**, every input checked (<c>RtlGatesTests</c>). With an x or a z the gates
-    /// may know more than the operator, which gives x for a whole sum with one unknown bit where a ripple of gates still
-    /// knows the bits below it -- real gates are not as cautious as the language's arithmetic.
+    /// **On 0s and 1s it computes what the box does**, every input checked (<c>RtlGatesTests</c>), and every gate it makes
+    /// feeds the answer. With an x or a z the two may part: an operator's gates may know more than the operator, which gives
+    /// x for a whole sum with one unknown bit where a ripple of gates still knows the bits below it -- real gates are not as
+    /// cautious as the language's arithmetic -- and a mux's AND-OR knows less, giving x for a select of x where the
+    /// language's mux gives what both its inputs agree on.
     ///
     /// **What stays a box, and says why**: anything wider than <see cref="MostBits"/> bits, which would be too many gates to
     /// read; a divider and a remainder, a subtractor a bit for each bit of the answer; and <c>===</c> and <c>!==</c>, which
@@ -32,9 +34,20 @@ namespace BitSorter.Board
         /// </summary>
         public static Project Open(Part part, string name, out string why)
         {
+            if (name == null)
+                throw new ArgumentNullException(nameof(name));
             why = null;
             switch (part)
             {
+                // What the board's rules refuse is opened into nothing, and says so (the review of #107: a part read from a file
+                // is not held to the rules, and one of width 0 or a b of its own on an adder threw).
+                case OperatorPart op when op.Width < 1 || op.WidthOfB < 1 || (op.BWidth != 0 && !Operators.BOwnWidth(op.Op)):
+                    why = "It is no operator the board takes: its widths are not ones its rules allow.";
+                    return null;
+                case MuxPart mux when (mux.Inputs != 2 && mux.Inputs != 4 && mux.Inputs != 8) || mux.Width < 1:
+                    why = "It is no mux the board takes: a mux has 2, 4 or 8 inputs of a bit or more.";
+                    return null;
+
                 case OperatorPart op:
                     if (op.Width > MostBits || op.WidthOfB > MostBits)
                     {
@@ -183,31 +196,35 @@ namespace BitSorter.Board
 
             /// <summary>
             /// Two numbers added a bit at a time, the textbook's ripple: a half adder where there is no carry in, then full
-            /// adders -- the sum <c>x ^ y ^ c</c> and the carry <c>x&amp;y | c&amp;(x^y)</c>. The sums, and the carry out of the top.
+            /// adders -- the sum <c>x ^ y ^ c</c> and the carry <c>x&amp;y | c&amp;(x^y)</c>. The sums where <paramref name="sums"/>
+            /// asks for them, and the carry out of the top where <paramref name="carryOut"/> does: no gate is made that feeds
+            /// nothing (the review of #107: a comparison carried four sums to nowhere, an adder its carry out).
             /// </summary>
-            private Wire[] Ripple(Wire[] x, Wire[] y, Wire? carryIn, out Wire carry)
+            private Wire[] Ripple(Wire[] x, Wire[] y, Wire? carryIn, out Wire? carry, bool sums = true, bool carryOut = true)
             {
-                var sums = new Wire[x.Length];
+                var result = new Wire[x.Length];
                 Wire? c = carryIn;
                 for (int i = 0; i < x.Length; i++)
                 {
-                    Wire half = Gate(GateKind.Xor, x[i], y[i]);
-                    Wire both = Gate(GateKind.And, x[i], y[i]);
+                    bool carryOn = i < x.Length - 1 || carryOut;
+                    Wire? half = sums || (c != null && carryOn) ? Gate(GateKind.Xor, x[i], y[i]) : (Wire?)null;
                     if (c == null)
                     {
-                        sums[i] = half;
-                        c = both;
+                        if (sums)
+                            result[i] = half.Value;
+                        c = carryOn ? Gate(GateKind.And, x[i], y[i]) : (Wire?)null;
                     }
                     else
                     {
-                        sums[i] = Gate(GateKind.Xor, half, c.Value);
-                        c = Gate(GateKind.Or, both, Gate(GateKind.And, c.Value, half));
+                        if (sums)
+                            result[i] = Gate(GateKind.Xor, half.Value, c.Value);
+                        c = carryOn ? Gate(GateKind.Or, Gate(GateKind.And, x[i], y[i]), Gate(GateKind.And, c.Value, half.Value)) : (Wire?)null;
                     }
                     Stage();
                 }
 
-                carry = c.Value;
-                return sums;
+                carry = c;
+                return result;
             }
 
             public void Mux(MuxPart mux)
@@ -316,7 +333,7 @@ namespace BitSorter.Board
                     }
 
                     case OperatorKind.Add:
-                        y = Ripple(a, b, null, out _);
+                        y = Ripple(a, b, null, out _, carryOut: false);
                         break;
 
                     case OperatorKind.Subtract:
@@ -326,7 +343,7 @@ namespace BitSorter.Board
                         for (int i = 0; i < w; i++)
                             nb[i] = Not(b[i]);
                         Stage();
-                        y = Ripple(a, nb, One, out _);
+                        y = Ripple(a, nb, One, out _, carryOut: false);
                         break;
                     }
 
@@ -339,7 +356,8 @@ namespace BitSorter.Board
                             Wire na = Not(a[i]);
                             Stage();
                             y[i] = Gate(GateKind.Xor, na, c);
-                            c = Gate(GateKind.And, na, c);
+                            if (i < w - 1)
+                                c = Gate(GateKind.And, na, c);
                         }
                         break;
                     }
@@ -361,8 +379,8 @@ namespace BitSorter.Board
                             nz[i] = signed && i == w - 1 ? z[i] : Not(z[i]);
                         }
                         Stage();
-                        Ripple(top, nz, One, out Wire noBorrow);
-                        y[0] = op.Op == OperatorKind.Less || op.Op == OperatorKind.Greater ? Not(noBorrow) : noBorrow;
+                        Ripple(top, nz, One, out Wire? noBorrow, sums: false);
+                        y[0] = op.Op == OperatorKind.Less || op.Op == OperatorKind.Greater ? Not(noBorrow.Value) : noBorrow.Value;
                         break;
                     }
 
@@ -383,7 +401,7 @@ namespace BitSorter.Board
                                 upper[j] = sum[i + j];
                             }
                             Stage();
-                            Wire[] added = Ripple(upper, row, null, out _);
+                            Wire[] added = Ripple(upper, row, null, out _, carryOut: false);
                             for (int j = 0; j < w - i; j++)
                                 sum[i + j] = added[j];
                         }
