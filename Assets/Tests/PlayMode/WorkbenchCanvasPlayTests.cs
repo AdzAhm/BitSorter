@@ -2864,6 +2864,66 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsTrue(workbench.Session.SetSource(workbench.Session.Project.TopModule.Source + "// a note\n").Done);
         }
 
+        /// <summary>
+        /// The zoom controls (Part 15h-4d, asked 2026-10-29): the circuit's slider follows its zoom -- the keys, FIT -- and a
+        /// drag on it zooms the circuit; the waves' range bar shows the stretch on screen, an end dragged zooming and the
+        /// middle dragged moving through time, and is down while another dock tab is up.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator TheZoomControls_FollowTheirWindowsZoom_AndADragZoomsIt()
+        {
+            yield return TestScene.Load();
+            yield return Click(MainMenu.WorkbenchButton);
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            yield return null;
+            workbench.Pause();
+            workbench.Session.Finish();
+            yield return null;
+
+            var circuit = workbench.CircuitZoom;
+            Assert.AreEqual(UnityEngine.UIElements.DisplayStyle.Flex, circuit.resolvedStyle.display, "up over a circuit");
+            float fitted = circuit.value;
+            workbench.ZoomAboutTheMiddleForTests(3);
+            yield return null;
+            Assert.Greater(circuit.value, fitted + 0.01f, "the keys' zoom moves it");
+            workbench.FitView();
+            yield return null;
+            Assert.AreEqual(fitted, circuit.value, 1e-4f, "and FIT puts it back");
+
+            circuit.value = 1f;   // dragged all the way in
+            yield return null;
+            Assert.AreEqual(SchematicView.MaxZoom, workbench.Zoom, 1e-4f, "a drag zooms the circuit, about its middle");
+
+            var waves = workbench.WavesRange;
+            Assert.AreEqual(UnityEngine.UIElements.DisplayStyle.Flex, waves.resolvedStyle.display, "up over the waves");
+            Assert.AreEqual(1.0, workbench.Wave.Zoom, 1e-9, "sanity: the waves fitted");
+            Assert.AreEqual(0f, waves.From, 1e-6f, "the stretch the whole run");
+            Assert.AreEqual(1f, waves.To, 1e-6f);
+
+            waves.PressAt(0.999f);   // its end
+            waves.MoveBy(-0.5f);
+            waves.Release();
+            yield return null;
+            Assert.AreEqual(2.0, workbench.Wave.Zoom, 1e-6, "its end dragged to the half: twice in");
+            Assert.AreEqual(0.5f, waves.To, 1e-3f, "and the stretch shows it");
+
+            waves.PressAt(0.25f);   // its middle
+            waves.MoveBy(0.25f);
+            waves.Release();
+            yield return null;
+            Assert.AreEqual(workbench.Wave.Span * 0.25, workbench.Wave.Start, workbench.Wave.Span * 1e-3, "its middle dragged: later in the run");
+            Assert.AreEqual(2.0, workbench.Wave.Zoom, 1e-6, "at the same zoom");
+
+            workbench.Wave.ZoomAbout(0f, -40);   // the wheel all the way out
+            yield return null;
+            Assert.AreEqual(0f, waves.From, 1e-6f, "the wheel moves the stretch too");
+            Assert.AreEqual(1f, waves.To, 1e-6f);
+
+            workbench.ShowTranscript();
+            yield return null;
+            Assert.AreEqual(UnityEngine.UIElements.DisplayStyle.None, waves.resolvedStyle.display, "down over another tab");
+        }
+
         /// <summary>A homework file in the course's style, written for this test: the student's code goes between its markers.</summary>
         private const string TemplateMux =
             "// Homework: a 2-to-1 multiplexer. Written for BitSorter's tests, in the course's style.\n" +

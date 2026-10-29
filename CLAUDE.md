@@ -829,7 +829,7 @@ failure side.
   counts from it -- the win celebration once pulsed on the game clock and a solve
   could land at the bottom of its swell.
 - **Visual changes are checked against the reference shots.**
-  `BitSorter/Capture Reference Shots` captures sixty-six states (menu, a built
+  `BitSorter/Capture Reference Shots` captures sixty-seven states (menu, a built
   board, bits in flight, a collision one tick out and one that takes both bits,
   the solved card, the level list, free play, the help panel, the chapter card, a
   clocked level, the tutorial's intro and its closing card, a first-time hint, a
@@ -841,7 +841,7 @@ failure side.
   built and running, its carry passing between the boxes, and 5.0's workbench
   preview with two changes on their way, whole, zoomed in, with a wire pointed at, with two rows in other
   radixes, a second cursor 9 ps on and two breakpoints flagged, with a block's inside grouped under full names, with the
-  add list searching, MY CIRCUIT being edited, two gates moving with their guides, its half adder being wired, one of its wires being reshaped, the reference's AND in its inspector, the reference zoomed in with its minimap and the canvas's menu, the full adder's transcript beside its hierarchy, the keyboard map, the full adder stepped inside h1, MAKE BLOCK asking for a name, four half adders as one block of four copies, a written adder's code with a fault marked, the full adder's code in the dock's CODE tab, the FILE menu, a project imported with its testbench running, the full adder's critical path lit from the TIMING tab, the LIBRARY menu over it with the full adder held to the course's cells, two written devices on a bus through their inout pins, the start page BitSorter opens on, the EXERCISES page five solved, the half adder's brief with its hint, its CHECK failed with the carry missing, its solved card, the guided tutorial asking for a wire, a first-time hint up, the INPUTS tab with the reference's bus in hex and two inputs chosen, the LOGIC tab on the full adder, the counter's eight states in the STATES tab, ABOUT BITSORTER, operator parts on MY CIRCUIT with two turned a quarter, the full adder with h1 turned a quarter, the written adder's block made a small ALU and shown as the drawing of its code, and the written adder's own sum with GATES, the 4-bit ripple, and the Two-bit ALU's LOGIC tab, its long expressions whole, and an imported written design's code, locked -- every other shot taken with the hints seen) as an Explicit Play
+  add list searching, MY CIRCUIT being edited, two gates moving with their guides, its half adder being wired, one of its wires being reshaped, the reference's AND in its inspector, the reference zoomed in with its minimap and the canvas's menu, the full adder's transcript beside its hierarchy, the keyboard map, the full adder stepped inside h1, MAKE BLOCK asking for a name, four half adders as one block of four copies, a written adder's code with a fault marked, the full adder's code in the dock's CODE tab, the FILE menu, a project imported with its testbench running, the full adder's critical path lit from the TIMING tab, the LIBRARY menu over it with the full adder held to the course's cells, two written devices on a bus through their inout pins, the start page BitSorter opens on, the EXERCISES page five solved, the half adder's brief with its hint, its CHECK failed with the carry missing, its solved card, the guided tutorial asking for a wire, a first-time hint up, the INPUTS tab with the reference's bus in hex and two inputs chosen, the LOGIC tab on the full adder, the counter's eight states in the STATES tab, ABOUT BITSORTER, operator parts on MY CIRCUIT with two turned a quarter, the full adder with h1 turned a quarter, the written adder's block made a small ALU and shown as the drawing of its code, and the written adder's own sum with GATES, the 4-bit ripple, and the Two-bit ALU's LOGIC tab, its long expressions whole, and an imported written design's code, locked, and the waves zoomed in with the range bar's thumb short -- every other shot taken with the hints seen) as an Explicit Play
   Mode fixture, so it runs under `SaveGuard` --
   driving the real game for a screenshot by hand once marked a level solved on
   the developer's own save. Frame time is fixed, particle systems are seeded,
@@ -1028,7 +1028,14 @@ failure side.
   code's editor is read only in both builds (CodeMirror's `readOnly`, through a
   compartment); its inputs and unit are tried as ever. The lock is no edit:
   no undo step, the run not made again; the save keeps it beside the document
-  (`locked`, absent before it). CODE and
+  (`locked`, absent before it). **Each window's zoom has a control of its own, never a
+  zoom of its own** (Part 15h-4d): the circuit's a slider at its window's lower right,
+  even in the zoom's ratio (`ZoomSlider`), down over code; the waves' a range bar at
+  the legend row's right end (`WaveRangeBar`, `WaveRange`, in the shape Ahmad drew from a
+  scrollbar, on its side) -- a trough for the whole run and a thumb as long as the share
+  of it on screen, its ends dragged zooming and the thumb dragged moving through time;
+  both read their window back each frame, so the wheel,
+  the keys and FIT move them too. CODE and
   DRAWING sit at the right of the code's top strip -- in a browser the code is a box
   laid over everything under that strip (`WorkbenchSession.ShowsDrawingOfCode`). The
   drawing is what the code builds (`RtlDrawing` from `RtlExtractor`'s netlist, laid

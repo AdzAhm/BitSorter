@@ -3604,6 +3604,41 @@ projects"). A circuit locked against change, so a look round an imported project
   (`LockTests`); the save over a restart, a rename, a delete and a file from before it (`ProgressStoreTests`); in Play
   Mode an import opening locked with its code read only until the padlock is pressed, and CONVERT refused until then;
   shot 66, an imported written design's code, locked.
+
+**As built in Part 15h-4d, second half: the zoom controls** (asked 2026-10-29: "a small zoom slider ... make sure it is
+compatible with everything and not working on its own"; for the waves, Ahmad drew "a line that you can drag its edges to
+zoom/unzoom and move it to move through the wave").
+- **Never a zoom of their own.** Each moves its window's own view through the calls the wheel makes, and reads it back
+  every frame it is not held, so the wheel, + and -, FIT, F, a step inside, a new run and the minimap all move it.
+- **The circuit's slider** (`WorkbenchPanel.Zoom.cs`), a shell slider at the window's lower right with a knob smaller
+  than the time slider's (`ShellSlider`'s knob is a parameter now): a drag zooms about the window's middle with
+  `SchematicView.ZoomTo`, which `ZoomAbout`'s notches now go through, its scale even in the zoom's ratio
+  (`ZoomSlider`) from `SchematicView.Floor` -- as far out as the wheel goes -- to `MaxZoom`. Clear of the strip along
+  the window's foot while a hint or the tutorial is up; down over code.
+- **The waves' range bar** (`WaveRangeBar`, a shell control at the right end of the legend's row, the legend's sentence
+  kept short of it), in the shape Ahmad drew from a scrollbar, on its side: a rounded trough for the whole run
+  (`WaveView.Span`) and in it a rounded thumb for the stretch shown, `Start` to `End` (`WaveRange.Of`) -- as long as
+  the share of the run on screen, so it shortens as the waves zoom in -- with a grip mark of three short lines at its
+  middle. Its first look, a line with a bright grip at each end, was not what he meant. A press takes an end within eight pixels, the stretch between them, or -- off it
+  -- brings the stretch's middle to the press and drags from there (`WaveRange.At`, `Centre`); an end dragged moves
+  that end and keeps the other, never nearer than the most the waves zoom in, the middle moves whole, never past the
+  run (`WaveRange.Drag`), each through `WaveView.ShowRange`: zoomed so the stretch spans the width, started at its
+  start, following again at the fit. A stretch too narrow to hold its ends and a middle apart is dragged whole from
+  within reach of it -- zoomed far in it is the view to be nudged, and an end a pixel's drag from a jump through the
+  run -- and out past the run its middle stays put rather than snapping to the fit. Down on every dock tab but
+  WAVES.
+- **The wheel kept**: `WaveView.ZoomAbout` keeps its crossing rule -- a notch that would pass the fit lands on it --
+  and goes through `ZoomTo`; `SchematicView.ZoomAbout` goes through `ZoomTo` as it was.
+- **A drag is derived, never a flag** (the Sonnet review): the circuit's slider reads its zoom back unless
+  `ShellSlider.Dragging`, and both controls end a drag lost to a cancelled touch or pen or a capture taken
+  (`PointerCancelEvent`, `PointerCaptureOutEvent`) as they end a release -- a flag left set had the slider stop reading
+  back, and a pointer only passing over go on dragging. The legend's sentence ends in an ellipsis short of the bar,
+  since a label runs on past its width.
+- **Tests**: the scale both ways and its ends (`ZoomSliderTests`); the circuit and the waves zoomed to a value, about a
+  point kept, held to their limits; the stretch, an end and the middle dragged, a press taking each grip, the stretch
+  brought to a press (`WaveRangeTests`); in Play Mode, the slider following the keys and FIT and a drag zooming the
+  circuit, the bar's end and middle dragged, the wheel moving the stretch, the bar down over another tab; shot 67, the
+  waves zoomed in, the thumb a third of its trough.
   The Sonnet review found the library hole, the editor's keys, typed code at the lock, the browser editor after a
   change of style and the padlock over REVERT; all fixed.
 

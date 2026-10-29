@@ -242,17 +242,30 @@ namespace BitSorter.ViewModel
             if (notches == 0)
                 return false;
 
+            double zoom = Zoom * Math.Pow(NotchFactor, notches);
+            // The fit is a stop: a step that would pass it, either way, lands on it.
+            if ((Zoom > 1.0 && zoom < 1.0) || (Zoom < 1.0 && zoom > 1.0))
+                zoom = 1.0;
+            return ZoomTo(x, zoom);
+        }
+
+        /// <summary>
+        /// Zooms to <paramref name="to"/>, held between <see cref="MinZoom"/> and <see cref="MaxZoom"/> and to the fit when
+        /// within a hair of it, keeping the moment at <paramref name="x"/> where it is: what every notch of the wheel comes to
+        /// through <see cref="ZoomAbout"/>, which first stops a notch that would pass the fit on it. True when the view moved.
+        /// </summary>
+        public bool ZoomTo(float x, double to)
+        {
             float at = x > 0f ? (x < Width ? x : Width) : 0f;
             double under = TimeAt(at);
 
-            double zoom = Zoom * Math.Pow(NotchFactor, notches);
+            double zoom = to;
             double most = MaxZoom;
             if (zoom > most)
                 zoom = most;
             if (zoom < MinZoom)
                 zoom = MinZoom;
-            // The fit is a stop: a step that would pass it, either way, lands on it, and a hair from it is it.
-            if ((Zoom > 1.0 && zoom < 1.0) || (Zoom < 1.0 && zoom > 1.0) || Math.Abs(zoom - 1.0) < FitSnap)
+            if (Math.Abs(zoom - 1.0) < FitSnap)
                 zoom = 1.0;
 
             if (zoom == Zoom)
@@ -273,6 +286,42 @@ namespace BitSorter.ViewModel
             }
 
             return true;
+        }
+
+        /// <summary>
+        /// Shows the run from <paramref name="from"/> to <paramref name="to"/> (Part 15h-4d, the range bar): zoomed so that
+        /// stretch spans the width -- held between <see cref="MinZoom"/> and <see cref="MaxZoom"/>, and the fit when within a
+        /// hair of it -- and started at its start, held inside the run; out to the whole run it follows again, as the wheel's
+        /// fit does. True when the view moved.
+        /// </summary>
+        public bool ShowRange(double from, double to)
+        {
+            if (!(to > from))
+                return false;
+
+            double zoom = Span / (to - from);
+            double most = MaxZoom;
+            if (zoom > most)
+                zoom = most;
+            if (zoom < MinZoom)
+                zoom = MinZoom;
+            if (Math.Abs(zoom - 1.0) < FitSnap)
+                zoom = 1.0;
+
+            double wasZoom = Zoom, wasStart = Start;
+            SetZoom(zoom);
+            if (zoom <= 1.0)
+            {
+                Start = 0.0;
+                Following = true;
+            }
+            else
+            {
+                Start = Clamp(from, 0.0, LatestStart);
+                Following = KeepsThePlayhead();
+            }
+
+            return Zoom != wasZoom || Start != wasStart;
         }
 
         /// <summary>

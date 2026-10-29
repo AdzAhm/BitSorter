@@ -95,7 +95,7 @@ namespace BitSorter.ViewModel
         public bool IsFitted => Zoom == FitZoom && Offset == FitOffset;
 
         /// <summary>The furthest out the wheel goes: <see cref="MinZoom"/>, or the fit when that is further.</summary>
-        private float Floor => Arith.Min(MinZoom, FitZoom);
+        public float Floor => Arith.Min(MinZoom, FitZoom);
 
         /// <summary>Back to the whole circuit, where it belongs.</summary>
         public void Fit()
@@ -105,14 +105,21 @@ namespace BitSorter.ViewModel
         }
 
         /// <summary>Zooms by whole notches, in for more than zero, keeping <paramref name="point"/> where it is. True when anything moved.</summary>
-        public bool ZoomAbout(Vec2 point, int notches)
+        public bool ZoomAbout(Vec2 point, int notches) => ZoomTo(point, Zoom * Arith.Pow(NotchFactor, notches));
+
+        /// <summary>
+        /// Zooms to <paramref name="to"/>, held between <see cref="Floor"/> and <see cref="MaxZoom"/>, keeping
+        /// <paramref name="point"/> where it is: the zoom slider's (Part 15h-4d), and every notch of the wheel and the keys
+        /// through <see cref="ZoomAbout"/>. True when anything moved.
+        /// </summary>
+        public bool ZoomTo(Vec2 point, float to)
         {
             Vec2 before = Offset;
             float wasZoom = Zoom;
             float fit = FitZoom;
 
             // Notches in and as many out come back to exactly the fit, not to a rounding error beside it.
-            float zoom = Arith.Clamp(Zoom * Arith.Pow(NotchFactor, notches), Floor, MaxZoom);
+            float zoom = Arith.Clamp(to, Floor, MaxZoom);
             if (Arith.Abs(zoom - fit) < 1e-4f * fit)
                 zoom = fit;
 

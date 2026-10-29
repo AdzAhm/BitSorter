@@ -1577,6 +1577,32 @@ namespace BitSorter.PlayMode.Tests
             yield return Capture("66-workbench-locked-code");
         }
 
+        /// <summary>
+        /// Part 15h-4d: the waves zoomed in about their middle, the range bar's thumb a third of its trough and the circuit's
+        /// zoom slider at its fit.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator Shot67_WorkbenchWavesZoomed()
+        {
+            yield return LoadTheGame();
+            yield return Frames(2);
+
+            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            yield return Frames(2);
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.Pause();
+            workbench.Session.Finish();
+            yield return Frames(2);
+            Vector2 middle = workbench.WaveScreenPointOf(workbench.Wave.Span * 0.5);
+            for (int i = 0; i < 5; i++)
+                workbench.TakeWaveWheel(middle, new Vector2(0f, 120f), false);
+            yield return Frames(30);
+
+            Assert.Greater(workbench.Wave.Zoom, 2.5, "sanity: zoomed in");
+            yield return Capture("67-workbench-waves-zoomed");
+        }
+
         /// <summary>Part 14b: the dock's TIMING tab over the full adder, its critical path -- a to cout -- lit on the canvas.</summary>
         [UnityTest]
         public IEnumerator Shot47_WorkbenchTimingTab()

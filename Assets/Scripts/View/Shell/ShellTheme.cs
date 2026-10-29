@@ -411,7 +411,8 @@ namespace BitSorter.View
         // -----------------------------------------------------------------
 
         /// <summary>The time slider as the reference draws it: the playhead's colour up to the moment, an outline's grey after, a round thumb in the text colour.</summary>
-        public static ShellSlider Slider(string name, SchematicPalette palette) => new ShellSlider(name, palette);
+        public static ShellSlider Slider(string name, SchematicPalette palette, float handle = UiTheme.SliderHandle) =>
+            new ShellSlider(name, palette, handle);
     }
 
     /// <summary>
@@ -431,20 +432,24 @@ namespace BitSorter.View
         /// <summary>The press or the drag let go: what a setting writes out once, where every step of it was applied (Part 15g).</summary>
         public event Action Released;
 
-        public ShellSlider(string name, SchematicPalette palette)
+        /// <summary>The knob's width: <see cref="UiTheme.SliderHandle"/>, or smaller where asked (the circuit's zoom, Part 15h-4d).</summary>
+        private readonly float _handle;
+
+        public ShellSlider(string name, SchematicPalette palette, float handle = UiTheme.SliderHandle)
         {
             this.name = name;
             AddToClassList(ShellTheme.ControlClass);
             focusable = false;
 
-            float half = UiTheme.SliderHandle * 0.5f;
+            _handle = handle;
+            float half = _handle * 0.5f;
             _track = Bar("track", palette.Outline, half);
             _fill = Bar("fill", palette.Playhead, half);
             _fill.style.right = StyleKeyword.Auto;
 
             _thumb = new VisualElement { name = "thumb", pickingMode = PickingMode.Ignore };
             _thumb.style.position = Position.Absolute;
-            _thumb.style.width = _thumb.style.height = UiTheme.SliderHandle;
+            _thumb.style.width = _thumb.style.height = _handle;
             _thumb.style.top = new Length(50f, LengthUnit.Percent);
             _thumb.style.marginTop = -half;
             _thumb.style.backgroundColor = palette.Text;
@@ -454,6 +459,10 @@ namespace BitSorter.View
             RegisterCallback<PointerDownEvent>(OnDown);
             RegisterCallback<PointerMoveEvent>(OnMove);
             RegisterCallback<PointerUpEvent>(OnUp);
+            // A drag lost rather than ended -- a cancelled touch or pen, the capture taken -- ends it too, or a pointer
+            // later only passing over would go on dragging (the review of the zoom controls).
+            RegisterCallback<PointerCancelEvent>(e => Ended(e.pointerId));
+            RegisterCallback<PointerCaptureOutEvent>(e => Ended(e.pointerId));
             RegisterCallback<GeometryChangedEvent>(_ => Layout());
         }
 
@@ -514,13 +523,13 @@ namespace BitSorter.View
         /// <summary>How far along the track a point of the panel is, as a value.</summary>
         private float ValueAt(Vector2 local)
         {
-            float half = UiTheme.SliderHandle * 0.5f, width = Mathf.Max(1f, layout.width - 2f * half);
+            float half = _handle * 0.5f, width = Mathf.Max(1f, layout.width - 2f * half);
             return Mathf.Lerp(_low, _high, Mathf.Clamp01((local.x - half) / width));
         }
 
         private void Layout()
         {
-            float half = UiTheme.SliderHandle * 0.5f, width = Mathf.Max(0f, layout.width - 2f * half);
+            float half = _handle * 0.5f, width = Mathf.Max(0f, layout.width - 2f * half);
             float along = _high > _low ? Mathf.Clamp01((_value - _low) / (_high - _low)) : 0f;
             _fill.style.width = width * along;
             _thumb.style.left = width * along;
@@ -542,13 +551,19 @@ namespace BitSorter.View
                 Set(ValueAt(e.localPosition), true);
         }
 
-        private void OnUp(PointerUpEvent e)
+        private void OnUp(PointerUpEvent e) => Ended(e.pointerId);
+
+        private void Ended(int pointer)
         {
-            if (e.pointerId != _dragging)
+            if (pointer != _dragging)
                 return;
             _dragging = -1;
-            this.ReleasePointer(e.pointerId);
+            if (this.HasPointerCapture(pointer))
+                this.ReleasePointer(pointer);
             Released?.Invoke();
         }
+
+        /// <summary>Whether a pointer is dragging the knob now: derived from the drag, never a flag kept beside it.</summary>
+        public bool Dragging => _dragging >= 0;
     }
 }

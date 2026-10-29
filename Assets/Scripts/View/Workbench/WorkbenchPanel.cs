@@ -1534,6 +1534,7 @@ namespace BitSorter.View
             TickCode();
             TickDrawingSwitch();
             TickLock();
+            TickZoomSliders();
             RefreshCode();
 
             // The run is made a slice a frame until it is done, and a moment past where it has got waits;
@@ -1628,6 +1629,7 @@ namespace BitSorter.View
             BuildPartsPanel(palette);
             BuildBreadcrumb();
             BuildLesson(palette);   // the tutorial's steps and the first-time hints, along the circuit window's foot (Part 15f)
+            BuildZoomSliders(palette);
             Fit();
             BuildStage(palette);
             BuildCodeView(palette);
@@ -2004,8 +2006,10 @@ namespace BitSorter.View
             for (int i = 0; i < LegendNames.Length; i++)
                 StageLabel(words, LegendNames[i], new Vector2(WorkbenchDrawing.LegendNameX(i), middle),
                     UiType.Micro, palette.TextDim, TextAlignmentOptions.MidlineLeft, 20f);
+            // Short of the range bar at the row's end (Part 15h-4d): cut with an ellipsis, since a label runs on past its width.
             StageLabel(words, LegendText, new Vector2(WorkbenchDrawing.LegendTextX, middle),
-                UiType.Micro, palette.TextDim, TextAlignmentOptions.MidlineLeft, Mathf.Max(0f, legend.width - WorkbenchDrawing.LegendTextX - 16f));
+                UiType.Micro, palette.TextDim, TextAlignmentOptions.MidlineLeft,
+                Mathf.Max(0f, legend.width - WorkbenchDrawing.LegendTextX - 16f - WavesRangeWidth - 8f)).overflowMode = TextOverflowModes.Ellipsis;
             PlaceCodeView();
             PlaceListing();
         }
