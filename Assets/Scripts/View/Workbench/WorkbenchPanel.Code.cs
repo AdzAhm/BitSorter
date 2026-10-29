@@ -40,7 +40,8 @@ namespace BitSorter.View
         {
             _codeView = CodeEditorView.Build(Root, palette);
 
-            // Over the code and over the drawing alike, in the window's lower right corner, where neither puts anything.
+            // Over the code and over the drawing alike, at the window's top right: in a browser the code is a box the page lays
+            // over everything under the code's top strip, and a switch in the lower corner was under it (the 15h-4 browser check).
             _drawingSwitch = CanvasButton(DrawingSwitchName, Root, DrawingCaption, out _drawingCaption, UiType.Body, palette);
             _drawingSwitch.onClick.AddListener(() =>
             {
@@ -70,7 +71,7 @@ namespace BitSorter.View
             if (_drawingSwitch != null)
             {
                 var switchSize = new Vector2(124f, 32f);
-                TopLeft(_drawingSwitch.GetComponent<RectTransform>(), CornerOf(_regions.Circuit) + size - switchSize - new Vector2(10f, 10f), switchSize);
+                TopLeft(_drawingSwitch.GetComponent<RectTransform>(), CornerOf(_regions.Circuit) + new Vector2(size.x - 10f - switchSize.x, 8f), switchSize);
             }
         }
 
@@ -88,6 +89,15 @@ namespace BitSorter.View
                 if (shown)
                     _drawingSwitch.transform.SetAsLastSibling();
                 _drawingSwitchShown = shown;
+            }
+
+            // FIT steps left of the switch while it is up, over a drawing of code.
+            if (_fit != null)
+            {
+                float right = shown ? -(8f + CodeEditorView.SwitchRoom) : -8f;
+                var fit = _fit.GetComponent<RectTransform>();
+                if (!Mathf.Approximately(fit.anchoredPosition.x, right))
+                    TopRight(fit, new Vector2(right, 8f), new Vector2(72f, 32f));
             }
             if (!shown)
                 return;

@@ -39,6 +39,12 @@ namespace BitSorter.View
 
         private const float GutterWidth = 64f, Pad = 10f, ProblemHeight = 26f, RevertWidth = 110f, ButtonHeight = 32f;
 
+        /// <summary>
+        /// The room kept at the top strip's right end for the panel's DRAWING switch (Part 15h-4): over the strip, not the code,
+        /// since in a browser the code is a box the page lays over everything below it.
+        /// </summary>
+        public const float SwitchRoom = 124f + Pad;
+
         /// <summary>How many faults are listed under the text; the rest are counted, so the list never takes the code's room.</summary>
         public const int ListedProblems = 3;
 
@@ -520,8 +526,8 @@ namespace BitSorter.View
                 return;
 
             float problems = ProblemRows() * ProblemHeight + (ProblemRows() > 0 ? Pad : 0f);
-            WorkbenchPanel.TopLeft(_status.rectTransform, new Vector2(Pad, 8f), new Vector2(Mathf.Max(0f, size.x - 2f * Pad - RevertWidth - Pad), ButtonHeight));
-            WorkbenchPanel.TopLeft((RectTransform)_revert.transform, new Vector2(size.x - Pad - RevertWidth, 8f), new Vector2(RevertWidth, ButtonHeight));
+            WorkbenchPanel.TopLeft(_status.rectTransform, new Vector2(Pad, 8f), new Vector2(Mathf.Max(0f, size.x - 2f * Pad - RevertWidth - Pad - SwitchRoom), ButtonHeight));
+            WorkbenchPanel.TopLeft((RectTransform)_revert.transform, new Vector2(size.x - Pad - RevertWidth - SwitchRoom, 8f), new Vector2(RevertWidth, ButtonHeight));
             WorkbenchPanel.TopLeft(_body, new Vector2(0f, TopStrip), new Vector2(size.x, Mathf.Max(0f, size.y - TopStrip - problems)));
             WorkbenchPanel.TopLeft(_gutterView, new Vector2(0f, 0f), new Vector2(GutterWidth, _body.sizeDelta.y));
             WorkbenchPanel.TopLeft(_gutterText, new Vector2(0f, 0f), new Vector2(GutterWidth - Pad, 100000f));
