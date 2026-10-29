@@ -3692,6 +3692,20 @@ the parts the drawing makes up -- `&`, `|`, `~`, `==`, `= 10` -- should say what
   a slice, a signed comparison; in the session the inspector's title and line and a wire's hover line
   (`DrawingEditTests`).
 
+**As built in Part 15h-4e, second part: a tidier drawing** (the samples of 2026-10-29: a pile of comparison boxes for
+`2'd0, 2'd1:`, and constants by the inputs with wires across the whole drawing).
+- **A constant beside what reads it** (`LayeredLayout`): a part fed by nothing stands in the column just before its first
+  reader, and a second pass stands it level with what it feeds -- not by the inputs.
+- **A case arm of several labels is one input of the mux for each** (`RtlDrawing.Labels`): the netlist builds such an arm
+  the way the language decides it, the first label first -- `m0 || (!m0 && m1)` -- which, a case's labels differing, is
+  `m0 || m1`; the arm's ORs, ANDs, NOTs and matches are drawn no more once nothing else reads them.
+- **An OR of matches on one subject that no case's mux is is one box of its labels**, `= 2, 3, 5, 7, 11, 13` -- a case on
+  a subject too wide for one mux, an is-it-prime -- saying "1 when n is any of 2, 3, 5, 7, 11, 13", written as code the OR
+  of the case's own matches (`===`), so the code written from it does what the case did.
+- **Tests**: a two-label arm one mux of four inputs with no OR or match left; the prime test's box, its line and its code
+  written again the same; a constant read three sums in standing past the last sum (`RtlDrawingTests`); every drawing's
+  operators counted as parts or as folded into a case or a set (`RtlDrawing.Folded`).
+
 **As built in Part 15h-4g: the drawing and the code follow each other** (asked 2026-10-29: "When I unlock the project
 through the lock I can add and do anything I want; changes I do in code/drawing convert to changes in drawing/code").
 - **The code is what is kept.** An edit of a drawing of code, unlocked -- a part placed, a wire drawn, parts or wires

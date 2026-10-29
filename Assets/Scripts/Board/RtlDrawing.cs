@@ -40,9 +40,11 @@ namespace BitSorter.Board
             _innerOfWire = builder.InnerOfWire;
             _inner = builder.Inner.ToArray();
             Opened = builder.Opened;
+            Folded = builder.Folded;
             Unshown = builder.Unshown;
             _cellOf = builder.CellOf;
             _caseSubjectWidth = builder.CaseParts;
+            _matchSets = builder.MatchSets;
             _netlist = builder.Netlist;
         }
 
@@ -51,6 +53,12 @@ namespace BitSorter.Board
 
         private readonly Dictionary<int, int> _innerOfWire;
         private readonly InnerNet[] _inner;
+
+        /// <summary>
+        /// How many operators are drawn as part of something else (Part 15h-4e): the ORs and ANDs of a case arm of several
+        /// labels, or of a set of labels drawn as one box.
+        /// </summary>
+        public int Folded { get; }
 
         /// <summary>How many operators and muxes are drawn as their gates.</summary>
         public int Opened { get; }
@@ -197,6 +205,25 @@ namespace BitSorter.Board
             /// <summary>How many parts were opened into gates.</summary>
             public int Opened;
 
+            /// <summary>How many operator cells are drawn as part of a case's mux or a set's box.</summary>
+            public int Folded
+            {
+                get
+                {
+                    int folded = 0;
+                    foreach (int id in _swallowed)
+                    {
+                        RtlCell cell = _netlist.Cells[id];
+                        if (cell.Kind == RtlKind.Binary && Operators.TryFrom(cell.Binary, out _) || cell.Kind == RtlKind.Unary && Operators.TryFrom(cell.Unary, out _))
+                            folded++;
+                    }
+                    foreach (int id in _matchSets.Keys)
+                        if (Operators.TryFrom(_netlist.Cells[id].Binary, out _))
+                            folded++;   // the OR the set's box is drawn for
+                    return folded;
+                }
+            }
+
             // The wires inside the openings, made once every part is placed: from a part's pin to another's, and which inner wire.
             private readonly List<(int From, string FromPin, int To, string ToPin, int Inner)> _innerWires =
                 new List<(int, string, int, string, int)>();
@@ -226,6 +253,37 @@ namespace BitSorter.Board
 
             /// <summary>The muxes a case's chain of them is drawn as, by id, with their subject's width.</summary>
             public readonly Dictionary<int, int> CaseParts = new Dictionary<int, int>();
+
+            /// <summary>The boxes a set of labels is drawn as, by id, with the labels.</summary>
+            public readonly Dictionary<int, List<ulong>> MatchSets = new Dictionary<int, List<ulong>>();
+
+            /// <summary>
+            /// A box of a set of labels: 1 when its subject is any of them, <c>= 2, 3, 5, 7</c>; as code the OR of the case's own
+            /// matches, x and z compared as they are (Part 15h-4e).
+            /// </summary>
+            private BoxPart MatchSetBox(int subject, List<ulong> labels)
+            {
+                int width = WidthOf(subject);
+                var text = new List<string>();
+                foreach (ulong label in labels)
+                    text.Add(label.ToString(CultureInfo.InvariantCulture));
+                return new BoxPart
+                {
+                    Label = "= " + string.Join(", ", text),
+                    Ports = new[] { new Pin("a", PinDirection.In, width), new Pin("y", PinDirection.Out, 1) },
+                    Code = at =>
+                    {
+                        Expression a = at("a") ?? Sv.Value(LogicVec.AllX(width));
+                        Expression any = null;
+                        foreach (ulong label in labels)
+                        {
+                            Expression one = new BinaryExpression { Operator = "===", Left = Sv.Paren(a), Right = Sv.Value(LogicVec.FromUInt64(label, width)) };
+                            any = any == null ? one : new BinaryExpression { Operator = "|", Left = any, Right = one };
+                        }
+                        return any;
+                    },
+                };
+            }
 
             public Builder(Project project, RtlNetlist netlist, bool gates)
             {
@@ -313,6 +371,14 @@ namespace BitSorter.Board
                     }
                     if (cell.Kind == RtlKind.Constant && reads[Root(cell.Output)] == 0 && _netlist.Nets[cell.Output].Signal < 0)
                         continue;   // said on the matches that use it
+                    if (_matchSets.TryGetValue(cell.Id, out (int Subject, List<ulong> Labels) set))
+                    {
+                        int box = Add(MatchSetBox(set.Subject, set.Labels));
+                        MatchSets[box] = set.Labels;
+                        _loads[Root(set.Subject)].Add((box, "a"));
+                        _source[Root(cell.Output)] = (box, "y");
+                        continue;
+                    }
                     Part part = PartFor(cell, out string[] ins, out string[] outs);
                     // An operator the sign changes the answer of -- a comparison, >>> -- opens only where it is shown to be
                     // unsigned: the gates RtlGates draws are the unsigned ones (the review of #110).
@@ -501,8 +567,8 @@ namespace BitSorter.Board
             {
                 var inner = new HashSet<int>();
                 foreach (RtlCell cell in _netlist.Cells)
-                    if (cell.Kind == RtlKind.Mux && Arm(cell, out _, out _, out _) && Driver(cell.Inputs[2]) is RtlCell rest
-                        && rest.Kind == RtlKind.Mux && reads[Root(cell.Inputs[2])] == 1 && Arm(rest, out _, out _, out _))
+                    if (cell.Kind == RtlKind.Mux && Arm(cell, out _, out _, out _, out _) && Driver(cell.Inputs[2]) is RtlCell rest
+                        && rest.Kind == RtlKind.Mux && reads[Root(cell.Inputs[2])] == 1 && Arm(rest, out _, out _, out _, out _))
                         inner.Add(rest.Id);
 
                 foreach (RtlCell head in _netlist.Cells)
@@ -514,12 +580,15 @@ namespace BitSorter.Board
                     int subject = -1, otherwise = -1;
                     RtlCell at = head;
                     var matches = new List<RtlCell>();
-                    while (at != null && Arm(at, out int s, out ulong label, out RtlCell match)
+                    var glue = new List<int>();
+                    while (at != null && Arm(at, out int s, out List<ulong> labels, out List<RtlCell> armMatches, out List<int> armGlue)
                         && (subject < 0 || Root(s) == Root(subject)))
                     {
                         subject = s;
-                        arms.Add((label, at.Inputs[1]));
-                        matches.Add(match);
+                        foreach (ulong label in labels)
+                            arms.Add((label, at.Inputs[1]));   // an arm of several labels, 2'd0, 2'd1:, one input each (Part 15h-4e)
+                        matches.AddRange(armMatches);
+                        glue.AddRange(armGlue);
                         if (at != head)
                             chain.Add(at.Id);
                         otherwise = at.Inputs[2];
@@ -549,18 +618,151 @@ namespace BitSorter.Board
                         _swallowed.Add(swallowed);
                     foreach (RtlCell match in matches)
                         _matchesOfCases.Add(match.Id);
+                    foreach (int id in glue)
+                        _matchesOfCases.Add(id);
                 }
 
-                // A match is drawn no more once every mux that reads it is a case's -- s and cout of one case share them.
-                foreach (int id in _matchesOfCases)
+                // An OR of matches on one subject that is no case's arm -- an is-it-prime's 2, 3, 5, 7, 11, 13 -- is one box
+                // (Part 15h-4e): every OR of them whose output nothing else of them reads.
+                var sets = new Dictionary<int, (int Subject, List<ulong> Labels, List<RtlCell> Matches, List<int> Glue)>();
+                foreach (RtlCell cell in _netlist.Cells)
                 {
-                    int output = _netlist.Cells[id].Output;
-                    bool onlyCases = _netlist.Nets[output].Signal < 0;
-                    foreach (RtlCell reader in _netlist.Cells)
-                        if (Reads(reader, output) && !_cases.ContainsKey(reader.Id) && !_swallowed.Contains(reader.Id))
-                            onlyCases = false;
-                    if (onlyCases)
-                        _swallowed.Add(id);
+                    if (!IsOr(cell) || _swallowed.Contains(cell.Id) || _matchesOfCases.Contains(cell.Id))
+                        continue;
+                    int subject = -1;
+                    var labels = new List<ulong>();
+                    var matches = new List<RtlCell>();
+                    var glue = new List<int>();
+                    if (Labels(cell.Output, ref subject, labels, matches, glue, 0) && labels.Count >= 2 && WidthOf(subject) <= 64)
+                        sets[cell.Id] = (subject, labels, matches, glue);
+                }
+                foreach (KeyValuePair<int, (int Subject, List<ulong> Labels, List<RtlCell> Matches, List<int> Glue)> set in sets)
+                {
+                    bool within = false;
+                    foreach (KeyValuePair<int, (int Subject, List<ulong> Labels, List<RtlCell> Matches, List<int> Glue)> other in sets)
+                        if (other.Key != set.Key && other.Value.Glue.Contains(set.Key))
+                            within = true;
+                    if (within)
+                        continue;
+                    var distinct = new SortedSet<ulong>(set.Value.Labels);
+                    _matchSets[set.Key] = (set.Value.Subject, new List<ulong>(distinct));
+                    foreach (RtlCell match in set.Value.Matches)
+                        _matchesOfCases.Add(match.Id);
+                    foreach (int id in set.Value.Glue)
+                        if (id != set.Key)
+                            _matchesOfCases.Add(id);
+                }
+
+                // A match, an OR of matches or an if's truth of one is drawn no more once everything that reads it is a case's, a
+                // set's, or drawn no more itself -- s and cout of one case share them; a set's ORs read one another.
+                bool more = true;
+                while (more)
+                {
+                    more = false;
+                    foreach (int id in _matchesOfCases)
+                    {
+                        if (_swallowed.Contains(id) || _matchSets.ContainsKey(id))
+                            continue;
+                        int output = _netlist.Cells[id].Output;
+                        bool onlyCases = _netlist.Nets[output].Signal < 0;
+                        foreach (RtlCell reader in _netlist.Cells)
+                            if (Reads(reader, output) && !_cases.ContainsKey(reader.Id) && !_swallowed.Contains(reader.Id) && !_matchSets.ContainsKey(reader.Id))
+                                onlyCases = false;
+                        if (onlyCases)
+                        {
+                            _swallowed.Add(id);
+                            more = true;
+                        }
+                    }
+                }
+            }
+
+            /// <summary>The sets of labels drawn as one box, by the OR cell drawn as it: its subject and its labels.</summary>
+            private readonly Dictionary<int, (int Subject, List<ulong> Labels)> _matchSets = new Dictionary<int, (int, List<ulong>)>();
+
+            private bool IsOr(RtlCell cell) =>
+                cell.Kind == RtlKind.Binary && (cell.Binary == BinaryOp.Or || cell.Binary == BinaryOp.LogicalOr) && cell.Output >= 0 && WidthOf(cell.Output) == 1;
+
+            /// <summary>
+            /// Whether <paramref name="net"/> is true when one subject is one of some constant labels: a match, an OR of them,
+            /// an if's truth of one -- each label, match and OR or truth it is made of added.
+            /// </summary>
+            private bool Labels(int net, ref int subject, List<ulong> labels, List<RtlCell> matches, List<int> glue, int depth)
+            {
+                RtlCell cell = Driver(net);
+                if (cell == null || depth > 64)
+                    return false;
+                switch (cell.Kind)
+                {
+                    case RtlKind.Match:
+                    {
+                        if (LabelOf(cell) == null || !(Driver(cell.Inputs[1]) is RtlCell constant) || !constant.Value.IsKnown
+                            || !constant.Value.TryGetUInt64(out ulong label) || subject >= 0 && Root(cell.Inputs[0]) != Root(subject))
+                            return false;
+                        subject = cell.Inputs[0];
+                        labels.Add(label);
+                        matches.Add(cell);
+                        return true;
+                    }
+                    case RtlKind.Truth when cell.Inputs.Count == 1 && WidthOf(cell.Inputs[0]) == 1:
+                        glue.Add(cell.Id);
+                        return Labels(cell.Inputs[0], ref subject, labels, matches, glue, depth + 1);
+                    case RtlKind.Binary when IsOr(cell):
+                        glue.Add(cell.Id);
+                        return Labels(cell.Inputs[0], ref subject, labels, matches, glue, depth + 1)
+                            && Labels(cell.Inputs[1], ref subject, labels, matches, glue, depth + 1);
+                    case RtlKind.Binary when cell.Binary == BinaryOp.LogicalAnd && cell.Output >= 0 && WidthOf(cell.Output) == 1:
+                    {
+                        // A later label of one arm as the language decides it, the first that matches winning: m0 || (!m0 && m1).
+                        // Labels of one case differ, so not matching the ones before is already so wherever this one matches.
+                        var conjuncts = new List<int>();
+                        var ands = new List<int>();
+                        Conjuncts(cell, conjuncts, ands, 0);
+                        int positive = -1;
+                        var negated = new List<(RtlCell Match, ulong Label)>();
+                        foreach (int conjunct in conjuncts)
+                        {
+                            RtlCell not = Driver(conjunct);
+                            if (not != null && not.Kind == RtlKind.Unary && not.Unary == UnaryOp.LogicalNot && not.Inputs.Count == 1
+                                && Driver(not.Inputs[0]) is RtlCell m && m.Kind == RtlKind.Match && Driver(m.Inputs[1]) is RtlCell k
+                                && k.Kind == RtlKind.Constant && k.Value.IsKnown && k.Value.TryGetUInt64(out ulong other))
+                            {
+                                negated.Add((m, other));
+                                ands.Add(not.Id);
+                                continue;
+                            }
+                            if (positive >= 0)
+                                return false;
+                            positive = conjunct;
+                        }
+                        int before = labels.Count;
+                        if (positive < 0 || !Labels(positive, ref subject, labels, matches, glue, depth + 1))
+                            return false;
+                        foreach ((RtlCell match, ulong other) in negated)
+                        {
+                            if (Root(match.Inputs[0]) != Root(subject) || labels.IndexOf(other, before) >= 0)
+                                return false;
+                            matches.Add(match);
+                        }
+                        glue.AddRange(ands);
+                        return true;
+                    }
+                    default:
+                        return false;
+                }
+            }
+
+            /// <summary>The terms of an AND of ANDs, each AND cell it is made of added to <paramref name="ands"/>.</summary>
+            private void Conjuncts(RtlCell and, List<int> terms, List<int> ands, int depth)
+            {
+                ands.Add(and.Id);
+                foreach (int input in and.Inputs)
+                {
+                    RtlCell inner = Driver(input);
+                    if (inner != null && inner.Kind == RtlKind.Binary && inner.Binary == BinaryOp.LogicalAnd && depth < 64)
+                        Conjuncts(inner, terms, ands, depth + 1);
+                    else
+                        terms.Add(input);
                 }
             }
 
@@ -574,19 +776,17 @@ namespace BitSorter.Board
                 return false;
             }
 
-            /// <summary>Whether a mux is a case's arm: on whether a subject matches a constant label, all of it known.</summary>
-            private bool Arm(RtlCell mux, out int subject, out ulong label, out RtlCell match)
+            /// <summary>
+            /// Whether a mux is a case's arm: on whether a subject matches a constant label, all of it known -- or one of several,
+            /// <c>2'd0, 2'd1:</c>, an OR of matches on the one subject (Part 15h-4e).
+            /// </summary>
+            private bool Arm(RtlCell mux, out int subject, out List<ulong> labels, out List<RtlCell> matches, out List<int> glue)
             {
                 subject = -1;
-                label = 0;
-                match = Driver(mux.Inputs[0]);
-                if (match == null || match.Kind != RtlKind.Match || LabelOf(match) == null)
-                    return false;
-                RtlCell constant = Driver(match.Inputs[1]);
-                if (!constant.Value.IsKnown || !constant.Value.TryGetUInt64(out label))
-                    return false;
-                subject = match.Inputs[0];
-                return true;
+                labels = new List<ulong>();
+                matches = new List<RtlCell>();
+                glue = new List<int>();
+                return Labels(mux.Inputs[0], ref subject, labels, matches, glue, 0) && labels.Count > 0;
             }
 
             private RtlCell Driver(int net) => net >= 0 && _netlist.Nets[net].Driver >= 0 ? _netlist.Cells[_netlist.Nets[net].Driver] : null;

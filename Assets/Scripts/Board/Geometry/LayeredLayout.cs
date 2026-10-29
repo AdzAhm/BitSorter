@@ -74,6 +74,19 @@ namespace BitSorter.Board
                     column[i] = Math.Min(1, lastColumn);   // a constant or a box fed by nothing: beside the inputs, not among them
             }
 
+            // A part fed by nothing -- a constant -- stands in the column just before its first reader, not by the inputs with a
+            // wire across the whole drawing to it (Part 15h-4e, the samples of 2026-10-29).
+            for (int i = 0; i < n; i++)
+            {
+                if (first.Contains(i) || last.Contains(i) || into[i].Count > 0 || outOf[i].Count == 0)
+                    continue;
+                int reader = int.MaxValue;
+                foreach (int v in outOf[i])
+                    reader = Math.Min(reader, column[v]);
+                if (reader != int.MaxValue && reader - 1 > column[i])
+                    column[i] = reader - 1;
+            }
+
             int columns = 0;
             for (int i = 0; i < n; i++)
                 columns = Math.Max(columns, column[i] + 1);
@@ -152,6 +165,21 @@ namespace BitSorter.Board
 
             var y = new double[n];
             for (int c = 0; c < columns; c++)
+                Stand(c, readers: false);
+
+            // Again for each column holding a part fed by nothing, which stands level with what it feeds -- placed by now.
+            for (int c = 0; c < columns; c++)
+            {
+                bool any = false;
+                foreach (int v in inColumn[c])
+                    any |= into[v].Count == 0 && outOf[v].Count > 0 && !first.Contains(v);
+                if (any)
+                    Stand(c, readers: true);
+            }
+
+            // A column's parts stood down it in their order, each level with the mean height of what feeds it from the
+            // columns before -- or, with readers, what a part fed by nothing feeds -- where it fits, else below the part above.
+            void Stand(int c, bool readers)
             {
                 double floor = double.MaxValue;   // the lowest the next part's top may be, going down the column
                 foreach (int v in inColumn[c])
@@ -164,6 +192,13 @@ namespace BitSorter.Board
                             sum += y[u];
                             count++;
                         }
+                    if (readers && count == 0 && !first.Contains(v))
+                        foreach (int u in outOf[v])
+                            if (column[u] > c)
+                            {
+                                sum += y[u];
+                                count++;
+                            }
                     double wanted = count > 0 ? sum / count : (floor == double.MaxValue ? 0 : floor - outlines[v].Top);
                     double highest = floor == double.MaxValue ? double.MaxValue : floor - outlines[v].Top;
                     y[v] = Snap(Math.Min(wanted, highest));

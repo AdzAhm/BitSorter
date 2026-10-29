@@ -17,6 +17,7 @@ namespace BitSorter.Board
     {
         private readonly Dictionary<int, RtlCell> _cellOf;
         private readonly Dictionary<int, int> _caseSubjectWidth;
+        private readonly Dictionary<int, List<ulong>> _matchSets;
         private readonly RtlNetlist _netlist;
 
         /// <summary>
@@ -32,6 +33,8 @@ namespace BitSorter.Board
                 return Operand(part, "s") + " picks which input reaches y: d" + "k when it is k, each of the " + chooser.Inputs.ToString(CultureInfo.InvariantCulture) + " values a case arm.";
             if (drawn is ConstantPart constant)
                 return "The value " + constant.Value.ToLiteral(Radix.Binary) + ", as the code writes it.";
+            if (_matchSets != null && _matchSets.TryGetValue(part, out List<ulong> set))
+                return "1 when " + Operand(part, "a") + " is any of " + Join(set) + ": the labels of one arm, or a set the code tests.";
             if (_cellOf == null || !_cellOf.TryGetValue(part, out RtlCell cell))
                 return null;
 
@@ -105,6 +108,8 @@ namespace BitSorter.Board
             string In(string pin) => Operand(part, pin, depth + 1);
             if (_caseSubjectWidth != null && _caseSubjectWidth.ContainsKey(part))
                 return "case (" + In("s") + ")";
+            if (_matchSets != null && _matchSets.TryGetValue(part, out List<ulong> labels))
+                return In("a") + " inside {" + Join(labels) + "}";
             if (_cellOf == null || !_cellOf.TryGetValue(part, out RtlCell cell))
                 return drawn is OperatorPart op ? (Operators.IsUnary(op.Op) ? Operators.Token(op.Op) + In("a") : In("a") + " " + Operators.Token(op.Op) + " " + In("b")) : null;
 
@@ -202,6 +207,14 @@ namespace BitSorter.Board
             int driver = _netlist.Nets[match.Inputs[1]].Driver;
             RtlCell constant = driver >= 0 ? _netlist.Cells[driver] : null;
             return constant != null && constant.Kind == RtlKind.Constant ? constant.Value.ToLiteral(Radix.Binary) : null;
+        }
+
+        private static string Join(List<ulong> labels)
+        {
+            var text = new List<string>();
+            foreach (ulong label in labels)
+                text.Add(label.ToString(CultureInfo.InvariantCulture));
+            return string.Join(", ", text);
         }
 
         private static string Bits(int width) => width == 1 ? "1 bit" : width.ToString(CultureInfo.InvariantCulture) + " bits";

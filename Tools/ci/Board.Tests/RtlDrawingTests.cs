@@ -348,6 +348,76 @@ namespace BitSorter.Board.Tests
             return drawing;
         }
 
+        /// <summary>A case arm of several labels is one input of the case's mux each, its OR and its matches drawn no more (Part 15h-4e).</summary>
+        [Test]
+        public void ACaseArmOfSeveralLabels_IsAnInputOfTheMuxForEach()
+        {
+            RtlDrawing drawing = Draw(
+                "module pick (input logic [1:0] op, input logic [3:0] a, b, c, output logic [3:0] y);\n" +
+                "    always_comb\n" +
+                "        case (op)\n" +
+                "            2'd0, 2'd1: y = a;\n" +
+                "            2'd2:       y = b;\n" +
+                "            default:    y = c;\n" +
+                "        endcase\n" +
+                "endmodule\n", "pick");
+            MuxPart mux = drawing.Module.Parts.OfType<MuxPart>().Single();
+            Assert.AreEqual(4, mux.Inputs, "one mux of op's four values");
+            Assert.IsFalse(drawing.Module.Parts.OfType<OperatorPart>().Any(), "the arm's OR drawn no more");
+            Assert.IsFalse(drawing.Module.Parts.OfType<BoxPart>().Any(), "nor its matches");
+            Assert.AreEqual("a", NetAt(drawing, mux, "d0"));
+            Assert.AreEqual("a", NetAt(drawing, mux, "d1"));
+            Assert.AreEqual("b", NetAt(drawing, mux, "d2"));
+            Assert.AreEqual("c", NetAt(drawing, mux, "d3"));
+        }
+
+        /// <summary>
+        /// An OR of matches on one subject that no case's mux is -- a prime test's labels -- is one box saying them, which says
+        /// what it does and is written as code again doing it (Part 15h-4e).
+        /// </summary>
+        [Test]
+        public void AnOrOfMatchesOnOneSubject_IsOneBoxOfItsLabels()
+        {
+            const string source =
+                "module prime (input logic [3:0] n, output logic p);\n" +
+                "    always_comb\n" +
+                "        case (n)\n" +
+                "            4'd2, 4'd3, 4'd5, 4'd7, 4'd11, 4'd13: p = 1'b1;\n" +
+                "            default: p = 1'b0;\n" +
+                "        endcase\n" +
+                "endmodule\n";
+            RtlDrawing drawing = Draw(source, "prime");
+            BoxPart set = drawing.Module.Parts.OfType<BoxPart>().Single();
+            Assert.AreEqual("= 2, 3, 5, 7, 11, 13", set.Label);
+            Assert.IsFalse(drawing.Module.Parts.OfType<OperatorPart>().Any(), "its ORs drawn no more");
+            StringAssert.StartsWith("1 when n is any of 2, 3, 5, 7, 11, 13", drawing.Describe(set.Id));
+
+            var editor = new BoardEditor(Project.New("scratch"));
+            Assert.IsTrue(editor.AddWrittenModule("prime", source).Done);
+            Project project = editor.Project with { Top = "prime" };
+            CompiledProject compiled = BoardCompiler.Compile(project);
+            Elaboration e = Elaborator.Elaborate(compiled.Tree, compiled.Top);
+            RtlNetlist netlist = RtlExtractor.Of(e.Design, e.Design.Scopes[0].Path);
+            Assert.IsNull(DrawingPrinter.Differs(project, netlist, e.Design, RtlDrawing.Of(project, netlist, "prime")), "written again, the same");
+        }
+
+        /// <summary>A constant stands in the column before what reads it, not by the inputs across the drawing from it (Part 15h-4e).</summary>
+        [Test]
+        public void AConstant_StandsBesideWhatReadsIt()
+        {
+            RtlDrawing drawing = Draw(
+                "module far (input logic [3:0] a, b, c, output logic hit);\n" +
+                "    assign hit = ((a + b) + c) == 4'd9;\n" +
+                "endmodule\n", "far");
+            Module module = drawing.Module;
+            ConstantPart nine = module.Parts.OfType<ConstantPart>().Single();
+            OperatorPart equal = module.Parts.OfType<OperatorPart>().Single(p => p.Op == OperatorKind.Equal);
+            double x = module.Layout.PlacementOf(nine.Id).Position.X, reader = module.Layout.PlacementOf(equal.Id).Position.X;
+            double sum = module.Parts.OfType<OperatorPart>().Where(p => p.Op == OperatorKind.Add).Max(p => module.Layout.PlacementOf(p.Id).Position.X);
+            Assert.Less(x, reader, "before what reads it");
+            Assert.GreaterOrEqual(x, sum, "in the column of the last sum, not by the inputs");
+        }
+
         /// <summary>The name of the net a part's pin is on.</summary>
         private static string NetAt(RtlDrawing drawing, Part part, string pin) =>
             Netlist.Of(drawing.Project, drawing.Module).NetOf(new PinRef(part.Id, pin))?.Name;
@@ -463,7 +533,7 @@ namespace BitSorter.Board.Tests
             if (gates)
                 Assert.LessOrEqual(module.Parts.OfType<OperatorPart>().Count(), operators, $"{what}: an operator a part or its gates");
             else
-                Assert.AreEqual(operators, module.Parts.OfType<OperatorPart>().Count(), $"{what}: an operator a part");
+                Assert.AreEqual(operators - drawing.Folded, module.Parts.OfType<OperatorPart>().Count(), $"{what}: an operator a part, but those a case or a set of labels is drawn as");
             if (drawing.Opened == 0)
                 Assert.AreEqual(0, drawing.InnerCount, $"{what}: wires inside only of an opening");
             Assert.AreEqual(netlist.Cells.Count(c => c.Kind == RtlKind.Register && c.Clock > 0 && (c.Inputs.Count == 2 || c.Inputs.Count == 3)),
