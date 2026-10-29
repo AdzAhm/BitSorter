@@ -351,8 +351,9 @@ namespace BitSorter.ViewModel
             Refusal = null;
 
             // A drag that would begin an edit the document refuses is refused as it begins, saying why, rather than drawn and then
-            // refused where it ends: any, locked (Part 15h-4d); on the drawing of code, a move or a reshape -- it lays itself out
-            // -- and a wire with GATES on (Part 15h-4g). A click, a box, a double-click and the menu still work.
+            // refused where it ends: any, locked (Part 15h-4d); on the drawing of code, a reshape -- it routes its own wires; a
+            // move arranges it by hand (Part 15h-4f) -- and a wire with GATES on (Part 15h-4g). A click, a box, a double-click
+            // and the menu still work.
             bool drag = command.Gesture == CanvasGesture.BeginMove || command.Gesture == CanvasGesture.BeginWire || command.Gesture == CanvasGesture.BeginReshape;
             if (drag && _session.Locked)
                 return EditResult.Refused(WorkbenchSession.LockedRefusal);
@@ -1032,7 +1033,9 @@ namespace BitSorter.ViewModel
         /// <summary>The selected parts lined up or spread <paramref name="by"/>: layout only, one step.</summary>
         public EditResult Arrange(ArrangeBy by)
         {
-            Dictionary<int, Placement> to = BitSorter.ViewModel.Arrange.Of(_session.Project, _session.Module, new List<int>(Selection.Parts), by);
+            // The drawing's parts on a drawing of code, which the move then arranges (the review of #119: they were looked for
+            // in the written module, which has none, and nothing moved).
+            Dictionary<int, Placement> to = BitSorter.ViewModel.Arrange.Of(Drawn, _session.Module, new List<int>(Selection.Parts), by);
             if (to.Count == 0)
             {
                 bool spread = by == ArrangeBy.SpreadAcross || by == ArrangeBy.SpreadDown;

@@ -521,7 +521,11 @@ namespace BitSorter.Board
 
                 // Written text says the name too (Part 12d): in its own header, and wherever it instantiates the module.
                 if (each.IsWritten)
-                    renamed = renamed with { Source = WrittenModules.Renamed(Project, each, from, to) };
+                {
+                    // A drawing arranged against the code keeps its numbered places through the name (the review of #119).
+                    string source = WrittenModules.Renamed(Project, each, from, to);
+                    renamed = renamed with { Source = source, ArrangedFor = each.ArrangedFor == each.Source ? source : each.ArrangedFor };
+                }
 
                 var parts = new List<Part>(renamed.Parts.Count);
                 bool changed = false;

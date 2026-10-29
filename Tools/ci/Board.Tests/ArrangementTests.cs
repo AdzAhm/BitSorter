@@ -14,20 +14,20 @@ namespace BitSorter.Board.Tests
     {
         private const string Code = "module m (input logic [1:0] a, b, c, output logic [1:0] y);\n    assign y = (a & b) | c;\nendmodule\n";
 
-        private static (BoardEditor Editor, RtlDrawing Drawing) Drawn(string source = Code)
+        private static (BoardEditor Editor, RtlDrawing Drawing) Drawn(string source = Code, string name = "m")
         {
             var editor = new BoardEditor(Project.New("scratch"));
-            Assert.IsTrue(editor.AddWrittenModule("m", source).Done);
-            editor = new BoardEditor(editor.Project with { Top = "m" });
-            return (editor, Draw(editor.Project));
+            Assert.IsTrue(editor.AddWrittenModule(name, source).Done);
+            editor = new BoardEditor(editor.Project with { Top = name });
+            return (editor, Draw(editor.Project, name));
         }
 
-        private static RtlDrawing Draw(Project project)
+        private static RtlDrawing Draw(Project project, string name = "m")
         {
             CompiledProject compiled = BoardCompiler.Compile(project);
             Elaboration e = Elaborator.Elaborate(compiled.Tree, compiled.Top);
             Assert.IsFalse(e.HasErrors);
-            return RtlDrawing.Of(project, RtlExtractor.Of(e.Design, "m"), "m", arranged: project.Find("m"));
+            return RtlDrawing.Of(project, RtlExtractor.Of(e.Design, name), name, arranged: project.Find(name));
         }
 
         private static Part Or(RtlDrawing drawing) => drawing.Module.Parts.OfType<OperatorPart>().Single(p => p.Op == OperatorKind.Or);
@@ -71,11 +71,51 @@ namespace BitSorter.Board.Tests
             var numbered = new Placement(new Point(30, -6));
             Assert.IsTrue(editor.Arrange("m", new Dictionary<string, Placement> { ["sig:y"] = named, [and] = numbered }).Done);
 
-            Assert.IsTrue(editor.SetSource("m", Code.Replace("| c", "^ c").Replace("(a & b)", "(a & b)")).Done);
+            Assert.IsTrue(editor.SetSource("m", Code.Replace("| c", "^ c")).Done);
             RtlDrawing again = Draw(editor.Project);
             Part xor = again.Module.Parts.OfType<OperatorPart>().Single(p => p.Op == OperatorKind.Xor);
             Assert.AreEqual(named, again.Module.Layout.PlacementOf(xor.Id), "y is still driven from where it was put");
             Assert.AreNotEqual(numbered, again.Module.Layout.PlacementOf(And(again).Id), "a numbered place is the code's before only");
+
+            // The next arrangement forgets the numbered place for good, and keeps the named one (the review of #119).
+            Assert.IsTrue(editor.Arrange("m", new Dictionary<string, Placement> { ["port:a"] = new Placement(new Point(-30, 6)) }).Done);
+            Module m = editor.Project.Find("m");
+            Assert.IsFalse(m.Arrangement.ContainsKey(and), "forgotten");
+            Assert.AreEqual(named, m.Arrangement["sig:y"], "kept");
+            Assert.AreEqual(m.Source, m.ArrangedFor, "against the code as it is now");
+        }
+
+        /// <summary>A module renamed keeps its numbered places: its code says the new name, and was arranged against (the review of #119).</summary>
+        [Test]
+        public void ARename_KeepsTheNumberedPlaces()
+        {
+            (BoardEditor editor, RtlDrawing drawing) = Drawn();
+            string and = drawing.KeyOf(And(drawing).Id);
+            var numbered = new Placement(new Point(30, -6));
+            Assert.IsTrue(editor.Arrange("m", new Dictionary<string, Placement> { [and] = numbered }).Done);
+            Assert.IsTrue(editor.RenameModule("m", "m2").Done);
+            Module renamed = editor.Project.Find("m2");
+            Assert.AreEqual(renamed.Source, renamed.ArrangedFor);
+            RtlDrawing again = Draw(editor.Project, "m2");
+            Assert.AreEqual(numbered, again.Module.Layout.PlacementOf(And(again).Id), "the & where it was put");
+        }
+
+        /// <summary>A save from before Part 15h-4f, with neither field, reads as nothing put by hand.</summary>
+        [Test]
+        public void ASaveWithNoArrangement_ReadsAsNothingPutByHand()
+        {
+            (BoardEditor editor, RtlDrawing _) = Drawn();
+            ProjectRecord record = ProjectRecord.From(editor.Project);
+            foreach (ModuleRecord module in record.modules)
+            {
+                module.arranged = null;
+                module.arrangedFor = null;
+            }
+            var problems = new List<string>();
+            Module m = record.ToProject(problems).Find("m");
+            Assert.IsEmpty(problems);
+            Assert.AreEqual(0, m.Arrangement.Count);
+            Assert.IsNull(m.ArrangedFor);
         }
 
         [Test]

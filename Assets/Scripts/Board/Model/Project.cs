@@ -40,7 +40,9 @@ namespace BitSorter.Board
         /// for one the code names nothing, by its kind and its place among them (<c>cell:OperatorPart:3</c>). The code is
         /// untouched; the drawing puts these parts here and lays out the rest round them. Empty for none.
         /// </summary>
-        public IReadOnlyDictionary<string, Placement> Arrangement { get; init; } = new Dictionary<string, Placement>();
+        public IReadOnlyDictionary<string, Placement> Arrangement { get; init; } = NoArrangement;
+
+        private static readonly IReadOnlyDictionary<string, Placement> NoArrangement = new Dictionary<string, Placement>();
 
         /// <summary>The code <see cref="Arrangement"/> was made against: its numbered keys are dropped once the code is other.</summary>
         public string ArrangedFor { get; init; }

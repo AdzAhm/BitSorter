@@ -565,8 +565,11 @@ namespace BitSorter.ViewModel
         /// <summary>What an edit the drawing of code takes no part in is told: it is the code's, and changes with it.</summary>
         public const string DrawingRefusal = "This is the drawing of the code: change the code to change it.";
 
-        /// <summary>What moving or turning a part of the drawing of code is told: it lays itself out, from the code.</summary>
+        /// <summary>What reshaping or routing a wire of the drawing of code is told: it routes its own wires (Part 15h-4f).</summary>
         public const string ArrangeRefusal = "The drawing of code routes its own wires: move a part, and its wires are routed again.";
+
+        /// <summary>What a move of the drawing of code with GATES on is told: the boxes are what is arranged (the review of #119).</summary>
+        public const string GatesArrangeRefusal = "Press BOXES to move its parts: with GATES on, the gates opened are laid out by themselves.";
 
         /// <summary>What an edit of the drawing of code with GATES on is told: the code is written from the boxes.</summary>
         public const string GatesRefusal = "Press BOXES to edit the drawing: its code is written from the boxes, not from their gates.";
@@ -789,7 +792,7 @@ namespace BitSorter.ViewModel
                 _drawnNetlist = netlist;
                 _drawnDesign = design;
             }
-            _drawing = RtlDrawing.Of(project, _drawnNetlist, module, gates, project.Find(module));
+            _drawing = RtlDrawing.Of(project, _drawnNetlist, module, gates, gates ? null : project.Find(module));   // the boxes' arrangement, never the gates'
             _drawnGates = gates;
             _drawnModules = project.Modules;
             _drawnPath = path;
@@ -1035,7 +1038,7 @@ namespace BitSorter.ViewModel
 
             // On the drawing of code, the parts put by hand, kept with the module by their keys, the code untouched (Part 15h-4f).
             if (ShowsGatesOfCode)
-                return EditResult.Refused(GatesRefusal);
+                return EditResult.Refused(GatesArrangeRefusal);
             RtlDrawing drawing = ShownDrawing;
             var keyed = new Dictionary<string, Placement>(StringComparer.Ordinal);
             if (to != null && drawing != null)
