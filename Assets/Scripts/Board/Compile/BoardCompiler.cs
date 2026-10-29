@@ -353,6 +353,10 @@ namespace BitSorter.Board
                         Block(block);
                         break;
 
+                    case BoxPart box when box.Code != null:
+                        Box(box);
+                        break;
+
                     // Ports are the header; lamps only look.
                 }
             }
@@ -468,7 +472,14 @@ namespace BitSorter.Board
                 Statement body = Write(At(register, "d"));
                 EventControl edge;
 
-                if (register.HasReset)
+                if (register.ClockEdge is EdgeKind clock)
+                {
+                    // As the code it was drawn from waits (Part 15h-4g): its reset already in d.
+                    edge = register.HasReset && register.ResetEdge is EdgeKind reset
+                        ? Sv.On((EdgeWord(clock), NetName(register, "clk")), (EdgeWord(reset), NetName(register, "rst")))
+                        : Sv.On((EdgeWord(clock), NetName(register, "clk")));
+                }
+                else if (register.HasReset)
                 {
                     LogicVec reset = register.ResetValue ?? LogicVec.FromUInt64(0, register.Width);
                     body = new IfStatement
@@ -485,6 +496,21 @@ namespace BitSorter.Board
                 }
 
                 _items.Add(new ProceduralBlock { Kind = ProcessKind.AlwaysFf, Body = new TimedStatement { Control = edge, Body = body } });
+            }
+
+            private static string EdgeWord(EdgeKind edge) =>
+                edge == EdgeKind.Negedge ? "negedge" : edge == EdgeKind.Edge ? "edge" : "posedge";
+
+            /// <summary>A box of a drawing of code as the <c>assign</c> its <see cref="BoxPart.Code"/> says (Part 15h-4g).</summary>
+            private void Box(BoxPart box)
+            {
+                string output = null;
+                foreach (Pin pin in box.Ports)
+                    if (pin.Direction == PinDirection.Out)
+                        output = pin.Name;
+                if (output == null || NetOf(box, output) == null)
+                    return;
+                _items.Add(Sv.Assign(At(box, output), box.Code(pin => NetOf(box, pin) == null ? null : At(box, pin))));
             }
 
             /// <summary>d<i>low</i> to d<i>low+count-1</i>, chosen by s from bit <paramref name="bit"/> down.</summary>

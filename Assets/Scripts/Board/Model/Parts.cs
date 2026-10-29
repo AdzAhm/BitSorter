@@ -166,6 +166,17 @@ namespace BitSorter.Board
         /// </summary>
         public long Tsetup { get; init; }
 
+        /// <summary>
+        /// For a register of a drawing of code (Part 15h-4g): the edge of clk it waits on as written, <c>negedge clk</c> as
+        /// well as <c>posedge</c> -- and then its reset is already in d, as the code's process works it out, and rst only
+        /// the other edge it waits on (<see cref="ResetEdge"/>). Null for a register drawn on a board, which waits on the
+        /// rising edges and puts its reset value in itself.
+        /// </summary>
+        public EdgeKind? ClockEdge { get; init; }
+
+        /// <summary>With <see cref="ClockEdge"/>, the edge of rst it waits on as written, <c>negedge rst_n</c>.</summary>
+        public EdgeKind? ResetEdge { get; init; }
+
         public override IReadOnlyList<Pin> Pins(Project project)
         {
             var pins = new List<Pin> { new Pin("d", PinDirection.In, Width), new Pin("clk", PinDirection.In, 1) };
@@ -234,8 +245,9 @@ namespace BitSorter.Board
 
     /// <summary>
     /// A box a drawing of code shows where no other part is the same thing (Part 15h-4): a slice <c>[3:0]</c>, a join of
-    /// bits, a process that is no circuit -- its label and its pins, for showing only. Nothing compiles it, saves it or
-    /// places it: a drawing of code is held beside the project, never in it.
+    /// bits, a process that is no circuit -- its label and its pins. Nothing saves it or places it: a drawing of code is held
+    /// beside the project, never in it. Only the code written from an edited drawing compiles it, as its <see cref="Code"/>
+    /// (Part 15h-4g).
     /// </summary>
     public sealed record BoxPart : Part
     {
@@ -247,6 +259,19 @@ namespace BitSorter.Board
 
         /// <summary>For a process that is no circuit, why; null for anything else.</summary>
         public string Says { get; init; }
+
+        /// <summary>
+        /// What it is as code (Part 15h-4g): its one output's value from its input pins -- each asked of the function given,
+        /// which says null for a pin no wire reaches -- so a drawing of code edited is written as code again. Null for a box
+        /// no expression is: a process, a memory's word, a call.
+        /// </summary>
+        public Func<Func<string, Expression>, Expression> Code { get; init; }
+
+        /// <summary>
+        /// For a signal the module reads and drives nowhere -- an output it leaves empty, or one another scope gives its value
+        /// -- the box of its name the drawing stands in for its driver (Part 15h-4g): nothing, as code.
+        /// </summary>
+        public bool Undriven { get; init; }
 
         public override IReadOnlyList<Pin> Pins(Project project) => Ports;
     }

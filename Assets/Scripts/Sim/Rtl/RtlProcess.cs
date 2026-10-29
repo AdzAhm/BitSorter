@@ -162,7 +162,9 @@ namespace BitSorter.Sim
                     case OpCode.JumpUnless:
                     case OpCode.JumpIf:
                     case OpCode.JumpIfMatch:
+                        break;
                     case OpCode.Print:
+                        _unshown.Add("the $display in " + Relative(process.Name));
                         break;
                     case OpCode.AssignLater:
                         if (code[i].Other != null)

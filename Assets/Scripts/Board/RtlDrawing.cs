@@ -18,7 +18,8 @@ namespace BitSorter.Board
     /// <see cref="BoxPart"/>** that says what it is -- a slice <c>[3:0]</c>, a join of bits <c>{ }</c>, a process that is no
     /// circuit by its name and why -- for showing only. A join of one driver over the whole signal is a wire.
     ///
-    /// **It is for showing**: the module made is held beside the project, never in it, and nothing compiles it. Every wire on
+    /// **It is held beside the project**, never in it; only an edit of it compiles it, written as the module's code
+    /// (<see cref="DrawingPrinter"/>, Part 15h-4g), so every part of it says what it is as code where it can. Every wire on
     /// a signal's net is named for the signal, so the drawing finds its values by name; a value inside an expression, which
     /// no signal holds, is named <c>$</c> and its number.
     ///
@@ -39,7 +40,11 @@ namespace BitSorter.Board
             _innerOfWire = builder.InnerOfWire;
             _inner = builder.Inner.ToArray();
             Opened = builder.Opened;
+            Unshown = builder.Unshown;
         }
+
+        /// <summary>What the code does that the drawing does not show (<see cref="RtlNetlist.Unshown"/>): code written from it would lose it.</summary>
+        public IReadOnlyList<string> Unshown { get; }
 
         private readonly Dictionary<int, int> _innerOfWire;
         private readonly InnerNet[] _inner;
@@ -209,6 +214,8 @@ namespace BitSorter.Board
             private readonly HashSet<int> _last = new HashSet<int>();
             private readonly HashSet<int> _registers = new HashSet<int>();
 
+            public IReadOnlyList<string> Unshown => _netlist.Unshown;
+
             public Builder(Project project, RtlNetlist netlist, bool gates)
             {
                 _project = project;
@@ -329,12 +336,16 @@ namespace BitSorter.Board
                 }
 
                 // A net something reads that nothing here drives -- a signal given its value in another scope: a box of its name.
+                // One of the module's own that nothing drives at all -- an output left empty, a part's input not yet wired -- is a
+                // pin left open (Part 15h-4g): a box there would be a second driver for the wire drawn to it next.
                 for (int net = 0; net < _netlist.Nets.Count; net++)
                 {
                     if (Root(net) != net || _loads[net].Count == 0 || _source[net].Part >= 0)
                         continue;
                     RtlNet from = _netlist.Nets[net];
-                    int id = Add(new BoxPart { Label = from.Name, Ports = new[] { new Pin("y", PinDirection.Out, from.Width) } });
+                    if (from.Signal >= 0 && from.Name.IndexOf('.') < 0 && from.Name.IndexOf('[') < 0)
+                        continue;
+                    int id = Add(new BoxPart { Label = from.Name, Ports = new[] { new Pin("y", PinDirection.Out, from.Width) }, Undriven = true });
                     _first.Add(_parts.Count - 1);
                     _source[net] = (id, "y");
                 }
@@ -755,7 +766,11 @@ namespace BitSorter.Board
                         ins = new string[cell.Inputs.Count];
                         for (int i = 0; i < ins.Length; i++)
                             ins[i] = GatePart.InputPin(cell.Gate, i);
-                        return new GatePart { Name = Identifier(cell.Name), Kind = cell.Gate, Inputs = cell.Inputs.Count, Width = width };
+                        return new GatePart
+                        {
+                            Name = Identifier(cell.Name), Kind = cell.Gate, Inputs = cell.Inputs.Count, Width = width,
+                            Rise = cell.Delay.Rise, Fall = cell.Delay.Fall,
+                        };
                     }
 
                     case RtlKind.Unary when Operators.TryFrom(cell.Unary, out OperatorKind unary):
@@ -766,7 +781,11 @@ namespace BitSorter.Board
                     {
                         ins = new[] { "a", "b" };
                         int a = WidthOf(cell.Inputs[0]), b = WidthOf(cell.Inputs[1]);
-                        return new OperatorPart { Op = binary, Width = a, BWidth = Operators.BOwnWidth(binary) && b != a ? b : 0 };
+                        return new OperatorPart
+                        {
+                            Op = binary, Width = a, BWidth = Operators.BOwnWidth(binary) && b != a ? b : 0,
+                            Signed = cell.Signed && Operators.SignMatters(binary),
+                        };
                     }
 
                     case RtlKind.Mux:
@@ -783,7 +802,15 @@ namespace BitSorter.Board
                         if (cell.Inputs.Count == 3)
                             ins[3 - cell.Clock] = "rst";
                         outs = new[] { "q" };
-                        return new RegisterPart { Width = width, HasReset = cell.Inputs.Count == 3 };   // its name is its signal's, which is the net's
+                        // Its edges as written, its reset already in d (Part 15h-4g): what the code written from it waits on.
+                        return new RegisterPart
+                        {
+                            // Named for its signal after a $, as a part the drawing names is: never its own wire's name.
+                            Name = "$" + Identifier(_netlist.Nets[cell.Output].Name),
+                            Width = width, HasReset = cell.Inputs.Count == 3, Initial = cell.Initial,
+                            ClockEdge = cell.Edges[cell.Clock - 1],
+                            ResetEdge = cell.Inputs.Count == 3 ? cell.Edges[3 - cell.Clock - 1] : (EdgeKind?)null,
+                        };   // its name is its signal's, which is the net's
                     }
 
                     case RtlKind.Instance:
@@ -802,7 +829,7 @@ namespace BitSorter.Board
                             outs = new string[cell.OutputNames.Count];
                             if (at >= 0)
                                 outs[at] = "y";
-                            return new GatePart { Name = Identifier(cell.Name), Kind = kind, Inputs = inputs, Width = 1 };
+                            return new GatePart { Name = Identifier(cell.Name), Kind = kind, Inputs = inputs, Width = 1, Rise = cell.Delay.Rise, Fall = cell.Delay.Fall };
                         }
                         ins = Copy(cell.InputNames);
                         outs = Copy(cell.OutputNames);
@@ -901,10 +928,157 @@ namespace BitSorter.Board
                 outs = outNames ?? Numbered("y", cell.Outputs.Count);
                 var pins = new List<Pin>();
                 for (int i = 0; i < cell.Inputs.Count && i < ins.Length; i++)
-                    pins.Add(new Pin(ins[i], PinDirection.In, WidthOf(cell.Inputs[i])));
+                    if (!_absorbed.Contains((cell.Id, i)))   // a case's label written on the box, = 10, waits on no wire
+                        pins.Add(new Pin(ins[i], PinDirection.In, WidthOf(cell.Inputs[i])));
                 for (int i = 0; i < cell.Outputs.Count && i < outs.Length; i++)
                     pins.Add(new Pin(outs[i], PinDirection.Out, WidthOf(cell.Outputs[i])));
-                return new BoxPart { Label = label, Ports = pins.ToArray(), Says = cell.Why };
+                return new BoxPart { Label = label, Ports = pins.ToArray(), Says = cell.Why, Code = CodeOf(cell, ins) };
+            }
+
+            /// <summary>
+            /// What a box is as code (Part 15h-4g), from its pins: <c>a[3:0]</c>, <c>{hi, lo}</c>, <c>(|a) === 1'b1</c> -- the
+            /// engine's own reading of the cell, so code written from a drawing does what the code it was drawn from did. Null
+            /// for a box no expression is: a process, a memory's word, a call, a write at a place, a 2-state value, a casez's
+            /// match, drivers resolved on one wire.
+            /// </summary>
+            private Func<Func<string, Expression>, Expression> CodeOf(RtlCell cell, string[] ins)
+            {
+                if (cell.Outputs.Count != 1 || ins.Length < cell.Inputs.Count)
+                    return null;
+                int outWidth = WidthOf(cell.Output);
+
+                // An input written on the box is the constant it is; any other, the net on its pin, or x with no wire to it.
+                var written = new Expression[cell.Inputs.Count];
+                var widths = new int[cell.Inputs.Count];
+                for (int i = 0; i < written.Length; i++)
+                {
+                    widths[i] = WidthOf(cell.Inputs[i]);
+                    if (!_absorbed.Contains((cell.Id, i)))
+                        continue;
+                    RtlCell constant = Driver(cell.Inputs[i]);
+                    if (constant == null || constant.Kind != RtlKind.Constant)
+                        return null;
+                    written[i] = Sv.Value(constant.Value);
+                }
+
+                Expression X(int width) => Sv.Value(LogicVec.AllX(width));
+                Expression In(Func<string, Expression> at, int i) => written[i] ?? at(ins[i]) ?? X(widths[i]);
+                // A select is of a name: with no wire to select from, its bits are x.
+                Expression Select(Func<string, Expression> at, Func<Expression, Expression> select) =>
+                    In(at, 0) is NameExpression name ? select(name) : X(outWidth);
+
+                switch (cell.Kind)
+                {
+                    case RtlKind.Slice:
+                    {
+                        int low = cell.Lowest, high = cell.Lowest + cell.Width - 1;
+                        return at => Select(at, a => cell.Width == 1
+                            ? new IndexExpression { Target = a, Index = Sv.Number(low) }
+                            : (Expression)new RangeSelectExpression { Target = a, Left = Sv.Number(high), Right = Sv.Number(low), Kind = RangeKind.Constant });
+                    }
+                    case RtlKind.Concat:
+                        return at =>
+                        {
+                            var items = new ConcatenationExpression();
+                            for (int i = 0; i < written.Length; i++)
+                                items.Items.Add(In(at, i));
+                            return items;
+                        };
+                    case RtlKind.Replicate:
+                    {
+                        int count = cell.Count;
+                        return at =>
+                        {
+                            var value = new ConcatenationExpression();
+                            value.Items.Add(In(at, 0));
+                            return new ReplicationExpression { Count = Sv.Number(count), Value = value };
+                        };
+                    }
+                    case RtlKind.Bit:
+                        return at => Select(at, a => new IndexExpression { Target = a, Index = In(at, 1) });
+                    case RtlKind.Part:
+                    {
+                        int step = cell.Step, width = cell.Width;
+                        return at => Select(at, a => new RangeSelectExpression
+                        {
+                            Target = a,
+                            Left = step == 1 ? In(at, 1) : new BinaryExpression { Operator = "*", Left = Sv.Paren(In(at, 1)), Right = Sv.Number(step) },
+                            Right = Sv.Number(width),
+                            Kind = RangeKind.IndexedUp,
+                        });
+                    }
+                    case RtlKind.Resize:
+                    {
+                        // Assigned to its wider or narrower net: extended with the sign or 0s, or cut, as the engine does.
+                        bool signExtend = cell.Signed;
+                        return at => signExtend ? Sv.Signed(In(at, 0)) : In(at, 0);
+                    }
+                    case RtlKind.Signedness:
+                    {
+                        bool signed = cell.Signed;
+                        return at =>
+                        {
+                            var call = new CallExpression { Name = signed ? "$signed" : "$unsigned", HasParentheses = true };
+                            call.Arguments.Add(In(at, 0));
+                            return call;
+                        };
+                    }
+                    case RtlKind.Truth:
+                        // 1 where the value is true, 0 where it is false or unknown, as an if takes it.
+                        return at => new BinaryExpression
+                        {
+                            Operator = "===",
+                            Left = new UnaryExpression { Operator = "|", Operand = Sv.Paren(In(at, 0)) },
+                            Right = Sv.Value(LogicVec.FromUInt64(1, 1)),
+                        };
+                    case RtlKind.Match when cell.Case == CaseKind.Exact:
+                        return at => new BinaryExpression { Operator = "===", Left = Sv.Paren(In(at, 0)), Right = Sv.Paren(In(at, 1)) };
+                    case RtlKind.Join when !cell.TwoStateTarget:
+                        return JoinCode(cell, In, outWidth);
+                    default:
+                        return null;
+                }
+            }
+
+            /// <summary>
+            /// A signal's drivers as one value: each piece at its place, high to low, and what no driver reaches z on a wire and x
+            /// on a variable -- the engine's join of drivers that do not overlap. Null where they do, which only a wire resolves.
+            /// </summary>
+            private Func<Func<string, Expression>, Expression> JoinCode(RtlCell cell, Func<Func<string, Expression>, int, Expression> input, int width)
+            {
+                int count = cell.Inputs.Count;
+                if (count == 0)
+                    return null;
+                var pieces = new List<(int Low, int Width, int Input)>();
+                for (int i = 0; i < count; i++)
+                {
+                    int pieceWidth = i < cell.PieceWidths.Count ? cell.PieceWidths[i] : width - cell.Lowests[i];
+                    if (WidthOf(cell.Inputs[i]) != pieceWidth)
+                        return null;
+                    pieces.Add((cell.Lowests[i], pieceWidth, i));
+                }
+                pieces.Sort((p, q) => q.Low.CompareTo(p.Low));
+                for (int i = 1; i < pieces.Count; i++)
+                    if (pieces[i].Low + pieces[i].Width > pieces[i - 1].Low)
+                        return null;   // two drivers on one bit
+                Logic4 none = cell.Wire ? Logic4.Z : Logic4.X;
+                return at =>
+                {
+                    if (pieces.Count == 1 && pieces[0].Low == 0 && pieces[0].Width == width)
+                        return input(at, pieces[0].Input);
+                    var all = new ConcatenationExpression();
+                    int top = width;
+                    foreach ((int low, int pieceWidth, int i) in pieces)
+                    {
+                        if (low + pieceWidth < top)
+                            all.Items.Add(Sv.Value(LogicVec.Fill(none, top - low - pieceWidth)));
+                        all.Items.Add(input(at, i));
+                        top = low;
+                    }
+                    if (top > 0)
+                        all.Items.Add(Sv.Value(LogicVec.Fill(none, top)));
+                    return all;
+                };
             }
 
             private static int Count(IReadOnlyList<int> list, int value)

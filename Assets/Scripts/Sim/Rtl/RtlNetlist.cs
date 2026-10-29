@@ -164,6 +164,16 @@ namespace BitSorter.Sim
         public int Output => OutputList.Length > 0 ? OutputList[0] : -1;
 
         public GateKind Gate { get; internal set; }
+
+        /// <summary>
+        /// A <see cref="RtlKind.Gate"/>'s delay, as written -- <c>and #(2, 3)</c> -- or an <see cref="RtlKind.Instance"/>'s of a module
+        /// that is one gate and nothing else, a cell of a library (Part 15h-4g): what a drawing of code keeps on its gate, so the
+        /// code written from it waits as the code it came from did. Zero for none.
+        /// </summary>
+        public Delay Delay { get; internal set; }
+
+        /// <summary>A <see cref="RtlKind.Register"/>'s signal's starting value as declared, <c>logic [3:0] n = 0;</c>; null for none.</summary>
+        public LogicVec? Initial { get; internal set; }
         public UnaryOp Unary { get; internal set; }
         public BinaryOp Binary { get; internal set; }
 
@@ -271,9 +281,11 @@ namespace BitSorter.Sim
     /// </summary>
     public sealed class RtlNetlist
     {
-        internal RtlNetlist(string scope, string module, RtlNet[] nets, RtlCell[] cells, int[] inputs, int[] outputs, RtlProcessRecord[] processes)
+        internal RtlNetlist(string scope, string module, RtlNet[] nets, RtlCell[] cells, int[] inputs, int[] outputs, RtlProcessRecord[] processes,
+            string[] unshown = null)
         {
             Processes = processes;
+            Unshown = unshown ?? Array.Empty<string>();
             Scope = scope;
             Module = module;
             Nets = nets;
@@ -311,6 +323,13 @@ namespace BitSorter.Sim
 
         /// <summary>Every process written in the scope, in the order written: opened into cells, or drawn as a box and why.</summary>
         public IReadOnlyList<RtlProcessRecord> Processes { get; }
+
+        /// <summary>
+        /// What the code does that no cell says (Part 15h-4g): a delay on an <c>assign</c>, a <c>$display</c> in a process opened into
+        /// cells, a tri-state gate's own delay to z, a starting value on a signal no register holds -- each in a few words. Code
+        /// written again from the drawing would lose them, so it is not.
+        /// </summary>
+        public IReadOnlyList<string> Unshown { get; }
 
         /// <summary>The net of this name, as <see cref="RtlNet.Name"/> has it; -1 for none.</summary>
         public int NetNamed(string name) => _byName.TryGetValue(name, out int id) ? id : -1;

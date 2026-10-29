@@ -122,6 +122,8 @@ namespace BitSorter.Sim
                     connections[target] = a.Value;
                     continue;
                 }
+                if (d is AssignDriver && !d.Delay.Equals(Delay.Zero))
+                    _unshown.Add("the delay on the assign to " + NameOf(target));
                 if (!drivers.TryGetValue(target, out List<DriverInfo> list))
                 {
                     drivers[target] = list = new List<DriverInfo>();
@@ -176,6 +178,9 @@ namespace BitSorter.Sim
 
         private readonly List<RtlProcessRecord> _processes = new List<RtlProcessRecord>();
 
+        /// <summary>What the code does that no cell says (<see cref="RtlNetlist.Unshown"/>).</summary>
+        private readonly List<string> _unshown = new List<string>();
+
         private string Relative(string name) => name.StartsWith(_prefix, StringComparison.Ordinal) ? name.Substring(_prefix.Length) : name;
 
         private HashSet<int> _shared = new HashSet<int>();
@@ -227,9 +232,25 @@ namespace BitSorter.Sim
                     inputs.Add(net);
             }
 
+            // A starting value is a register's, which the drawing keeps on it; on any other signal the code says something no
+            // cell does.
+            var held = new HashSet<int>();
+            foreach (RtlCell cell in _cells)
+                if (cell.Kind == RtlKind.Register && cell.Signal >= 0)
+                {
+                    cell.Initial = _design.Signals[cell.Signal].Initial;
+                    held.Add(cell.Signal);
+                }
+            for (int i = 0; i < _design.Signals.Count; i++)
+            {
+                SignalInfo info = _design.Signals[i];
+                if (info.Initial != null && _own.Contains(info.Scope) && !held.Contains(i) && !info.Local && info.Memory == null)
+                    _unshown.Add("the starting value of " + NameOf(i));
+            }
+
             ScopeInfo scope = _design.Scopes[_scope];
             return new RtlNetlist(scope.Path, scope.Module, _nets.ToArray(), _cells.ToArray(), inputs.ToArray(), outputs.ToArray(),
-                _processes.ToArray());
+                _processes.ToArray(), _unshown.ToArray());
         }
 
         /// <summary>
@@ -384,6 +405,9 @@ namespace BitSorter.Sim
                     string name = g.Name.StartsWith(_prefix, StringComparison.Ordinal) ? g.Name.Substring(_prefix.Length) : g.Name;
                     RtlCell gate = NewCell(RtlKind.Gate, name, inputs, 1);
                     gate.Gate = g.Kind;
+                    gate.Delay = g.Delay;
+                    if (IsTriState(g.Kind) && g.Delay.TurnOff != Math.Min(g.Delay.Rise, g.Delay.Fall))
+                        _unshown.Add("the delay to z of " + name);
                     values[i] = gate.Output;
                 }
                 else if (d is AssignDriver a)
@@ -449,7 +473,39 @@ namespace BitSorter.Sim
             cell.Module = scope.Module;
             cell.InputNames = inputNames.ToArray();
             cell.OutputNames = outputNames.ToArray();
+            cell.Delay = OneGatesDelay(instance);
         }
+
+        /// <summary>
+        /// The delay of the one gate an instance is, when it is nothing but one gate -- a cell of a library, <c>AND2 #(2, 3)</c>,
+        /// whose delays are its parameters: what a drawing keeps on the gate it draws for it. Zero for anything else.
+        /// </summary>
+        private Delay OneGatesDelay(int instance)
+        {
+            if (_oneGate == null)
+            {
+                _oneGate = new Dictionary<int, Delay>();
+                var count = new Dictionary<int, int>();
+                foreach (DriverInfo d in _design.Drivers)
+                {
+                    int scope = WrittenIn(d);
+                    count[scope] = count.TryGetValue(scope, out int n) ? n + 1 : 1;
+                    if (d is GateDriver)
+                        _oneGate[scope] = d.Delay;
+                }
+                foreach (KeyValuePair<int, int> scope in count)
+                    if (scope.Value != 1)
+                        _oneGate.Remove(scope.Key);
+                for (int p = 0; p < _design.Processes.Count; p++)
+                    _oneGate.Remove(ScopeOf(_design.Processes[p].Name));
+            }
+            return _oneGate.TryGetValue(instance, out Delay delay) ? delay : Delay.Zero;
+        }
+
+        private Dictionary<int, Delay> _oneGate;
+
+        private static bool IsTriState(GateKind kind) =>
+            kind == GateKind.Bufif0 || kind == GateKind.Bufif1 || kind == GateKind.Notif0 || kind == GateKind.Notif1;
 
         /// <summary>A process opened into cells; one that is no hardware, a box -- every signal it reads in, every one it writes out.</summary>
         private void Box(ProcessInfo process, string why)
