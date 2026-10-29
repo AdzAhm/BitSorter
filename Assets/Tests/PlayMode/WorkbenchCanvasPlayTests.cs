@@ -712,6 +712,8 @@ namespace BitSorter.PlayMode.Tests
             Assert.AreEqual(WorkbenchSession.DrawingRefusal, workbench.ChipText, "and the chip says why");
             yield return ClickAt(workbench, middle);
             Assert.IsTrue(workbench.Editor.Selection.Parts.Contains(h1.Id), "a click selects h1 on the drawing");
+            Assert.AreEqual(WorkbenchSession.DrawingRefusal, workbench.InspectorSays,
+                "and the inspector says why it shows nothing to change, not to select one thing alone");
 
             // Longer than a double-click lasts, so the click above is not half of the one below.
             for (int frame = 0; frame < 60; frame++)
