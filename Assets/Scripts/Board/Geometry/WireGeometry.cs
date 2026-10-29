@@ -448,9 +448,65 @@ namespace BitSorter.Board
         /// <summary>
         /// A route of right angles from <paramref name="a"/> to <paramref name="b"/>: straight out of each
         /// pin the way it faces, then across half-way. A wire that would have to run back on itself goes
-        /// round, a cell above both ends.
+        /// round, a cell above both ends -- and where that would come back over a pin, into a pin facing up
+        /// or down or out of one, round at whichever column or height leaves both pins the way they face
+        /// (<see cref="Round"/>).
         /// </summary>
         public static List<Point> Orthogonal(Point a, Facing? fa, Point b, Facing? fb)
+        {
+            List<Point> route = Straight(a, fa, b, fb);
+            if ((fa == null || Ends(route[0], route[1], fa)) && (fb == null || Ends(route[route.Count - 1], route[route.Count - 2], fb)))
+                return route;
+            return Round(a, fa, b, fb) ?? route;
+        }
+
+        /// <summary>
+        /// The route of right angles that leaves each pin the way it faces, round a column or a height: half-way between the
+        /// stubs' ends, or a cell beyond both -- the fewest corners, then the shortest. Null when none does. A pin turned to face
+        /// up or down (Part 15h-3) came back over itself through its part when the route to it went round a cell above both
+        /// ends: a select wired from below and to the right came down into the mux from inside it.
+        /// </summary>
+        private static List<Point> Round(Point a, Facing? fa, Point b, Facing? fb)
+        {
+            Point s = fa == null ? a : Add(a, PartGeometry.Step(fa.Value), Stub);
+            Point e = fb == null ? b : Add(b, PartGeometry.Step(fb.Value), Stub);
+            var raw = new List<Point>(6);
+            var tidy = new List<Point>(6);
+            List<Point> best = null;
+            int bestCorners = int.MaxValue;
+            double bestLength = double.MaxValue;
+
+            void Try(bool across, double at)
+            {
+                raw.Clear();
+                raw.Add(a);
+                raw.Add(s);
+                raw.Add(across ? new Point(at, s.Y) : new Point(s.X, at));
+                raw.Add(across ? new Point(at, e.Y) : new Point(e.X, at));
+                raw.Add(e);
+                raw.Add(b);
+                TidyInto(raw, tidy);
+                if (tidy.Count < 2 || !Ends(tidy[0], tidy[1], fa) || !Ends(tidy[tidy.Count - 1], tidy[tidy.Count - 2], fb))
+                    return;
+                int corners = tidy.Count - 2;
+                double length = Length(tidy);
+                if (corners < bestCorners || (corners == bestCorners && length < bestLength - 1e-9))
+                {
+                    best = new List<Point>(tidy);
+                    bestCorners = corners;
+                    bestLength = length;
+                }
+            }
+
+            foreach (double at in new[] { Snap((s.X + e.X) / 2), Snap(Math.Max(s.X, e.X) + 1), Snap(Math.Min(s.X, e.X) - 1) })
+                Try(true, at);
+            foreach (double at in new[] { Snap((s.Y + e.Y) / 2), Snap(Math.Max(s.Y, e.Y) + 1), Snap(Math.Min(s.Y, e.Y) - 1) })
+                Try(false, at);
+            return best;
+        }
+
+        /// <summary>The route <see cref="Orthogonal"/> takes first: out of each pin, across half-way, or round a cell above both ends.</summary>
+        private static List<Point> Straight(Point a, Facing? fa, Point b, Facing? fb)
         {
             Point s = fa == null ? a : Add(a, PartGeometry.Step(fa.Value), Stub);
             Point e = fb == null ? b : Add(b, PartGeometry.Step(fb.Value), Stub);
