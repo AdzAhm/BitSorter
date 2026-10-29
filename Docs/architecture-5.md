@@ -3378,6 +3378,44 @@ that describes a circuit is opened into cells, and what is no circuit stays a bo
   `Signedness` that changes nothing on screen drawn as a wire; a memory as a box with its ports. The plan's latch box is
   not needed: a mux fed back is the latch.
 
+**As built in Part 15h-3: word-level parts, and every part turned to any side** (`Board/Model/Operators.cs`,
+`Board/RtlGates.cs`).
+
+- **`OperatorPart`** is one of the language's operators as a part -- an adder, a comparison, a shifter, a reduction --
+  drawn as a box with its symbol. It compiles to one continuous assignment (`assign y = a + b;`), so it computes what the
+  language's operator does in this engine and in every simulator.
+  - a is `Width` bits, and so is b, but for a shift's amount and a logical operator's operand, each self-determined and
+    any width (`BWidth`). y is one bit for a comparison, a logical operator and a reduction, and a's width otherwise: the
+    operator's own width (IEEE 1800, table 11-21), so nothing is widened out of sight.
+  - A shift's amount comes in on top, as an ALU's control is drawn. `Signed` only where a sign changes the answer -- a
+    comparison, `/`, `%` and `>>>` -- and `$signed` in the code there alone, never on a shift's amount.
+  - `Operators` is the one table of what each kind is: its token, its operands, its width, whether a sign matters, and
+    the engine's own operator of the same name.
+  - It is saved (`"operator"`), held to the board's rules -- a gate library refuses it as it does a MUX -- and inspected
+    (OPERATOR, WIDTH, AMOUNT or B WIDTH, SIGNED). It is not in PARTS: the drawing of code places it (15h-4).
+- **GATES** (`RtlGates.Open`): an operator or a mux of up to four bits opened into the textbook's gates, as a module of
+  its own whose ports are the part's pins -- so it compiles and runs as any drawing does.
+  - Bitwise operators and reductions are gates; `+` and `-` a ripple of full adders, a half adder where nothing is
+    carried in; a comparison a subtractor's carry, signed by inverting both top bits first; `*` the array multiplier; a
+    shift a barrel of muxes, any higher amount bit giving every bit the fill; a mux AND-OR on its decoded select.
+  - A divider and a remainder, `===` and `!==`, and anything wider than four bits stay boxes, and say why.
+  - On 0s and 1s it computes what the box does, every input checked. With an x or a z the gates may know more than the
+    operator, which gives x for a whole sum with one unknown bit where a ripple still knows the bits below it.
+- **Every part turns to any side** (`PartTurnTests`): placed at each quarter turn, mirrored and not, each pin of every
+  kind is on its outline's edge on the side it faces, and a wire from four cells out that way reaches it straight
+  without crossing the part.
+  - **It found a bug in the router** (a red test, then the fix): `Orthogonal` went round "a cell above both ends" when
+    the far end lay behind the start, which comes back over a pin facing up or down -- a mux's select wired from below
+    and to the right came down into the mux from inside it. A route that leaves both pins the way they face is kept as
+    it was, so no drawing moves; one that does not is tried again round a column or a height, half-way or a cell beyond
+    both, the fewest corners and then the shortest (`WireGeometry.Round`).
+  - A block turned a quarter names each pin along it, turned as the pin is, ending at a top edge and starting at a
+    bottom one; a part with wires leaving its top has its name under it, or beside it when wires leave its foot too.
+- **Tests:** an `operators` sample board -- every kind, signed where it matters, every 3-bit input then x and z -- is
+  saved, routed, printed, exported and run under Icarus with every other sample (84 signals agree), and held here to
+  `LogicVec`'s own operators; every opening into gates runs on every 0/1 input against its operator (195 cases, a broken
+  adder caught); shots 61 and 62 show operator parts, two turned, and the full adder with a block turned a quarter.
+
 ---
 
 ## 11. The parts
@@ -3401,7 +3439,7 @@ Each part is one pull request into `v5`, ends with every suite green, and leaves
 | 12 | Hierarchy, and written blocks, edited in CodeMirror in a browser -- in six: 12a stepping inside a block **built** (see "As built in Part 12a"); 12b making a block **built** (see "As built in Part 12b"); 12c arrays **built** (see "As built in Part 12c"); 12d code blocks **built** (see "As built in Part 12d"); 12e the code panel **built** (see "As built in Part 12e"); 12f CodeMirror **built** (see "As built in Part 12f") |
 | 13 | Export and import (and a levelized path in the engine, only if a measurement asks for it) -- in six: 13a exporting a project **built** (see "As built in Part 13a"); 13b importing one **built** (see "As built in Part 13b"); 13c CONVERT **built** (see "As built in Part 13c"); 13d files **built** (see "As built in Part 13d"); 13e templates **built** (see "As built in Part 13e"); 13f limits, the security review, the measurement and the browser check **built** (see "As built in Part 13f"; the levelized path is not needed). **Part 13 is built.** |
 | 14 | The course's tools: path delays, static timing, gate-library mode, step tests, lint, tri-state -- in six, **built**: 14a the timing analysis core, 14b the TIMING tab, 14c step tests, 14d gate-library mode, 14e lint and 14f tri-state buses and inout (see "As built in Part 14a" to "14f"); and 14g, its follow-ups: deleting a module, the code editor's keys, the library held in written code and over budget, and inout pins on written blocks (see "As built in Part 14g") |
-| 15 | A simulator first, the Exercises and the tutorial -- in six: 15a **built** in two (see "As built in Part 15a"): the student's circuits, and opening on the last thing or a start page, the app's menus for BACK, the 4.x game in Settings, music off; 15b the Exercise model, grading and self-checking testbenches **built** (see "As built in Part 15b"); 15c the 35 exercises **built** (see "As built in Part 15c"); 15d Exercises on the workbench **built** (see "As built in Part 15d"); 15e answering in code **built** (see "As built in Part 15e"); 15f first-time hints, the guided tutorial and the browser check **built** (see "As built in Part 15f"). **Part 15 is built.** Then 15g, what the first playtest asked for: 15g-1 the quick fixes **built** (see "As built in Part 15g-1"); 15g-2 Settings and the credits as pages of the workbench **built** (see "As built in Part 15g-2"); 15g-3 a lead on every pin **built** (see "As built in Part 15g-3"); 15g-4 INPUTS, sequences without code **built** (see "As built in Part 15g-4"); 15g-5 LOGIC **built** (see "As built in Part 15g-5"); 15g-6 STATES, the state diagram, **built** (see "As built in Part 15g-6"); 15g-7 big circuits stay smooth **built** (see "As built in Part 15g-7"). And 15h, a drawing of any code: 15h-1 the netlist of a module's code **built** (see "As built in Part 15h-1"); 15h-2 processes as muxes and registers **built** (see "As built in Part 15h-2"). |
+| 15 | A simulator first, the Exercises and the tutorial -- in six: 15a **built** in two (see "As built in Part 15a"): the student's circuits, and opening on the last thing or a start page, the app's menus for BACK, the 4.x game in Settings, music off; 15b the Exercise model, grading and self-checking testbenches **built** (see "As built in Part 15b"); 15c the 35 exercises **built** (see "As built in Part 15c"); 15d Exercises on the workbench **built** (see "As built in Part 15d"); 15e answering in code **built** (see "As built in Part 15e"); 15f first-time hints, the guided tutorial and the browser check **built** (see "As built in Part 15f"). **Part 15 is built.** Then 15g, what the first playtest asked for: 15g-1 the quick fixes **built** (see "As built in Part 15g-1"); 15g-2 Settings and the credits as pages of the workbench **built** (see "As built in Part 15g-2"); 15g-3 a lead on every pin **built** (see "As built in Part 15g-3"); 15g-4 INPUTS, sequences without code **built** (see "As built in Part 15g-4"); 15g-5 LOGIC **built** (see "As built in Part 15g-5"); 15g-6 STATES, the state diagram, **built** (see "As built in Part 15g-6"); 15g-7 big circuits stay smooth **built** (see "As built in Part 15g-7"). And 15h, a drawing of any code: 15h-1 the netlist of a module's code **built** (see "As built in Part 15h-1"); 15h-2 processes as muxes and registers **built** (see "As built in Part 15h-2"); 15h-3 word-level parts and every part turned to any side **built** (see "As built in Part 15h-3"). |
 | 16 | The old game retired, and a smaller download; 5.0.0 released |
 
 **Agreed after Part 9, 2026-10-19: the language, before Part 10.** A course audit ran every one of the
