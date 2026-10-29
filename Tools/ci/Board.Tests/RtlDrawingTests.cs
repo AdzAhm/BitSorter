@@ -76,6 +76,95 @@ namespace BitSorter.Board.Tests
             Hold(drawing, RtlExtractor.Of(design, "alu"), "alu");
         }
 
+        private static RtlDrawing Draw(string source, string top)
+        {
+            SyntaxTree tree = SyntaxReader.ReadText(source, top + ".sv");
+            Assert.IsFalse(tree.HasErrors, string.Join("; ", tree.Diagnostics));
+            Elaboration e = Elaborator.Elaborate(tree, top);
+            Assert.IsFalse(e.HasErrors, string.Join("; ", e.Diagnostics));
+            RtlNetlist netlist = RtlExtractor.Of(e.Design, top);
+            RtlDrawing drawing = RtlDrawing.Of(Project.New("p"), netlist, top);
+            Hold(drawing, netlist, top);
+            return drawing;
+        }
+
+        /// <summary>The name of the net a part's pin is on.</summary>
+        private static string NetAt(RtlDrawing drawing, Part part, string pin) =>
+            Netlist.Of(drawing.Project, drawing.Module).NetOf(new PinRef(part.Id, pin))?.Name;
+
+        /// <summary>A register's clock is on its clk pin and the edge its body tests on rst, which way round they are written (the review of #108).</summary>
+        [TestCase("posedge clk or negedge rst_n")]
+        [TestCase("negedge rst_n or posedge clk")]
+        public void ARegistersClockAndReset_AreOnTheirOwnPins(string edges)
+        {
+            RtlDrawing drawing = Draw(
+                "module r (input logic clk, rst_n, input logic [3:0] d, output logic [3:0] q);\n" +
+                "    always_ff @(" + edges + ")\n" +
+                "        if (!rst_n) q <= 4'b0;\n" +
+                "        else q <= d;\n" +
+                "endmodule\n", "r");
+            RegisterPart register = drawing.Module.Parts.OfType<RegisterPart>().Single();
+            Assert.AreEqual("clk", NetAt(drawing, register, "clk"));
+            Assert.AreEqual("rst_n", NetAt(drawing, register, "rst"));
+        }
+
+        /// <summary>
+        /// Glue is a wire only where its reader sees what the wire shows: a sign extended into y stays a box between t and y,
+        /// so the adder reading t is wired from t; and the truth of a bit that may be x stays a box, so the mux's select shows
+        /// the 0 it takes for one (the review of #108).
+        /// </summary>
+        [Test]
+        public void GlueIsAWire_OnlyWhereItsReaderSeesWhatTheWireShows()
+        {
+            RtlDrawing signs = Draw(
+                "module g (input logic [3:0] a, b, output logic signed [7:0] y, output logic [3:0] z);\n" +
+                "    logic [3:0] t;\n" +
+                "    assign t = a ^ b;\n" +
+                "    assign y = $signed(t);\n" +
+                "    assign z = t + 4'd1;\n" +
+                "endmodule\n", "g");
+            OperatorPart adder = signs.Module.Parts.OfType<OperatorPart>().Single(o => o.Op == OperatorKind.Add);
+            Assert.AreEqual("t", NetAt(signs, adder, "a"), "the adder reads t, not y");
+
+            RtlDrawing truth = Draw(
+                "module m (input logic c, input logic [3:0] a, b, output logic [3:0] y);\n" +
+                "    always_comb\n" +
+                "        if (c) y = a;\n" +
+                "        else y = b;\n" +
+                "endmodule\n", "m");
+            Assert.AreEqual(1, truth.Module.Parts.OfType<BoxPart>().Count(b => b.Label == "true"), "c's truth a box: c may be x");
+        }
+
+        /// <summary>A signal named as a part with no name of its own would be keeps its name on its net (the review of #108).</summary>
+        [Test]
+        public void ASignalNamedLikeAPart_KeepsItsName()
+        {
+            RtlDrawing drawing = Draw(
+                "module cla (input logic a, b, c, output logic y);\n" +
+                "    logic p1, p2, p3;\n" +
+                "    assign p1 = a & b;\n" +
+                "    assign p2 = p1 ^ c;\n" +
+                "    assign p3 = p2 | a;\n" +
+                "    assign y = p3 & b;\n" +
+                "endmodule\n", "cla");
+            Netlist nets = Netlist.Of(drawing.Project, drawing.Module);
+            foreach (string name in new[] { "p1", "p2", "p3" })
+                Assert.IsNotNull(nets.Named(name), name + " keeps its name");
+        }
+
+        /// <summary>A process that is a box, reading and writing one signal, has a pin each way, and no wire from itself to itself.</summary>
+        [Test]
+        public void ABoxThatReadsAndWritesOneSignal_HasAPinEachWay()
+        {
+            RtlDrawing drawing = Draw(
+                "module tick (output logic clk);\n" +
+                "    initial clk = 1'b0;\n" +
+                "    always #5 clk = ~clk;\n" +
+                "endmodule\n", "tick");
+            foreach (BoxPart box in drawing.Module.Parts.OfType<BoxPart>())
+                Assert.AreEqual(box.Ports.Count, box.Ports.Select(p => p.Name).Distinct().Count(), box.Label + "'s pins each a name of its own");
+        }
+
         private static IEnumerable<(Project Project, Design Design)> Load(string kind, string name)
         {
             if (kind == "exercise")
@@ -111,8 +200,8 @@ namespace BitSorter.Board.Tests
             int operators = netlist.Cells.Count(c => c.Kind == RtlKind.Binary && Operators.TryFrom(c.Binary, out _)
                 || c.Kind == RtlKind.Unary && Operators.TryFrom(c.Unary, out _));
             Assert.AreEqual(operators, module.Parts.OfType<OperatorPart>().Count(), $"{what}: an operator a part");
-            Assert.AreEqual(netlist.Count(RtlKind.Register), module.Parts.Count(p => p is RegisterPart || p is BoxPart box && box.Label.Length > 0
-                && netlist.Cells.Any(c => c.Kind == RtlKind.Register && c.Inputs.Count > 3)), $"{what}: a register a part");
+            Assert.AreEqual(netlist.Cells.Count(c => c.Kind == RtlKind.Register && c.Clock > 0 && (c.Inputs.Count == 2 || c.Inputs.Count == 3)),
+                module.Parts.OfType<RegisterPart>().Count(), $"{what}: a register a part");
             Assert.AreEqual(netlist.Count(RtlKind.Gate) + netlist.Count(RtlKind.Instance), module.Parts.Count(p => p is GatePart || p is BlockPart
                 || p is BoxPart box && netlist.Cells.Any(c => c.Kind == RtlKind.Instance && c.Module == box.Label)), $"{what}: a gate or a block an instance");
             Assert.AreEqual(netlist.Inputs.Count + netlist.Outputs.Count, module.Parts.OfType<PortPart>().Count(), $"{what}: a port each");
@@ -121,10 +210,18 @@ namespace BitSorter.Board.Tests
             Netlist nets = Netlist.Of(project, module);
             Assert.IsEmpty(nets.Problems, $"{what}: " + string.Join("; ", nets.Problems));
 
-            // Every signal something reads has its net named for it, so the drawing reads its value by name.
+            // Every signal something reads has its net named for it, so the drawing reads its value by name -- but a net of a
+            // port, which is the port's.
             foreach (Wire wire in module.Wires.Where(w => w.NetName != null))
-                Assert.AreEqual(wire.NetName, nets.NetOfWire(wire.Id).Name.Length > 0 && nets.NetOfWire(wire.Id).Ports.Count > 0
-                    ? wire.NetName : nets.NetOfWire(wire.Id).Name, $"{what}: the net of {wire.NetName} is named for it");
+            {
+                Net net = nets.NetOfWire(wire.Id);
+                if (net.Ports.Count == 0)
+                    Assert.AreEqual(wire.NetName, net.Name, $"{what}: the net of {wire.NetName} is named for it");
+            }
+
+            // No wire runs from a pin of a part to a pin of the same part.
+            foreach (Wire wire in module.Wires)
+                Assert.IsFalse(wire.From.Pin.Equals(wire.To.Pin), $"{what}: a wire from {wire.From.Pin} to itself");
 
             // Nothing stands on anything.
             var outlines = module.Parts.Select(p => PartGeometry.Placed(project, p, module.Layout.PlacementOf(p.Id))).ToArray();

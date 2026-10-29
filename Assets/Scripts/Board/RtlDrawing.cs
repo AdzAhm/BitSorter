@@ -101,11 +101,23 @@ namespace BitSorter.Board
             public Module Make(string name)
             {
                 // A join of one driver over the whole of its signal is a wire: the driver's net is the signal's. So is what only
-                // widens a value, changes its sign or holds it 2-state, and the truth of a single bit: on a drawing they are the
-                // wire they stand on, as a synthesis tool's RTL view draws them.
+                // changes a value's sign, widens it with 0s, or takes the truth of a bit that is a 1 or a 0 -- the wire they
+                // stand on carries a value its reader reads as the same, as a synthesis tool's RTL view draws them. Nothing that
+                // changes what a reader sees is merged: a sign extended, a 2-state hold, the truth of a bit that may be x (the
+                // review of #108: the wire showed x where the mux took its else), nor one signal into another across glue.
+                // The joins first, so a glue cell whose value is a signal's is seen to be one whichever came first.
                 foreach (RtlCell cell in _netlist.Cells)
-                    if (IsWire(cell) || IsGlue(cell))
-                        Merge(cell.Inputs[0], cell.Output);
+                    if (IsWire(cell))
+                    {
+                        Fold(cell.Inputs[0], cell.Output);
+                        _merged.Add(cell.Id);
+                    }
+                foreach (RtlCell cell in _netlist.Cells)
+                    if (IsGlue(cell) && _netlist.Nets[cell.Output].Signal < 0 && Root(cell.Output) == cell.Output)
+                    {
+                        Fold(cell.Output, Root(cell.Inputs[0]));
+                        _merged.Add(cell.Id);
+                    }
 
                 // A case label's constant is said on its match, = 01, rather than drawn and wired to it.
                 foreach (RtlCell cell in _netlist.Cells)
@@ -113,7 +125,7 @@ namespace BitSorter.Board
                         _absorbed.Add((cell.Id, 1));
                 var reads = new int[_netlist.Nets.Count];
                 foreach (RtlCell cell in _netlist.Cells)
-                    if (!IsWire(cell) && !IsGlue(cell))
+                    if (!_merged.Contains(cell.Id))
                         for (int i = 0; i < cell.Inputs.Count; i++)
                             if (cell.Inputs[i] >= 0 && !_absorbed.Contains((cell.Id, i)))
                                 reads[Root(cell.Inputs[i])]++;
@@ -131,7 +143,7 @@ namespace BitSorter.Board
 
                 foreach (RtlCell cell in _netlist.Cells)
                 {
-                    if (IsWire(cell) || IsGlue(cell) || _swallowed.Contains(cell.Id))
+                    if (_merged.Contains(cell.Id) || _swallowed.Contains(cell.Id))
                         continue;
                     if (_cases.TryGetValue(cell.Id, out (int Subject, int[] Data) choice))
                     {
@@ -226,39 +238,58 @@ namespace BitSorter.Board
             /// <summary>The name a net's wires go by: the signal's it is, the one it is the same as, or none for a value inside an expression.</summary>
             private string NameOfNet(int net)
             {
-                RtlNet own = _netlist.Nets[net];
-                if (own.Signal >= 0)
-                    return own.Name;
-                for (int other = 0; other < _same.Length; other++)
-                    if (other != net && Root(other) == net && _netlist.Nets[other].Signal >= 0)
-                        return _netlist.Nets[other].Name;
-                return null;
+                if (_names == null)
+                {
+                    // Once, for every net: the first signal folded into each (the review of #108: asked a net at a time, it was
+                    // the square of the nets).
+                    _names = new string[_same.Length];
+                    for (int other = 0; other < _same.Length; other++)
+                    {
+                        int root = Root(other);
+                        if (_netlist.Nets[other].Signal >= 0 && (_names[root] == null || other == root))
+                            _names[root] = _netlist.Nets[other].Name;
+                    }
+                }
+                return _names[net];
             }
+
+            private string[] _names;
 
             private bool IsWire(RtlCell cell) =>
                 cell.Kind == RtlKind.Join && cell.Inputs.Count == 1 && cell.Lowests.Count == 1 && cell.Lowests[0] == 0
                 && _netlist.Nets[cell.Inputs[0]].Width == _netlist.Nets[cell.Output].Width
                 && !cell.Signed && !cell.TwoStateTarget && _netlist.Nets[cell.Inputs[0]].Driver >= 0;
 
-            /// <summary>What a drawing draws as the wire it stands on: a widening, a change of sign, a 2-state hold, a bit's truth.</summary>
-            private bool IsGlue(RtlCell cell) =>
-                cell.Inputs.Count == 1 && cell.Inputs[0] >= 0 && cell.Outputs.Count == 1
-                && (cell.Kind == RtlKind.Resize && _netlist.Nets[cell.Output].Width >= _netlist.Nets[cell.Inputs[0]].Width
-                    || cell.Kind == RtlKind.Signedness || cell.Kind == RtlKind.TwoState
-                    || cell.Kind == RtlKind.Truth && _netlist.Nets[cell.Inputs[0]].Width == 1);
-
             /// <summary>
-            /// Two nets drawn as one: the one that is a signal named for it -- the join's signal, a widened input's -- else the
-            /// one made first.
+            /// What a drawing may draw as the wire it stands on, its reader seeing what the wire shows: a change of sign, a
+            /// widening with 0s, the truth of a bit that is a 1 or a 0 -- a match's, another truth's, a constant's.
             /// </summary>
-            private void Merge(int a, int b)
+            private bool IsGlue(RtlCell cell)
             {
-                int ra = Root(a), rb = Root(b);
-                if (ra == rb)
-                    return;
-                bool signalA = _netlist.Nets[ra].Signal >= 0, signalB = _netlist.Nets[rb].Signal >= 0;
-                int winner = signalA != signalB ? (signalA ? ra : rb) : Math.Min(ra, rb);
-                _same[winner == ra ? rb : ra] = winner;
+                if (cell.Inputs.Count != 1 || cell.Inputs[0] < 0 || cell.Outputs.Count != 1)
+                    return false;
+                switch (cell.Kind)
+                {
+                    case RtlKind.Signedness:
+                        return true;
+                    case RtlKind.Resize:
+                        return !cell.Signed && _netlist.Nets[cell.Output].Width >= _netlist.Nets[cell.Inputs[0]].Width;
+                    case RtlKind.Truth:
+                        RtlKind? from = Driver(cell.Inputs[0])?.Kind;
+                        return _netlist.Nets[cell.Inputs[0]].Width == 1 && (from == RtlKind.Match || from == RtlKind.Truth || from == RtlKind.Constant);
+                    default:
+                        return false;
+                }
+            }
+
+            private readonly HashSet<int> _merged = new HashSet<int>();
+
+            /// <summary><paramref name="drop"/> drawn as <paramref name="keep"/>: the net it was folded into is the one whose name and value it shows.</summary>
+            private void Fold(int drop, int keep)
+            {
+                int rd = Root(drop), rk = Root(keep);
+                if (rd != rk)
+                    _same[rd] = rk;
             }
 
             private readonly HashSet<(int Cell, int Pin)> _absorbed = new HashSet<(int, int)>();
@@ -381,7 +412,9 @@ namespace BitSorter.Board
             private int Add(Part part)
             {
                 int id = _next++;
-                _parts.Add(part with { Id = id, Name = part.Name ?? "p" + id.ToString(CultureInfo.InvariantCulture) });
+                // A part with no name of its own is named as no signal can be, so a signal p3 keeps its name on its net (the
+                // review of #108: a carry-lookahead's p3 became p3_2, read by no name).
+                _parts.Add(part with { Id = id, Name = part.Name ?? "$p" + id.ToString(CultureInfo.InvariantCulture) });
                 return id;
             }
 
@@ -421,9 +454,15 @@ namespace BitSorter.Board
                         ins = new[] { "s", "d1", "d0" };
                         return new MuxPart { Inputs = 2, Width = width };
 
-                    case RtlKind.Register when cell.Inputs.Count == 2 || cell.Inputs.Count == 3:
+                    case RtlKind.Register when cell.Clock > 0 && (cell.Inputs.Count == 2 || cell.Inputs.Count == 3):
                     {
-                        ins = cell.Inputs.Count == 2 ? new[] { "d", "clk" } : cell.Clock == 2 ? new[] { "d", "clk", "rst" } : new[] { "d", "rst", "clk" };
+                        // The clock on clk, whichever edge it waits on first; the edge the body tests, its reset (the review of
+                        // #108: the two were swapped).
+                        ins = new string[cell.Inputs.Count];
+                        ins[0] = "d";
+                        ins[cell.Clock] = "clk";
+                        if (cell.Inputs.Count == 3)
+                            ins[3 - cell.Clock] = "rst";
                         outs = new[] { "q" };
                         return new RegisterPart { Width = width, HasReset = cell.Inputs.Count == 3 };   // its name is its signal's, which is the net's
                     }
@@ -523,10 +562,17 @@ namespace BitSorter.Board
                         }
                         break;
                     case RtlKind.Process:
+                    {
+                        // A signal it reads and writes -- a clock it turns over, q = q + d -- is a pin each way, the way out primed.
                         label = cell.Name;
                         inNames = Copy(cell.InputNames);
                         outNames = Copy(cell.OutputNames);
+                        var taken = new HashSet<string>(inNames);
+                        for (int i = 0; i < outNames.Length; i++)
+                            while (!taken.Add(outNames[i]))
+                                outNames[i] += "'";
                         break;
+                    }
                     default:
                         label = cell.Kind == RtlKind.Opaque ? "f( )" : cell.Kind.ToString().ToLowerInvariant();
                         break;

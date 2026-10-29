@@ -3438,8 +3438,10 @@ its code builds. Stepping into the instances inside written code, and GATES on t
     instance's module -- one of the gate library's cells the gate it is -- and a constant.
   - Anything else is a `BoxPart`, a box of a label and pins for showing only: a slice `[3:0]`, a join of bits, a
     process that is no circuit by its name, with why.
-  - **Glue is the wire it stands on**, as a synthesis tool's RTL view draws it: a join of one driver over its signal, a
-    widening, a change of sign, a 2-state hold, a bit's truth.
+  - **Glue is the wire it stands on** where its reader sees what the wire shows, as a synthesis tool's RTL view draws
+    it: a join of one driver over its signal, a change of sign, a widening with 0s, the truth of a bit that is a 1 or a 0.
+    A sign extended, a 2-state hold and the truth of a bit that may be x stay boxes, and glue never folds one signal into
+    another; joins fold first, so which came first in the netlist decides nothing.
   - **A case is the mux it is**: a chain of muxes on whether one subject of up to three bits matches constant labels
     is drawn as the board's MUX of as many inputs as the subject has values, the subject on its select, each label's arm
     on its input, the rest the default. A label's constant is said on its match where it is not, `= 01`.
@@ -3455,11 +3457,23 @@ its code builds. Stepping into the instances inside written code, and GATES on t
   routes cached as any document's (`DocumentSchematic.Build` takes a module and its board netlist now, for one the
   project does not compile).
 - **Its values are the run's.** A wire no signal holds -- an adder's output inside `assign y = a + b + c` -- is worked
-  out at the playhead from the signals the netlist reads, with the engine's own operators (`DrawnValues`, once a
-  moment however many wires ask; the model keeps tracks for what it reads).
+  out at the playhead from the signals the netlist reads, with the engine's own operators, once a moment however many
+  wires ask. `DrawnValues` names those signals, and each model finds them in its own run by name: the layout of an
+  edit is handed to the run shown until its replay takes over, and that run's design numbers its signals otherwise.
 - **It takes no edit**: placing, wiring, moving, turning, deleting, pasting, routing and the inspector are each refused
   with "This is the drawing of the code: change the code to change it" (`WorkbenchSession.DrawingRefusal`), and PARTS
   says so where it lists nothing to place.
+- **The Sonnet review** ran the drawing over 83 designs, 599 scopes and 48 odd ones -- memories, generate, inout,
+  boxes, 128-bit buses, no ports, unconnected pins -- and nothing threw, and no part stood on another. It found: values
+  read by another design's signal numbers after an undo and a redo, which threw; a register's clock and reset on each
+  other's pins; glue folded where its reader saw otherwise -- an x shown where a mux took its else, a sign extension
+  shown on an adder's operand; a signal named p3 losing its name to a part named p3; a box reading and writing one
+  signal with a pin named twice; text typed and not applied lost by a look at the drawing; DRAWING not refitting the
+  view; and two loops the square of the nets. All are fixed and held by tests now.
+- **Known, and left** (the second half, or 15h-6's measuring): an inout port is not drawn; an operator's sign and a
+  register's negedge are not shown; why a process is a box is held (`BoxPart.Says`) but not shown; a library cell is
+  known by its name; and the code is elaborated again for each drawing, which 15h-6 measures with a cap on the parts
+  drawn -- 3,000 parts draw in about a tenth of a second, 12,000 route in eleven.
 - **Tests**: every exercise solution's and corpus design's netlist, each scope, drawn -- every operator, register, gate
   and instance a part, a port each, every wire on pins its parts have and named for its signal, nothing on anything,
   every wire routed, the same drawing twice; a case drawn as its mux; in the view-model, the written adder's drawing an

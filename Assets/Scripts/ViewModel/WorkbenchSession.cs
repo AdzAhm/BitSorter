@@ -320,7 +320,7 @@ namespace BitSorter.ViewModel
                 return;
             if (drawn ? !_drawnCode.Add(Module) : !_drawnCode.Remove(Module))
                 return;
-            Relayout();
+            Stepped();   // as a step inside: drawn afresh and fitted, not kept in place (the review of #108)
         }
 
         /// <summary>What an edit on the drawing of code is told: it is the code's, and changes with it.</summary>
@@ -348,12 +348,14 @@ namespace BitSorter.ViewModel
                 return null;
             _drawing = RtlDrawing.Of(project, netlist, module);
             _drawnNetlist = netlist;
+            _drawnDesign = elaboration.Design;
             _drawnModules = project.Modules;
             _drawnPath = path;
             return _drawing;
         }
 
         private RtlNetlist _drawnNetlist;
+        private Design _drawnDesign;
 
         /// <summary>The drawing of code laid out, its wires no signal holds valued from the netlist.</summary>
         private SchematicLayout DrawingLayout(Project project, CompiledProject compiled, string path, string module)
@@ -370,7 +372,7 @@ namespace BitSorter.ViewModel
                 Net net = nets.Named(layout.Nets[i].Name);
                 rtlNetOf[i] = net != null && net.Wires.Count > 0 ? drawing.NetOfWire(net.Wires[0]) : -1;
             }
-            layout.Drawn = new DrawnValues(_drawnNetlist, rtlNetOf);
+            layout.Drawn = new DrawnValues(_drawnNetlist, rtlNetOf, _drawnDesign);
             return layout;
         }
 
@@ -380,7 +382,7 @@ namespace BitSorter.ViewModel
             get
             {
                 if (!ShowsCode)
-                    return _code = null;
+                    return ShowsDrawingOfCode && _code?.Module == Module ? null : _code = null;   // its text kept while its drawing is shown
                 if (_code == null || _code.Module != Module)
                     _code = new CodeDocument(this, Module);
                 return _code;

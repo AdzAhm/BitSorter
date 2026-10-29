@@ -100,6 +100,7 @@ namespace BitSorter.Board
             for (int c = 0; c < columns; c++)
                 for (int k = 0; k < inColumn[c].Count; k++)
                     place[inColumn[c][k]] = k;
+            var key = new double[n];
             for (int sweep = 0; sweep < 6; sweep++)
             {
                 bool down = sweep % 2 == 0;
@@ -108,7 +109,6 @@ namespace BitSorter.Board
                     int c = down ? s : columns - 1 - s;
                     int towards = down ? c - 1 : c + 1;
                     List<int> here = inColumn[c];
-                    var key = new double[n];
                     foreach (int v in here)
                     {
                         double sum = 0;

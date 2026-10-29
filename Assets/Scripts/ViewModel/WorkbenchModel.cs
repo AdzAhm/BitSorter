@@ -196,7 +196,15 @@ namespace BitSorter.ViewModel
             foreach (int signal in _partOutputs) Track(signal);
             foreach (int signal in _portSignals) Track(signal);
             if (layout.Drawn != null)
-                foreach (int signal in layout.Drawn.Reads) Track(signal);
+            {
+                // The drawing of code's reads, found in this run by name (Part 15h-4).
+                _drawnSignals = new int[layout.Drawn.ReadNames.Count];
+                for (int i = 0; i < _drawnSignals.Length; i++)
+                {
+                    _drawnSignals[i] = Index(layout.Drawn.ReadNames[i]);
+                    Track(_drawnSignals[i]);
+                }
+            }
 
             SetRows(rows);
             Grow(complete);
@@ -499,8 +507,35 @@ namespace BitSorter.ViewModel
         {
             int signal = _netSignals[net];
             if (signal < 0 && Layout.Drawn != null && Layout.Drawn.Has(net))
-                return Layout.Drawn.ValueAt(net, Time, Session.Design.Signals.Count, s => ValueAt(s, 1, Time));
+                return DrawnValue(net);
             return ValueAt(signal, Layout.Nets[net].Width, Time);
+        }
+
+        private int[] _drawnSignals;
+        private LogicVec[] _drawnInputs, _drawnValues;
+        private double _drawnAt = double.NaN;
+
+        /// <summary>A wire of a drawing of code no signal holds: the netlist worked out from this run's signals now, once a moment.</summary>
+        private LogicVec DrawnValue(int net)
+        {
+            DrawnValues drawn = Layout.Drawn;
+            if (!(Time == _drawnAt))
+            {
+                if (_drawnInputs == null)
+                {
+                    _drawnInputs = new LogicVec[drawn.SignalCount];
+                    for (int i = 0; i < _drawnInputs.Length; i++)
+                        _drawnInputs[i] = LogicVec.AllX(1);
+                }
+                for (int i = 0; i < _drawnSignals.Length; i++)
+                {
+                    int signal = _drawnSignals[i];
+                    _drawnInputs[drawn.Reads[i]] = signal >= 0 ? ValueAt(signal, 1, Time) : LogicVec.AllX(drawn.ReadWidths[i]);
+                }
+                _drawnValues = RtlEvaluator.Evaluate(drawn.Netlist, _drawnInputs);
+                _drawnAt = Time;
+            }
+            return _drawnValues[drawn.RtlNetOf(net)];
         }
 
         /// <summary>The value a part's signal holds now: a lamp's, what it shows.</summary>
