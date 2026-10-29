@@ -3429,9 +3429,8 @@ that describes a circuit is opened into cells, and what is no circuit stays a bo
   gates gives x for a select of x where the language's mux gives what its inputs agree on.
 
 **As built in Part 15h-4: the drawing of written code in the circuit window** (`Board/RtlDrawing.cs`,
-`Board/Geometry/LayeredLayout.cs`, `ViewModel/DrawnValues.cs`). A written module shown as what its code builds, and the
-instances inside written code stepped into. GATES on the drawing is not built yet: a gate opened inside the drawing has
-wires no signal and no netlist net holds, and showing their values needs the opened gates evaluated, not x.
+`Board/Geometry/LayeredLayout.cs`, `ViewModel/DrawnValues.cs`). A written module shown as what its code builds, the
+instances inside written code stepped into, and GATES opening its small operators and muxes into their gates.
 
 - **`RtlDrawing.Of(project, netlist, name)`** makes a drawn module of a scope's netlist, held beside the project and
   never in it, and nothing compiles it.
@@ -3471,6 +3470,22 @@ wires no signal and no netlist net holds, and showing their values needs the ope
   that makes h1 another module shows that module inside it, and one that takes h1 away steps out. Inside, the module is
   shown as its code or its drawing as it was chosen for it, its values read under the instance. A drag on the drawing is
   refused as it begins, and a copy of it too.
+- **GATES**, beside DRAWING over a drawing of code, draws every operator and mux `RtlGates` opens -- four bits or fewer --
+  as its gates in its place (`RtlDrawing.Of(..., gates: true)`), BOXES closing them again; kept for each module
+  (`WorkbenchSession.ShowsGatesOfCode`), and with nothing small enough to open, the chip says so.
+  - **A sum with its carry is the textbook's adder**: `{cout, s} = a + b` of 4-bit numbers is, in the language, a 5-bit
+    sum of the two widened with 0s -- past the four bits -- so an add or a subtract whose operands are both widened by a
+    bit is opened as the ripple of the numbers' own width, its carry the answer's top bit (for a difference, the borrow,
+    the carry inverted) (`RtlGates.OpenWithCarry`), wired from the numbers as they were.
+  - **A wire inside an opening is on no net of the netlist**, so the drawing says how to work it out (`RtlDrawing.Inner`):
+    each gate by the engine's own gate, each splitter, joiner and mux as the board compiles it, everything a wire reads
+    first. `DrawnValues` marks such a layout net `-2 - k`, and the model works the k-th out after the netlist, once a
+    moment. **The wire out of an opening carries the code's value**, which is what everything after it reads: on 0s and 1s
+    the two agree, and with an x the gates may know more, as `RtlGates` says.
+  - **A number is split into its bits once**, however many openings read it, so they tap the same bit lines: six openings
+    of a small ALU each splitting a and b made a dozen splitters fanned out to the same gates.
+  - **Known**: a whole ALU opened -- a hundred gates or so -- is dense at the fitted zoom, the layout's columns not
+    knowing a bit slice from another; drawing by bit slices is for 15h-6.
 - **It takes no edit**: placing, wiring, moving, turning, deleting, pasting, routing and the inspector are each refused
   with "This is the drawing of the code: change the code to change it" (`WorkbenchSession.DrawingRefusal`), and PARTS
   says so where it lists nothing to place.
@@ -3492,7 +3507,12 @@ wires no signal and no netlist net holds, and showing their values needs the ope
   full adder's two written half adders stepped into from the drawing and from the hierarchy, and out again; through the
   canvas's own hit test, across an undo and a redo that change or take away the instance, from the hierarchy after an
   edit, through a copy of a block array, and to a block array inside an instance the code makes (`SteppingThroughCodeTests`);
-  shot 63, the written adder's block made a small ALU and drawn.
+  with GATES, every design's scopes drawn and on random values every part of an opening agreeing with its wires -- the
+  last of each, out of which the code's value comes, included -- a small ALU and one with carries checked on every value,
+  the sum and difference with their carry against the language on every value, and in the view-model every wire of the
+  written adder's ripple valued; in Play Mode, DRAWING, GATES and BOXES pressed, a drag refused and a double-click stepping
+  into an instance; shot 63, the written adder's block made a small ALU and drawn, and shot 64, the written adder's own sum
+  with GATES, the 4-bit ripple.
 - **The Sonnet review of #109** found that a double-click on the drawing's blocks could not step in -- the canvas hit-tested
   the written module, which has no parts; that a step through code remembered its module for good, so an undo that made h1
   another module showed the old one and one that took h1 away left the path on nothing; and that a step from the
@@ -3521,7 +3541,7 @@ Each part is one pull request into `v5`, ends with every suite green, and leaves
 | 12 | Hierarchy, and written blocks, edited in CodeMirror in a browser -- in six: 12a stepping inside a block **built** (see "As built in Part 12a"); 12b making a block **built** (see "As built in Part 12b"); 12c arrays **built** (see "As built in Part 12c"); 12d code blocks **built** (see "As built in Part 12d"); 12e the code panel **built** (see "As built in Part 12e"); 12f CodeMirror **built** (see "As built in Part 12f") |
 | 13 | Export and import (and a levelized path in the engine, only if a measurement asks for it) -- in six: 13a exporting a project **built** (see "As built in Part 13a"); 13b importing one **built** (see "As built in Part 13b"); 13c CONVERT **built** (see "As built in Part 13c"); 13d files **built** (see "As built in Part 13d"); 13e templates **built** (see "As built in Part 13e"); 13f limits, the security review, the measurement and the browser check **built** (see "As built in Part 13f"; the levelized path is not needed). **Part 13 is built.** |
 | 14 | The course's tools: path delays, static timing, gate-library mode, step tests, lint, tri-state -- in six, **built**: 14a the timing analysis core, 14b the TIMING tab, 14c step tests, 14d gate-library mode, 14e lint and 14f tri-state buses and inout (see "As built in Part 14a" to "14f"); and 14g, its follow-ups: deleting a module, the code editor's keys, the library held in written code and over budget, and inout pins on written blocks (see "As built in Part 14g") |
-| 15 | A simulator first, the Exercises and the tutorial -- in six: 15a **built** in two (see "As built in Part 15a"): the student's circuits, and opening on the last thing or a start page, the app's menus for BACK, the 4.x game in Settings, music off; 15b the Exercise model, grading and self-checking testbenches **built** (see "As built in Part 15b"); 15c the 35 exercises **built** (see "As built in Part 15c"); 15d Exercises on the workbench **built** (see "As built in Part 15d"); 15e answering in code **built** (see "As built in Part 15e"); 15f first-time hints, the guided tutorial and the browser check **built** (see "As built in Part 15f"). **Part 15 is built.** Then 15g, what the first playtest asked for: 15g-1 the quick fixes **built** (see "As built in Part 15g-1"); 15g-2 Settings and the credits as pages of the workbench **built** (see "As built in Part 15g-2"); 15g-3 a lead on every pin **built** (see "As built in Part 15g-3"); 15g-4 INPUTS, sequences without code **built** (see "As built in Part 15g-4"); 15g-5 LOGIC **built** (see "As built in Part 15g-5"); 15g-6 STATES, the state diagram, **built** (see "As built in Part 15g-6"); 15g-7 big circuits stay smooth **built** (see "As built in Part 15g-7"). And 15h, a drawing of any code: 15h-1 the netlist of a module's code **built** (see "As built in Part 15h-1"); 15h-2 processes as muxes and registers **built** (see "As built in Part 15h-2"); 15h-3 word-level parts and every part turned to any side **built** (see "As built in Part 15h-3"); 15h-4 the drawing of written code and stepping inside it **built** (see "As built in Part 15h-4"; GATES on the drawing still to do). |
+| 15 | A simulator first, the Exercises and the tutorial -- in six: 15a **built** in two (see "As built in Part 15a"): the student's circuits, and opening on the last thing or a start page, the app's menus for BACK, the 4.x game in Settings, music off; 15b the Exercise model, grading and self-checking testbenches **built** (see "As built in Part 15b"); 15c the 35 exercises **built** (see "As built in Part 15c"); 15d Exercises on the workbench **built** (see "As built in Part 15d"); 15e answering in code **built** (see "As built in Part 15e"); 15f first-time hints, the guided tutorial and the browser check **built** (see "As built in Part 15f"). **Part 15 is built.** Then 15g, what the first playtest asked for: 15g-1 the quick fixes **built** (see "As built in Part 15g-1"); 15g-2 Settings and the credits as pages of the workbench **built** (see "As built in Part 15g-2"); 15g-3 a lead on every pin **built** (see "As built in Part 15g-3"); 15g-4 INPUTS, sequences without code **built** (see "As built in Part 15g-4"); 15g-5 LOGIC **built** (see "As built in Part 15g-5"); 15g-6 STATES, the state diagram, **built** (see "As built in Part 15g-6"); 15g-7 big circuits stay smooth **built** (see "As built in Part 15g-7"). And 15h, a drawing of any code: 15h-1 the netlist of a module's code **built** (see "As built in Part 15h-1"); 15h-2 processes as muxes and registers **built** (see "As built in Part 15h-2"); 15h-3 word-level parts and every part turned to any side **built** (see "As built in Part 15h-3"); 15h-4 the drawing of written code, stepping inside it and GATES **built** (see "As built in Part 15h-4"). |
 | 16 | The old game retired, and a smaller download; 5.0.0 released |
 
 **Agreed after Part 9, 2026-10-19: the language, before Part 10.** A course audit ran every one of the
